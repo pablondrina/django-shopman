@@ -100,11 +100,23 @@ class ShiftSummaryViewTests(TestCase):
         import json
 
         from shopman.offerman.models import Product
+
+        from shopman.backstage.models import POSTab
+        from shopman.shop.services import pos as pos_service
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
+        POSTab.objects.create(code="00001007", label="1007")
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_code="1007",
+            actor=f"pos:{self.staff.username}",
+            operator_username=self.staff.username,
+        )
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
             "customer_name": "", "customer_phone": "", "payment_method": "cash",
             "manual_discount": None,
+            "tab_code": opened["tab_code"],
+            "tab_session_key": opened["tab_session_key"],
         })
         resp = self.client.post("/gestor/pos/close/", {"payload": payload})
         self.assertEqual(resp.status_code, 200)

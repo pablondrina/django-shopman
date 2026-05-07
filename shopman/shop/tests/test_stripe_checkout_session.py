@@ -4,8 +4,7 @@ Covers:
 - payment.initiate(method="card") persists checkout_url in order.data["payment"]
 - adapter.create_intent calls stripe.checkout.Session.create with the right
   success_url / cancel_url / metadata.
-- Webhook event "checkout.session.completed" → PaymentIntent captured + dispatch
-  on_paid.
+- Webhook event "checkout.session.completed" → PaymentIntent authorized.
 """
 
 from __future__ import annotations
@@ -200,7 +199,7 @@ class StripeCheckoutSessionWebhookTests(TestCase):
                 HTTP_STRIPE_SIGNATURE="valid-sig",
             )
 
-    def test_checkout_session_completed_captures_intent(self) -> None:
+    def test_checkout_session_completed_authorizes_intent(self) -> None:
         order = _commit_card_order()
         intent = PaymentService.create_intent(
             order_ref=order.ref,
@@ -225,11 +224,11 @@ class StripeCheckoutSessionWebhookTests(TestCase):
         assert resp.status_code == 200, getattr(resp, "data", resp.content)
 
         intent.refresh_from_db()
-        assert intent.status == "captured"
+        assert intent.status == "authorized"
         # gateway_id was promoted from session id to payment_intent id.
         assert intent.gateway_id == "pi_test_promoted"
 
-    def test_checkout_session_without_payment_intent_still_captures(self) -> None:
+    def test_checkout_session_without_payment_intent_still_authorizes(self) -> None:
         """Some Checkout Sessions complete with payment_intent=None (e.g. zero-decimal currencies);
         we must still capture using the session id as gateway anchor."""
         order = _commit_card_order()
@@ -253,10 +252,10 @@ class StripeCheckoutSessionWebhookTests(TestCase):
         assert resp.status_code == 200
 
         intent.refresh_from_db()
-        assert intent.status == "captured"
+        assert intent.status == "authorized"
 
-    def test_checkout_session_completed_dispatches_on_paid(self) -> None:
-        """Webhook must invoke the lifecycle dispatch so downstream handlers fire."""
+    def test_checkout_session_completed_does_not_dispatch_paid_before_capture(self) -> None:
+        """Checkout completion authorizes the card; capture happens after store confirmation."""
         order = _commit_card_order()
         intent = PaymentService.create_intent(
             order_ref=order.ref,
@@ -277,7 +276,4 @@ class StripeCheckoutSessionWebhookTests(TestCase):
                 session_id="cs_test_dispatch",
             ))
 
-        # dispatch(order, "on_paid") must have fired exactly once.
-        assert mock_dispatch.called
-        called_phases = [c.args[1] for c in mock_dispatch.call_args_list if len(c.args) >= 2]
-        assert "on_paid" in called_phases
+        mock_dispatch.assert_not_called()

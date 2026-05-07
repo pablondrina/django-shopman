@@ -4,6 +4,8 @@ WP-C3: Rate Limiting (OTP, login, checkout).
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from django.core.cache import cache
 from django.test import Client, override_settings
@@ -15,7 +17,8 @@ pytestmark = pytest.mark.django_db
 def _clear_cache():
     """Clear Django cache before/after each test to reset rate limit counters."""
     cache.clear()
-    yield
+    with patch("django_ratelimit.core._get_window", return_value=2_000_000_000):
+        yield
     cache.clear()
 
 
@@ -137,3 +140,25 @@ def test_api_checkout_normal_use_passes(client: Client):
         content_type="application/json",
     )
     assert resp.status_code != 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_cep_lookup_rate_limited(client: Client):
+    """31st CEP lookup in the same minute returns 429 before external IO."""
+    for _ in range(30):
+        resp = client.get("/checkout/cep-lookup/?cep=abc")
+        assert resp.status_code != 429
+
+    resp = client.get("/checkout/cep-lookup/?cep=abc")
+    assert resp.status_code == 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_cart_mutation_rate_limited(client: Client):
+    """121st public cart mutation in the same minute returns 429."""
+    for _ in range(120):
+        resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+        assert resp.status_code != 429
+
+    resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+    assert resp.status_code == 429

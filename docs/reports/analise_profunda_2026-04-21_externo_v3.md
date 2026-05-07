@@ -221,7 +221,7 @@ O checkout já usa `build_checkout()` em:
 Além disso, outras áreas já consomem projections de forma saudável, como:
 
 - cart em [shopman/storefront/views/cart.py](../../shopman/storefront/views/cart.py)
-- fila operacional em [shopman/backstage/views/orders.py](../../shopman/backstage/views/orders.py)
+- fila operacional em [shopman/backstage/admin_console/orders.py](../../shopman/backstage/admin_console/orders.py)
 
 A crítica correta, portanto, é mais refinada:
 

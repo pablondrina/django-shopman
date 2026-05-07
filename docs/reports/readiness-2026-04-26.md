@@ -115,7 +115,7 @@ Surface smoke run with Django `Client` and local `ALLOWED_HOSTS` override:
 /conta/ 404
 /gestor/ 404
 /gestor/pos/ 302 /admin/login/?next=/gestor/pos/
-/gestor/kds/ 302 /admin/login/?next=/gestor/kds/
+/admin/operacao/kds/ 302 /admin/login/?next=/admin/operacao/kds/
 ```
 
 Final full-suite result for this pass:

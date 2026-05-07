@@ -5,22 +5,25 @@ The same body of code runs for:
 
 1. **Real EFI webhook.** ``EfiPixWebhookView`` authenticates the request
    (mTLS + shared token) and delegates to :func:`confirm_pix`.
-2. **Mock PIX backend.** ``adapters.payment_mock`` schedules a
-   ``mock_pix.confirm`` directive at ``create_intent`` time; the
-   ``MockPixConfirmHandler`` fires after the configured delay and calls
-   :func:`confirm_pix`.
+2. **Mock PIX backend.** Tests may opt in to a ``mock_pix.confirm`` directive;
+   the ``MockPixConfirmHandler`` fires after the configured delay and calls
+   :func:`confirm_pix`. Manual dev flows use the explicit dev confirmation
+   button instead, so refreshes never pay a PIX by themselves.
 3. **Tests.** Integration tests call :func:`confirm_pix` directly to
    exercise the downstream flow without going through HTTP.
 
 There is no environment branch here — dev and prod run the same code. The
-only thing that differs is *who calls it*: EFI's servers in production, the
-mock backend's scheduled directive in development.
+only thing that differs is *who calls it*: EFI's servers in production, an
+explicit dev action, or an opt-in mock directive in tests.
 """
 
 from __future__ import annotations
 
 import logging
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from django.db import transaction
+from django.utils import timezone
 from shopman.orderman.models import Order
 
 logger = logging.getLogger(__name__)
@@ -45,7 +48,7 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
     """
     from shopman.payman import PaymentError, PaymentService
 
-    db_intent = PaymentService.get_by_gateway_id(txid, gateway="efi")
+    db_intent = _intent_for_pix_txid(PaymentService, txid)
 
     if db_intent is None:
         order = (
@@ -61,7 +64,7 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
         _apply_order_payment(order, e2e_id=e2e_id, valor=valor)
         return
 
-    amount_q = int(round(float(valor) * 100)) if valor else db_intent.amount_q
+    amount_q = _amount_to_q(valor, default=db_intent.amount_q)
 
     try:
         if db_intent.status == "pending":
@@ -106,22 +109,96 @@ def _apply_order_payment(order: Order, *, e2e_id: str, valor: str) -> None:
     """
     from shopman.shop.lifecycle import dispatch
 
+    should_dispatch = False
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order.pk)
+        payment_data = dict(order.data.get("payment", {}) if order.data else {})
+
+        if e2e_id and payment_data.get("e2e_id") == e2e_id:
+            return
+
+        already_captured = bool(payment_data.get("captured_at"))
+        should_dispatch = not already_captured
+
+        if e2e_id:
+            payment_data["e2e_id"] = e2e_id
+        if valor:
+            payment_data["paid_amount_q"] = _amount_to_q(valor, default=order.total_q)
+        captured_at = _captured_at_for_payment(order) or timezone.now()
+        if not payment_data.get("captured_at"):
+            payment_data["captured_at"] = captured_at.isoformat()
+
+        if order.data is None:
+            order.data = {}
+        order.data["payment"] = payment_data
+        order.save(update_fields=["data", "updated_at"])
+
+    _ack_payment_failed_alerts(order)
+    _cancel_stale_intents(order, keep_intent_ref=payment_data.get("intent_ref", ""))
+
+    if should_dispatch:
+        dispatch(order, "on_paid")
+
+
+def _amount_to_q(valor: str, *, default: int | None = None) -> int:
+    if valor in ("", None):
+        if default is None:
+            raise ValueError("PIX amount is required")
+        return int(default)
+    try:
+        amount = Decimal(str(valor))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("PIX amount must be decimal") from exc
+    if amount <= 0:
+        raise ValueError("PIX amount must be positive")
+    return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _cancel_stale_intents(order: Order, *, keep_intent_ref: str) -> None:
+    try:
+        from shopman.shop.services import payment as payment_service
+
+        payment_service.cancel_stale_intents(order, keep_intent_ref=keep_intent_ref)
+    except Exception:
+        logger.debug("pix_confirmation_cancel_stale_intents_failed order=%s", order.ref, exc_info=True)
+
+
+def _ack_payment_failed_alerts(order: Order) -> None:
+    try:
+        from shopman.shop.adapters import alert as alert_adapter
+
+        alert_adapter.acknowledge("payment_failed", order_ref=order.ref)
+    except Exception:
+        logger.debug("pix_confirmation_payment_failed_alert_ack_failed order=%s", order.ref, exc_info=True)
+
+
+def _captured_at_for_payment(order: Order):
     payment_data = order.data.get("payment", {}) if order.data else {}
+    intent_ref = payment_data.get("intent_ref")
+    if not intent_ref:
+        return None
+    try:
+        from shopman.payman import PaymentService
 
-    if e2e_id and payment_data.get("e2e_id") == e2e_id:
-        return
+        intent = PaymentService.get(intent_ref)
+    except Exception:
+        logger.debug(
+            "pix_confirmation: unable to read captured_at for order=%s intent=%s",
+            order.ref,
+            intent_ref,
+            exc_info=True,
+        )
+        return None
+    return intent.captured_at
 
-    if e2e_id:
-        payment_data["e2e_id"] = e2e_id
-    if valor:
-        payment_data["paid_amount_q"] = int(round(float(valor) * 100))
 
-    if order.data is None:
-        order.data = {}
-    order.data["payment"] = payment_data
-    order.save(update_fields=["data", "updated_at"])
-
-    dispatch(order, "on_paid")
+def _intent_for_pix_txid(payment_service, txid: str):
+    """Locate the PIX intent for both real EFI and local mock gateways."""
+    for gateway in ("efi", "mock"):
+        intent = payment_service.get_by_gateway_id(txid, gateway=gateway)
+        if intent is not None:
+            return intent
+    return None
 
 
 __all__ = ["confirm_pix"]

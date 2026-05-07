@@ -6,16 +6,16 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-
-from shopman.backstage.models import DayClosing
-from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, OrderItem
-from shopman.shop.models import Shop
 from shopman.stockman import Position
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import DayClosing
+from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
+from shopman.shop.models import Shop
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def test_perform_day_closing_persists_production_summary(client, setup_stock, cl
     craft.finish(wo, finished=4, actor="test")
     client.force_login(closing_user)
 
-    response = client.post("/gestor/fechamento/", {"qty_RECON-SKU": "1"})
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "1"})
 
     assert response.status_code == 302
     closing = DayClosing.objects.get()
@@ -83,7 +83,7 @@ def test_reconciliation_error_when_sold_exceeds_available(client, setup_stock, c
     OrderItem.objects.create(order=order, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
     client.force_login(closing_user)
 
-    response = client.post("/gestor/fechamento/", {"qty_RECON-SKU": "0"})
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
 
     assert response.status_code == 302
     error = DayClosing.objects.get().data["reconciliation_errors"][0]

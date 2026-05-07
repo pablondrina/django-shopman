@@ -41,6 +41,17 @@ from . import substitutes
 
 logger = logging.getLogger(__name__)
 
+CART_SOURCE_SKU_META = "cart_source_sku"
+BUNDLE_PARENT_SKU_META = "cart_bundle_sku"
+
+
+def _cart_hold_metadata(source_sku: str, *, bundle_parent_sku: str | None = None) -> dict[str, str]:
+    """Metadata that scopes cart holds back to the cart line that created them."""
+    metadata = {CART_SOURCE_SKU_META: source_sku}
+    if bundle_parent_sku:
+        metadata[BUNDLE_PARENT_SKU_META] = bundle_parent_sku
+    return metadata
+
 
 def bump_session_hold_expiry(session_key: str, *, ttl_minutes: int = 30) -> int:
     """Extend the TTL of every active hold tagged with ``session_key``.
@@ -263,13 +274,11 @@ def decide(
             "untracked": True,
         }
 
-    decision = adapter.get_promise_decision(
+    decision = adapter.promise_decision_from_availability(
         sku,
         qty_d,
+        info,
         target_date=target_date,
-        safety_margin=scope["safety_margin"],
-        allowed_positions=scope["allowed_positions"],
-        excluded_positions=scope.get("excluded_positions"),
     )
     approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_promisable"]
     reason_code = getattr(decision, "reason_code", None)
@@ -491,7 +500,110 @@ def reserve(
         }
     """
     qty_d = Decimal(str(qty))
+
+    listing_error = _reserve_listing_gate_error(
+        sku,
+        qty_d,
+        channel_ref=channel_ref,
+    )
+    if listing_error is not None:
+        return listing_error
+
+    # Bundles need the existing component-aware path. Simple SKUs can let the
+    # Stockman hold be the authoritative success-path validation; if it fails,
+    # we run the richer read path below to explain the refusal to the customer.
+    components = _expand_if_bundle(sku, qty_d)
+    if components:
+        status = check(sku, qty_d, channel_ref=channel_ref, target_date=target_date)
+        return _reserve_checked_status(
+            sku,
+            qty_d,
+            status,
+            session_key=session_key,
+            channel_ref=channel_ref,
+            target_date=target_date,
+            ttl_minutes=ttl_minutes,
+        )
+
+    adapter = get_adapter("stock")
+    result = adapter.create_hold(
+        sku=sku,
+        qty=qty_d,
+        ttl_minutes=ttl_minutes,
+        reference=session_key,
+        target_date=target_date,
+        channel_ref=channel_ref,
+        **_cart_hold_metadata(sku),
+    )
+    if result.get("success"):
+        return {
+            "ok": True,
+            "hold_id": result["hold_id"],
+            "available_qty": qty_d,
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        }
+
     status = check(sku, qty_d, channel_ref=channel_ref, target_date=target_date)
+    return _reserve_checked_status(
+        sku,
+        qty_d,
+        status,
+        session_key=session_key,
+        channel_ref=channel_ref,
+        target_date=target_date,
+        ttl_minutes=ttl_minutes,
+        adapter=adapter,
+        initial_hold_result=result,
+        initial_hold_error_code=result.get("error_code"),
+    )
+
+
+def _reserve_listing_gate_error(
+    sku: str,
+    qty_d: Decimal,
+    *,
+    channel_ref: str | None,
+) -> dict | None:
+    listing_item = _sku_in_channel_listing(sku, channel_ref)
+    if listing_item is False:
+        return {
+            "ok": False,
+            "hold_id": None,
+            "available_qty": Decimal("0"),
+            "is_paused": True,
+            "is_planned": False,
+            "error_code": "not_in_listing",
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
+        }
+    if isinstance(listing_item, dict) and not listing_item.get("is_sellable", True):
+        return {
+            "ok": False,
+            "hold_id": None,
+            "available_qty": Decimal("0"),
+            "is_paused": True,
+            "is_planned": False,
+            "error_code": "paused",
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
+        }
+    return None
+
+
+def _reserve_checked_status(
+    sku: str,
+    qty_d: Decimal,
+    status: dict,
+    *,
+    session_key: str,
+    channel_ref: str | None,
+    target_date: date | None,
+    ttl_minutes: int,
+    adapter=None,
+    initial_hold_result: dict | None = None,
+    initial_hold_error_code: str | None = None,
+) -> dict:
+    adapter = adapter or get_adapter("stock")
 
     # SKUs that are not tracked by Stockman: skip the hold (the order will
     # commit without stock reservation, same as the legacy noop path).
@@ -518,8 +630,6 @@ def reserve(
             "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 
-    adapter = get_adapter("stock")
-
     # For bundles: create one hold per component (not one hold for the bundle SKU).
     if status.get("is_bundle"):
         components = _expand_if_bundle(sku, qty_d)
@@ -534,13 +644,14 @@ def reserve(
                 adapter=adapter,
             )
 
-    result = adapter.create_hold(
+    result = initial_hold_result or adapter.create_hold(
         sku=sku,
         qty=qty_d,
         ttl_minutes=ttl_minutes,
         reference=session_key,
         target_date=target_date,
         channel_ref=channel_ref,
+        **_cart_hold_metadata(sku),
     )
 
     if not result.get("success"):
@@ -553,7 +664,8 @@ def reserve(
         # the caller receives the qty it legitimately has access to. All
         # partial holds share the same session_key reference so CommitService
         # adopts them together.
-        if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
+        error_code = initial_hold_error_code or result.get("error_code")
+        if error_code == "INSUFFICIENT_AVAILABLE":
             partial = _reserve_across_quants(
                 sku=sku, qty=qty_d,
                 ttl_minutes=ttl_minutes,
@@ -561,6 +673,7 @@ def reserve(
                 channel_ref=channel_ref,
                 target_date=target_date,
                 adapter=adapter,
+                hold_metadata=_cart_hold_metadata(sku),
             )
             if partial["ok"]:
                 return partial
@@ -578,7 +691,7 @@ def reserve(
 
         logger.info(
             "availability.reserve: hold failed sku=%s qty=%s code=%s",
-            sku, qty_d, result.get("error_code"),
+            sku, qty_d, error_code,
         )
         return {
             "ok": False,
@@ -586,7 +699,7 @@ def reserve(
             "available_qty": status["available_qty"],
             "is_paused": False,
             "is_planned": False,
-            "error_code": result.get("error_code", "hold_failed"),
+            "error_code": error_code or "hold_failed",
             "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 
@@ -609,6 +722,7 @@ def _reserve_across_quants(
     channel_ref: str | None,
     target_date: date | None,
     adapter,
+    hold_metadata: dict[str, str] | None = None,
 ) -> dict:
     """Split a reservation across multiple quants/batches when no single quant
     fits the full qty. All partial holds share ``reference=session_key`` so
@@ -639,6 +753,7 @@ def _reserve_across_quants(
                 reference=session_key,
                 target_date=target_date,
                 channel_ref=channel_ref,
+                **(hold_metadata or {}),
             )
             if r.get("success"):
                 if first_hold_id is None:
@@ -736,10 +851,9 @@ def reconcile(
     if new_qty_d < 0:
         new_qty_d = Decimal("0")
 
-    # Bundles are reconciled per component, but ONLY for grow (new_qty>0) —
-    # shrink/zero for bundles is delegated to commit-time leftover release
-    # via `services.stock.hold`, because per-component shrink could
-    # over-release holds when the SKU is shared with another cart line.
+    # Bundles are reconciled per component. Component holds are scoped by
+    # cart-line metadata so a combo using CROIS-01 cannot consume/release a
+    # shopper's separate CROIS-01 line.
     if new_qty_d > 0:
         components = _expand_if_bundle(sku, new_qty_d)
         if components is not None:
@@ -761,6 +875,7 @@ def reconcile(
             per_unit_components = _expand_if_bundle(sku, Decimal("1")) or []
             released_ids = _release_bundle_component_holds(
                 session_key=session_key,
+                bundle_sku=sku,
                 components=per_unit_components,
             )
             logger.info(
@@ -783,15 +898,24 @@ def reconcile(
         channel_ref=channel_ref,
         target_date=target_date,
         ttl_minutes=ttl_minutes,
+        hold_metadata=_cart_hold_metadata(sku),
+        metadata_filters=_cart_hold_metadata(sku),
     )
 
 
 def _load_session_holds_for_sku(
-    session_key: str, sku: str,
+    session_key: str,
+    sku: str,
+    *,
+    metadata_filters: dict[str, str] | None = None,
 ) -> list[tuple[str, Decimal]]:
     """Return FIFO list of `(hold_id, qty)` for active session holds on `sku`."""
     adapter = get_adapter("stock")
-    holds = adapter.find_holds_by_reference(session_key, sku=sku)
+    holds = adapter.find_holds_by_reference(
+        session_key,
+        sku=sku,
+        metadata_filters=metadata_filters,
+    )
     return [(hold_id, qty) for hold_id, _sku, qty in holds]
 
 
@@ -803,9 +927,15 @@ def _reconcile_simple(
     channel_ref: str | None,
     target_date: date | None,
     ttl_minutes: int,
+    hold_metadata: dict[str, str] | None = None,
+    metadata_filters: dict[str, str] | None = None,
 ) -> dict:
     """Reconcile a simple (non-bundle) SKU to `new_qty`."""
-    existing = _load_session_holds_for_sku(session_key, sku)
+    existing = _load_session_holds_for_sku(
+        session_key,
+        sku,
+        metadata_filters=metadata_filters,
+    )
     current_total = sum((q for _, q in existing), Decimal("0"))
 
     if new_qty == current_total:
@@ -856,6 +986,7 @@ def _reconcile_simple(
             reference=session_key,
             target_date=target_date,
             channel_ref=channel_ref,
+            **(hold_metadata or {}),
         )
         if not result.get("success"):
             # Fragmented stock: fall back to multi-quant split reservation.
@@ -867,6 +998,7 @@ def _reconcile_simple(
                     channel_ref=channel_ref,
                     target_date=target_date,
                     adapter=adapter,
+                    hold_metadata=hold_metadata,
                 )
                 if split["ok"]:
                     return {
@@ -935,6 +1067,7 @@ def _reconcile_simple(
             reference=session_key,
             target_date=target_date,
             channel_ref=channel_ref,
+            **(hold_metadata or {}),
         )
         if result.get("success"):
             created_ids.append(result["hold_id"])
@@ -959,42 +1092,38 @@ def _reconcile_simple(
 def _release_bundle_component_holds(
     *,
     session_key: str,
+    bundle_sku: str,
     components: list[dict],
 ) -> list[str]:
-    """Release this session's holds for each bundle component, up to the
-    per-unit component qty declared in ``components``.
+    """Release this session's holds for each bundle component tagged to a bundle.
 
-    Surgical vs. "release every hold of this SKU for this session" — we only
-    free what THIS bundle removal should free, by walking the session's
-    existing holds FIFO and stopping when the component's expected qty is
-    covered. If the session has concurrent bundles or simple lines sharing
-    the same component SKU, the remainder stays held; later reconcile/commit
-    flows can re-balance.
+    Surgical vs. "release every hold of this SKU for this session" — bundle
+    holds carry ``cart_source_sku=<bundle_sku>`` metadata, so removing COMBO-A
+    releases every component reservation for that cart line without touching a
+    separate simple line that happens to use the same component SKU.
 
     Returns the list of released hold_ids.
     """
     adapter = get_adapter("stock")
     released: list[str] = []
+    metadata_filters = _cart_hold_metadata(bundle_sku, bundle_parent_sku=bundle_sku)
     for comp in components:
         comp_sku = comp.get("sku")
-        comp_qty = Decimal(str(comp.get("qty") or 0))
-        if not comp_sku or comp_qty <= 0:
+        if not comp_sku:
             continue
         try:
-            session_holds = adapter.find_holds_by_reference(session_key, sku=comp_sku)
+            session_holds = adapter.find_holds_by_reference(
+                session_key,
+                sku=comp_sku,
+                metadata_filters=metadata_filters,
+            )
         except Exception as e:
             logger.warning(
                 "release_bundle_components: find_holds failed sku=%s: %s",
                 comp_sku, e, exc_info=True,
             )
             continue
-        to_free: list[str] = []
-        remaining = comp_qty
-        for hold_id, _sku, held_qty in session_holds:
-            if remaining <= 0:
-                break
-            to_free.append(hold_id)
-            remaining -= held_qty
+        to_free = [hold_id for hold_id, _sku, _held_qty in session_holds]
         if to_free:
             try:
                 adapter.release_holds(to_free)
@@ -1026,6 +1155,7 @@ def _reconcile_bundle_components(
     created_ids: list[str] = []
     released_ids: list[str] = []
     adapter = get_adapter("stock")
+    hold_metadata = _cart_hold_metadata(bundle_sku, bundle_parent_sku=bundle_sku)
 
     for comp in components:
         comp_sku = comp["sku"]
@@ -1037,6 +1167,8 @@ def _reconcile_bundle_components(
             channel_ref=channel_ref,
             target_date=target_date,
             ttl_minutes=ttl_minutes,
+            hold_metadata=hold_metadata,
+            metadata_filters=hold_metadata,
         )
         if not result["ok"]:
             # Rollback: release any new holds we've created for previous components.
@@ -1085,6 +1217,7 @@ def _reserve_bundle_components(
     and returns ok=False.
     """
     created_hold_ids: list[str] = []
+    hold_metadata = _cart_hold_metadata(bundle_sku, bundle_parent_sku=bundle_sku)
 
     for comp in components:
         comp_sku = comp["sku"]
@@ -1097,6 +1230,7 @@ def _reserve_bundle_components(
             reference=session_key,
             target_date=target_date,
             channel_ref=channel_ref,
+            **hold_metadata,
         )
 
         if not result.get("success"):

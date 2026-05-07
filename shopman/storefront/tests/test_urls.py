@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.urls import reverse
+from django.urls import resolve, reverse
 
 
 class TestStorefrontURLs:
@@ -30,8 +30,8 @@ class TestHomeViewXFrame:
     def test_cart(self, db):
         assert reverse("storefront:cart") == "/cart/"
 
-    def test_cart_add(self, db):
-        assert reverse("storefront:cart_add") == "/cart/add/"
+    def test_cart_set_qty(self, db):
+        assert reverse("storefront:cart_set_qty") == "/cart/set-qty/"
 
     def test_order_payment(self, db):
         assert reverse("storefront:order_payment", kwargs={"ref": "ORD-001"}) == "/pedido/ORD-001/pagamento/"
@@ -48,11 +48,11 @@ class TestHomeViewXFrame:
     def test_account(self, db):
         assert reverse("storefront:account") == "/minha-conta/"
 
-    def test_gestor_pedidos(self, db):
-        assert reverse("backstage:gestor_pedidos") == "/gestor/pedidos/"
+    def test_admin_console_orders(self, db):
+        assert reverse("admin_console_orders") == "/admin/operacao/pedidos/"
 
     def test_kds_index(self, db):
-        assert reverse("backstage:kds_index") == "/gestor/kds/"
+        assert reverse("admin_console_kds") == "/admin/operacao/kds/"
 
     def test_pos(self, db):
         assert reverse("backstage:pos") == "/gestor/pos/"
@@ -126,6 +126,13 @@ class TestTemplatetagsBridge:
 
         assert format_money(1500) == "R$\u00a015,00"
 
+    def test_format_quantity_filter(self):
+        from shopman.shop.templatetags.storefront_tags import format_quantity
+
+        assert format_quantity("1.000") == "1"
+        assert format_quantity("2.500") == "2,5"
+        assert format_quantity(3) == "3"
+
 
 class TestAPIBridge:
     def test_api_urls_importable(self):
@@ -140,3 +147,10 @@ class TestAPIBridge:
     def test_api_checkout_url(self, db):
         url = reverse("api-checkout")
         assert url == "/api/v1/checkout/"
+
+    def test_access_link_create_api_url_is_not_shadowed_by_storefront_auth(self, db):
+        url = reverse("auth-access-create")
+        match = resolve(url)
+
+        assert url == "/api/auth/access/create/"
+        assert match.func.view_class.__name__ == "AccessLinkCreateView"

@@ -7,10 +7,12 @@ import json
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from shopman.orderman.ids import generate_session_key
-from shopman.orderman.models import Session
+from shopman.orderman.models import Order, Session
 from shopman.orderman.services.modify import ModifyService
 
+from shopman.backstage.models import POSTab
 from shopman.shop.models import Channel
+from shopman.shop.services import pos as pos_service
 
 
 def _make_channel():
@@ -115,12 +117,21 @@ class POSCloseWithDiscountTests(TestCase):
         _grant_pos_perm(self.staff)
 
     def _close_sale(self, items, manual_discount=None):
+        POSTab.objects.get_or_create(code="00001007", defaults={"label": "1007"})
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_code="1007",
+            actor=f"pos:{self.staff.username}",
+            operator_username=self.staff.username,
+        )
         payload = {
             "items": items,
             "customer_name": "",
             "customer_phone": "",
             "payment_method": "cash",
             "manual_discount": manual_discount,
+            "tab_code": opened["tab_code"],
+            "tab_session_key": opened["tab_session_key"],
         }
         self.client.force_login(self.staff)
         return self.client.post(
@@ -137,12 +148,14 @@ class POSCloseWithDiscountTests(TestCase):
     def test_close_with_discount_payload_accepted(self) -> None:
         """POS close accepts manual_discount in payload."""
         resp = self._close_sale(
-            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "note": "sem açúcar"}],
+            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "notes": "sem açúcar"}],
             manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
         )
         self.assertEqual(resp.status_code, 200)
 
     def test_close_with_item_note(self) -> None:
-        """Item note is accepted in payload (stored in meta)."""
-        resp = self._close_sale([{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "note": "extra picante"}])
+        """Item notes are accepted in payload and stored in canonical meta."""
+        resp = self._close_sale([{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "notes": "extra picante"}])
         self.assertEqual(resp.status_code, 200)
+        order = Order.objects.latest("created_at")
+        self.assertEqual(order.items.get().meta, {"notes": "extra picante"})

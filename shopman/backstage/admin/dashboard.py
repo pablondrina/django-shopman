@@ -13,6 +13,7 @@ from pathlib import Path
 
 from django.urls import reverse
 from django.utils.html import format_html
+from shopman.utils import table_badge
 
 from shopman.backstage.projections.dashboard import build_dashboard
 
@@ -93,7 +94,18 @@ def dashboard_callback(request, context):
 # ── Table builders ───────────────────────────────────────────────────
 # These stay here: they produce format_html output for Unfold table widgets.
 
-WO_BADGE = {"open": "bg-amber-400", "done": "bg-green-500", "void": "bg-red-500"}
+ORDER_BADGE_TYPE = {
+    "new": "blue",
+    "confirmed": "blue",
+    "preparing": "orange",
+    "ready": "green",
+    "dispatched": "orange",
+    "delivered": "green",
+    "completed": "green",
+    "cancelled": "red",
+    "returned": "base",
+}
+WO_BADGE_TYPE = {"open": "orange", "done": "green", "void": "red"}
 WO_LABEL = {"open": "Aberta", "done": "Conclu\u00edda", "void": "Cancelada"}
 SEVERITY_ICONS = {"warning": "\u26a0\ufe0f", "error": "\u274c", "critical": "\U0001f534"}
 
@@ -104,11 +116,7 @@ def _build_pending_orders_table(pending_orders):
     for o in pending_orders:
         rows.append([
             format_html('<a href="{}" class="font-medium">{}</a>', o.url, o.ref),
-            format_html(
-                '<span class="inline-block rounded px-2 py-0.5 text-xs font-medium text-white {}">{}</span>',
-                o.badge_css,
-                o.status_label,
-            ),
+            table_badge(o.status_label, ORDER_BADGE_TYPE.get(o.status, "base")),
             o.total_display,
             o.created_at_display,
         ])
@@ -125,11 +133,7 @@ def _build_recent_orders_table(orders):
     for o in orders:
         rows.append([
             format_html('<a href="{}" class="font-medium">{}</a>', o.url, o.ref),
-            format_html(
-                '<span class="inline-block rounded px-2 py-0.5 text-xs font-medium text-white {}">{}</span>',
-                o.badge_css,
-                o.status_label,
-            ),
+            table_badge(o.status_label, ORDER_BADGE_TYPE.get(o.status, "base")),
             o.total_display,
             o.channel_name,
             o.created_at_display,
@@ -149,11 +153,7 @@ def _build_production_table(wos):
             format_html('<a href="{}" class="font-medium">{}</a>', wo.url, wo.ref),
             wo.output_sku,
             wo.quantity,
-            format_html(
-                '<span class="inline-block rounded px-2 py-0.5 text-xs font-medium text-white {}">{}</span>',
-                WO_BADGE.get(wo.status, "bg-gray-500"),
-                WO_LABEL.get(wo.status, wo.status),
-            ),
+            table_badge(WO_LABEL.get(wo.status, wo.status), WO_BADGE_TYPE.get(wo.status, "base")),
         ])
 
     return {
@@ -227,6 +227,6 @@ def _build_suggestions_table(suggestions):
         ])
 
     return {
-        "headers": ["Receita", "Produto", "Sugerido", "M\u00e9dia", "Margem"],
+        "headers": ["Ficha técnica", "Produto", "Sugerido", "M\u00e9dia", "Margem"],
         "rows": rows,
     }

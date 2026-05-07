@@ -7,14 +7,14 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import Permission, User
-
-from shopman.backstage.models import CashRegisterSession, OperatorAlert
-from shopman.backstage.operator.context import build_operator_context
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.orderman.models import Order
-from shopman.shop.models import Shop
 from shopman.stockman.models import Position
+
+from shopman.backstage.models import CashRegisterSession, OperatorAlert
+from shopman.backstage.operator.context import build_operator_context
+from shopman.shop.models import Shop
 
 
 def _grant(user, app_label: str, codename: str) -> None:
@@ -46,7 +46,7 @@ def test_operator_context_summarizes_alerts_shift_kpis_and_permissions(rf):
     started = craft.plan(recipe, 8, date=date.today(), position_ref="producao")
     craft.start(started, quantity=8, position_ref="producao", expected_rev=0)
 
-    request = rf.get("/gestor/pedidos/")
+    request = rf.get("/admin/operacao/pedidos/")
     request.user = user
     context = build_operator_context(request)
 
@@ -71,7 +71,7 @@ def test_operator_context_exposes_shop_scoped_event_channel(rf):
     user = User.objects.create_user("scoped-op", password="x", is_staff=True)
     shop = Shop.objects.create(name="Loja SSE")
 
-    request = rf.get("/gestor/pedidos/")
+    request = rf.get("/admin/operacao/pedidos/")
     request.user = user
     context = build_operator_context(request)
 

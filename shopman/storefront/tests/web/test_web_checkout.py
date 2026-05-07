@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import json
+from datetime import date, time, timedelta
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import pytest
 from django.test import Client
@@ -66,6 +68,65 @@ class TestCheckoutGet:
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
 
+    def test_checkout_with_authenticated_customer_without_phone_requires_phone_gate(self, cart_session):
+        """Instagram-origin customers without phone must verify phone before checkout."""
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="WEB-IG-NOPHONE",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+        _login_as_customer(cart_session, customer)
+
+        resp = cart_session.get("/checkout/")
+
+        assert resp.status_code == 302
+        assert resp.url == "/login/?next=/checkout/"
+
+        login_resp = cart_session.get(resp.url)
+        assert login_resp.status_code == 200
+        body = login_resp.content.decode("utf-8")
+        assert 'name="phone"' in body
+
+    def test_checkout_prefills_phone_after_manychat_access_link(self, cart_session, settings):
+        """ManyChat access-link identity must survive until checkout."""
+        from shopman.guestman.models import Customer
+
+        settings.DOORMAN = {**DOORMAN_SETTINGS, "ACCESS_LINK_API_KEY": "test-access-key"}
+        customer = Customer.objects.create(
+            ref="WEB-ACCESS-MC",
+            first_name="Pablo",
+            last_name="Valentini",
+        )
+        create_resp = cart_session.post(
+            "/api/auth/access/create/",
+            data=json.dumps({
+                "customer_id": str(customer.uuid),
+                "whatsapp_id": "43984049009",
+                "first_name": "Pablo",
+                "last_name": "Valentini",
+                "manychat_id": "4605528796186498",
+                "source": "manychat",
+                "next": "/checkout/",
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test-access-key",
+        )
+        assert create_resp.status_code == 200
+
+        access_url = create_resp.json()["access_url"]
+        entry = urlsplit(access_url)
+        entry_resp = cart_session.get(f"{entry.path}?{entry.query}")
+        assert entry_resp.status_code == 302
+        assert entry_resp.url == "/checkout/"
+
+        resp = cart_session.get("/checkout/")
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert 'name="phone" value="+5543984049009"' in body
+        assert "Telefone é obrigatório" not in body
+
     def test_checkout_renders_address_picker(self, cart_session, customer):
         """Checkout page must embed the new iFood-style address picker."""
         _login_as_customer(cart_session, customer)
@@ -76,6 +137,18 @@ class TestCheckoutGet:
         assert "addressPicker(" in body
         assert "reverseGeocodeUrl" in body
         assert "Usar minha localiza" in body
+
+    def test_pickup_slot_defaults_to_current_slot_after_15h(self, cart_session, customer):
+        _login_as_customer(cart_session, customer)
+
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(15, 1)):
+            resp = cart_session.get("/checkout/?step=when")
+
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert "deliverySlot: 'slot-15'" in body
+        assert "normalizeDeliverySlot" in body
+        assert 'value="slot-15"' in body
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────
@@ -198,6 +271,42 @@ class TestCheckoutPost:
         assert resp.status_code in (200, 302)
         assert mock_availability.called
         assert mock_availability.call_args.kwargs["target_date"] == future_date
+
+
+class _FakeViaCepResponse:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode()
+
+
+class TestCepLookupView:
+    def test_cep_lookup_escapes_external_address_payload(self, client: Client, monkeypatch):
+        def fake_urlopen(request, timeout=5):
+            return _FakeViaCepResponse({
+                "logradouro": 'Rua <img src=x onerror=alert(1)> "A"',
+                "bairro": "Centro",
+                "localidade": "Lon'drina",
+                "uf": "PR",
+            })
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        resp = client.get("/checkout/cep-lookup/?cep=01001000")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "<img" not in body
+        assert "&lt;img src=x onerror=alert(1)&gt;" in body
+        assert 'x-init=\'$dispatch("cep-found",' in body
+        assert 'x-init="$dispatch' not in body
 
 
 # ── OrderConfirmationView ─────────────────────────────────────────────

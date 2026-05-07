@@ -1,0 +1,15 @@
+{% load unfold %}
+
+{% for section in order_sections %}
+  <div class="flex flex-col gap-2">
+    <div class="flex flex-col gap-1">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        {{ section.title }}
+      {% endcomponent %}
+      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+        {{ section.subtitle }}
+      {% endcomponent %}
+    </div>
+    {% component "unfold/components/table.html" with table=section.table striped=1 %}{% endcomponent %}
+  </div>
+{% endfor %}

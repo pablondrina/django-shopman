@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Compromissos de produção | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="production-commitments-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="flex flex-col gap-1">
+        {% component "unfold/components/title.html" %}
+          Compromissos de {{ production_commitments_work_order.ref }}
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          {{ production_commitments_work_order.output_sku }} · {{ production_commitments_committed_qty }} un. comprometidas
+        {% endcomponent %}
+      </div>
+      <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+        {% component "unfold/components/button.html" with href=production_commitments_back_url variant="default" size="sm" %}
+          {% component "unfold/components/icon.html" with class="text-base" %}arrow_back{% endcomponent %}
+          Produção
+        {% endcomponent %}
+      </div>
+    </div>
+
+    {% component "unfold/components/card.html" %}
+      <div class="flex flex-wrap gap-2">
+        {% include "unfold/helpers/label.html" with text=production_commitments_work_order.status type="info" %}
+        {% for ref in production_commitments_order_refs %}
+          {% include "unfold/helpers/label.html" with text=ref type="primary" %}
+        {% endfor %}
+      </div>
+    {% endcomponent %}
+
+    {% component "unfold/components/table.html" with table=production_commitments_table striped=1 %}{% endcomponent %}
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

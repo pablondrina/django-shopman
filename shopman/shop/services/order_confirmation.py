@@ -1,4 +1,4 @@
-"""Canonical read service for customer order confirmation pages."""
+"""Canonical projection service for customer order confirmation pages."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class OrderConfirmationReadModel:
-    """Canonical confirmation read model independent from storefront templates."""
+class OrderConfirmationProjection:
+    """Canonical confirmation projection independent from storefront templates."""
 
     order_ref: str
     items: tuple[OrderItemProjection, ...]
@@ -25,7 +25,7 @@ class OrderConfirmationReadModel:
     eta: datetime | None
 
 
-def build_confirmation(order, *, share_url: str) -> OrderConfirmationReadModel:
+def build_confirmation(order, *, share_url: str) -> OrderConfirmationProjection:
     """Build confirmation data for a just-placed order."""
     items = tuple(
         OrderItemProjection(
@@ -41,7 +41,7 @@ def build_confirmation(order, *, share_url: str) -> OrderConfirmationReadModel:
     eta = _eta(order)
     shop_name = _shop_name()
 
-    return OrderConfirmationReadModel(
+    return OrderConfirmationProjection(
         order_ref=order.ref,
         items=items,
         total_display=f"R$ {format_money(order.total_q)}",
@@ -73,4 +73,4 @@ def _shop_name() -> str:
         return "nossa loja"
 
 
-__all__ = ["OrderConfirmationReadModel", "build_confirmation"]
+__all__ = ["OrderConfirmationProjection", "build_confirmation"]

@@ -301,7 +301,7 @@ class ProductAdmin(_ProductImportExportBase):
     def image_thumbnail(self, obj):
         if obj.image_url:
             return format_html(
-                '<img src="{}" alt="{}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">',
+                '<img src="{}" alt="{}" class="block h-10 object-cover rounded-default w-10">',
                 obj.image_url, obj.name,
             )
         return ""

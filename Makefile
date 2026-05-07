@@ -3,30 +3,43 @@
 # Uso rápido:
 #   make test        → roda todos os testes
 #   make test-utils  → roda testes do utils
+#   make admin       → valida tudo de Admin/Unfold
 #   make install     → instala deps + apps em modo editável
 
 # Python: usa venv se existir, senão o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
+ADMIN_URL := $(strip $(or $(url),$(URL)))
+ADMIN_SCOPE_ARGS := $(if $(ADMIN_URL),--url $(ADMIN_URL),)
+COMPOSE ?= docker compose
+APP_COMPOSE := $(COMPOSE) --profile app
+RELEASE_COMPOSE := $(COMPOSE) --profile release
 
-# Python: usa venv se existir, senao o do PATH
-PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
-
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
 # ── Setup ─────────────────────────────────────────────────────────────
 
 install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install Django "djangorestframework>=3.15" "django-filter" \
+	$(PYTHON) -m pip install "Django>=6.0,<6.1" "djangorestframework>=3.17,<4.0" "django-filter>=25.2,<26.0" \
+		"drf-spectacular>=0.29,<1.0" \
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
-		"django-redis>=5.4,<6.0" \
+		"django-eventstream>=5.3,<6.0" \
+		"django-import-export>=4.4,<5.0" \
+		"django-unfold>=0.92,<0.93" \
+		"daphne>=4.2,<5.0" \
+		"redis>=5.1,<8.0" \
 		"psycopg[binary]>=3.2,<4.0" \
-		phonenumbers pytest pytest-django
+		"python-dotenv>=1.0,<2.0" \
+		"qrcode[pil]>=7.4,<8.0" \
+		"locust>=2.24,<3.0" \
+		"pytest-timeout>=2.3,<3.0" \
+		"ruff>=0.15,<1.0" \
+		phonenumbers pytest pytest-django pytest-cov
 	# Instala cada app em modo editável
 	$(PYTHON) -m pip install -e packages/refs
 	$(PYTHON) -m pip install -e packages/utils
@@ -85,6 +98,18 @@ test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
 	$(PYTHON) -m pytest shopman/shop/tests shopman/storefront/tests shopman/backstage/tests -x -q
 
+test-runtime-preflight: ## Falha se PostgreSQL/Redis reais não estiverem configurados
+	@echo "── Runtime preflight: PostgreSQL + Redis ──"
+	$(PYTHON) scripts/check_runtime_gate.py
+
+test-runtime: test-runtime-preflight ## Stress de segurança/confiabilidade em PostgreSQL + Redis, sem skips
+	@echo "── Runtime security/reliability tests ──"
+	$(PYTHON) scripts/run_runtime_tests.py
+	@echo "✓ Runtime security/reliability gate passou"
+
+load-test: ## Locust headless contra servidor rodando (HOST=http://localhost:8000 USERS=100 RATE=10 TIME=60s)
+	$(PYTHON) -m locust -f shopman/shop/tests/load/locustfile.py --host=$(or $(HOST),http://localhost:8000) --headless -u $(or $(USERS),100) -r $(or $(RATE),10) --run-time $(or $(TIME),60s)
+
 test-coverage: ## Cobertura do Backstage com gate de 75%
 	@echo "── Backstage coverage ──"
 	$(PYTHON) -m coverage run --source=shopman/backstage -m pytest shopman/backstage/tests -q
@@ -125,25 +150,109 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 # ── Infra (Docker: Postgres + Redis) ──────────────────────────────────
 
 up: ## Sobe Postgres + Redis via docker compose (aguarda healthcheck)
-	docker compose up -d
+	$(COMPOSE) up -d postgres redis
 	@echo "Aguardando Postgres..."
-	@until docker compose exec -T postgres pg_isready -U shopman >/dev/null 2>&1; do sleep 1; done
+	@until $(COMPOSE) exec -T postgres sh -c 'pg_isready -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"' >/dev/null 2>&1; do sleep 1; done
 	@echo "✓ Postgres + Redis prontos"
 
 down: ## Para Postgres + Redis
-	docker compose down
+	$(COMPOSE) down
 
 logs: ## Stream dos logs dos services
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 db-shell: ## psql no Postgres do docker
-	docker compose exec postgres psql -U shopman -d shopman
+	$(COMPOSE) exec postgres sh -c 'psql -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"'
+
+# ── Diagnóstico operacional ─────────────────────────────────────────
+
+diagnose-runtime: ## Diagnostica DB, Redis/cache, migrations e SSE/eventstream
+	$(PYTHON) scripts/diagnose_operational.py runtime
+
+diagnose-worker: ## Diagnostica backlog, retries, stuck e failures de directives
+	$(PYTHON) scripts/diagnose_operational.py worker
+
+diagnose-payments: ## Diagnostica divergencias entre pedidos, intents e transacoes
+	$(PYTHON) scripts/diagnose_operational.py payments
+
+diagnose-webhooks: ## Diagnostica idempotencia, falhas e alertas de webhooks
+	$(PYTHON) scripts/diagnose_operational.py webhooks
+
+diagnose-health: ## Diagnostica health/readiness, checks Django e configuracao critica
+	$(PYTHON) scripts/diagnose_operational.py health
+
+release-readiness: ## Consolida prontidao local e bloqueios externos de piloto/release
+	$(PYTHON) scripts/check_release_readiness.py $(if $(json),--json,) $(if $(manual_qa),--manual-qa-evidence=$(manual_qa),) $(if $(preprod_url),--preprod-url=$(preprod_url),)
+
+release-readiness-strict: ## Igual ao release-readiness, mas falha em bloqueios externos
+	$(PYTHON) scripts/check_release_readiness.py --strict-external $(if $(json),--json,) $(if $(manual_qa),--manual-qa-evidence=$(manual_qa),) $(if $(preprod_url),--preprod-url=$(preprod_url),)
+
+reconcile-financial-day: ## Reconcilia pedidos, intents, transacoes e fechamento (date=YYYY-MM-DD dry_run=1)
+	$(PYTHON) manage.py reconcile_financial_day $(if $(date),--date=$(date),) $(if $(dry_run),--dry-run,) $(if $(require_closing),--require-closing,)
+
+smoke-gateways: ## Smoke local EFI/Stripe/iFood com rollback e matriz de sandbox
+	$(PYTHON) manage.py smoke_gateways $(if $(json),--json,)
+
+smoke-gateways-sandbox: ## Exige credenciais sandbox/staging para smoke externo
+	$(PYTHON) manage.py smoke_gateways --sandbox-only --require-sandbox $(if $(json),--json,)
+
+omotenashi-qa: ## Matriz manual QA mobile/tablet/desktop baseada no seed (strict=1 json=1)
+	$(PYTHON) manage.py omotenashi_qa $(if $(strict),--strict,) $(if $(json),--json,)
+
+omotenashi-browser-qa: ## Navega a matriz Omotenashi em Chrome headless (servidor local precisa estar rodando)
+	PYTHON="$(PYTHON)" node scripts/run_omotenashi_browser_qa.mjs $(if $(strict),--strict,) $(if $(base_url),--base-url=$(base_url),) $(if $(matrix),--matrix=$(matrix),) $(if $(screenshots),--screenshots-dir=$(screenshots),) $(if $(report),--report=$(report),)
+
+omotenashi-browser-ci: css ## Gate local/CI: seed + servidor isolado + QA browser Omotenashi (port=8001)
+	PYTHON="$(PYTHON)" SHOPMAN_QA_PORT="$(or $(port),$(PORT),8001)" bash scripts/run_omotenashi_browser_ci.sh
+
+# ── Deploy wrappers (Docker fica encapsulado aqui) ───────────────────
+
+deploy-env-check: ## Falha se .env ainda estiver em modo dev para deploy
+	@test -f .env || (echo "Crie .env a partir de .env.example antes do deploy." >&2; exit 1)
+	@! grep -Eiq '^DJANGO_DEBUG=(true|1|yes)$$' .env || (echo "DJANGO_DEBUG precisa ser false para deploy." >&2; exit 1)
+	@! grep -Eq '^DJANGO_SECRET_KEY=(change-me-in-production|dev-secret-key-not-for-production)$$' .env || (echo "DJANGO_SECRET_KEY precisa ser um segredo forte para deploy." >&2; exit 1)
+	@! grep -Eq '^DJANGO_ALLOWED_HOSTS=\*$$' .env || (echo "DJANGO_ALLOWED_HOSTS precisa ser explicito para deploy." >&2; exit 1)
+	@echo "✓ .env de deploy passou nos guardrails locais"
+
+deploy-check: deploy-env-check ## Preflight de deploy no ambiente atual
+	$(PYTHON) manage.py check --deploy
+	$(PYTHON) manage.py makemigrations --check --dry-run
+	$(PYTHON) manage.py collectstatic --noinput --dry-run -v 0
+	@echo "✓ Deploy preflight passou"
+
+deploy-build: deploy-env-check ## Builda a imagem app/worker via compose profile
+	$(APP_COMPOSE) build web directive-worker
+
+deploy-release: deploy-env-check ## Roda check --deploy, migrations e collectstatic em container one-shot
+	$(COMPOSE) up -d postgres redis
+	@echo "Aguardando Postgres..."
+	@until $(COMPOSE) exec -T postgres sh -c 'pg_isready -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"' >/dev/null 2>&1; do sleep 1; done
+	$(RELEASE_COMPOSE) build release
+	$(RELEASE_COMPOSE) run --rm release
+	@echo "✓ Release checks/migrations/static concluídos"
+
+deploy-up: deploy-build deploy-release ## Sobe web + directive worker sem exigir comandos Docker manuais
+	$(APP_COMPOSE) up -d web directive-worker
+	@echo "✓ Shopman app rodando em http://localhost:$${PORT:-8000}"
+
+deploy-down: ## Para app, worker, Postgres e Redis
+	$(COMPOSE) down
+
+deploy-logs: ## Logs de app/worker
+	$(APP_COMPOSE) logs -f web directive-worker
+
+deploy-ps: ## Status dos containers
+	$(APP_COMPOSE) ps
 
 # ── Server ────────────────────────────────────────────────────────────
 
 migrate: ## Cria/atualiza banco de dados
 	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
+
+collectstatic: css ## Compila CSS e coleta estáticos para STATIC_ROOT
+	$(PYTHON) manage.py collectstatic --noinput
+	@echo "✓ Static coletado"
 
 run: css ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
@@ -175,17 +284,63 @@ coverage: ## Roda testes do framework com cobertura
 	$(PYTHON) -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
 	@echo "✓ Relatório HTML em htmlcov/index.html"
 
-lint: ## Ruff check
+lint: admin ## Ruff + Admin/Unfold
 	ruff check packages/ shopman/shop/ config/
 
-lint-unfold: ## Gate de canonicidade para telas Admin/Unfold
+omotenashi-lint: ## Gate CI: copy crítica do storefront precisa vir de Omotenashi
+	$(PYTHON) scripts/lint_omotenashi_copy.py --critical --error
+
+omotenashi-audit: ## Auditoria ampla: lista copy visível ainda não migrada
+	$(PYTHON) scripts/lint_omotenashi_copy.py
+
+admin: ## Admin: valida tudo de Admin/Unfold
+	$(PYTHON) scripts/check_unfold_canonical.py --maturity $(ADMIN_SCOPE_ARGS)
+ifneq ($(ADMIN_URL),)
+	@echo "✓ Admin canônico ($(ADMIN_URL))"
+else
+	$(PYTHON) -m pytest shopman/backstage/tests/test_unfold_canonical_templates.py shopman/backstage/tests/test_admin_operational_integration.py -q
+	@echo "✓ Admin canônico"
+endif
+
+admin-update:
+	$(PYTHON) scripts/snapshot_unfold_reference.py
 	$(PYTHON) scripts/check_unfold_canonical.py
 
-lint-unfold-maturity: ## Auditoria estrita antes de declarar tela Admin/Unfold madura
+admin-ui: admin
+
+admin-ui-surfaces:
+	$(PYTHON) scripts/check_unfold_canonical.py --surfaces
+
+admin-ui-maturity:
 	$(PYTHON) scripts/check_unfold_canonical.py --maturity
 
+admin-ui-strict: admin-ui-maturity
+
+admin-ui-test: admin
+
+admin-ui-ci: admin
+
+admin-ui-update: admin-update
+
+unfold: admin
+
+unfold-ci: admin
+
+unfold-maturity: admin-ui-maturity
+
+unfold-strict: admin-ui-strict
+
+unfold-surfaces: admin-ui-surfaces
+
+unfold-update: admin-update
+
+lint-unfold: admin
+
+lint-unfold-maturity: admin-ui-maturity
+
 clean: ## Remove caches
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type d \( -name ".pytest_cache" -o -name ".ruff_cache" -o -name "*.egg-info" \) -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type f -name ".DS_Store" -delete 2>/dev/null || true
 	@echo "✓ Caches limpos"

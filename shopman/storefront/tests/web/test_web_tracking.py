@@ -1,12 +1,30 @@
 """Tests for storefront tracking views: ReorderView."""
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 import pytest
 from django.test import Client
+from shopman.orderman.models import Session
+
+from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+from shopman.storefront.tests.web.conftest import (
+    _ensure_listing_item,
+    _seed_stock_for_product_sku,
+)
 
 pytestmark = pytest.mark.django_db
+
+
+def _open_cart_items(client: Client) -> list[dict]:
+    session_key = client.session["cart_session_key"]
+    session = Session.objects.get(
+        session_key=session_key,
+        channel_ref=STOREFRONT_CHANNEL_REF,
+        state="open",
+    )
+    return session.items
 
 
 class TestReorderView:
@@ -47,6 +65,74 @@ class TestReorderView:
         assert resp.status_code == 302
         assert client.session.get("reorder_skipped") is None
         assert client.session.get("reorder_source") is True
+
+    def test_reorder_htmx_uses_full_redirect_and_closes_shell_overlays(
+        self, client: Client, order_items,
+    ):
+        """HTMX reorder must not swap the home body under an open drawer/menu."""
+        with patch("shopman.storefront.views.tracking.CartService.add_item"):
+            resp = client.post(
+                f"/meus-pedidos/{order_items.ref}/reorder/",
+                HTTP_HX_REQUEST="true",
+            )
+
+        assert resp.status_code == 204
+        assert resp["HX-Redirect"] == "/cart/"
+        triggers = json.loads(resp["HX-Trigger"])
+        assert "close-mobile-menu" in triggers
+        assert "close-cart-drawer" in triggers
+
+    def test_reorder_with_existing_cart_requires_explicit_choice(
+        self, cart_session: Client, order_items,
+    ):
+        """A non-empty cart must not be changed until the customer chooses a strategy."""
+        with patch("shopman.storefront.views.tracking.CartService.add_item") as add_item:
+            resp = cart_session.post(
+                f"/meus-pedidos/{order_items.ref}/reorder/",
+                HTTP_HX_REQUEST="true",
+            )
+
+        assert resp.status_code == 200
+        html = resp.content.decode()
+        assert "Seu carrinho já tem itens" in html
+        assert 'name="reorder_mode" value="replace"' in html
+        assert 'name="reorder_mode" value="add"' in html
+        add_item.assert_not_called()
+        assert cart_session.session.get("reorder_source") is None
+
+    def test_reorder_add_mode_appends_to_existing_cart(
+        self, cart_session: Client, order_items, channel, product, croissant,
+    ):
+        """Adding keeps current cart quantities and sums repeated SKUs."""
+        _seed_stock_for_product_sku(croissant.sku)
+        _ensure_listing_item(channel, croissant, price_q=800)
+
+        resp = cart_session.post(
+            f"/meus-pedidos/{order_items.ref}/reorder/",
+            {"reorder_mode": "add"},
+        )
+
+        assert resp.status_code == 302
+        qty_by_sku = {item["sku"]: int(item["qty"]) for item in _open_cart_items(cart_session)}
+        assert qty_by_sku[product.sku] == 12
+        assert qty_by_sku[croissant.sku] == 2
+
+    def test_reorder_replace_mode_replaces_existing_cart(
+        self, cart_session: Client, order_items, channel, product, croissant,
+    ):
+        """Replacing abandons the current cart before rebuilding it from the past order."""
+        _seed_stock_for_product_sku(croissant.sku)
+        _ensure_listing_item(channel, croissant, price_q=800)
+
+        resp = cart_session.post(
+            f"/meus-pedidos/{order_items.ref}/reorder/",
+            {"reorder_mode": "replace"},
+        )
+
+        assert resp.status_code == 302
+        qty_by_sku = {item["sku"]: int(item["qty"]) for item in _open_cart_items(cart_session)}
+        assert qty_by_sku[product.sku] == 10
+        assert qty_by_sku[croissant.sku] == 2
 
     def test_reorder_skipped_banner_shown_on_cart(
         self, client: Client, order_items, croissant,

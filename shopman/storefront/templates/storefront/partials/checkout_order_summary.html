@@ -1,5 +1,7 @@
 {% load omotenashi_tags %}
 {% omotenashi 'MIN_ORDER_WARNING' as min_order_cta %}
+{% omotenashi 'MIN_ORDER_WARNING_PREFIX' as min_order_prefix %}
+{% omotenashi 'MIN_ORDER_WARNING_MIDDLE' as min_order_middle %}
 {# Fragmento HTMX: resumo do pedido no checkout (WP-S3 — totais após cupom) #}
 <div class="bg-surface dark:bg-surface-dark rounded-radius border border-outline dark:border-outline-dark p-6 sticky top-24">
   <h3 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Resumo do Pedido</h3>
@@ -7,7 +9,7 @@
   {% if minimum_order_warning %}
   {% url 'storefront:menu' as menu_url %}
   <div class="mb-4 p-3 rounded-radius bg-warning/5 border border-warning/30 text-on-surface dark:text-on-surface-dark text-sm" role="status">
-    Faltam <strong>{{ minimum_order_warning.remaining_display }}</strong> para o pedido mínimo de {{ minimum_order_warning.minimum_display }}.
+    {{ min_order_prefix.message }} <strong>{{ minimum_order_warning.remaining_display }}</strong> {{ min_order_middle.message }} {{ minimum_order_warning.minimum_display }}.
     <a href="{{ menu_url }}" class="underline font-medium hover:text-warning transition-colors">{{ min_order_cta.message }}</a>
   </div>
   {% endif %}

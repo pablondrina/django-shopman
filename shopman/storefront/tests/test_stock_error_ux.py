@@ -1,6 +1,6 @@
 """Regression: rich stock-error UX from the storefront menu/PDP cards.
 
-When a cart add/update fails due to stock, the server must respond with a
+When a cart quantity mutation fails due to stock, the server must respond with a
 422 + `X-Shopman-Error-UI: 1` + `HX-Retarget: #stock-error-modal` + HTML
 that the client injects into the sentinel. The global `htmx:responseError`
 handler (in base.html) skips the generic toast when the marker header is
@@ -17,7 +17,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from django.test import Client
+from django.test import Client, override_settings
 
 from shopman.shop.services.cart import CartUnavailableError
 
@@ -41,7 +41,7 @@ def product(db):
     return p
 
 
-def test_cart_add_sends_rich_error_ui_marker(db, product):
+def test_cart_set_qty_sends_rich_error_ui_marker(db, product):
     """422 + X-Shopman-Error-UI + HX-Retarget + modal HTML (not generic toast)."""
     client = Client()
     exc = CartUnavailableError(
@@ -55,7 +55,7 @@ def test_cart_add_sends_rich_error_ui_marker(db, product):
     with patch(
         "shopman.storefront.cart.CartService.add_item", side_effect=exc,
     ):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "5"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "5"})
 
     assert resp.status_code == 422, "stock error must be 422, not 200 or 500"
     assert resp["X-Shopman-Error-UI"] == "1", (
@@ -69,8 +69,123 @@ def test_cart_add_sends_rich_error_ui_marker(db, product):
     )
 
 
-def test_cart_set_qty_uses_same_contract_as_add(db, product):
-    """The SKU-based stepper (menu/PDP) hits cart_set_qty and must get the same treatment."""
+def test_cart_set_qty_non_numeric_qty_rejects_without_mutation(db, product):
+    client = Client()
+    with patch("shopman.storefront.cart.CartService.add_item") as mock_add:
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "abc"})
+
+    assert resp.status_code == 400
+    mock_add.assert_not_called()
+
+
+def test_cart_set_qty_clamps_absurd_qty(db, product):
+    client = Client()
+    with patch("shopman.storefront.cart.CartService.add_item") as mock_add:
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1000000"})
+
+    assert resp.status_code == 200
+    assert mock_add.call_args.kwargs["qty"] == 99
+
+
+def test_cart_set_qty_success_returns_compact_json(db, product):
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
+    client = Client()
+    with patch(
+        "shopman.shop.services.availability.reserve",
+        return_value={
+            "ok": True,
+            "hold_id": "fake-hold",
+            "available_qty": 999,
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        },
+    ):
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "2"})
+
+    assert resp.status_code == 200
+    assert resp["Content-Type"].startswith("application/json")
+    payload = resp.json()
+    assert payload["ok"] is True
+    assert payload["line"]["sku"] == product.sku
+    assert payload["line"]["qty"] == 2
+    assert payload["line"]["line_total_q"] == 1000
+    assert payload["line"]["line_total_display"] == "R$ 10,00"
+    assert payload["cart"]["count"] == 2
+    assert payload["cart"]["subtotal_q"] == 1000
+    assert payload["cart"]["subtotal_display"] == "R$ 10,00"
+    assert "X-Cart-Count" not in resp.headers
+    assert "HX-Trigger" not in resp.headers
+
+
+def test_cart_set_qty_perf_log_is_threshold_gated(db, product):
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
+    client = Client()
+    with override_settings(SHOPMAN_CART_MUTATION_PERF_LOG_MS=0.001):
+        with (
+            patch(
+                "shopman.shop.services.availability.reserve",
+                return_value={
+                    "ok": True,
+                    "hold_id": "fake-hold",
+                    "available_qty": 999,
+                    "is_paused": False,
+                    "error_code": None,
+                    "substitutes": [],
+                },
+            ),
+            patch("shopman.storefront.perf.logger.info") as mock_info,
+        ):
+            resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
+
+    assert resp.status_code == 200
+    mock_info.assert_called_once()
+    message, = mock_info.call_args.args
+    assert message == "storefront.cart.set_qty.perf"
+    extra = mock_info.call_args.kwargs["extra"]
+    assert extra["status_code"] == 200
+    assert extra["action"] == "add"
+    assert extra["sql_count"]
+
+
+def test_cart_set_qty_can_remove_unpublished_existing_line(db, product):
+    """A stale cart line must remain removable after the product leaves the public catalog."""
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
+    client = Client()
+    with patch(
+        "shopman.shop.services.availability.reserve",
+        return_value={
+            "ok": True,
+            "hold_id": "fake-hold",
+            "available_qty": 999,
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        },
+    ):
+        add = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
+    assert add.status_code == 200
+
+    product.is_published = False
+    product.save(update_fields=["is_published"])
+
+    remove = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "0"})
+
+    assert remove.status_code == 200
+    assert "cart_session_key" in client.session
+    summary = client.get("/cart/summary/")
+    assert summary.status_code == 200
+    assert "hidden" in summary.content.decode("utf-8")
+
+
+def test_cart_set_qty_stock_error_contract_is_rich(db, product):
+    """The SKU-based stepper (menu/PDP) must get the rich stock-error treatment."""
     client = Client()
     exc = CartUnavailableError(
         sku=product.sku,
@@ -107,7 +222,7 @@ def test_stock_error_modal_html_has_penguin_tokens(db, product):
         substitutes=[],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "99"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "99"})
     body = resp.content.decode("utf-8")
 
     # v1 tokens that must NOT appear
@@ -136,7 +251,7 @@ def test_modal_has_primary_action_when_stock_remains(db, product):
         substitutes=[],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "10"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "10"})
     body = resp.content.decode("utf-8")
 
     import re as _re
@@ -167,7 +282,7 @@ def test_modal_renders_substitutes_as_one_click_buttons(db, product):
         ],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
 
     import re as _re
@@ -197,7 +312,7 @@ def test_sold_out_without_substitutes_shows_no_primary_action(db, product):
         substitutes=[],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
 
     assert "Adicionar" not in body or "Adicionar ao carrinho" not in body, (
@@ -224,7 +339,7 @@ def test_modal_tags_picker_origin_pdp_when_called_from_pdp(db, product):
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             {"sku": product.sku, "qty": "1"},
             HTTP_HX_CURRENT_URL="https://example.com/produto/STOCK-ERR-TEST/",
         )
@@ -247,7 +362,7 @@ def test_modal_tags_picker_origin_menu_when_called_from_home(db, product):
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             {"sku": product.sku, "qty": "1"},
             HTTP_HX_CURRENT_URL="https://example.com/",
         )
@@ -268,7 +383,7 @@ def test_modal_tags_picker_origin_cart_when_called_from_cart(db, product):
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             {"sku": product.sku, "qty": "1"},
             HTTP_HX_CURRENT_URL="https://example.com/cart/",
         )
@@ -292,7 +407,7 @@ def test_planned_variant_shows_reserve_cta(db, product):
         is_planned=True,
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "2"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "2"})
     assert resp.status_code == 422
     body = resp.content.decode("utf-8")
     assert "Reservar no próximo lote" in body, (
@@ -315,7 +430,7 @@ def test_paused_variant_shows_warm_copy(db, product):
         substitutes=[],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
     assert resp.status_code == 422
     body = resp.content.decode("utf-8")
     assert "Voltamos em breve" in body, (
@@ -349,10 +464,8 @@ def test_substitute_image_rendered_when_provided(db, product):
         ],
     )
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
     assert "https://cdn.test/pao.jpg" in body, (
         "substitute with image_url must render an <img> with that URL"
     )
-
-

@@ -44,6 +44,15 @@ class NoopCustomerResolver:
     def get_by_uuid(self, uuid) -> AuthCustomerInfo | None:
         raise NotImplementedError(self._msg)
 
+    def get_by_identifier(self, identifier_type: str, identifier_value: str) -> AuthCustomerInfo | None:
+        raise NotImplementedError(self._msg)
+
+    def upsert_access_link_customer(self, customer_id, payload: dict) -> AuthCustomerInfo | None:
+        raise NotImplementedError(self._msg)
+
+    def upsert_manychat_subscriber(self, subscriber_data: dict) -> AuthCustomerInfo | None:
+        raise NotImplementedError(self._msg)
+
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         raise NotImplementedError(self._msg)
 

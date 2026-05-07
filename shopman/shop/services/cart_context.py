@@ -13,12 +13,19 @@ class CartProductContext:
     is_d1: bool
 
 
-def product_context(sku: str, *, channel_ref: str = "web") -> CartProductContext | None:
+def product_context(
+    sku: str,
+    *,
+    channel_ref: str = "web",
+    for_add: bool = True,
+) -> CartProductContext | None:
     from shopman.offerman.models import Product
 
     product = Product.objects.filter(sku=sku, is_published=True).first()
     if not product:
         return None
+    if not for_add:
+        return CartProductContext(product=product, unit_price_q=0, is_d1=False)
 
     return CartProductContext(
         product=product,

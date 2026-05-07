@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import logging
 
-from shopman.orderman.models import Directive, Order
+from shopman.orderman.models import Order
 
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.order_helpers import get_fulfillment_type
 
 logger = logging.getLogger(__name__)
-
-NOTIFICATION_SEND = "notification.send"
 
 _NEXT_STATUS_MAP: dict[str, str] = {
     Order.Status.CONFIRMED: Order.Status.PREPARING,
@@ -67,20 +65,18 @@ def reject_order(
     rejected_by: str,
 ) -> None:
     """Reject an order and queue the customer notification directive."""
+    if order.status != Order.Status.NEW:
+        raise ValueError("Pedido só pode ser rejeitado enquanto aguarda confirmação")
+
     cancel(
         order,
         reason=reason,
         actor=actor,
         extra_data={"rejected_by": rejected_by},
     )
-    Directive.objects.create(
-        topic=NOTIFICATION_SEND,
-        payload={
-            "order_ref": order.ref,
-            "template": "order_rejected",
-            "reason": reason,
-        },
-    )
+    from shopman.shop.services import notification
+
+    notification.send(order, "order_rejected", reason=reason, rejected_by=rejected_by)
     logger.info("operator_reject order=%s reason=%s", order.ref, reason)
 
 
@@ -96,6 +92,8 @@ def advance_order(order: Order, *, actor: str) -> str:
     next_status = next_status_for(order)
     if not next_status:
         raise ValueError("Pedido não possui próxima etapa")
+    if order.status == Order.Status.CONFIRMED and _requires_captured_payment_for_work(order):
+        raise ValueError("Pagamento ainda não foi confirmado. Aguarde antes de iniciar o preparo.")
     order.transition_status(next_status, actor=actor)
     return next_status
 
@@ -113,30 +111,11 @@ def save_internal_notes(order: Order, *, notes: str) -> None:
     order.save(update_fields=["data", "updated_at"])
 
 
-def mark_paid(order: Order, *, actor: str, operator_username: str) -> bool:
-    """Mark an offline payment as received and run paid lifecycle hooks.
-
-    Returns False when the order was already marked paid.
-    """
-    payment_data = dict((order.data or {}).get("payment", {}))
-    if payment_data.get("marked_paid_by"):
+def _requires_captured_payment_for_work(order: Order) -> bool:
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
         return False
+    from shopman.shop.services import payment as payment_service
 
-    payment_data["marked_paid_by"] = operator_username
-    data = dict(order.data or {})
-    data["payment"] = payment_data
-    order.data = data
-    order.save(update_fields=["data", "updated_at"])
-
-    if order.status == Order.Status.NEW:
-        from shopman.shop.lifecycle import ensure_confirmable
-
-        ensure_confirmable(order)
-        order.transition_status(Order.Status.CONFIRMED, actor=actor)
-
-    logger.info("mark_paid order=%s operator=%s", order.ref, operator_username)
-
-    from shopman.shop.lifecycle import dispatch
-
-    dispatch(order, "on_paid")
-    return True
+    return payment_service.has_sufficient_captured_payment(order) is not True

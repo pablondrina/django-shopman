@@ -1,27 +1,86 @@
 {% extends "storefront/base.html" %}
-{% load static %}
+{% load omotenashi_tags static %}
 
 {% block bottom_bar %}{% endblock %}
 
-{% block title %}Pagamento{% endblock %}
-{% block meta_description %}Conclua o pagamento do seu pedido · {{ storefront.brand_name }}.{% endblock %}
+{% block title %}{% omotenashi 'PAYMENT_PAGE_TITLE' as payment_page_title %}{{ payment_page_title.title }}{% endblock %}
+{% block meta_description %}{% omotenashi 'PAYMENT_PAGE_META_DESCRIPTION' as payment_meta %}{{ payment_meta.message }} · {{ storefront.brand_name }}.{% endblock %}
 
 {% block content %}
+{% omotenashi 'PAYMENT_PAGE_TITLE' as payment_page_title %}
+{% omotenashi 'PAYMENT_ORDER_REF_LABEL' as order_ref_label %}
+{% omotenashi 'PAYMENT_TOTAL_LABEL' as total_label %}
+{% omotenashi 'CONFIRMATION_TRACK_CTA' as track_cta %}
+{% omotenashi 'PAYMENT_DEADLINE_NOTICE' as deadline_notice %}
 <div class="max-w-md mx-auto">
 
   <div class="mb-6 text-center">
-    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</h1>
-    <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 mt-1">Pedido {{ payment.order_ref }}</p>
+    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ payment_page_title.title }}</h1>
+    <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 mt-1">{{ order_ref_label.title }} {{ payment.order_ref }}</p>
   </div>
 
   <div class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-6 space-y-6">
 
     <div class="flex items-center justify-between text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
-      <span>Total</span>
+      <span>{{ total_label.title }}</span>
       <span>{{ payment.total_display }}</span>
     </div>
 
-    {% if payment.method == "pix" %}
+    <section data-payment-promise
+             class="rounded-radius border px-4 py-3 text-sm
+                    {% if payment.promise.tone == 'success' %}border-success/30 bg-success/10 text-success
+                    {% elif payment.promise.tone == 'danger' %}border-danger/30 bg-danger/10 text-danger
+                    {% elif payment.promise.tone == 'warning' %}border-warning/30 bg-warning/10 text-warning
+                    {% else %}border-info/30 bg-info/10 text-on-surface dark:text-on-surface-dark{% endif %}">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-rounded text-xl shrink-0"
+              aria-hidden="true">
+          {% if payment.promise.tone == 'success' %}check_circle
+          {% elif payment.promise.tone == 'danger' %}cancel
+          {% elif payment.promise.tone == 'warning' %}warning
+          {% else %}verified{% endif %}
+        </span>
+        <div class="min-w-0 flex-1 space-y-2">
+          <div>
+            <h2 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ payment.promise.title }}</h2>
+            <p class="mt-0.5 text-on-surface/85 dark:text-on-surface-dark/70">{{ payment.promise.message }}</p>
+          </div>
+	          {% if payment.promise.deadline_at %}
+	          <p class="text-xs text-on-surface/75 dark:text-on-surface-dark/60">
+	            {{ deadline_notice.message }}
+	          </p>
+          {% endif %}
+          {% if payment.promise.recovery %}
+          <p class="text-xs text-on-surface/75 dark:text-on-surface-dark/60">
+            {{ payment.promise.recovery }}
+          </p>
+          {% elif payment.promise.next_event and payment.promise.state == "paid" %}
+          <p class="text-xs text-on-surface/75 dark:text-on-surface-dark/60">
+            {{ payment.promise.next_event }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {% if payment.error_message %}
+    {% omotenashi 'PAYMENT_ERROR_TITLE' as payment_error_title %}
+    {% omotenashi 'PAYMENT_ERROR_MESSAGE' as payment_error_message %}
+    {% omotenashi 'PAYMENT_RETRY_CTA' as payment_retry_cta %}
+    <div class="rounded-radius border border-warning/30 bg-warning/10 p-4 text-sm text-warning" role="alert">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-rounded text-xl shrink-0" aria-hidden="true">error</span>
+        <div class="space-y-2">
+          {% if payment_error_title.title %}<p class="font-semibold">{{ payment_error_title.title }}</p>{% endif %}
+          {% if payment_error_message.message %}<p>{{ payment_error_message.message }}</p>{% endif %}
+          <a href="{% url 'storefront:order_payment' ref=payment.order_ref %}"
+             class="inline-flex min-h-10 items-center justify-center rounded-radius border border-warning/40 px-3 py-2 font-semibold hover:bg-warning/15 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-warning/50">
+            {{ payment_retry_cta.title }}
+          </a>
+        </div>
+      </div>
+    </div>
+    {% elif payment.method == "pix" %}
       {% include "storefront/_payment_pix.html" %}
     {% elif payment.method == "card" %}
       {% include "storefront/_payment_card.html" %}
@@ -36,12 +95,13 @@
     </div>
 
     {% comment %}── Dev mock confirm ──{% endcomment %}
-    {% if payment.is_debug %}
+    {% if payment.is_debug and payment.can_mock_confirm %}
+    {% omotenashi 'PAYMENT_DEV_CONFIRM_CTA' as dev_confirm_cta %}
     <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=payment.order_ref %}">
       {% csrf_token %}
       <button type="submit"
               class="w-full rounded-radius border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning hover:bg-warning/20 focus:outline-hidden min-h-[44px]">
-        [DEV] Simular pagamento confirmado
+        {{ dev_confirm_cta.title }}
       </button>
     </form>
     {% endif %}
@@ -51,7 +111,7 @@
   <p class="mt-4 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60">
     <a href="{% url 'storefront:order_tracking' ref=payment.order_ref %}"
        class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">
-      Acompanhar pedido
+      {{ track_cta.title }}
     </a>
   </p>
 </div>

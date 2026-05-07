@@ -65,7 +65,7 @@ class TestValidateSlot(TestCase):
         assert "delivery_time_slot" in errors
         assert "inválido" in errors["delivery_time_slot"].lower()
 
-    # ── Slot passado (hoje às 15h → slot-09 e slot-12 são passado) ───────
+    # ── Slot passado (hoje às 15h → slot-09 e slot-12 já foram superados) ─
 
     def test_slot_09_passado_as_15h(self):
         errors = self._call_at_hour("slot-09", "pickup", _today_str(), hour=15)
@@ -76,7 +76,19 @@ class TestValidateSlot(TestCase):
         errors = self._call_at_hour("slot-12", "pickup", _today_str(), hour=15)
         assert "delivery_time_slot" in errors
 
-    # ── Slot futuro (hoje às 10h → slot-12 e slot-15 são futuros) ────────
+    # ── Slot atual/futuro hoje ───────────────────────────────────────────
+
+    def test_slot_09_atual_as_10h(self):
+        errors = self._call_at_hour("slot-09", "pickup", _today_str(), hour=10)
+        assert errors == {}
+
+    def test_slot_15_atual_as_15h(self):
+        errors = self._call_at_hour("slot-15", "pickup", _today_str(), hour=15)
+        assert errors == {}
+
+    def test_slot_15_atual_depois_das_15h(self):
+        errors = self._call_at_hour("slot-15", "pickup", _today_str(), hour=16)
+        assert errors == {}
 
     def test_slot_12_futuro_as_10h(self):
         errors = self._call_at_hour("slot-12", "pickup", _today_str(), hour=10)

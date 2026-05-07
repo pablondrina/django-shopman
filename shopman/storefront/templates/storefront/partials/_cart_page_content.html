@@ -1,16 +1,12 @@
 {% load omotenashi_tags %}
 {% comment %}
-Cart page inner content — body of the cart page that re-renders on
-``cartUpdated from:body``. Hosted by ``storefront/cart.html`` and
-returned standalone by ``CartPageContentView`` so the page swaps in place
-without a full reload after every stepper, coupon, or upsell action.
+Cart page inner content — body of the cart page. Hosted by ``storefront/cart.html``
+and returned standalone by ``CartPageContentView`` when a full projection refresh
+is actually needed.
 
-Consumes ``CartProjection`` (typed read model). Stepper, delete and
-upsell use Alpine + native ``fetch`` then dispatch ``cartUpdated`` —
-``htmx.ajax`` is avoided here because the cascading reload of this
-wrapper destroys the source element mid-swap-pipeline, which trips
-htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
-``hx-post`` because their submit element survives the swap.
+Consumes ``CartProjection`` (typed projection). Stepper, delete and
+upsell use the compact ``ShopmanCart.setQty`` command. Coupon forms keep
+direct ``hx-post`` because they intentionally refresh the full projection.
 {% endcomment %}
 
 {% omotenashi 'CART_PAGE_TITLE' as cart_page_title %}
@@ -18,7 +14,9 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
   <h1 class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart_page_title.title }}</h1>
   {% if not cart.is_empty %}
   <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">
-    {{ cart.items_count }} {{ cart.items_count|pluralize:"item,itens" }} · {{ cart.subtotal_display }}
+    <span data-cart-items-count>{{ cart.items_count }}</span>
+    <span data-cart-items-label>{{ cart.items_count|pluralize:"item,itens" }}</span>
+    · <span data-cart-subtotal-display>{{ cart.subtotal_display }}</span>
   </p>
   {% endif %}
 </header>
@@ -43,15 +41,15 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
   {# ── Minimum order warning ── #}
   {% if cart.minimum_order_progress %}
-  <div class="card mb-4 flex items-start gap-3 border-warning/40" role="status">
+  <div class="card mb-4 flex items-start gap-3 border-warning/40" role="status" data-cart-minimum>
     <span class="material-symbols-rounded icon-md text-warning shrink-0" aria-hidden="true">info</span>
     <div class="flex-1">
       <p class="text-sm text-on-surface dark:text-on-surface-dark">
-        Faltam <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart.minimum_order_progress.remaining_display }}</strong>
-        para o pedido mínimo de {{ cart.minimum_order_progress.minimum_display }}
+        Faltam <strong class="text-on-surface-strong dark:text-on-surface-dark-strong" data-cart-minimum-remaining>{{ cart.minimum_order_progress.remaining_display }}</strong>
+        para o pedido mínimo de <span data-cart-minimum-total>{{ cart.minimum_order_progress.minimum_display }}</span>
       </p>
       <div class="mt-2 h-1.5 rounded-full bg-surface dark:bg-surface-dark overflow-hidden">
-        <div class="h-full bg-warning transition-all" style="width: {{ cart.minimum_order_progress.percent }}%;"></div>
+        <div class="h-full bg-warning transition-all" style="width: {{ cart.minimum_order_progress.percent }}%;" data-cart-minimum-progress></div>
       </div>
     </div>
   </div>
@@ -76,41 +74,16 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
         {% for item in cart.items %}
         <li id="cart-item-{{ item.line_id }}"
             class="p-4 sm:p-5 flex gap-4"
-            x-data="{
+            x-show="visible"
+            x-data="window.ShopmanCart.line({
+              url: '{% url 'storefront:cart_set_qty' %}',
+              sku: '{{ item.sku|escapejs }}',
               qty: {{ item.qty }},
               max: {% if item.is_awaiting_confirmation %}{{ item.qty }}{% elif item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
-              busy: false,
-              get effectiveMax() { return Math.min(99, this.max); },
-              get showMaxHint() { return this.qty >= (this.effectiveMax - 2) && this.effectiveMax > 0; },
-              set(next) {
-                if (this.busy) return;
-                const ceiling = this.effectiveMax;
-                if (next > ceiling) {
-                  const word = ceiling === 1 ? 'unidade disponível' : 'unidades disponíveis';
-                  window.dispatchEvent(new CustomEvent('notify', {
-                    detail: { variant: 'warning', message: 'Apenas ' + ceiling + ' ' + word + '.' },
-                  }));
-                  next = ceiling;
-                }
-                const target = Math.max(0, next);
-                this.busy = true;
-                this.qty = target;
-                const body = new FormData();
-                body.append('sku', '{{ item.sku }}');
-                body.append('qty', String(target));
-                fetch('{% url 'storefront:cart_set_qty' %}', {
-                  method: 'POST',
-                  headers: {
-                    'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                    'HX-Request': 'true',
-                  },
-                  body,
-                }).finally(() => {
-                  this.busy = false;
-                  htmx.trigger(document.body, 'cartUpdated');
-                });
-              }
-            }">
+              lineTotalDisplay: '{{ item.total_display|escapejs }}',
+              refreshProjection: {% if cart.has_discount or cart.delivery_fee_display %}true{% else %}false{% endif %},
+              refreshProjectionOnZero: true
+            })">
 
           {# Image #}
           <div class="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark">
@@ -215,7 +188,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             {% endif %}
 
             <div class="mt-auto pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              {# Stepper — Alpine state, htmx.ajax to cart_set_qty (absolute, idempotent). #}
+              {# Stepper — compact set-qty command (absolute, idempotent). #}
               <div class="inline-flex items-center gap-1 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
                 <button type="button"
                         class="w-10 h-10 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 disabled:cursor-not-allowed touch-target focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
@@ -233,7 +206,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                   <span class="material-symbols-rounded icon-md" aria-hidden="true">add</span>
                 </button>
               </div>
-              <p class="self-end sm:self-auto shrink-0 max-w-full mr-1 text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
+              <p class="self-end sm:self-auto shrink-0 max-w-full mr-1 text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums" x-text="lineTotalDisplay">{{ item.total_display }}</p>
             </div>
             {# Hint inline (AVAILABILITY-PLAN §7): discreto, aparece perto do limite #}
             <p x-show="showMaxHint" x-cloak
@@ -315,7 +288,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
         <div class="flex justify-between text-sm mb-2">
           <span class="text-on-surface dark:text-on-surface-dark">Itens</span>
-          <span class="text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ cart.subtotal_display }}</span>
+          <span class="text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums" data-cart-subtotal-display>{{ cart.subtotal_display }}</span>
         </div>
 
         {% if cart.delivery_fee_display %}
@@ -327,14 +300,14 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
         <div class="flex justify-between items-baseline pt-3 mt-3 border-t border-outline dark:border-outline-dark">
           <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
-          <span class="text-lg font-semibold text-primary dark:text-primary-dark tabular-nums">{{ cart.grand_total_display }}</span>
+          <span class="text-lg font-semibold text-primary dark:text-primary-dark tabular-nums" data-cart-grand-total-display>{{ cart.grand_total_display }}</span>
         </div>
       </div>
 
       {% if cart.minimum_order_progress %}
-      <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled>
+      <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled data-cart-minimum>
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-        Faltam {{ cart.minimum_order_progress.remaining_display }} para o mínimo
+        Faltam <span data-cart-minimum-remaining>{{ cart.minimum_order_progress.remaining_display }}</span> para o mínimo
       </button>
       <a href="{% url 'storefront:menu' %}" class="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-medium text-primary dark:text-primary-dark hover:underline">
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_shopping_cart</span>
@@ -359,8 +332,8 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
       </a>
 
       {% comment %}
-      Upsell — cart_set_qty with qty=1 adds a fresh line; HX-Trigger
-      cartUpdated reloads this wrapper so the new line appears.
+      Upsell adds a fresh line, so this path intentionally refreshes the full
+      projection after the compact command succeeds.
       {% endcomment %}
       {% if cart.upsell %}
       <div class="card" x-data="{ busy: false }">
@@ -384,20 +357,12 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                   :disabled="busy"
                   @click="
                     busy = true;
-                    const body = new FormData();
-                    body.append('sku', '{{ cart.upsell.sku }}');
-                    body.append('qty', '1');
-                    fetch('{% url 'storefront:cart_set_qty' %}', {
-                      method: 'POST',
-                      headers: {
-                        'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                        'HX-Request': 'true',
-                      },
-                      body,
-                    }).finally(() => {
-                      busy = false;
-                      htmx.trigger(document.body, 'cartUpdated');
-                    });
+                    window.ShopmanCart.setQty({
+                      url: '{% url 'storefront:cart_set_qty' %}',
+                      sku: '{{ cart.upsell.sku|escapejs }}',
+                      qty: 1,
+                      refreshProjection: true,
+                    }).finally(() => busy = false);
                   ">
             Adicionar
           </button>

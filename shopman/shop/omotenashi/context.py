@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from django.http import HttpRequest
@@ -215,11 +215,15 @@ def _customer_signals(
     try:
         from shopman.guestman.models import Customer
         customer = Customer.objects.filter(uuid=info.uuid).first()
+        # Phone fallback: UUID may not match in dev environments where the
+        # customer was created before the Doorman CustomerUser record existed.
+        if customer is None and info.phone:
+            customer = Customer.objects.filter(phone=info.phone).first()
         if customer:
             is_birthday = _is_birthday(customer.birthday, today)
             days_since, fav_cat = _history_signals(customer)
     except Exception:
-        logger.debug("omotenashi._who: customer lookup failed", exc_info=True)
+        logger.warning("omotenashi_customer_signals_failed", exc_info=True)
 
     audience = _audience_for(days_since)
     return audience, name, is_birthday, days_since, fav_cat
@@ -234,7 +238,7 @@ def _is_birthday(birthday: date | None, today: date) -> bool:
 
 
 def _history_signals(customer: Any) -> tuple[int | None, str | None]:
-    """Return (days_since_last_order, favorite_category_name_or_none).
+    """Return (days_since_last_order, favorite_category_ref_or_none).
 
     Soft-coupled to Orderman: if the Order model isn't available or the customer
     has no orders, we return (None, None) silently. This keeps context usable in
@@ -245,20 +249,58 @@ def _history_signals(customer: Any) -> tuple[int | None, str | None]:
     except Exception:
         return None, None
 
-    last = (
-        Order.objects.filter(handle_type="customer", handle_ref=str(customer.uuid))
+    cutoff = timezone.now() - timedelta(days=90)
+    orders = list(
+        Order.objects.filter(
+            handle_type="customer",
+            handle_ref=str(customer.uuid),
+            created_at__gte=cutoff,
+        )
         .order_by("-created_at")
-        .values_list("created_at", flat=True)
-        .first()
+        .values("created_at", "snapshot")
     )
-    if not last:
+    if not orders:
         return None, None
 
-    days_since = (timezone.now() - last).days
-    # Favorite category — deliberately left as None here; to be filled by
-    # customer_summary (Guestman) in a follow-up WP. We don't query it inline
-    # to avoid hot-path DB work on every request.
-    return days_since, None
+    days_since = (timezone.now() - orders[0]["created_at"]).days
+    fav_cat = _favorite_category_from_orders(orders)
+    return days_since, fav_cat
+
+
+def _favorite_category_from_orders(orders: list[dict]) -> str | None:
+    """Return the Collection ref most frequently ordered across recent orders."""
+    try:
+        from shopman.offerman.models import CollectionItem
+    except Exception:
+        return None
+
+    sku_counts: dict[str, int] = {}
+    for order in orders:
+        items = (order.get("snapshot") or {}).get("items") or []
+        for item in items:
+            sku = item.get("sku")
+            if sku:
+                qty = int(item.get("qty", 1) or 1)
+                sku_counts[sku] = sku_counts.get(sku, 0) + qty
+
+    if not sku_counts:
+        return None
+
+    col_counts: dict[str, int] = {}
+    for ci in (
+        CollectionItem.objects.filter(
+            product__sku__in=list(sku_counts),
+            is_primary=True,
+        ).values("collection__ref", "product__sku")
+    ):
+        col_ref = ci["collection__ref"]
+        sku = ci["product__sku"]
+        col_counts[col_ref] = col_counts.get(col_ref, 0) + sku_counts.get(sku, 0)
+
+    if not col_counts:
+        return None
+
+    return max(col_counts, key=lambda r: col_counts[r])
 
 
 def _audience_for(days_since: int | None) -> str:

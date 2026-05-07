@@ -15,6 +15,7 @@ Usage in any other admin:
 
 from __future__ import annotations
 
+from django import forms
 from django.contrib import admin, messages
 from django.db.models import Count, Q
 from django.template.response import TemplateResponse
@@ -23,6 +24,7 @@ from django.utils.translation import gettext_lazy as _
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
 from unfold.decorators import display
+from unfold.widgets import UnfoldAdminTextInputWidget
 
 from shopman.refs.bulk import RefBulk
 from shopman.refs.models import Ref, RefSequence
@@ -66,6 +68,15 @@ class TargetTypeFilter(admin.SimpleListFilter):
         if self.value():
             return queryset.filter(target_type=self.value())
         return queryset
+
+
+class RenameValueForm(forms.Form):
+    new_value = forms.CharField(
+        label=_("Novo valor"),
+        widget=UnfoldAdminTextInputWidget(
+            attrs={"placeholder": _("Valor normalizado (ex: CROISSANT-FR)")}
+        ),
+    )
 
 
 # ── Ref admin ─────────────────────────────────────────────────────────────────
@@ -133,29 +144,29 @@ class RefUnfoldAdmin(BaseModelAdmin):
     @admin.action(description=_("Rename value..."))
     def rename_value_action(self, request, queryset):
         """Intermediate page to rename ref values for the selected refs."""
+        form = RenameValueForm(request.POST or None)
         if request.POST.get("_rename_confirm"):
-            new_value = request.POST.get("new_value", "").strip()
-            if not new_value:
-                self.message_user(request, _("Novo valor não pode ser vazio."), messages.ERROR)
+            if form.is_valid():
+                new_value = form.cleaned_data["new_value"].strip()
+                actor = str(request.user)
+                total = 0
+                for ref_type, old_value in queryset.values_list("ref_type", "value").distinct():
+                    total += RefBulk.rename(ref_type, old_value, new_value, actor=actor)
+
+                self.message_user(
+                    request,
+                    _("{total} referência(s) renomeadas para '{new_value}'.").format(
+                        total=total, new_value=new_value
+                    ),
+                )
                 return
-
-            actor = str(request.user)
-            total = 0
-            for ref_type, old_value in queryset.values_list("ref_type", "value").distinct():
-                total += RefBulk.rename(ref_type, old_value, new_value, actor=actor)
-
-            self.message_user(
-                request,
-                _("{total} referência(s) renomeadas para '{new_value}'.").format(
-                    total=total, new_value=new_value
-                ),
-            )
-            return
+            self.message_user(request, _("Novo valor não pode ser vazio."), messages.ERROR)
 
         return TemplateResponse(
             request,
             "admin/refs/rename_confirm.html",
             {
+                "form": form,
                 "queryset": queryset,
                 "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
                 "opts": self.model._meta,

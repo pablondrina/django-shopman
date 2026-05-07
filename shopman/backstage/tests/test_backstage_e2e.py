@@ -14,18 +14,17 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-from shopman.backstage.models import OperatorAlert
-from shopman.backstage.services import production as production_service
-from shopman.backstage.services.exceptions import ProductionError
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.models import Order, OrderItem
+from shopman.stockman import Position
+from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import OperatorAlert
+from shopman.backstage.services import production as production_service
 from shopman.shop.handlers.production_alerts import check_late_started_orders
 from shopman.shop.handlers.production_order_sync import WORK_ORDER_COMMITTED_ORDER_REFS_KEY
 from shopman.shop.models import Shop
-from shopman.stockman import Position
-from shopman.stockman.services.movements import StockMovements
 
 
 @pytest.fixture
@@ -169,7 +168,7 @@ def test_e2e_stock_receive_appears_on_closing_surface(client, setup):
     StockMovements.receive(quantity=20, sku="POS-LIFE", position=Position.objects.get(ref="loja"), reason="seed")
 
     client.force_login(setup)
-    closing = client.get("/gestor/fechamento/")
+    closing = client.get("/admin/operacao/fechamento/")
     assert closing.status_code == 200
     body = closing.content.decode("utf-8")
     assert "POS-LIFE" in body, "closing surface must list SKU with saleable stock"
@@ -191,7 +190,7 @@ def test_e2e_production_dashboard_renders_after_lifecycle(client, setup):
     craft.finish(wo, finished=10, actor="test")
 
     client.force_login(setup)
-    response = client.get("/gestor/producao/dashboard/")
+    response = client.get("/admin/operacao/producao/painel/")
     assert response.status_code == 200
     body = response.content.decode("utf-8")
     assert "DASH-SKU" in body or "Dash" in body or "concluído" in body.lower()
@@ -216,7 +215,7 @@ def test_e2e_advance_step_via_view_updates_meta(client, setup):
     craft.start(wo, quantity=10, expected_rev=0)
     client.force_login(setup)
 
-    response = client.post(f"/gestor/producao/{wo.pk}/avancar-passo/", HTTP_HX_REQUEST="true")
+    response = client.post(f"/gestor/producao/kds/{wo.pk}/avancar-passo/", HTTP_HX_REQUEST="true")
     assert response.status_code == 200
 
     wo.refresh_from_db()

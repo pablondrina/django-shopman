@@ -64,6 +64,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         delivery_date, delivery_time_slot, saved_address_id_raw, addr_data,
         payment_method=post.get("payment_method", ""),
     )
+    form_data["use_loyalty"] = post.get("use_loyalty") == "true"
 
     errors: dict[str, str] = {}
 
@@ -386,9 +387,12 @@ def _validate_slot(
     delivery_date: str,
 ) -> dict[str, str]:
     from datetime import date as date_type
-    from datetime import time as time_type
 
-    from shopman.storefront.services.pickup_slots import _find_slot_by_ref, get_slots
+    from shopman.storefront.services.pickup_slots import (
+        _find_slot_by_ref,
+        get_slots,
+        is_slot_available_for_today,
+    )
 
     errors: dict[str, str] = {}
     if fulfillment_type != "pickup":
@@ -415,10 +419,8 @@ def _validate_slot(
     if is_today:
         now_local = timezone.localtime()
         try:
-            parts = slot["starts_at"].split(":")
-            slot_time = time_type(int(parts[0]), int(parts[1]))
             current_time = now_local.time().replace(second=0, microsecond=0)
-            if slot_time <= current_time:
+            if not is_slot_available_for_today(slots, delivery_time_slot, now=current_time):
                 errors["delivery_time_slot"] = "Este horário já passou. Selecione um horário futuro."
         except (ValueError, KeyError):
             pass

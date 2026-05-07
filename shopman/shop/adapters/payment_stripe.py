@@ -57,6 +57,7 @@ def create_intent(
     from shopman.payman import PaymentService
 
     metadata = metadata or {}
+    idempotency_key = config.get("idempotency_key") or metadata.get("idempotency_key", "")
     stripe_config = _get_config()
     domain = stripe_config.get("domain", "http://localhost:8000").rstrip("/")
     stripe_currency = currency.lower()
@@ -67,9 +68,13 @@ def create_intent(
         method="card",
         gateway="stripe",
         gateway_data=metadata,
+        idempotency_key=idempotency_key,
     )
+    if db_intent.gateway_id and db_intent.gateway_data.get("checkout_url"):
+        return _intent_from_db(db_intent, currency=currency)
 
     stripe = _get_stripe()
+    create_options = {"idempotency_key": idempotency_key} if idempotency_key else {}
     session = stripe.checkout.Session.create(
         mode="payment",
         payment_method_types=["card"],
@@ -89,11 +94,13 @@ def create_intent(
             **metadata,
         },
         payment_intent_data={
+            "capture_method": config.get("capture_method", "manual"),
             "metadata": {
                 "shopman_ref": db_intent.ref,
                 "order_ref": order_ref,
             },
         },
+        **create_options,
     )
 
     db_intent.gateway_id = session.id
@@ -111,6 +118,18 @@ def create_intent(
         currency=currency,
         gateway_id=session.id,
         metadata={"checkout_url": session.url},
+    )
+
+
+def _intent_from_db(intent, *, currency: str = "BRL") -> PaymentIntent:
+    gateway_data = dict(intent.gateway_data or {})
+    return PaymentIntent(
+        intent_ref=intent.ref,
+        status=intent.status,
+        amount_q=intent.amount_q,
+        currency=currency or intent.currency,
+        gateway_id=intent.gateway_id,
+        metadata={"checkout_url": gateway_data.get("checkout_url", "")},
     )
 
 
@@ -282,22 +301,26 @@ def get_status(intent_ref: str, **config) -> dict:
         }
 
 
-def handle_webhook(payload: bytes, sig_header: str) -> dict:
-    """
-    Process a Stripe webhook event.
-
-    Called by the webhook view. Verifies signature and processes event.
-
-    Returns:
-        {"event_type": str, "intent_ref": str | None}
-    """
-    from shopman.payman import PaymentError, PaymentService
-
+def construct_webhook_event(payload: bytes, sig_header: str):
     stripe = _get_stripe()
     stripe_config = _get_config()
-    event = stripe.Webhook.construct_event(
+    return stripe.Webhook.construct_event(
         payload, sig_header, stripe_config.get("webhook_secret"),
     )
+
+
+def webhook_event_key(event, payload: bytes) -> str:
+    from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+    event_id = getattr(event, "id", "")
+    if isinstance(event_id, str) and event_id.strip():
+        return f"event:{stable_webhook_key(event_id.strip())}"
+    return f"payload:{stable_webhook_key(payload)}"
+
+
+def handle_webhook_event(event) -> dict:
+    """Process a verified Stripe webhook event."""
+    from shopman.payman import PaymentError, PaymentService
 
     intent_ref = None
 
@@ -320,12 +343,6 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
                     pass
             try:
                 PaymentService.authorize(
-                    shopman_ref, gateway_id=payment_intent_id or shopman_ref,
-                )
-            except PaymentError:
-                pass
-            try:
-                PaymentService.capture(
                     shopman_ref, gateway_id=payment_intent_id or shopman_ref,
                 )
             except PaymentError:
@@ -368,12 +385,44 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
             if db_intent:
                 intent_ref = db_intent.ref
                 try:
-                    PaymentService.refund(
+                    PaymentService.reconcile_gateway_status(
                         db_intent.ref,
-                        amount_q=charge.amount_refunded,
-                        gateway_id=charge.id,
+                        gateway_status="refunded",
+                        amount_q=db_intent.amount_q,
+                        captured_q=getattr(charge, "amount_captured", getattr(charge, "amount", db_intent.amount_q)),
+                        refunded_q=charge.amount_refunded,
+                        gateway_id=stripe_intent_id,
+                        refund_gateway_id=charge.id,
                     )
-                except PaymentError:
-                    pass
+                except PaymentError as exc:
+                    logger.warning(
+                        "Stripe refund reconciliation drift intent=%s code=%s context=%s",
+                        db_intent.ref,
+                        exc.code,
+                        exc.context,
+                    )
+                    from shopman.shop.services import observability
+
+                    observability.record_payment_reconciliation_failure(
+                        gateway="stripe",
+                        intent_ref=db_intent.ref,
+                        order_ref=db_intent.order_ref,
+                        code=exc.code,
+                        context=exc.context,
+                        exc=exc,
+                    )
 
     return {"event_type": event.type, "intent_ref": intent_ref}
+
+
+def handle_webhook(payload: bytes, sig_header: str) -> dict:
+    """
+    Process a Stripe webhook event.
+
+    Called by older code paths. Verifies signature and processes event.
+
+    Returns:
+        {"event_type": str, "intent_ref": str | None}
+    """
+    event = construct_webhook_event(payload, sig_header)
+    return handle_webhook_event(event)

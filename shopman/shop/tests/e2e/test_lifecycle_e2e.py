@@ -102,8 +102,8 @@ _LOCAL_CONFIG = {
 }
 
 _REMOTE_CONFIG = {
-    "confirmation": {"mode": "immediate"},
-    "payment": {"method": "pix", "timing": "post_commit"},
+    "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+    "payment": {"method": "pix", "timing": "post_commit", "timeout_minutes": 10},
 }
 
 _MARKETPLACE_CONFIG = {
@@ -171,8 +171,8 @@ class TestE2E1LocalCheckout(TransactionTestCase):
 # E2E-2: web PIX happy path — webhook → on_paid → paid
 # ─────────────────────────────────────────────────────────────────────
 
-class TestE2E2WebPixHappyPath(TestCase):
-    """Remote channel: commit → confirmed → on_paid → stock.fulfill."""
+class TestE2E2WebPixHappyPath(TransactionTestCase):
+    """Remote channel: commit → operator confirms availability → payment → preparing."""
 
     def setUp(self):
         self.channel = _make_channel(ref="web", config=_REMOTE_CONFIG)
@@ -188,16 +188,40 @@ class TestE2E2WebPixHappyPath(TestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # on_commit → immediate confirmation → on_confirmed
-        order.transition_status(Order.Status.CONFIRMED, actor="test")
+        # Commit keeps the order awaiting the establishment's availability
+        # confirmation. Payment must not be generated before that decision.
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+        self.mocks["initiate"].assert_not_called()
+        self.mocks["send"].assert_any_call(order, "order_received")
+        self.assertTrue(
+            Directive.objects.filter(topic="confirmation.timeout", payload__order_ref=order.ref).exists()
+        )
+
+        # Operator confirms availability; only then the PIX payment is started
+        # and the customer receives the active payment request.
+        from shopman.shop.services.operator_orders import confirm_order
+
+        confirm_order(order, actor="operator")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.mocks["initiate"].assert_called_once_with(order)
+        self.mocks["send"].assert_any_call(order, "payment_requested")
+        self.mocks["dispatch"].assert_not_called()
 
-        # Simulate PIX webhook arriving → dispatch on_paid
+        # The gateway boundary is patched, so persist the intent metadata that
+        # payment.initiate would have written in the real flow.
+        order.data["payment"] = {"method": "pix", "intent_ref": "PAY-E2E2"}
+        order.save(update_fields=["data", "updated_at"])
+
+        # Simulate PIX webhook after the customer pays. Physical work starts
+        # only now, after both availability and payment are true.
+        self.mocks["dispatch"].return_value = [MagicMock()]
         dispatch(order, "on_paid")
-
-        # on_paid → stock.fulfill + notification
-        self.mocks["fulfill"].assert_called()
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.PREPARING)
+        self.assertIsNotNone(order.preparing_at)
+        self.mocks["fulfill"].assert_called_once_with(order)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -219,7 +243,7 @@ class TestE2E3WebPixCancelledBeforeWebhook(TransactionTestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # on_commit already confirmed (mode=immediate); go straight to CANCELLED
+        # Remote orders can be cancelled while still awaiting payment/acceptance.
         order.refresh_from_db()
         order.transition_status(Order.Status.CANCELLED, actor="operator")
         order.refresh_from_db()
@@ -255,8 +279,7 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # Operator cancels
-        order.transition_status(Order.Status.CONFIRMED, actor="test")
+        # Operator cancels while payment/acceptance is still pending.
         order.transition_status(Order.Status.CANCELLED, actor="operator")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CANCELLED)
@@ -533,26 +556,27 @@ class TestE2E9StockHoldFailure(TransactionTestCase):
 
 
 # ─────────────────────────────────────────────────────────────────────
-# E2E-10: WhatsApp channel — auto_confirm + manychat notification backend
+# E2E-10: WhatsApp channel — manual confirmation + manychat notification backend
 # ─────────────────────────────────────────────────────────────────────
 
 
 _WHATSAPP_CONFIG = {
-    "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
-    "payment": {"method": ["pix"], "timing": "post_commit"},
+    "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+    "payment": {"method": ["pix"], "timing": "post_commit", "timeout_minutes": 10},
     "notifications": {"backend": "manychat"},
     "stock": {"check_on_commit": False},
 }
 
 
 class TestE2E10WhatsappChannel(TransactionTestCase):
-    """WhatsApp (ManyChat) channel: commit → order_received → auto_confirm directive.
+    """WhatsApp (ManyChat) channel: commit → payment intent → manual queue.
 
     Cobre o gap da audit: nenhum E2E exercita channel_ref="whatsapp" com
     handle_type="manychat". Valida que:
       1. A notificação "order_received" dispara no on_commit (R2).
-      2. Um Directive de confirmation.timeout é agendado (auto_confirm).
-      3. O handle_type/handle_ref chegam no Order corretamente pro ManyChat.
+      2. O pagamento não é iniciado antes da confirmação operacional.
+      3. O timeout de confirmação do estabelecimento é agendado.
+      4. O handle_type/handle_ref chegam no Order corretamente pro ManyChat.
     """
 
     def setUp(self):
@@ -562,7 +586,7 @@ class TestE2E10WhatsappChannel(TransactionTestCase):
     def tearDown(self):
         _stop_patches(self.patchers)
 
-    def test_whatsapp_commit_emits_order_received_and_schedules_auto_confirm(self):
+    def test_whatsapp_commit_emits_order_received_and_waits_for_operator(self):
         session = Session.objects.create(
             session_key=generate_session_key(),
             channel_ref=self.channel.ref,
@@ -582,8 +606,9 @@ class TestE2E10WhatsappChannel(TransactionTestCase):
         self.assertEqual(order.channel_ref, "whatsapp")
         self.assertEqual(order.handle_type, "manychat")
         self.assertEqual(order.handle_ref, "mc_subscriber_12345")
-        # Status fica em NEW porque o modo é auto_confirm (timeout pra confirmar)
+        # Status fica em NEW porque WhatsApp remoto aguarda pagamento + operador.
         self.assertEqual(order.status, Order.Status.NEW)
+        self.mocks["initiate"].assert_not_called()
 
         # Notificação "order_received" disparou no _on_commit (R2 do audit)
         send_calls = [c.args for c in self.mocks["send"].call_args_list]
@@ -593,10 +618,9 @@ class TestE2E10WhatsappChannel(TransactionTestCase):
             f"Expected order_received call; got {send_calls}",
         )
 
-        # Directive de confirmation.timeout foi agendada
+        # No caminho real há uma janela de decisão do estabelecimento.
         directive = Directive.objects.filter(
             topic="confirmation.timeout",
             payload__order_ref=order.ref,
         ).first()
         self.assertIsNotNone(directive)
-        self.assertEqual(directive.payload["action"], "confirm")

@@ -152,7 +152,7 @@ Cada pacote abaixo é pip-instalável (`shopman-<nome>`), vive em `packages/<nom
 **Escopo**: produção em lote (NUNCA por-pedido). WorkOrder = batch antecipado (bake 50 croissants para amanhã).
 
 **Modelos**
-- `Recipe(ref[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)`.
+- `Recipe(ref[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)` — `batch_size` é o rendimento base da ficha técnica.
 - `RecipeItem(recipe, input_ref, quantity, unit, is_optional, sort_order)` — coeficiente francês: `qty_needed = item.qty × (wo.qty / recipe.batch_size)`.
 - `WorkOrder(ref[WO-YYYY-NNNNN], recipe FK, output_ref[copiado no plan, imutável], quantity, finished|null, status∈{PLANNED,STARTED,FINISHED,VOID}, rev[optimistic concurrency], target_date, source_ref, position_ref, operator_ref, meta{_recipe_snapshot})`.
 - `WorkOrderEvent(seq[monotônico por WO], kind∈{PLANNED,ADJUSTED,STARTED,FINISHED,VOIDED}, payload, idempotency_key[unique null], actor)` — append-only; PK composta (work_order, seq).
@@ -456,7 +456,7 @@ Sidebar dinâmica + dashboard com KPIs + Chart.js + tabelas. `ChannelForm` com J
 
 ### 2.13 API (DRF)
 
-Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<sku>/` (cache 10s), `/api/v1/catalog/products/` (cursor 20), `/api/v1/tracking/<ref>/`, `/api/v1/account/*`, `/api/v1/geocode/reverse` (30/min). Idempotency key no checkout. Error envelope consistente. Todas as responses carregam `X-API-Version: 1`. Path prefix `v1` é contrato: breaking changes vão em `v2` paralelo, nunca mutam `v1` in-place.
+Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<sku>/` (cache 10s), `/api/v1/catalog/products/` (cursor 20), `/api/v1/tracking/<ref>/` (mesmo gate de sessao/cliente/staff do tracking HTML), `/api/v1/account/*`, `/api/v1/geocode/reverse` (30/min). Idempotency key no checkout. Error envelope consistente. Todas as responses carregam `X-API-Version: 1`. Path prefix `v1` é contrato: breaking changes vão em `v2` paralelo, nunca mutam `v1` in-place.
 
 ---
 
@@ -468,7 +468,7 @@ Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<s
 
 ### 3.2 Bootstrap
 
-`config/settings.py` wires: Daphne (primeiro), Unfold, Django core, terceiros, 8 cores + contribs, `shopman.shop`, instance apps via env. Middleware inclui `doorman.AuthCustomerMiddleware` + 3 middleware shopman. Auth backends: PhoneOTPBackend + ModelBackend. Templates com 3 context processors. Cache Redis via `REDIS_URL` (fallback LocMem).
+`config/settings.py` wires: Daphne (primeiro), Unfold, Django core, terceiros, 8 cores + contribs, `shopman.shop`, instance apps via env. Middleware inclui `doorman.AuthCustomerMiddleware` + 3 middleware shopman. Auth backends: PhoneOTPBackend + ModelBackend. Templates com 3 context processors. PostgreSQL via `DATABASE_URL` e Redis via `REDIS_URL` formam o runtime canonico; SQLite/LocMem sao apenas fallback local. `REDIS_URL` configura `django.core.cache.backends.redis.RedisCache` e `EVENTSTREAM_REDIS` para SSE multi-worker.
 
 ### 3.3 Seed
 
@@ -484,7 +484,7 @@ Templates (app precedence), static, Shop tokens, canais/presets, adapters (setti
 
 ### 4.1 POV: Cliente final
 
-**E2E cliente web pré-compra delivery**: home (OmotenashiContext) → menu (SSE stock-update) → PDP (add qty) → `availability.reserve` cria Hold → cart badge "Aguardando confirmação" → checkout (Google Places + slots) → OTP WhatsApp (manychat) → auto-create customer → CommitService → `on_commit` dispatch (adopt hold FIFO por qty, payment.initiate PIX, notif "order_received") → QR code → EFI webhook `on_paid` → stock.fulfill → tracking SSE → completed → loyalty.earn + fiscal.emit.
+**E2E cliente web pré-compra delivery**: home (OmotenashiContext) → menu (SSE stock-update) → PDP (add qty) → `availability.reserve` cria Hold → cart badge "Aguardando confirmação" → checkout (Google Places + slots) → autenticação WhatsApp-first por conversa/AccessLink ou template aprovado, com SMS fallback → auto-create customer → CommitService → `on_commit` dispatch (adopt hold FIFO por qty, payment.initiate PIX, notif "order_received") → QR code → EFI webhook `on_paid` → stock.fulfill → tracking SSE → completed → loyalty.earn + fiscal.emit.
 
 **E2E WhatsApp bot**: bot ManyChat cria AccessLink (audience=WEB_CHECKOUT, TTL 5min, source=MANYCHAT) → cliente clica → AccessLinkLoginView valida HMAC+single-use → Django login → redirect para checkout com cart pré-carregado.
 
@@ -494,7 +494,7 @@ Templates (app precedence), static, Shop tokens, canais/presets, adapters (setti
 
 ### 4.2 POV: Operador de pedidos
 
-`/pedidos/` tabs por status (polling 3s). Card NEW com timer Alpine verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
+`/admin/operacao/pedidos/` tabs por status (polling/HTMX). Card NEW com timer Alpine verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
 
 ### 4.3 POV: Cozinha (KDS)
 
@@ -524,7 +524,7 @@ Composição não herança; sinais como contratos fracos + directives como firme
 
 **3 portões**: Antecipar (Yosoku), Estar presente (Sonzai), Ressoar (Yoin). **5 testes**: invisível, antecipação, ma, calor, retorno. **5 lentes**: QUEM / QUANDO / ONDE / O QUÊ / COMO.
 
-Copy patterns: "Bom dia, João. Croissants acabaram de sair do forno." "Ainda não chegamos aí" não "Fora da área". Mobile-first: breakpoints sm/md/lg, thumb zones, 48px touch, 16px+ body, bottom-nav. WhatsApp-first: OTP manychat default, AccessLink chat→web, templates curtos, roteamento origin_channel.
+Copy patterns: "Bom dia, João. Croissants acabaram de sair do forno." "Ainda não chegamos aí" não "Fora da área". Mobile-first: breakpoints sm/md/lg, thumb zones, 48px touch, 16px+ body, bottom-nav. WhatsApp-first: AccessLink chat→web, conversa iniciada pelo cliente ou template aprovado para auth, templates curtos, roteamento origin_channel.
 
 ### 5.3 Simplicidade / Robustez / Elegância
 
@@ -536,7 +536,7 @@ Core enxuto: Offerman sem noção de Channel (só `listing_ref` string); Stockma
 
 ### 5.5 Onboarding / Adoção
 
-Dia 1: `make install && migrate && seed && run` ⇒ rodando. `make dev` CSS watch + worker + server. ~2.448 testes. ADRs documentam decisões. CLAUDE.md contrato para agentes.
+Dia 1: `make install && migrate && seed && run` ⇒ rodando. `make dev` CSS watch + worker + server. O gate factual atual fica em [`../status.md`](../status.md): `make test` local e `Runtime Gate` remoto com PostgreSQL/Redis. ADRs documentam decisões. CLAUDE.md contrato para agentes.
 
 ### 5.6 Segurança
 
@@ -623,7 +623,7 @@ Cada Core viável standalone (Offerman = e-commerce catálogo, Stockman = estoqu
 - 9 pacotes pip-installable criados.
 - admin_unfold standalone por pacote.
 - shopman.utils zero-dep.
-- `pytest --collect-only -q` coleta 717 testes em 2026-04-26; suítes focadas devem passar antes de merge.
+- `make test` deve passar localmente; `Runtime Gate` deve passar no PR com PostgreSQL/Redis e build Docker. Ver [`../status.md`](../status.md).
 
 ### Gate 2 — Domínio vertical
 - Offerman: bundle recursivo + cycle detection; min_qty cascade; two-level AND.

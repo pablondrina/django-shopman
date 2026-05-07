@@ -124,6 +124,17 @@ def listing_item(listing, product):
 # ── Orderman ─────────────────────────────────────────────────────────
 
 
+def _grant_order_access(client, order_ref: str) -> None:
+    from shopman.shop.services.customer_orders import ORDER_ACCESS_SESSION_KEY
+
+    session = client.session
+    refs = list(session.get(ORDER_ACCESS_SESSION_KEY) or [])
+    if order_ref not in refs:
+        refs.append(order_ref)
+    session[ORDER_ACCESS_SESSION_KEY] = refs
+    session.save()
+
+
 @pytest.fixture
 def channel(db):
     return Channel.objects.create(
@@ -133,8 +144,8 @@ def channel(db):
 
 
 @pytest.fixture
-def order(channel):
-    return Order.objects.create(
+def order(channel, client):
+    order = Order.objects.create(
         ref="ORD-001",
         channel_ref=channel.ref,
         status="new",
@@ -143,11 +154,13 @@ def order(channel):
         handle_ref="5543999990001",
         data={},
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_with_payment(channel):
-    return Order.objects.create(
+def order_with_payment(channel, client):
+    order = Order.objects.create(
         ref="ORD-PAY-001",
         channel_ref=channel.ref,
         status="new",
@@ -163,11 +176,13 @@ def order_with_payment(channel):
             },
         },
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_paid(channel):
-    return Order.objects.create(
+def order_paid(channel, client):
+    order = Order.objects.create(
         ref="ORD-PAID-001",
         channel_ref=channel.ref,
         status="confirmed",
@@ -182,6 +197,8 @@ def order_paid(channel):
             },
         },
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
@@ -258,7 +275,7 @@ def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> No
     """Garante ListingItem(published+available) no listing do canal.
 
     `availability.check` valida membership no listing do canal: sem isso o
-    /cart/add/ devolve 422 (`error_code=not_in_listing`).
+    /cart/set-qty/ devolve 422 (`error_code=not_in_listing`).
     """
     listing_obj, _ = Listing.objects.get_or_create(
         ref=channel.ref,
@@ -276,7 +293,7 @@ def cart_session(client, channel, product):
     """Add an item to the cart and return the client with active session."""
     _seed_stock_for_product_sku(product.sku)
     _ensure_listing_item(channel, product, price_q=90)
-    client.post("/cart/add/", {"sku": product.sku, "qty": 2})
+    client.post("/cart/set-qty/", {"sku": product.sku, "qty": 2})
     return client
 
 
@@ -285,5 +302,5 @@ def cart_session_delivery(client, channel, croissant):
     """Cart with enough value for delivery (min R$ 20,00). Uses croissant (R$ 8,00 x 4 = R$ 32,00)."""
     _seed_stock_for_product_sku(croissant.sku)
     _ensure_listing_item(channel, croissant, price_q=800)
-    client.post("/cart/add/", {"sku": croissant.sku, "qty": 4})
+    client.post("/cart/set-qty/", {"sku": croissant.sku, "qty": 4})
     return client

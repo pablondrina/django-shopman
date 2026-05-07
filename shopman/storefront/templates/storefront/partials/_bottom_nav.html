@@ -36,6 +36,9 @@
                   const badge = document.getElementById('cart-badge-header');
                   count = badge ? (parseInt(badge.textContent.trim()) || 0) : 0;
                 }
+              });
+              window.addEventListener('shopman-cart-summary', e => {
+                count = Number(e.detail?.count || 0);
               })">
           <span class="material-symbols-rounded icon-md {% if active_url == 'cart' %}fill-icon{% endif %}" aria-hidden="true">shopping_bag</span>
           <span x-show="count > 0" x-cloak x-text="count"

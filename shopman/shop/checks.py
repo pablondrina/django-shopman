@@ -6,19 +6,26 @@ Registered in ShopmanConfig.ready() via checks.register().
 Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E001  SECRET_KEY is the development default
   SHOPMAN_E002  ALLOWED_HOSTS is empty or contains '*'
-  SHOPMAN_E003  PIX or CARD payment adapter is payment_mock
+  SHOPMAN_E003  PIX or CARD payment adapter is missing or payment_mock without explicit staging allowance
   SHOPMAN_E004  A webhook integration has no token configured
   SHOPMAN_E005  Guestman (Manychat) webhook secret not configured
+  SHOPMAN_E006  Shared Redis cache is not configured
+  SHOPMAN_E007  Database backend is SQLite in production
+  SHOPMAN_E008  Doorman access-link API key is not configured
+  SHOPMAN_E009  Real payment adapter is missing required credentials/files
 
 Warnings (non-blocking, logged at startup):
-  SHOPMAN_W001  Database backend is SQLite
+  SHOPMAN_W001  Database backend is SQLite in local/debug mode
   SHOPMAN_W002  Notification backend is console while DEBUG=False
   SHOPMAN_W003  No fiscal adapter configured while a fiscal-enabled channel exists
   SHOPMAN_W004  Listing.ref has no matching Channel.ref
   SHOPMAN_W005  OFFERMAN pricing backend not configured
+  SHOPMAN_W006  Mock payment adapter explicitly allowed outside DEBUG
 """
 
 from __future__ import annotations
+
+import os
 
 from django.conf import settings
 from django.core.checks import Error, Warning, register
@@ -60,23 +67,102 @@ def check_allowed_hosts(app_configs, **kwargs):
 
 @register(deploy=True)
 def check_payment_adapters(app_configs, **kwargs):
-    errors = []
-    if not settings.DEBUG:
-        adapters = getattr(settings, "SHOPMAN_PAYMENT_ADAPTERS", {})
-        for method in ("pix", "card"):
-            path = adapters.get(method, "")
-            if not path or "payment_mock" in path:
-                errors.append(
-                    Error(
-                        f"Adapter de pagamento para método '{method}' aponta para payment_mock em produção.",
+    messages = []
+    if settings.DEBUG:
+        return messages
+
+    adapters = getattr(settings, "SHOPMAN_PAYMENT_ADAPTERS", {}) or {}
+    allow_mock = bool(getattr(settings, "SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS", False))
+    for method in ("pix", "card"):
+        path = adapters.get(method, "")
+        if not path:
+            messages.append(
+                Error(
+                    f"Adapter de pagamento para método '{method}' não está configurado fora de DEBUG.",
+                    hint=f"Defina SHOPMAN_{method.upper()}_ADAPTER com um adapter real ou habilite mock explicitamente em staging técnico.",
+                    id="SHOPMAN_E003",
+                )
+            )
+            continue
+
+        if "payment_mock" in path:
+            if allow_mock:
+                messages.append(
+                    Warning(
+                        f"Adapter de pagamento para método '{method}' está usando payment_mock fora de DEBUG.",
                         hint=(
-                            f"Defina SHOPMAN_PAYMENT_ADAPTERS['{method}'] com o adapter real "
-                            f"(ex: shopman.adapters.payment_efi ou shopman.adapters.payment_stripe)."
+                            "Isto só é aceitável em staging/teste operacional sem credenciais sandbox reais. "
+                            "Antes de go-live, remova SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS e configure o gateway real."
+                        ),
+                        id="SHOPMAN_W006",
+                    )
+                )
+            else:
+                messages.append(
+                    Error(
+                        f"Adapter de pagamento para método '{method}' aponta para payment_mock fora de DEBUG.",
+                        hint=(
+                            f"Defina SHOPMAN_{method.upper()}_ADAPTER com um adapter real "
+                            "ou habilite SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true apenas em staging técnico."
                         ),
                         id="SHOPMAN_E003",
                     )
                 )
-    return errors
+            continue
+
+        if "payment_efi" in path:
+            messages.extend(_check_efi_payment_credentials(method=method))
+        if "payment_stripe" in path:
+            messages.extend(_check_stripe_payment_credentials(method=method))
+    return messages
+
+
+def _check_efi_payment_credentials(*, method: str):
+    cfg = getattr(settings, "SHOPMAN_EFI", {}) or {}
+    missing = []
+    for key, label in (
+        ("client_id", "EFI_CLIENT_ID"),
+        ("client_secret", "EFI_CLIENT_SECRET"),
+        ("certificate_path", "EFI_CERTIFICATE_PATH"),
+        ("pix_key", "EFI_PIX_KEY"),
+    ):
+        if not cfg.get(key):
+            missing.append(label)
+
+    certificate_path = cfg.get("certificate_path")
+    if certificate_path and not os.path.exists(certificate_path):
+        missing.append("EFI_CERTIFICATE_PATH arquivo existente no container")
+
+    if not missing:
+        return []
+
+    return [
+        Error(
+            f"Adapter EFI configurado para '{method}', mas credenciais/arquivos obrigatórios estão ausentes.",
+            hint="Configure: " + ", ".join(missing) + ".",
+            id="SHOPMAN_E009",
+        )
+    ]
+
+
+def _check_stripe_payment_credentials(*, method: str):
+    cfg = getattr(settings, "SHOPMAN_STRIPE", {}) or {}
+    missing = []
+    if not cfg.get("secret_key"):
+        missing.append("STRIPE_SECRET_KEY")
+    if not cfg.get("webhook_secret"):
+        missing.append("STRIPE_WEBHOOK_SECRET")
+
+    if not missing:
+        return []
+
+    return [
+        Error(
+            f"Adapter Stripe configurado para '{method}', mas credenciais obrigatórias estão ausentes.",
+            hint="Configure: " + ", ".join(missing) + ".",
+            id="SHOPMAN_E009",
+        )
+    ]
 
 
 @register(deploy=True)
@@ -117,18 +203,27 @@ def check_webhook_tokens(app_configs, **kwargs):
 
 @register()
 def check_database_backend(app_configs, **kwargs):
-    warnings = []
+    messages = []
     default_db = settings.DATABASES.get("default", {})
     engine = default_db.get("ENGINE", "")
     if "sqlite3" in engine:
-        warnings.append(
-            Warning(
-                "O banco de dados padrão é SQLite.",
-                hint="SQLite não suporta operações concorrentes adequadamente. Use PostgreSQL em produção.",
-                id="SHOPMAN_W001",
+        if settings.DEBUG:
+            messages.append(
+                Warning(
+                    "O banco de dados padrão é SQLite.",
+                    hint="SQLite não suporta operações concorrentes adequadamente. Use PostgreSQL em produção.",
+                    id="SHOPMAN_W001",
+                )
             )
-        )
-    return warnings
+        else:
+            messages.append(
+                Error(
+                    "O banco de dados padrão é SQLite fora do modo DEBUG.",
+                    hint="Defina DATABASE_URL com PostgreSQL antes de qualquer ambiente público.",
+                    id="SHOPMAN_E007",
+                )
+            )
+    return messages
 
 
 @register()
@@ -163,6 +258,50 @@ def check_guestman_webhook_secret(app_configs, **kwargs):
                     id="SHOPMAN_E005",
                 )
             )
+    return errors
+
+
+@register(deploy=True)
+def check_doorman_access_link_api_key(app_configs, **kwargs):
+    errors = []
+    if settings.DEBUG:
+        return errors
+
+    doorman = getattr(settings, "DOORMAN", {}) or {}
+    if not doorman.get("ACCESS_LINK_API_KEY"):
+        errors.append(
+            Error(
+                "DOORMAN['ACCESS_LINK_API_KEY'] não está configurado em produção.",
+                hint=(
+                    "Defina DOORMAN_ACCESS_LINK_API_KEY. O endpoint de criação "
+                    "de access links é CSRF-exempt por ser integração servidor-servidor "
+                    "e deve falhar fechado fora de DEBUG."
+                ),
+                id="SHOPMAN_E008",
+            )
+        )
+    return errors
+
+
+@register(deploy=True)
+def check_shared_cache_backend(app_configs, **kwargs):
+    errors = []
+    if settings.DEBUG:
+        return errors
+
+    backend = settings.CACHES.get("default", {}).get("BACKEND", "")
+    if backend != "django.core.cache.backends.redis.RedisCache":
+        errors.append(
+            Error(
+                "Cache compartilhado Redis não está configurado em produção.",
+                hint=(
+                    "Defina REDIS_URL. O Shopman usa cache compartilhado para "
+                    "django-ratelimit, caches operacionais curtos e fanout SSE "
+                    "multi-worker via django-eventstream."
+                ),
+                id="SHOPMAN_E006",
+            )
+        )
     return errors
 
 

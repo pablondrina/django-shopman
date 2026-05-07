@@ -29,6 +29,7 @@ ALL_HANDLERS = [
     # Lifecycle
     "shopman.shop.handlers.confirmation.ConfirmationTimeoutHandler",
     "shopman.shop.handlers.confirmation.StaleNewOrderAlertHandler",
+    "shopman.shop.handlers.payment_timeout.PaymentTimeoutHandler",
     # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
     "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
@@ -69,6 +70,7 @@ def register_all() -> None:
     """Register all directive handlers, modifiers, validators, and signals."""
     _register_notification_handlers()
     _register_confirmation_handler()
+    _register_payment_timeout_handler()
     _register_mock_pix_handler()
     _register_customer_strategies()
     _register_fiscal_handlers()
@@ -90,14 +92,17 @@ def register_all() -> None:
 
 
 def _register_notification_handlers() -> None:
-    from shopman.shop.adapters import notification_console, notification_email, notification_manychat
+    from shopman.shop.adapters import notification_email, notification_manychat
     from shopman.shop.handlers.notification import NotificationSendHandler
     from shopman.shop.notifications import register_backend
 
     registry.register_directive_handler(NotificationSendHandler())
-    register_backend("console", notification_console)
     register_backend("email", notification_email)
     register_backend("manychat", notification_manychat)
+    if "console" in (getattr(settings, "SHOPMAN_NOTIFICATION_ADAPTERS", {}) or {}):
+        from shopman.shop.adapters import notification_console
+
+        register_backend("console", notification_console)
 
     sms_path = getattr(settings, "SHOPMAN_SMS_ADAPTER", None)
     if sms_path:
@@ -118,6 +123,11 @@ def _register_confirmation_handler() -> None:
     )
     registry.register_directive_handler(ConfirmationTimeoutHandler())
     registry.register_directive_handler(StaleNewOrderAlertHandler())
+
+
+def _register_payment_timeout_handler() -> None:
+    from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
+    registry.register_directive_handler(PaymentTimeoutHandler())
 
 
 def _register_mock_pix_handler() -> None:

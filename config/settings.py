@@ -25,11 +25,19 @@ def _csv_env_list(name: str, default: str = "") -> list[str]:
     raw = os.environ.get(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.lower() in ("true", "1", "yes")
+
+
 # ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
 # ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false (default já é false)
-DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("true", "1", "yes")
+DEBUG = _env_bool("DJANGO_DEBUG", False)
 
 # ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
@@ -39,6 +47,15 @@ CSRF_TRUSTED_ORIGINS = [
     for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+
+_trust_forwarded_proto = os.environ.get(
+    "DJANGO_TRUST_X_FORWARDED_PROTO",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
+if _trust_forwarded_proto:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 if DEBUG:
     # Permitir os domínios públicos do ngrok ao expor o dev server.
     # ALLOWED_HOSTS recebe os padrões explicitamente para funcionar mesmo quando
@@ -57,8 +74,6 @@ if DEBUG:
         "https://*.ngrok.app",
         "https://*.trycloudflare.com",
     ]
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    USE_X_FORWARDED_HOST = True
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
@@ -125,7 +140,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "shopman.shop.middleware.AppPlatformHealthCheckHostMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -150,6 +167,11 @@ DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
+    "ACCESS_LINK_API_KEY": os.environ.get("DOORMAN_ACCESS_LINK_API_KEY", ""),
+    "MESSAGE_SENDER_CLASS": os.environ.get(
+        "DOORMAN_MESSAGE_SENDER_CLASS",
+        "shopman.doorman.senders.ConsoleSender",
+    ),
     "CUSTOMER_RESOLVER_CLASS": os.environ.get(
         "DOORMAN_CUSTOMER_RESOLVER_CLASS",
         "shopman.guestman.adapters.auth.CustomerResolver",
@@ -188,6 +210,7 @@ import urllib.parse as _urlparse
 _DB_URL = os.environ.get("DATABASE_URL", "").strip()
 if _DB_URL:
     _parsed = _urlparse.urlparse(_DB_URL)
+    _conn_max_age = int(os.environ.get("DATABASE_CONN_MAX_AGE", "60"))
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -196,7 +219,8 @@ if _DB_URL:
             "PASSWORD": _parsed.password or "",
             "HOST": _parsed.hostname or "",
             "PORT": _parsed.port or 5432,
-            "CONN_MAX_AGE": 60,
+            "CONN_MAX_AGE": _conn_max_age,
+            "CONN_HEALTH_CHECKS": _env_bool("DATABASE_CONN_HEALTH_CHECKS", True),
         }
     }
 else:
@@ -215,15 +239,36 @@ else:
 # Produção: defina REDIS_URL (ex.: redis://127.0.0.1:6379/1).
 _redis_url = os.environ.get("REDIS_URL", "").strip()
 if _redis_url:
+    _redis_parsed = _urlparse.urlparse(_redis_url)
+    _redis_db = int((_redis_parsed.path or "/0").lstrip("/") or "0")
+    _redis_kwargs = {
+        "host": _redis_parsed.hostname or "localhost",
+        "port": _redis_parsed.port or 6379,
+        "db": _redis_db,
+    }
+    if _redis_parsed.username:
+        _redis_kwargs["username"] = _urlparse.unquote(_redis_parsed.username)
+    if _redis_parsed.password:
+        _redis_kwargs["password"] = _urlparse.unquote(_redis_parsed.password)
+    if _redis_parsed.scheme == "rediss":
+        _redis_kwargs["ssl"] = True
+
     CACHES = {
         "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
+            # Native Django Redis backend keeps the runtime aligned with
+            # Django 6. django-ratelimit 4.1 has a stale allowlist and emits
+            # W001 for this backend, silenced below after our own Redis check.
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": _redis_url,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
         }
     }
+    SILENCED_SYSTEM_CHECKS = [
+        *globals().get("SILENCED_SYSTEM_CHECKS", []),
+        "django_ratelimit.W001",
+    ]
+    # django-eventstream uses this setting for multiprocess fanout: send_event
+    # publishes to Redis and every Daphne/ASGI worker wakes its local listeners.
+    EVENTSTREAM_REDIS = _redis_kwargs
 else:
     CACHES = {
         "default": {
@@ -239,6 +284,25 @@ else:
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = "/static/"
+STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
+
+_staticfiles_storage_backend = os.environ.get("DJANGO_STATICFILES_STORAGE") or (
+    "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    if not DEBUG
+    else "django.contrib.staticfiles.storage.StaticFilesStorage"
+)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": _staticfiles_storage_backend,
+    },
+}
+WHITENOISE_MANIFEST_STRICT = os.environ.get(
+    "WHITENOISE_MANIFEST_STRICT",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
@@ -253,13 +317,26 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 # ── Manychat (WhatsApp via ManyChat) ────────────────────────────────
 MANYCHAT_API_TOKEN = os.environ.get("MANYCHAT_API_TOKEN", "")
 MANYCHAT_WEBHOOK_SECRET = os.environ.get("MANYCHAT_WEBHOOK_SECRET", "")
-MANYCHAT_OTP_FLOW_NS = os.environ.get("MANYCHAT_OTP_FLOW_NS", "")
 MANYCHAT_FLOW_MAP = {
     # Mapeia eventos de notificação → ManyChat flow namespace.
     # Se vazio, ManychatBackend envia mensagem texto direta (sem flow).
     # Para usar flows, configure no ManyChat e mapeie aqui:
     # "order_confirmed": "content20250401120000_123456",
     # "payment_confirmed": "content20250401120000_234567",
+}
+try:
+    MANYCHAT_API_TIMEOUT = int(os.environ.get("MANYCHAT_API_TIMEOUT", "15"))
+except ValueError:
+    MANYCHAT_API_TIMEOUT = 15
+SHOPMAN_MANYCHAT = {
+    "api_token": MANYCHAT_API_TOKEN,
+    "base_url": os.environ.get("MANYCHAT_API_BASE", "https://api.manychat.com/fb"),
+    "timeout": MANYCHAT_API_TIMEOUT,
+    "resolver": os.environ.get(
+        "MANYCHAT_SUBSCRIBER_RESOLVER",
+        "shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve",
+    ),
+    "flow_map": MANYCHAT_FLOW_MAP,
 }
 
 # ── WhatsApp (Meta Cloud API + Bot F15) ─────────────────────────────
@@ -377,8 +454,11 @@ UNFOLD = {
         {
             "models": ["craftsman.recipe", "craftsman.workorder"],
             "items": [
-                {"title": "Receitas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
-                {"title": "Ordens de Producao", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
+                {"title": "Painel", "link": reverse_lazy("admin_console_production_dashboard")},
+                {"title": "Planejamento", "link": reverse_lazy("admin_console_production_planning")},
+                {"title": "Produção", "link": reverse_lazy("admin_console_production")},
+                {"title": "Fichas técnicas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
+                {"title": "Relatórios", "link": reverse_lazy("admin_console_production_reports")},
             ],
         },
         {
@@ -430,6 +510,26 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API do Django Shopman — commerce suite modular.",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "GuestmanCustomerTypeEnum": [
+            ("individual", "Pessoa Física"),
+            ("business", "Pessoa Jurídica"),
+        ],
+        "CraftsmanWorkOrderStatusEnum": [
+            ("planned", "Planejada"),
+            ("started", "Iniciada"),
+            ("finished", "Concluída"),
+            ("void", "Cancelada"),
+        ],
+        "PaymanPaymentIntentStatusEnum": [
+            ("pending", "Pendente"),
+            ("authorized", "Autorizado"),
+            ("captured", "Capturado"),
+            ("failed", "Falhou"),
+            ("cancelled", "Cancelado"),
+            ("refunded", "Reembolsado"),
+        ],
+    },
 }
 
 # ── Logging ────────────────────────────────────────────────────────────
@@ -500,12 +600,18 @@ SHOPMAN_PAYMENT_ADAPTERS = {
     "cash": None,
     "external": None,
 }
+SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS = _env_bool("SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS", False)
+SHOPMAN_MOCK_PIX_AUTO_CONFIRM = _env_bool("SHOPMAN_MOCK_PIX_AUTO_CONFIRM", False)
+SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS = int(
+    os.environ.get("SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS", "10")
+)
 
 SHOPMAN_NOTIFICATION_ADAPTERS = {
     "manychat": "shopman.shop.adapters.notification_manychat",
     "email": "shopman.shop.adapters.notification_email",
-    "console": "shopman.shop.adapters.notification_console",
 }
+if DEBUG or os.environ.get("SHOPMAN_ENABLE_CONSOLE_NOTIFICATION_ADAPTER", "").lower() in ("true", "1", "yes"):
+    SHOPMAN_NOTIFICATION_ADAPTERS["console"] = "shopman.shop.adapters.notification_console"
 
 SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 
@@ -560,11 +666,11 @@ SHOPMAN_EFI_WEBHOOK = {
 }
 
 # ── Server-Sent Events (django-eventstream) ──────────────────────────
-# Persistence backend for SSE events. The ORM backend is sufficient for a
-# single-process deployment (daphne running standalone). When scaling out to
-# multiple workers, additionally set ``EVENTSTREAM_REDIS = {"host": ..., ...}``
-# so ``send_event`` from any worker reaches every active SSE listener.
+# Persistence backend for SSE events. The ORM backend stores reliable event ids.
+# When REDIS_URL is set, EVENTSTREAM_REDIS is derived above so send_event from
+# any process reaches every active SSE listener across Daphne/ASGI workers.
 EVENTSTREAM_STORAGE_CLASS = "django_eventstream.storage.DjangoModelStorage"
+EVENTSTREAM_CHANNELMANAGER_CLASS = "shopman.shop.eventstream.ShopmanChannelManager"
 
 ASGI_APPLICATION = "config.asgi.application"
 
@@ -594,6 +700,10 @@ SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
 )
 
+SHOPMAN_CART_MUTATION_PERF_LOG_MS = float(
+    os.environ.get("SHOPMAN_CART_MUTATION_PERF_LOG_MS", "0")
+)
+
 # ── Rules security — allowed module prefixes for RuleConfig.rule_path ──
 # Any rule_path not starting with one of these prefixes is rejected at clean()
 # and at load time (defense-in-depth). Extend with care — adding a prefix
@@ -606,6 +716,12 @@ SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES = [
 
 # ── Logging ────────────────────────────────────────────────────────────
 
+SHOPMAN_JSON_LOGS = os.environ.get(
+    "SHOPMAN_JSON_LOGS",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
+_SHOPMAN_LOG_FORMATTER = "json" if SHOPMAN_JSON_LOGS else "verbose"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -614,11 +730,14 @@ LOGGING = {
             "format": "{levelname} {asctime} {name} {message}",
             "style": "{",
         },
+        "json": {
+            "()": "shopman.shop.logging.JsonLogFormatter",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": _SHOPMAN_LOG_FORMATTER,
         },
     },
     "root": {
@@ -645,6 +764,14 @@ LOGGING = {
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_SSL_REDIRECT = os.environ.get(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
+SECURE_REDIRECT_EXEMPT = [
+    r"^health/$",
+    r"^ready/$",
+]
 
 # Content Security Policy (django-csp v4 format)
 # CDN audit:

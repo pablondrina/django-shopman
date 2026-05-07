@@ -1,7 +1,7 @@
 # ADR-003 — Directives sem Celery: fila interna + threshold de migração
 
 **Status:** Aceito
-**Data:** 2025-01-20 (decisão inicial) · Atualizado 2026-04-18 (threshold + observabilidade)
+**Data:** 2025-01-20 (decisão inicial) · Atualizado 2026-04-18 (threshold + observabilidade) · Atualizado 2026-05-04 (Redis runtime vs broker)
 **Escopo:** Processamento assíncrono de tarefas pós-commit (fiscal, notificações, estoque, loyalty, fulfillment)
 
 ---
@@ -10,7 +10,12 @@
 
 O Orderman precisa executar tarefas após o commit de um pedido: emitir NFC-e, notificar cliente, confirmar estoque, registrar contabilidade, creditar pontos, criar fulfillment. Essas tarefas não podem bloquear o request HTTP, precisam de retry em caso de falha, e devem ter garantia at-least-once.
 
-A solução padrão no ecossistema Django é Celery + Redis/RabbitMQ. Isso adiciona 2 dependências de infra (broker + worker), configuração de serializers, monitoramento (Flower), e complexidade operacional significativa — overkill para uma padaria em fase inicial.
+A solução padrão no ecossistema Django é Celery + Redis/RabbitMQ. Isso adiciona um papel novo para a infra — broker de fila — mais worker, configuração de serializers, monitoramento (Flower) e complexidade operacional significativa. Esse papel ainda é overkill para uma padaria em fase inicial.
+
+Nota de runtime: Redis agora é obrigatório em staging/producao como cache
+compartilhado, rate limit e fanout SSE multi-worker. Esta ADR não rejeita Redis
+como infraestrutura de runtime; ela rejeita usar Redis/RabbitMQ como **broker de
+directives** antes dos thresholds definidos abaixo.
 
 ## Decisão
 
@@ -43,9 +48,9 @@ Handlers são registrados via Registry em `AppConfig.ready()` e devem ser **idem
 
 ### Positivas
 
-- **Zero dependências de infra**: sem Redis, sem RabbitMQ, sem Celery. O banco de dados (que já existe) é a fila.
+- **Zero broker de fila externo**: sem RabbitMQ, sem Celery e sem Redis como fila de directives. O banco de dados (que já existe) é a fila.
 - **Operação simples**: um processo Django (gunicorn/daphne) + um `process_directives --watch`. Sem broker para monitorar.
-- **Custo zero**: VPS mínima roda tudo. Sem plano Redis, sem instância extra.
+- **Custo baixo**: Redis já existe no runtime por cache/realtime; directives não adicionam broker nem worker especializado enquanto o volume não exigir.
 - **Transacional**: `Directive.objects.create()` dentro de `transaction.atomic()` garante que a directive só existe se o pedido foi salvo.
 - **Auditável**: toda directive é um registro no banco com status, tentativas, timestamps.
 - **At-least-once + dedupe_key** ⇒ operação logicamente exactly-once.
@@ -115,6 +120,8 @@ Estes mitigadores não eliminam as limitações mas as tornam visíveis — prec
 **Não aceitamos**:
 - Adicionar "Celery light" (ex.: django-rq sem planejamento) como solução intermediária — ou fica no modelo atual, ou migra direito.
 - Instalar Celery antecipadamente "por precaução" — overhead operacional não se justifica antes de threshold.
+- Tratar a presença de Redis no runtime como autorização implícita para usá-lo
+  como fila. Esse uso exige WP de migração próprio.
 
 ## Referências
 

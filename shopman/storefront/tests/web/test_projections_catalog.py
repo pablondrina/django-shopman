@@ -321,7 +321,7 @@ class TestCartAnnotation:
     def test_qty_in_cart_reflects_cart_session(
         self, listing, collection, collection_item, cart_session, product,
     ):
-        """After /cart/add/ puts 2 units in the session, the projection
+        """After /cart/set-qty/ puts 2 units in the session, the projection
         should report ``qty_in_cart == 2`` for that SKU."""
         from django.test import RequestFactory
 

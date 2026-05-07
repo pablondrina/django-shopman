@@ -64,6 +64,30 @@ class TestConfirmationConformance:
 
         order.transition_status.assert_called_with("confirmed", actor="auto_confirm")
 
+    def test_immediate_waits_for_upfront_payment(self):
+        """Digital payment cannot be auto-confirmed before capture."""
+        from shopman.shop.lifecycle import dispatch
+
+        order = _make_order(data={"payment": {"method": "pix", "status": "pending"}})
+        cfg = _config()
+        cfg.confirmation.mode = "immediate"
+        cfg.payment.method = "pix"
+        cfg.payment.timing = "at_commit"
+
+        with _patch_config(cfg):
+            with patch("shopman.shop.lifecycle.customer.ensure"):
+                with patch("shopman.shop.lifecycle.stock.hold"):
+                    with patch("shopman.shop.lifecycle.loyalty.redeem"):
+                        with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
+                            with patch("shopman.shop.lifecycle.notification.send") as mock_send:
+                                with patch("shopman.shop.lifecycle._create_alert") as mock_alert:
+                                    dispatch(order, "on_commit")
+
+        mock_init.assert_called_once_with(order)
+        order.transition_status.assert_not_called()
+        mock_alert.assert_called_once_with(order, "payment_awaiting_confirmation")
+        mock_send.assert_called_once_with(order, "order_received")
+
     def test_manual_does_not_auto_confirm(self):
         """confirmation.mode='manual' → no auto-confirm, operator must confirm."""
         from shopman.shop.lifecycle import dispatch
@@ -153,6 +177,7 @@ class TestPaymentConformance:
         order = _make_order(status="confirmed")
         cfg = _config()
         cfg.payment.timing = "post_commit"
+        cfg.payment.method = "pix"
 
         with _patch_config(cfg):
             with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:

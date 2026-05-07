@@ -245,7 +245,7 @@ class TestWelcomeGateMiddleware:
     def test_post_not_gated(self, client: Client, nameless_customer):
         _login_as_customer(client, nameless_customer)
         # POST should pass through — middleware only intercepts GET
-        resp = client.post("/cart/add/", {"sku": "NONEXISTENT", "qty": 1})
+        resp = client.post("/cart/set-qty/", {"sku": "NONEXISTENT", "qty": 1})
         # We don't care about the business response, only that we didn't
         # get redirected to /bem-vindo/
         assert resp.get("Location", "") != "/bem-vindo/"

@@ -1,4 +1,4 @@
-"""CustomerProfileProjection — read model for the account page (Fase 3).
+"""CustomerProfileProjection — immutable UI projection for the account page (Fase 3).
 
 Translates a Customer + loyalty account + addresses + order history into
 one immutable projection consumed by the ``storefront/account.html``
@@ -82,7 +82,7 @@ class LoyaltyProjection:
 
 @dataclass(frozen=True)
 class CustomerProfileProjection:
-    """Full read model for the storefront account page."""
+    """Full projection for the storefront account page."""
 
     customer_ref: str
     customer_name: str          # full name (or empty)
@@ -211,7 +211,11 @@ def _build_recent_orders(
     customer: AccountCustomer,
 ) -> tuple[OrderSummaryProjection, ...]:
     try:
-        records = customer_orders.history_summaries_for_customer_ref(customer.ref, limit=10)
+        records = customer_orders.history_summaries_for_customer(
+            customer_ref=customer.ref,
+            phone=customer.phone,
+            limit=10,
+        )
         return tuple(
             OrderSummaryProjection(
                 ref=r.ref,
@@ -221,7 +225,7 @@ def _build_recent_orders(
                 status=r.status,
                 status_label=r.status_label,
                 status_color=r.status_color,
-                item_count=r.items_count,
+                item_count=getattr(r, "item_count", getattr(r, "items_count", 0)),
             )
             for r in records
         )

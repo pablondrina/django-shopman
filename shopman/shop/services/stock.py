@@ -9,7 +9,7 @@ The order lifecycle is:
   cart-add → services.availability.reserve(session_key)        [creates PENDING hold]
   checkout → CommitService creates Order with session_key
   on_commit → services.stock.hold(order)                       [adopts session holds]
-  on_paid  → services.stock.fulfill(order)                     [PENDING→CONFIRMED→FULFILLED]
+  on_paid/on_confirmed → services.stock.fulfill(order)          [PENDING→CONFIRMED→FULFILLED]
   cancel   → services.stock.release(order)                     [release adopted holds]
 
 `hold(order)` ADOPTS session holds **by quantity, not by SKU-first**: multiple

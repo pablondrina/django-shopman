@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-from shopman.orderman.models import Order
+from shopman.orderman.models import IdempotencyKey, Order
 
 from shopman.shop.models import Channel
 
@@ -163,6 +163,15 @@ class IFoodWebhookIngestTests(TestCase):
         # total computed from items (2 × 750)
         self.assertEqual(order.total_q, 1500)
 
+        replay = self._post(_payload("IFOOD-NEW-42"))
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertEqual(replay.data["order_ref"], order_ref)
+        self.assertEqual(
+            Order.objects.filter(channel_ref="ifood", external_ref="IFOOD-NEW-42").count(),
+            1,
+        )
+        self.assertEqual(IdempotencyKey.objects.filter(scope="webhook:ifood").count(), 1)
+
     def test_replay_returns_already_processed_no_duplicate(self) -> None:
         # Simulate an already-ingested order directly, to keep this test
         # focused on the webhook's idempotency branch rather than on the
@@ -190,6 +199,20 @@ class IFoodWebhookIngestTests(TestCase):
             ).count(),
             1,
         )
+
+    def test_in_progress_replay_returns_409(self) -> None:
+        from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+        IdempotencyKey.objects.create(
+            scope="webhook:ifood",
+            key=f"order:{stable_webhook_key('IFOOD-IN-PROGRESS')}",
+            status="in_progress",
+        )
+
+        resp = self._post(_payload("IFOOD-IN-PROGRESS"))
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.data["status"], "in_progress")
+        self.assertEqual(Order.objects.filter(channel_ref="ifood").count(), 0)
 
     def test_admin_simulation_entry_point_still_works(self) -> None:
         """Regression: the admin action's direct ingest path still works.

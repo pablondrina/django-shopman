@@ -5,6 +5,10 @@
 
 {% if payment_status.is_paid %}
 {% omotenashi 'PAYMENT_CONFIRMED' as paid %}
+{% omotenashi 'TRACKING_ETA_PREFIX' as eta_prefix %}
+{% omotenashi 'CONFIRMATION_TRACK_CTA' as track_cta %}
+{% omotenashi 'PAYMENT_REDIRECTING_PREFIX' as redirect_prefix %}
+{% omotenashi 'PAYMENT_REDIRECTING_SUFFIX' as redirect_suffix %}
 <div class="rounded-radius border border-success/30 bg-success/10 p-5 text-center"
      x-data="{ show: false, countdown: 3 }"
      x-init="
@@ -20,21 +24,25 @@
     <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-2 font-mono">{{ payment_status.order_ref }}</p>
     {% endif %}
     {% if payment_status.eta_display %}
-    <p class="text-sm text-on-surface dark:text-on-surface-dark mt-2 font-medium">Previsão: {{ payment_status.eta_display }}</p>
+    <p class="text-sm text-on-surface dark:text-on-surface-dark mt-2 font-medium">
+      {{ eta_prefix.title }} {{ eta_prefix.message }} <strong>{{ payment_status.eta_display }}</strong>.
+    </p>
     {% endif %}
     <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
        class="mt-4 inline-flex items-center gap-1.5 rounded-radius bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success/90 focus:outline-hidden focus:ring-2 focus:ring-success min-h-[44px]">
       <span class="material-symbols-rounded text-base" aria-hidden="true">delivery_dining</span>
-      Acompanhar pedido
+      {{ track_cta.title }}
     </a>
     <p class="text-xs mt-2 text-on-surface/85 dark:text-on-surface-dark/60" aria-live="polite">
-      Redirecionando em <span x-text="countdown"></span>s…
+      {{ redirect_prefix.message }} <span x-text="countdown"></span>{{ redirect_suffix.message }}
     </p>
   </div>
 </div>
 
 {% elif payment_status.is_expired %}
 {% omotenashi 'PAYMENT_PIX_EXPIRED' as expired %}
+{% omotenashi 'PAYMENT_PIX_REGENERATE_CTA' as regenerate_cta %}
+{% omotenashi 'PAYMENT_VIEW_ORDER_CTA' as view_order_cta %}
 <div class="rounded-radius border border-warning/30 bg-warning/10 p-4 text-center">
   <span class="material-symbols-rounded text-3xl block mb-1 text-warning" aria-hidden="true">schedule</span>
   <p class="font-semibold text-warning">{{ expired.title }}</p>
@@ -44,21 +52,23 @@
     <form method="post" action="{{ payment_status.regenerate_url }}">
       {% csrf_token %}
       <button type="submit" class="rounded-radius bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
-        Gerar novo PIX
+        {{ regenerate_cta.title }}
       </button>
     </form>
     {% endif %}
     <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
-       class="text-sm underline underline-offset-2 text-on-surface dark:text-on-surface-dark">Ver pedido</a>
+       class="text-sm underline underline-offset-2 text-on-surface dark:text-on-surface-dark">{{ view_order_cta.title }}</a>
   </div>
 </div>
 
 {% elif payment_status.is_cancelled %}
+{% omotenashi 'PAYMENT_CANCELLED' as cancelled %}
+{% omotenashi 'PAYMENT_CANCELLED_DETAILS_CTA' as cancelled_details %}
 <div class="rounded-radius border border-danger/30 bg-danger/10 p-4 text-center text-danger">
   <span class="material-symbols-rounded text-3xl block mb-1" aria-hidden="true">cancel</span>
-  <p class="font-semibold">Pedido cancelado</p>
+  <p class="font-semibold">{{ cancelled.title }}</p>
   <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
-     class="mt-3 inline-block text-sm underline underline-offset-2">Ver detalhes</a>
+     class="mt-3 inline-block text-sm underline underline-offset-2">{{ cancelled_details.title }}</a>
 </div>
 
 {% else %}

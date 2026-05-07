@@ -1,140 +1,49 @@
-"""
-Tests for PedidoMarkPaidView — WP-R4.
-
-POST /gestor/pedidos/<ref>/mark-paid/ → marks cash orders as paid.
-"""
+"""Guardrails for the removed operator hot-path mark-paid shortcut."""
 
 from __future__ import annotations
 
-from django.contrib.auth.models import Permission, User
-from django.contrib.contenttypes.models import ContentType
-from django.test import TransactionTestCase as TestCase
-from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.orderman.models import Order, Session
-from shopman.orderman.services.commit import CommitService
-from shopman.orderman.services.modify import ModifyService
+from pathlib import Path
 
-from shopman.shop.models import Channel, Shop
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import NoReverseMatch, reverse
 
+from shopman.backstage.services import orders as backstage_orders
+from shopman.shop.models import Shop
+from shopman.shop.services import operator_orders
 
-def _create_shop():
-    return Shop.objects.create(
-        name="Test Shop",
-        default_ddd="11",
-        currency="BRL",
-        timezone="America/Sao_Paulo",
-    )
+ROOT = Path(__file__).resolve().parents[3]
 
 
-def _create_order(channel_ref: str = "pdv", payment_method: str = "cash") -> Order:
-    session_key = generate_session_key()
-    Session.objects.create(
-        session_key=session_key,
-        channel_ref=channel_ref,
-        state="open",
-        pricing_policy="fixed",
-        edit_policy="open",
-        handle_type="pos",
-        handle_ref="pos:test",
-    )
-    ModifyService.modify_session(
-        session_key=session_key,
-        channel_ref=channel_ref,
-        ops=[
-            {"op": "add_line", "sku": "TEST-SKU", "qty": 1, "unit_price_q": 1500},
-            {"op": "set_data", "path": "payment.method", "value": payment_method},
-            {"op": "set_data", "path": "fulfillment_type", "value": "pickup"},
-        ],
-        ctx={"actor": "test"},
-    )
-    result = CommitService.commit(
-        session_key=session_key,
-        channel_ref=channel_ref,
-        idempotency_key=generate_idempotency_key(),
-        ctx={"actor": "test"},
-    )
-    return Order.objects.get(ref=result.order_ref)
+class OperatorMarkPaidShortcutTests(TestCase):
+    def test_mark_paid_route_name_is_not_registered(self) -> None:
+        with self.assertRaises(NoReverseMatch):
+            reverse("backstage:gestor_mark_paid", kwargs={"ref": "ORD-1"})
 
+    def test_mark_paid_endpoint_is_not_reachable(self) -> None:
+        Shop.objects.create(name="Test Shop", default_ddd="11", currency="BRL", timezone="America/Sao_Paulo")
+        user = get_user_model().objects.create_superuser("mark-paid-admin", password="pw")
+        self.client.force_login(user)
 
-class MarkPaidTests(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.staff = User.objects.create_user("staff_user", password="pw", is_staff=True)
-        self.regular = User.objects.create_user("regular_user", password="pw", is_staff=False)
-        ct = ContentType.objects.get(app_label="shop", model="shop")
-        perm = Permission.objects.get(content_type=ct, codename="manage_orders")
-        self.staff.user_permissions.add(perm)
-        self.channel = Channel.objects.create(
-            ref="pdv",
-            name="Balcão",
-            is_active=True,
-        )
-        _create_shop()  # required: OnboardingMiddleware redirects /gestor/ if no Shop
-        self.client.force_login(self.staff)
+        response = self.client.post("/admin/operacao/pedidos/ORD-1/marcar-pago/")
 
-    def test_mark_paid_happy_path(self) -> None:
-        """POST mark-paid → marked_paid_by recorded (Payman is canonical status source)."""
-        order = _create_order()
-        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(response.status_code, 404)
 
-        order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
-        # Status is NOT written to order.data — Payman is canonical
-        self.assertNotIn("status", order.data.get("payment", {}))
+    def test_operator_command_services_do_not_export_mark_paid(self) -> None:
+        self.assertFalse(hasattr(backstage_orders, "mark_paid"))
+        self.assertFalse(hasattr(operator_orders, "mark_paid"))
 
-    def test_mark_paid_transitions_new_to_confirmed(self) -> None:
-        """mark-paid on a new order → transitions to confirmed."""
-        order = _create_order()
-        # Force back to "new" to test the transition (PDV may auto-confirm)
-        Order.objects.filter(pk=order.pk).update(status="new")
-        order.refresh_from_db()
-
-        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-
-        order.refresh_from_db()
-        self.assertEqual(order.status, "confirmed")
-
-    def test_mark_paid_idempotent(self) -> None:
-        """mark-paid twice → no error, marked_paid_by unchanged."""
-        order = _create_order()
-        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-        resp2 = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-
-        self.assertEqual(resp2.status_code, 200)
-        order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
-
-    def test_mark_paid_staff_only(self) -> None:
-        """Non-staff user → redirected to login."""
-        order = _create_order()
-        self.client.force_login(self.regular)
-        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-
-        # Redirected to admin login
-        self.assertIn(resp.status_code, [302, 403])
-
-    def test_mark_paid_records_operator(self) -> None:
-        """mark-paid stores operator username."""
-        order = _create_order()
-        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-
-        order.refresh_from_db()
-        self.assertEqual(
-            order.data.get("payment", {}).get("marked_paid_by"),
-            "staff_user",
+    def test_operator_hot_path_surfaces_do_not_expose_mark_paid_action(self) -> None:
+        files = (
+            ROOT / "shopman/backstage/urls.py",
+            ROOT / "shopman/backstage/admin_console/orders.py",
+            ROOT / "shopman/backstage/services/orders.py",
+            ROOT / "shopman/shop/services/operator_orders.py",
+            ROOT / "shopman/backstage/templates/admin_console/orders/cells/actions.html",
         )
 
-    def test_mark_paid_does_not_double_transition(self) -> None:
-        """mark-paid on already-confirmed order doesn't crash."""
-        order = _create_order()
-        order.transition_status("confirmed", actor="test")
-
-        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
-        self.assertEqual(resp.status_code, 200)
-
-        order.refresh_from_db()
-        # Operator marker is set
-        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
-        # Status unchanged (already confirmed)
-        self.assertEqual(order.status, "confirmed")
+        for path in files:
+            with self.subTest(path=path):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("mark-paid", text)
+                self.assertNotIn("mark_paid", text)

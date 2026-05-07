@@ -366,9 +366,10 @@ class LoyaltyRedeemModifier:
         redeem_q = int(loyalty_data.get("redeem_points_q", 0))
         if redeem_q <= 0:
             pricing = session.pricing or {}
-            pricing.pop("loyalty_redeem", None)
-            session.pricing = pricing
-            session.save(update_fields=["pricing"])
+            if "loyalty_redeem" in pricing:
+                pricing.pop("loyalty_redeem", None)
+                session.pricing = pricing
+                session.save(update_fields=["pricing"])
             return
 
         items = session.items or []
@@ -435,9 +436,10 @@ class ManualDiscountModifier:
         pricing = session.pricing or {}
 
         if discount_q <= 0:
-            pricing.pop("manual_discount", None)
-            session.pricing = pricing
-            session.save(update_fields=["pricing"])
+            if "manual_discount" in pricing:
+                pricing.pop("manual_discount", None)
+                session.pricing = pricing
+                session.save(update_fields=["pricing"])
             return
 
         items = session.items or []

@@ -5,10 +5,10 @@ Reconcilia pedidos com status pending_payment cujo webhook de pagamento
 pode ter sido perdido (timeout, reinicialização de servidor, falha de rede).
 
 Lógica:
-  1. Busca Orders com status=pending_payment criadas antes de `--since` atrás.
+  1. Busca Orders NEW/CONFIRMED criadas antes de `--since` atrás.
   2. Para cada uma, lê intent_ref em order.data["payment"].
   3. Consulta Payman: PaymentService.get(intent_ref).
-  4. Se intent.status == "captured" → chama flow.on_paid(order) via transição.
+  4. Se intent.status == "captured" → chama lifecycle.on_paid(order).
   5. Se intent.status == "expired"  → chama flow.on_payment_expired(order) via transição.
   6. Loga cada reconciliação com order.ref, intent_ref, action.
 
@@ -77,7 +77,7 @@ class Command(BaseCommand):
         cutoff = timezone.now() - since_delta
 
         pending = Order.objects.filter(
-            status=Order.Status.CONFIRMED,
+            status__in=(Order.Status.NEW, Order.Status.CONFIRMED),
             created_at__lt=cutoff,
         )
 
@@ -87,6 +87,7 @@ class Command(BaseCommand):
 
         reconciled = 0
         skipped = 0
+        failures = 0
 
         for order in pending:
             payment_data = (order.data or {}).get("payment", {})
@@ -119,6 +120,17 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        failures += 1
+                        from shopman.shop.services import observability
+
+                        observability.record_payment_reconciliation_failure(
+                            gateway=getattr(intent, "gateway", "") or "payman",
+                            intent_ref=intent_ref,
+                            order_ref=order.ref,
+                            code="on_paid_dispatch_failed",
+                            context={"action": "on_paid"},
+                            exc=exc,
+                        )
                         logger.error(
                             "reconcile_payments: falha ao despachar on_paid para order %s: %s",
                             order.ref, exc,
@@ -137,6 +149,17 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        failures += 1
+                        from shopman.shop.services import observability
+
+                        observability.record_payment_reconciliation_failure(
+                            gateway=getattr(intent, "gateway", "") or "payman",
+                            intent_ref=intent_ref,
+                            order_ref=order.ref,
+                            code="expired_cancel_failed",
+                            context={"action": "cancel_expired_order"},
+                            exc=exc,
+                        )
                         logger.error(
                             "reconcile_payments: falha ao cancelar order %s: %s",
                             order.ref, exc,
@@ -154,7 +177,18 @@ class Command(BaseCommand):
                 f"{prefix}order={order.ref} intent={intent_ref} → {action}"
             )
 
-        summary = f"Reconciliados: {reconciled} | Ignorados: {skipped}"
+        from shopman.shop.services import observability
+
+        observability.operational_event(
+            "payment_reconciliation.completed",
+            reconciled=reconciled,
+            skipped=skipped,
+            failures=failures,
+            dry_run=dry_run,
+            since=since_str,
+        )
+
+        summary = f"Reconciliados: {reconciled} | Ignorados: {skipped} | Falhas: {failures}"
         if dry_run:
             self.stdout.write(self.style.WARNING(f"[dry-run] {summary}"))
         else:

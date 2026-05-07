@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from shopman.orderman.exceptions import InvalidTransition
+
 from shopman.backstage.services.exceptions import OrderError
 from shopman.shop.services import operator_orders
 
@@ -17,31 +19,29 @@ def confirm_order(order, *, actor: str):
 def reject_order(order, *, reason: str, actor: str, rejected_by: str):
     if not reason.strip():
         raise OrderError("Motivo obrigatório")
-    return operator_orders.reject_order(
-        order,
-        reason=reason.strip(),
-        actor=actor,
-        rejected_by=rejected_by,
-    )
+    try:
+        return operator_orders.reject_order(
+            order,
+            reason=reason.strip(),
+            actor=actor,
+            rejected_by=rejected_by,
+        )
+    except (ValueError, InvalidTransition) as exc:
+        raise OrderError(str(exc)) from exc
 
 
 def advance_order(order, *, actor: str):
     try:
         return operator_orders.advance_order(order, actor=actor)
-    except ValueError as exc:
+    except (ValueError, InvalidTransition) as exc:
         raise OrderError("Ação inválida") from exc
 
 
 def cancel_order(order, *, reason: str, actor: str):
-    return operator_orders.cancel_order(order, reason=reason, actor=actor)
-
-
-def mark_paid(order, *, actor: str, operator_username: str):
-    return operator_orders.mark_paid(
-        order,
-        actor=actor,
-        operator_username=operator_username,
-    )
+    try:
+        return operator_orders.cancel_order(order, reason=reason, actor=actor)
+    except InvalidTransition as exc:
+        raise OrderError(str(exc)) from exc
 
 
 def save_internal_notes(order, *, notes: str):

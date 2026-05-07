@@ -119,6 +119,11 @@ class Order(models.Model):
                 condition=models.Q(total_q__gte=0),
                 name="ord_order_total_q_non_negative",
             ),
+            models.UniqueConstraint(
+                fields=["channel_ref", "external_ref"],
+                condition=models.Q(external_ref__isnull=False) & ~models.Q(external_ref=""),
+                name="ord_uniq_order_channel_external_ref",
+            ),
         ]
 
     def __init__(self, *args, **kwargs):
@@ -213,6 +218,15 @@ class Order(models.Model):
                     raise InvalidTransition(
                         code="dispatched_requires_delivery",
                         message="Transição para 'dispatched' requer pedido de delivery",
+                        context={"fulfillment_type": ft},
+                    )
+
+            if self.status == self.Status.COMPLETED and old_status == self.Status.READY:
+                ft = self.data.get("fulfillment_type") or self.data.get("delivery_method", "")
+                if ft == "delivery":
+                    raise InvalidTransition(
+                        code="delivery_requires_dispatch_before_completion",
+                        message="Pedido de delivery não pode concluir antes de sair para entrega",
                         context={"fulfillment_type": ft},
                     )
 

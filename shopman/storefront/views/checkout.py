@@ -16,6 +16,7 @@ from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
+from ..services import orders as order_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
@@ -34,6 +35,8 @@ class CheckoutView(View):
 
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
+            return redirect("/login/?next=/checkout/")
+        if not customer_info.phone:
             return redirect("/login/?next=/checkout/")
 
         from shopman.storefront.projections import build_checkout
@@ -95,6 +98,7 @@ class CheckoutView(View):
         self._ensure_customer(intent, order_ref)
         self._persist_new_address(intent, order_ref)
         self._save_checkout_defaults(request, intent, order_ref)
+        order_service.grant_order_access(request, order_ref)
         request.session.pop("cart_session_key", None)
 
         # ── Present ───────────────────────────────────────────────────────
@@ -106,6 +110,8 @@ class CheckoutView(View):
                     return redirect("storefront:order_tracking", ref=order_ref)
             except Exception:
                 logger.exception("payment_check_failed for order %s", order_ref)
+            if intent.payment_method == "pix" and _starts_payment_after_store_confirmation(intent.channel_ref):
+                return redirect("storefront:order_tracking", ref=order_ref)
             return redirect("storefront:order_payment", ref=order_ref)
         return redirect("storefront:order_tracking", ref=order_ref)
 
@@ -157,6 +163,16 @@ class CheckoutView(View):
             )
         except Exception:
             logger.exception("save_checkout_defaults_failed order=%s", order_ref)
+
+
+def _starts_payment_after_store_confirmation(channel_ref: str) -> bool:
+    try:
+        from shopman.shop.config import ChannelConfig
+
+        return ChannelConfig.for_channel(channel_ref).payment.timing == "post_commit"
+    except Exception:
+        logger.warning("payment_timing_lookup_failed channel=%s", channel_ref, exc_info=True)
+        return False
 
 
 class CheckoutOrderSummaryView(View):
@@ -237,4 +253,5 @@ class SimulateIFoodView(View):
             request,
             f"Pedido iFood simulado criado: {order.ref} (external: {order.external_ref}).",
         )
+        order_service.grant_order_access(request, order.ref)
         return redirect("storefront:order_tracking", ref=order.ref)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -38,7 +39,16 @@ class ActiveIntentView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = PaymentIntentSerializer
 
+    @extend_schema(
+        tags=["payments"],
+        summary="Get active payment intent",
+        parameters=[
+            OpenApiParameter("order_ref", str, required=True),
+        ],
+        responses={200: PaymentIntentSerializer},
+    )
     def get(self, request):
         order_ref = request.query_params.get("order_ref")
         if not order_ref:

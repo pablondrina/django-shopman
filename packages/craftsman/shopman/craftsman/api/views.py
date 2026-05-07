@@ -8,6 +8,7 @@ All mutations go through craft service.
 
 from datetime import date as date_type
 
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
@@ -21,6 +22,7 @@ from .serializers import (
     AdjustSerializer,
     CraftQueueItemSerializer,
     CraftSummarySerializer,
+    ExpectedSerializer,
     FinishSerializer,
     NeedSerializer,
     PlanSerializer,
@@ -326,7 +328,17 @@ class QueryViewSet(viewsets.ViewSet):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CraftSummarySerializer
 
+    @extend_schema(
+        tags=["craftsman"],
+        summary="Expected production quantity",
+        parameters=[
+            OpenApiParameter("output_sku", str, required=True),
+            OpenApiParameter("date", str, required=True),
+        ],
+        responses={200: ExpectedSerializer, 400: OpenApiResponse(description="Invalid query.")},
+    )
     @action(detail=False, methods=["get"])
     def expected(self, request):
         """
@@ -358,6 +370,15 @@ class QueryViewSet(viewsets.ViewSet):
             "total": str(total),
         })
 
+    @extend_schema(
+        tags=["craftsman"],
+        summary="Material needs",
+        parameters=[
+            OpenApiParameter("date", str, required=True),
+            OpenApiParameter("expand", bool, required=False),
+        ],
+        responses={200: NeedSerializer(many=True), 400: OpenApiResponse(description="Invalid query.")},
+    )
     @action(detail=False, methods=["get"])
     def needs(self, request):
         """
@@ -385,6 +406,17 @@ class QueryViewSet(viewsets.ViewSet):
         result = craft.needs(d, expand=expand)
         return Response(NeedSerializer(result, many=True).data)
 
+    @extend_schema(
+        tags=["craftsman"],
+        summary="Production suggestions",
+        parameters=[
+            OpenApiParameter("date", str, required=True),
+            OpenApiParameter("output_skus", str, required=False),
+            OpenApiParameter("season_months", str, required=False),
+            OpenApiParameter("high_demand_multiplier", str, required=False),
+        ],
+        responses={200: SuggestionSerializer(many=True), 400: OpenApiResponse(description="Invalid query.")},
+    )
     @action(detail=False, methods=["get"])
     def suggest(self, request):
         """
@@ -446,6 +478,17 @@ class QueryViewSet(viewsets.ViewSet):
         )
         return Response(SuggestionSerializer(result, many=True).data)
 
+    @extend_schema(
+        tags=["craftsman"],
+        summary="Production queue",
+        parameters=[
+            OpenApiParameter("date", str, required=False),
+            OpenApiParameter("position_ref", str, required=False),
+            OpenApiParameter("operator_ref", str, required=False),
+            OpenApiParameter("statuses", str, required=False),
+        ],
+        responses={200: CraftQueueItemSerializer(many=True), 400: OpenApiResponse(description="Invalid query.")},
+    )
     @action(detail=False, methods=["get"])
     def queue(self, request):
         """
@@ -477,6 +520,16 @@ class QueryViewSet(viewsets.ViewSet):
         )
         return Response(CraftQueueItemSerializer(result, many=True).data)
 
+    @extend_schema(
+        tags=["craftsman"],
+        summary="Production summary",
+        parameters=[
+            OpenApiParameter("date", str, required=False),
+            OpenApiParameter("position_ref", str, required=False),
+            OpenApiParameter("operator_ref", str, required=False),
+        ],
+        responses={200: CraftSummarySerializer, 400: OpenApiResponse(description="Invalid query.")},
+    )
     @action(detail=False, methods=["get"])
     def summary(self, request):
         """

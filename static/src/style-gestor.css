@@ -1,9 +1,8 @@
 @import '../../node_modules/@tailwindcss/cli/node_modules/tailwindcss';
 
 @source "../../shopman/backstage/templates/gestor/**/*.html";
-@source "../../shopman/backstage/templates/pedidos/**/*.html";
-@source "../../shopman/backstage/templates/kds/**/*.html";
 @source "../../shopman/backstage/templates/pos/**/*.html";
+@source "../../shopman/backstage/templates/runtime/**/*.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -271,7 +270,8 @@
     .timer-warning {
         @apply bg-warning/10 border-warning/30 text-warning;
     }
-    .timer-urgent {
+    .timer-urgent,
+    .timer-late {
         @apply bg-danger/10 border-danger/30 text-danger;
     }
     .timer-muted {

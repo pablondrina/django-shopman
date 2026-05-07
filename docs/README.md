@@ -11,7 +11,12 @@
 | [`README.md`](../README.md) | Visão geral + entrada rápida (quickstart, caminhos de uso, ecossistema) |
 | [`docs/status.md`](status.md) | Estado factual — o que funciona, versões, contagem de testes real |
 | [`docs/architecture.md`](architecture.md) | Verdade arquitetural — camadas, Protocol/Adapter, dependências |
+| [`docs/reference/runtime-dependencies.md`](reference/runtime-dependencies.md) | Runtime canônico — PostgreSQL, Redis, fallback local e Django 6 |
+| [`docs/guides/deploy.md`](guides/deploy.md) | Deploy sem Docker manual — imagem app, release step e wrappers `make deploy-*` |
+| [`docs/runbooks/README.md`](runbooks/README.md) | Incidentes operacionais P1/P2 e comandos `make diagnose-*` |
 | [`docs/ROADMAP.md`](ROADMAP.md) | Roadmap ativo de correções e próximos passos |
+| [`docs/plans/README.md`](plans/README.md) | Índice de planos vivos, backlog planejado e planos concluídos recentemente |
+| [`docs/plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) | Runbooks, comandos de diagnóstico, healthcheck profundo e reconciliação diária |
 | [`docs/plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) | Playbook ativo de migração/pré-prod |
 | [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
 
@@ -69,6 +74,9 @@ Documentação de consulta rápida gerada a partir do código.
 | Documento | Conteúdo |
 |-----------|----------|
 | [Protocols e Adapters](reference/protocols.md) | Mapa de todos os protocols, dataclasses e adapters disponíveis |
+| [Runtime dependencies](reference/runtime-dependencies.md) | Contrato PostgreSQL/Redis/SQLite, SSE, deploy e Django 6 |
+| [Deploy](guides/deploy.md) | Docker/compose encapsulado por Makefile, release checks e app ASGI |
+| [Runbooks operacionais](runbooks/README.md) | Webhook, pagamento, Redis, PostgreSQL, worker, estoque e estado da loja |
 | [Configurações](reference/settings.md) | Settings por app (STOCKMAN, CRAFTSMAN, DOORMAN, SHOPMAN_*, etc.) com defaults |
 | [Management Commands](reference/commands.md) | Comandos disponíveis com flags, exemplos e cron recomendado |
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |
@@ -102,8 +110,9 @@ packages/                            framework/
 
 | Documento | Descrição |
 |-----------|-----------|
-| [ROADMAP.md](ROADMAP.md) | Próximos passos (P1-P6) e nice-to-haves |
-| [plans/completed/](plans/completed/) | Planos de execução concluídos (Refactor, Consolidation, Hardening, Bridge) |
+| [ROADMAP.md](ROADMAP.md) | Roadmap executivo vivo e dívidas técnicas atuais |
+| [plans/README.md](plans/README.md) | Índice dos planos ativos e backlog planejado |
+| [plans/completed/](plans/completed/) | Planos de execução concluídos e evidências históricas arquivadas |
 
 ---
 

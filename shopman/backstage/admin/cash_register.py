@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from django.contrib import admin
-from unfold.admin import ModelAdmin
-
 from shopman.utils import unfold_badge, unfold_badge_numeric
 from shopman.utils.monetary import format_money
+from unfold.admin import ModelAdmin
 
 from shopman.backstage.models import CashMovement, CashRegisterSession
 

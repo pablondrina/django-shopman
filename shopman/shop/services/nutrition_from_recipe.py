@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
 
@@ -44,6 +44,16 @@ from shopman.offerman.models import Product
 from shopman.offerman.nutrition import NUTRIENT_FIELDS, NutritionFacts
 
 logger = logging.getLogger(__name__)
+
+MASS_UNIT_TO_GRAMS = {
+    "kg": Decimal("1000"),
+    "g": Decimal("1"),
+    "mg": Decimal("0.001"),
+}
+VOLUME_UNIT_TO_ML = {
+    "L": Decimal("1000"),
+    "ml": Decimal("1"),
+}
 
 
 def fill_nutrition_from_recipe(product: Product) -> bool:
@@ -67,16 +77,12 @@ def fill_nutrition_from_recipe(product: Product) -> bool:
         return False
 
     try:
-        from shopman.craftsman.models import Recipe
+        from shopman.craftsman.services.recipes import get_active_recipe_for_output_sku
     except ImportError:
         logger.debug("nutrition_from_recipe: craftsman not installed.")
         return False
 
-    recipe = (
-        Recipe.objects.filter(output_sku=product.sku, is_active=True)
-        .order_by("-updated_at")
-        .first()
-    )
+    recipe = get_active_recipe_for_output_sku(product.sku)
     if recipe is None:
         return False
 
@@ -126,13 +132,13 @@ def _expand_recipe_items(recipe, *, coefficient: Decimal = Decimal("1"), depth: 
         return []
 
     try:
-        from shopman.craftsman.models import Recipe
+        from shopman.craftsman.services.recipes import get_active_recipe_for_output_sku
     except ImportError:
         return []
 
     expanded = []
     for item in recipe.items.filter(is_optional=False).order_by("-quantity", "sort_order"):
-        sub_recipe = Recipe.objects.filter(output_sku=item.input_sku, is_active=True).first()
+        sub_recipe = get_active_recipe_for_output_sku(item.input_sku)
         if sub_recipe:
             sub_coefficient = coefficient * (item.quantity / sub_recipe.batch_size)
             expanded.extend(_expand_recipe_items(sub_recipe, coefficient=sub_coefficient, depth=depth + 1))
@@ -164,9 +170,10 @@ def _sum_nutrition(items, batch_size: Decimal, product: Product) -> NutritionFac
     """Sum per-100g insumo profiles into a per-serving dict.
 
     Math:
-    - Each item contributes ``(item.quantity / batch_size) * 1000 g`` of
-      insumo per unit produced (assuming batch unit = kg; we treat the
-      RecipeItem quantity numerically and normalize by serving mass).
+    - Each item is converted to grams before the per-unit calculation.
+      Volume and unit counts require ``meta["density_g_per_ml"]`` or
+      ``meta["unit_weight_g"]`` respectively; otherwise they are ignored
+      for nutritional totals because per-100g math would be unsafe.
     - The resulting per-unit mass-in-grams is multiplied by
       ``nutrition_per_100g / 100`` to get absolute grams of each nutrient
       in one produced unit.
@@ -185,9 +192,16 @@ def _sum_nutrition(items, batch_size: Decimal, product: Product) -> NutritionFac
         profile = meta.get("nutrition") or {}
         if not profile:
             continue
+        item_grams = _item_quantity_grams(item)
+        if item_grams is None:
+            logger.warning(
+                "nutrition_from_recipe: skipping %s with unit=%s; grams conversion unavailable.",
+                item.input_sku,
+                item.unit,
+            )
+            continue
         has_any_nutrition = True
-        # grams of this insumo per unit produced
-        grams_per_unit = (float(item.quantity) / float(batch_size)) * 1000.0
+        grams_per_unit = float(item_grams / batch_size)
         for field in NUTRIENT_FIELDS:
             per_100g = profile.get(field)
             if per_100g is None:
@@ -219,6 +233,36 @@ def _sum_nutrition(items, batch_size: Decimal, product: Product) -> NutritionFac
         sodium_mg=_round(totals["sodium_mg"] * serving_scale, 0),
         auto_filled=True,
     )
+
+
+def _item_quantity_grams(item) -> Decimal | None:
+    unit = str(getattr(item, "unit", "") or "").strip()
+    quantity = Decimal(str(item.quantity))
+    if unit in MASS_UNIT_TO_GRAMS:
+        return quantity * MASS_UNIT_TO_GRAMS[unit]
+
+    meta = item.meta if isinstance(item.meta, dict) else {}
+    if unit in VOLUME_UNIT_TO_ML:
+        density = _positive_decimal(meta.get("density_g_per_ml"))
+        if density is None:
+            return None
+        return quantity * VOLUME_UNIT_TO_ML[unit] * density
+
+    if unit == "un":
+        unit_weight = _positive_decimal(meta.get("unit_weight_g"))
+        if unit_weight is None:
+            return None
+        return quantity * unit_weight
+
+    return None
+
+
+def _positive_decimal(value) -> Decimal | None:
+    try:
+        decimal = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return decimal if decimal > 0 else None
 
 
 def _round(value: float, digits: int) -> float | None:

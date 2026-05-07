@@ -9,7 +9,7 @@ from datetime import datetime
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from shopman.storefront.omotenashi.context import (
+from shopman.shop.omotenashi.context import (
     MOMENT_FECHADO,
     MOMENT_FECHANDO,
     MOMENT_MANHA,

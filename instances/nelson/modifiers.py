@@ -47,6 +47,15 @@ class D1DiscountModifier:
         self.discount_percent = discount_percent
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        availability = (session.data or {}).get("availability", {})
+        items = session.items or []
+        if not any(
+            item.get("is_d1", False)
+            or availability.get(item.get("sku", ""), {}).get("is_d1", False)
+            for item in items
+        ):
+            return
+
         config = getattr(channel, "config", None) or {}
         channel_rules = config.get("rules", {})
         if "d1_discount_percent" in channel_rules:
@@ -55,9 +64,6 @@ class D1DiscountModifier:
             from shopman.shop.rules.engine import get_rule_params
             percent = get_rule_params("d1_discount").get("discount_percent", self.discount_percent)
 
-        availability = (session.data or {}).get("availability", {})
-
-        items = session.items or []
         modified = False
         for item in items:
             sku = item.get("sku", "")

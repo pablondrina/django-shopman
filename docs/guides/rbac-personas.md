@@ -8,21 +8,25 @@ Nenhum usuário recebe permissões por padrão ao ser criado. O dono atribui del
 
 Superuser (`is_superuser=True`) passa em tudo — sem necessidade de grupo.
 
+Regularização financeira manual não faz parte de `shop.manage_orders`. Se
+necessária, deve viver em fluxo administrativo/financeiro próprio, com motivo,
+evidência e auditoria, sem confirmar pedido automaticamente.
+
 ---
 
 ## Permissões disponíveis
 
 | Permission | Modelo | Concede acesso a | Surface |
 |------------|--------|-----------------|---------|
-| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas; mark_paid | `/gestor/pedidos/*` |
-| `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | `/gestor/kds/*` |
+| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas internas | Admin `/admin/operacao/pedidos/*` |
+| `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | Admin `/admin/operacao/kds/*` |
 | `backstage.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
-| `shop.manage_production` | `Shop` | Criar WorkOrders, avançar produção | `/gestor/producao/*` |
-| `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | `/gestor/fechamento/` |
+| `shop.manage_production` | `Shop` | Criar WorkOrders, planejar e avançar produção | Admin `/admin/operacao/producao/*` + KDS `/gestor/producao/kds/*` |
+| `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | Admin `/admin/operacao/fechamento/` |
 | `shop.manage_catalog` | `Shop` | Criar/editar Product, Listing, Collection | Admin |
 | `shop.manage_customers` | `Shop` | Criar/editar Customer, grupos, loyalty | Admin |
 | `shop.manage_rules` | `RuleConfig` | Criar/editar regras de pricing e validação | Admin |
-| `backstage.view_production_reports` | `DayClosing` | Relatórios de produção | Admin + `/gestor/producao/relatorios/` |
+| `backstage.view_production_reports` | `DayClosing` | Relatórios de produção | Admin `/admin/operacao/producao/relatorios/` |
 
 ---
 

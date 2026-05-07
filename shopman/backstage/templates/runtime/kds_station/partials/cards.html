@@ -1,0 +1,135 @@
+{% if kds_board.is_expedition %}
+<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+  {% for card in kds_board.tickets %}
+  <article class="card p-0 overflow-hidden border-l-4 {% if card.is_delivery %}border-l-info{% else %}border-l-success{% endif %}">
+    <div class="p-4 border-b border-outline dark:border-outline-dark flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ card.channel_icon }}</span>
+          <span>{{ card.fulfillment_label }}</span>
+        </div>
+        <h3 class="text-3xl font-extrabold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums truncate">
+          {{ card.ref }}
+        </h3>
+      </div>
+      <span class="{% if card.is_delivery %}badge-info{% else %}badge-success{% endif %} shrink-0">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ card.fulfillment_icon }}</span>
+        {% if card.is_delivery %}Despacho{% else %}Balcão{% endif %}
+      </span>
+    </div>
+
+    <div class="p-4 grid gap-4">
+      <div class="grid grid-cols-3 gap-2 text-sm">
+        <div>
+          <div class="field-label">Cliente</div>
+          <div class="font-semibold truncate">{{ card.customer_name|default:"-" }}</div>
+        </div>
+        <div>
+          <div class="field-label">Unidades</div>
+          <div class="font-semibold tabular-nums">{{ card.units_count }}</div>
+        </div>
+        <div>
+          <div class="field-label">Linhas</div>
+          <div class="font-semibold tabular-nums">{{ card.line_count }}</div>
+        </div>
+      </div>
+
+      <form method="post"
+            action="{% url 'backstage:kds_station_runtime_expedition' card.pk %}"
+            hx-post="{% url 'backstage:kds_station_runtime_expedition' card.pk %}"
+            hx-target="#kds-station-cards"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="station_ref" value="{{ kds_station.ref }}">
+        <input type="hidden" name="action" value="{% if card.is_delivery %}dispatch{% else %}complete{% endif %}">
+        <button type="submit" class="{% if card.is_delivery %}btn-primary{% else %}btn-success{% endif %} w-full justify-center">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ card.fulfillment_icon }}</span>
+          {% if card.is_delivery %}Despachar pedido{% else %}Entregar pedido{% endif %}
+        </button>
+      </form>
+    </div>
+  </article>
+  {% empty %}
+  <div class="empty-state py-16 md:col-span-2 xl:col-span-3">
+    <span class="material-symbols-rounded icon-display block mb-4 opacity-80" aria-hidden="true">done_all</span>
+    <p class="text-base font-semibold">Nenhum pedido pronto para expedição.</p>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+  {% for ticket in kds_board.tickets %}
+  <article class="card p-0 overflow-hidden border-l-4 {% if ticket.timer_class == 'timer-late' %}border-l-danger{% elif ticket.timer_class == 'timer-warning' %}border-l-warning{% else %}border-l-success{% endif %}">
+    <div class="p-4 border-b border-outline dark:border-outline-dark flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ ticket.channel_icon }}</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ ticket.fulfillment_icon }}</span>
+          <span>{{ ticket.created_at_display }}</span>
+        </div>
+        <h3 class="text-3xl font-extrabold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums truncate">
+          {{ ticket.order_ref }}
+        </h3>
+        {% if ticket.customer_name %}
+        <div class="mt-1 text-sm font-semibold text-on-surface/80 dark:text-on-surface-dark/80 truncate">
+          {{ ticket.customer_name }}
+        </div>
+        {% endif %}
+      </div>
+      <span class="order-timer {% if ticket.timer_class == 'timer-late' %}timer-urgent{% else %}{{ ticket.timer_class }}{% endif %} shrink-0">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">timer</span>
+        {{ ticket.elapsed_seconds|floatformat:"0" }}s
+      </span>
+    </div>
+
+    <div class="p-3 grid gap-2">
+      {% for item in ticket.items %}
+      <form method="post"
+            action="{% url 'backstage:kds_station_runtime_check' ticket.pk %}"
+            class="rounded-lg border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-3"
+            hx-post="{% url 'backstage:kds_station_runtime_check' ticket.pk %}"
+            hx-target="#kds-station-cards"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="index" value="{{ forloop.counter0 }}">
+        <input type="hidden" name="checked" value="{% if item.checked %}0{% else %}1{% endif %}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-lg font-bold leading-snug text-on-surface-strong dark:text-on-surface-dark-strong">
+              {{ item.qty }}x {{ item.name }}
+            </div>
+            <div class="mt-1 flex flex-wrap gap-2 text-xs text-on-surface/70 dark:text-on-surface-dark/70">
+              {% if item.sku %}<span class="font-mono">{{ item.sku }}</span>{% endif %}
+              {% if item.notes %}<span>{{ item.notes }}</span>{% endif %}
+              {% if item.stock_warning %}<span class="text-danger font-semibold">{{ item.stock_warning }}</span>{% endif %}
+            </div>
+          </div>
+          <button type="submit" class="{% if item.checked %}btn-success{% else %}btn-secondary{% endif %} shrink-0">
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">{% if item.checked %}check_circle{% else %}radio_button_unchecked{% endif %}</span>
+            {% if item.checked %}Conferido{% else %}Marcar{% endif %}
+          </button>
+        </div>
+      </form>
+      {% endfor %}
+
+      <form method="post"
+            action="{% url 'backstage:kds_station_runtime_done' ticket.pk %}"
+            hx-post="{% url 'backstage:kds_station_runtime_done' ticket.pk %}"
+            hx-target="#kds-station-cards"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <button type="submit" class="{% if ticket.all_checked %}btn-success{% else %}btn-secondary{% endif %} w-full justify-center">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
+          Finalizar pedido
+        </button>
+      </form>
+    </div>
+  </article>
+  {% empty %}
+  <div class="empty-state py-16 md:col-span-2 xl:col-span-3">
+    <span class="material-symbols-rounded icon-display block mb-4 opacity-80" aria-hidden="true">done_all</span>
+    <p class="text-base font-semibold">Nenhum pedido ativo nesta estação.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

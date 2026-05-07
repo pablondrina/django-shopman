@@ -75,6 +75,7 @@ def add_item(
     sku: str,
     qty: int,
     unit_price_q: int,
+    name: str = "",
     is_d1: bool = False,
 ) -> tuple[Session, str]:
     """Reserve stock and add or merge a cart line."""
@@ -105,6 +106,8 @@ def add_item(
         )
 
     op: dict = {"op": "add_line", "sku": sku, "qty": qty, "unit_price_q": unit_price_q}
+    if name:
+        op["name"] = name
     if is_d1:
         op["is_d1"] = True
     return (
@@ -117,19 +120,29 @@ def add_item(
     )
 
 
-def update_qty(*, session_key: str, channel_ref: str, line_id: str, qty: int) -> Session:
+def update_qty(
+    *,
+    session_key: str,
+    channel_ref: str,
+    line_id: str,
+    qty: int,
+    sku: str | None = None,
+) -> Session:
     """Reconcile holds and update a cart line quantity."""
-    line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
-    if line is not None:
+    line_sku = sku
+    if line_sku is None:
+        line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
+        line_sku = line["sku"] if line is not None else None
+    if line_sku is not None:
         result = availability.reconcile(
-            sku=line["sku"],
+            sku=line_sku,
             new_qty=Decimal(str(qty)),
             session_key=session_key,
             channel_ref=channel_ref,
         )
         if not result["ok"]:
             raise CartUnavailableError(
-                sku=line["sku"],
+                sku=line_sku,
                 requested_qty=qty,
                 available_qty=int(result["available_qty"]),
                 is_paused=result["is_paused"],
@@ -146,12 +159,21 @@ def update_qty(*, session_key: str, channel_ref: str, line_id: str, qty: int) ->
     )
 
 
-def remove_item(*, session_key: str, channel_ref: str, line_id: str) -> Session:
+def remove_item(
+    *,
+    session_key: str,
+    channel_ref: str,
+    line_id: str,
+    sku: str | None = None,
+) -> Session:
     """Reconcile holds and remove a cart line."""
-    line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
-    if line is not None:
+    line_sku = sku
+    if line_sku is None:
+        line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
+        line_sku = line["sku"] if line is not None else None
+    if line_sku is not None:
         availability.reconcile(
-            sku=line["sku"],
+            sku=line_sku,
             new_qty=Decimal("0"),
             session_key=session_key,
             channel_ref=channel_ref,

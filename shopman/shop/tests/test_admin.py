@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from django.contrib import admin
-from django.contrib.auth.models import Permission, User
-from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.models import User
 from django.test import Client, RequestFactory
-from django.urls import reverse
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, RecipeItem
+from django.urls import NoReverseMatch, reverse
 
 from shopman.backstage.models import DayClosing, KDSInstance, OperatorAlert
 from shopman.shop.models import (
@@ -41,11 +36,6 @@ def shop(db):
         primary_color="#C5A55A",
         default_ddd="43",
     )
-
-
-def _shop_permission(codename: str) -> Permission:
-    ct = ContentType.objects.get(app_label="shop", model="shop")
-    return Permission.objects.get(content_type=ct, codename=codename)
 
 
 # ── Registration tests ──────────────────────────────────────────────
@@ -264,314 +254,22 @@ class TestDashboardCallback:
         assert _format_brl(None) == "R$ 0,00"
 
 
-class TestProductionBackstageView:
-    def test_backstage_url_resolves_production_surface(self, db):
-        assert reverse("backstage:production") == "/gestor/producao/"
-        assert reverse("backstage:production_void") == "/gestor/producao/void/"
+class TestProductionBackstageRoutes:
+    def test_operator_console_legacy_routes_do_not_exist(self, db):
+        for route_name in (
+            "backstage:production",
+            "backstage:production_dashboard",
+            "backstage:production_reports",
+            "backstage:production_action",
+            "backstage:production_void",
+            "backstage:bulk_create_work_orders",
+            "backstage:production_work_order_commitments",
+        ):
+            with pytest.raises(NoReverseMatch):
+                reverse(route_name)
 
-    def test_get_exposes_operational_summary_and_queue(self, db, rf, admin_user):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-
-        recipe = Recipe.objects.create(
-            ref="croissant-v1",
-            name="Croissant Tradicional",
-            output_sku="croissant",
-            batch_size=10,
-        )
-        base = Recipe.objects.create(
-            ref="massa-folhada",
-            name="Massa Folhada",
-            output_sku="MASSA-FOLHADA",
-            batch_size=10,
-        )
-        RecipeItem.objects.create(recipe=recipe, input_sku=base.output_sku, quantity=3, unit="kg")
-        craft.plan(recipe, 100, date=date.today(), position_ref="forno")
-        started = craft.plan(recipe, 80, date=date.today(), position_ref="forno", operator_ref="user:joao")
-        craft.start(started, quantity=75, expected_rev=0, position_ref="forno", operator_ref="user:joao")
-
-        request = rf.get("/gestor/producao/")
-        request.user = admin_user
-        response = production_view(request)
-
-        assert response.status_code == 200
-        assert response.context_data["craft_summary"].total == 2
-        assert len(response.context_data["planned_queue"]) == 1
-        assert len(response.context_data["started_queue"]) == 1
-        assert len(response.context_data["matrix_rows"]) == 1
-        assert response.context_data["matrix_rows"][0].planned_qty == "100"
-        assert response.context_data["matrix_rows"][0].started_qty == "75"
-        assert response.context_data["matrix_groups"][0].name == "Massa Folhada"
-        assert response.context_data["base_recipes"][0].output_sku == "MASSA-FOLHADA"
-
-    def test_get_filters_by_date_position_and_operator(self, db, rf, admin_user):
-        from datetime import date, timedelta
-
-        from shopman.backstage.views.production import production_view
-
-        recipe = Recipe.objects.create(
-            ref="baguette-v1",
-            name="Baguette",
-            output_sku="baguette",
-            batch_size=10,
-        )
-        target = date.today() + timedelta(days=1)
-        craft.plan(recipe, 100, date=target, position_ref="forno", operator_ref="user:joao")
-        craft.plan(recipe, 50, date=target, position_ref="bancada", operator_ref="user:maria")
-
-        request = rf.get(
-            "/gestor/producao/",
-            {"date": target.isoformat(), "position_ref": "forno", "operator_ref": "user:joao"},
-        )
-        request.user = admin_user
-        response = production_view(request)
-
-        assert response.status_code == 200
-        assert response.context_data["selected_date"] == target
-        assert response.context_data["craft_summary"].total == 1
-        assert len(response.context_data["planned_queue"]) == 1
-        assert len(response.context_data["today_wos"]) == 1
-
-    def test_get_filters_matrix_by_base_recipe(self, db, rf, admin_user):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-
-        levain_base = Recipe.objects.create(
-            ref="massa-levain",
-            name="Massa Levain",
-            output_sku="MASSA-LEVAIN",
-            batch_size=10,
-        )
-        folhada_base = Recipe.objects.create(
-            ref="massa-folhada",
-            name="Massa Folhada",
-            output_sku="MASSA-FOLHADA",
-            batch_size=10,
-        )
-        levain = Recipe.objects.create(
-            ref="levain-a",
-            name="Levain A",
-            output_sku="LEVAIN-A",
-            batch_size=10,
-        )
-        folhado = Recipe.objects.create(
-            ref="folhado-a",
-            name="Folhado A",
-            output_sku="FOLHADO-A",
-            batch_size=10,
-        )
-        RecipeItem.objects.create(recipe=levain, input_sku=levain_base.output_sku, quantity=2, unit="kg")
-        RecipeItem.objects.create(recipe=folhado, input_sku=folhada_base.output_sku, quantity=3, unit="kg")
-        craft.plan(levain, 12, date=date.today(), position_ref="forno")
-        craft.plan(folhado, 24, date=date.today(), position_ref="forno")
-
-        request = rf.get("/gestor/producao/", {"base_recipe": "MASSA-FOLHADA"})
-        request.user = admin_user
-        response = production_view(request)
-
-        assert response.status_code == 200
-        assert response.context_data["selected_base_recipe"] == "MASSA-FOLHADA"
-        assert [row.output_sku for row in response.context_data["matrix_rows"]] == ["FOLHADO-A"]
-        assert {base.output_sku for base in response.context_data["base_recipes"]} == {
-            "MASSA-FOLHADA",
-            "MASSA-LEVAIN",
-        }
-        assert response.context_data["matrix_groups"][0].rows[0].usage.quantity_display == "3 kg"
-
-    def test_get_allows_finished_column_only_operator(self, db, rf):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-
-        user = User.objects.create_user("finished-op", password="pass", is_staff=True)
-        user.user_permissions.add(_shop_permission("view_production_finished"))
-
-        recipe = Recipe.objects.create(
-            ref="pain-au-chocolat-v1",
-            name="Pain au Chocolat",
-            output_sku="PAIN-AU-CHOCOLAT",
-            batch_size=10,
-        )
-        planned = craft.plan(recipe, 30, date=date.today(), position_ref="forno")
-        finished = craft.plan(recipe, 20, date=date.today(), position_ref="forno")
-        craft.finish(finished, finished=18, actor="test")
-
-        request = rf.get("/gestor/producao/")
-        request.user = user
-        response = production_view(request)
-
-        assert response.status_code == 200
-        assert response.context_data["production_access"].can_view_finished is True
-        assert response.context_data["production_access"].can_view_planned is False
-        assert len(response.context_data["planned_queue"]) == 0
-        assert len(response.context_data["finished_queue"]) == 1
-        assert response.context_data["today_wos"][0].ref == finished.ref
-        assert planned.ref not in [wo.ref for wo in response.context_data["today_wos"]]
-
-    def test_post_requires_finished_edit_column(self, db, rf):
-        from shopman.backstage.views.production import production_view
-
-        user = User.objects.create_user("finished-viewer", password="pass", is_staff=True)
-        user.user_permissions.add(_shop_permission("view_production_finished"))
-
-        request = rf.post("/gestor/producao/", {"recipe": "1", "quantity": "1"})
-        request.user = user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(request)
-
-        assert response.status_code == 302
-
-    def test_post_can_set_planned_start_and_finish_canonical_lifecycle(self, db, rf, admin_user):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-        from shopman.craftsman.models import WorkOrder
-
-        recipe = Recipe.objects.create(
-            ref="rustico-v1",
-            name="Italiano Rústico",
-            output_sku="ITALIANO-RUSTICO",
-            batch_size=10,
-        )
-
-        plan_request = rf.post(
-            "/gestor/producao/",
-            {
-                "action": "set_planned",
-                "recipe": str(recipe.pk),
-                "quantity": "12",
-                "target_date": date.today().isoformat(),
-                "operator_ref": "user:ana",
-            },
-        )
-        plan_request.user = admin_user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(plan_request)
-
-        assert response.status_code == 302
-        work_order = WorkOrder.objects.get(output_sku="ITALIANO-RUSTICO")
-        assert work_order.status == WorkOrder.Status.PLANNED
-        assert work_order.operator_ref == "user:ana"
-
-        adjust_request = rf.post(
-            "/gestor/producao/",
-            {
-                "action": "set_planned",
-                "recipe": str(recipe.pk),
-                "quantity": "14",
-                "target_date": date.today().isoformat(),
-                "operator_ref": "user:ana",
-            },
-        )
-        adjust_request.user = admin_user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(adjust_request)
-
-        assert response.status_code == 302
-        assert WorkOrder.objects.filter(output_sku="ITALIANO-RUSTICO").count() == 1
-        work_order.refresh_from_db()
-        assert work_order.quantity == 14
-
-        start_request = rf.post(
-            "/gestor/producao/",
-            {
-                "action": "start",
-                "wo_id": str(work_order.pk),
-                "quantity": "11",
-                "target_date": date.today().isoformat(),
-                "operator_ref": "user:bia",
-            },
-        )
-        start_request.user = admin_user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(start_request)
-
-        assert response.status_code == 302
-        work_order.refresh_from_db()
-        assert work_order.status == WorkOrder.Status.STARTED
-        assert work_order.started_qty == 11
-        assert work_order.operator_ref == "user:bia"
-
-        finish_request = rf.post(
-            "/gestor/producao/",
-            {
-                "action": "finish",
-                "wo_id": str(work_order.pk),
-                "quantity": "10",
-                "target_date": date.today().isoformat(),
-            },
-        )
-        finish_request.user = admin_user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(finish_request)
-
-        assert response.status_code == 302
-        work_order.refresh_from_db()
-        assert work_order.status == WorkOrder.Status.FINISHED
-        assert work_order.finished == 10
-        assert work_order.loss == 1
-
-    def test_post_can_clear_planned_quantity_from_matrix(self, db, rf, admin_user):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-        from shopman.craftsman.models import WorkOrder
-
-        recipe = Recipe.objects.create(
-            ref="focaccia-v1",
-            name="Focaccia",
-            output_sku="FOCACCIA",
-            batch_size=10,
-        )
-
-        for quantity in ("8", "0"):
-            request = rf.post(
-                "/gestor/producao/",
-                {
-                    "action": "set_planned",
-                    "recipe": str(recipe.pk),
-                    "quantity": quantity,
-                    "target_date": date.today().isoformat(),
-                },
-            )
-            request.user = admin_user
-            with patch("shopman.backstage.views.production.messages"):
-                response = production_view(request)
-            assert response.status_code == 302
-
-        work_order = WorkOrder.objects.get(output_sku="FOCACCIA")
-        assert work_order.status == WorkOrder.Status.VOID
-
-    def test_suggested_editor_can_turn_suggestion_into_plan(self, db, rf):
-        from datetime import date
-
-        from shopman.backstage.views.production import production_view
-        from shopman.craftsman.models import WorkOrder
-
-        user = User.objects.create_user("suggestion-op", password="pass", is_staff=True)
-        user.user_permissions.add(_shop_permission("edit_production_suggested"))
-        recipe = Recipe.objects.create(
-            ref="bagel-v1",
-            name="Bagel",
-            output_sku="BAGEL",
-            batch_size=10,
-        )
-
-        request = rf.post(
-            "/gestor/producao/",
-            {
-                "action": "set_planned",
-                "source": "suggested",
-                "recipe": str(recipe.pk),
-                "quantity": "9",
-                "target_date": date.today().isoformat(),
-            },
-        )
-        request.user = user
-        with patch("shopman.backstage.views.production.messages"):
-            response = production_view(request)
-
-        assert response.status_code == 302
-        assert WorkOrder.objects.get(output_sku="BAGEL").quantity == 9
+    def test_canonical_production_routes_are_admin_unfold(self, db):
+        assert reverse("admin_console_production") == "/admin/operacao/producao/"
+        assert reverse("admin_console_production_dashboard") == "/admin/operacao/producao/painel/"
+        assert reverse("admin_console_production_reports") == "/admin/operacao/producao/relatorios/"
+        assert reverse("admin_console_production_bulk_create") == "/admin/operacao/producao/criar/"

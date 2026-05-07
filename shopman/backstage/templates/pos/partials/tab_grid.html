@@ -1,0 +1,29 @@
+{% for tab in tabs %}
+<button type="button"
+        class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative border active:scale-95 hover:shadow-sm {% if tab.state == 'in_use' %}border-warning/40 bg-warning/10{% else %}border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt{% endif %}"
+        hx-post="/gestor/pos/tab/{{ tab.code }}/open/"
+        hx-swap="none"
+        x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadTab(d); htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
+  <span class="material-symbols-rounded icon-md text-on-surface/45 dark:text-on-surface-dark/45" aria-hidden="true">confirmation_number</span>
+  <span class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums truncate">{{ tab.display_code }}</span>
+  <span class="{{ tab.status_class }} leading-none">{{ tab.status_label }}</span>
+  {% if tab.state == "in_use" %}
+  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums">{{ tab.total_display }}</span>
+  <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 truncate max-w-full">
+    {{ tab.item_count }} item{% if tab.item_count != 1 %}s{% endif %}
+    {% if tab.customer_name %} · {{ tab.customer_name }}{% elif tab.customer_phone %} · {{ tab.customer_phone }}{% endif %}
+  </span>
+  {% if tab.items_preview %}
+  <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 truncate max-w-full">{{ tab.items_preview }}</span>
+  {% endif %}
+  {% else %}
+  <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Livre</span>
+  {% endif %}
+</button>
+{% empty %}
+<div class="col-span-full flex flex-col items-center justify-center py-8 px-4 text-center gap-2 text-on-surface/50 dark:text-on-surface-dark/50">
+  <span class="material-symbols-rounded icon-display select-none" aria-hidden="true">confirmation_number</span>
+  <p class="text-sm font-semibold">{% if query %}Nenhuma comanda encontrada{% else %}Nenhuma comanda cadastrada{% endif %}</p>
+  <p class="text-sm">Cadastre uma comanda para começar.</p>
+</div>
+{% endfor %}

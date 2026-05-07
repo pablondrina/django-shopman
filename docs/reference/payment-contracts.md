@@ -23,6 +23,14 @@ pending → authorized → captured → refunded
 - **Múltiplos refunds parciais** são permitidos enquanto `captured_total - refunded_total > 0`.
 - O intent transiciona para `REFUNDED` no primeiro refund e permanece lá para refunds subsequentes.
 
+## Reconciliation
+
+- **Snapshots de gateway são cumulativos.** `PaymentService.reconcile_gateway_status()` recebe totais do gateway (`captured_q`, `refunded_q`) e grava apenas o delta local necessário.
+- **Sem replay financeiro.** Repetir o mesmo snapshot não cria nova transação.
+- **Sem voltar dinheiro no tempo.** Se o gateway reporta refund menor que o total local, o serviço falha com `reconciliation_refund_mismatch`.
+- **Sem fail-open.** Divergência de valor, moeda, gateway id ou captura após cancelamento local gera `PaymentError` específico para revisão operacional.
+- **Stripe:** `charge.amount_refunded` é cumulativo; o adapter reconcilia esse total em vez de tratá-lo como delta.
+
 ## Mutation Surface
 
 - **`PaymentService`** é a superfície canônica de mutação. Todas as transições de status, criação de transações e emissão de signals passam por ele.
@@ -38,6 +46,7 @@ pending → authorized → captured → refunded
 | `PaymentService.get_by_gateway_id(gateway_id)` | `PaymentIntent \| None` | Busca por ID externo |
 | `PaymentService.captured_total(ref)` | `int` (centavos) | Total capturado |
 | `PaymentService.refunded_total(ref)` | `int` (centavos) | Total reembolsado |
+| `PaymentService.reconcile_gateway_status(ref, ...)` | `PaymentReconciliationResult` | Aplica snapshot cumulativo do gateway |
 
 ## PaymentTransaction
 

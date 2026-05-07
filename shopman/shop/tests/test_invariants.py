@@ -14,7 +14,7 @@ Invariantes verificadas:
 5. ChannelConfig governa os aspectos declarados.
 6. Templates não usam inline event handlers (onclick, onchange, etc.).
 7. except Exception: pass (sem log) proibido em business logic.
-8. Deprecated naming (comanda, parked) não aparece em data keys.
+8. Deprecated POS tab naming não aparece em data keys.
 9. Templates não usam document.getElementById (exceções documentadas).
 """
 
@@ -494,13 +494,13 @@ class TestNoBareExceptPass:
         )
 
 
-# ── Invariant 9: No deprecated naming in data keys ──
+# ── Invariant 9: No deprecated POS tab naming in data keys ──
 
 
 class TestNoDeprecatedDataKeys:
     """Deprecated Session/Order data key names must not appear in data access patterns.
 
-    Renames: comanda→tab, parked→standby, parked_by→standby_operator.
+    POS uses tab/tab_code internally. Portuguese product copy stays in UI only.
 
     Only checks patterns that access .data dict keys or set_data/get operations,
     not Portuguese prose in comments or docstrings.
@@ -510,8 +510,10 @@ class TestNoDeprecatedDataKeys:
 
     DEPRECATED_KEYS = {
         "comanda": "tab",
-        "parked": "standby",
-        "parked_by": "standby_operator",
+        "parked": "tab",
+        "parked_by": "pos_operator",
+        "standby": "tab_code",
+        "standby_claim": "tab_code",
     }
 
     # Patterns that indicate actual data key usage (not prose):

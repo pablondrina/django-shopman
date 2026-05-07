@@ -391,9 +391,10 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
         coefficient_new = new_quantity / recipe.batch_size
 
         # Own new ingredient needs
-        own_needs: dict[str, Decimal] = {}
+        own_needs: dict[tuple[str, str], Decimal] = {}
         for ri in recipe.items.filter(is_optional=False):
-            own_needs[ri.input_sku] = ri.quantity * coefficient_new
+            key = (ri.input_sku, ri.unit)
+            own_needs[key] = own_needs.get(key, Decimal("0")) + ri.quantity * coefficient_new
 
         if not own_needs:
             return
@@ -409,21 +410,23 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
             .prefetch_related("recipe__items")
         )
 
-        other_needs: dict[str, Decimal] = {}
+        other_needs: dict[tuple[str, str], Decimal] = {}
         for other in other_wos:
             other_coeff = other.quantity / other.recipe.batch_size
             for ri in other.recipe.items.filter(is_optional=False):
-                if ri.input_sku in own_needs:
-                    other_needs[ri.input_sku] = (
-                        other_needs.get(ri.input_sku, Decimal("0"))
-                        + ri.quantity * other_coeff
-                    )
+                key = (ri.input_sku, ri.unit)
+                if key in own_needs:
+                    other_needs[key] = other_needs.get(key, Decimal("0")) + ri.quantity * other_coeff
 
         # Check availability for shared ingredients only
         shared_refs = set(own_needs) & set(other_needs) | set(own_needs)
         material_needs = [
-            MaterialNeed(sku=ref, quantity=own_needs.get(ref, Decimal("0")) + other_needs.get(ref, Decimal("0")))
-            for ref in shared_refs
+            MaterialNeed(
+                sku=sku,
+                quantity=own_needs.get((sku, unit), Decimal("0")) + other_needs.get((sku, unit), Decimal("0")),
+                unit=unit,
+            )
+            for sku, unit in shared_refs
         ]
 
         inv_backend = import_string(inv_path)()

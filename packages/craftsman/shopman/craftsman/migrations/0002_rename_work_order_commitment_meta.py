@@ -1,6 +1,5 @@
 from django.db import migrations
 
-
 OLD_KEY = "serves_order_refs"
 NEW_KEY = "committed_order_refs"
 

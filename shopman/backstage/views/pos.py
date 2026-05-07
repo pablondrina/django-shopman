@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
-from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
+from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary, build_pos_tabs
 from shopman.backstage.services import pos as pos_cash_service
 from shopman.backstage.services.exceptions import POSError
 from shopman.shop.services import pos as pos_service
@@ -228,12 +228,12 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
     )
 
 
-# ── Standby Sessions ────────────────────────────────────────────────
+# ── POS Tabs ────────────────────────────────────────────────────────
 
 
 @require_POST
-def pos_park(request: HttpRequest) -> HttpResponse:
-    """POST /gestor/pos/park/ — save current cart as a standby tab."""
+def pos_tab_save(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/tab/save/ — save the current cart on its POS tab."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -251,53 +251,104 @@ def pos_park(request: HttpRequest) -> HttpResponse:
         return HttpResponse('<span class="text-xs text-warning">Carrinho vazio</span>', status=422)
 
     try:
-        result = pos_service.park_session(
+        result = pos_service.save_pos_tab(
             channel_ref=POS_CHANNEL_REF,
             payload=body,
             actor=f"pos:{request.user.username}",
             operator_username=request.user.username,
         )
     except Exception as e:
-        logger.exception("pos_park failed")
+        logger.exception("pos_tab_save failed")
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
     response = HttpResponse(
-        f'<span data-tab="{result.tab}" class="text-xs text-success font-semibold">'
-        f'Tab {result.tab} em standby</span>'
+        f'<span data-tab-code="{result.tab_code}" class="text-xs text-success font-semibold">'
+        f'POS tab {result.tab_display} em uso</span>'
     )
-    response["HX-Trigger"] = "sessionParked"
+    response["HX-Trigger"] = "posTabSaved"
     return response
 
 
 @require_GET
-def pos_sessions(request: HttpRequest) -> HttpResponse:
-    """GET /gestor/pos/sessions/ — HTMX: standby session tab list."""
+def pos_tabs(request: HttpRequest) -> HttpResponse:
+    """GET /gestor/pos/tabs/ — HTMX: POS tab grid."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("", status=403)
 
-    sessions = pos_service.standby_sessions(channel_ref=POS_CHANNEL_REF)
+    query = (request.GET.get("q") or request.GET.get("tab_code") or "").strip()
+    tabs = build_pos_tabs(channel_ref=POS_CHANNEL_REF, query=query)
 
-    return render(request, "pos/partials/session_tabs.html", {"sessions": sessions})
+    return render(request, "pos/partials/tab_grid.html", {"tabs": tabs, "query": query})
 
 
-@require_GET
-def pos_load_session(request: HttpRequest, session_key: str) -> HttpResponse:
-    """GET /gestor/pos/session/<key>/load/ — return session data as JSON for Alpine."""
+@require_POST
+def pos_tab_create(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/tab/create/ — register a POS tab."""
+    denied = _perm_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    try:
+        tab = pos_service.register_pos_tab(
+            tab_code=request.POST.get("tab_code", ""),
+            label=request.POST.get("label", ""),
+        )
+    except Exception as e:
+        logger.exception("pos_tab_create failed")
+        return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
+
+    response = HttpResponse(
+        f'<span data-tab-code="{tab["tab_code"]}" class="text-xs text-success font-semibold">'
+        f'POS tab {tab["tab_display"]} cadastrada</span>'
+    )
+    response["HX-Trigger"] = "posTabSaved"
+    return response
+
+
+@require_POST
+def pos_tab_open(request: HttpRequest, tab_code: str = "") -> HttpResponse:
+    """POST /gestor/pos/tab/open/ — open or load a POS tab as JSON."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse('{"error":"forbidden"}', content_type="application/json", status=403)
 
-    payload = pos_service.load_standby_session(
+    code = tab_code or request.POST.get("tab_code", "").strip()
+    try:
+        payload = pos_service.open_pos_tab(
+            channel_ref=POS_CHANNEL_REF,
+            tab_code=code,
+            actor=f"pos:{request.user.username}",
+            operator_username=request.user.username,
+        )
+    except Exception as e:
+        logger.exception("pos_tab_open failed")
+        return HttpResponse(json.dumps({"error": str(e)}), content_type="application/json", status=422)
+
+    response = HttpResponse(json.dumps(payload), content_type="application/json")
+    response["HX-Trigger"] = "posTabOpened"
+    return response
+
+
+@require_POST
+def pos_tab_clear(request: HttpRequest, session_key: str) -> HttpResponse:
+    """POST /gestor/pos/tab/<key>/clear/ — make a POS tab empty again."""
+    denied = _perm_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    cleared = pos_service.clear_pos_tab(
         channel_ref=POS_CHANNEL_REF,
         session_key=session_key,
+        operator_username=request.user.username,
     )
-    if payload is None:
-        return HttpResponse('{"error":"not_found"}', content_type="application/json", status=404)
-
-    import json as _json
-    response = HttpResponse(_json.dumps(payload), content_type="application/json")
-    response["HX-Trigger"] = "sessionLoaded"
+    response = HttpResponse(
+        '<span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">POS tab liberado</span>'
+        if cleared
+        else "",
+        status=200 if cleared else 404,
+    )
+    response["HX-Trigger"] = "posTabSaved"
     return response
 
 

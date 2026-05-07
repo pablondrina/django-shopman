@@ -1,7 +1,7 @@
-{% extends "admin/base_site.html" %}
+{% extends "admin/base.html" %}
 {% load i18n static unfold %}
 
-{% block title %}Producao | {{ site_title|default:_('Django site admin') }}{% endblock %}
+{% block title %}Produção | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
 {% block extrahead %}
   {{ block.super }}
@@ -12,130 +12,69 @@
 {% endblock %}
 
 {% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="production-console-main" role="main">
 {% component "unfold/components/container.html" %}
-  <div class="flex flex-col gap-4">
-    {% include "unfold/helpers/tab_list.html" with tabs_list=production_tabs %}
-
-    <div>
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          {% component "unfold/components/title.html" with class="text-2xl" %}
-            Producao
+  <div class="flex flex-col gap-6" x-data="{ filtersOpen: false, directEntryOpen: false }">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-1">
+          {% component "unfold/components/title.html" %}
+            Produção
           {% endcomponent %}
-          {% include "unfold/helpers/label.html" with text="Piloto Admin/Unfold" type="primary" %}
+          {% component "unfold/components/text.html" with class="text-base-500" %}
+            Produção do dia · {{ production_filter_summary }}
+          {% endcomponent %}
         </div>
-        {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
-          Board operacional dentro do shell Admin. A tela antiga continua disponivel para comparacao.
-        {% endcomponent %}
+        <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+          {% if production_access.can_edit_finished %}
+            {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="directEntryOpen = true"' %}
+              {% component "unfold/components/icon.html" with class="text-base" %}add_circle{% endcomponent %}
+              Entrada direta
+            {% endcomponent %}
+          {% endif %}
+          {% component "unfold/components/button.html" with href=production_work_orders_today_url variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}list_alt{% endcomponent %}
+            Lista Admin
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="filtersOpen = true"' %}
+            {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
+            Filtros
+          {% endcomponent %}
+        </div>
       </div>
+
+      {% include "unfold/helpers/tab_list.html" with tabs_list=production_flow_tabs %}
+
+      {% if production_status_tracker %}
+        {% component "unfold/components/tracker.html" with data=production_status_tracker size="sm" %}{% endcomponent %}
+      {% endif %}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {% for kpi in production_kpis %}
-        {% component "unfold/components/card.html" with icon=kpi.icon footer=kpi.footer %}
-          {% component "unfold/components/text.html" with class="text-xs uppercase text-base-500" %}
-            {{ kpi.title }}
-          {% endcomponent %}
-          {% component "unfold/components/title.html" with class="mt-1 text-2xl" %}
-            {{ kpi.value }}
-          {% endcomponent %}
-        {% endcomponent %}
-      {% endfor %}
-    </div>
-
-    {% component "unfold/components/card.html" with title="Filtros" %}
-      <form method="get" novalidate>
-        {% if production_status %}
-          <input type="hidden" name="status__exact" value="{{ production_status }}">
-        {% endif %}
-        <div class="grid gap-4 lg:gap-6 md:grid-cols-2 xl:grid-cols-5">
-          {% for field in production_filter_form.visible_fields %}
-            {% include "unfold/helpers/field.html" with field=field %}
-          {% endfor %}
-          <div class="flex flex-col items-start justify-end mb-5">
-            {% component "unfold/components/button.html" with submit=1 %}
-              {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
-              Filtrar
+    <div class="flex flex-col gap-4">
+      {% for section in production_order_sections %}
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-1">
+            {% component "unfold/components/title.html" with class="text-lg" %}
+              {{ section.title }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+              {{ section.subtitle }}
             {% endcomponent %}
           </div>
+          {% component "unfold/components/table.html" with table=section.table striped=1 %}{% endcomponent %}
         </div>
-      </form>
-    {% endcomponent %}
+      {% empty %}
+        {% component "unfold/components/table.html" with table=production_matrix_table striped=1 %}{% endcomponent %}
+      {% endfor %}
 
-    <div id="production-action-result"></div>
-
-    {% if suggestions and production_access.can_edit_planned %}
-      {% capture as suggestions_action silent %}
-        <form hx-post="{{ bulk_create_url }}"
-              hx-target="#bulk-create-result"
-              hx-swap="innerHTML">
-          {% csrf_token %}
-          <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
-          {% for suggestion in suggestions %}
-            <input type="hidden" name="recipe_ref" value="{{ suggestion.recipe_ref }}">
-            <input type="hidden" name="quantity" value="{{ suggestion.quantity }}">
-          {% endfor %}
-          {% component "unfold/components/button.html" with submit=1 %}
-            {% component "unfold/components/icon.html" with class="text-base" %}auto_awesome{% endcomponent %}
-            Gerar sugestoes
-          {% endcomponent %}
-        </form>
-      {% endcapture %}
-
-      {% component "unfold/components/card.html" with title="Sugestoes de producao" action=suggestions_action %}
-        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-          Gera OPs planejadas com a demanda calculada para o dia.
-        {% endcomponent %}
-        <div id="bulk-create-result" class="mt-4"></div>
-      {% endcomponent %}
-    {% endif %}
-
-    {% capture as production_map_action silent %}
-      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-        {{ selected_date|date:"d/m/Y" }} - {{ production_matrix_table.rows|length }} SKUs filtrados. Quantidades por produto/SKU.
-      {% endcomponent %}
-    {% endcapture %}
-
-    {% component "unfold/components/card.html" with title="Mapa de producao" action=production_map_action %}
-      {% component "unfold/components/table.html" with table=production_matrix_table card_included=1 striped=1 height=680 %}{% endcomponent %}
-    {% endcomponent %}
+      {% include "admin_console/unfold/modal.html" with open_var="filtersOpen" close_action="filtersOpen = false" modal_title="Filtros de produção" modal_description="Ajuste data, posto, operador ou ficha-base." form=production_filter_form form_fields=production_filter_fields form_id="production-filters" form_method="get" form_action=production_reset_url submit_label="Aplicar filtros" cancel_label="Fechar" clear_href=production_reset_url clear_label="Limpar filtros" cancel_attrs='type="button" x-on:click="filtersOpen = false"' %}
+    </div>
 
     {% if production_access.can_edit_finished %}
-      {% component "unfold/components/card.html" with title="Entrada direta" %}
-        {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
-          Atalho para registrar algo que ja terminou sem passar pelas etapas.
-        {% endcomponent %}
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% for hidden in production_quick_finish_form.hidden_fields %}
-            {{ hidden }}
-          {% endfor %}
-          <div class="grid gap-4 md:grid-cols-3">
-            {% for field in production_quick_finish_form.visible_fields %}
-              {% include "unfold/helpers/field.html" with field=field %}
-            {% endfor %}
-          </div>
-          <div class="flex justify-end">
-            {% component "unfold/components/button.html" with submit=1 %}
-              {% component "unfold/components/icon.html" with class="text-base" %}add_circle{% endcomponent %}
-              Registrar entrada direta
-            {% endcomponent %}
-          </div>
-        </form>
-      {% endcomponent %}
-    {% endif %}
-
-    {% if production_access.can_manage_all or today_wos %}
-      {% capture as production_history_action silent %}
-        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-          Consulte as OPs do dia quando precisar auditar a jornada.
-        {% endcomponent %}
-      {% endcapture %}
-
-      {% component "unfold/components/card.html" with title="Historico da data" action=production_history_action %}
-        {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
-      {% endcomponent %}
+      {% include "admin_console/unfold/modal.html" with open_var="directEntryOpen" close_action="directEntryOpen = false" modal_title="Entrada direta" modal_description="Registre produção já concluída somente quando a OP não passou pelo apontamento de início." form=production_quick_finish_form form_id="production-direct-entry" submit_label="Registrar entrada direta" cancel_label="Fechar" cancel_attrs='type="button" x-on:click="directEntryOpen = false"' %}
     {% endif %}
   </div>
 {% endcomponent %}
+</main>
 {% endblock %}

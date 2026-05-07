@@ -2,7 +2,6 @@
 
 from django.db import migrations
 
-
 SHOP_PERMISSIONS = [
     ("manage_orders", "Pode confirmar/rejeitar/avançar/cancelar pedidos"),
     ("manage_production", "Pode criar WorkOrders e avançar produção"),

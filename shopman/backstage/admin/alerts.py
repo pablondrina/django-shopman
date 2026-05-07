@@ -5,12 +5,12 @@ from __future__ import annotations
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
 from unfold.decorators import action, display
 from unfold.enums import ActionVariant
 
 from shopman.backstage.models import OperatorAlert
-from shopman.utils import unfold_badge
 
 
 @admin.register(OperatorAlert)

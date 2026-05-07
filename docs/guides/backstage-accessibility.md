@@ -42,12 +42,12 @@ Baseline enforced via testes — falham se regredir:
 
 - `#operator-alerts-panel` em `gestor/base.html`: `role="status"` + `aria-live="polite"` + `aria-relevant="additions"` — anuncia novos alertas.
 - KDS display: `aria-live="polite"` + `aria-relevant="additions"` no container de tickets.
-- Sync produção↔pedidos: progressbar em `pedidos/partials/detail.html` com `aria-valuenow/min/max`.
+- Sync produção↔pedidos: dependências de OP aparecem no detalhe Admin de pedidos com percentual de avanço por OP.
 
 ## Como Auditar Localmente
 
 1. Rodar `python manage.py runserver`.
-2. Abrir `/gestor/pos/`, `/gestor/kds/<ref>/`, `/gestor/pedidos/`, `/gestor/producao/`, `/gestor/fechamento/`.
+2. Abrir `/admin/operacao/pedidos/`, `/admin/operacao/producao/`, `/admin/operacao/kds/<ref>/`, `/admin/operacao/fechamento/`, `/gestor/pos/` e `/gestor/producao/kds/`.
 3. Rodar axe DevTools em cada tela.
 4. Testar navegação por teclado nos fluxos críticos.
 5. Em macOS, ativar VoiceOver e validar que os updates do KDS e alertas do fechamento são anunciados.

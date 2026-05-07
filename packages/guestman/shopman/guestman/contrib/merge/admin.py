@@ -91,11 +91,21 @@ class MergeAdminMixin:
             )
 
         # GET — show confirmation page
+        merge_comparison_table = {
+            "headers": ["Campo", "Source (será desativado)", "Target (receberá dados)"],
+            "rows": [
+                ["Código", source.ref, target.ref],
+                ["Nome", source.name, target.name],
+                ["Telefone", source.phone, target.phone],
+                ["Email", source.email, target.email],
+            ],
+        }
         context = {
             **self.admin_site.each_context(request),
             "title": "Confirmar Merge de Clientes",
             "source": source,
             "target": target,
+            "merge_comparison_table": merge_comparison_table,
             "opts": self.model._meta,
         }
         return TemplateResponse(

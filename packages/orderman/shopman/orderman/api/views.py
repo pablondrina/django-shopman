@@ -28,7 +28,6 @@ import logging
 from dataclasses import asdict
 
 from rest_framework import mixins, status, viewsets
-from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -43,6 +42,7 @@ from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService, ModifyService, ResolveService
 
 from .serializers import (
+    ChannelSerializer,
     DirectiveSerializer,
     OrderSerializer,
     SessionCommitSerializer,
@@ -113,26 +113,14 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
             raise NotFound("Channels are provided by the host shop app.")
         return Channel.objects.all()
 
-    @property
-    def serializer_class(self):
-        Channel = get_shop_channel_model()
-        if Channel is None:
-            raise NotFound("Channels are provided by the host shop app.")
-
-        class ChannelSerializer(drf_serializers.ModelSerializer):
-            class Meta:
-                model = Channel
-                fields = ("id", "ref", "name", "display_order", "is_active")
-
-        return ChannelSerializer
-
+    serializer_class = ChannelSerializer
     permission_classes = get_orderman_setting("DEFAULT_PERMISSION_CLASSES")
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
 
 class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     """
-    ViewSet para sessões (carrinhos/comandas).
+    ViewSet para sessões (carrinhos/POS tabs).
 
     Endpoints:
         GET  /api/sessions - Lista sessões

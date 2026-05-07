@@ -5,6 +5,10 @@
 > respeitando as leis do projeto (HTMX ↔ servidor, Alpine ↔ DOM, zero libs de componentes
 > externas, zero gambiarras, design tokens existentes).
 
+> Nota 2026-05-02: este plano entregou a fundacao de Omotenashi no storefront.
+> Para a etapa de plenitude operacional, onde contexto precisa mudar fluxo e
+> promessa, ver [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md).
+
 ## Princípio-guia
 
 Omotenashi é **fluxo** — o sistema conduz a pessoa à sua intenção com mínimo atrito e

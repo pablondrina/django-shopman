@@ -1,0 +1,63 @@
+<div class="h-full grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-0 lg:gap-px bg-outline-dark">
+  <section class="min-h-0 bg-surface-dark p-5 md:p-8 overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between gap-3 mb-5">
+      <h2 class="text-xl md:text-3xl font-extrabold text-on-surface-dark-strong">Pronto para retirar</h2>
+      <span class="count-badge bg-success text-on-success">{{ board.ready|length }}</span>
+    </div>
+
+    <div class="grid gap-3 content-start overflow-y-auto pr-1">
+      {% for order in board.ready %}
+      <article class="rounded-lg border border-success/40 bg-success/10 px-4 py-4 md:px-6 md:py-5">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <div class="text-sm md:text-base font-semibold text-success">Pedido</div>
+            <div class="text-5xl md:text-7xl font-extrabold text-on-surface-dark-strong leading-none tabular-nums truncate">
+              {{ order.ref }}
+            </div>
+          </div>
+          <div class="badge-success shrink-0">
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">done</span>
+            {{ order.status_label }}
+          </div>
+        </div>
+      </article>
+      {% empty %}
+      <div class="empty-state min-h-48">
+        <span class="material-symbols-rounded icon-display text-on-surface-dark/30" aria-hidden="true">room_service</span>
+        <p class="text-lg font-semibold">Nenhum pedido pronto</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="min-h-0 bg-surface-dark-alt p-5 md:p-8 overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between gap-3 mb-5">
+      <h2 class="text-xl md:text-3xl font-extrabold text-on-surface-dark-strong">Em preparo</h2>
+      <span class="count-badge bg-warning text-on-warning">{{ board.preparing|length }}</span>
+    </div>
+
+    <div class="grid gap-3 content-start overflow-y-auto pr-1">
+      {% for order in board.preparing %}
+      <article class="rounded-lg border border-outline-dark bg-surface-dark px-4 py-3 md:px-5 md:py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-warning">Pedido</div>
+            <div class="text-3xl md:text-5xl font-extrabold text-on-surface-dark-strong leading-none tabular-nums truncate">
+              {{ order.ref }}
+            </div>
+          </div>
+          <div class="badge-warning shrink-0">
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">skillet</span>
+            {{ order.status_label }}
+          </div>
+        </div>
+      </article>
+      {% empty %}
+      <div class="empty-state min-h-48">
+        <span class="material-symbols-rounded icon-display text-on-surface-dark/30" aria-hidden="true">timer</span>
+        <p class="text-lg font-semibold">Fila em dia</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>

@@ -143,6 +143,15 @@ class TestSendCodeWithFallback:
         assert success is True
         assert method == "sms"
 
+    @override_settings(DOORMAN={
+        "DELIVERY_CHAIN": ["whatsapp", "sms", "email"],
+    })
+    def test_phone_chain_does_not_try_email(self):
+        """Phone targets must not fall back to email delivery."""
+        adapter = DefaultAuthAdapter()
+
+        assert adapter.get_delivery_chain("+5543999990001") == ["whatsapp", "sms"]
+
 
 # ── Service-level integration ────────────────────────────────────────
 

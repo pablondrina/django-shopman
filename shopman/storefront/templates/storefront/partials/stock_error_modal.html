@@ -26,20 +26,14 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
        async pickAction(sku, qty, name, isAlternative) {
          if (this.busy) return;
          this.busy = true;
-         const body = new FormData();
-         body.append('sku', sku);
-         body.append('qty', String(qty));
          try {
-           const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
-             method: 'POST',
-             headers: {
-               'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-               'HX-Request': 'true',
-             },
-             body,
+           const result = await window.ShopmanCart.setQty({
+             url: '{% url 'storefront:cart_set_qty' %}',
+             sku,
+             qty,
+             refreshProjection: this.origin === 'cart',
            });
-           if (resp.ok) {
-             htmx.trigger(document.body, 'cartUpdated');
+           if (result.ok) {
              window.dispatchEvent(new CustomEvent('notify', {
                detail: { variant: 'success', message: 'Adicionamos ' + name + ' ao carrinho.' },
              }));
@@ -48,16 +42,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
                return;
              }
              this.open = false;
-           } else if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
-             const html = await resp.text();
-             const sink = document.getElementById('stock-error-modal');
-             sink.innerHTML = html;
-             htmx.process(sink);
-             if (window.Alpine) window.Alpine.initTree(sink);
            } else {
-             window.dispatchEvent(new CustomEvent('notify', {
-               detail: { variant: 'warning', message: 'Não foi possível atualizar o carrinho. Tente novamente.' },
-             }));
              this.busy = false;
            }
          } catch (e) {

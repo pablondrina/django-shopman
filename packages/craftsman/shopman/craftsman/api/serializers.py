@@ -335,6 +335,14 @@ class PlanSerializer(serializers.Serializer):
 # ── Query serializers ──
 
 
+class ExpectedSerializer(serializers.Serializer):
+    """Serializer for craft.expected() projection."""
+
+    output_sku = serializers.CharField()
+    date = serializers.DateField()
+    total = serializers.CharField()
+
+
 class NeedSerializer(serializers.Serializer):
     """Serializer for BOM explosion needs."""
 

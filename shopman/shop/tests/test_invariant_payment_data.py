@@ -57,7 +57,7 @@ class TestPaymentDataInvariant:
         allowed_keys = {
             "intent_ref", "amount_q", "method",
             "qr_code", "copy_paste", "client_secret", "expires_at",
-            "error", "transaction_id",
+            "error", "transaction_id", "idempotency_key",
         }
         from shopman.shop.adapters.payment_types import PaymentIntent
         from shopman.shop.services import payment as payment_svc

@@ -71,6 +71,9 @@
         </div>
       </div>
       <form method="post" action="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-post="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-target="#reorder-conflict-modal"
+            hx-swap="innerHTML"
             class="mt-3 pt-3 border-t border-outline/40 dark:border-outline-dark/40"
             @click.stop>
         {% csrf_token %}

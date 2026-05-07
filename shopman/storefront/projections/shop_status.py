@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from datetime import time
-
-from django.utils import timezone
-
 DAY_NAMES_PT = {
     "monday": "Segunda",
     "tuesday": "Terça",
@@ -22,58 +18,17 @@ def _shop_status() -> dict:
 
     Returns dict: {is_open, opens_at, closes_at, message}
     """
-    from shopman.shop.models import Shop
+    from shopman.shop.services.business_calendar import current_business_state, format_next_opening
 
-    shop = Shop.load()
-    if not shop or not shop.opening_hours:
-        return {"is_open": True, "opens_at": None, "closes_at": None, "message": ""}
-
-    now = timezone.localtime()
-    day_name = now.strftime("%A").lower()  # "monday", "tuesday", ...
-    hours = shop.opening_hours.get(day_name)
-
-    if not hours or not hours.get("open") or not hours.get("close"):
-        return {"is_open": False, "opens_at": None, "closes_at": None, "message": "Fechado hoje"}
-
-    open_time = time.fromisoformat(hours["open"])
-    close_time = time.fromisoformat(hours["close"])
-    current_time = now.time()
-
-    if open_time <= current_time < close_time:
-        close_str = hours["close"].replace(":", "h", 1)
-        from datetime import datetime, timedelta
-
-        close_dt = datetime.combine(now.date(), close_time, tzinfo=now.tzinfo)
-        remaining = close_dt - now
-        if remaining <= timedelta(hours=1):
-            return {
-                "is_open": True,
-                "opens_at": hours["open"],
-                "closes_at": hours["close"],
-                "message": f"Fechamos às {close_str}",
-            }
-        return {
-            "is_open": True,
-            "opens_at": hours["open"],
-            "closes_at": hours["close"],
-            "message": f"Aberto até {close_str}",
-        }
-
-    # Closed now — find next opening
-    open_str = hours["open"].replace(":", "h", 1)
-    if current_time < open_time:
-        return {
-            "is_open": False,
-            "opens_at": hours["open"],
-            "closes_at": hours["close"],
-            "message": f"Fechado — abrimos às {open_str}",
-        }
-    # After closing time today
+    state = current_business_state()
+    message = state.message
+    if state.is_closed and state.next_open_at:
+        message = f"{message} — abrimos {format_next_opening(state.next_open_at, now=state.resolved_at)}"
     return {
-        "is_open": False,
-        "opens_at": hours["open"],
-        "closes_at": hours["close"],
-        "message": "Fechado — até amanhã!",
+        "is_open": state.is_open,
+        "opens_at": state.opens_at,
+        "closes_at": state.closes_at,
+        "message": message,
     }
 
 

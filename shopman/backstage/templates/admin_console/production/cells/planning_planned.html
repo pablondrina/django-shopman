@@ -1,0 +1,17 @@
+{% load unfold %}
+
+<div class="flex items-center gap-2" x-data="{ planOpen: false, adjustOpen: false }">
+  {% if row.planned_orders %}
+    <span class="font-semibold text-font-important-light dark:text-font-important-dark">{{ row.planned_qty }} un.</span>
+    {% if context.production_access.can_edit_planned and adjust_entry %}
+      {% include "admin_console/unfold/row_action_icon.html" with icon="edit" title="Ajustar planejado" extra_attrs='x-on:click="adjustOpen = true"' %}
+      {% include "admin_console/unfold/modal.html" with open_var="adjustOpen" close_action="adjustOpen = false" modal_title=adjust_entry.modal_title modal_description=adjust_entry.modal_description form=adjust_entry.form form_id=adjust_entry.form_id submit_label=adjust_entry.submit_label cancel_attrs='type="button" x-on:click="adjustOpen = false"' %}
+    {% endif %}
+  {% else %}
+    <span class="text-xs text-base-400">Sem ordem</span>
+    {% if context.production_access.can_edit_planned and plan_entry %}
+      {% include "admin_console/unfold/row_action_icon.html" with icon="edit_calendar" title="Planejar SKU" extra_attrs='x-on:click="planOpen = true"' %}
+      {% include "admin_console/unfold/modal.html" with open_var="planOpen" close_action="planOpen = false" modal_title=plan_entry.modal_title modal_description=plan_entry.modal_description form=plan_entry.form form_id=plan_entry.form_id submit_label=plan_entry.submit_label cancel_attrs='type="button" x-on:click="planOpen = false"' %}
+    {% endif %}
+  {% endif %}
+</div>

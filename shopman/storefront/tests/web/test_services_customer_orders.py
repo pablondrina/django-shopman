@@ -46,6 +46,35 @@ def test_customer_order_history_summaries_filter_and_label(customer):
     assert summaries[0].total_q == 2400
 
 
+def test_customer_order_history_uses_same_identity_contract_for_ref_and_phone(customer):
+    from shopman.orderman.models import Order
+
+    by_ref = Order.objects.create(
+        ref="ORD-HIST-BY-REF",
+        channel_ref="web",
+        status="completed",
+        total_q=1500,
+        data={"customer_ref": customer.ref},
+    )
+    by_phone = Order.objects.create(
+        ref="ORD-HIST-BY-PHONE",
+        channel_ref="web",
+        status="completed",
+        total_q=2100,
+        handle_type="phone",
+        handle_ref=customer.phone,
+        data={},
+    )
+
+    summaries = customer_orders.history_summaries_for_customer(
+        customer_ref=customer.ref,
+        phone=customer.phone,
+    )
+
+    refs = {summary.ref for summary in summaries}
+    assert refs == {by_ref.ref, by_phone.ref}
+
+
 def test_reorder_service_uses_listing_price(order_items, listing_item):
     request = RequestFactory().post("/")
     StubCartService.calls = []
@@ -59,7 +88,9 @@ def test_reorder_service_uses_listing_price(order_items, listing_item):
 
     assert skipped == []
     price_by_sku = {call["sku"]: call["unit_price_q"] for call in StubCartService.calls}
+    name_by_sku = {call["sku"]: call["name"] for call in StubCartService.calls}
     assert price_by_sku[listing_item.product.sku] == listing_item.price_q
+    assert name_by_sku[listing_item.product.sku] == listing_item.product.name
 
 
 def test_payment_status_invalid_expiry_degrades_to_pending(order_with_payment):
@@ -97,5 +128,5 @@ def test_customer_cancel_gate_preserves_payment_specific_refusal(order_with_paym
     PaymentService.authorize(intent.ref, gateway_id="test-gw-cancel")
     PaymentService.capture(intent.ref)
 
-    assert customer_orders.can_cancel(order_with_payment) is True
+    assert customer_orders.can_cancel(order_with_payment) is False
     assert payment_status.can_cancel(order_with_payment) is False

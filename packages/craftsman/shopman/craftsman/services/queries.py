@@ -382,13 +382,13 @@ class CraftQueries:
 
 def _aggregate(agg, item_ref, quantity, unit):
     """Aggregate material need by (item_ref, unit)."""
-    from shopman.craftsman.models import Recipe
+    from shopman.craftsman.services.recipes import has_active_recipe_for_output_sku
 
     key = (item_ref, unit)
     if key in agg:
         agg[key].quantity += quantity
     else:
-        has_recipe = Recipe.objects.filter(output_sku=item_ref, is_active=True).exists()
+        has_recipe = has_active_recipe_for_output_sku(item_ref)
         agg[key] = Need(item_ref=item_ref, quantity=quantity, unit=unit, has_recipe=has_recipe)
 
 
@@ -418,12 +418,12 @@ def _expand_bom(item_ref, quantity, unit, depth=0):
     Max depth 5 for cycle protection.
     """
     from shopman.craftsman.exceptions import CraftError
-    from shopman.craftsman.models import Recipe
+    from shopman.craftsman.services.recipes import get_active_recipe_for_output_sku
 
     if depth > 5:
         raise CraftError("BOM_CYCLE", item_ref=item_ref, depth=depth)
 
-    sub_recipe = Recipe.objects.filter(output_sku=item_ref, is_active=True).first()
+    sub_recipe = get_active_recipe_for_output_sku(item_ref)
     if sub_recipe:
         sub_coefficient = quantity / sub_recipe.batch_size
         for ri in sub_recipe.items.filter(is_optional=False).order_by("sort_order"):

@@ -49,6 +49,7 @@ from shopman.shop.services import (
     payment,
     stock,
 )
+from shopman.shop.services.business_calendar import next_operational_deadline
 from shopman.shop.services.order_helpers import get_commitment_date
 
 logger = logging.getLogger(__name__)
@@ -67,11 +68,9 @@ def has_availability_approval(order) -> bool:
 def ensure_confirmable(order) -> None:
     """Enforce the operational precondition for moving an order into CONFIRMED.
 
-    Note: this checks availability only. The payment guard is applied by the
-    operator-action view (``OrderConfirmView``) via :func:`ensure_payment_captured`.
-    Automatic confirmation paths (immediate/auto_confirm) rely on the channel's
-    ``confirmation.mode`` to govern timing and are intentionally decoupled from
-    payment capture.
+    This checks availability only. Payment capture is guarded separately by
+    :func:`ensure_payment_captured` on every path that can move an order into
+    ``CONFIRMED``.
     """
     from shopman.orderman.exceptions import InvalidTransition
 
@@ -105,7 +104,8 @@ _OFFLINE_PAYMENT_METHODS = {
     "cash", "credit", "debit",
     "",
 }
-_ACCEPTED_PAYMENT_STATUSES = {"captured", "paid", "refunded"}
+_UPFRONT_DIGITAL_PAYMENT_METHODS = {"pix", "card"}
+_ACCEPTED_PAYMENT_STATUSES = {"captured", "paid"}
 
 
 def ensure_payment_captured(order) -> None:
@@ -118,8 +118,6 @@ def ensure_payment_captured(order) -> None:
     from shopman.orderman.exceptions import InvalidTransition
 
     payment = (order.data or {}).get("payment") or {}
-    if not payment:
-        return
 
     # External timing channels (iFood, POS) manage payment outside Shopman;
     # the guard doesn't apply.
@@ -130,21 +128,19 @@ def ensure_payment_captured(order) -> None:
     except Exception:
         # Config lookup failed — fall through to strict path (check payment).
         logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
+        config = ChannelConfig()
 
-    method = str(payment.get("method") or "").lower()
+    requires_upfront_payment = _requires_captured_payment_before_confirmation(order, config)
+    if not requires_upfront_payment:
+        return
+
+    method = _payment_method(order, config)
     if method in _OFFLINE_PAYMENT_METHODS:
         return
 
-    status = str(payment.get("status") or "").lower()
-    if status in _ACCEPTED_PAYMENT_STATUSES:
-        return
-
     intent_ref = payment.get("intent_ref")
-    if intent_ref:
-        from shopman.shop.services.payment import get_payment_status
-        live_status = (get_payment_status(order) or "").lower()
-        if live_status in _ACCEPTED_PAYMENT_STATUSES:
-            return
+    if _payment_is_captured(order):
+        return
 
     raise InvalidTransition(
         code="payment_not_captured",
@@ -153,7 +149,7 @@ def ensure_payment_captured(order) -> None:
             "order_ref": order.ref,
             "status": order.status,
             "payment_method": method,
-            "payment_status": status or None,
+            "payment_status": (payment.get("status") or None),
             "intent_ref": intent_ref,
         },
     )
@@ -219,7 +215,7 @@ def _on_commit(order, config: ChannelConfig) -> None:
 
     loyalty.redeem(order)
 
-    if config.payment.timing == "at_commit":
+    if _should_initiate_payment_on_commit(order, config):
         payment.initiate(order)
     if config.fulfillment.timing == "at_commit":
         fulfillment.create(order)
@@ -237,17 +233,29 @@ def _on_commit(order, config: ChannelConfig) -> None:
 def _on_confirmed(order, config: ChannelConfig) -> None:
     """Order confirmed: dispatch KDS tickets, initiate payment (if post_commit),
     fulfill stock (if no digital payment), notify."""
-    try:
-        from shopman.shop.services import kds
-        kds.dispatch(order)
-    except ImportError:
-        pass
-    if config.payment.timing == "post_commit":
-        payment.initiate(order)
+
+    if _requires_payment_before_physical_work(order, config) and not _payment_is_captured(order):
+        if _payment_method(order, config) == "card" and _payment_is_authorized(order):
+            payment.capture(order)
+        elif config.payment.timing == "post_commit":
+            payment.initiate(order)
+
+        if not _payment_is_captured(order):
+            notification.send(order, "payment_requested")
+            return
+
+    physical_work_dispatched = _dispatch_physical_work(order)
+
     if config.payment.timing == "external" and config.payment.method != "external":
         # Counter payment — no digital payment step, fulfill immediately
         stock.fulfill(order)
+    elif _payment_is_captured(order):
+        # Payment may have arrived while the order was still NEW. In that case
+        # the paid hook deliberately waited for operational confirmation.
+        stock.fulfill(order)
     notification.send(order, "order_confirmed")
+    if physical_work_dispatched:
+        _mark_preparing_after_physical_work_dispatch(order)
 
 
 def _on_paid(order, config: ChannelConfig) -> None:
@@ -260,8 +268,24 @@ def _on_paid(order, config: ChannelConfig) -> None:
         payment.refund(order)
         _create_alert(order, "payment_after_cancel")
         return
+    if order.status == Order.Status.NEW:
+        _create_alert(order, "payment_awaiting_confirmation")
+        if config.confirmation.mode in ("auto_confirm", "auto_cancel"):
+            _schedule_confirmation_timeout(
+                order,
+                config,
+                action="confirm" if config.confirmation.mode == "auto_confirm" else "cancel",
+                source="payment_confirmed",
+            )
+        notification.send(order, "payment_confirmed")
+        return
+    physical_work_dispatched = False
+    if order.status == Order.Status.CONFIRMED:
+        physical_work_dispatched = _dispatch_physical_work(order)
     stock.fulfill(order)
     notification.send(order, "payment_confirmed")
+    if physical_work_dispatched:
+        _mark_preparing_after_physical_work_dispatch(order)
 
 
 def _on_preparing(order, config: ChannelConfig) -> None:
@@ -282,8 +306,9 @@ def _on_dispatched(order, config: ChannelConfig) -> None:
 
 
 def _on_delivered(order, config: ChannelConfig) -> None:
-    """Order delivered: notify."""
+    """Order delivered: notify, then close the internal post-handoff work."""
     notification.send(order, "order_delivered")
+    _complete_after_handoff(order)
 
 
 def _on_completed(order, config: ChannelConfig) -> None:
@@ -326,6 +351,16 @@ _PHASE_HANDLERS = {
 }
 
 
+def _complete_after_handoff(order) -> None:
+    """Move delivered orders to completed so fiscal/loyalty closure is automatic."""
+    if getattr(order, "status", "") != Order.Status.DELIVERED:
+        return
+    if not order.can_transition_to(Order.Status.COMPLETED):
+        logger.warning("order_auto_complete_blocked order=%s status=%s", order.ref, order.status)
+        return
+    order.transition_status(Order.Status.COMPLETED, actor="system:post_handoff")
+
+
 # ── Helpers ──
 
 
@@ -347,21 +382,24 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
 
     if mode == "immediate":
         ensure_confirmable(order)
+        from shopman.orderman.exceptions import InvalidTransition
+
+        try:
+            ensure_payment_captured(order)
+        except InvalidTransition as exc:
+            if getattr(exc, "code", "") == "payment_not_captured":
+                _create_alert(order, "payment_awaiting_confirmation")
+                notification.send(order, "order_received")
+                return
+            raise
         order.transition_status(Order.Status.CONFIRMED, actor="auto_confirm")
         return
 
     if mode in ("auto_confirm", "auto_cancel"):
-        expires_at = timezone.now() + timedelta(minutes=config.confirmation.timeout_minutes)
         action = "confirm" if mode == "auto_confirm" else "cancel"
-        Directive.objects.create(
-            topic="confirmation.timeout",
-            payload={
-                "order_ref": order.ref,
-                "action": action,
-                "expires_at": expires_at.isoformat(),
-            },
-            available_at=expires_at,
-        )
+        if _requires_captured_payment_before_confirmation(order, config) and not _payment_is_captured(order):
+            return
+        _schedule_confirmation_timeout(order, config, action=action, source="order_commit")
         return
 
     # manual: aguarda operador, mas agenda alerta de "stale" se configurado.
@@ -376,6 +414,167 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
             },
             available_at=alert_at,
         )
+
+
+def _payment_is_captured(order) -> bool:
+    """Return True when Payman shows enough captured balance for the order."""
+    try:
+        return payment.has_sufficient_captured_payment(order) is True
+    except Exception:
+        logger.warning("lifecycle.payment_status_lookup_failed order=%s", order.ref, exc_info=True)
+        return False
+
+
+def _payment_method(order, config: ChannelConfig) -> str:
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method:
+        return method
+
+    configured = config.payment.available_methods
+    if len(configured) == 1:
+        return str(configured[0] or "").lower()
+    return ""
+
+
+def _should_initiate_payment_on_commit(order, config: ChannelConfig) -> bool:
+    if config.payment.timing == "external":
+        return False
+    if config.payment.timing == "at_commit":
+        return True
+    if config.payment.timing == "post_commit":
+        return _payment_method(order, config) == "card"
+    return False
+
+
+def _requires_captured_payment_before_confirmation(order, config: ChannelConfig) -> bool:
+    """Return True when confirmation must wait for an upfront digital capture."""
+    if config.payment.timing in {"external", "post_commit"}:
+        return False
+
+    payment = (order.data or {}).get("payment") or {}
+    selected_method = str(payment.get("method") or "").lower()
+    has_live_intent = bool(payment.get("intent_ref") or payment.get("status"))
+    method = _payment_method(order, config)
+    if method in _OFFLINE_PAYMENT_METHODS:
+        return False
+
+    if selected_method in _UPFRONT_DIGITAL_PAYMENT_METHODS:
+        return True
+
+    if has_live_intent and method in _UPFRONT_DIGITAL_PAYMENT_METHODS:
+        return True
+
+    configured_methods = {str(method or "").lower() for method in config.payment.available_methods}
+    return (
+        config.payment.timing == "at_commit"
+        and bool(configured_methods & _UPFRONT_DIGITAL_PAYMENT_METHODS)
+    )
+
+
+def _requires_payment_before_physical_work(order, config: ChannelConfig) -> bool:
+    if config.payment.timing == "external":
+        return False
+    method = _payment_method(order, config)
+    return method in _UPFRONT_DIGITAL_PAYMENT_METHODS
+
+
+def _payment_is_authorized(order) -> bool:
+    try:
+        status = (payment.get_payment_status(order) or "").lower()
+    except Exception:
+        logger.warning("lifecycle.payment_status_lookup_failed order=%s", order.ref, exc_info=True)
+        return False
+    return status == "authorized"
+
+
+def _dispatch_physical_work(order) -> bool:
+    try:
+        from shopman.shop.services import kds
+        tickets = kds.dispatch(order)
+    except ImportError:
+        return False
+
+    if tickets:
+        return True
+    try:
+        return bool(order.kds_tickets.exists())
+    except Exception:
+        return False
+
+
+def _mark_preparing_after_physical_work_dispatch(order) -> bool:
+    if order.status != Order.Status.CONFIRMED:
+        return False
+    if not order.can_transition_to(Order.Status.PREPARING):
+        return False
+    order.transition_status(Order.Status.PREPARING, actor="system:kds_dispatch")
+    return True
+
+
+def _schedule_confirmation_timeout(
+    order,
+    config: ChannelConfig,
+    *,
+    action: str,
+    source: str,
+) -> Directive | None:
+    """Schedule or rebase the store-decision timer for a NEW order."""
+    expires_at, calendar_state = next_operational_deadline(
+        timeout=timedelta(minutes=config.confirmation.timeout_minutes),
+    )
+    if expires_at is None:
+        logger.warning(
+            "confirmation_timeout_not_scheduled_no_next_opening order=%s action=%s source=%s",
+            order.ref,
+            action,
+            source,
+        )
+        return None
+    payload = {
+        "order_ref": order.ref,
+        "action": action,
+        "expires_at": expires_at.isoformat(),
+        "source": source,
+    }
+    if calendar_state.is_closed:
+        payload.update(
+            {
+                "outside_business_hours": True,
+                "deferred_until": (
+                    calendar_state.next_open_at.isoformat()
+                    if calendar_state.next_open_at
+                    else None
+                ),
+                "closed_reason": calendar_state.closed_reason,
+                "closure_source": calendar_state.closure_source,
+            }
+        )
+    existing = (
+        Directive.objects.filter(
+            topic="confirmation.timeout",
+            payload__order_ref=order.ref,
+            status="queued",
+        )
+        .order_by("available_at", "id")
+        .first()
+    )
+    if existing:
+        if (
+            existing.payload.get("action") == action
+            and existing.payload.get("source") == source
+        ):
+            return existing
+        existing.payload = payload
+        existing.available_at = expires_at
+        existing.save(update_fields=["payload", "available_at", "updated_at"])
+        return existing
+
+    return Directive.objects.create(
+        topic="confirmation.timeout",
+        payload=payload,
+        available_at=expires_at,
+    )
 
 
 def _check_availability(order, config: ChannelConfig) -> bool:

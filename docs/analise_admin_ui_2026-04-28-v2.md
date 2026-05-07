@@ -62,11 +62,11 @@ O criterio correto passa a ser:
 O arquivo `shopman/backstage/admin/navigation.py` ja tenta dar ao Admin uma
 navegacao operacional. A primeira secao da sidebar aponta para:
 
-- Pedidos em `backstage:gestor_pedidos`
-- Producao em `backstage:production`
-- Fechamento em `backstage:day_closing`
+- Pedidos em `admin_console_orders`
+- Producao em `admin_console_production`
+- Fechamento em `admin_console_day_closing`
 - POS em `backstage:pos`
-- KDS em `backstage:kds_index`
+- KDS em `admin_console_kds`
 - Alertas no changelist Admin
 
 Isso e uma boa intencao, mas ainda leva o operador para dois mundos:
@@ -79,12 +79,13 @@ de UX, a divisao e ruido.
 
 ### 3.2 As superficies dedicadas ja usam o mesmo stack leve que pode viver no Admin
 
-As telas dedicadas de Pedidos, Producao e KDS usam templates Django, HTMX,
-Alpine, SSE/polling e CSS proprio:
+As telas operacionais de Pedidos, Producao e KDS usam templates Django, HTMX,
+Alpine, SSE/polling e contratos de projecao:
 
-- `shopman/backstage/templates/pedidos/index.html`
-- `shopman/backstage/templates/gestor/producao/index.html`
-- `shopman/backstage/templates/kds/display.html`
+- `shopman/backstage/templates/admin_console/orders/index.html`
+- `shopman/backstage/templates/admin_console/production/index.html`
+- `shopman/backstage/templates/gestor/producao/kds.html`
+- `shopman/backstage/templates/admin_console/kds/display.html`
 - `shopman/backstage/templates/gestor/base.html`
 
 Isto e importante: nao estamos falando de migrar uma SPA complexa para Admin.
@@ -164,8 +165,8 @@ Nomenclatura recomendada:
 - Produto interno: "Console" ou "Operacao".
 - URL pode continuar `/admin/` por pragmatismo, mas a marca visual deve ser
   "Shopman Console".
-- `/gestor/...` deve virar compatibilidade temporaria, com redirects e depois
-  remocao.
+- `/gestor/...` deve existir apenas para runtime registrado que precisa de tela
+  dedicada, sem duplicar uma funcao ja atendida pelo Admin/Unfold.
 
 ## 6. Onde cada area deve viver
 
@@ -205,7 +206,7 @@ O objetivo nao e registrar models novos. O objetivo e criar paginas de trabalho:
 - `/admin/operacao/hoje/`
 - `/admin/operacao/pedidos/`
 - `/admin/operacao/producao/`
-- `/admin/operacao/producao/kds/`
+- `/gestor/producao/kds/`
 - `/admin/operacao/kds/<ref>/`
 - `/admin/operacao/fechamento/`
 - `/admin/operacao/alertas/`
@@ -297,7 +298,8 @@ encurta fluxos sob pressao.
 2. Atualizar `UNFOLD["SITE_TITLE"]`, `SITE_HEADER`, sidebar e labels para essa
    linguagem.
 3. Definir `/admin/operacao/...` como namespace novo para paginas operacionais.
-4. Manter `/gestor/...` funcionando apenas como compatibilidade temporaria.
+4. Remover `/gestor/...` que duplique o Admin/Unfold; manter somente runtime
+   registrado, como POS e KDS de producao.
 
 Done:
 
@@ -310,8 +312,7 @@ Done:
 1. Criar pagina Unfold customizada para pedidos ativos.
 2. Reaproveitar `build_two_zone_queue()`, `build_order_card()` e services de
    `shopman/backstage/services/orders.py`.
-3. Migrar os partials de `shopman/backstage/templates/pedidos/` para
-   `templates/admin_console/orders/` ou wrappers equivalentes.
+3. Manter os fragments de pedidos em `templates/admin_console/orders/`.
 4. Manter SSE/polling, offline banner, som, fullscreen, toasts e ARIA live.
 5. Ajustar `OrderAdmin` para ser historico/auditoria e drilldown.
 6. Sidebar:
@@ -347,7 +348,7 @@ Done:
 ### Fase 4 - KDS como pagina Unfold fullscreen
 
 1. Criar pagina Unfold customizada para lista de KDS e display da estacao.
-2. Reaproveitar `KDSDisplayView`, partials de tickets e services atuais.
+2. Reaproveitar `build_kds_board()`, `build_kds_index()` e services atuais.
 3. Oferecer modo fullscreen/minimal shell:
    - entrada pelo Console;
    - toolbar minima no display;
@@ -393,21 +394,19 @@ Done:
 - "Hoje" e a primeira tela util do operador.
 - Nenhum KPI induz decisao errada por contar a entidade errada.
 
-### Fase 7 - Compatibilidade e limpeza
+### Fase 7 - Corte direto e limpeza
 
-1. Converter `/gestor/pedidos/`, `/gestor/producao/`, `/gestor/kds/` e
-   `/gestor/fechamento/` em redirects para `/admin/operacao/...`.
-2. Manter partial endpoints temporarios se forem usados por HTMX, mas mover
-   nomes/URLs gradualmente.
-3. Remover `gestor/base.html` quando nao houver pagina viva dependendo dele.
+1. Remover rotas e templates que deixem duas superficies para a mesma funcao.
+2. Manter somente runtime explicitamente registrado quando a operacao exige tela
+   dedicada: POS e KDS de producao.
+3. Remover `gestor/base.html` quando nao houver pagina runtime viva dependendo dele.
 4. Remover CSS duplicado quando as paginas estiverem no tema Unfold.
-5. Atualizar testes de rota e smoke tests.
+5. Atualizar testes de rota e smoke tests para garantir que nomes antigos falhem.
 
 Done:
 
 - Nao existem dois shells operacionais vivos.
-- Busca por `/gestor/` mostra apenas redirects temporarios ou testes de
-  compatibilidade.
+- Busca por `/gestor/` mostra apenas runtime registrado ou testes de regressao.
 - A documentacao nao ensina caminho antigo.
 
 ## 9. Como usar melhor as changelists
@@ -530,7 +529,7 @@ pedidos.
    representacao correta.
 6. Toda acao operacional chama service canonico.
 7. Toda metrica operacional tem semantica explicita.
-8. `/gestor` deixa de ser produto e vira apenas ponte temporaria.
+8. `/gestor` deixa de ser produto; fica restrito a runtime operacional registrado.
 
 ## 12. Veredito
 

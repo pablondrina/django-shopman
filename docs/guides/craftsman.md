@@ -11,10 +11,10 @@ from shopman.craftsman import craft, CraftError
 ## Conceitos
 
 ### Receita (`Recipe`)
-Define como produzir um produto: ingredientes (`RecipeItem`), quantidade por lote (`batch_size`) e passos de produção.
+Define como produzir um produto: ingredientes (`RecipeItem`), rendimento base (`batch_size`) e passos de produção.
 
 ### Coeficiente Francês
-Método de escala proporcional: `coeficiente = quantidade / batch_size`. Todos os ingredientes são escalados proporcionalmente.
+Método de escala proporcional: `coeficiente = quantidade planejada / rendimento base`. Todos os ingredientes são escalados proporcionalmente.
 
 ### Ordem de Trabalho (`WorkOrder`)
 Instância de produção com ciclo de vida: `PLANNED → STARTED → FINISHED` ou `PLANNED/STARTED → VOID`.

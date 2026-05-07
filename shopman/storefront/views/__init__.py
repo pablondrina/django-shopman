@@ -26,14 +26,12 @@ from .auth import (
     VerifyCodeView,
 )
 from .cart import (
-    AddToCartView,
     ApplyCouponView,
     CartDrawerContentProjView,
     CartPageContentView,
     CartSetQtyBySkuView,
     CartSummaryView,
     CartView,
-    QuickAddView,
     RemoveCouponView,
 )
 from .catalog import MenuView, ProductDetailView, TipsView
@@ -57,7 +55,6 @@ __all__ = [
     "AccessLinkLoginView",
     "AccountDeleteView",
     "AccountView",
-    "AddToCartView",
     "AddressCreateView",
     "AddressDeleteView",
     "AddressLabelUpdateView",
@@ -99,7 +96,6 @@ __all__ = [
     "ProfileDisplayView",
     "ProfileEditView",
     "ProfileUpdateView",
-    "QuickAddView",
     "RemoveCouponView",
     "ReorderView",
     "RequestCodeView",

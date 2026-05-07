@@ -89,10 +89,10 @@ class TestQuantityInvariantAfterOperations:
         quant = stock.receive(Decimal('100'), prod.sku, pos, reason='Entrada')
         assert_quantity_invariant(quant)
 
-        stock.issue(Decimal('30'), prod.sku, pos, reason='Saída')
+        stock.issue(Decimal('30'), quant, reason='Saída')
         assert_quantity_invariant(quant)
 
-        stock.issue(Decimal('20'), prod.sku, pos, reason='Saída 2')
+        stock.issue(Decimal('20'), quant, reason='Saída 2')
         assert_quantity_invariant(quant)
 
         assert quant.refresh_from_db() or quant._quantity == Decimal('50')
@@ -103,10 +103,10 @@ class TestQuantityInvariantAfterOperations:
         prod = _product('INV-ADJUST')
 
         quant = stock.receive(Decimal('50'), prod.sku, pos, reason='Entrada')
-        stock.adjust(prod.sku, pos, Decimal('60'), reason='Ajuste positivo')
+        stock.adjust(quant, Decimal('60'), reason='Ajuste positivo')
         assert_quantity_invariant(quant)
 
-        stock.adjust(prod.sku, pos, Decimal('45'), reason='Ajuste negativo')
+        stock.adjust(quant, Decimal('45'), reason='Ajuste negativo')
         assert_quantity_invariant(quant)
 
     def test_invariant_after_hold_lifecycle(self):
@@ -148,13 +148,13 @@ class TestQuantityInvariantAfterOperations:
         quant_a = stock.receive(Decimal('100'), prod.sku, pos_a, reason='Entrada A')
         quant_b = stock.receive(Decimal('200'), prod.sku, pos_b, reason='Entrada B')
 
-        stock.issue(Decimal('10'), prod.sku, pos_a, reason='Saída A1')
-        stock.issue(Decimal('50'), prod.sku, pos_b, reason='Saída B1')
+        stock.issue(Decimal('10'), quant_a, reason='Saída A1')
+        stock.issue(Decimal('50'), quant_b, reason='Saída B1')
 
         assert_quantity_invariant(quant_a, quant_b)
 
-        stock.adjust(prod.sku, pos_a, Decimal('95'), reason='Ajuste A')
-        stock.adjust(prod.sku, pos_b, Decimal('140'), reason='Ajuste B')
+        stock.adjust(quant_a, Decimal('95'), reason='Ajuste A')
+        stock.adjust(quant_b, Decimal('140'), reason='Ajuste B')
 
         assert_quantity_invariant(quant_a, quant_b)
 
@@ -189,19 +189,19 @@ class TestQuantityInvariantAfterOperations:
         assert_quantity_invariant(quant)
 
         # 10-12: issue
-        stock.issue(Decimal('5'), prod.sku, pos, reason='Saída 1')
+        stock.issue(Decimal('5'), quant, reason='Saída 1')
         assert_quantity_invariant(quant)
-        stock.issue(Decimal('10'), prod.sku, pos, reason='Saída 2')
+        stock.issue(Decimal('10'), quant, reason='Saída 2')
         assert_quantity_invariant(quant)
-        stock.issue(Decimal('5'), prod.sku, pos, reason='Saída 3')
+        stock.issue(Decimal('5'), quant, reason='Saída 3')
         assert_quantity_invariant(quant)
 
         # 13-15: adjust
-        stock.adjust(prod.sku, pos, Decimal('220'), reason='Ajuste para cima')
+        stock.adjust(quant, Decimal('220'), reason='Ajuste para cima')
         assert_quantity_invariant(quant)
-        stock.adjust(prod.sku, pos, Decimal('215'), reason='Ajuste para baixo')
+        stock.adjust(quant, Decimal('215'), reason='Ajuste para baixo')
         assert_quantity_invariant(quant)
-        stock.adjust(prod.sku, pos, Decimal('215'), reason='Ajuste noop')
+        stock.adjust(quant, Decimal('215'), reason='Ajuste noop')
         assert_quantity_invariant(quant)
 
         # 16-18: another hold cycle
@@ -215,9 +215,9 @@ class TestQuantityInvariantAfterOperations:
         # 19-21: receive + issue + adjust
         stock.receive(Decimal('5'), prod.sku, pos, reason='Entrada final')
         assert_quantity_invariant(quant)
-        stock.issue(Decimal('10'), prod.sku, pos, reason='Saída final')
+        stock.issue(Decimal('10'), quant, reason='Saída final')
         assert_quantity_invariant(quant)
-        stock.adjust(prod.sku, pos, Decimal('200'), reason='Ajuste final')
+        stock.adjust(quant, Decimal('200'), reason='Ajuste final')
         assert_quantity_invariant(quant)
 
         # Sanity: final state

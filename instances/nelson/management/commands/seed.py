@@ -21,6 +21,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
@@ -35,10 +36,12 @@ from shopman.offerman.models import (
     Product,
     ProductComponent,
 )
+from shopman.orderman.ids import generate_order_ref, generate_session_key
 from shopman.orderman.models import (
     Directive,
     Fulfillment,
     FulfillmentItem,
+    IdempotencyKey,
     Order,
     OrderEvent,
     OrderItem,
@@ -54,7 +57,22 @@ from shopman.backstage.models import (
     CashRegisterSession,
     DayClosing,
     KDSInstance,
+    OperationArea,
+    OperationChecklistRun,
+    OperationChecklistTemplate,
+    OperationChecklistTemplateTask,
+    OperationEvidence,
+    OperationMoment,
+    OperationTaskRun,
+    OperationTaskTemplate,
     OperatorAlert,
+    POSTab,
+)
+from shopman.backstage.services.operations import (
+    complete_checklist_run,
+    complete_task_run,
+    start_checklist_run,
+    supervise_task_run,
 )
 from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
@@ -72,12 +90,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        admin_password = self._resolve_admin_password()
+
         if options["flush"]:
             self._flush()
 
         self.stdout.write(self.style.MIGRATE_HEADING("\n🥐 Populando Nelson Boulangerie...\n"))
 
-        self._create_superuser()
+        self._create_superuser(admin_password)
         self._seed_shop()
         self._seed_delivery_zones()
         products = self._seed_catalog()
@@ -90,7 +110,9 @@ class Command(BaseCommand):
         channels = self._seed_channels()
         self._assert_storefront_products_orderable()
         self._seed_kds()
+        self._seed_pos_tabs()
         self._seed_orders(products, customers, channels)
+        self._seed_security_reliability_edges(products, customers, channels)
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
         self._seed_operator_alerts()
@@ -103,6 +125,7 @@ class Command(BaseCommand):
         self._seed_rule_configs()
         self._seed_day_closing()
         self._seed_cash_register()
+        self._seed_operation_checklists()
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
 
@@ -251,8 +274,25 @@ class Command(BaseCommand):
     # Superuser
     # ────────────────────────────────────────────────────────────────
 
-    def _create_superuser(self):
-        password = os.environ.get("ADMIN_PASSWORD", "admin")
+    def _resolve_admin_password(self) -> str:
+        password = os.environ.get("ADMIN_PASSWORD")
+        if password:
+            normalized = password.strip().lower()
+            if not settings.DEBUG and (len(password) < 12 or normalized in {"admin", "password", "shopman", "changeme"}):
+                raise CommandError(
+                    "ADMIN_PASSWORD inseguro para seed fora de DEBUG; "
+                    "use uma senha forte e temporaria."
+                )
+            return password
+
+        if settings.DEBUG:
+            return "admin"
+
+        raise CommandError(
+            "ADMIN_PASSWORD precisa estar definido antes de rodar o seed fora de DEBUG."
+        )
+
+    def _create_superuser(self, password: str):
         if not User.objects.filter(username="admin").exists():
             User.objects.create_superuser(
                 username="admin",
@@ -324,9 +364,15 @@ class Command(BaseCommand):
         # KDS
         from shopman.backstage.models import KDSTicket
 
+        OperationTaskRun.objects.all().delete()
+        OperationChecklistRun.objects.all().delete()
+        OperationChecklistTemplateTask.objects.all().delete()
+        OperationChecklistTemplate.objects.all().delete()
+        OperationTaskTemplate.objects.all().delete()
         OperatorAlert.objects.all().delete()
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
+        POSTab.objects.all().delete()
 
         # Cash register
         CashMovement.objects.all().delete()
@@ -1350,11 +1396,14 @@ class Command(BaseCommand):
         # deve ficar aqui — canais remotos usam stock.allowed_positions sem "ontem", entao vitrine
         # API e reservas online ignoram esse saldo; PDV (allowed_positions omitido) ve tudo.
         positions = {}
-        for ref, name, kind, saleable in [
-            ("deposito", "Deposito", PositionKind.PHYSICAL, False),
-            ("vitrine", "Vitrine / Exposicao", PositionKind.PHYSICAL, True),
-            ("producao", "Área de Produção", PositionKind.PHYSICAL, False),
-            ("ontem", "Vitrine D-1 (ontem)", PositionKind.PHYSICAL, True),
+        for ref, name, kind, saleable, default in [
+            ("deposito", "Deposito", PositionKind.PHYSICAL, False, False),
+            ("vitrine", "Vitrine / Exposicao", PositionKind.PHYSICAL, True, False),
+            ("producao", "Área de Produção", PositionKind.PHYSICAL, False, False),
+            ("massa", "Massa", PositionKind.PROCESS, False, True),
+            ("molde", "Molde", PositionKind.PROCESS, False, False),
+            ("forno", "Forno", PositionKind.PROCESS, False, False),
+            ("ontem", "Vitrine D-1 (ontem)", PositionKind.PHYSICAL, True, False),
         ]:
             p, _ = Position.objects.update_or_create(
                 ref=ref,
@@ -1362,11 +1411,12 @@ class Command(BaseCommand):
                     "name": name,
                     "kind": kind,
                     "is_saleable": saleable,
+                    "is_default": default,
                 },
             )
             positions[ref] = p
 
-        self.stdout.write("  ✅ 4 posicoes")
+        self.stdout.write("  ✅ 7 posicoes")
         return positions
 
     def _seed_stock(self, products, positions):
@@ -1995,6 +2045,9 @@ class Command(BaseCommand):
                 else:
                     finished = max(started - Decimal(str((index % 4) + 1)), Decimal("1"))
                 finish_at = at(today, finish_hm)
+            start_at = at(today, start_hm) if status != WorkOrder.Status.PLANNED else None
+            if status == WorkOrder.Status.STARTED and index == 2:
+                start_at = timezone.now() - timedelta(minutes=self._max_started_minutes_for_recipe(ref) + 15)
             upsert_work_order(
                 scope="today",
                 recipe=recipe,
@@ -2003,7 +2056,7 @@ class Command(BaseCommand):
                 status=status,
                 started_qty=started if status != WorkOrder.Status.PLANNED else None,
                 finished_qty=finished,
-                start_at=at(today, start_hm) if status != WorkOrder.Status.PLANNED else None,
+                start_at=start_at,
                 finish_at=finish_at,
                 operator_ref=["chef:ana", "chef:joao", "chef:maria"][index % 3],
             )
@@ -2222,8 +2275,8 @@ class Command(BaseCommand):
             "hold_ttl_minutes": 30,
         }
         _remote_config = {
-            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
-            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 15},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 10},
             "stock": _remote_stock,
         }
         _marketplace_config = {
@@ -2232,8 +2285,8 @@ class Command(BaseCommand):
             "stock": {**_remote_stock, "check_on_commit": True},
         }
         _whatsapp_config = {
-            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
-            "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 10},
             "notifications": {"backend": "manychat"},
             "stock": _remote_stock,
         }
@@ -2347,7 +2400,7 @@ class Command(BaseCommand):
                         "line_total_q": line_total_q,
                     })
 
-                ref = f"NB-{uuid.uuid4().hex[:8].upper()}"
+                ref = self._new_order_ref(channel.ref, order_time.date())
 
                 # Get customer phone from contact points
                 cp = customer.contact_points.filter(type="whatsapp").first()
@@ -2363,6 +2416,7 @@ class Command(BaseCommand):
                     created_at=order_time,
                     data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
                 )
+                self._stamp_order(order, order_time)
 
                 for _idx, item in enumerate(items_data):
                     OrderItem.objects.create(
@@ -2453,7 +2507,7 @@ class Command(BaseCommand):
                     "line_total_q": line_total_q,
                 })
 
-            ref = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref = self._new_order_ref(channel.ref, order_time.date())
             cp = customer.contact_points.filter(type="whatsapp").first()
             handle_ref = cp.value_normalized if cp else ""
 
@@ -2467,6 +2521,7 @@ class Command(BaseCommand):
                 created_at=order_time,
                 data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
             )
+            self._stamp_order(order, order_time)
 
             for item in items_data:
                 OrderItem.objects.create(
@@ -2534,7 +2589,7 @@ class Command(BaseCommand):
             customer = customer_list[0]
             channel = channels["pdv"]
             order_time = now - timedelta(minutes=6)
-            ref = f"NB-PROD-LINK-{uuid.uuid4().hex[:6].upper()}"
+            ref = self._new_order_ref(channel.ref, order_time.date())
             sync_order = Order.objects.create(
                 ref=ref,
                 channel_ref=channel.ref,
@@ -2550,6 +2605,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(sync_order, order_time)
             OrderItem.objects.create(
                 order=sync_order,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2583,7 +2639,7 @@ class Command(BaseCommand):
             prod_b = product_list[1] if len(product_list) > 1 else product_list[0]
 
             # Order 1: new iFood order (just arrived, awaiting confirmation)
-            ref_new = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref_new = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=2)).date())
             order_new = Order.objects.create(
                 ref=ref_new,
                 channel_ref=ifood_ch.ref,
@@ -2599,6 +2655,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(order_new, now - timedelta(minutes=2))
             OrderItem.objects.create(
                 order=order_new,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2617,7 +2674,7 @@ class Command(BaseCommand):
             )
 
             # Order 2: confirmed iFood order (in queue, being handled)
-            ref_confirmed = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref_confirmed = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=9)).date())
             order_confirmed = Order.objects.create(
                 ref=ref_confirmed,
                 channel_ref=ifood_ch.ref,
@@ -2633,6 +2690,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(order_confirmed, now - timedelta(minutes=9))
             OrderItem.objects.create(
                 order=order_confirmed,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2668,6 +2726,310 @@ class Command(BaseCommand):
             f"  ✅ {order_count} pedidos (35 dias + live + iFood + historico producao)"
         )
 
+    def _seed_security_reliability_edges(self, products, customers, channels):
+        """Deterministic edge scenarios for adversarial QA and Omotenashi drills."""
+        self.stdout.write("  🧪 Cenários de segurança/confiabilidade...")
+
+        now = timezone.now()
+        web = channels.get("web")
+        ifood = channels.get("ifood")
+        product = products.get("CROISSANT") or next(iter(products.values()), None)
+        if web is None or product is None:
+            self.stdout.write("  ⏭️  Sem canal web/produto para cenários de borda")
+            return
+
+        low_attention = customers.get("CLI-001")
+        if low_attention:
+            low_attention.metadata = {
+                **(low_attention.metadata if isinstance(low_attention.metadata, dict) else {}),
+                "seed_persona": "low_attention",
+                "qa_notes": [
+                    "tende a clicar duas vezes em confirmar",
+                    "abandona pagamento PIX e volta pelo tracking",
+                    "precisa de mensagens curtas e recuperacao clara",
+                ],
+            }
+            low_attention.save(update_fields=["metadata"])
+
+        created = 0
+
+        pending = self._create_edge_order(
+            seed_key="security:payment-pending-near-expiry",
+            channel_ref=web.ref,
+            status=Order.Status.CONFIRMED,
+            product=product,
+            qty=Decimal("2"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=4),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q * 2,
+                    "expires_at": (now + timedelta(minutes=6)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "edge_case": "low_attention_payment_pending",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if pending:
+            self._attach_edge_payment_intent(
+                pending,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.PENDING,
+                gateway="efi",
+                gateway_id="seed-edge-pix-pending",
+                expires_at=now + timedelta(minutes=6),
+            )
+            created += 1
+
+        expired = self._create_edge_order(
+            seed_key="security:payment-expired-low-attention",
+            channel_ref=web.ref,
+            status=Order.Status.CONFIRMED,
+            product=product,
+            qty=Decimal("1"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=18),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q,
+                    "expires_at": (now - timedelta(minutes=3)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "edge_case": "low_attention_payment_expired",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if expired:
+            self._attach_edge_payment_intent(
+                expired,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.PENDING,
+                gateway="efi",
+                gateway_id="seed-edge-pix-expired",
+                expires_at=now - timedelta(minutes=3),
+            )
+            created += 1
+
+        late_paid = self._create_edge_order(
+            seed_key="security:payment-after-cancel",
+            channel_ref=web.ref,
+            status=Order.Status.CANCELLED,
+            product=product,
+            qty=Decimal("3"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=26),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q * 3,
+                    "expires_at": (now - timedelta(minutes=10)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "cancellation_reason": "customer_requested",
+                "edge_case": "late_payment_after_cancel",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if late_paid:
+            self._attach_edge_payment_intent(
+                late_paid,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.CAPTURED,
+                gateway="efi",
+                gateway_id="seed-edge-pix-after-cancel",
+                captured_at=now - timedelta(minutes=5),
+            )
+            OperatorAlert.objects.get_or_create(
+                type="payment_after_cancel",
+                order_ref=late_paid.ref,
+                defaults={
+                    "severity": "critical",
+                    "message": (
+                        f"Pagamento capturado depois do cancelamento do pedido {late_paid.ref}. "
+                        "Validar reembolso e comunicação com o cliente."
+                    ),
+                },
+            )
+            self._mark_edge_webhook_replay(
+                scope="webhook:efi-pix",
+                source="e2e",
+                source_id="seed-edge-e2e-after-cancel",
+                response_body={
+                    "status": "processed",
+                    "txid": f"seed-edge-pix-after-cancel-{late_paid.ref}",
+                    "e2e_id": "seed-edge-e2e-after-cancel",
+                },
+                now=now,
+            )
+            created += 1
+
+        if ifood is not None:
+            stale = self._create_edge_order(
+                seed_key="security:ifood-stale-confirmation",
+                channel_ref=ifood.ref,
+                status=Order.Status.NEW,
+                product=product,
+                qty=Decimal("1"),
+                customer=None,
+                created_at=now - timedelta(minutes=46),
+                external_ref="IFOOD-EDGE-STALE-001",
+                data={
+                    "customer": {"name": "Pedido iFood parado"},
+                    "payment": {"method": "external", "timing": "external"},
+                    "fulfillment_type": "delivery",
+                    "edge_case": "marketplace_stale_confirmation",
+                    "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+                },
+            )
+            if stale:
+                OperatorAlert.objects.get_or_create(
+                    type="stale_new_order",
+                    order_ref=stale.ref,
+                    defaults={
+                        "severity": "error",
+                        "message": f"Pedido marketplace {stale.ref} parado aguardando confirmação.",
+                    },
+                )
+                self._mark_edge_webhook_replay(
+                    scope="webhook:ifood",
+                    source="order",
+                    source_id="IFOOD-EDGE-STALE-001",
+                    response_body={"status": "already_processed", "order_ref": stale.ref},
+                    now=now,
+                )
+                created += 1
+
+        self.stdout.write(f"  ✅ {created} cenários determinísticos de borda")
+
+    def _mark_edge_webhook_replay(
+        self,
+        *,
+        scope: str,
+        source: str,
+        source_id: str,
+        response_body: dict,
+        now,
+    ) -> None:
+        from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+        key = f"{source}:{stable_webhook_key(source_id)}"
+        IdempotencyKey.objects.update_or_create(
+            scope=scope,
+            key=key,
+            defaults={
+                "status": "done",
+                "response_code": 200,
+                "response_body": response_body,
+                "expires_at": now + timedelta(days=30),
+            },
+        )
+
+    def _create_edge_order(
+        self,
+        *,
+        seed_key: str,
+        channel_ref: str,
+        status: str,
+        product,
+        qty: Decimal,
+        customer,
+        created_at: datetime,
+        data: dict,
+        external_ref: str | None = None,
+    ) -> Order | None:
+        existing = Order.objects.filter(snapshot__seed_key=seed_key).first()
+        if existing:
+            return None
+
+        total_q = int(qty * product.base_price_q)
+        ref = self._new_order_ref(channel_ref, created_at.date())
+        handle_ref = ""
+        if customer is not None:
+            handle_ref = (
+                customer.contact_points.filter(type="whatsapp")
+                .values_list("value_normalized", flat=True)
+                .first()
+                or customer.phone
+                or ""
+            )
+            data.setdefault("customer_ref", customer.ref)
+
+        order = Order.objects.create(
+            ref=ref,
+            channel_ref=channel_ref,
+            session_key=f"seed-edge-{ref}",
+            status=status,
+            total_q=total_q,
+            handle_type="phone" if handle_ref else "marketplace_order",
+            handle_ref=handle_ref,
+            external_ref=external_ref,
+            snapshot={
+                "seed": "nelson",
+                "seed_namespace": "security_reliability_edges",
+                "seed_key": seed_key,
+            },
+            data=data,
+        )
+        self._stamp_order(order, created_at)
+        OrderItem.objects.create(
+            order=order,
+            line_id=f"L-{uuid.uuid4().hex[:8]}",
+            sku=product.sku,
+            name=product.name,
+            qty=qty,
+            unit_price_q=product.base_price_q,
+            line_total_q=total_q,
+            meta={"seed": "nelson", "source": "security_reliability_edges"},
+        )
+        OrderEvent.objects.create(
+            order=order,
+            type="status_change",
+            seq=0,
+            payload={"new_status": status, "source": "seed:edge"},
+            created_at=created_at,
+        )
+        return order
+
+    def _attach_edge_payment_intent(
+        self,
+        order: Order,
+        *,
+        method: str,
+        status: str,
+        gateway: str,
+        gateway_id: str,
+        expires_at=None,
+        captured_at=None,
+    ) -> None:
+        intent = PaymentIntent.objects.create(
+            ref=f"PI-EDGE-{uuid.uuid4().hex[:10].upper()}",
+            order_ref=order.ref,
+            method=method,
+            status=status,
+            amount_q=order.total_q,
+            gateway=gateway,
+            gateway_id=f"{gateway_id}-{order.ref}",
+            expires_at=expires_at,
+            captured_at=captured_at,
+        )
+        payment = dict((order.data or {}).get("payment") or {})
+        payment["intent_ref"] = intent.ref
+        if status == PaymentIntent.Status.CAPTURED:
+            PaymentTransaction.objects.create(
+                intent=intent,
+                type=PaymentTransaction.Type.CAPTURE,
+                amount_q=order.total_q,
+                gateway_id=intent.gateway_id,
+            )
+        order.data = {**(order.data or {}), "payment": payment}
+        order.save(update_fields=["data", "updated_at"])
+
     def _seed_production_demand_history(self, products, channels, now) -> int:
         """Stable same-weekday demand rows for Craftsman production suggestions."""
         pdv = channels["pdv"]
@@ -2689,21 +3051,26 @@ class Command(BaseCommand):
                     second=0,
                     microsecond=0,
                 )
-                ref = f"NB-PROD-HIST-{sku}-{index}"
+                seed_key = f"production-demand-history:{sku}:{index}"
+                ref = self._new_order_ref(pdv.ref, order_time.date())
                 total_q = int(qty * product.base_price_q)
-                order, created = Order.objects.get_or_create(
-                    ref=ref,
-                    defaults={
-                        "channel_ref": pdv.ref,
-                        "session_key": f"seed-{ref}",
-                        "status": Order.Status.COMPLETED,
-                        "snapshot": {"seed": "nelson", "source": "production_demand_history"},
-                        "data": {"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
-                        "total_q": total_q,
-                        "completed_at": order_time,
-                    },
-                )
-                if created:
+                order = Order.objects.filter(snapshot__seed_key=seed_key).first()
+                if order is None:
+                    order = Order.objects.create(
+                        ref=ref,
+                        channel_ref=pdv.ref,
+                        session_key=f"seed-{ref}",
+                        status=Order.Status.COMPLETED,
+                        snapshot={
+                            "seed": "nelson",
+                            "source": "production_demand_history",
+                            "seed_key": seed_key,
+                        },
+                        data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
+                        total_q=total_q,
+                        completed_at=order_time,
+                    )
+                    self._stamp_order(order, order_time)
                     OrderEvent.objects.create(
                         order=order,
                         type="status_change",
@@ -2732,14 +3099,43 @@ class Command(BaseCommand):
                 created_or_updated += 1
         return created_or_updated
 
+    def _stamp_order(self, order: Order, created_at: datetime):
+        Order.objects.filter(pk=order.pk).update(created_at=created_at, updated_at=created_at)
+        order.created_at = created_at
+        order.updated_at = created_at
+
+    def _new_order_ref(self, channel_ref: str, business_date: date) -> str:
+        for _attempt in range(20):
+            ref = generate_order_ref(channel_ref=channel_ref, business_date=business_date)
+            if not Order.objects.filter(ref=ref).exists():
+                return ref
+        raise CommandError(f"Nao foi possivel gerar ORDER_REF unico para canal {channel_ref!r}.")
+
+    def _seed_pos_tabs(self):
+        self.stdout.write("  🧾 POS tabs...")
+
+        tabs = [
+            ("00001007", "1007"),
+            ("00001008", "1008"),
+            ("00001009", "1009"),
+            ("00001010", "1010"),
+            ("00001011", "1011"),
+            ("00001012", "1012"),
+        ]
+        for code, label in tabs:
+            POSTab.objects.update_or_create(
+                code=code,
+                defaults={"label": label, "is_active": True},
+            )
+
+        self.stdout.write(f"  ✅ {len(tabs)} POS tabs cadastradas")
+
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Orderman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_sessions(self, channels):
         self.stdout.write("  📝 Sessoes abertas...")
-
-        from shopman.orderman.ids import generate_session_key
 
         for channel_ref, items in [
             ("pdv", [
@@ -2759,14 +3155,37 @@ class Command(BaseCommand):
             from shopman.shop.config import ChannelConfig
 
             cfg = ChannelConfig.for_channel(ch)
-            Session.objects.create(
-                session_key=generate_session_key(),
-                channel_ref=ch.ref,
-                state="open",
-                pricing_policy=cfg.pricing.policy,
-                edit_policy=cfg.editing.policy,
-                items=items,
-            )
+            defaults = {
+                "session_key": generate_session_key(),
+                "state": "open",
+                "pricing_policy": cfg.pricing.policy,
+                "edit_policy": cfg.editing.policy,
+            }
+            if channel_ref == "pdv":
+                tab_code = "00001007"
+                defaults["handle_type"] = "pos_tab"
+                defaults["handle_ref"] = tab_code
+                defaults["data"] = {
+                    "origin_channel": "pos",
+                    "fulfillment_type": "pickup",
+                    "tab_code": tab_code,
+                    "tab_display": tab_code.lstrip("0"),
+                    "pos_operator": "seed",
+                    "last_touched_at": timezone.now().isoformat(),
+                }
+                session, _ = Session.objects.update_or_create(
+                    channel_ref=ch.ref,
+                    state="open",
+                    handle_type="pos_tab",
+                    handle_ref=tab_code,
+                    defaults=defaults,
+                )
+            else:
+                session = Session.objects.create(
+                    channel_ref=ch.ref,
+                    **defaults,
+                )
+            session.update_items(items)
 
         self.stdout.write("  ✅ 3 sessoes abertas")
 
@@ -3053,10 +3472,13 @@ class Command(BaseCommand):
 
         orders = Order.objects.filter(status__in=["completed", "delivered"])
         count = 0
+        linked = 0
 
         for i, order in enumerate(orders):
-            # Skip if already has payment
-            if PaymentIntent.objects.filter(order_ref=order.ref).exists():
+            existing_intent = PaymentIntent.objects.filter(order_ref=order.ref).order_by("-created_at").first()
+            if existing_intent:
+                if self._attach_order_payment_link(order, existing_intent):
+                    linked += 1
                 continue
 
             method = PaymentIntent.Method.PIX if i % 10 < 7 else PaymentIntent.Method.CARD
@@ -3081,9 +3503,25 @@ class Command(BaseCommand):
                 amount_q=order.total_q,
                 gateway_id=intent.gateway_id,
             )
+            if self._attach_order_payment_link(order, intent):
+                linked += 1
             count += 1
 
-        self.stdout.write(f"  ✅ {count} payment intents + transactions")
+        self.stdout.write(f"  ✅ {count} payment intents + transactions ({linked} order links)")
+
+    def _attach_order_payment_link(self, order: Order, intent: PaymentIntent) -> bool:
+        payment = dict((order.data or {}).get("payment") or {})
+        next_payment = {
+            **payment,
+            "method": intent.method,
+            "intent_ref": intent.ref,
+            "gateway": intent.gateway,
+        }
+        if payment == next_payment:
+            return False
+        order.data = {**(order.data or {}), "payment": next_payment}
+        order.save(update_fields=["data", "updated_at"])
+        return True
 
     # ────────────────────────────────────────────────────────────────
     # Fulfillments
@@ -3308,7 +3746,7 @@ class Command(BaseCommand):
         if col_cafes:
             kds_cafes.collections.add(col_cafes)
 
-        # KDS Encomendas — Picking: pedidos agendados (future-dated)
+        # KDS Encomendas — Picking: separação de pedidos de balcão e agendados
         KDSInstance.objects.update_or_create(
             ref="encomendas",
             defaults={
@@ -3320,9 +3758,21 @@ class Command(BaseCommand):
             },
         )
 
-        KDSInstance.objects.filter(ref__in=["padaria", "expedicao"]).delete()
+        # KDS Expedição — pedidos prontos para balcão/despacho
+        KDSInstance.objects.update_or_create(
+            ref="expedicao",
+            defaults={
+                "name": "Expedição",
+                "type": "expedition",
+                "target_time_minutes": 2,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
 
-        self.stdout.write("  ✅ 3 estações KDS (Cafés, Lanches, Encomendas)")
+        KDSInstance.objects.filter(ref__in=["padaria"]).delete()
+
+        self.stdout.write("  ✅ 4 estações KDS (Cafés, Lanches, Encomendas, Expedição)")
 
     # ────────────────────────────────────────────────────────────────
     # Notification Templates
@@ -3334,16 +3784,20 @@ class Command(BaseCommand):
         from shopman.shop.models import NotificationTemplate
 
         FALLBACK_TEMPLATES = {
-            "order_received": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}*. Ja estamos olhando com carinho e logo confirmamos. Total: *{total}*."},
+            "order_received": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}*. O estabelecimento vai conferir a disponibilidade. Acompanhe por aqui: {tracking_url}"},
             "order_received_outside_hours": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}* fora do nosso horario de atendimento. Vamos processar assim que abrirmos. Total: *{total}*."},
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
             "order_preparing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
             "order_ready_pickup": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto para retirada! \U0001f389\n\nVenha buscar. Obrigado!"},
-            "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para envio", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e sera enviado em breve! \U0001f4e6"},
+            "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e aguardando entregador. Assim que sair para entrega avisamos. \U0001f4e6"},
             "order_dispatched": {"subject": "Pedido {order_ref} saiu para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* saiu para entrega!\n\nEm breve estara com voce!"},
             "order_delivered": {"subject": "Pedido {order_ref} entregue", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi entregue.\n\nEsperamos que tenha gostado! Obrigado pela preferencia."},
             "order_cancelled": {"subject": "Pedido {order_ref} cancelado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi cancelado.\n\nEm caso de duvidas, entre em contato."},
-            "payment_confirmed": {"subject": "Pagamento do pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! O pagamento do pedido *{order_ref}* foi recebido.\n\nValor: *{total}*\n\nSeu pedido sera preparado em breve. Obrigado!"},
+            "order_rejected": {"subject": "Pedido {order_ref} nao confirmado", "body": "Ola{customer_name_greeting}! O estabelecimento nao conseguiu confirmar o pedido *{order_ref}*.\n\nMotivo: {reason}\n\nEm caso de duvidas, estamos aqui."},
+            "payment_requested": {"subject": "Pedido {order_ref}: pagamento liberado", "body": "Ola{customer_name_greeting}! Confirmamos a disponibilidade do pedido *{order_ref}*.\n\nPara continuar, conclua o pagamento dentro do prazo: {payment_url}"},
+            "payment_confirmed": {"subject": "Pagamento do pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! O pagamento do pedido *{order_ref}* foi recebido.\n\nValor: *{total}*\n\nSeu pedido seguira para preparo. Obrigado!"},
+            "payment_expired": {"subject": "Pagamento do pedido {order_ref} expirado", "body": "Ola{customer_name_greeting}! O prazo de pagamento do pedido *{order_ref}* expirou.\n\nO pedido foi cancelado automaticamente."},
+            "payment_failed": {"subject": "Falha ao preparar pagamento do pedido {order_ref}", "body": "Ola{customer_name_greeting}! Nao conseguimos preparar o pagamento do pedido *{order_ref}*.\n\nAcesse {payment_url} para tentar novamente."},
             "payment_refunded": {"subject": "Reembolso do pedido {order_ref} processado", "body": "Ola{customer_name_greeting}! O reembolso do pedido *{order_ref}* foi processado.\n\nValor: *{total}*"},
             "loyalty_earned": {"subject": "Voce ganhou pontos de fidelidade!", "body": "Ola{customer_name_greeting}! Voce ganhou pontos de fidelidade com o pedido *{order_ref}*!"},
         }
@@ -3534,3 +3988,241 @@ class Command(BaseCommand):
         )
 
         self.stdout.write("  ✅ 2 sessoes de caixa (ontem fechada + hoje aberta)")
+
+    # ────────────────────────────────────────────────────────────────
+    # Operation checklists (abertura, rotina, fechamento)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_operation_checklists(self):
+        self.stdout.write("  ✅ Checklists operacionais...")
+
+        admin = User.objects.filter(is_superuser=True).first()
+        if not admin:
+            self.stdout.write("  ⏭️  Sem superuser, pulando checklists operacionais")
+            return
+
+        task_specs = [
+            {
+                "ref": "nelson-opening-cash-count",
+                "title": "Caixa aberto e conferido",
+                "description": "Registrar fundo de troco antes de iniciar atendimento.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.CASH,
+                "evidence_required": OperationEvidence.NUMBER,
+                "expected_role": "caixa",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-opening-showcase-ready",
+                "title": "Vitrine preparada",
+                "description": "Conferir exposição, etiquetas e itens críticos antes da abertura.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.ROOM,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "atendimento",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-opening-equipment-safe",
+                "title": "Equipamentos ligados e seguros",
+                "description": "Forno, geladeiras, iluminação e PDV em condição segura.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.PRODUCTION,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "produção",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-routine-tables-clean",
+                "title": "Mesas limpas",
+                "description": "Conferência periódica do salão.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-routine-bathroom-clean",
+                "title": "Banheiro limpo",
+                "description": "Checagem de limpeza, papel, sabonete e lixeira.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-routine-showcase-restock",
+                "title": "Reposição de vitrine",
+                "description": "Registrar rupturas, reposições e itens de atenção.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.ROOM,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "atendimento",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-routine-critical-stock",
+                "title": "Ruptura ou item crítico conferido",
+                "description": "Checar itens com alerta ou alta demanda no dia.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.STOCK,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "gestão",
+                "sort_order": 40,
+            },
+            {
+                "ref": "nelson-closing-cash-closed",
+                "title": "Caixa fechado",
+                "description": "Conferir valor informado, esperado e diferença.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.CASH,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "caixa",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-closing-unsold-blind",
+                "title": "Não vendidos informados às cegas",
+                "description": "Registrar quantidade apurada sem revelar saldo esperado.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.STOCK,
+                "evidence_required": OperationEvidence.NUMBER,
+                "expected_role": "fechamento",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-closing-showcase-clean",
+                "title": "Vitrine limpa",
+                "description": "Limpeza final e retirada de itens sem condição de venda.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-closing-equipment-safe",
+                "title": "Equipamentos desligados ou seguros",
+                "description": "Conferir equipamentos, refrigeração e segurança para a noite.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.PRODUCTION,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "produção",
+                "sort_order": 40,
+            },
+        ]
+
+        tasks: dict[str, OperationTaskTemplate] = {}
+        for spec in task_specs:
+            ref = spec.pop("ref")
+            task, _ = OperationTaskTemplate.objects.update_or_create(
+                ref=ref,
+                defaults={**spec, "is_required": True, "is_active": True, "is_system": True, "config": {"seed": "nelson"}},
+            )
+            tasks[ref] = task
+
+        checklist_specs = [
+            (
+                "nelson-opening",
+                "Abertura da casa",
+                OperationMoment.OPENING,
+                [
+                    "nelson-opening-cash-count",
+                    "nelson-opening-showcase-ready",
+                    "nelson-opening-equipment-safe",
+                ],
+            ),
+            (
+                "nelson-routine",
+                "Rotina do dia",
+                OperationMoment.ROUTINE,
+                [
+                    "nelson-routine-tables-clean",
+                    "nelson-routine-bathroom-clean",
+                    "nelson-routine-showcase-restock",
+                    "nelson-routine-critical-stock",
+                ],
+            ),
+            (
+                "nelson-closing",
+                "Fechamento da casa",
+                OperationMoment.CLOSING,
+                [
+                    "nelson-closing-cash-closed",
+                    "nelson-closing-unsold-blind",
+                    "nelson-closing-showcase-clean",
+                    "nelson-closing-equipment-safe",
+                ],
+            ),
+        ]
+        checklists: dict[str, OperationChecklistTemplate] = {}
+        for index, (ref, title, moment, task_refs) in enumerate(checklist_specs, start=1):
+            checklist, _ = OperationChecklistTemplate.objects.update_or_create(
+                ref=ref,
+                defaults={
+                    "title": title,
+                    "description": "Checklist canônico Nelson para operação diária.",
+                    "moment": moment,
+                    "is_active": True,
+                    "sort_order": index * 10,
+                },
+            )
+            checklists[ref] = checklist
+            for sort_order, task_ref in enumerate(task_refs, start=1):
+                OperationChecklistTemplateTask.objects.update_or_create(
+                    checklist_template=checklist,
+                    task_template=tasks[task_ref],
+                    defaults={"sort_order": sort_order * 10, "is_required_override": None},
+                )
+
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+        OperationChecklistRun.objects.filter(context__seed="nelson").delete()
+
+        opening_run = start_checklist_run(
+            template=checklists["nelson-opening"],
+            business_date=today,
+            shift_ref="manha",
+            user=admin,
+            context={"seed": "nelson", "state": "completed_opening"},
+        )
+        for task in opening_run.task_runs.select_related("template"):
+            if task.evidence_required == OperationEvidence.NUMBER:
+                complete_task_run(task, user=admin, evidence_number=200, notes="Fundo de troco conferido.")
+            elif task.evidence_required == OperationEvidence.DOUBLE_CHECK:
+                complete_task_run(task, user=admin, notes="Equipamentos verificados.")
+                supervise_task_run(task, user=admin, notes="Dupla conferência seed.")
+            else:
+                complete_task_run(task, user=admin, evidence_text="Conferido no seed operacional.")
+        complete_checklist_run(opening_run, user=admin)
+
+        routine_run = start_checklist_run(
+            template=checklists["nelson-routine"],
+            business_date=today,
+            shift_ref="tarde",
+            user=admin,
+            context={"seed": "nelson", "state": "routine_in_progress"},
+        )
+        for task in routine_run.task_runs.filter(template__ref__in=["nelson-routine-tables-clean", "nelson-routine-showcase-restock"]):
+            complete_task_run(task, user=admin, evidence_text="Conferido durante a rotina.")
+
+        closing_run = start_checklist_run(
+            template=checklists["nelson-closing"],
+            business_date=yesterday,
+            shift_ref="noite",
+            user=admin,
+            context={"seed": "nelson", "state": "completed_closing"},
+        )
+        for task in closing_run.task_runs.select_related("template"):
+            if task.evidence_required == OperationEvidence.NUMBER:
+                complete_task_run(task, user=admin, evidence_number=33, notes="Total agregado de não vendidos.")
+            elif task.evidence_required == OperationEvidence.DOUBLE_CHECK:
+                complete_task_run(task, user=admin, notes="Fechamento conferido.")
+                supervise_task_run(task, user=admin, notes="Dupla conferência seed.")
+            else:
+                complete_task_run(task, user=admin, evidence_text="Conferido no fechamento.")
+        complete_checklist_run(closing_run, user=admin)
+
+        self.stdout.write("  ✅ 3 templates e 3 execuções de checklist operacional")

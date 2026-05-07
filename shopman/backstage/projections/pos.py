@@ -12,7 +12,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from django.utils import timezone
 from shopman.offerman.models import Collection, Product
+from shopman.orderman.models import Session
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
@@ -59,6 +61,25 @@ class POSShiftSummaryProjection:
     total_display: str
     last_ref: str
     last_total_display: str
+
+
+@dataclass(frozen=True)
+class POSTabProjection:
+    """A visible POS tab card."""
+
+    code: str
+    display_code: str
+    session_key: str
+    state: str
+    status_label: str
+    status_class: str
+    customer_name: str
+    customer_phone: str
+    item_count: int
+    line_count: int
+    total_display: str
+    last_touched_display: str
+    items_preview: str
 
 
 @dataclass(frozen=True)
@@ -127,6 +148,53 @@ def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSu
     )
 
 
+def build_pos_tabs(
+    *,
+    channel_ref: str = POS_CHANNEL_REF,
+    query: str = "",
+    limit: int = 80,
+) -> tuple[POSTabProjection, ...]:
+    """Build POS tab cards with empty/in-use state."""
+    from shopman.backstage.models import POSTab
+
+    query_norm = _norm(query)
+    sessions = {
+        str((session.data or {}).get("tab_code") or session.handle_ref or "").strip(): session
+        for session in Session.objects.filter(
+            channel_ref=channel_ref,
+            state="open",
+        ).filter(handle_type="pos_tab")
+    }
+    sessions.update({
+        str((session.data or {}).get("tab_code") or "").strip(): session
+        for session in Session.objects.filter(
+            channel_ref=channel_ref,
+            state="open",
+            data__has_key="tab_code",
+        )
+    })
+    sessions = {code: session for code, session in sessions.items() if code}
+
+    codes = list(
+        POSTab.objects.filter(is_active=True)
+        .order_by("code")
+        .values_list("code", flat=True)
+    )
+    for code in sessions:
+        if code not in codes:
+            codes.append(code)
+
+    tabs = []
+    for code in codes:
+        tab = _tab_projection(code=code, session=sessions.get(code))
+        if query_norm and query_norm not in _tab_haystack(tab, sessions.get(code)):
+            continue
+        tabs.append(tab)
+
+    tabs.sort(key=lambda tab: (tab.state != "in_use", tab.code))
+    return tuple(tabs[:limit])
+
+
 # ── Internals ──────────────────────────────────────────────────────────
 
 
@@ -184,3 +252,112 @@ def _product_projection(product: Product, price_q: int) -> POSProductProjection:
         collection_ref=ci.collection.ref if ci else "",
         is_d1=is_d1,
     )
+
+
+def _tab_projection(*, code: str, session: Session | None) -> POSTabProjection:
+    display_code = _display_code(code)
+    if session is None:
+        return POSTabProjection(
+            code=code,
+            display_code=display_code,
+            session_key="",
+            state="empty",
+            status_label="Vazia",
+            status_class="badge-neutral",
+            customer_name="",
+            customer_phone="",
+            item_count=0,
+            line_count=0,
+            total_display="R$ 0,00",
+            last_touched_display="",
+            items_preview="",
+        )
+
+    data = session.data or {}
+    customer = data.get("customer") or {}
+    items = session.items or []
+    last_touched = _parse_dt(data.get("last_touched_at"), fallback=session.opened_at)
+    item_count = sum(_qty_int(item.get("qty", 1)) for item in items)
+    total_q = sum(
+        _qty_int(item.get("qty", 1)) * int(item.get("unit_price_q", 0))
+        for item in items
+    )
+    discount_q = int((data.get("manual_discount") or {}).get("discount_q", 0))
+
+    return POSTabProjection(
+        code=code,
+        display_code=display_code,
+        session_key=session.session_key,
+        state="in_use",
+        status_label="Em uso",
+        status_class="badge-warning",
+        customer_name=str(customer.get("name") or ""),
+        customer_phone=str(customer.get("phone") or ""),
+        item_count=item_count,
+        line_count=len(items),
+        total_display=f"R$ {format_money(max(0, total_q - discount_q))}",
+        last_touched_display=_format_time(last_touched),
+        items_preview=_items_preview(items),
+    )
+
+
+def _parse_dt(value, *, fallback):
+    if not value:
+        return fallback
+    from django.utils.dateparse import parse_datetime
+
+    parsed = parse_datetime(str(value))
+    if parsed is None:
+        return fallback
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
+def _format_time(value) -> str:
+    return timezone.localtime(value).strftime("%H:%M")
+
+
+def _qty_int(value) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _items_preview(items: list[dict]) -> str:
+    preview = []
+    for item in items[:2]:
+        qty = _qty_int(item.get("qty", 1))
+        name = str(item.get("name") or item.get("sku") or "").strip()
+        if not name:
+            continue
+        preview.append(f"{qty}x {name}")
+    if len(items) > 2:
+        preview.append(f"+{len(items) - 2}")
+    return " · ".join(preview)
+
+
+def _tab_haystack(tab: POSTabProjection, session: Session | None) -> str:
+    item_parts = []
+    if session is not None:
+        for item in session.items or []:
+            item_parts.extend([str(item.get("sku") or ""), str(item.get("name") or "")])
+    return _norm(
+        " ".join([
+            tab.code,
+            tab.display_code,
+            tab.customer_name,
+            tab.customer_phone,
+            tab.items_preview,
+            *item_parts,
+        ])
+    )
+
+
+def _display_code(code: str) -> str:
+    return str(code or "").lstrip("0") or "0"
+
+
+def _norm(value: str) -> str:
+    return " ".join(str(value or "").strip().lower().split())

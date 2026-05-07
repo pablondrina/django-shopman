@@ -1,4 +1,4 @@
-"""OrderHistoryProjection — read model for the order history page (Fase 3).
+"""OrderHistoryProjection — immutable UI projection for the order history page (Fase 3).
 
 Translates a customer's order list into an immutable projection consumed
 by the ``storefront/order_history.html`` template.
@@ -35,7 +35,7 @@ FILTER_OPTIONS: tuple[tuple[str, str], ...] = (
 
 @dataclass(frozen=True)
 class OrderHistoryProjection:
-    """Full read model for the storefront order history page."""
+    """Full projection for the storefront order history page."""
 
     orders: tuple[OrderSummaryProjection, ...]
     phone_display: str      # raw phone for |format_phone filter
@@ -77,8 +77,9 @@ def _fetch_orders(
     customer,
     filter_param: str,
 ) -> tuple[OrderSummaryProjection, ...]:
-    summaries = customer_orders.history_summaries_for_phone(
-        customer.phone,
+    summaries = customer_orders.history_summaries_for_customer(
+        customer_ref=customer.ref,
+        phone=customer.phone,
         filter_param=filter_param,
         limit=50,
     )

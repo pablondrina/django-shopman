@@ -68,9 +68,10 @@ class TestD1ModifierRuleConfig:
     def test_non_d1_item_unaffected(self, modifier):
         session = _make_session(items=[{"sku": "P001", "unit_price_q": 1000, "qty": 1}])
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 30}):
+        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 30}) as mock_params:
             modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 1000  # not d1, not touched
+        mock_params.assert_not_called()
 
     def test_modifier_records_type_in_applied(self, modifier):
         session = _make_session(items=[self._d1_item()])
@@ -79,6 +80,48 @@ class TestD1ModifierRuleConfig:
             modifier.apply(channel=channel, session=session, ctx={})
         types = [m["type"] for m in session.items[0].get("modifiers_applied", [])]
         assert "d1_discount" in types
+
+
+class TestPricingNoopModifiers:
+    def test_loyalty_noop_does_not_save_when_pricing_key_absent(self):
+        from shopman.shop.modifiers import LoyaltyRedeemModifier
+
+        session = _make_session(data={}, pricing={})
+
+        LoyaltyRedeemModifier().apply(channel=_make_channel(), session=session, ctx={})
+
+        session.save.assert_not_called()
+        assert session.pricing == {}
+
+    def test_loyalty_noop_removes_stale_pricing_key(self):
+        from shopman.shop.modifiers import LoyaltyRedeemModifier
+
+        session = _make_session(data={}, pricing={"loyalty_redeem": {"total_discount_q": 100}})
+
+        LoyaltyRedeemModifier().apply(channel=_make_channel(), session=session, ctx={})
+
+        session.save.assert_called_once_with(update_fields=["pricing"])
+        assert "loyalty_redeem" not in session.pricing
+
+    def test_manual_discount_noop_does_not_save_when_pricing_key_absent(self):
+        from shopman.shop.modifiers import ManualDiscountModifier
+
+        session = _make_session(data={}, pricing={})
+
+        ManualDiscountModifier().apply(channel=_make_channel(), session=session, ctx={})
+
+        session.save.assert_not_called()
+        assert session.pricing == {}
+
+    def test_manual_discount_noop_removes_stale_pricing_key(self):
+        from shopman.shop.modifiers import ManualDiscountModifier
+
+        session = _make_session(data={}, pricing={"manual_discount": {"total_discount_q": 100}})
+
+        ManualDiscountModifier().apply(channel=_make_channel(), session=session, ctx={})
+
+        session.save.assert_called_once_with(update_fields=["pricing"])
+        assert "manual_discount" not in session.pricing
 
 
 # ─── HappyHourModifier ──────────────────────────────────────────────────────

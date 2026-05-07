@@ -9,6 +9,7 @@ Never imports from ``shopman.backstage.views.*``.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -64,7 +65,7 @@ NEXT_ACTION_LABELS: dict[str, str] = {
     "delivered": "Concluir",
 }
 
-READY_DELIVERY_LABEL = "Saiu para entrega"
+READY_DELIVERY_LABEL = "Marcar saída para entrega"
 
 
 # ── Projections ────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ class OrderCardProjection:
     channel_icon: str
     customer_name: str
     created_at_display: str
+    created_at_iso: str
+    server_now_iso: str
     elapsed_seconds: int
     timer_class: str  # "timer-ok", "timer-warning", "timer-urgent", "timer-muted"
     items_summary: str
@@ -218,6 +221,7 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
     )
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method", "")
+    payment_status = _payment_status(order)
 
     return OperatorOrderProjection(
         ref=order.ref,
@@ -234,7 +238,7 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         internal_notes=order.data.get("internal_notes", ""),
         payment_method=method,
         payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
-        payment_status=payment_svc.get_payment_status(order) or "",
+        payment_status=payment_status,
         awaiting_work_orders=_awaiting_work_orders(order),
     )
 
@@ -312,6 +316,7 @@ def _build_card(order: Order) -> OrderCardProjection:
 
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method", "")
+    payment_status = _payment_status(order)
 
     return OrderCardProjection(
         ref=order.ref,
@@ -322,6 +327,8 @@ def _build_card(order: Order) -> OrderCardProjection:
         channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
         customer_name=customer_name,
         created_at_display=_format_datetime(order.created_at),
+        created_at_iso=order.created_at.isoformat(),
+        server_now_iso=now.isoformat(),
         elapsed_seconds=int(elapsed),
         timer_class=timer_class,
         items_summary=items_summary,
@@ -335,8 +342,8 @@ def _build_card(order: Order) -> OrderCardProjection:
         next_action_label=next_label,
         payment_method=method,
         payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
-        payment_status=payment_svc.get_payment_status(order) or "",
-        payment_pending=_is_payment_pending(order, method, payment_svc.get_payment_status(order) or ""),
+        payment_status=payment_status,
+        payment_pending=_is_payment_pending(order, method, payment_status),
         has_notes=bool(order.data.get("internal_notes")),
         awaiting_work_orders=_awaiting_work_orders(order),
     )
@@ -349,6 +356,7 @@ def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ..
 
     try:
         from shopman.craftsman.models import WorkOrder
+
         from shopman.backstage.projections.production import WO_STATUS_LABELS, _qty, _work_order_progress_pct
     except Exception:
         logger.debug("orders.awaiting_work_orders_import_failed order=%s", order.ref, exc_info=True)
@@ -376,12 +384,19 @@ def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ..
 
 
 def _is_payment_pending(order: Order, method: str, payment_status: str) -> bool:
-    """True when the order needs payment capture before it can be confirmed."""
-    if order.status != "new":
+    """True when the order needs payment capture before physical work can start."""
+    if order.status not in {"new", "confirmed"}:
         return False
     if method in _OFFLINE_METHODS:
         return False
+    if order.status == "new" and not ((order.data or {}).get("payment") or {}).get("intent_ref"):
+        return False
     return payment_status not in _PAYMENT_COMPLETE
+
+
+def _payment_status(order: Order) -> str:
+    """Return the operator-facing payment status without duplicating Payman."""
+    return payment_svc.get_payment_status(order) or ""
 
 
 def _format_customer_display(value: str) -> str:
@@ -435,6 +450,12 @@ def _is_delivery(order: Order) -> bool:
 
 
 def _next_status(order: Order) -> str:
+    payment_data = (order.data or {}).get("payment") or {}
+    method = str(payment_data.get("method") or "").lower()
+    if order.status == "confirmed" and method not in _OFFLINE_METHODS:
+        status = (_payment_status(order) or "").lower()
+        if status not in _PAYMENT_COMPLETE:
+            return ""
     if order.status == "ready" and _is_delivery(order):
         return "dispatched"
     return NEXT_STATUS_MAP.get(order.status, "")
@@ -471,9 +492,27 @@ def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
                 label=label,
                 event_type=event.type,
                 timestamp_display=_format_datetime(event.created_at),
+                actor=event.actor,
+                detail=_event_detail(payload),
             )
         )
     return tuple(result)
+
+
+def _event_detail(payload: dict) -> str:
+    if not payload:
+        return ""
+    old_status = payload.get("old_status")
+    new_status = payload.get("new_status")
+    if old_status or new_status:
+        old_label = ORDER_STATUS_LABELS_PT.get(old_status, old_status or "-")
+        new_label = ORDER_STATUS_LABELS_PT.get(new_status, new_status or "-")
+        return f"{old_label} -> {new_label}"
+    for key in ("reason", "note", "error"):
+        value = payload.get(key)
+        if value:
+            return str(value)
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
 def _money(value_q: int | None) -> str:

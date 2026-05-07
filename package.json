@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Shopman storefront CSS build pipeline",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "css:build": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style.css -o ./shopman/storefront/static/storefront/css/output.css --minify",
     "css:watch": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style.css -o ./shopman/storefront/static/storefront/css/output.css --watch",

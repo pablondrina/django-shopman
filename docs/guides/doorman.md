@@ -10,7 +10,9 @@ O app `shopman.doorman` implementa autenticação passwordless com três fluxos 
 Código de verificação enviado por WhatsApp/SMS/Email. Hash HMAC-SHA256 no banco (nunca plaintext). TTL de 10 minutos, máximo 5 tentativas.
 
 ### Access Link
-Token para transição chat→web (ex: Manychat → checkout web). TTL curto (5 min), uso único com janela de reuso de 60s para browser prefetch.
+Token para transição chat→web (ex: Manychat → checkout web). TTL curto (5 min)
+e uso único. A criação de access links é uma integração servidor-servidor:
+fora de `DEBUG`, `DOORMAN_ACCESS_LINK_API_KEY` é obrigatório.
 
 ### Email Access Link
 Link de login por email com Access Link embutido. TTL de 15 minutos.
@@ -220,6 +222,7 @@ Chave Django settings: `DOORMAN`
 | `DEVICE_TRUST_ENABLED` | True | Habilitar confiança de dispositivo |
 | `DEVICE_TRUST_TTL_DAYS` | 30 | TTL do cookie |
 | `ACCESS_LINK_ENABLED` | True | Habilitar Access Link por email |
+| `ACCESS_LINK_API_KEY` | "" | Chave servidor-servidor para criar access links; obrigatória fora de `DEBUG` |
 | `AUTO_CREATE_CUSTOMER` | True | Criar cliente automaticamente no login |
 | `USE_HTTPS` | True | Usar HTTPS nas URLs |
 
@@ -231,7 +234,8 @@ Chave Django settings: `DOORMAN`
 | Comparação timing-safe | `hmac.compare_digest()` previne timing attacks |
 | Cookie seguro | HttpOnly, Secure (prod), SameSite=Lax |
 | Rate limiting | G9 (target), G10 (IP), G11 (cooldown), G12 (access link) |
-| Reuso de token | G7 permite 60s para browser prefetch |
+| Reuso de token | G7 rejeita token já usado |
+| Criação de access link | API key obrigatória fora de `DEBUG`; falha fechado se ausente |
 | Desacoplamento | CustomerResolver desacopla do Guestman |
 | Preservação de sessão | Session keys preservadas no login (carrinho) |
 

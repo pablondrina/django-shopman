@@ -20,31 +20,95 @@
      sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'pdv' %}"
      class="h-full flex flex-col overflow-hidden">
 
-  {% comment %}Parked session tab bar{% endcomment %}
-  <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0 overflow-x-auto">
+  {% comment %}POS state bar{% endcomment %}
+  <div class="flex items-center gap-2 px-3 py-1.5 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0 overflow-hidden">
+    <button type="button"
+            x-show="mode === 'sale' || mode === 'checkout'"
+            x-cloak
+            class="btn-quiet shrink-0"
+            @click="mode === 'checkout' ? returnToSale() : returnToTabs()"
+            :title="mode === 'checkout' ? 'Voltar para venda' : 'Voltar para comandas'">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
+      <span x-text="mode === 'checkout' ? 'Venda' : 'Comandas'"></span>
+    </button>
     <div class="badge bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent shrink-0">
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">point_of_sale</span>
-      <span x-show="!activeTab" x-cloak>Nova venda</span>
-      <span x-show="activeTab" x-cloak>Tab <span x-text="activeTab"></span></span>
+      <span x-show="mode === 'tab_select'" x-cloak>Selecione uma comanda</span>
+      <span x-show="mode === 'sale'" x-cloak>Comanda <span x-text="activeTabDisplay"></span></span>
+      <span x-show="mode === 'checkout'" x-cloak>Checkout · Comanda <span x-text="activeTabDisplay"></span></span>
       <span x-show="itemCount > 0" x-cloak class="opacity-70"
             x-text="'· ' + itemCount + (itemCount===1?' item':' itens') + ' · ' + formatMoney(totalQ)"></span>
     </div>
-    <div id="pos-session-tabs" x-ref="sessionTabs"
-         hx-get="/gestor/pos/sessions/"
-         hx-trigger="load, sessionParked from:body"
-         hx-swap="innerHTML"
-         class="flex items-center gap-1.5">
+    <div x-show="successMsg"
+         x-cloak
+         class="badge-success shrink-0">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
+      <span x-text="successMsg"></span>
     </div>
+    <button type="button"
+            x-show="mode === 'tab_select'"
+            x-cloak
+            class="btn-secondary ml-auto shrink-0"
+            @click="openTabCreateModal()"
+            title="Cadastrar comanda">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">add</span>
+      Nova comanda
+    </button>
   </div>
 
   {% comment %}Main 2-column{% endcomment %}
   <main class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
 
-    {% comment %}LEFT: Products{% endcomment %}
+    {% comment %}LEFT: Tab selection or products{% endcomment %}
     <div class="flex-1 flex flex-col overflow-hidden md:border-r border-outline dark:border-outline-dark min-w-0 min-h-0">
 
+      {% comment %}Tab selection{% endcomment %}
+      <div x-show="mode === 'tab_select'"
+           x-cloak
+           class="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div class="px-3 py-2 flex flex-col sm:flex-row gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
+          <form class="relative flex-1"
+                hx-post="/gestor/pos/tab/open/"
+                hx-include="#pos-tab-code"
+                hx-swap="none"
+                x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadTabOpenResponse(d); } else { handleTabOpenError(event.detail.xhr.responseText); }">
+            <span class="material-symbols-rounded icon-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">search</span>
+            <input id="pos-tab-code"
+                   x-ref="tabCode"
+                   name="tab_code"
+                   type="text"
+                   inputmode="numeric"
+                   pattern="[0-9]*"
+                   maxlength="8"
+                   class="input-field pl-9"
+                   autocomplete="off"
+                   aria-label="Ler comanda"
+                   placeholder="Ler ou buscar comanda..."
+                   @input="htmx.trigger($refs.tabGrid, 'tabFilter')"
+                   @keydown.enter.prevent="openTabFromInput()">
+          </form>
+          <button type="button"
+                  class="btn-secondary shrink-0"
+                  @click="openTabCreateModal()">
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">add</span>
+            Nova comanda
+          </button>
+        </div>
+        <div id="pos-tab-grid"
+             x-ref="tabGrid"
+             hx-get="/gestor/pos/tabs/"
+             hx-trigger="load, posTabOpened from:body, posTabSaved from:body, posOrderCreated from:body, tabFilter delay:250ms, tabGridRefresh"
+             hx-include="#pos-tab-code"
+             hx-swap="innerHTML"
+             class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
+             style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
+        </div>
+      </div>
+
       {% comment %}Filters bar{% endcomment %}
-      <div class="px-3 py-2 flex flex-col gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
+      <div x-show="mode === 'sale'"
+           x-cloak
+           class="px-3 py-2 flex flex-col gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
         <input id="pos-search" x-ref="search" type="text"
                class="input-field"
                placeholder="Buscar produto... (/)"
@@ -66,17 +130,19 @@
       </div>
 
       {% comment %}Product grid{% endcomment %}
-      <div class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
+      <div x-show="mode === 'sale'"
+           x-cloak
+           class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
            style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         {% for p in products %}
         <div class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
-             :class="isUnavailable('{{ p.sku }}') ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:shadow-sm'"
+             :class="(!activeTabCode || isUnavailable('{{ p.sku }}')) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:shadow-sm'"
              data-sku="{{ p.sku }}"
              hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'pdv' }}"
              hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ p.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ p.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ p.sku }}']"
              hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
-             @click="if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
+             @click="if (!activeTabCode) { tabMessage='Leia uma comanda antes de inserir produtos.'; return; } if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
           <span class="absolute top-1.5 right-1.5 badge-warning leading-none">D-1</span>
           {% endif %}
@@ -95,10 +161,204 @@
         <div class="col-span-full text-center text-on-surface/40 dark:text-on-surface-dark/40 text-sm py-8">Nenhum produto cadastrado.</div>
         {% endfor %}
       </div>
+
+      {% comment %}Checkout{% endcomment %}
+      <div x-show="mode === 'checkout'"
+           x-cloak
+           class="flex-1 overflow-y-auto p-3 md:p-4 bg-surface dark:bg-surface-dark">
+        <div class="max-w-5xl mx-auto grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section class="rounded-lg border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-3 md:p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-title font-bold text-lg text-on-surface-strong dark:text-on-surface-dark-strong">Checkout</h2>
+                <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">Comanda <span class="tabular-nums" x-text="activeTabDisplay"></span></p>
+              </div>
+              <button type="button"
+                      class="btn-secondary shrink-0"
+                      @click="returnToSale()">
+                <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
+                Voltar
+              </button>
+            </div>
+
+            <div class="divide-y divide-outline dark:divide-outline-dark">
+              <template x-for="(item, idx) in cart" :key="'checkout-' + item.sku + idx">
+                <div class="py-2 flex items-center gap-3 text-sm">
+                  <div class="flex-1 min-w-0">
+                    <span class="font-semibold truncate block text-on-surface-strong dark:text-on-surface-dark-strong" x-text="item.name"></span>
+                    <span x-show="item.notes" x-cloak class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate block" x-text="item.notes"></span>
+                  </div>
+                  <span class="tabular-nums text-on-surface/60 dark:text-on-surface-dark/60" x-text="item.qty + 'x'"></span>
+                  <span class="tabular-nums font-semibold" x-text="formatMoney(item.qty * item.price_q)"></span>
+                </div>
+              </template>
+            </div>
+
+            <div class="rounded-lg border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-3 flex flex-col gap-2">
+              <div class="flex justify-between text-sm">
+                <span>Subtotal</span>
+                <span class="tabular-nums" x-text="formatMoney(subtotalQ)"></span>
+              </div>
+              <div x-show="discountQ > 0" x-cloak class="flex justify-between text-sm text-warning font-semibold">
+                <span>Desconto</span>
+                <span class="tabular-nums" x-text="'-' + formatMoney(discountQ)"></span>
+              </div>
+              <div class="flex justify-between text-xl font-bold pt-2 border-t border-outline dark:border-outline-dark">
+                <span>Total</span>
+                <span class="tabular-nums" x-text="formatMoney(totalQ)"></span>
+              </div>
+            </div>
+
+            <div class="grid gap-2 md:grid-cols-2">
+              <div>
+                <label class="field-label">Telefone do cliente</label>
+                <input type="tel" name="phone"
+                       x-ref="checkoutCustomerPhone"
+                       class="input-field"
+                       placeholder="Telefone"
+                       x-model="customerPhone"
+                       hx-post="/gestor/pos/customer-lookup/"
+                       hx-trigger="blur changed, keydown[key=='Enter'] changed"
+                       hx-target="#pos-customer-result"
+                       hx-swap="innerHTML"
+                       hx-include="[name='phone']">
+                <div id="pos-customer-result" x-ref="customerResult" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem] flex items-center gap-1"
+                     x-on:htmx:after-swap="
+                       let span = $el.querySelector('[data-customer-group]');
+                       if (span) {
+                         customerName = span.dataset.customerName || '';
+                         customerGroup = span.dataset.customerGroup || '';
+                       } else {
+                         customerGroup = '';
+                       }">
+                  <span x-show="!customerPhone" x-cloak class="text-on-surface/40 dark:text-on-surface-dark/40">Cliente avulso</span>
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Nome do cliente</label>
+                <input type="text"
+                       class="input-field"
+                       placeholder="Nome opcional"
+                       x-model="customerName">
+              </div>
+            </div>
+
+            <div class="grid gap-2 md:grid-cols-2">
+              <div>
+                <label class="field-label">CPF/CNPJ na nota</label>
+                <input type="text"
+                       class="input-field tabular-nums"
+                       placeholder="Opcional"
+                       x-model="customerTaxId">
+              </div>
+              <label class="flex items-center gap-2 rounded-lg border border-outline dark:border-outline-dark px-3 py-2 min-h-11 cursor-pointer">
+                <input type="checkbox"
+                       class="h-4 w-4 accent-primary dark:accent-primary-dark"
+                       x-model="issueFiscalDocument">
+                <span class="text-sm font-semibold">Emitir documento fiscal</span>
+              </label>
+            </div>
+
+            <div>
+              <label class="field-label">Comprovante</label>
+              <div class="flex gap-1.5">
+                <button type="button"
+                        class="segmented-action"
+                        :class="receiptMode === 'none' ? 'segmented-action--active' : ''"
+                        @click="receiptMode = 'none'">Não emitir</button>
+                <button type="button"
+                        class="segmented-action"
+                        :class="receiptMode === 'print' ? 'segmented-action--active' : ''"
+                        @click="receiptMode = 'print'">Imprimir</button>
+                <button type="button"
+                        class="segmented-action"
+                        :class="receiptMode === 'email' ? 'segmented-action--active' : ''"
+                        @click="receiptMode = 'email'">E-mail</button>
+              </div>
+              <input x-show="receiptMode === 'email'"
+                     x-cloak
+                     type="email"
+                     class="input-field mt-2"
+                     placeholder="E-mail do cliente"
+                     x-model="receiptEmail">
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-3 md:p-4 flex flex-col gap-3 lg:sticky lg:top-3 self-start">
+            <div>
+              <label class="field-label">Forma de pagamento</label>
+              <div class="grid grid-cols-3 gap-1.5">
+                {% for pm in payment_methods %}
+                <button type="button"
+                        class="segmented-action"
+                        :class="paymentMethod === '{{ pm.ref }}' ? 'segmented-action--active' : ''"
+                        @click="setPaymentMethod('{{ pm.ref }}')">{{ pm.label }}</button>
+                {% empty %}
+                <button type="button" class="segmented-action" :class="paymentMethod === 'cash' ? 'segmented-action--active' : ''" @click="setPaymentMethod('cash')">Dinheiro</button>
+                <button type="button" class="segmented-action" :class="paymentMethod === 'pix' ? 'segmented-action--active' : ''" @click="setPaymentMethod('pix')">PIX</button>
+                <button type="button" class="segmented-action" :class="paymentMethod === 'card' ? 'segmented-action--active' : ''" @click="setPaymentMethod('card')">Cartão</button>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div x-show="paymentMethod === 'cash'" x-cloak class="flex flex-col gap-2">
+              <label class="field-label">Valor recebido</label>
+              <input type="number" min="0" step="0.01"
+                     class="input-field text-center tabular-nums text-lg font-bold"
+                     placeholder="R$ 0,00"
+                     x-model="tenderedInput">
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" class="btn-secondary" @click="setTenderedQ(totalQ)">Exato</button>
+                <button type="button" class="btn-secondary tabular-nums" @click="addTenderedQ(1000)">+10</button>
+                <button type="button" class="btn-secondary tabular-nums" @click="addTenderedQ(2000)">+20</button>
+                <button type="button" class="btn-secondary tabular-nums" @click="addTenderedQ(5000)">+50</button>
+                <button type="button" class="btn-secondary tabular-nums" @click="addTenderedQ(10000)">+100</button>
+                <button type="button" class="btn-secondary" @click="clearTendered()">Limpar</button>
+              </div>
+              <div x-show="trocoQ > 0" x-cloak
+                   class="flex items-center justify-between px-3 py-2 rounded-lg bg-success/10 border border-success/30">
+                <span class="text-xs font-semibold text-success">Troco</span>
+                <span class="text-2xl font-bold tabular-nums text-success" x-text="formatMoney(trocoQ)"></span>
+              </div>
+              <div x-show="tenderedQ > 0 && tenderedQ < totalQ" x-cloak
+                   class="text-xs text-warning font-semibold text-center">
+                Valor recebido menor que o total
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark p-3 flex items-center justify-between">
+              <span class="font-bold">Total</span>
+              <span class="text-2xl font-bold tabular-nums" x-text="formatMoney(totalQ)"></span>
+            </div>
+
+            <div id="pos-result" x-ref="result"></div>
+
+            <button id="pos-close-btn" x-ref="closeBtn"
+                    type="button"
+                    class="btn-primary w-full text-base font-bold min-h-12 flex items-center justify-center gap-2"
+                    :disabled="!canFinalize"
+                    hx-post="/gestor/pos/close/"
+                    hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
+                    hx-target="#pos-result"
+                    hx-swap="innerHTML">
+              <span class="htmx-indicator material-symbols-rounded animate-spin icon-md leading-none" aria-hidden="true">progress_activity</span>
+              <span>Confirmar venda</span>
+              <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(Enter)</span>
+            </button>
+            <button type="button"
+                    class="btn-secondary w-full"
+                    @click="returnToSale()">
+              Voltar para itens
+            </button>
+          </section>
+        </div>
+      </div>
     </div>
 
     {% comment %}RIGHT: Cart sidebar{% endcomment %}
-    <div class="w-full md:w-80 flex flex-col bg-surface-alt dark:bg-surface-dark-alt shrink-0 border-t md:border-t-0 border-outline dark:border-outline-dark max-h-[44svh] md:max-h-none md:min-w-[260px] md:max-w-[340px]">
+    <div x-show="mode === 'sale'"
+         x-cloak
+         class="w-full md:w-80 flex flex-col bg-surface-alt dark:bg-surface-dark-alt shrink-0 border-t md:border-t-0 border-outline dark:border-outline-dark max-h-[44svh] md:max-h-none md:min-w-[260px] md:max-w-[340px]">
 
       {% comment %}Cart header{% endcomment %}
       <div class="px-4 py-2.5 border-b border-outline dark:border-outline-dark font-bold text-sm flex items-center gap-2 shrink-0">
@@ -121,7 +381,7 @@
           <div class="flex flex-col items-center justify-center py-8 px-4 text-center gap-2">
             <span class="material-symbols-rounded icon-display text-on-surface/30 dark:text-on-surface-dark/30 select-none" aria-hidden="true">add_shopping_cart</span>
             <p class="text-sm font-semibold text-on-surface/50 dark:text-on-surface-dark/50">Carrinho vazio</p>
-            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70">Toque em um produto ao lado para começar</p>
+            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70" x-text="activeTabCode ? 'Toque em um produto ao lado para começar' : 'Leia uma comanda para começar'"></p>
           </div>
         </template>
         <template x-for="(item, idx) in cart" :key="item.sku + idx">
@@ -153,8 +413,8 @@
               <input type="text"
                      class="input-field"
                      placeholder="Observação (ex: sem açúcar)"
-                     x-model="item.note">
-              <p x-show="item.note" x-cloak class="text-sm italic text-on-surface/70 dark:text-on-surface-dark/70 mt-1" x-text="'• ' + item.note"></p>
+                     x-model="item.notes">
+              <p x-show="item.notes" x-cloak class="text-sm italic text-on-surface/70 dark:text-on-surface-dark/70 mt-1" x-text="'• ' + item.notes"></p>
             </div>
           </div>
         </template>
@@ -182,89 +442,28 @@
           <span x-text="formatMoney(totalQ)" class="tabular-nums"></span>
         </div>
 
-        {% comment %}Customer lookup{% endcomment %}
-        <div>
-          <input type="tel" name="phone"
-                 class="input-field"
-                 placeholder="Telefone do cliente"
-                 x-model="customerPhone"
-                 hx-post="/gestor/pos/customer-lookup/"
-                 hx-trigger="blur changed, keydown[key=='Enter'] changed"
-                 hx-target="#pos-customer-result"
-                 hx-swap="innerHTML"
-                 hx-include="[name='phone']">
-          <div id="pos-customer-result" x-ref="customerResult" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem] flex items-center gap-1"
-               x-on:htmx:after-swap="
-                 let span = $el.querySelector('[data-customer-group]');
-                 if (span) {
-                   customerName = span.dataset.customerName || '';
-                   customerGroup = span.dataset.customerGroup || '';
-                 } else {
-                   customerGroup = '';
-                 }">
-            <span x-show="!customerPhone" x-cloak class="text-on-surface/40 dark:text-on-surface-dark/40">Cliente avulso</span>
-          </div>
-        </div>
-
-        {% comment %}Payment method{% endcomment %}
-        <div class="flex gap-1.5">
-          {% for pm in payment_methods %}
-          <button type="button"
-                  class="segmented-action"
-                  :class="paymentMethod === '{{ pm.ref }}' ? 'segmented-action--active' : ''"
-                  @click="paymentMethod = '{{ pm.ref }}'">{{ pm.label }}</button>
-          {% empty %}
-          <button type="button" class="segmented-action" :class="paymentMethod === 'cash' ? 'segmented-action--active' : ''" @click="paymentMethod = 'cash'">Dinheiro</button>
-          <button type="button" class="segmented-action" :class="paymentMethod === 'pix' ? 'segmented-action--active' : ''" @click="paymentMethod = 'pix'">PIX</button>
-          <button type="button" class="segmented-action" :class="paymentMethod === 'card' ? 'segmented-action--active' : ''" @click="paymentMethod = 'card'">Cartão</button>
-          {% endfor %}
-        </div>
-
-        {% comment %}Troco — cash only{% endcomment %}
-        <div x-show="paymentMethod === 'cash'" x-cloak class="flex flex-col gap-1.5">
-          <input type="number" min="0" step="0.01"
-                 class="input-field text-center tabular-nums"
-                 placeholder="Valor recebido (R$)"
-                 x-model="tenderedInput">
-          <div x-show="trocoQ > 0" x-cloak
-               class="flex items-center justify-between px-3 py-2 rounded-lg bg-success/10 border border-success/30">
-            <span class="text-xs font-semibold text-success">Troco</span>
-            <span class="text-2xl font-bold tabular-nums text-success" x-text="formatMoney(trocoQ)"></span>
-          </div>
-          <div x-show="tenderedQ > 0 && tenderedQ < totalQ" x-cloak
-               class="text-xs text-warning font-semibold text-center">
-            Valor recebido menor que o total
-          </div>
-        </div>
-
         {% comment %}Success message{% endcomment %}
         <div x-show="successMsg" x-cloak
              class="px-3 py-2 rounded-lg bg-success/10 border border-success/30 text-success text-sm font-semibold text-center"
              x-text="successMsg"></div>
 
-        {% comment %}Sale result{% endcomment %}
-        <div id="pos-result" x-ref="result"></div>
-
-        {% comment %}Close sale button{% endcomment %}
-        <button id="pos-close-btn" x-ref="closeBtn"
+        {% comment %}Checkout button{% endcomment %}
+        <button x-ref="checkoutBtn"
                 type="button"
                 class="btn-primary w-full text-base font-bold min-h-12 flex items-center justify-center gap-2"
-                :disabled="cart.length === 0"
-                hx-post="/gestor/pos/close/"
-                hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
-                hx-target="#pos-result"
-                hx-swap="innerHTML">
-          <span class="htmx-indicator material-symbols-rounded animate-spin icon-md leading-none" aria-hidden="true">progress_activity</span>
-          <span>Fechar Venda</span>
+                :disabled="cart.length === 0 || !activeTabSessionKey"
+                @click="goCheckout()">
+          <span class="material-symbols-rounded icon-md leading-none" aria-hidden="true">payments</span>
+          <span>Ir para checkout</span>
           <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(F8)</span>
         </button>
 
-        {% comment %}Action row: clear + discount + estacionar{% endcomment %}
+        {% comment %}Action row: clear + discount + wait{% endcomment %}
         <div class="flex gap-1.5">
           <button type="button"
                   class="btn-quiet flex-1"
                   :disabled="cart.length === 0"
-                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeTab = ''; $refs.result.innerHTML = ''"
+                  @click="clearActiveSale(true)"
                   title="Limpar carrinho">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
@@ -277,15 +476,15 @@
           </button>
           <button type="button"
                   class="btn-quiet flex-1"
-                  :disabled="cart.length === 0"
-                  title="Standby tab"
-                  hx-post="/gestor/pos/park/"
+                  :disabled="cart.length === 0 || !activeTabSessionKey"
+                  title="Deixar comanda em espera"
+                  hx-post="/gestor/pos/tab/save/"
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
-                  hx-target="#pos-park-result"
+                  hx-target="#pos-tab-result"
                   hx-swap="innerHTML"
-                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeTab=''; $refs.result.innerHTML=''; }">
+                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ resetSaleLocal(); htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">pause_circle</span>
-            Estacionar
+            Em espera
           </button>
         </div>
         <div class="flex gap-1.5">
@@ -300,7 +499,9 @@
             Cancelar último
           </button>
         </div>
-        <div id="pos-park-result" x-ref="parkResult" class="min-h-[1rem] text-xs"></div>
+        <div id="pos-tab-result" x-ref="tabResult" class="min-h-[1rem] text-xs">
+          <span x-show="tabMessage" x-cloak class="text-warning font-semibold" x-text="tabMessage"></span>
+        </div>
         <div id="pos-cancel-result"></div>
       </div>
     </div>
@@ -314,7 +515,7 @@
        :class="open ? 'flex' : 'hidden'"
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
-    <div class="surface-modal max-w-sm">
+    <div class="surface-modal max-w-sm relative z-10">
       <h2 class="font-title font-bold text-lg mb-4">Movimentação de Caixa</h2>
       <form hx-post="/gestor/pos/caixa/sangria/"
             hx-target="#pos-sangria-result"
@@ -355,7 +556,7 @@
        style="align-items:center;justify-content:center;padding:1rem"
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
-    <form class="surface-modal max-w-sm"
+    <form class="surface-modal max-w-sm relative z-10"
           hx-post="/gestor/pos/caixa/fechar/"
           hx-target="body"
           hx-swap="outerHTML"
@@ -380,12 +581,51 @@
     </form>
   </div>
 
+  {% comment %}Create POS tab modal{% endcomment %}
+  <div x-show="showTabModal" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       @click.self="showTabModal = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         @click="showTabModal = false"></div>
+    <div class="surface-modal max-w-sm relative z-10"
+         @keydown.escape.window="showTabModal = false">
+      <h2 class="font-title font-bold text-lg mb-4">Nova comanda</h2>
+      <form hx-post="/gestor/pos/tab/create/"
+            hx-target="#pos-tab-create-result"
+            hx-swap="innerHTML"
+            x-on:htmx:after-request="if(event.detail.successful){ tabCreateCode=''; tabCreateLabel=''; showTabModal=false; htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
+        <div class="flex flex-col gap-3">
+          <input type="text"
+                 x-ref="tabCreateCodeInput"
+                 name="tab_code"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 maxlength="8"
+                 required
+                 class="input-field tabular-nums"
+                 placeholder="Código da comanda"
+                 x-model="tabCreateCode">
+          <input type="text"
+                 name="label"
+                 class="input-field"
+                 placeholder="Rótulo opcional"
+                 x-model="tabCreateLabel">
+          <div id="pos-tab-create-result" x-ref="tabCreateResult" class="min-h-[1rem] text-xs"></div>
+          <div class="flex gap-2 mt-1">
+            <button type="button" class="btn-secondary flex-1" @click="showTabModal = false">Cancelar</button>
+            <button type="submit" class="btn-primary flex-1" :disabled="!tabCreateCode">Cadastrar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   {% comment %}Discount Modal{% endcomment %}
   <div x-show="showDiscountModal" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center p-4"
        @click.self="showDiscountModal = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-    <div class="surface-modal max-w-sm"
+    <div class="surface-modal max-w-sm relative z-10"
          @keydown.escape.window="showDiscountModal = false">
       <h2 class="font-title font-bold text-lg mb-4">Aplicar Desconto</h2>
       <div class="flex flex-col gap-3">
@@ -495,6 +735,7 @@
 <script>
 document.addEventListener('alpine:init', function() {
   Alpine.data('posApp', function() { return {
+    mode: 'tab_select',
     search: '',
     activeCollection: '',
     collections: [{% for col in collections %}'{{ col.ref }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
@@ -502,9 +743,19 @@ document.addEventListener('alpine:init', function() {
     customerPhone: '',
     customerName: '',
     customerGroup: '',
+    customerTaxId: '',
     paymentMethod: 'cash',
     tenderedInput: '',
-    activeTab: '',
+    issueFiscalDocument: false,
+    receiptMode: 'none',
+    receiptEmail: '',
+    activeTabCode: '',
+    activeTabDisplay: '',
+    activeTabSessionKey: '',
+    tabMessage: '',
+    showTabModal: false,
+    tabCreateCode: '',
+    tabCreateLabel: '',
     lastOrderRef: '',
     lastOrderTotal: '',
     successMsg: '',
@@ -573,6 +824,17 @@ document.addEventListener('alpine:init', function() {
       return c;
     },
 
+    get canCheckout() {
+      return this.cart.length > 0 && !!this.activeTabSessionKey;
+    },
+
+    get canFinalize() {
+      if (!this.canCheckout) return false;
+      if (this.receiptMode === 'email' && !this.receiptEmail.trim()) return false;
+      if (this.paymentMethod === 'cash') return this.tenderedQ >= this.totalQ;
+      return !!this.paymentMethod;
+    },
+
     get isStaff() { return this.customerGroup === 'staff'; },
 
     formatMoney: function(q) {
@@ -583,7 +845,7 @@ document.addEventListener('alpine:init', function() {
       for (var i = 0; i < this.cart.length; i++) {
         if (this.cart[i].sku === p.sku) { this.cart[i].qty++; return; }
       }
-      this.cart.push({ sku: p.sku, name: p.name, price_q: p.price_q, qty: 1, note: '', is_d1: p.is_d1 || false });
+      this.cart.push({ sku: p.sku, name: p.name, price_q: p.price_q, qty: 1, notes: '', is_d1: p.is_d1 || false });
     },
 
     inc: function(idx) { this.cart[idx].qty++; },
@@ -605,15 +867,163 @@ document.addEventListener('alpine:init', function() {
       this.discountReason = 'cortesia';
     },
 
+    setPaymentMethod: function(method) {
+      this.paymentMethod = method;
+      if (method !== 'cash') this.tenderedInput = '';
+    },
+
+    setTenderedQ: function(amountQ) {
+      this.tenderedInput = (Math.max(0, amountQ) / 100).toFixed(2);
+    },
+
+    addTenderedQ: function(amountQ) {
+      this.setTenderedQ(this.tenderedQ + amountQ);
+    },
+
+    clearTendered: function() {
+      this.tenderedInput = '';
+    },
+
+    clearActiveTabSession: function() {
+      if (!this.activeTabSessionKey || !window.htmx) return;
+      htmx.ajax('POST', '/gestor/pos/tab/' + encodeURIComponent(this.activeTabSessionKey) + '/clear/', {
+        target: '#pos-tab-result',
+        swap: 'innerHTML'
+      });
+    },
+
+    openTabCreateModal: function() {
+      this.tabCreateCode = this.$refs.tabCode ? this.$refs.tabCode.value.trim() : '';
+      this.tabCreateLabel = '';
+      this.showTabModal = true;
+      var self = this;
+      this.$nextTick(function() {
+        if (self.$refs.tabCreateResult) self.$refs.tabCreateResult.innerHTML = '';
+        if (self.$refs.tabCreateCodeInput) self.$refs.tabCreateCodeInput.focus();
+      });
+    },
+
+    clearActiveSale: function(clearSession) {
+      if (clearSession) this.clearActiveTabSession();
+      this.resetSaleLocal();
+    },
+
+    loadTabOpenResponse: function(d) {
+      this.loadTab(d);
+      if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
+      if (this.$refs.tabCode) this.$refs.tabCode.value = '';
+      this.tabMessage = '';
+    },
+
+    handleTabOpenError: function(responseText) {
+      var d = {};
+      try { d = JSON.parse(responseText); } catch(e) {}
+      this.tabMessage = d.error || 'Não foi possível abrir a comanda.';
+    },
+
+    openTabFromInput: function() {
+      var code = this.$refs.tabCode ? this.$refs.tabCode.value.trim() : '';
+      if (!code) return;
+      var self = this;
+      fetch('/gestor/pos/tab/open/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: new URLSearchParams({ tab_code: code }),
+      }).then(function(response) {
+        return response.text().then(function(text) {
+          if (!response.ok) {
+            self.handleTabOpenError(text);
+            return;
+          }
+          self.loadTabOpenResponse(JSON.parse(text));
+        });
+      }).catch(function() {
+        self.tabMessage = 'Não foi possível abrir a comanda.';
+      });
+    },
+
+    goCheckout: function() {
+      if (!this.canCheckout) {
+        this.tabMessage = 'Abra uma comanda com itens antes do checkout.';
+        return;
+      }
+      this.mode = 'checkout';
+      var self = this;
+      this.$nextTick(function() {
+        if (self.$refs.checkoutCustomerPhone) self.$refs.checkoutCustomerPhone.focus();
+      });
+    },
+
+    returnToSale: function() {
+      if (this.activeTabSessionKey) this.mode = 'sale';
+    },
+
+    returnToTabs: function() {
+      var self = this;
+      if (this.cart.length === 0 && this.activeTabSessionKey) {
+        this.clearActiveTabSession();
+        this.resetSaleLocal();
+        if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
+        return;
+      }
+      if (this.cart.length > 0 && this.activeTabSessionKey && window.htmx) {
+        htmx.ajax('POST', '/gestor/pos/tab/save/', {
+          target: '#pos-tab-result',
+          swap: 'innerHTML',
+          values: { payload: this.cartPayload() }
+        }).then(function() {
+          self.resetSaleLocal();
+          if (self.$refs.tabGrid) htmx.trigger(self.$refs.tabGrid, 'tabGridRefresh');
+        }).catch(function() {
+          self.tabMessage = 'Não foi possível salvar a comanda.';
+        });
+        return;
+      }
+      this.resetSaleLocal();
+      if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
+    },
+
+    resetSaleLocal: function() {
+      this.mode = 'tab_select';
+      this.cart = [];
+      this.customerPhone = '';
+      this.customerName = '';
+      this.customerGroup = '';
+      this.customerTaxId = '';
+      this.clearDiscount();
+      this.tenderedInput = '';
+      this.paymentMethod = 'cash';
+      this.issueFiscalDocument = false;
+      this.receiptMode = 'none';
+      this.receiptEmail = '';
+      this.expandedNoteIdx = -1;
+      this.activeTabCode = '';
+      this.activeTabDisplay = '';
+      this.activeTabSessionKey = '';
+      this.tabMessage = '';
+      if (this.$refs.result) this.$refs.result.innerHTML = '';
+      if (this.$refs.customerResult) this.$refs.customerResult.innerHTML = '';
+      if (this.$refs.tabResult) this.$refs.tabResult.innerHTML = '';
+    },
+
     cartPayload: function() {
       return JSON.stringify({
         items: this.cart.map(function(it) {
-          return { sku: it.sku, qty: it.qty, unit_price_q: it.price_q, note: it.note || '' };
+          return { sku: it.sku, name: it.name, qty: it.qty, unit_price_q: it.price_q, notes: it.notes || '' };
         }),
         customer_name: this.customerName,
         customer_phone: this.customerPhone.trim(),
+        customer_tax_id: this.customerTaxId.trim(),
         payment_method: this.paymentMethod,
         tendered_amount_q: (this.paymentMethod === 'cash' && this.tenderedQ > 0) ? this.tenderedQ : null,
+        issue_fiscal_document: !!this.issueFiscalDocument,
+        receipt_mode: this.receiptMode,
+        receipt_email: this.receiptEmail.trim(),
+        tab_code: this.activeTabCode || null,
+        tab_session_key: this.activeTabSessionKey || null,
         manual_discount: this.discountQ > 0 ? {
           type: this.discountType,
           value: parseFloat(this.discountValue),
@@ -633,15 +1043,8 @@ document.addEventListener('alpine:init', function() {
           this.lastOrderRef = ref;
           this.lastOrderTotal = total;
           this.successMsg = 'Pedido ' + ref + ' \u2014 ' + total;
-          this.cart = [];
-          this.customerPhone = '';
-          this.customerName = '';
-          this.customerGroup = '';
-          this.paymentMethod = 'cash';
-          this.tenderedInput = '';
-          this.expandedNoteIdx = -1;
-          this.activeTab = '';
-          this.clearDiscount();
+          this.resetSaleLocal();
+          if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
           if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
           var self = this;
           setTimeout(function() { self.successMsg = ''; }, 5000);
@@ -649,18 +1052,26 @@ document.addEventListener('alpine:init', function() {
       }
     },
 
-    loadSession: function(d) {
+    loadTab: function(d) {
+      this.mode = 'sale';
       this.cart = d.items || [];
       this.customerPhone = d.customer_phone || '';
       this.customerName = d.customer_name || '';
       this.customerGroup = d.customer_group || '';
+      this.customerTaxId = d.customer_tax_id || '';
       this.paymentMethod = d.payment_method || 'cash';
-      this.tenderedInput = '';
-      this.activeTab = d.tab || '';
+      this.tenderedInput = d.tendered_amount_q ? (parseInt(d.tendered_amount_q, 10) / 100).toFixed(2) : '';
+      this.issueFiscalDocument = !!d.issue_fiscal_document;
+      this.receiptMode = d.receipt_mode || 'none';
+      this.receiptEmail = d.receipt_email || '';
+      this.activeTabCode = d.tab_code || '';
+      this.activeTabDisplay = d.tab_display || d.tab_code || '';
+      this.activeTabSessionKey = d.tab_session_key || d.session_key || '';
+      this.tabMessage = '';
       this.expandedNoteIdx = -1;
       this.$refs.result.innerHTML = '';
       this.$refs.customerResult.innerHTML = '';
-      this.$refs.parkResult.innerHTML = '';
+      this.$refs.tabResult.innerHTML = '';
       if (d.discount_value) {
         this.discountType = d.discount_type || 'percent';
         this.discountValue = d.discount_value;
@@ -675,19 +1086,35 @@ document.addEventListener('alpine:init', function() {
       var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       if (e.key === 'Escape') {
         if (this.showDiscountModal) { this.showDiscountModal = false; e.preventDefault(); return; }
-        if (!inInput) { this.cart = []; this.$refs.result.innerHTML = ''; }
+        if (this.showTabModal) { this.showTabModal = false; e.preventDefault(); return; }
+        if (!inInput && this.mode === 'checkout') { this.returnToSale(); e.preventDefault(); return; }
+        if (!inInput && this.mode === 'sale') { this.returnToTabs(); }
         return;
       }
-      if (e.key === '/' && !inInput) { e.preventDefault(); if (this.$refs.search) this.$refs.search.focus(); return; }
+      if (e.key === '/' && !inInput) {
+        e.preventDefault();
+        if (this.mode === 'tab_select' && this.$refs.tabCode) this.$refs.tabCode.focus();
+        else if (this.mode === 'checkout' && this.$refs.checkoutCustomerPhone) this.$refs.checkoutCustomerPhone.focus();
+        else if (this.$refs.search) this.$refs.search.focus();
+        return;
+      }
       if (inInput) return;
+      if (this.mode === 'checkout') {
+        if (e.key === 'F8' || e.key === 'Enter') {
+          e.preventDefault();
+          if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click');
+        }
+        return;
+      }
+      if (this.mode !== 'sale') return;
       if (e.key === 'F1') { e.preventDefault(); this.activeCollection = this.collections[0] || ''; }
       else if (e.key === 'F2') { e.preventDefault(); this.activeCollection = this.collections[1] || ''; }
       else if (e.key === 'F3') { e.preventDefault(); this.activeCollection = this.collections[2] || ''; }
       else if (e.key === 'F4') { e.preventDefault(); this.activeCollection = this.collections[3] || ''; }
-      else if (e.key === 'F5') { e.preventDefault(); this.cart = []; this.$refs.result.innerHTML = ''; }
+      else if (e.key === 'F5') { e.preventDefault(); this.clearActiveSale(true); }
       else if (e.key === 'F6') { e.preventDefault(); if (this.cart.length > 0) this.showDiscountModal = true; }
-      else if (e.key === 'F8') { e.preventDefault(); if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click'); }
-      else if (e.key === 'Enter' && this.cart.length > 0) { e.preventDefault(); if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click'); }
+      else if (e.key === 'F8') { e.preventDefault(); this.goCheckout(); }
+      else if (e.key === 'Enter' && this.cart.length > 0) { e.preventDefault(); this.goCheckout(); }
     },
   }; });
 });

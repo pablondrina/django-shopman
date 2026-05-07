@@ -55,12 +55,10 @@ urlpatterns = [
     path("dicas/", views.TipsView.as_view(), name="dicas"),
     # Cart
     path("cart/", views.CartView.as_view(), name="cart"),
-    path("cart/add/", views.AddToCartView.as_view(), name="cart_add"),
     path("cart/set-qty/", views.CartSetQtyBySkuView.as_view(), name="cart_set_qty"),
     path("cart/page/", views.CartPageContentView.as_view(), name="cart_page_content"),
     path("cart/summary/", views.CartSummaryView.as_view(), name="cart_summary"),
     path("cart/drawer/", views.CartDrawerContentProjView.as_view(), name="cart_drawer"),
-    path("cart/quick-add/<str:sku>/", views.QuickAddView.as_view(), name="cart_quick_add"),
     path("cart/coupon/", views.ApplyCouponView.as_view(), name="cart_apply_coupon"),
     path("cart/coupon/remove/", views.RemoveCouponView.as_view(), name="cart_remove_coupon"),
     # Checkout

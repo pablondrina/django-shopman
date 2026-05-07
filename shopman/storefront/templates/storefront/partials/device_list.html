@@ -1,3 +1,13 @@
+{% load omotenashi_tags %}
+{% omotenashi 'DEVICE_LIST_EMPTY' as device_list_empty %}
+{% omotenashi 'DEVICE_LIST_UNKNOWN' as device_list_unknown %}
+{% omotenashi 'DEVICE_LIST_CURRENT' as device_list_current %}
+{% omotenashi 'DEVICE_LIST_LAST_USED_PREFIX' as device_list_last_used_prefix %}
+{% omotenashi 'DEVICE_LIST_REGISTERED_PREFIX' as device_list_registered_prefix %}
+{% omotenashi 'DEVICE_REVOKE_CTA' as device_revoke_cta %}
+{% omotenashi 'DEVICE_REVOKE_CONFIRM' as device_revoke_confirm %}
+{% omotenashi 'DEVICE_REVOKE_ALL_CTA' as device_revoke_all_cta %}
+{% omotenashi 'DEVICE_REVOKE_ALL_CONFIRM' as device_revoke_all_confirm %}
 {% if devices %}
 <div class="space-y-3">
   {% for device in devices %}
@@ -11,16 +21,16 @@
       </span>
       <div>
         <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
-          {{ device.label|default:"Dispositivo desconhecido" }}
+          {% if device.label %}{{ device.label }}{% else %}{{ device_list_unknown.title }}{% endif %}
           {% if device.is_current %}
-          <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs bg-success/10 text-success">Este dispositivo</span>
+          <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs bg-success/10 text-success">{{ device_list_current.title }}</span>
           {% endif %}
         </p>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
           {% if device.last_used_at %}
-          <span>Último uso: {{ device.last_used_at|date:"d/m/Y" }} às {{ device.last_used_at|time:"H:i" }}</span>
+          <span>{{ device_list_last_used_prefix.message }} {{ device.last_used_at|date:"d/m/Y" }} às {{ device.last_used_at|time:"H:i" }}</span>
           {% endif %}
-          <span>Registrado em {{ device.created_at|date:"d/m/Y" }} às {{ device.created_at|time:"H:i" }}</span>
+          <span>{{ device_list_registered_prefix.message }} {{ device.created_at|date:"d/m/Y" }} às {{ device.created_at|time:"H:i" }}</span>
           {% if device.location %}
           <span>{{ device.location }}</span>
           {% endif %}
@@ -32,10 +42,10 @@
       hx-delete="{% url 'storefront:device_revoke' device_id=device.id %}"
       hx-target="#device-{{ device.id }}"
       hx-swap="outerHTML"
-      hx-confirm="Revogar acesso deste dispositivo?"
+      hx-confirm="{{ device_revoke_confirm.message }}"
       class="text-sm text-danger dark:text-danger-dark hover:text-danger dark:hover:text-danger-dark font-medium transition-colors flex-shrink-0 ml-3"
     >
-      Revogar
+      {{ device_revoke_cta.title }}
     </button>
   </div>
   {% endfor %}
@@ -48,14 +58,14 @@
     hx-delete="{% url 'storefront:device_revoke_all' %}"
     hx-target="#device-list-container"
     hx-swap="innerHTML"
-    hx-confirm="Revogar TODOS os dispositivos? Você precisará fazer login novamente."
+    hx-confirm="{{ device_revoke_all_confirm.message }}"
     class="text-sm text-danger dark:text-danger-dark hover:text-danger dark:hover:text-danger-dark font-medium transition-colors"
   >
-    Revogar todos os dispositivos
+    {{ device_revoke_all_cta.title }}
   </button>
 </div>
 {% endif %}
 
 {% else %}
-<p class="text-on-surface/85 dark:text-on-surface-dark/60 text-sm text-center py-4">Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.</p>
+<p class="text-on-surface/85 dark:text-on-surface-dark/60 text-sm text-center py-4">{{ device_list_empty.message }}</p>
 {% endif %}

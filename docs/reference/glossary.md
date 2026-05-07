@@ -41,8 +41,8 @@ Termos de domínio usados no código e na documentação.
 
 | Termo | Definição |
 |-------|-----------|
-| **Recipe** | Ficha técnica / BOM (Bill of Materials). `ref` único (slug), `output_ref` (string-agnostic), `batch_size`. |
-| **RecipeItem** | Ingrediente na receita. Usa coeficiente francês para escalar quantidades proporcionalmente ao batch. |
+| **Recipe** | Ficha técnica / BOM (Bill of Materials). `ref` único (slug), `output_ref` (string-agnostic), `batch_size` como rendimento base. |
+| **RecipeItem** | Ingrediente na receita. Usa coeficiente francês para escalar quantidades proporcionalmente ao rendimento base. |
 | **WorkOrder** | Ordem de produção. Liga uma receita às quantidades `planned`, `started` e `finished`, com status canônico `planned` → `started` → `finished` (ou `void`). |
 
 ## Guestman (Clientes)

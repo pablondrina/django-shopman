@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django import template
 from django.utils.html import escape
@@ -103,6 +104,21 @@ def format_money(value_q) -> str:
     reais = cents / 100
     formatted = f"{reais:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$\u00a0{formatted}"
+
+
+@register.filter
+def format_quantity(value) -> str:
+    """Format quantity for customer-facing copy: 1.000 -> 1, 2.500 -> 2,5."""
+    if value in (None, ""):
+        return ""
+    try:
+        qty = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return str(value)
+    if qty == qty.to_integral_value():
+        return str(int(qty))
+    formatted = format(qty.normalize(), "f").rstrip("0").rstrip(".")
+    return formatted.replace(".", ",")
 
 
 # ── Product Image Tag ─────────────────────────────────────────────────

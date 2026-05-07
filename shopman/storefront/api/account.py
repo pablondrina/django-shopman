@@ -15,12 +15,17 @@ from shopman.storefront.views.auth import get_authenticated_customer
 from .serializers import (
     AddressSerializer,
     CustomerProfileSerializer,
+    DetailSerializer,
     OrderHistoryItemSerializer,
 )
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["account"], summary="Get customer profile"),
+    get=extend_schema(
+        tags=["account"],
+        summary="Get customer profile",
+        responses={200: CustomerProfileSerializer, 401: DetailSerializer},
+    ),
 )
 class ProfileView(APIView):
     """
@@ -31,6 +36,7 @@ class ProfileView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = CustomerProfileSerializer
 
     def get(self, request):
         customer = get_authenticated_customer(request)
@@ -48,7 +54,11 @@ class ProfileView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["account"], summary="List customer addresses"),
+    get=extend_schema(
+        tags=["account"],
+        summary="List customer addresses",
+        responses={200: AddressSerializer(many=True), 401: DetailSerializer},
+    ),
 )
 class AddressListView(APIView):
     """
@@ -59,6 +69,7 @@ class AddressListView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = AddressSerializer
 
     def get(self, request):
         customer = get_authenticated_customer(request)
@@ -81,7 +92,11 @@ class AddressListView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["account"], summary="Order history"),
+    get=extend_schema(
+        tags=["account"],
+        summary="Order history",
+        responses={200: OrderHistoryItemSerializer(many=True), 401: DetailSerializer},
+    ),
 )
 class OrderHistoryView(APIView):
     """
@@ -92,6 +107,7 @@ class OrderHistoryView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = OrderHistoryItemSerializer
 
     def get(self, request):
         customer = get_authenticated_customer(request)

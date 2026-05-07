@@ -14,6 +14,11 @@
 | [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | orderman | Manutenção | Remove chaves de idempotência antigas |
 | [`customers_cleanup`](#customers_cleanup) | guestman | Manutenção | Remove eventos processados antigos |
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
+| [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
+| [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
+| [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
+| [`omotenashi_qa`](#omotenashi_qa) | backstage | QA | Lista matriz manual QA Omotenashi com evidências do seed |
+| [`release-readiness`](#release-readiness) | script | Release | Consolida checks locais e bloqueios externos |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -177,12 +182,251 @@ python manage.py auth_cleanup --days 30
 
 ---
 
+### reconcile_payments
+
+**App:** `shopman.shop`
+**Arquivo:** `shopman/shop/management/commands/reconcile_payments.py`
+
+Reconcilia pedidos `new`/`confirmed` antigos com `PaymentIntent` quando o
+webhook pode ter sido perdido. E idempotente e deve ser rodado primeiro em
+`--dry-run` durante incidente.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--since` | `2h` | Considera pedidos criados antes de N tempo (`30m`, `4h`, `1d`) |
+| `--dry-run` | — | Lista a acao sem executar transicao |
+
+```bash
+# Preview seguro
+python manage.py reconcile_payments --since=4h --dry-run
+
+# Executar reconciliacao apos validar gateway/dry-run
+python manage.py reconcile_payments --since=4h
+```
+
+**Veja também:** [runbook de pedido pago sem confirmacao](../runbooks/pedido-pago-sem-confirmacao.md).
+
+---
+
+### reconcile_financial_day
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/reconcile_financial_day.py`
+
+Gera auditoria financeira diária cruzando pedidos, `PaymentIntent`,
+`PaymentTransaction` e `DayClosing`. Quando não está em `--dry-run`, persiste o
+resumo em `DayClosing.data["financial_reconciliation"]` e divergências em
+`DayClosing.data["financial_reconciliation_errors"]`. Divergência `error` ou
+`critical` cria alerta `payment_reconciliation_failed`.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--date` | ontem | Data local `YYYY-MM-DD` |
+| `--dry-run` | — | Gera relatório sem persistir e sem alertar |
+| `--require-closing` | — | Ausência de `DayClosing` vira erro |
+| `--no-alert` | — | Persiste sem criar `OperatorAlert` |
+| `--json` | — | Imprime JSON auditável |
+
+```bash
+# Preview seguro de uma data
+make reconcile-financial-day date=2026-05-05 dry_run=1
+
+# Rotina pós-fechamento, exigindo DayClosing
+make reconcile-financial-day date=2026-05-05 require_closing=1
+
+# JSON para anexar em incidente
+python manage.py reconcile_financial_day --date=2026-05-05 --dry-run --json
+```
+
+**Veja também:** [runbook de pagamento divergente](../runbooks/pagamento-divergente.md).
+
+---
+
+### smoke_gateways
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/smoke_gateways.py`
+
+Executa um smoke operacional de gateways usando fixtures locais com rollback:
+EFI PIX duplicado e atrasado após cancelamento, Stripe capture/replay/refund
+cumulativo fora de ordem e iFood pedido externo duplicado. Também reporta matriz
+de prontidão sandbox/staging sem marcar provedor real como validado quando faltam
+credenciais.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--local-only` | — | Só executa fixtures locais |
+| `--sandbox-only` | — | Só avalia credenciais/prontidão sandbox |
+| `--require-sandbox` | — | Falha se sandbox estiver bloqueado |
+| `--keep-data` | — | Não faz rollback das fixtures locais |
+| `--json` | — | Imprime JSON auditável |
+
+```bash
+# Smoke local + matriz sandbox, com rollback
+make smoke-gateways
+
+# JSON para anexar em release/incidente
+make smoke-gateways json=1
+
+# Gate estrito de sandbox/staging real
+make smoke-gateways-sandbox
+```
+
+Sem credenciais reais, `smoke-gateways-sandbox` retorna
+`blocked_by_credentials`; isso é bloqueio honesto, não sucesso falso.
+
+---
+
+### omotenashi_qa
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/omotenashi_qa.py`
+
+Lista a matriz manual QA Omotenashi para mobile, tablet/KDS e desktop gerente,
+apontando a URL a abrir e a evidência concreta criada pelo seed Nelson. O modo
+estrito falha quando qualquer cenário não tem dado seed correspondente.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--json` | — | Imprime JSON auditável |
+| `--strict` | — | Falha se algum cenário estiver sem evidência |
+
+```bash
+# Depois do seed, verificar se a rodada manual está pronta
+make omotenashi-qa strict=1
+
+# JSON para anexar em release
+make omotenashi-qa json=1
+```
+
+**Veja também:** [QA Manual Omotenashi E2E](../guides/omotenashi-qa.md).
+
+---
+
+### omotenashi-browser-qa
+
+**Script:** `scripts/run_omotenashi_browser_qa.mjs`
+
+Navega a matriz Omotenashi em Chrome headless usando DevTools Protocol, captura
+screenshots por cenário e gera relatório JSON. O servidor Shopman precisa estar
+rodando. Em localhost, o script cria uma sessão admin local automaticamente; em
+staging/remoto, informe cookie autenticado via `SHOPMAN_SESSION_COOKIE` ou
+`--session-cookie`.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `strict=1` / `--strict` | — | Retorna erro se qualquer cenário ficar em `review` |
+| `base_url=...` / `--base-url=...` | `http://127.0.0.1:8000` | Servidor Shopman a navegar |
+| `matrix=...` / `--matrix=...` | saída de `omotenashi_qa --json` | Matriz JSON já gerada |
+| `screenshots=...` / `--screenshots-dir=...` | `/tmp/shopman-omotenashi-qa-screens` | Destino das screenshots |
+| `report=...` / `--report=...` | `/tmp/shopman-omotenashi-qa-browser.json` | Relatório JSON de saída |
+| `SHOPMAN_CHROME_PATH` / `--chrome-path=...` | autodetectado | Binário Chrome/Chromium |
+
+```bash
+make run
+make omotenashi-browser-qa strict=1
+```
+
+O target verifica login inesperado, overflow horizontal global e controles fora
+da viewport fora de containers roláveis. Rails horizontais intencionais, como os
+chips de categoria do cardápio mobile, são registrados sem virar falha.
+
+---
+
+### omotenashi-browser-ci
+
+**Script:** `scripts/run_omotenashi_browser_ci.sh`
+
+Gate reprodutível para CI/local: compila CSS, aplica migrations, recria o seed,
+sobe servidor temporário, espera `/ready/` e roda `omotenashi-browser-qa` em modo
+estrito. Ele encerra apenas o processo de servidor que criou.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `port=...` / `SHOPMAN_QA_PORT` | `8001` | Porta local do servidor temporário |
+| `SHOPMAN_QA_SERVER_LOG` | `/tmp/shopman-omotenashi-browser-ci-server.log` | Log do `runserver` temporário |
+
+```bash
+make omotenashi-browser-ci
+make omotenashi-browser-ci port=8010
+```
+
+Esse alvo é destrutivo para o banco configurado no ambiente porque executa o
+seed com flush. Use-o em ambiente local descartável ou CI.
+
+---
+
+## Wrappers de diagnóstico
+
+Os diagnosticos operacionais vivem em `scripts/diagnose_operational.py` e sao
+expostos por Makefile para nao exigir conhecimento de Docker:
+
+```bash
+make diagnose-runtime
+make diagnose-worker
+make diagnose-payments
+make diagnose-webhooks
+make diagnose-health
+```
+
+Saida `FAIL` significa acao operacional pendente. Ver
+[`docs/runbooks/`](../runbooks/README.md).
+
+---
+
+### release-readiness
+
+**Script:** `scripts/check_release_readiness.py`
+
+Consolida a prontidão de piloto/release em uma saída única. O alvo roda checks
+locais leves e reporta bloqueios externos sem fingir validação real:
+
+- `django check`;
+- migrations pendentes;
+- matriz seed Omotenashi;
+- smoke local de gateways com rollback;
+- prontidão sandbox/staging de gateways;
+- evidência manual/física Omotenashi;
+- URL/ambiente de pre-prod.
+
+Por padrão, bloqueios externos são informativos e o comando retorna sucesso se
+os checks locais passaram. Em modo estrito, bloqueios externos também falham.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `json=1` / `--json` | — | Imprime JSON auditável |
+| `manual_qa=...` / `--manual-qa-evidence=...` | `SHOPMAN_MANUAL_QA_EVIDENCE` | Relatório manual/físico de QA |
+| `preprod_url=...` / `--preprod-url=...` | `SHOPMAN_PREPROD_URL` | URL de staging/pre-prod |
+| `--strict-external` | — | Falha também se gateway/manual/pre-prod estiver bloqueado |
+
+```bash
+# Local: mostra bloqueios externos sem falhar por eles
+make release-readiness
+make release-readiness json=1
+
+# Release real: exige credenciais/staging/evidência física
+make release-readiness-strict manual_qa=docs/reports/manual-qa.md preprod_url=https://staging.example.com
+```
+
+Use este alvo como contrato de honestidade: `passed_with_external_blockers`
+significa que a árvore local está coerente, mas ainda não há prova de gateway
+real, dispositivo físico ou staging.
+
+O script serializa execuções concorrentes com lock de processo porque os smokes
+locais escrevem no banco durante transações com rollback. Isso evita falso
+negativo `database is locked` quando dois operadores ou automações disparam o
+readiness ao mesmo tempo em SQLite local.
+
+---
+
 ### seed
 
 **App:** `shop`
-**Arquivo:** `shopman/shop/management/commands/seed.py`
+**Arquivo:** `instances/nelson/management/commands/seed.py`
 
-Popula o banco com dados completos da Nelson Boulangerie: catálogo (13 produtos + 1 bundle), estoque (3 posições), receitas (6 com BOM), clientes (7), canais (5), pedidos (105+), sessões abertas (3), alertas de estoque (7), e superuser admin.
+Popula o banco com dados completos da Nelson Boulangerie: catálogo, estoque,
+receitas, clientes, canais, pedidos, pagamentos com `Order.data.payment.intent_ref`,
+sessões abertas, alertas, POS/KDS e superuser técnico `admin`.
 
 | Flag | Default | Descrição |
 |------|---------|-----------|
@@ -196,7 +440,34 @@ python manage.py seed
 python manage.py seed --flush
 ```
 
-**Variável de ambiente:** `ADMIN_PASSWORD` — senha do superuser (default: `"admin"`).
+**Variável de ambiente:** `ADMIN_PASSWORD` — senha do superuser técnico `admin`.
+Em `DEBUG=true`, se ausente, cai para `"admin"` apenas para desenvolvimento local.
+Fora de DEBUG, o comando falha se `ADMIN_PASSWORD` estiver ausente ou obviamente
+fraca; isso evita staging/prod público com `admin/admin`.
+
+Depois do seed em staging, crie o dono nominal e desative o `admin` técnico:
+
+```bash
+SHOPMAN_ADMIN_PASSWORD=<senha forte> python manage.py bootstrap_admin \
+  --username pablo \
+  --email pablo@example.com \
+  --deactivate-seed-admin
+```
+
+### bootstrap_admin
+
+**App:** `shop`
+**Arquivo:** `shopman/shop/management/commands/bootstrap_admin.py`
+
+Cria ou atualiza um superuser nominal de forma idempotente, sem depender do
+`createsuperuser` interativo. Use para bootstrap de staging/pre-prod/prod.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--username` | `SHOPMAN_ADMIN_USERNAME` | Usuário administrativo nominal |
+| `--email` | `SHOPMAN_ADMIN_EMAIL` | Email do usuário administrativo |
+| `--password-env` | `SHOPMAN_ADMIN_PASSWORD` | Env var que contém a senha |
+| `--deactivate-seed-admin` | — | Desativa o usuário técnico `admin` criado pelo seed |
 
 ---
 
@@ -214,6 +485,12 @@ python manage.py seed --flush
 
 # Limpar eventos processados (semanal, domingo 4h)
 0 4 * * 0 cd /app && python manage.py customers_cleanup
+
+# Reconciliação defensiva de pagamentos (diário, 4h30)
+30 4 * * * cd /app && python manage.py reconcile_payments --since=1d
+
+# Auditoria financeira diária (após fechamento)
+45 4 * * * cd /app && python manage.py reconcile_financial_day --require-closing
 
 # Worker de directives (systemd/supervisor, não cron)
 # python manage.py process_directives --watch

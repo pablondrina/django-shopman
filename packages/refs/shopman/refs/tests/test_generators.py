@@ -179,6 +179,22 @@ class TestShortUUIDGenerator:
             assert "I" not in code
             assert "O" not in code
 
+    def test_uses_secrets_choice(self, monkeypatch):
+        import shopman.refs.generators as generators
+
+        calls = []
+
+        def fake_choice(alphabet):
+            calls.append(alphabet)
+            return "A"
+
+        monkeypatch.setattr(generators.secrets, "choice", fake_choice)
+
+        code = self.gen.next(self._rt(), SCOPE_A)
+
+        assert code == "AAAAAAAA"
+        assert len(calls) == 8
+
     def test_two_calls_are_unique(self):
         rt = self._rt()
         codes = {self.gen.next(rt, SCOPE_A) for _ in range(50)}

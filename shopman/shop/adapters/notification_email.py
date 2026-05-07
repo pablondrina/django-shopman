@@ -18,6 +18,7 @@ from django.template.loader import render_to_string
 logger = logging.getLogger(__name__)
 
 SUBJECT_TEMPLATES: dict[str, str] = {
+    "order_received": "Recebemos seu pedido {order_ref}",
     "order_confirmed": "Pedido {order_ref} confirmado",
     "order_preparing": "Pedido {order_ref} em preparo",
     "order_ready_pickup": "Pedido {order_ref} pronto para retirada",
@@ -25,12 +26,20 @@ SUBJECT_TEMPLATES: dict[str, str] = {
     "order_dispatched": "Pedido {order_ref} saiu para entrega",
     "order_delivered": "Pedido {order_ref} entregue",
     "order_cancelled": "Pedido {order_ref} cancelado",
+    "order_rejected": "Pedido {order_ref} nao confirmado",
     "payment_confirmed": "Pagamento do pedido {order_ref} confirmado",
+    "payment_requested": "Pedido {order_ref}: pagamento liberado",
     "payment_expired": "Pagamento do pedido {order_ref} expirado",
+    "payment_failed": "Falha ao preparar pagamento do pedido {order_ref}",
     "stock_alert": "Alerta de estoque: {sku}",
 }
 
 BODY_TEMPLATES: dict[str, str] = {
+    "order_received": (
+        "Ola{customer_name_greeting}!\n\n"
+        "Recebemos seu pedido {order_ref}.\n\n"
+        "O estabelecimento vai conferir a disponibilidade e avisaremos a proxima etapa.\n"
+    ),
     "order_confirmed": (
         "Ola{customer_name_greeting}!\n\n"
         "Seu pedido {order_ref} foi confirmado.\n\n"
@@ -65,14 +74,33 @@ BODY_TEMPLATES: dict[str, str] = {
         "Seu pedido {order_ref} foi cancelado.\n\n"
         "Em caso de duvidas, entre em contato.\n"
     ),
+    "order_rejected": (
+        "Ola{customer_name_greeting}!\n\n"
+        "O estabelecimento nao conseguiu confirmar o pedido {order_ref}.\n\n"
+        "Motivo: {reason}\n\n"
+        "Em caso de duvidas, entre em contato.\n"
+    ),
     "payment_confirmed": (
         "Ola{customer_name_greeting}!\n\n"
-        "O pagamento do pedido {order_ref} foi confirmado.\n\nObrigado!\n"
+        "O pagamento do pedido {order_ref} foi confirmado.\n\n"
+        "Seu pedido seguira para preparo.\n\n"
+        "Obrigado!\n"
+    ),
+    "payment_requested": (
+        "Ola{customer_name_greeting}!\n\n"
+        "Conferimos a disponibilidade do pedido {order_ref}.\n\n"
+        "Agora falta o pagamento. Acesse: {payment_url}\n\n"
+        "{pix_suffix}\n"
     ),
     "payment_expired": (
         "Ola{customer_name_greeting}!\n\n"
         "O prazo de pagamento do pedido {order_ref} expirou.\n\n"
         "Caso ainda deseje comprar, faca um novo pedido.\n"
+    ),
+    "payment_failed": (
+        "Ola{customer_name_greeting}!\n\n"
+        "Nao conseguimos preparar o pagamento do pedido {order_ref}.\n\n"
+        "Acesse {payment_url} para tentar novamente.\n"
     ),
     "stock_alert": (
         "Alerta de estoque\n\n"

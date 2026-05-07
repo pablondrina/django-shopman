@@ -1,0 +1,153 @@
+{% load omotenashi_tags %}
+{% if oob_status_badge %}
+<span id="order-status-badge"
+      hx-swap-oob="outerHTML"
+      class="inline-flex items-center mt-2 rounded-full px-3 py-1 text-sm font-medium {{ tracking.status_color }}">
+  {{ tracking.status_label }}
+</span>
+{% endif %}
+{% omotenashi 'TRACKING_PROMISE_UPDATED_NOW' as updated_now %}
+{% omotenashi 'TRACKING_PROMISE_STALE' as promise_stale %}
+{% omotenashi 'TRACKING_PAYMENT_TIME_LEFT' as payment_time_left %}
+{% omotenashi 'TRACKING_AUTO_CONFIRM_PREFIX' as confirm_prefix %}
+{% omotenashi 'TRACKING_AUTO_CONFIRM_SUFFIX' as confirm_suffix %}
+
+<section x-data="{
+    deadlineAt: '{{ tracking.promise.deadline_at|default:'' }}',
+    serverNow: '{{ tracking.server_now_iso }}',
+    lastUpdatedAt: '{{ tracking.last_updated_iso }}',
+    staleAfterSeconds: {{ tracking.stale_after_seconds }},
+    serverOffsetMs: 0,
+    timeLeft: '',
+    expired: false,
+    expiredNotified: false,
+    updatedLabel: '{{ tracking.last_updated_display }}',
+    isStale: false,
+    init() {
+      const serverNowMs = Date.parse(this.serverNow);
+      if (Number.isFinite(serverNowMs)) this.serverOffsetMs = serverNowMs - Date.now();
+      this.tick();
+      setInterval(() => this.tick(), 1000);
+    },
+    nowMs() {
+      return Date.now() + this.serverOffsetMs;
+    },
+    tick() {
+      this.updateCountdown();
+      this.updateFreshness();
+    },
+    updateCountdown() {
+      if (!this.deadlineAt) return;
+      const deadlineMs = Date.parse(this.deadlineAt);
+      if (!Number.isFinite(deadlineMs)) return;
+      const diff = Math.max(0, Math.floor((deadlineMs - this.nowMs()) / 1000));
+      if (diff === 0) {
+        this.timeLeft = '';
+        this.expired = true;
+        if (!this.expiredNotified) {
+          this.expiredNotified = true;
+          this.$dispatch('countdown-expired');
+        }
+        return;
+      }
+      const m = Math.floor(diff / 60), s = diff % 60;
+      this.timeLeft = m + ':' + String(s).padStart(2, '0');
+    },
+    updateFreshness() {
+      const updatedMs = Date.parse(this.lastUpdatedAt);
+      if (!Number.isFinite(updatedMs)) return;
+      const diff = Math.max(0, Math.floor((this.nowMs() - updatedMs) / 1000));
+      this.isStale = diff >= this.staleAfterSeconds;
+      if (diff < 5) {
+        this.updatedLabel = '{{ updated_now.title|escapejs }}';
+      } else if (diff < 60) {
+        this.updatedLabel = 'Atualizado há ' + diff + 's';
+      } else {
+        this.updatedLabel = 'Atualizado há ' + Math.floor(diff / 60) + ' min';
+      }
+    }
+  }"
+  class="rounded-radius border p-5 text-sm
+         {% if tracking.promise.tone == 'danger' %}border-danger/30 bg-danger/5 text-danger dark:text-danger-dark
+         {% elif tracking.promise.tone == 'warning' %}border-warning/30 bg-warning/5 text-warning dark:text-warning-dark
+         {% elif tracking.promise.tone == 'success' %}border-success/30 bg-success/10 text-success dark:text-success-dark
+         {% else %}border-info/30 bg-info/5 text-info dark:text-info-dark{% endif %}"
+  role="status"
+  aria-live="polite">
+  <div class="flex items-start gap-3">
+    <span class="material-symbols-rounded text-2xl shrink-0" aria-hidden="true">
+      {% if tracking.promise.state == 'payment_expired' %}timer_off
+      {% elif tracking.promise.state == 'payment_requested' %}qr_code_2
+      {% elif tracking.promise.state == 'payment_pending' %}payments
+      {% elif tracking.promise.state == 'card_authorized' %}credit_card
+      {% elif tracking.promise.state == 'availability_check' or tracking.promise.state == 'availability_deferred' or tracking.promise.state == 'received' %}inventory_2
+      {% elif tracking.promise.state == 'payment_confirmed' %}verified
+      {% elif tracking.promise.state == 'preparing' %}bakery_dining
+      {% elif tracking.promise.state == 'ready_delivery' or tracking.promise.state == 'dispatched' %}local_shipping
+      {% elif tracking.promise.state == 'ready_pickup' %}storefront
+      {% elif tracking.promise.state == 'cancelled' %}cancel
+      {% else %}check_circle{% endif %}
+    </span>
+    <div class="min-w-0 flex-1 space-y-3">
+      <div class="space-y-1">
+        <h2 class="text-base font-semibold leading-snug">{{ tracking.promise.title }}</h2>
+        {% if tracking.promise.message %}
+        <p>{{ tracking.promise.message }}</p>
+        {% endif %}
+      </div>
+
+      {% if tracking.promise.deadline_at %}
+      <p class="font-medium">
+        {% if tracking.promise.deadline_kind == 'payment' %}
+          {{ payment_time_left.message }}
+          <strong x-show="!expired && timeLeft" x-text="timeLeft"></strong>
+          <span x-show="expired" x-cloak>expirado</span>
+        {% elif tracking.promise.deadline_kind == 'availability' %}
+          {{ confirm_prefix.message }}
+          <strong x-show="!expired && timeLeft" x-text="timeLeft"></strong>
+          <span x-show="expired" x-cloak>o prazo encerrado</span>
+          {{ confirm_suffix.message }}
+        {% endif %}
+      </p>
+      {% endif %}
+
+      {% if tracking.promise.customer_action_url %}
+      <p>
+        <a href="{{ tracking.promise.customer_action_url }}"
+           class="inline-flex min-h-11 items-center justify-center gap-2 rounded-radius px-4 py-2 text-sm font-semibold transition hover:opacity-90 focus:outline-hidden focus-visible:ring-2
+                  {% if tracking.promise.tone == 'danger' %}bg-danger text-on-danger focus-visible:ring-danger
+                  {% elif tracking.promise.tone == 'warning' %}bg-warning text-on-warning focus-visible:ring-warning
+                  {% elif tracking.promise.tone == 'success' %}bg-success text-on-success focus-visible:ring-success
+                  {% else %}bg-info text-on-info focus-visible:ring-info{% endif %}">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">qr_code_2</span>
+          {{ tracking.promise.customer_action_label }}
+        </a>
+      </p>
+      {% endif %}
+
+      {% if tracking.promise.recovery and tracking.promise.state == 'payment_requested' %}
+      <p class="text-xs opacity-85">{{ tracking.promise.recovery }}</p>
+      {% elif tracking.promise.recovery and tracking.promise.state == 'payment_expired' %}
+      <p class="text-xs opacity-85">{{ tracking.promise.recovery }}</p>
+      {% elif tracking.promise.recovery and tracking.promise.state == 'cancelled' %}
+      <p class="text-xs opacity-85">{{ tracking.promise.recovery }}</p>
+      {% elif tracking.promise.next_event and tracking.promise.state == 'availability_deferred' %}
+      <p class="text-xs opacity-85">{{ tracking.promise.next_event }}</p>
+      {% elif tracking.promise.next_event and not tracking.promise.message %}
+      <p class="text-xs opacity-85">{{ tracking.promise.next_event }}</p>
+      {% endif %}
+
+      <div class="border-t border-current/20 pt-3">
+        <p class="flex items-center gap-1.5 text-xs font-medium">
+          <span class="material-symbols-rounded text-base" aria-hidden="true">sync</span>
+          <span x-text="updatedLabel">{{ tracking.last_updated_display }}</span>
+        </p>
+        <p x-show="isStale" x-cloak class="mt-1 text-xs">
+          {{ promise_stale.message }}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "storefront/partials/order_status.html" with tracking_status=tracking %}

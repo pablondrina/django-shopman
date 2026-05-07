@@ -87,8 +87,13 @@ class TestHappyPaths:
         page.goto(f"{base_url}/menu/")
         page.wait_for_load_state("networkidle")
 
-        # Quick-add an item via URL
-        page.goto(f"{base_url}/cart/quick-add/PAO-FRANCES/", wait_until="networkidle")
+        # Add through the public storefront UI. Cart mutations use the
+        # canonical /cart/set-qty/ contract behind the button.
+        page.goto(f"{base_url}/menu/", wait_until="networkidle")
+        add_btn = page.locator("button:has-text('Adicionar')").first
+        if add_btn.count() > 0:
+            add_btn.click()
+            page.wait_for_timeout(500)
 
         # Go to checkout
         page.goto(f"{base_url}/checkout/")
@@ -97,9 +102,9 @@ class TestHappyPaths:
         # Checkout page should load
         assert page.url.endswith("/checkout/") or "checkout" in page.url
 
-    def test_03_gestor_pedidos_view_confirm_advance(self, page, base_url):
+    def test_03_admin_orders_console_view_confirm_advance(self, page, base_url):
         """
-        HP-3: Gestor de Pedidos → ver pedido → confirmar → preparar → pronto → entregue.
+        HP-3: Console de Pedidos → ver pedido → confirmar → preparar → pronto → entregue.
 
         Operator uses the order management panel to advance order status.
         """
@@ -110,8 +115,8 @@ class TestHappyPaths:
         page.locator("input[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # Visit Gestor de Pedidos
-        page.goto(f"{base_url}/gestor/pedidos/")
+        # Visit Admin/Unfold Orders Console
+        page.goto(f"{base_url}/admin/operacao/pedidos/")
         page.wait_for_load_state("networkidle")
 
         # Page should load (may be empty if no orders seeded)
@@ -131,7 +136,7 @@ class TestHappyPaths:
         page.wait_for_load_state("networkidle")
 
         # Visit KDS index
-        page.goto(f"{base_url}/gestor/kds/")
+        page.goto(f"{base_url}/admin/operacao/kds/")
         page.wait_for_load_state("networkidle")
 
         # Page should load with KDS stations listed
@@ -259,8 +264,8 @@ class TestNavigation:
         assert response.status in (200, 302), f"{path} returned {response.status}"
 
     @pytest.mark.parametrize("path", [
-        "/gestor/pedidos/",
-        "/gestor/kds/",
+        "/admin/operacao/pedidos/",
+        "/admin/operacao/kds/",
         "/gestor/pos/",
     ])
     def test_operator_pages_require_auth(self, page, base_url, path):

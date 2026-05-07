@@ -53,19 +53,15 @@ def test_advance_order_wraps_value_error(monkeypatch):
         orders.advance_order("order", actor="operator:ana")
 
 
-def test_mark_paid_save_notes_and_history_delegate(monkeypatch):
-    mark_paid = Mock(return_value=True)
+def test_save_notes_and_history_delegate(monkeypatch):
     save_notes = Mock()
     recent = Mock(return_value=["order"])
-    monkeypatch.setattr(orders.operator_orders, "mark_paid", mark_paid)
     monkeypatch.setattr(orders.operator_orders, "save_internal_notes", save_notes)
     monkeypatch.setattr(orders.operator_orders, "recent_history", recent)
 
-    assert orders.mark_paid("order", actor="operator:ana", operator_username="ana") is True
     orders.save_internal_notes("order", notes="obs")
     assert orders.recent_history(limit=5) == ["order"]
 
-    mark_paid.assert_called_once_with("order", actor="operator:ana", operator_username="ana")
     save_notes.assert_called_once_with("order", notes="obs")
     recent.assert_called_once_with(limit=5)
 

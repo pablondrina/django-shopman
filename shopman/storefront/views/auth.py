@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -10,6 +11,7 @@ from django_ratelimit.core import is_ratelimited
 from django_ratelimit.decorators import ratelimit
 from shopman.utils.phone import normalize_phone
 
+from shopman.shop.models import Shop
 from shopman.shop.services import auth as auth_service
 
 from ..constants import HAS_AUTH
@@ -28,12 +30,32 @@ def _safe_next(request: HttpRequest, next_url: str | None) -> str:
 
 
 def _auth_phone_rate_key(group, request) -> str:
-    raw_phone = request.POST.get("phone", "")
+    raw_phone = (
+        request.POST.get("phone_normalized", "").strip()
+        or request.POST.get("phone", "").strip()
+    )
     try:
         normalized = normalize_phone(raw_phone)
     except Exception:
         normalized = ""
-    return normalized or raw_phone.strip() or request.META.get("REMOTE_ADDR", "")
+    return normalized or raw_phone or request.META.get("REMOTE_ADDR", "")
+
+
+def _whatsapp_login_message(next_url: str) -> str:
+    if next_url and "checkout" in next_url:
+        return "Quero finalizar meu pedido"
+    return "Quero entrar na loja"
+
+
+def _whatsapp_login_url(next_url: str) -> str:
+    shop = Shop.load()
+    base_url = (shop.whatsapp_url if shop else "").strip()
+    if not base_url:
+        return ""
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["text"] = _whatsapp_login_message(next_url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 def get_authenticated_customer(request: HttpRequest):
@@ -83,8 +105,11 @@ class LoginView(View):
                 "next": next_url,
             })
 
-        # Already logged in → redirect
-        if getattr(request, "customer", None) is not None:
+        # Already logged in with an operational phone → redirect.
+        # Instagram-origin customers may be authenticated before phone capture;
+        # for checkout they must complete the normal phone verification gate.
+        customer_info = getattr(request, "customer", None)
+        if customer_info is not None and customer_info.phone:
             return redirect(next_url or "/")
 
         # Device trust pre-fill (F-03): if a trusted-device cookie exists, look up
@@ -110,6 +135,7 @@ class LoginView(View):
             "phone_value": phone_prefill,
             "trusted_name": trusted_name,
             "login_context": login_context,
+            "whatsapp_login_url": _whatsapp_login_url(next_url),
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -135,6 +161,7 @@ class LoginView(View):
                 "next": next_url,
                 "trusted_name": "",
                 "login_context": "checkout" if "checkout" in next_url else "direct",
+                "whatsapp_login_url": _whatsapp_login_url(next_url),
             })
 
         intent = result.intent
@@ -156,6 +183,7 @@ class LoginView(View):
                 "next": next_url,
                 "trusted_name": "",
                 "login_context": "checkout" if "checkout" in next_url else "direct",
+                "whatsapp_login_url": _whatsapp_login_url(next_url),
             }, status=429)
 
         customer = auth_service.customer_by_phone(phone)
@@ -174,6 +202,9 @@ class LoginView(View):
                     "error": error_msg,
                     "phone_value": result.form_data.get("phone", ""),
                     "next": next_url,
+                    "trusted_name": "",
+                    "login_context": "checkout" if "checkout" in next_url else "direct",
+                    "whatsapp_login_url": _whatsapp_login_url(next_url),
                 })
 
         request.session["login_phone"] = phone

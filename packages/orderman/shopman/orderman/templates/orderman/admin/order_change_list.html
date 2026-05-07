@@ -1,41 +1,35 @@
 {% extends "admin/change_list.html" %}
-{% load i18n %}
+{% load i18n unfold %}
 
 {% block object-tools-items %}
-<a href="{% url 'backstage:gestor_pedidos' %}"
-   class="bg-primary-600 border border-transparent flex flex-row font-medium gap-2 items-center h-[38px] justify-center px-3 py-2 rounded-default text-white w-full lg:w-auto">
-  <span class="material-symbols-outlined md-18">receipt_long</span>
+{% url 'admin_console_orders' as order_queue_url %}
+{% component "unfold/components/button.html" with href=order_queue_url %}
+  {% component "unfold/components/icon.html" with class="md-18" %}receipt_long{% endcomponent %}
   Fila operacional
-</a>
+{% endcomponent %}
 {{ block.super }}
 {% endblock %}
 
 {% block content %}
 <div class="mb-4 grid gap-3 md:grid-cols-3">
-  <a href="{% url 'backstage:gestor_pedidos' %}"
-     class="border border-base-200 flex gap-3 items-center p-3 rounded-default hover:border-primary-500 dark:border-base-800">
-    <span class="material-symbols-outlined text-primary-600 dark:text-primary-400">bolt</span>
-    <span>
-      <span class="block font-semibold text-font-important-light dark:text-font-important-dark">Operar pedidos ativos</span>
-      <span class="block text-xs text-base-500">SSE, timers, pagamento, rejeição e avanço.</span>
-    </span>
-  </a>
-  <a href="?status__exact=new"
-     class="border border-base-200 flex gap-3 items-center p-3 rounded-default hover:border-primary-500 dark:border-base-800">
-    <span class="material-symbols-outlined text-amber-600">priority_high</span>
-    <span>
-      <span class="block font-semibold text-font-important-light dark:text-font-important-dark">Novos</span>
-      <span class="block text-xs text-base-500">Triagem administrativa de entrada.</span>
-    </span>
-  </a>
-  <a href="?status__exact=cancelled"
-     class="border border-base-200 flex gap-3 items-center p-3 rounded-default hover:border-primary-500 dark:border-base-800">
-    <span class="material-symbols-outlined text-red-600">cancel</span>
-    <span>
-      <span class="block font-semibold text-font-important-light dark:text-font-important-dark">Cancelados</span>
-      <span class="block text-xs text-base-500">Auditoria e investigação.</span>
-    </span>
-  </a>
+  {% component "unfold/components/card.html" with href=order_queue_url icon="bolt" %}
+    {% component "unfold/components/title.html" with class="text-sm" %}Operar pedidos ativos{% endcomponent %}
+    {% component "unfold/components/text.html" with class="mt-1 text-xs text-base-500" %}
+      SSE, timers, pagamento, rejeição e avanço.
+    {% endcomponent %}
+  {% endcomponent %}
+  {% component "unfold/components/card.html" with href="?status__exact=new" icon="priority_high" icon_class="text-orange-700 dark:text-orange-400" %}
+    {% component "unfold/components/title.html" with class="text-sm" %}Novos{% endcomponent %}
+    {% component "unfold/components/text.html" with class="mt-1 text-xs text-base-500" %}
+      Triagem administrativa de entrada.
+    {% endcomponent %}
+  {% endcomponent %}
+  {% component "unfold/components/card.html" with href="?status__exact=cancelled" icon="cancel" icon_class="text-red-700 dark:text-red-400" %}
+    {% component "unfold/components/title.html" with class="text-sm" %}Cancelados{% endcomponent %}
+    {% component "unfold/components/text.html" with class="mt-1 text-xs text-base-500" %}
+      Auditoria e investigação.
+    {% endcomponent %}
+  {% endcomponent %}
 </div>
 {{ block.super }}
 {% endblock %}

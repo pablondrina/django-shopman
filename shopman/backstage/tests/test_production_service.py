@@ -7,13 +7,13 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.stockman.models import Batch
 
 from shopman.backstage.models import OperatorAlert
 from shopman.backstage.services import production
 from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
-from shopman.stockman.models import Batch
 
 
 @pytest.fixture
@@ -58,6 +58,30 @@ def test_apply_planned_start_finish_and_void(recipe):
 
     planned = craft.plan(recipe, 5, date=date.today())
     assert production.apply_void(planned.pk, actor="production:op") == planned.ref
+
+
+@pytest.mark.django_db
+def test_apply_planned_consolidates_duplicate_planned_orders(recipe):
+    first = craft.plan(recipe, 20, date=date.today())
+    second = craft.plan(recipe, 12, date=date.today())
+
+    output_sku, wo_ref, qty, result = production.apply_planned(
+        recipe_id=recipe.pk,
+        quantity="32",
+        target_date_value=date.today().isoformat(),
+        actor="production:op",
+    )
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert output_sku == recipe.output_sku
+    assert wo_ref == first.ref
+    assert qty == Decimal("32")
+    assert result == "consolidated"
+    assert first.quantity == Decimal("32")
+    assert first.status == WorkOrder.Status.PLANNED
+    assert second.status == WorkOrder.Status.VOID
+    assert WorkOrder.objects.filter(recipe=recipe, target_date=date.today(), status=WorkOrder.Status.PLANNED).count() == 1
 
 
 @pytest.mark.django_db

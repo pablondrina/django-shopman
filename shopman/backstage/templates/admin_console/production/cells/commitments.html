@@ -1,0 +1,6 @@
+{% load unfold %}
+
+{% url 'admin_console_production_work_order_commitments' item.ref as commitments_url %}
+{% component "unfold/components/link.html" with href=commitments_url icon="receipt_long" %}
+  Pedidos · {{ committed_qty }}
+{% endcomponent %}
