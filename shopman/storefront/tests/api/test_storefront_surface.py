@@ -60,6 +60,36 @@ def test_api_cart_sku_qty_accepts_authenticated_session_with_csrf_header():
     assert add.json()["cart"]["items_count"] == 1
 
 
+def test_api_cart_sku_qty_requires_origin_or_referer_for_secure_authenticated_session():
+    product = _seed_surface(stock_qty=Decimal("10"))
+    user = get_user_model().objects.create_user(username="secure-staff", password="secret")
+    client = DjangoClient(enforce_csrf_checks=True)
+    client.force_login(user)
+
+    menu = client.get("/api/v1/storefront/menu/", secure=True)
+    token = menu.cookies["csrftoken"].value
+    missing_referer = client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 1}),
+        content_type="application/json",
+        secure=True,
+        HTTP_X_CSRFTOKEN=token,
+    )
+
+    assert missing_referer.status_code == 403
+
+    with_origin = client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 1}),
+        content_type="application/json",
+        secure=True,
+        HTTP_X_CSRFTOKEN=token,
+        HTTP_ORIGIN="https://testserver",
+    )
+
+    assert with_origin.status_code == 200
+
+
 def test_api_cart_sku_qty_sets_absolute_qty_and_returns_cart_projection(client):
     product = _seed_surface(stock_qty=Decimal("10"))
 

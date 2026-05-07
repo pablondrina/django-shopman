@@ -27,6 +27,12 @@ export async function proxyDjangoApi (event: H3Event, path: string) {
   const contentType = getRequestHeader(event, 'content-type')
   if (contentType) headers['content-type'] = contentType
 
+  const origin = getRequestHeader(event, 'origin')
+  if (origin) headers.origin = origin
+
+  const referer = getRequestHeader(event, 'referer')
+  if (referer) headers.referer = referer
+
   const csrfCookie = cookie
     ?.split(';')
     .map(part => part.trim())
