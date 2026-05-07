@@ -338,6 +338,13 @@ def test_mobile_nav_labels_use_base_small_type():
     assert "text-[9px]" not in bottom_nav
 
 
+def test_mobile_cart_badge_listens_to_json_cart_summary():
+    bottom_nav = _read_template("partials/_bottom_nav.html")
+
+    assert "shopman-cart-summary" in bottom_nav
+    assert "Number(e.detail?.count || 0)" in bottom_nav
+
+
 def test_badges_use_canonical_surface_contract():
     css = CSS_SOURCE.read_text(encoding="utf-8")
     availability = _read_template("components/availability_badge.html")
