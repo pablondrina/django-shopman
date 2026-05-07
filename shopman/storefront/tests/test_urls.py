@@ -30,8 +30,8 @@ class TestHomeViewXFrame:
     def test_cart(self, db):
         assert reverse("storefront:cart") == "/cart/"
 
-    def test_cart_add(self, db):
-        assert reverse("storefront:cart_add") == "/cart/add/"
+    def test_cart_set_qty(self, db):
+        assert reverse("storefront:cart_set_qty") == "/cart/set-qty/"
 
     def test_order_payment(self, db):
         assert reverse("storefront:order_payment", kwargs={"ref": "ORD-001"}) == "/pedido/ORD-001/pagamento/"

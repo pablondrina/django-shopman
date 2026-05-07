@@ -17,6 +17,16 @@ class CartService:
     """Manages Orderman sessions linked to Django visitor sessions."""
 
     @staticmethod
+    def _empty_cart(*, include_items: bool = True) -> dict:
+        return {
+            "items": [] if include_items else [],
+            "subtotal_q": 0,
+            "subtotal_display": "R$ 0,00",
+            "count": 0,
+            "discount_lines": [],
+        }
+
+    @staticmethod
     def _get_channel() -> Channel:
         return Channel.objects.get(ref=CHANNEL_REF)
 
@@ -138,17 +148,42 @@ class CartService:
         return False
 
     @staticmethod
+    def get_cart_summary(request: HttpRequest, *, include_items: bool = False) -> dict:
+        """Return a cheap cart summary without stock/catalog enrichment.
+
+        Used by global context and badge endpoints. Availability, planned holds,
+        images, discounts transparency and upsells belong to ``get_cart()`` /
+        ``CartProjection`` and should not be paid by every page render.
+        """
+        session_key = CartService._get_session_key(request)
+        if not session_key:
+            return CartService._empty_cart(include_items=include_items)
+
+        session = cart_commands.get_open_session(
+            session_key=session_key,
+            channel_ref=CHANNEL_REF,
+        )
+        if session is None:
+            request.session.pop("cart_session_key", None)
+            return CartService._empty_cart(include_items=include_items)
+
+        items = [dict(item) for item in (session.items or [])]
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+        count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
+        return {
+            "items": items if include_items else [],
+            "subtotal_q": subtotal_q,
+            "subtotal_display": f"R$ {format_money(subtotal_q)}",
+            "count": count,
+            "discount_lines": [],
+        }
+
+    @staticmethod
     def get_cart(request: HttpRequest) -> dict:
         """Return cart data: items, subtotal, count (total units)."""
         session_key = CartService._get_session_key(request)
         if not session_key:
-            return {
-                "items": [],
-                "subtotal_q": 0,
-                "subtotal_display": "R$ 0,00",
-                "count": 0,
-                "discount_lines": [],
-            }
+            return CartService._empty_cart()
 
         channel = CartService._get_channel()
         try:
@@ -159,15 +194,9 @@ class CartService:
             )
         except Session.DoesNotExist:
             request.session.pop("cart_session_key", None)
-            return {
-                "items": [],
-                "subtotal_q": 0,
-                "subtotal_display": "R$ 0,00",
-                "count": 0,
-                "discount_lines": [],
-            }
+            return CartService._empty_cart()
 
-        items = session.items
+        items = [dict(item) for item in (session.items or [])]
         subtotal_q = sum(item.get("line_total_q", 0) for item in items)
         count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
 

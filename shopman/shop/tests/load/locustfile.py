@@ -121,12 +121,12 @@ class CheckoutUser(HttpUser):
 
     @task(3)
     def add_to_cart(self):
-        """POST /cart/add/ — add random item."""
+        """POST /cart/set-qty/ — add random item."""
         sku = random.choice(PRODUCT_SKUS)
         self.client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             data={"sku": sku, "qty": random.randint(1, 5)},
-            name="/cart/add/",
+            name="/cart/set-qty/",
         )
 
     @task(2)

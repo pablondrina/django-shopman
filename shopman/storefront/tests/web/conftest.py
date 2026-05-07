@@ -275,7 +275,7 @@ def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> No
     """Garante ListingItem(published+available) no listing do canal.
 
     `availability.check` valida membership no listing do canal: sem isso o
-    /cart/add/ devolve 422 (`error_code=not_in_listing`).
+    /cart/set-qty/ devolve 422 (`error_code=not_in_listing`).
     """
     listing_obj, _ = Listing.objects.get_or_create(
         ref=channel.ref,
@@ -293,7 +293,7 @@ def cart_session(client, channel, product):
     """Add an item to the cart and return the client with active session."""
     _seed_stock_for_product_sku(product.sku)
     _ensure_listing_item(channel, product, price_q=90)
-    client.post("/cart/add/", {"sku": product.sku, "qty": 2})
+    client.post("/cart/set-qty/", {"sku": product.sku, "qty": 2})
     return client
 
 
@@ -302,5 +302,5 @@ def cart_session_delivery(client, channel, croissant):
     """Cart with enough value for delivery (min R$ 20,00). Uses croissant (R$ 8,00 x 4 = R$ 32,00)."""
     _seed_stock_for_product_sku(croissant.sku)
     _ensure_listing_item(channel, croissant, price_q=800)
-    client.post("/cart/add/", {"sku": croissant.sku, "qty": 4})
+    client.post("/cart/set-qty/", {"sku": croissant.sku, "qty": 4})
     return client

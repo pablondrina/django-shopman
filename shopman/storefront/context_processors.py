@@ -97,7 +97,7 @@ def cart_count(request: HttpRequest) -> dict:
     """Expose cart item count and subtotal from Orderman session to all templates."""
     from shopman.storefront.cart import CartService
 
-    cart = CartService.get_cart(request)
+    cart = CartService.get_cart_summary(request)
     return {
         "cart_count": cart["count"],
         "cart_subtotal_display": cart["subtotal_display"],

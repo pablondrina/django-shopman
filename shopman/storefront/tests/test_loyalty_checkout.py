@@ -220,7 +220,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             phone="5543999990077",
         )
         self._login_as_customer(self.client, customer)
-        self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
+        self.client.post("/cart/set-qty/", {"sku": "LOYAL-WEB", "qty": "1"})
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 250
@@ -244,7 +244,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             phone="5543999990088",
         )
         self._login_as_customer(self.client, customer)
-        self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
+        self.client.post("/cart/set-qty/", {"sku": "LOYAL-WEB", "qty": "1"})
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 0

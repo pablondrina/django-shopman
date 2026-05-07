@@ -87,8 +87,13 @@ class TestHappyPaths:
         page.goto(f"{base_url}/menu/")
         page.wait_for_load_state("networkidle")
 
-        # Quick-add an item via URL
-        page.goto(f"{base_url}/cart/quick-add/PAO-FRANCES/", wait_until="networkidle")
+        # Add through the public storefront UI. Cart mutations use the
+        # canonical /cart/set-qty/ contract behind the button.
+        page.goto(f"{base_url}/menu/", wait_until="networkidle")
+        add_btn = page.locator("button:has-text('Adicionar')").first
+        if add_btn.count() > 0:
+            add_btn.click()
+            page.wait_for_timeout(500)
 
         # Go to checkout
         page.goto(f"{base_url}/checkout/")

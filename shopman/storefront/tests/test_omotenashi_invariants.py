@@ -138,7 +138,7 @@ class TestAnticipacao:
                 "substitutes": [],
             },
         ):
-            client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+            client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
 
     def _login(self, client, customer):
         from shopman.doorman.protocols.customer import AuthCustomerInfo

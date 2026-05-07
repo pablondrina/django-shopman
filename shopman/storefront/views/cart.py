@@ -11,16 +11,16 @@ from django_ratelimit.decorators import ratelimit
 from shopman.shop.services.cart import CartUnavailableError
 
 from ..cart import CartService
-from ..intents.cart import interpret_add_to_cart, interpret_set_qty
+from ..intents.cart import interpret_set_qty
 
 MAX_CART_LINE_QTY = 99
 
 
-def _parse_cart_qty(raw, *, default: int, minimum: int) -> int:
+def _parse_cart_qty(raw, *, minimum: int) -> int | None:
     try:
         qty = int(raw)
     except (TypeError, ValueError):
-        qty = default
+        return None
     if qty < minimum:
         qty = minimum
     return min(qty, MAX_CART_LINE_QTY)
@@ -68,57 +68,6 @@ class CartView(View):
             "reorder_skipped": reorder_skipped,
             "from_reorder": from_reorder or bool(reorder_skipped),
         })
-
-
-@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
-class AddToCartView(View):
-    """HTMX: add item to cart, return updated cart summary badge."""
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        if getattr(request, "limited", False):
-            return _rate_limited_cart_response()
-        sku = request.POST.get("sku", "").strip()
-        qty = _parse_cart_qty(request.POST.get("qty", 1), default=1, minimum=1)
-
-        result = interpret_add_to_cart(sku, qty, picker_origin=_picker_origin(request))
-        if result.error_type == "not_found":
-            return HttpResponse("", status=404)
-        if result.error_type == "not_sellable":
-            ctx = result.error_context
-            response = render(request, "storefront/partials/stock_error_modal.html", {
-                "error_variant": "paused",
-                "sku": ctx["product"].sku,
-                "product_name": ctx["product"].name,
-                "product_image_url": getattr(ctx["product"], "image_url", None) or "",
-                "requested_qty": ctx["qty"],
-                "available_qty": 0,
-                "substitutes": [],
-                "picker_origin": ctx["picker_origin"],
-            })
-            response["HX-Retarget"] = "#stock-error-modal"
-            response["HX-Reswap"] = "innerHTML"
-            response["X-Shopman-Error-UI"] = "1"
-            response.status_code = 422
-            return response
-
-        intent = result.intent
-        try:
-            CartService.add_item(
-                request,
-                sku=intent.sku,
-                qty=intent.qty,
-                unit_price_q=intent.unit_price_q,
-                name=intent.product.name,
-                is_d1=intent.is_d1,
-            )
-        except CartUnavailableError as exc:
-            return _stock_error_response(request, intent.product, exc)
-
-        cart = CartService.get_cart(request)
-        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
-        response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
-        return response
 
 
 def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableError) -> HttpResponse:
@@ -196,40 +145,6 @@ class CartDrawerContentProjView(View):
 
 
 @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
-class QuickAddView(View):
-    """HTMX: quick-add from product card with inline stepper. SKU in path."""
-
-    def post(self, request: HttpRequest, sku: str) -> HttpResponse:
-        if getattr(request, "limited", False):
-            return _rate_limited_cart_response()
-        qty = _parse_cart_qty(request.POST.get("qty", 1), default=1, minimum=1)
-
-        result = interpret_add_to_cart(sku, qty)
-        if result.error_type == "not_found":
-            return HttpResponse("", status=404)
-        if result.error_type == "not_sellable":
-            return HttpResponse("", status=409)
-
-        intent = result.intent
-        try:
-            CartService.add_item(
-                request,
-                sku=intent.sku,
-                qty=intent.qty,
-                unit_price_q=intent.unit_price_q,
-                is_d1=intent.is_d1,
-            )
-        except CartUnavailableError as exc:
-            return _stock_error_response(request, intent.product, exc)
-
-        cart = CartService.get_cart(request)
-        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
-        response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
-        return response
-
-
-@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class CartSetQtyBySkuView(View):
     """HTMX: set absolute qty for a SKU, return cart summary badge.
 
@@ -242,17 +157,19 @@ class CartSetQtyBySkuView(View):
     - qty > 0, line exists → ``update_qty`` (reconciles holds)
     - qty > 0, no line → ``add_item`` (adds with the current listing price)
 
-    Returns the same ``cart_summary`` partial + ``HX-Trigger: cartUpdated``
-    as ``AddToCartView`` so the header badge and drawer stay in sync.
+    Returns the canonical ``cart_summary`` partial + ``HX-Trigger:
+    cartUpdated`` so the header badge and drawer stay in sync.
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if getattr(request, "limited", False):
             return _rate_limited_cart_response()
         sku = request.POST.get("sku", "").strip()
-        qty = _parse_cart_qty(request.POST.get("qty", 0), default=0, minimum=0)
+        qty = _parse_cart_qty(request.POST.get("qty", 0), minimum=0)
+        if qty is None:
+            return HttpResponse("", status=400)
 
-        cart = CartService.get_cart(request)
+        cart = CartService.get_cart_summary(request, include_items=True)
         result = interpret_set_qty(sku, qty, cart)
         if result.error_type == "not_found":
             return HttpResponse("", status=404)
@@ -275,7 +192,7 @@ class CartSetQtyBySkuView(View):
         except CartUnavailableError as exc:
             return _stock_error_response(request, intent.product, exc)
 
-        cart = CartService.get_cart(request)
+        cart = CartService.get_cart_summary(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
@@ -286,7 +203,7 @@ class CartSummaryView(View):
     """HTMX: return cart summary badge (triggered by cartUpdated event)."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        cart = CartService.get_cart(request)
+        cart = CartService.get_cart_summary(request)
         return render(request, "storefront/partials/cart_summary.html", {"cart": cart})
 
 

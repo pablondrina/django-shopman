@@ -105,13 +105,14 @@
 
         var prev = this.qty;
         this.busy = true;
+        this.qty = target;
         var result = await ns.setQty({
           url: opts.url,
           sku: opts.sku,
           qty: target,
           warningMessage: opts.warningMessage,
         });
-        this.qty = result.ok ? target : prev;
+        if (!result.ok) this.qty = prev;
         this.busy = false;
         return result;
       },

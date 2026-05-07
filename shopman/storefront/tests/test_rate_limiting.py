@@ -157,8 +157,8 @@ def test_cep_lookup_rate_limited(client: Client):
 def test_cart_mutation_rate_limited(client: Client):
     """121st public cart mutation in the same minute returns 429."""
     for _ in range(120):
-        resp = client.post("/cart/add/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+        resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
         assert resp.status_code != 429
 
-    resp = client.post("/cart/add/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+    resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
     assert resp.status_code == 429

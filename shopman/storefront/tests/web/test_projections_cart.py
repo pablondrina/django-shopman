@@ -25,7 +25,7 @@ def _request_with_cart_session(client):
     """Build a RequestFactory request wearing the session key of ``client``.
 
     ``cart_session`` in conftest returns a Django test client that has
-    already POSTed to /cart/add/. We need a plain ``HttpRequest`` whose
+    already POSTed to /cart/set-qty/. We need a plain ``HttpRequest`` whose
     ``request.session`` holds the same ``cart_session_key``; the projection
     builder reads it via ``CartService.get_cart(request)``.
     """
@@ -153,7 +153,7 @@ class TestAvailabilityOwnHoldCorrection:
             reason="own-hold regression seed",
         )
 
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": 5})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": 5})
         assert resp.status_code in (200, 201), (
             "adding all available stock must succeed — hold protects the qty"
         )

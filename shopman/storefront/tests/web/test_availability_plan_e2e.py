@@ -181,7 +181,7 @@ def test_available_menu_pdp_cart_checkout_flow(
     assert pdp.status_code == 200
     assert "Adicionar" in pdp.content.decode()
 
-    add = client.post("/cart/add/", {"sku": product.sku, "qty": "2"})
+    add = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "2"})
     assert add.status_code == 200
     assert add.headers.get("X-Shopman-Error-UI") is None
 
@@ -225,7 +225,7 @@ def test_low_stock_adds_max_without_warning_and_cart_clamps(
     assert item.availability_label == "Últimas unidades"
     assert item.available_qty == 3
 
-    add = client.post("/cart/add/", {"sku": product.sku, "qty": "3"})
+    add = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "3"})
     assert add.status_code == 200
     assert add.headers.get("X-Shopman-Error-UI") is None
 
@@ -266,7 +266,7 @@ def test_adjustment_and_pdp_substitution_modal_contract(client: Client, listing)
 
     with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         response = client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             {"sku": product.sku, "qty": "10"},
             HTTP_HX_CURRENT_URL=f"https://shop.example/produto/{product.sku}/",
         )
@@ -303,7 +303,7 @@ def test_fermata_add_materialize_notify_and_countdown(
     _categorize(collection, product)
     _seed_tracked_sold_out(product.sku)
 
-    add = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+    add = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
     assert add.status_code == 200, add.content.decode()[:1200]
 
     session = _open_cart_session(client)
