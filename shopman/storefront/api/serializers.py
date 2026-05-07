@@ -29,6 +29,10 @@ class UpdateItemSerializer(serializers.Serializer):
     qty = serializers.IntegerField(min_value=1, max_value=99)
 
 
+class SetSkuQtySerializer(serializers.Serializer):
+    qty = serializers.IntegerField(min_value=0, max_value=99)
+
+
 class CheckoutSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=120)
     phone = serializers.CharField(max_length=32)

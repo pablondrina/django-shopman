@@ -7,93 +7,21 @@ from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django_ratelimit.decorators import ratelimit
-from shopman.utils.monetary import format_money
 
 from shopman.shop.services.cart import CartUnavailableError
-from shopman.shop.services.storefront_context import minimum_order_progress
-from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.perf import CartMutationPerf
+from shopman.storefront.services.cart_mutations import (
+    CartCommandNotFound,
+    CartCommandUnavailable,
+    parse_cart_qty,
+    set_qty_by_sku,
+)
 
 from ..cart import CartService
-from ..intents.cart import interpret_set_qty
-
-MAX_CART_LINE_QTY = 99
-
-
-def _parse_cart_qty(raw, *, minimum: int) -> int | None:
-    try:
-        qty = int(raw)
-    except (TypeError, ValueError):
-        return None
-    if qty < minimum:
-        qty = minimum
-    return min(qty, MAX_CART_LINE_QTY)
 
 
 def _rate_limited_cart_response() -> HttpResponse:
     return HttpResponse("", status=429)
-
-
-def _money(value_q: int | None) -> str:
-    return f"R$ {format_money(int(value_q or 0))}"
-
-
-def _cart_command_payload(intent, cart: dict) -> dict:
-    subtotal_q = int(cart.get("subtotal_q", 0) or 0)
-    min_order = minimum_order_progress(
-        subtotal_q,
-        channel_ref=STOREFRONT_CHANNEL_REF,
-    )
-    line = _cart_line_payload(intent, cart)
-    return {
-        "ok": True,
-        "action": intent.action,
-        "sku": intent.sku,
-        "line": line,
-        "cart": {
-            "count": int(cart.get("count", 0) or 0),
-            "subtotal_q": subtotal_q,
-            "subtotal_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
-            "grand_total_q": subtotal_q,
-            "grand_total_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
-            "minimum_order_progress": min_order,
-            "checkout_enabled": bool(cart.get("count", 0) and min_order is None),
-        },
-    }
-
-
-def _cart_line_payload(intent, cart: dict) -> dict:
-    line = next(
-        (
-            item
-            for item in cart.get("items") or []
-            if item.get("sku") == intent.sku
-        ),
-        None,
-    )
-    if line is None:
-        return {
-            "sku": intent.sku,
-            "line_id": intent.line_id,
-            "qty": 0,
-            "unit_price_q": 0,
-            "line_total_q": 0,
-            "line_total_display": _money(0),
-            "name": getattr(intent.product, "name", intent.sku),
-        }
-
-    qty = int(line.get("qty", 0) or 0)
-    unit_price_q = int(line.get("unit_price_q", 0) or 0)
-    line_total_q = int(line.get("line_total_q", 0) or 0)
-    return {
-        "sku": str(line.get("sku") or intent.sku),
-        "line_id": line.get("line_id") or intent.line_id,
-        "qty": qty,
-        "unit_price_q": unit_price_q,
-        "line_total_q": line_total_q,
-        "line_total_display": _money(line_total_q),
-        "name": line.get("name") or getattr(intent.product, "name", intent.sku),
-    }
 
 
 def _picker_origin(request: HttpRequest) -> str:
@@ -240,60 +168,33 @@ class CartSetQtyBySkuView(View):
                     return _rate_limited_cart_response()
                 with perf.step("parse"):
                     sku = request.POST.get("sku", "").strip()
-                    qty_parsed = _parse_cart_qty(request.POST.get("qty", 0), minimum=0)
+                    qty_parsed = parse_cart_qty(request.POST.get("qty", 0), minimum=0)
                 if qty_parsed is None:
                     status_code = 400
                     return HttpResponse("", status=400)
                 qty = qty_parsed
 
-                with perf.step("cart_read"):
-                    cart = CartService.get_cart_summary(request, include_items=True)
-                with perf.step("intent"):
-                    result = interpret_set_qty(sku, qty, cart)
-                if result.error_type == "not_found":
+                try:
+                    outcome = set_qty_by_sku(
+                        request,
+                        sku=sku,
+                        qty=qty,
+                        perf=perf,
+                    )
+                except CartCommandNotFound:
                     status_code = 404
                     return HttpResponse("", status=404)
-
-                intent = result.intent
-                action = intent.action
-                mutated_session = None
-                try:
-                    with perf.step(f"mutate_{action}"):
-                        if intent.action == "remove":
-                            if intent.line_id is not None:
-                                mutated_session = CartService.remove_item(
-                                    request,
-                                    line_id=intent.line_id,
-                                    sku=intent.sku,
-                                )
-                        elif intent.action == "update":
-                            mutated_session = CartService.update_qty(
-                                request,
-                                line_id=intent.line_id,
-                                qty=intent.qty,
-                                sku=intent.sku,
-                            )
-                        else:
-                            mutated_session = CartService.add_item(
-                                request,
-                                sku=intent.sku,
-                                qty=intent.qty,
-                                unit_price_q=intent.unit_price_q,
-                                is_d1=intent.is_d1,
-                            )
-                except CartUnavailableError as exc:
+                except CartCommandUnavailable as unavailable:
                     status_code = 422
                     with perf.step("stock_error_response"):
-                        return _stock_error_response(request, intent.product, exc)
-
-                with perf.step("payload"):
-                    if mutated_session is not None:
-                        cart = CartService.summary_from_session(
-                            mutated_session, include_items=True,
+                        return _stock_error_response(
+                            request,
+                            unavailable.product,
+                            unavailable.stock_error,
                         )
-                    else:
-                        cart = CartService.get_cart_summary(request, include_items=True)
-                    response = JsonResponse(_cart_command_payload(intent, cart))
+
+                action = outcome.intent.action
+                response = JsonResponse(outcome.payload)
                 status_code = response.status_code
                 return response
         finally:

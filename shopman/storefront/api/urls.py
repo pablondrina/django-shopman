@@ -9,11 +9,23 @@ from .account import AddressListView, OrderHistoryView, ProfileView
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .geocode import ReverseGeocodeView
+from .surface import (
+    CartSkuQtyView,
+    StorefrontCartView,
+    StorefrontMenuView,
+    StorefrontProductView,
+)
 from .tracking import OrderTrackingView
 
 urlpatterns = [
+    # Storefront projections for API-first clients
+    path("storefront/menu/", StorefrontMenuView.as_view(), name="api-storefront-menu"),
+    path("storefront/menu/<slug:collection>/", StorefrontMenuView.as_view(), name="api-storefront-menu-collection"),
+    path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
+    path("storefront/cart/", StorefrontCartView.as_view(), name="api-storefront-cart"),
     # Cart
     path("cart/", views.CartView.as_view(), name="api-cart"),
+    path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),
     path("cart/items/", views.CartAddItemView.as_view(), name="api-cart-add"),
     path("cart/items/<str:line_id>/", views.CartItemView.as_view(), name="api-cart-item"),
     # Checkout
