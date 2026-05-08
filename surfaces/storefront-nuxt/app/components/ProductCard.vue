@@ -34,6 +34,8 @@ const dietaryTags = computed(() => props.item.dietary_info.slice(0, 2))
   <UPageCard
     as="article"
     variant="outline"
+    spotlight
+    spotlight-color="neutral"
     class="shop-product-card"
     :ui="{
       container: 'p-0 sm:p-0 gap-0',
