@@ -4,6 +4,7 @@ import {
   getRequestHeader,
   readRawBody,
   setResponseStatus,
+  splitCookiesString,
   type H3Event
 } from 'h3'
 import { withQuery } from 'ufo'
@@ -52,7 +53,11 @@ export async function proxyDjangoApi (event: H3Event, path: string) {
   })
 
   const setCookie = response.headers.get('set-cookie')
-  if (setCookie) appendResponseHeader(event, 'set-cookie', setCookie)
+  if (setCookie) {
+    for (const cookieHeader of splitCookiesString(setCookie)) {
+      appendResponseHeader(event, 'set-cookie', cookieHeader)
+    }
+  }
 
   const contentTypeResponse = response.headers.get('content-type')
   if (contentTypeResponse) appendResponseHeader(event, 'content-type', contentTypeResponse)
