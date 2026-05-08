@@ -47,23 +47,31 @@ useHead(() => ({
         <UPageCard variant="naked" class="pdp-media-card" :ui="{ container: 'p-0 sm:p-0' }">
           <div class="pdp-image-card">
             <img v-if="product.image_url" :src="product.image_url" :alt="product.name">
-            <UAvatar v-else icon="i-lucide-cookie" size="3xl" />
+            <UIcon v-else name="i-lucide-cookie" class="size-12 text-neutral-400" />
           </div>
         </UPageCard>
 
         <UPageCard
-          variant="subtle"
+          variant="outline"
           class="pdp-panel"
           :ui="{ container: 'p-5 sm:p-6', wrapper: 'gap-5' }"
         >
           <template #header>
+            <UButton
+              to="/menu"
+              icon="i-lucide-arrow-left"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              label="Cardápio"
+              class="mb-4"
+            />
             <UPageHeader
               :title="product.name"
               :description="product.short_description"
-              :links="[{ label: 'Menu', to: '/menu', icon: 'i-lucide-arrow-left', color: 'neutral', variant: 'ghost' }]"
               :ui="{
                 root: 'py-0 sm:py-0 border-b-0',
-                title: 'text-3xl sm:text-4xl',
+                title: 'text-2xl sm:text-3xl',
                 description: 'text-base',
                 links: 'gap-2'
               }"
@@ -81,6 +89,9 @@ useHead(() => ({
                 <div v-if="product.original_price_display" class="shop-original-price">
                   {{ product.original_price_display }}
                 </div>
+                <UBadge v-if="product.promotion_label" color="primary" variant="solid" class="mt-2">
+                  {{ product.promotion_label }}
+                </UBadge>
               </div>
               <UBadge
                 :color="product.availability === 'unavailable' ? 'error' : 'primary'"
@@ -95,6 +106,10 @@ useHead(() => ({
               :meta="meta"
               :can-add="product.can_add_to_cart"
               :max-qty="product.available_qty"
+              add-label="Adicionar ao carrinho"
+              :unavailable-label="product.availability_label"
+              size="md"
+              class="pdp-cta-row"
             />
 
             <USeparator />

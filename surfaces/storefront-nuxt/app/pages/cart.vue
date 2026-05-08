@@ -75,10 +75,17 @@ useHead({
               :ui="{ container: 'p-3 sm:p-4' }"
             >
               <div class="shop-cart-line">
-                <UAvatar :src="line.image_url || undefined" :alt="line.name" icon="i-lucide-cookie" size="3xl" />
+                <NuxtLink :to="`/produto/${line.sku}`" class="shop-cart-line-image" :aria-label="`Ver ${line.name}`">
+                  <img v-if="line.image_url" :src="line.image_url" :alt="line.name" loading="lazy">
+                  <UIcon v-else name="i-lucide-cookie" class="shop-cart-line-placeholder size-7" />
+                </NuxtLink>
                 <div class="shop-cart-line-copy">
-                  <strong>{{ line.name }}</strong>
-                  <div class="muted">{{ line.total_display }}</div>
+                  <NuxtLink :to="`/produto/${line.sku}`" class="shop-cart-line-title">
+                    {{ line.name }}
+                  </NuxtLink>
+                  <div class="muted">
+                    {{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}
+                  </div>
                   <UBadge v-if="line.availability_warning" color="warning" variant="soft" size="xs">
                     {{ line.availability_warning }}
                   </UBadge>

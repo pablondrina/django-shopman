@@ -15,6 +15,7 @@ const navigation = computed(() => [
     to="/menu"
     mode="drawer"
     :toggle="{ color: 'neutral', variant: 'ghost' }"
+    class="shop-header"
   >
     <UNavigationMenu :items="navigation" variant="link" highlight class="shop-header-nav" />
 
