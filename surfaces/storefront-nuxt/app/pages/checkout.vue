@@ -11,6 +11,10 @@ watchEffect(() => setFromServer(data.value?.checkout.cart))
 
 const checkout = computed(() => data.value?.checkout)
 const cart = computed(() => checkout.value?.cart)
+const itemCountLabel = computed(() => {
+  const count = cart.value?.items_count || 0
+  return count === 1 ? '1 item' : `${count} itens`
+})
 const submitting = ref(false)
 const serverError = ref('')
 const validationErrors = ref<Record<string, string>>({})
@@ -117,7 +121,7 @@ useHead({
       <section v-else>
         <UPageHeader
           title="Finalizar"
-          :description="cart.is_empty ? 'Carrinho vazio' : `${cart.items_count} itens · ${cart.grand_total_display}`"
+          :description="cart.is_empty ? 'Carrinho vazio' : `${itemCountLabel} · ${cart.grand_total_display}`"
           :links="[{ label: 'Carrinho', to: '/cart', icon: 'i-lucide-arrow-left', color: 'neutral', variant: 'ghost' }]"
           :ui="{
             root: 'py-0 sm:py-0 border-b-0',
@@ -207,7 +211,7 @@ useHead({
             <template #header>
               <div class="section-heading">
                 <strong>Resumo</strong>
-                <UBadge color="neutral" variant="soft">{{ cart.items_count }} itens</UBadge>
+                <UBadge color="neutral" variant="soft">{{ itemCountLabel }}</UBadge>
               </div>
             </template>
 
