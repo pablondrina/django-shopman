@@ -4,9 +4,10 @@ import type { ProductResponse } from '~/types/shopman'
 const route = useRoute()
 const sku = computed(() => String(route.params.sku || ''))
 const { setFromServer } = useCartState()
+const apiPath = useShopmanApiPath()
 
 const { data, pending, error } = await useFetch<ProductResponse>(
-  () => shopmanApiPath(`/api/v1/storefront/products/${encodeURIComponent(sku.value)}/`),
+  () => apiPath(`/api/v1/storefront/products/${encodeURIComponent(sku.value)}/`),
   { credentials: 'include' }
 )
 

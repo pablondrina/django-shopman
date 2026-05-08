@@ -91,6 +91,7 @@ export function useCartState () {
   const cart = useState<CartProjection>('shopman-cart', emptyCart)
   const pendingBySku = useState<Record<string, boolean>>('shopman-cart-pending', () => ({}))
   const lastError = useState<string | null>('shopman-cart-error', () => null)
+  const apiPath = useShopmanApiPath()
 
   function setFromServer (next?: CartProjection | null) {
     if (next) cart.value = next
@@ -131,7 +132,7 @@ export function useCartState () {
     applyOptimisticQty(meta, qty)
 
     try {
-      const response = await $fetch<CartCommandResponse>(shopmanApiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
+      const response = await $fetch<CartCommandResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         body: { qty },
         credentials: 'include'

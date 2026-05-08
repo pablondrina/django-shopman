@@ -1,5 +1,4 @@
-export function shopmanApiPath (path: string): string {
-  const baseURL = useRuntimeConfig().app.baseURL || '/'
+export function shopmanApiPath (path: string, baseURL = '/'): string {
   const base = baseURL === '/' ? '' : baseURL.replace(/\/$/, '')
   const normalized = path.startsWith('/') ? path : `/${path}`
 

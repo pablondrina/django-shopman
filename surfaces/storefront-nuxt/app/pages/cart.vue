@@ -2,7 +2,8 @@
 import type { CartResponse, ProductCommandMeta } from '~/types/shopman'
 
 const { cart, setFromServer } = useCartState()
-const { data, pending, error } = await useFetch<CartResponse>(shopmanApiPath('/api/v1/storefront/cart/'), {
+const apiPath = useShopmanApiPath()
+const { data, pending, error } = await useFetch<CartResponse>(apiPath('/api/v1/storefront/cart/'), {
   credentials: 'include'
 })
 
