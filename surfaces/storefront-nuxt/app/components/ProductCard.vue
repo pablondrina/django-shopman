@@ -15,10 +15,17 @@ const meta = computed(() => ({
 </script>
 
 <template>
-  <UCard
+  <UPageCard
     as="article"
+    variant="subtle"
     class="shop-product-card"
-    :ui="{ header: 'p-0 sm:p-0', body: 'p-0 sm:p-0', footer: 'p-3 sm:p-3' }"
+    :ui="{
+      container: 'p-0 sm:p-0 gap-0',
+      wrapper: 'h-full',
+      header: 'mb-0',
+      body: 'px-4 pt-4 pb-0',
+      footer: 'px-4 pb-4 pt-4'
+    }"
   >
     <template #header>
       <NuxtLink :to="`/produto/${item.sku}`" class="shop-product-image" :aria-label="`Ver ${item.name}`">
@@ -27,7 +34,7 @@ const meta = computed(() => ({
       </NuxtLink>
     </template>
 
-    <div class="shop-product-copy">
+    <template #body>
       <div class="shop-product-title-row">
         <h3 class="shop-product-title">
           <NuxtLink :to="`/produto/${item.sku}`">{{ item.name }}</NuxtLink>
@@ -44,7 +51,7 @@ const meta = computed(() => ({
       <p v-if="item.short_description" class="shop-product-description">
         {{ item.short_description }}
       </p>
-    </div>
+    </template>
 
     <template #footer>
       <div class="shop-price-row">
@@ -61,5 +68,5 @@ const meta = computed(() => ({
         />
       </div>
     </template>
-  </UCard>
+  </UPageCard>
 </template>

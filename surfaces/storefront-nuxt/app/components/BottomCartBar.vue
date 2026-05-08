@@ -4,7 +4,13 @@ const { cart } = useCartState()
 
 <template>
   <Transition name="cartbar">
-    <UCard v-if="!cart.is_empty" as="aside" class="shop-bottom-cart" :ui="{ body: 'p-3 sm:p-3' }">
+    <UPageCard
+      v-if="!cart.is_empty"
+      as="aside"
+      variant="solid"
+      class="shop-bottom-cart"
+      :ui="{ container: 'p-3 sm:p-3' }"
+    >
       <NuxtLink to="/cart" class="shop-bottom-cart-inner" aria-label="Ver carrinho">
         <UBadge color="primary" variant="solid" size="lg">
           {{ cart.items_count }}
@@ -17,7 +23,7 @@ const { cart } = useCartState()
         </span>
         <UButton color="primary" variant="solid" size="sm" icon="i-lucide-shopping-cart" label="Ver" />
       </NuxtLink>
-    </UCard>
+    </UPageCard>
   </Transition>
 </template>
 
