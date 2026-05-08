@@ -13,7 +13,7 @@ export default defineNuxtConfig({
       title: 'Shopman Nuxt',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'theme-color', content: '#f8fafc' }
+        { name: 'theme-color', content: '#fafaf9' }
       ]
     }
   }

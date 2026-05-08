@@ -19,6 +19,7 @@ from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections import (
     build_cart,
     build_catalog,
+    build_checkout,
     build_product_detail,
 )
 from shopman.storefront.services import catalog as catalog_service
@@ -123,6 +124,27 @@ class StorefrontCartView(APIView):
 
     def get(self, request):
         return Response({"cart": _cart_payload(request)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["storefront"],
+        summary="Storefront checkout projection",
+        responses={200: OpenApiResponse(description="Checkout projection for API-first storefront clients.")},
+    ),
+)
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class StorefrontCheckoutView(APIView):
+    """GET /api/v1/storefront/checkout/"""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        checkout = build_checkout(
+            request=request,
+            channel_ref=STOREFRONT_CHANNEL_REF,
+        )
+        return Response({"checkout": projection_data(checkout)})
 
 
 @extend_schema_view(

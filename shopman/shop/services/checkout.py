@@ -218,6 +218,14 @@ def order_has_payment_error(order_ref: str) -> bool:
     return bool((order.data or {}).get("payment", {}).get("error"))
 
 
+def starts_payment_after_store_confirmation(channel_ref: str) -> bool:
+    try:
+        return ChannelConfig.for_channel(channel_ref).payment.timing == "post_commit"
+    except Exception:
+        logger.warning("payment_timing_lookup_failed channel=%s", channel_ref, exc_info=True)
+        return False
+
+
 def get_open_cart_session(*, session_key: str, channel_ref: str):
     from shopman.orderman.models import Session
 

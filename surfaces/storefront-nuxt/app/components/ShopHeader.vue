@@ -4,7 +4,8 @@ const { cart } = useCartState()
 const cartBadge = computed(() => cart.value.items_count ? String(cart.value.items_count) : undefined)
 const navigation = computed(() => [
   { label: 'Menu', to: '/menu', icon: 'i-lucide-store' },
-  { label: 'Carrinho', to: '/cart', icon: 'i-lucide-shopping-bag', badge: cartBadge.value }
+  { label: 'Carrinho', to: '/cart', icon: 'i-lucide-shopping-bag', badge: cartBadge.value },
+  { label: 'Finalizar', to: '/checkout', icon: 'i-lucide-credit-card' }
 ])
 </script>
 
@@ -15,7 +16,7 @@ const navigation = computed(() => [
     mode="drawer"
     :toggle="{ color: 'neutral', variant: 'ghost' }"
   >
-    <UNavigationMenu :items="navigation" variant="link" highlight />
+    <UNavigationMenu :items="navigation" variant="link" highlight class="shop-header-nav" />
 
     <template #right>
       <UBadge v-if="cart.items_count" color="neutral" variant="soft" class="hidden sm:inline-flex">
@@ -27,6 +28,7 @@ const navigation = computed(() => [
         variant="outline"
         icon="i-lucide-shopping-bag"
         :label="cart.items_count ? `Carrinho ${cart.items_count}` : 'Carrinho'"
+        class="shop-header-cart-button"
       />
     </template>
 

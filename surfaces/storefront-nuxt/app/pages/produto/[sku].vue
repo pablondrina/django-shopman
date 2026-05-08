@@ -119,5 +119,6 @@ useHead(() => ({
     </UContainer>
 
     <BottomCartBar />
+    <ShopBottomTabs />
   </UPage>
 </template>

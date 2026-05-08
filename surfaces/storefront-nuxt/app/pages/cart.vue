@@ -9,6 +9,7 @@ const { data, pending, error } = await useFetch<CartResponse>(apiPath('/api/v1/s
 
 watchEffect(() => setFromServer(data.value?.cart))
 const itemCountLabel = computed(() => cart.value.items_count === 1 ? '1 item' : `${cart.value.items_count} itens`)
+const checkoutDisabled = computed(() => cart.value.is_empty || cart.value.has_unavailable_items)
 
 function metaForLine (line: typeof cart.value.items[number]): ProductCommandMeta {
   return {
@@ -61,34 +62,95 @@ useHead({
           icon="i-lucide-shopping-cart"
           title="Carrinho vazio"
           description="Escolha seus itens no menu."
+          :actions="[{ label: 'Ver menu', to: '/menu', icon: 'i-lucide-store', color: 'primary' }]"
         />
 
-        <UPageBody v-else class="cart-page-list !mt-5 !pb-10">
-          <UPageCard
-            v-for="line in cart.items"
-            :key="line.sku"
-            as="article"
-            variant="outline"
-            :ui="{ container: 'p-3 sm:p-4' }"
-          >
-            <div class="shop-cart-line">
-              <UAvatar :src="line.image_url || undefined" :alt="line.name" icon="i-lucide-cookie" size="3xl" />
-              <div class="shop-cart-line-copy">
-                <strong>{{ line.name }}</strong>
-                <div class="muted">{{ line.total_display }}</div>
-                <UBadge v-if="line.availability_warning" color="warning" variant="soft" size="xs">
-                  {{ line.availability_warning }}
-                </UBadge>
+        <div v-else class="cart-layout">
+          <UPageBody class="cart-page-list !mt-5 !pb-10">
+            <UPageCard
+              v-for="line in cart.items"
+              :key="line.sku"
+              as="article"
+              variant="outline"
+              :ui="{ container: 'p-3 sm:p-4' }"
+            >
+              <div class="shop-cart-line">
+                <UAvatar :src="line.image_url || undefined" :alt="line.name" icon="i-lucide-cookie" size="3xl" />
+                <div class="shop-cart-line-copy">
+                  <strong>{{ line.name }}</strong>
+                  <div class="muted">{{ line.total_display }}</div>
+                  <UBadge v-if="line.availability_warning" color="warning" variant="soft" size="xs">
+                    {{ line.availability_warning }}
+                  </UBadge>
+                </div>
+                <ProductStepper
+                  :meta="metaForLine(line)"
+                  :can-add="line.is_available"
+                  :max-qty="line.available_qty"
+                />
               </div>
-              <ProductStepper
-                :meta="metaForLine(line)"
-                :can-add="line.is_available"
-                :max-qty="line.available_qty"
+            </UPageCard>
+          </UPageBody>
+
+          <UPageCard
+            variant="subtle"
+            class="cart-summary-card"
+            :ui="{ container: 'p-4 sm:p-5' }"
+          >
+            <template #header>
+              <div class="section-heading">
+                <strong>Resumo</strong>
+                <UBadge color="neutral" variant="soft">{{ itemCountLabel }}</UBadge>
+              </div>
+            </template>
+
+            <template #body>
+              <div class="cart-summary-lines">
+                <div class="cart-summary-line">
+                  <span class="muted">Subtotal</span>
+                  <strong>{{ cart.subtotal_display }}</strong>
+                </div>
+                <div v-if="cart.has_discount" class="cart-summary-line">
+                  <span class="muted">Descontos</span>
+                  <strong>{{ cart.discount_total_display }}</strong>
+                </div>
+                <div class="cart-summary-line">
+                  <span class="muted">Total</span>
+                  <strong>{{ cart.grand_total_display }}</strong>
+                </div>
+
+                <template v-if="cart.minimum_order_progress">
+                  <UProgress :model-value="cart.minimum_order_progress.percent" color="primary" />
+                  <p v-if="cart.minimum_order_progress.remaining_q > 0" class="muted">
+                    Faltam {{ cart.minimum_order_progress.remaining_display }} para o pedido mínimo.
+                  </p>
+                </template>
+
+                <UAlert
+                  v-if="cart.has_unavailable_items"
+                  color="warning"
+                  variant="soft"
+                  title="Revise os itens indisponíveis antes de finalizar"
+                />
+              </div>
+            </template>
+
+            <template #footer>
+              <UButton
+                to="/checkout"
+                block
+                color="primary"
+                icon="i-lucide-arrow-right"
+                trailing
+                label="Finalizar pedido"
+                :disabled="checkoutDisabled"
               />
-            </div>
+            </template>
           </UPageCard>
-        </UPageBody>
+        </div>
       </section>
     </UContainer>
+
+    <ShopBottomTabs />
   </UPage>
 </template>

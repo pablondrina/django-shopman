@@ -97,6 +97,10 @@ export function useCartState () {
     if (next) cart.value = next
   }
 
+  function clearCart () {
+    cart.value = emptyCart()
+  }
+
   function qtyForSku (sku: string): number {
     return cart.value.items.find(item => item.sku === sku)?.qty || 0
   }
@@ -154,6 +158,7 @@ export function useCartState () {
     cart,
     lastError,
     setFromServer,
+    clearCart,
     qtyForSku,
     isPending,
     setSkuQty

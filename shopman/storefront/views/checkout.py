@@ -166,13 +166,7 @@ class CheckoutView(View):
 
 
 def _starts_payment_after_store_confirmation(channel_ref: str) -> bool:
-    try:
-        from shopman.shop.config import ChannelConfig
-
-        return ChannelConfig.for_channel(channel_ref).payment.timing == "post_commit"
-    except Exception:
-        logger.warning("payment_timing_lookup_failed channel=%s", channel_ref, exc_info=True)
-        return False
+    return checkout_service.starts_payment_after_store_confirmation(channel_ref)
 
 
 class CheckoutOrderSummaryView(View):

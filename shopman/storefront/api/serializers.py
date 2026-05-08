@@ -43,11 +43,15 @@ class CheckoutSerializer(serializers.Serializer):
         required=False,
     )
     delivery_address = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
+    delivery_date = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
+    delivery_time_slot = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
+    payment_method = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
 
 
 class CheckoutResponseSerializer(serializers.Serializer):
     order_ref = serializers.CharField()
     status = serializers.CharField()
+    next_url = serializers.CharField(required=False)
 
 
 class DetailSerializer(serializers.Serializer):

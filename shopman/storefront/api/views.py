@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
@@ -12,6 +13,7 @@ from shopman.utils.phone import normalize_phone
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
 from shopman.storefront.cart import CHANNEL_REF, CartService
+from shopman.storefront.services import orders as order_service
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
@@ -234,6 +236,9 @@ class CheckoutView(APIView):
         notes = serializer.validated_data.get("notes", "")
         fulfillment_type = serializer.validated_data.get("fulfillment_type", "pickup")
         delivery_address = serializer.validated_data.get("delivery_address", "")
+        delivery_date = serializer.validated_data.get("delivery_date", "")
+        delivery_time_slot = serializer.validated_data.get("delivery_time_slot", "")
+        payment_method = serializer.validated_data.get("payment_method", "")
 
         phone = normalize_phone(phone_raw) or phone_raw
 
@@ -245,6 +250,12 @@ class CheckoutView(APIView):
             checkout_data["order_notes"] = notes
         if delivery_address:
             checkout_data["delivery_address"] = delivery_address
+        if delivery_date:
+            checkout_data["delivery_date"] = delivery_date
+        if delivery_time_slot:
+            checkout_data["delivery_time_slot"] = delivery_time_slot
+        if payment_method in {"pix", "card"}:
+            checkout_data["payment"] = {"method": payment_method}
 
         result = checkout_service.process(
             session_key=session_key,
@@ -254,12 +265,19 @@ class CheckoutView(APIView):
         )
 
         # Clear cart
+        order_service.grant_order_access(request, result.order_ref)
         request.session.pop("cart_session_key", None)
+        next_url = f"/tracking/{result.order_ref}"
+        if payment_method in {"pix", "card"}:
+            next_url = reverse("storefront:order_payment", kwargs={"ref": result.order_ref})
+            if payment_method == "pix" and checkout_service.starts_payment_after_store_confirmation(CHANNEL_REF):
+                next_url = f"/tracking/{result.order_ref}"
 
         data = CheckoutResponseSerializer(
             {
                 "order_ref": result.order_ref,
                 "status": result.status,
+                "next_url": next_url,
             }
         ).data
         return Response(data, status=status.HTTP_201_CREATED)

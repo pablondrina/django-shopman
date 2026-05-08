@@ -180,3 +180,85 @@ export interface ProductCommandMeta {
   price_display: string
   image_url: string | null
 }
+
+export interface PaymentMethodProjection {
+  ref: string
+  label: string
+  is_default: boolean
+}
+
+export interface PickupSlotProjection {
+  ref: string
+  label: string
+  starts_at: string
+}
+
+export interface SavedAddressProjection {
+  id: number
+  label: string
+  formatted_address: string
+  complement: string
+  delivery_instructions: string
+  is_default: boolean
+}
+
+export interface CheckoutProjection {
+  cart: CartProjection
+  customer_phone: string
+  customer_name: string
+  is_authenticated: boolean
+  saved_addresses: SavedAddressProjection[]
+  preselected_address_id: number | null
+  payment_methods: PaymentMethodProjection[]
+  default_payment_method: string
+  has_pickup: boolean
+  has_delivery: boolean
+  pickup_slots: PickupSlotProjection[]
+  earliest_slot_ref: string | null
+  loyalty_balance_q: number
+  loyalty_value_display: string | null
+  max_preorder_days: number
+  closed_dates_json: string
+  is_debug: boolean
+  pickup_hint: string
+  delivery_hint: string
+}
+
+export interface CheckoutResponse {
+  checkout: CheckoutProjection
+}
+
+export interface CheckoutCommandResponse {
+  order_ref: string
+  status: string
+  next_url?: string
+}
+
+export interface TrackingResponse {
+  ref: string
+  status: string
+  status_label: string
+  total_display: string
+  timeline: Array<{
+    label: string
+    event_type: string
+    timestamp_display: string
+  }>
+  items: Array<{
+    sku: string
+    name: string
+    qty: number
+    unit_price_display: string
+    total_display: string
+  }>
+  fulfillments: Array<{
+    status: string
+    status_label: string
+    tracking_code: string | null
+    tracking_url: string | null
+    carrier: string | null
+    dispatched_at: string | null
+    delivered_at: string | null
+  }>
+  payment_status: string | null
+}

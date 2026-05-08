@@ -25,23 +25,21 @@ useHead({
   <UPage class="shell">
     <ShopHeader />
 
-    <UPageHero
-      title="Menu"
-      description="Pães, cafés e combos preparados para o seu pedido."
-      :links="[
-        { label: 'Ver carrinho', to: '/cart', icon: 'i-lucide-shopping-bag', color: 'neutral', variant: 'outline', size: 'md' }
-      ]"
-      :ui="{
-        container: 'py-8 sm:py-10 lg:py-12 gap-6',
-        wrapper: 'text-left',
-        title: 'text-3xl sm:text-4xl lg:text-5xl',
-        description: 'text-base sm:text-lg max-w-2xl',
-        footer: 'mt-6',
-        links: 'justify-start gap-2'
-      }"
-    />
+    <UContainer class="page-container">
+      <UPageHeader
+        title="Menu"
+        description="Pães, cafés e combos preparados para o seu pedido."
+        :links="[
+          { label: 'Carrinho', to: '/cart', icon: 'i-lucide-shopping-bag', color: 'neutral', variant: 'outline', size: 'sm' }
+        ]"
+        :ui="{
+          root: 'py-0 sm:py-0 border-b-0',
+          title: 'text-2xl sm:text-3xl',
+          description: 'text-sm sm:text-base',
+          links: 'gap-2'
+        }"
+      />
 
-    <UContainer>
       <div v-if="pending">
         <USkeleton class="h-28 w-full rounded-md" />
       </div>
@@ -100,5 +98,6 @@ useHead({
     </template>
 
     <BottomCartBar />
+    <ShopBottomTabs />
   </UPage>
 </template>

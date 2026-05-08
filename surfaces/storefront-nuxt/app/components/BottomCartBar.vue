@@ -1,5 +1,10 @@
 <script setup lang="ts">
+const route = useRoute()
 const { cart } = useCartState()
+
+const target = computed(() => route.path.startsWith('/cart') ? '/checkout' : '/cart')
+const actionLabel = computed(() => route.path.startsWith('/cart') ? 'Finalizar' : 'Ver')
+const actionIcon = computed(() => route.path.startsWith('/cart') ? 'i-lucide-arrow-right' : 'i-lucide-shopping-cart')
 </script>
 
 <template>
@@ -11,7 +16,7 @@ const { cart } = useCartState()
       class="shop-bottom-cart"
       :ui="{ container: 'p-3 sm:p-3' }"
     >
-      <NuxtLink to="/cart" class="shop-bottom-cart-inner" aria-label="Ver carrinho">
+      <NuxtLink :to="target" class="shop-bottom-cart-inner" aria-label="Ver carrinho">
         <UBadge color="primary" variant="solid" size="lg">
           {{ cart.items_count }}
         </UBadge>
@@ -21,7 +26,7 @@ const { cart } = useCartState()
             {{ cart.items_count === 1 ? '1 item no carrinho' : `${cart.items_count} itens no carrinho` }}
           </span>
         </span>
-        <UButton color="primary" variant="solid" size="sm" icon="i-lucide-shopping-cart" label="Ver" />
+        <UButton color="primary" variant="solid" size="sm" :icon="actionIcon" :label="actionLabel" />
       </NuxtLink>
     </UPageCard>
   </Transition>

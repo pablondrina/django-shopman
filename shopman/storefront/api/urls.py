@@ -12,6 +12,7 @@ from .geocode import ReverseGeocodeView
 from .surface import (
     CartSkuQtyView,
     StorefrontCartView,
+    StorefrontCheckoutView,
     StorefrontMenuView,
     StorefrontProductView,
 )
@@ -23,6 +24,7 @@ urlpatterns = [
     path("storefront/menu/<slug:collection>/", StorefrontMenuView.as_view(), name="api-storefront-menu-collection"),
     path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
     path("storefront/cart/", StorefrontCartView.as_view(), name="api-storefront-cart"),
+    path("storefront/checkout/", StorefrontCheckoutView.as_view(), name="api-storefront-checkout"),
     # Cart
     path("cart/", views.CartView.as_view(), name="api-cart"),
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),

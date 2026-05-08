@@ -41,6 +41,21 @@ def test_api_storefront_menu_sets_csrf_cookie(client):
     assert "csrftoken" in resp.cookies
 
 
+def test_api_storefront_checkout_returns_projection_contract(client):
+    _seed_surface()
+
+    resp = client.get("/api/v1/storefront/checkout/")
+
+    assert resp.status_code == 200
+    data = resp.json()["checkout"]
+    assert data["cart"]["is_empty"] is True
+    assert data["has_pickup"] is True
+    assert data["has_delivery"] is True
+    assert data["default_payment_method"]
+    assert isinstance(data["payment_methods"], list)
+    assert "csrftoken" in resp.cookies
+
+
 def test_api_cart_sku_qty_accepts_authenticated_session_with_csrf_header():
     product = _seed_surface(stock_qty=Decimal("10"))
     user = get_user_model().objects.create_user(username="staff", password="secret")

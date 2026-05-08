@@ -35,6 +35,20 @@ const meta = computed(() => ({
     </template>
 
     <template #body>
+      <div
+        v-if="item.promotion_label || item.is_new || item.is_featured"
+        class="shop-product-badges"
+      >
+        <UBadge v-if="item.promotion_label" color="primary" variant="solid" size="xs">
+          {{ item.promotion_label }}
+        </UBadge>
+        <UBadge v-if="item.is_new" color="neutral" variant="soft" size="xs">
+          Novo
+        </UBadge>
+        <UBadge v-if="item.is_featured" color="neutral" variant="outline" size="xs">
+          Destaque
+        </UBadge>
+      </div>
       <div class="shop-product-title-row">
         <h3 class="shop-product-title">
           <NuxtLink :to="`/produto/${item.sku}`">{{ item.name }}</NuxtLink>
