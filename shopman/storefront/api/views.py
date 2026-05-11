@@ -42,6 +42,7 @@ class CartView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CartSerializer
 
     def get(self, request):
@@ -59,6 +60,7 @@ class CartAddItemView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = AddItemSerializer
 
     @extend_schema(
@@ -136,6 +138,7 @@ class CartItemView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = UpdateItemSerializer
 
     @extend_schema(
@@ -200,6 +203,7 @@ class CheckoutView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CheckoutSerializer
 
     @extend_schema(

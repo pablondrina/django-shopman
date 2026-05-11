@@ -1,0 +1,13 @@
+@import "tailwindcss" theme(static);
+@import "@nuxt/ui";
+
+/* Backstage prefers dark by default — operators in low-light environments */
+:root {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}

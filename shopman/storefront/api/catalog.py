@@ -63,6 +63,7 @@ class ProductListView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = ProductListItemSerializer
 
     def get(self, request):
@@ -119,6 +120,7 @@ class ProductDetailView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = ProductListItemSerializer
 
     def get(self, request, sku: str):
@@ -147,6 +149,7 @@ class CollectionListView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CollectionSerializer
 
     def get(self, request):

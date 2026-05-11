@@ -22,6 +22,14 @@ from .catalog import (
     build_catalog_items_for_skus,
 )
 from .checkout import CheckoutProjection, build_checkout
+from .home import (
+    HomeProjection,
+    LastOrderItemProjection,
+    OmotenashiProjection,
+    OpeningHoursEntry,
+    ShopStatusProjection,
+    build_home,
+)
 from .order_confirmation import OrderConfirmationProjection, build_order_confirmation
 from .order_history import OrderHistoryProjection, build_order_history
 from .order_tracking import (
@@ -57,9 +65,13 @@ __all__ = [
     "ConservationInfoProjection",
     "CustomerProfileProjection",
     "DiscountLineProjection",
+    "HomeProjection",
+    "LastOrderItemProjection",
     "LoyaltyProjection",
     "LoyaltyTransactionProjection",
     "MinimumOrderProgressProjection",
+    "OmotenashiProjection",
+    "OpeningHoursEntry",
     "OrderConfirmationProjection",
     "OrderHistoryProjection",
     "OrderTrackingProjection",
@@ -70,6 +82,7 @@ __all__ = [
     "PickupInfoProjection",
     "ProductDetailProjection",
     "ShopProjection",
+    "ShopStatusProjection",
     "SocialLinkProjection",
     "UpsellSuggestionProjection",
     "build_account",
@@ -77,6 +90,7 @@ __all__ = [
     "build_catalog",
     "build_catalog_items_for_skus",
     "build_checkout",
+    "build_home",
     "build_order_confirmation",
     "build_order_history",
     "build_order_tracking",

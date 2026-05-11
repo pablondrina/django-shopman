@@ -5,14 +5,17 @@ from __future__ import annotations
 from django.urls import path
 
 from . import views
-from .account import AddressListView, OrderHistoryView, ProfileView
+from .account import AddressDetailView, AddressListView, OrderHistoryView, ProfileView
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .geocode import ReverseGeocodeView
 from .surface import (
+    CartCouponView,
     CartSkuQtyView,
+    OrderReorderView,
     StorefrontCartView,
     StorefrontCheckoutView,
+    StorefrontHomeView,
     StorefrontMenuView,
     StorefrontProductView,
 )
@@ -20,6 +23,7 @@ from .tracking import OrderTrackingView
 
 urlpatterns = [
     # Storefront projections for API-first clients
+    path("storefront/home/", StorefrontHomeView.as_view(), name="api-storefront-home"),
     path("storefront/menu/", StorefrontMenuView.as_view(), name="api-storefront-menu"),
     path("storefront/menu/<slug:collection>/", StorefrontMenuView.as_view(), name="api-storefront-menu-collection"),
     path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
@@ -28,6 +32,7 @@ urlpatterns = [
     # Cart
     path("cart/", views.CartView.as_view(), name="api-cart"),
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),
+    path("cart/coupon/", CartCouponView.as_view(), name="api-cart-coupon"),
     path("cart/items/", views.CartAddItemView.as_view(), name="api-cart-add"),
     path("cart/items/<str:line_id>/", views.CartItemView.as_view(), name="api-cart-item"),
     # Checkout
@@ -40,9 +45,11 @@ urlpatterns = [
     path("catalog/collections/", CollectionListView.as_view(), name="api-catalog-collections"),
     # Tracking
     path("tracking/<str:ref>/", OrderTrackingView.as_view(), name="api-tracking"),
+    path("orders/<str:ref>/reorder/", OrderReorderView.as_view(), name="api-order-reorder"),
     # Account
     path("account/profile/", ProfileView.as_view(), name="api-account-profile"),
     path("account/addresses/", AddressListView.as_view(), name="api-account-addresses"),
+    path("account/addresses/<int:pk>/", AddressDetailView.as_view(), name="api-account-address-detail"),
     path("account/orders/", OrderHistoryView.as_view(), name="api-account-orders"),
     # Geocoding (server-side — key stays on the server)
     path("geocode/reverse", ReverseGeocodeView.as_view(), name="api-geocode-reverse"),

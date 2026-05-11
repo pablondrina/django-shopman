@@ -10,11 +10,15 @@ import {
 import { withQuery } from 'ufo'
 
 export async function proxyDjangoApi (event: H3Event, path: string) {
+  return proxyDjangoPath(event, `/api/v1/${path}`)
+}
+
+export async function proxyDjangoPath (event: H3Event, fullPath: string) {
   const config = useRuntimeConfig(event)
   const method = event.method || 'GET'
-  const normalizedPath = path.endsWith('/') ? path : `${path}/`
+  const normalizedPath = fullPath.endsWith('/') ? fullPath : `${fullPath}/`
   const target = withQuery(
-    `${config.djangoBaseUrl}/api/v1/${normalizedPath}`,
+    `${config.djangoBaseUrl}${normalizedPath}`,
     getQuery(event)
   )
 

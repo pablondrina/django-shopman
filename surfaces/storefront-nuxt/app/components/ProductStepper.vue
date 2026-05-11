@@ -17,8 +17,8 @@ const max = computed(() => props.maxQty ?? 99)
 const pending = computed(() => isPending(props.meta.sku))
 const canIncrement = computed(() => props.canAdd && qty.value < max.value && !pending.value)
 const canDecrement = computed(() => qty.value > 0 && !pending.value)
-const controlSize = computed(() => props.size || 'sm')
-const addLabel = computed(() => props.canAdd ? (props.addLabel || 'Adicionar') : (props.unavailableLabel || 'Indisponível'))
+const controlSize = computed(() => props.size || 'xs')
+const label = computed(() => props.canAdd ? (props.addLabel || 'Adicionar') : (props.unavailableLabel || 'Indisponível'))
 
 const value = computed({
   get: () => qty.value,
@@ -41,55 +41,31 @@ async function setQuantity (next: number | null | undefined) {
 </script>
 
 <template>
-  <div class="shop-stepper" :class="{ 'shop-stepper--add': qty === 0 }">
+  <div class="flex-shrink-0" @click.prevent.stop>
     <UButton
       v-if="qty === 0"
-      block
-      color="primary"
-      variant="solid"
+      color="neutral"
+      variant="outline"
       icon="i-lucide-plus"
       :size="controlSize"
-      :label="addLabel"
+      :label="label"
       :loading="pending"
       :disabled="!canAdd || pending"
-      class="shop-add-button"
       @click="setQuantity(1)"
     />
 
     <UInputNumber
       v-else
       v-model="value"
-      class="w-full"
       aria-label="Quantidade no carrinho"
-      :aria-busy="pending"
       color="neutral"
-      variant="subtle"
+      variant="outline"
       :size="controlSize"
       :min="0"
       :max="max"
       :step="1"
       disable-wheel-change
       :disabled="pending"
-      :increment="{
-        color: 'neutral',
-        variant: 'solid',
-        size: 'xs',
-        'aria-label': 'Adicionar unidade'
-      }"
-      :decrement="{
-        color: 'neutral',
-        variant: 'solid',
-        size: 'xs',
-        'aria-label': 'Remover unidade'
-      }"
-      :increment-disabled="!canIncrement"
-      :decrement-disabled="!canDecrement"
-      :ui="{
-        root: 'w-full',
-        base: 'font-semibold tabular-nums',
-        increment: 'pe-1',
-        decrement: 'ps-1'
-      }"
     />
   </div>
 </template>

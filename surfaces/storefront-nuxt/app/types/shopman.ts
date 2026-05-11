@@ -134,6 +134,83 @@ export interface CartProjection {
   upsell: { sku: string, name: string, price_display: string, image_url: string | null } | null
 }
 
+export interface SocialLinkProjection {
+  url: string
+  platform: string
+  label: string
+  icon_svg: string
+}
+
+export interface ShopProjection {
+  brand_name: string
+  tagline: string
+  description: string
+  description_html: string
+  logo_url: string
+  color_mode: string
+  theme_color: string
+  whatsapp_url: string
+  phone: string
+  phone_display: string
+  phone_url: string
+  email: string
+  full_address: string
+  maps_url: string
+  default_city: string
+  social_links: SocialLinkProjection[]
+}
+
+export interface OmotenashiProjection {
+  moment: 'madrugada' | 'manha' | 'almoco' | 'tarde' | 'fechando' | 'fechado'
+  greeting: string
+  greeting_with_name: string
+  shop_hint: string
+  customer_name: string | null
+  is_birthday: boolean
+  audience: 'anon' | 'new' | 'returning' | 'vip'
+  is_open: boolean
+  opens_at: string | null
+  closes_at: string | null
+}
+
+export interface ShopStatusProjection {
+  is_open: boolean
+  message: string | null
+}
+
+export interface OpeningHoursEntry {
+  label: string
+  hours: string
+}
+
+export interface LastOrderItemProjection {
+  sku: string
+  name: string
+  qty: number
+}
+
+export interface PublicConfigProjection {
+  google_maps_api_key: string
+  whatsapp_url: string
+}
+
+export interface HomeProjection {
+  omotenashi: OmotenashiProjection
+  shop: ShopProjection
+  shop_status: ShopStatusProjection
+  opening_hours: OpeningHoursEntry[]
+  last_order_ref: string | null
+  last_order_items: LastOrderItemProjection[]
+  featured_items: CatalogItemProjection[]
+  origin_channel: string | null
+  public_config: PublicConfigProjection
+}
+
+export interface HomeResponse {
+  home: HomeProjection
+  cart: CartProjection
+}
+
 export interface MenuResponse {
   catalog: CatalogProjection
   cart: CartProjection

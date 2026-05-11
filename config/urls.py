@@ -175,6 +175,7 @@ urlpatterns += _include_optional("api/payments/", "shopman.payman.api.urls")
 
 urlpatterns += _include_optional("api/webhooks/", "shopman.shop.webhooks.urls")
 urlpatterns += _include_optional("api/v1/", "shopman.storefront.api.urls")
+urlpatterns += _include_optional("api/v1/backstage/", "shopman.backstage.api.urls")
 
 # ── Media files (dev only) ────────────────────────────────────────
 

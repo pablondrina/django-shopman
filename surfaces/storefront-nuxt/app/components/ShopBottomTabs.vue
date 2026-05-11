@@ -3,13 +3,24 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
 const { cart } = useCartState()
+const { isAuthenticated } = useShopSession()
+
+const accountTo = computed(() => isAuthenticated.value ? '/conta' : '/login')
+const accountLabel = computed(() => isAuthenticated.value ? 'Conta' : 'Entrar')
+const accountIcon = computed(() => isAuthenticated.value ? 'i-lucide-user' : 'i-lucide-log-in')
 
 const items = computed<NavigationMenuItem[]>(() => [
   {
-    label: 'Menu',
-    icon: 'i-lucide-store',
+    label: 'Início',
+    icon: 'i-lucide-home',
+    to: '/',
+    active: route.path === '/'
+  },
+  {
+    label: 'Cardápio',
+    icon: 'i-lucide-utensils',
     to: '/menu',
-    active: route.path === '/' || route.path.startsWith('/menu') || route.path.startsWith('/produto')
+    active: route.path.startsWith('/menu') || route.path.startsWith('/produto')
   },
   {
     label: 'Carrinho',
@@ -17,6 +28,12 @@ const items = computed<NavigationMenuItem[]>(() => [
     to: '/cart',
     active: route.path.startsWith('/cart') || route.path.startsWith('/checkout'),
     badge: cart.value.items_count || undefined
+  },
+  {
+    label: accountLabel.value,
+    icon: accountIcon.value,
+    to: accountTo.value,
+    active: route.path.startsWith('/conta') || route.path.startsWith('/login')
   }
 ])
 </script>

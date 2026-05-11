@@ -16,13 +16,13 @@ const actionIcon = computed(() => route.path.startsWith('/cart') ? 'i-lucide-arr
       class="shop-bottom-cart"
       :ui="{ container: 'p-3 sm:p-3' }"
     >
-      <NuxtLink :to="target" class="shop-bottom-cart-inner" aria-label="Ver carrinho">
+      <NuxtLink :to="target" class="flex items-center justify-between gap-3" aria-label="Ver carrinho">
         <UBadge color="primary" variant="solid" size="lg">
           {{ cart.items_count }}
         </UBadge>
-        <span class="shop-bottom-cart-copy">
+        <span class="grid flex-1 min-w-0 text-sm">
           <strong>{{ cart.grand_total_display }}</strong>
-          <span>
+          <span class="text-xs text-white/68">
             {{ cart.items_count === 1 ? '1 item no carrinho' : `${cart.items_count} itens no carrinho` }}
           </span>
         </span>

@@ -1,116 +1,74 @@
 <script setup lang="ts">
-import type { CatalogItemProjection } from '~/types/shopman'
+import type { CatalogItemProjection, ProductCommandMeta } from '~/types/shopman'
 
-type ProductBadge = {
-  label: string
-  color: 'primary' | 'neutral'
-  variant: 'solid' | 'soft' | 'outline'
-}
+const props = defineProps<{ item: CatalogItemProjection }>()
 
-const props = defineProps<{
-  item: CatalogItemProjection
-}>()
-
-const meta = computed(() => ({
+const meta = computed((): ProductCommandMeta => ({
   sku: props.item.sku,
   name: props.item.name,
   price_q: props.item.base_price_q,
   price_display: props.item.price_display,
   image_url: props.item.image_url
 }))
-
-const productBadges = computed<ProductBadge[]>(() => {
-  const badges: ProductBadge[] = []
-  if (props.item.promotion_label) badges.push({ label: props.item.promotion_label, color: 'primary', variant: 'solid' })
-  if (props.item.is_new) badges.push({ label: 'Novo', color: 'neutral', variant: 'soft' })
-  if (props.item.is_featured) badges.push({ label: 'Popular', color: 'neutral', variant: 'outline' })
-  return badges
-})
-
-const dietaryTags = computed(() => props.item.dietary_info.slice(0, 2))
 </script>
 
 <template>
-  <UPageCard
+  <UCard
     as="article"
-    variant="outline"
-    spotlight
-    spotlight-color="neutral"
-    class="shop-product-card"
-    :ui="{
-      container: 'p-0 sm:p-0 gap-0',
-      wrapper: 'h-full'
-    }"
+    :ui="{ header: 'p-0' }"
+    class="h-full"
   >
-    <div class="shop-product-card-inner">
-      <NuxtLink :to="`/produto/${item.sku}`" class="shop-product-image" :aria-label="`Ver ${item.name}`">
-        <img v-if="item.image_url" :src="item.image_url" :alt="item.name" loading="lazy">
-        <span v-else class="shop-product-image-placeholder">
-          <UIcon name="i-lucide-cookie" class="size-8" />
-        </span>
+    <template #header>
+      <NuxtLink
+        :to="`/produto/${item.sku}`"
+        class="product-image block relative overflow-hidden bg-elevated aspect-4/3"
+        :aria-label="`Ver ${item.name}`"
+      >
+        <img v-if="item.image_url" :src="item.image_url" :alt="item.name" loading="lazy" class="size-full object-cover">
+        <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-8 text-muted" />
 
-        <span v-if="productBadges.length" class="shop-product-image-badges">
-          <UBadge
-            v-for="badge in productBadges"
-            :key="badge.label"
-            :color="badge.color"
-            :variant="badge.variant"
-            size="xs"
-          >
-            {{ badge.label }}
-          </UBadge>
-        </span>
+        <UBadge v-if="item.promotion_label" color="primary" variant="solid" class="absolute top-2 left-2">
+          {{ item.promotion_label }}
+        </UBadge>
       </NuxtLink>
+    </template>
 
-      <div class="shop-product-content">
-        <div class="shop-product-copy">
-          <div class="shop-product-title-row">
-            <h3 class="shop-product-title">
-              <NuxtLink :to="`/produto/${item.sku}`">{{ item.name }}</NuxtLink>
-            </h3>
-            <UBadge
-              v-if="item.availability !== 'available'"
-              size="xs"
-              :color="item.availability === 'unavailable' ? 'error' : 'warning'"
-              variant="soft"
-            >
-              {{ item.availability_label }}
-            </UBadge>
-          </div>
-
-          <p v-if="item.short_description" class="shop-product-description">
-            {{ item.short_description }}
-          </p>
-
-          <div v-if="dietaryTags.length" class="shop-product-tags">
-            <UBadge
-              v-for="tag in dietaryTags"
-              :key="tag"
-              color="neutral"
-              variant="soft"
-              size="xs"
-            >
-              {{ tag }}
-            </UBadge>
-          </div>
-        </div>
-
-        <div class="shop-price-row">
-          <div class="shop-price-stack">
-            <div v-if="item.original_price_display" class="shop-original-price">
-              {{ item.original_price_display }}
-            </div>
-            <div class="shop-price">{{ item.price_display }}</div>
-          </div>
-          <ProductStepper
-            :meta="meta"
-            :can-add="item.can_add_to_cart"
-            :max-qty="item.available_qty"
-            add-label="Adicionar"
-            :unavailable-label="item.availability_label"
-          />
-        </div>
+    <div class="grid gap-1.5">
+      <h3 class="text-sm font-semibold leading-snug">
+        <NuxtLink :to="`/produto/${item.sku}`">{{ item.name }}</NuxtLink>
+      </h3>
+      <p v-if="item.short_description" class="text-sm text-muted leading-relaxed line-clamp-2">
+        {{ item.short_description }}
+      </p>
+      <div v-if="item.dietary_info.length" class="flex flex-wrap gap-1">
+        <UBadge
+          v-for="tag in item.dietary_info.slice(0, 2)"
+          :key="tag"
+          color="neutral"
+          variant="subtle"
+          size="xs"
+        >
+          {{ tag }}
+        </UBadge>
       </div>
     </div>
-  </UPageCard>
+
+    <template #footer>
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div v-if="item.original_price_display" class="text-sm text-muted line-through">
+            {{ item.original_price_display }}
+          </div>
+          <div class="text-base font-bold tabular-nums">{{ item.price_display }}</div>
+        </div>
+        <ProductStepper
+          :meta="meta"
+          :can-add="item.can_add_to_cart"
+          :max-qty="item.available_qty"
+          :unavailable-label="item.availability_label"
+          size="xs"
+        />
+      </div>
+    </template>
+  </UCard>
 </template>

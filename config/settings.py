@@ -73,6 +73,11 @@ if DEBUG:
         "https://*.ngrok.io",
         "https://*.ngrok.app",
         "https://*.trycloudflare.com",
+        # Nuxt dev surfaces: storefront em :3000, backstage em :3001
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ]
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")

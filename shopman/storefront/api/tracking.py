@@ -34,6 +34,7 @@ class OrderTrackingView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = OrderTrackingSerializer
 
     @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True))

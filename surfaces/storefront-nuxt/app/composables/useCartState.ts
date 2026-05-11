@@ -143,9 +143,44 @@ export function useCartState () {
       })
       cart.value = response.cart
       return response
-    } catch (error) {
+    } catch (error: any) {
       cart.value = previous
-      lastError.value = 'Não foi possível atualizar o carrinho.'
+      const status = error?.response?.status
+      const data = error?.data
+      const toast = useToast()
+      if (status === 409 && data) {
+        const availableQty = typeof data.available_qty === 'number' ? data.available_qty : null
+        const isPlanned = !!data.is_planned
+        const detail = isPlanned
+          ? `Disponível por encomenda. Conseguimos preparar até ${availableQty ?? 'algumas'} unidade(s).`
+          : availableQty != null
+            ? `Só temos ${availableQty} unidade(s) disponíveis no momento.`
+            : 'Estoque insuficiente para esse pedido.'
+        lastError.value = detail
+        toast.add({
+          icon: 'i-lucide-triangle-alert',
+          color: 'warning',
+          title: meta.name || 'Item indisponível',
+          description: detail
+        })
+      } else if (status === 429) {
+        const detail = 'Você está adicionando muito rápido. Aguarde um instante.'
+        lastError.value = detail
+        toast.add({
+          icon: 'i-lucide-timer',
+          color: 'info',
+          title: 'Calma aí!',
+          description: detail
+        })
+      } else {
+        lastError.value = 'Não foi possível atualizar o carrinho.'
+        toast.add({
+          icon: 'i-lucide-circle-x',
+          color: 'error',
+          title: 'Algo deu errado',
+          description: lastError.value || ''
+        })
+      }
       throw error
     } finally {
       const next = { ...pendingBySku.value }
