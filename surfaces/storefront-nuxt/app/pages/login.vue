@@ -3,23 +3,38 @@ import type { AuthSessionResponse, HomeResponse } from '~/types/shopman'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 const { setIdentity, setFromHome, setFromAuthSession } = useShopSession()
 const { setFromServer } = useCartState()
+
+type PhoneFeedbackTone = 'info' | 'success' | 'error'
+type DeliveryMethod = 'whatsapp' | 'sms'
 
 const step = ref<'phone' | 'code' | 'name' | 'trust'>('phone')
 const phone = ref('')
 const phoneRegion = ref<'BR' | 'INTL'>('BR')
-const code = ref('')
+const otpDigits = ref<Array<string | number>>([])
 const name = ref('')
 const requestedPhone = ref('')
+const deliveryMethod = ref<DeliveryMethod>('whatsapp')
 const submitting = ref(false)
 const errorMessage = ref<string | null>(null)
 const infoMessage = ref<string | null>(null)
+const phoneFeedback = ref('')
+const phoneFeedbackTone = ref<PhoneFeedbackTone>('info')
+
+const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
+  credentials: 'include',
+  headers: requestHeaders,
+  key: 'shopman-login-home'
+})
+
+const authCopy = computed(() => loginHome.value?.home.auth_copy)
 
 interface RequestCodeResponse {
   ok: true
   phone: string
-  delivery_method: 'whatsapp' | 'sms'
+  delivery_method: DeliveryMethod
   delivery_label?: string
   dev_console_hint?: boolean
 }
@@ -61,16 +76,53 @@ function safeInternalPath (value: unknown, fallback = '/') {
 
 const nextUrl = computed(() => safeInternalPath(route.query.next))
 
+function copyTitle (entry: { title?: string } | undefined, fallback: string) {
+  return entry?.title?.trim() || fallback
+}
+
+function copyMessage (entry: { message?: string } | undefined, fallback: string) {
+  return entry?.message?.trim() || fallback
+}
+
+const stepTitle = computed(() => {
+  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
+  if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
+  if (step.value === 'name') return copyTitle(authCopy.value?.name_heading, 'Como podemos te chamar?')
+  return copyTitle(authCopy.value?.device_trust_prompt, 'Salvar este aparelho?')
+})
+
+const stepDescription = computed(() => {
+  if (step.value === 'phone') return ''
+  if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
+  if (step.value === 'name') return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
+  return copyMessage(authCopy.value?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.')
+})
+
 function maskedPhone (raw: string) {
-  if (phoneRegion.value === 'INTL') return raw.trim()
-  const digits = raw.replace(/\D/g, '')
+  if (phoneRegion.value === 'INTL') return internationalValue(raw)
+  return formatBrazilianPhone(nationalDigits(raw))
+}
+
+function displayPhone (raw: string) {
+  if (isInternationalPhone(raw)) return internationalValue(raw)
+  return formatBrazilianPhone(nationalDigits(raw))
+}
+
+function isInternationalPhone (value: string) {
+  const digits = value.replace(/\D/g, '')
+  return value.trim().startsWith('+') && !digits.startsWith('55')
+}
+
+function nationalDigits (value: string) {
+  let digits = value.replace(/\D/g, '')
   if (digits.startsWith('55') && digits.length > 11) {
-    let national = digits.slice(2, 14)
-    if (national.startsWith('0') && national.length > 10) national = national.slice(1)
-    national = national.slice(0, 11)
-    return formatBrazilianPhone(national, '+55 ')
+    digits = digits.slice(2)
   }
-  return formatBrazilianPhone(digits.slice(0, 11))
+  if (digits.startsWith('0') && digits.length >= 3) {
+    const ddd = Number(digits.slice(1, 3))
+    if (ddd >= 11) digits = digits.slice(1)
+  }
+  return digits.slice(0, 11)
 }
 
 function formatBrazilianPhone (digits: string, prefix = '') {
@@ -82,25 +134,90 @@ function formatBrazilianPhone (digits: string, prefix = '') {
   return `${prefix}(${ddd}) ${subscriber.slice(0, split)}-${subscriber.slice(split)}`
 }
 
+function internationalValue (value: string) {
+  const raw = value.trim()
+  if (!raw) return ''
+  if (raw.startsWith('+')) return `+${raw.slice(1).replace(/\D/g, '').slice(0, 23)}`
+  return `+${raw.replace(/\D/g, '').slice(0, 23)}`
+}
+
+function submittedPhone () {
+  if (phoneRegion.value === 'INTL') return internationalValue(phone.value)
+  const national = nationalDigits(phone.value)
+  return national ? `+55${national}` : ''
+}
+
 function phoneTarget () {
-  return phone.value.trim()
+  return submittedPhone() || phone.value.trim()
+}
+
+function setPhoneFeedback (tone: PhoneFeedbackTone, message: string) {
+  phoneFeedbackTone.value = tone
+  phoneFeedback.value = message
+}
+
+function validatePhoneDisplay (requireComplete = false) {
+  const display = phone.value.trim()
+  const digits = display.replace(/\D/g, '')
+  if (!digits.length) {
+    phoneFeedback.value = ''
+    return !requireComplete
+  }
+  if (phoneRegion.value === 'INTL') {
+    if (!display.startsWith('+')) {
+      setPhoneFeedback('info', 'Inclua + e o código do país')
+      return false
+    }
+    if (digits.length < 8) {
+      setPhoneFeedback('info', 'Digite o telefone completo')
+      return false
+    }
+    setPhoneFeedback('success', 'Número internacional')
+    return true
+  }
+
+  const national = nationalDigits(display)
+  const len = national.length
+  if (len < 2) {
+    setPhoneFeedback('info', 'DDD + número')
+    return false
+  }
+  const ddd = Number(national.slice(0, 2))
+  if (ddd < 11) {
+    setPhoneFeedback('error', 'DDD inválido')
+    return false
+  }
+  if (len < 10) {
+    setPhoneFeedback('info', `${10 - len}+ dígitos restantes`)
+    return false
+  }
+  if (len === 10) {
+    setPhoneFeedback('success', `Fixo · DDD ${national.slice(0, 2)}`)
+    return true
+  }
+  if (len === 11) {
+    if (national[2] === '9') {
+      setPhoneFeedback('success', `Celular · DDD ${national.slice(0, 2)}`)
+      return true
+    }
+    setPhoneFeedback('error', 'Celular deve começar com 9 após o DDD')
+    return false
+  }
+  setPhoneFeedback('error', 'Número longo demais')
+  return false
 }
 
 watch(phone, (next) => {
-  if (phoneRegion.value === 'INTL') return
-  const masked = maskedPhone(next)
+  const masked = phoneRegion.value === 'INTL' ? internationalValue(next) : maskedPhone(next)
   if (masked !== next) phone.value = masked
+  else validatePhoneDisplay()
 })
 
 watch(phoneRegion, () => {
   phone.value = ''
   errorMessage.value = null
   infoMessage.value = null
-})
-
-watch(code, (next) => {
-  const digits = next.replace(/\D/g, '').slice(0, 6)
-  if (digits !== next) code.value = digits
+  phoneFeedback.value = ''
 })
 
 async function refreshSessionState () {
@@ -150,12 +267,12 @@ async function checkTrustedDevice () {
   return true
 }
 
-async function requestCode () {
+async function requestCode (method: DeliveryMethod = deliveryMethod.value) {
   errorMessage.value = null
   infoMessage.value = null
-  const cleanPhone = phone.value.replace(/\D/g, '')
-  if (cleanPhone.length < 10) {
-    errorMessage.value = 'Informe um telefone válido com DDD.'
+  deliveryMethod.value = method
+  if (!validatePhoneDisplay(true)) {
+    errorMessage.value = phoneFeedback.value || 'Informe um telefone válido com DDD.'
     return
   }
   submitting.value = true
@@ -164,15 +281,15 @@ async function requestCode () {
 
     const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
       method: 'POST',
-      body: { target: phoneTarget(), phone_region: phoneRegion.value, delivery_method: 'whatsapp' },
+      body: { target: phoneTarget(), phone_region: phoneRegion.value, delivery_method: method },
       credentials: 'include'
     })
     requestedPhone.value = response.phone
     step.value = 'code'
     const channel = response.delivery_label || (response.delivery_method === 'sms' ? 'SMS' : 'WhatsApp')
     infoMessage.value = response.dev_console_hint
-      ? `Código solicitado para ${maskedPhone(response.phone)}. Em desenvolvimento, veja o código no console do servidor.`
-      : `Enviamos um código por ${channel} para ${maskedPhone(response.phone)}.`
+      ? `Código por ${channel} solicitado para ${displayPhone(response.phone)}. Em desenvolvimento, veja o código no console do servidor.`
+      : `Enviamos um código por ${channel} para ${displayPhone(response.phone)}.`
   } catch (err: any) {
     const status = err?.response?.status
     if (status === 429) {
@@ -185,9 +302,24 @@ async function requestCode () {
   }
 }
 
+const phoneFeedbackClass = computed(() => {
+  if (phoneFeedbackTone.value === 'success') return 'text-success'
+  if (phoneFeedbackTone.value === 'error') return 'text-error'
+  return 'text-muted'
+})
+
+function otpCode () {
+  return otpDigits.value.map(value => String(value)).join('').replace(/\D/g, '').slice(0, 6)
+}
+
+async function handleOtpComplete (value: Array<string | number>) {
+  otpDigits.value = value
+  if (!submitting.value) await verifyCode()
+}
+
 async function verifyCode () {
   errorMessage.value = null
-  const codeDigits = code.value.replace(/\D/g, '')
+  const codeDigits = otpCode()
   if (codeDigits.length !== 6) {
     errorMessage.value = 'Informe os 6 números do código.'
     return
@@ -277,22 +409,16 @@ useHead({ title: 'Entrar' })
     >
       <template #header>
         <div class="grid gap-2 text-center">
-          <div class="flex justify-center">
-            <span class="size-12 rounded-full bg-primary/10 text-primary inline-flex items-center justify-center">
-              <UIcon name="i-lucide-cookie" class="size-6" />
+          <div class="flex items-center justify-center gap-3">
+            <span class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UIcon name="i-lucide-log-in" class="size-5" />
             </span>
+            <h1 class="text-xl font-semibold leading-tight sm:text-2xl">
+              {{ stepTitle }}
+            </h1>
           </div>
-          <h1 class="text-2xl font-bold">
-            <span v-if="step === 'phone'">Entrar na casa</span>
-            <span v-else-if="step === 'code'">Confirme com o código</span>
-            <span v-else-if="step === 'name'">Como podemos te chamar?</span>
-            <span v-else>Confiar neste dispositivo?</span>
-          </h1>
-          <p class="text-sm text-muted">
-            <span v-if="step === 'phone'">Confirmamos seu número por WhatsApp ou SMS. Sem senha, sem complicação.</span>
-            <span v-else-if="step === 'code'">Digite os 6 números do código que enviamos.</span>
-            <span v-else-if="step === 'name'">Esse é o nome com que a casa vai te receber.</span>
-            <span v-else>Você pode entrar sem código neste navegador em acessos futuros.</span>
+          <p v-if="stepDescription" class="text-sm text-muted">
+            {{ stepDescription }}
           </p>
         </div>
       </template>
@@ -300,60 +426,89 @@ useHead({ title: 'Entrar' })
       <UAlert v-if="errorMessage" color="error" variant="soft" :title="errorMessage" class="mb-4" />
       <UAlert v-else-if="infoMessage" color="info" variant="subtle" :title="infoMessage" class="mb-4" />
 
-      <form v-if="step === 'phone'" class="grid gap-4" @submit.prevent="requestCode">
-        <UFormField label="Seu telefone" name="phone">
-          <UInput
-            v-model="phone"
-            type="tel"
-            :inputmode="phoneRegion === 'BR' ? 'numeric' : 'tel'"
-            autocomplete="tel"
-            :placeholder="phoneRegion === 'BR' ? '(00) 00000-0000' : '+1 202 555 1234'"
-            icon="i-lucide-phone"
-            size="lg"
-            autofocus
-          />
+      <form v-if="step === 'phone'" class="grid gap-4" @submit.prevent="requestCode(deliveryMethod)">
+        <UFormField label="Telefone" name="phone" :description="copyMessage(authCopy?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')">
+          <UFieldGroup size="lg" class="w-full">
+            <UButton
+              v-if="phoneRegion === 'BR'"
+              as="span"
+              color="neutral"
+              variant="outline"
+              size="lg"
+              aria-label="Brasil, código do país +55"
+              class="pointer-events-none min-h-[58px] px-3 text-highlighted"
+            >
+              <span class="text-lg leading-none" aria-hidden="true">🇧🇷</span>
+              <span class="font-medium">+55</span>
+            </UButton>
+            <UInput
+              v-model="phone"
+              type="tel"
+              :inputmode="phoneRegion === 'BR' ? 'numeric' : 'tel'"
+              :autocomplete="phoneRegion === 'BR' ? 'tel-national' : 'tel'"
+              :placeholder="phoneRegion === 'BR' ? '(43) 99999-9999' : '+1 202 555 1234'"
+              :maxlength="phoneRegion === 'BR' ? 16 : 24"
+              size="lg"
+              autofocus
+              class="min-w-0 flex-1"
+              :ui="{ root: 'w-full flex-1', base: 'min-h-[58px] text-lg tabular-nums' }"
+            />
+          </UFieldGroup>
         </UFormField>
-        <div class="grid grid-cols-2 overflow-hidden rounded-md border border-default">
+        <p v-if="phoneFeedback" class="text-sm" :class="phoneFeedbackClass">
+          {{ phoneFeedback }}
+        </p>
+        <UButton
+          type="button"
+          color="primary"
+          variant="link"
+          class="w-fit p-0"
+          :label="phoneRegion === 'BR' ? 'Usar número de outro país' : 'Usar número do Brasil'"
+          @click="phoneRegion = phoneRegion === 'BR' ? 'INTL' : 'BR'"
+        />
+        <div class="grid gap-2 sm:grid-cols-2">
           <UButton
-            type="button"
-            :variant="phoneRegion === 'BR' ? 'solid' : 'outline'"
-            color="neutral"
-            label="Brasil +55"
-            class="justify-center rounded-none border-0"
-            @click="phoneRegion = 'BR'"
+            type="submit"
+            block
+            size="lg"
+            icon="i-lucide-message-circle"
+            :label="copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp')"
+            :loading="submitting && deliveryMethod === 'whatsapp'"
+            :disabled="submitting && deliveryMethod !== 'whatsapp'"
+            @click="deliveryMethod = 'whatsapp'"
           />
           <UButton
-            type="button"
-            :variant="phoneRegion === 'INTL' ? 'solid' : 'outline'"
+            type="submit"
+            block
+            size="lg"
             color="neutral"
-            label="Outro país"
-            class="justify-center rounded-none border-0"
-            @click="phoneRegion = 'INTL'"
+            variant="outline"
+            icon="i-lucide-message-square"
+            :label="copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS')"
+            :loading="submitting && deliveryMethod === 'sms'"
+            :disabled="submitting && deliveryMethod !== 'sms'"
+            @click="deliveryMethod = 'sms'"
           />
         </div>
-        <UButton
-          type="submit"
-          block
-          size="lg"
-          icon="i-lucide-arrow-right"
-          trailing
-          label="Continuar"
-          :loading="submitting"
-        />
+        <p class="shop-auth-note flex items-center justify-center gap-1.5 text-center">
+          <UIcon name="i-lucide-lock" class="size-3.5 shrink-0" />
+          <span class="max-w-[18rem]">{{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}</span>
+        </p>
       </form>
 
       <form v-else-if="step === 'code'" class="grid gap-4" @submit.prevent="verifyCode">
         <UFormField label="Código">
-          <UInput
-            v-model="code"
-            type="tel"
-            inputmode="numeric"
-            placeholder="000000"
-            maxlength="6"
-            size="lg"
+          <UPinInput
+            v-model="otpDigits"
+            type="number"
+            otp
+            :length="6"
+            placeholder="○"
+            size="xl"
             autofocus
-            class="text-center"
-            :ui="{ base: 'text-center text-xl font-mono' }"
+            class="justify-center"
+            :ui="{ root: 'flex w-full justify-center gap-2', base: 'size-11 text-lg tabular-nums sm:size-12' }"
+            @complete="handleOtpComplete"
           />
         </UFormField>
         <UButton
@@ -369,7 +524,7 @@ useHead({ title: 'Entrar' })
           variant="ghost"
           size="sm"
           label="Voltar e trocar o telefone"
-          @click="step = 'phone'; code = ''"
+          @click="step = 'phone'; otpDigits = []"
         />
       </form>
 
@@ -381,6 +536,7 @@ useHead({ title: 'Entrar' })
             placeholder="Como você quer ser chamado"
             size="lg"
             autofocus
+            class="w-full"
           />
         </UFormField>
         <UButton
@@ -389,7 +545,7 @@ useHead({ title: 'Entrar' })
           size="lg"
           icon="i-lucide-arrow-right"
           trailing
-          label="Pronto, entrar"
+          :label="copyTitle(authCopy?.name_cta, 'Continuar')"
           :loading="submitting"
         />
       </form>
@@ -399,14 +555,14 @@ useHead({ title: 'Entrar' })
           color="success"
           variant="subtle"
           icon="i-lucide-circle-check"
-          title="Sessão confirmada"
-          description="Salvar este dispositivo só cria um cookie seguro HttpOnly para o login rápido deste cliente."
+          :title="copyTitle(authCopy?.auth_confirmed, 'Pronto')"
+          :description="copyMessage(authCopy?.auth_confirmed, 'Identidade confirmada')"
         />
         <UButton
           block
           size="lg"
           icon="i-lucide-shield-check"
-          label="Confiar neste dispositivo"
+          :label="copyTitle(authCopy?.device_trust_cta, 'Salvar por 30 dias')"
           :loading="submitting"
           @click="finishTrustedDeviceChoice(true)"
         />
@@ -415,15 +571,15 @@ useHead({ title: 'Entrar' })
           variant="outline"
           block
           size="lg"
-          label="Agora não"
+          :label="copyTitle(authCopy?.device_trust_skip_cta, 'Agora não')"
           :disabled="submitting"
           @click="finishTrustedDeviceChoice(false)"
         />
       </div>
     </UPageCard>
 
-    <p class="text-sm text-muted text-center mt-6">
-      Ao continuar, você aceita o uso do telefone para autenticação. A casa não compartilha seus dados.
+    <p class="shop-auth-note mx-auto mt-6 max-w-sm text-center">
+      {{ copyMessage(authCopy?.terms_note, 'Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.') }}
     </p>
   </UContainer>
 </template>

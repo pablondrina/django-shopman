@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from django.http import HttpRequest
 
+from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections.catalog import CatalogItemProjection, build_catalog
 from shopman.storefront.projections.shop import ShopProjection, build_shop_projection
@@ -70,6 +71,54 @@ class HomeHeroCopyProjection:
 
 
 @dataclass(frozen=True)
+class HomeSectionsCopyProjection:
+    availability_heading: CopyEntryProjection
+    full_menu_cta: CopyEntryProjection
+    how_it_works_heading: CopyEntryProjection
+    how_it_works_intro: CopyEntryProjection
+    how_online_heading: CopyEntryProjection
+    how_store_heading: CopyEntryProjection
+    how_step_choose: CopyEntryProjection
+    how_step_pay: CopyEntryProjection
+    how_step_fulfill: CopyEntryProjection
+    how_self_service_label: CopyEntryProjection
+    how_counter_label: CopyEntryProjection
+    how_hours_label: CopyEntryProjection
+    how_hours_empty: CopyEntryProjection
+    how_online_choose_message: CopyEntryProjection
+    how_online_pay_message: CopyEntryProjection
+    how_online_track_message: CopyEntryProjection
+    how_store_self_service_message: CopyEntryProjection
+    how_store_counter_message: CopyEntryProjection
+    tomorrow_label: CopyEntryProjection
+    tomorrow_hook: CopyEntryProjection
+    whatsapp_cta: CopyEntryProjection
+    whatsapp_cta_label: CopyEntryProjection
+
+
+@dataclass(frozen=True)
+class AuthCopyProjection:
+    phone_heading: CopyEntryProjection
+    phone_subtitle: CopyEntryProjection
+    phone_cta_wa: CopyEntryProjection
+    phone_cta_sms: CopyEntryProjection
+    trusted_device_message: CopyEntryProjection
+    trusted_device_cta: CopyEntryProjection
+    trusted_other_phone: CopyEntryProjection
+    no_password_note: CopyEntryProjection
+    terms_note: CopyEntryProjection
+    code_heading: CopyEntryProjection
+    code_help: CopyEntryProjection
+    name_heading: CopyEntryProjection
+    name_subtitle: CopyEntryProjection
+    name_cta: CopyEntryProjection
+    auth_confirmed: CopyEntryProjection
+    device_trust_prompt: CopyEntryProjection
+    device_trust_cta: CopyEntryProjection
+    device_trust_skip_cta: CopyEntryProjection
+
+
+@dataclass(frozen=True)
 class LastOrderItemProjection:
     sku: str
     name: str
@@ -86,11 +135,14 @@ class PublicConfigProjection:
 class HomeProjection:
     omotenashi: OmotenashiProjection
     hero_copy: HomeHeroCopyProjection
+    sections_copy: HomeSectionsCopyProjection
+    auth_copy: AuthCopyProjection
     shop: ShopProjection
     shop_status: ShopStatusProjection
     opening_hours: tuple[OpeningHoursEntry, ...]
     last_order_ref: str | None
     last_order_items: tuple[LastOrderItemProjection, ...]
+    actions: tuple[SurfaceActionProjection, ...]
     featured_items: tuple[CatalogItemProjection, ...]
     origin_channel: str | None
     public_config: PublicConfigProjection
@@ -152,14 +204,40 @@ def build_home(request: HttpRequest) -> HomeProjection:
     return HomeProjection(
         omotenashi=omotenashi,
         hero_copy=_home_hero_copy(omotenashi),
+        sections_copy=_home_sections_copy(omotenashi),
+        auth_copy=_auth_copy(omotenashi),
         shop=shop_proj,
         shop_status=shop_status,
         opening_hours=hours,
         last_order_ref=last_ref,
         last_order_items=last_items,
+        actions=_home_actions(last_ref),
         featured_items=featured,
         origin_channel=origin_channel,
         public_config=public_config,
+    )
+
+
+def _home_actions(last_order_ref: str | None) -> tuple[SurfaceActionProjection, ...]:
+    if not last_order_ref:
+        return ()
+    return (
+        SurfaceActionProjection(
+            ref="reorder",
+            kind="mutation",
+            label="Repetir pedido",
+            priority="primary",
+            href=f"/api/v1/orders/{last_order_ref}/reorder/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "properties": {
+                    "mode": {"type": "string", "enum": ["replace", "append"]},
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="required",
+        ),
     )
 
 
@@ -178,6 +256,56 @@ def _home_hero_copy(omotenashi: OmotenashiProjection) -> HomeHeroCopyProjection:
         handmade_subtitle=_copy_entry("HOME_HERO_HANDMADE_SUBTITLE", omotenashi=omotenashi),
         menu_cta=_copy_entry("HOME_MENU_CTA", omotenashi=omotenashi),
         birthday_cta=_copy_entry("HOME_BIRTHDAY_CTA", omotenashi=omotenashi),
+    )
+
+
+def _home_sections_copy(omotenashi: OmotenashiProjection) -> HomeSectionsCopyProjection:
+    return HomeSectionsCopyProjection(
+        availability_heading=_copy_entry("HOME_AVAILABILITY_HEADING", omotenashi=omotenashi),
+        full_menu_cta=_copy_entry("HOME_FULL_MENU_CTA", omotenashi=omotenashi),
+        how_it_works_heading=_copy_entry("HOME_HOW_IT_WORKS_HEADING", omotenashi=omotenashi),
+        how_it_works_intro=_copy_entry("HOW_IT_WORKS_INTRO", omotenashi=omotenashi),
+        how_online_heading=_copy_entry("HOME_HOW_ONLINE_HEADING", omotenashi=omotenashi),
+        how_store_heading=_copy_entry("HOME_HOW_STORE_HEADING", omotenashi=omotenashi),
+        how_step_choose=_copy_entry("HOME_HOW_STEP_CHOOSE", omotenashi=omotenashi),
+        how_step_pay=_copy_entry("HOME_HOW_STEP_PAY", omotenashi=omotenashi),
+        how_step_fulfill=_copy_entry("HOME_HOW_STEP_FULFILL", omotenashi=omotenashi),
+        how_self_service_label=_copy_entry("HOME_HOW_SELF_SERVICE_LABEL", omotenashi=omotenashi),
+        how_counter_label=_copy_entry("HOME_HOW_COUNTER_LABEL", omotenashi=omotenashi),
+        how_hours_label=_copy_entry("HOME_HOW_HOURS_LABEL", omotenashi=omotenashi),
+        how_hours_empty=_copy_entry("HOME_HOW_HOURS_EMPTY", omotenashi=omotenashi),
+        how_online_choose_message=_copy_entry("HOW_ONLINE_CHOOSE_MESSAGE", omotenashi=omotenashi),
+        how_online_pay_message=_copy_entry("HOW_ONLINE_PAY_MESSAGE", omotenashi=omotenashi),
+        how_online_track_message=_copy_entry("HOW_ONLINE_TRACK_MESSAGE", omotenashi=omotenashi),
+        how_store_self_service_message=_copy_entry("HOW_STORE_SELF_SERVICE_MESSAGE", omotenashi=omotenashi),
+        how_store_counter_message=_copy_entry("HOW_STORE_COUNTER_MESSAGE", omotenashi=omotenashi),
+        tomorrow_label=_copy_entry("HOME_TOMORROW_LABEL", omotenashi=omotenashi),
+        tomorrow_hook=_copy_entry("TRACKING_TOMORROW_HOOK", omotenashi=omotenashi),
+        whatsapp_cta=_copy_entry("HOME_WHATSAPP_CTA", omotenashi=omotenashi),
+        whatsapp_cta_label=_copy_entry("HOME_WHATSAPP_CTA_LABEL", omotenashi=omotenashi),
+    )
+
+
+def _auth_copy(omotenashi: OmotenashiProjection) -> AuthCopyProjection:
+    return AuthCopyProjection(
+        phone_heading=_copy_entry("LOGIN_PHONE_HEADING", omotenashi=omotenashi),
+        phone_subtitle=_copy_entry("LOGIN_PHONE_SUBTITLE", omotenashi=omotenashi),
+        phone_cta_wa=_copy_entry("LOGIN_PHONE_CTA_WA", omotenashi=omotenashi),
+        phone_cta_sms=_copy_entry("LOGIN_PHONE_CTA_SMS", omotenashi=omotenashi),
+        trusted_device_message=_copy_entry("LOGIN_TRUSTED_DEVICE_MESSAGE", omotenashi=omotenashi),
+        trusted_device_cta=_copy_entry("LOGIN_TRUSTED_DEVICE_CTA", omotenashi=omotenashi),
+        trusted_other_phone=_copy_entry("LOGIN_TRUSTED_OTHER_PHONE", omotenashi=omotenashi),
+        no_password_note=_copy_entry("LOGIN_NO_PASSWORD_NOTE", omotenashi=omotenashi),
+        terms_note=_copy_entry("LOGIN_TERMS_NOTE", omotenashi=omotenashi),
+        code_heading=_copy_entry("LOGIN_CODE_HEADING", omotenashi=omotenashi),
+        code_help=_copy_entry("LOGIN_CODE_HELP", omotenashi=omotenashi),
+        name_heading=_copy_entry("LOGIN_NAME_HEADING", omotenashi=omotenashi),
+        name_subtitle=_copy_entry("LOGIN_NAME_SUBTITLE", omotenashi=omotenashi),
+        name_cta=_copy_entry("LOGIN_NAME_CTA", omotenashi=omotenashi),
+        auth_confirmed=_copy_entry("LOGIN_AUTH_CONFIRMED", omotenashi=omotenashi),
+        device_trust_prompt=_copy_entry("DEVICE_TRUST_PROMPT", omotenashi=omotenashi),
+        device_trust_cta=_copy_entry("DEVICE_TRUST_CTA", omotenashi=omotenashi),
+        device_trust_skip_cta=_copy_entry("DEVICE_TRUST_SKIP_CTA", omotenashi=omotenashi),
     )
 
 

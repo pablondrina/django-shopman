@@ -61,8 +61,7 @@ class TestOrderTrackingShape:
         assert proj.promise.state == "received"
         assert proj.promise.title == "Recebemos seu pedido."
         assert proj.promise.timer_mode == "none"
-        assert proj.promise.customer_action == "wait"
-        assert proj.promise.customer_action_label == "Nenhuma ação necessária"
+        assert proj.promise.actions == ()
         assert proj.promise.next_event == "O estabelecimento vai conferir a disponibilidade."
 
     def test_has_refresh_freshness_contract(self, order):
@@ -73,6 +72,9 @@ class TestOrderTrackingShape:
         assert parse_datetime(proj.last_updated_iso) is not None
         assert proj.last_updated_display == "Atualizado agora"
         assert proj.stale_after_seconds == 45
+        assert proj.promise_deadline_label == "Prazo"
+        assert proj.promise_rows[-1].label == "Última atualização"
+        assert proj.promise_rows[-1].value == "Atualizado agora"
 
     def test_status_matches(self, order):
         proj = build_order_tracking(order)
@@ -354,8 +356,15 @@ class TestStatusColours:
         proj = build_order_tracking(order)
         assert proj.status_label == "Pronto para retirada"
         assert proj.promise.state == "ready_pickup"
-        assert proj.promise.requires_active_notification is True
-        assert proj.promise.notification_topic == "order_ready"
+        assert proj.promise.requires_active_notification is False
+        assert proj.promise.notification_topic is None
+        assert proj.promise.actions[0].label == "Retirar pedido"
+        assert proj.promise.active_notification == ""
+        rows = [(row.label, row.value, row.url) for row in proj.promise_rows]
+        assert ("Próximo passo", "Retire no estabelecimento quando puder.", None) in rows
+        assert ("Sua ação", "Retirar pedido", None) in rows
+        assert ("Última atualização", "Atualizado agora", None) in rows
+        assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
     def test_ready_unknown_fulfillment_label_is_not_pickup(self, order):
         from shopman.orderman.models import Order as _Order
@@ -373,8 +382,10 @@ class TestStatusColours:
         order.refresh_from_db()
         proj = build_order_tracking(order)
         assert proj.status_label == "Aguardando entregador"
-        assert proj.promise.requires_active_notification is True
-        assert proj.promise.notification_topic == "order_ready"
+        assert proj.promise.requires_active_notification is False
+        assert proj.promise.notification_topic is None
+        assert proj.promise.active_notification == ""
+        assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
     def test_new_pix_order_shows_payment_pending_label(self, order_with_payment):
         proj = build_order_tracking(order_with_payment)
@@ -598,13 +609,13 @@ class TestStatusColours:
         assert proj.promise.state == "payment_requested"
         assert proj.promise.requires_active_notification is True
         assert proj.promise.notification_topic == "payment_requested"
-        assert proj.promise.customer_action == "pay_now"
-        assert proj.promise.customer_action_label == "Pagar agora"
-        assert proj.promise.customer_action_url == f"/pedido/{order_with_payment.ref}/pagamento/"
+        assert proj.promise.actions[0].ref == "pay_now"
+        assert proj.promise.actions[0].label == "Pagar agora"
+        assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
         assert proj.promise.next_event == "Depois do pagamento, seguimos com o pedido."
         assert "PIX depende da sua ação" in proj.promise.active_notification
 
-    def test_authorized_card_is_internal_not_customer_payment_action(self, order_with_payment):
+    def test_authorized_card_is_internal_not_surface_payment_action(self, order_with_payment):
         from shopman.orderman.models import Order as _Order
         from shopman.payman import PaymentService
 
@@ -630,8 +641,7 @@ class TestStatusColours:
         assert proj.payment_status_label == "Pagamento autorizado"
         assert proj.status_label == "Pagamento autorizado"
         assert proj.promise.state == "card_authorized"
-        assert proj.promise.customer_action == "none"
-        assert proj.promise.customer_action_label == "Nenhuma ação necessária"
+        assert proj.promise.actions == ()
         assert "Aguardando pagamento" not in {proj.status_label, proj.payment_status_label}
 
     def test_eta_uses_preparing_timestamp_not_order_creation(self, order):
@@ -700,7 +710,6 @@ class TestOrderTrackingStatusProjection:
         assert proj.status_label
         assert proj.status_color
 
-    def test_can_cancel_false_without_payment_service(self, order):
-        # can_cancel degrades gracefully
+    def test_status_projection_does_not_expose_action_flags(self, order):
         proj = build_order_tracking_status(order)
-        assert isinstance(proj.can_cancel, bool)
+        assert not hasattr(proj, "can_cancel")

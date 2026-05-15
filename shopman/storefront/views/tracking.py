@@ -24,6 +24,36 @@ REORDER_MODE_REPLACE = "replace"
 REORDER_MODES = {REORDER_MODE_ADD, REORDER_MODE_REPLACE}
 
 
+class _OrderAccessEventUser:
+    """Minimal authenticated identity for session-authorized order SSE."""
+
+    is_authenticated = True
+    is_staff = False
+    is_superuser = False
+
+    def __init__(self, *, session_key: str, order_ref: str) -> None:
+        self.pk = f"order-session:{session_key}:{order_ref}"
+        self.id = self.pk
+        self._shopman_order_sse_refs = frozenset({order_ref})
+
+
+def _bind_order_event_user(request: HttpRequest, order_ref: str) -> None:
+    user = getattr(request, "user", None)
+    if getattr(user, "is_authenticated", False):
+        return
+    session = getattr(request, "session", None)
+    session_key = getattr(session, "session_key", None) or "anonymous"
+    request.user = _OrderAccessEventUser(session_key=session_key, order_ref=order_ref)
+
+
+def _surface_action_map(projection) -> dict[str, object]:
+    return {
+        action.ref: action
+        for action in getattr(projection, "actions", ()) or ()
+        if getattr(action, "enabled", False) is not False
+    }
+
+
 @method_decorator(never_cache, name="dispatch")
 @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True), name="dispatch")
 class OrderTrackingView(View):
@@ -31,17 +61,31 @@ class OrderTrackingView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_accessible_order(request, ref)
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
         if order_service.requires_payment_gate(order):
             return redirect("storefront:order_payment", ref=ref)
 
         from shopman.storefront.projections import build_order_tracking
 
         proj = build_order_tracking(order)
-        ctx: dict = {"tracking": proj}
+        ctx: dict = {"tracking": proj, "tracking_actions": _surface_action_map(proj)}
         if request.GET.get("refused"):
             ctx["cancel_refused"] = True
         return render(request, "storefront/order_tracking.html", ctx)
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True), name="dispatch")
+class OrderEventsView(View):
+    """SSE stream for an order, using the same access gate as tracking."""
+
+    def get(self, request: HttpRequest, ref: str) -> HttpResponse:
+        order_service.get_accessible_order(request, ref)
+        _bind_order_event_user(request, ref)
+
+        from django_eventstream.views import events as eventstream_view
+
+        return eventstream_view(request, **{"format-channels": ["order-{ref}"], "ref": ref})
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -107,7 +151,7 @@ class OrderStatusPartialView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_accessible_order(request, ref)
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
         if order_service.requires_payment_gate(order):
             response = HttpResponse("")
             response["HX-Redirect"] = reverse("storefront:order_payment", kwargs={"ref": ref})

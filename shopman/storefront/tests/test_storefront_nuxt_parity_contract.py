@@ -59,7 +59,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
         "sources": ["shopman/storefront/projections/cart.py"],
     },
     "components/CartIssueModal.vue": {
-        "tokens": ["stockIssue", "rateLimitRecovery", "retryLastCartCommand"],
+        "tokens": ["stockIssue", "rateLimitRecovery", "retryLastCartMutation"],
         "sources": ["shopman/storefront/api/surface.py", "shopman/storefront/projections/cart.py"],
     },
     "components/ContextualBanners.vue": {
@@ -71,11 +71,11 @@ OPERATIONAL_COPY_SOURCE_MAP = {
         "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "components/HotFromOven.vue": {
-        "tokens": ["CatalogItemProjection", "items.length"],
+        "tokens": ["CatalogItemProjection", "props.copy.availability_heading"],
         "sources": ["shopman/storefront/projections/home.py", "shopman/storefront/projections/catalog.py"],
     },
     "components/HowItWorks.vue": {
-        "tokens": ["openingHours", "OpeningHoursEntry"],
+        "tokens": ["openingHours", "OpeningHoursEntry", "copy.how_it_works_heading"],
         "sources": ["shopman/storefront/projections/home.py", "shopman/storefront/projections/shop_status.py"],
     },
     "components/PlannedHoldBadge.vue": {
@@ -91,7 +91,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
         "sources": ["shopman/storefront/api/surface.py", "shopman/storefront/services/orders.py"],
     },
     "components/TomorrowHook.vue": {
-        "tokens": ["props.omotenashi.moment"],
+        "tokens": ["props.omotenashi.moment", "props.copy.tomorrow_hook"],
         "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "composables/useCartState.ts": {
@@ -112,8 +112,8 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/checkout.vue": {
         "tokens": [
-            "checkout.value.pickup_hint",
-            "checkout.value.delivery_hint",
+            "checkout.value?.pickup_hint",
+            "checkout.value?.delivery_hint",
             "checkout.closed_dates_json",
             "checkout.max_preorder_days",
             "paymentOptions",
@@ -424,12 +424,62 @@ def test_login_preserves_backend_phone_identity_contract():
     assert "requestedPhone.value = response.phone" in login
     assert "phoneRegion = ref<'BR' | 'INTL'>('BR')" in login
     assert "phone_region: phoneRegion.value" in login
-    assert "body: { target: phoneTarget(), phone_region: phoneRegion.value, delivery_method: 'whatsapp' }" in login
+    assert "body: { target: phoneTarget(), phone_region: phoneRegion.value, delivery_method: method }" in login
     assert "target: requestedPhone.value || phoneTarget()" in login
     assert "setIdentity({ phone: response.phone" in login
 
     assert "body: { target: cleanPhone" not in login
     assert "target: cleanPhone" not in login
+
+
+def test_login_ports_penguin_phone_input_and_backend_copy():
+    login = _nuxt_file("pages/login.vue")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+
+    for token in [
+        "loginHome.value?.home.auth_copy",
+        "copyTitle(authCopy.value?.phone_heading",
+        "copyMessage(authCopy?.phone_subtitle",
+        "copyTitle(authCopy?.phone_cta_wa",
+        "copyTitle(authCopy?.phone_cta_sms",
+        "copyMessage(authCopy?.no_password_note",
+        "copyMessage(authCopy?.terms_note",
+        "copyTitle(authCopy?.device_trust_cta",
+        "copyTitle(authCopy?.device_trust_skip_cta",
+        "type DeliveryMethod = 'whatsapp' | 'sms'",
+        "aria-label=\"Brasil, código do país +55\"",
+        "<UFieldGroup",
+        "<UPinInput",
+        "otp",
+        "@complete=\"handleOtpComplete\"",
+        "Usar número de outro país",
+        "Usar número do Brasil",
+        "nationalDigits",
+        "internationalValue",
+        "validatePhoneDisplay",
+    ]:
+        assert token in login
+
+    for forbidden in [
+        "i-lucide-cookie",
+        "Entrar na casa",
+        "casa vai te receber",
+        "A casa não compartilha seus dados",
+    ]:
+        assert forbidden not in login
+
+    for key in [
+        "LOGIN_PHONE_HEADING",
+        "LOGIN_PHONE_SUBTITLE",
+        "LOGIN_PHONE_CTA_WA",
+        "LOGIN_PHONE_CTA_SMS",
+        "LOGIN_NO_PASSWORD_NOTE",
+        "LOGIN_TERMS_NOTE",
+        "DEVICE_TRUST_PROMPT",
+        "DEVICE_TRUST_CTA",
+        "DEVICE_TRUST_SKIP_CTA",
+    ]:
+        assert key in home_projection
 
 
 def test_login_ports_trust_device_and_welcome_gate_contracts():
@@ -648,13 +698,13 @@ def test_reorder_requires_explicit_mode_before_replacing_cart():
     api = _read(REPO_ROOT / "shopman" / "storefront" / "api" / "surface.py")
 
     assert "mode?: 'replace' | 'append'" in reorder
-    assert "body: mode ? { mode } : {}" in reorder
+    assert "body: mode ? { mode, idempotency_key: idempotencyKey } : { idempotency_key: idempotencyKey }" in reorder
     assert "status === 409" in reorder
     assert "data?.error_code === 'cart_not_empty'" in reorder
 
     assert "replaceAcknowledged" in modal
-    assert "label=\"Adicionar ao carrinho atual\"" in modal
-    assert "label=\"Substituir o carrinho\"" in modal
+    assert "appendAction?.label || 'Adicionar ao carrinho atual'" in modal
+    assert "replaceAction?.label || 'Substituir o carrinho'" in modal
     assert "resolveConflict('append')" in modal
     assert "resolveConflict('replace')" in modal
     assert ":disabled=\"!replaceAcknowledged\"" in modal
@@ -780,6 +830,56 @@ def test_nuxt_home_hero_uses_backend_copy_and_fullwidth_shell():
         assert key in home_projection
 
 
+def test_nuxt_home_sections_use_backend_copy_projection():
+    index = _nuxt_file("pages/index.vue")
+    hot = _nuxt_file("components/HotFromOven.vue")
+    how = _nuxt_file("components/HowItWorks.vue")
+    tomorrow = _nuxt_file("components/TomorrowHook.vue")
+    whatsapp = _nuxt_file("components/WhatsappCta.vue")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+
+    for token in [
+        ':copy="home.sections_copy"',
+        '<HotFromOven :items="home.featured_items" :copy="home.sections_copy"',
+        '<TomorrowHook :omotenashi="home.omotenashi" :copy="home.sections_copy"',
+        '<HowItWorks :opening-hours="home.opening_hours" :copy="home.sections_copy"',
+        '<WhatsappCta :shop="home.shop" :copy="home.sections_copy"',
+    ]:
+        assert token in index
+
+    for source, tokens in {
+        hot: ["props.copy.availability_heading", ":title=\"heading.title\"", ":description=\"heading.message\""],
+        how: [
+            "copy.how_it_works_heading",
+            "props.copy.how_online_choose_message",
+            "props.copy.how_store_self_service_message",
+            "copy.how_store_heading.title",
+        ],
+        tomorrow: ["props.copy.tomorrow_hook", "copy.tomorrow_label.title"],
+        whatsapp: ["copy.whatsapp_cta.title", "copy.whatsapp_cta.message", "copy.whatsapp_cta_label.title"],
+    }.items():
+        for token in tokens:
+            assert token in source
+
+    for forbidden in ["Selecionados pela casa", "Na casa", "Canal direto com a casa"]:
+        assert forbidden not in hot + how + tomorrow + whatsapp
+
+    for key in [
+        "HOME_AVAILABILITY_HEADING",
+        "HOME_FULL_MENU_CTA",
+        "HOME_HOW_IT_WORKS_HEADING",
+        "HOW_IT_WORKS_INTRO",
+        "HOME_HOW_ONLINE_HEADING",
+        "HOME_HOW_STORE_HEADING",
+        "HOW_ONLINE_CHOOSE_MESSAGE",
+        "HOW_STORE_SELF_SERVICE_MESSAGE",
+        "TRACKING_TOMORROW_HOOK",
+        "HOME_WHATSAPP_CTA",
+        "HOME_WHATSAPP_CTA_LABEL",
+    ]:
+        assert key in home_projection
+
+
 def test_nuxt_cart_line_item_matches_two_row_compact_layout():
     cart_line = _nuxt_file("components/CartLineItem.vue")
 
@@ -787,6 +887,63 @@ def test_nuxt_cart_line_item_matches_two_row_compact_layout():
     assert "{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}" in cart_line
     assert "{{ line.price_display }} cada" not in cart_line
     assert "<strong" not in cart_line
+
+
+def test_nuxt_header_matches_penguin_nav_and_storefront_icon():
+    header = _nuxt_file("components/AppHeader.vue")
+    app = _nuxt_file("app.vue")
+    css = _nuxt_file("assets/css/main.css")
+
+    assert "{ label: 'Cardápio', to: '/menu' }" in header
+    assert "{ label: 'Como funciona', to: '/como-funciona' }" in header
+    assert "{ label: 'Início'" not in header
+    assert "material-symbols-rounded" in header
+    assert ">storefront</span>" in header
+    assert "bg-primary/12 text-primary ring-1 ring-primary/20" not in header
+    assert "{ path: '/conta', query: { tab: 'orders' } }" in header
+    assert "{ path: '/conta', query: { tab: 'addresses' } }" in header
+    assert "Cliente da casa" not in header
+    assert "`Carrinho (${cartCount})`" in header
+    assert "Material+Symbols+Rounded" in app
+    assert "font-family: 'Material Symbols Rounded'" in css
+
+
+def test_nuxt_account_menu_targets_real_account_tabs():
+    account = _nuxt_file("pages/account.vue")
+
+    for token in [
+        "type AccountTab = 'profile' | 'orders' | 'addresses'",
+        "const activeTab = ref<AccountTab>(normalizeAccountTab(route.query.tab))",
+        "function normalizeAccountTab",
+        "watch(() => route.query.tab",
+        "router.replace({ path: '/conta', query })",
+        'v-model="activeTab"',
+    ]:
+        assert token in account
+
+    assert 'default-value="profile"' not in account
+
+
+def test_nuxt_cart_primary_and_secondary_actions_use_matching_size():
+    cart = _nuxt_file("pages/cart.vue")
+
+    footer = cart[cart.index("<template #footer>"):cart.index("</template>", cart.index("<template #footer>"))]
+    assert 'label="Continuar comprando"' in footer
+    assert 'size="lg"' in footer
+    assert 'size="sm"' not in footer
+
+
+def test_nuxt_pdp_accordion_keeps_content_mounted_for_smooth_collapse():
+    pdp = _nuxt_file("pages/product/[sku].vue")
+    css = _nuxt_file("assets/css/main.css")
+
+    assert ':unmount-on-hide="false"' in pdp
+    assert "shop-pdp-accordion" in pdp
+    assert "data-[state=open]:animate-[accordion-down_220ms_ease-out]" in pdp
+    assert "data-[state=closed]:animate-[accordion-up_180ms_ease-in]" in pdp
+    assert "#components-body" in pdp
+    assert "#nutrition-body" in pdp
+    assert ".shop-pdp-accordion [data-slot=\"content\"]" in css
 
 
 def test_nuxt_theme_follows_storefront_configuration():
@@ -844,6 +1001,10 @@ def test_payment_surface_exposes_recovery_for_clipboard_and_polling_failures():
     assert "rateLimitRecovery" in payment
     assert "retry_after_seconds" in payment
     assert "retryAfterDescription" in payment
+    assert "hasPendingPaymentAction" in payment
+    assert "canRedirectToCardCheckout" in payment
+    assert "redirectAction" in payment
+    assert "status.should_redirect" in payment
     assert "Tente novamente em cerca de" in copy
     assert "stale_after_seconds" in payment
     assert "operationalCopy.payment.automaticStatusFailed" in payment
@@ -878,8 +1039,16 @@ def test_tracking_surface_enforces_backend_payment_gate():
     assert "payment_gate_url" in api
     assert "requires_payment_gate" in serializer
     assert "payment_gate_url" in serializer
+    assert "actions = SurfaceActionSerializer(many=True" in serializer
+    assert "can_mock_confirm_payment" not in serializer
     assert "requires_payment_gate" in tracking
     assert "payment_gate_url" in tracking
+    assert "findTrackingAction('mock_confirm_payment')" in tracking
+    assert "can_mock_confirm_payment" not in tracking
+    assert "mockConfirmPayment" in tracking
+    assert "Capturar pagamento teste" in tracking
+    assert "Eventos do pedido" not in tracking
+    assert "timelineItems" not in tracking
     assert "navigateTo(paymentGateUrl.value, { replace: true })" in tracking
 
 
@@ -976,16 +1145,25 @@ def test_tracking_surface_supports_live_promise_details_and_rating():
     serializer = _read(REPO_ROOT / "shopman" / "storefront" / "api" / "serializers.py")
 
     assert "promiseRows" in tracking
+    assert "promise_rows" in tracking
+    assert "promise_deadline_label" in tracking
     assert "formatCountdown" in tracking
-    assert "data.can_rate" in tracking
+    assert "showInitialSkeleton" in tracking
+    assert "eventSource.onopen" in tracking
+    assert "stopPolling()" in tracking
+    assert "Aviso ativo" not in tracking
+    assert "active_notification ? { label:" not in tracking
+    for label in ("Próximo passo", "Ação necessária", "Recuperação", "Última atualização"):
+        assert label not in tracking
+    assert "rateOrderAction" in tracking
     assert "submitRating" in tracking
     assert "/api/v1/orders/" in tracking
     assert "/rate/" in tracking
 
     assert "OrderRateView" in api
     assert "OrderRateView" in urls
-    assert "can_rate" in serializer
-    assert "rating_url" in serializer
+    assert "actions = SurfaceActionSerializer" in serializer
+    assert "rate_order" in tracking
 
 
 def test_wp05_stock_reorder_and_rate_limit_recovery_contracts():
@@ -1002,14 +1180,14 @@ def test_wp05_stock_reorder_and_rate_limit_recovery_contracts():
 
     assert "stockIssueFromPayload" in cart
     assert "stockIssue" in cart
-    assert "retryLastCartCommand" in cart
+    assert "retryLastCartMutation" in cart
     assert "acceptStockIssueAvailable" in cart
     assert "rateLimitRecovery" in cart
     assert "useShopmanCsrfHeaders" in cart
     assert "CartIssueModal" in layout
     assert "Itens afetados" in cart_modal
     assert "Tentar novamente" in cart_modal
-    assert "Falar com a casa" in cart_modal
+    assert "Falar com a equipe" in cart_modal
 
     assert "skipped_items" in reorder
     assert "skippedItems" in reorder
@@ -1017,7 +1195,8 @@ def test_wp05_stock_reorder_and_rate_limit_recovery_contracts():
     assert "useShopmanCsrfHeaders" in reorder
     assert "ReorderRecoveryModal" in layout
     assert "Itens indisponíveis" in reorder_modal
-    assert 'default-value="profile"' in account
+    assert 'v-model="activeTab"' in account
+    assert "normalizeAccountTab(route.query.tab)" in account
     assert "value: 'orders'" in account
     assert "slot: 'orders'" in account
     assert "aria-label=\"Repetir pedido\"" in account

@@ -22,6 +22,7 @@ from .account import (
 from .auth import DeviceCheckView, LogoutView, RequestCodeView, SessionView, TrustDeviceView, VerifyCodeView
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
+from .conversation import OrderConversationView
 from .geocode import ReverseGeocodeView
 from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderPaymentView
 from .surface import (
@@ -69,6 +70,7 @@ urlpatterns = [
     path("tracking/<str:ref>/", OrderTrackingView.as_view(), name="api-tracking"),
     path("orders/<str:ref>/cancel/", OrderCancelView.as_view(), name="api-order-cancel"),
     path("orders/<str:ref>/rate/", OrderRateView.as_view(), name="api-order-rate"),
+    path("orders/<str:ref>/conversation/", OrderConversationView.as_view(), name="api-order-conversation"),
     path("payment/<str:ref>/", OrderPaymentView.as_view(), name="api-payment"),
     path("payment/<str:ref>/status/", OrderPaymentStatusView.as_view(), name="api-payment-status"),
     path("payment/<str:ref>/mock-confirm/", OrderPaymentMockConfirmView.as_view(), name="api-payment-mock-confirm"),

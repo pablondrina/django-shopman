@@ -17,8 +17,6 @@ from shopman.storefront.constants import HAS_AUTH
 from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
 from shopman.storefront.intents._phone import normalize_phone_input
 from shopman.storefront.views.auth import get_authenticated_customer
-from shopman.doorman.conf import doorman_settings
-from shopman.doorman.services.device_trust import DeviceTrustService
 
 
 SessionSerializer = inline_serializer(
@@ -81,9 +79,7 @@ class LogoutView(APIView):
     def post(self, request):
         preserved = {}
         if hasattr(request, "session"):
-            for key in doorman_settings.PRESERVE_SESSION_KEYS:
-                if key in request.session:
-                    preserved[key] = request.session[key]
+            preserved = auth_service.preserved_session_values(request.session)
 
         django_logout(request)
 
@@ -92,7 +88,7 @@ class LogoutView(APIView):
                 request.session[key] = value
 
         response = Response(_session_payload(None))
-        DeviceTrustService.revoke_device(request, response)
+        auth_service.revoke_current_device(request=request, response=response)
         return response
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from asgiref.sync import async_to_sync
 from django.test import Client
 from django.utils import timezone
 from shopman.doorman.models import AccessLink
@@ -51,6 +52,30 @@ def test_tracking_api_allows_session_order_access(client, order):
 
     assert response.status_code == 200
     assert response.json()["ref"] == order.ref
+
+
+def test_order_events_allows_session_order_access(client, order):
+    response = client.get(f"/pedido/{order.ref}/events/")
+
+    async def first_chunk():
+        async for chunk in response.streaming_content:
+            return chunk
+        return b""
+
+    chunk = async_to_sync(first_chunk)()
+
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/event-stream")
+    assert b"stream-open" in chunk
+    assert b"forbidden" not in chunk
+
+
+def test_order_events_ref_guess_returns_404(order):
+    attacker = Client()
+
+    response = attacker.get(f"/pedido/{order.ref}/events/")
+
+    assert response.status_code == 404
 
 
 def test_payment_ref_guess_returns_404(order_with_payment):

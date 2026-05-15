@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaymentResponse, PaymentStatusResponse } from '~/types/shopman'
+import type { PaymentPromiseProjection, PaymentResponse, PaymentStatusResponse, SurfaceActionProjection } from '~/types/shopman'
 
 interface PaymentErrorPayload {
   detail?: string
@@ -9,6 +9,7 @@ interface PaymentErrorPayload {
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
+const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
@@ -36,8 +37,39 @@ const pixQrCodeFailed = ref(false)
 
 const payment = computed(() => data.value?.payment || null)
 const promise = computed(() => paymentStatus.value?.promise || payment.value?.promise || null)
-const redirectUrl = computed(() => data.value?.redirect_url || null)
+const trackingUrl = computed(() => payment.value?.tracking_url || (orderRef.value ? `/tracking/${orderRef.value}` : null))
 const pixQrCodeSource = computed(() => payment.value?.pix_qr_code || '')
+const paymentSurfaceActions = computed(() => payment.value?.actions || [])
+const mockConfirmPaymentAction = computed(() =>
+  paymentSurfaceActions.value.find(action => action.ref === 'mock_confirm_payment' && action.enabled !== false) || null
+)
+
+function actionablePaymentActions (paymentPromise?: PaymentPromiseProjection | null): SurfaceActionProjection[] {
+  return (paymentPromise?.actions || []).filter(action =>
+    action.enabled !== false
+    && action.ref !== 'track_order'
+  )
+}
+
+const activePaymentActions = computed(() => actionablePaymentActions(promise.value))
+const hasPendingPaymentAction = computed(() => activePaymentActions.value.length > 0)
+const redirectAction = computed(() =>
+  activePaymentActions.value.find(action =>
+    action.kind === 'external'
+    || action.ref === 'authorize_card'
+    || action.ref === 'pay_card'
+  ) || null
+)
+const redirectUrl = computed(() => data.value?.redirect_url || (!hasPendingPaymentAction.value ? trackingUrl.value : null) || null)
+const canRedirectToCardCheckout = computed(() => {
+  const currentPayment = payment.value
+  const action = redirectAction.value
+  return Boolean(
+    currentPayment?.method === 'card'
+    && action
+    && (action.href || currentPayment.checkout_url)
+  )
+})
 const hasRenderablePixQrCode = computed(() => isRenderablePixQrCode(pixQrCodeSource.value))
 const shouldShowPixQrCode = computed(() => Boolean(hasRenderablePixQrCode.value && !pixQrCodeFailed.value))
 const initialRateLimitRecovery = computed(() => {
@@ -72,6 +104,10 @@ function formatDeadline (deadline: string | null | undefined) {
 
 function statusCodeFromError (err: any): number | null {
   return err?.response?.status || err?.statusCode || err?.status || null
+}
+
+function mutationUrl (action: SurfaceActionProjection, fallback: string): string {
+  return apiPath(action.href || fallback)
 }
 
 function rateLimitFromError (err: any) {
@@ -161,13 +197,14 @@ async function pollStatus () {
   statusError.value = ''
   rateLimitRecovery.value = null
   try {
-    const status = await $fetch<PaymentStatusResponse>(apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/status/`), {
+    const statusUrl = payment.value.status_url || `/api/v1/payment/${encodeURIComponent(orderRef.value)}/status/`
+    const status = await $fetch<PaymentStatusResponse>(apiPath(statusUrl), {
       credentials: 'include'
     })
     paymentStatus.value = status
     pollFailures.value = 0
     markStatusChecked()
-    if (status.is_terminal && status.redirect_url) {
+    if ((status.should_redirect || status.is_terminal || actionablePaymentActions(status.promise).length === 0) && status.redirect_url) {
       await navigateTo(status.redirect_url)
     }
   } catch (err: any) {
@@ -186,14 +223,21 @@ async function refreshPayment () {
 }
 
 async function mockConfirm () {
-  if (!payment.value?.can_mock_confirm || actionPending.value) return
+  const action = mockConfirmPaymentAction.value
+  if (!action || actionPending.value) return
   actionPending.value = true
+  const requestId = newRemoteMutationKey('web-payment-mock-confirm')
   try {
-    const response = await $fetch<{ redirect_url: string }>(apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/mock-confirm/`), {
-      method: 'POST',
-      credentials: 'include'
-    })
-    await navigateTo(response.redirect_url || `/tracking/${orderRef.value}`)
+    const response = await $fetch<{ redirect_url: string }>(
+      mutationUrl(action, `/api/v1/payment/${encodeURIComponent(orderRef.value)}/mock-confirm/`),
+      {
+        method: action.method || 'POST',
+        headers: { ...(await csrfHeaders()), 'Idempotency-Key': requestId },
+        credentials: 'include',
+        body: { idempotency_key: requestId }
+      }
+    )
+    await navigateTo(response.redirect_url || trackingUrl.value || `/tracking/${orderRef.value}`)
   } catch (err: any) {
     if (!rateLimitFromError(err)) {
       statusError.value = operationalCopy.payment.mockConfirmFailed
@@ -237,7 +281,7 @@ useHead(() => ({
       variant="soft"
       title="Pagamento não encontrado"
       description="Confira o link do pedido ou acompanhe pela página do pedido."
-      :actions="[{ label: 'Acompanhar pedido', to: `/tracking/${orderRef}` }]"
+      :actions="[{ label: 'Acompanhar pedido', to: trackingUrl || `/tracking/${orderRef}` }]"
     />
 
     <section v-else-if="payment && promise" class="grid gap-6">
@@ -250,7 +294,7 @@ useHead(() => ({
             <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">Pedido {{ payment.order_ref }}</h1>
             <p class="mt-2 text-sm leading-relaxed text-muted sm:text-base">{{ payment.total_display }}</p>
           </div>
-          <UButton label="Acompanhar" :to="`/tracking/${payment.order_ref}`" color="neutral" variant="outline" />
+          <UButton label="Acompanhar" :to="payment.tracking_url" color="neutral" variant="outline" />
         </div>
       </div>
 
@@ -324,11 +368,11 @@ useHead(() => ({
             color="warning"
             variant="soft"
             title="PIX ainda não está pronto"
-            description="Estamos aguardando a confirmação da casa ou do gateway."
+            description="Estamos aguardando a confirmação operacional ou do gateway."
           />
 
           <div v-if="payment.pix_copy_paste" class="w-full grid gap-2">
-            <UTextarea :model-value="payment.pix_copy_paste" readonly :rows="3" aria-label="Código PIX copia e cola" />
+            <UTextarea :model-value="payment.pix_copy_paste" readonly :rows="3" aria-label="Código PIX copia e cola" class="w-full" />
             <UButton
               block
               :label="copied ? 'Código copiado' : 'Copiar código PIX'"
@@ -355,11 +399,11 @@ useHead(() => ({
         <div class="grid gap-4">
           <p class="text-sm text-muted">{{ promise.next_event || promise.recovery }}</p>
           <UButton
-            v-if="payment.checkout_url"
-            :to="payment.checkout_url"
+            v-if="canRedirectToCardCheckout"
+            :to="redirectAction?.href || payment.checkout_url"
             target="_blank"
             rel="noopener"
-            label="Abrir pagamento com cartão"
+            :label="redirectAction?.label || 'Pagar com cartão'"
           />
         </div>
       </UCard>
@@ -369,8 +413,8 @@ useHead(() => ({
           <p v-if="promise.recovery" class="text-sm text-muted">{{ promise.recovery }}</p>
           <div class="flex flex-wrap gap-2">
             <UButton label="Atualizar status" color="neutral" variant="outline" @click="pollStatus" />
-            <UButton v-if="payment.can_mock_confirm" label="Confirmar pagamento teste" color="success" variant="soft" :loading="actionPending" @click="mockConfirm" />
-            <UButton label="Voltar ao pedido" color="neutral" variant="ghost" :to="`/tracking/${payment.order_ref}`" />
+            <UButton v-if="mockConfirmPaymentAction && hasPendingPaymentAction" :label="mockConfirmPaymentAction.label || 'Confirmar pagamento teste'" color="success" variant="soft" :loading="actionPending" @click="mockConfirm" />
+            <UButton label="Voltar ao pedido" color="neutral" variant="ghost" :to="payment.tracking_url" />
           </div>
           <p v-if="lastStatusCheckedAt" class="text-xs text-muted">Status atualizado às {{ lastStatusCheckedAt }}.</p>
         </div>

@@ -42,6 +42,8 @@ class ShopmanChannelManager(DefaultChannelManager):
             order = Order.objects.filter(ref=order_ref).first()
             if order is None:
                 return False
+            if order_ref in set(getattr(user, "_shopman_order_sse_refs", ()) or ()):
+                return True
             return customer_orders.user_can_access_order(user, order)
         except Exception:
             logger.warning("eventstream_order_permission_failed order=%s", order_ref, exc_info=True)

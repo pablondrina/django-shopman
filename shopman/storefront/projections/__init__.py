@@ -23,9 +23,11 @@ from .catalog import (
 )
 from .checkout import CheckoutProjection, build_checkout
 from .home import (
+    AuthCopyProjection,
     CopyEntryProjection,
     HomeHeroCopyProjection,
     HomeProjection,
+    HomeSectionsCopyProjection,
     LastOrderItemProjection,
     OmotenashiProjection,
     OpeningHoursEntry,
@@ -37,6 +39,7 @@ from .order_history import OrderHistoryProjection, build_order_history
 from .order_tracking import (
     OrderTrackingProjection,
     OrderTrackingPromiseProjection,
+    OrderTrackingPromiseRowProjection,
     OrderTrackingStatusProjection,
     PickupInfoProjection,
     build_order_tracking,
@@ -58,6 +61,7 @@ from .shop import ShopProjection, SocialLinkProjection, build_shop_projection
 
 __all__ = [
     "AllergenInfoProjection",
+    "AuthCopyProjection",
     "CartItemProjection",
     "CartProjection",
     "CatalogItemProjection",
@@ -70,6 +74,7 @@ __all__ = [
     "DiscountLineProjection",
     "HomeHeroCopyProjection",
     "HomeProjection",
+    "HomeSectionsCopyProjection",
     "LastOrderItemProjection",
     "LoyaltyProjection",
     "LoyaltyTransactionProjection",
@@ -80,6 +85,7 @@ __all__ = [
     "OrderHistoryProjection",
     "OrderTrackingProjection",
     "OrderTrackingPromiseProjection",
+    "OrderTrackingPromiseRowProjection",
     "OrderTrackingStatusProjection",
     "PaymentProjection",
     "PaymentStatusProjection",

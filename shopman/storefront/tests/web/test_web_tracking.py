@@ -5,13 +5,14 @@ import json
 from unittest.mock import patch
 
 import pytest
-from django.test import Client
+from django.test import Client, override_settings
 from django.utils import timezone
 from shopman.orderman.models import Session
 
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.tests.web.conftest import (
     _ensure_listing_item,
+    _grant_order_access,
     _seed_stock_for_product_sku,
 )
 
@@ -188,8 +189,16 @@ class TestTrackingApi:
         assert data["ref"] == order_items.ref
         assert data["status"] == "new"
         assert data["is_active"] is True
-        assert isinstance(data["can_cancel"], bool)
+        assert "can_cancel" not in data
+        assert any(action["ref"] == "cancel_order" for action in data["actions"])
         assert data["promise"]["title"]
+        assert isinstance(data["promise_rows"], list)
+        assert data["promise_rows"][-1] == {
+            "label": "Última atualização",
+            "value": "Atualizado agora",
+            "url": None,
+        }
+        assert data["promise_deadline_label"] == "Prazo"
         assert isinstance(data["progress_steps"], list)
         assert data["items"][0]["sku"] == "PAO-FRANCES"
         assert "payment_pending" in data
@@ -220,6 +229,125 @@ class TestTrackingApi:
         assert data["payment_gate_url"] == f"/pedido/{order_with_payment.ref}/pagamento"
         assert data["payment_pending"] is True
 
+    @override_settings(DEBUG=True)
+    def test_tracking_api_exposes_dev_mock_payment_capture_for_authorized_card(
+        self,
+        client: Client,
+        channel,
+    ):
+        from shopman.orderman.models import Order
+        from shopman.payman import PaymentService
+
+        order = Order.objects.create(
+            ref="ORD-CARD-AUTH-MOCK-CAPTURE",
+            channel_ref=channel.ref,
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={"payment": {"method": "card", "amount_q": 1500}},
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+            gateway="mock",
+        )
+        PaymentService.authorize(intent.ref)
+        order.data["payment"] = {"method": "card", "amount_q": 1500, "intent_ref": intent.ref}
+        order.save(update_fields=["data", "updated_at"])
+        _grant_order_access(client, order.ref)
+
+        resp = client.get(f"/api/v1/tracking/{order.ref}/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["payment_status"] == "Pagamento autorizado"
+        assert any(action["ref"] == "mock_confirm_payment" for action in data["actions"])
+
+    @override_settings(
+        SHOPMAN_PAYMENT_ADAPTERS={
+            "pix": "shopman.shop.adapters.payment_mock",
+            "card": "shopman.shop.adapters.payment_mock",
+            "cash": None,
+            "external": None,
+        },
+    )
+    @pytest.mark.django_db(transaction=True)
+    def test_tracking_api_resolves_due_auto_confirm_and_captures_authorized_card(
+        self,
+        client: Client,
+        channel,
+    ):
+        from shopman.orderman.models import Directive, Order
+        from shopman.payman import PaymentService
+        from shopman.payman.models import PaymentTransaction
+
+        channel.config = {
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 10},
+        }
+        channel.save(update_fields=["config"])
+        order = Order.objects.create(
+            ref="ORD-CARD-DUE-CONFIRM",
+            channel_ref=channel.ref,
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={
+                "payment": {"method": "card", "amount_q": 1500},
+                "availability_decision": {
+                    "approved": True,
+                    "decisions": [{"sku": "PAO-FRANCES"}],
+                },
+            },
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+            gateway="mock",
+        )
+        PaymentService.authorize(intent.ref)
+        order.data["payment"] = {"method": "card", "amount_q": 1500, "intent_ref": intent.ref}
+        order.save(update_fields=["data", "updated_at"])
+        _grant_order_access(client, order.ref)
+        due_at = timezone.now() - timezone.timedelta(minutes=1)
+        directive = Directive.objects.create(
+            topic="confirmation.timeout",
+            payload={
+                "order_ref": order.ref,
+                "action": "confirm",
+                "expires_at": due_at.isoformat(),
+            },
+            available_at=due_at,
+        )
+        payment_directive = Directive.objects.create(
+            topic="payment.timeout",
+            payload={
+                "order_ref": order.ref,
+                "intent_ref": intent.ref,
+                "expires_at": due_at.isoformat(),
+            },
+            available_at=due_at,
+        )
+
+        resp = client.get(f"/api/v1/tracking/{order.ref}/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "confirmed"
+        assert data["payment_status"] == "Pagamento confirmado"
+        assert all(action["ref"] != "mock_confirm_payment" for action in data["actions"])
+        intent.refresh_from_db()
+        directive.refresh_from_db()
+        payment_directive.refresh_from_db()
+        assert intent.status == "captured"
+        assert directive.status == "done"
+        assert payment_directive.status == "done"
+        assert PaymentTransaction.objects.filter(intent=intent, type="capture").exists()
+
     def test_tracking_api_cancel_blocks_non_cancellable_paid_order(
         self, client: Client, order_paid,
     ):
@@ -239,7 +367,8 @@ class TestTrackingApi:
         data = resp.json()
         assert data["status"] == "cancelled"
         assert data["is_active"] is False
-        assert data["can_cancel"] is False
+        assert all(action["ref"] != "cancel_order" for action in data["actions"])
+        assert any(action["ref"] == "reorder" for action in data["actions"])
         order.refresh_from_db()
         assert order.status == "cancelled"
 

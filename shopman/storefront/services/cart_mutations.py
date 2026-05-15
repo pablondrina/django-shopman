@@ -1,4 +1,4 @@
-"""Cart mutation commands shared by Django and API storefront surfaces."""
+"""Cart mutations shared by Django and API storefront surfaces."""
 
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ from shopman.storefront.intents.types import SetQtyIntent
 MAX_CART_LINE_QTY = 99
 
 
-class CartCommandNotFound(Exception):
-    """Raised when a SKU cannot be resolved for a cart command."""
+class CartMutationNotFound(Exception):
+    """Raised when a SKU cannot be resolved for a cart mutation."""
 
 
-class CartCommandUnavailable(Exception):
-    """Raised when the server refuses a cart command for stock reasons."""
+class CartMutationUnavailable(Exception):
+    """Raised when the server refuses a cart mutation for stock reasons."""
 
     def __init__(self, *, product, stock_error: CartUnavailableError):
         super().__init__(str(stock_error))
@@ -33,8 +33,8 @@ class CartCommandUnavailable(Exception):
 
 
 @dataclass(frozen=True)
-class CartCommandOutcome:
-    """Result of one set-qty command."""
+class CartMutationOutcome:
+    """Result of one set-qty mutation."""
 
     intent: SetQtyIntent
     cart: dict[str, Any]
@@ -58,19 +58,19 @@ def set_qty_by_sku(
     sku: str,
     qty: int,
     perf=None,
-) -> CartCommandOutcome:
+) -> CartMutationOutcome:
     """Set absolute cart quantity for one SKU.
 
-    This is the canonical mutation command for product-card, PDP and cart
-    steppers. It keeps the server authoritative for price, holds and stock while
-    letting different surfaces share the same action semantics.
+    This is the canonical cart mutation for product-card, PDP and cart steppers.
+    It keeps the server authoritative for price, holds and stock while letting
+    different surfaces share the same action semantics.
     """
     with _perf_step(perf, "cart_read"):
         cart = CartService.get_cart_summary(request, include_items=True)
     with _perf_step(perf, "intent"):
         result = interpret_set_qty(sku, qty, cart)
     if result.error_type == "not_found" or result.intent is None:
-        raise CartCommandNotFound(sku)
+        raise CartMutationNotFound(sku)
 
     intent = result.intent
     mutated_session = None
@@ -99,7 +99,7 @@ def set_qty_by_sku(
                     is_d1=intent.is_d1,
                 )
     except CartUnavailableError as exc:
-        raise CartCommandUnavailable(product=intent.product, stock_error=exc) from exc
+        raise CartMutationUnavailable(product=intent.product, stock_error=exc) from exc
 
     with _perf_step(perf, "payload"):
         if mutated_session is not None:
@@ -109,12 +109,12 @@ def set_qty_by_sku(
             )
         else:
             cart = CartService.get_cart_summary(request, include_items=True)
-        payload = cart_command_payload(intent, cart)
-    return CartCommandOutcome(intent=intent, cart=cart, payload=payload)
+        payload = cart_mutation_payload(intent, cart)
+    return CartMutationOutcome(intent=intent, cart=cart, payload=payload)
 
 
-def cart_command_payload(intent: SetQtyIntent, cart: dict[str, Any]) -> dict[str, Any]:
-    """Compact command response for immediate UI reconciliation."""
+def cart_mutation_payload(intent: SetQtyIntent, cart: dict[str, Any]) -> dict[str, Any]:
+    """Compact mutation response for immediate UI reconciliation."""
     subtotal_q = int(cart.get("subtotal_q", 0) or 0)
     min_order = minimum_order_progress(
         subtotal_q,

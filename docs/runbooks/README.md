@@ -19,4 +19,4 @@ operador nao executa Docker diretamente: use os wrappers `make`.
 - [Directive worker parado](directive-worker-parado.md)
 - [Estoque divergente](estoque-divergente.md)
 - [Loja aberta/fechada em estado errado](loja-estado-incorreto.md)
-
+- [Pedido remoto preso](pedido-remoto-preso.md)

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import type { ShopProjection } from '~/types/shopman'
+import type { HomeSectionsCopyProjection, ShopProjection } from '~/types/shopman'
 
-const props = defineProps<{ shop: ShopProjection }>()
+const props = defineProps<{
+  shop: ShopProjection
+  copy: HomeSectionsCopyProjection
+}>()
 
 const show = computed(() => !!props.shop.whatsapp_url)
 </script>
@@ -23,11 +26,11 @@ const show = computed(() => !!props.shop.whatsapp_url)
       </template>
 
       <template #title>
-        Prefere conversar?
+        {{ copy.whatsapp_cta.title }}
       </template>
 
       <template #description>
-        Canal direto com a casa para dúvidas, encomendas e atendimento do pedido.
+        {{ copy.whatsapp_cta.message }}
       </template>
 
       <div class="flex justify-end">
@@ -35,7 +38,7 @@ const show = computed(() => !!props.shop.whatsapp_url)
           :to="shop.whatsapp_url"
           target="_blank"
           rel="noopener"
-          label="Chamar no WhatsApp"
+          :label="copy.whatsapp_cta_label.title"
           color="success"
           variant="solid"
           size="xl"

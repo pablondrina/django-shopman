@@ -2,15 +2,16 @@
 
 **Status:** plano de acao; nao implementar antes de aprovacao explicita  
 **Data:** 2026-05-14  
-**Escopo:** storefront Nuxt v4 como porte canonico da superficie Django/Penguin  
-**Fonte canonica:** `shopman/storefront/templates/storefront`, projections/API em `shopman/storefront`, contrato em `docs/reference/storefront-surface-parity-contract.md`  
+**Escopo:** storefront Nuxt v4 como porte da referencia madura Django/Penguin
+**Canon:** projections/API/backend em `shopman/storefront`, core/orquestrador Shopman e contrato em `docs/reference/storefront-surface-parity-contract.md`
+**Referencia de implementacao:** `shopman/storefront/templates/storefront` e fluxos Django/Penguin, apenas para descoberta de paridade de UX/copy/recovery
 **Alvo:** `surfaces/storefront-nuxt`
 
 ## Regra de execucao
 
-- Django/Penguin e a superficie canonica. Nuxt e adaptador visual/UX sobre contracts, projections e endpoints existentes.
+- Django/Penguin e referencia de implementacao completa/madura, nao canon de dominio. Nuxt e adaptador visual/UX sobre contratos, projections e endpoints existentes.
 - Nao criar alias, rotas duplicadas ou camada de compatibilidade ad hoc. Quando uma URL publica precisar existir, ela deve ser a unica rota publica daquela tela. Arquivos/codigo em ingles; URL publica em portugues somente via `definePageMeta({ path })`.
-- Nao inventar promessa operacional em copy. Texto sobre disponibilidade, horario, pagamento, preparo, entrega, tracking e recuperacao deve vir de projection/backend ou de fonte canonica documentada.
+- Nao inventar promessa operacional em copy. Texto sobre disponibilidade, horario, pagamento, preparo, entrega, tracking e recuperacao deve vir de projection/backend ou, enquanto o contrato backend nao existir, da referencia Django/Penguin como material de descoberta.
 - Toda acao destrutiva ou sensivel precisa de confirmacao proporcional ao risco, foco acessivel e estado final reconciliado com backend.
 - Cada WP deve adicionar ou ajustar testes antes/junto da implementacao. P0/P1 sem teste automatizado bloqueia.
 - Browser local e obrigatorio para WPs com UI. Rodar em `http://127.0.0.1:3000` com Django em `http://127.0.0.1:8000`.
@@ -55,7 +56,7 @@
 - Cada P0/P1 relevante para o Nuxt com teste ou verificacao estatica explicita.
 - Guardrail "sem alias/compatibilidade": page files em ingles, URLs publicas canonicas, sem `alias:` e sem rotas inglesas paralelas.
 - Guardrail de actions sensiveis: logout, trocar conta, excluir conta, revogar dispositivo, excluir endereco, cancelar pedido, liberar reserva e substituir carrinho por reorder.
-- Guardrail de copy factual: frases operacionais proibidas/local-only mapeadas para projection ou fonte canonica.
+- Guardrail de copy factual: frases operacionais proibidas/local-only mapeadas para projection/backend ou referencia Django/Penguin documentada.
 
 **Aceite:**
 
@@ -69,7 +70,7 @@
 Estamos no repo django-shopman. Antes de implementar novas correcoes no storefront Nuxt v4, endureca o baseline executavel de paridade.
 
 Contexto:
-- Django/Penguin e a fonte canonica do porte.
+- Django/Penguin e referencia de implementacao madura do porte; o canon e projection/API/backend.
 - O contrato esta em docs/reference/storefront-surface-parity-contract.md.
 - O ledger esta em docs/reference/storefront-surface-porting-ledger.json.
 - A suite de paridade esta em shopman/storefront/tests/test_storefront_nuxt_parity_contract.py.
@@ -78,13 +79,13 @@ Contexto:
 Tarefa:
 1. Mapeie todos os IDs P0/P1 ainda sem teste explicito no arquivo de paridade.
 2. Adicione guardrails para CHECKOUT-PAYLOAD-001, REORDER-001, COPY-FACT-001, A11Y-ACTION-001 e AUTH-SESSION-002.
-3. Garanta que o ledger aponta para fontes canonicas, backend contracts, arquivos Nuxt e verificacoes existentes.
+3. Garanta que o ledger aponta para referencias de implementacao, backend contracts, arquivos Nuxt e verificacoes existentes.
 4. Nao implemente comportamento de produto neste WP; apenas contratos, testes e ledger.
 
 Aceite:
 - python -m pytest shopman/storefront/tests/test_storefront_nuxt_parity_contract.py -q passa.
 - O teste falha se houver alias de rota, page file em portugues, rota inglesa publica paralela ou acao sensivel sem confirmacao.
-- O teste falha se copy operacional local inventada nao estiver coberta por projection/fonte canonica.
+- O teste falha se copy operacional local inventada nao estiver coberta por projection/backend ou referencia Django/Penguin documentada.
 ```
 
 ## WP-01 - Auth, trust device, access links e welcome gate
@@ -135,10 +136,10 @@ Aceite:
 **Prompt autocontido:**
 
 ```text
-Implemente a paridade de auth do storefront Nuxt v4 com a superficie Django/Penguin.
+Implemente a paridade de auth do storefront Nuxt v4 usando Django/Penguin como referencia madura de UX/fluxo.
 
 Contexto:
-- Django/Penguin e canonico. Nao invente fluxo novo.
+- Django/Penguin nao e canon de dominio; e referencia de implementacao. Nao invente fluxo novo quando projection/API/backend ou a referencia madura ja cobrem o caso.
 - Nuxt login atual: surfaces/storefront-nuxt/app/pages/login.vue.
 - Estado de sessao Nuxt: useShopSession.ts, AppHeader.vue, ShopBottomTabs.vue.
 - Backend API: shopman/storefront/api/auth.py e shopman/storefront/api/urls.py.
@@ -289,7 +290,7 @@ Endureca o checkout Nuxt v4 para paridade transacional com Django/Penguin.
 Contexto:
 - Nuxt checkout: surfaces/storefront-nuxt/app/pages/checkout.vue.
 - Backend contrato: shopman/storefront/api/views.py, api/serializers.py, projections/checkout.py.
-- Penguin canonico: templates/storefront/checkout.html, partials/checkout_order_summary.html, components/date_picker.html, partials/address_picker.html.
+- Referencia Penguin: templates/storefront/checkout.html, partials/checkout_order_summary.html, components/date_picker.html, partials/address_picker.html.
 - Contratos: CHECKOUT-IDEMP-001, CHECKOUT-PAYLOAD-001, CHECKOUT-SWITCH-ACCOUNT-001, CHECKOUT-STEP-INVARIANTS-001, RATE-LIMIT-RECOVERY-001.
 
 Tarefa:
@@ -561,11 +562,11 @@ Aceite:
 **Prompt autocontido:**
 
 ```text
-Refatore a copy operacional do storefront Nuxt para seguir a fonte canonica e o framework de omotenashi do projeto.
+Refatore a copy operacional do storefront Nuxt para seguir projections/backend, o framework de omotenashi do projeto e a referencia Django/Penguin quando ainda nao houver contrato backend.
 
 Contexto:
 - Copy Nuxt esta em surfaces/storefront-nuxt/app/pages e components.
-- Fonte canonica anterior esta em shopman/storefront/templates/storefront e partials.
+- Referencia anterior esta em shopman/storefront/templates/storefront e partials; ela nao e canon de dominio.
 - Frameworks: docs/reference/omotenashi-audit-framework.md, design-surface-filter.md, surface-excellence-review-framework.md.
 - Contratos: COPY-SOURCE-001 e COPY-FACT-001.
 - O objetivo nao e deixar texto fofo; e ser factual, elegante e util.
@@ -694,7 +695,7 @@ Complete PWA, offline, gestos e haptic do storefront Nuxt em paridade com Django
 
 Contexto:
 - Nuxt PWA atual: server/routes/manifest.json.get.ts, sw.js.get.ts, app/pages/offline.vue, plugins/service-worker.client.ts.
-- Penguin canonico: shopman/storefront/views/pwa.py, templates/storefront/offline.html, static/js/gestures.js, static/storefront/js/haptic.js.
+- Referencia Penguin: shopman/storefront/views/pwa.py, templates/storefront/offline.html, static/js/gestures.js, static/storefront/js/haptic.js.
 - Contratos: PWA-OFFLINE-001 e MOBILE-GESTURES-HAPTIC-001.
 
 Tarefa:

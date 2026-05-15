@@ -37,8 +37,7 @@ urlpatterns = [
     # SSE: per-order status push
     path(
         "pedido/<str:ref>/events/",
-        eventstream_view,
-        {"format-channels": ["order-{ref}"]},
+        views.OrderEventsView.as_view(),
         name="order_events",
     ),
     # Per-SKU availability badge

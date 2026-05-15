@@ -1,4 +1,4 @@
-"""Cart command facade.
+"""Cart mutation facade.
 
 Storefront owns HTTP/session concerns and cart presentation. This module owns
 the writes against Orderman sessions and Stockman holds for cart mutations.
@@ -54,7 +54,7 @@ def get_or_create_session(
     channel_ref: str,
     origin_channel: str,
 ) -> tuple[Session, str]:
-    """Return an open session key for cart commands."""
+    """Return an open session key for cart mutations."""
     if session_key:
         session = get_open_session(session_key=session_key, channel_ref=channel_ref)
         if session is not None:

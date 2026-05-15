@@ -90,6 +90,30 @@ class MockPixConfirmationTests(TestCase):
         self.assertEqual(payload["qrcode"], payload["brcode"])
         self.assertEqual(payload["imagemQrcode"], qr_image)
 
+    def test_mock_card_intent_does_not_inherit_pix_deadline_or_qr(self) -> None:
+        order = Order.objects.create(
+            ref="CARD-MOCK-NO-PIX",
+            channel_ref="web",
+            status="new",
+            total_q=1500,
+            data={"payment": {"method": "card"}},
+        )
+
+        intent = payment_mock.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+        )
+
+        persisted = PaymentService.get(intent.intent_ref)
+        self.assertEqual(persisted.status, "authorized")
+        self.assertIsNone(persisted.expires_at)
+        self.assertIsNone(intent.expires_at)
+        self.assertIsNone(intent.client_secret)
+        self.assertNotIn("qrcode", intent.metadata)
+        self.assertNotIn("brcode", intent.metadata)
+        self.assertNotIn("imagemQrcode", intent.metadata)
+
     def test_mock_pix_directive_captures_mock_gateway_intent(self) -> None:
         from shopman.backstage.models import OperatorAlert
 

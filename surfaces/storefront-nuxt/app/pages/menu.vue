@@ -3,7 +3,7 @@ import type {
   CatalogItemProjection,
   CatalogSectionProjection,
   MenuResponse,
-  ProductCommandMeta
+  ProductMutationMeta
 } from '~/types/shopman'
 
 type UiColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
@@ -59,7 +59,7 @@ function matchesSearch (item: CatalogItemProjection, section: CatalogSectionProj
   ].filter(Boolean).join(' ')).includes(query)
 }
 
-function itemMeta (item: CatalogItemProjection): ProductCommandMeta {
+function itemMeta (item: CatalogItemProjection): ProductMutationMeta {
   return { sku: item.sku, name: item.name, price_q: item.base_price_q, price_display: item.price_display, image_url: item.image_url }
 }
 
@@ -200,7 +200,7 @@ useSeoMeta({
   title: 'Cardápio',
   description: () => catalog.value?.has_items
     ? `Cardápio com ${catalog.value.items.length} itens disponíveis para pedido.`
-    : 'Cardápio da casa.'
+    : 'Cardápio publicado pela loja.'
 })
 </script>
 
@@ -283,7 +283,7 @@ useSeoMeta({
                   :aria-label="`Ver ${heroItem.name}`"
                 >
                   <img v-if="heroItem.image_url" :src="heroItem.image_url" :alt="heroItem.name" loading="lazy" decoding="async" sizes="96px" class="size-full object-cover">
-                  <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-8 text-white/60" />
+                  <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-8 text-white/60" />
                 </NuxtLink>
                 <div class="min-w-0 flex-1">
                   <div class="mb-2 flex flex-wrap gap-2">
@@ -397,6 +397,7 @@ useSeoMeta({
                   size="lg"
                   placeholder="Buscar no cardápio..."
                   aria-label="Buscar no cardápio"
+                  class="w-full"
                 >
                   <template #trailing>
                     <UButton

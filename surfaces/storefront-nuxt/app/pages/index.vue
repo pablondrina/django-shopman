@@ -99,10 +99,10 @@ useSeoMeta({
     <template v-else-if="home">
       <HeroCarousel :home="home" />
       <ContextualBanners :home="home" />
-      <HotFromOven :items="home.featured_items" />
-      <TomorrowHook :omotenashi="home.omotenashi" />
-      <HowItWorks :opening-hours="home.opening_hours" />
-      <WhatsappCta :shop="home.shop" />
+      <HotFromOven :items="home.featured_items" :copy="home.sections_copy" />
+      <TomorrowHook :omotenashi="home.omotenashi" :copy="home.sections_copy" />
+      <HowItWorks :opening-hours="home.opening_hours" :copy="home.sections_copy" />
+      <WhatsappCta :shop="home.shop" :copy="home.sections_copy" />
     </template>
   </div>
 </template>

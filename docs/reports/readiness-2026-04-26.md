@@ -10,14 +10,14 @@ Out of scope by project decision:
 - production deployment execution;
 - provider/topology decisions;
 - committing local helper artifacts such as `ANALYSIS-2026-04-25.md` and
-  `start_server.command`.
+  the local server launcher script.
 
 ## Architecture State
 
 - Kernel packages remain independent from host/orchestrator/surface layers.
 - Storefront views, APIs, intents, services, and projections now route kernel
-  domain reads/commands through `shopman.shop.services.*`.
-- Backstage views delegate POS, KDS, production, and order lifecycle commands to
+  domain reads/mutations through `shopman.shop.services.*`.
+- Backstage views delegate POS, KDS, production, and order lifecycle mutations to
   shop-level services.
 - `Channel.kind` and concrete `Flow` classes are not runtime concepts in active
   code. Remaining `Flow` strings are unrelated names such as ManyChat
@@ -32,7 +32,7 @@ Out of scope by project decision:
   WhatsApp, Meta/IG adapters.
 - `customer_context`: customer/address/loyalty/consent/preference read boundary.
 - `customer_orders`: customer-facing order history, reorder, cancellation, and
-  payment command/read boundary.
+  payment mutation/read boundary.
 - `order_tracking`, `order_confirmation`, `payment_status`: customer-facing
   read models for tracking, confirmation, and payment.
 - `storefront_context`: storefront pricing, happy hour, minimum order, freshness,

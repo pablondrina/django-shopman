@@ -1,23 +1,52 @@
 # Storefront Surface Parity Contract
 
 Status: contrato executavel de porte de superficie
-Data-base: 2026-05-14
-Superficies: storefront Django/Penguin, storefront Nuxt v4 e futuras superficies mobile-first.
+Data-base: 2026-05-15
+Superficies: storefront Django/Penguin, storefront Nuxt v4, Ionic e futuras superficies mobile-first.
 
-Este documento existe para impedir que um porte de superficie preserve apenas layout e payloads, mas perca comportamento operacional. A fonte canônica inicial e a superfície Django/Penguin ja desenvolvida; Nuxt, Ionic ou qualquer outra camada externa sao adaptadores.
+Este documento existe para impedir que um porte de superficie preserve apenas layout e payloads, mas perca comportamento operacional.
+
+Django/Penguin foi a primeira referencia de implementacao completa e madura da storefront. Ele deve ser usado para descobrir casos de UX, copy, recuperacao e interacao que ainda nao estejam bem expressos em contrato. Ele nao e o canon de dominio.
+
+O canon de pedido remoto multi-superficie e Shopman core/orquestrador: Orderman, Payman, Stockman, Guestman, Doorman, ChannelConfig, Directives, services, projections e contratos documentados. Nuxt, Ionic, ManyChat e Django/Penguin sao superficies/adaptadores que consomem Projection com Actions resolvidas pelo backend. ChannelPolicyResolution e insumo interno de policy/resolution, nao volante publico de UX.
 
 A ledger executavel fica em `docs/reference/storefront-surface-porting-ledger.json`. Ela mapeia rota/fluxo para:
 
-- fonte canônica anterior;
+- referencia de implementacao anterior, quando util para paridade de UX;
 - projection/API/backend responsavel pelo contrato;
 - alvo Nuxt atual;
 - teste ou verificacao que bloqueia regressao.
+
+## Contrato API para Nuxt e Ionic
+
+Nuxt e Ionic devem consumir os mesmos endpoints/projections backend. Ionic nao
+deve criar backend BFF separado nem copiar regra de availability, pagamento,
+status, timers ou policy crua. Quando houver decisao acionavel, a superficie
+deve renderizar Action vinda da Projection em vez de derivar CTA por regra local.
+
+| Fluxo | Endpoint canonico | Projection/contrato |
+| --- | --- | --- |
+| Home/menu/produto | `/api/v1/storefront/home/`, `/api/v1/storefront/menu/`, `/api/v1/storefront/products/{sku}/` | Projections de storefront + cart |
+| Carrinho | `/api/v1/storefront/cart/`, `/api/v1/cart/*` | `CartProjection` e respostas de mutation com cart autoritativo |
+| Checkout | `/api/v1/storefront/checkout/`, `/api/v1/checkout/` | `CheckoutProjection` com opcoes/actions resolvidas; nenhuma policy crua como contrato publico |
+| Tracking | `/api/v1/tracking/{ref}/` | `OrderTrackingProjection` com `promise.actions[]` e `actions[]` para cancelamento, avaliacao e mutacoes de superficie |
+| Pagamento | `/api/v1/payment/{ref}/`, `/api/v1/payment/{ref}/status/` | `PaymentProjection` e `PaymentStatusProjection` |
+| Cancelamento/rating/reorder | `/api/v1/orders/{ref}/cancel/`, `/api/v1/orders/{ref}/rate/`, `/api/v1/orders/{ref}/reorder/` | Actions que chegam ao backend como mutations idempotentes e retornam projection/resultado canonico |
+| Conversa WhatsApp | `/api/v1/orders/{ref}/conversation/` | `RemoteConversationProjection`, consumida por adapter ManyChat |
+
+Tipos de superficie devem refletir esses contratos em
+`surfaces/storefront-nuxt/app/types/shopman.ts`. Uma futura superficie Ionic
+deve reutilizar os mesmos nomes e campos, adaptando apenas componentes,
+navegacao e storage local.
 
 ## Regra de corte
 
 - Qualquer item `P0` ou `P1` sem teste automatizado bloqueia o porte.
 - Qualquer divergencia em identidade de cliente, checkout, pagamento, pedido, estoque, endereco ou sessao autenticada bloqueia release.
-- Copy, microinteracao e omotenashi devem vir da fonte canônica anterior ou de projection/backend. A nova superficie nao deve inventar comportamento nem promessa operacional.
+- Copy, microinteracao e omotenashi devem vir de projection/backend ou, quando ainda nao houver contrato formal, da referencia Django/Penguin apenas como material de descoberta. A nova superficie nao deve inventar comportamento nem promessa operacional.
+- O vocabulario publico de superficie e Projection com Actions: `InteractionContext -> Projection -> canonical node(actions[]) -> Action -> Intent -> Mutation -> Projection`.
+- Mutation idempotente e o unico nome canonico para efeitos acionados por superficies.
+- Nao existe compatibilidade aberta: ponte tecnica existente nao ganha novos consumidores e deve convergir para Projection/Action/Intent/Mutation quando o fluxo for tocado.
 
 ## Identidade e Auth
 
@@ -72,7 +101,7 @@ A ledger executavel fica em `docs/reference/storefront-surface-porting-ledger.js
 | `ORDER-CONFIRMATION-001` | P2 | Rota de confirmacao de pedido, quando usada por canal/fluxo, mostra resumo, ETA, share e tracking sem depender do Django HTML. | Rota/adaptador Nuxt ou decisao documentada de aposentadoria. |
 | `TRACKING-001` | P1 | Tracking usa status canonicos do Orderman e nao inventa estados fora da projection. | Teste de projection/API e static check Nuxt. |
 | `TRACKING-PROMISE-LIVE-001` | P1 | Tracking renderiza deadline, countdown, freshness/stale state, recovery e next_event vindos da projection, alem de SSE/polling. | Teste/API e Browser de tracking ativo. |
-| `TRACKING-RATING-001` | P1 | Pedido entregue permite avaliacao quando `can_rate` vier da projection e mostra agradecimento sem duplicar voto. | Teste de `order_rate` e UI Nuxt. |
+| `TRACKING-RATING-001` | P1 | Pedido entregue permite avaliacao quando `rate_order` vier em `OrderTrackingProjection.actions[]` e mostra agradecimento sem duplicar voto. | Teste de `order_rate` e UI Nuxt. |
 | `REORDER-001` | P1 | Reorder que substitui carrinho explica perda de itens/holds e opera por modo explicito. | Teste de modal/endpoint. |
 | `ORDER-HISTORY-FILTER-001` | P1 | Historico de pedidos preserva filtros `todos`, `ativos`, `anteriores`, status color/label e recompra por pedido. | Teste de order history projection/API e UI Nuxt. |
 | `ACTIVE-ORDER-BADGE-001` | P1 | Navegacao mobile indica pedido ativo periodicamente para cliente autenticado, sem depender de reload manual. | API/route de badge ou summary e Browser mobile. |
@@ -83,7 +112,7 @@ A ledger executavel fica em `docs/reference/storefront-surface-porting-ledger.js
 
 | ID | Severidade | Contrato | Aceite executavel |
 | --- | --- | --- | --- |
-| `COPY-SOURCE-001` | P1 | Copy operacional e omotenashi sao contratos de produto. Nova superficie deve portar a fonte anterior ou consumir copy/projection canônica, nao criar texto paralelo por tela. | Ledger indica fonte anterior; auditoria Browser verifica divergencias relevantes. |
+| `COPY-SOURCE-001` | P1 | Copy operacional e omotenashi sao contratos de produto. Nova superficie deve consumir copy/projection canonica ou portar a referencia Django/Penguin enquanto o contrato backend ainda nao existir; nao deve criar texto paralelo por tela. | Ledger indica referencia anterior e contrato backend; auditoria Browser verifica divergencias relevantes. |
 | `COPY-FACT-001` | P1 | Texto sobre disponibilidade, producao, horario, pagamento ou acompanhamento so pode afirmar o que a projection sustenta. | Teste/revisao por contrato, nao ajuste pontual de frase. |
 
 ## Design e Mobile
@@ -92,13 +121,13 @@ A ledger executavel fica em `docs/reference/storefront-surface-porting-ledger.js
 | --- | --- | --- | --- |
 | `MOBILE-LAYOUT-001` | P1 | Home/menu/PDP/cart/checkout/auth/payment/tracking nao podem ter sobreposicao de controles, pills, inputs ou accordions sem padding em viewport mobile. | Browser screenshot/checklist por rota. |
 | `A11Y-ACTION-001` | P1 | Acoes destrutivas/sensiveis possuem label, confirmacao conforme risco e foco acessivel. | Static test e Browser. |
-| `NUXT-ROUTE-001` | P1 | URLs vindas do backend legado sao convertidas para rotas Nuxt reais, redirect ou anchors validas. | Teste estatico de rotas e Browser sem warning de rota. |
+| `NUXT-ROUTE-001` | P1 | URLs vindas da implementacao Django/Penguin anterior sao convertidas para rotas Nuxt reais, redirect ou anchors validas. | Teste estatico de rotas e Browser sem warning de rota. |
 | `PWA-OFFLINE-001` | P1 | Chrome mobile, safe-area, manifest, service worker e offline fallback mantem a experiencia instalavel/recuperavel da superficie anterior. | Browser/PWA smoke e verificacao de assets gerados. |
 | `MOBILE-GESTURES-HAPTIC-001` | P2 | Gestos mobile de superficie, pull-to-refresh, swipe-to-dismiss e haptic feedback preservam sem bloquear navegacao/acessibilidade. | Browser mobile e fallback sem `navigator.vibrate`. |
 
 ## Processo para nova superficie
 
-1. Criar adaptador visual consumindo as projections existentes.
+1. Criar adaptador visual consumindo as projections/actions existentes.
 2. Rodar a suite de paridade antes de refinar layout.
 3. Auditar Browser nas rotas reais.
 4. Registrar lacunas por ID neste contrato.

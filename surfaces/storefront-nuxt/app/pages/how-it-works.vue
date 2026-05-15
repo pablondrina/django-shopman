@@ -11,6 +11,7 @@ definePageMeta({
 })
 
 const openingHours = computed(() => data.value?.home.opening_hours || [])
+const copy = computed(() => data.value?.home.sections_copy)
 
 useHead({ title: 'Como funciona' })
 useSeoMeta({
@@ -31,5 +32,5 @@ useSeoMeta({
       description="Atualize a página ou volte ao cardápio."
     />
   </UContainer>
-  <HowItWorks v-else :opening-hours="openingHours" />
+  <HowItWorks v-else-if="copy" :opening-hours="openingHours" :copy="copy" />
 </template>

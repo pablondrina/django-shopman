@@ -1,4 +1,4 @@
-"""Customer-facing order reads and commands.
+"""Customer-facing order reads and mutations.
 
 Storefront and API surfaces should use this module instead of importing
 Orderman, Guestman, or Offerman models directly.
@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import ORDER_STATUS_COLORS, ORDER_STATUS_LABELS_PT
@@ -362,6 +364,9 @@ def resolve_payment_timeout_if_due(order) -> bool:
     """Cancel an unpaid digital order when its displayed payment deadline passed."""
     from shopman.orderman.models import Order
 
+    if _resolve_payment_timeout_directive_if_due(order):
+        return True
+
     payment = (order.data or {}).get("payment") or {}
     method = str(payment.get("method") or "").lower()
     if method not in {"pix", "card"}:
@@ -375,6 +380,8 @@ def resolve_payment_timeout_if_due(order) -> bool:
 
     status = str(get_payment_status(order) or payment.get("status") or "").lower()
     if status == "unknown" or payment_service.has_sufficient_captured_payment(order) is True:
+        return False
+    if method == "card" and status == "authorized":
         return False
 
     payment_service.cancel(order, reason="payment_timeout")
@@ -392,6 +399,101 @@ def resolve_payment_timeout_if_due(order) -> bool:
         notification.send(order, "payment_expired")
         order.refresh_from_db()
     return cancelled
+
+
+def resolve_confirmation_timeout_if_due(order) -> bool:
+    """Resolve an overdue store-confirmation timeout without requiring a worker."""
+    from shopman.shop.directives import CONFIRMATION_TIMEOUT
+    from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+
+    return _resolve_due_directive_for_order(
+        order,
+        topic=CONFIRMATION_TIMEOUT,
+        handler=ConfirmationTimeoutHandler(),
+        log_name="confirmation_timeout",
+    )
+
+
+def _resolve_payment_timeout_directive_if_due(order) -> bool:
+    from shopman.shop.directives import PAYMENT_TIMEOUT
+    from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
+
+    return _resolve_due_directive_for_order(
+        order,
+        topic=PAYMENT_TIMEOUT,
+        handler=PaymentTimeoutHandler(),
+        log_name="payment_timeout",
+    )
+
+
+def _resolve_due_directive_for_order(order, *, topic: str, handler, log_name: str) -> bool:
+    from shopman.orderman.models import Directive
+
+    now = timezone.now()
+    with transaction.atomic():
+        directive = (
+            Directive.objects.select_for_update(skip_locked=True)
+            .filter(
+                topic=topic,
+                status=Directive.Status.QUEUED,
+                payload__order_ref=order.ref,
+                available_at__lte=now,
+            )
+            .order_by("available_at", "id")
+            .first()
+        )
+        if directive is None:
+            return False
+        directive.status = Directive.Status.RUNNING
+        directive.attempts += 1
+        directive.started_at = now
+        directive.save(update_fields=["status", "attempts", "started_at", "updated_at"])
+
+    try:
+        handler.handle(message=directive, ctx={"actor": "customer_surface"})
+        directive.refresh_from_db()
+        if directive.status == Directive.Status.RUNNING:
+            directive.status = Directive.Status.DONE
+            directive.error_code = ""
+            directive.last_error = ""
+            directive.save(update_fields=["status", "error_code", "last_error", "updated_at"])
+        order.refresh_from_db()
+        return directive.status == Directive.Status.DONE
+    except DirectiveTerminalError as exc:
+        logger.warning(
+            "%s_terminal order=%s directive=%s error=%s",
+            log_name,
+            order.ref,
+            directive.pk,
+            exc,
+        )
+        directive.status = Directive.Status.FAILED
+        directive.error_code = "terminal"
+        directive.last_error = str(exc)[:500]
+        directive.save(update_fields=["status", "error_code", "last_error", "updated_at"])
+        return False
+    except DirectiveTransientError as exc:
+        logger.warning(
+            "%s_transient order=%s directive=%s error=%s",
+            log_name,
+            order.ref,
+            directive.pk,
+            exc,
+        )
+        directive.status = Directive.Status.QUEUED
+        directive.error_code = "transient"
+        directive.available_at = timezone.now() + timedelta(seconds=30)
+        directive.last_error = str(exc)[:500]
+        directive.save(update_fields=["status", "error_code", "available_at", "last_error", "updated_at"])
+        return False
+    except Exception as exc:
+        logger.exception("%s_failed order=%s directive=%s", log_name, order.ref, directive.pk)
+        directive.status = Directive.Status.QUEUED
+        directive.error_code = "transient"
+        directive.available_at = timezone.now() + timedelta(seconds=30)
+        directive.last_error = str(exc)[:500]
+        directive.save(update_fields=["status", "error_code", "available_at", "last_error", "updated_at"])
+        return False
 
 
 def requires_payment_gate(order) -> bool:
@@ -507,7 +609,7 @@ def add_reorder_items(
     from shopman.shop.services.cart import CartUnavailableError
 
     if cart_service is None:
-        msg = "cart_service is required for customer reorder commands"
+        msg = "cart_service is required for customer reorder mutations"
         raise ValueError(msg)
 
     skipped: list[str] = []
@@ -682,6 +784,7 @@ __all__ = [
     "mock_confirm_payment",
     "order_matches_customer_identity",
     "order_history_for_phone",
+    "resolve_confirmation_timeout_if_due",
     "resolve_payment_timeout_if_due",
     "requires_payment_gate",
     "request_can_access_order",

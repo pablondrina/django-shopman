@@ -70,7 +70,7 @@ async function retryReorder () {
             rel="noopener"
             color="success"
             variant="soft"
-            label="Falar com a casa"
+            label="Falar com a equipe"
             icon="i-lucide-message-circle"
             block
           />
@@ -112,7 +112,7 @@ async function retryReorder () {
             rel="noopener"
             color="success"
             variant="soft"
-            label="Falar com a casa"
+            label="Falar com a equipe"
             icon="i-lucide-message-circle"
             block
           />

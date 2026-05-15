@@ -151,6 +151,20 @@ class FulfillmentSerializer(serializers.Serializer):
     delivered_at = serializers.CharField(allow_null=True, allow_blank=True)
 
 
+class SurfaceActionSerializer(serializers.Serializer):
+    ref = serializers.CharField()
+    kind = serializers.CharField()
+    label = serializers.CharField()
+    priority = serializers.CharField()
+    enabled = serializers.BooleanField()
+    reason = serializers.CharField(allow_blank=True, required=False)
+    href = serializers.CharField(allow_blank=True, required=False)
+    method = serializers.CharField(allow_blank=True, required=False)
+    payload_schema = serializers.DictField(required=False)
+    idempotency = serializers.CharField(required=False)
+    confirmation = serializers.DictField(required=False)
+
+
 class OrderTrackingPromiseSerializer(serializers.Serializer):
     state = serializers.CharField()
     title = serializers.CharField()
@@ -162,12 +176,16 @@ class OrderTrackingPromiseSerializer(serializers.Serializer):
     deadline_action = serializers.CharField()
     requires_active_notification = serializers.BooleanField()
     notification_topic = serializers.CharField(allow_null=True, required=False)
-    customer_action = serializers.CharField(required=False)
-    customer_action_label = serializers.CharField(allow_blank=True, required=False)
-    customer_action_url = serializers.CharField(allow_null=True, required=False)
+    actions = SurfaceActionSerializer(many=True, required=False)
     next_event = serializers.CharField(allow_blank=True, required=False)
     recovery = serializers.CharField(allow_blank=True, required=False)
     active_notification = serializers.CharField(allow_blank=True, required=False)
+
+
+class OrderTrackingPromiseRowSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    value = serializers.CharField()
+    url = serializers.CharField(allow_null=True, required=False)
 
 
 class OrderProgressStepSerializer(serializers.Serializer):
@@ -189,6 +207,8 @@ class OrderTrackingSerializer(serializers.Serializer):
     status_label = serializers.CharField()
     status_color = serializers.CharField()
     promise = OrderTrackingPromiseSerializer()
+    promise_rows = OrderTrackingPromiseRowSerializer(many=True)
+    promise_deadline_label = serializers.CharField()
     progress_steps = OrderProgressStepSerializer(many=True)
     total_display = serializers.CharField()
     delivery_fee_display = serializers.CharField(allow_null=True, required=False)
@@ -197,7 +217,7 @@ class OrderTrackingSerializer(serializers.Serializer):
     items = OrderItemSerializer(many=True)
     fulfillments = FulfillmentSerializer(many=True)
     pickup_info = PickupInfoSerializer(allow_null=True, required=False)
-    can_cancel = serializers.BooleanField()
+    actions = SurfaceActionSerializer(many=True, required=False)
     is_active = serializers.BooleanField()
     server_now_iso = serializers.CharField()
     payment_pending = serializers.BooleanField()
@@ -208,8 +228,6 @@ class OrderTrackingSerializer(serializers.Serializer):
     payment_expires_at = serializers.CharField(allow_null=True, required=False)
     requires_payment_gate = serializers.BooleanField(required=False)
     payment_gate_url = serializers.CharField(allow_null=True, required=False)
-    can_rate = serializers.BooleanField(required=False)
-    rating_url = serializers.CharField(allow_null=True, required=False)
     confirmation_countdown = serializers.BooleanField()
     confirmation_expires_at = serializers.CharField(allow_null=True, required=False)
     eta_display = serializers.CharField(allow_null=True, required=False)
@@ -261,3 +279,25 @@ class OrderHistoryItemSerializer(serializers.Serializer):
     status_label = serializers.CharField()
     status_color = serializers.CharField(required=False)
     item_count = serializers.IntegerField(required=False)
+    actions = SurfaceActionSerializer(many=True, required=False)
+
+
+class RemoteConversationSerializer(serializers.Serializer):
+    order_ref = serializers.CharField()
+    order_status = serializers.CharField()
+    channel_ref = serializers.CharField()
+    source_projection = serializers.CharField()
+    state = serializers.CharField()
+    title = serializers.CharField()
+    message = serializers.CharField()
+    tone = serializers.CharField()
+    actions = SurfaceActionSerializer(many=True)
+    deadline_at = serializers.CharField(allow_null=True, required=False)
+    next_event = serializers.CharField(allow_blank=True, required=False)
+    recovery = serializers.CharField(allow_blank=True, required=False)
+    items_summary = serializers.ListField(child=serializers.CharField(), required=False)
+    total_display = serializers.CharField()
+    tracking_url = serializers.CharField()
+    payment_url = serializers.CharField(allow_null=True, required=False)
+    supports_access_link = serializers.BooleanField()
+    requires_payment_gate = serializers.BooleanField()

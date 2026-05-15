@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 
 class Availability(StrEnum):
@@ -116,6 +117,23 @@ FOOD_PREFERENCE_OPTIONS: tuple[tuple[str, str], ...] = (
     ("organico", "Orgânico"),
     ("integral", "Integral"),
 )
+
+
+@dataclass(frozen=True)
+class SurfaceActionProjection:
+    """Canonical action offered by a Shopman projection to any surface."""
+
+    ref: str
+    kind: str
+    label: str
+    priority: str = "secondary"
+    enabled: bool = True
+    reason: str = ""
+    href: str = ""
+    method: str = ""
+    payload_schema: dict[str, Any] = field(default_factory=dict)
+    idempotency: str = "none"
+    confirmation: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

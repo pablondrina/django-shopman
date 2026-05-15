@@ -17,7 +17,7 @@ const showExpired = computed(() => props.item.is_ready_for_confirmation && expir
     color="warning"
     variant="subtle"
     title="Aguardando confirmação"
-    description="A casa está separando seu item. Avisamos assim que estiver pronto."
+    description="Estamos separando seu item. Avisamos assim que estiver pronto."
   />
 
   <UAlert
@@ -35,6 +35,6 @@ const showExpired = computed(() => props.item.is_ready_for_confirmation && expir
     color="warning"
     variant="subtle"
     title="Tempo de reserva expirou"
-    description="A casa vai liberar este item. Confirme novamente se ainda quer levar."
+    description="A reserva será liberada. Confirme novamente se ainda quer levar."
   />
 </template>

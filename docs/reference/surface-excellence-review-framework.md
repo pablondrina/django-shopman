@@ -38,7 +38,7 @@ Regra de corte:
 
 ## Eixo A: Funcionalidade e Contrato com Backend (40)
 
-Avalia se a superfície respeita o domínio, protege transações e usa de verdade as capacidades já disponíveis no backend.
+Avalia se a superfície respeita o domínio, protege transações e usa de verdade os recursos já disponíveis no backend.
 
 ### A1. Boundaries e fontes de verdade (6)
 
@@ -81,7 +81,7 @@ Perguntas:
 Evidências esperadas:
 
 - Projections e endpoints entregam estado pronto para a decisão do usuário.
-- O frontend exibe ou transforma capacidades existentes em ações práticas.
+- O frontend exibe ou transforma recursos existentes em ações práticas.
 - O contrato evita "reimplementar domínio" na camada visual.
 
 ### A4. Validação e restrições proativas (6)

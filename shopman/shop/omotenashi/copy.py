@@ -432,7 +432,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Aguardando entregador")},
     },
     "TRACKING_ACTION_READY_PICKUP": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Retirar pedido")},
     },
     "TRACKING_CARD_AUTHORIZED": {
         WILDCARD: {
@@ -448,6 +448,9 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_LABEL_ACTION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Sua ação:")},
     },
+    "TRACKING_PROMISE_LABEL_DEADLINE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Prazo:")},
+    },
     "TRACKING_PROMISE_LABEL_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Próximo passo:")},
     },
@@ -455,7 +458,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Se algo mudar:")},
     },
     "TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Aviso ativo:")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Aviso:")},
+    },
+    "TRACKING_PROMISE_LABEL_UPDATED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Última atualização:")},
     },
     "TRACKING_PROMISE_STALE": {
         WILDCARD: {
@@ -525,10 +531,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Retire no estabelecimento quando puder.")},
     },
     "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos ativamente quando o pedido fica pronto para retirada.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos você que o pedido está pronto para retirada.")},
     },
     "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos ativamente quando o pedido sair para entrega.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisaremos você quando o pedido sair para entrega.")},
     },
     "TRACKING_PROMISE_DISPATCHED_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Estamos acompanhando a entrega.")},
@@ -628,6 +634,22 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PROMISE_PIX_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="A disponibilidade foi confirmada. Use o Pix abaixo para liberar o preparo.")},
     },
+    "PAYMENT_PROMISE_PIX_PRECONFIRMATION_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pagamento Pix")},
+    },
+    "PAYMENT_PROMISE_PIX_PRECONFIRMATION_MESSAGE": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                message="Use o Pix abaixo para registrar o pagamento. O estabelecimento ainda vai conferir a disponibilidade.",
+            ),
+        },
+    },
+    "PAYMENT_PROMISE_PIX_PRECONFIRMATION_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Depois do pagamento, acompanhe a confirmação do estabelecimento.")},
+    },
+    "PAYMENT_PROMISE_PIX_PRECONFIRMATION_RECOVERY": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Se o prazo expirar, o pedido será cancelado automaticamente e os itens serão liberados.")},
+    },
     "PAYMENT_PROMISE_PIX_ACTION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Use o QR Code ou copia e cola abaixo")},
     },
@@ -645,6 +667,40 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "PAYMENT_PROMISE_CARD_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="A disponibilidade foi confirmada. Finalize o pagamento no ambiente seguro do cartão.")},
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Autorizar cartão")},
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_MESSAGE": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                message="Abra o ambiente seguro para autorizar o cartão. O estabelecimento ainda vai conferir a disponibilidade.",
+            ),
+        },
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_ACTION": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Autorizar cartão")},
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Depois da autorização, acompanhe a confirmação do estabelecimento.")},
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_RECOVERY": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Se o ambiente seguro não abrir, tente novamente ou fale com o estabelecimento.")},
+    },
+    "PAYMENT_PROMISE_CARD_PRECONFIRMATION_ACTIVE_NOTIFICATION": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisaremos quando o pagamento ou a confirmação da loja avançar.")},
+    },
+    "PAYMENT_PROMISE_CARD_AUTHORIZED_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pagamento autorizado.")},
+    },
+    "PAYMENT_PROMISE_CARD_AUTHORIZED_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você não precisa fazer nada agora.")},
+    },
+    "PAYMENT_PROMISE_CARD_AUTHORIZED_NEXT_NEW": {
+        WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento vai conferir a disponibilidade.")},
+    },
+    "PAYMENT_PROMISE_CARD_AUTHORIZED_NEXT_CONFIRMED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Assim que a confirmação financeira terminar, seguimos com o pedido.")},
     },
     "PAYMENT_PROMISE_CARD_ACTION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pagar com cartão")},
@@ -736,14 +792,14 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 message=(
-                    "Você será levado ao ambiente seguro do Stripe. "
-                    "Voltamos assim que confirmar."
+                    "Você será levado ao ambiente seguro do cartão. "
+                    "Depois da autorização, volte para acompanhar o pedido."
                 ),
             ),
         },
     },
     "PAYMENT_CARD_SECURITY_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pagamento processado pelo Stripe. Nós não recebemos os dados do seu cartão.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Pagamento processado por provedor seguro. Nós não recebemos os dados do seu cartão.")},
     },
     "PAYMENT_PIX_INSTRUCTION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escaneie o QR Code ou copie o código Pix abaixo.")},
@@ -833,7 +889,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Ou confirme outro telefone abaixo.")},
     },
     "LOGIN_NO_PASSWORD_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. A entrada é temporária e segura.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. Use o código enviado para entrar.")},
+    },
+    "LOGIN_TERMS_NOTE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},
     },
     "LOGIN_CHANGE_PHONE_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar de telefone?")},

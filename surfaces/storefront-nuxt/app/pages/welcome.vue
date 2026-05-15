@@ -96,7 +96,7 @@ useHead({ title: 'Boas-vindas' })
             <h1 class="mt-1 text-2xl font-bold text-highlighted">Como podemos te chamar?</h1>
           </div>
           <p class="text-sm leading-relaxed text-muted">
-            Confirme seu nome para a casa reconhecer sua conta nas próximas visitas.
+            Confirme seu nome para manter sua conta pronta nas próximas visitas.
           </p>
         </div>
       </template>
@@ -112,6 +112,7 @@ useHead({ title: 'Boas-vindas' })
             placeholder="Ex: Joana"
             size="lg"
             autofocus
+            class="w-full"
           />
         </UFormField>
         <UButton

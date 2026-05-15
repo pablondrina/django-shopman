@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
+from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.storefront.projections.account import build_account
 from shopman.storefront.intents.types import AddressIntent
 from shopman.storefront.services import orders as order_service
@@ -29,6 +30,7 @@ from .serializers import (
     DetailSerializer,
     OrderHistoryItemSerializer,
 )
+from .projections import projection_data
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,32 @@ def _serialize_address(addr) -> dict:
         "longitude": getattr(addr, "longitude", None),
         "place_id": getattr(addr, "place_id", None) or "",
     }
+
+
+def _reorder_action(order_ref: str) -> dict:
+    return projection_data(SurfaceActionProjection(
+        ref="reorder",
+        kind="mutation",
+        label="Repetir pedido",
+        priority="secondary",
+        href=f"/api/v1/orders/{order_ref}/reorder/",
+        method="POST",
+        payload_schema={
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "enum": ["replace", "append"]},
+                "idempotency_key": {"type": "string"},
+            },
+        },
+        idempotency="required",
+    ))
+
+
+def _with_order_actions(order: dict) -> dict:
+    order_ref = str(order.get("ref") or "")
+    if not order_ref:
+        return order
+    return {**order, "actions": [_reorder_action(order_ref)]}
 
 
 def _intent_from_payload(payload: dict, base=None) -> AddressIntent:
@@ -255,6 +283,7 @@ class AccountSummaryView(APIView):
                 "total_display": last_order.total_display,
                 "status_label": last_order.status_label,
                 "item_count": last_order.item_count,
+                "actions": [_reorder_action(last_order.ref)],
             } if last_order else None,
             "loyalty": loyalty,
             "food_preferences": [
@@ -452,7 +481,7 @@ class OrderHistoryView(APIView):
             filter_param=filter_param,
             limit=50,
         )
-        serializer = OrderHistoryItemSerializer(data, many=True)
+        serializer = OrderHistoryItemSerializer([_with_order_actions(order) for order in data], many=True)
         return Response(serializer.data)
 
 

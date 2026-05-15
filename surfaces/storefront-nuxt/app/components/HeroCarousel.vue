@@ -2,7 +2,7 @@
 import type { HomeProjection } from '~/types/shopman'
 
 const props = defineProps<{ home: HomeProjection }>()
-const { performReorder, pending: reorderPending } = useReorder()
+const { performReorderAction, pending: reorderPending } = useReorder()
 
 interface HeroSlide {
   eyebrow?: string
@@ -26,6 +26,10 @@ function sentence (value: string): string {
   if (!trimmed) return ''
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
+
+const reorderAction = computed(() =>
+  (props.home.actions || []).find(action => action.ref === 'reorder' && action.enabled !== false) || null
+)
 
 const slides = computed<HeroSlide[]>(() => {
   const omo = props.home.omotenashi
@@ -63,7 +67,7 @@ const slides = computed<HeroSlide[]>(() => {
     image: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1600&q=80'
   })
 
-  if (props.home.last_order_ref) {
+  if (props.home.last_order_ref && reorderAction.value) {
     list.push({
       titleLines: [
         copyTitle(copy.reorder_title_prefix, 'Quer repetir seu'),
@@ -97,8 +101,8 @@ const slides = computed<HeroSlide[]>(() => {
 })
 
 async function activateSlideCta (item: HeroSlide) {
-  if (item.cta.action === 'reorder' && props.home.last_order_ref) {
-    await performReorder(props.home.last_order_ref)
+  if (item.cta.action === 'reorder' && props.home.last_order_ref && reorderAction.value) {
+    await performReorderAction(reorderAction.value, props.home.last_order_ref)
   }
 }
 </script>

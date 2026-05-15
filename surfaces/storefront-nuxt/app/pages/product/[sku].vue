@@ -224,7 +224,7 @@ useHead(() => ({
                 class="size-full object-cover"
               >
               <div v-else class="flex size-full items-center justify-center">
-                <UIcon name="i-lucide-cookie" class="size-16 text-muted" />
+                <UIcon name="i-lucide-image" class="size-16 text-muted" />
               </div>
             </div>
           </section>
@@ -320,10 +320,11 @@ useHead(() => ({
           <UAccordion
             v-if="detailAccordionItems.length"
             :items="detailAccordionItems"
-            class="rounded-lg border border-default bg-elevated/45 p-1"
-            :ui="{ trigger: 'px-4 py-3', content: 'px-4 pb-4 pt-1' }"
+            :unmount-on-hide="false"
+            class="shop-pdp-accordion rounded-lg border border-default bg-elevated/45 p-1"
+            :ui="{ trigger: 'px-4 py-3', content: 'overflow-hidden focus:outline-none data-[state=open]:animate-[accordion-down_220ms_ease-out] data-[state=closed]:animate-[accordion-up_180ms_ease-in]', body: 'px-4 pb-4 pt-1' }"
           >
-            <template v-if="product.components?.length" #components>
+            <template v-if="product.components?.length" #components-body>
               <div class="grid gap-2 rounded-md bg-default/55 p-3">
                 <div
                   v-for="component in product.components"
@@ -335,12 +336,12 @@ useHead(() => ({
                 </div>
               </div>
             </template>
-            <template v-if="product.ingredients_text" #ingredients>
+            <template v-if="product.ingredients_text" #ingredients-body>
               <div class="rounded-md bg-default/55 p-3">
                 <p class="text-sm leading-relaxed text-muted">{{ product.ingredients_text }}</p>
               </div>
             </template>
-            <template v-if="product.unit_weight_label || product.approx_dimensions_label" #dimensions>
+            <template v-if="product.unit_weight_label || product.approx_dimensions_label" #dimensions-body>
               <dl class="grid gap-3 rounded-md bg-default/55 p-3 text-sm">
                 <div v-if="product.unit_weight_label" class="flex justify-between gap-4">
                   <dt class="text-muted">Peso</dt>
@@ -352,7 +353,7 @@ useHead(() => ({
                 </div>
               </dl>
             </template>
-            <template v-if="hasAllergenInfo(product)" #allergens>
+            <template v-if="hasAllergenInfo(product)" #allergens-body>
               <div class="grid gap-3 rounded-md bg-default/55 p-3 text-sm">
                 <div v-if="product.allergen?.allergens?.length">
                   <p class="font-medium text-highlighted">Contém ou pode conter</p>
@@ -386,7 +387,7 @@ useHead(() => ({
                 <p v-if="product.trace_notice" class="leading-relaxed text-muted">{{ product.trace_notice }}</p>
               </div>
             </template>
-            <template v-if="hasNutritionInfo(product)" #nutrition>
+            <template v-if="hasNutritionInfo(product)" #nutrition-body>
               <div class="overflow-hidden rounded-md border border-default bg-default/55 text-sm">
                 <div class="grid grid-cols-3 gap-3 border-b border-default px-3 py-2 font-medium text-highlighted">
                   <span>Informação</span>
@@ -419,7 +420,7 @@ useHead(() => ({
                 </div>
               </div>
             </template>
-            <template v-if="hasConservationInfo(product)" #conservation>
+            <template v-if="hasConservationInfo(product)" #conservation-body>
               <dl class="grid gap-3 rounded-md bg-default/55 p-3 text-sm">
                 <div v-if="product.conservation.shelf_life_label" class="flex justify-between gap-4">
                   <dt class="text-muted">Validade</dt>

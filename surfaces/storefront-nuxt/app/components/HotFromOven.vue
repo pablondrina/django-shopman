@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import type { CatalogItemProjection } from '~/types/shopman'
+import type { CatalogItemProjection, HomeSectionsCopyProjection } from '~/types/shopman'
 
-defineProps<{ items: CatalogItemProjection[] }>()
+const props = defineProps<{
+  items: CatalogItemProjection[]
+  copy: HomeSectionsCopyProjection
+}>()
+
+const heading = computed(() => props.copy.availability_heading)
 </script>
 
 <template>
   <UPageSection
     v-if="items.length"
     headline="Destaques"
-    title="Selecionados pela casa"
-    description="Escolhas disponíveis no cardápio."
+    :title="heading.title"
+    :description="heading.message"
   >
     <UPageGrid>
       <ProductCard v-for="item in items" :key="item.sku" :item="item" />

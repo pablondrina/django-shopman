@@ -1,6 +1,7 @@
 # ADR-009 — WhatsApp via ManyChat: vendor lock-in consciente
 
 **Data**: 2026-04-18
+**Atualizado**: 2026-05-15
 **Status**: Accepted
 
 ---
@@ -11,7 +12,7 @@ Shopman se posiciona como "WhatsApp-first" em diversos eixos: autenticação pel
 
 Tecnicamente, essa integração acontece **100% via ManyChat** — plataforma SaaS terceirizada que faz a ponte entre Shopman e a Meta Cloud API (WhatsApp Business). Shopman não fala direto com a Meta. A memória de projeto `feedback_whatsapp_via_manychat.md` registra isso como norma ativa.
 
-Esta ADR-010 documenta explicitamente a decisão para que futuros contribuidores entendam **por que** a ponte é ManyChat e **qual o risco** assumido.
+Esta ADR-009 documenta explicitamente a decisão para que futuros contribuidores entendam **por que** a ponte é ManyChat e **qual o risco** assumido.
 
 ## Decisão
 
@@ -47,6 +48,44 @@ Para cliente que chega pela web, os caminhos canônicos são:
    operacional do ManyChat para resolver/criar o contato antes do envio.
 
 SMS permanece fallback, não superfície principal.
+
+## Limite de negócio no ManyChat
+
+A restrição "sem pricing/stock no ManyChat" não significa que o bot não possa
+mostrar preço, disponibilidade, prazo, taxa ou opções de produto ao cliente.
+Significa que o ManyChat não pode ser a fonte de verdade nem reimplementar
+essas regras no editor visual.
+
+O fluxo correto é:
+
+1. ManyChat coleta intenção conversacional: itens, quantidade, fulfillment,
+   endereço, janela desejada, telefone, opt-in e ação do cliente.
+2. ManyChat chama um endpoint ou fluxo Shopman idempotente.
+3. Shopman resolve preço, promoções, disponibilidade, holds, payment gate,
+   policy do canal e próxima ação usando Orderman, Payman, Stockman,
+   Guestman, Doorman, ChannelConfig, services e projections.
+4. ManyChat apresenta ao cliente a projection/resposta retornada por Shopman.
+
+O risco de colocar pricing/stock no ManyChat é operacional, não dogmático:
+
+- preço em bot fica defasado de Offerman/pricing modifiers/cupons/loyalty;
+- disponibilidade em bot ignora Stockman, holds, demanda planejada, D-1
+  excluído por canal e concorrência;
+- copy de promessa pode divergir do timer real de confirmação/pagamento;
+- auditoria e testes ficam divididos entre repo e editor visual;
+- um ajuste operacional urgente exigiria sincronizar dois motores de regra.
+
+Portanto, continua permitido manter copy, escolhas de fluxo, botões, coleta de
+dados e roteamento conversacional no ManyChat. Continua proibido manter regra
+autoritativa de preço, estoque, disponibilidade, pagamento ou lifecycle de
+pedido no ManyChat. Se o bot precisa responder "quanto custa?" ou "tem hoje?",
+ele deve perguntar ao Shopman e renderizar a projection retornada.
+
+Para pedidos em andamento, o contrato compacto de conversa e
+`RemoteConversationProjection`, documentado em
+[docs/reference/manychat-conversation-projection.md](../reference/manychat-conversation-projection.md).
+Ele deriva de tracking/payment/channel policy canonicos e separa `state`
+conversacional de `order_status` oficial.
 
 ## Riscos assumidos
 
@@ -89,11 +128,12 @@ Reavaliar a decisão quando **qualquer**:
 
 **Não aceitamos**:
 - Usar ManyChat como banco de dados de cliente — sempre espelhar em `guestman.Customer` / `ContactPoint`.
-- Lógica de negócio (pricing, stock) vivendo em fluxos ManyChat — bot é só superfície de conversa; regras em Shopman.
+- Lógica autoritativa de negócio vivendo em fluxos ManyChat. O bot pode coletar intenção e mostrar preço/estoque/resumo quando esses dados vierem de Shopman; pricing, stock, availability, payment gate e lifecycle continuam em Shopman.
 
 ## Referências
 
 - Memória: [feedback_whatsapp_via_manychat.md](.claude/memory).
 - [packages/doorman/shopman/doorman/models/access_link.py](../../packages/doorman/shopman/doorman/models/access_link.py) — enum `Source`.
 - [shopman/shop/adapters/notification_manychat.py](../../shopman/shop/adapters/notification_manychat.py).
+- [docs/reference/manychat-conversation-projection.md](../reference/manychat-conversation-projection.md).
 - [docs/reference/system-spec.md §1.7, §5.2](../reference/system-spec.md) — Doorman + WhatsApp-first UX.

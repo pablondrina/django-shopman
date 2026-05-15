@@ -17,6 +17,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.services import remote_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections import (
     build_cart,
@@ -27,12 +28,13 @@ from shopman.storefront.projections import (
 )
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.cart_mutations import (
-    CartCommandNotFound,
-    CartCommandUnavailable,
+    CartMutationNotFound,
+    CartMutationUnavailable,
     set_qty_by_sku,
 )
 
 from .projections import projection_data
+from .actions import action_payload, retry_after_action
 from .serializers import DetailSerializer, SetSkuQtySerializer
 
 
@@ -59,6 +61,38 @@ def _stock_reason(exc) -> str:
 def _stock_error_payload(exc, *, product=None) -> dict:
     item_name = getattr(product, "name", None) or getattr(exc, "sku", "")
     reason = _stock_reason(exc)
+    actions = [
+        action_payload(
+            ref="review_cart",
+            kind="link",
+            label="Revisar carrinho",
+            href="/cart",
+            priority="secondary",
+        ),
+        action_payload(
+            ref="continue_shopping",
+            kind="link",
+            label="Ver cardápio",
+            href="/menu",
+            priority="quiet",
+        ),
+    ]
+    if exc.available_qty and exc.available_qty > 0:
+        actions.insert(0, action_payload(
+            ref="set_available_qty",
+            kind="mutation",
+            label=f"Usar {exc.available_qty} disponível(is)",
+            priority="primary",
+            href=f"/api/v1/cart/skus/{exc.sku}/",
+            method="PUT",
+            payload_schema={
+                "type": "object",
+                "required": ["qty"],
+                "properties": {
+                    "qty": {"type": "integer", "const": exc.available_qty},
+                },
+            },
+        ))
     return {
         "detail": "Insufficient stock.",
         "title": "Revise este item",
@@ -71,6 +105,7 @@ def _stock_error_payload(exc, *, product=None) -> dict:
         "is_planned": exc.is_planned,
         "planned_target_date": exc.planned_target_date,
         "substitutes": exc.substitutes,
+        "actions": actions,
         "items": [
             {
                 "sku": exc.sku,
@@ -89,6 +124,7 @@ def _rate_limited_response(*, detail: str, retry_after_seconds: int) -> Response
             "detail": detail,
             "error_code": "rate_limited",
             "retry_after_seconds": retry_after_seconds,
+            "actions": [retry_after_action(retry_after_seconds)],
         },
         status=status.HTTP_429_TOO_MANY_REQUESTS,
         headers={"Retry-After": str(retry_after_seconds)},
@@ -304,20 +340,84 @@ class OrderReorderView(APIView):
                         for item in snapshot_items
                         if item.get("sku")
                     ],
+                    "actions": [
+                        action_payload(
+                            ref="reorder_append",
+                            kind="mutation",
+                            label="Adicionar ao carrinho atual",
+                            priority="secondary",
+                            href=f"/api/v1/orders/{ref}/reorder/",
+                            method="POST",
+                            payload_schema={
+                                "type": "object",
+                                "required": ["mode", "idempotency_key"],
+                                "properties": {
+                                    "mode": {"type": "string", "const": "append"},
+                                    "idempotency_key": {"type": "string"},
+                                },
+                            },
+                            idempotency="required",
+                        ),
+                        action_payload(
+                            ref="reorder_replace",
+                            kind="mutation",
+                            label="Substituir o carrinho",
+                            priority="danger",
+                            href=f"/api/v1/orders/{ref}/reorder/",
+                            method="POST",
+                            payload_schema={
+                                "type": "object",
+                                "required": ["mode", "idempotency_key"],
+                                "properties": {
+                                    "mode": {"type": "string", "const": "replace"},
+                                    "idempotency_key": {"type": "string"},
+                                },
+                            },
+                            idempotency="required",
+                            confirmation={
+                                "title": "Substituir carrinho",
+                                "message": "Os itens atuais serão removidos antes de recriar o pedido.",
+                                "confirm_label": "Substituir carrinho",
+                                "severity": "danger",
+                            },
+                        ),
+                    ],
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        if mode == "replace":
-            CartService.clear(request)
+        key = remote_mutations.idempotency_key_from_request(
+            request,
+            fallback=f"reorder:{ref}:{mode or 'default'}",
+        )
 
-        skipped = order_service.add_reorder_items(request, order, cart_service=CartService)
-        return Response({
-            "ok": True,
-            "skipped": skipped,
-            "skipped_items": _skipped_reorder_items(skipped),
-            "cart": _cart_payload(request),
-        })
+        def execute_reorder() -> tuple[dict, int]:
+            if mode == "replace":
+                CartService.clear(request)
+
+            skipped = order_service.add_reorder_items(request, order, cart_service=CartService)
+            return (
+                {
+                    "ok": True,
+                    "skipped": skipped,
+                    "skipped_items": _skipped_reorder_items(skipped),
+                    "cart": _cart_payload(request),
+                },
+                status.HTTP_200_OK,
+            )
+
+        try:
+            result = remote_mutations.run_idempotent_mutation(
+                scope=f"order-reorder:{ref}",
+                key=key,
+                execute=execute_reorder,
+            )
+        except remote_mutations.RemoteMutationInProgress:
+            return Response(
+                {"detail": "Recompra já está em andamento.", "error_code": "mutation_in_progress"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(result.response_body, status=result.response_code)
 
 
 @extend_schema_view(
@@ -385,7 +485,7 @@ class CartCouponView(APIView):
         summary="Set absolute cart quantity by SKU",
         request=SetSkuQtySerializer,
         responses={
-            200: OpenApiResponse(description="Cart command response plus authoritative cart projection."),
+            200: OpenApiResponse(description="Cart mutation response plus authoritative cart projection."),
             400: DetailSerializer,
             404: DetailSerializer,
             409: OpenApiResponse(description="Insufficient stock."),
@@ -421,18 +521,18 @@ class CartSkuQtyView(APIView):
                 sku=sku.strip(),
                 qty=serializer.validated_data["qty"],
             )
-        except CartCommandNotFound:
+        except CartMutationNotFound:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-        except CartCommandUnavailable as unavailable:
+        except CartMutationUnavailable as unavailable:
             return Response(
                 _stock_error_payload(unavailable.stock_error, product=unavailable.product),
                 status=status.HTTP_409_CONFLICT,
             )
 
-        command = dict(outcome.payload)
-        summary = command.pop("cart")
+        mutation = dict(outcome.payload)
+        summary = mutation.pop("cart")
         return Response({
-            **command,
+            **mutation,
             "summary": summary,
             "cart": _cart_payload(request),
         })

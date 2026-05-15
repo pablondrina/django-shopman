@@ -225,7 +225,7 @@ Além disso, outras áreas já consomem projections de forma saudável, como:
 
 A crítica correta, portanto, é mais refinada:
 
-> projection-first já avançou nas leituras; o problema agora é que os write paths e command paths ainda carregam coordenação demais nas views.
+> projection-first já avançou nas leituras; o problema agora é que os write paths/mutation paths ainda carregam coordenação demais nas views.
 
 O checkout continua com 1.012 linhas e segue concentrando:
 
@@ -237,7 +237,7 @@ O checkout continua com 1.012 linhas e segue concentrando:
 - wiring de pagamento;
 - commit orchestration.
 
-Logo, o problema não é ausência de projection. É falta de **separação mais dura entre read model e command flow**.
+Logo, o problema não é ausência de projection. É falta de **separação mais dura entre read model/projection e mutation flow**.
 
 ### 3. Os resultados ainda não são uma linguagem de primeira classe
 
@@ -398,7 +398,7 @@ O sinal mais forte disso continua em [shopman/shop/tests/test_webhook.py#L1-L14]
 
 Logo, o próximo salto não é “criar mais adapter”. É:
 
-1. formalizar capabilities do canal WhatsApp;
+1. formalizar policy e contexto dinâmico do canal WhatsApp;
 2. declarar sua superfície como assistida, conversacional e parcialmente delegada;
 3. implementar inbound mínimo e canônico;
 4. reaproveitar workflows e results existentes.
@@ -537,13 +537,13 @@ Logística, multi-store, forecasting, analytics profundos e API v2 ampliada são
 ### P2 — tornar canais first-class de verdade
 
 - introduzir `ChannelCapabilities`;
-- explicitar capability profile por canal;
+- explicitar policy/contexto dinâmico por canal;
 - tratar WhatsApp e marketplaces como famílias arquiteturais, não apenas integrações.
 
 ### P3 — elevar a superfície ao nível do domínio
 
 - projection-first dominante nos fluxos críticos;
-- redução da gordura dos command paths nas views;
+- redução da gordura dos mutation paths nas views;
 - `commitment` como conceito público da suíte;
 - Omotenashi orientando comportamento, não só copy/contexto.
 

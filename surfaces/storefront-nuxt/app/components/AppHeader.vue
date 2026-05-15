@@ -40,8 +40,8 @@ watch(authSession, (next) => {
 })
 
 const navItems = computed<NavigationMenuItem[]>(() => [
-  { label: 'Início', to: '/' },
-  { label: 'Cardápio', to: '/menu' }
+  { label: 'Cardápio', to: '/menu' },
+  { label: 'Como funciona', to: '/como-funciona' }
 ])
 
 const accountInitials = computed(() => {
@@ -70,8 +70,8 @@ const accountMenu = computed<DropdownMenuItem[][]>(() => {
       ],
       [
         { label: 'Minha conta', to: '/conta' },
-        { label: 'Meus pedidos', to: '/conta' },
-        { label: 'Endereços', to: '/conta' }
+        { label: 'Meus pedidos', to: { path: '/conta', query: { tab: 'orders' } } },
+        { label: 'Endereços', to: { path: '/conta', query: { tab: 'addresses' } } }
       ],
       [
         {
@@ -105,15 +105,14 @@ watch(() => route.fullPath, () => {
         class="group flex min-w-0 shrink items-center gap-2.5 focus-visible:outline-primary"
         :aria-label="displayBrand"
       >
-        <span class="grid size-9 place-items-center overflow-hidden rounded-lg bg-primary/12 text-primary ring-1 ring-primary/20">
+        <span v-if="shellShop?.logo_url" class="grid size-9 place-items-center overflow-hidden rounded-lg text-primary">
           <img
-            v-if="shellShop?.logo_url"
             :src="shellShop.logo_url"
             :alt="displayBrand"
             class="size-full object-contain p-1"
           >
-          <UIcon v-else name="i-lucide-wheat" class="size-5" />
         </span>
+        <span v-else class="material-symbols-rounded text-[28px] text-primary" aria-hidden="true">storefront</span>
           <span class="grid min-w-0 leading-tight">
             <span class="max-w-[11rem] truncate text-base font-bold text-highlighted sm:max-w-xs">{{ displayBrand }}</span>
             <span v-if="shellShop?.tagline" class="hidden text-xs text-muted sm:block">{{ shellShop.tagline }}</span>
@@ -169,7 +168,7 @@ watch(() => route.fullPath, () => {
                 <UAvatar :text="accountInitials" size="md" class="bg-primary/10 text-primary font-semibold" />
                 <div class="min-w-0">
                   <p class="text-sm font-semibold text-highlighted truncate">{{ accountDisplayName }}</p>
-                  <p class="text-sm text-muted">Cliente da casa</p>
+                  <p class="text-sm text-muted">Cliente</p>
                 </div>
               </div>
             </template>
@@ -217,6 +216,12 @@ watch(() => route.fullPath, () => {
             class="flex items-center rounded-lg px-3 py-2.5 text-sm text-muted hover:bg-elevated hover:text-highlighted"
           >
             <span>{{ isAuthenticated ? 'Minha conta' : 'Entrar' }}</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/cart"
+            class="flex items-center rounded-lg px-3 py-2.5 text-sm text-muted hover:bg-elevated hover:text-highlighted"
+          >
+            <span>{{ cartCount ? `Carrinho (${cartCount})` : 'Carrinho' }}</span>
           </NuxtLink>
         </nav>
 

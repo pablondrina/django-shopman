@@ -15,6 +15,7 @@
 | [`customers_cleanup`](#customers_cleanup) | guestman | Manutenção | Remove eventos processados antigos |
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
 | [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
+| [`diagnose_remote_order`](#diagnose_remote_order) | shop | Operação | Diagnostica pedido remoto preso lendo fontes canônicas |
 | [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
 | [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
 | [`omotenashi_qa`](#omotenashi_qa) | backstage | QA | Lista matriz manual QA Omotenashi com evidências do seed |
@@ -205,6 +206,26 @@ python manage.py reconcile_payments --since=4h
 ```
 
 **Veja também:** [runbook de pedido pago sem confirmacao](../runbooks/pedido-pago-sem-confirmacao.md).
+
+---
+
+### diagnose_remote_order
+
+**App:** `shopman.shop`
+**Arquivo:** `shopman/shop/management/commands/diagnose_remote_order.py`
+
+Diagnostica um pedido remoto especifico lendo `Order`, Payman, Directives,
+Stockman holds, channel policy e projection conversacional. O comando nao altera estado; ele imprime `result=OK/WARN/FAIL` e `recommendation=...`.
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `ref` | `Order.ref` do pedido remoto |
+
+```bash
+python manage.py diagnose_remote_order ORDER-REF
+```
+
+**Veja também:** [runbook de pedido remoto preso](../runbooks/pedido-remoto-preso.md).
 
 ---
 

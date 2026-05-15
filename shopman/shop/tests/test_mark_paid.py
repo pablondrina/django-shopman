@@ -29,7 +29,7 @@ class OperatorMarkPaidShortcutTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_operator_command_services_do_not_export_mark_paid(self) -> None:
+    def test_operator_mutation_services_do_not_export_mark_paid(self) -> None:
         self.assertFalse(hasattr(backstage_orders, "mark_paid"))
         self.assertFalse(hasattr(operator_orders, "mark_paid"))
 

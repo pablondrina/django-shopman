@@ -1,4 +1,4 @@
-"""Operational contract guardrails for order commands."""
+"""Operational contract guardrails for order mutations."""
 
 from __future__ import annotations
 

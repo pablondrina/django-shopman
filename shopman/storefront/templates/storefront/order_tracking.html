@@ -36,6 +36,19 @@
       </span>
     </div>
     <div class="flex gap-2 shrink-0">
+      {% with action=tracking_actions.mock_confirm_payment %}
+      {% if tracking.is_debug and action %}
+      <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=tracking.order_ref %}">
+        {% csrf_token %}
+        <button type="submit"
+                aria-label="Capturar pagamento teste"
+                class="inline-flex items-center gap-1.5 rounded-radius border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-warning hover:bg-warning/20 focus:outline-hidden focus:ring-2 focus:ring-warning/50 min-h-[44px] transition">
+          <span class="material-symbols-rounded text-base" aria-hidden="true">credit_card</span>
+          <span class="hidden sm:inline">{{ action.label }}</span>
+        </button>
+      </form>
+      {% endif %}
+      {% endwith %}
       {% if tracking.whatsapp_url %}
       <a href="{{ tracking.whatsapp_url }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-1.5 rounded-radius bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-hidden focus:ring-2 focus:ring-[#25D366] min-h-[44px] transition"
@@ -160,7 +173,8 @@
   {% endif %}
 
   {% comment %}── Rating (yoin R4 — shown once after delivery/pickup) ──{% endcomment %}
-  {% if tracking.can_rate %}
+  {% with action=tracking_actions.rate_order %}
+  {% if action %}
   {% omotenashi 'TRACKING_RATE_PROMPT' as rate_prompt %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5"
        x-data="{ rating: 0, submitted: false, hovering: 0 }" id="rating-block">
@@ -188,7 +202,7 @@
                 type="button"
                 @click="htmx.ajax('POST', '{% url 'storefront:order_rate' ref=tracking.order_ref %}', { values: { rating: String(rating) }, swap: 'none' }).then(() => submitted = true)"
                 class="inline-flex items-center justify-center rounded-radius bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
-          Enviar
+          {{ action.label }}
         </button>
       </div>
     </template>
@@ -202,31 +216,29 @@
     </template>
   </div>
   {% endif %}
+  {% endwith %}
 
   {% comment %}── Cancel ──{% endcomment %}
-  {% omotenashi 'TRACKING_CANCEL_HEADING' as cancel_heading %}
-  {% omotenashi 'TRACKING_CANCEL_CTA' as cancel_cta %}
-  {% omotenashi 'TRACKING_CANCEL_CONFIRM' as cancel_confirm %}
-  {% omotenashi 'TRACKING_CANCEL_YES' as cancel_yes %}
   {% omotenashi 'TRACKING_CANCEL_BACK' as cancel_back %}
-  {% if tracking.can_cancel %}
+  {% with action=tracking_actions.cancel_order %}
+  {% if action %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ cancel_heading.title }}</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ action.confirmation.title|default:action.label }}</h2>
     <form method="post" action="{% url 'storefront:order_cancel' ref=tracking.order_ref %}"
           x-data="{ confirming: false }">
       {% csrf_token %}
       <template x-if="!confirming">
         <button type="button" @click="confirming = true"
                 class="text-sm text-danger underline underline-offset-2 hover:text-danger/80 focus:outline-hidden min-h-[44px]">
-          {{ cancel_cta.title }}
+          {{ action.label }}
         </button>
       </template>
       <template x-if="confirming">
         <div class="flex items-center gap-3">
-          <span class="text-sm text-on-surface dark:text-on-surface-dark">{{ cancel_confirm.message }}</span>
+          <span class="text-sm text-on-surface dark:text-on-surface-dark">{{ action.confirmation.message }}</span>
           <button type="submit"
                   class="rounded-radius bg-danger px-4 py-2 text-sm font-semibold text-white hover:bg-danger/90 focus:outline-hidden focus:ring-2 focus:ring-danger min-h-[44px]">
-            {{ cancel_yes.title }}
+            {{ action.confirmation.confirm_label|default:action.label }}
           </button>
           <button type="button" @click="confirming = false"
                   class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 underline min-h-[44px]">
@@ -237,6 +249,7 @@
     </form>
   </div>
   {% endif %}
+  {% endwith %}
 
   {% if not tracking.is_active %}
   {% comment %}── Tomorrow hook (yoin at the tail of the day) ──{% endcomment %}
@@ -248,9 +261,10 @@
   {% endif %}
 
   {% comment %}── Share / reorder ──{% endcomment %}
-  {% omotenashi 'TRACKING_REORDER_CTA' as reorder_cta %}
   {% omotenashi 'TRACKING_MENU_CTA' as menu_cta %}
   <div class="flex gap-3">
+    {% with action=tracking_actions.reorder %}
+    {% if action %}
     <form method="post"
           action="{% url 'storefront:reorder' ref=tracking.order_ref %}"
           hx-post="{% url 'storefront:reorder' ref=tracking.order_ref %}"
@@ -260,9 +274,11 @@
       {% csrf_token %}
       <button type="submit"
               class="w-full rounded-radius border border-outline px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px]">
-        {{ reorder_cta.title }}
+        {{ action.label }}
       </button>
     </form>
+    {% endif %}
+    {% endwith %}
     <a href="{% url 'storefront:menu' %}"
        class="flex-1 inline-flex items-center justify-center rounded-radius bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
       {{ menu_cta.title }}

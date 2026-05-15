@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CartItemProjection, ProductCommandMeta } from '~/types/shopman'
+import type { CartItemProjection, ProductMutationMeta } from '~/types/shopman'
 
 const props = defineProps<{ line: CartItemProjection }>()
 const emit = defineEmits<{
@@ -9,7 +9,7 @@ const emit = defineEmits<{
 
 const { isPending } = useCartState()
 
-const meta = computed<ProductCommandMeta>(() => ({
+const meta = computed<ProductMutationMeta>(() => ({
   sku: props.line.sku,
   name: props.line.name,
   price_q: props.line.unit_price_q,

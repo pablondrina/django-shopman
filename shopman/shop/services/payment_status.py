@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.utils.monetary import format_money
 
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import payment as payment_service
+from shopman.shop.services.interaction_context import InteractionContext
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +31,7 @@ class PaymentPromiseProjection:
     title: str
     message: str
     tone: str
-    customer_action: str
-    customer_action_label: str
-    customer_action_url: str | None
+    actions: tuple[SurfaceActionProjection, ...]
     deadline_at: str | None
     deadline_kind: str | None
     deadline_action: str
@@ -48,6 +48,8 @@ class PaymentProjection:
 
     order_ref: str
     method: str
+    order_status: str
+    payment_status: str | None
     total_display: str
     promise: PaymentPromiseProjection
     pix_qr_code: str | None
@@ -56,9 +58,9 @@ class PaymentProjection:
     checkout_url: str | None
     status_url: str
     server_now_iso: str
+    actions: tuple[SurfaceActionProjection, ...]
     error_message: str | None
     is_debug: bool
-    can_mock_confirm: bool
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class PaymentStatusProjection:
     is_expired: bool
     is_terminal: bool
     redirect_url: str
+    should_redirect: bool
 
 
 def get_payment_status(order) -> str | None:
@@ -90,6 +93,7 @@ def can_cancel(order) -> bool:
 
 def build_payment(order, *, is_debug: bool = False) -> PaymentProjection:
     """Build payment page data from order payment display metadata."""
+    interaction = InteractionContext.from_order(order, surface_ref="payment")
     payment = (order.data or {}).get("payment") or {}
     method = payment.get("method") or "pix"
 
@@ -119,12 +123,14 @@ def build_payment(order, *, is_debug: bool = False) -> PaymentProjection:
         pix_expires_at=pix_expires_at,
         checkout_url=checkout_url,
         error_message=error_message,
-        redirect_url=f"/pedido/{order.ref}/",
+        redirect_url=f"/pedido/{interaction.order_ref}/",
     )
 
     return PaymentProjection(
         order_ref=order.ref,
         method=method,
+        order_status=str(getattr(order, "status", "") or ""),
+        payment_status=payment_state or None,
         total_display=f"R$ {format_money(order.total_q)}",
         promise=promise,
         pix_qr_code=pix_qr_code,
@@ -133,9 +139,9 @@ def build_payment(order, *, is_debug: bool = False) -> PaymentProjection:
         checkout_url=checkout_url,
         status_url=reverse("storefront:payment_status_partial", kwargs={"ref": order.ref}),
         server_now_iso=timezone.now().isoformat(),
+        actions=_build_payment_actions(order, is_debug=is_debug),
         error_message=error_message,
         is_debug=is_debug,
-        can_mock_confirm=bool(payment.get("intent_ref")),
     )
 
 
@@ -176,7 +182,33 @@ def build_payment_status(order) -> PaymentStatusProjection:
         is_expired=is_expired,
         is_terminal=is_paid or is_cancelled or is_expired,
         redirect_url=redirect_url,
+        should_redirect=_payment_status_should_redirect(
+            promise=promise,
+            is_paid=is_paid,
+            is_cancelled=is_cancelled,
+            is_expired=is_expired,
+        ),
     )
+
+
+def promise_has_pending_payment_action(promise: PaymentPromiseProjection) -> bool:
+    return any(
+        action.enabled
+        and action.ref not in {"track_order"}
+        for action in promise.actions
+    )
+
+
+def _payment_status_should_redirect(
+    *,
+    promise: PaymentPromiseProjection,
+    is_paid: bool,
+    is_cancelled: bool,
+    is_expired: bool,
+) -> bool:
+    if is_paid or is_cancelled or is_expired:
+        return True
+    return not promise_has_pending_payment_action(promise)
 
 
 def _payment_flags(
@@ -196,6 +228,70 @@ def _payment_flags(
         except Exception:
             logger.warning("payment_status_expiry_parse_failed order=%s", order.ref, exc_info=True)
     return is_paid, is_cancelled, is_expired
+
+
+def _action(
+    *,
+    ref: str,
+    kind: str,
+    label: str,
+    priority: str = "primary",
+    href: str = "",
+    enabled: bool = True,
+    reason: str = "",
+    method: str = "",
+    payload_schema: dict | None = None,
+    idempotency: str = "none",
+    confirmation: dict | None = None,
+) -> SurfaceActionProjection:
+    return SurfaceActionProjection(
+        ref=ref,
+        kind=kind,
+        label=label,
+        priority=priority,
+        enabled=enabled,
+        reason=reason,
+        href=href,
+        method=method,
+        payload_schema=payload_schema or {},
+        idempotency=idempotency,
+        confirmation=confirmation or {},
+    )
+
+
+def _can_mock_confirm_payment(order, *, is_debug: bool) -> bool:
+    if not is_debug:
+        return False
+    if order.status not in {"new", "confirmed"}:
+        return False
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"} or not payment.get("intent_ref"):
+        return False
+    status = (get_payment_status(order) or "").lower()
+    return status not in {"", "unknown", "captured", "paid", "refunded", "cancelled", "failed"}
+
+
+def _build_payment_actions(order, *, is_debug: bool) -> tuple[SurfaceActionProjection, ...]:
+    if not _can_mock_confirm_payment(order, is_debug=is_debug):
+        return ()
+    return (
+        _action(
+            ref="mock_confirm_payment",
+            kind="mutation",
+            label=_copy_title("PAYMENT_DEV_CONFIRM_CTA", "Confirmar pagamento teste"),
+            priority="quiet",
+            href=f"/api/v1/payment/{order.ref}/mock-confirm/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "properties": {
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="recommended",
+        ),
+    )
 
 
 def _build_payment_promise(
@@ -219,9 +315,15 @@ def _build_payment_promise(
             title=_copy_title("PAYMENT_PROMISE_PAID_TITLE", "Pagamento reconhecido"),
             message=_copy_message("PAYMENT_PROMISE_PAID_MESSAGE", "Recebemos a confirmação do pagamento."),
             tone="success",
-            customer_action="track_order",
-            customer_action_label=_copy_title("CONFIRMATION_TRACK_CTA", "Acompanhar pedido"),
-            customer_action_url=redirect_url,
+            actions=(
+                _action(
+                    ref="track_order",
+                    kind="link",
+                    label=_copy_title("CONFIRMATION_TRACK_CTA", "Acompanhar pedido"),
+                    priority="secondary",
+                    href=redirect_url,
+                ),
+            ),
             deadline_at=None,
             deadline_kind=None,
             deadline_action="redirect_tracking",
@@ -237,9 +339,15 @@ def _build_payment_promise(
             title=_copy_title("PAYMENT_PROMISE_CANCELLED_TITLE", "Pedido cancelado"),
             message=_copy_message("PAYMENT_PROMISE_CANCELLED_MESSAGE", "Este pedido não aceita mais pagamento."),
             tone="danger",
-            customer_action="track_order",
-            customer_action_label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
-            customer_action_url=redirect_url,
+            actions=(
+                _action(
+                    ref="track_order",
+                    kind="link",
+                    label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
+                    priority="secondary",
+                    href=redirect_url,
+                ),
+            ),
             deadline_at=None,
             deadline_kind=None,
             deadline_action="none",
@@ -255,9 +363,15 @@ def _build_payment_promise(
             title=_copy_title("PAYMENT_PROMISE_EXPIRED_TITLE", "O prazo para pagamento expirou"),
             message=_copy_message("PAYMENT_PROMISE_EXPIRED_MESSAGE", "O pedido foi automaticamente cancelado e os itens foram liberados."),
             tone="warning",
-            customer_action="track_order",
-            customer_action_label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
-            customer_action_url=redirect_url,
+            actions=(
+                _action(
+                    ref="track_order",
+                    kind="link",
+                    label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
+                    priority="secondary",
+                    href=redirect_url,
+                ),
+            ),
             deadline_at=None,
             deadline_kind="payment",
             deadline_action="show_payment_expired",
@@ -267,15 +381,46 @@ def _build_payment_promise(
             active_notification=_copy_message("PAYMENT_PROMISE_EXPIRED_ACTIVE_NOTIFICATION", "Também avisaremos pelos canais ativos da sua conta."),
             stale_after_seconds=None,
         )
+    if method == "card" and payment_state == "authorized":
+        return PaymentPromiseProjection(
+            state="card_authorized",
+            title=_copy_title("PAYMENT_PROMISE_CARD_AUTHORIZED_TITLE", "Pagamento autorizado."),
+            message=_copy_message("PAYMENT_PROMISE_CARD_AUTHORIZED_MESSAGE", "Você não precisa fazer nada agora."),
+            tone="info",
+            actions=(),
+            deadline_at=None,
+            deadline_kind=None,
+            deadline_action="none",
+            requires_active_notification=False,
+            next_event=(
+                _copy_message(
+                    "PAYMENT_PROMISE_CARD_AUTHORIZED_NEXT_NEW",
+                    "O estabelecimento vai conferir a disponibilidade.",
+                )
+                if order.status == "new"
+                else _copy_message(
+                    "PAYMENT_PROMISE_CARD_AUTHORIZED_NEXT_CONFIRMED",
+                    "Assim que a confirmação financeira terminar, seguimos com o pedido.",
+                )
+            ),
+            recovery="",
+            active_notification="",
+            stale_after_seconds=45,
+        )
     if error_message:
         return PaymentPromiseProjection(
             state="intent_error",
             title=_copy_title("PAYMENT_PROMISE_ERROR_TITLE", "Não conseguimos preparar o pagamento"),
             message=_copy_message("PAYMENT_PROMISE_ERROR_MESSAGE", "Seu pedido continua registrado. Tente gerar o pagamento novamente."),
             tone="warning",
-            customer_action="retry",
-            customer_action_label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
-            customer_action_url=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+            actions=(
+                _action(
+                    ref="retry_payment",
+                    kind="link",
+                    label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
+                    href=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+                ),
+            ),
             deadline_at=pix_expires_at,
             deadline_kind="payment" if pix_expires_at else None,
             deadline_action="retry_payment_intent",
@@ -287,14 +432,54 @@ def _build_payment_promise(
         )
     if method == "card":
         if checkout_url:
+            if order.status != "confirmed":
+                return PaymentPromiseProjection(
+                    state="card_authorization_requested",
+                    title=_copy_title("PAYMENT_PROMISE_CARD_PRECONFIRMATION_TITLE", "Autorizar cartão"),
+                    message=_copy_message(
+                        "PAYMENT_PROMISE_CARD_PRECONFIRMATION_MESSAGE",
+                        "Abra o ambiente seguro para autorizar o cartão. O estabelecimento ainda vai conferir a disponibilidade.",
+                    ),
+                    tone="info",
+                    actions=(
+                        _action(
+                            ref="authorize_card",
+                            kind="external",
+                            label=_copy_title("PAYMENT_PROMISE_CARD_PRECONFIRMATION_ACTION", "Autorizar cartão"),
+                            href=checkout_url,
+                        ),
+                    ),
+                    deadline_at=None,
+                    deadline_kind=None,
+                    deadline_action="wait_gateway_return",
+                    requires_active_notification=False,
+                    next_event=_copy_message(
+                        "PAYMENT_PROMISE_CARD_PRECONFIRMATION_NEXT",
+                        "Depois da autorização, acompanhe a confirmação do estabelecimento.",
+                    ),
+                    recovery=_copy_message(
+                        "PAYMENT_PROMISE_CARD_PRECONFIRMATION_RECOVERY",
+                        "Se o ambiente seguro não abrir, tente novamente ou fale com o estabelecimento.",
+                    ),
+                    active_notification=_copy_message(
+                        "PAYMENT_PROMISE_CARD_PRECONFIRMATION_ACTIVE_NOTIFICATION",
+                        "Avisaremos quando o pagamento ou a confirmação da loja avançar.",
+                    ),
+                    stale_after_seconds=45,
+                )
             return PaymentPromiseProjection(
                 state="card_checkout_requested",
                 title=_copy_title("PAYMENT_PROMISE_CARD_TITLE", "Pagamento seguro com cartão"),
                 message=_copy_message("PAYMENT_PROMISE_CARD_MESSAGE", "A disponibilidade foi confirmada. Finalize o pagamento no ambiente seguro do cartão."),
                 tone="info",
-                customer_action="redirect",
-                customer_action_label=_copy_title("PAYMENT_PROMISE_CARD_ACTION", "Pagar com cartão"),
-                customer_action_url=checkout_url,
+                actions=(
+                    _action(
+                        ref="pay_card",
+                        kind="external",
+                        label=_copy_title("PAYMENT_PROMISE_CARD_ACTION", "Pagar com cartão"),
+                        href=checkout_url,
+                    ),
+                ),
                 deadline_at=None,
                 deadline_kind=None,
                 deadline_action="wait_gateway_return",
@@ -309,9 +494,14 @@ def _build_payment_promise(
             title=_copy_title("PAYMENT_PROMISE_CARD_PENDING_TITLE", "Preparando ambiente seguro"),
             message=_copy_message("PAYMENT_PROMISE_CARD_PENDING_MESSAGE", "Estamos preparando o ambiente seguro do cartão."),
             tone="warning",
-            customer_action="retry",
-            customer_action_label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
-            customer_action_url=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+            actions=(
+                _action(
+                    ref="retry_payment",
+                    kind="link",
+                    label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
+                    href=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+                ),
+            ),
             deadline_at=None,
             deadline_kind=None,
             deadline_action="retry_payment_intent",
@@ -321,14 +511,52 @@ def _build_payment_promise(
             active_notification="",
             stale_after_seconds=30,
         )
+    if order.status != "confirmed":
+        return PaymentPromiseProjection(
+            state="pix_payment_before_confirmation",
+            title=_copy_title("PAYMENT_PROMISE_PIX_PRECONFIRMATION_TITLE", "Pagamento Pix"),
+            message=_copy_message(
+                "PAYMENT_PROMISE_PIX_PRECONFIRMATION_MESSAGE",
+                "Use o Pix abaixo para registrar o pagamento. O estabelecimento ainda vai conferir a disponibilidade.",
+            ),
+            tone="info",
+            actions=(
+                _action(
+                    ref="copy_pix",
+                    kind="copy",
+                    label=_copy_title("PAYMENT_PROMISE_PIX_ACTION", "Copiar código PIX"),
+                ),
+            ),
+            deadline_at=pix_expires_at,
+            deadline_kind="payment" if pix_expires_at else None,
+            deadline_action="cancel_order_on_timeout" if pix_expires_at else "none",
+            requires_active_notification=True,
+            next_event=_copy_message(
+                "PAYMENT_PROMISE_PIX_PRECONFIRMATION_NEXT",
+                "Depois do pagamento, acompanhe a confirmação do estabelecimento.",
+            ),
+            recovery=_copy_message(
+                "PAYMENT_PROMISE_PIX_PRECONFIRMATION_RECOVERY",
+                "Se o prazo expirar, o pedido será cancelado automaticamente e os itens serão liberados.",
+            ),
+            active_notification=_copy_message(
+                "PAYMENT_PROMISE_PIX_ACTIVE_NOTIFICATION",
+                "Quando o pagamento for reconhecido, avisaremos pelos canais ativos da sua conta.",
+            ),
+            stale_after_seconds=45,
+        )
     return PaymentPromiseProjection(
         state="pix_payment_requested",
         title=_copy_title("PAYMENT_PROMISE_PIX_TITLE", "Pagamento Pix"),
         message=_copy_message("PAYMENT_PROMISE_PIX_MESSAGE", "A disponibilidade foi confirmada. Use o Pix abaixo para liberar o preparo."),
         tone="info",
-        customer_action="pay_on_page",
-        customer_action_label=_copy_title("PAYMENT_PROMISE_PIX_ACTION", "Use o QR Code ou copia e cola abaixo"),
-        customer_action_url=None,
+        actions=(
+            _action(
+                ref="copy_pix",
+                kind="copy",
+                label=_copy_title("PAYMENT_PROMISE_PIX_ACTION", "Copiar código PIX"),
+            ),
+        ),
         deadline_at=pix_expires_at,
         deadline_kind="payment" if pix_expires_at else None,
         deadline_action="cancel_order_on_timeout" if pix_expires_at else "none",
@@ -359,4 +587,5 @@ __all__ = [
     "can_cancel",
     "get_payment_status",
     "has_sufficient_captured_payment",
+    "promise_has_pending_payment_action",
 ]

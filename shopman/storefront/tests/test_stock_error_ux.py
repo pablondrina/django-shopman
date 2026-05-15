@@ -238,8 +238,8 @@ def test_stock_error_modal_html_has_penguin_tokens(db, product):
 # ── Actionable modal contract (STOCK-UX-PLAN) ──────────────────────────
 
 
-def test_modal_has_primary_action_when_stock_remains(db, product):
-    """available_qty > 0 → primary CTA 'Adicionar N disponíveis' calling
+def test_modal_has_suggested_resolution_when_stock_remains(db, product):
+    """available_qty > 0 -> suggested CTA 'Adicionar N disponíveis' calling
     cart_set_qty with qty=available_qty and isAlternative=false."""
     client = Client()
     exc = CartUnavailableError(
@@ -255,10 +255,10 @@ def test_modal_has_primary_action_when_stock_remains(db, product):
     body = resp.content.decode("utf-8")
 
     import re as _re
-    assert "Adicionar 3 dispon" in body, "primary CTA must label 'Adicionar N disponíveis'"
+    assert "Adicionar 3 dispon" in body, "suggested CTA must label 'Adicionar N disponíveis'"
     # pickAction(sku, 3, 'Pão Teste', false) — false = not an alternative
     assert _re.search(r"pickAction\([^)]+,\s*3,\s*['\"][^'\"]+['\"],\s*false\)", body), (
-        "primary CTA must pass qty=available and isAlternative=false"
+        "suggested CTA must pass qty=available and isAlternative=false"
     )
 
 
@@ -300,8 +300,8 @@ def test_modal_renders_substitutes_as_one_click_buttons(db, product):
     ), "second alternative must pickAction with isAlternative=true"
 
 
-def test_sold_out_without_substitutes_shows_no_primary_action(db, product):
-    """available=0 + no substitutes → only close button; no primary CTA."""
+def test_sold_out_without_substitutes_shows_no_suggested_resolution(db, product):
+    """available=0 + no substitutes -> only close button; no suggested CTA."""
     client = Client()
     exc = CartUnavailableError(
         sku=product.sku,

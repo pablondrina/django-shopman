@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from django.contrib.auth.models import User
 from shopman.doorman.models import CustomerUser
@@ -62,3 +64,32 @@ def test_order_channels_require_matching_customer_or_staff():
     assert manager.can_read_channel(other_user, f"order-{order.ref}") is False
     assert manager.can_read_channel(matching_user, f"order-{order.ref}") is True
     assert manager.can_read_channel(staff, f"order-{order.ref}") is True
+
+
+def test_order_channels_accept_session_scoped_event_user():
+    manager = ShopmanChannelManager()
+    order = Order.objects.create(
+        ref="ORD-SSE-SESSION-001",
+        channel_ref="web",
+        status="new",
+        total_q=1000,
+        handle_type="phone",
+        handle_ref="5543999990001",
+    )
+    event_user = SimpleNamespace(
+        is_authenticated=True,
+        is_staff=False,
+        is_superuser=False,
+        pk="order-session:test",
+        _shopman_order_sse_refs=frozenset({order.ref}),
+    )
+    other_event_user = SimpleNamespace(
+        is_authenticated=True,
+        is_staff=False,
+        is_superuser=False,
+        pk="order-session:other",
+        _shopman_order_sse_refs=frozenset({"OTHER-ORDER"}),
+    )
+
+    assert manager.can_read_channel(event_user, f"order-{order.ref}") is True
+    assert manager.can_read_channel(other_event_user, f"order-{order.ref}") is False

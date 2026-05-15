@@ -156,11 +156,11 @@ async function submit () {
         </UFormField>
 
         <UFormField label="Complemento">
-          <UInput v-model="form.complement" placeholder="Apto, bloco, ponto de referência" />
+          <UInput v-model="form.complement" placeholder="Apto, bloco, ponto de referência" class="w-full" />
         </UFormField>
 
         <UFormField label="Instruções para a entrega">
-          <UTextarea v-model="form.delivery_instructions" :rows="2" placeholder="Algo que ajuda a chegar até você?" />
+          <UTextarea v-model="form.delivery_instructions" :rows="2" placeholder="Algo que ajuda a chegar até você?" class="w-full" />
         </UFormField>
 
         <UCheckbox v-model="form.is_default" label="Salvar como padrão" />

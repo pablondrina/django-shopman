@@ -18,9 +18,11 @@ from shopman.shop.projections.types import (
     FulfillmentProjection,
     OrderItemProjection,
     OrderProgressStepProjection,
+    SurfaceActionProjection,
     TimelineEventProjection,
 )
 from shopman.shop.services import payment_status
+from shopman.shop.services.interaction_context import InteractionContext
 from shopman.shop.services.business_calendar import (
     BusinessCalendarState,
     current_business_state,
@@ -96,12 +98,19 @@ class OrderTrackingPromiseProjection:
     deadline_action: str
     requires_active_notification: bool
     notification_topic: str | None
-    customer_action: str = "none"
-    customer_action_label: str = ""
-    customer_action_url: str | None = None
+    actions: tuple[SurfaceActionProjection, ...] = ()
     next_event: str = ""
     recovery: str = ""
     active_notification: str = ""
+
+
+@dataclass(frozen=True)
+class OrderTrackingPromiseRowProjection:
+    """Customer-facing promise detail row resolved by the canonical backend."""
+
+    label: str
+    value: str
+    url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +122,8 @@ class OrderTrackingProjection:
     status_label: str
     status_color: str
     promise: OrderTrackingPromiseProjection
+    promise_rows: tuple[OrderTrackingPromiseRowProjection, ...]
+    promise_deadline_label: str
     progress_steps: tuple[OrderProgressStepProjection, ...]
     timeline: tuple[TimelineEventProjection, ...]
     items: tuple[OrderItemProjection, ...]
@@ -122,7 +133,7 @@ class OrderTrackingProjection:
     delivery_fulfillments: tuple[FulfillmentProjection, ...]
     pickup_fulfillments: tuple[FulfillmentProjection, ...]
     pickup_info: PickupInfoProjection | None
-    can_cancel: bool
+    actions: tuple[SurfaceActionProjection, ...]
     is_active: bool
     server_now_iso: str
     payment_pending: bool
@@ -153,11 +164,11 @@ class OrderTrackingStatusProjection:
     progress_steps: tuple[OrderProgressStepProjection, ...]
     timeline: tuple[TimelineEventProjection, ...]
     is_terminal: bool
-    can_cancel: bool
 
 
 def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
     """Build the full tracking projection for an order."""
+    interaction = InteractionContext.from_order(order, surface_ref="tracking")
     server_now = timezone.now()
     payment_expired = _is_payment_timeout_cancelled(order)
     status_label, status_color = _status_display(order)
@@ -194,24 +205,37 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
     )
     whatsapp_url, share_text = _contact_and_share(order)
     eta_display = _eta_display(order)
+    promise = _build_promise(
+        order,
+        is_delivery=is_delivery,
+        payment_pending=payment_pending,
+        payment_confirmed=payment_confirmed,
+        payment_expired=payment_expired,
+        payment_expires_at=payment_expires_at,
+        confirmation_countdown=confirmation_countdown,
+        confirmation_expires_at=confirmation_expires_at,
+        eta_display=eta_display,
+        business_state=business_state,
+    )
+    last_updated_display = _copy_title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora")
+
+    can_cancel = payment_status.can_cancel(order)
+    can_mock_confirm_payment = _can_mock_confirm_payment(order, is_debug=is_debug)
+    actions = _build_order_actions(
+        order,
+        can_cancel=can_cancel,
+        can_rate=_can_rate(order),
+        can_mock_confirm_payment=can_mock_confirm_payment,
+    )
 
     return OrderTrackingProjection(
-        order_ref=order.ref,
+        order_ref=interaction.order_ref,
         status=order.status,
         status_label=status_label,
         status_color=status_color,
-        promise=_build_promise(
-            order,
-            is_delivery=is_delivery,
-            payment_pending=payment_pending,
-            payment_confirmed=payment_confirmed,
-            payment_expired=payment_expired,
-            payment_expires_at=payment_expires_at,
-            confirmation_countdown=confirmation_countdown,
-            confirmation_expires_at=confirmation_expires_at,
-            eta_display=eta_display,
-            business_state=business_state,
-        ),
+        promise=promise,
+        promise_rows=_build_promise_rows(promise, last_updated_display=last_updated_display),
+        promise_deadline_label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo")),
         progress_steps=progress_steps,
         timeline=timeline,
         items=items,
@@ -221,7 +245,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         delivery_fulfillments=delivery_fulfillments,
         pickup_fulfillments=pickup_fulfillments,
         pickup_info=pickup_info,
-        can_cancel=payment_status.can_cancel(order),
+        actions=actions,
         is_active=order.status not in TERMINAL_STATUSES,
         server_now_iso=server_now.isoformat(),
         payment_pending=payment_pending,
@@ -240,7 +264,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         share_text=share_text,
         is_debug=is_debug,
         last_updated_iso=server_now.isoformat(),
-        last_updated_display=_copy_title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora"),
+        last_updated_display=last_updated_display,
         stale_after_seconds=45,
     )
 
@@ -256,7 +280,6 @@ def build_tracking_status(order) -> OrderTrackingStatusProjection:
         progress_steps=_build_progress_steps(order),
         timeline=_build_timeline(order),
         is_terminal=order.status in TERMINAL_STATUSES,
-        can_cancel=payment_status.can_cancel(order),
     )
 
 
@@ -333,6 +356,196 @@ def _payment_info(order) -> tuple[bool, bool, str | None, str | None]:
     return True, False, "Aguardando confirmação do pagamento", payment.get("expires_at") or None
 
 
+def _can_mock_confirm_payment(order, *, is_debug: bool) -> bool:
+    if not is_debug:
+        return False
+    if order.status not in {"new", "confirmed"}:
+        return False
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"} or not payment.get("intent_ref"):
+        return False
+    status = (payment_status.get_payment_status(order) or "").lower()
+    return status not in {"", "unknown", "captured", "paid", "refunded", "cancelled", "failed"}
+
+
+def _rating_data(order) -> dict:
+    data = order.data if isinstance(order.data, dict) else {}
+    rating = data.get("customer_rating")
+    return rating if isinstance(rating, dict) else {}
+
+
+def _can_rate(order) -> bool:
+    if order.status not in {"delivered", "completed"}:
+        return False
+    return not bool(_rating_data(order).get("rating"))
+
+
+def _clean_label(value: str) -> str:
+    return str(value or "").strip().rstrip(":").strip()
+
+
+def _action(
+    *,
+    ref: str,
+    kind: str,
+    label: str,
+    priority: str = "primary",
+    href: str = "",
+    enabled: bool = True,
+    reason: str = "",
+    method: str = "",
+    payload_schema: dict | None = None,
+    idempotency: str = "none",
+    confirmation: dict | None = None,
+) -> SurfaceActionProjection:
+    return SurfaceActionProjection(
+        ref=ref,
+        kind=kind,
+        label=label,
+        priority=priority,
+        enabled=enabled,
+        reason=reason,
+        href=href,
+        method=method,
+        payload_schema=payload_schema or {},
+        idempotency=idempotency,
+        confirmation=confirmation or {},
+    )
+
+
+def _build_order_actions(
+    order,
+    *,
+    can_cancel: bool,
+    can_rate: bool,
+    can_mock_confirm_payment: bool,
+) -> tuple[SurfaceActionProjection, ...]:
+    actions: list[SurfaceActionProjection] = []
+    if can_cancel:
+        actions.append(_action(
+            ref="cancel_order",
+            kind="mutation",
+            label=_copy_title("TRACKING_ACTION_CANCEL_ORDER", "Cancelar pedido"),
+            priority="danger",
+            href=f"/api/v1/orders/{order.ref}/cancel/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "required": ["idempotency_key"],
+                "properties": {
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="required",
+            confirmation={
+                "title": _copy_title("TRACKING_CANCEL_CONFIRM_TITLE", "Cancelar pedido"),
+                "message": _copy_message(
+                    "TRACKING_CANCEL_CONFIRM_MESSAGE",
+                    "Confirme apenas se não quiser mais seguir com este pedido.",
+                ),
+                "confirm_label": _copy_title("TRACKING_CANCEL_CONFIRM_CTA", "Confirmar cancelamento"),
+                "severity": "danger",
+            },
+        ))
+    if can_rate:
+        actions.append(_action(
+            ref="rate_order",
+            kind="mutation",
+            label=_copy_title("TRACKING_ACTION_RATE_ORDER", "Avaliar pedido"),
+            priority="secondary",
+            href=f"/api/v1/orders/{order.ref}/rate/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "required": ["rating", "idempotency_key"],
+                "properties": {
+                    "rating": {"type": "integer", "minimum": 1, "maximum": 5},
+                    "comment": {"type": "string", "maxLength": 500},
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="required",
+        ))
+    if can_mock_confirm_payment:
+        actions.append(_action(
+            ref="mock_confirm_payment",
+            kind="mutation",
+            label=_copy_title("TRACKING_ACTION_MOCK_CONFIRM_PAYMENT", "Capturar pagamento teste"),
+            priority="quiet",
+            href=f"/api/v1/payment/{order.ref}/mock-confirm/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "properties": {
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="recommended",
+        ))
+    if order.status in TERMINAL_STATUSES:
+        actions.append(_action(
+            ref="reorder",
+            kind="mutation",
+            label=_copy_title("TRACKING_REORDER_CTA", "Pedir novamente"),
+            priority="secondary",
+            href=f"/api/v1/orders/{order.ref}/reorder/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "properties": {
+                    "mode": {"type": "string", "enum": ["append", "replace"]},
+                    "idempotency_key": {"type": "string"},
+                },
+            },
+            idempotency="required",
+        ))
+    return tuple(actions)
+
+
+def _first_visible_action(actions: tuple[SurfaceActionProjection, ...]) -> SurfaceActionProjection | None:
+    for action in actions:
+        if action.enabled:
+            return action
+    return actions[0] if actions else None
+
+
+def _build_promise_rows(
+    promise: OrderTrackingPromiseProjection,
+    *,
+    last_updated_display: str,
+) -> tuple[OrderTrackingPromiseRowProjection, ...]:
+    rows: list[OrderTrackingPromiseRowProjection] = []
+    if promise.next_event:
+        rows.append(OrderTrackingPromiseRowProjection(
+            label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_NEXT", "Próximo passo")),
+            value=promise.next_event,
+        ))
+    visible_action = _first_visible_action(promise.actions)
+    if visible_action:
+        rows.append(OrderTrackingPromiseRowProjection(
+            label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_ACTION", "Sua ação")),
+            value=visible_action.label,
+            url=visible_action.href or None,
+        ))
+    if promise.recovery:
+        rows.append(OrderTrackingPromiseRowProjection(
+            label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_RECOVERY", "Se algo mudar")),
+            value=promise.recovery,
+        ))
+    if promise.requires_active_notification and promise.active_notification:
+        rows.append(OrderTrackingPromiseRowProjection(
+            label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION", "Aviso")),
+            value=promise.active_notification,
+        ))
+    if last_updated_display:
+        rows.append(OrderTrackingPromiseRowProjection(
+            label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_UPDATED", "Última atualização")),
+            value=last_updated_display,
+        ))
+    return tuple(rows)
+
+
 def _build_promise(
     order,
     *,
@@ -363,7 +576,7 @@ def _build_promise(
             deadline_action="none",
             requires_active_notification=True,
             notification_topic="payment_expired",
-            customer_action="none",
+            actions=(),
             next_event=_copy_message("TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT", "Você pode refazer o pedido quando quiser."),
             recovery=_copy_message("TRACKING_PROMISE_RECOVERY_HELP", "Se precisar de ajuda, fale com o estabelecimento."),
         )
@@ -394,9 +607,14 @@ def _build_promise(
             deadline_action="show_payment_expired",
             requires_active_notification=state == "payment_requested",
             notification_topic="payment_requested" if state == "payment_requested" else None,
-            customer_action="pay_now",
-            customer_action_label=_copy_title("TRACKING_PAYMENT_CTA", "Pagar agora"),
-            customer_action_url=f"/pedido/{order.ref}/pagamento/",
+            actions=(
+                _action(
+                    ref="pay_now",
+                    kind="link",
+                    label=_copy_title("TRACKING_PAYMENT_CTA", "Pagar agora"),
+                    href=f"/pedido/{order.ref}/pagamento/",
+                ),
+            ),
             next_event=_copy_message("TRACKING_PROMISE_PAYMENT_NEXT", "Depois do pagamento, seguimos com o pedido."),
             recovery=_copy_message(
                 "TRACKING_PROMISE_PAYMENT_RECOVERY",
@@ -431,8 +649,7 @@ def _build_promise(
             deadline_action="none",
             requires_active_notification=False,
             notification_topic=None,
-            customer_action="wait",
-            customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+            actions=(),
             next_event=(
                 _copy_message("TRACKING_PROMISE_CLOSED_HOURS_NEXT_PREFIX", "Próxima abertura:")
                 + f" {next_opening}."
@@ -459,8 +676,7 @@ def _build_promise(
             deadline_action="none",
             requires_active_notification=False,
             notification_topic=None,
-            customer_action="none",
-            customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+            actions=(),
             next_event=(
                 _copy_message("TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_NEW", "O estabelecimento vai conferir a disponibilidade.")
                 if order.status == "new"
@@ -483,8 +699,7 @@ def _build_promise(
             deadline_action="refresh_tracking",
             requires_active_notification=False,
             notification_topic=None,
-            customer_action="wait",
-            customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+            actions=(),
             next_event="",
             recovery=_copy_message(
                 "TRACKING_PROMISE_AVAILABILITY_RECOVERY",
@@ -504,8 +719,7 @@ def _build_promise(
             deadline_action="none",
             requires_active_notification=False,
             notification_topic=None,
-            customer_action="none",
-            customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+            actions=(),
             next_event=(
                 _copy_message(
                     "TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_NEW",
@@ -533,8 +747,7 @@ def _build_promise(
             deadline_action="none",
             requires_active_notification=False,
             notification_topic=None,
-            customer_action="none",
-            customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+            actions=(),
             next_event=(
                 _copy_message("TRACKING_PROMISE_PREPARING_NEXT_PICKUP", "Quando estiver pronto, avisaremos você.")
                 if not is_delivery
@@ -557,6 +770,16 @@ def _build_promise(
             title = _copy_title("TRACKING_STEP_READY_PICKUP", "Seu pedido está pronto para retirada.")
             message = ""
             state = "ready_pickup"
+        ready_actions = ()
+        if state == "ready_pickup":
+            ready_actions = (
+                _action(
+                    ref="pickup",
+                    kind="instruction",
+                    label=_copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido"),
+                    priority="primary",
+                ),
+            )
         return OrderTrackingPromiseProjection(
             state=state,
             title=title,
@@ -566,29 +789,13 @@ def _build_promise(
             deadline_kind=None,
             timer_mode="none",
             deadline_action="none",
-            requires_active_notification=True,
-            notification_topic="order_ready",
-            customer_action="wait" if state == "ready_delivery" else "pickup",
-            customer_action_label=(
-                _copy_title("TRACKING_ACTION_WAITING_COURIER", "Aguardando entregador")
-                if state == "ready_delivery"
-                else _copy_title("TRACKING_ACTION_READY_PICKUP", "Pronto para retirada")
-            ),
+            requires_active_notification=False,
+            notification_topic=None,
+            actions=ready_actions,
             next_event=(
                 _copy_message("TRACKING_PROMISE_READY_DELIVERY_NEXT", "Assim que sair para entrega, avisamos você.")
                 if state == "ready_delivery"
                 else _copy_message("TRACKING_PROMISE_READY_PICKUP_NEXT", "Retire no estabelecimento quando puder.")
-            ),
-            active_notification=(
-                _copy_message(
-                    "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION",
-                    "Avisamos ativamente quando o pedido fica pronto para retirada.",
-                )
-                if state == "ready_pickup"
-                else _copy_message(
-                    "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION",
-                    "Avisamos ativamente quando o pedido sair para entrega.",
-                )
             ),
         )
 
@@ -643,7 +850,7 @@ def _build_promise(
                 if state == "dispatched"
                 else "order_delivered" if state == "delivered" else None
             ),
-            customer_action="none",
+            actions=(),
             next_event=next_event,
             active_notification=(
                 _copy_message("TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION", "Avisamos ativamente sobre esta atualização.")
@@ -666,8 +873,7 @@ def _build_promise(
         deadline_action="none",
         requires_active_notification=False,
         notification_topic=None,
-        customer_action="wait",
-        customer_action_label=_copy_title("TRACKING_ACTION_NONE", "Nenhuma ação necessária"),
+        actions=(),
         next_event=_copy_message("TRACKING_PROMISE_RECEIVED_NEXT", "O estabelecimento vai conferir a disponibilidade."),
     )
 
@@ -1258,6 +1464,7 @@ def _contact_and_share(order) -> tuple[str, str]:
 __all__ = [
     "OrderTrackingProjection",
     "OrderTrackingPromiseProjection",
+    "OrderTrackingPromiseRowProjection",
     "OrderTrackingStatusProjection",
     "PickupInfoProjection",
     "build_tracking",

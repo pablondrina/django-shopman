@@ -1,8 +1,11 @@
-import type { CartProjection } from '~/types/shopman'
+import type { CartProjection, SurfaceActionProjection } from '~/types/shopman'
 
 interface ReorderConflict {
   orderRef: string
+  href: string
+  method: string
   items: Array<{ sku: string, name: string, qty: number }>
+  actions: SurfaceActionProjection[]
 }
 
 interface ReorderSkippedItem {
@@ -15,7 +18,10 @@ interface ReorderRateLimitRecovery {
   detail: string
   retryAfterSeconds: number | null
   orderRef: string
+  href: string
+  method: string
   mode?: 'replace' | 'append'
+  idempotencyKey: string
 }
 
 interface ReorderResponse {
@@ -60,14 +66,21 @@ export function useReorder () {
     }))
   }
 
-  async function performReorder (orderRef: string, mode?: 'replace' | 'append'): Promise<boolean> {
+  async function performReorder (
+    orderRef: string,
+    mode?: 'replace' | 'append',
+    idempotencyKey = newRemoteMutationKey(`web-reorder-${orderRef}`),
+    action?: SurfaceActionProjection | null
+  ): Promise<boolean> {
     pending.value = true
     rateLimitRecovery.value = null
+    const href = action?.href || `/api/v1/orders/${encodeURIComponent(orderRef)}/reorder/`
+    const method = action?.method || 'POST'
     try {
-      const response = await $fetch<ReorderResponse>(apiPath(`/api/v1/orders/${encodeURIComponent(orderRef)}/reorder/`), {
-        method: 'POST',
-        headers: await csrfHeaders(),
-        body: mode ? { mode } : {},
+      const response = await $fetch<ReorderResponse>(apiPath(href), {
+        method,
+        headers: { ...(await csrfHeaders()), 'Idempotency-Key': idempotencyKey },
+        body: mode ? { mode, idempotency_key: idempotencyKey } : { idempotency_key: idempotencyKey },
         credentials: 'include'
       })
       setFromServer(response.cart)
@@ -97,7 +110,10 @@ export function useReorder () {
       if (status === 409 && data?.error_code === 'cart_not_empty') {
         conflict.value = {
           orderRef: data.order_ref || orderRef,
-          items: Array.isArray(data.items) ? data.items : []
+          href,
+          method,
+          items: Array.isArray(data.items) ? data.items : [],
+          actions: Array.isArray(data.actions) ? data.actions : []
         }
         return false
       }
@@ -106,7 +122,10 @@ export function useReorder () {
           detail: data?.detail || operationalCopy.recovery.reorderRateLimit,
           retryAfterSeconds: typeof data?.retry_after_seconds === 'number' ? data.retry_after_seconds : null,
           orderRef,
-          mode
+          href,
+          method,
+          mode,
+          idempotencyKey
         }
         return false
       }
@@ -120,6 +139,14 @@ export function useReorder () {
     } finally {
       pending.value = false
     }
+  }
+
+  async function performReorderAction (
+    action: SurfaceActionProjection,
+    orderRef: string,
+    mode?: 'replace' | 'append'
+  ): Promise<boolean> {
+    return await performReorder(orderRef, mode, undefined, action)
   }
 
   function dismissConflict () {
@@ -136,18 +163,54 @@ export function useReorder () {
 
   async function resolveConflict (mode: 'replace' | 'append') {
     if (!conflict.value) return
-    await performReorder(conflict.value.orderRef, mode)
+    const action = conflict.value.actions.find(candidate => candidate.ref === `reorder_${mode}` && candidate.enabled !== false)
+    await performReorder(
+      conflict.value.orderRef,
+      mode,
+      undefined,
+      action || {
+        ref: `reorder_${mode}`,
+        kind: 'mutation',
+        label: mode === 'replace' ? 'Substituir o carrinho' : 'Adicionar ao carrinho atual',
+        priority: mode === 'replace' ? 'danger' : 'secondary',
+        enabled: true,
+        reason: '',
+        href: conflict.value.href,
+        method: conflict.value.method,
+        payload_schema: {},
+        idempotency: 'required',
+        confirmation: {}
+      }
+    )
   }
 
   async function retryRateLimitedReorder () {
     const recovery = rateLimitRecovery.value
     if (!recovery) return
     rateLimitRecovery.value = null
-    await performReorder(recovery.orderRef, recovery.mode)
+    await performReorder(
+      recovery.orderRef,
+      recovery.mode,
+      recovery.idempotencyKey,
+      {
+        ref: 'reorder_retry',
+        kind: 'mutation',
+        label: 'Tentar novamente',
+        priority: 'primary',
+        enabled: true,
+        reason: '',
+        href: recovery.href,
+        method: recovery.method,
+        payload_schema: {},
+        idempotency: 'required',
+        confirmation: {}
+      }
+    )
   }
 
   return {
     performReorder,
+    performReorderAction,
     dismissConflict,
     dismissSkippedItems,
     dismissRateLimitRecovery,

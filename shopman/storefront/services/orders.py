@@ -1,4 +1,4 @@
-"""Storefront order read and customer-facing order command service."""
+"""Storefront order read and customer-facing order mutation service."""
 
 from __future__ import annotations
 
@@ -72,6 +72,16 @@ def payment_is_sufficient(order) -> bool:
 
 def resolve_payment_timeout_if_due(order) -> bool:
     return customer_orders.resolve_payment_timeout_if_due(order)
+
+
+def resolve_confirmation_timeout_if_due(order) -> bool:
+    return customer_orders.resolve_confirmation_timeout_if_due(order)
+
+
+def resolve_timeouts_if_due(order) -> bool:
+    confirmation_resolved = customer_orders.resolve_confirmation_timeout_if_due(order)
+    payment_resolved = customer_orders.resolve_payment_timeout_if_due(order)
+    return confirmation_resolved or payment_resolved
 
 
 def requires_payment_gate(order) -> bool:

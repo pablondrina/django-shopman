@@ -1,8 +1,8 @@
 import type {
-  CartCommandResponse,
+  CartMutationResponse,
   CartItemProjection,
   CartProjection,
-  ProductCommandMeta
+  ProductMutationMeta
 } from '~/types/shopman'
 
 interface CartIssueItem {
@@ -33,8 +33,8 @@ interface CartRateLimitRecovery {
   retryAfterSeconds: number | null
 }
 
-interface CartCommandSnapshot {
-  meta: ProductCommandMeta
+interface CartMutationSnapshot {
+  meta: ProductMutationMeta
   qty: number
 }
 
@@ -81,7 +81,7 @@ function formatMoney (valueQ: number): string {
   return money.format(valueQ / 100)
 }
 
-function optimisticLine (meta: ProductCommandMeta, qty: number): CartItemProjection {
+function optimisticLine (meta: ProductMutationMeta, qty: number): CartItemProjection {
   const total = meta.price_q * qty
   return {
     line_id: `optimistic:${meta.sku}`,
@@ -128,7 +128,7 @@ function stockReason (data: any) {
   return operationalCopy.availability.noStockForRequestedQty
 }
 
-function stockIssueFromPayload (data: any, meta: ProductCommandMeta): CartStockIssue {
+function stockIssueFromPayload (data: any, meta: ProductMutationMeta): CartStockIssue {
   const fallbackItem: CartIssueItem = {
     sku: String(data?.sku || meta.sku),
     name: String(data?.name || meta.name || data?.sku || meta.sku),
@@ -168,7 +168,7 @@ export function useCartState () {
   const lastError = useState<string | null>('shopman-cart-error', () => null)
   const stockIssue = useState<CartStockIssue | null>('shopman-cart-stock-issue', () => null)
   const rateLimitRecovery = useState<CartRateLimitRecovery | null>('shopman-cart-rate-limit-recovery', () => null)
-  const lastCartCommand = useState<CartCommandSnapshot | null>('shopman-cart-last-command', () => null)
+  const lastCartMutation = useState<CartMutationSnapshot | null>('shopman-cart-last-mutation', () => null)
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
   const hasPendingMutations = computed(() => Object.values(pendingBySku.value).some(Boolean))
@@ -191,7 +191,7 @@ export function useCartState () {
     return !!pendingBySku.value[sku]
   }
 
-  function applyOptimisticQty (meta: ProductCommandMeta, qty: number) {
+  function applyOptimisticQty (meta: ProductMutationMeta, qty: number) {
     const current = cloneCart(cart.value)
     const existing = current.items.find(item => item.sku === meta.sku)
 
@@ -215,24 +215,24 @@ export function useCartState () {
     cart.value = markSummaryPending(current)
   }
 
-  async function setSkuQty (meta: ProductCommandMeta, qty: number): Promise<CartCommandResponse> {
+  async function setSkuQty (meta: ProductMutationMeta, qty: number): Promise<CartMutationResponse> {
     const previous = cloneCart(cart.value)
     lastError.value = null
     stockIssue.value = null
     rateLimitRecovery.value = null
-    lastCartCommand.value = { meta: { ...meta }, qty }
+    lastCartMutation.value = { meta: { ...meta }, qty }
     pendingBySku.value = { ...pendingBySku.value, [meta.sku]: true }
     applyOptimisticQty(meta, qty)
 
     try {
-      const response = await $fetch<CartCommandResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
+      const response = await $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         headers: await csrfHeaders(),
         body: { qty },
         credentials: 'include'
       })
       cart.value = response.cart
-      lastCartCommand.value = null
+      lastCartMutation.value = null
       return response
     } catch (error: any) {
       cart.value = previous
@@ -280,17 +280,17 @@ export function useCartState () {
     rateLimitRecovery.value = null
   }
 
-  async function retryLastCartCommand () {
-    const command = lastCartCommand.value
-    if (!command) return
-    await setSkuQty(command.meta, command.qty)
+  async function retryLastCartMutation () {
+    const mutation = lastCartMutation.value
+    if (!mutation) return
+    await setSkuQty(mutation.meta, mutation.qty)
   }
 
   async function acceptStockIssueAvailable () {
-    const command = lastCartCommand.value
+    const mutation = lastCartMutation.value
     const availableQty = stockIssue.value?.available_qty
-    if (!command || availableQty == null) return
-    await setSkuQty(command.meta, availableQty)
+    if (!mutation || availableQty == null) return
+    await setSkuQty(mutation.meta, availableQty)
   }
 
   return {
@@ -299,7 +299,7 @@ export function useCartState () {
     lastError,
     stockIssue,
     rateLimitRecovery,
-    lastCartCommand,
+    lastCartMutation,
     setFromServer,
     clearCart,
     qtyForSku,
@@ -307,7 +307,7 @@ export function useCartState () {
     setSkuQty,
     dismissStockIssue,
     dismissRateLimitRecovery,
-    retryLastCartCommand,
+    retryLastCartMutation,
     acceptStockIssueAvailable
   }
 }

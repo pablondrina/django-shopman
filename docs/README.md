@@ -46,6 +46,14 @@
 | [ADR-002](decisions/adr-002-centavos.md) | Centavos — valores monetários como inteiros |
 | [ADR-003](decisions/adr-003-directives-sem-celery.md) | Directives sem Celery — fila assíncrona simples |
 | [ADR-004](decisions/adr-004-string-refs.md) | String Refs — referências como strings |
+| [ADR-005](decisions/adr-005-orchestrator-as-coordination-center.md) | Orquestrador centralizado como decisão consciente de design |
+| [ADR-006](decisions/adr-006-order-status-semantics.md) | Semântica canônica do ciclo de vida de Order |
+| [ADR-007](decisions/adr-007-lifecycle-dispatch-functional.md) | Lifecycle dispatch funcional e config-driven |
+| [ADR-008](decisions/adr-008-pdp-nutrition.md) | Ingredientes e informação nutricional no PDP |
+| [ADR-009](decisions/adr-009-whatsapp-via-manychat.md) | WhatsApp via ManyChat |
+| [ADR-010](decisions/adr-010-handler-contract-and-autodiscovery.md) | Contrato handler↔dispatch e roadmap de autodiscovery |
+| [ADR-011](decisions/adr-011-formula-and-cashshift.md) | Formula sem FormulaPlan e caixa como CashShift |
+| [ADR-012](decisions/adr-012-headless-surface-contract.md) | Contrato headless de superfície — Projection com Actions |
 
 ---
 
@@ -83,6 +91,9 @@ Documentação de consulta rápida gerada a partir do código.
 | [Sinais (Signals)](reference/signals.md) | Sinais emitidos e consumidos por cada app, payload e fluxos |
 | [Glossário](reference/glossary.md) | Termos de domínio: Quant, Hold, Move, Session, Order, Channel, etc. |
 | [Data Schemas](reference/data-schemas.md) | Inventário de chaves em Session.data, Order.data, Directive.payload |
+| [Headless Surface Contract](reference/headless-surface-contract.md) | Contrato canônico para Nuxt, Ionic, ManyChat, POS e futuras superfícies: Projection com Actions |
+| [ManyChat Conversation Projection](reference/manychat-conversation-projection.md) | Contrato conversacional derivado de tracking, payment e channel policy canônicos |
+| [Remote Mutation Contract](reference/remote-mutation-contract.md) | Mutations remotas idempotentes sobre services canônicos |
 | [Filtro de Design de Superfícies](reference/design-surface-filter.md) | Checklist transversal para UI: tipografia, ícones, espaçamento, contraste, foco, responsividade e estados |
 
 ---
@@ -112,6 +123,7 @@ packages/                            framework/
 |-----------|-----------|
 | [ROADMAP.md](ROADMAP.md) | Roadmap executivo vivo e dívidas técnicas atuais |
 | [plans/README.md](plans/README.md) | Índice dos planos ativos e backlog planejado |
+| [plans/REMOTE-MULTISURFACE-PLAN.md](plans/REMOTE-MULTISURFACE-PLAN.md) | WPs de pedido remoto multi-superfície, WhatsApp-first/mobile-first, com Django/Penguin apenas como referência madura |
 | [plans/completed/](plans/completed/) | Planos de execução concluídos e evidências históricas arquivadas |
 
 ---

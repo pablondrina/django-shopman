@@ -10,6 +10,8 @@ const open = computed({
 
 const currentCartItems = computed(() => cart.value.items || [])
 const hasCurrentCart = computed(() => currentCartItems.value.length > 0)
+const appendAction = computed(() => conflict.value?.actions.find(action => action.ref === 'reorder_append' && action.enabled !== false) || null)
+const replaceAction = computed(() => conflict.value?.actions.find(action => action.ref === 'reorder_replace' && action.enabled !== false) || null)
 
 watch(open, (value) => {
   if (!value) replaceAcknowledged.value = false
@@ -75,7 +77,7 @@ async function replaceCart () {
             block
             icon="i-lucide-plus-circle"
             :loading="pending"
-            label="Adicionar ao carrinho atual"
+            :label="appendAction?.label || 'Adicionar ao carrinho atual'"
             @click="resolveConflict('append')"
           />
           <UButton
@@ -86,7 +88,7 @@ async function replaceCart () {
             icon="i-lucide-rotate-ccw"
             :loading="pending"
             :disabled="!replaceAcknowledged"
-            label="Substituir o carrinho"
+            :label="replaceAction?.label || 'Substituir o carrinho'"
             @click="replaceCart"
           />
         </div>

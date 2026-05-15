@@ -15,7 +15,7 @@ Contrato atual:
 - **SQLite/LocMem**: fallback local para scripts, exploracao rapida e ambientes
   sem Docker. Nao serve como evidencia de release.
 - **Celery/Django Tasks**: nao fazem parte do contrato atual. Directives rodam
-  pelo command `process_directives`; se uma fila externa entrar depois, sera
+  pelo management command `process_directives`; se uma fila externa entrar depois, sera
   uma decisao explicita. No bump para Django 6, avaliar o framework nativo de
   Tasks antes de escolher Celery, lembrando que Django Tasks nao fornece worker
   de execucao por si so.

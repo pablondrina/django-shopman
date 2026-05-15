@@ -9,7 +9,7 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.models import Channel
 from shopman.shop.services import availability
-from shopman.shop.services import cart as cart_commands
+from shopman.shop.services import cart as cart_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 
@@ -51,7 +51,7 @@ class CartService:
     @staticmethod
     def _get_or_create_session(request: HttpRequest) -> tuple[Session, str]:
         """Return (cart_session, session_key). Creates if needed."""
-        cart_session, session_key = cart_commands.get_or_create_session(
+        cart_session, session_key = cart_mutations.get_or_create_session(
             session_key=request.session.get("cart_session_key"),
             channel_ref=CHANNEL_REF,
             origin_channel=request.session.get("origin_channel", "web"),
@@ -74,14 +74,14 @@ class CartService:
         ``is_d1`` deve refletir a mesma regra da vitrine (estoque só D-1): assim o
         D1DiscountModifier aplica e o DiscountModifier não empilha promoção automática.
 
-        Delegates reservation and session mutation to the shop cart command
+        Delegates reservation and session mutation to the shop cart mutation
         facade. On shortage, raises CartUnavailableError with substitutes
         populated so the caller can render a "no stock" UI.
 
         For merges (existing line), checks availability for the *additional* qty only
         and adopts an additional hold tagged with the same session_key.
         """
-        session, session_key = cart_commands.add_item(
+        session, session_key = cart_mutations.add_item(
             session_key=CartService._get_session_key(request),
             channel_ref=CHANNEL_REF,
             origin_channel=request.session.get("origin_channel", "web"),
@@ -105,14 +105,14 @@ class CartService:
         """Update quantity of a cart item.
 
         Reconciles holds to the new absolute quantity through the shop cart
-        command facade. On shortage, raises `CartUnavailableError` and does
+        mutation facade. On shortage, raises `CartUnavailableError` and does
         not mutate the cart.
         """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
 
-        return cart_commands.update_qty(
+        return cart_mutations.update_qty(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             line_id=line_id,
@@ -129,14 +129,14 @@ class CartService:
     ) -> Session:
         """Remove item from cart.
 
-        Reconciles holds to qty=0 through the shop cart command facade, so the
+        Reconciles holds to qty=0 through the shop cart mutation facade, so the
         removed line doesn't bleed reservations until the next commit.
         """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
 
-        return cart_commands.remove_item(
+        return cart_mutations.remove_item(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             line_id=line_id,
@@ -146,7 +146,7 @@ class CartService:
     @staticmethod
     def _get_line(session_key: str, line_id: str) -> dict | None:
         """Return the session line dict matching `line_id`, or None."""
-        session = cart_commands.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
+        session = cart_mutations.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
         if session is None:
             return None
         for item in session.items:
@@ -161,7 +161,7 @@ class CartService:
         if not session_key:
             return False
 
-        session = cart_commands.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
+        session = cart_mutations.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
         if session is None:
             request.session.pop("cart_session_key", None)
             return False
@@ -186,7 +186,7 @@ class CartService:
         if not session_key:
             return CartService._empty_cart(include_items=include_items)
 
-        session = cart_commands.get_open_session(
+        session = cart_mutations.get_open_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
         )
@@ -436,7 +436,7 @@ class CartService:
         if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
             return {"ok": False, "error": "coupon_expired"}
 
-        session = cart_commands.apply_coupon_code(
+        session = cart_mutations.apply_coupon_code(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             code=code,
@@ -453,7 +453,7 @@ class CartService:
         if not session_key:
             return {"ok": False, "error": "no_cart"}
 
-        session = cart_commands.remove_coupon_code(
+        session = cart_mutations.remove_coupon_code(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
         )
@@ -469,5 +469,5 @@ class CartService:
         if not session_key:
             return
 
-        cart_commands.clear_session(session_key=session_key, channel_ref=CHANNEL_REF)
+        cart_mutations.clear_session(session_key=session_key, channel_ref=CHANNEL_REF)
         request.session.pop("cart_session_key", None)

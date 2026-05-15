@@ -1,7 +1,7 @@
-"""POS command facade.
+"""POS mutation facade.
 
 Backstage POS views own permissions, HTTP parsing, and HTML responses. This
-module owns the Orderman session writes and POS order commands.
+module owns the Orderman session writes and POS order mutations.
 """
 
 from __future__ import annotations

@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import type { TabsItem } from '@nuxt/ui'
-import type { AuthSessionResponse } from '~/types/shopman'
+import type { AuthSessionResponse, SurfaceActionProjection } from '~/types/shopman'
 
 type UiColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 type OrderFilter = 'todos' | 'ativos' | 'anteriores'
+type AccountTab = 'profile' | 'orders' | 'addresses' | 'loyalty' | 'preferences' | 'security'
 
 definePageMeta({
   layout: 'default',
   path: '/conta'
 })
 
+const route = useRoute()
+const router = useRouter()
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
 const { customerName } = session
@@ -47,6 +50,7 @@ interface OrderItem {
   item_count?: number
   created_at?: string
   created_at_display?: string
+  actions?: SurfaceActionProjection[]
 }
 
 interface LoyaltyTransaction {
@@ -60,7 +64,7 @@ interface AccountSummary {
   customer_first_name: string
   recent_order_count: number
   active_order_count: number
-  last_order: { ref: string, created_at_display: string, total_display: string, status_label: string, item_count: number } | null
+  last_order: { ref: string, created_at_display: string, total_display: string, status_label: string, item_count: number, actions?: SurfaceActionProjection[] } | null
   loyalty: {
     tier: string
     tier_display: string
@@ -144,8 +148,15 @@ const orderFilterOptions: Array<{ value: OrderFilter, label: string }> = [
   { value: 'anteriores', label: 'Finalizados' }
 ]
 const logoutRoute = { path: '/sair', query: { cancel: '/conta' } }
+const accountTabValues: AccountTab[] = ['profile', 'orders', 'addresses', 'loyalty', 'preferences', 'security']
+const activeTab = ref<AccountTab>(normalizeAccountTab(route.query.tab))
 
 const { performReorder, pending: reorderPending } = useReorder()
+
+function normalizeAccountTab (value: unknown): AccountTab {
+  const candidate = Array.isArray(value) ? value[0] : value
+  return accountTabValues.includes(candidate as AccountTab) ? candidate as AccountTab : 'profile'
+}
 
 function openAddressModal (existing: AddressItem | null = null) {
   addressBeingEdited.value = existing
@@ -205,7 +216,13 @@ async function onAddressSaved () {
 }
 
 async function reorderById (orderRef: string) {
-  await performReorder(orderRef)
+  const order = orders.value.find(candidate => candidate.ref === orderRef)
+  const action = order?.actions?.find(candidate => candidate.ref === 'reorder' && candidate.enabled !== false)
+  if (action) await performReorderAction(action, orderRef)
+}
+
+function reorderActionForOrder (order: OrderItem): SurfaceActionProjection | null {
+  return order.actions?.find(action => action.ref === 'reorder' && action.enabled !== false) || null
 }
 
 async function loadProfile () {
@@ -469,6 +486,19 @@ watch(orderFilter, () => {
   void loadOrders()
 })
 
+watch(() => route.query.tab, (tab) => {
+  activeTab.value = normalizeAccountTab(tab)
+})
+
+watch(activeTab, (tab) => {
+  const current = normalizeAccountTab(route.query.tab)
+  if (tab === current) return
+  const query = { ...route.query }
+  if (tab === 'profile') delete query.tab
+  else query.tab = tab
+  void router.replace({ path: '/conta', query })
+})
+
 onMounted(() => {
   void Promise.all([loadProfile(), loadAddresses(), loadOrders(), loadAccountSummary(), loadDevices()])
 })
@@ -515,8 +545,8 @@ useHead({ title: 'Sua conta' })
     </div>
 
     <UTabs
+      v-model="activeTab"
       :items="tabs"
-      default-value="profile"
       class="mt-8"
       variant="link"
       :ui="{ list: 'border-b border-default overflow-x-auto' }"
@@ -563,6 +593,7 @@ useHead({ title: 'Sua conta' })
                   v-model="profileForm.first_name"
                   autocomplete="given-name"
                   placeholder="Seu primeiro nome"
+                  class="w-full"
                 />
               </UFormField>
               <UFormField label="Sobrenome" name="last_name">
@@ -570,6 +601,7 @@ useHead({ title: 'Sua conta' })
                   v-model="profileForm.last_name"
                   autocomplete="family-name"
                   placeholder="Seu sobrenome"
+                  class="w-full"
                 />
               </UFormField>
               <UFormField label="E-mail" name="email">
@@ -578,6 +610,7 @@ useHead({ title: 'Sua conta' })
                   type="email"
                   autocomplete="email"
                   placeholder="voce@example.com"
+                  class="w-full"
                 />
               </UFormField>
               <UFormField label="Aniversário" name="birthday">
@@ -585,6 +618,7 @@ useHead({ title: 'Sua conta' })
                   v-model="profileForm.birthday"
                   type="date"
                   autocomplete="bday"
+                  class="w-full"
                 />
               </UFormField>
               <div class="flex flex-wrap justify-end gap-2 sm:col-span-2">
@@ -653,6 +687,7 @@ useHead({ title: 'Sua conta' })
               <strong class="text-left text-lg tabular-nums sm:text-right">{{ order.total_display }}</strong>
               <div class="flex items-center gap-1">
                 <UButton
+                  v-if="reorderActionForOrder(order)"
                   size="xs"
                   color="neutral"
                   variant="ghost"

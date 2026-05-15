@@ -45,7 +45,7 @@ def create_intent(
     metadata = metadata or {}
     idempotency_key = config.get("idempotency_key") or metadata.get("idempotency_key", "")
     pix_timeout = config.get("pix_timeout_minutes", 30)
-    expires_at = timezone.now() + timedelta(minutes=pix_timeout)
+    expires_at = timezone.now() + timedelta(minutes=pix_timeout) if method == "pix" else None
     # Mock backend is "authorized" at the payman level immediately; the PIX
     # capture/on_paid path happens via the scheduled directive below.
     auto_authorize = config.get("auto_authorize", True)
@@ -59,25 +59,34 @@ def create_intent(
         expires_at=expires_at,
         idempotency_key=idempotency_key,
     )
-    if db_intent.gateway_id and db_intent.gateway_data.get("client_secret"):
+    if db_intent.gateway_id and (
+        db_intent.gateway_data.get("client_secret")
+        or db_intent.gateway_data.get("checkout_url")
+        or method == "card"
+    ):
         return _intent_from_db(db_intent, currency=currency)
 
     gateway_id = f"mock_pi_{uuid4().hex[:12]}"
-    mock_brcode = (
-        f"00020126580014br.gov.bcb.pix0136mock-{gateway_id}"
-        f"5204000053039865404{amount_q / 100:.2f}"
-        f"5802BR5913MOCK6008SHOPMAN62070503***6304MOCK"
-    )
-    mock_qr_image = _qr_png_data_url(mock_brcode)
-    client_secret = json.dumps({"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image})
 
     db_intent.gateway_id = gateway_id
-    gateway_data = {**metadata, "client_secret": client_secret}
-    intent_metadata = {"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image}
+    gateway_data = {**metadata}
+    intent_metadata = {}
+    client_secret = None
+    if method == "pix":
+        mock_brcode = (
+            f"00020126580014br.gov.bcb.pix0136mock-{gateway_id}"
+            f"5204000053039865404{amount_q / 100:.2f}"
+            f"5802BR5913MOCK6008SHOPMAN62070503***6304MOCK"
+        )
+        mock_qr_image = _qr_png_data_url(mock_brcode)
+        client_secret = json.dumps({"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image})
+        gateway_data["client_secret"] = client_secret
+        intent_metadata = {"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image}
     if method == "card":
-        checkout_url = config.get("mock_card_checkout_url") or f"/pedido/{order_ref}/"
-        gateway_data["checkout_url"] = checkout_url
-        intent_metadata = {"checkout_url": checkout_url}
+        checkout_url = config.get("mock_card_checkout_url")
+        if checkout_url:
+            gateway_data["checkout_url"] = checkout_url
+            intent_metadata = {"checkout_url": checkout_url}
 
     db_intent.gateway_data = gateway_data
     db_intent.save(update_fields=["gateway_id", "gateway_data"])

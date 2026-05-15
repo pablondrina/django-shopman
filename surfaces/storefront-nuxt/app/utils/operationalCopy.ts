@@ -9,7 +9,7 @@ export const OPERATIONAL_COPY_SOURCE = {
 export const operationalCopy = {
   loadFailure: {
     home: {
-      title: 'Não foi possível carregar a casa',
+      title: 'Não foi possível carregar a loja',
       description: 'Atualize a página ou volte ao cardápio em instantes.'
     },
     menu: {
@@ -29,13 +29,13 @@ export const operationalCopy = {
     unavailableForReorder: 'Indisponível para recompra agora.',
     noStockForRequestedQty: 'Sem disponibilidade para a quantidade solicitada.',
     insufficientStock: 'Disponibilidade insuficiente para esse pedido.',
-    paused: 'Item pausado pela casa no momento.',
+    paused: 'Item pausado pela loja no momento.',
     plannedLimit: 'Disponível por encomenda, com limite para esta data.',
     reviewItem: 'Revise este item'
   },
   recovery: {
     retry: 'Tente novamente',
-    support: 'Falar com a casa',
+    support: 'Falar com a equipe',
     rateLimit: 'Muitas tentativas. Aguarde antes de tentar novamente.',
     cartRateLimit: 'Muitas alterações em sequência. Aguarde antes de tentar novamente.',
     reorderRateLimit: 'Muitas tentativas de recompra. Aguarde antes de tentar novamente.',
@@ -44,7 +44,7 @@ export const operationalCopy = {
   },
   checkout: {
     validationNotice: 'Estoque, pedido mínimo, agenda, pagamento e dados do cliente serão validados no envio.',
-    adjustmentNotice: 'Se a casa precisar ajustar algo, mostramos a próxima ação antes de continuar.'
+    adjustmentNotice: 'Se precisarmos ajustar algo, mostramos a próxima ação antes de continuar.'
   },
   payment: {
     automaticStatusFailed: 'Não conseguimos atualizar o status automaticamente.',

@@ -1,7 +1,7 @@
-"""Storefront account command service.
+"""Storefront account mutation service.
 
 Views keep HTTP, HTMX rendering, and permission response details here; Guestman
-commands live behind this facade.
+mutations live behind this facade.
 """
 
 from __future__ import annotations

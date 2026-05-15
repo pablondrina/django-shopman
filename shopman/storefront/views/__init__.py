@@ -48,7 +48,13 @@ from .info import HowItWorksView, OrderHistoryView, SitemapView
 from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
 from .pwa import OfflineView
 from .sse_state import SkuStateView
-from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
+from .tracking import (
+    OrderCancelView,
+    OrderEventsView,
+    OrderStatusPartialView,
+    OrderTrackingView,
+    ReorderView,
+)
 from .welcome import WelcomeView
 
 __all__ = [
@@ -87,6 +93,7 @@ __all__ = [
     "OfflineView",
     "OrderCancelView",
     "OrderConfirmationView",
+    "OrderEventsView",
     "OrderHistoryView",
     "OrderStatusPartialView",
     "OrderTrackingView",

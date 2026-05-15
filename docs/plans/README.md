@@ -1,6 +1,6 @@
 # Planos Ativos
 
-> Atualizado em 2026-05-06.
+> Atualizado em 2026-05-15.
 
 Este diretório deve conter apenas plano vivo, spec ativa ou backlog explícito.
 Planos concluídos ficam em [`completed/`](completed/). Material histórico incerto
@@ -10,12 +10,13 @@ fica em [`_quarantine/`](_quarantine/).
 
 | Ordem | Plano | Por quê |
 |-------|-------|---------|
-| 1 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline local concluído; continuar gateway sandbox/snapshot real quando houver credenciais. |
-| 2 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Gate browser CI existe; falta evidência física/staging antes de release real. |
-| 3 | [`OPERATION-DOMAIN-PLAN.md`](OPERATION-DOMAIN-PLAN.md) | Baseline de modelos/Admin/seed implementado; continuar superfície de execução e BI operacional. |
-| 4 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
-| 5 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Projections core estão implementadas; manter como spec de evolução e contratos de UI. |
-| 6 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
+| 1 | [`REMOTE-MULTISURFACE-PLAN.md`](REMOTE-MULTISURFACE-PLAN.md) | Pedido remoto WhatsApp-first/mobile-first; começa por matriz E2E e channel policy interna para Projection com Actions, sem tratar Django/Penguin como cânon. |
+| 2 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline local concluído; continuar gateway sandbox/snapshot real quando houver credenciais. |
+| 3 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Gate browser CI existe; falta evidência física/staging antes de release real. |
+| 4 | [`OPERATION-DOMAIN-PLAN.md`](OPERATION-DOMAIN-PLAN.md) | Baseline de modelos/Admin/seed implementado; continuar superfície de execução e BI operacional. |
+| 5 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
+| 6 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Projections core estão implementadas; manter como spec de evolução e contratos de UI. |
+| 7 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
 
 ## Backlog Planejado
 

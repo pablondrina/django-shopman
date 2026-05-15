@@ -142,7 +142,7 @@ O commitment JÁ EXISTE no kernel. O que falta é que as superfícies não o usa
 
 Isso eleva um conceito que o kernel já implementou ao nível das superfícies — exatamente o tipo de trabalho que fecha a distância de maturidade.
 
-### 2.4 ✓ ChannelConfig define comportamento, mas não capabilities
+### 2.4 ✓ ChannelConfig define comportamento, mas não contrato de ações
 
 `ChannelConfig` (config.py) tem 8 aspectos: confirmation, payment, fulfillment, stock, notifications, pricing, editing, rules. Todos definem **como** o lifecycle processa.
 
@@ -213,7 +213,7 @@ Isso é uma mistura de enum canônico (counter, external), localização PT-BR (
 
 A dispatch_v2 notava que handlers são lista flat. Verificação: `_PHASE_HANDLERS` em lifecycle.py É flat (dict phase→handler), mas cada handler internamente já consulta `config.confirmation.mode`, `config.payment.timing`, etc. Ou seja: o filtro existe, só não é declarativo.
 
-**Proposta ajustada:** Não é urgente. Com `ChannelCapabilities`, os handlers poderiam consultar capabilities declarativamente em vez de ifs distribuídos. Mas funciona hoje. Prioridade baixa.
+**Proposta ajustada:** Não é urgente. Com policy do canal resolvida e Actions derivadas, os handlers poderiam consultar regras declarativas em vez de ifs distribuídos. Mas funciona hoje. Prioridade baixa.
 
 ---
 
@@ -384,7 +384,7 @@ iFood ingest existe e funciona. Falta: sync de catálogo bidirecional, callback 
 
 API storefront é session-cookie-based. Para mobile falta token auth, push notification, batch. Para chatbot falta reorder endpoint, availability com target_date.
 
-**Proposta:** Isso é consequência de `ChannelCapabilities` não existir. Com capabilities por canal, os endpoints necessários para mobile e chatbot ficam derivados, não inventados.
+**Proposta:** Isso é consequência de policy do canal ainda não virar Actions de superfície. Com policy por canal convertida em Projection/Actions, os endpoints necessários para mobile e chatbot ficam derivados, não inventados.
 
 ---
 
@@ -398,7 +398,7 @@ API storefront é session-cookie-based. Para mobile falta token auth, push notif
 | Guardrails fora do perímetro | Sim | "Falsa confiança" | ✓ Externo formulou melhor |
 | Projection-first incompleto | Checkout como exemplo | Checkout como exemplo | ✓ Mesma observação |
 | Omotenashi: infra sem motor | Sim, wires específicos | "Sabe contextualizar, falta agir" | ✓ Complementares |
-| Capability profile por canal | Sim, proposta de dataclass | Sim, lista de capabilities | ✓ Convergência total |
+| Policy/profile por canal | Sim, proposta de dataclass | Sim, lista de regras e ações por canal | ✓ Convergência total |
 | Docs desinformam | Sim, mas genérico na v1 | Line numbers específicos | ✓ Externo mais preciso |
 | Workflow result formalization | WorkflowResult genérico | Result types formais | ✓ Ambas, externo mais taxonômico |
 

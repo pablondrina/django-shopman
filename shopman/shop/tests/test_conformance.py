@@ -526,6 +526,47 @@ class TestC07PaymentTimeout(TransactionTestCase):
         self.assertEqual(order.status, Order.Status.NEW)
         mock_payment_cancel.assert_not_called()
 
+    def test_payment_timeout_does_not_cancel_authorized_card(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.shop.directives import PAYMENT_TIMEOUT
+        from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
+
+        expires_at = timezone.now() - timedelta(minutes=1)
+        self.mocks["get_payment_status"].return_value = "authorized"
+        order = Order.objects.create(
+            ref="ORD-C07-CARD-AUTH",
+            channel_ref=self.channel.ref,
+            status=Order.Status.NEW,
+            total_q=1500,
+            data={
+                "payment": {
+                    "method": "card",
+                    "intent_ref": "PAY-C07-CARD-AUTH",
+                    "expires_at": expires_at.isoformat(),
+                }
+            },
+        )
+
+        directive = Directive.objects.create(
+            topic=PAYMENT_TIMEOUT,
+            payload={
+                "order_ref": order.ref,
+                "intent_ref": "PAY-C07-CARD-AUTH",
+                "expires_at": expires_at.isoformat(),
+            },
+            available_at=expires_at,
+        )
+
+        with patch("shopman.shop.services.payment.cancel") as mock_payment_cancel:
+            PaymentTimeoutHandler().handle(message=directive, ctx={})
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+        mock_payment_cancel.assert_not_called()
+
 
 # ── C-07b: auto_cancel confirmation ──────────────────────────────────
 

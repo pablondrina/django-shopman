@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TrackingResponse } from '~/types/shopman'
+import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
 
 type UiColor = 'neutral' | 'info' | 'success' | 'warning' | 'error'
 
@@ -14,6 +14,7 @@ const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const { shop } = useShopSession()
 const toast = useToast()
+const { performReorderAction, pending: reorderPending } = useReorder()
 
 const { data, pending, error, refresh } = await useFetch<TrackingResponse>(
   () => apiPath(`/api/v1/tracking/${encodeURIComponent(orderRef.value)}/`),
@@ -59,30 +60,63 @@ const progressItems = computed(() => (data.value?.progress_steps ?? []).map(step
   color: step.state === 'cancelled' ? 'error' : step.state === 'pending' ? 'neutral' : 'primary'
 })))
 
-const timelineItems = computed(() => (data.value?.timeline ?? []).map(event => ({
-  date: event.timestamp_display,
-  title: event.label,
-  icon: STATUS_ICONS[event.event_type] || 'i-lucide-circle-dot'
-})))
-
+const showInitialSkeleton = computed(() => pending.value && !data.value)
 const isTerminal = computed(() => data.value ? !data.value.is_active : false)
 const isReady = computed(() => data.value?.status === 'ready')
-const fulfillment = computed(() => data.value?.fulfillments?.[0])
+const fulfillment = computed(() => {
+  const current = data.value
+  if (!current) return undefined
+  return current.is_delivery
+    ? current.delivery_fulfillments?.[0] || current.fulfillments?.[0]
+    : current.pickup_fulfillments?.[0] || current.fulfillments?.[0]
+})
 const promiseColor = computed(() => toneToColor(data.value?.promise?.tone))
 const statusIcon = computed(() => STATUS_ICONS[data.value?.status || ''] || 'i-lucide-info')
 const paymentUrl = computed(() => data.value?.ref ? `/pedido/${encodeURIComponent(data.value.ref)}/pagamento` : null)
 const paymentGateUrl = computed(() => data.value?.payment_gate_url || paymentUrl.value)
+const promiseActionLink = computed(() => {
+  const promise = data.value?.promise
+  const action = (promise?.actions || []).find(candidate =>
+    candidate.enabled !== false
+    && (candidate.href || candidate.ref === 'pay_now')
+  )
+  if (!action) return null
+  const url = action.href || (action.ref === 'pay_now' ? paymentGateUrl.value : null)
+  if (!url) return null
+  return {
+    action: action.ref,
+    label: action.label || 'Continuar',
+    url,
+    icon: action.ref.includes('pay') || action.kind === 'external' ? 'i-lucide-credit-card' : 'i-lucide-arrow-right'
+  }
+})
+const trackingActions = computed(() => data.value?.actions || [])
+const cancelOrderAction = computed(() => findTrackingAction('cancel_order'))
+const rateOrderAction = computed(() => findTrackingAction('rate_order'))
+const mockConfirmPaymentAction = computed(() => findTrackingAction('mock_confirm_payment'))
+const reorderAction = computed(() => findTrackingAction('reorder'))
 const liveConnected = ref(false)
 const cancelOpen = ref(false)
 const cancelAcknowledged = ref(false)
 const cancelling = ref(false)
 const cancelError = ref<string | null>(null)
+const cancelRequestId = ref<string | null>(null)
+const mockPaymentPending = ref(false)
 const nowMs = ref(Date.now())
 const rating = ref<number | null>(null)
 const ratingComment = ref('')
 const ratingPending = ref(false)
 const ratingError = ref('')
+const ratingRequestId = ref<string | null>(null)
 const rateLimitRecovery = ref<RateLimitRecovery | null>(null)
+
+function findTrackingAction (ref: string): SurfaceActionProjection | null {
+  return trackingActions.value.find(action => action.ref === ref && action.enabled !== false) || null
+}
+
+function mutationUrl (action: SurfaceActionProjection | null, fallback: string): string {
+  return apiPath(action?.href || fallback)
+}
 
 function rateLimitFromFetchError (err: any): RateLimitRecovery | null {
   const payload = err?.data || {}
@@ -138,43 +172,50 @@ function formatCountdown (deadline: string | null | undefined) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-const promiseDeadlineLabel = computed(() => {
+const promiseDeadlineValue = computed(() => {
   const countdown = formatCountdown(data.value?.promise?.deadline_at)
   if (!countdown) return ''
-  if (data.value?.promise?.timer_mode === 'countdown') return `Prazo: ${countdown}`
-  return `Referência: ${countdown}`
+  return countdown
 })
 
 const promiseRows = computed(() => {
-  const p = data.value?.promise
-  if (!p) return []
-  return [
-    promiseDeadlineLabel.value ? { label: 'Prazo', value: promiseDeadlineLabel.value } : null,
-    p.next_event ? { label: 'Próximo passo', value: p.next_event } : null,
-    p.customer_action_label ? { label: 'Ação necessária', value: p.customer_action_label, url: p.customer_action_url } : null,
-    p.recovery ? { label: 'Recuperação', value: p.recovery } : null,
-    p.active_notification ? { label: 'Aviso ativo', value: p.active_notification } : null,
-    data.value?.last_updated_display ? { label: 'Última atualização', value: data.value.last_updated_display } : null
-  ].filter(Boolean)
+  const rows = [...(data.value?.promise_rows ?? [])]
+  if (promiseDeadlineValue.value && data.value?.promise_deadline_label) {
+    rows.unshift({
+      label: data.value.promise_deadline_label,
+      value: promiseDeadlineValue.value,
+      url: null
+    })
+  }
+  return rows
 })
 
 async function cancelOrder () {
-  if (!data.value?.can_cancel || !cancelAcknowledged.value || cancelling.value) return
+  const action = cancelOrderAction.value
+  if (!action || !cancelAcknowledged.value || cancelling.value) return
   cancelling.value = true
   cancelError.value = null
+  const requestId = cancelRequestId.value || newRemoteMutationKey('web-cancel')
+  cancelRequestId.value = requestId
   try {
     const response = await $fetch<TrackingResponse>(
-      apiPath(`/api/v1/orders/${encodeURIComponent(orderRef.value)}/cancel/`),
-      { method: 'POST', headers: await csrfHeaders(), credentials: 'include' }
+      mutationUrl(action, `/api/v1/orders/${encodeURIComponent(orderRef.value)}/cancel/`),
+      {
+        method: action.method || 'POST',
+        headers: { ...(await csrfHeaders()), 'Idempotency-Key': requestId },
+        credentials: 'include',
+        body: { idempotency_key: requestId }
+      }
     )
     data.value = response
     cancelOpen.value = false
     cancelAcknowledged.value = false
+    cancelRequestId.value = null
     toast.add({
       icon: 'i-lucide-circle-check',
       color: 'success',
       title: 'Pedido cancelado',
-      description: 'A casa recebeu o cancelamento. Acompanhe o status nesta página.'
+      description: 'Recebemos o cancelamento. Acompanhe o status nesta página.'
     })
   } catch (err: any) {
     if (captureRateLimitRecovery(err)) return
@@ -184,25 +225,61 @@ async function cancelOrder () {
   }
 }
 
+async function mockConfirmPayment () {
+  const action = mockConfirmPaymentAction.value
+  if (!action || mockPaymentPending.value) return
+  mockPaymentPending.value = true
+  const requestId = newRemoteMutationKey('web-mock-payment')
+  try {
+    await $fetch<{ redirect_url: string }>(
+      mutationUrl(action, `/api/v1/payment/${encodeURIComponent(orderRef.value)}/mock-confirm/`),
+      {
+        method: action.method || 'POST',
+        headers: { ...(await csrfHeaders()), 'Idempotency-Key': requestId },
+        credentials: 'include',
+        body: { idempotency_key: requestId }
+      }
+    )
+    await refresh()
+    toast.add({
+      icon: 'i-lucide-circle-check',
+      color: 'success',
+      title: 'Pagamento teste capturado',
+      description: 'Atualizamos o pedido com o estado financeiro simulado.'
+    })
+  } catch (err: any) {
+    if (captureRateLimitRecovery(err)) return
+    toast.add({
+      icon: 'i-lucide-circle-alert',
+      color: 'error',
+      title: 'Não foi possível capturar o pagamento teste',
+      description: err?.data?.detail || 'Atualize o pedido e tente novamente.'
+    })
+  } finally {
+    mockPaymentPending.value = false
+  }
+}
+
 async function submitRating () {
-  if (!data.value?.can_rate || !rating.value || ratingPending.value) return
+  const action = rateOrderAction.value
+  if (!action || !rating.value || ratingPending.value) return
   ratingPending.value = true
   ratingError.value = ''
+  const requestId = ratingRequestId.value || newRemoteMutationKey('web-rating')
+  ratingRequestId.value = requestId
   try {
-    await $fetch(data.value.rating_url ? apiPath(data.value.rating_url) : apiPath(`/api/v1/orders/${encodeURIComponent(orderRef.value)}/rate/`), {
-      method: 'POST',
-      headers: await csrfHeaders(),
+    const response = await $fetch<TrackingResponse>(mutationUrl(action, `/api/v1/orders/${encodeURIComponent(orderRef.value)}/rate/`), {
+      method: action.method || 'POST',
+      headers: { ...(await csrfHeaders()), 'Idempotency-Key': requestId },
       credentials: 'include',
       body: {
         rating: rating.value,
-        comment: ratingComment.value
+        comment: ratingComment.value,
+        idempotency_key: requestId
       }
     })
-    data.value = {
-      ...data.value,
-      can_rate: false,
-      rating_url: null
-    }
+    data.value = response
+    ratingRequestId.value = null
     toast.add({ color: 'success', title: 'Avaliação registrada' })
   } catch (err: any) {
     if (captureRateLimitRecovery(err)) return
@@ -210,6 +287,13 @@ async function submitRating () {
   } finally {
     ratingPending.value = false
   }
+}
+
+async function reorderFromTracking () {
+  const action = reorderAction.value
+  const ref = data.value?.ref || orderRef.value
+  if (!action || !ref || reorderPending.value) return
+  await performReorderAction(action, ref)
 }
 
 async function refreshAfterRateLimit () {
@@ -226,6 +310,7 @@ watch(cancelOpen, (open) => {
   if (!open) {
     cancelAcknowledged.value = false
     cancelError.value = null
+    cancelRequestId.value = null
   }
 })
 
@@ -253,14 +338,19 @@ if (import.meta.client) {
     try {
       const url = apiPath(`/pedido/${encodeURIComponent(orderRef.value)}/events`)
       eventSource = new EventSource(url, { withCredentials: true })
-      eventSource.onopen = () => { liveConnected.value = true }
+      eventSource.onopen = () => {
+        liveConnected.value = true
+        stopPolling()
+      }
       eventSource.addEventListener('message', () => { refresh() })
       eventSource.addEventListener('order-update', () => { refresh() })
       eventSource.addEventListener('error', () => {
         liveConnected.value = false
+        if (!isTerminal.value) startPolling()
       })
     } catch {
       liveConnected.value = false
+      if (!isTerminal.value) startPolling()
     }
   }
   function stopSse () {
@@ -273,8 +363,8 @@ if (import.meta.client) {
 
   watch(isTerminal, (terminal) => {
     if (!terminal) {
-      startPolling()
       startSse()
+      startPolling()
     } else {
       stopPolling()
       stopSse()
@@ -301,7 +391,7 @@ useHead(() => ({
 
 <template>
   <UContainer class="py-8 sm:py-12" data-pull-refresh @shopman-pull-refresh="refreshAfterGesture">
-    <USkeleton v-if="pending" class="h-80 w-full" />
+    <USkeleton v-if="showInitialSkeleton" class="h-80 w-full" />
 
     <div v-else-if="activeRateLimitRecovery && !data" class="grid gap-3">
       <UAlert
@@ -318,7 +408,7 @@ useHead(() => ({
           :to="whatsappHelpUrl"
           target="_blank"
           rel="noopener"
-          label="Falar com a casa"
+          label="Falar com a equipe"
           icon="i-lucide-message-circle"
           color="success"
           variant="soft"
@@ -331,7 +421,7 @@ useHead(() => ({
       color="error"
       variant="soft"
       title="Pedido não encontrado"
-      description="Confira o link do pedido ou fale com a casa."
+      description="Confira o link do pedido ou fale com a equipe."
     />
 
     <section v-else>
@@ -349,12 +439,21 @@ useHead(() => ({
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton
-              v-if="data.payment_pending && paymentUrl"
-              label="Pagar pedido"
-              :to="paymentUrl"
-              icon="i-lucide-credit-card"
+              v-if="promiseActionLink"
+              :label="promiseActionLink.label"
+              :to="promiseActionLink.url"
+              :icon="promiseActionLink.icon"
               color="warning"
               variant="solid"
+            />
+            <UButton
+              v-if="mockConfirmPaymentAction"
+              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
+              icon="i-lucide-credit-card"
+              color="warning"
+              variant="soft"
+              :loading="mockPaymentPending"
+              @click="mockConfirmPayment"
             />
             <UButton label="Cardápio" to="/menu" icon="i-lucide-store" color="neutral" variant="outline" />
             <UButton
@@ -403,7 +502,7 @@ useHead(() => ({
             size="xs"
             color="success"
             variant="outline"
-            label="Falar com a casa"
+            label="Falar com a equipe"
             icon="i-lucide-message-circle"
             :to="whatsappHelpUrl"
             target="_blank"
@@ -457,8 +556,7 @@ useHead(() => ({
             </div>
           </template>
 
-          <UTimeline v-if="progressItems.length" :items="progressItems" />
-          <UTimeline v-else :items="timelineItems" />
+          <UTimeline :items="progressItems" />
 
           <UAlert
             v-if="isReady"
@@ -501,10 +599,6 @@ useHead(() => ({
             />
           </div>
 
-          <div v-if="timelineItems.length" class="mt-8">
-            <h2 class="text-sm font-semibold text-highlighted">Eventos do pedido</h2>
-            <UTimeline :items="timelineItems" class="mt-3" />
-          </div>
         </UCard>
 
         <UCard variant="subtle" class="shop-soft-panel lg:sticky lg:top-[calc(var(--ui-header-height)+24px)]">
@@ -539,27 +633,47 @@ useHead(() => ({
               {{ data.payment_status }}
             </UBadge>
             <UButton
-              v-if="data.payment_pending && paymentUrl"
-              :to="paymentUrl"
-              label="Concluir pagamento"
-              icon="i-lucide-credit-card"
+              v-if="promiseActionLink"
+              :to="promiseActionLink.url"
+              :label="promiseActionLink.label"
+              :icon="promiseActionLink.icon"
               color="warning"
               variant="solid"
               block
             />
             <UButton
-              v-if="data.can_cancel"
-              label="Cancelar pedido"
+              v-if="mockConfirmPaymentAction"
+              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
+              icon="i-lucide-credit-card"
+              color="warning"
+              variant="soft"
+              block
+              :loading="mockPaymentPending"
+              @click="mockConfirmPayment"
+            />
+            <UButton
+              v-if="cancelOrderAction"
+              :label="cancelOrderAction.label || 'Cancelar pedido'"
               icon="i-lucide-circle-x"
               color="error"
               variant="outline"
               block
               @click="cancelOpen = true"
             />
+            <UButton
+              v-if="reorderAction"
+              :label="reorderAction.label || 'Pedir novamente'"
+              icon="i-lucide-rotate-ccw"
+              color="neutral"
+              variant="outline"
+              block
+              :loading="reorderPending"
+              @click="reorderFromTracking"
+            />
           </div>
 
-          <div v-if="data.can_rate" class="mt-5 border-t border-default pt-5">
-            <p class="text-sm font-semibold text-highlighted">Avaliar pedido</p>
+          <div v-if="rateOrderAction" class="mt-5 border-t border-default pt-5">
+            <p class="text-sm font-semibold text-highlighted">{{ rateOrderAction.label || 'Avaliar pedido' }}</p>
             <div class="mt-3 grid grid-cols-5 gap-2">
               <button
                 v-for="score in [1, 2, 3, 4, 5]"
@@ -574,7 +688,7 @@ useHead(() => ({
             </div>
             <UTextarea
               v-model="ratingComment"
-              class="mt-3"
+              class="mt-3 w-full"
               :rows="3"
               placeholder="Comentário opcional"
               aria-label="Comentário da avaliação"
@@ -611,7 +725,7 @@ useHead(() => ({
 
           <UCheckbox
             v-model="cancelAcknowledged"
-            label="Entendo que o pedido será cancelado e que a casa deixará de prepará-lo."
+            label="Entendo que o pedido será cancelado e deixará de ser preparado."
           />
 
           <UAlert v-if="cancelError" color="error" variant="soft" :title="cancelError" />

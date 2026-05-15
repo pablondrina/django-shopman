@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CheckoutCommandResponse, CheckoutResponse, StructuredAddressProjection } from '~/types/shopman'
+import type { CheckoutMutationResponse, CheckoutResponse, StructuredAddressProjection } from '~/types/shopman'
 
 type Step = 'fulfillment' | 'address' | 'when' | 'payment' | 'review'
 
@@ -38,6 +38,9 @@ const { data, pending, error } = await useFetch<CheckoutResponse>(apiPath('/api/
 })
 
 const checkout = computed(() => data.value?.checkout)
+const checkoutAction = computed(() =>
+  (checkout.value?.actions || []).find(action => action.ref === 'checkout') || null
+)
 const cart = computed(() => checkout.value?.cart)
 const switchAccountRoute = {
   path: '/sair',
@@ -97,20 +100,27 @@ watchEffect(() => {
   }
 })
 
+const canCheckout = computed(() => !!checkoutAction.value?.enabled)
+
+const availableFulfillmentTypes = computed<Array<'pickup' | 'delivery'>>(() => {
+  const raw = checkout.value?.fulfillment_options || []
+  return raw.filter((value): value is 'pickup' | 'delivery' => value === 'pickup' || value === 'delivery')
+})
+
 const fulfillmentOptions = computed(() => {
   const options = []
-  if (checkout.value?.has_pickup) {
+  if (availableFulfillmentTypes.value.includes('pickup')) {
     options.push({
-      label: 'Retirar na casa',
-      description: checkout.value.pickup_hint || 'Retirada no balcão, conforme horário escolhido',
+      label: 'Retirar na loja',
+      description: checkout.value?.pickup_hint || 'Retirada no balcão, conforme horário escolhido',
       value: 'pickup',
       icon: 'i-lucide-store'
     })
   }
-  if (checkout.value?.has_delivery) {
+  if (availableFulfillmentTypes.value.includes('delivery')) {
     options.push({
       label: 'Receber em casa',
-      description: checkout.value.delivery_hint || 'A casa entrega pra você',
+      description: checkout.value?.delivery_hint || 'Entrega no endereço informado',
       value: 'delivery',
       icon: 'i-lucide-truck'
     })
@@ -118,11 +128,14 @@ const fulfillmentOptions = computed(() => {
   return options
 })
 
-const paymentOptions = computed(() => (checkout.value?.payment_methods || []).map(m => ({
-  label: m.label,
-  value: m.ref,
-  icon: paymentIcon(m.ref)
-})))
+const paymentOptions = computed(() => {
+  return (checkout.value?.payment_methods || [])
+    .map(m => ({
+      label: m.label,
+      value: m.ref,
+      icon: paymentIcon(m.ref)
+    }))
+})
 
 function paymentIcon (ref: string): string {
   const r = ref.toLowerCase()
@@ -242,7 +255,7 @@ function reconcileSteps () {
 }
 
 function commitFulfillment () {
-  if (!state.fulfillment_type) return
+  if (!availableFulfillmentTypes.value.includes(state.fulfillment_type)) return
   completedSteps.value.add('fulfillment')
   if (state.fulfillment_type === 'delivery') activeStep.value = 'address'
   else activeStep.value = slotOptions.value.length ? 'when' : 'payment'
@@ -303,6 +316,12 @@ const paymentSummary = computed(() => paymentOptions.value.find(p => p.value ===
 
 function collectValidationErrors () {
   const next: Record<string, string> = {}
+  if (!canCheckout.value) {
+    next.checkout = 'Este canal não está aceitando checkout agora.'
+  }
+  if (!availableFulfillmentTypes.value.includes(state.fulfillment_type)) {
+    next.fulfillment_type = 'Escolha uma forma de recebimento disponível.'
+  }
   if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) {
     next.delivery_address = 'Informe o endereço de entrega.'
   }
@@ -317,7 +336,8 @@ function collectValidationErrors () {
 }
 
 function focusFirstError (errors: Record<string, string>) {
-  if (errors.delivery_address) activeStep.value = 'address'
+  if (errors.fulfillment_type || errors.checkout) activeStep.value = 'fulfillment'
+  else if (errors.delivery_address) activeStep.value = 'address'
   else if (errors.delivery_date || errors.delivery_time_slot) activeStep.value = 'when'
   else if (errors.payment_method) activeStep.value = 'payment'
 }
@@ -377,7 +397,7 @@ const reviewRows = computed(() => {
     {
       icon: 'i-lucide-calendar',
       label: 'Quando',
-      value: whenSummary.value || (requiresWhen.value ? 'Ainda não definido' : 'Assim que a casa confirmar')
+      value: whenSummary.value || (requiresWhen.value ? 'Ainda não definido' : 'Assim que confirmarmos')
     },
     {
       icon: 'i-lucide-credit-card',
@@ -414,10 +434,7 @@ async function goToCreatedOrder () {
 
 function currentCheckoutRequestId () {
   if (checkoutRequestId.value) return checkoutRequestId.value
-  const randomId = import.meta.client && window.crypto?.randomUUID
-    ? window.crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-  checkoutRequestId.value = `web-${randomId}`
+  checkoutRequestId.value = newRemoteMutationKey('web-checkout')
   return checkoutRequestId.value
 }
 
@@ -503,6 +520,11 @@ async function submit () {
   serverError.value = ''
   rateLimitRecovery.value = null
   commitRecovery.value = null
+  if (!canCheckout.value) {
+    serverError.value = checkoutAction.value?.reason || 'Checkout indisponível no momento.'
+    activeStep.value = 'review'
+    return
+  }
   if (!validateAll()) {
     if (validationErrors.value.delivery_address) activeStep.value = 'address'
     else if (validationErrors.value.delivery_date || validationErrors.value.delivery_time_slot) activeStep.value = 'when'
@@ -513,9 +535,10 @@ async function submit () {
 
   try {
     const requestId = currentCheckoutRequestId()
-    const response = await $fetch<CheckoutCommandResponse>(apiPath('/api/v1/checkout/'), {
+    const response = await $fetch<CheckoutMutationResponse>(apiPath('/api/v1/checkout/'), {
       method: 'POST',
       credentials: 'include',
+      headers: { 'Idempotency-Key': requestId },
       body: buildCheckoutPayload(requestId)
     })
 
@@ -542,6 +565,21 @@ async function submit () {
 const hasLoyalty = computed(() => (checkout.value?.loyalty_balance_q ?? 0) > 0)
 
 watch(requiredSteps, () => reconcileSteps())
+
+watch(availableFulfillmentTypes, (types) => {
+  if (!types.length) return
+  if (!types.includes(state.fulfillment_type)) {
+    state.fulfillment_type = types[0]
+    reconcileSteps()
+  }
+}, { immediate: true })
+
+watch(paymentOptions, (options) => {
+  if (!options.length) return
+  if (!options.some(option => option.value === state.payment_method)) {
+    state.payment_method = options[0].value
+  }
+}, { immediate: true })
 
 useHead({ title: 'Finalizar pedido' })
 </script>
@@ -587,6 +625,14 @@ useHead({ title: 'Finalizar pedido' })
       <div v-else class="mt-6 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
         <div class="grid gap-3">
           <UAlert v-if="serverError" color="error" variant="soft" :title="serverError" />
+          <UAlert
+            v-if="!canCheckout"
+            color="warning"
+            variant="soft"
+            icon="i-lucide-lock"
+            title="Checkout indisponível neste canal"
+            description="Escolha outro canal ou fale com a equipe para concluir o pedido."
+          />
 
           <div
             v-if="rateLimitRecovery"
@@ -619,7 +665,7 @@ useHead({ title: 'Finalizar pedido' })
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-message-circle"
-                  label="Falar com a casa"
+                  label="Falar com a equipe"
                 />
               </div>
             </div>
@@ -711,7 +757,7 @@ useHead({ title: 'Finalizar pedido' })
             :done="isDone('fulfillment')"
             :summary="fulfillmentSummary"
             :locked="isLocked('fulfillment')"
-            description="Retirar na casa ou receber em casa"
+            description="Retirar na loja ou receber em casa"
             @open="openStep('fulfillment')"
             @edit="openStep('fulfillment')"
           >
@@ -738,8 +784,9 @@ useHead({ title: 'Finalizar pedido' })
                 </div>
               </button>
             </div>
+            <p v-if="validationErrors.fulfillment_type" class="mt-3 text-sm text-error">{{ validationErrors.fulfillment_type }}</p>
             <div class="flex justify-end mt-4">
-              <UButton size="sm" label="Continuar" icon="i-lucide-arrow-right" trailing @click="commitFulfillment" />
+              <UButton size="sm" label="Continuar" icon="i-lucide-arrow-right" trailing :disabled="!canCheckout" @click="commitFulfillment" />
             </div>
           </CheckoutStep>
 
@@ -801,11 +848,11 @@ useHead({ title: 'Finalizar pedido' })
               </UFormField>
 
               <UFormField label="Complemento (opcional)" name="delivery_complement">
-                <UInput v-model="state.delivery_complement" placeholder="Apto, bloco, ponto de referência" />
+                <UInput v-model="state.delivery_complement" placeholder="Apto, bloco, ponto de referência" class="w-full" />
               </UFormField>
 
               <UFormField label="Instruções para a entrega (opcional)" name="delivery_instructions">
-                <UTextarea v-model="state.delivery_instructions" :rows="2" placeholder="Algo que ajuda a chegar até você?" />
+                <UTextarea v-model="state.delivery_instructions" :rows="2" placeholder="Algo que ajuda a chegar até você?" class="w-full" />
               </UFormField>
             </div>
 
@@ -930,7 +977,7 @@ useHead({ title: 'Finalizar pedido' })
                 color="neutral"
                 variant="soft"
                 icon="i-lucide-shield-check"
-                title="A casa só segue com o que puder cumprir"
+                title="Só seguimos com o que pudermos cumprir"
                 :description="operationalCopy.checkout.validationNotice"
               />
 
@@ -975,7 +1022,7 @@ useHead({ title: 'Finalizar pedido' })
                 trailing
                 label="Enviar pedido"
                 :loading="submitting"
-                :disabled="!reviewReady || !!createdOrderRecovery || !!rateLimitRecovery || !!commitRecovery"
+                :disabled="!canCheckout || !reviewReady || !!createdOrderRecovery || !!rateLimitRecovery || !!commitRecovery"
                 data-haptic="confirm"
                 @click="submit"
               />
@@ -1064,6 +1111,7 @@ useHead({ title: 'Finalizar pedido' })
                 trailing
                 :label="primaryActionLabel"
                 :loading="submitting"
+                :disabled="!canCheckout"
                 :data-haptic="activeStep === 'review' ? 'confirm' : 'light'"
                 @click="handlePrimaryAction"
               />
@@ -1088,6 +1136,7 @@ useHead({ title: 'Finalizar pedido' })
             trailing
             :label="primaryActionLabel"
             :loading="submitting"
+            :disabled="!canCheckout"
             :data-haptic="activeStep === 'review' ? 'confirm' : 'light'"
             @click="handlePrimaryAction"
           />

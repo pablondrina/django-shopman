@@ -248,6 +248,52 @@ export interface HomeHeroCopyProjection {
   birthday_cta: CopyEntryProjection
 }
 
+export interface HomeSectionsCopyProjection {
+  availability_heading: CopyEntryProjection
+  full_menu_cta: CopyEntryProjection
+  how_it_works_heading: CopyEntryProjection
+  how_it_works_intro: CopyEntryProjection
+  how_online_heading: CopyEntryProjection
+  how_store_heading: CopyEntryProjection
+  how_step_choose: CopyEntryProjection
+  how_step_pay: CopyEntryProjection
+  how_step_fulfill: CopyEntryProjection
+  how_self_service_label: CopyEntryProjection
+  how_counter_label: CopyEntryProjection
+  how_hours_label: CopyEntryProjection
+  how_hours_empty: CopyEntryProjection
+  how_online_choose_message: CopyEntryProjection
+  how_online_pay_message: CopyEntryProjection
+  how_online_track_message: CopyEntryProjection
+  how_store_self_service_message: CopyEntryProjection
+  how_store_counter_message: CopyEntryProjection
+  tomorrow_label: CopyEntryProjection
+  tomorrow_hook: CopyEntryProjection
+  whatsapp_cta: CopyEntryProjection
+  whatsapp_cta_label: CopyEntryProjection
+}
+
+export interface AuthCopyProjection {
+  phone_heading: CopyEntryProjection
+  phone_subtitle: CopyEntryProjection
+  phone_cta_wa: CopyEntryProjection
+  phone_cta_sms: CopyEntryProjection
+  trusted_device_message: CopyEntryProjection
+  trusted_device_cta: CopyEntryProjection
+  trusted_other_phone: CopyEntryProjection
+  no_password_note: CopyEntryProjection
+  terms_note: CopyEntryProjection
+  code_heading: CopyEntryProjection
+  code_help: CopyEntryProjection
+  name_heading: CopyEntryProjection
+  name_subtitle: CopyEntryProjection
+  name_cta: CopyEntryProjection
+  auth_confirmed: CopyEntryProjection
+  device_trust_prompt: CopyEntryProjection
+  device_trust_cta: CopyEntryProjection
+  device_trust_skip_cta: CopyEntryProjection
+}
+
 export interface OpeningHoursEntry {
   label: string
   hours: string
@@ -267,11 +313,14 @@ export interface PublicConfigProjection {
 export interface HomeProjection {
   omotenashi: OmotenashiProjection
   hero_copy: HomeHeroCopyProjection
+  sections_copy: HomeSectionsCopyProjection
+  auth_copy: AuthCopyProjection
   shop: ShopProjection
   shop_status: ShopStatusProjection
   opening_hours: OpeningHoursEntry[]
   last_order_ref: string | null
   last_order_items: LastOrderItemProjection[]
+  actions: SurfaceActionProjection[]
   featured_items: CatalogItemProjection[]
   origin_channel: string | null
   public_config: PublicConfigProjection
@@ -306,7 +355,7 @@ export interface CartResponse {
   cart: CartProjection
 }
 
-export interface CartCommandResponse {
+export interface CartMutationResponse {
   ok: true
   action: 'add' | 'update' | 'remove'
   sku: string
@@ -331,7 +380,7 @@ export interface CartCommandResponse {
   cart: CartProjection
 }
 
-export interface ProductCommandMeta {
+export interface ProductMutationMeta {
   sku: string
   name: string
   price_q: number
@@ -384,6 +433,20 @@ export interface StructuredAddressProjection {
   place_id?: string | null
 }
 
+export interface SurfaceActionProjection {
+  ref: string
+  kind: 'mutation' | 'link' | 'external' | 'copy' | 'instruction' | string
+  label: string
+  priority: 'primary' | 'secondary' | 'danger' | 'quiet' | string
+  enabled: boolean
+  reason: string
+  method: string
+  href: string
+  payload_schema: Record<string, unknown>
+  idempotency: 'none' | 'recommended' | 'required' | string
+  confirmation: Record<string, unknown>
+}
+
 export interface CheckoutProjection {
   cart: CartProjection
   customer_phone: string
@@ -393,6 +456,8 @@ export interface CheckoutProjection {
   preselected_address_id: number | null
   payment_methods: PaymentMethodProjection[]
   default_payment_method: string
+  actions: SurfaceActionProjection[]
+  fulfillment_options: Array<'pickup' | 'delivery' | string>
   has_pickup: boolean
   has_delivery: boolean
   pickup_slots: PickupSlotProjection[]
@@ -411,10 +476,70 @@ export interface CheckoutResponse {
   checkout: CheckoutProjection
 }
 
-export interface CheckoutCommandResponse {
+export interface CheckoutMutationResponse {
   order_ref: string
   status: string
   next_url?: string
+}
+
+export interface TrackingPromiseRowProjection {
+  label: string
+  value: string
+  url: string | null
+}
+
+export interface TrackingPromiseProjection {
+  state: string
+  title: string
+  message: string
+  tone: 'success' | 'warning' | 'danger' | 'info' | string
+  deadline_at: string | null
+  deadline_kind: string | null
+  timer_mode: string
+  deadline_action: string
+  requires_active_notification: boolean
+  notification_topic: string | null
+  actions: SurfaceActionProjection[]
+  next_event: string
+  recovery: string
+  active_notification: string
+}
+
+export interface OrderProgressStepProjection {
+  label: string
+  key: string
+  state: 'completed' | 'current' | 'pending' | 'cancelled' | string
+  timestamp_display: string | null
+}
+
+export interface TimelineEventProjection {
+  label: string
+  event_type: string
+  timestamp_display: string
+}
+
+export interface OrderItemProjection {
+  sku: string
+  name: string
+  qty: number
+  unit_price_display: string
+  total_display: string
+}
+
+export interface TrackingFulfillmentProjection {
+  status: string
+  status_label: string
+  tracking_code: string | null
+  tracking_url: string | null
+  carrier: string | null
+  dispatched_at: string | null
+  delivered_at: string | null
+}
+
+export interface PickupInfoProjection {
+  address: string
+  opening_hours: string
+  google_maps_url: string | null
 }
 
 export interface TrackingResponse {
@@ -422,72 +547,31 @@ export interface TrackingResponse {
   status: string
   status_label: string
   status_color: string
-  promise: {
-    state: string
-    title: string
-    message: string
-    tone: 'success' | 'warning' | 'danger' | 'info' | string
-    deadline_at: string | null
-    deadline_kind: string | null
-    timer_mode: string
-    deadline_action: string
-    requires_active_notification: boolean
-    notification_topic: string | null
-    customer_action: string
-    customer_action_label: string
-    customer_action_url: string | null
-    next_event: string
-    recovery: string
-    active_notification: string
-  }
-  progress_steps: Array<{
-    label: string
-    key: string
-    state: 'completed' | 'current' | 'pending' | 'cancelled' | string
-    timestamp_display: string | null
-  }>
+  promise: TrackingPromiseProjection
+  promise_rows: TrackingPromiseRowProjection[]
+  promise_deadline_label: string
+  progress_steps: OrderProgressStepProjection[]
   total_display: string
   delivery_fee_display: string | null
   is_delivery: boolean
-  timeline: Array<{
-    label: string
-    event_type: string
-    timestamp_display: string
-  }>
-  items: Array<{
-    sku: string
-    name: string
-    qty: number
-    unit_price_display: string
-    total_display: string
-  }>
-  fulfillments: Array<{
-    status: string
-    status_label: string
-    tracking_code: string | null
-    tracking_url: string | null
-    carrier: string | null
-    dispatched_at: string | null
-    delivered_at: string | null
-  }>
-  pickup_info: {
-    address: string
-    opening_hours: string
-    google_maps_url: string | null
-  } | null
-  can_cancel: boolean
+  timeline: TimelineEventProjection[]
+  items: OrderItemProjection[]
+  delivery_fulfillments: TrackingFulfillmentProjection[]
+  pickup_fulfillments: TrackingFulfillmentProjection[]
+  fulfillments: TrackingFulfillmentProjection[]
+  pickup_info: PickupInfoProjection | null
+  actions: SurfaceActionProjection[]
   is_active: boolean
   server_now_iso: string
   payment_pending: boolean
   payment_expired: boolean
   payment_confirmed: boolean
   show_payment_confirmed_notice: boolean
+  payment_status_label: string | null
   payment_status: string | null
   payment_expires_at: string | null
   requires_payment_gate: boolean
   payment_gate_url: string | null
-  can_rate: boolean
-  rating_url: string | null
   confirmation_countdown: boolean
   confirmation_expires_at: string | null
   eta_display: string | null
@@ -504,9 +588,7 @@ export interface PaymentPromiseProjection {
   title: string
   message: string
   tone: 'success' | 'warning' | 'danger' | 'info' | string
-  customer_action: string
-  customer_action_label: string
-  customer_action_url: string | null
+  actions: SurfaceActionProjection[]
   deadline_at: string | null
   deadline_kind: string | null
   deadline_action: string
@@ -520,6 +602,8 @@ export interface PaymentPromiseProjection {
 export interface PaymentProjection {
   order_ref: string
   method: string
+  order_status: string
+  payment_status: string | null
   total_display: string
   promise: PaymentPromiseProjection
   pix_qr_code: string | null
@@ -529,9 +613,9 @@ export interface PaymentProjection {
   status_url: string
   tracking_url: string
   server_now_iso: string
+  actions: SurfaceActionProjection[]
   error_message: string | null
   is_debug: boolean
-  can_mock_confirm: boolean
 }
 
 export interface PaymentResponse {
@@ -549,4 +633,26 @@ export interface PaymentStatusResponse {
   is_expired: boolean
   is_terminal: boolean
   redirect_url: string
+  should_redirect: boolean
+}
+
+export interface RemoteConversationProjection {
+  order_ref: string
+  order_status: string
+  channel_ref: string
+  source_projection: 'tracking' | 'payment' | string
+  state: string
+  title: string
+  message: string
+  tone: 'success' | 'warning' | 'danger' | 'info' | string
+  actions: SurfaceActionProjection[]
+  deadline_at: string | null
+  next_event: string
+  recovery: string
+  items_summary: string[]
+  total_display: string
+  tracking_url: string
+  payment_url: string | null
+  supports_access_link: boolean
+  requires_payment_gate: boolean
 }

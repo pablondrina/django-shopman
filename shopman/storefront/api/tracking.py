@@ -15,9 +15,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.storefront.projections.order_tracking import build_order_tracking
+from shopman.shop.services import remote_mutations
 from shopman.storefront.services import orders as order_service
 
 from .projections import projection_data
+from .actions import retry_after_action
 from .serializers import DetailSerializer, OrderTrackingSerializer
 
 
@@ -28,28 +30,13 @@ def _payment_gate_url(ref: str) -> str:
     return f"/pedido/{ref}/pagamento"
 
 
-def _rating_url(ref: str) -> str:
-    return f"/api/v1/orders/{ref}/rate/"
-
-
-def _rating_data(order) -> dict:
-    data = order.data if isinstance(order.data, dict) else {}
-    rating = data.get("customer_rating")
-    return rating if isinstance(rating, dict) else {}
-
-
-def _can_rate(order) -> bool:
-    if order.status not in {"delivered", "completed"}:
-        return False
-    return not bool(_rating_data(order).get("rating"))
-
-
 def _rate_limited_response(detail: str = "Muitas tentativas. Aguarde um instante.") -> Response:
     return Response(
         {
             "detail": detail,
             "error_code": "rate_limited",
             "retry_after_seconds": TRACKING_RATE_LIMIT_RETRY_SECONDS,
+            "actions": [retry_after_action(TRACKING_RATE_LIMIT_RETRY_SECONDS)],
         },
         status=status.HTTP_429_TOO_MANY_REQUESTS,
         headers={"Retry-After": str(TRACKING_RATE_LIMIT_RETRY_SECONDS)},
@@ -71,14 +58,11 @@ def _tracking_payload(order) -> dict:
     proj = build_order_tracking(order)
     data = projection_data(proj)
     requires_payment_gate = order_service.requires_payment_gate(order)
-    can_rate = _can_rate(order)
     fulfillments = (*proj.delivery_fulfillments, *proj.pickup_fulfillments)
     data["ref"] = proj.order_ref
     data["payment_status"] = proj.payment_status_label
     data["requires_payment_gate"] = requires_payment_gate
     data["payment_gate_url"] = _payment_gate_url(proj.order_ref) if requires_payment_gate else None
-    data["can_rate"] = can_rate
-    data["rating_url"] = _rating_url(proj.order_ref) if can_rate else None
     data["fulfillments"] = [
         {
             "status": f.status,
@@ -128,7 +112,7 @@ class OrderTrackingView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=404)
 
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
         data = _tracking_payload(order)
         serializer = OrderTrackingSerializer(data)
         return Response(serializer.data)
@@ -171,20 +155,40 @@ class OrderCancelView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not order_service.can_cancel(order):
+        key = remote_mutations.idempotency_key_from_request(
+            request,
+            fallback=f"cancel:{ref}",
+        )
+
+        def execute_cancel() -> tuple[dict, int]:
+            if not order_service.can_cancel(order):
+                return (
+                    {
+                        "detail": "Não é possível cancelar este pedido no status atual.",
+                        "error_code": "order_not_cancellable",
+                        "payment_status": order_service.payment_status(order),
+                    },
+                    status.HTTP_409_CONFLICT,
+                )
+
+            order_service.cancel(order)
+            data = _tracking_payload(order)
+            serializer = OrderTrackingSerializer(data)
+            return dict(serializer.data), status.HTTP_200_OK
+
+        try:
+            result = remote_mutations.run_idempotent_mutation(
+                scope=f"order-cancel:{ref}",
+                key=key,
+                execute=execute_cancel,
+                cache_response=lambda _body, code: code < 400,
+            )
+        except remote_mutations.RemoteMutationInProgress:
             return Response(
-                {
-                    "detail": "Não é possível cancelar este pedido no status atual.",
-                    "error_code": "order_not_cancellable",
-                    "payment_status": order_service.payment_status(order),
-                },
+                {"detail": "Cancelamento já está em andamento.", "error_code": "mutation_in_progress"},
                 status=status.HTTP_409_CONFLICT,
             )
-
-        order_service.cancel(order)
-        data = _tracking_payload(order)
-        serializer = OrderTrackingSerializer(data)
-        return Response(serializer.data)
+        return Response(result.response_body, status=result.response_code)
 
 
 @extend_schema_view(
@@ -219,12 +223,6 @@ class OrderRateView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not _can_rate(order):
-            return Response(
-                {"detail": "Este pedido ainda não pode ser avaliado."},
-                status=status.HTTP_409_CONFLICT,
-            )
-
         try:
             rating = int((request.data if hasattr(request, "data") else {}).get("rating"))
         except (TypeError, ValueError):
@@ -233,13 +231,44 @@ class OrderRateView(APIView):
         if rating < 1 or rating > 5:
             return Response({"detail": "Avaliação deve ficar entre 1 e 5."}, status=400)
 
-        data = order.data.copy() if isinstance(order.data, dict) else {}
-        data["customer_rating"] = {
-            "rating": rating,
-            "comment": comment[:500],
-            "submitted_at": timezone.now().isoformat(),
-            "source": "storefront_nuxt",
-        }
-        order.data = data
-        order.save(update_fields=["data"])
-        return Response({"ok": True, "can_rate": False})
+        key = remote_mutations.idempotency_key_from_request(
+            request,
+            fallback=f"rate:{ref}",
+        )
+
+        def execute_rate() -> tuple[dict, int]:
+            current_projection = build_order_tracking(order)
+            can_rate = any(action.ref == "rate_order" and action.enabled for action in current_projection.actions)
+            if not can_rate:
+                return (
+                    {
+                        "detail": "Este pedido ainda não pode ser avaliado.",
+                        "error_code": "order_not_rateable",
+                    },
+                    status.HTTP_409_CONFLICT,
+                )
+
+            data = order.data.copy() if isinstance(order.data, dict) else {}
+            data["customer_rating"] = {
+                "rating": rating,
+                "comment": comment[:500],
+                "submitted_at": timezone.now().isoformat(),
+                "source": "storefront_nuxt",
+            }
+            order.data = data
+            order.save(update_fields=["data"])
+            return _tracking_payload(order), status.HTTP_200_OK
+
+        try:
+            result = remote_mutations.run_idempotent_mutation(
+                scope=f"order-rate:{ref}",
+                key=key,
+                execute=execute_rate,
+                cache_response=lambda _body, code: code < 400,
+            )
+        except remote_mutations.RemoteMutationInProgress:
+            return Response(
+                {"detail": "Avaliação já está em andamento.", "error_code": "mutation_in_progress"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(result.response_body, status=result.response_code)

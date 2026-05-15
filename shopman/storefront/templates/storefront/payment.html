@@ -95,16 +95,18 @@
     </div>
 
     {% comment %}── Dev mock confirm ──{% endcomment %}
-    {% if payment.is_debug and payment.can_mock_confirm %}
+    {% with action=payment.actions.0 %}
+    {% if payment.is_debug and action and action.ref == "mock_confirm_payment" %}
     {% omotenashi 'PAYMENT_DEV_CONFIRM_CTA' as dev_confirm_cta %}
     <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=payment.order_ref %}">
       {% csrf_token %}
       <button type="submit"
               class="w-full rounded-radius border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning hover:bg-warning/20 focus:outline-hidden min-h-[44px]">
-        {{ dev_confirm_cta.title }}
+        {{ action.label|default:dev_confirm_cta.title }}
       </button>
     </form>
     {% endif %}
+    {% endwith %}
 
   </div>
 

@@ -15,6 +15,15 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def order_card(channel, client):
     from shopman.orderman.models import Order
+    from shopman.payman import PaymentService
+
+    checkout_url = "https://checkout.stripe.com/c/pay/cs_test_demo"
+    intent = PaymentService.create_intent(
+        order_ref="ORD-CARD-001",
+        amount_q=1500,
+        method="card",
+        gateway_data={"checkout_url": checkout_url},
+    )
 
     order = Order.objects.create(
         ref="ORD-CARD-001",
@@ -27,8 +36,8 @@ def order_card(channel, client):
             "payment": {
                 "method": "card",
                 "amount_q": 1500,
-                "intent_ref": "pi_card_existing",
-                "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_demo",
+                "intent_ref": intent.ref,
+                "checkout_url": checkout_url,
             },
         },
     )
@@ -77,7 +86,7 @@ class TestPaymentCardPage:
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         assert resp.status_code == 200
         body = resp.content.decode()
-        assert "Pagar com cartão" in body
+        assert "Autorizar cartão" in body
         assert "https://checkout.stripe.com/c/pay/cs_test_demo" in body
 
     def test_card_payment_does_not_load_stripe_js(self, client: Client, order_card):
@@ -91,9 +100,10 @@ class TestPaymentCardPage:
     def test_card_payment_omotenashi_intro_present(self, client: Client, order_card):
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         body = resp.content.decode()
-        assert "Pagamento seguro com cartão" in body
-        assert "A disponibilidade foi confirmada" in body
-        assert "ambiente seguro do Stripe" in body
+        assert "Autorizar cartão" in body
+        assert "ainda vai conferir a disponibilidade" in body
+        assert "A disponibilidade foi confirmada" not in body
+        assert "ambiente seguro do cartão" in body
         assert "não recebemos os dados do seu cartão" in body
 
     def test_card_payment_without_url_shows_pending_copy(
@@ -119,7 +129,7 @@ class TestPaymentCardPage:
             "external": None,
         },
     )
-    def test_card_payment_mock_renders_staging_tracking_link(self, client: Client, channel):
+    def test_card_payment_mock_without_checkout_url_redirects_to_tracking(self, client: Client, channel):
         from shopman.orderman.models import Order
 
         order = Order.objects.create(
@@ -135,12 +145,11 @@ class TestPaymentCardPage:
 
         resp = client.get(f"/pedido/{order.ref}/pagamento/")
 
-        assert resp.status_code == 200
-        body = resp.content.decode()
-        assert "Pagar com cartão" in body
-        assert f'href="/pedido/{order.ref}/"' in body
+        assert resp.status_code == 302
+        assert resp["Location"] == f"/pedido/{order.ref}/"
         order.refresh_from_db()
-        assert order.data["payment"]["checkout_url"] == f"/pedido/{order.ref}/"
+        assert "intent_ref" in order.data["payment"]
+        assert "checkout_url" not in order.data["payment"]
 
 
 class TestPaymentIntentRecovery:
@@ -258,6 +267,114 @@ class TestPaymentIntentRecovery:
         assert "Tentar novamente" in body
         assert f"/pedido/{order_pix_without_intent.ref}/pagamento/" in body
         assert "QR Code PIX" not in body
+
+
+class TestAuthorizedCardPaymentGate:
+    def test_authorized_card_payment_timeout_does_not_cancel_order(
+        self,
+        channel,
+    ):
+        from django.utils import timezone
+        from shopman.orderman.models import Order
+        from shopman.payman import PaymentService
+        from shopman.shop.services.customer_orders import resolve_payment_timeout_if_due
+
+        order = Order.objects.create(
+            ref="ORD-CARD-AUTH-TIMEOUT",
+            channel_ref=channel.ref,
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={"payment": {"method": "card", "amount_q": 1500}},
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+        )
+        PaymentService.authorize(intent.ref)
+        order.data["payment"] = {
+            "method": "card",
+            "amount_q": 1500,
+            "intent_ref": intent.ref,
+            "expires_at": (timezone.now() - timezone.timedelta(minutes=1)).isoformat(),
+        }
+        order.save(update_fields=["data"])
+
+        assert resolve_payment_timeout_if_due(order) is False
+        order.refresh_from_db()
+        intent.refresh_from_db()
+        assert order.status == "new"
+        assert intent.status == "authorized"
+
+    def test_web_payment_page_redirects_when_card_is_already_authorized(
+        self,
+        client: Client,
+        channel,
+    ):
+        from shopman.orderman.models import Order
+        from shopman.payman import PaymentService
+
+        order = Order.objects.create(
+            ref="ORD-CARD-AUTH-WEB",
+            channel_ref=channel.ref,
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={"payment": {"method": "card", "amount_q": 1500}},
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+        )
+        order.data["payment"] = {"method": "card", "amount_q": 1500, "intent_ref": intent.ref}
+        order.save(update_fields=["data"])
+        PaymentService.authorize(intent.ref)
+        _grant_order_access(client, order.ref)
+
+        resp = client.get(f"/pedido/{order.ref}/pagamento/")
+
+        assert resp.status_code == 302
+        assert resp["Location"] == f"/pedido/{order.ref}/"
+
+    def test_api_payment_redirects_when_card_is_already_authorized(
+        self,
+        client: Client,
+        channel,
+    ):
+        from shopman.orderman.models import Order
+        from shopman.payman import PaymentService
+
+        order = Order.objects.create(
+            ref="ORD-CARD-AUTH-API",
+            channel_ref=channel.ref,
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={"payment": {"method": "card", "amount_q": 1500}},
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="card",
+        )
+        order.data["payment"] = {"method": "card", "amount_q": 1500, "intent_ref": intent.ref}
+        order.save(update_fields=["data"])
+        PaymentService.authorize(intent.ref)
+        _grant_order_access(client, order.ref)
+
+        resp = client.get(f"/api/v1/payment/{order.ref}/")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "redirect_url": f"/tracking/{order.ref}",
+            "payment": None,
+            "reason": "no_payment_action",
+        }
 
 
 class TestPaymentApiRecoveryContract:

@@ -3,16 +3,19 @@ import type { HomeProjection } from '~/types/shopman'
 
 const props = defineProps<{ home: HomeProjection }>()
 
-const { performReorder, pending: reorderPending } = useReorder()
+const { performReorderAction, pending: reorderPending } = useReorder()
 
 const showBirthday = computed(() => props.home.omotenashi.is_birthday)
-const showQuickReorder = computed(() => !!props.home.last_order_ref && !!props.home.omotenashi.customer_name)
+const reorderAction = computed(() =>
+  (props.home.actions || []).find(action => action.ref === 'reorder' && action.enabled !== false) || null
+)
+const showQuickReorder = computed(() => !!props.home.last_order_ref && !!props.home.omotenashi.customer_name && !!reorderAction.value)
 const showClosing = computed(() => props.home.omotenashi.moment === 'fechando')
 const showWhatsappWelcome = computed(() => props.home.origin_channel === 'whatsapp')
 const quickReorderItems = computed(() => props.home.last_order_items.slice(0, 4))
 
 async function reorder () {
-  if (props.home.last_order_ref) await performReorder(props.home.last_order_ref)
+  if (props.home.last_order_ref && reorderAction.value) await performReorderAction(reorderAction.value, props.home.last_order_ref)
 }
 
 const closingHint = computed(() => {

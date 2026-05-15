@@ -18,7 +18,7 @@ class PaymentView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_accessible_order(request, ref)
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
 
         if order_service.is_cancelled(order):
             return redirect("storefront:order_tracking", ref=ref)
@@ -30,8 +30,11 @@ class PaymentView(View):
             return redirect("storefront:order_tracking", ref=ref)
 
         from shopman.storefront.projections import build_payment
+        from shopman.shop.services.payment_status import promise_has_pending_payment_action
 
         proj = build_payment(order)
+        if not promise_has_pending_payment_action(proj.promise):
+            return redirect("storefront:order_tracking", ref=ref)
         if not intent_ready and _is_digital_payment(order) and order.status == "confirmed":
             return render(request, "storefront/payment.html", {"payment": proj})
         if not intent_ready:
@@ -46,7 +49,7 @@ class PaymentStatusView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_accessible_order(request, ref)
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
 
         from shopman.storefront.projections import build_payment_status
 
@@ -73,7 +76,7 @@ class MockPaymentConfirmView(View):
             raise Http404
 
         order = order_service.get_accessible_order(request, ref)
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
 
         if order_service.payment_is_sufficient(order):
             return redirect("storefront:order_tracking", ref=ref)
@@ -84,6 +87,7 @@ class MockPaymentConfirmView(View):
             return redirect("storefront:order_tracking", ref=ref)
         if not order_service.mock_confirm_payment(order):
             return redirect("storefront:order_payment", ref=ref)
+        order_service.resolve_confirmation_timeout_if_due(order)
 
         return redirect("storefront:order_tracking", ref=ref)
 

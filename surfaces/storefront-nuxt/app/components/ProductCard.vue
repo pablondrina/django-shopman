@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { CatalogItemProjection, ProductCommandMeta } from '~/types/shopman'
+import type { CatalogItemProjection, ProductMutationMeta } from '~/types/shopman'
 
 type BadgeColor = 'neutral' | 'success' | 'warning' | 'info' | 'error'
 
 const props = defineProps<{ item: CatalogItemProjection }>()
 
-const meta = computed((): ProductCommandMeta => ({
+const meta = computed((): ProductMutationMeta => ({
   sku: props.item.sku,
   name: props.item.name,
   price_q: props.item.base_price_q,
@@ -41,7 +41,7 @@ const availabilityColor = computed<BadgeColor>(() => {
           sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 112px"
           class="size-full object-cover"
         >
-        <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-8 text-muted" />
+        <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-8 text-muted" />
 
       </NuxtLink>
 

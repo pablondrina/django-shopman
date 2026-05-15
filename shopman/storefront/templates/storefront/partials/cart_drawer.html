@@ -7,7 +7,7 @@ innerHTML of #cart-drawer-content on open-cart-drawer and cart-drawer-refresh.
 Uses Penguin UI tokens (surface / on-surface / primary / warning / danger)
 and Material Symbols Rounded.
 
-Stepper / delete / upsell use the compact ``ShopmanCart.setQty`` command.
+Stepper / delete / upsell use the compact ``ShopmanCart.setQty`` mutation.
 Full projection refreshes are reserved for structural changes such as remove,
 undo, upsell and discount/freight totals.
 {% endcomment %}
@@ -157,7 +157,7 @@ undo, upsell and discount/freight totals.
           {% endif %}
 
           <div class="flex flex-wrap items-center justify-between gap-2">
-            {# Stepper — compact set-qty command (absolute, idempotent). #}
+            {# Stepper — compact set-qty mutation (absolute, idempotent). #}
             <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
               <button type="button"
                       class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"

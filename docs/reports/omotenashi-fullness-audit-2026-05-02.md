@@ -267,7 +267,7 @@ Evidencias positivas:
 
 - `OrderTrackingPromiseProjection` ja expoe `state`, `title`, `message`,
   `deadline_at`, `deadline_kind`, `deadline_action`,
-  `requires_active_notification`, `customer_action`, `next_event`, `recovery`,
+  `requires_active_notification`, `actions`, `next_event`, `recovery`,
   `active_notification`.
 - Tracking usa SSE + polling + countdown-expired.
 - Mostra "Atualizado agora" e stale depois de 45s.
@@ -448,7 +448,7 @@ Impacto: cliente pode cair numa tela seca, sem saber exatamente prazo, acao,
 proximo evento ou recovery. Isso e critico para Pix.
 
 Solucao aplicada: `PaymentProjection`/`PaymentStatusProjection` agora expõem
-`PaymentPromiseProjection` com `state`, `customer_action`, `deadline_at`,
+`PaymentPromiseProjection` com `state`, `actions`, `deadline_at`,
 `deadline_kind`, `next_event`, `recovery`, `active_notification` e
 `stale_after_seconds`.
 

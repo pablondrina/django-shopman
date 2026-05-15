@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ProductCommandMeta } from '~/types/shopman'
+import type { ProductMutationMeta } from '~/types/shopman'
 
 const props = defineProps<{
-  meta: ProductCommandMeta
+  meta: ProductMutationMeta
   canAdd: boolean
   maxQty?: number | null
   addLabel?: string

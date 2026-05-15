@@ -1,46 +1,47 @@
 <script setup lang="ts">
-import type { OpeningHoursEntry } from '~/types/shopman'
+import type { HomeSectionsCopyProjection, OpeningHoursEntry } from '~/types/shopman'
 
-defineProps<{ openingHours: OpeningHoursEntry[] }>()
+const props = defineProps<{
+  openingHours: OpeningHoursEntry[]
+  copy: HomeSectionsCopyProjection
+}>()
 
-const onlineSteps = [
+const onlineSteps = computed(() => [
   {
-    title: 'Escolha os itens',
-    description: 'Navegue pelo cardápio, veja disponibilidade e monte o pedido no seu ritmo.'
+    title: props.copy.how_step_choose.title,
+    description: props.copy.how_online_choose_message.message
   },
   {
-    title: 'Revise e pague',
-    description: 'Confira retirada, entrega, horário, pagamento e dados de contato antes de enviar.'
+    title: props.copy.how_step_pay.title,
+    description: props.copy.how_online_pay_message.message
   },
   {
-    title: 'Acompanhe o pedido',
-    description: 'O status fica disponível na página do pedido.'
+    title: props.copy.how_step_fulfill.title,
+    description: props.copy.how_online_track_message.message
   }
-] as const
+] as const)
 
-const storeFeatures = [
+const storeFeatures = computed(() => [
   {
-    title: 'Atendimento no balcão',
-    description: 'Passe na loja para escolher direto com a equipe.'
+    title: props.copy.how_self_service_label.title,
+    description: props.copy.how_store_self_service_message.message
   },
   {
-    title: 'Disponibilidade informada',
-    description: 'O cardápio mostra os itens publicados e os avisos enviados pela loja.'
+    title: props.copy.how_counter_label.title,
+    description: props.copy.how_store_counter_message.message
   }
-] as const
+] as const)
 </script>
 
 <template>
   <UPageSection
-    headline="Como funciona"
-    title="Como pedir"
-    description="Escolha no cardápio, revise os dados, finalize e acompanhe o pedido."
+    :title="copy.how_it_works_heading.title"
+    :description="copy.how_it_works_intro.message"
     :ui="{ container: 'py-12 sm:py-16', headline: 'text-primary uppercase text-xs font-semibold' }"
   >
     <div class="grid lg:grid-cols-2 gap-6">
       <UPageCard
-        title="Pelo site"
-        description="Escolha, revise e acompanhe."
+        :title="copy.how_online_heading.title"
         variant="subtle"
         :ui="{ container: 'p-6 sm:p-8' }"
       >
@@ -64,8 +65,7 @@ const storeFeatures = [
       </UPageCard>
 
       <UPageCard
-        title="Na casa"
-        description="Escolha direto com a equipe."
+        :title="copy.how_store_heading.title"
         variant="subtle"
         :ui="{ container: 'p-6 sm:p-8' }"
       >
@@ -86,7 +86,7 @@ const storeFeatures = [
 
           <div v-if="openingHours.length">
             <p class="text-xs uppercase font-semibold text-muted mb-3 flex items-center gap-2">
-              Horário de funcionamento
+              {{ copy.how_hours_label.title }}
             </p>
             <dl class="grid gap-1.5 text-sm">
               <div
@@ -99,6 +99,9 @@ const storeFeatures = [
               </div>
             </dl>
           </div>
+          <p v-else class="text-sm text-muted">
+            {{ copy.how_hours_empty.message }}
+          </p>
         </div>
       </UPageCard>
     </div>

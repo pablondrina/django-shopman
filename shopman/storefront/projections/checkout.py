@@ -23,8 +23,11 @@ from shopman.shop.projections.types import (
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
+    SurfaceActionProjection,
 )
+from shopman.shop.services.channel_policy import ChannelPolicyResolution, resolve_channel_policy
 from shopman.shop.services import customer_context
+from shopman.shop.services.interaction_context import InteractionContext
 
 from .cart import CartProjection, build_cart
 
@@ -66,7 +69,9 @@ class CheckoutProjection:
     payment_methods: tuple[PaymentMethodOptionProjection, ...]
     default_payment_method: str
 
-    # Fulfillment availability
+    # Resolved options/actions for the surface
+    actions: tuple[SurfaceActionProjection, ...]
+    fulfillment_options: tuple[str, ...]
     has_pickup: bool
     has_delivery: bool
 
@@ -130,6 +135,13 @@ def build_checkout(
             loyalty_value_display,
         ) = _load_customer_context(customer_info)
 
+    interaction = InteractionContext.from_request(
+        request,
+        channel_ref=channel_ref,
+        surface_ref="django_penguin",
+        target_kind="checkout",
+    )
+    policy = resolve_channel_policy(interaction.channel_ref)
     payment_methods = _payment_methods(channel_ref)
     pickup_slots, earliest_slot_ref = _pickup_slots(cart)
     max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
@@ -143,8 +155,10 @@ def build_checkout(
         preselected_address_id=preselected_address_id,
         payment_methods=payment_methods,
         default_payment_method=payment_methods[0].ref if payment_methods else "cash",
-        has_pickup=True,
-        has_delivery=True,
+        actions=_checkout_actions(policy, cart=cart),
+        fulfillment_options=policy.fulfillment_types,
+        has_pickup="pickup" in policy.fulfillment_types,
+        has_delivery="delivery" in policy.fulfillment_types,
         pickup_slots=pickup_slots,
         earliest_slot_ref=earliest_slot_ref,
         loyalty_balance_q=loyalty_balance_q,
@@ -230,6 +244,43 @@ def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, .
             is_default=(i == 0),
         )
         for i, m in enumerate(methods)
+    )
+
+
+def _checkout_actions(
+    policy: ChannelPolicyResolution,
+    *,
+    cart: CartProjection,
+) -> tuple[SurfaceActionProjection, ...]:
+    enabled = policy.can_checkout and not cart.is_empty
+    reason = ""
+    if cart.is_empty:
+        reason = "Carrinho vazio."
+    elif not policy.can_checkout:
+        reason = "Checkout indisponível para este canal."
+
+    return (
+        SurfaceActionProjection(
+            ref="checkout",
+            kind="mutation",
+            label="Finalizar pedido",
+            priority="primary",
+            enabled=enabled,
+            reason=reason,
+            method="POST",
+            href="/api/v1/checkout/",
+            payload_schema={
+                "required": ["name", "phone", "fulfillment_type", "payment_method"],
+                "optional": [
+                    "delivery_address",
+                    "saved_address_id",
+                    "delivery_time_slot",
+                    "notes",
+                    "use_loyalty",
+                ],
+            },
+            idempotency="required",
+        ),
     )
 
 

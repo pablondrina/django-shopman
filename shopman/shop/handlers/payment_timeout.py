@@ -43,8 +43,11 @@ class PaymentTimeoutHandler:
         if payload.get("intent_ref") and payment_data.get("intent_ref") != payload["intent_ref"]:
             return
 
+        method = str(payment_data.get("method") or "").lower()
         status = (payment_service.get_payment_status(order) or "").lower()
         if payment_service.has_sufficient_captured_payment(order) is True:
+            return
+        if method == "card" and status == "authorized":
             return
         if status in _UNCERTAIN_STATUSES:
             return

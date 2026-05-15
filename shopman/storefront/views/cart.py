@@ -11,8 +11,8 @@ from django_ratelimit.decorators import ratelimit
 from shopman.shop.services.cart import CartUnavailableError
 from shopman.storefront.perf import CartMutationPerf
 from shopman.storefront.services.cart_mutations import (
-    CartCommandNotFound,
-    CartCommandUnavailable,
+    CartMutationNotFound,
+    CartMutationUnavailable,
     parse_cart_qty,
     set_qty_by_sku,
 )
@@ -32,7 +32,7 @@ def _picker_origin(request: HttpRequest) -> str:
     the item they actually added; everywhere else stays in place.
 
     Reads HTMX's ``HX-Current-URL`` when present, with ``Referer`` as fallback
-    for the fetch-based cart command.
+    for the fetch-based cart mutation.
     """
     current_url = (
         request.headers.get("HX-Current-URL")
@@ -77,11 +77,11 @@ def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableErr
     else:
         error_variant = "shortage"
 
-    primary_action = None
-    primary_qty = 0
+    suggested_resolution = None
+    suggested_qty = 0
     if error_variant == "shortage" and available > 0:
-        primary_action = "accept_available"
-        primary_qty = available
+        suggested_resolution = "accept_available"
+        suggested_qty = available
 
     response = render(request, "storefront/partials/stock_error_modal.html", {
         "error_variant": error_variant,
@@ -95,8 +95,8 @@ def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableErr
         "is_paused": exc.is_paused,
         "is_planned": exc.is_planned,
         "planned_target_date": exc.planned_target_date,
-        "primary_action": primary_action,
-        "primary_qty": primary_qty,
+        "suggested_resolution": suggested_resolution,
+        "suggested_qty": suggested_qty,
         "picker_origin": _picker_origin(request),
     })
     response["HX-Retarget"] = "#stock-error-modal"
@@ -109,7 +109,7 @@ def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableErr
 class CartPageContentView(View):
     """HTMX: cart page inner content driven by ``CartProjection``.
 
-    Companion to ``CartView``. Fetch-based item commands patch the visible
+    Companion to ``CartView``. Fetch-based item mutations patch the visible
     line/summary directly; structural changes such as coupon updates or empty
     cart transitions still refetch this projection.
     """
@@ -139,7 +139,7 @@ class CartDrawerContentProjView(View):
 
 @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class CartSetQtyBySkuView(View):
-    """Set absolute qty for a SKU and return a compact command response.
+    """Set absolute qty for a SKU and return a compact mutation response.
 
     Powers the inline stepper on catalog/PDP/cart controls: the client knows the SKU
     (not the Orderman ``line_id``) and pushes an absolute quantity each
@@ -181,10 +181,10 @@ class CartSetQtyBySkuView(View):
                         qty=qty,
                         perf=perf,
                     )
-                except CartCommandNotFound:
+                except CartMutationNotFound:
                     status_code = 404
                     return HttpResponse("", status=404)
-                except CartCommandUnavailable as unavailable:
+                except CartMutationUnavailable as unavailable:
                     status_code = 422
                     with perf.step("stock_error_response"):
                         return _stock_error_response(

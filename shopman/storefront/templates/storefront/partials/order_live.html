@@ -111,19 +111,21 @@
       </p>
       {% endif %}
 
-      {% if tracking.promise.customer_action_url %}
+      {% with action=tracking.promise.actions.0 %}
+      {% if action.href %}
       <p>
-        <a href="{{ tracking.promise.customer_action_url }}"
+        <a href="{{ action.href }}"
            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-radius px-4 py-2 text-sm font-semibold transition hover:opacity-90 focus:outline-hidden focus-visible:ring-2
                   {% if tracking.promise.tone == 'danger' %}bg-danger text-on-danger focus-visible:ring-danger
                   {% elif tracking.promise.tone == 'warning' %}bg-warning text-on-warning focus-visible:ring-warning
                   {% elif tracking.promise.tone == 'success' %}bg-success text-on-success focus-visible:ring-success
                   {% else %}bg-info text-on-info focus-visible:ring-info{% endif %}">
           <span class="material-symbols-rounded icon-sm" aria-hidden="true">qr_code_2</span>
-          {{ tracking.promise.customer_action_label }}
+          {{ action.label }}
         </a>
       </p>
       {% endif %}
+      {% endwith %}
 
       {% if tracking.promise.recovery and tracking.promise.state == 'payment_requested' %}
       <p class="text-xs opacity-85">{{ tracking.promise.recovery }}</p>

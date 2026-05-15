@@ -189,7 +189,7 @@ def test_surfaces_do_not_import_orderman_write_primitives():
 
 
 def test_backstage_views_do_not_drive_order_lifecycle_directly():
-    """Backstage HTTP views must delegate order lifecycle commands to shop services."""
+    """Backstage HTTP views must delegate order lifecycle mutations to shop services."""
     violations = []
     forbidden_imports = (
         "shopman.orderman",
@@ -213,13 +213,13 @@ def test_backstage_views_do_not_drive_order_lifecycle_directly():
         pytest.fail(
             "Backstage views drove order lifecycle directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Move operator/KDS/production commands into shopman.shop.services and keep "
+            "Move operator/KDS/production mutations into shopman.shop.services and keep "
             "views focused on HTTP, permissions, and rendering."
         )
 
 
 def test_storefront_views_do_not_import_payment_kernel_directly():
-    """Storefront payment views must delegate Payman commands to shop services."""
+    """Storefront payment views must delegate Payman mutations to shop services."""
     violations = []
     for path in _py_files(STOREFRONT_ROOT / "views", skip_parts={"tests"}):
         for line, module in _imports(path):
@@ -230,11 +230,11 @@ def test_storefront_views_do_not_import_payment_kernel_directly():
         pytest.fail(
             "Storefront views imported Payman directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Use shopman.shop.services.payment for payment command flows."
+            "Use shopman.shop.services.payment for payment mutation flows."
         )
 
 
-def test_storefront_views_delegate_kernel_commands():
+def test_storefront_views_delegate_kernel_mutations():
     """Storefront views must keep kernel calls behind local services/projections."""
     forbidden = (
         "shopman.guestman",
@@ -256,12 +256,12 @@ def test_storefront_views_delegate_kernel_commands():
         pytest.fail(
             "Storefront views imported kernel modules directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Keep HTTP, HTMX, and rendering in views; route cross-domain commands "
+            "Keep HTTP, HTMX, and rendering in views; route cross-domain mutations "
             "through shopman.shop.services.*."
         )
 
 
-def test_storefront_api_delegates_kernel_commands():
+def test_storefront_api_delegates_kernel_mutations():
     """Storefront public APIs must keep kernel reads/writes behind services."""
     forbidden = (
         "shopman.guestman",
@@ -283,7 +283,7 @@ def test_storefront_api_delegates_kernel_commands():
         pytest.fail(
             "Storefront APIs imported kernel modules directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Route API reads and commands through shopman.shop.services.* or "
+            "Route API reads and mutations through shopman.shop.services.* or "
             "surface-local projection services when no orchestration is needed."
         )
 
@@ -316,13 +316,13 @@ def test_storefront_surface_reads_delegate_kernel_domains():
         pytest.fail(
             "Storefront service/projection/intent modules imported kernel modules directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Route domain reads and commands through shopman.shop.services.* so "
+            "Route domain reads and mutations through shopman.shop.services.* so "
             "surface modules stay HTTP/template/read-model adapters."
         )
 
 
-def test_storefront_keeps_customer_auth_commands_in_shop_services():
-    """Customer auth/access/device commands belong to the orchestrator."""
+def test_storefront_keeps_customer_auth_mutations_in_shop_services():
+    """Customer auth/access/device mutations belong to the orchestrator."""
     forbidden_service_modules = (
         STOREFRONT_ROOT / "services" / "auth.py",
         STOREFRONT_ROOT / "services" / "access.py",
@@ -336,14 +336,14 @@ def test_storefront_keeps_customer_auth_commands_in_shop_services():
 
     if violations:
         pytest.fail(
-            "Storefront reintroduced customer auth/access/device command services:\n"
+            "Storefront reintroduced customer auth/access/device mutation services:\n"
             f"{_format_violations(violations)}\n\n"
             "Use shopman.shop.services.auth/access/devices so Doorman and Guestman "
             "coordination has one canonical orchestration path."
         )
 
 
-def test_storefront_keeps_checkout_commands_in_shop_services():
+def test_storefront_keeps_checkout_mutations_in_shop_services():
     """Checkout commit and post-commit coordination belongs to the orchestrator."""
     forbidden_service_modules = (
         STOREFRONT_ROOT / "services" / "checkout.py",
@@ -358,7 +358,7 @@ def test_storefront_keeps_checkout_commands_in_shop_services():
 
     if violations:
         pytest.fail(
-            "Storefront reintroduced checkout command services:\n"
+            "Storefront reintroduced checkout mutation services:\n"
             f"{_format_violations(violations)}\n\n"
             "Use shopman.shop.services.checkout/checkout_defaults/ifood_simulation "
             "so checkout commit, customer persistence, and simulated marketplace "
@@ -413,8 +413,8 @@ def test_storefront_cart_intent_delegates_product_resolution():
         )
 
 
-def test_storefront_cart_delegates_write_commands():
-    """Storefront cart adapter must call shop cart commands for mutations."""
+def test_storefront_cart_delegates_write_mutations():
+    """Storefront cart adapter must call shop cart mutations."""
     path = STOREFRONT_ROOT / "cart.py"
     source = path.read_text()
     tree = ast.parse(source, filename=str(path))
@@ -440,15 +440,15 @@ def test_storefront_cart_delegates_write_commands():
 
     if violations:
         pytest.fail(
-            "Storefront cart performed write commands directly:\n"
+            "Storefront cart performed write mutations directly:\n"
             f"{_format_violations(violations)}\n\n"
             "Keep request/session adaptation in storefront.cart and route cart mutations "
             "through shopman.shop.services.cart."
         )
 
 
-def test_backstage_pos_delegates_write_commands():
-    """Backstage POS views must route order/session commands through shop POS services."""
+def test_backstage_pos_delegates_write_mutations():
+    """Backstage POS views must route order/session mutations through shop POS services."""
     path = BACKSTAGE_ROOT / "views" / "pos.py"
     violations: list[tuple[Path, int, str]] = []
 
@@ -471,7 +471,7 @@ def test_backstage_pos_delegates_write_commands():
 
     if violations:
         pytest.fail(
-            "Backstage POS performed order/session commands directly:\n"
+            "Backstage POS performed order/session mutations directly:\n"
             f"{_format_violations(violations)}\n\n"
             "Keep POS views focused on permissions, parsing, and rendering; route "
             "order/session writes through shopman.shop.services.pos."

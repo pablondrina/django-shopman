@@ -350,25 +350,15 @@ class CheckoutView(APIView):
                     {"detail": message, "field": field, "errors": mapped},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            try:
-                from shopman.orderman.exceptions import OrderError
-            except Exception:  # pragma: no cover - defensive import guard
-                OrderError = None
-            if OrderError is not None and isinstance(exc, OrderError):
-                code = getattr(exc, "code", "checkout_error")
-                conflict_codes = {"in_progress", "blocking_issues", "stale_checks", "hold_expired"}
-                http_status = (
-                    status.HTTP_409_CONFLICT
-                    if code in conflict_codes
-                    else status.HTTP_400_BAD_REQUEST
-                )
+            order_error = checkout_service.map_order_error(exc)
+            if order_error is not None:
                 return Response(
                     {
-                        "detail": getattr(exc, "message", str(exc)),
-                        "error_code": code,
-                        "context": getattr(exc, "context", {}),
+                        "detail": order_error.detail,
+                        "error_code": order_error.error_code,
+                        "context": order_error.context,
                     },
-                    status=http_status,
+                    status=order_error.http_status,
                 )
             raise
 

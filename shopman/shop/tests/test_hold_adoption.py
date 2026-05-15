@@ -415,13 +415,13 @@ class TestReconcileSimple:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Cart command integration — update_qty / remove_item invoke reconcile
+# Cart mutation integration — update_qty / remove_item invoke reconcile
 # ══════════════════════════════════════════════════════════════════════
 
 
 @pytest.mark.django_db
 class TestCartReconcileIntegration:
-    """Minimal integration: cart command wiring calls reconcile with the
+    """Minimal integration: cart mutation wiring calls reconcile with the
     line's SKU and the absolute new qty (not a delta).
     """
 
@@ -549,7 +549,7 @@ class TestCartReconcileIntegration:
     def test_add_item_bumps_session_hold_expiry_after_reserve(
         self, mock_availability, mock_session_service,
     ):
-        from shopman.shop.services import cart as cart_commands
+        from shopman.shop.services import cart as cart_mutations
 
         _channel, session = self._setup_cart()
         mock_availability.reserve.return_value = {
@@ -562,7 +562,7 @@ class TestCartReconcileIntegration:
         }
         mock_session_service.modify_session.return_value = session
 
-        cart_commands.add_item(
+        cart_mutations.add_item(
             session_key="sess-test-1",
             channel_ref="web",
             origin_channel="web",

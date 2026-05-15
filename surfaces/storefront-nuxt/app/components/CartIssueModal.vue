@@ -2,10 +2,10 @@
 const {
   stockIssue,
   rateLimitRecovery,
-  lastCartCommand,
+  lastCartMutation,
   dismissStockIssue,
   dismissRateLimitRecovery,
-  retryLastCartCommand,
+  retryLastCartMutation,
   acceptStockIssueAvailable
 } = useCartState()
 const { shop } = useShopSession()
@@ -25,7 +25,7 @@ const rateLimitOpen = computed({
 })
 
 const canAcceptAvailable = computed(() =>
-  !!lastCartCommand.value &&
+  !!lastCartMutation.value &&
   typeof stockIssue.value?.available_qty === 'number' &&
   stockIssue.value.available_qty >= 0
 )
@@ -52,8 +52,8 @@ function substituteReason (substitute: any) {
   return substitute?.reason || ''
 }
 
-async function retryCartCommand () {
-  await retryLastCartCommand().catch(() => {})
+async function retryCartMutation () {
+  await retryLastCartMutation().catch(() => {})
 }
 
 async function acceptAvailableQty () {
@@ -125,7 +125,7 @@ async function acceptAvailableQty () {
             block
             icon="i-lucide-refresh-cw"
             label="Tentar novamente"
-            @click="retryCartCommand"
+            @click="retryCartMutation"
           />
           <UButton
             v-if="stockSupportUrl"
@@ -133,7 +133,7 @@ async function acceptAvailableQty () {
             variant="soft"
             block
             icon="i-lucide-message-circle"
-            label="Falar com a casa"
+            label="Falar com a equipe"
             :to="stockSupportUrl"
             target="_blank"
             rel="noopener"
@@ -172,7 +172,7 @@ async function acceptAvailableQty () {
             block
             icon="i-lucide-refresh-cw"
             label="Tentar novamente"
-            @click="retryCartCommand"
+            @click="retryCartMutation"
           />
           <UButton
             v-if="rateLimitSupportUrl"
@@ -180,7 +180,7 @@ async function acceptAvailableQty () {
             variant="soft"
             block
             icon="i-lucide-message-circle"
-            label="Falar com a casa"
+            label="Falar com a equipe"
             :to="rateLimitSupportUrl"
             target="_blank"
             rel="noopener"

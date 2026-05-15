@@ -13,7 +13,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.services import remote_mutations
 from shopman.storefront.api.projections import projection_data
+from shopman.storefront.api.actions import retry_after_action
 from shopman.storefront.projections import build_payment, build_payment_status
 from shopman.storefront.services import orders as order_service
 
@@ -31,6 +33,7 @@ def _rate_limited_response() -> Response:
             "detail": "Muitas tentativas. Aguarde um instante.",
             "error_code": "rate_limited",
             "retry_after_seconds": PAYMENT_RATE_LIMIT_RETRY_SECONDS,
+            "actions": [retry_after_action(PAYMENT_RATE_LIMIT_RETRY_SECONDS)],
         },
         status=status.HTTP_429_TOO_MANY_REQUESTS,
         headers={"Retry-After": str(PAYMENT_RATE_LIMIT_RETRY_SECONDS)},
@@ -40,6 +43,19 @@ def _rate_limited_response() -> Response:
 def _is_digital_payment(order) -> bool:
     payment = (order.data or {}).get("payment") or {}
     return str(payment.get("method") or "").lower() in {"pix", "card"}
+
+
+def _payment_has_pending_payment_action(payment: dict | None) -> bool:
+    if not payment:
+        return False
+    promise = payment.get("promise") or {}
+    actions = promise.get("actions") or []
+    return any(
+        action.get("enabled") is not False
+        and action.get("ref") != "track_order"
+        for action in actions
+        if isinstance(action, dict)
+    )
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -59,7 +75,7 @@ class OrderPaymentView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=404)
 
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
         if order_service.is_cancelled(order) or order_service.payment_is_sufficient(order):
             return Response({"redirect_url": _tracking_url(ref), "payment": None})
 
@@ -76,6 +92,12 @@ class OrderPaymentView(APIView):
         payment = projection_data(build_payment(order))
         payment["status_url"] = f"/api/v1/payment/{ref}/status/"
         payment["tracking_url"] = _tracking_url(ref)
+        if not _payment_has_pending_payment_action(payment):
+            return Response({
+                "redirect_url": _tracking_url(ref),
+                "payment": None,
+                "reason": "no_payment_action",
+            })
         return Response({
             "redirect_url": None,
             "intent_ready": bool(intent_ready),
@@ -100,7 +122,7 @@ class OrderPaymentStatusView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=404)
 
-        order_service.resolve_payment_timeout_if_due(order)
+        order_service.resolve_timeouts_if_due(order)
         status = projection_data(build_payment_status(order))
         status["redirect_url"] = _tracking_url(ref)
         return Response(status)
@@ -125,8 +147,28 @@ class OrderPaymentMockConfirmView(APIView):
         except Http404:
             return Response({"detail": "Order not found."}, status=404)
 
-        order_service.resolve_payment_timeout_if_due(order)
-        if not order_service.payment_is_sufficient(order):
-            if order_service.ensure_payment_intent(order):
-                order_service.mock_confirm_payment(order)
-        return Response({"redirect_url": _tracking_url(ref)})
+        key = remote_mutations.idempotency_key_from_request(
+            request,
+            fallback=f"mock-confirm:{ref}",
+        )
+
+        def execute_mock_confirm() -> tuple[dict, int]:
+            order_service.resolve_timeouts_if_due(order)
+            if not order_service.payment_is_sufficient(order):
+                if order_service.ensure_payment_intent(order):
+                    order_service.mock_confirm_payment(order)
+                    order_service.resolve_confirmation_timeout_if_due(order)
+            return {"redirect_url": _tracking_url(ref)}, status.HTTP_200_OK
+
+        try:
+            result = remote_mutations.run_idempotent_mutation(
+                scope=f"payment-mock-confirm:{ref}",
+                key=key,
+                execute=execute_mock_confirm,
+            )
+        except remote_mutations.RemoteMutationInProgress:
+            return Response(
+                {"detail": "Confirmação teste já está em andamento.", "error_code": "mutation_in_progress"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(result.response_body, status=result.response_code)

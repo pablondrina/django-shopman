@@ -1,7 +1,7 @@
-"""Operator order command facade.
+"""Operator order mutation facade.
 
 Backstage views use this module for order mutations. Projections may still read
-orders directly, but command paths should not decide lifecycle transitions in
+orders directly, but mutation paths should not decide lifecycle transitions in
 the HTTP layer.
 """
 

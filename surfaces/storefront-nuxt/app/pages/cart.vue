@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CartItemProjection, CartProjection, CartResponse, ProductCommandMeta } from '~/types/shopman'
+import type { CartItemProjection, CartProjection, CartResponse, ProductMutationMeta } from '~/types/shopman'
 
 const { cart, setFromServer, setSkuQty } = useCartState()
 const apiPath = useShopmanApiPath()
@@ -9,7 +9,7 @@ const { data, pending, error, refresh } = await useFetch<CartResponse>(apiPath('
 
 watchEffect(() => setFromServer(data.value?.cart))
 
-function metaForLine (line: CartItemProjection): ProductCommandMeta {
+function metaForLine (line: CartItemProjection): ProductMutationMeta {
   return {
     sku: line.sku,
     name: line.name,
@@ -51,7 +51,7 @@ const itemsLabel = computed(() => cart.value.items_count === 1 ? '1 item' : `${c
 
 const summaryDescription = computed(() => {
   if (cart.value.is_empty) return 'Nenhum item selecionado'
-  if (cart.value.summary_pending) return `${itemsLabel.value} · atualizando totais com a casa`
+  if (cart.value.summary_pending) return `${itemsLabel.value} · atualizando totais`
   return `${itemsLabel.value} · ${cart.value.subtotal_display}`
 })
 
@@ -132,7 +132,7 @@ useHead({ title: 'Seu carrinho' })
             <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">Seu pedido</h1>
             <p class="mt-2 text-sm leading-relaxed text-muted sm:text-base">{{ summaryDescription }}</p>
           </div>
-          <UButton label="Continuar comprando" to="/menu" color="neutral" variant="outline" class="self-start" />
+          <UButton label="Continuar comprando" to="/menu" color="neutral" variant="outline" size="lg" class="self-start" />
         </div>
       </section>
 
@@ -203,7 +203,7 @@ useHead({ title: 'Seu carrinho' })
                 class="size-16 shrink-0 overflow-hidden rounded-md bg-elevated"
               >
                 <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
-                <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-6 text-muted" />
+                <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </NuxtLink>
               <div class="flex-1 min-w-0">
                 <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
@@ -306,7 +306,7 @@ useHead({ title: 'Seu carrinho' })
                 block
                 color="neutral"
                 variant="ghost"
-                size="sm"
+                size="lg"
                 label="Continuar comprando"
                 class="mt-2"
               />

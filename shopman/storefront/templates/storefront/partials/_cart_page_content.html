@@ -5,7 +5,7 @@ and returned standalone by ``CartPageContentView`` when a full projection refres
 is actually needed.
 
 Consumes ``CartProjection`` (typed projection). Stepper, delete and
-upsell use the compact ``ShopmanCart.setQty`` command. Coupon forms keep
+upsell use the compact ``ShopmanCart.setQty`` mutation. Coupon forms keep
 direct ``hx-post`` because they intentionally refresh the full projection.
 {% endcomment %}
 
@@ -188,7 +188,7 @@ direct ``hx-post`` because they intentionally refresh the full projection.
             {% endif %}
 
             <div class="mt-auto pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              {# Stepper — compact set-qty command (absolute, idempotent). #}
+              {# Stepper — compact set-qty mutation (absolute, idempotent). #}
               <div class="inline-flex items-center gap-1 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
                 <button type="button"
                         class="w-10 h-10 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 disabled:cursor-not-allowed touch-target focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
@@ -333,7 +333,7 @@ direct ``hx-post`` because they intentionally refresh the full projection.
 
       {% comment %}
       Upsell adds a fresh line, so this path intentionally refreshes the full
-      projection after the compact command succeeds.
+      projection after the compact mutation succeeds.
       {% endcomment %}
       {% if cart.upsell %}
       <div class="card" x-data="{ busy: false }">

@@ -310,7 +310,7 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "tracking-[0.5em]" not in code
     assert "Vamos enviar um código pelo WhatsApp." not in login
     assert "LOGIN_NO_PASSWORD_NOTE" in login
-    assert "Sem senha. A entrada é temporária e segura." in omotenashi_copy
+    assert "Sem senha. Use o código enviado para entrar." in omotenashi_copy
     assert "novalidate" in login
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
