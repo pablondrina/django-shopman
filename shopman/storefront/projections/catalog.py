@@ -231,16 +231,12 @@ def build_catalog(
 def _build_categories() -> tuple[CategoryProjection, ...]:
     result: list[CategoryProjection] = []
     for col in catalog_context.active_collections():
-        try:
-            url = reverse("storefront:menu_collection", args=[col.ref])
-        except NoReverseMatch:
-            url = f"/menu/{col.ref}/"
         result.append(
             CategoryProjection(
                 ref=col.ref,
                 name=col.name,
                 icon=collection_icon(col.ref),
-                url=url,
+                url=_menu_anchor_url(col.ref),
             ),
         )
     return tuple(result)
@@ -545,6 +541,10 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _menu_anchor_url(ref: str) -> str:
+    return f"/menu#{ref}" if ref else "/menu"
 
 
 def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:

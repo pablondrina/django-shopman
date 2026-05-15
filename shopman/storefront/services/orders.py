@@ -36,6 +36,21 @@ def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
     return customer_orders.order_history_for_phone(phone, limit=limit)
 
 
+def order_history_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    return customer_orders.order_history_for_customer(
+        customer_ref=customer_ref,
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
+
+
 def find_order(ref: str):
     return customer_orders.find_order(ref)
 

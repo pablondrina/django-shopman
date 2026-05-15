@@ -69,6 +69,8 @@ def hold(order) -> None:
     }
 
     for item in items:
+        if (item.get("meta") or {}).get("non_production") or (item.get("meta") or {}).get("type") == "delivery_fee":
+            continue
         sku = item["sku"]
         qty = Decimal(str(item["qty"]))
 
@@ -197,6 +199,8 @@ def revert(order) -> None:
         return
 
     for item in order.items.all():
+        if (item.meta or {}).get("non_production") or (item.meta or {}).get("type") == "delivery_fee":
+            continue
         try:
             adapter.receive_return(
                 sku=item.sku,

@@ -56,7 +56,7 @@ def add_address(customer_ref: str, intent):
         label=intent.label,
         label_custom=intent.label_custom,
         formatted_address=intent.formatted_address,
-        place_id=intent.place_id,
+        place_id=intent.place_id or "",
         coordinates=intent.coordinates,
         complement=intent.complement,
         delivery_instructions=intent.delivery_instructions,
@@ -87,12 +87,17 @@ def update_address(customer_ref: str, pk: int, intent) -> None:
         "postal_code": intent.postal_code,
         "complement": intent.complement,
         "delivery_instructions": intent.delivery_instructions,
-        "place_id": intent.place_id,
+        "place_id": intent.place_id or "",
+        "is_default": intent.is_default,
     }
     if intent.coordinates is not None:
         fields["latitude"] = intent.coordinates[0]
         fields["longitude"] = intent.coordinates[1]
         fields["is_verified"] = True
+    elif not intent.place_id:
+        fields["latitude"] = None
+        fields["longitude"] = None
+        fields["is_verified"] = False
 
     address_service.update_address(customer_ref, pk, **fields)
 
@@ -116,15 +121,51 @@ def set_default_address(customer_ref: str, pk: int) -> None:
 
 
 def update_profile(customer_ref: str, intent):
+    from django.db import transaction
+    from shopman.guestman.models import ContactPoint
     from shopman.guestman.services import customer as customer_service
 
-    return customer_service.update(
-        customer_ref,
-        first_name=intent.first_name,
-        last_name=intent.last_name,
-        email=intent.email,
-        birthday=intent.birthday,
-    )
+    with transaction.atomic():
+        customer = customer_service.get(customer_ref)
+        if not customer:
+            return None
+
+        email = (intent.email or "").strip().lower()
+        if email:
+            conflict = (
+                ContactPoint.objects.filter(
+                    type=ContactPoint.Type.EMAIL,
+                    value_normalized=email,
+                )
+                .exclude(customer=customer)
+                .exists()
+            )
+            if conflict:
+                raise ValueError("E-mail já está em uso.")
+
+            primary_email = ContactPoint.objects.filter(
+                customer=customer,
+                type=ContactPoint.Type.EMAIL,
+                is_primary=True,
+            ).first()
+            if primary_email:
+                primary_email.value_normalized = email
+                primary_email.value_display = email
+                primary_email.save(update_fields=["value_normalized", "value_display", "updated_at"])
+        else:
+            ContactPoint.objects.filter(
+                customer=customer,
+                type=ContactPoint.Type.EMAIL,
+                is_primary=True,
+            ).delete()
+
+        return customer_service.update(
+            customer_ref,
+            first_name=intent.first_name,
+            last_name=intent.last_name,
+            email=email,
+            birthday=intent.birthday,
+        )
 
 
 def preferences(customer_ref: str, category: str | None = None):

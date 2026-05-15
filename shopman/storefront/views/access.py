@@ -15,6 +15,7 @@ from django.shortcuts import redirect
 from django.views import View
 
 from shopman.shop.services import access as access_service
+from shopman.shop.services import auth as auth_service
 
 from ..services import orders as order_service
 
@@ -66,7 +67,7 @@ class AccessLinkEntryView(View):
         )
 
         # Redirect to intended destination (strip token from URL)
-        next_url = request.GET.get("next", "/menu/")
+        next_url = auth_service.safe_redirect_url(request.GET.get("next", "/menu/"), request)
         return redirect(next_url)
 
     @staticmethod

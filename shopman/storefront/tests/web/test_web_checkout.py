@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import date, time, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
@@ -271,6 +272,94 @@ class TestCheckoutPost:
         assert resp.status_code in (200, 302)
         assert mock_availability.called
         assert mock_availability.call_args.kwargs["target_date"] == future_date
+
+    def test_api_checkout_delivery_without_address_rejected_before_commit(
+        self, cart_session_delivery, channel, customer
+    ):
+        future_date = (date.today() + timedelta(days=3)).isoformat()
+        _login_as_customer(cart_session_delivery, customer)
+
+        with patch("shopman.storefront.api.views.checkout_service.process") as mock_process:
+            resp = cart_session_delivery.post(
+                "/api/v1/checkout/",
+                data=json.dumps({
+                    "idempotency_key": "api-delivery-missing-address",
+                    "phone": customer.phone,
+                    "name": customer.name,
+                    "fulfillment_type": "delivery",
+                    "delivery_date": future_date,
+                    "delivery_time_slot": "slot-09",
+                    "payment_method": "cash",
+                }),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["field"] == "delivery_address"
+        assert data["errors"]["delivery_address"] == "Informe o endereço de entrega."
+        mock_process.assert_not_called()
+
+    def test_api_checkout_saved_address_payload_preserves_canonical_fields(
+        self, cart_session_delivery, channel, customer, customer_address
+    ):
+        from shopman.shop.services.checkout import CheckoutResult
+
+        future_date = (date.today() + timedelta(days=3)).isoformat()
+        customer_address.place_id = "place-wp03"
+        customer_address.latitude = Decimal("-23.3044521")
+        customer_address.longitude = Decimal("-51.1695824")
+        customer_address.complement = "Bloco B"
+        customer_address.delivery_instructions = "Portaria 2"
+        customer_address.save()
+        _login_as_customer(cart_session_delivery, customer)
+
+        with patch(
+            "shopman.storefront.api.views.checkout_service.process",
+            return_value=CheckoutResult(
+                order_ref="ORD-API-WP03",
+                status="committed",
+                total_q=3200,
+                items_count=4,
+            ),
+        ) as mock_process:
+            resp = cart_session_delivery.post(
+                "/api/v1/checkout/",
+                data=json.dumps({
+                    "idempotency_key": "api-saved-address-wp03",
+                    "phone": customer.phone,
+                    "name": customer.name,
+                    "fulfillment_type": "delivery",
+                    "saved_address_id": customer_address.pk,
+                    "delivery_date": future_date,
+                    "delivery_time_slot": "slot-09",
+                    "payment_method": "pix",
+                    "delivery_complement": "Apto 10",
+                    "delivery_instructions": "Interfone 42",
+                    "notes": "Sem contato por telefone",
+                    "use_loyalty": False,
+                }),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 201
+        kwargs = mock_process.call_args.kwargs
+        assert kwargs["idempotency_key"] == "api-saved-address-wp03"
+        checkout_data = kwargs["data"]
+        assert checkout_data["fulfillment_type"] == "delivery"
+        assert checkout_data["saved_address_id"] == customer_address.pk
+        assert checkout_data["delivery_address"] == customer_address.formatted_address
+        assert checkout_data["delivery_date"] == future_date
+        assert checkout_data["delivery_time_slot"] == "slot-09"
+        assert checkout_data["payment"] == {"method": "pix"}
+        assert checkout_data["order_notes"] == "Sem contato por telefone"
+        structured = checkout_data["delivery_address_structured"]
+        assert structured["formatted_address"] == customer_address.formatted_address
+        assert structured["place_id"] == "place-wp03"
+        assert str(structured["latitude"]) == "-23.3044521"
+        assert str(structured["longitude"]) == "-51.1695824"
+        assert structured["complement"] == "Apto 10"
+        assert structured["delivery_instructions"] == "Interfone 42"
 
 
 class _FakeViaCepResponse:

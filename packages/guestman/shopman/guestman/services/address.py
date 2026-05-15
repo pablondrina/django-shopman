@@ -187,6 +187,8 @@ def update_address(customer_ref: str, address_id: int, **fields) -> CustomerAddr
     }
     updates: list[str] = []
     for key, value in fields.items():
+        if key == "place_id" and value is None:
+            value = ""
         if key in updatable_fields and hasattr(addr, key) and getattr(addr, key) != value:
             setattr(addr, key, value)
             updates.append(key)

@@ -574,22 +574,16 @@ def _shelf_life_label(shelf_life_days: int | None) -> str | None:
 
 
 def _breadcrumb_category(product: Any) -> CategoryProjection | None:
-    from django.urls import NoReverseMatch, reverse
-
     from shopman.storefront.projections.icons import collection_icon
 
     col = catalog_context.breadcrumb_collection(product)
     if col is None:
         return None
-    try:
-        url = reverse("storefront:menu_collection", args=[col.ref])
-    except NoReverseMatch:
-        url = f"/menu/{col.ref}/"
     return CategoryProjection(
         ref=col.ref,
         name=col.name,
         icon=collection_icon(col.ref),
-        url=url,
+        url=f"/menu#{col.ref}",
     )
 
 

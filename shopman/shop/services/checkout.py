@@ -256,6 +256,7 @@ def _build_ops_from_data(data: dict) -> list[dict]:
         "customer",
         "fulfillment_type",
         "delivery_address",
+        "saved_address_id",
         "delivery_address_structured",
         "delivery_date",
         "delivery_time_slot",

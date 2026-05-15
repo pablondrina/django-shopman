@@ -85,6 +85,9 @@ class CheckoutProjection:
     # Dev toggle
     is_debug: bool
 
+    # Recovery/contact target sourced from Shop configuration
+    support_whatsapp_url: str
+
     # Fulfillment contextual hints shown below the pickup/delivery chips
     pickup_hint: str = ""
     delivery_hint: str = ""
@@ -129,7 +132,7 @@ def build_checkout(
 
     payment_methods = _payment_methods(channel_ref)
     pickup_slots, earliest_slot_ref = _pickup_slots(cart)
-    max_preorder_days, closed_dates = _shop_config()
+    max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
 
     return CheckoutProjection(
         cart=cart,
@@ -149,6 +152,7 @@ def build_checkout(
         max_preorder_days=max_preorder_days,
         closed_dates_json=json.dumps(closed_dates),
         is_debug=settings.DEBUG,
+        support_whatsapp_url=support_whatsapp_url,
         pickup_hint="Gratuita",
         delivery_hint="",
     )
@@ -254,18 +258,22 @@ def _pickup_slots(
         return (), None
 
 
-def _shop_config() -> tuple[int, list]:
-    """Return (max_preorder_days, closed_dates)."""
+def _shop_config() -> tuple[int, list, str]:
+    """Return (max_preorder_days, closed_dates, support_whatsapp_url)."""
     try:
         from shopman.shop.models import Shop
 
         shop = Shop.load()
         if shop:
             defaults = shop.defaults or {}
-            return int(defaults.get("max_preorder_days", 30)), defaults.get("closed_dates", [])
+            return (
+                int(defaults.get("max_preorder_days", 30)),
+                defaults.get("closed_dates", []),
+                shop.whatsapp_url,
+            )
     except Exception:
         logger.debug("checkout_projection_shop_config_failed", exc_info=True)
-    return 30, []
+    return 30, [], ""
 
 
 __all__ = ["CheckoutProjection", "build_checkout"]

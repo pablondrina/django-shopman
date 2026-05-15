@@ -497,7 +497,7 @@ def _payment_idempotency_key_reusable(
 ) -> bool:
     """Return False when a stored key points to a terminal failed attempt."""
     try:
-        from shopman.payman.models.intent import PaymentIntent as PaymanIntent
+        from shopman.payman import PaymentIntent as PaymanIntent
 
         intent = PaymanIntent.objects.filter(idempotency_key=key).first()
     except Exception:

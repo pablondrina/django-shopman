@@ -395,6 +395,9 @@ class AccessLinkLoginView(View):
         if not HAS_AUTH:
             return redirect("/")
 
+        from shopman.shop.services import access as access_service
+
+        metadata = access_service.token_metadata(token)
         result = auth_service.exchange_access_link(token=token, request=request)
 
         if not result.success:
@@ -402,6 +405,12 @@ class AccessLinkLoginView(View):
             return render(request, "storefront/access_link_invalid.html", {
                 "error": result.error,
             })
+
+        order_ref = metadata.get("order_ref") if isinstance(metadata, dict) else ""
+        if order_ref:
+            from ..services import orders as order_service
+
+            order_service.grant_order_access(request, str(order_ref))
 
         # Django auth already called by AccessLinkService.exchange(request=request)
         # Redirect based on token audience or next param

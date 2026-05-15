@@ -7,6 +7,7 @@ status, opening hours, and a small set of featured items for "Direto do Forno".
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from django.http import HttpRequest
@@ -15,6 +16,8 @@ from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections.catalog import CatalogItemProjection, build_catalog
 from shopman.storefront.projections.shop import ShopProjection, build_shop_projection
 from shopman.storefront.projections.shop_status import _format_opening_hours, _shop_status
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -112,6 +115,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
         if session is not None:
             origin_channel = session.get("origin_channel")
     except Exception:
+        logger.debug("home.origin_channel_unavailable", exc_info=True)
         origin_channel = None
 
     from django.conf import settings
@@ -156,6 +160,7 @@ def _reorder_context(request: HttpRequest) -> tuple[str | None, tuple[LastOrderI
         )
         return ref, projections
     except Exception:
+        logger.debug("home.reorder_context_failed", exc_info=True)
         return None, ()
 
 

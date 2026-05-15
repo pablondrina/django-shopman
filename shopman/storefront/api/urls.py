@@ -5,10 +5,25 @@ from __future__ import annotations
 from django.urls import path
 
 from . import views
-from .account import AddressDetailView, AddressListView, OrderHistoryView, ProfileView
+from .account import (
+    AccountDeleteView,
+    AccountDeviceDetailView,
+    AccountDeviceListView,
+    AccountExportView,
+    AccountSummaryView,
+    ActiveOrderCountView,
+    AddressDetailView,
+    AddressListView,
+    FoodPreferenceToggleView,
+    NotificationPreferenceToggleView,
+    OrderHistoryView,
+    ProfileView,
+)
+from .auth import DeviceCheckView, LogoutView, RequestCodeView, SessionView, TrustDeviceView, VerifyCodeView
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .geocode import ReverseGeocodeView
+from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderPaymentView
 from .surface import (
     CartCouponView,
     CartSkuQtyView,
@@ -19,7 +34,7 @@ from .surface import (
     StorefrontMenuView,
     StorefrontProductView,
 )
-from .tracking import OrderTrackingView
+from .tracking import OrderCancelView, OrderRateView, OrderTrackingView
 
 urlpatterns = [
     # Storefront projections for API-first clients
@@ -29,6 +44,13 @@ urlpatterns = [
     path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
     path("storefront/cart/", StorefrontCartView.as_view(), name="api-storefront-cart"),
     path("storefront/checkout/", StorefrontCheckoutView.as_view(), name="api-storefront-checkout"),
+    # Auth
+    path("auth/session/", SessionView.as_view(), name="api-auth-session"),
+    path("auth/device-check/", DeviceCheckView.as_view(), name="api-auth-device-check"),
+    path("auth/request-code/", RequestCodeView.as_view(), name="api-auth-request-code"),
+    path("auth/verify-code/", VerifyCodeView.as_view(), name="api-auth-verify-code"),
+    path("auth/trust-device/", TrustDeviceView.as_view(), name="api-auth-trust-device"),
+    path("auth/logout/", LogoutView.as_view(), name="api-auth-logout"),
     # Cart
     path("cart/", views.CartView.as_view(), name="api-cart"),
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),
@@ -45,12 +67,29 @@ urlpatterns = [
     path("catalog/collections/", CollectionListView.as_view(), name="api-catalog-collections"),
     # Tracking
     path("tracking/<str:ref>/", OrderTrackingView.as_view(), name="api-tracking"),
+    path("orders/<str:ref>/cancel/", OrderCancelView.as_view(), name="api-order-cancel"),
+    path("orders/<str:ref>/rate/", OrderRateView.as_view(), name="api-order-rate"),
+    path("payment/<str:ref>/", OrderPaymentView.as_view(), name="api-payment"),
+    path("payment/<str:ref>/status/", OrderPaymentStatusView.as_view(), name="api-payment-status"),
+    path("payment/<str:ref>/mock-confirm/", OrderPaymentMockConfirmView.as_view(), name="api-payment-mock-confirm"),
     path("orders/<str:ref>/reorder/", OrderReorderView.as_view(), name="api-order-reorder"),
     # Account
+    path("account/summary/", AccountSummaryView.as_view(), name="api-account-summary"),
     path("account/profile/", ProfileView.as_view(), name="api-account-profile"),
     path("account/addresses/", AddressListView.as_view(), name="api-account-addresses"),
     path("account/addresses/<int:pk>/", AddressDetailView.as_view(), name="api-account-address-detail"),
     path("account/orders/", OrderHistoryView.as_view(), name="api-account-orders"),
+    path("account/orders/active/", ActiveOrderCountView.as_view(), name="api-account-active-orders"),
+    path("account/preferences/food/", FoodPreferenceToggleView.as_view(), name="api-account-food-preferences"),
+    path(
+        "account/preferences/notifications/",
+        NotificationPreferenceToggleView.as_view(),
+        name="api-account-notification-preferences",
+    ),
+    path("account/devices/", AccountDeviceListView.as_view(), name="api-account-devices"),
+    path("account/devices/<uuid:device_id>/", AccountDeviceDetailView.as_view(), name="api-account-device-detail"),
+    path("account/export/", AccountExportView.as_view(), name="api-account-export"),
+    path("account/delete/", AccountDeleteView.as_view(), name="api-account-delete"),
     # Geocoding (server-side — key stays on the server)
     path("geocode/reverse", ReverseGeocodeView.as_view(), name="api-geocode-reverse"),
 ]

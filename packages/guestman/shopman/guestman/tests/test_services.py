@@ -276,6 +276,17 @@ class TestAddressService:
         assert float(addr.latitude) == -23.55
         assert float(addr.longitude) == -46.63
 
+    def test_update_address_normalizes_missing_place_id(self, customer, customer_address):
+        """Manual addresses are valid even when there is no Google Places id."""
+        addr = address_service.update_address(
+            "CUST-001",
+            customer_address.id,
+            formatted_address="Rua Manual, 123",
+            place_id=None,
+        )
+        assert addr.formatted_address == "Rua Manual, 123"
+        assert addr.place_id == ""
+
 
 class TestPreferenceService:
     """Tests for preference service."""

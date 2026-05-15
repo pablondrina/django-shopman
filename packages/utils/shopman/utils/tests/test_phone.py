@@ -18,6 +18,14 @@ class TestNormalizePhoneBrazilian:
         """5543984049009 → +5543984049009"""
         assert normalize_phone("5543984049009") == "+5543984049009"
 
+    def test_mobile_with_spaced_55_no_plus(self):
+        """55 43 98404-9009 → +5543984049009"""
+        assert normalize_phone("55 43 98404-9009") == "+5543984049009"
+
+    def test_mobile_with_spaced_55_no_plus_unmasked(self):
+        """55 43 984049009 → +5543984049009"""
+        assert normalize_phone("55 43 984049009") == "+5543984049009"
+
     def test_landline_10_digits(self):
         """4330281234 → +554330281234"""
         assert normalize_phone("4330281234") == "+554330281234"
@@ -140,6 +148,9 @@ class TestIsValidPhone:
 
     def test_empty_not_valid(self):
         assert is_valid_phone("") is False
+
+    def test_valid_brazilian_mobile_with_bare_55(self):
+        assert is_valid_phone("55 43 98404-9009") is True
 
     def test_too_short(self):
         assert is_valid_phone("123") is False

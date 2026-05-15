@@ -217,18 +217,46 @@ def history_summaries_for_customer_ref(
     return history_summaries_for_customer(customer_ref=customer_ref, limit=limit)
 
 
-def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
-    """Return API-ready customer order history for the authenticated account API."""
+def order_history_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    """Return API-ready customer order history for account surfaces."""
     return [
         {
             "ref": order.ref,
             "created_at": order.created_at,
+            "created_at_display": timezone.localtime(order.created_at).strftime("%d/%m/%Y às %H:%M"),
             "total_display": f"R$ {format_money(order.total_q)}",
             "status": order.status,
             "status_label": order.status_label,
+            "status_color": order.status_color,
+            "item_count": order.item_count,
         }
-        for order in history_summaries_for_phone(phone, limit=limit)
+        for order in history_summaries_for_customer(
+            customer_ref=customer_ref,
+            phone=phone,
+            filter_param=filter_param,
+            limit=limit,
+        )
     ]
+
+
+def order_history_for_phone(
+    phone: str,
+    *,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    """Return API-ready customer order history for the authenticated account API."""
+    return order_history_for_customer(
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
 
 
 def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, list[dict]]:

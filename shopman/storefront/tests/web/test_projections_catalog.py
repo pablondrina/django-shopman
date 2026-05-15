@@ -111,7 +111,7 @@ class TestBuildCatalogShape:
         assert pao_cat is not None
         assert pao_cat.name == "Pães"
         assert pao_cat.icon  # Material Symbols ligature
-        assert "/menu/paes/" in pao_cat.url
+        assert pao_cat.url == "/menu#paes"
 
 
 # ──────────────────────────────────────────────────────────────────────

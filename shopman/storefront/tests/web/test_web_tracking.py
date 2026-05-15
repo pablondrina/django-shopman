@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 from django.test import Client
+from django.utils import timezone
 from shopman.orderman.models import Session
 
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
@@ -172,3 +173,91 @@ class TestReorderView:
         resp = client.get("/cart/")
         assert resp.status_code == 200
         assert b"Ver outros pedidos" in resp.content
+
+
+class TestTrackingApi:
+    """Nuxt tracking API consumes the canonical order tracking projection."""
+
+    def test_tracking_api_returns_full_customer_contract(
+        self, client: Client, order_items,
+    ):
+        resp = client.get(f"/api/v1/tracking/{order_items.ref}/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ref"] == order_items.ref
+        assert data["status"] == "new"
+        assert data["is_active"] is True
+        assert isinstance(data["can_cancel"], bool)
+        assert data["promise"]["title"]
+        assert isinstance(data["progress_steps"], list)
+        assert data["items"][0]["sku"] == "PAO-FRANCES"
+        assert "payment_pending" in data
+        assert "payment_status" in data
+        assert data["requires_payment_gate"] is False
+        assert data["payment_gate_url"] is None
+
+    def test_tracking_api_exposes_canonical_payment_gate_redirect(
+        self, client: Client, order_with_payment,
+    ):
+        from shopman.orderman.models import Order
+
+        order_with_payment.data["payment"]["expires_at"] = (
+            timezone.now() + timezone.timedelta(minutes=10)
+        ).isoformat()
+        order_with_payment.save(update_fields=["data", "updated_at"])
+        Order.objects.filter(pk=order_with_payment.pk).update(
+            status="confirmed",
+            updated_at=timezone.now(),
+        )
+        order_with_payment.refresh_from_db()
+
+        resp = client.get(f"/api/v1/tracking/{order_with_payment.ref}/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["requires_payment_gate"] is True
+        assert data["payment_gate_url"] == f"/pedido/{order_with_payment.ref}/pagamento"
+        assert data["payment_pending"] is True
+
+    def test_tracking_api_cancel_blocks_non_cancellable_paid_order(
+        self, client: Client, order_paid,
+    ):
+        resp = client.post(f"/api/v1/orders/{order_paid.ref}/cancel/")
+
+        assert resp.status_code == 409
+        assert resp.json()["error_code"] == "order_not_cancellable"
+        order_paid.refresh_from_db()
+        assert order_paid.status == "confirmed"
+
+    def test_tracking_api_cancel_returns_updated_projection(
+        self, client: Client, order,
+    ):
+        resp = client.post(f"/api/v1/orders/{order.ref}/cancel/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "cancelled"
+        assert data["is_active"] is False
+        assert data["can_cancel"] is False
+        order.refresh_from_db()
+        assert order.status == "cancelled"
+
+    def test_reorder_api_returns_skipped_items_with_reasons(
+        self, client: Client, order_items,
+    ):
+        with patch(
+            "shopman.storefront.services.orders.add_reorder_items",
+            return_value=["Croissant"],
+        ):
+            resp = client.post(f"/api/v1/orders/{order_items.ref}/reorder/")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["skipped"] == ["Croissant"]
+        assert data["skipped_items"] == [
+            {
+                "name": "Croissant",
+                "reason": "Indisponível para recompra agora.",
+            }
+        ]

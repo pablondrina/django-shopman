@@ -161,6 +161,16 @@ class TestCustomerAddress:
         )
         assert addr.display_label == "Grandma's house"
 
+    def test_place_id_none_is_normalized_for_manual_address(self, customer):
+        """Manual addresses do not need a Google Places id."""
+        addr = CustomerAddress.objects.create(
+            customer=customer,
+            label="home",
+            formatted_address="Rua Manual, 123",
+            place_id=None,
+        )
+        assert addr.place_id == ""
+
     def test_only_one_default(self, customer, customer_address):
         """Test only one default address per customer."""
         new_addr = CustomerAddress.objects.create(

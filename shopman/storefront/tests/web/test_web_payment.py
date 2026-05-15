@@ -258,3 +258,15 @@ class TestPaymentIntentRecovery:
         assert "Tentar novamente" in body
         assert f"/pedido/{order_pix_without_intent.ref}/pagamento/" in body
         assert "QR Code PIX" not in body
+
+
+class TestPaymentApiRecoveryContract:
+    def test_rate_limit_response_exposes_retry_contract(self):
+        from shopman.storefront.api import payment as payment_api
+
+        response = payment_api._rate_limited_response()
+
+        assert response.status_code == 429
+        assert response.data["error_code"] == "rate_limited"
+        assert response.data["retry_after_seconds"] == payment_api.PAYMENT_RATE_LIMIT_RETRY_SECONDS
+        assert response.headers["Retry-After"] == str(payment_api.PAYMENT_RATE_LIMIT_RETRY_SECONDS)

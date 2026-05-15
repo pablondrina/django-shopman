@@ -33,6 +33,7 @@ class MergeResult:
     migrated_consents: int
     migrated_timeline_events: int
     loyalty_merged: bool
+    migrated_orders: int = 0
     audit_id: str = ""
 
 
@@ -103,6 +104,7 @@ class MergeService:
                 "preferences": cls._migrate_preferences(source, target, snapshot),
                 "consents": cls._migrate_consents(source, target, snapshot),
                 "timeline_events": cls._migrate_timeline_events(source, target, snapshot),
+                "orders": cls._migrate_orders(source, target, snapshot),
             }
             loyalty_merged = cls._merge_loyalty(source, target, snapshot)
 
@@ -144,6 +146,7 @@ class MergeService:
             migrated_consents=counts["consents"],
             migrated_timeline_events=counts["timeline_events"],
             loyalty_merged=loyalty_merged,
+            migrated_orders=counts["orders"],
             audit_id=str(audit.pk),
         )
 
@@ -250,6 +253,21 @@ class MergeService:
                     TimelineEvent.objects.filter(pk__in=te_pks, customer=target).update(
                         customer=source,
                     )
+                except ImportError:
+                    pass
+
+            # Revert order identity links
+            order_snapshots = snapshot.get("orders", [])
+            if order_snapshots:
+                try:
+                    from shopman.orderman.models import Order
+
+                    for order_snapshot in order_snapshots:
+                        Order.objects.filter(pk=order_snapshot["pk"]).update(
+                            handle_type=order_snapshot.get("handle_type"),
+                            handle_ref=order_snapshot.get("handle_ref"),
+                            data=order_snapshot.get("data") or {},
+                        )
                 except ImportError:
                     pass
 
@@ -609,6 +627,90 @@ class MergeService:
         count = TimelineEvent.objects.filter(pk__in=event_pks).update(customer=target)
         snapshot["timeline_events"] = [str(pk) for pk in event_pks]
         return count
+
+    @classmethod
+    def _migrate_orders(
+        cls, source: Customer, target: Customer, snapshot: dict
+    ) -> int:
+        """
+        Reassign customer-facing order identity from source to target.
+
+        Order history is sealed through ``Order.data["customer_ref"]`` with
+        ``handle_ref`` as the phone fallback used by storefront access checks.
+        A customer merge that leaves those fields behind fragments history.
+        """
+        try:
+            from django.db.models import Q
+            from shopman.orderman.models import Order
+        except ImportError:
+            snapshot["orders"] = []
+            return 0
+
+        source_uuid = str(source.uuid)
+        target_uuid = str(target.uuid)
+        identity_query = (
+            Q(data__customer_ref=source.ref)
+            | Q(data__customer__ref=source.ref)
+            | Q(data__customer__uuid=source_uuid)
+            | Q(data__customer__id=source_uuid)
+            | Q(handle_type__in=["phone", "whatsapp"], handle_ref=source.phone)
+            | Q(handle_type="customer", handle_ref=source_uuid)
+        )
+
+        moved: list[dict] = []
+        migrated = 0
+        for order in Order.objects.select_for_update().filter(identity_query).distinct():
+            previous = {
+                "pk": order.pk,
+                "handle_type": order.handle_type,
+                "handle_ref": order.handle_ref,
+                "data": order.data or {},
+            }
+            data = cls._order_data_for_merge(order.data or {}, source, target)
+            handle_ref = order.handle_ref
+
+            if order.handle_type in {"phone", "whatsapp"} and order.handle_ref == source.phone:
+                handle_ref = target.phone
+            elif order.handle_type == "customer" and str(order.handle_ref or "") == source_uuid:
+                handle_ref = target_uuid
+
+            if data == (order.data or {}) and handle_ref == order.handle_ref:
+                continue
+
+            order.data = data
+            order.handle_ref = handle_ref
+            order.save(update_fields=["data", "handle_ref", "updated_at"])
+            moved.append(previous)
+            migrated += 1
+
+        snapshot["orders"] = moved
+        return migrated
+
+    @staticmethod
+    def _order_data_for_merge(data: dict, source: Customer, target: Customer) -> dict:
+        next_data = dict(data)
+        source_uuid = str(source.uuid)
+        target_uuid = str(target.uuid)
+
+        if next_data.get("customer_ref") == source.ref:
+            next_data["customer_ref"] = target.ref
+        for key in ("customer_uuid", "customer_id"):
+            if str(next_data.get(key) or "") == source_uuid:
+                next_data[key] = target_uuid
+
+        customer_data = next_data.get("customer")
+        if isinstance(customer_data, dict):
+            customer_next = dict(customer_data)
+            if customer_next.get("ref") == source.ref:
+                customer_next["ref"] = target.ref
+            for key in ("uuid", "id"):
+                if str(customer_next.get(key) or "") == source_uuid:
+                    customer_next[key] = target_uuid
+            if customer_next.get("phone") == source.phone:
+                customer_next["phone"] = target.phone
+            next_data["customer"] = customer_next
+
+        return next_data
 
     @classmethod
     def _merge_loyalty(

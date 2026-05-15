@@ -193,6 +193,37 @@ class TestAccessLinkLoginView:
         assert response.status_code == 302
         assert response.url == "/minha-conta/"
 
+    def test_access_entry_rejects_external_next(self, client: Client, customer):
+        """Short access entry sanitizes next before redirecting."""
+        link, raw_token = AccessLink.create_with_token(
+            customer_id=customer.uuid,
+            audience=AccessLink.Audience.WEB_GENERAL,
+            source=AccessLink.Source.INTERNAL,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = client.get(f"/a/?t={raw_token}&next=https://evil.example/phish")
+
+        assert response.status_code == 302
+        assert response.url.startswith("/")
+        assert "evil.example" not in response.url
+
+    def test_access_link_grants_order_metadata_before_nuxt_tracking_redirect(self, client: Client, customer):
+        """Access links for Nuxt tracking can bind order access and redirect safely."""
+        link, raw_token = AccessLink.create_with_token(
+            customer_id=customer.uuid,
+            audience=AccessLink.Audience.WEB_GENERAL,
+            source=AccessLink.Source.INTERNAL,
+            metadata={"order_ref": "ORD-NUXT-ACCESS"},
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = client.get(f"/auth/access/{raw_token}/?next=/tracking/ORD-NUXT-ACCESS")
+
+        assert response.status_code == 302
+        assert response.url == "/tracking/ORD-NUXT-ACCESS"
+        assert "ORD-NUXT-ACCESS" in client.session.get("shopman_order_access_refs", [])
+
 
 # ── Login page ─────────────────────────────────────────────────────
 

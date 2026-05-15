@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -52,6 +53,7 @@ def test_api_storefront_checkout_returns_projection_contract(client):
     assert data["has_pickup"] is True
     assert data["has_delivery"] is True
     assert data["default_payment_method"]
+    assert data["support_whatsapp_url"].startswith("https://wa.me/")
     assert isinstance(data["payment_methods"], list)
     assert "csrftoken" in resp.cookies
 
@@ -134,11 +136,48 @@ def test_api_cart_sku_qty_sets_absolute_qty_and_returns_cart_projection(client):
     assert remove_data["cart"]["is_empty"] is True
 
 
+def test_api_cart_sku_qty_stock_error_returns_rich_payload(client):
+    from shopman.shop.services.cart import CartUnavailableError
+
+    product = _seed_surface(stock_qty=Decimal("10"))
+    stock_error = CartUnavailableError(
+        sku=product.sku,
+        requested_qty=5,
+        available_qty=2,
+        error_code="below_stock",
+        is_paused=False,
+        substitutes=[{"sku": "ALT-PAO", "name": "Pão alternativo", "reason": "Mais estoque"}],
+    )
+
+    with patch("shopman.storefront.services.cart_mutations.CartService.add_item", side_effect=stock_error):
+        response = client.put(
+            f"/api/v1/cart/skus/{product.sku}/",
+            data=json.dumps({"qty": 5}),
+            content_type="application/json",
+        )
+
+    assert response.status_code == 409
+    data = response.json()
+    assert data["title"] == "Revise este item"
+    assert data["name"] == product.name
+    assert data["items"] == [
+        {
+            "sku": product.sku,
+            "name": product.name,
+            "requested_qty": 5,
+            "available_qty": 2,
+            "reason": "Estoque disponível agora: 2 unidade(s).",
+        }
+    ]
+    assert data["substitutes"][0]["name"] == "Pão alternativo"
+
+
 def _seed_surface(*, stock_qty: Decimal | None = None) -> Product:
     Shop.objects.create(
         name="Demo Bakery",
         brand_name="Demo Bakery",
         short_name="Demo",
+        phone="554333231997",
     )
     Channel.objects.create(ref="web", name="Loja Online")
     listing = Listing.objects.create(ref="web", name="Web", is_active=True, priority=10)

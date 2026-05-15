@@ -1,0 +1,132 @@
+"""Storefront Payment API - Nuxt-facing payment contract."""
+
+from __future__ import annotations
+
+from django.conf import settings
+from django.http import Http404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
+from django_ratelimit.decorators import ratelimit
+from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from shopman.storefront.api.projections import projection_data
+from shopman.storefront.projections import build_payment, build_payment_status
+from shopman.storefront.services import orders as order_service
+
+
+def _tracking_url(ref: str) -> str:
+    return f"/tracking/{ref}"
+
+
+PAYMENT_RATE_LIMIT_RETRY_SECONDS = 30
+
+
+def _rate_limited_response() -> Response:
+    return Response(
+        {
+            "detail": "Muitas tentativas. Aguarde um instante.",
+            "error_code": "rate_limited",
+            "retry_after_seconds": PAYMENT_RATE_LIMIT_RETRY_SECONDS,
+        },
+        status=status.HTTP_429_TOO_MANY_REQUESTS,
+        headers={"Retry-After": str(PAYMENT_RATE_LIMIT_RETRY_SECONDS)},
+    )
+
+
+def _is_digital_payment(order) -> bool:
+    payment = (order.data or {}).get("payment") or {}
+    return str(payment.get("method") or "").lower() in {"pix", "card"}
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="90/m", method="GET", block=False), name="dispatch")
+class OrderPaymentView(APIView):
+    """GET /api/v1/payment/<ref>/ - payment projection for Nuxt."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, ref: str):
+        if getattr(request, "limited", False):
+            return _rate_limited_response()
+
+        try:
+            order = order_service.get_accessible_order(request, ref)
+        except Http404:
+            return Response({"detail": "Order not found."}, status=404)
+
+        order_service.resolve_payment_timeout_if_due(order)
+        if order_service.is_cancelled(order) or order_service.payment_is_sufficient(order):
+            return Response({"redirect_url": _tracking_url(ref), "payment": None})
+
+        intent_ready = order_service.ensure_payment_intent(order)
+        if order_service.payment_is_sufficient(order):
+            return Response({"redirect_url": _tracking_url(ref), "payment": None})
+        if not intent_ready and not (_is_digital_payment(order) and order.status == "confirmed"):
+            return Response({
+                "redirect_url": _tracking_url(ref),
+                "payment": None,
+                "reason": "waiting_store_confirmation",
+            })
+
+        payment = projection_data(build_payment(order))
+        payment["status_url"] = f"/api/v1/payment/{ref}/status/"
+        payment["tracking_url"] = _tracking_url(ref)
+        return Response({
+            "redirect_url": None,
+            "intent_ready": bool(intent_ready),
+            "payment": payment,
+        })
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=False), name="dispatch")
+class OrderPaymentStatusView(APIView):
+    """GET /api/v1/payment/<ref>/status/ - polling payment state."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, ref: str):
+        if getattr(request, "limited", False):
+            return _rate_limited_response()
+
+        try:
+            order = order_service.get_accessible_order(request, ref)
+        except Http404:
+            return Response({"detail": "Order not found."}, status=404)
+
+        order_service.resolve_payment_timeout_if_due(order)
+        status = projection_data(build_payment_status(order))
+        status["redirect_url"] = _tracking_url(ref)
+        return Response(status)
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="30/m", method="POST", block=False), name="dispatch")
+class OrderPaymentMockConfirmView(APIView):
+    """POST /api/v1/payment/<ref>/mock-confirm/ - DEBUG-only mock payment confirmation."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    def post(self, request, ref: str):
+        if getattr(request, "limited", False):
+            return _rate_limited_response()
+
+        if not settings.DEBUG:
+            raise Http404
+        try:
+            order = order_service.get_accessible_order(request, ref)
+        except Http404:
+            return Response({"detail": "Order not found."}, status=404)
+
+        order_service.resolve_payment_timeout_if_due(order)
+        if not order_service.payment_is_sufficient(order):
+            if order_service.ensure_payment_intent(order):
+                order_service.mock_confirm_payment(order)
+        return Response({"redirect_url": _tracking_url(ref)})

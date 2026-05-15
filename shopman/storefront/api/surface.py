@@ -8,8 +8,10 @@ rules.
 from __future__ import annotations
 
 from django.utils.decorators import method_decorator
+from django_ratelimit.core import is_ratelimited
 from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -34,23 +36,84 @@ from .projections import projection_data
 from .serializers import DetailSerializer, SetSkuQtySerializer
 
 
+CART_RATE_LIMIT_RETRY_SECONDS = 30
+REORDER_RATE_LIMIT_RETRY_SECONDS = 60
+
+
 def _cart_payload(request) -> dict:
     cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
     return projection_data(cart)
 
 
-def _stock_error_payload(exc) -> dict:
+def _stock_reason(exc) -> str:
+    if getattr(exc, "is_paused", False):
+        return "Item pausado pela casa no momento."
+    if getattr(exc, "is_planned", False):
+        return "Disponível por encomenda, com limite para esta data."
+    available_qty = getattr(exc, "available_qty", None)
+    if available_qty is not None and available_qty > 0:
+        return f"Estoque disponível agora: {available_qty} unidade(s)."
+    return "Sem estoque disponível para a quantidade solicitada."
+
+
+def _stock_error_payload(exc, *, product=None) -> dict:
+    item_name = getattr(product, "name", None) or getattr(exc, "sku", "")
+    reason = _stock_reason(exc)
     return {
         "detail": "Insufficient stock.",
+        "title": "Revise este item",
         "error_code": exc.error_code,
         "sku": exc.sku,
+        "name": item_name,
         "requested_qty": exc.requested_qty,
         "available_qty": exc.available_qty,
         "is_paused": exc.is_paused,
         "is_planned": exc.is_planned,
         "planned_target_date": exc.planned_target_date,
         "substitutes": exc.substitutes,
+        "items": [
+            {
+                "sku": exc.sku,
+                "name": item_name,
+                "requested_qty": exc.requested_qty,
+                "available_qty": exc.available_qty,
+                "reason": reason,
+            }
+        ],
     }
+
+
+def _rate_limited_response(*, detail: str, retry_after_seconds: int) -> Response:
+    return Response(
+        {
+            "detail": detail,
+            "error_code": "rate_limited",
+            "retry_after_seconds": retry_after_seconds,
+        },
+        status=status.HTTP_429_TOO_MANY_REQUESTS,
+        headers={"Retry-After": str(retry_after_seconds)},
+    )
+
+
+def _request_is_rate_limited(request, *, group: str, rate: str, method: str) -> bool:
+    return bool(is_ratelimited(
+        request=request,
+        group=group,
+        key="user_or_ip",
+        rate=rate,
+        method=method,
+        increment=True,
+    ))
+
+
+def _skipped_reorder_items(skipped: list[str]) -> list[dict]:
+    return [
+        {
+            "name": name,
+            "reason": "Indisponível para recompra agora.",
+        }
+        for name in skipped
+    ]
 
 
 @extend_schema_view(
@@ -195,11 +258,23 @@ class OrderReorderView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
+    throttle_classes = []
 
     def post(self, request, ref: str):
         from shopman.storefront.cart import CartService
         from shopman.storefront.services import orders as order_service
+
+        if _request_is_rate_limited(
+            request,
+            group="storefront-api-reorder",
+            rate="20/m",
+            method="POST",
+        ):
+            return _rate_limited_response(
+                detail="Muitas tentativas de recompra. Aguarde um instante.",
+                retry_after_seconds=REORDER_RATE_LIMIT_RETRY_SECONDS,
+            )
 
         try:
             order = order_service.get_accessible_order(request, ref)
@@ -240,6 +315,7 @@ class OrderReorderView(APIView):
         return Response({
             "ok": True,
             "skipped": skipped,
+            "skipped_items": _skipped_reorder_items(skipped),
             "cart": _cart_payload(request),
         })
 
@@ -263,7 +339,7 @@ class CartCouponView(APIView):
     """POST/DELETE /api/v1/cart/coupon/"""
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
 
     ERROR_MESSAGES = {
         "empty_code": "Informe o código do cupom.",
@@ -320,10 +396,22 @@ class CartSkuQtyView(APIView):
     """PUT /api/v1/cart/skus/{sku}/"""
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
     serializer_class = SetSkuQtySerializer
+    throttle_classes = []
 
     def put(self, request, sku: str):
+        if _request_is_rate_limited(
+            request,
+            group="storefront-api-cart-sku-qty",
+            rate="120/m",
+            method="PUT",
+        ):
+            return _rate_limited_response(
+                detail="Muitas alterações no carrinho. Aguarde um instante.",
+                retry_after_seconds=CART_RATE_LIMIT_RETRY_SECONDS,
+            )
+
         serializer = SetSkuQtySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -337,7 +425,7 @@ class CartSkuQtyView(APIView):
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
         except CartCommandUnavailable as unavailable:
             return Response(
-                _stock_error_payload(unavailable.stock_error),
+                _stock_error_payload(unavailable.stock_error, product=unavailable.product),
                 status=status.HTTP_409_CONFLICT,
             )
 

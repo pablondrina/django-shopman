@@ -34,6 +34,7 @@ class SetSkuQtySerializer(serializers.Serializer):
 
 
 class CheckoutSerializer(serializers.Serializer):
+    idempotency_key = serializers.CharField(required=False, default="", allow_blank=True, max_length=120)
     name = serializers.CharField(max_length=120)
     phone = serializers.CharField(max_length=32)
     notes = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
@@ -43,9 +44,14 @@ class CheckoutSerializer(serializers.Serializer):
         required=False,
     )
     delivery_address = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
+    delivery_address_structured = serializers.DictField(required=False, default=dict)
+    saved_address_id = serializers.IntegerField(required=False, allow_null=True)
+    delivery_complement = serializers.CharField(required=False, default="", allow_blank=True, max_length=200)
+    delivery_instructions = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
     delivery_date = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     delivery_time_slot = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     payment_method = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
+    use_loyalty = serializers.BooleanField(required=False, default=False)
 
 
 class CheckoutResponseSerializer(serializers.Serializer):
@@ -145,15 +151,74 @@ class FulfillmentSerializer(serializers.Serializer):
     delivered_at = serializers.CharField(allow_null=True, allow_blank=True)
 
 
+class OrderTrackingPromiseSerializer(serializers.Serializer):
+    state = serializers.CharField()
+    title = serializers.CharField()
+    message = serializers.CharField()
+    tone = serializers.CharField()
+    deadline_at = serializers.CharField(allow_null=True, required=False)
+    deadline_kind = serializers.CharField(allow_null=True, required=False)
+    timer_mode = serializers.CharField()
+    deadline_action = serializers.CharField()
+    requires_active_notification = serializers.BooleanField()
+    notification_topic = serializers.CharField(allow_null=True, required=False)
+    customer_action = serializers.CharField(required=False)
+    customer_action_label = serializers.CharField(allow_blank=True, required=False)
+    customer_action_url = serializers.CharField(allow_null=True, required=False)
+    next_event = serializers.CharField(allow_blank=True, required=False)
+    recovery = serializers.CharField(allow_blank=True, required=False)
+    active_notification = serializers.CharField(allow_blank=True, required=False)
+
+
+class OrderProgressStepSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    key = serializers.CharField()
+    state = serializers.CharField()
+    timestamp_display = serializers.CharField(allow_null=True, required=False)
+
+
+class PickupInfoSerializer(serializers.Serializer):
+    address = serializers.CharField()
+    opening_hours = serializers.CharField()
+    google_maps_url = serializers.CharField(allow_null=True, required=False)
+
+
 class OrderTrackingSerializer(serializers.Serializer):
     ref = serializers.CharField()
     status = serializers.CharField()
     status_label = serializers.CharField()
+    status_color = serializers.CharField()
+    promise = OrderTrackingPromiseSerializer()
+    progress_steps = OrderProgressStepSerializer(many=True)
     total_display = serializers.CharField()
+    delivery_fee_display = serializers.CharField(allow_null=True, required=False)
+    is_delivery = serializers.BooleanField()
     timeline = TimelineEventSerializer(many=True)
     items = OrderItemSerializer(many=True)
     fulfillments = FulfillmentSerializer(many=True)
+    pickup_info = PickupInfoSerializer(allow_null=True, required=False)
+    can_cancel = serializers.BooleanField()
+    is_active = serializers.BooleanField()
+    server_now_iso = serializers.CharField()
+    payment_pending = serializers.BooleanField()
+    payment_expired = serializers.BooleanField()
+    payment_confirmed = serializers.BooleanField()
+    show_payment_confirmed_notice = serializers.BooleanField()
     payment_status = serializers.CharField(allow_null=True)
+    payment_expires_at = serializers.CharField(allow_null=True, required=False)
+    requires_payment_gate = serializers.BooleanField(required=False)
+    payment_gate_url = serializers.CharField(allow_null=True, required=False)
+    can_rate = serializers.BooleanField(required=False)
+    rating_url = serializers.CharField(allow_null=True, required=False)
+    confirmation_countdown = serializers.BooleanField()
+    confirmation_expires_at = serializers.CharField(allow_null=True, required=False)
+    eta_display = serializers.CharField(allow_null=True, required=False)
+    whatsapp_url = serializers.CharField(allow_blank=True, required=False)
+    share_text = serializers.CharField(allow_blank=True, required=False)
+    is_debug = serializers.BooleanField()
+    last_updated_iso = serializers.CharField()
+    last_updated_display = serializers.CharField()
+    stale_after_seconds = serializers.IntegerField()
 
 
 # ── Account ──────────────────────────────────────────────────────────
@@ -162,8 +227,11 @@ class OrderTrackingSerializer(serializers.Serializer):
 class CustomerProfileSerializer(serializers.Serializer):
     ref = serializers.CharField()
     name = serializers.CharField()
+    first_name = serializers.CharField(allow_blank=True, required=False)
+    last_name = serializers.CharField(allow_blank=True, required=False)
     phone = serializers.CharField()
     email = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    birthday = serializers.CharField(allow_null=True, allow_blank=True, required=False)
 
 
 class AddressSerializer(serializers.Serializer):
@@ -173,11 +241,23 @@ class AddressSerializer(serializers.Serializer):
     complement = serializers.CharField(allow_blank=True, required=False)
     delivery_instructions = serializers.CharField(allow_blank=True, required=False)
     is_default = serializers.BooleanField()
+    route = serializers.CharField(allow_blank=True, required=False)
+    street_number = serializers.CharField(allow_blank=True, required=False)
+    neighborhood = serializers.CharField(allow_blank=True, required=False)
+    city = serializers.CharField(allow_blank=True, required=False)
+    state_code = serializers.CharField(allow_blank=True, required=False)
+    postal_code = serializers.CharField(allow_blank=True, required=False)
+    latitude = serializers.FloatField(allow_null=True, required=False)
+    longitude = serializers.FloatField(allow_null=True, required=False)
+    place_id = serializers.CharField(allow_null=True, allow_blank=True, required=False)
 
 
 class OrderHistoryItemSerializer(serializers.Serializer):
     ref = serializers.CharField()
     created_at = serializers.DateTimeField()
+    created_at_display = serializers.CharField(required=False)
     total_display = serializers.CharField()
     status = serializers.CharField()
     status_label = serializers.CharField()
+    status_color = serializers.CharField(required=False)
+    item_count = serializers.IntegerField(required=False)

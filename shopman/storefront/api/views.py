@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -25,6 +25,9 @@ from .serializers import (
     DetailSerializer,
     UpdateItemSerializer,
 )
+
+
+CHECKOUT_RATE_LIMIT_RETRY_SECONDS = 60
 
 
 @extend_schema_view(
@@ -60,7 +63,7 @@ class CartAddItemView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
     serializer_class = AddItemSerializer
 
     @extend_schema(
@@ -138,7 +141,7 @@ class CartItemView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
     serializer_class = UpdateItemSerializer
 
     @extend_schema(
@@ -203,7 +206,7 @@ class CheckoutView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [SessionAuthentication]
     serializer_class = CheckoutSerializer
 
     @extend_schema(
@@ -219,8 +222,13 @@ class CheckoutView(APIView):
     def post(self, request):
         if getattr(request, "limited", False):
             return Response(
-                {"detail": "Muitas tentativas. Aguarde alguns minutos."},
+                {
+                    "detail": "Muitas tentativas. Aguarde alguns minutos.",
+                    "error_code": "rate_limited",
+                    "retry_after_seconds": CHECKOUT_RATE_LIMIT_RETRY_SECONDS,
+                },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
+                headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
             )
 
         serializer = CheckoutSerializer(data=request.data)
@@ -240,9 +248,53 @@ class CheckoutView(APIView):
         notes = serializer.validated_data.get("notes", "")
         fulfillment_type = serializer.validated_data.get("fulfillment_type", "pickup")
         delivery_address = serializer.validated_data.get("delivery_address", "")
+        saved_address_id = serializer.validated_data.get("saved_address_id")
+        delivery_address_structured = serializer.validated_data.get("delivery_address_structured") or {}
+        delivery_complement = serializer.validated_data.get("delivery_complement", "")
+        delivery_instructions = serializer.validated_data.get("delivery_instructions", "")
         delivery_date = serializer.validated_data.get("delivery_date", "")
         delivery_time_slot = serializer.validated_data.get("delivery_time_slot", "")
         payment_method = serializer.validated_data.get("payment_method", "")
+        use_loyalty = serializer.validated_data.get("use_loyalty", False)
+        idempotency_key = serializer.validated_data.get("idempotency_key") or session_service.new_idempotency_key()
+
+        if fulfillment_type != "delivery":
+            saved_address_id = None
+            delivery_address = ""
+            delivery_address_structured = {}
+            delivery_complement = ""
+            delivery_instructions = ""
+
+        if not delivery_date and (fulfillment_type == "delivery" or delivery_time_slot):
+            return Response(
+                {"detail": "Escolha a data.", "field": "delivery_date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if fulfillment_type == "delivery" and saved_address_id:
+            saved_payload, saved_error = _saved_address_payload(request, saved_address_id)
+            if saved_error:
+                return Response(saved_error, status=status.HTTP_400_BAD_REQUEST)
+            if saved_payload:
+                delivery_address = delivery_address or saved_payload["formatted_address"]
+                delivery_address_structured = {
+                    **saved_payload["structured"],
+                    **_clean_structured_address(delivery_address_structured),
+                }
+
+        if fulfillment_type == "delivery":
+            structured = _clean_structured_address(delivery_address_structured)
+            delivery_address = delivery_address or str(structured.get("formatted_address") or "")
+            if not delivery_address.strip():
+                return Response(
+                    {
+                        "detail": "Informe o endereço de entrega.",
+                        "field": "delivery_address",
+                        "errors": {"delivery_address": "Informe o endereço de entrega."},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            delivery_address_structured = structured
 
         phone = normalize_phone(phone_raw) or phone_raw
 
@@ -254,26 +306,78 @@ class CheckoutView(APIView):
             checkout_data["order_notes"] = notes
         if delivery_address:
             checkout_data["delivery_address"] = delivery_address
+        if saved_address_id:
+            checkout_data["saved_address_id"] = saved_address_id
+        if fulfillment_type == "delivery":
+            structured = _clean_structured_address(delivery_address_structured)
+            if delivery_complement:
+                structured["complement"] = delivery_complement
+            if delivery_instructions:
+                structured["delivery_instructions"] = delivery_instructions
+            if structured:
+                checkout_data["delivery_address_structured"] = structured
         if delivery_date:
             checkout_data["delivery_date"] = delivery_date
         if delivery_time_slot:
             checkout_data["delivery_time_slot"] = delivery_time_slot
         if payment_method in {"pix", "card"}:
             checkout_data["payment"] = {"method": payment_method}
+        if use_loyalty:
+            try:
+                from shopman.shop.services import checkout_context
 
-        result = checkout_service.process(
-            session_key=session_key,
-            channel_ref=CHANNEL_REF,
-            data=checkout_data,
-            idempotency_key=session_service.new_idempotency_key(),
-        )
+                customer_info = getattr(request, "customer", None)
+                loyalty_balance_q = checkout_context.loyalty_balance(
+                    customer_info.uuid if customer_info else None
+                )
+                if loyalty_balance_q > 0:
+                    checkout_data["loyalty"] = {"redeem_points_q": loyalty_balance_q}
+            except Exception:
+                pass
+
+        try:
+            result = checkout_service.process(
+                session_key=session_key,
+                channel_ref=CHANNEL_REF,
+                data=checkout_data,
+                idempotency_key=idempotency_key,
+            )
+        except Exception as exc:
+            mapped = checkout_service.map_checkout_error(exc)
+            if mapped:
+                field, message = next(iter(mapped.items()))
+                return Response(
+                    {"detail": message, "field": field, "errors": mapped},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                from shopman.orderman.exceptions import OrderError
+            except Exception:  # pragma: no cover - defensive import guard
+                OrderError = None
+            if OrderError is not None and isinstance(exc, OrderError):
+                code = getattr(exc, "code", "checkout_error")
+                conflict_codes = {"in_progress", "blocking_issues", "stale_checks", "hold_expired"}
+                http_status = (
+                    status.HTTP_409_CONFLICT
+                    if code in conflict_codes
+                    else status.HTTP_400_BAD_REQUEST
+                )
+                return Response(
+                    {
+                        "detail": getattr(exc, "message", str(exc)),
+                        "error_code": code,
+                        "context": getattr(exc, "context", {}),
+                    },
+                    status=http_status,
+                )
+            raise
 
         # Clear cart
         order_service.grant_order_access(request, result.order_ref)
         request.session.pop("cart_session_key", None)
         next_url = f"/tracking/{result.order_ref}"
         if payment_method in {"pix", "card"}:
-            next_url = reverse("storefront:order_payment", kwargs={"ref": result.order_ref})
+            next_url = f"/pedido/{result.order_ref}/pagamento"
             if payment_method == "pix" and checkout_service.starts_payment_after_store_confirmation(CHANNEL_REF):
                 next_url = f"/tracking/{result.order_ref}"
 
@@ -285,3 +389,67 @@ class CheckoutView(APIView):
             }
         ).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+_STRUCTURED_ADDRESS_FIELDS = (
+    "formatted_address",
+    "route",
+    "street_number",
+    "neighborhood",
+    "city",
+    "state_code",
+    "postal_code",
+    "country",
+    "country_code",
+    "latitude",
+    "longitude",
+    "place_id",
+    "complement",
+    "delivery_instructions",
+)
+
+
+def _clean_structured_address(value: dict | None) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    cleaned: dict = {}
+    for field in _STRUCTURED_ADDRESS_FIELDS:
+        raw = value.get(field)
+        if raw is None or raw == "":
+            continue
+        cleaned[field] = raw
+    return cleaned
+
+
+def _saved_address_payload(request, address_id: int | None) -> tuple[dict | None, dict | None]:
+    if not address_id:
+        return None, None
+    from shopman.shop.services import account as account_service
+    from shopman.storefront.views.auth import get_authenticated_customer
+
+    customer = get_authenticated_customer(request)
+    if not customer:
+        return None, {"detail": "Entre novamente para usar este endereço.", "field": "saved_address_id"}
+    if account_service.address_belongs_to_other_customer(customer.ref, address_id):
+        return None, {"detail": "Endereço não encontrado.", "field": "saved_address_id"}
+    address = account_service.get_address(customer.ref, address_id)
+    if not address:
+        return None, {"detail": "Endereço não encontrado.", "field": "saved_address_id"}
+    structured = _clean_structured_address({
+        "formatted_address": address.formatted_address,
+        "route": getattr(address, "route", "") or "",
+        "street_number": getattr(address, "street_number", "") or "",
+        "neighborhood": getattr(address, "neighborhood", "") or "",
+        "city": getattr(address, "city", "") or "",
+        "state_code": getattr(address, "state_code", "") or "",
+        "postal_code": getattr(address, "postal_code", "") or "",
+        "latitude": getattr(address, "latitude", None),
+        "longitude": getattr(address, "longitude", None),
+        "place_id": getattr(address, "place_id", "") or "",
+        "complement": getattr(address, "complement", "") or "",
+        "delivery_instructions": getattr(address, "delivery_instructions", "") or "",
+    })
+    return {
+        "formatted_address": address.formatted_address,
+        "structured": structured,
+    }, None

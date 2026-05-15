@@ -37,6 +37,44 @@ def _is_phone_brazilian(digits: str) -> bool:
     return digits[2] == "9"
 
 
+def _prepare_phone_digits_for_parse(
+    digits: str,
+    *,
+    has_plus: bool,
+    default_region: str,
+    repair_brazilian_plus: bool,
+) -> tuple[str, bool]:
+    """Resolve Brazilian national/DDI ambiguity before libphonenumber parsing."""
+    region = (default_region or "").upper()
+
+    # Manychat bug detection: +DDD9XXXXXXXX without 55 prefix.
+    if repair_brazilian_plus and has_plus and _is_phone_brazilian(digits):
+        return f"55{digits}", True
+
+    if region != "BR":
+        return digits, has_plus
+
+    # Brazilian iOS/autofill sometimes stores +55 0DD ...
+    if has_plus and digits.startswith("550") and len(digits) in (13, 14):
+        return f"55{digits[3:]}", True
+
+    # A bare 55DD... value in a Brazilian field is DDI 55, not DDD 55.
+    # libphonenumber.parse("5543984049009", "BR") otherwise interprets the
+    # first 55 as area code and can collapse the actual phone identity.
+    if not has_plus and digits.startswith("55") and len(digits) in (12, 13, 14):
+        national = digits[2:]
+        if national.startswith("0") and len(national) in (11, 12):
+            national = national[1:]
+        if len(national) in (10, 11):
+            return f"55{national}", True
+
+    # National trunk prefix: 0DD + number.
+    if not has_plus and digits.startswith("0") and len(digits) in (11, 12):
+        return digits[1:], False
+
+    return digits, has_plus
+
+
 def normalize_phone(
     value: str,
     default_region: str = "BR",
@@ -84,10 +122,12 @@ def normalize_phone(
     if not digits:
         return ""
 
-    # Manychat bug detection: +DDD9XXXXXXXX without 55 prefix
-    if repair_brazilian_plus and has_plus and _is_phone_brazilian(digits):
-        digits = f"55{digits}"
-        has_plus = True
+    digits, has_plus = _prepare_phone_digits_for_parse(
+        digits,
+        has_plus=has_plus,
+        default_region=default_region,
+        repair_brazilian_plus=repair_brazilian_plus,
+    )
 
     # Build parseable string
     raw = f"+{digits}" if has_plus else digits
@@ -154,22 +194,10 @@ def is_valid_phone(
     """
     if not value or "@" in value:
         return False
-
-    if phonenumbers is None:
-        # Without phonenumbers, we can only do basic length checks
-        digits = re.sub(r"[^\d]", "", value)
-        return len(digits) >= 10
-
-    try:
-        has_plus = value.strip().startswith("+")
-        digits = re.sub(r"[^\d]", "", value)
-
-        # Apply Manychat fix before validation
-        if repair_brazilian_plus and has_plus and _is_phone_brazilian(digits):
-            digits = f"55{digits}"
-
-        raw = f"+{digits}" if has_plus else digits
-        parsed = phonenumbers.parse(raw, default_region)
-        return phonenumbers.is_valid_number(parsed)
-    except phonenumbers.NumberParseException:
-        return False
+    return bool(
+        normalize_phone(
+            value,
+            default_region=default_region,
+            repair_brazilian_plus=repair_brazilian_plus,
+        )
+    )

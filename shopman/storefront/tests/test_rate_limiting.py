@@ -4,6 +4,7 @@ WP-C3: Rate Limiting (OTP, login, checkout).
 """
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -129,6 +130,10 @@ def test_api_checkout_rate_limited(client: Client):
 
     resp = client.post("/api/v1/checkout/", data=payload, content_type="application/json")
     assert resp.status_code == 429
+    data = resp.json()
+    assert data["error_code"] == "rate_limited"
+    assert data["retry_after_seconds"] == 60
+    assert resp.headers["Retry-After"] == "60"
 
 
 @override_settings(RATELIMIT_ENABLE=True)
@@ -140,6 +145,60 @@ def test_api_checkout_normal_use_passes(client: Client):
         content_type="application/json",
     )
     assert resp.status_code != 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_api_tracking_rate_limited_payload_has_recovery(client: Client):
+    """121st tracking poll returns a recovery payload, not a bare 429."""
+    for _ in range(120):
+        resp = client.get("/api/v1/tracking/NOPE/")
+        assert resp.status_code != 429
+
+    resp = client.get("/api/v1/tracking/NOPE/")
+    assert resp.status_code == 429
+    data = resp.json()
+    assert data["error_code"] == "rate_limited"
+    assert data["retry_after_seconds"] == 30
+    assert resp.headers["Retry-After"] == "30"
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_api_reorder_rate_limited_payload_has_recovery(client: Client):
+    """21st reorder attempt returns wait/retry metadata for the Nuxt modal."""
+    for _ in range(20):
+        resp = client.post("/api/v1/orders/NOPE/reorder/", data={}, content_type="application/json")
+        assert resp.status_code != 429
+
+    resp = client.post("/api/v1/orders/NOPE/reorder/", data={}, content_type="application/json")
+    assert resp.status_code == 429
+    data = resp.json()
+    assert data["error_code"] == "rate_limited"
+    assert data["retry_after_seconds"] == 60
+    assert resp.headers["Retry-After"] == "60"
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_api_cart_sku_qty_rate_limited_payload_has_recovery(client: Client):
+    """121st SKU quantity mutation returns wait/retry metadata for the cart modal."""
+    payload = json.dumps({"qty": 1})
+    for _ in range(120):
+        resp = client.put(
+            "/api/v1/cart/skus/DOES-NOT-EXIST/",
+            data=payload,
+            content_type="application/json",
+        )
+        assert resp.status_code != 429
+
+    resp = client.put(
+        "/api/v1/cart/skus/DOES-NOT-EXIST/",
+        data=payload,
+        content_type="application/json",
+    )
+    assert resp.status_code == 429
+    data = resp.json()
+    assert data["error_code"] == "rate_limited"
+    assert data["retry_after_seconds"] == 30
+    assert resp.headers["Retry-After"] == "30"
 
 
 @override_settings(RATELIMIT_ENABLE=True)
