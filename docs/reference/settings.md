@@ -88,13 +88,13 @@
 ## Guestman (Clientes)
 
 **Arquivo:** `packages/guestman/shopman/guestman/conf.py`
-**Dict:** `GUESTMAN = {}`
+**Dict:** `GUESTMAN`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
 | `DEFAULT_REGION` | str | `"BR"` | Região padrão para normalização de telefone |
 | `EVENT_CLEANUP_DAYS` | int | `90` | Dias para manter ProcessedEvent antes de cleanup |
-| `ORDER_HISTORY_BACKEND` | str | `""` | Dotted path do backend de histórico de pedidos |
+| `ORDER_HISTORY_BACKEND` | str | `shopman.guestman.adapters.orderman.OrdermanOrderHistoryBackend` | Dotted path do backend de histórico de pedidos |
 
 **Guia:** [guestman.md](../guides/guestman.md)
 
@@ -245,7 +245,9 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 |---------|------|---------|-----------|
 | `SHOPMAN_STOCK_BACKEND` | str | *(auto-detecção)* | Backend de estoque. Se omitido, usa backend interno → fallback `NoopStockBackend` |
 | `SHOPMAN_PAYMENT_BACKEND` | str | backend mock interno | Backend de pagamento |
-| `SHOPMAN_FISCAL_BACKEND` | str | *(sem default)* | Backend fiscal. Se ausente, handlers fiscais não são registrados |
+| `SHOPMAN_FISCAL_ADAPTER` | str | *(sem default)* | Adapter fiscal. Se ausente, handlers fiscais não são registrados |
+| `SHOPMAN_FOCUS_NFE` | dict | homologação | Configuração do adapter `shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend` |
+| `SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q` | int | `0` | Valor de desconto em centavos acima do qual o POS exige aprovação gerencial. `0` desativa |
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 

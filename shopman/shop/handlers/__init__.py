@@ -42,7 +42,7 @@ ALL_HANDLERS = [
     # Loyalty
     "shopman.shop.handlers.loyalty.LoyaltyEarnHandler",
     "shopman.shop.handlers.loyalty.LoyaltyRedeemHandler",
-    # Fiscal (requires SHOPMAN_FISCAL_BACKEND)
+    # Fiscal (requires SHOPMAN_FISCAL_ADAPTER)
     "shopman.shop.handlers.fiscal.NFCeEmitHandler",
     "shopman.shop.handlers.fiscal.NFCeCancelHandler",
     # Accounting (requires SHOPMAN_ACCOUNTING_BACKEND)

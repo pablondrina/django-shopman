@@ -7,7 +7,7 @@ Os protocols vivem no core para que possam ser usados sem dependências circular
 Implementações concretas vivem em contrib/:
 - contrib/payment/adapters/ - Stripe, Pix, Mock
 - contrib/stock/adapters/ - Stockman, etc.
-- contrib/fiscal/backends/ - Focus NFC-e, Mock
+- contrib/fiscal/backends/ - Focus NFe, Mock
 - contrib/accounting/backends/ - Conta Azul, Mock
 """
 
@@ -62,10 +62,10 @@ class FiscalBackend(Protocol):
 
     Extension point intencional — o sistema funciona sem nenhum backend fiscal
     configurado (handlers são no-op silenciosos quando não há backend ativo).
-    Ative em produção via SHOPMAN_FISCAL_BACKENDS no settings da instância.
+    Ative em produção via SHOPMAN_FISCAL_ADAPTER no settings da instância.
 
     Implementações de referência:
-    - FocusNFCeBackend: NFC-e via Focus NFE API (implementação de instância)
+    - FocusNFeBackend: NFC-e via Focus NFe API
     - MockFiscalBackend: Para testes unitários
 
     Ver também: framework/shopman/fiscal.py (FiscalPool + base class)

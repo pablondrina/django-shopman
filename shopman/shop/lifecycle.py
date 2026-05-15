@@ -326,6 +326,7 @@ def _on_cancelled(order, config: ChannelConfig) -> None:
         pass
     stock.release(order)
     payment.refund(order)
+    fiscal.cancel(order)
     notification.send(order, "order_cancelled")
 
 

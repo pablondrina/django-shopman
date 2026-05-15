@@ -120,6 +120,7 @@ INSTALLED_APPS = [
     "shopman.doorman",
     # Shopman core integration contribs
     "shopman.craftsman.contrib.stockman",
+    "shopman.craftsman.contrib.formula",
     # Shopman core Unfold contribs
     "shopman.refs.contrib.admin_unfold",
     "shopman.offerman.contrib.admin_unfold",
@@ -575,7 +576,15 @@ STOCKMAN_ALERT_COOLDOWN_MINUTES = int(
 
 # Available keys: DEFAULT_REGION, EVENT_CLEANUP_DAYS, ORDER_HISTORY_BACKEND
 # See packages/guestman/shopman/guestman/conf.py for defaults.
-GUESTMAN = {}
+_GUESTMAN_ORDER_HISTORY_BACKEND = os.environ.get(
+    "GUESTMAN_ORDER_HISTORY_BACKEND",
+    "shopman.guestman.adapters.orderman.OrdermanOrderHistoryBackend",
+)
+GUESTMAN = (
+    {"ORDER_HISTORY_BACKEND": _GUESTMAN_ORDER_HISTORY_BACKEND}
+    if _GUESTMAN_ORDER_HISTORY_BACKEND
+    else {}
+)
 
 # RFM thresholds. Empty dict uses built-in defaults from conf.py.
 # Keys: RFM_RECENCY_THRESHOLDS, RFM_FREQUENCY_THRESHOLDS, RFM_MONETARY_THRESHOLDS
@@ -623,7 +632,18 @@ if DEBUG or os.environ.get("SHOPMAN_ENABLE_CONSOLE_NOTIFICATION_ADAPTER", "").lo
 
 SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 
-SHOPMAN_FISCAL_ADAPTER = None   # str path or list[str] of FiscalBackend subclasses
+SHOPMAN_FISCAL_ADAPTER = os.environ.get("SHOPMAN_FISCAL_ADAPTER") or None
+SHOPMAN_FOCUS_NFE = {
+    "environment": os.environ.get("FOCUS_NFE_ENVIRONMENT", "homologacao").strip().lower() or "homologacao",
+    "token": os.environ.get("FOCUS_NFE_TOKEN", ""),
+    "cnpj_emitente": os.environ.get("FOCUS_NFE_CNPJ_EMITENTE", ""),
+    "serie_nfce": os.environ.get("FOCUS_NFE_NFCE_SERIE", ""),
+    "timeout": int(os.environ.get("FOCUS_NFE_TIMEOUT", "30")),
+    "base_url": os.environ.get("FOCUS_NFE_BASE_URL", ""),
+}
+SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q = int(
+    os.environ.get("SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", "0")
+)
 SHOPMAN_ACCOUNTING_BACKEND = None
 
 # SMS adapter for OTP delivery. None = fallback to notification_sms if available.

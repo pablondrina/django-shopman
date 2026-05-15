@@ -31,10 +31,13 @@ def emit(order) -> None:
     if (order.data or {}).get("nfce_access_key"):
         return
 
+    payment = dict((order.data or {}).get("payment", {}) or {})
+    payment.setdefault("amount_q", order.total_q)
+
     directives.queue(
         FISCAL_EMIT_NFCE, order,
         items=_build_fiscal_items(order),
-        payment=(order.data or {}).get("payment", {}),
+        payment=payment,
         customer=(order.data or {}).get("customer", {}),
     )
 
@@ -70,12 +73,33 @@ def cancel(order) -> None:
 def _build_fiscal_items(order) -> list[dict]:
     """Build item list for fiscal emission from order items."""
     items = []
+    products_by_sku = _products_by_sku([item.sku for item in order.items.all()])
     for item in order.items.all():
+        product = products_by_sku.get(item.sku)
+        metadata = dict(getattr(product, "metadata", None) or {})
+        fiscal = dict((item.meta or {}).get("fiscal") or metadata.get("fiscal") or {})
         items.append({
             "sku": item.sku,
             "name": item.name,
-            "qty": float(item.qty),
+            "qty": str(item.qty.normalize()) if hasattr(item.qty, "normalize") else float(item.qty),
+            "unit": getattr(product, "unit", "") or fiscal.get("unit") or "UN",
             "unit_price_q": item.unit_price_q,
             "total_q": item.line_total_q,
+            "fiscal": fiscal,
         })
     return items
+
+
+def _products_by_sku(skus: list[str]) -> dict[str, object]:
+    if not skus:
+        return {}
+    try:
+        from shopman.offerman.models import Product
+
+        return {
+            product.sku: product
+            for product in Product.objects.filter(sku__in=set(skus)).only("sku", "unit", "metadata")
+        }
+    except Exception:
+        logger.debug("fiscal.emit: product metadata lookup failed", exc_info=True)
+        return {}

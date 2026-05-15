@@ -2,7 +2,7 @@
 Fiscal backends — Pool pattern (Salesman-inspired).
 
 Base class + lazy pool. Instance provides concrete backends
-(e.g., Focus NFC-e, mock).
+(e.g., Focus NFe for NFC-e, mock).
 
 Usage:
     from shopman.shop.fiscal import fiscal_pool
@@ -12,9 +12,7 @@ Usage:
         backend.emit(order_ref, items, payment, customer)
 
 Settings:
-    SHOPMAN_FISCAL_BACKENDS = [
-        "myinstance.adapters.fiscal_focus.FocusNFCeBackend",
-    ]
+    SHOPMAN_FISCAL_ADAPTER = "shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend"
 """
 
 from __future__ import annotations
