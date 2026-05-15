@@ -42,6 +42,20 @@ def test_sunday_without_schedule_defers_to_monday_opening():
     assert format_next_opening(state.next_open_at, now=state.resolved_at) == "amanhã às 9h"
 
 
+def test_before_open_message_uses_plain_sentence():
+    tz = ZoneInfo("America/Sao_Paulo")
+    Shop.objects.create(
+        name="Manha",
+        timezone="America/Sao_Paulo",
+        opening_hours=OPEN_MONDAY_TO_SATURDAY,
+    )
+
+    state = current_business_state(now=datetime(2026, 5, 4, 8, 0, tzinfo=tz))
+
+    assert state.is_closed is True
+    assert state.message == "Fechado. Abrimos às 9h"
+
+
 def test_closure_range_skips_collective_vacation():
     tz = ZoneInfo("America/Sao_Paulo")
     Shop.objects.create(

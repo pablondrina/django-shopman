@@ -18,7 +18,7 @@ const home = computed(() => data.value?.home)
 const pageTitle = computed(() => {
   const brand = home.value?.shop.brand_name || 'Shopman'
   const tagline = home.value?.shop.tagline?.trim()
-  return tagline ? `${brand} — ${tagline}` : brand
+  return tagline ? `${brand} · ${tagline}` : brand
 })
 const localBusinessJsonLd = computed(() => {
   if (!home.value) return null

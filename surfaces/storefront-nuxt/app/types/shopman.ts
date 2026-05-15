@@ -227,6 +227,27 @@ export interface ShopStatusProjection {
   message: string | null
 }
 
+export interface CopyEntryProjection {
+  title: string
+  message: string
+}
+
+export interface HomeHeroCopyProjection {
+  birthday_heading: CopyEntryProjection
+  birthday_sub: CopyEntryProjection
+  order_title_prefix: CopyEntryProjection
+  order_title_suffix: CopyEntryProjection
+  order_subtitle: CopyEntryProjection
+  reorder_title_prefix: CopyEntryProjection
+  reorder_title_suffix: CopyEntryProjection
+  reorder_subtitle: CopyEntryProjection
+  handmade_title_prefix: CopyEntryProjection
+  handmade_title_suffix: CopyEntryProjection
+  handmade_subtitle: CopyEntryProjection
+  menu_cta: CopyEntryProjection
+  birthday_cta: CopyEntryProjection
+}
+
 export interface OpeningHoursEntry {
   label: string
   hours: string
@@ -245,6 +266,7 @@ export interface PublicConfigProjection {
 
 export interface HomeProjection {
   omotenashi: OmotenashiProjection
+  hero_copy: HomeHeroCopyProjection
   shop: ShopProjection
   shop_status: ShopStatusProjection
   opening_hours: OpeningHoursEntry[]

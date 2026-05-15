@@ -7,8 +7,8 @@ useHead({
   ],
   titleTemplate: (title?: string) => {
     if (!title || title === 'Shopman') return 'Shopman'
-    if (title.endsWith(' — Shopman')) return title
-    return `${title} — Shopman`
+    if (title.endsWith(' · Shopman')) return title
+    return `${title} · Shopman`
   }
 })
 </script>

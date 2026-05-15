@@ -6,60 +6,91 @@ const { performReorder, pending: reorderPending } = useReorder()
 
 interface HeroSlide {
   eyebrow?: string
-  title: string
-  description: string
+  titleLines: string[]
+  description?: string
   cta: { label: string, to?: string, action?: 'reorder' }
   secondaryCta?: { label: string, to: string }
   image: string
 }
 
+function copyTitle (entry: { title: string }, fallback: string): string {
+  return entry.title || fallback
+}
+
+function copyMessage (entry: { message: string }, fallback = ''): string {
+  return entry.message || fallback
+}
+
+function sentence (value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
 const slides = computed<HeroSlide[]>(() => {
   const omo = props.home.omotenashi
+  const copy = props.home.hero_copy
+  const customerName = omo.customer_name?.trim()
+  const menuCta = copyTitle(copy.menu_cta, 'Ver Cardápio')
+  const handmadeTitle = `${copyTitle(copy.handmade_title_prefix, 'Feito à mão,')} ${copyTitle(copy.handmade_title_suffix, 'todo dia')}`
+  const greetingTitle = sentence(omo.greeting_with_name || handmadeTitle)
   const list: HeroSlide[] = []
 
   if (omo.is_birthday) {
+    const birthdayTitle = copyTitle(copy.birthday_heading, 'Feliz aniversário')
     list.push({
-      eyebrow: 'Feliz aniversário',
-      title: `Olá, ${omo.customer_name || 'cliente'}.`,
-      description: 'Seu cadastro indica aniversário hoje. Confira as opções disponíveis no cardápio.',
-      cta: { label: 'Ver cardápio', to: '/menu' },
+      titleLines: [`${birthdayTitle}${customerName ? `, ${customerName}` : ''}!`],
+      description: copyMessage(copy.birthday_sub, 'Seu desconto especial de aniversário já está ativo.'),
+      cta: { label: copyTitle(copy.birthday_cta, menuCta), to: '/menu' },
       image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1600&q=80'
+    })
+  } else {
+    list.push({
+      titleLines: [greetingTitle],
+      description: omo.shop_hint || undefined,
+      cta: { label: menuCta, to: '/menu' },
+      image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80'
     })
   }
 
   list.push({
-    eyebrow: omo.shop_hint || 'Cardápio online',
-    title: omo.greeting_with_name || 'Feito à mão, todo dia.',
-    description: props.home.shop_status.message || 'Consulte a disponibilidade, peça e acompanhe.',
-    cta: { label: 'Ver cardápio', to: '/menu' },
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80'
-  })
-
-  list.push({
-    eyebrow: 'Pedido online',
-    title: 'Peça e acompanhe.',
-    description: 'Acompanhe o pedido do pagamento à retirada ou entrega.',
-    cta: { label: 'Começar pedido', to: '/menu' },
-    image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80'
+    titleLines: [
+      copyTitle(copy.order_title_prefix, 'Peça. Acompanhe.'),
+      copyTitle(copy.order_title_suffix, 'Aproveite.')
+    ],
+    description: copyMessage(copy.order_subtitle, 'Retire na loja ou receba em casa.'),
+    cta: { label: menuCta, to: '/menu' },
+    image: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1600&q=80'
   })
 
   if (props.home.last_order_ref) {
     list.push({
-      eyebrow: `De volta, ${omo.customer_name || ''}?`.trim(),
-      title: 'Pedir de novo.',
-      description: 'Revise os itens antes de adicionar ao carrinho.',
+      titleLines: [
+        copyTitle(copy.reorder_title_prefix, 'Quer repetir seu'),
+        `${copyTitle(copy.reorder_title_suffix, 'último pedido')}${customerName ? `, ${customerName}` : ''}?`
+      ],
+      description: copyMessage(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
       cta: { label: 'Repetir pedido', action: 'reorder' },
-      secondaryCta: { label: 'Ver cardápio', to: '/menu' },
-      image: 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?auto=format&fit=crop&w=1600&q=80'
+      secondaryCta: { label: menuCta, to: '/menu' },
+      image: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1600&q=80'
+    })
+  } else {
+    list.push({
+      titleLines: [greetingTitle],
+      description: omo.shop_hint || undefined,
+      cta: { label: menuCta, to: '/menu' },
+      image: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1600&q=80'
     })
   }
 
   list.push({
-    eyebrow: 'Cardápio publicado',
-    title: 'Escolhas da casa.',
-    description: 'Itens publicados aparecem com a disponibilidade informada pela loja.',
-    cta: { label: 'Conhecer cardápio', to: '/menu' },
-    image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&w=1600&q=80'
+    titleLines: [
+      copyTitle(copy.handmade_title_prefix, 'Feito à mão,'),
+      copyTitle(copy.handmade_title_suffix, 'todo dia')
+    ],
+    description: copyMessage(copy.handmade_subtitle, 'Do forno para a sua mesa.'),
+    cta: { label: menuCta, to: '/menu' },
+    image: 'https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=1600&q=80'
   })
 
   return list
@@ -73,8 +104,7 @@ async function activateSlideCta (item: HeroSlide) {
 </script>
 
 <template>
-  <section class="relative bg-default text-default sm:py-4">
-    <UContainer class="px-0 sm:px-4">
+  <section class="relative isolate overflow-hidden border-b border-default bg-default text-white">
     <UCarousel
       v-slot="{ item }"
       :items="slides"
@@ -89,7 +119,7 @@ async function activateSlideCta (item: HeroSlide) {
       loop
       dots
       fade
-      class="w-full overflow-hidden sm:rounded-lg"
+      class="w-full overflow-hidden"
     >
       <article class="relative isolate overflow-hidden bg-neutral-950">
         <img
@@ -102,18 +132,20 @@ async function activateSlideCta (item: HeroSlide) {
           class="absolute inset-0 size-full object-cover"
         >
         <div class="absolute inset-0 bg-gradient-to-t from-black/82 via-black/48 to-black/18" />
-        <div class="relative flex min-h-[calc(82svh-var(--ui-header-height))] items-center justify-center px-6 py-16 text-center sm:min-h-[520px] sm:px-10 lg:min-h-[560px]">
-          <div class="mx-auto max-w-3xl">
-            <p v-if="item.eyebrow" class="shop-section-kicker justify-center text-white/85">
+        <UContainer class="relative flex min-h-[560px] items-end py-8 sm:min-h-[640px] lg:py-12">
+          <div class="w-full max-w-3xl pb-12">
+            <p v-if="item.eyebrow" class="shop-section-kicker text-white/85">
               {{ item.eyebrow }}
             </p>
-            <h1 class="shop-hero-copy mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {{ item.title }}
+            <h1 class="shop-hero-copy text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+              <span v-for="line in item.titleLines" :key="line" class="block">
+                {{ line }}
+              </span>
             </h1>
-            <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/78 sm:text-lg">
+            <p v-if="item.description" class="mt-5 max-w-xl text-base leading-relaxed text-white/78 sm:text-lg">
               {{ item.description }}
             </p>
-            <div class="mt-7 flex flex-wrap justify-center gap-3">
+            <div class="mt-7 flex flex-wrap gap-3">
               <UButton
                 v-if="item.cta.to"
                 :label="item.cta.label"
@@ -142,9 +174,8 @@ async function activateSlideCta (item: HeroSlide) {
               />
             </div>
           </div>
-        </div>
+        </UContainer>
       </article>
     </UCarousel>
-  </UContainer>
   </section>
 </template>

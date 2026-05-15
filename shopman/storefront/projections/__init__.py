@@ -23,6 +23,8 @@ from .catalog import (
 )
 from .checkout import CheckoutProjection, build_checkout
 from .home import (
+    CopyEntryProjection,
+    HomeHeroCopyProjection,
     HomeProjection,
     LastOrderItemProjection,
     OmotenashiProjection,
@@ -63,8 +65,10 @@ __all__ = [
     "CatalogSectionProjection",
     "CheckoutProjection",
     "ConservationInfoProjection",
+    "CopyEntryProjection",
     "CustomerProfileProjection",
     "DiscountLineProjection",
+    "HomeHeroCopyProjection",
     "HomeProjection",
     "LastOrderItemProjection",
     "LoyaltyProjection",

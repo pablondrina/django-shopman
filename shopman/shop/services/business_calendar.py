@@ -102,7 +102,7 @@ def current_business_state(*, now: datetime | None = None, shop=None) -> Busines
             is_open=False,
             opens_at=_fmt_hhmm(opens_at),
             closes_at=_fmt_hhmm(closes_at),
-            message=f"Fechado — abrimos às {_fmt_hour(opens_at)}",
+            message=f"Fechado. Abrimos às {_fmt_hour(opens_at)}",
             next_open_at=open_dt,
             closure_source="before_open",
             resolved_at=local_now,

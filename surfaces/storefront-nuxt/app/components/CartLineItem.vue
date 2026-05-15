@@ -37,7 +37,7 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
       <div class="grid grid-cols-[72px_minmax(0,1fr)] gap-3 sm:grid-cols-[88px_minmax(0,1fr)] sm:gap-4">
         <NuxtLink
           :to="`/produto/${line.sku}`"
-          class="row-span-3 size-[72px] overflow-hidden rounded-md bg-elevated sm:size-[88px]"
+          class="row-span-2 size-[72px] overflow-hidden rounded-md bg-elevated sm:size-[88px]"
           :aria-label="`Ver ${line.name}`"
         >
           <img v-if="line.image_url" :src="line.image_url" :alt="line.name" loading="lazy" decoding="async" sizes="80px" class="size-full object-cover">
@@ -66,29 +66,23 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
           />
         </div>
 
-        <div class="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-          <div class="min-w-0 text-muted">
-            <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
-              {{ line.original_price_display }}
-            </span>
-            <span class="tabular-nums">{{ line.price_display }} cada</span>
+        <div class="flex min-w-0 items-end justify-between gap-3">
+          <div class="min-w-0 text-xs text-muted sm:text-sm">
+            <p class="whitespace-nowrap">
+              <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
+                {{ line.original_price_display }}
+              </span>
+              <span class="tabular-nums">{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}</span>
+            </p>
+            <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="mt-1 max-w-full">
+              <span class="truncate">{{ line.discount_label }}</span>
+            </UBadge>
           </div>
-          <strong class="shrink-0 text-base text-highlighted tabular-nums sm:text-lg">
-            {{ line.total_display }}
-          </strong>
-        </div>
-
-        <div class="flex min-w-0 items-center justify-between gap-3">
-          <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="min-w-0">
-            <span class="truncate">{{ line.discount_label }}</span>
-          </UBadge>
-          <span v-else aria-hidden="true" />
-
           <ProductStepper
             :meta="meta"
             :can-add="line.is_available"
             :max-qty="line.available_qty"
-            size="sm"
+            size="xs"
           />
         </div>
       </div>

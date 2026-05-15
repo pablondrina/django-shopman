@@ -67,7 +67,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
         "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "components/HeroCarousel.vue": {
-        "tokens": ["props.home.shop_status.message", "props.home.last_order_ref", "omo."],
+        "tokens": ["props.home.hero_copy", "props.home.last_order_ref", "omo."],
         "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "components/HotFromOven.vue": {
@@ -733,6 +733,73 @@ def test_nuxt_mobile_shell_has_stable_spacing_and_no_competing_cart_bar():
 
     assert "shop-mobile-action-bar" in checkout
     assert "pb-48" in checkout
+
+
+def test_nuxt_home_hero_uses_backend_copy_and_fullwidth_shell():
+    hero = _nuxt_file("components/HeroCarousel.vue")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+
+    assert "const copy = props.home.hero_copy" in hero
+    assert "props.home.shop_status.message" not in hero
+    for token in [
+        "copy.birthday_heading",
+        "copy.birthday_sub",
+        "copy.order_title_prefix",
+        "copy.order_title_suffix",
+        "copy.order_subtitle",
+        "copy.reorder_title_prefix",
+        "copy.reorder_title_suffix",
+        "copy.reorder_subtitle",
+        "copy.handmade_title_prefix",
+        "copy.handmade_title_suffix",
+        "copy.handmade_subtitle",
+        "copy.menu_cta",
+        "copy.birthday_cta",
+    ]:
+        assert token in hero
+
+    assert "relative isolate overflow-hidden border-b border-default bg-default text-white" in hero
+    assert "class=\"w-full overflow-hidden\"" in hero
+    assert "sm:rounded-lg" not in hero
+
+    for key in [
+        "BIRTHDAY_HERO_HEADING",
+        "BIRTHDAY_HERO_SUB",
+        "HOME_HERO_ORDER_TITLE_PREFIX",
+        "HOME_HERO_ORDER_TITLE_SUFFIX",
+        "HOME_HERO_ORDER_SUBTITLE",
+        "HOME_HERO_REORDER_TITLE_PREFIX",
+        "HOME_HERO_REORDER_TITLE_SUFFIX",
+        "HOME_HERO_REORDER_SUBTITLE",
+        "HOME_HERO_HANDMADE_TITLE_PREFIX",
+        "HOME_HERO_HANDMADE_TITLE_SUFFIX",
+        "HOME_HERO_HANDMADE_SUBTITLE",
+        "HOME_MENU_CTA",
+        "HOME_BIRTHDAY_CTA",
+    ]:
+        assert key in home_projection
+
+
+def test_nuxt_cart_line_item_matches_two_row_compact_layout():
+    cart_line = _nuxt_file("components/CartLineItem.vue")
+
+    assert "row-span-2" in cart_line
+    assert "{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}" in cart_line
+    assert "{{ line.price_display }} cada" not in cart_line
+    assert "<strong" not in cart_line
+
+
+def test_nuxt_theme_follows_storefront_configuration():
+    css = _nuxt_file("assets/css/main.css")
+    app_config = _nuxt_file("app.config.ts")
+
+    assert "--font-sans: 'Inter', sans-serif;" in css
+    assert "--ui-primary: black;" in css
+    assert "--ui-primary: white;" in css
+    assert "primary: 'yellow'" in app_config
+    assert "neutral: 'stone'" in app_config
+    assert "button:" not in app_config
+    assert "card:" not in app_config
 
 
 def test_nuxt_operational_recovery_copy_uses_canonical_helper():

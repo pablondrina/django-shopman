@@ -21,9 +21,11 @@ def _shop_status() -> dict:
     from shopman.shop.services.business_calendar import current_business_state, format_next_opening
 
     state = current_business_state()
-    message = state.message
+    message = state.message or ""
     if state.is_closed and state.next_open_at:
-        message = f"{message} — abrimos {format_next_opening(state.next_open_at, now=state.resolved_at)}"
+        next_opening = format_next_opening(state.next_open_at, now=state.resolved_at)
+        if next_opening and "abrimos" not in message.lower():
+            message = f"{message}. Abrimos {next_opening}." if message else f"Abrimos {next_opening}."
     return {
         "is_open": state.is_open,
         "opens_at": state.opens_at,
@@ -37,8 +39,8 @@ def _format_opening_hours() -> list[dict]:
 
     Groups consecutive days with the same hours into ranges.
     Returns list of {label, hours} dicts, e.g.:
-      [{"label": "Terça a Sábado", "hours": "7h — 19h"},
-       {"label": "Domingo", "hours": "7h — 13h"},
+      [{"label": "Terça a Sábado", "hours": "7h às 19h"},
+       {"label": "Domingo", "hours": "7h às 13h"},
        {"label": "Segunda", "hours": "Fechado"}]
     """
     from shopman.shop.models import Shop
@@ -61,7 +63,7 @@ def _format_opening_hours() -> list[dict]:
     for day in DAY_ORDER:
         info = shop.opening_hours.get(day)
         if info and info.get("open") and info.get("close"):
-            day_hours.append((day, f"{_fmt_time(info['open'])} — {_fmt_time(info['close'])}"))
+            day_hours.append((day, f"{_fmt_time(info['open'])} às {_fmt_time(info['close'])}"))
         else:
             day_hours.append((day, "Fechado"))
 

@@ -47,6 +47,29 @@ class ShopStatusProjection:
 
 
 @dataclass(frozen=True)
+class CopyEntryProjection:
+    title: str
+    message: str
+
+
+@dataclass(frozen=True)
+class HomeHeroCopyProjection:
+    birthday_heading: CopyEntryProjection
+    birthday_sub: CopyEntryProjection
+    order_title_prefix: CopyEntryProjection
+    order_title_suffix: CopyEntryProjection
+    order_subtitle: CopyEntryProjection
+    reorder_title_prefix: CopyEntryProjection
+    reorder_title_suffix: CopyEntryProjection
+    reorder_subtitle: CopyEntryProjection
+    handmade_title_prefix: CopyEntryProjection
+    handmade_title_suffix: CopyEntryProjection
+    handmade_subtitle: CopyEntryProjection
+    menu_cta: CopyEntryProjection
+    birthday_cta: CopyEntryProjection
+
+
+@dataclass(frozen=True)
 class LastOrderItemProjection:
     sku: str
     name: str
@@ -62,6 +85,7 @@ class PublicConfigProjection:
 @dataclass(frozen=True)
 class HomeProjection:
     omotenashi: OmotenashiProjection
+    hero_copy: HomeHeroCopyProjection
     shop: ShopProjection
     shop_status: ShopStatusProjection
     opening_hours: tuple[OpeningHoursEntry, ...]
@@ -127,6 +151,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
 
     return HomeProjection(
         omotenashi=omotenashi,
+        hero_copy=_home_hero_copy(omotenashi),
         shop=shop_proj,
         shop_status=shop_status,
         opening_hours=hours,
@@ -136,6 +161,31 @@ def build_home(request: HttpRequest) -> HomeProjection:
         origin_channel=origin_channel,
         public_config=public_config,
     )
+
+
+def _home_hero_copy(omotenashi: OmotenashiProjection) -> HomeHeroCopyProjection:
+    return HomeHeroCopyProjection(
+        birthday_heading=_copy_entry("BIRTHDAY_HERO_HEADING", omotenashi=omotenashi),
+        birthday_sub=_copy_entry("BIRTHDAY_HERO_SUB", omotenashi=omotenashi),
+        order_title_prefix=_copy_entry("HOME_HERO_ORDER_TITLE_PREFIX", omotenashi=omotenashi),
+        order_title_suffix=_copy_entry("HOME_HERO_ORDER_TITLE_SUFFIX", omotenashi=omotenashi),
+        order_subtitle=_copy_entry("HOME_HERO_ORDER_SUBTITLE", omotenashi=omotenashi),
+        reorder_title_prefix=_copy_entry("HOME_HERO_REORDER_TITLE_PREFIX", omotenashi=omotenashi),
+        reorder_title_suffix=_copy_entry("HOME_HERO_REORDER_TITLE_SUFFIX", omotenashi=omotenashi),
+        reorder_subtitle=_copy_entry("HOME_HERO_REORDER_SUBTITLE", omotenashi=omotenashi),
+        handmade_title_prefix=_copy_entry("HOME_HERO_HANDMADE_TITLE_PREFIX", omotenashi=omotenashi),
+        handmade_title_suffix=_copy_entry("HOME_HERO_HANDMADE_TITLE_SUFFIX", omotenashi=omotenashi),
+        handmade_subtitle=_copy_entry("HOME_HERO_HANDMADE_SUBTITLE", omotenashi=omotenashi),
+        menu_cta=_copy_entry("HOME_MENU_CTA", omotenashi=omotenashi),
+        birthday_cta=_copy_entry("HOME_BIRTHDAY_CTA", omotenashi=omotenashi),
+    )
+
+
+def _copy_entry(key: str, *, omotenashi: OmotenashiProjection) -> CopyEntryProjection:
+    from shopman.shop.omotenashi import resolve_copy
+
+    entry = resolve_copy(key, moment=omotenashi.moment, audience=omotenashi.audience)
+    return CopyEntryProjection(title=entry.title, message=entry.message)
 
 
 def _reorder_context(request: HttpRequest) -> tuple[str | None, tuple[LastOrderItemProjection, ...]]:
