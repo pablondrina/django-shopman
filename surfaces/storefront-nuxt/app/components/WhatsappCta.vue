@@ -18,8 +18,7 @@ const show = computed(() => !!props.shop.whatsapp_url)
     >
       <template #header>
         <UBadge color="success" variant="subtle" class="rounded-full">
-          <UIcon name="i-lucide-message-circle" class="size-3.5" />
-          Atendimento personalizado
+          WhatsApp
         </UBadge>
       </template>
 
@@ -28,7 +27,7 @@ const show = computed(() => !!props.shop.whatsapp_url)
       </template>
 
       <template #description>
-        Mensagem direta com a casa pelo WhatsApp. A gente responde rápido — encomenda, dúvida ou só pra um café virtual.
+        Canal direto com a casa para dúvidas, encomendas e atendimento do pedido.
       </template>
 
       <div class="flex justify-end">
@@ -40,7 +39,6 @@ const show = computed(() => !!props.shop.whatsapp_url)
           color="success"
           variant="solid"
           size="xl"
-          icon="i-lucide-message-circle"
         />
       </div>
     </UPageCard>

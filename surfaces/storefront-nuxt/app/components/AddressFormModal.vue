@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { StructuredAddressProjection } from '~/types/shopman'
+
 interface AddressShape {
   id?: number
   label?: string
@@ -6,6 +8,15 @@ interface AddressShape {
   complement?: string
   delivery_instructions?: string
   is_default?: boolean
+  route?: string
+  street_number?: string
+  neighborhood?: string
+  city?: string
+  state_code?: string
+  postal_code?: string
+  latitude?: number | null
+  longitude?: number | null
+  place_id?: string | null
 }
 
 const props = defineProps<{ open: boolean, address?: AddressShape | null }>()
@@ -25,6 +36,7 @@ const form = reactive({
   delivery_instructions: '',
   is_default: false
 })
+const structuredAddress = ref<StructuredAddressProjection>({})
 
 const labelOptions = [
   { label: 'Casa', value: 'home' },
@@ -39,9 +51,45 @@ watchEffect(() => {
     form.complement = props.address?.complement || ''
     form.delivery_instructions = props.address?.delivery_instructions || ''
     form.is_default = !!props.address?.is_default
+    structuredAddress.value = props.address
+      ? {
+          formatted_address: props.address.formatted_address,
+          route: props.address.route,
+          street_number: props.address.street_number,
+          neighborhood: props.address.neighborhood,
+          city: props.address.city,
+          state_code: props.address.state_code,
+          postal_code: props.address.postal_code,
+          latitude: props.address.latitude,
+          longitude: props.address.longitude,
+          place_id: props.address.place_id
+        }
+      : {}
     errorMessage.value = null
   }
 })
+
+function onAddressSelected (address: StructuredAddressProjection) {
+  structuredAddress.value = address
+  if (address.formatted_address) {
+    form.formatted_address = address.formatted_address
+  }
+}
+
+watch(() => form.formatted_address, (value) => {
+  const canonical = structuredAddress.value.formatted_address?.trim()
+  if (canonical && value.trim() !== canonical) {
+    structuredAddress.value = {}
+  }
+})
+
+function addressErrorMessage (err: any): string {
+  const detail = String(err?.data?.detail || '')
+  if (/constraint|not null|integrity|database/i.test(detail)) {
+    return 'Não foi possível salvar o endereço. Confira os dados e tente novamente.'
+  }
+  return detail || 'Não foi possível salvar o endereço. Confira os dados e tente novamente.'
+}
 
 async function submit () {
   errorMessage.value = null
@@ -61,6 +109,16 @@ async function submit () {
       body: {
         label: form.label,
         formatted_address: form.formatted_address,
+        route: structuredAddress.value.route || '',
+        street_number: structuredAddress.value.street_number || '',
+        neighborhood: structuredAddress.value.neighborhood || '',
+        city: structuredAddress.value.city || '',
+        state_code: structuredAddress.value.state_code || '',
+        postal_code: structuredAddress.value.postal_code || '',
+        place_id: structuredAddress.value.place_id || '',
+        coordinates: structuredAddress.value.latitude != null && structuredAddress.value.longitude != null
+          ? [structuredAddress.value.latitude, structuredAddress.value.longitude]
+          : undefined,
         complement: form.complement,
         delivery_instructions: form.delivery_instructions,
         is_default: form.is_default
@@ -70,7 +128,7 @@ async function submit () {
     emit('saved', result)
     emit('update:open', false)
   } catch (err: any) {
-    errorMessage.value = err?.data?.detail || 'Não foi possível salvar.'
+    errorMessage.value = addressErrorMessage(err)
   } finally {
     submitting.value = false
   }
@@ -94,7 +152,7 @@ async function submit () {
         </UFormField>
 
         <UFormField label="Endereço">
-          <AddressAutocomplete v-model="form.formatted_address" placeholder="Buscar endereço" />
+          <AddressAutocomplete v-model="form.formatted_address" placeholder="Buscar endereço" @selected="onAddressSelected" />
         </UFormField>
 
         <UFormField label="Complemento">

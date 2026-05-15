@@ -1,16 +1,27 @@
 <script setup lang="ts">
 const route = useRoute()
 const { cart } = useCartState()
+const isHydrated = ref(false)
 
 const target = computed(() => route.path.startsWith('/cart') ? '/checkout' : '/cart')
 const actionLabel = computed(() => route.path.startsWith('/cart') ? 'Finalizar' : 'Ver')
-const actionIcon = computed(() => route.path.startsWith('/cart') ? 'i-lucide-arrow-right' : 'i-lucide-shopping-cart')
+const isBrowsingSurface = computed(() =>
+  route.path === '/' ||
+  route.path.startsWith('/menu') ||
+  route.path.startsWith('/produto') ||
+  route.path.startsWith('/como-funciona')
+)
+const shouldShow = computed(() => isHydrated.value && !cart.value.is_empty && isBrowsingSurface.value)
+
+onMounted(() => {
+  isHydrated.value = true
+})
 </script>
 
 <template>
   <Transition name="cartbar">
     <UPageCard
-      v-if="!cart.is_empty"
+      v-if="shouldShow"
       as="aside"
       variant="solid"
       class="shop-bottom-cart"
@@ -21,12 +32,12 @@ const actionIcon = computed(() => route.path.startsWith('/cart') ? 'i-lucide-arr
           {{ cart.items_count }}
         </UBadge>
         <span class="grid flex-1 min-w-0 text-sm">
-          <strong>{{ cart.grand_total_display }}</strong>
+          <strong>{{ cart.summary_pending ? 'Atualizando...' : cart.grand_total_display }}</strong>
           <span class="text-xs text-white/68">
             {{ cart.items_count === 1 ? '1 item no carrinho' : `${cart.items_count} itens no carrinho` }}
           </span>
         </span>
-        <UButton color="primary" variant="solid" size="sm" :icon="actionIcon" :label="actionLabel" />
+        <UButton color="primary" variant="solid" size="sm" :label="actionLabel" />
       </NuxtLink>
     </UPageCard>
   </Transition>

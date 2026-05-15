@@ -5,45 +5,88 @@ interface ReorderConflict {
   items: Array<{ sku: string, name: string, qty: number }>
 }
 
+interface ReorderSkippedItem {
+  sku?: string
+  name: string
+  reason: string
+}
+
+interface ReorderRateLimitRecovery {
+  detail: string
+  retryAfterSeconds: number | null
+  orderRef: string
+  mode?: 'replace' | 'append'
+}
+
 interface ReorderResponse {
   ok: true
   skipped: string[]
+  skipped_items?: ReorderSkippedItem[]
   cart: CartProjection
 }
 
 const conflictState = () => useState<ReorderConflict | null>('shopman-reorder-conflict', () => null)
+const skippedState = () => useState<ReorderSkippedItem[]>('shopman-reorder-skipped-items', () => [])
+const rateLimitState = () => useState<ReorderRateLimitRecovery | null>('shopman-reorder-rate-limit-recovery', () => null)
+
+function skippedDescription (skipped: string[]) {
+  if (!skipped.length) return ''
+  const visible = skipped.slice(0, 3).join(', ')
+  const suffix = skipped.length > 3 ? ` e mais ${skipped.length - 3}` : ''
+  return `Ficaram fora desta vez: ${visible}${suffix}.`
+}
 
 export function useReorder () {
   const apiPath = useShopmanApiPath()
+  const csrfHeaders = useShopmanCsrfHeaders()
   const { setFromServer } = useCartState()
   const conflict = conflictState()
+  const skippedItems = skippedState()
+  const rateLimitRecovery = rateLimitState()
   const pending = useState<boolean>('shopman-reorder-pending', () => false)
   const toast = useToast()
 
+  function normalizeSkippedItems (response: ReorderResponse): ReorderSkippedItem[] {
+    if (Array.isArray(response.skipped_items) && response.skipped_items.length) {
+      return response.skipped_items.map(item => ({
+        sku: item.sku,
+        name: item.name,
+        reason: item.reason || operationalCopy.availability.unavailableForReorder
+      }))
+    }
+    return (response.skipped || []).map(name => ({
+      name,
+      reason: operationalCopy.availability.unavailableForReorder
+    }))
+  }
+
   async function performReorder (orderRef: string, mode?: 'replace' | 'append'): Promise<boolean> {
     pending.value = true
+    rateLimitRecovery.value = null
     try {
       const response = await $fetch<ReorderResponse>(apiPath(`/api/v1/orders/${encodeURIComponent(orderRef)}/reorder/`), {
         method: 'POST',
+        headers: await csrfHeaders(),
         body: mode ? { mode } : {},
         credentials: 'include'
       })
       setFromServer(response.cart)
       conflict.value = null
+      skippedItems.value = normalizeSkippedItems(response)
       const skipped = response.skipped || []
       if (skipped.length) {
         toast.add({
           icon: 'i-lucide-info',
           color: 'info',
           title: 'Pedido recriado, com ajustes',
-          description: `${skipped.length} item(ns) ficaram fora desta vez.`
+          description: skippedDescription(skipped)
         })
       } else {
         toast.add({
           icon: 'i-lucide-circle-check',
           color: 'success',
           title: 'Pedido recriado',
-          description: 'Tudo do seu último pedido voltou pro carrinho.'
+          description: 'Os itens disponíveis do pedido anterior foram adicionados ao carrinho.'
         })
       }
       await navigateTo('/cart')
@@ -55,6 +98,15 @@ export function useReorder () {
         conflict.value = {
           orderRef: data.order_ref || orderRef,
           items: Array.isArray(data.items) ? data.items : []
+        }
+        return false
+      }
+      if (status === 429 || data?.error_code === 'rate_limited') {
+        rateLimitRecovery.value = {
+          detail: data?.detail || operationalCopy.recovery.reorderRateLimit,
+          retryAfterSeconds: typeof data?.retry_after_seconds === 'number' ? data.retry_after_seconds : null,
+          orderRef,
+          mode
         }
         return false
       }
@@ -74,10 +126,36 @@ export function useReorder () {
     conflict.value = null
   }
 
+  function dismissSkippedItems () {
+    skippedItems.value = []
+  }
+
+  function dismissRateLimitRecovery () {
+    rateLimitRecovery.value = null
+  }
+
   async function resolveConflict (mode: 'replace' | 'append') {
     if (!conflict.value) return
     await performReorder(conflict.value.orderRef, mode)
   }
 
-  return { performReorder, dismissConflict, resolveConflict, conflict, pending }
+  async function retryRateLimitedReorder () {
+    const recovery = rateLimitRecovery.value
+    if (!recovery) return
+    rateLimitRecovery.value = null
+    await performReorder(recovery.orderRef, recovery.mode)
+  }
+
+  return {
+    performReorder,
+    dismissConflict,
+    dismissSkippedItems,
+    dismissRateLimitRecovery,
+    resolveConflict,
+    retryRateLimitedReorder,
+    conflict,
+    skippedItems,
+    rateLimitRecovery,
+    pending
+  }
 }

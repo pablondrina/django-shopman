@@ -5,6 +5,7 @@ const props = defineProps<{
   description?: string
   active: boolean
   done: boolean
+  locked?: boolean
   summary?: string
   icon?: string
   index: number
@@ -20,14 +21,15 @@ const emit = defineEmits<{
   <UCard
     :class="[
       active && 'ring-1 ring-primary',
-      !active && !done && 'opacity-60'
+      !active && !done && (locked ? 'opacity-45' : 'opacity-60')
     ]"
   >
     <button
       type="button"
       class="w-full flex items-center gap-3 text-left"
-      :disabled="!done && active"
-      @click="active ? null : (done ? emit('edit', step) : emit('open', step))"
+      :disabled="locked || (!done && active)"
+      :aria-disabled="locked || (!done && active)"
+      @click="locked || active ? null : (done ? emit('edit', step) : emit('open', step))"
     >
       <span
         class="flex size-10 shrink-0 items-center justify-center rounded-full font-semibold tabular-nums text-sm"
@@ -35,7 +37,9 @@ const emit = defineEmits<{
           ? 'bg-success/10 text-success'
           : active
             ? 'bg-primary/10 text-primary'
-            : 'bg-elevated text-muted'"
+            : locked
+              ? 'bg-elevated/70 text-dimmed'
+              : 'bg-elevated text-muted'"
       >
         <UIcon v-if="done" name="i-lucide-check" class="size-4" />
         <UIcon v-else-if="active && icon" :name="icon" class="size-4" />

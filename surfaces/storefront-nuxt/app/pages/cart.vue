@@ -51,34 +51,59 @@ const itemsLabel = computed(() => cart.value.items_count === 1 ? '1 item' : `${c
 
 const summaryDescription = computed(() => {
   if (cart.value.is_empty) return 'Nenhum item selecionado'
+  if (cart.value.summary_pending) return `${itemsLabel.value} · atualizando totais com a casa`
   return `${itemsLabel.value} · ${cart.value.subtotal_display}`
 })
 
 const minimumPending = computed(() => (cart.value.minimum_order_progress?.remaining_q ?? 0) > 0)
 const checkoutDisabled = computed(() =>
   cart.value.is_empty ||
+  !!cart.value.summary_pending ||
   cart.value.has_unavailable_items ||
   minimumPending.value
 )
 
 const checkoutLabel = computed(() => {
   if (cart.value.is_empty) return 'Carrinho vazio'
+  if (cart.value.summary_pending) return 'Atualizando carrinho'
   if (cart.value.has_unavailable_items) return 'Revise os itens'
   if (minimumPending.value) {
     return `Faltam ${cart.value.minimum_order_progress?.remaining_display}`
   }
-  if (cart.value.has_ready_for_confirmation_items) return 'Confirmar agora · tudo pronto'
+  if (cart.value.has_ready_for_confirmation_items) return 'Confirmar pedido'
   return 'Finalizar pedido'
 })
 
 const checkoutColor = computed(() => cart.value.has_ready_for_confirmation_items ? 'success' as const : 'primary' as const)
+const releaseCandidate = ref<CartItemProjection | null>(null)
+const releaseModalOpen = computed({
+  get: () => !!releaseCandidate.value,
+  set: (value) => {
+    if (!value) releaseCandidate.value = null
+  }
+})
 
 async function acceptAvailable (line: CartItemProjection) {
   if (line.available_qty == null) return
   await setSkuQty(metaForLine(line), line.available_qty).catch(() => {})
 }
 
+function needsReleaseConfirmation (line: CartItemProjection) {
+  return line.is_awaiting_confirmation || line.is_ready_for_confirmation
+}
+
 async function removeLine (line: CartItemProjection) {
+  if (needsReleaseConfirmation(line)) {
+    releaseCandidate.value = line
+    return
+  }
+  await setSkuQty(metaForLine(line), 0).catch(() => {})
+}
+
+async function confirmReleaseReservation () {
+  const line = releaseCandidate.value
+  if (!line) return
+  releaseCandidate.value = null
   await setSkuQty(metaForLine(line), 0).catch(() => {})
 }
 
@@ -89,40 +114,61 @@ useHead({ title: 'Seu carrinho' })
   <UContainer class="py-6 sm:py-10">
     <USkeleton v-if="pending" class="h-40 w-full" />
 
-    <UAlert v-else-if="error" color="error" variant="soft" title="Não foi possível carregar o carrinho" />
+    <UAlert
+      v-else-if="error"
+      color="error"
+      variant="soft"
+      :title="operationalCopy.loadFailure.cart.title"
+      :description="operationalCopy.loadFailure.cart.description"
+    />
 
     <div v-else>
-      <UPageHeader title="Seu carrinho" :description="summaryDescription">
-        <template #links>
-          <UButton label="Continuar comprando" to="/menu" icon="i-lucide-arrow-left" color="neutral" variant="ghost" />
-        </template>
-      </UPageHeader>
+      <section class="shop-soft-panel rounded-lg p-4 sm:p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="shop-section-kicker">
+              Carrinho
+            </p>
+            <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">Seu pedido</h1>
+            <p class="mt-2 text-sm leading-relaxed text-muted sm:text-base">{{ summaryDescription }}</p>
+          </div>
+          <UButton label="Continuar comprando" to="/menu" color="neutral" variant="outline" class="self-start" />
+        </div>
+      </section>
 
-      <UEmpty
+      <div
         v-if="cart.is_empty"
-        icon="i-lucide-bread"
-        title="Carrinho vazio, mas o forno tá quentinho"
-        description="Escolha o que apetece e a casa prepara pra você. Tem fornada saindo agora."
-        :actions="[{ label: 'Ver cardápio', to: '/menu', icon: 'i-lucide-utensils' }]"
-        class="mt-12"
-      />
+        class="mt-12 rounded-lg border border-default bg-default p-8 text-center"
+      >
+        <h2 class="text-lg font-semibold text-highlighted">Carrinho vazio</h2>
+        <p class="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-muted">
+          Adicione itens para iniciar.
+        </p>
+        <UButton to="/menu" label="Ver cardápio" class="mt-5" />
+      </div>
 
       <div v-else class="mt-6 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
         <div class="grid gap-3">
           <UAlert
+            v-if="cart.summary_pending"
+            color="neutral"
+            variant="subtle"
+            title="Atualizando o carrinho"
+            description="Estamos recalculando totais, cupom, entrega e pedido mínimo."
+          />
+
+          <UAlert
             v-if="cart.has_unavailable_items"
-            icon="i-lucide-triangle-alert"
             color="warning"
             variant="subtle"
             title="Itens com estoque limitado"
-            description="Ajustamos o que dá pra entregar. Revise abaixo antes de finalizar."
+            description="Alguns itens mudaram de disponibilidade. Revise antes de finalizar."
           />
 
           <UCard v-if="cart.minimum_order_progress?.remaining_q && cart.minimum_order_progress.remaining_q > 0" :ui="{ body: 'p-4' }">
             <div class="grid gap-3">
               <div class="flex items-center justify-between text-sm">
-                <span class="font-medium flex items-center gap-2">
-                  <UIcon name="i-lucide-target" class="size-4 text-primary" />
+                <span class="font-medium">
                   Pedido mínimo
                 </span>
                 <span class="text-muted tabular-nums">
@@ -153,13 +199,14 @@ useHead({ title: 'Seu carrinho' })
             <div class="flex items-center gap-4">
               <NuxtLink
                 :to="`/produto/${cart.upsell.sku}`"
+                :aria-label="`Ver ${cart.upsell.name}`"
                 class="size-16 shrink-0 overflow-hidden rounded-md bg-elevated"
               >
                 <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
                 <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-6 text-muted" />
               </NuxtLink>
               <div class="flex-1 min-w-0">
-                <p class="text-xs uppercase tracking-wide text-primary font-semibold">Que tal adicionar?</p>
+                <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
                 <NuxtLink :to="`/produto/${cart.upsell.sku}`" class="font-semibold text-highlighted hover:text-primary truncate block">
                   {{ cart.upsell.name }}
                 </NuxtLink>
@@ -170,7 +217,6 @@ useHead({ title: 'Seu carrinho' })
                 size="sm"
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-plus"
                 label="Ver"
               />
             </div>
@@ -178,13 +224,18 @@ useHead({ title: 'Seu carrinho' })
         </div>
 
         <div class="grid gap-3 lg:sticky lg:top-[calc(var(--ui-header-height)+24px)]">
-          <UCard variant="subtle">
+          <UCard variant="subtle" class="shop-soft-panel">
             <template #header>
               <div class="flex items-center justify-between">
                 <strong>Resumo do pedido</strong>
-                <UBadge color="neutral" variant="subtle">
-                  {{ itemsLabel }}
-                </UBadge>
+                <div class="flex items-center gap-2">
+                  <UBadge v-if="cart.summary_pending" color="neutral" variant="soft">
+                    Atualizando
+                  </UBadge>
+                  <UBadge color="neutral" variant="subtle">
+                    {{ itemsLabel }}
+                  </UBadge>
+                </div>
               </div>
             </template>
 
@@ -202,8 +253,7 @@ useHead({ title: 'Seu carrinho' })
                 :key="discount.label"
                 class="flex justify-between text-sm text-success"
               >
-                <span class="flex items-center gap-1.5">
-                  <UIcon name="i-lucide-tag" class="size-3.5" />
+                <span>
                   {{ discount.label }}
                 </span>
                 <span class="tabular-nums">−{{ discount.amount_display }}</span>
@@ -218,11 +268,18 @@ useHead({ title: 'Seu carrinho' })
               </div>
             </div>
 
+            <UProgress v-if="cart.summary_pending" animation="carousel" class="mt-3" />
+
             <USeparator class="my-3" />
 
             <div class="flex justify-between items-baseline">
               <span class="font-medium">Total</span>
-              <strong class="text-2xl tabular-nums text-highlighted">{{ cart.grand_total_display }}</strong>
+              <strong
+                class="text-2xl tabular-nums text-highlighted"
+                :class="cart.summary_pending && 'opacity-70'"
+              >
+                {{ cart.grand_total_display }}
+              </strong>
             </div>
 
             <template #footer>
@@ -230,8 +287,6 @@ useHead({ title: 'Seu carrinho' })
                 v-if="!minimumPending"
                 to="/checkout"
                 block
-                icon="i-lucide-arrow-right"
-                trailing
                 :label="checkoutLabel"
                 :color="checkoutColor"
                 :disabled="checkoutDisabled"
@@ -244,7 +299,6 @@ useHead({ title: 'Seu carrinho' })
                 :label="checkoutLabel"
                 color="neutral"
                 variant="soft"
-                icon="i-lucide-lock"
                 size="lg"
               />
               <UButton
@@ -254,15 +308,58 @@ useHead({ title: 'Seu carrinho' })
                 variant="ghost"
                 size="sm"
                 label="Continuar comprando"
-                icon="i-lucide-arrow-left"
                 class="mt-2"
               />
             </template>
           </UCard>
 
           <CartCouponSection :cart="cart" @updated="applyCart" />
+
+          <div class="rounded-lg border border-default bg-elevated/45 p-4">
+            <p class="text-sm font-semibold text-highlighted">Antes de finalizar</p>
+            <p class="mt-1 text-sm leading-relaxed text-muted">
+              Itens indisponíveis, pedido mínimo e confirmação operacional são revisados antes do envio.
+            </p>
+          </div>
         </div>
       </div>
+
+      <UModal
+        v-model:open="releaseModalOpen"
+        title="Liberar reserva?"
+        :ui="{ content: 'max-w-md' }"
+      >
+        <template #body>
+          <div class="grid gap-4">
+            <p class="text-sm leading-relaxed text-muted">
+              Esta ação remove <strong class="text-highlighted">{{ releaseCandidate?.name }}</strong> do carrinho e libera a reserva para outros pedidos.
+            </p>
+            <UAlert
+              v-if="releaseCandidate?.confirmation_deadline_display"
+              color="warning"
+              variant="subtle"
+              :title="`Reserva ativa até ${releaseCandidate.confirmation_deadline_display}`"
+              description="Se quiser manter este item, volte e conclua o pedido."
+            />
+            <div class="grid gap-2 sm:grid-cols-2">
+              <UButton
+                color="neutral"
+                variant="outline"
+                block
+                label="Manter item"
+                @click="releaseCandidate = null"
+              />
+              <UButton
+                color="warning"
+                variant="solid"
+                block
+                label="Liberar reserva"
+                @click="confirmReleaseReservation"
+              />
+            </div>
+          </div>
+        </template>
+      </UModal>
     </div>
   </UContainer>
 </template>

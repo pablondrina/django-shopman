@@ -5,32 +5,27 @@ defineProps<{ openingHours: OpeningHoursEntry[] }>()
 
 const onlineSteps = [
   {
-    icon: 'i-lucide-utensils',
-    title: 'Escolha o que apetece',
-    description: 'Navegue pelo cardápio e monte seu pedido sem pressa. Pode salvar pra finalizar depois.'
+    title: 'Escolha os itens',
+    description: 'Navegue pelo cardápio, veja disponibilidade e monte o pedido no seu ritmo.'
   },
   {
-    icon: 'i-lucide-credit-card',
-    title: 'Pague do seu jeito',
-    description: 'Pix, cartão ou na retirada. A confirmação é otimista — se algo der errado, a gente te avisa antes.'
+    title: 'Revise e pague',
+    description: 'Confira retirada, entrega, horário, pagamento e dados de contato antes de enviar.'
   },
   {
-    icon: 'i-lucide-package-check',
-    title: 'Acompanhe e retire',
-    description: 'A gente te avisa quando estiver pronto. Você passa, retira e volta pra rotina.'
+    title: 'Acompanhe o pedido',
+    description: 'O status fica disponível na página do pedido.'
   }
 ] as const
 
 const storeFeatures = [
   {
-    icon: 'i-lucide-store',
-    title: 'Vitrine completa',
-    description: 'Pão fresquinho, doces da casa e o cheirinho de café que abre o dia.'
+    title: 'Atendimento no balcão',
+    description: 'Passe na loja para escolher direto com a equipe.'
   },
   {
-    icon: 'i-lucide-coffee',
-    title: 'Cafezinho na casa',
-    description: 'Aquele espresso bem tirado, ou um café com leite pra acompanhar a fornada.'
+    title: 'Disponibilidade informada',
+    description: 'O cardápio mostra os itens publicados e os avisos enviados pela loja.'
   }
 ] as const
 </script>
@@ -38,15 +33,14 @@ const storeFeatures = [
 <template>
   <UPageSection
     headline="Como funciona"
-    title="Dois jeitos de aproveitar"
-    description="Se preferir resolver tudo daqui, segue um caminho. Se quiser passar e dar uma olhadinha, segue outro. Tanto faz, a casa te recebe igual."
-    :ui="{ container: 'py-12 sm:py-16', headline: 'text-primary uppercase tracking-wide text-xs font-semibold' }"
+    title="Como pedir"
+    description="Escolha no cardápio, revise os dados, finalize e acompanhe o pedido."
+    :ui="{ container: 'py-12 sm:py-16', headline: 'text-primary uppercase text-xs font-semibold' }"
   >
     <div class="grid lg:grid-cols-2 gap-6">
       <UPageCard
         title="Pelo site"
-        description="Pedido pronto pra retirar, sem fila."
-        icon="i-lucide-smartphone"
+        description="Escolha, revise e acompanhe."
         variant="subtle"
         :ui="{ container: 'p-6 sm:p-8' }"
       >
@@ -61,7 +55,6 @@ const storeFeatures = [
             </span>
             <div>
               <p class="font-semibold text-highlighted flex items-center gap-2">
-                <UIcon :name="step.icon" class="size-4 text-muted" />
                 {{ step.title }}
               </p>
               <p class="text-sm text-muted leading-relaxed mt-1">{{ step.description }}</p>
@@ -72,8 +65,7 @@ const storeFeatures = [
 
       <UPageCard
         title="Na casa"
-        description="Passa, escolhe e leva. Igual padaria de bairro deve ser."
-        icon="i-lucide-store"
+        description="Escolha direto com a equipe."
         variant="subtle"
         :ui="{ container: 'p-6 sm:p-8' }"
       >
@@ -83,9 +75,7 @@ const storeFeatures = [
             :key="feature.title"
             class="flex items-start gap-4"
           >
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-elevated text-muted">
-              <UIcon :name="feature.icon" class="size-5" />
-            </span>
+            <span class="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
             <div>
               <p class="font-semibold text-highlighted">{{ feature.title }}</p>
               <p class="text-sm text-muted leading-relaxed mt-1">{{ feature.description }}</p>
@@ -95,8 +85,7 @@ const storeFeatures = [
           <USeparator v-if="openingHours.length" />
 
           <div v-if="openingHours.length">
-            <p class="text-xs uppercase tracking-wide font-semibold text-muted mb-3 flex items-center gap-2">
-              <UIcon name="i-lucide-clock" class="size-3.5" />
+            <p class="text-xs uppercase font-semibold text-muted mb-3 flex items-center gap-2">
               Horário de funcionamento
             </p>
             <dl class="grid gap-1.5 text-sm">

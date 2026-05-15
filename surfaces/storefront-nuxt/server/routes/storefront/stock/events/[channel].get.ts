@@ -1,13 +1,9 @@
-// SSE proxy for /pedido/<ref>/events/ — streams order status updates.
+// SSE proxy for /storefront/stock/events/<channel>/.
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const ref = String(event.context.params?.ref || '')
-  if (!ref) {
-    setResponseStatus(event, 400)
-    return 'Missing order ref'
-  }
-  const target = `${config.djangoBaseUrl}/pedido/${encodeURIComponent(ref)}/events/`
+  const channel = String(event.context.params?.channel || 'storefront')
+  const target = `${config.djangoBaseUrl}/storefront/stock/events/${channel}/`
 
   const cookie = getRequestHeader(event, 'cookie')
   const headers: Record<string, string> = {

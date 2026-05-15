@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import type { StructuredAddressProjection } from '~/types/shopman'
+
 const model = defineModel<string>({ required: true })
 const props = defineProps<{
   placeholder?: string
   defaultCity?: string
+}>()
+const emit = defineEmits<{
+  selected: [StructuredAddressProjection]
 }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -12,6 +17,33 @@ const error = ref<string | null>(null)
 const initialized = ref(false)
 
 let autocomplete: any = null
+
+function componentValue (components: any[] | undefined, type: string, useShort = false): string {
+  const match = components?.find(c => Array.isArray(c.types) && c.types.includes(type))
+  if (!match) return ''
+  return String(useShort ? match.short_name || '' : match.long_name || '').trim()
+}
+
+function structuredFromPlace (place: any): StructuredAddressProjection {
+  const location = place?.geometry?.location
+  const lat = typeof location?.lat === 'function' ? location.lat() : null
+  const lng = typeof location?.lng === 'function' ? location.lng() : null
+  const components = place?.address_components || []
+  return {
+    formatted_address: place?.formatted_address || '',
+    route: componentValue(components, 'route'),
+    street_number: componentValue(components, 'street_number'),
+    neighborhood: componentValue(components, 'sublocality') || componentValue(components, 'sublocality_level_1') || componentValue(components, 'neighborhood'),
+    city: componentValue(components, 'administrative_area_level_2') || componentValue(components, 'locality'),
+    state_code: componentValue(components, 'administrative_area_level_1', true),
+    postal_code: componentValue(components, 'postal_code'),
+    country: componentValue(components, 'country'),
+    country_code: componentValue(components, 'country', true),
+    latitude: lat,
+    longitude: lng,
+    place_id: place?.place_id || null
+  }
+}
 
 function getInputElement (): HTMLInputElement | null {
   const ref = inputRef.value as any
@@ -34,13 +66,14 @@ async function setup () {
     if (!input || !window.google?.maps?.places) return
     autocomplete = new window.google.maps.places.Autocomplete(input, {
       componentRestrictions: { country: 'br' },
-      fields: ['formatted_address', 'address_components', 'geometry'],
+      fields: ['formatted_address', 'address_components', 'geometry', 'place_id'],
       types: ['address']
     })
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace()
       if (place?.formatted_address) {
         model.value = place.formatted_address
+        emit('selected', structuredFromPlace(place))
       }
     })
     initialized.value = true

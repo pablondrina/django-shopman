@@ -2,7 +2,7 @@
   <UFooter class="hidden lg:block">
     <template #left>
       <p class="text-sm text-muted">
-        © {{ new Date().getFullYear() }} Shopman
+        © {{ new Date().getFullYear() }}
       </p>
     </template>
   </UFooter>

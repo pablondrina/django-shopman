@@ -7,6 +7,8 @@ const emit = defineEmits<{
   remove: [CartItemProjection]
 }>()
 
+const { isPending } = useCartState()
+
 const meta = computed<ProductCommandMeta>(() => ({
   sku: props.line.sku,
   name: props.line.name,
@@ -16,6 +18,10 @@ const meta = computed<ProductCommandMeta>(() => ({
 }))
 
 const showWarning = computed(() => !props.line.is_available && !!props.line.availability_warning)
+const pending = computed(() => isPending(props.line.sku))
+const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.line.is_ready_for_confirmation
+  ? 'Liberar reserva'
+  : 'Remover')
 </script>
 
 <template>
@@ -28,71 +34,73 @@ const showWarning = computed(() => !props.line.is_available && !!props.line.avai
     ]"
   >
     <div class="grid gap-3">
-      <div class="flex gap-3 sm:gap-4">
+      <div class="grid grid-cols-[72px_minmax(0,1fr)] gap-3 sm:grid-cols-[88px_minmax(0,1fr)] sm:gap-4">
         <NuxtLink
           :to="`/produto/${line.sku}`"
-          class="size-16 sm:size-20 shrink-0 overflow-hidden rounded-md bg-elevated"
+          class="row-span-3 size-[72px] overflow-hidden rounded-md bg-elevated sm:size-[88px]"
           :aria-label="`Ver ${line.name}`"
         >
-          <img v-if="line.image_url" :src="line.image_url" :alt="line.name" loading="lazy" class="size-full object-cover">
-          <UIcon v-else name="i-lucide-cookie" class="absolute inset-0 m-auto size-6 text-muted" />
+          <img v-if="line.image_url" :src="line.image_url" :alt="line.name" loading="lazy" decoding="async" sizes="80px" class="size-full object-cover">
+          <span v-else class="grid size-full place-items-center text-xs font-semibold text-muted">
+            {{ line.name.slice(0, 2).toUpperCase() }}
+          </span>
         </NuxtLink>
 
-        <div class="flex-1 min-w-0 grid gap-1">
-          <div class="flex items-start justify-between gap-3">
-            <NuxtLink
-              :to="`/produto/${line.sku}`"
-              class="text-base font-semibold text-highlighted hover:text-primary leading-snug line-clamp-2"
-            >
-              {{ line.name }}
-            </NuxtLink>
-            <strong class="text-base sm:text-lg text-highlighted tabular-nums whitespace-nowrap">
-              {{ line.total_display }}
-            </strong>
-          </div>
+        <div class="flex min-w-0 items-start justify-between gap-3">
+          <NuxtLink
+            :to="`/produto/${line.sku}`"
+            class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted hover:text-primary sm:text-base"
+          >
+            {{ line.name }}
+          </NuxtLink>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-trash-2"
+            size="xs"
+            :aria-label="`${removeLabel} ${line.name}`"
+            :loading="pending"
+            :disabled="pending"
+            data-haptic="double"
+            @click="emit('remove', line)"
+          />
+        </div>
 
-          <div class="flex items-baseline gap-2 text-sm text-muted">
-            <span v-if="line.original_price_display" class="line-through tabular-nums">
+        <div class="flex min-w-0 items-baseline justify-between gap-3 text-sm">
+          <div class="min-w-0 text-muted">
+            <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
               {{ line.original_price_display }}
             </span>
             <span class="tabular-nums">{{ line.price_display }} cada</span>
           </div>
-
-          <div v-if="line.discount_label" class="mt-1">
-            <UBadge color="success" variant="subtle" size="xs">
-              <UIcon name="i-lucide-tag" class="size-3" />
-              {{ line.discount_label }}
-            </UBadge>
-          </div>
+          <strong class="shrink-0 text-base text-highlighted tabular-nums sm:text-lg">
+            {{ line.total_display }}
+          </strong>
         </div>
-      </div>
 
-      <div class="flex items-center justify-between gap-2 pt-1 border-t border-default">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-trash-2"
-          size="xs"
-          label="Remover"
-          @click="emit('remove', line)"
-        />
-        <ProductStepper
-          :meta="meta"
-          :can-add="line.is_available"
-          :max-qty="line.available_qty"
-          size="sm"
-        />
+        <div class="flex min-w-0 items-center justify-between gap-3">
+          <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="min-w-0">
+            <span class="truncate">{{ line.discount_label }}</span>
+          </UBadge>
+          <span v-else aria-hidden="true" />
+
+          <ProductStepper
+            :meta="meta"
+            :can-add="line.is_available"
+            :max-qty="line.available_qty"
+            size="sm"
+          />
+        </div>
       </div>
 
       <UAlert
         v-if="showWarning"
-        icon="i-lucide-triangle-alert"
         color="warning"
         variant="subtle"
         :title="line.availability_warning || 'Estoque limitado'"
         :description="line.available_qty != null && line.available_qty > 0
-          ? `Você pediu ${line.qty} e a casa consegue preparar ${line.available_qty}.`
-          : 'No momento não conseguimos atender este item.'"
+          ? `Disponível para este pedido: ${line.available_qty}.`
+          : 'Item indisponível para este pedido.'"
         :ui="{ root: 'p-3' }"
       >
         <template #actions>
@@ -102,15 +110,17 @@ const showWarning = computed(() => !props.line.is_available && !!props.line.avai
             color="warning"
             variant="solid"
             :label="`Aceitar ${line.available_qty}`"
-            icon="i-lucide-circle-check"
+            data-haptic="light"
             @click="emit('acceptAvailable', line)"
           />
           <UButton
             size="xs"
             color="neutral"
             variant="outline"
-            label="Remover"
-            icon="i-lucide-x"
+            :label="removeLabel"
+            :loading="pending"
+            :disabled="pending"
+            data-haptic="double"
             @click="emit('remove', line)"
           />
         </template>

@@ -5,6 +5,39 @@ import type {
   ProductCommandMeta
 } from '~/types/shopman'
 
+interface CartIssueItem {
+  sku: string
+  name: string
+  requested_qty: number | null
+  available_qty: number | null
+  reason: string
+}
+
+interface CartStockIssue {
+  title: string
+  detail: string
+  error_code: string
+  sku: string
+  name: string
+  requested_qty: number | null
+  available_qty: number | null
+  is_paused: boolean
+  is_planned: boolean
+  planned_target_date: string | null
+  substitutes: Array<{ sku?: string, name?: string, reason?: string }>
+  items: CartIssueItem[]
+}
+
+interface CartRateLimitRecovery {
+  detail: string
+  retryAfterSeconds: number | null
+}
+
+interface CartCommandSnapshot {
+  meta: ProductCommandMeta
+  qty: number
+}
+
 const money = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL'
@@ -15,6 +48,7 @@ function emptyCart (): CartProjection {
     items: [],
     items_count: 0,
     is_empty: true,
+    summary_pending: false,
     subtotal_q: 0,
     subtotal_display: 'R$ 0,00',
     original_subtotal_q: 0,
@@ -71,19 +105,60 @@ function optimisticLine (meta: ProductCommandMeta, qty: number): CartItemProject
   }
 }
 
-function recomputeTotals (cart: CartProjection): CartProjection {
-  const subtotal = cart.items.reduce((sum, item) => sum + item.total_price_q, 0)
+function markSummaryPending (cart: CartProjection): CartProjection {
   const count = cart.items.reduce((sum, item) => sum + item.qty, 0)
   return {
     ...cart,
     items_count: count,
     is_empty: count === 0,
-    subtotal_q: subtotal,
-    subtotal_display: formatMoney(subtotal),
-    original_subtotal_q: subtotal,
-    original_subtotal_display: formatMoney(subtotal),
-    grand_total_q: subtotal,
-    grand_total_display: formatMoney(subtotal)
+    summary_pending: true
+  }
+}
+
+function numberOrNull (value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function stockReason (data: any) {
+  if (data?.is_paused) return operationalCopy.availability.paused
+  if (data?.is_planned) return operationalCopy.availability.plannedLimit
+  if (typeof data?.available_qty === 'number' && data.available_qty > 0) {
+    return `Disponível para este pedido: ${data.available_qty} unidade(s).`
+  }
+  return operationalCopy.availability.noStockForRequestedQty
+}
+
+function stockIssueFromPayload (data: any, meta: ProductCommandMeta): CartStockIssue {
+  const fallbackItem: CartIssueItem = {
+    sku: String(data?.sku || meta.sku),
+    name: String(data?.name || meta.name || data?.sku || meta.sku),
+    requested_qty: numberOrNull(data?.requested_qty),
+    available_qty: numberOrNull(data?.available_qty),
+    reason: stockReason(data)
+  }
+  const items = Array.isArray(data?.items)
+    ? data.items.map((item: any) => ({
+        sku: String(item?.sku || fallbackItem.sku),
+        name: String(item?.name || fallbackItem.name),
+        requested_qty: numberOrNull(item?.requested_qty),
+        available_qty: numberOrNull(item?.available_qty),
+        reason: String(item?.reason || fallbackItem.reason)
+      }))
+    : [fallbackItem]
+
+  return {
+    title: String(data?.title || operationalCopy.availability.reviewItem),
+    detail: String(data?.detail || operationalCopy.availability.insufficientStock),
+    error_code: String(data?.error_code || 'stock_unavailable'),
+    sku: fallbackItem.sku,
+    name: fallbackItem.name,
+    requested_qty: fallbackItem.requested_qty,
+    available_qty: fallbackItem.available_qty,
+    is_paused: !!data?.is_paused,
+    is_planned: !!data?.is_planned,
+    planned_target_date: data?.planned_target_date || null,
+    substitutes: Array.isArray(data?.substitutes) ? data.substitutes : [],
+    items
   }
 }
 
@@ -91,10 +166,17 @@ export function useCartState () {
   const cart = useState<CartProjection>('shopman-cart', emptyCart)
   const pendingBySku = useState<Record<string, boolean>>('shopman-cart-pending', () => ({}))
   const lastError = useState<string | null>('shopman-cart-error', () => null)
+  const stockIssue = useState<CartStockIssue | null>('shopman-cart-stock-issue', () => null)
+  const rateLimitRecovery = useState<CartRateLimitRecovery | null>('shopman-cart-rate-limit-recovery', () => null)
+  const lastCartCommand = useState<CartCommandSnapshot | null>('shopman-cart-last-command', () => null)
   const apiPath = useShopmanApiPath()
+  const csrfHeaders = useShopmanCsrfHeaders()
+  const hasPendingMutations = computed(() => Object.values(pendingBySku.value).some(Boolean))
 
   function setFromServer (next?: CartProjection | null) {
-    if (next) cart.value = next
+    if (next) cart.value = { ...next, summary_pending: false }
+    stockIssue.value = null
+    rateLimitRecovery.value = null
   }
 
   function clearCart () {
@@ -114,8 +196,12 @@ export function useCartState () {
     const existing = current.items.find(item => item.sku === meta.sku)
 
     if (qty <= 0) {
+      if (current.items.length <= 1) {
+        cart.value = { ...current, summary_pending: true }
+        return
+      }
       current.items = current.items.filter(item => item.sku !== meta.sku)
-      cart.value = recomputeTotals(current)
+      cart.value = markSummaryPending(current)
       return
     }
 
@@ -126,56 +212,53 @@ export function useCartState () {
     } else {
       current.items.push(optimisticLine(meta, qty))
     }
-    cart.value = recomputeTotals(current)
+    cart.value = markSummaryPending(current)
   }
 
   async function setSkuQty (meta: ProductCommandMeta, qty: number): Promise<CartCommandResponse> {
     const previous = cloneCart(cart.value)
     lastError.value = null
+    stockIssue.value = null
+    rateLimitRecovery.value = null
+    lastCartCommand.value = { meta: { ...meta }, qty }
     pendingBySku.value = { ...pendingBySku.value, [meta.sku]: true }
     applyOptimisticQty(meta, qty)
 
     try {
       const response = await $fetch<CartCommandResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
+        headers: await csrfHeaders(),
         body: { qty },
         credentials: 'include'
       })
       cart.value = response.cart
+      lastCartCommand.value = null
       return response
     } catch (error: any) {
       cart.value = previous
       const status = error?.response?.status
       const data = error?.data
-      const toast = useToast()
       if (status === 409 && data) {
         const availableQty = typeof data.available_qty === 'number' ? data.available_qty : null
         const isPlanned = !!data.is_planned
         const detail = isPlanned
-          ? `Disponível por encomenda. Conseguimos preparar até ${availableQty ?? 'algumas'} unidade(s).`
+          ? `Disponível por encomenda: até ${availableQty ?? 'algumas'} unidade(s).`
           : availableQty != null
-            ? `Só temos ${availableQty} unidade(s) disponíveis no momento.`
-            : 'Estoque insuficiente para esse pedido.'
+            ? `Disponível para este pedido: ${availableQty} unidade(s).`
+            : operationalCopy.availability.insufficientStock
         lastError.value = detail
-        toast.add({
-          icon: 'i-lucide-triangle-alert',
-          color: 'warning',
-          title: meta.name || 'Item indisponível',
-          description: detail
-        })
+        stockIssue.value = stockIssueFromPayload(data, meta)
       } else if (status === 429) {
-        const detail = 'Você está adicionando muito rápido. Aguarde um instante.'
+        const detail = data?.detail || operationalCopy.recovery.cartRateLimit
         lastError.value = detail
-        toast.add({
-          icon: 'i-lucide-timer',
-          color: 'info',
-          title: 'Calma aí!',
-          description: detail
-        })
+        rateLimitRecovery.value = {
+          detail,
+          retryAfterSeconds: typeof data?.retry_after_seconds === 'number' ? data.retry_after_seconds : null
+        }
       } else {
-        lastError.value = 'Não foi possível atualizar o carrinho.'
+        const toast = useToast()
+        lastError.value = 'Não foi possível atualizar o carrinho. Tente novamente.'
         toast.add({
-          icon: 'i-lucide-circle-x',
           color: 'error',
           title: 'Algo deu errado',
           description: lastError.value || ''
@@ -189,13 +272,42 @@ export function useCartState () {
     }
   }
 
+  function dismissStockIssue () {
+    stockIssue.value = null
+  }
+
+  function dismissRateLimitRecovery () {
+    rateLimitRecovery.value = null
+  }
+
+  async function retryLastCartCommand () {
+    const command = lastCartCommand.value
+    if (!command) return
+    await setSkuQty(command.meta, command.qty)
+  }
+
+  async function acceptStockIssueAvailable () {
+    const command = lastCartCommand.value
+    const availableQty = stockIssue.value?.available_qty
+    if (!command || availableQty == null) return
+    await setSkuQty(command.meta, availableQty)
+  }
+
   return {
     cart,
+    hasPendingMutations,
     lastError,
+    stockIssue,
+    rateLimitRecovery,
+    lastCartCommand,
     setFromServer,
     clearCart,
     qtyForSku,
     isPending,
-    setSkuQty
+    setSkuQty,
+    dismissStockIssue,
+    dismissRateLimitRecovery,
+    retryLastCartCommand,
+    acceptStockIssueAvailable
   }
 }

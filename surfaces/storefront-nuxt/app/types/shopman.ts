@@ -13,6 +13,7 @@ export interface CatalogItemProjection {
   image_url: string | null
   category: string | null
   tags: string[]
+  search_terms: string[]
   base_price_q: number
   price_display: string
   has_promotion: boolean
@@ -46,7 +47,50 @@ export interface CatalogProjection {
   sections: CatalogSectionProjection[]
   featured: CatalogItemProjection[]
   active_category_ref: string | null
+  happy_hour: {
+    active: boolean
+    discount_percent: number
+    start: string
+    end: string
+  } | null
+  favorite_category_ref: string | null
   has_items: boolean
+}
+
+export interface ComponentProjection {
+  sku: string
+  name: string
+  qty_display: string
+}
+
+export interface ProductAllergenProjection {
+  allergens: string[]
+  dietary_info: string[]
+  serves: string | null
+  has_any?: boolean
+}
+
+export interface ProductConservationProjection {
+  shelf_life_label: string | null
+  storage_tip: string | null
+  has_any?: boolean
+}
+
+export interface NutritionRowProjection {
+  field: string
+  label: string
+  value_display: string
+  unit: string
+  percent_daily_value: number | null
+}
+
+export interface ProductNutritionProjection {
+  serving_size_display: string
+  servings_per_container: number
+  energy_kcal_display: string | null
+  energy_pdv: number | null
+  rows: NutritionRowProjection[]
+  has_any?: boolean
 }
 
 export interface ProductDetailProjection {
@@ -69,10 +113,14 @@ export interface ProductDetailProjection {
   max_qty: number
   qty_in_cart: number
   is_bundle: boolean
+  components: ComponentProjection[]
   unit_weight_label: string | null
   approx_dimensions_label: string | null
+  allergen: ProductAllergenProjection | null
+  conservation: ProductConservationProjection | null
   ingredients_text: string | null
   trace_notice: string
+  nutrition: ProductNutritionProjection | null
   seo_description: string
   seo_keywords: string[]
   breadcrumb_category: CategoryProjection | null
@@ -111,6 +159,7 @@ export interface CartProjection {
   items: CartItemProjection[]
   items_count: number
   is_empty: boolean
+  summary_pending?: boolean
   subtotal_q: number
   subtotal_display: string
   original_subtotal_q: number
@@ -211,6 +260,16 @@ export interface HomeResponse {
   cart: CartProjection
 }
 
+export interface AuthSessionResponse {
+  is_authenticated: boolean
+  customer_ref: string
+  customer_name: string
+  customer_phone: string
+  customer_email: string
+  requires_welcome?: boolean
+  welcome_suggested_name?: string
+}
+
 export interface MenuResponse {
   catalog: CatalogProjection
   cart: CartProjection
@@ -277,6 +336,30 @@ export interface SavedAddressProjection {
   complement: string
   delivery_instructions: string
   is_default: boolean
+  route?: string
+  street_number?: string
+  neighborhood?: string
+  city?: string
+  state_code?: string
+  postal_code?: string
+  latitude?: number | null
+  longitude?: number | null
+  place_id?: string | null
+}
+
+export interface StructuredAddressProjection {
+  formatted_address?: string
+  route?: string
+  street_number?: string
+  neighborhood?: string
+  city?: string
+  state_code?: string
+  postal_code?: string
+  country?: string
+  country_code?: string
+  latitude?: number | null
+  longitude?: number | null
+  place_id?: string | null
 }
 
 export interface CheckoutProjection {
@@ -297,6 +380,7 @@ export interface CheckoutProjection {
   max_preorder_days: number
   closed_dates_json: string
   is_debug: boolean
+  support_whatsapp_url: string
   pickup_hint: string
   delivery_hint: string
 }
@@ -315,7 +399,34 @@ export interface TrackingResponse {
   ref: string
   status: string
   status_label: string
+  status_color: string
+  promise: {
+    state: string
+    title: string
+    message: string
+    tone: 'success' | 'warning' | 'danger' | 'info' | string
+    deadline_at: string | null
+    deadline_kind: string | null
+    timer_mode: string
+    deadline_action: string
+    requires_active_notification: boolean
+    notification_topic: string | null
+    customer_action: string
+    customer_action_label: string
+    customer_action_url: string | null
+    next_event: string
+    recovery: string
+    active_notification: string
+  }
+  progress_steps: Array<{
+    label: string
+    key: string
+    state: 'completed' | 'current' | 'pending' | 'cancelled' | string
+    timestamp_display: string | null
+  }>
   total_display: string
+  delivery_fee_display: string | null
+  is_delivery: boolean
   timeline: Array<{
     label: string
     event_type: string
@@ -337,5 +448,83 @@ export interface TrackingResponse {
     dispatched_at: string | null
     delivered_at: string | null
   }>
+  pickup_info: {
+    address: string
+    opening_hours: string
+    google_maps_url: string | null
+  } | null
+  can_cancel: boolean
+  is_active: boolean
+  server_now_iso: string
+  payment_pending: boolean
+  payment_expired: boolean
+  payment_confirmed: boolean
+  show_payment_confirmed_notice: boolean
   payment_status: string | null
+  payment_expires_at: string | null
+  requires_payment_gate: boolean
+  payment_gate_url: string | null
+  can_rate: boolean
+  rating_url: string | null
+  confirmation_countdown: boolean
+  confirmation_expires_at: string | null
+  eta_display: string | null
+  whatsapp_url: string
+  share_text: string
+  is_debug: boolean
+  last_updated_iso: string
+  last_updated_display: string
+  stale_after_seconds: number
+}
+
+export interface PaymentPromiseProjection {
+  state: string
+  title: string
+  message: string
+  tone: 'success' | 'warning' | 'danger' | 'info' | string
+  customer_action: string
+  customer_action_label: string
+  customer_action_url: string | null
+  deadline_at: string | null
+  deadline_kind: string | null
+  deadline_action: string
+  requires_active_notification: boolean
+  next_event: string
+  recovery: string
+  active_notification: string
+  stale_after_seconds: number | null
+}
+
+export interface PaymentProjection {
+  order_ref: string
+  method: string
+  total_display: string
+  promise: PaymentPromiseProjection
+  pix_qr_code: string | null
+  pix_copy_paste: string | null
+  pix_expires_at: string | null
+  checkout_url: string | null
+  status_url: string
+  tracking_url: string
+  server_now_iso: string
+  error_message: string | null
+  is_debug: boolean
+  can_mock_confirm: boolean
+}
+
+export interface PaymentResponse {
+  redirect_url: string | null
+  intent_ready?: boolean
+  reason?: string
+  payment: PaymentProjection | null
+}
+
+export interface PaymentStatusResponse {
+  order_ref: string
+  promise: PaymentPromiseProjection
+  is_paid: boolean
+  is_cancelled: boolean
+  is_expired: boolean
+  is_terminal: boolean
+  redirect_url: string
 }

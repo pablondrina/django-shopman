@@ -7,9 +7,9 @@ defineProps<{ items: CatalogItemProjection[] }>()
 <template>
   <UPageSection
     v-if="items.length"
-    headline="Direto do forno"
-    title="Ainda quentinho"
-    description="Selecionado pela casa neste exato momento. Disponível agora — sem promessa, é o que tem fresquinho."
+    headline="Destaques"
+    title="Selecionados pela casa"
+    description="Escolhas disponíveis no cardápio."
   >
     <UPageGrid>
       <ProductCard v-for="item in items" :key="item.sku" :item="item" />

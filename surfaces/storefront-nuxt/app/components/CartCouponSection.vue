@@ -50,8 +50,7 @@ async function remove () {
 <template>
   <UCard :ui="{ body: 'p-4' }">
     <template #header>
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-ticket" class="size-4 text-primary" />
+      <div>
         <strong class="text-sm">Cupom de desconto</strong>
       </div>
     </template>
@@ -79,7 +78,6 @@ async function remove () {
         v-if="!isOpen"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-plus"
         size="sm"
         label="Tem um cupom?"
         @click="isOpen = true"

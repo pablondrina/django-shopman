@@ -66,6 +66,9 @@ export async function proxyDjangoPath (event: H3Event, fullPath: string) {
   const contentTypeResponse = response.headers.get('content-type')
   if (contentTypeResponse) appendResponseHeader(event, 'content-type', contentTypeResponse)
 
+  const contentDisposition = response.headers.get('content-disposition')
+  if (contentDisposition) appendResponseHeader(event, 'content-disposition', contentDisposition)
+
   setResponseStatus(event, response.status)
   return response._data
 }

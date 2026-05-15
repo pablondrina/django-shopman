@@ -1,0 +1,465 @@
+{
+  "version": "2026-05-14",
+  "canonical_surface": "django_penguin_storefront",
+  "candidate_surface": "storefront_nuxt_v4",
+  "rule": "A candidate surface is a port only when P0/P1 contracts below have canonical source, backend contract, candidate implementation, and executable verification.",
+  "routes": [
+    {
+      "id": "ROUTE-HOME",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/home.html",
+        "shopman/storefront/templates/storefront/partials/temporal_greeting.html",
+        "shopman/storefront/templates/storefront/partials/quick_reorder.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/home.py",
+        "shopman/storefront/api/surface.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/index.vue",
+        "surfaces/storefront-nuxt/app/components/HeroCarousel.vue",
+        "surfaces/storefront-nuxt/app/components/ContextualBanners.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-MENU",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/menu.html",
+        "shopman/storefront/templates/storefront/partials/_catalog_item_grid.html",
+        "shopman/storefront/templates/storefront/partials/availability_preview.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/catalog.py",
+        "shopman/storefront/api/surface.py",
+        "shopman/storefront/tests/api/test_storefront_surface.py"
+    ],
+    "candidate_sources": [
+      "surfaces/storefront-nuxt/app/pages/menu.vue",
+      "surfaces/storefront-nuxt/app/components/ProductCard.vue"
+    ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-PDP",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/product_detail.html",
+        "shopman/storefront/templates/storefront/partials/stock_error_modal.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/product_detail.py",
+        "shopman/storefront/api/surface.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/product/[sku].vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-CART",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/cart.html",
+        "shopman/storefront/templates/storefront/partials/_cart_page_content.html",
+        "shopman/storefront/templates/storefront/partials/cart_drawer.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/cart.py",
+        "shopman/storefront/api/views.py",
+        "shopman/storefront/tests/test_stock_error_ux.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/cart.vue",
+        "surfaces/storefront-nuxt/app/components/CartLineItem.vue",
+        "surfaces/storefront-nuxt/app/components/BottomCartBar.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-CHECKOUT",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/checkout.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/checkout.py",
+        "shopman/storefront/api/views.py",
+        "shopman/storefront/tests/web/test_web_checkout.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/checkout.vue",
+        "surfaces/storefront-nuxt/app/components/CheckoutDatePicker.vue",
+        "surfaces/storefront-nuxt/app/components/AddressFormModal.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-AUTH",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/login.html",
+        "shopman/storefront/templates/storefront/partials/auth_verify_code.html",
+        "shopman/storefront/templates/storefront/partials/auth_confirmed.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/intents/_phone.py",
+        "shopman/storefront/api/auth.py",
+        "packages/utils/shopman/utils/phone.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/login.vue",
+        "surfaces/storefront-nuxt/app/components/AppHeader.vue",
+        "surfaces/storefront-nuxt/app/components/ShopBottomTabs.vue",
+        "surfaces/storefront-nuxt/app/composables/useShopSession.ts"
+      ],
+      "verification": [
+        "packages/utils/shopman/utils/tests/test_phone.py",
+        "shopman/storefront/tests/api/test_auth_session.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-ACCOUNT",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/account.html",
+        "shopman/storefront/templates/storefront/partials/profile_display.html",
+        "shopman/storefront/templates/storefront/partials/address_picker.html",
+        "shopman/storefront/templates/storefront/partials/device_list.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/account.py",
+        "shopman/storefront/api/account.py",
+        "shopman/storefront/tests/api/test_account_summary.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/account.vue",
+        "surfaces/storefront-nuxt/app/components/AddressFormModal.vue",
+        "surfaces/storefront-nuxt/app/components/AddressAutocomplete.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-PAYMENT",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/_payment_card.html",
+        "shopman/storefront/templates/storefront/partials/payment_status.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/payment.py",
+        "shopman/storefront/api/payment.py",
+        "shopman/storefront/tests/web/test_projections_payment.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/order/[ref]/payment.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "ROUTE-TRACKING-REORDER",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/order_tracking.html",
+        "shopman/storefront/templates/storefront/order_history.html",
+        "shopman/storefront/templates/storefront/partials/order_live.html",
+        "shopman/storefront/templates/storefront/partials/reorder_conflict_modal.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/order_tracking.py",
+        "shopman/storefront/projections/order_history.py",
+        "shopman/storefront/api/tracking.py",
+        "shopman/storefront/api/surface.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/tracking/[ref].vue",
+        "surfaces/storefront-nuxt/app/components/ReorderConflictModal.vue",
+        "surfaces/storefront-nuxt/app/composables/useReorder.ts"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    }
+  ],
+  "contracts": [
+    {
+      "id": "AUTH-PHONE-BR-001",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/login.html"
+      ],
+      "backend_contracts": [
+        "packages/utils/shopman/utils/phone.py",
+        "shopman/storefront/intents/_phone.py",
+        "shopman/storefront/api/auth.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/login.vue"
+      ],
+      "verification": [
+        "packages/utils/shopman/utils/tests/test_phone.py",
+        "shopman/storefront/tests/api/test_auth_session.py"
+      ]
+    },
+    {
+      "id": "AUTH-SESSION-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/base.html",
+        "shopman/storefront/templates/storefront/account.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/api/auth.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/components/AppHeader.vue",
+        "surfaces/storefront-nuxt/app/components/ShopBottomTabs.vue",
+        "surfaces/storefront-nuxt/app/composables/useShopSession.ts"
+      ],
+      "verification": [
+        "shopman/storefront/tests/api/test_auth_session.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "AUTH-PHONE-BR-002",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/login.html",
+        "shopman/storefront/templates/storefront/partials/auth_verify_code.html"
+      ],
+      "backend_contracts": [
+        "packages/utils/shopman/utils/phone.py",
+        "shopman/storefront/api/auth.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/login.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/api/test_auth_session.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "AUTH-SESSION-002",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/base.html",
+        "shopman/storefront/templates/storefront/home.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections/home.py",
+        "shopman/storefront/api/auth.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/composables/useShopSession.ts",
+        "surfaces/storefront-nuxt/app/components/AppHeader.vue",
+        "surfaces/storefront-nuxt/app/pages/index.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/api/test_auth_session.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "NUXT-ROUTE-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/urls.py",
+        "shopman/storefront/templates/storefront/base.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/services/catalog.py",
+        "shopman/storefront/api/surface.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/account.vue",
+        "surfaces/storefront-nuxt/app/pages/logout.vue",
+      "surfaces/storefront-nuxt/app/pages/how-it-works.vue",
+      "surfaces/storefront-nuxt/app/pages/product/[sku].vue",
+      "surfaces/storefront-nuxt/app/pages/order/[ref]/payment.vue",
+      "surfaces/storefront-nuxt/app/pages/order/[ref]/confirmation.vue",
+      "surfaces/storefront-nuxt/app/pages/menu.vue"
+    ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "CUSTOMER-MERGE-001",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/account.html",
+        "shopman/storefront/templates/storefront/order_history.html"
+      ],
+      "backend_contracts": [
+        "packages/guestman/shopman/guestman/contrib/merge/service.py",
+        "shopman/shop/services/customer_orders.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/account.vue"
+      ],
+      "verification": [
+        "packages/guestman/shopman/guestman/tests/test_merge.py"
+      ]
+    },
+    {
+      "id": "CHECKOUT-PAYLOAD-001",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/checkout.html",
+        "shopman/storefront/templates/storefront/partials/address_picker.html",
+        "shopman/storefront/templates/storefront/partials/checkout_order_summary.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/api/serializers.py",
+        "shopman/storefront/api/views.py",
+        "shopman/storefront/projections/checkout.py",
+        "shopman/shop/services/checkout.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/checkout.vue",
+        "surfaces/storefront-nuxt/app/components/AddressFormModal.vue",
+        "surfaces/storefront-nuxt/app/types/shopman.ts"
+      ],
+      "verification": [
+        "shopman/storefront/tests/web/test_web_checkout.py",
+        "shopman/storefront/tests/web/test_projections_checkout.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "REORDER-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/partials/reorder_conflict_modal.html",
+        "shopman/storefront/templates/storefront/partials/quick_reorder.html",
+        "shopman/storefront/templates/storefront/order_history.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/api/surface.py",
+        "shopman/storefront/services/orders.py",
+        "shopman/storefront/projections/order_history.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/components/ReorderConflictModal.vue",
+        "surfaces/storefront-nuxt/app/composables/useReorder.ts",
+        "surfaces/storefront-nuxt/app/pages/account.vue",
+        "surfaces/storefront-nuxt/app/components/HeroCarousel.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_home_reorder.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "A11Y-ACTION-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/storefront/templates/storefront/cart.html",
+        "shopman/storefront/templates/storefront/account.html",
+        "shopman/storefront/templates/storefront/order_tracking.html",
+        "shopman/storefront/templates/storefront/partials/reorder_conflict_modal.html"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/api/account.py",
+        "shopman/storefront/api/tracking.py",
+        "shopman/storefront/api/views.py",
+        "shopman/storefront/api/surface.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/logout.vue",
+        "surfaces/storefront-nuxt/app/pages/account.vue",
+        "surfaces/storefront-nuxt/app/pages/tracking/[ref].vue",
+        "surfaces/storefront-nuxt/app/pages/cart.vue",
+        "surfaces/storefront-nuxt/app/pages/checkout.vue",
+        "surfaces/storefront-nuxt/app/components/ReorderConflictModal.vue"
+      ],
+      "verification": [
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "PAYMENT-GATE-001",
+      "severity": "P0",
+      "canonical_sources": [
+        "shopman/storefront/views/tracking.py",
+        "shopman/storefront/views/payment.py",
+        "shopman/storefront/templates/storefront/payment.html"
+      ],
+      "backend_contracts": [
+        "shopman/shop/services/customer_orders.py",
+        "shopman/storefront/api/tracking.py",
+        "shopman/storefront/api/payment.py"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/pages/tracking/[ref].vue",
+        "surfaces/storefront-nuxt/app/pages/order/[ref]/payment.vue",
+        "surfaces/storefront-nuxt/app/types/shopman.ts"
+      ],
+      "verification": [
+        "shopman/storefront/tests/web/test_web_order_tracking.py",
+        "shopman/storefront/tests/web/test_web_tracking.py",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "COPY-FACT-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/shop/omotenashi/copy.py",
+        "shopman/storefront/templates/storefront"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections",
+        "shopman/storefront/api"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/utils/operationalCopy.ts",
+        "surfaces/storefront-nuxt/app/pages",
+        "surfaces/storefront-nuxt/app/components"
+      ],
+      "verification": [
+        "docs/reference/storefront-surface-parity-contract.md",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    },
+    {
+      "id": "COPY-SOURCE-001",
+      "severity": "P1",
+      "canonical_sources": [
+        "shopman/shop/omotenashi/copy.py",
+        "shopman/storefront/templates/storefront"
+      ],
+      "backend_contracts": [
+        "shopman/storefront/projections"
+      ],
+      "candidate_sources": [
+        "surfaces/storefront-nuxt/app/utils/operationalCopy.ts",
+        "surfaces/storefront-nuxt/app/pages",
+        "surfaces/storefront-nuxt/app/components"
+      ],
+      "verification": [
+        "docs/reference/storefront-surface-parity-contract.md",
+        "shopman/storefront/tests/test_storefront_nuxt_parity_contract.py"
+      ]
+    }
+  ]
+}

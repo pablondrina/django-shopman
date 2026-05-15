@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen pb-36 sm:pb-24 lg:pb-0">
+  <div class="min-h-screen pb-[calc(var(--shop-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] sm:pb-0">
     <AppHeader />
     <UMain>
       <slot />
@@ -8,5 +8,7 @@
     <ShopBottomTabs />
     <AppFooter />
     <ReorderConflictModal />
+    <ReorderRecoveryModal />
+    <CartIssueModal />
   </div>
 </template>

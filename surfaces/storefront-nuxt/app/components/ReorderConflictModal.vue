@@ -1,10 +1,24 @@
 <script setup lang="ts">
 const { conflict, resolveConflict, dismissConflict, pending } = useReorder()
+const { cart } = useCartState()
+const replaceAcknowledged = ref(false)
 
 const open = computed({
   get: () => !!conflict.value,
   set: (val) => { if (!val) dismissConflict() }
 })
+
+const currentCartItems = computed(() => cart.value.items || [])
+const hasCurrentCart = computed(() => currentCartItems.value.length > 0)
+
+watch(open, (value) => {
+  if (!value) replaceAcknowledged.value = false
+})
+
+async function replaceCart () {
+  if (!replaceAcknowledged.value) return
+  await resolveConflict('replace')
+}
 </script>
 
 <template>
@@ -15,8 +29,25 @@ const open = computed({
           Você ainda tem itens no carrinho. Como prefere continuar?
         </p>
 
-        <UCard variant="subtle" :ui="{ body: 'p-4' }">
-          <p class="text-xs uppercase tracking-wide font-semibold text-muted mb-2">
+        <div v-if="hasCurrentCart" class="rounded-lg border border-warning/30 bg-warning/10 p-4">
+          <p class="text-xs uppercase font-semibold text-warning mb-2">
+            Carrinho atual
+          </p>
+          <ul class="grid gap-1.5 text-sm">
+            <li
+              v-for="item in currentCartItems"
+              :key="item.line_id"
+              class="flex items-baseline gap-2"
+            >
+              <span class="text-muted tabular-nums w-8">{{ item.qty }}×</span>
+              <span class="flex-1 truncate">{{ item.name }}</span>
+              <span class="text-muted whitespace-nowrap">{{ item.total_display }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-lg border border-default p-4">
+          <p class="text-xs uppercase font-semibold text-muted mb-2">
             Itens do pedido {{ conflict?.orderRef }}
           </p>
           <ul class="grid gap-1.5 text-sm">
@@ -29,7 +60,12 @@ const open = computed({
               <span class="flex-1 truncate">{{ item.name }}</span>
             </li>
           </ul>
-        </UCard>
+        </div>
+
+        <UCheckbox
+          v-model="replaceAcknowledged"
+          label="Entendo que substituir o carrinho remove os itens atuais antes de recriar este pedido."
+        />
 
         <div class="grid sm:grid-cols-2 gap-3 mt-2">
           <UButton
@@ -49,8 +85,9 @@ const open = computed({
             block
             icon="i-lucide-rotate-ccw"
             :loading="pending"
+            :disabled="!replaceAcknowledged"
             label="Substituir o carrinho"
-            @click="resolveConflict('replace')"
+            @click="replaceCart"
           />
         </div>
 

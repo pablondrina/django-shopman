@@ -19,13 +19,7 @@ const canIncrement = computed(() => props.canAdd && qty.value < max.value && !pe
 const canDecrement = computed(() => qty.value > 0 && !pending.value)
 const controlSize = computed(() => props.size || 'xs')
 const label = computed(() => props.canAdd ? (props.addLabel || 'Adicionar') : (props.unavailableLabel || 'Indisponível'))
-
-const value = computed({
-  get: () => qty.value,
-  set: (next: number | null | undefined) => {
-    void setQuantity(next).catch(() => {})
-  }
-})
+const productName = computed(() => props.meta.name || 'item')
 
 function normalizeQty (next: number | null | undefined): number {
   if (typeof next !== 'number' || Number.isNaN(next)) return 0
@@ -49,23 +43,49 @@ async function setQuantity (next: number | null | undefined) {
       icon="i-lucide-plus"
       :size="controlSize"
       :label="label"
+      :aria-label="`${label} ${productName}`"
       :loading="pending"
       :disabled="!canAdd || pending"
+      data-haptic="light"
       @click="setQuantity(1)"
     />
 
-    <UInputNumber
+    <div
       v-else
-      v-model="value"
-      aria-label="Quantidade no carrinho"
-      color="neutral"
-      variant="outline"
-      :size="controlSize"
-      :min="0"
-      :max="max"
-      :step="1"
-      disable-wheel-change
-      :disabled="pending"
-    />
+      class="inline-flex items-center overflow-hidden rounded-md border border-default bg-default shadow-xs"
+      role="group"
+      :aria-label="`Quantidade de ${productName} no carrinho`"
+    >
+      <UButton
+        color="neutral"
+        variant="ghost"
+        icon="i-lucide-minus"
+        :size="controlSize"
+        class="rounded-none"
+        :aria-label="`Diminuir quantidade de ${productName}`"
+        :loading="pending"
+        :disabled="!canDecrement"
+        data-haptic="double"
+        @click="setQuantity(qty - 1)"
+      />
+      <span
+        class="min-w-9 px-2 text-center text-sm font-semibold tabular-nums text-highlighted"
+        aria-live="polite"
+      >
+        {{ qty }}
+      </span>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        icon="i-lucide-plus"
+        :size="controlSize"
+        class="rounded-none"
+        :aria-label="`Aumentar quantidade de ${productName}`"
+        :loading="pending"
+        :disabled="!canIncrement"
+        data-haptic="light"
+        @click="setQuantity(qty + 1)"
+      />
+    </div>
   </div>
 </template>

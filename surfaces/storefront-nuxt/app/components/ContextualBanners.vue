@@ -9,6 +9,7 @@ const showBirthday = computed(() => props.home.omotenashi.is_birthday)
 const showQuickReorder = computed(() => !!props.home.last_order_ref && !!props.home.omotenashi.customer_name)
 const showClosing = computed(() => props.home.omotenashi.moment === 'fechando')
 const showWhatsappWelcome = computed(() => props.home.origin_channel === 'whatsapp')
+const quickReorderItems = computed(() => props.home.last_order_items.slice(0, 4))
 
 async function reorder () {
   if (props.home.last_order_ref) await performReorder(props.home.last_order_ref)
@@ -25,71 +26,88 @@ const closingHint = computed(() => {
 <template>
   <UContainer
     v-if="showBirthday || showQuickReorder || showClosing || showWhatsappWelcome"
-    class="grid gap-3 pb-2"
+    class="relative z-10 grid gap-3 py-4 sm:py-5 lg:grid-cols-2"
   >
-    <UAlert
+    <UCard
       v-if="showBirthday"
-      icon="i-lucide-gift"
-      color="primary"
-      variant="subtle"
-      title="Feliz aniversário! 🎉"
-      :description="`${home.omotenashi.customer_name || 'Você'}, hoje a casa quer celebrar com você. Aproveite seu mimo no carrinho.`"
+      class="shop-soft-panel"
+      :ui="{ body: 'p-4 sm:p-5' }"
     >
-      <template #actions>
-        <UButton label="Ver cardápio" to="/menu" color="primary" variant="solid" size="sm" trailing-icon="i-lucide-arrow-right" />
-      </template>
-    </UAlert>
+      <div class="flex items-center gap-4">
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold text-highlighted">Feliz aniversário!</p>
+          <p class="text-sm text-muted">{{ home.omotenashi.customer_name || 'Você' }}, confira as opções disponíveis hoje.</p>
+        </div>
+        <UButton label="Ver" to="/menu" color="primary" variant="solid" size="sm" />
+      </div>
+    </UCard>
 
-    <UAlert
+    <UCard
       v-if="showQuickReorder"
-      icon="i-lucide-rotate-ccw"
-      color="info"
-      variant="subtle"
-      title="Bem-vindo de volta!"
-      :description="`Quer repetir seu último pedido, ${home.omotenashi.customer_name}? A gente prepara igualzinho.`"
+      class="shop-soft-panel"
+      :ui="{ body: 'p-5 sm:p-6' }"
     >
-      <template #actions>
+      <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div class="min-w-0">
+          <p class="text-base font-semibold text-highlighted">Quer repetir seu último pedido?</p>
+          <ul
+            v-if="quickReorderItems.length"
+            class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted"
+            aria-label="Itens do último pedido"
+          >
+            <li v-for="line in quickReorderItems" :key="line.sku" class="min-w-0">
+              <span class="font-medium text-highlighted">{{ line.qty }}×</span>
+              <span> {{ line.name }}</span>
+            </li>
+          </ul>
+          <p v-else class="mt-1 text-sm text-muted">O pedido anterior volta ao carrinho para revisão.</p>
+        </div>
         <UButton
           label="Repetir pedido"
-          color="info"
+          color="neutral"
           variant="solid"
-          size="sm"
-          icon="i-lucide-rotate-ccw"
+          size="md"
+          class="sm:justify-self-end"
           :loading="reorderPending"
           @click="reorder"
         />
-      </template>
-    </UAlert>
+      </div>
+    </UCard>
 
-    <UAlert
+    <UCard
       v-if="showClosing"
-      icon="i-lucide-clock"
-      color="warning"
-      variant="subtle"
-      title="Últimos pedidos do dia"
-      :description="`${closingHint}. Aproveita pra garantir o seu antes de fechar.`"
-    />
-
-    <UAlert
-      v-if="showWhatsappWelcome"
-      icon="i-lucide-message-circle"
-      color="success"
-      variant="subtle"
-      title="Que bom te receber por aqui"
-      description="Você chegou pelo WhatsApp! Continue navegando, e qualquer dúvida é só chamar."
+      class="shop-soft-panel"
+      :ui="{ body: 'p-4 sm:p-5' }"
     >
-      <template v-if="home.shop.whatsapp_url" #actions>
+      <div class="flex items-center gap-4">
+        <div>
+          <p class="font-semibold text-highlighted">Últimos pedidos do dia</p>
+          <p class="text-sm text-muted">{{ closingHint }}. Revise a disponibilidade antes de pedir.</p>
+        </div>
+      </div>
+    </UCard>
+
+    <UCard
+      v-if="showWhatsappWelcome"
+      class="shop-soft-panel"
+      :ui="{ body: 'p-4 sm:p-5' }"
+    >
+      <div class="flex items-center gap-4">
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold text-highlighted">Atendimento pelo WhatsApp</p>
+          <p class="text-sm text-muted">Você chegou pelo WhatsApp. O atendimento continua por lá, se precisar.</p>
+        </div>
         <UButton
+          v-if="home.shop.whatsapp_url"
           :to="home.shop.whatsapp_url"
           target="_blank"
           rel="noopener"
-          label="Abrir WhatsApp"
+          label="WhatsApp"
           color="success"
-          variant="solid"
+          variant="outline"
           size="sm"
-          icon="i-lucide-message-circle"
         />
-      </template>
-    </UAlert>
+      </div>
+    </UCard>
   </UContainer>
 </template>

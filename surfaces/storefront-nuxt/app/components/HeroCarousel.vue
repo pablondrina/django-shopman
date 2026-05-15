@@ -2,12 +2,13 @@
 import type { HomeProjection } from '~/types/shopman'
 
 const props = defineProps<{ home: HomeProjection }>()
+const { performReorder, pending: reorderPending } = useReorder()
 
 interface HeroSlide {
   eyebrow?: string
   title: string
   description: string
-  cta: { label: string, to: string }
+  cta: { label: string, to?: string, action?: 'reorder' }
   secondaryCta?: { label: string, to: string }
   image: string
 }
@@ -19,25 +20,25 @@ const slides = computed<HeroSlide[]>(() => {
   if (omo.is_birthday) {
     list.push({
       eyebrow: 'Feliz aniversário',
-      title: `Hoje o dia é seu, ${omo.customer_name || 'querido'}.`,
-      description: 'Tem um docinho separado pra você. A casa quer celebrar contigo.',
+      title: `Olá, ${omo.customer_name || 'cliente'}.`,
+      description: 'Seu cadastro indica aniversário hoje. Confira as opções disponíveis no cardápio.',
       cta: { label: 'Ver cardápio', to: '/menu' },
       image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1600&q=80'
     })
   }
 
   list.push({
-    eyebrow: omo.shop_hint || 'Fresquinho do forno',
-    title: 'Feito à mão, todo dia.',
-    description: 'Do forno para a sua mesa. Escolha, peça e acompanhe — tudo no seu tempo.',
+    eyebrow: omo.shop_hint || 'Cardápio online',
+    title: omo.greeting_with_name || 'Feito à mão, todo dia.',
+    description: props.home.shop_status.message || 'Consulte a disponibilidade, peça e acompanhe.',
     cta: { label: 'Ver cardápio', to: '/menu' },
     image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80'
   })
 
   list.push({
-    eyebrow: 'Acompanhamos cada pedido',
-    title: 'Peça. Acompanhe. Aproveite.',
-    description: 'Pedido pronto na hora certa, do jeitinho que você gosta.',
+    eyebrow: 'Pedido online',
+    title: 'Peça e acompanhe.',
+    description: 'Acompanhe o pedido do pagamento à retirada ou entrega.',
     cta: { label: 'Começar pedido', to: '/menu' },
     image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80'
   })
@@ -45,65 +46,90 @@ const slides = computed<HeroSlide[]>(() => {
   if (props.home.last_order_ref) {
     list.push({
       eyebrow: `De volta, ${omo.customer_name || ''}?`.trim(),
-      title: 'Repita seu último pedido.',
-      description: 'Em dois cliques, do mesmo jeito que você gosta.',
-      cta: { label: 'Repetir pedido', to: '/menu' },
+      title: 'Pedir de novo.',
+      description: 'Revise os itens antes de adicionar ao carrinho.',
+      cta: { label: 'Repetir pedido', action: 'reorder' },
       secondaryCta: { label: 'Ver cardápio', to: '/menu' },
       image: 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?auto=format&fit=crop&w=1600&q=80'
     })
   }
 
   list.push({
-    eyebrow: 'Cuidado em cada detalhe',
-    title: 'Receitas que demoram, sabores que ficam.',
-    description: 'Fermentação lenta, ingredientes selecionados, mãos atentas.',
+    eyebrow: 'Cardápio publicado',
+    title: 'Escolhas da casa.',
+    description: 'Itens publicados aparecem com a disponibilidade informada pela loja.',
     cta: { label: 'Conhecer cardápio', to: '/menu' },
     image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&w=1600&q=80'
   })
 
   return list
 })
+
+async function activateSlideCta (item: HeroSlide) {
+  if (item.cta.action === 'reorder' && props.home.last_order_ref) {
+    await performReorder(props.home.last_order_ref)
+  }
+}
 </script>
 
 <template>
-  <section class="dark relative isolate overflow-hidden bg-default text-default">
+  <section class="relative bg-default text-default sm:py-4">
+    <UContainer class="px-0 sm:px-4">
     <UCarousel
       v-slot="{ item }"
       :items="slides"
       :autoplay="{ delay: 6000 }"
-      :ui="{ item: 'basis-full min-w-0' }"
+      :ui="{
+        viewport: 'overflow-hidden',
+        container: 'flex items-stretch',
+        item: 'min-w-0 shrink-0 basis-full ps-0',
+        dots: 'absolute inset-x-0 bottom-4 z-20 flex items-center justify-center gap-2',
+        dot: 'size-2 rounded-full bg-white/45 transition data-[state=active]:w-6 data-[state=active]:bg-white'
+      }"
       loop
       dots
-      class="w-full"
+      fade
+      class="w-full overflow-hidden sm:rounded-lg"
     >
-      <article class="relative isolate overflow-hidden">
+      <article class="relative isolate overflow-hidden bg-neutral-950">
         <img
           :src="item.image"
           alt=""
           loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          sizes="100vw"
           class="absolute inset-0 size-full object-cover"
         >
-        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/25" />
-        <UContainer class="relative py-20 sm:py-28 lg:py-36">
-          <div class="max-w-2xl">
-            <p v-if="item.eyebrow" class="text-sm uppercase tracking-wider font-medium text-muted">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/82 via-black/48 to-black/18" />
+        <div class="relative flex min-h-[calc(82svh-var(--ui-header-height))] items-center justify-center px-6 py-16 text-center sm:min-h-[520px] sm:px-10 lg:min-h-[560px]">
+          <div class="mx-auto max-w-3xl">
+            <p v-if="item.eyebrow" class="shop-section-kicker justify-center text-white/85">
               {{ item.eyebrow }}
             </p>
-            <h1 class="mt-3 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] text-highlighted">
+            <h1 class="shop-hero-copy mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
               {{ item.title }}
             </h1>
-            <p class="mt-5 text-base sm:text-lg leading-relaxed text-muted max-w-xl">
+            <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/78 sm:text-lg">
               {{ item.description }}
             </p>
-            <div class="mt-8 flex flex-wrap gap-3">
+            <div class="mt-7 flex flex-wrap justify-center gap-3">
               <UButton
+                v-if="item.cta.to"
                 :label="item.cta.label"
                 :to="item.cta.to"
                 size="xl"
                 color="neutral"
                 variant="solid"
-                icon="i-lucide-arrow-right"
-                trailing
+              />
+              <UButton
+                v-else
+                :label="item.cta.label"
+                size="xl"
+                color="neutral"
+                variant="solid"
+                :loading="reorderPending"
+                @click="activateSlideCta(item)"
               />
               <UButton
                 v-if="item.secondaryCta"
@@ -112,11 +138,13 @@ const slides = computed<HeroSlide[]>(() => {
                 size="xl"
                 color="neutral"
                 variant="outline"
+                class="bg-white/5 text-white ring-white/30 hover:bg-white/10"
               />
             </div>
           </div>
-        </UContainer>
+        </div>
       </article>
     </UCarousel>
+  </UContainer>
   </section>
 </template>
