@@ -3,6 +3,8 @@
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+from django.db.models import Count
+from django.utils import timezone
 
 
 def create_default_terminal(apps, schema_editor):
@@ -18,6 +20,73 @@ def create_default_terminal(apps, schema_editor):
         },
     )
     CashShift.objects.filter(terminal__isnull=True).update(terminal=terminal)
+
+
+def _append_note(notes: str, message: str) -> str:
+    notes = (notes or "").strip()
+    if not notes:
+        return message
+    return f"{notes}\n{message}"
+
+
+def resolve_legacy_open_shift_conflicts(apps, schema_editor):
+    POSTerminal = apps.get_model("backstage", "POSTerminal")
+    CashShift = apps.get_model("backstage", "CashShift")
+    now = timezone.now()
+
+    duplicate_operator_rows = (
+        CashShift.objects.filter(status="open")
+        .values("operator_id")
+        .annotate(open_count=Count("id"))
+        .filter(open_count__gt=1)
+    )
+    for row in duplicate_operator_rows:
+        shifts = list(
+            CashShift.objects.filter(status="open", operator_id=row["operator_id"]).order_by("-opened_at", "-id")
+        )
+        for shift in shifts[1:]:
+            shift.status = "void"
+            shift.closed_at = shift.closed_at or now
+            shift.notes = _append_note(
+                shift.notes,
+                "Voided by migration 0008 because this operator already had a newer open cash shift.",
+            )
+            shift.save(update_fields=["status", "closed_at", "notes"])
+
+    duplicate_terminal_rows = (
+        CashShift.objects.filter(status="open")
+        .values("terminal_id")
+        .annotate(open_count=Count("id"))
+        .filter(open_count__gt=1)
+    )
+    for row in duplicate_terminal_rows:
+        terminal = POSTerminal.objects.get(pk=row["terminal_id"])
+        shifts = list(CashShift.objects.filter(status="open", terminal=terminal).order_by("-opened_at", "-id"))
+        for shift in shifts[1:]:
+            legacy_terminal, _ = POSTerminal.objects.get_or_create(
+                ref=f"pdv-legacy-{shift.pk}",
+                defaults={
+                    "label": f"PDV legado {shift.pk}",
+                    "channel_ref": terminal.channel_ref,
+                    "location_ref": terminal.location_ref,
+                    "is_active": terminal.is_active,
+                    "metadata": {
+                        "created_by_migration": "backstage.0008_cashshift_posterminal",
+                        "split_from_terminal_ref": terminal.ref,
+                    },
+                },
+            )
+            metadata = dict(shift.metadata or {})
+            migration_metadata = dict(metadata.get("migration_0008") or {})
+            migration_metadata["split_from_terminal_ref"] = terminal.ref
+            metadata["migration_0008"] = migration_metadata
+            shift.terminal = legacy_terminal
+            shift.metadata = metadata
+            shift.notes = _append_note(
+                shift.notes,
+                f"Assigned to {legacy_terminal.ref} by migration 0008 to preserve concurrent open shifts.",
+            )
+            shift.save(update_fields=["terminal", "metadata", "notes"])
 
 
 def noop_reverse(apps, schema_editor):
@@ -82,6 +151,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(create_default_terminal, noop_reverse),
+        migrations.RunPython(resolve_legacy_open_shift_conflicts, noop_reverse),
         migrations.AlterField(
             model_name="cashshift",
             name="terminal",
