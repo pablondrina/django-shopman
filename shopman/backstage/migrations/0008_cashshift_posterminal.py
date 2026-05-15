@@ -94,6 +94,7 @@ def noop_reverse(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ("backstage", "0007_operationchecklisttemplate_operationtasktemplate_and_more"),
