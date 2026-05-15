@@ -1,4 +1,4 @@
-"""Backstage command services."""
+"""Backstage mutation services."""
 
 __all__ = [
     "alerts",

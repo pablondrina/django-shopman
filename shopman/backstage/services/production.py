@@ -1,4 +1,4 @@
-"""Production operator command facade.
+"""Production operator mutation facade.
 
 Backstage views call this module for production mutations. Domain invariants
 remain in ``shopman.shop.services.production`` and Craftsman; this layer is the

@@ -1,4 +1,4 @@
-"""POS tab command semantics."""
+"""POS tab mutation semantics."""
 
 from __future__ import annotations
 

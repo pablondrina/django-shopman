@@ -1,4 +1,4 @@
-"""Production command service facade tests."""
+"""Production mutation service facade tests."""
 
 from __future__ import annotations
 

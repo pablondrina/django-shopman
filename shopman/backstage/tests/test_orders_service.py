@@ -1,4 +1,4 @@
-"""Order command service facade tests."""
+"""Order mutation service facade tests."""
 
 from __future__ import annotations
 

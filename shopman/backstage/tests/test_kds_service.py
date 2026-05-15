@@ -1,4 +1,4 @@
-"""KDS command service tests."""
+"""KDS mutation service tests."""
 
 from __future__ import annotations
 

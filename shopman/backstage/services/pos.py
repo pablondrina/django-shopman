@@ -1,4 +1,4 @@
-"""POS command service for backstage cash-shift mutations."""
+"""POS mutation service for backstage cash-shift mutations."""
 
 from __future__ import annotations
 

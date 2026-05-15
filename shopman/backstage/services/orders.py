@@ -1,4 +1,4 @@
-"""Backstage order command facade."""
+"""Backstage order mutation facade."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Operator alert command service."""
+"""Operator alert mutation service."""
 
 from __future__ import annotations
 

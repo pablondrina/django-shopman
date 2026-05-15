@@ -1,4 +1,4 @@
-"""Day closing command service.
+"""Day closing mutation service.
 
 The DayClosing audit record is owned by Backstage, while physical stock
 movements are delegated to Stockman. Views call this service so HTTP code does

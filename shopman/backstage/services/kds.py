@@ -1,4 +1,4 @@
-"""Backstage KDS command facade."""
+"""Backstage KDS mutation facade."""
 
 from __future__ import annotations
 
