@@ -1,4 +1,4 @@
-"""POS command service for backstage cash-register mutations."""
+"""POS command service for backstage cash-shift mutations."""
 
 from __future__ import annotations
 
@@ -13,17 +13,32 @@ def parse_money_to_q(raw) -> int:
         return 0
 
 
-def open_cash_session(*, operator, opening_amount_raw="0"):
-    from shopman.backstage.models import CashRegisterSession
+def open_cash_shift(*, operator, opening_amount_raw="0", terminal_ref: str = ""):
+    from shopman.backstage.models import CashShift
 
-    existing = CashRegisterSession.get_open_for_operator(operator)
+    existing = CashShift.get_open_for_operator(operator)
     if existing:
         return existing
 
+    terminal = _terminal(terminal_ref)
+    terminal_open = CashShift.get_open_for_terminal(terminal)
+    if terminal_open:
+        raise POSError("Terminal POS já possui turno aberto.")
+
     opening_amount_q = max(0, parse_money_to_q(opening_amount_raw))
-    return CashRegisterSession.objects.create(
+    return CashShift.objects.create(
+        terminal=terminal,
         operator=operator,
         opening_amount_q=opening_amount_q,
+    )
+
+
+def open_cash_session(*, operator, opening_amount_raw="0", terminal_ref: str = ""):
+    """Compatibility wrapper for the former service name."""
+    return open_cash_shift(
+        operator=operator,
+        opening_amount_raw=opening_amount_raw,
+        terminal_ref=terminal_ref,
     )
 
 
@@ -34,11 +49,13 @@ def register_cash_movement(
     amount_raw="0",
     reason: str = "",
 ):
-    from shopman.backstage.models import CashMovement, CashRegisterSession
+    from shopman.backstage.models import CashMovement, CashShift
 
-    session = CashRegisterSession.get_open_for_operator(operator)
-    if not session:
+    shift = CashShift.get_open_for_operator(operator)
+    if not shift:
         raise POSError("Caixa não aberto.")
+    if shift.status != CashShift.Status.OPEN:
+        raise POSError("Turno de caixa já fechado.")
 
     normalized_type = movement_type if movement_type in {"sangria", "suprimento", "ajuste"} else "sangria"
     amount_q = parse_money_to_q(amount_raw)
@@ -46,7 +63,7 @@ def register_cash_movement(
         raise POSError("Valor inválido.")
 
     return CashMovement.objects.create(
-        session=session,
+        shift=shift,
         movement_type=normalized_type,
         amount_q=amount_q,
         reason=reason.strip(),
@@ -54,15 +71,37 @@ def register_cash_movement(
     )
 
 
-def close_cash_session(*, operator, closing_amount_raw="0", notes: str = ""):
-    from shopman.backstage.models import CashRegisterSession
+def close_cash_shift(*, operator, closing_amount_raw="0", notes: str = ""):
+    from shopman.backstage.models import CashShift
 
-    session = CashRegisterSession.get_open_for_operator(operator)
-    if not session:
+    shift = CashShift.get_open_for_operator(operator)
+    if not shift:
         raise POSError("Caixa não aberto.")
 
-    session.close(
-        closing_amount_q=parse_money_to_q(closing_amount_raw),
+    shift.close(
+        blind_closing_amount_q=parse_money_to_q(closing_amount_raw),
         notes=notes.strip(),
     )
-    return session
+    return shift
+
+
+def close_cash_session(*, operator, closing_amount_raw="0", notes: str = ""):
+    """Compatibility wrapper for the former service name."""
+    return close_cash_shift(
+        operator=operator,
+        closing_amount_raw=closing_amount_raw,
+        notes=notes,
+    )
+
+
+def _terminal(terminal_ref: str = ""):
+    from shopman.backstage.models import POSTerminal
+
+    ref = str(terminal_ref or "").strip()
+    if ref:
+        terminal = POSTerminal.objects.filter(ref=ref, is_active=True).first()
+        if not terminal:
+            raise POSError("Terminal POS inválido.")
+        return terminal
+    terminal = POSTerminal.objects.filter(is_active=True).order_by("ref").first()
+    return terminal or POSTerminal.default()

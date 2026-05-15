@@ -221,6 +221,7 @@ def handle_production_post(request, access, *, redirect_url_name: str = "admin_c
                     reason=request.POST.get("reason", "").strip(),
                     actor=actor,
                     force=request.POST.get("force") == "1",
+                    source_ref="formula:suggestion" if is_suggestion else "production_matrix",
                 )
                 if result == "cleared":
                     messages.success(request, f"Planejamento zerado: {output_sku}")

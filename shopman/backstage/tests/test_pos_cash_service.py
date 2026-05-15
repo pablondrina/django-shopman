@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth.models import User
 
-from shopman.backstage.models import CashMovement, CashRegisterSession
+from shopman.backstage.models import CashMovement, CashRegisterSession, CashShift, POSTerminal
 from shopman.backstage.services import pos
 from shopman.backstage.services.exceptions import POSError
 
@@ -29,6 +29,18 @@ def test_open_cash_session_creates_or_returns_current_session(operator):
     assert session.pk == same.pk
     assert session.opening_amount_q == 5000
     assert CashRegisterSession.objects.count() == 1
+    assert CashShift.objects.count() == 1
+    assert session.terminal == POSTerminal.default()
+
+
+@pytest.mark.django_db
+def test_open_cash_shift_blocks_terminal_double_open(operator):
+    other = User.objects.create_user(username="other-cash", password="x", is_staff=True)
+    terminal = POSTerminal.default()
+    pos.open_cash_shift(operator=operator, terminal_ref=terminal.ref)
+
+    with pytest.raises(POSError):
+        pos.open_cash_shift(operator=other, terminal_ref=terminal.ref)
 
 
 @pytest.mark.django_db
@@ -51,11 +63,21 @@ def test_register_cash_movement_validates_amount_and_normalizes_type(operator):
         reason="troco",
     )
 
+    assert movement.shift_id == session.pk
     assert movement.session_id == session.pk
     assert movement.movement_type == "sangria"
     assert movement.amount_q == 2550
     assert movement.created_by == operator.username
     assert CashMovement.objects.count() == 1
+
+    legacy_movement = CashMovement.objects.create(
+        session_id=session.pk,
+        movement_type="suprimento",
+        amount_q=100,
+        reason="legacy",
+    )
+    assert legacy_movement.shift_id == session.pk
+    assert legacy_movement.session_id == session.pk
 
 
 @pytest.mark.django_db
@@ -75,5 +97,47 @@ def test_close_cash_session_closes_and_records_notes(operator):
     )
 
     assert session.status == CashRegisterSession.Status.CLOSED
+    assert session.status == CashShift.Status.CLOSED
+    assert session.blind_closing_amount_q == 1000
     assert session.closing_amount_q == 1000
     assert session.notes == "fim do turno"
+
+
+@pytest.mark.django_db
+def test_close_cash_shift_counts_terminal_cash_not_delivery_cash(operator):
+    from shopman.orderman.models import Order
+
+    terminal = POSTerminal.default()
+    shift = CashShift.objects.create(operator=operator, terminal=terminal, opening_amount_q=1000)
+    Order.objects.create(
+        ref="POS-CASH-TERMINAL",
+        channel_ref=terminal.channel_ref,
+        session_key="pos-cash-terminal",
+        total_q=2000,
+        data={
+            "pos": {"cash_shift_id": shift.pk},
+            "payment": {
+                "method": "cash",
+                "collection": "terminal",
+                "cash_received_q": 2000,
+            },
+        },
+    )
+    Order.objects.create(
+        ref="POS-CASH-DELIVERY",
+        channel_ref=terminal.channel_ref,
+        session_key="pos-cash-delivery",
+        total_q=3000,
+        data={
+            "pos": {"cash_shift_id": shift.pk},
+            "payment": {
+                "method": "cash",
+                "collection": "on_delivery",
+            },
+        },
+    )
+
+    shift.close(blind_closing_amount_q=3000)
+
+    assert shift.expected_amount_q == 3000
+    assert shift.difference_q == 0

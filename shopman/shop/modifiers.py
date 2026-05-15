@@ -36,6 +36,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_EMPLOYEE_DISCOUNT_PERCENT = 20
 
 
+def _is_non_merchandise_line(item: dict) -> bool:
+    meta = item.get("meta") or {}
+    return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
+
+
 class DiscountModifier:
     """
     Desconto unificado — promoções automáticas + cupom.
@@ -104,7 +109,7 @@ class DiscountModifier:
             try:
                 from shopman.offerman.models import CollectionItem
 
-                line_skus = [i.get("sku") for i in items if i.get("sku")]
+                line_skus = [i.get("sku") for i in items if i.get("sku") and not _is_non_merchandise_line(i)]
                 col_map: dict[str, list[str]] = {}
                 for ci in CollectionItem.objects.filter(product__sku__in=line_skus).select_related(
                     "collection",
@@ -118,12 +123,14 @@ class DiscountModifier:
                     exc_info=True,
                 )
 
-        session_total = sum(item.get("line_total_q", 0) for item in items)
+        session_total = sum(item.get("line_total_q", 0) for item in items if not _is_non_merchandise_line(item))
         modified = False
         total_coupon_discount_q = 0
         discounts_applied = []  # Persisted in session.pricing
 
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             sku = item.get("sku", "")
             price_q = item.get("unit_price_q", 0)
             if not price_q:
@@ -271,6 +278,8 @@ class EmployeeDiscountModifier:
         items = session.items or []
         modified = False
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             original_q = item.get("unit_price_q", 0)
             discount_q = monetary_div(original_q * percent, 100)
             item["unit_price_q"] = original_q - discount_q
@@ -319,6 +328,14 @@ class DeliveryFeeModifier:
         data = session.data or {}
         fulfillment_type = data.get("fulfillment_type", "")
         if fulfillment_type != "delivery":
+            return
+
+        if data.get("delivery_fee_q") not in (None, ""):
+            if data.get("delivery_zone_error"):
+                new_data = {**data}
+                new_data.pop("delivery_zone_error", None)
+                session.data = new_data
+                session.save(update_fields=["data"])
             return
 
         addr_structured = data.get("delivery_address_structured") or {}
@@ -373,7 +390,7 @@ class LoyaltyRedeemModifier:
             return
 
         items = session.items or []
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items if not _is_non_merchandise_line(item))
 
         # Clamp: never redeem more than the order total
         redeem_q = min(redeem_q, subtotal_q)
@@ -384,6 +401,8 @@ class LoyaltyRedeemModifier:
         remaining = redeem_q
         modified = False
         for i, item in enumerate(items):
+            if _is_non_merchandise_line(item):
+                continue
             line_total = item.get("line_total_q", 0)
             if line_total <= 0:
                 continue
@@ -443,7 +462,7 @@ class ManualDiscountModifier:
             return
 
         items = session.items or []
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items if not _is_non_merchandise_line(item))
         discount_q = min(discount_q, subtotal_q)
         if discount_q <= 0:
             return
@@ -451,6 +470,8 @@ class ManualDiscountModifier:
         remaining = discount_q
         modified = False
         for i, item in enumerate(items):
+            if _is_non_merchandise_line(item):
+                continue
             line_total = item.get("line_total_q", 0)
             if line_total <= 0:
                 continue

@@ -220,6 +220,7 @@ class ProductionStartForm(forms.Form):
 
 class ProductionPlanForm(forms.Form):
     action = forms.CharField(widget=forms.HiddenInput(), initial="set_planned")
+    source = forms.CharField(widget=forms.HiddenInput(), required=False)
     target_date = forms.CharField(widget=forms.HiddenInput())
     position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
     operator_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -1442,23 +1443,24 @@ def _planning_entry(row, board) -> dict | None:
     if not row.recipe_pk:
         return None
     recommended = _row_recommended_qty(row)
+    initial = {
+        "action": "set_planned",
+        "target_date": board.selected_date,
+        "position_ref": board.selected_position_ref,
+        "operator_ref": board.selected_operator_ref,
+        "operator_ref_filter": board.selected_operator_ref,
+        "base_recipe": board.selected_base_recipe,
+        "recipe": row.recipe_pk,
+        "quantity": recommended or row.planned_qty or "0",
+    }
+    if row.suggestion:
+        initial["source"] = "suggested"
     return {
         "form_id": f"production-plan-{row.recipe_pk}",
         "modal_title": f"Planejar {row.output_sku}",
         "modal_description": "Confirme a quantidade recomendada para a data agendada.",
         "submit_label": "Salvar planejado",
-        "form": ProductionPlanForm(
-            initial={
-                "action": "set_planned",
-                "target_date": board.selected_date,
-                "position_ref": board.selected_position_ref,
-                "operator_ref": board.selected_operator_ref,
-                "operator_ref_filter": board.selected_operator_ref,
-                "base_recipe": board.selected_base_recipe,
-                "recipe": row.recipe_pk,
-                "quantity": recommended or row.planned_qty or "0",
-            }
-        ),
+        "form": ProductionPlanForm(initial=initial),
     }
 
 

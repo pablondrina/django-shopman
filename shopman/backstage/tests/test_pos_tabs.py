@@ -183,6 +183,39 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(order.data["fiscal"], {"issue_document": True, "tax_id": "12345678901"})
         self.assertEqual(order.data["receipt"], {"mode": "email", "email": "ana@example.com"})
 
+    def test_closing_tab_can_create_delivery_with_payment_on_delivery(self) -> None:
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_code="1007",
+            actor="pos:alice",
+            operator_username="alice",
+        )
+        payload = _payload(tab_session_key=opened["tab_session_key"], customer_phone="43999990000")
+        payload.update({
+            "fulfillment_type": "delivery",
+            "delivery_address": "Rua das Flores, 100",
+            "delivery_time_slot": "14:00-14:30",
+            "order_notes": "Portaria",
+            "payment_method": "cash",
+            "payment_collection": "on_delivery",
+        })
+
+        result = pos_service.close_sale(
+            channel_ref="pdv",
+            payload=payload,
+            actor="pos:alice",
+            operator_username="alice",
+        )
+
+        order = Order.objects.get(ref=result.order_ref)
+        self.assertEqual(order.data["fulfillment_type"], "delivery")
+        self.assertEqual(order.data["delivery_address"], "Rua das Flores, 100")
+        self.assertEqual(order.data["delivery_time_slot"], "14:00-14:30")
+        self.assertEqual(order.data["order_notes"], "Portaria")
+        self.assertEqual(order.data["payment"]["method"], "cash")
+        self.assertEqual(order.data["payment"]["collection"], "on_delivery")
+        self.assertNotIn("cash_received_q", order.data["payment"])
+
     def test_tab_projection_shows_empty_and_in_use_tabs(self) -> None:
         opened = pos_service.open_pos_tab(
             channel_ref="pdv",
@@ -261,3 +294,6 @@ class POSTabSessionTests(TestCase):
         self.assertIn("openTabFromInput()", content)
         self.assertIn("CPF/CNPJ na nota", content)
         self.assertIn("addTenderedQ(5000)", content)
+        self.assertIn("Pagamento misto", content)
+        self.assertIn("client_request_id", content)
+        self.assertIn("data-product-tile", content)

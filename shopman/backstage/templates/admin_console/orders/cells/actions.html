@@ -33,4 +33,22 @@
       {% endcomponent %}
     </form>
   {% endif %}
+
+  {% if card.can_settle_delivery_cash %}
+    <form method="post" action="{{ settle_cash_url }}">
+      {% csrf_token %}
+      {% component "unfold/components/button.html" with submit=1 variant="primary" size="xs" icon="payments" %}
+        Acertar dinheiro
+      {% endcomponent %}
+    </form>
+  {% endif %}
+
+  {% if card.fiscal_status == "failed" %}
+    <form method="post" action="{{ requeue_fiscal_url }}">
+      {% csrf_token %}
+      {% component "unfold/components/button.html" with submit=1 variant="default" size="xs" icon="receipt_long" %}
+        Reprocessar fiscal
+      {% endcomponent %}
+    </form>
+  {% endif %}
 </div>

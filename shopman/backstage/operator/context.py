@@ -46,7 +46,7 @@ def build_operator_context(request) -> OperatorContext:
     if not user or not user.is_authenticated or not user.is_staff:
         return OperatorContext()
 
-    cash_session = _open_cash_session(user)
+    cash_session = _open_cash_shift(user)
     active_alerts_count, critical_alerts_count = _alert_counts()
     kpis = _kpis_today()
     default_position_ref = _default_position_ref()
@@ -65,10 +65,10 @@ def build_operator_context(request) -> OperatorContext:
     )
 
 
-def _open_cash_session(user):
-    from shopman.backstage.models import CashRegisterSession
+def _open_cash_shift(user):
+    from shopman.backstage.models import CashShift
 
-    return CashRegisterSession.get_open_for_operator(user)
+    return CashShift.get_open_for_operator(user)
 
 
 def _alert_counts() -> tuple[int, int]:

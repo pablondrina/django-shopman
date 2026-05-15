@@ -19,7 +19,7 @@ def _make_channel():
     )[0]
 
 
-def _make_order(channel, ref, total_q, status="confirmed"):
+def _make_order(channel, ref, total_q, status="confirmed", data=None):
     from shopman.orderman.models import Order
     return Order.objects.create(
         ref=ref,
@@ -28,6 +28,7 @@ def _make_order(channel, ref, total_q, status="confirmed"):
         total_q=total_q,
         handle_type="pos",
         handle_ref="pos:operator",
+        data=data or {},
     )
 
 
@@ -88,6 +89,29 @@ class ShiftSummaryViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         # Total = R$ 40,00
         self.assertContains(resp, "40,00")
+
+    def test_summary_shows_fulfillment_and_payment_splits(self) -> None:
+        _make_order(
+            self.channel,
+            "SHIFT-PICKUP-CASH",
+            1500,
+            data={"fulfillment_type": "pickup", "payment": {"method": "cash", "cash_received_q": 1500}},
+        )
+        _make_order(
+            self.channel,
+            "SHIFT-DELIVERY-PIX",
+            2500,
+            data={"fulfillment_type": "delivery", "payment": {"method": "pix"}},
+        )
+
+        resp = self.client.get("/gestor/pos/shift-summary/")
+
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn("Retirada", content)
+        self.assertIn("Delivery", content)
+        self.assertIn("Dinheiro: R$ 15,00", content)
+        self.assertIn("Outros: R$ 25,00", content)
 
     def test_pos_footer_triggers_htmx_load(self) -> None:
         """POS page footer has hx-get for shift summary with auto-refresh."""

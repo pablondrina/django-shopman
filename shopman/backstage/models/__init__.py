@@ -1,7 +1,7 @@
-"""Backstage models — KDS, DayClosing, OperatorAlert, CashRegister, Operation."""
+"""Backstage models — KDS, DayClosing, OperatorAlert, CashShift, Operation."""
 
 from .alerts import OperatorAlert
-from .cash_register import CashMovement, CashRegisterSession
+from .cash_register import CashMovement, CashRegisterSession, CashShift, POSTerminal
 from .closing import DayClosing
 from .kds import KDSInstance, KDSTicket
 from .operation import (
@@ -22,6 +22,7 @@ __all__ = [
     "OperatorAlert",
     "CashMovement",
     "CashRegisterSession",
+    "CashShift",
     "DayClosing",
     "KDSInstance",
     "KDSTicket",
@@ -36,4 +37,5 @@ __all__ = [
     "OperationTaskStatus",
     "OperationTaskTemplate",
     "POSTab",
+    "POSTerminal",
 ]

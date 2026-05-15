@@ -22,7 +22,7 @@ class Command(BaseCommand):
             return _perm("backstage", "kdsticket", c)
 
         def shop_cash(c):
-            return _perm("backstage", "cashregistersession", c)
+            return _perm("backstage", "cashshift", c)
 
         def shop_dclo(c):
             return _perm("backstage", "dayclosing", c)

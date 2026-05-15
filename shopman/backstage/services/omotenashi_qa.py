@@ -12,7 +12,7 @@ from shopman.offerman.models import Product
 from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
 
-from shopman.backstage.models import CashRegisterSession, DayClosing, KDSInstance, OperatorAlert, POSTab
+from shopman.backstage.models import CashShift, DayClosing, KDSInstance, OperatorAlert, POSTab
 
 Status = Literal["ready", "missing"]
 
@@ -332,8 +332,8 @@ def _day_closing_check() -> OmotenashiQACheck:
 
 
 def _cash_register_check() -> OmotenashiQACheck:
-    register = CashRegisterSession.objects.order_by("-opened_at", "-id").first()
-    evidence = f"cash_session={register.pk} status={register.status}" if register else ""
+    register = CashShift.objects.order_by("-opened_at", "-id").first()
+    evidence = f"cash_shift={register.pk} status={register.status}" if register else ""
     return _check(
         id="desktop.cash_register.shift",
         surface="pos",

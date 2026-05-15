@@ -14,6 +14,9 @@
 <div id="pos-root"
      x-data="posApp()"
      @keydown.window="handleKey($event)"
+     @online.window="online = true; flushOfflineQueue()"
+     @offline.window="online = false"
+     @htmx:send-error.window="queueOfflineSale($event)"
      @htmx:after-swap.window="onSaleComplete($event)"
      @sku-state.window="onSkuState($event.detail)"
      hx-ext="sse"
@@ -39,12 +42,45 @@
       <span x-show="itemCount > 0" x-cloak class="opacity-70"
             x-text="'· ' + itemCount + (itemCount===1?' item':' itens') + ' · ' + formatMoney(totalQ)"></span>
     </div>
+    <button type="button"
+            class="badge bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark shrink-0"
+            @click="showHealthPanel = !showHealthPanel"
+            title="Saúde do terminal">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">settings_input_component</span>
+      <span>{{ pos.terminal_label }}</span>
+      <span class="opacity-60">· {{ pos.terminal_health_status }}</span>
+    </button>
+    <button type="button"
+            class="badge bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark shrink-0"
+            @click="showHealthPanel = !showHealthPanel"
+            title="Estado fiscal">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">receipt_long</span>
+      <span>{{ pos.fiscal_label }}</span>
+      <span class="opacity-60">· {{ pos.fiscal_message }}</span>
+    </button>
     <div x-show="successMsg"
          x-cloak
          class="badge-success shrink-0">
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
       <span x-text="successMsg"></span>
     </div>
+    <div x-show="tabMessage && !successMsg"
+         x-cloak
+         class="badge-warning shrink-0">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">info</span>
+      <span x-text="tabMessage"></span>
+    </div>
+    <button type="button"
+            x-show="!online || offlineQueueCount > 0"
+            x-cloak
+            class="badge-warning shrink-0"
+            @click="showOfflineJournal = !showOfflineJournal"
+            title="Pendências locais">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">cloud_off</span>
+      <span x-text="online ? ('Pendências ' + offlineQueueCount) : 'Sem conexão'"></span>
+    </button>
+    <div class="sr-only" aria-live="polite"
+         x-text="successMsg || tabMessage || (!online ? 'Sem conexão' : '')"></div>
     <button type="button"
             x-show="mode === 'tab_select'"
             x-cloak
@@ -54,6 +90,48 @@
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">add</span>
       Nova comanda
     </button>
+  </div>
+
+  <div x-show="showHealthPanel"
+       x-cloak
+       class="px-3 py-2 border-b border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark shrink-0 grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-xs">
+    <div class="rounded-lg border border-outline dark:border-outline-dark px-3 py-2">
+      <div class="font-semibold flex items-center gap-1.5">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">receipt_long</span>
+        Fiscal
+      </div>
+      <div class="text-on-surface/70 dark:text-on-surface-dark/70">{{ pos.fiscal_label }} · {{ pos.fiscal_message }}</div>
+    </div>
+    {% for component in pos.terminal_components %}
+    <div class="rounded-lg border border-outline dark:border-outline-dark px-3 py-2">
+      <div class="font-semibold">{{ component.label }}</div>
+      <div class="text-on-surface/70 dark:text-on-surface-dark/70">{{ component.status }} · {{ component.message }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div x-show="showOfflineJournal"
+       x-cloak
+       class="px-3 py-2 border-b border-outline dark:border-outline-dark bg-warning/5 shrink-0 text-xs">
+    <div class="flex items-center justify-between gap-2">
+      <strong>Pendências locais</strong>
+      <button type="button" class="btn-quiet" @click="flushOfflineQueue()" :disabled="!online || offlineQueueCount === 0">Reenviar</button>
+    </div>
+    <template x-if="offlineJournal().length === 0">
+      <div class="text-on-surface/60 dark:text-on-surface-dark/60">Nenhuma venda pendente neste navegador.</div>
+    </template>
+    <div class="grid gap-1.5 mt-2">
+      <template x-for="(row, idx) in offlineJournal()" :key="row.client_request_id || row.queued_at || idx">
+        <div class="rounded-lg border border-warning/30 bg-surface dark:bg-surface-dark px-2 py-1.5 flex items-center justify-between gap-2">
+          <span>
+            <strong x-text="row.status || 'pending'"></strong>
+            <span class="tabular-nums" x-text="' · ' + (row.total_display || '')"></span>
+            <span x-show="row.last_error" x-cloak class="text-danger" x-text="' · ' + row.last_error"></span>
+          </span>
+          <button type="button" class="btn-secondary" @click="retryOfflineRow(idx)" :disabled="!online">Tentar agora</button>
+        </div>
+      </template>
+    </div>
   </div>
 
   {% comment %}Main 2-column{% endcomment %}
@@ -68,10 +146,7 @@
            class="flex-1 flex flex-col overflow-hidden min-h-0">
         <div class="px-3 py-2 flex flex-col sm:flex-row gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
           <form class="relative flex-1"
-                hx-post="/gestor/pos/tab/open/"
-                hx-include="#pos-tab-code"
-                hx-swap="none"
-                x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadTabOpenResponse(d); } else { handleTabOpenError(event.detail.xhr.responseText); }">
+                @submit.prevent.stop="openTabFromInput()">
             <span class="material-symbols-rounded icon-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">search</span>
             <input id="pos-tab-code"
                    x-ref="tabCode"
@@ -85,7 +160,7 @@
                    aria-label="Ler comanda"
                    placeholder="Ler ou buscar comanda..."
                    @input="htmx.trigger($refs.tabGrid, 'tabFilter')"
-                   @keydown.enter.prevent="openTabFromInput()">
+                   @keydown.enter.prevent.stop="openTabFromInput()">
           </form>
           <button type="button"
                   class="btn-secondary shrink-0"
@@ -100,6 +175,7 @@
              hx-trigger="load, posTabOpened from:body, posTabSaved from:body, posOrderCreated from:body, tabFilter delay:250ms, tabGridRefresh"
              hx-include="#pos-tab-code"
              hx-swap="innerHTML"
+             @keydown="handleTabGridKey($event)"
              class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
              style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         </div>
@@ -112,7 +188,8 @@
         <input id="pos-search" x-ref="search" type="text"
                class="input-field"
                placeholder="Buscar produto... (/)"
-               x-model="search">
+               x-model="search"
+               @keydown.enter.prevent="addFirstMatchedProductFromSearch()">
         {% if collections %}
         <div class="flex gap-1.5 overflow-x-auto scrollbar-hide md:flex-wrap">
           <button type="button"
@@ -132,16 +209,29 @@
       {% comment %}Product grid{% endcomment %}
       <div x-show="mode === 'sale'"
            x-cloak
+           x-ref="productGrid"
+           @keydown="handleProductGridKey($event)"
            class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
            style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         {% for p in products %}
-        <div class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
-             :class="(!activeTabCode || isUnavailable('{{ p.sku }}')) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:shadow-sm'"
+        <button type="button"
+             class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
+             :class="{
+               'opacity-40 cursor-not-allowed grayscale': (!activeTabCode || isUnavailable('{{ p.sku }}')),
+               'cursor-pointer active:scale-95 hover:shadow-sm': (activeTabCode && !isUnavailable('{{ p.sku }}')),
+               'ring-2 ring-primary/50 dark:ring-primary-dark/50': activeProductSku === '{{ p.sku }}'
+             }"
+             :disabled="!activeTabCode || isUnavailable('{{ p.sku }}')"
+             data-product-tile
              data-sku="{{ p.sku }}"
+             data-name="{{ p.name }}"
+             data-price-q="{{ p.price_q }}"
+             data-is-d1="{{ p.is_d1|yesno:'true,false' }}"
              hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'pdv' }}"
              hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ p.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ p.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ p.sku }}']"
              hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
+             @focus="activeProductSku = '{{ p.sku }}'"
              @click="if (!activeTabCode) { tabMessage='Leia uma comanda antes de inserir produtos.'; return; } if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
           <span class="absolute top-1.5 right-1.5 badge-warning leading-none">D-1</span>
@@ -154,9 +244,9 @@
           <span x-show="!isUnavailable('{{ p.sku }}') && isLowStock('{{ p.sku }}')" x-cloak
                 class="absolute bottom-1 left-0 right-0 flex justify-center">
             <span class="badge-warning leading-none"
-                  x-text="'Restam ' + lowStockSkus['{{ p.sku }}']"></span>
+                  x-text="lowStockLabel('{{ p.sku }}')"></span>
           </span>
-        </div>
+        </button>
         {% empty %}
         <div class="col-span-full text-center text-on-surface/40 dark:text-on-surface-dark/40 text-sm py-8">Nenhum produto cadastrado.</div>
         {% endfor %}
@@ -203,18 +293,121 @@
                 <span>Desconto</span>
                 <span class="tabular-nums" x-text="'-' + formatMoney(discountQ)"></span>
               </div>
+              <div x-show="fulfillmentType === 'delivery' && deliveryFeeQ > 0" x-cloak class="flex justify-between text-sm">
+                <span>Entrega</span>
+                <span class="tabular-nums" x-text="formatMoney(deliveryFeeQ)"></span>
+              </div>
               <div class="flex justify-between text-xl font-bold pt-2 border-t border-outline dark:border-outline-dark">
                 <span>Total</span>
                 <span class="tabular-nums" x-text="formatMoney(totalQ)"></span>
               </div>
             </div>
 
+            <div>
+              <label class="field-label">Atendimento</label>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button"
+                        class="segmented-action"
+                        :class="fulfillmentType === 'pickup' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(fulfillmentType === 'pickup').toString()"
+                        @click="setFulfillmentType('pickup')">
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true">storefront</span>
+                  Retirada
+                </button>
+                <button type="button"
+                        class="segmented-action"
+                        :class="fulfillmentType === 'delivery' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(fulfillmentType === 'delivery').toString()"
+                        @click="setFulfillmentType('delivery')">
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true">local_shipping</span>
+                  Delivery
+                </button>
+              </div>
+            </div>
+
+            <div x-show="fulfillmentType === 'delivery' && deliveryMinimumQ > 0"
+                 x-cloak
+                 class="rounded-lg border px-3 py-2 text-sm"
+                 :class="deliveryMinimumRemainingQ > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold"
+                      x-text="deliveryMinimumRemainingQ > 0 ? ('Faltam ' + formatMoney(deliveryMinimumRemainingQ) + ' para delivery mínimo de ' + formatMoney(deliveryMinimumQ)) : 'Delivery mínimo atingido'"></span>
+                <button x-show="deliveryMinimumRemainingQ > 0"
+                        x-cloak
+                        type="button"
+                        class="btn-secondary"
+                        @click="addProductToReachDeliveryMinimum()">
+                  Completar
+                </button>
+              </div>
+            </div>
+
+            <div x-show="fulfillmentType === 'delivery'" x-cloak class="grid gap-2 md:grid-cols-2">
+              <div class="md:col-span-2">
+                <label class="field-label" for="pos-delivery-address">Endereço de entrega</label>
+                <input id="pos-delivery-address"
+                       type="text"
+                       x-ref="deliveryAddress"
+                       class="input-field"
+                       autocomplete="street-address"
+                       placeholder="Rua, número, bairro"
+                       x-model="deliveryAddress">
+              </div>
+              <div>
+                <label class="field-label" for="pos-delivery-number">Número</label>
+                <input id="pos-delivery-number"
+                       type="text"
+                       class="input-field"
+                       autocomplete="address-line2"
+                       placeholder="Número/complemento"
+                       x-model="deliveryStreetNumber">
+              </div>
+              <div>
+                <label class="field-label" for="pos-delivery-neighborhood">Bairro</label>
+                <input id="pos-delivery-neighborhood"
+                       type="text"
+                       class="input-field"
+                       autocomplete="address-level3"
+                       placeholder="Bairro"
+                       x-model="deliveryNeighborhood">
+              </div>
+              <div>
+                <label class="field-label" for="pos-delivery-time-slot">Horário</label>
+                <input id="pos-delivery-time-slot"
+                       type="text"
+                       class="input-field"
+                       placeholder="Ex: 14:30-15:00"
+                       x-model="deliveryTimeSlot">
+              </div>
+              <div>
+                <label class="field-label" for="pos-delivery-fee">Taxa de entrega</label>
+                <input id="pos-delivery-fee"
+                       type="number"
+                       min="0"
+                       step="0.01"
+                       class="input-field tabular-nums"
+                       placeholder="R$ 0,00"
+                       x-model="deliveryFeeInput">
+              </div>
+              <div>
+                <label class="field-label" for="pos-order-notes">Observação</label>
+                <input id="pos-order-notes"
+                       type="text"
+                       class="input-field"
+                       placeholder="Portaria, referência, troco"
+                       x-model="orderNotes">
+              </div>
+            </div>
+
             <div class="grid gap-2 md:grid-cols-2">
               <div>
-                <label class="field-label">Telefone do cliente</label>
-                <input type="tel" name="phone"
+                <label class="field-label" for="pos-customer-phone">Telefone do cliente</label>
+                <input id="pos-customer-phone"
+                       type="tel" name="phone"
                        x-ref="checkoutCustomerPhone"
                        class="input-field"
+                       inputmode="tel"
+                       autocomplete="tel"
                        placeholder="Telefone"
                        x-model="customerPhone"
                        hx-post="/gestor/pos/customer-lookup/"
@@ -227,27 +420,58 @@
                        let span = $el.querySelector('[data-customer-group]');
                        if (span) {
                          customerName = span.dataset.customerName || '';
+                         customerRef = span.dataset.customerRef || '';
                          customerGroup = span.dataset.customerGroup || '';
+                         loadCustomerMemory(span);
+                         if (!receiptEmail && span.dataset.customerEmail) receiptEmail = span.dataset.customerEmail;
+                         if (fulfillmentType === 'delivery' && !deliveryAddress && span.dataset.defaultAddress) deliveryAddress = span.dataset.defaultAddress;
                        } else {
+                         customerRef = '';
                          customerGroup = '';
+                         customerMemory = { favoriteItem: null, lastOrderItems: [] };
                        }">
                   <span x-show="!customerPhone" x-cloak class="text-on-surface/40 dark:text-on-surface-dark/40">Cliente avulso</span>
                 </div>
               </div>
               <div>
-                <label class="field-label">Nome do cliente</label>
-                <input type="text"
+                <label class="field-label" for="pos-customer-name">Nome do cliente</label>
+                <input id="pos-customer-name"
+                       type="text"
                        class="input-field"
+                       autocomplete="name"
                        placeholder="Nome opcional"
                        x-model="customerName">
               </div>
             </div>
 
+            <div x-show="customerMemoryHasActions"
+                 x-cloak
+                 class="rounded-lg border border-primary/20 dark:border-primary-dark/20 bg-primary/5 dark:bg-primary-dark/10 p-2 flex flex-wrap items-center gap-2 text-sm">
+              <span class="font-semibold">Memória do cliente</span>
+              <button type="button"
+                      x-show="customerMemory.favoriteItem"
+                      x-cloak
+                      class="btn-secondary"
+                      @click="addCustomerFavorite()">
+                Favorito
+              </button>
+              <button type="button"
+                      x-show="customerMemory.lastOrderItems && customerMemory.lastOrderItems.length"
+                      x-cloak
+                      class="btn-secondary"
+                      @click="repeatCustomerLastOrder()">
+                Repetir último
+              </button>
+            </div>
+
             <div class="grid gap-2 md:grid-cols-2">
               <div>
-                <label class="field-label">CPF/CNPJ na nota</label>
-                <input type="text"
+                <label class="field-label" for="pos-customer-tax-id">CPF/CNPJ na nota</label>
+                <input id="pos-customer-tax-id"
+                       type="text"
                        class="input-field tabular-nums"
+                       inputmode="numeric"
+                       autocomplete="off"
                        placeholder="Opcional"
                        x-model="customerTaxId">
               </div>
@@ -259,26 +483,51 @@
               </label>
             </div>
 
+            <div x-show="discountQ > 0" x-cloak class="grid gap-2 md:grid-cols-2">
+              <div>
+                <label class="field-label">Aprovador</label>
+                <input type="text"
+                       class="input-field"
+                       autocomplete="username"
+                       placeholder="Usuário gerente"
+                       x-model="managerApprovalUsername">
+              </div>
+              <div>
+                <label class="field-label">Senha</label>
+                <input type="password"
+                       class="input-field"
+                       autocomplete="current-password"
+                       placeholder="Senha"
+                       x-model="managerApprovalPassword">
+              </div>
+            </div>
+
             <div>
               <label class="field-label">Comprovante</label>
               <div class="flex gap-1.5">
                 <button type="button"
                         class="segmented-action"
                         :class="receiptMode === 'none' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(receiptMode === 'none').toString()"
                         @click="receiptMode = 'none'">Não emitir</button>
                 <button type="button"
                         class="segmented-action"
                         :class="receiptMode === 'print' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(receiptMode === 'print').toString()"
                         @click="receiptMode = 'print'">Imprimir</button>
                 <button type="button"
                         class="segmented-action"
                         :class="receiptMode === 'email' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(receiptMode === 'email').toString()"
                         @click="receiptMode = 'email'">E-mail</button>
               </div>
               <input x-show="receiptMode === 'email'"
                      x-cloak
+                     id="pos-receipt-email"
                      type="email"
                      class="input-field mt-2"
+                     autocomplete="email"
+                     aria-label="E-mail do cliente para comprovante"
                      placeholder="E-mail do cliente"
                      x-model="receiptEmail">
             </div>
@@ -287,23 +536,87 @@
           <section class="rounded-lg border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-3 md:p-4 flex flex-col gap-3 lg:sticky lg:top-3 self-start">
             <div>
               <label class="field-label">Forma de pagamento</label>
-              <div class="grid grid-cols-3 gap-1.5">
+              <div x-ref="paymentMethods" class="grid grid-cols-3 gap-1.5">
                 {% for pm in payment_methods %}
                 <button type="button"
                         class="segmented-action"
+                        data-payment-option
                         :class="paymentMethod === '{{ pm.ref }}' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(paymentMethod === '{{ pm.ref }}').toString()"
+                        @keydown="handlePaymentKey($event)"
                         @click="setPaymentMethod('{{ pm.ref }}')">{{ pm.label }}</button>
                 {% empty %}
-                <button type="button" class="segmented-action" :class="paymentMethod === 'cash' ? 'segmented-action--active' : ''" @click="setPaymentMethod('cash')">Dinheiro</button>
-                <button type="button" class="segmented-action" :class="paymentMethod === 'pix' ? 'segmented-action--active' : ''" @click="setPaymentMethod('pix')">PIX</button>
-                <button type="button" class="segmented-action" :class="paymentMethod === 'card' ? 'segmented-action--active' : ''" @click="setPaymentMethod('card')">Cartão</button>
+                <button type="button" class="segmented-action" data-payment-option :class="paymentMethod === 'cash' ? 'segmented-action--active' : ''" :aria-pressed="(paymentMethod === 'cash').toString()" @keydown="handlePaymentKey($event)" @click="setPaymentMethod('cash')">Dinheiro</button>
+                <button type="button" class="segmented-action" data-payment-option :class="paymentMethod === 'pix' ? 'segmented-action--active' : ''" :aria-pressed="(paymentMethod === 'pix').toString()" @keydown="handlePaymentKey($event)" @click="setPaymentMethod('pix')">PIX</button>
+                <button type="button" class="segmented-action" data-payment-option :class="paymentMethod === 'card' ? 'segmented-action--active' : ''" :aria-pressed="(paymentMethod === 'card').toString()" @keydown="handlePaymentKey($event)" @click="setPaymentMethod('card')">Cartão</button>
                 {% endfor %}
+              </div>
+              <label class="mt-2 flex items-center gap-2 rounded-lg border border-outline dark:border-outline-dark px-3 py-2 min-h-11 cursor-pointer">
+                <input type="checkbox"
+                       class="h-4 w-4 accent-primary dark:accent-primary-dark"
+                       x-model="splitPayment"
+                       @change="onSplitPaymentChanged()">
+                <span class="text-sm font-semibold">Pagamento misto</span>
+              </label>
+            </div>
+
+            <div x-show="splitPayment" x-cloak class="rounded-lg border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-3 flex flex-col gap-2">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-sm">Tenders</span>
+                <button type="button" class="btn-secondary" @click="addSplitTender()">Adicionar</button>
+              </div>
+              <template x-for="(tender, idx) in paymentTenders" :key="'tender-' + idx">
+                <div class="grid grid-cols-[1fr_96px_auto] gap-1.5 items-center">
+                  <select class="select-field" x-model="tender.method">
+                    <option value="cash">Dinheiro</option>
+                    <option value="pix">PIX</option>
+                    <option value="card">Cartão</option>
+                    <option value="external">Externo</option>
+                  </select>
+                  <input type="number" min="0" step="0.01"
+                         class="input-field tabular-nums text-right"
+                         placeholder="R$"
+                         :aria-label="'Valor do pagamento ' + (idx + 1)"
+                         x-model="tender.amountInput">
+                  <button type="button" class="btn-icon-sm" title="Remover" @click="removeSplitTender(idx)">
+                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
+                  </button>
+                  <input type="text"
+                         class="input-field col-span-3"
+                         placeholder="NSU, comprovante ou observação"
+                         :aria-label="'Referência do pagamento ' + (idx + 1)"
+                         x-model="tender.reference">
+                </div>
+              </template>
+              <div class="flex items-center justify-between text-sm">
+                <span>Informado: <strong x-text="formatMoney(splitPaidQ)"></strong></span>
+                <button type="button" class="btn-quiet" @click="fillSplitRemaining()">Quitar restante</button>
+              </div>
+              <div x-show="splitRemainingQ !== 0" x-cloak class="text-xs font-semibold text-warning text-center"
+                   x-text="splitRemainingQ > 0 ? ('Falta ' + formatMoney(splitRemainingQ)) : ('Excedeu ' + formatMoney(Math.abs(splitRemainingQ)))"></div>
+            </div>
+
+            <div x-show="!splitPayment && fulfillmentType === 'delivery' && paymentMethod === 'cash'" x-cloak>
+              <label class="field-label">Recebimento</label>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button"
+                        class="segmented-action"
+                        :class="paymentCollection === 'terminal' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(paymentCollection === 'terminal').toString()"
+                        @click="paymentCollection = 'terminal'">No caixa</button>
+                <button type="button"
+                        class="segmented-action"
+                        :class="paymentCollection === 'on_delivery' ? 'segmented-action--active' : ''"
+                        :aria-pressed="(paymentCollection === 'on_delivery').toString()"
+                        @click="paymentCollection = 'on_delivery'; tenderedInput = ''">Na entrega</button>
               </div>
             </div>
 
-            <div x-show="paymentMethod === 'cash'" x-cloak class="flex flex-col gap-2">
-              <label class="field-label">Valor recebido</label>
-              <input type="number" min="0" step="0.01"
+            <div x-show="!splitPayment && paymentMethod === 'cash' && paymentCollection === 'terminal'" x-cloak class="flex flex-col gap-2">
+              <label class="field-label" for="pos-tendered-amount">Valor recebido</label>
+              <input id="pos-tendered-amount"
+                     type="number" min="0" step="0.01"
+                     x-ref="tenderedInput"
                      class="input-field text-center tabular-nums text-lg font-bold"
                      placeholder="R$ 0,00"
                      x-model="tenderedInput">
@@ -326,6 +639,12 @@
               </div>
             </div>
 
+            <div x-show="!splitPayment && paymentMethod === 'cash' && paymentCollection === 'on_delivery'" x-cloak
+                 class="rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-sm font-semibold text-warning flex items-center gap-2">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">local_shipping</span>
+              <span>Dinheiro será recebido na entrega</span>
+            </div>
+
             <div class="rounded-lg bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark p-3 flex items-center justify-between">
               <span class="font-bold">Total</span>
               <span class="text-2xl font-bold tabular-nums" x-text="formatMoney(totalQ)"></span>
@@ -336,14 +655,12 @@
             <button id="pos-close-btn" x-ref="closeBtn"
                     type="button"
                     class="btn-primary w-full text-base font-bold min-h-12 flex items-center justify-center gap-2"
-                    :disabled="!canFinalize"
-                    hx-post="/gestor/pos/close/"
-                    hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
-                    hx-target="#pos-result"
-                    hx-swap="innerHTML">
-              <span class="htmx-indicator material-symbols-rounded animate-spin icon-md leading-none" aria-hidden="true">progress_activity</span>
-              <span>Confirmar venda</span>
-              <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(Enter)</span>
+                    :disabled="!canFinalize || isSubmitting"
+                    :aria-busy="isSubmitting.toString()"
+                    @click="submitClose()">
+              <span x-show="isSubmitting" x-cloak class="material-symbols-rounded animate-spin icon-md leading-none" aria-hidden="true">progress_activity</span>
+              <span x-text="isSubmitting ? 'Finalizando...' : 'Confirmar venda'"></span>
+              <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(F10)</span>
             </button>
             <button type="button"
                     class="btn-secondary w-full"
@@ -358,6 +675,8 @@
     {% comment %}RIGHT: Cart sidebar{% endcomment %}
     <div x-show="mode === 'sale'"
          x-cloak
+         x-ref="cartPanel"
+         tabindex="-1"
          class="w-full md:w-80 flex flex-col bg-surface-alt dark:bg-surface-dark-alt shrink-0 border-t md:border-t-0 border-outline dark:border-outline-dark max-h-[44svh] md:max-h-none md:min-w-[260px] md:max-w-[340px]">
 
       {% comment %}Cart header{% endcomment %}
@@ -385,7 +704,11 @@
           </div>
         </template>
         <template x-for="(item, idx) in cart" :key="item.sku + idx">
-          <div class="py-2 border-b border-outline dark:border-outline-dark last:border-0">
+          <div class="py-2 border-b border-outline dark:border-outline-dark last:border-0 rounded-md px-1"
+               tabindex="0"
+               :class="selectedCartIdx === idx ? 'ring-2 ring-primary/40 dark:ring-primary-dark/40' : ''"
+               @focus="selectedCartIdx = idx"
+               @click="selectedCartIdx = idx">
             <div class="flex items-center gap-2 text-sm">
               <div class="flex-1 min-w-0">
                 <span class="font-medium leading-tight truncate block" x-text="item.name"></span>
@@ -437,6 +760,12 @@
           </span>
           <span x-text="'−' + formatMoney(discountQ)" class="tabular-nums"></span>
         </div>
+        <div class="flex justify-between text-sm text-on-surface/60 dark:text-on-surface-dark/60"
+             x-show="fulfillmentType === 'delivery' && deliveryFeeQ > 0"
+             x-cloak>
+          <span>Entrega</span>
+          <span x-text="formatMoney(deliveryFeeQ)" class="tabular-nums"></span>
+        </div>
         <div class="flex justify-between font-bold text-base">
           <span>Total</span>
           <span x-text="formatMoney(totalQ)" class="tabular-nums"></span>
@@ -451,10 +780,10 @@
         <button x-ref="checkoutBtn"
                 type="button"
                 class="btn-primary w-full text-base font-bold min-h-12 flex items-center justify-center gap-2"
-                :disabled="cart.length === 0 || !activeTabSessionKey"
+                :disabled="cart.length === 0 || !activeTabSessionKey || isPricingSyncing"
                 @click="goCheckout()">
-          <span class="material-symbols-rounded icon-md leading-none" aria-hidden="true">payments</span>
-          <span>Ir para checkout</span>
+          <span class="material-symbols-rounded icon-md leading-none" :class="isPricingSyncing ? 'animate-spin' : ''" aria-hidden="true" x-text="isPricingSyncing ? 'progress_activity' : 'payments'"></span>
+          <span x-text="isPricingSyncing ? 'Conferindo...' : 'Ir para checkout'"></span>
           <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(F8)</span>
         </button>
 
@@ -463,8 +792,8 @@
           <button type="button"
                   class="btn-quiet flex-1"
                   :disabled="cart.length === 0"
-                  @click="clearActiveSale(true)"
-                  title="Limpar carrinho">
+                  @click="requestClearActiveSale()"
+                  title="Limpar comanda">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
           <button type="button"
@@ -477,14 +806,14 @@
           <button type="button"
                   class="btn-quiet flex-1"
                   :disabled="cart.length === 0 || !activeTabSessionKey"
-                  title="Deixar comanda em espera"
+                  title="Pausar comanda"
                   hx-post="/gestor/pos/tab/save/"
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                   hx-target="#pos-tab-result"
                   hx-swap="innerHTML"
                   x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ resetSaleLocal(); htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">pause_circle</span>
-            Em espera
+            Pausar comanda
           </button>
         </div>
         <div class="flex gap-1.5">
@@ -492,10 +821,7 @@
                   x-show="lastOrderRef"
                   x-cloak
                   class="btn-danger flex-1"
-                  hx-post="/gestor/pos/cancel-last/"
-                  hx-vals="js:{order_ref: lastOrderRef}"
-                  hx-target="#pos-cancel-result"
-                  hx-swap="innerHTML">
+                  @click="showCancelModal = true; $nextTick(() => $refs.cancelReasonInput && $refs.cancelReasonInput.focus())">
             Cancelar último
           </button>
         </div>
@@ -620,6 +946,111 @@
     </div>
   </div>
 
+  {% comment %}Clear sale confirmation modal{% endcomment %}
+  <div x-show="showClearSaleModal" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       @click.self="showClearSaleModal = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         @click="showClearSaleModal = false"></div>
+    <div class="surface-modal max-w-sm relative z-10"
+         @keydown.escape.window="showClearSaleModal = false">
+      <h2 class="font-title font-bold text-lg mb-3">Limpar comanda?</h2>
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+          Os itens, descontos, dados de cliente, entrega e pagamento preenchidos nesta comanda serão removidos.
+        </p>
+        <div class="rounded-lg border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt px-3 py-2 text-sm">
+          <div class="flex justify-between gap-3">
+            <span class="text-on-surface/60 dark:text-on-surface-dark/60">Comanda</span>
+            <strong class="tabular-nums" x-text="activeTabDisplay || activeTabCode || '-'"></strong>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-on-surface/60 dark:text-on-surface-dark/60">Itens</span>
+            <strong x-text="itemCount"></strong>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-on-surface/60 dark:text-on-surface-dark/60">Total atual</span>
+            <strong class="tabular-nums" x-text="formatMoney(totalQ)"></strong>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-1">
+          <button type="button" class="btn-secondary flex-1" @click="showClearSaleModal = false">Voltar</button>
+          <button type="button"
+                  x-ref="clearSaleConfirmBtn"
+                  class="btn-danger flex-1"
+                  @click="confirmClearActiveSale()">
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% comment %}Command palette{% endcomment %}
+  <div x-show="showCommandPalette" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       @click.self="showCommandPalette = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         @click="showCommandPalette = false"></div>
+    <div class="surface-modal max-w-md relative z-10"
+         @keydown.escape.window="showCommandPalette = false">
+      <h2 class="font-title font-bold text-lg mb-3">Comandos</h2>
+      <div class="grid gap-1.5">
+        <button type="button" class="btn-secondary justify-start" @click="showCommandPalette=false; focusSmart()">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">center_focus_strong</span>
+          Foco inteligente
+        </button>
+        <button type="button" class="btn-secondary justify-start" :disabled="mode !== 'sale'" @click="showCommandPalette=false; goCheckout()">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">payments</span>
+          Checkout
+        </button>
+        <button type="button" class="btn-secondary justify-start" :disabled="mode !== 'sale' || cart.length === 0" @click="showCommandPalette=false; saveAndReturnToTabs()">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">pause_circle</span>
+          Pausar comanda
+        </button>
+        <button type="button" class="btn-secondary justify-start" :disabled="mode !== 'checkout'" @click="showCommandPalette=false; setFulfillmentType(fulfillmentType === 'delivery' ? 'pickup' : 'delivery')">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">swap_horiz</span>
+          Alternar atendimento
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% comment %}Cancel correction modal{% endcomment %}
+  <div x-show="showCancelModal" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       @click.self="showCancelModal = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         @click="showCancelModal = false"></div>
+    <div class="surface-modal max-w-sm relative z-10"
+         @keydown.escape.window="showCancelModal = false">
+      <h2 class="font-title font-bold text-lg mb-4">Corrigir última venda</h2>
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+          A venda será cancelada com auditoria e ficará disponível no histórico.
+        </p>
+        <input type="text"
+               x-ref="cancelReasonInput"
+               class="input-field"
+               placeholder="Motivo da correção"
+               x-model="cancelReason">
+        <div class="flex gap-2 mt-1">
+          <button type="button" class="btn-secondary flex-1" @click="showCancelModal = false">Voltar</button>
+          <button type="button"
+                  class="btn-danger flex-1"
+                  :disabled="!cancelReason.trim()"
+                  hx-post="/gestor/pos/cancel-last/"
+                  hx-vals="js:{order_ref: Alpine.$data(document.getElementById('pos-root')).lastOrderRef, reason: Alpine.$data(document.getElementById('pos-root')).cancelReason}"
+                  hx-target="#pos-cancel-result"
+                  hx-swap="innerHTML"
+                  x-on:htmx:after-request="if(event.detail.successful){ showCancelModal=false; cancelReason=''; lastOrderRef=''; }">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {% comment %}Discount Modal{% endcomment %}
   <div x-show="showDiscountModal" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -694,15 +1125,23 @@
               @click="open = !open"
               title="Atalhos de teclado">?</button>
       <div x-show="open" x-cloak @click.outside="open = false"
-           class="absolute bottom-8 left-0 z-40 bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark rounded-lg shadow-xl p-3 w-56 text-sm">
+           class="absolute bottom-8 left-0 z-40 bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark rounded-lg shadow-xl p-3 w-64 text-sm">
         <p class="font-bold text-on-surface dark:text-on-surface-dark mb-2">Atalhos de teclado</p>
         <table class="w-full text-on-surface/70 dark:text-on-surface-dark/70">
-          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">/</td><td>Focar busca</td></tr>
-          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F1-F4</td><td>Filtrar coleção</td></tr>
-          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F5</td><td>Limpar carrinho</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">/</td><td>Buscar produto</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Ctrl+K</td><td>Comandos</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F2</td><td>Ler comanda</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F3</td><td>Buscar produto</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F4</td><td>Carrinho</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F5</td><td>Limpar comanda</td></tr>
           <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F6</td><td>Aplicar desconto</td></tr>
-          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F8</td><td>Fechar venda</td></tr>
-          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Enter</td><td>Fechar venda</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F7</td><td>Pausar comanda</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F8</td><td>Checkout</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F9</td><td>Pagamento</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F10</td><td>Confirmar</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Alt+1..9</td><td>Coleção</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Setas</td><td>Navegar produtos/comandas/pagamento</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">+/-/Del</td><td>Carrinho</td></tr>
           <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Esc</td><td>Fechar modal / limpar</td></tr>
         </table>
       </div>
@@ -721,6 +1160,8 @@
       </button>
       <button type="button"
               class="btn-danger"
+              :disabled="offlineQueueCount > 0 || !online"
+              :title="offlineQueueCount > 0 ? 'Resolva pendências locais antes de fechar o caixa' : 'Fechar caixa'"
               @click="Alpine.$data(document.querySelector('#pos-cash-close-modal')).open = true">
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
         Fechar Caixa
@@ -739,14 +1180,31 @@ document.addEventListener('alpine:init', function() {
     search: '',
     activeCollection: '',
     collections: [{% for col in collections %}'{{ col.ref }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+    deliveryMinimumQ: {{ pos.delivery_minimum_q|default:0 }},
+    fiscalStatus: '{{ pos.fiscal_status }}',
     cart: [],
+    customerRef: '',
     customerPhone: '',
     customerName: '',
     customerGroup: '',
     customerTaxId: '',
+    customerMemory: { favoriteItem: null, lastOrderItems: [] },
+    customerMemoryAction: '',
+    fulfillmentType: '{{ pos.terminal_default_fulfillment_type|default:"pickup" }}',
+    deliveryAddress: '',
+    deliveryStreetNumber: '',
+    deliveryNeighborhood: '',
+    deliveryTimeSlot: '',
+    deliveryFeeInput: '',
+    orderNotes: '',
     paymentMethod: 'cash',
+    paymentCollection: 'terminal',
+    splitPayment: false,
+    paymentTenders: [],
     tenderedInput: '',
     issueFiscalDocument: false,
+    managerApprovalUsername: '',
+    managerApprovalPassword: '',
     receiptMode: 'none',
     receiptEmail: '',
     activeTabCode: '',
@@ -757,14 +1215,40 @@ document.addEventListener('alpine:init', function() {
     tabCreateCode: '',
     tabCreateLabel: '',
     lastOrderRef: '',
+    lastOrderUrl: '',
     lastOrderTotal: '',
+    clientRequestId: '',
     successMsg: '',
+    successMsgTimer: null,
+    online: navigator.onLine,
+    offlineQueueCount: 0,
+    showHealthPanel: false,
+    showOfflineJournal: false,
+    isSubmitting: false,
+    isPricingSyncing: false,
+    lastPricingSignature: '',
+    showCommandPalette: false,
+    showClearSaleModal: false,
+    showCancelModal: false,
+    cancelReason: '',
 
     unavailableSkus: {},
     lowStockSkus: {},
 
+    init: function() {
+      this.clientRequestId = this.newClientRequestId();
+      this.offlineQueueCount = this.offlineQueue().length;
+      var self = this;
+      this.$nextTick(function() { self.focusSmart(); });
+      if (this.online && this.offlineQueueCount > 0) this.flushOfflineQueue();
+    },
+
     isUnavailable: function(sku) { return !!this.unavailableSkus[sku]; },
     isLowStock: function(sku) { return !!this.lowStockSkus[sku]; },
+    lowStockLabel: function(sku) {
+      var qty = this.lowStockSkus[sku];
+      return qty ? 'Restam ' + qty : '';
+    },
 
     onSkuState: function(detail) {
       if (!detail || !detail.sku) return;
@@ -785,9 +1269,12 @@ document.addEventListener('alpine:init', function() {
     discountValue: '',
     discountReason: 'cortesia',
     expandedNoteIdx: -1,
+    selectedCartIdx: -1,
+    activeProductSku: '',
+    activeTabTileCode: '',
 
     matchesTile: function(name, sku, col) {
-      var s = this.search.toLowerCase();
+      var s = this.parseProductCommand(this.search).term.toLowerCase();
       return (!s || name.toLowerCase().indexOf(s) !== -1 || sku.toLowerCase().indexOf(s) !== -1)
           && (!this.activeCollection || col === this.activeCollection);
     },
@@ -805,10 +1292,24 @@ document.addEventListener('alpine:init', function() {
       return Math.min(Math.round(v * 100), this.subtotalQ);
     },
 
-    get totalQ() { return Math.max(0, this.subtotalQ - this.discountQ); },
+    get deliveryFeeQ() {
+      if (this.fulfillmentType !== 'delivery') return 0;
+      return this.moneyInputToQ(this.deliveryFeeInput);
+    },
+
+    get deliveryOrderValueQ() {
+      return Math.max(0, this.subtotalQ - this.discountQ);
+    },
+
+    get deliveryMinimumRemainingQ() {
+      if (this.fulfillmentType !== 'delivery' || !this.deliveryMinimumQ) return 0;
+      return Math.max(0, this.deliveryMinimumQ - this.deliveryOrderValueQ);
+    },
+
+    get totalQ() { return Math.max(0, this.subtotalQ - this.discountQ + this.deliveryFeeQ); },
 
     get tenderedQ() {
-      if (this.paymentMethod !== 'cash') return 0;
+      if (this.paymentMethod !== 'cash' || this.paymentCollection !== 'terminal') return 0;
       var v = parseFloat(String(this.tenderedInput).replace(',', '.'));
       return isNaN(v) || v <= 0 ? 0 : Math.round(v * 100);
     },
@@ -816,6 +1317,17 @@ document.addEventListener('alpine:init', function() {
     get trocoQ() {
       if (this.paymentMethod !== 'cash' || this.tenderedQ <= 0) return 0;
       return Math.max(0, this.tenderedQ - this.totalQ);
+    },
+
+    get splitPaidQ() {
+      if (!this.splitPayment) return 0;
+      var total = 0;
+      for (var i = 0; i < this.paymentTenders.length; i++) total += this.moneyInputToQ(this.paymentTenders[i].amountInput);
+      return total;
+    },
+
+    get splitRemainingQ() {
+      return this.totalQ - this.splitPaidQ;
     },
 
     get itemCount() {
@@ -831,27 +1343,146 @@ document.addEventListener('alpine:init', function() {
     get canFinalize() {
       if (!this.canCheckout) return false;
       if (this.receiptMode === 'email' && !this.receiptEmail.trim()) return false;
-      if (this.paymentMethod === 'cash') return this.tenderedQ >= this.totalQ;
+      if (this.fulfillmentType === 'delivery' && !this.deliveryAddress.trim()) return false;
+      if (this.deliveryMinimumRemainingQ > 0) return false;
+      if (this.splitPayment) return this.paymentTenders.length > 0 && this.splitRemainingQ === 0;
+      if (this.paymentMethod === 'cash' && this.paymentCollection === 'terminal') return this.tenderedQ >= this.totalQ;
       return !!this.paymentMethod;
     },
 
     get isStaff() { return this.customerGroup === 'staff'; },
 
+    get customerMemoryHasActions() {
+      return !!(this.customerMemory && (this.customerMemory.favoriteItem || (this.customerMemory.lastOrderItems && this.customerMemory.lastOrderItems.length)));
+    },
+
     formatMoney: function(q) {
       return 'R$ ' + (q / 100).toFixed(2).replace('.', ',');
     },
 
+    moneyInputToQ: function(value) {
+      var v = parseFloat(String(value || '').replace(',', '.'));
+      return isNaN(v) || v <= 0 ? 0 : Math.round(v * 100);
+    },
+
+    qToMoneyInput: function(q) {
+      return (Math.max(0, q) / 100).toFixed(2);
+    },
+
+    newClientRequestId: function() {
+      var rand = Math.random().toString(16).slice(2);
+      return 'pos:' + Date.now().toString(36) + ':' + rand;
+    },
+
     addItem: function(p) {
       for (var i = 0; i < this.cart.length; i++) {
-        if (this.cart[i].sku === p.sku) { this.cart[i].qty++; return; }
+        if (this.cart[i].sku === p.sku) { this.cart[i].qty++; this.selectedCartIdx = i; return; }
       }
       this.cart.push({ sku: p.sku, name: p.name, price_q: p.price_q, qty: 1, notes: '', is_d1: p.is_d1 || false });
+      this.selectedCartIdx = this.cart.length - 1;
+    },
+
+    productFromTile: function(tile) {
+      if (!tile) return null;
+      return {
+        sku: tile.dataset.sku || '',
+        name: tile.dataset.name || tile.dataset.sku || '',
+        price_q: parseInt(tile.dataset.priceQ || '0', 10),
+        is_d1: tile.dataset.isD1 === 'true',
+      };
+    },
+
+    productFromMemoryItem: function(item) {
+      var sku = item && item.sku ? String(item.sku) : '';
+      var tile = null;
+      var tiles = this.$refs.productGrid ? this.$refs.productGrid.querySelectorAll('[data-product-tile]') : [];
+      for (var i = 0; i < tiles.length; i++) {
+        if ((tiles[i].dataset.sku || '') === sku) { tile = tiles[i]; break; }
+      }
+      var product = this.productFromTile(tile) || {};
+      return {
+        sku: sku,
+        name: item.name || product.name || sku,
+        price_q: parseInt(item.unit_price_q || product.price_q || 0, 10),
+        is_d1: !!product.is_d1,
+      };
+    },
+
+    loadCustomerMemory: function(span) {
+      var favorite = null;
+      var last = [];
+      try { favorite = JSON.parse(span.dataset.favoriteItem || 'null'); } catch(e) { favorite = null; }
+      try { last = JSON.parse(span.dataset.lastOrderItems || '[]'); } catch(e) { last = []; }
+      this.customerMemory = { favoriteItem: favorite && favorite.sku ? favorite : null, lastOrderItems: Array.isArray(last) ? last : [] };
+    },
+
+    addCustomerFavorite: function() {
+      if (!this.customerMemory || !this.customerMemory.favoriteItem) return;
+      var product = this.productFromMemoryItem(this.customerMemory.favoriteItem);
+      if (!product.sku || !product.price_q || this.isUnavailable(product.sku)) return;
+      this.addItem(product);
+      this.customerMemoryAction = 'favorite_item';
+    },
+
+    repeatCustomerLastOrder: function() {
+      if (!this.customerMemory || !this.customerMemory.lastOrderItems) return;
+      for (var i = 0; i < this.customerMemory.lastOrderItems.length; i++) {
+        var item = this.customerMemory.lastOrderItems[i];
+        var product = this.productFromMemoryItem(item);
+        if (!product.sku || !product.price_q || this.isUnavailable(product.sku)) continue;
+        var qty = Math.max(1, parseInt(item.qty || 1, 10));
+        for (var j = 0; j < qty; j++) this.addItem(product);
+      }
+      this.customerMemoryAction = 'last_order';
+    },
+
+    addProductToReachDeliveryMinimum: function() {
+      if (this.deliveryMinimumRemainingQ <= 0 || !this.$refs.productGrid) return;
+      var tiles = this.visibleProductTiles();
+      if (!tiles.length) return;
+      var remaining = this.deliveryMinimumRemainingQ;
+      var best = null;
+      var largest = null;
+      for (var i = 0; i < tiles.length; i++) {
+        var price = parseInt(tiles[i].dataset.priceQ || '0', 10);
+        if (!largest || price > parseInt(largest.dataset.priceQ || '0', 10)) largest = tiles[i];
+        if (price >= remaining && (!best || price < parseInt(best.dataset.priceQ || '0', 10))) best = tiles[i];
+      }
+      var tile = best || largest;
+      var product = this.productFromTile(tile);
+      if (product) {
+        this.addItem(product);
+        this.tabMessage = 'Item adicionado para completar o mínimo do delivery.';
+      }
     },
 
     inc: function(idx) { this.cart[idx].qty++; },
     dec: function(idx) {
       if (this.cart[idx].qty > 1) this.cart[idx].qty--;
       else this.cart.splice(idx, 1);
+      if (this.selectedCartIdx >= this.cart.length) this.selectedCartIdx = this.cart.length - 1;
+    },
+
+    selectedCartIndex: function() {
+      if (!this.cart.length) return -1;
+      if (this.selectedCartIdx < 0 || this.selectedCartIdx >= this.cart.length) this.selectedCartIdx = this.cart.length - 1;
+      return this.selectedCartIdx;
+    },
+
+    incrementSelectedCart: function() {
+      var idx = this.selectedCartIndex();
+      if (idx >= 0) this.inc(idx);
+    },
+
+    decrementSelectedCart: function() {
+      var idx = this.selectedCartIndex();
+      if (idx >= 0) this.dec(idx);
+    },
+
+    removeSelectedCart: function() {
+      var idx = this.selectedCartIndex();
+      if (idx >= 0) this.cart.splice(idx, 1);
+      if (this.selectedCartIdx >= this.cart.length) this.selectedCartIdx = this.cart.length - 1;
     },
 
     toggleNote: function(idx) {
@@ -867,9 +1498,20 @@ document.addEventListener('alpine:init', function() {
       this.discountReason = 'cortesia';
     },
 
+    setFulfillmentType: function(type) {
+      this.fulfillmentType = type === 'delivery' ? 'delivery' : 'pickup';
+      if (this.fulfillmentType !== 'delivery') {
+        this.paymentCollection = 'terminal';
+      }
+      this.focusSmartSoon();
+    },
+
     setPaymentMethod: function(method) {
       this.paymentMethod = method;
-      if (method !== 'cash') this.tenderedInput = '';
+      if (method !== 'cash') {
+        this.tenderedInput = '';
+        this.paymentCollection = 'terminal';
+      }
     },
 
     setTenderedQ: function(amountQ) {
@@ -882,6 +1524,90 @@ document.addEventListener('alpine:init', function() {
 
     clearTendered: function() {
       this.tenderedInput = '';
+    },
+
+    onSplitPaymentChanged: function() {
+      if (this.splitPayment && this.paymentTenders.length === 0) {
+        this.paymentTenders = [
+          { method: 'cash', amountInput: this.qToMoneyInput(this.totalQ), reference: '', collection: 'terminal' },
+        ];
+      }
+      if (this.splitPayment) {
+        this.paymentCollection = 'terminal';
+        this.tenderedInput = '';
+      }
+    },
+
+    addSplitTender: function() {
+      this.paymentTenders.push({
+        method: 'pix',
+        amountInput: this.qToMoneyInput(Math.max(0, this.splitRemainingQ)),
+        reference: '',
+        collection: 'terminal',
+      });
+    },
+
+    removeSplitTender: function(idx) {
+      this.paymentTenders.splice(idx, 1);
+    },
+
+    fillSplitRemaining: function() {
+      if (this.paymentTenders.length === 0) this.addSplitTender();
+      var remaining = this.splitRemainingQ;
+      if (remaining === 0) return;
+      var idx = this.paymentTenders.length - 1;
+      var current = this.moneyInputToQ(this.paymentTenders[idx].amountInput);
+      this.paymentTenders[idx].amountInput = this.qToMoneyInput(current + remaining);
+    },
+
+    normalizedPaymentTenders: function() {
+      if (!this.splitPayment) return null;
+      var self = this;
+      return this.paymentTenders.map(function(tender) {
+        return {
+          method: tender.method || 'external',
+          amount_q: self.moneyInputToQ(tender.amountInput),
+          collection: 'terminal',
+          reference: (tender.reference || '').trim(),
+        };
+      }).filter(function(tender) { return tender.amount_q > 0; });
+    },
+
+    addFirstMatchedProductFromSearch: function() {
+      if (!this.activeTabCode) {
+        this.tabMessage = 'Leia uma comanda antes de inserir produtos.';
+        return;
+      }
+      var parsed = this.parseProductCommand(this.search);
+      var term = parsed.term.toLowerCase();
+      if (!term) return;
+      var tiles = this.$refs.productGrid ? this.$refs.productGrid.querySelectorAll('[data-product-tile]') : [];
+      for (var i = 0; i < tiles.length; i++) {
+        var tile = tiles[i];
+        if (tile.offsetParent === null) continue;
+        var sku = tile.dataset.sku || '';
+        var name = tile.dataset.name || '';
+        if (this.isUnavailable(sku)) continue;
+        if (sku.toLowerCase() === term || sku.toLowerCase().indexOf(term) !== -1 || name.toLowerCase().indexOf(term) !== -1) {
+          this.addItem({
+            sku: sku,
+            name: name,
+            price_q: parseInt(tile.dataset.priceQ || '0', 10),
+            is_d1: tile.dataset.isD1 === 'true',
+          });
+          this.cart[this.selectedCartIdx].qty += Math.max(0, parsed.qty - 1);
+          this.search = '';
+          return;
+        }
+      }
+      this.tabMessage = 'Produto não encontrado.';
+    },
+
+    parseProductCommand: function(value) {
+      var raw = String(value || '').trim();
+      var match = raw.match(/^(\d+)\s*[*xX]\s*(.+)$/);
+      if (match) return { qty: Math.max(1, parseInt(match[1], 10) || 1), term: match[2].trim() };
+      return { qty: 1, term: raw };
     },
 
     clearActiveTabSession: function() {
@@ -908,11 +1634,26 @@ document.addEventListener('alpine:init', function() {
       this.resetSaleLocal();
     },
 
+    requestClearActiveSale: function() {
+      if (!this.cart.length) return;
+      this.showClearSaleModal = true;
+      var self = this;
+      this.$nextTick(function() {
+        if (self.$refs.clearSaleConfirmBtn) self.$refs.clearSaleConfirmBtn.focus();
+      });
+    },
+
+    confirmClearActiveSale: function() {
+      this.showClearSaleModal = false;
+      this.clearActiveSale(true);
+    },
+
     loadTabOpenResponse: function(d) {
       this.loadTab(d);
-      if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
+      if (window.htmx && this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
       if (this.$refs.tabCode) this.$refs.tabCode.value = '';
       this.tabMessage = '';
+      this.focusSmartSoon();
     },
 
     handleTabOpenError: function(responseText) {
@@ -924,6 +1665,13 @@ document.addEventListener('alpine:init', function() {
     openTabFromInput: function() {
       var code = this.$refs.tabCode ? this.$refs.tabCode.value.trim() : '';
       if (!code) return;
+      this.openTabByCode(code);
+    },
+
+    openTabByCode: function(code) {
+      code = String(code || '').trim();
+      if (!code) return;
+      this.tabMessage = 'Abrindo comanda ' + (code.replace(/^0+/, '') || '0') + '...';
       var self = this;
       fetch('/gestor/pos/tab/open/', {
         method: 'POST',
@@ -938,10 +1686,42 @@ document.addEventListener('alpine:init', function() {
             self.handleTabOpenError(text);
             return;
           }
-          self.loadTabOpenResponse(JSON.parse(text));
+          var data = JSON.parse(text);
+          self.loadTabOpenResponse(data);
         });
       }).catch(function() {
         self.tabMessage = 'Não foi possível abrir a comanda.';
+      });
+    },
+
+    focusSmart: function() {
+      if (this.mode === 'tab_select' && this.$refs.tabCode) { this.$refs.tabCode.focus(); return; }
+      if (this.mode === 'sale' && this.$refs.search) { this.$refs.search.focus(); return; }
+      if (this.mode === 'checkout') {
+        if (this.fulfillmentType === 'delivery' && !this.deliveryAddress.trim() && this.$refs.deliveryAddress) {
+          this.$refs.deliveryAddress.focus();
+          return;
+        }
+        if (!this.customerPhone.trim() && this.$refs.checkoutCustomerPhone) {
+          this.$refs.checkoutCustomerPhone.focus();
+          return;
+        }
+        if (this.paymentMethod === 'cash' && this.paymentCollection === 'terminal' && this.$refs.tenderedInput) {
+          this.$refs.tenderedInput.focus();
+          return;
+        }
+        if (this.$refs.closeBtn) this.$refs.closeBtn.focus();
+      }
+    },
+
+    focusSmartSoon: function() {
+      var self = this;
+      this.$nextTick(function() {
+        window.requestAnimationFrame(function() {
+          window.requestAnimationFrame(function() { self.focusSmart(); });
+        });
+        window.setTimeout(function() { self.focusSmart(); }, 40);
+        window.setTimeout(function() { self.focusSmart(); }, 120);
       });
     },
 
@@ -950,11 +1730,70 @@ document.addEventListener('alpine:init', function() {
         this.tabMessage = 'Abra uma comanda com itens antes do checkout.';
         return;
       }
-      this.mode = 'checkout';
+      if (this.isPricingSyncing) return;
+      if (!this.online) {
+        this.enterCheckoutDirectly();
+        return;
+      }
+      this.syncCartBeforeCheckout();
+    },
+
+    syncCartBeforeCheckout: function(options) {
+      options = options || {};
+      if (!this.activeTabCode || !this.activeTabSessionKey) return;
       var self = this;
-      this.$nextTick(function() {
-        if (self.$refs.checkoutCustomerPhone) self.$refs.checkoutCustomerPhone.focus();
+      this.isPricingSyncing = true;
+      this.tabMessage = 'Conferindo preços, promoções e regras...';
+      fetch('/gestor/pos/tab/save/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: new URLSearchParams({ payload: this.cartPayload() }),
+      }).then(function(response) {
+        return response.text().then(function(text) {
+          if (!response.ok) throw new Error(text || 'Não foi possível conferir a comanda.');
+          if (self.$refs.tabResult) self.$refs.tabResult.innerHTML = text;
+          return fetch('/gestor/pos/tab/open/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: new URLSearchParams({ tab_code: self.activeTabCode }),
+          });
+        });
+      }).then(function(response) {
+        return response.text().then(function(text) {
+          if (!response.ok) throw new Error(text || 'Não foi possível recarregar a comanda.');
+          return JSON.parse(text);
+        });
+      }).then(function(data) {
+        self.loadTab(data);
+        self.lastPricingSignature = self.pricingSignature();
+        self.mode = 'checkout';
+        self.tabMessage = options.requireConfirm
+          ? 'Checkout conferido pelo backend. Confira o total e confirme novamente.'
+          : '';
+        if (self.$refs.tabGrid && window.htmx) htmx.trigger(self.$refs.tabGrid, 'tabGridRefresh');
+        self.focusSmartSoon();
+      }).catch(function(error) {
+        self.tabMessage = 'Não foi possível conferir o checkout. ' + self.plainErrorText(error.message || '');
+      }).finally(function() {
+        self.isPricingSyncing = false;
       });
+    },
+
+    plainErrorText: function(value) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = String(value || '');
+      return (tmp.textContent || tmp.innerText || '').trim();
+    },
+
+    enterCheckoutDirectly: function() {
+      this.mode = 'checkout';
+      this.focusSmartSoon();
     },
 
     returnToSale: function() {
@@ -986,20 +1825,45 @@ document.addEventListener('alpine:init', function() {
       if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
     },
 
+    saveAndReturnToTabs: function() {
+      if (this.mode === 'sale' && this.cart.length > 0) this.returnToTabs();
+    },
+
     resetSaleLocal: function() {
       this.mode = 'tab_select';
       this.cart = [];
+      this.customerRef = '';
       this.customerPhone = '';
       this.customerName = '';
       this.customerGroup = '';
       this.customerTaxId = '';
+      this.customerMemory = { favoriteItem: null, lastOrderItems: [] };
+      this.customerMemoryAction = '';
+      this.fulfillmentType = '{{ pos.terminal_default_fulfillment_type|default:"pickup" }}';
+      this.deliveryAddress = '';
+      this.deliveryStreetNumber = '';
+      this.deliveryNeighborhood = '';
+      this.deliveryTimeSlot = '';
+      this.deliveryFeeInput = '';
+      this.orderNotes = '';
       this.clearDiscount();
+      this.splitPayment = false;
+      this.paymentTenders = [];
       this.tenderedInput = '';
       this.paymentMethod = 'cash';
+      this.paymentCollection = 'terminal';
       this.issueFiscalDocument = false;
+      this.managerApprovalUsername = '';
+      this.managerApprovalPassword = '';
       this.receiptMode = 'none';
       this.receiptEmail = '';
       this.expandedNoteIdx = -1;
+      this.selectedCartIdx = -1;
+      this.activeProductSku = '';
+      this.activeTabTileCode = '';
+      this.isSubmitting = false;
+      this.lastPricingSignature = '';
+      this.clientRequestId = this.newClientRequestId();
       this.activeTabCode = '';
       this.activeTabDisplay = '';
       this.activeTabSessionKey = '';
@@ -1007,21 +1871,52 @@ document.addEventListener('alpine:init', function() {
       if (this.$refs.result) this.$refs.result.innerHTML = '';
       if (this.$refs.customerResult) this.$refs.customerResult.innerHTML = '';
       if (this.$refs.tabResult) this.$refs.tabResult.innerHTML = '';
+      this.focusSmartSoon();
+    },
+
+    structuredDeliveryAddress: function() {
+      return {
+        route: this.deliveryAddress.trim(),
+        street_number: this.deliveryStreetNumber.trim(),
+        neighborhood: this.deliveryNeighborhood.trim(),
+        reference: this.orderNotes.trim(),
+      };
+    },
+
+    formattedDeliveryAddress: function() {
+      var parts = [];
+      if (this.deliveryAddress.trim()) parts.push(this.deliveryAddress.trim());
+      if (this.deliveryStreetNumber.trim()) parts.push(this.deliveryStreetNumber.trim());
+      if (this.deliveryNeighborhood.trim()) parts.push(this.deliveryNeighborhood.trim());
+      return parts.join(', ');
     },
 
     cartPayload: function() {
       return JSON.stringify({
+        intent_version: 'pos.sale-intent.v1',
         items: this.cart.map(function(it) {
           return { sku: it.sku, name: it.name, qty: it.qty, unit_price_q: it.price_q, notes: it.notes || '' };
         }),
         customer_name: this.customerName,
+        customer_ref: this.customerRef,
         customer_phone: this.customerPhone.trim(),
         customer_tax_id: this.customerTaxId.trim(),
+        customer_email: this.receiptEmail.trim(),
+        customer_memory_action: this.customerMemoryAction,
+        fulfillment_type: this.fulfillmentType,
+        delivery_address: this.fulfillmentType === 'delivery' ? this.formattedDeliveryAddress() : '',
+        delivery_address_structured: this.fulfillmentType === 'delivery' ? this.structuredDeliveryAddress() : {},
+        delivery_time_slot: this.fulfillmentType === 'delivery' ? this.deliveryTimeSlot.trim() : '',
+        delivery_fee_q: this.fulfillmentType === 'delivery' ? this.deliveryFeeQ : 0,
+        order_notes: this.orderNotes.trim(),
         payment_method: this.paymentMethod,
+        payment_collection: this.paymentCollection,
+        payment_tenders: this.normalizedPaymentTenders(),
         tendered_amount_q: (this.paymentMethod === 'cash' && this.tenderedQ > 0) ? this.tenderedQ : null,
         issue_fiscal_document: !!this.issueFiscalDocument,
         receipt_mode: this.receiptMode,
         receipt_email: this.receiptEmail.trim(),
+        client_request_id: this.clientRequestId,
         tab_code: this.activeTabCode || null,
         tab_session_key: this.activeTabSessionKey || null,
         manual_discount: this.discountQ > 0 ? {
@@ -1030,6 +1925,215 @@ document.addEventListener('alpine:init', function() {
           discount_q: this.discountQ,
           reason: this.discountReason,
         } : null,
+        manager_approval: this.discountQ > 0 ? {
+          username: this.managerApprovalUsername.trim(),
+          password: this.managerApprovalPassword,
+        } : null,
+      });
+    },
+
+    pricingSignature: function() {
+      var payload = {};
+      try { payload = JSON.parse(this.cartPayload()); } catch(e) { return ''; }
+      delete payload.client_request_id;
+      delete payload.tab_session_key;
+      delete payload.tendered_amount_q;
+      delete payload.payment_tenders;
+      delete payload.payment_method;
+      delete payload.payment_collection;
+      delete payload.receipt_mode;
+      delete payload.receipt_email;
+      delete payload.issue_fiscal_document;
+      return JSON.stringify(payload);
+    },
+
+    isPricingDirty: function() {
+      return this.online && this.lastPricingSignature && this.pricingSignature() !== this.lastPricingSignature;
+    },
+
+    offlineQueueKey: function() {
+      return 'shopman.pos.offlineQueue.v2';
+    },
+
+    offlineQueue: function() {
+      try {
+        return JSON.parse(localStorage.getItem(this.offlineQueueKey()) || '[]');
+      } catch(e) {
+        return [];
+      }
+    },
+
+    offlineJournal: function() {
+      return this.offlineQueue();
+    },
+
+    saveOfflineQueue: function(queue) {
+      localStorage.setItem(this.offlineQueueKey(), JSON.stringify(queue));
+      this.offlineQueueCount = queue.length;
+    },
+
+    queueOfflinePayload: function(payload) {
+      try {
+        var parsed = JSON.parse(payload);
+        if (parsed.manager_approval && parsed.manager_approval.password) {
+          this.tabMessage = 'Venda com aprovação gerencial não entra na fila local.';
+          return;
+        }
+      } catch(e) {}
+      var queue = this.offlineQueue();
+      var parsedPayload = null;
+      try { parsedPayload = JSON.parse(payload); } catch(e) {}
+      var requestId = parsedPayload ? parsedPayload.client_request_id : '';
+      var exists = queue.some(function(row) { return (requestId && row.client_request_id === requestId) || row.payload === payload; });
+      if (!exists) {
+        queue.push({
+          payload: payload,
+          client_request_id: requestId,
+          queued_at: new Date().toISOString(),
+          status: 'pending',
+          attempts: 0,
+          last_error: '',
+          total_display: this.formatMoney(parsedPayload ? this.payloadTotalQ(parsedPayload) : this.totalQ),
+        });
+        this.saveOfflineQueue(queue);
+      }
+      this.tabMessage = 'Venda guardada na fila local.';
+      this.showOfflineJournal = true;
+    },
+
+    payloadTotalQ: function(payload) {
+      var subtotal = 0;
+      var items = payload.items || [];
+      for (var i = 0; i < items.length; i++) subtotal += parseInt(items[i].qty || 1, 10) * parseInt(items[i].unit_price_q || 0, 10);
+      var discount = payload.manual_discount ? parseInt(payload.manual_discount.discount_q || 0, 10) : 0;
+      var fee = parseInt(payload.delivery_fee_q || 0, 10);
+      return Math.max(0, subtotal - discount + fee);
+    },
+
+    queueOfflineSale: function(evt) {
+      var detail = evt.detail || {};
+      var elt = detail.elt || {};
+      if (elt.id !== 'pos-close-btn') return;
+      this.queueOfflinePayload(this.cartPayload());
+    },
+
+    submitClose: function() {
+      if (!this.canFinalize || this.isSubmitting) {
+        this.focusSmartSoon();
+        return;
+      }
+      if (this.isPricingSyncing) return;
+      if (this.isPricingDirty()) {
+        this.syncCartBeforeCheckout({ requireConfirm: true });
+        return;
+      }
+      var payload = this.cartPayload();
+      var self = this;
+      this.isSubmitting = true;
+      this.tabMessage = '';
+      if (this.$refs.result) this.$refs.result.innerHTML = '';
+      fetch('/gestor/pos/close/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}',
+          'HX-Request': 'true',
+        },
+        body: new URLSearchParams({ payload: payload }),
+      }).then(function(response) {
+        return response.text().then(function(html) {
+          return { ok: response.ok, html: html };
+        });
+      }).then(function(result) {
+        if (self.$refs.result) self.$refs.result.innerHTML = result.html;
+        if (!result.ok) {
+          self.tabMessage = 'Não foi possível finalizar a venda.';
+          self.focusErrorFromResult();
+          self.focusSmartSoon();
+          return;
+        }
+        var el = self.$refs.result ? self.$refs.result.querySelector('[data-order-ref]') : null;
+        self.handleSaleCompleteElement(el);
+      }).catch(function() {
+        self.queueOfflinePayload(payload);
+      }).finally(function() {
+        self.isSubmitting = false;
+      });
+    },
+
+    focusErrorFromResult: function() {
+      var el = this.$refs.result ? this.$refs.result.querySelector('[data-error-code]') : null;
+      var target = el ? el.dataset.focusTarget : '';
+      if (!target) return;
+      var refs = {
+        search: this.$refs.search,
+        tab_code: this.$refs.tabCode,
+        delivery_address: this.$refs.deliveryAddress,
+        payment: this.$refs.paymentMethods,
+        receipt_email: document.getElementById('pos-receipt-email'),
+      };
+      var node = refs[target];
+      if (node && node.focus) node.focus();
+    },
+
+    retryOfflineRow: function(idx) {
+      if (!this.online) return;
+      var queue = this.offlineQueue();
+      if (!queue[idx]) return;
+      var row = queue.splice(idx, 1)[0];
+      queue.unshift(row);
+      this.saveOfflineQueue(queue);
+      this.flushOfflineQueue();
+    },
+
+    flushOfflineQueue: function() {
+      if (!this.online) return;
+      var queue = this.offlineQueue();
+      if (!queue.length) {
+        this.offlineQueueCount = 0;
+        return;
+      }
+      var self = this;
+      var row = queue[0];
+      row.status = 'retrying';
+      row.attempts = parseInt(row.attempts || 0, 10) + 1;
+      row.last_attempt_at = new Date().toISOString();
+      queue[0] = row;
+      this.saveOfflineQueue(queue);
+      fetch('/gestor/pos/close/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: new URLSearchParams({ payload: row.payload }),
+      }).then(function(response) {
+        return response.text().then(function(html) {
+          if (!response.ok) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            var text = (tmp.textContent || 'Falha ao reenviar pendência.').trim();
+            throw new Error(text.slice(0, 160));
+          }
+          return html;
+        });
+      }).then(function(html) {
+        queue.shift();
+        self.saveOfflineQueue(queue);
+        if (self.$refs.result) {
+          self.$refs.result.innerHTML = html;
+          var el = self.$refs.result.querySelector('[data-order-ref]');
+          if (el) self.successMsg = 'Pedido ' + el.dataset.orderRef + ' — ' + el.dataset.totalDisplay;
+        }
+        if (queue.length) self.flushOfflineQueue();
+      }).catch(function(error) {
+        queue = self.offlineQueue();
+        if (queue[0]) {
+          queue[0].status = 'failed';
+          queue[0].last_error = error && error.message ? error.message : 'Falha ao reenviar pendência.';
+          self.saveOfflineQueue(queue);
+        }
+        self.offlineQueueCount = queue.length;
       });
     },
 
@@ -1037,36 +2141,70 @@ document.addEventListener('alpine:init', function() {
       var target = evt.detail.target;
       if (target && target.id === 'pos-result') {
         var el = target.querySelector('[data-order-ref]');
-        var ref = el ? el.dataset.orderRef : null;
-        var total = el ? el.dataset.totalDisplay : null;
-        if (ref) {
-          this.lastOrderRef = ref;
-          this.lastOrderTotal = total;
-          this.successMsg = 'Pedido ' + ref + ' \u2014 ' + total;
-          this.resetSaleLocal();
-          if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
-          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
-          var self = this;
-          setTimeout(function() { self.successMsg = ''; }, 5000);
-        }
+        this.handleSaleCompleteElement(el);
       }
+    },
+
+    handleSaleCompleteElement: function(el) {
+      var ref = el ? el.dataset.orderRef : null;
+      if (!ref) return;
+      var total = el.dataset.totalDisplay || '';
+      var url = el.dataset.orderUrl || '';
+      this.lastOrderRef = ref;
+      this.lastOrderTotal = total;
+      this.lastOrderUrl = url || '';
+      this.successMsg = 'Pedido ' + ref + ' \u2014 ' + total;
+      this.resetSaleLocal();
+      if (window.htmx) {
+        if (this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
+        htmx.trigger(document.body, 'posOrderCreated');
+      }
+      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      if (this.successMsgTimer) window.clearTimeout(this.successMsgTimer);
+      var self = this;
+      this.successMsgTimer = window.setTimeout(function() {
+        self.successMsg = '';
+        self.successMsgTimer = null;
+      }, 12000);
     },
 
     loadTab: function(d) {
       this.mode = 'sale';
       this.cart = d.items || [];
+      this.customerRef = d.customer_ref || '';
       this.customerPhone = d.customer_phone || '';
       this.customerName = d.customer_name || '';
       this.customerGroup = d.customer_group || '';
       this.customerTaxId = d.customer_tax_id || '';
+      this.customerMemory = { favoriteItem: null, lastOrderItems: [] };
+      this.customerMemoryAction = '';
+      this.fulfillmentType = d.fulfillment_type || 'pickup';
+      this.deliveryAddress = d.delivery_address || '';
+      this.deliveryStreetNumber = (d.delivery_address_structured || {}).street_number || '';
+      this.deliveryNeighborhood = (d.delivery_address_structured || {}).neighborhood || '';
+      this.deliveryTimeSlot = d.delivery_time_slot || '';
+      this.deliveryFeeInput = d.delivery_fee_q ? (parseInt(d.delivery_fee_q, 10) / 100).toFixed(2) : '';
+      this.orderNotes = d.order_notes || '';
       this.paymentMethod = d.payment_method || 'cash';
+      this.paymentCollection = d.payment_collection || 'terminal';
+      if (this.fulfillmentType !== 'delivery') this.paymentCollection = 'terminal';
+      this.paymentTenders = (d.payment_tenders || []).map(function(tender) {
+        return {
+          method: tender.method || 'cash',
+          amountInput: (parseInt(tender.amount_q || 0, 10) / 100).toFixed(2),
+          reference: tender.reference || '',
+          collection: tender.collection || 'terminal',
+        };
+      });
+      this.splitPayment = this.paymentTenders.length > 1 || this.paymentMethod === 'mixed';
       this.tenderedInput = d.tendered_amount_q ? (parseInt(d.tendered_amount_q, 10) / 100).toFixed(2) : '';
       this.issueFiscalDocument = !!d.issue_fiscal_document;
       this.receiptMode = d.receipt_mode || 'none';
-      this.receiptEmail = d.receipt_email || '';
+      this.receiptEmail = d.receipt_email || d.customer_email || '';
       this.activeTabCode = d.tab_code || '';
       this.activeTabDisplay = d.tab_display || d.tab_code || '';
       this.activeTabSessionKey = d.tab_session_key || d.session_key || '';
+      this.clientRequestId = d.client_request_id || this.newClientRequestId();
       this.tabMessage = '';
       this.expandedNoteIdx = -1;
       this.$refs.result.innerHTML = '';
@@ -1079,13 +2217,130 @@ document.addEventListener('alpine:init', function() {
       } else {
         this.clearDiscount();
       }
+      this.lastPricingSignature = this.pricingSignature();
+    },
+
+    visibleProductTiles: function() {
+      var all = this.$refs.productGrid ? Array.prototype.slice.call(this.$refs.productGrid.querySelectorAll('[data-product-tile]')) : [];
+      var self = this;
+      return all.filter(function(tile) {
+        return tile.offsetParent !== null && !tile.disabled && !self.isUnavailable(tile.dataset.sku || '');
+      });
+    },
+
+    focusProductByDelta: function(delta) {
+      var tiles = this.visibleProductTiles();
+      if (!tiles.length) return;
+      var current = document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-product-tile]')
+        ? tiles.indexOf(document.activeElement)
+        : tiles.findIndex((tile) => (tile.dataset.sku || '') === this.activeProductSku);
+      if (current < 0) current = 0;
+      else current = (current + delta + tiles.length) % tiles.length;
+      this.activeProductSku = tiles[current].dataset.sku || '';
+      tiles[current].focus();
+    },
+
+    gridColumnCount: function(container, selector) {
+      var nodes = container ? Array.prototype.slice.call(container.querySelectorAll(selector)) : [];
+      nodes = nodes.filter(function(node) { return node.offsetParent !== null; });
+      if (!nodes.length) return 1;
+      var firstTop = Math.round(nodes[0].getBoundingClientRect().top);
+      var count = 0;
+      for (var i = 0; i < nodes.length; i++) {
+        if (Math.round(nodes[i].getBoundingClientRect().top) !== firstTop) break;
+        count++;
+      }
+      return Math.max(1, count);
+    },
+
+    handleProductGridKey: function(e) {
+      if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        var tile = document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-product-tile]') ? document.activeElement : null;
+        if (tile) tile.click();
+        return;
+      }
+      var columns = this.gridColumnCount(this.$refs.productGrid, '[data-product-tile]');
+      var delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? columns : -columns;
+      this.focusProductByDelta(delta);
+    },
+
+    visibleTabTiles: function() {
+      var all = this.$refs.tabGrid ? Array.prototype.slice.call(this.$refs.tabGrid.querySelectorAll('[data-tab-tile]')) : [];
+      return all.filter(function(tile) { return tile.offsetParent !== null; });
+    },
+
+    focusTabByDelta: function(delta) {
+      var tiles = this.visibleTabTiles();
+      if (!tiles.length) return;
+      var current = document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-tab-tile]')
+        ? tiles.indexOf(document.activeElement)
+        : tiles.findIndex((tile) => (tile.dataset.tabCode || '') === this.activeTabTileCode);
+      if (current < 0) current = 0;
+      else current = (current + delta + tiles.length) % tiles.length;
+      this.activeTabTileCode = tiles[current].dataset.tabCode || '';
+      tiles[current].focus();
+    },
+
+    handleTabGridKey: function(e) {
+      if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        var tile = document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-tab-tile]') ? document.activeElement : null;
+        if (tile) tile.click();
+        return;
+      }
+      var columns = this.gridColumnCount(this.$refs.tabGrid, '[data-tab-tile]');
+      var delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? columns : -columns;
+      this.focusTabByDelta(delta);
+    },
+
+    handlePaymentKey: function(e) {
+      if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.target.click(); return; }
+      var buttons = this.$refs.paymentMethods ? Array.prototype.slice.call(this.$refs.paymentMethods.querySelectorAll('[data-payment-option]')) : [];
+      if (!buttons.length) return;
+      var idx = buttons.indexOf(e.target);
+      var delta = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+      idx = idx < 0 ? 0 : (idx + delta + buttons.length) % buttons.length;
+      buttons[idx].focus();
     },
 
     handleKey: function(e) {
       var tag = e.target.tagName;
       var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      var isFn = /^F\d+$/.test(e.key);
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.showCommandPalette = true;
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        this.saveAndReturnToTabs();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        if (this.lastOrderUrl) window.location.href = this.lastOrderUrl;
+        return;
+      }
+      if (e.altKey && /^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        var idx = parseInt(e.key, 10) - 1;
+        this.activeCollection = this.collections[idx] || '';
+        return;
+      }
       if (e.key === 'Escape') {
+        if (this.showCommandPalette) { this.showCommandPalette = false; e.preventDefault(); return; }
+        if (this.showClearSaleModal) { this.showClearSaleModal = false; e.preventDefault(); return; }
         if (this.showDiscountModal) { this.showDiscountModal = false; e.preventDefault(); return; }
+        if (this.showCancelModal) { this.showCancelModal = false; e.preventDefault(); return; }
         if (this.showTabModal) { this.showTabModal = false; e.preventDefault(); return; }
         if (!inInput && this.mode === 'checkout') { this.returnToSale(); e.preventDefault(); return; }
         if (!inInput && this.mode === 'sale') { this.returnToTabs(); }
@@ -1093,27 +2348,56 @@ document.addEventListener('alpine:init', function() {
       }
       if (e.key === '/' && !inInput) {
         e.preventDefault();
-        if (this.mode === 'tab_select' && this.$refs.tabCode) this.$refs.tabCode.focus();
-        else if (this.mode === 'checkout' && this.$refs.checkoutCustomerPhone) this.$refs.checkoutCustomerPhone.focus();
-        else if (this.$refs.search) this.$refs.search.focus();
+        if (this.mode === 'checkout') this.returnToSale();
+        this.$nextTick(() => this.$refs.search && this.$refs.search.focus());
         return;
       }
-      if (inInput) return;
+      if (inInput && !isFn) return;
+      if (e.key === 'F2') {
+        e.preventDefault();
+        if (this.mode !== 'tab_select') this.returnToTabs();
+        this.$nextTick(() => this.$refs.tabCode && this.$refs.tabCode.focus());
+        return;
+      }
+      if (e.key === 'F3') {
+        e.preventDefault();
+        if (this.mode === 'checkout') this.returnToSale();
+        this.$nextTick(() => this.$refs.search && this.$refs.search.focus());
+        return;
+      }
+      if (e.key === 'F4') {
+        e.preventDefault();
+        if (this.$refs.cartPanel) this.$refs.cartPanel.focus();
+        return;
+      }
       if (this.mode === 'checkout') {
-        if (e.key === 'F8' || e.key === 'Enter') {
+        if (e.key === 'F9') {
           e.preventDefault();
-          if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click');
+          if (this.$refs.paymentMethods) this.$refs.paymentMethods.querySelector('button')?.focus();
+          return;
+        }
+        if (e.key === 'F10' || e.key === 'Enter') {
+          if (e.key === 'Enter' && inInput) return;
+          e.preventDefault();
+          this.submitClose();
         }
         return;
       }
       if (this.mode !== 'sale') return;
-      if (e.key === 'F1') { e.preventDefault(); this.activeCollection = this.collections[0] || ''; }
-      else if (e.key === 'F2') { e.preventDefault(); this.activeCollection = this.collections[1] || ''; }
-      else if (e.key === 'F3') { e.preventDefault(); this.activeCollection = this.collections[2] || ''; }
-      else if (e.key === 'F4') { e.preventDefault(); this.activeCollection = this.collections[3] || ''; }
-      else if (e.key === 'F5') { e.preventDefault(); this.clearActiveSale(true); }
+      if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
+        e.preventDefault();
+        var columns = this.gridColumnCount(this.$refs.productGrid, '[data-product-tile]');
+        var delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? columns : -columns;
+        this.focusProductByDelta(delta);
+        return;
+      }
+      if (e.key === 'F5') { e.preventDefault(); this.requestClearActiveSale(); }
       else if (e.key === 'F6') { e.preventDefault(); if (this.cart.length > 0) this.showDiscountModal = true; }
+      else if (e.key === 'F7') { e.preventDefault(); this.saveAndReturnToTabs(); }
       else if (e.key === 'F8') { e.preventDefault(); this.goCheckout(); }
+      else if (e.key === '+') { e.preventDefault(); this.incrementSelectedCart(); }
+      else if (e.key === '-') { e.preventDefault(); this.decrementSelectedCart(); }
+      else if (e.key === 'Delete') { e.preventDefault(); this.removeSelectedCart(); }
       else if (e.key === 'Enter' && this.cart.length > 0) { e.preventDefault(); this.goCheckout(); }
     },
   }; });

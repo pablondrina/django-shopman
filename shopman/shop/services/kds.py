@@ -183,6 +183,8 @@ def _build_routable_items(order_items) -> list[dict]:
 
     routable_items = []
     for item in order_items:
+        if (item.meta or {}).get("non_production") or (item.meta or {}).get("type") == "delivery_fee":
+            continue
         notes = item.meta.get("notes", "") if item.meta else ""
         components = bundle_components.get(item.sku, [])
         if components:

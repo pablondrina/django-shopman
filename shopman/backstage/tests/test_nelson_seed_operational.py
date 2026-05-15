@@ -33,6 +33,11 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
     call_command("seed", "--flush", stdout=StringIO())
 
     assert not Product.objects.filter(sku__startswith="DEMO-").exists()
+    for sku in ("BAGUETE", "ESPRESSO", "COMBO-PETIT-DEJ"):
+        fiscal = Product.objects.get(sku=sku).metadata["fiscal"]
+        assert fiscal["ncm"]
+        assert fiscal["cfop"] == "5102"
+        assert fiscal["icms_situacao_tributaria"] == "102"
     croissant_history = [
         item
         for item in OrderItem.objects.filter(sku="CROISSANT").select_related("order")

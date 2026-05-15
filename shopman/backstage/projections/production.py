@@ -1203,7 +1203,9 @@ def _decimal_meta(meta: dict, key: str) -> Decimal:
 
 def _production_suggestions(selected_date: date) -> list:
     try:
-        return craft.suggest(date=selected_date)
+        from shopman.craftsman import suggest as formula_suggest
+
+        return formula_suggest(target_date=selected_date)
     except Exception:
         logger.exception("production_suggestions_failed date=%s", selected_date)
         return []
@@ -1211,8 +1213,8 @@ def _production_suggestions(selected_date: date) -> list:
 
 def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
     basis = suggestion.basis or {}
-    avg = basis.get("avg_demand", Decimal("0")) or Decimal("0")
-    committed = basis.get("committed", Decimal("0")) or Decimal("0")
+    avg = _decimal_value(basis.get("avg_demand", Decimal("0")))
+    committed = _decimal_value(basis.get("committed", Decimal("0")))
     confidence = str(basis.get("confidence", "") or "")
     base_usages = _base_recipe_usages(suggestion.recipe)
     return ProductionSuggestionProjection(
@@ -1557,9 +1559,20 @@ def _wo_started_qty(wo: WorkOrder) -> Decimal | None:
 
 
 def _qty(value: Decimal) -> str:
+    value = _decimal_value(value)
     if not value:
         return "0"
     return format(value.quantize(Decimal("0.001")).normalize(), "f")
+
+
+def _decimal_value(value) -> Decimal:
+    try:
+        if value in (None, ""):
+            return Decimal("0")
+        return Decimal(str(value))
+    except Exception:
+        logger.debug("production_decimal_value_parse_failed value=%r", value, exc_info=True)
+        return Decimal("0")
 
 
 def _format_datetime(dt) -> str:

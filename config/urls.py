@@ -21,7 +21,9 @@ from shopman.backstage.admin_console.orders import (
     order_advance_view,
     order_confirm_view,
     order_detail_view,
+    order_requeue_fiscal_view,
     order_reject_view,
+    order_settle_delivery_cash_view,
     orders_console_list_view,
     orders_console_view,
 )
@@ -78,6 +80,16 @@ urlpatterns = [
         "admin/operacao/pedidos/<str:ref>/avancar/",
         admin.site.admin_view(order_advance_view),
         name="admin_console_order_advance",
+    ),
+    path(
+        "admin/operacao/pedidos/<str:ref>/acerto-dinheiro-entrega/",
+        admin.site.admin_view(order_settle_delivery_cash_view),
+        name="admin_console_order_settle_delivery_cash",
+    ),
+    path(
+        "admin/operacao/pedidos/<str:ref>/fiscal/reprocessar/",
+        admin.site.admin_view(order_requeue_fiscal_view),
+        name="admin_console_order_requeue_fiscal",
     ),
     path(
         "admin/operacao/pedidos/<str:ref>/rejeitar/",

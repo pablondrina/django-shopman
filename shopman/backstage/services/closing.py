@@ -77,6 +77,7 @@ def perform_day_closing(
             data={
                 "items": snapshot,
                 "production_summary": _production_summary(closing_date),
+                "cash_shift_summary": _cash_shift_summary(closing_date),
                 "reconciliation_errors": _reconciliation_errors(
                     closing_date=closing_date,
                     items=snapshot,
@@ -183,3 +184,81 @@ def _reconciliation_errors(*, closing_date: date, items: list[dict]) -> list[dic
                 "deficit": sold - available,
             })
     return errors
+
+
+def _cash_shift_summary(closing_date: date) -> dict:
+    from shopman.backstage.models import CashShift
+    from shopman.orderman.models import Order
+
+    closed = CashShift.objects.filter(closed_at__date=closing_date).select_related("terminal", "operator")
+    open_shifts = CashShift.objects.filter(status=CashShift.Status.OPEN).select_related("terminal", "operator")
+
+    shift_rows = []
+    totals = {
+        "opening_amount_q": 0,
+        "blind_closing_amount_q": 0,
+        "expected_amount_q": 0,
+        "difference_q": 0,
+    }
+    for shift in closed:
+        row = {
+            "id": shift.pk,
+            "terminal_ref": shift.terminal.ref,
+            "operator": shift.operator.get_username(),
+            "opened_at": shift.opened_at.isoformat() if shift.opened_at else "",
+            "closed_at": shift.closed_at.isoformat() if shift.closed_at else "",
+            "opening_amount_q": shift.opening_amount_q or 0,
+            "blind_closing_amount_q": shift.blind_closing_amount_q or 0,
+            "expected_amount_q": shift.expected_amount_q or 0,
+            "difference_q": shift.difference_q or 0,
+        }
+        shift_rows.append(row)
+        for key in totals:
+            totals[key] += int(row[key])
+
+    return {
+        "closed_shifts": shift_rows,
+        "open_shifts": [
+            {
+                "id": shift.pk,
+                "terminal_ref": shift.terminal.ref,
+                "operator": shift.operator.get_username(),
+                "opened_at": shift.opened_at.isoformat() if shift.opened_at else "",
+            }
+            for shift in open_shifts
+        ],
+        "totals": totals,
+        "payment_method_totals": _payment_method_totals(
+            Order.objects.filter(created_at__date=closing_date).exclude(status__in=["cancelled", "returned"])
+        ),
+    }
+
+
+def _payment_method_totals(orders) -> dict:
+    totals: dict[str, int] = {}
+    cod_pending_q = 0
+    cod_pending_count = 0
+    for order in orders:
+        payment = (order.data or {}).get("payment") or {}
+        tenders = payment.get("tenders") or []
+        if tenders:
+            for tender in tenders:
+                method = str(tender.get("method") or "external")
+                collection = str(tender.get("collection") or "terminal")
+                status = str(tender.get("status") or "")
+                amount_q = int(tender.get("amount_q") or 0)
+                if collection == "on_delivery" and status != "received":
+                    cod_pending_q += amount_q
+                    cod_pending_count += 1
+                    continue
+                totals[method] = totals.get(method, 0) + amount_q
+            continue
+        method = str(payment.get("method") or "external")
+        if payment.get("collection") == "on_delivery" and not payment.get("cod_settled_at"):
+            cod_pending_q += int(order.total_q or 0)
+            cod_pending_count += 1
+            continue
+        totals[method] = totals.get(method, 0) + int(order.total_q or 0)
+    totals["cod_pending_q"] = cod_pending_q
+    totals["cod_pending_count"] = cod_pending_count
+    return totals

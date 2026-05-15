@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.urls import NoReverseMatch, reverse
-from shopman.orderman.models import Order, OrderItem
+from shopman.orderman.models import Directive, Order, OrderItem
 
 from shopman.backstage.models import OperatorAlert
 from shopman.shop.models import Shop
@@ -100,6 +100,31 @@ def test_order_notes_view_persists_internal_notes(client, orders_user, order):
     assert response.status_code == 302
     order.refresh_from_db()
     assert order.data["internal_notes"] == "Separar"
+
+
+@pytest.mark.django_db
+def test_order_detail_shows_fiscal_status_and_requeue_action(client, orders_user, order):
+    order.data = {"customer": {"name": "Ana"}, "payment": {"method": "cash"}, "fiscal": {"issue_document": True}}
+    order.save(update_fields=["data"])
+    directive = Directive.objects.create(
+        topic="fiscal.emit_nfce",
+        status="failed",
+        payload={"order_ref": order.ref},
+        last_error="Rejeição fiscal",
+        error_code="terminal",
+    )
+    client.force_login(orders_user)
+
+    detail = client.get(reverse("admin_console_order_detail", args=[order.ref]))
+    response = client.post(reverse("admin_console_order_requeue_fiscal", args=[order.ref]))
+
+    assert detail.status_code == 200
+    assert "NFC-e com falha" in detail.content.decode()
+    assert "Reprocessar fiscal" in detail.content.decode()
+    assert response.status_code == 302
+    directive.refresh_from_db()
+    assert directive.status == "queued"
+    assert directive.last_error == ""
 
 
 @pytest.mark.django_db

@@ -182,7 +182,10 @@ class MinimumOrderRule(BaseRule):
         if fulfillment_type != "delivery":
             return
 
-        items = session.items or []
+        items = [
+            item for item in (session.items or [])
+            if item.get("sku") != "__DELIVERY_FEE__" and (item.get("meta") or {}).get("type") != "delivery_fee"
+        ]
         total_q = sum(item.get("line_total_q", 0) for item in items)
 
         if total_q < self.minimum_q:

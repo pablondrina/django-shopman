@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.utils import timezone
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
@@ -59,8 +60,14 @@ class POSShiftSummaryProjection:
 
     count: int
     total_display: str
+    pickup_count: int
+    delivery_count: int
+    cash_total_display: str
+    digital_total_display: str
     last_ref: str
     last_total_display: str
+    cod_pending_count: int
+    cod_pending_display: str
 
 
 @dataclass(frozen=True)
@@ -90,6 +97,17 @@ class POSProjection:
     collections: tuple[POSCollectionProjection, ...]
     payment_methods: tuple[POSPaymentMethodProjection, ...]
     has_open_cash_session: bool
+    terminal_ref: str
+    terminal_label: str
+    terminal_default_fulfillment_type: str
+    terminal_health_status: str
+    terminal_components: tuple[object, ...]
+    favorite_collection_refs: tuple[str, ...]
+    delivery_minimum_q: int
+    delivery_minimum_display: str
+    fiscal_status: str
+    fiscal_label: str
+    fiscal_message: str
 
 
 # ── Constants ──────────────────────────────────────────────────────────
@@ -104,7 +122,7 @@ _PAYMENT_METHODS = (
 # ── Builders ───────────────────────────────────────────────────────────
 
 
-def build_pos() -> POSProjection:
+def build_pos(*, terminal=None) -> POSProjection:
     """Build the POS terminal projection."""
     products = _load_products()
 
@@ -115,11 +133,32 @@ def build_pos() -> POSProjection:
         .values("ref", "name")
     )
 
+    if terminal is None:
+        from shopman.backstage.models import POSTerminal
+
+        terminal = POSTerminal.default()
+    from shopman.backstage.services.pos_terminal import runtime_profile
+
+    runtime = runtime_profile(terminal)
+    delivery_minimum_q = _delivery_minimum_q()
+    fiscal_status, fiscal_label, fiscal_message = _fiscal_runtime()
+
     return POSProjection(
         products=tuple(products),
         collections=collections,
         payment_methods=_PAYMENT_METHODS,
         has_open_cash_session=True,  # caller checks this before building
+        terminal_ref=runtime.terminal_ref,
+        terminal_label=runtime.terminal_label,
+        terminal_default_fulfillment_type=runtime.default_fulfillment_type,
+        terminal_health_status=runtime.status,
+        terminal_components=runtime.components,
+        favorite_collection_refs=runtime.favorite_collection_refs,
+        delivery_minimum_q=delivery_minimum_q,
+        delivery_minimum_display=f"R$ {format_money(delivery_minimum_q)}" if delivery_minimum_q else "",
+        fiscal_status=fiscal_status,
+        fiscal_label=fiscal_label,
+        fiscal_message=fiscal_message,
     )
 
 
@@ -137,14 +176,43 @@ def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSu
 
     shift_count = qs.count()
     shift_total_q = qs.aggregate(t=Sum("total_q"))["t"] or 0
+    pickup_count = 0
+    delivery_count = 0
+    cash_total_q = 0
+    digital_total_q = 0
+    cod_pending_count = 0
+    cod_pending_q = 0
+    for order in qs:
+        data = order.data or {}
+        if data.get("fulfillment_type") == "delivery":
+            delivery_count += 1
+        else:
+            pickup_count += 1
+        payment = data.get("payment") or {}
+        if payment.get("collection") == "on_delivery" and not payment.get("cod_settled_at"):
+            cod_pending_count += 1
+            cod_pending_q += int(order.total_q or 0)
+            continue
+        if payment.get("cash_received_q") is not None:
+            cash_total_q += int(payment.get("cash_received_q") or 0)
+        elif payment.get("method") == "cash" and payment.get("collection", "terminal") != "on_delivery":
+            cash_total_q += int(payment.get("cash_received_q") or order.total_q or 0)
+        else:
+            digital_total_q += int(order.total_q or 0)
 
     last_order = qs.order_by("-created_at").first()
 
     return POSShiftSummaryProjection(
         count=shift_count,
         total_display=format_money(shift_total_q),
+        pickup_count=pickup_count,
+        delivery_count=delivery_count,
+        cash_total_display=format_money(cash_total_q),
+        digital_total_display=format_money(digital_total_q),
         last_ref=last_order.ref if last_order else "",
         last_total_display=format_money(last_order.total_q) if last_order else "",
+        cod_pending_count=cod_pending_count,
+        cod_pending_display=format_money(cod_pending_q),
     )
 
 
@@ -262,7 +330,7 @@ def _tab_projection(*, code: str, session: Session | None) -> POSTabProjection:
             display_code=display_code,
             session_key="",
             state="empty",
-            status_label="Vazia",
+            status_label="Livre",
             status_class="badge-neutral",
             customer_name="",
             customer_phone="",
@@ -361,3 +429,48 @@ def _display_code(code: str) -> str:
 
 def _norm(value: str) -> str:
     return " ".join(str(value or "").strip().lower().split())
+
+
+def _delivery_minimum_q() -> int:
+    """Resolve the POS-visible delivery minimum from the active business rule."""
+    try:
+        from shopman.shop.rules.engine import get_rule_params
+
+        params = get_rule_params("minimum_order") or get_rule_params("shop.minimum_order") or {}
+        if params.get("minimum_q") is not None:
+            return max(0, int(params.get("minimum_q") or 0))
+    except Exception:
+        logger.debug("pos_delivery_minimum_rule_lookup_failed", exc_info=True)
+
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        raw = ((shop.defaults or {}).get("rules") or {}).get("minimum_order_q") if shop else None
+        if raw:
+            return max(0, int(raw))
+    except Exception:
+        logger.debug("pos_delivery_minimum_shop_lookup_failed", exc_info=True)
+    return 0
+
+
+def _fiscal_runtime() -> tuple[str, str, str]:
+    """Return a compact fiscal health tuple for the POS terminal bar."""
+    adapter_path = getattr(settings, "SHOPMAN_FISCAL_ADAPTER", None)
+    if not adapter_path:
+        return ("warning", "Fiscal", "sem adapter")
+
+    if "fiscal_focusnfe.FocusNFeBackend" in str(adapter_path):
+        config = dict(getattr(settings, "SHOPMAN_FOCUS_NFE", {}) or {})
+        environment = str(config.get("environment") or "homologacao").strip().lower() or "homologacao"
+        label = "Focus NFe / NFC-e"
+        missing = []
+        if not str(config.get("token") or "").strip():
+            missing.append("token")
+        if not str(config.get("cnpj_emitente") or "").strip():
+            missing.append("CNPJ")
+        if missing:
+            return ("warning", label, f"{environment}: falta {', '.join(missing)}")
+        return ("ready", label, environment)
+
+    return ("warning", "Fiscal", "adapter customizado")

@@ -10,6 +10,8 @@ GET  /api/v1/backstage/kds/cliente/               → customer pickup board
 
 from __future__ import annotations
 
+import logging
+
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.response import Response
@@ -25,6 +27,8 @@ from shopman.backstage.services import kds as kds_service
 
 from .permissions import HasBackstagePermission, IsBackstageOperator
 from .projections import projection_data
+
+logger = logging.getLogger(__name__)
 
 
 def _actor(request) -> str:
@@ -88,6 +92,7 @@ class KDSTicketItemView(APIView):
                 actor=_actor(request),
             )
         except Exception as exc:
+            logger.debug("kds_ticket_item_update_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao atualizar item."}, status=400)
         ticket = build_kds_ticket(ticket_pk)
         return Response({"ticket": projection_data(ticket)})
@@ -108,6 +113,7 @@ class KDSTicketDoneView(APIView):
         try:
             kds_service.mark_ticket_done(ticket_pk=ticket_pk, actor=_actor(request))
         except Exception as exc:
+            logger.debug("kds_ticket_done_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao marcar como pronto."}, status=400)
         return Response({"ok": True, "ticket_pk": ticket_pk})
 
@@ -134,6 +140,12 @@ class KDSExpeditionActionView(APIView):
                 actor=_actor(request),
             )
         except Exception as exc:
+            logger.debug(
+                "kds_expedition_action_failed order_pk=%s action=%s",
+                order_pk,
+                action,
+                exc_info=True,
+            )
             return Response({"detail": str(exc) or "Falha na ação."}, status=400)
         return Response({"ok": True, "action": action, "order_pk": order_pk})
 

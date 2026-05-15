@@ -54,7 +54,7 @@ from shopman.stockman.models import Position, PositionKind, StockAlert
 
 from shopman.backstage.models import (
     CashMovement,
-    CashRegisterSession,
+    CashShift,
     DayClosing,
     KDSInstance,
     OperationArea,
@@ -67,6 +67,7 @@ from shopman.backstage.models import (
     OperationTaskTemplate,
     OperatorAlert,
     POSTab,
+    POSTerminal,
 )
 from shopman.backstage.services.operations import (
     complete_checklist_run,
@@ -376,7 +377,8 @@ class Command(BaseCommand):
 
         # Cash register
         CashMovement.objects.all().delete()
-        CashRegisterSession.objects.all().delete()
+        CashShift.objects.all().delete()
+        POSTerminal.objects.all().delete()
 
         # Day closing
         DayClosing.objects.all().delete()
@@ -867,6 +869,30 @@ class Command(BaseCommand):
             },
         }
 
+        fiscal_ncm_by_sku = {
+            # Produtos de padaria, pastelaria e panificação em geral.
+            "default": "19059090",
+            # Bebidas/itens não panificados. Revisar com contabilidade antes de produção.
+            "ESPRESSO": "21011110",
+            "ESPRESSO-DUPLO": "21011110",
+            "CAPPUCCINO": "21011110",
+            "LATTE": "21011110",
+            "CHOCOLATE-QUENTE": "18069000",
+            "CHA-EARL-GREY": "09024000",
+            "SUCO-LARANJA": "20091200",
+        }
+
+        def fiscal_metadata_for_sku(sku: str) -> dict:
+            return {
+                "ncm": fiscal_ncm_by_sku.get(sku, fiscal_ncm_by_sku["default"]),
+                "cfop": "5102",
+                "unit": "UN",
+                "icms_origem": "0",
+                "icms_situacao_tributaria": "102",
+                "pis_situacao_tributaria": "07",
+                "cofins_situacao_tributaria": "07",
+            }
+
         products = {}
         for sku, name, desc, price_q, unit, shelf_life, sellable, image, weight_g, storage in products_data:
             p, _ = Product.objects.update_or_create(
@@ -887,10 +913,17 @@ class Command(BaseCommand):
             )
             if sku in keywords_map:
                 p.keywords.add(*keywords_map[sku])
-            if sku in PDP_METADATA:
-                metadata = p.metadata if isinstance(p.metadata, dict) else {}
-                p.metadata = {**metadata, **PDP_METADATA[sku]}
-                p.save(update_fields=["metadata"])
+            metadata = p.metadata if isinstance(p.metadata, dict) else {}
+            existing_fiscal = metadata.get("fiscal") if isinstance(metadata.get("fiscal"), dict) else {}
+            p.metadata = {
+                **metadata,
+                **PDP_METADATA.get(sku, {}),
+                "fiscal": {
+                    **fiscal_metadata_for_sku(sku),
+                    **existing_fiscal,
+                },
+            }
+            p.save(update_fields=["metadata"])
             products[sku] = p
 
         # Bundle: Combo Petit Dejeuner (Croissant + Mini Baguete)
@@ -914,6 +947,14 @@ class Command(BaseCommand):
             "dietary_info": ["vegetariano"],
             "serves": "1 pessoa",
             "approx_dimensions": "1 croissant + 1 mini baguete",
+            "fiscal": {
+                **fiscal_metadata_for_sku("COMBO-PETIT-DEJ"),
+                **(
+                    combo.metadata.get("fiscal", {})
+                    if isinstance(combo.metadata, dict) and isinstance(combo.metadata.get("fiscal"), dict)
+                    else {}
+                ),
+            },
         }
         combo.save(update_fields=["metadata"])
         products["COMBO-PETIT-DEJ"] = combo
@@ -2141,7 +2182,15 @@ class Command(BaseCommand):
     def _assert_catalog_remote_purchase_data(self):
         missing = []
         required_metadata = ("allergens", "dietary_info", "serves")
-        products = Product.objects.filter(is_published=True).prefetch_related("keywords").order_by("sku")
+        listed_skus = ListingItem.objects.filter(
+            listing__ref__in=("pdv", "delivery", "ifood", "web"),
+            listing__is_active=True,
+            is_published=True,
+        ).values_list("product__sku", flat=True).distinct()
+        products = Product.objects.filter(
+            sku__in=listed_skus,
+            is_published=True,
+        ).prefetch_related("keywords").order_by("sku")
 
         for product in products:
             gaps = []
@@ -2149,6 +2198,13 @@ class Command(BaseCommand):
             for key in required_metadata:
                 if key not in metadata:
                     gaps.append(f"metadata.{key}")
+            fiscal = metadata.get("fiscal") if isinstance(metadata.get("fiscal"), dict) else {}
+            if not fiscal:
+                gaps.append("metadata.fiscal")
+            else:
+                for key in ("ncm", "cfop", "unit", "icms_situacao_tributaria"):
+                    if not fiscal.get(key):
+                        gaps.append(f"metadata.fiscal.{key}")
             if product.unit_weight_g and not metadata.get("approx_dimensions"):
                 gaps.append("metadata.approx_dimensions")
             if not product.keywords.exists():
@@ -2172,7 +2228,19 @@ class Command(BaseCommand):
         from shopman.shop.services import catalog_context
 
         blocked = []
-        products = Product.objects.filter(is_published=True, is_sellable=True).order_by("sku")
+        web_skus = ListingItem.objects.filter(
+            listing__ref="web",
+            listing__is_active=True,
+            is_published=True,
+            is_sellable=True,
+            product__is_published=True,
+            product__is_sellable=True,
+        ).values_list("product__sku", flat=True).distinct()
+        products = Product.objects.filter(
+            sku__in=web_skus,
+            is_published=True,
+            is_sellable=True,
+        ).order_by("sku")
         for product in products:
             raw_availability = catalog_context.availability_for_sku(product.sku, channel_ref="web")
             availability = catalog_context.storefront_availability(
@@ -3935,7 +4003,7 @@ class Command(BaseCommand):
         self.stdout.write("  ✅ DayClosing criado" if created else "  ✅ DayClosing atualizado")
 
     # ────────────────────────────────────────────────────────────────
-    # CashRegisterSession (caixa)
+    # CashShift (caixa)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_cash_register(self):
@@ -3950,15 +4018,18 @@ class Command(BaseCommand):
         yesterday_open = timezone.make_aware(datetime.combine(yesterday, time(8, 30)))
         yesterday_close = timezone.make_aware(datetime.combine(yesterday, time(18, 15)))
 
-        # Yesterday's closed session
-        session_yesterday, _ = CashRegisterSession.objects.update_or_create(
+        terminal = POSTerminal.default()
+
+        # Yesterday's closed shift
+        session_yesterday, _ = CashShift.objects.update_or_create(
             operator=admin,
             opened_at=yesterday_open,
             defaults={
+                "terminal": terminal,
                 "status": "closed",
                 "closed_at": yesterday_close,
                 "opening_amount_q": 20000,   # R$ 200 fundo de troco
-                "closing_amount_q": 89200,   # R$ 892 (reported)
+                "blind_closing_amount_q": 89200,   # R$ 892 (reported)
                 "expected_amount_q": 89500,  # R$ 895 (calculated)
                 "difference_q": -300,        # -R$ 3,00 (small shortage)
                 "notes": "Dia tranquilo, faltou R$3 no caixa.",
@@ -3967,7 +4038,7 @@ class Command(BaseCommand):
 
         # Sangria
         CashMovement.objects.update_or_create(
-            session=session_yesterday,
+            shift=session_yesterday,
             movement_type="sangria",
             defaults={
                 "amount_q": 30000,  # R$ 300
@@ -3978,10 +4049,11 @@ class Command(BaseCommand):
 
         # Today's open session
         today_open = timezone.make_aware(datetime.combine(timezone.localdate(), time(8, 45)))
-        CashRegisterSession.objects.update_or_create(
+        CashShift.objects.update_or_create(
             operator=admin,
             opened_at=today_open,
             defaults={
+                "terminal": terminal,
                 "status": "open",
                 "opening_amount_q": 20000,  # R$ 200 fundo de troco
             },

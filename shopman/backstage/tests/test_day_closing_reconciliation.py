@@ -13,7 +13,7 @@ from shopman.orderman.models import Order, OrderItem
 from shopman.stockman import Position
 from shopman.stockman.services.movements import StockMovements
 
-from shopman.backstage.models import DayClosing
+from shopman.backstage.models import CashShift, DayClosing, POSTerminal
 from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
 from shopman.shop.models import Shop
 
@@ -75,6 +75,67 @@ def test_perform_day_closing_persists_production_summary(client, setup_stock, cl
     closing = DayClosing.objects.get()
     assert closing.data["production_summary"]["recon-close"]["finished"] == 4
     assert "reconciliation_errors" in closing.data
+
+
+@pytest.mark.django_db
+def test_perform_day_closing_persists_cash_shift_summary(client, setup_stock, closing_user):
+    terminal = POSTerminal.default()
+    shift = CashShift.objects.create(
+        terminal=terminal,
+        operator=closing_user,
+        opening_amount_q=1000,
+    )
+    shift.close(blind_closing_amount_q=1000)
+    client.force_login(closing_user)
+
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+
+    assert response.status_code == 302
+    summary = DayClosing.objects.get().data["cash_shift_summary"]
+    assert summary["closed_shifts"][0]["id"] == shift.pk
+    assert summary["totals"]["blind_closing_amount_q"] == 1000
+
+
+@pytest.mark.django_db
+def test_day_closing_summarizes_payment_methods_and_cod_pending(client, setup_stock, closing_user):
+    Order.objects.create(
+        ref="RECON-PAY-SPLIT",
+        channel_ref="pdv",
+        status="completed",
+        total_q=1500,
+        data={
+            "payment": {
+                "method": "mixed",
+                "tenders": [
+                    {"method": "cash", "amount_q": 500, "collection": "terminal", "status": "received"},
+                    {"method": "pix", "amount_q": 1000, "collection": "terminal", "status": "received"},
+                ],
+            }
+        },
+    )
+    Order.objects.create(
+        ref="RECON-PAY-COD",
+        channel_ref="pdv",
+        status="dispatched",
+        total_q=1200,
+        data={
+            "payment": {
+                "method": "cash",
+                "collection": "on_delivery",
+                "tenders": [{"method": "cash", "amount_q": 1200, "collection": "on_delivery", "status": "pending"}],
+            }
+        },
+    )
+    client.force_login(closing_user)
+
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+
+    assert response.status_code == 302
+    methods = DayClosing.objects.get().data["cash_shift_summary"]["payment_method_totals"]
+    assert methods["cash"] == 500
+    assert methods["pix"] == 1000
+    assert methods["cod_pending_q"] == 1200
+    assert methods["cod_pending_count"] == 1
 
 
 @pytest.mark.django_db

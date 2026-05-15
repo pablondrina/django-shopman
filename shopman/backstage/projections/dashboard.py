@@ -523,12 +523,12 @@ def _operator_alerts() -> list[OperatorAlertProjection]:
 
 def _production_suggestions(target_date: date) -> list[ProductionSuggestionProjection]:
     try:
-        from shopman.craftsman.service import CraftService as craft
+        from shopman.craftsman import suggest as formula_suggest
     except ImportError:
         return []
 
     try:
-        suggestions = craft.suggest(date=target_date)
+        suggestions = formula_suggest(target_date=target_date)
     except Exception:
         logger.debug("dashboard_suggestions_failed date=%s", target_date, exc_info=True)
         return []
@@ -536,8 +536,8 @@ def _production_suggestions(target_date: date) -> list[ProductionSuggestionProje
     rows: list[ProductionSuggestionProjection] = []
     for s in suggestions:
         basis = s.basis or {}
-        avg = basis.get("avg_demand", Decimal("0"))
-        safety = basis.get("safety_pct", Decimal("0"))
+        avg = _decimal_value(basis.get("avg_demand", Decimal("0")))
+        safety = _decimal_value(basis.get("safety_pct", Decimal("0")))
         rows.append(ProductionSuggestionProjection(
             recipe_ref=s.recipe.ref,
             recipe_name=s.recipe.name,
@@ -549,6 +549,16 @@ def _production_suggestions(target_date: date) -> list[ProductionSuggestionProje
             sample_size=basis.get("sample_size", 0),
         ))
     return rows
+
+
+def _decimal_value(value) -> Decimal:
+    try:
+        if value in (None, ""):
+            return Decimal("0")
+        return Decimal(str(value))
+    except Exception:
+        logger.debug("dashboard_decimal_value_parse_failed value=%r", value, exc_info=True)
+        return Decimal("0")
 
 
 # ── Charts ─────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 from shopman.orderman.models import Order
+from shopman.utils.monetary import format_money
 from unfold.views import UnfoldModelAdminViewMixin
 from unfold.widgets import UnfoldAdminTextareaWidget
 
@@ -260,6 +261,37 @@ def order_advance_view(request: HttpRequest, ref: str) -> HttpResponse:
     return _orders_redirect()
 
 
+@require_POST
+def order_settle_delivery_cash_view(request: HttpRequest, ref: str) -> HttpResponse:
+    if not _can_manage_orders(request.user):
+        return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
+    order = _order_or_404(ref)
+    try:
+        amount_q = order_service.settle_delivery_cash(
+            order,
+            operator=request.user,
+            amount_raw=request.POST.get("amount", ""),
+            actor=f"operator:{request.user.username}",
+        )
+    except OrderError as exc:
+        return HttpResponse(str(exc), status=422)
+    messages.success(request, f"Dinheiro de entrega recebido no caixa: R$ {format_money(amount_q)}.")
+    return _orders_redirect()
+
+
+@require_POST
+def order_requeue_fiscal_view(request: HttpRequest, ref: str) -> HttpResponse:
+    if not _can_manage_orders(request.user):
+        return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
+    order = _order_or_404(ref)
+    try:
+        order_service.requeue_fiscal_emission(order, actor=f"operator:{request.user.username}")
+    except OrderError as exc:
+        return HttpResponse(str(exc), status=422)
+    messages.success(request, f"NFC-e do pedido #{order.ref} enviada para reprocessamento.")
+    return _orders_redirect()
+
+
 def build_orders_console_context(request: HttpRequest) -> dict:
     queue = build_two_zone_queue()
     return {
@@ -416,6 +448,8 @@ def _actions_cell(request: HttpRequest, card: OrderCardProjection, *, include_de
                 "detail_url": reverse("admin_console_order_detail", args=[card.ref]),
                 "confirm_url": reverse("admin_console_order_confirm", args=[card.ref]),
                 "advance_url": reverse("admin_console_order_advance", args=[card.ref]),
+                "settle_cash_url": reverse("admin_console_order_settle_delivery_cash", args=[card.ref]),
+                "requeue_fiscal_url": reverse("admin_console_order_requeue_fiscal", args=[card.ref]),
                 "reject_url": reverse("admin_console_order_reject", args=[card.ref]),
             },
             request=request,

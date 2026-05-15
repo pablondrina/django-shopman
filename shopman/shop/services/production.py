@@ -124,6 +124,7 @@ def set_planned_quantity(
     operator_ref: str = "",
     reason: str = "",
     actor: str,
+    source_ref: str = "production_matrix",
 ) -> tuple[str, str, Decimal, str]:
     """Create, adjust, or consolidate the planned WorkOrder behind a matrix cell."""
     from shopman.craftsman.models import WorkOrder
@@ -135,6 +136,12 @@ def set_planned_quantity(
     target_date = _target_date_or_today(target_date_value)
     position = str(position_ref or "").strip() or _default_position_ref()
     operator = str(operator_ref or "").strip()
+    extra_meta = _formula_meta(
+        recipe=recipe,
+        target_date=target_date,
+        quantity=qty,
+        source_ref=source_ref,
+    )
 
     planned_orders = list(
         WorkOrder.objects.filter(
@@ -161,8 +168,9 @@ def set_planned_quantity(
             date=target_date,
             position_ref=position,
             operator_ref=operator,
-            source_ref="production_matrix",
+            source_ref=source_ref,
             actor=actor,
+            meta=extra_meta,
         )
         return recipe.output_sku, work_order.ref, qty, "created"
 
@@ -170,6 +178,11 @@ def set_planned_quantity(
     duplicate_orders = planned_orders[1:]
     if duplicate_orders:
         _merge_committed_order_links(work_order, duplicate_orders)
+        if extra_meta:
+            work_order.meta = {**(work_order.meta or {}), **extra_meta}
+        work_order.save(update_fields=["meta", "updated_at"])
+    elif extra_meta:
+        work_order.meta = {**(work_order.meta or {}), **extra_meta}
         work_order.save(update_fields=["meta", "updated_at"])
 
     adjusted = False
@@ -274,6 +287,7 @@ def bulk_plan(
                 position_ref=position_ref,
                 reason=f"Sugestão aplicada: {source_ref}",
                 actor="production:suggestion",
+                source_ref="formula:suggestion",
             )
             action = {
                 "created": "criado",
@@ -394,3 +408,28 @@ def _target_date_or_today(value) -> date:
         return date.fromisoformat(value) if value else date.today()
     except (ValueError, TypeError):
         return date.today()
+
+
+def _formula_meta(*, recipe, target_date: date, quantity: Decimal, source_ref: str) -> dict:
+    if source_ref != "formula:suggestion":
+        return {}
+    try:
+        from shopman.craftsman import suggest as formula_suggest
+
+        lines = formula_suggest(target_date, output_skus=[recipe.output_sku])
+        basis = {}
+        for line in lines:
+            if line.recipe.pk == recipe.pk:
+                basis = dict(line.basis or {})
+                break
+        if not basis:
+            basis = {
+                "date": target_date.isoformat(),
+                "output_sku": recipe.output_sku,
+                "recipe_ref": recipe.ref,
+            }
+        basis["accepted_quantity"] = str(quantity)
+        return {"formula_basis": basis}
+    except Exception:
+        logger.debug("production.formula_basis_unavailable recipe=%s", recipe.ref, exc_info=True)
+        return {}

@@ -30,6 +30,11 @@ HAPPY_HOUR_START = time(17, 30)
 HAPPY_HOUR_END = time(18, 0)
 
 
+def _is_non_merchandise_line(item: dict) -> bool:
+    meta = item.get("meta") or {}
+    return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
+
+
 class D1DiscountModifier:
     """
     Desconto D-1 — aplica desconto em itens com estoque apenas D-1
@@ -66,6 +71,8 @@ class D1DiscountModifier:
 
         modified = False
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             sku = item.get("sku", "")
             is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
             if not is_d1:
@@ -162,6 +169,8 @@ class HappyHourModifier:
         items = session.items or []
         modified = False
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             applied = item.get("modifiers_applied", [])
             if any(m.get("type") == "employee_discount" for m in applied):
                 continue

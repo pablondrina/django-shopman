@@ -101,7 +101,7 @@ class TestOperateKdsPerm(TestCase):
 class TestOperatePosPerm(TestCase):
     def setUp(self):
         self.client = Client()
-        self.perm = _get_perm("backstage", "cashregistersession", "operate_pos")
+        self.perm = _get_perm("backstage", "cashshift", "operate_pos")
         _create_shop()  # required: OnboardingMiddleware redirects /gestor/ if no Shop
 
     def test_staff_without_perm_gets_403(self):

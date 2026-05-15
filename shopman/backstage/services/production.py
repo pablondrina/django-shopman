@@ -101,6 +101,7 @@ def apply_planned(
     reason: str = "",
     actor: str,
     force: bool = False,
+    source_ref: str = "production_matrix",
 ):
     """Create or adjust the planned work order represented by a matrix cell."""
     _check_linked_order_coverage(
@@ -119,6 +120,7 @@ def apply_planned(
         operator_ref=operator_ref,
         reason=reason,
         actor=actor,
+        source_ref=source_ref,
     )
 
 
