@@ -1,14 +1,13 @@
-"""Admin for CashRegisterSession + CashMovement."""
+"""Admin for POS terminals, CashShift, and CashMovement."""
 
 from __future__ import annotations
 
 from django.contrib import admin
-from unfold.admin import ModelAdmin
-
 from shopman.utils import unfold_badge, unfold_badge_numeric
 from shopman.utils.monetary import format_money
+from unfold.admin import ModelAdmin
 
-from shopman.backstage.models import CashMovement, CashRegisterSession
+from shopman.backstage.models import CashMovement, CashShift, POSTerminal
 
 
 class CashMovementInline(admin.TabularInline):
@@ -25,12 +24,12 @@ class CashMovementInline(admin.TabularInline):
         return False
 
 
-@admin.register(CashRegisterSession)
-class CashRegisterSessionAdmin(ModelAdmin):
-    list_display = ("operator", "opened_at", "status_display", "opening_display", "closing_display", "difference_display")
-    list_filter = ("status", "opened_at")
+@admin.register(CashShift)
+class CashShiftAdmin(ModelAdmin):
+    list_display = ("operator", "terminal", "opened_at", "status_display", "opening_display", "closing_display", "difference_display")
+    list_filter = ("status", "terminal", "opened_at")
     readonly_fields = (
-        "operator", "opened_at", "closed_at", "status",
+        "terminal", "operator", "opened_at", "closed_at", "status",
         "opening_display", "closing_display", "expected_display", "difference_display",
         "notes",
     )
@@ -40,7 +39,7 @@ class CashRegisterSessionAdmin(ModelAdmin):
     compressed_fields = True
 
     def status_display(self, obj):
-        if obj.status == CashRegisterSession.Status.OPEN:
+        if obj.status == CashShift.Status.OPEN:
             return unfold_badge("aberto", "yellow")
         return unfold_badge("fechado", "green")
     status_display.short_description = "Status"
@@ -50,9 +49,9 @@ class CashRegisterSessionAdmin(ModelAdmin):
     opening_display.short_description = "Abertura"
 
     def closing_display(self, obj):
-        if obj.closing_amount_q is None:
+        if obj.blind_closing_amount_q is None:
             return "—"
-        return unfold_badge_numeric(f"R$ {format_money(obj.closing_amount_q)}", "base")
+        return unfold_badge_numeric(f"R$ {format_money(obj.blind_closing_amount_q)}", "base")
     closing_display.short_description = "Fechamento"
 
     def expected_display(self, obj):
@@ -74,3 +73,23 @@ class CashRegisterSessionAdmin(ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         return request.user.has_perm("backstage.operate_pos")
+
+
+@admin.register(POSTerminal)
+class POSTerminalAdmin(ModelAdmin):
+    list_display = ("ref", "label", "channel_ref", "health_display", "is_active")
+    list_filter = ("is_active", "channel_ref")
+    search_fields = ("ref", "label", "channel_ref")
+    readonly_fields = ("health_display",)
+    fields = ("ref", "label", "channel_ref", "location_ref", "is_active", "metadata", "health_display")
+    compressed_fields = True
+
+    def health_display(self, obj):
+        if obj is None:
+            return "—"
+        from shopman.backstage.services.pos_terminal import runtime_profile
+
+        profile = runtime_profile(obj)
+        color = "green" if profile.status == "ready" else "yellow"
+        return unfold_badge(profile.status, color)
+    health_display.short_description = "Health"

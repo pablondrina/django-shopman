@@ -183,7 +183,7 @@ packages:
 | `framework/shopman/management/commands/cleanup_d1.py:10` | `shopman.stockman.models.position` | Submodelo |
 | `framework/shopman/web/views/production.py:18` | `shopman.stockman.models.position` | Idem |
 | `framework/shopman/admin/dashboard.py:452` | `shopman.stockman.models.position` | Idem |
-| `framework/shopman/web/views/closing.py:22` | `shopman.stockman.models.position` | Idem |
+| `shopman/backstage/admin_console/closing.py` | `shopman.stockman.models.position` | Idem |
 | `framework/shopman/web/views/devices.py:67, 107` | `shopman.doorman.models.device_trust` | Submodelo |
 | `framework/shopman/services/alternatives.py:27` | `shopman.offerman.contrib.suggestions` | Contrib privado |
 

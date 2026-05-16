@@ -1,5 +1,11 @@
 # Plano: Domínio de Operação
 
+**Status:** baseline local implementado em 2026-05-06. O domínio já tem modelos,
+serviço idempotente, Admin Unfold canônico, migration, testes e seed Nelson para
+abertura, rotina e fechamento. O plano permanece ativo para a próxima camada:
+superfície de execução focada no operador, relatórios/BI e vínculos mais ricos
+com fechamento, caixa, produção e estoque.
+
 Este plano registra o próximo passo para checklists de abertura, rotina e
 fechamento. Não é escopo imediato do fechamento cego nem da tela de produção.
 
@@ -27,6 +33,15 @@ domínio próprio.
 - `OperationChecklistTemplate`: grupo de tarefas por momento operacional.
 - `OperationTaskRun`: execução real de uma tarefa em uma data ou turno.
 - `OperationChecklistRun`: instância diária de abertura, rotina ou fechamento.
+
+Implementado em:
+
+- `shopman/backstage/models/operation.py`;
+- `shopman/backstage/services/operations.py`;
+- `shopman/backstage/admin/operation.py`;
+- `shopman/backstage/migrations/0007_operationchecklisttemplate_operationtasktemplate_and_more.py`;
+- `shopman/backstage/tests/test_operation_domain.py`;
+- `instances/nelson/management/commands/seed.py`.
 
 Campos centrais:
 
@@ -58,6 +73,12 @@ Campos centrais:
 
 ## Checklists canônicos
 
+Seed Nelson em 2026-05-06:
+
+- abertura de hoje concluída;
+- rotina de hoje aberta, parcialmente executada;
+- fechamento de ontem concluído com dupla conferência.
+
 ### Abertura
 
 - Caixa aberto e conferido.
@@ -82,6 +103,16 @@ Campos centrais:
 
 ## Chão de fábrica
 
+Objetivo diário da superfície de produção:
+
+- definir o planejado do dia com base em histórico, sazonalidade, encomendas
+  comprometidas e leitura operacional de ruptura/sobra;
+- gerar um relatório de pesagem de ingredientes a partir do planejado salvo,
+  calculando dinamicamente a batelada pela relação entre quantidade planejada e
+  rendimento base da receita;
+- manter a ficha técnica como fonte do cálculo e o `WorkOrder`/snapshot como
+  trilha operacional do que foi planejado para aquele dia.
+
 Colunas conceituais, sem inventar status fora do kernel:
 
 - Sugerido: projeção do Craftsman a partir de histórico, sazonalidade,
@@ -103,11 +134,49 @@ Permissões granulares canônicas:
 `shop.manage_production` e superusuário mantêm visão total. Operadores sem
 visão total só recebem as colunas compatíveis com a rotina deles.
 
+### Relatório de pesagem
+
+O relatório de pesagem deve ser derivado do planejado do dia, não de um
+"tamanho de lote" fixo operacional.
+
+Regra conceitual:
+
+```text
+coeficiente = quantidade planejada / rendimento base da receita
+ingrediente necessário = quantidade base do ingrediente * coeficiente
+```
+
+Para OPs já criadas, preferir o snapshot da receita gravado no `WorkOrder`,
+evitando que uma edição posterior da receita altere silenciosamente a pesagem
+do dia. Para planejamento ainda não materializado, usar a receita ativa atual.
+
+O relatório deve agrupar quando fizer sentido para a operação:
+
+- por posto: massa, molde, forno;
+- por componente/base comum: massa brioche, massa ciabatta etc.;
+- por insumo consolidado, preservando unidade;
+- por SKU final quando o operador precisar conferir o destino.
+
+### Backlog Semântico
+
+- O rótulo operacional de `Recipe.batch_size` é **Rendimento base** no
+  Admin/superfícies. O campo interno pode continuar `batch_size` até uma
+  migração semântica maior; o ponto é não comunicar "lote fixo".
+- Diferenciar quantidade teórica da receita de quantidade física/estoque para
+  itens discretos ou sensíveis, como ovos. A receita pode representar bem a
+  proporção técnica, mas Stockman não deve permitir divergência operacional:
+  reservas, consumo e baixa precisam respeitar unidade, arredondamento físico
+  e política de conversão explícita.
+- Modelar, quando necessário, uma política por item/unidade para pesagem vs
+  estoque. Ex.: exibir "1,8 un. teórico" no relatório, mas reservar/baixar
+  "2 un." quando o insumo é indivisível.
+
 ## Perguntas abertas
 
-- O checklist deve ser por loja, por turno ou por posto?
-- Quem pode marcar execução e quem pode supervisionar?
-- Quais tarefas devem exigir dupla conferência?
-- Quais evidências são realmente úteis sem criar burocracia?
-- O domínio deve nascer como `shopman.operation` e depois virar pacote, ou já
-  nascer como pacote kernel quando o contrato estabilizar?
+- O checklist deve continuar por loja/turno no Backstage ou ganhar dimensão de
+  posto quando houver mais de uma praça executando em paralelo?
+- A execução deve permanecer no Admin nativo para gerente ou ganhar superfície
+  operacional dedicada para operador de salão/caixa?
+- Quais evidências devem virar campo estruturado em vez de `evidence_data`?
+- Quando o contrato estabilizar, vale extrair para pacote kernel
+  `shopman-operation` ou manter no Backstage como domínio de aplicação?

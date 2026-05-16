@@ -1,4 +1,4 @@
-"""ShopProjection — typed read model for the Shop singleton in storefront templates."""
+"""ShopProjection — typed projection for the Shop singleton in storefront templates."""
 
 from __future__ import annotations
 

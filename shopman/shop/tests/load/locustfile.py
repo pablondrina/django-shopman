@@ -121,12 +121,12 @@ class CheckoutUser(HttpUser):
 
     @task(3)
     def add_to_cart(self):
-        """POST /cart/add/ — add random item."""
+        """POST /cart/set-qty/ — add random item."""
         sku = random.choice(PRODUCT_SKUS)
         self.client.post(
-            "/cart/add/",
+            "/cart/set-qty/",
             data={"sku": sku, "qty": random.randint(1, 5)},
-            name="/cart/add/",
+            name="/cart/set-qty/",
         )
 
     @task(2)
@@ -209,17 +209,17 @@ class OperatorUser(HttpUser):
         )
 
     @task(3)
-    def gestor_pedidos(self):
-        """GET /pedidos/ — order management panel."""
-        self.client.get("/gestor/pedidos/", name="/gestor/pedidos/")
+    def admin_console_orders(self):
+        """GET /admin/operacao/pedidos/ — order management panel."""
+        self.client.get("/admin/operacao/pedidos/", name="/admin/operacao/pedidos/")
 
     @task(2)
-    def gestor_list_partial(self):
-        """GET /pedidos/list/ — HTMX partial order list."""
+    def admin_console_orders_list_partial(self):
+        """GET /admin/operacao/pedidos/lista/ — HTMX partial order list."""
         self.client.get(
-            "/pedidos/list/",
+            "/admin/operacao/pedidos/lista/",
             headers={"HX-Request": "true"},
-            name="/pedidos/list/ (HTMX)",
+            name="/admin/operacao/pedidos/lista/ (HTMX)",
         )
 
     @task(1)
@@ -252,26 +252,26 @@ class KDSUser(HttpUser):
 
     @task(3)
     def kds_index(self):
-        """GET /kds/ — KDS station list."""
-        self.client.get("/gestor/kds/", name="/gestor/kds/")
+        """GET /admin/operacao/kds/ — KDS station list."""
+        self.client.get("/admin/operacao/kds/", name="/admin/operacao/kds/")
 
     @task(5)
     def kds_display(self):
-        """GET /kds/<ref>/ — KDS station display."""
+        """GET /admin/operacao/kds/<ref>/ — KDS station display."""
         ref = random.choice(["paes", "picking", "confeitaria"])
         self.client.get(
-            f"/kds/{ref}/",
-            name="/kds/[ref]/",
+            f"/admin/operacao/kds/{ref}/",
+            name="/admin/operacao/kds/[ref]/",
             catch_response=True,
         )
 
     @task(3)
     def kds_ticket_list(self):
-        """GET /kds/<ref>/tickets/ — HTMX ticket list polling."""
+        """GET /admin/operacao/kds/<ref>/tickets/ — HTMX ticket list polling."""
         ref = random.choice(["paes", "picking"])
         self.client.get(
-            f"/kds/{ref}/tickets/",
+            f"/admin/operacao/kds/{ref}/tickets/",
             headers={"HX-Request": "true"},
-            name="/kds/[ref]/tickets/ (HTMX)",
+            name="/admin/operacao/kds/[ref]/tickets/ (HTMX)",
             catch_response=True,
         )

@@ -6,16 +6,16 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-
-from shopman.backstage.models import DayClosing
-from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, OrderItem
-from shopman.shop.models import Shop
 from shopman.stockman import Position
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import CashShift, DayClosing, POSTerminal
+from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
+from shopman.shop.models import Shop
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def test_perform_day_closing_persists_production_summary(client, setup_stock, cl
     craft.finish(wo, finished=4, actor="test")
     client.force_login(closing_user)
 
-    response = client.post("/gestor/fechamento/", {"qty_RECON-SKU": "1"})
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "1"})
 
     assert response.status_code == 302
     closing = DayClosing.objects.get()
@@ -78,12 +78,73 @@ def test_perform_day_closing_persists_production_summary(client, setup_stock, cl
 
 
 @pytest.mark.django_db
+def test_perform_day_closing_persists_cash_shift_summary(client, setup_stock, closing_user):
+    terminal = POSTerminal.default()
+    shift = CashShift.objects.create(
+        terminal=terminal,
+        operator=closing_user,
+        opening_amount_q=1000,
+    )
+    shift.close(blind_closing_amount_q=1000)
+    client.force_login(closing_user)
+
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+
+    assert response.status_code == 302
+    summary = DayClosing.objects.get().data["cash_shift_summary"]
+    assert summary["closed_shifts"][0]["id"] == shift.pk
+    assert summary["totals"]["blind_closing_amount_q"] == 1000
+
+
+@pytest.mark.django_db
+def test_day_closing_summarizes_payment_methods_and_cod_pending(client, setup_stock, closing_user):
+    Order.objects.create(
+        ref="RECON-PAY-SPLIT",
+        channel_ref="pdv",
+        status="completed",
+        total_q=1500,
+        data={
+            "payment": {
+                "method": "mixed",
+                "tenders": [
+                    {"method": "cash", "amount_q": 500, "collection": "terminal", "status": "received"},
+                    {"method": "pix", "amount_q": 1000, "collection": "terminal", "status": "received"},
+                ],
+            }
+        },
+    )
+    Order.objects.create(
+        ref="RECON-PAY-COD",
+        channel_ref="pdv",
+        status="dispatched",
+        total_q=1200,
+        data={
+            "payment": {
+                "method": "cash",
+                "collection": "on_delivery",
+                "tenders": [{"method": "cash", "amount_q": 1200, "collection": "on_delivery", "status": "pending"}],
+            }
+        },
+    )
+    client.force_login(closing_user)
+
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+
+    assert response.status_code == 302
+    methods = DayClosing.objects.get().data["cash_shift_summary"]["payment_method_totals"]
+    assert methods["cash"] == 500
+    assert methods["pix"] == 1000
+    assert methods["cod_pending_q"] == 1200
+    assert methods["cod_pending_count"] == 1
+
+
+@pytest.mark.django_db
 def test_reconciliation_error_when_sold_exceeds_available(client, setup_stock, closing_user):
     order = Order.objects.create(ref="RECON-ORD", channel_ref="web", status="completed", total_q=3000)
     OrderItem.objects.create(order=order, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
     client.force_login(closing_user)
 
-    response = client.post("/gestor/fechamento/", {"qty_RECON-SKU": "0"})
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
 
     assert response.status_code == 302
     error = DayClosing.objects.get().data["reconciliation_errors"][0]

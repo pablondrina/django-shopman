@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-from importlib import import_module
 from decimal import Decimal
+from importlib import import_module
 
+from django import forms
 from django.contrib import admin, messages
 from django.db import models
 from django.http import HttpRequest, HttpResponseRedirect
@@ -219,9 +220,6 @@ class SessionAdmin(ModelAdmin):
     def history_detail_action(self, request, object_id):
         return history_action(self, request, object_id)
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("items")
-
     @action(description=_("Finalizar sessão"), url_path="commit-action", icon="check_circle")
     def action_commit(self, request: HttpRequest, obj: Session):
         """Finaliza a sessão, criando o pedido."""
@@ -389,7 +387,7 @@ class SessionAdmin(ModelAdmin):
     )
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
+        qs = super().get_queryset(request).prefetch_related("items")
         return qs.order_by("-updated_at", "-id")
 
     # Cores de referência BADGES:
@@ -926,7 +924,7 @@ class OrderAdmin(ModelAdmin):
         }
         if obj.status not in active_statuses:
             return "-"
-        url = f'{reverse("backstage:gestor_pedidos")}#order-{obj.ref}'
+        url = reverse("admin_console_order_detail", args=[obj.ref])
         return format_html(
             '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Fila</a>',
             url,
@@ -1346,8 +1344,17 @@ class FulfillmentItemInline(admin.TabularInline):
     fields = ("order_item", "qty")
 
 
+class FulfillmentAdminForm(forms.ModelForm):
+    tracking_url = forms.URLField(label=_("URL de rastreio"), required=False, assume_scheme="https")
+
+    class Meta:
+        model = Fulfillment
+        fields = "__all__"
+
+
 @admin.register(Fulfillment)
 class FulfillmentAdmin(ModelAdmin):
+    form = FulfillmentAdminForm
     list_display = ("id", "order", "status_badge", "carrier", "tracking_code", "created_at")
     list_filter = (("status", ChoicesRadioFilter),)
     search_fields = ("order__ref", "tracking_code", "carrier")

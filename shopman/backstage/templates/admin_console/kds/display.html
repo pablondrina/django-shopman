@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% load i18n static unfold %}
+
+{% block title %}{{ kds_instance.name }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
+{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="kds-display-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6"
+       hx-ext="sse"
+       sse-connect="{% url 'backstage:events_scoped' kind='kds' scope=kds_instance.ref %}">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="flex flex-col gap-1">
+        {% component "unfold/components/title.html" %}
+          {{ kds_instance.name }}
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          {{ kds_board.counts.total }} pendentes · {% if kds_is_readonly %}somente leitura{% else %}operacao liberada{% endif %}
+        {% endcomponent %}
+      </div>
+      <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+        {% component "unfold/components/button.html" with href=kds_index_url variant="default" size="sm" icon="arrow_back" %}
+          Estacoes
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with href=kds_tickets_url variant="default" size="sm" icon="sync" %}
+          Atualizar
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with variant="default" size="sm" icon="volume_up" extra_attrs='type="button" aria-label="Som ativo" title="Som ativo"' %}
+          Som
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with variant="default" size="sm" icon="volume_off" extra_attrs='type="button" aria-label="Som desativado" title="Som desativado"' %}
+          Mudo
+        {% endcomponent %}
+      </div>
+    </div>
+
+    <div id="kds-ticket-table"
+         hx-get="{{ kds_tickets_url }}"
+         hx-trigger="sse:backstage-kds-update, sse:backstage-kds-created, sse:backstage-kds-status-changed, sse:backstage-kds-station-changed, every 30s"
+         hx-target="#kds-ticket-table"
+         hx-swap="innerHTML"
+         aria-live="polite"
+         aria-relevant="additions text">
+      {% include "admin_console/kds/partials/tickets.html" %}
+    </div>
+  </div>
+{% endcomponent %}
+</main>
+<script>
+  {% include "admin_console/kds/partials/kds_js.html" %}
+</script>
+{% endblock %}

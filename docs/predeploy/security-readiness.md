@@ -1,7 +1,7 @@
 # Security Readiness Checklist
 
-Estado em 2026-04-26. Este documento prepara a fase posterior de deploy sem
-definir provedor, topologia, domínio ou processo operacional.
+Estado em 2026-05-05. Este documento prepara a fase posterior de deploy sem
+definir provedor final, domínio ou processo operacional externo.
 
 ## Bloqueadores Automatizados
 
@@ -11,7 +11,25 @@ Antes de qualquer ambiente público, rodar:
 python manage.py check --deploy
 ruff check .
 pytest -q
+make test-runtime
 ```
+
+Na pratica, `make test-runtime` deve rodar no CI para que ninguem precise
+operar Docker localmente. O workflow `Runtime Gate` builda a imagem Docker,
+sobe PostgreSQL/Redis como services e publica apenas o resultado do gate.
+Evidencia registrada: o run `25386566534` do PR #3 passou em 2026-05-05 com
+`Quality + deploy contract`, `Docker deploy image` e
+`PostgreSQL + Redis runtime stress gate` verdes.
+
+Para ensaio de app containerizado sem comandos Docker manuais:
+
+```bash
+make deploy-check
+make deploy-up
+```
+
+Esses targets usam `Dockerfile` e profiles do `docker-compose.yml` para build,
+release one-shot, web ASGI/Daphne e directive worker.
 
 `manage.py check --deploy` já bloqueia:
 
@@ -20,14 +38,22 @@ pytest -q
 - `SHOPMAN_E003`: adapter de pagamento `pix` ou `card` apontando para mock em produção.
 - `SHOPMAN_E004`: webhook EFI ou iFood sem token.
 - `SHOPMAN_E005`: webhook ManyChat sem segredo HMAC.
+- `SHOPMAN_E006`: cache compartilhado Redis ausente em produção.
+- `SHOPMAN_E007`: SQLite fora de `DEBUG`.
+- `SHOPMAN_E008`: access-link servidor-servidor sem `DOORMAN_ACCESS_LINK_API_KEY`.
+- `SHOPMAN_E009`: adapter real de pagamento sem credenciais/arquivos obrigatórios.
 
 Warnings que precisam de decisão antes do go-live:
 
-- `SHOPMAN_W001`: SQLite. Produção deve usar PostgreSQL.
+- `SHOPMAN_W001`: SQLite em fallback local/debug. Produção falha como `SHOPMAN_E007`.
 - `SHOPMAN_W002`: notification adapter console fora de `DEBUG`.
 - `SHOPMAN_W003`: canal fiscal ativo sem adapter fiscal.
 - `SHOPMAN_W004`: `Listing.ref` sem `Channel.ref` correspondente.
 - `SHOPMAN_W005`: backend contextual de pricing do Offerman não configurado.
+- `SHOPMAN_W006`: adapter mock de pagamento explicitamente liberado fora de
+  `DEBUG`. Aceitável apenas em staging/teste operacional sem credenciais sandbox
+  reais; antes de go-live, remover `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS` e usar
+  EFI/Stripe reais.
 
 ## Variáveis Obrigatórias
 
@@ -38,15 +64,18 @@ Base Django:
 - `DJANGO_ALLOWED_HOSTS=<domínios separados por vírgula>`
 - `CSRF_TRUSTED_ORIGINS=https://<domínio>[,...]`
 - `DATABASE_URL=<postgresql>`
+- `REDIS_URL=<redis ou rediss>`
 
 Pagamentos e webhooks:
 
-- `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, se cartão estiver ativo.
-- `EFI_CLIENT_ID`, `EFI_CLIENT_SECRET`, `EFI_WEBHOOK_TOKEN`, se Pix EFI estiver ativo.
+- `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, se cartão Stripe estiver ativo.
+- `EFI_CLIENT_ID`, `EFI_CLIENT_SECRET`, `EFI_CERTIFICATE_PATH`,
+  `EFI_PIX_KEY` e `EFI_WEBHOOK_TOKEN`, se Pix EFI estiver ativo.
 - `IFOOD_WEBHOOK_TOKEN`, se iFood estiver ativo.
 
 Mensageria e autenticação externa:
 
+- `DOORMAN_ACCESS_LINK_API_KEY`, se access links chat→web estiverem expostos.
 - `MANYCHAT_API_TOKEN`, se WhatsApp via ManyChat enviar mensagens.
 - `MANYCHAT_WEBHOOK_SECRET`, se webhooks ManyChat estiverem expostos.
 - `WHATSAPP_VERIFY_TOKEN`, se endpoint WhatsApp direto for ativado.
@@ -76,13 +105,25 @@ Antes do go-live, confirmar no ambiente:
 Storefront:
 
 - Login/OTP tem rate limiting via `django-ratelimit`.
-- Links de acesso usam tokens de Doorman com rate limit e expiração.
+- POSTs públicos de carrinho e lookup de CEP tambem têm rate limiting.
+- Quantidades de carrinho sao normalizadas e limitadas na borda; payloads
+  absurdos da API sao rejeitados antes da regra de negocio.
+- Dados externos do ViaCEP sao escapados antes de entrar em HTML/Alpine.
+- Links de acesso usam tokens de Doorman com uso único, expiração e criação
+  autenticada por `DOORMAN_ACCESS_LINK_API_KEY` fora de `DEBUG`.
+- URLs de pedido (`/pedido/<ref>/`, API `/api/v1/tracking/<ref>/`,
+  pagamento, status, cancelamento, confirmacao e reorder) nao devem ser
+  publicas por `ref`: exigem sessao autorizada, cliente autenticado
+  correspondente ou staff.
+- SSE `order-*` segue a mesma regra de acesso do pedido; `stock-*` permanece
+  publico porque transmite disponibilidade por canal, sem dados pessoais.
 - Trusted device usa cookie assinado por token hash e pode ser revogado.
 - Checkout simulado de iFood é `DEBUG` only e retorna 404 fora de debug.
 
 Backstage:
 
 - Páginas de operador devem continuar protegidas por autenticação/permissões.
+- SSE `backstage-*` exige staff via `ShopmanChannelManager`.
 - Ações POS/KDS/produção devem seguir delegando para `shop.services`.
 - Revisar permissões dos grupos seedados antes de expor `/gestor/`.
 
@@ -92,6 +133,13 @@ Webhooks:
 - iFood rejeita token ausente/incorreto.
 - ManyChat exige HMAC quando `MANYCHAT_WEBHOOK_SECRET` está configurado.
 - Stripe depende de `STRIPE_WEBHOOK_SECRET` para validação de assinatura.
+- Replay/idempotencia e duravel em banco:
+  - Stripe deduplica por id de evento assinado ou hash do payload.
+  - EFI PIX deduplica por `endToEndId` ou `txid`.
+  - iFood deduplica por `order_id`/`order_code`; `channel_ref + external_ref`
+    tambem e unico em `Order`.
+- Evento duplicado retorna o corpo canonico ja salvo; evento simultaneo em
+  processamento retorna `409` para permitir retry do provedor.
 
 ## Dados Sensíveis
 
@@ -114,6 +162,9 @@ rg 'print\\(|logger\\.(debug|info|warning|error).*token|logger\\.(debug|info|war
 Ainda fora do escopo desta fase, mas precisa estar decidido antes de produção:
 
 - Backup e restore testado para PostgreSQL.
+- Redis provisionado e validado para cache, rate limit e SSE multi-worker.
+- `make test-runtime` executado em PostgreSQL + Redis, sem skips.
+- `make deploy-release` executado com `.env` real do ambiente.
 - Estratégia de coleta de logs.
 - Monitoramento de webhooks falhos.
 - Processo para rotacionar `DJANGO_SECRET_KEY` e tokens externos.
@@ -127,6 +178,7 @@ Um ambiente está pronto para teste público quando:
 - `python manage.py check --deploy` roda sem erros.
 - `ruff check .` passa.
 - `pytest -q` passa.
+- `make test-runtime` passa em PostgreSQL + Redis sem skips.
 - `DJANGO_DEBUG=false` no ambiente.
 - Webhooks expostos têm token/assinatura configurados.
 - Backstage exige autenticação em todas as rotas sensíveis.

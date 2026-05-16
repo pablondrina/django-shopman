@@ -32,6 +32,10 @@ def dispatch_to_kds(order) -> list:
     if not order_items:
         return []
 
+    order_items = [
+        item for item in order_items
+        if not ((item.meta or {}).get("non_production") or (item.meta or {}).get("type") == "delivery_fee")
+    ]
     skus = [item.sku for item in order_items]
 
     # 3. Bulk-query primary collections: sku → collection_id

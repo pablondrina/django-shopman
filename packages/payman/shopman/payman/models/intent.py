@@ -77,6 +77,7 @@ class PaymentIntent(models.Model):
         default=dict, blank=True,
         help_text=_('Dados de resposta do gateway. Populado automaticamente. Ex: {"pix_qr_code": "00020126...", "txid": "abc123"}'),
     )
+    idempotency_key = models.CharField(max_length=128, blank=True, default="", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     authorized_at = models.DateTimeField(null=True, blank=True)
     captured_at = models.DateTimeField(null=True, blank=True)
@@ -98,6 +99,11 @@ class PaymentIntent(models.Model):
                 fields=["gateway", "gateway_id"],
                 condition=models.Q(gateway_id__gt=""),
                 name="pay_intent_gateway_id_unique",
+            ),
+            models.UniqueConstraint(
+                fields=["idempotency_key"],
+                condition=models.Q(idempotency_key__gt=""),
+                name="pay_intent_idempotency_key_unique",
             ),
         ]
 
@@ -148,7 +154,22 @@ class PaymentIntent(models.Model):
         Raises:
             PaymentError: Se a transição não for permitida
         """
+        from shopman.payman.exceptions import PaymentError
+
         locked = PaymentIntent.objects.select_for_update().get(pk=self.pk)
+        current_status = locked.status
+        allowed = self.TRANSITIONS.get(current_status, [])
+        if new_status not in allowed:
+            raise PaymentError(
+                code="invalid_transition",
+                message=f"Transição {current_status} → {new_status} não permitida",
+                context={
+                    "current_status": current_status,
+                    "requested_status": new_status,
+                    "allowed_transitions": [str(s) for s in allowed],
+                },
+            )
+
         locked.status = new_status
         locked.save()
 

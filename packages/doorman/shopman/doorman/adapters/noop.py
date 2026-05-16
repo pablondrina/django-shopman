@@ -77,6 +77,46 @@ class NoopCustomerResolver:
             is_active=True,
         )
 
+    def get_by_identifier(self, identifier_type: str, identifier_value: str) -> AuthCustomerInfo | None:
+        """Return a synthetic customer for an external provider identifier."""
+        if not identifier_type or not identifier_value:
+            return None
+        return AuthCustomerInfo(
+            uuid=self._make_uuid(f"{identifier_type}:{identifier_value}"),
+            name="",
+            phone=None,
+            email=None,
+            is_active=True,
+        )
+
+    def upsert_access_link_customer(self, customer_id: UUID, payload: dict) -> AuthCustomerInfo | None:
+        """Return a synthetic customer enriched with access-link payload data."""
+        if not customer_id:
+            return None
+        first = payload.get("first_name", "")
+        last = payload.get("last_name", "")
+        return AuthCustomerInfo(
+            uuid=customer_id if isinstance(customer_id, UUID) else UUID(str(customer_id)),
+            name=" ".join(part for part in (first, last) if part).strip(),
+            phone=payload.get("whatsapp_id"),
+            email=payload.get("email"),
+            is_active=True,
+        )
+
+    def upsert_manychat_subscriber(self, subscriber_data: dict) -> AuthCustomerInfo | None:
+        """Return a synthetic customer from a ManyChat subscriber payload."""
+        if not subscriber_data or not subscriber_data.get("id"):
+            return None
+        first = subscriber_data.get("first_name", "")
+        last = subscriber_data.get("last_name", "")
+        return AuthCustomerInfo(
+            uuid=self._make_uuid(f"manychat:{subscriber_data['id']}"),
+            name=" ".join(part for part in (first, last) if part).strip(),
+            phone=subscriber_data.get("whatsapp_id"),
+            email=subscriber_data.get("email"),
+            is_active=True,
+        )
+
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         """Create and return a synthetic customer for the given phone number."""
         return AuthCustomerInfo(

@@ -1,66 +1,69 @@
+{% load storefront_tags %}
 {% comment %}
 ── Quick Reorder (Penguin UI card) ──
    Shows last order summary with one-tap reorder for returning customers.
-   Only rendered by HomeView when days_since_last_order > 7 and a prior order exists.
+   Only rendered by HomeView when the authenticated customer has a prior order.
 
    Context:
      last_order_ref   — Order.ref for the reorder POST
-     last_order_items — list of {name, qty, ...} from Order.snapshot["items"]
+     last_order_items — display-safe list of {name, qty, ...}
 {% endcomment %}
-<section class="max-w-2xl mx-auto mb-8">
-  <article x-data="{ show: true }" x-show="show"
-           class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
-    <div class="flex flex-col gap-4 p-6">
-      <div class="flex items-start justify-between">
-        <div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-primary dark:text-primary-dark shrink-0" aria-hidden="true">
-            <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.06-7.386a.75.75 0 00-1.5 0v2.033l-.312-.311a7 7 0 00-11.712 3.138.75.75 0 001.449.39 5.5 5.5 0 019.201-2.466l.312.311H11.6a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V4.038z" clip-rule="evenodd" />
-          </svg>
-          <h3 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Repetir último pedido</h3>
-        </div>
-        <button @click="show = false"
-                class="text-on-surface hover:text-on-surface-strong dark:text-on-surface-dark dark:hover:text-on-surface-dark-strong shrink-0"
-                aria-label="Dispensar">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
+<section id="quick-reorder-cta" class="mb-8">
+  <article class="mx-auto max-w-2xl overflow-hidden rounded-radius border border-outline bg-white text-on-surface shadow-sm dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark">
+    <div class="flex flex-col items-center gap-4 p-5 text-center sm:p-7">
+      <div class="flex max-w-2xl flex-col items-center gap-3">
+        <span class="material-symbols-rounded text-5xl leading-none text-on-surface/35 dark:text-on-surface-dark/35" aria-hidden="true">
+          autorenew
+        </span>
+        <h3 class="text-xl font-bold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
+          Quer repetir seu último pedido{% if customer_name %}, {{ customer_name }}{% endif %}?
+        </h3>
+        {% if last_order_items %}
+        <ul class="flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm text-on-surface/80 dark:text-on-surface-dark/75" aria-label="Itens do último pedido">
+          {% for item in last_order_items %}
+          <li class="inline-flex items-center gap-1">
+            <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.qty|format_quantity }}×</span>
+            <span>{{ item.name }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-on-surface/80 dark:text-on-surface-dark/75">Seu pedido anterior volta ao carrinho.</p>
+        {% endif %}
       </div>
 
-      {% if last_order_items %}
-      <ul class="space-y-1 text-sm text-on-surface dark:text-on-surface-dark" aria-label="Itens do último pedido">
-        {% for item in last_order_items %}
-        <li class="flex items-baseline gap-1.5">
-          <span class="font-medium tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.qty }}×</span>
-          <span>{{ item.name }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm">Seu pedido anterior</p>
-      {% endif %}
-
       {% if last_order_ref %}
-      <button x-data="{ loading: false }"
-              hx-post="{% url 'storefront:reorder' ref=last_order_ref %}"
-              hx-target="body"
-              hx-push-url="true"
-              @htmx:before-request="loading = true"
-              @htmx:after-request="loading = false"
-              :disabled="loading"
-              class="w-full flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target disabled:opacity-60 disabled:cursor-wait">
-        <span x-show="!loading">Repetir Agora</span>
-        <span x-show="loading" class="flex items-center gap-2">
-          <svg class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      <form method="post"
+            action="{% url 'storefront:reorder' ref=last_order_ref %}"
+            x-data="{ loading: false }"
+            hx-post="{% url 'storefront:reorder' ref=last_order_ref %}"
+            hx-target="#reorder-conflict-modal"
+            hx-swap="innerHTML"
+            @htmx:before-request="loading = true; window.dispatchEvent(new CustomEvent('close-mobile-menu')); window.dispatchEvent(new CustomEvent('close-cart-drawer'))"
+            @htmx:after-request="loading = false; window.dispatchEvent(new CustomEvent('close-mobile-menu')); window.dispatchEvent(new CustomEvent('close-cart-drawer'))"
+            @htmx:send-error="loading = false"
+            class="w-full sm:w-auto">
+        {% csrf_token %}
+        <button type="submit"
+                :disabled="loading"
+                class="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-radius bg-primary px-5 py-3 text-center text-sm font-semibold tracking-wide text-on-primary transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark sm:w-auto touch-target disabled:cursor-wait disabled:opacity-60">
+          <svg x-show="!loading" class="size-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5h10.5l.75 12H6l.75-12Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 7.5a3 3 0 0 1 6 0" />
           </svg>
-          Adicionando…
-        </span>
-      </button>
+          <span x-show="!loading">Repetir pedido</span>
+          <span x-show="loading" class="flex items-center gap-2">
+            <svg class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Adicionando
+          </span>
+        </button>
+      </form>
       {% else %}
       <a href="{% url 'storefront:menu' %}"
-         class="flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target">
+         class="flex items-center justify-center gap-2 whitespace-nowrap rounded-radius bg-primary px-5 py-3 text-center text-sm font-semibold tracking-wide text-on-primary transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target sm:justify-self-end">
         Ver cardápio
       </a>
       {% endif %}

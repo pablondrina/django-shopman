@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.db.models import Avg, Count
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -202,7 +203,23 @@ class LookupView(APIView):
     """Quick customer lookup by phone, email, or external identity."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CustomerSerializer
 
+    @extend_schema(
+        tags=["customers"],
+        summary="Lookup customer",
+        parameters=[
+            OpenApiParameter("phone", str, required=False),
+            OpenApiParameter("email", str, required=False),
+            OpenApiParameter("external_id", str, required=False),
+            OpenApiParameter("source", str, required=False),
+        ],
+        responses={
+            200: CustomerSerializer,
+            400: OpenApiResponse(description="Missing lookup parameter."),
+            404: OpenApiResponse(description="Customer not found."),
+        },
+    )
     def get(self, request):
         phone = request.query_params.get("phone")
         email = request.query_params.get("email")
@@ -238,7 +255,16 @@ class InsightsSummaryView(APIView):
     """Aggregated insights summary for dashboard."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = InsightsSummarySerializer
 
+    @extend_schema(
+        tags=["customers"],
+        summary="Customer insights summary",
+        responses={
+            200: InsightsSummarySerializer,
+            404: OpenApiResponse(description="Insights not available."),
+        },
+    )
     def get(self, request):
         try:
             from shopman.guestman.contrib.insights.models import CustomerInsight

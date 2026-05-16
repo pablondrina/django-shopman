@@ -4,13 +4,17 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.projections.order_queue import build_operator_order
 from shopman.backstage.projections.production import build_work_order_card
-from shopman.backstage.services.production import ProductionOrderShortError, apply_planned, order_commitments_for_work_order
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
-from shopman.orderman.models import Order, OrderItem
+from shopman.backstage.services.production import (
+    ProductionOrderShortError,
+    apply_planned,
+    order_commitments_for_work_order,
+)
 from shopman.shop.handlers.production_order_sync import (
     WORK_ORDER_COMMITTED_ORDER_REFS_KEY,
     link_order_to_work_orders,

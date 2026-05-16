@@ -64,6 +64,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         delivery_date, delivery_time_slot, saved_address_id_raw, addr_data,
         payment_method=post.get("payment_method", ""),
     )
+    form_data["use_loyalty"] = post.get("use_loyalty") == "true"
 
     errors: dict[str, str] = {}
 
@@ -159,7 +160,13 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         errors.update(preorder_errors)
 
     # ── Step 11: Validate slot ────────────────────────────────────────────
-    slot_errors = _validate_slot(delivery_time_slot, fulfillment_type, delivery_date)
+    cart_skus = [str(item.get("sku") or "") for item in cart.get("items", []) if item.get("sku")]
+    slot_errors = _validate_slot(
+        delivery_time_slot,
+        fulfillment_type,
+        delivery_date,
+        cart_skus=cart_skus,
+    )
     errors.update(slot_errors)
 
     if errors:
@@ -384,44 +391,29 @@ def _validate_slot(
     delivery_time_slot: str,
     fulfillment_type: str,
     delivery_date: str,
+    *,
+    cart_skus: list[str] | None = None,
 ) -> dict[str, str]:
-    from datetime import date as date_type
-    from datetime import time as time_type
-
-    from shopman.storefront.services.pickup_slots import _find_slot_by_ref, get_slots
-
     errors: dict[str, str] = {}
     if fulfillment_type != "pickup":
         return errors
 
-    if not delivery_time_slot:
-        errors["delivery_time_slot"] = "Selecione um horário de retirada."
-        return errors
+    from shopman.storefront.services.pickup_slots import validate_pickup_slot_selection
 
-    slots = get_slots()
-    slot = _find_slot_by_ref(slots, delivery_time_slot)
-    if slot is None:
-        errors["delivery_time_slot"] = "Horário de retirada inválido."
-        return errors
+    current_time = None
+    try:
+        current_time = timezone.localtime().time().replace(second=0, microsecond=0)
+    except (ValueError, KeyError):
+        current_time = None
 
-    today = timezone.localtime().date()
-    is_today = True
-    if delivery_date:
-        try:
-            is_today = date_type.fromisoformat(delivery_date) == today
-        except ValueError:
-            is_today = True
-
-    if is_today:
-        now_local = timezone.localtime()
-        try:
-            parts = slot["starts_at"].split(":")
-            slot_time = time_type(int(parts[0]), int(parts[1]))
-            current_time = now_local.time().replace(second=0, microsecond=0)
-            if slot_time <= current_time:
-                errors["delivery_time_slot"] = "Este horário já passou. Selecione um horário futuro."
-        except (ValueError, KeyError):
-            pass
+    error = validate_pickup_slot_selection(
+        delivery_time_slot,
+        delivery_date=delivery_date,
+        cart_skus=cart_skus,
+        now=current_time,
+    )
+    if error:
+        errors["delivery_time_slot"] = error
     return errors
 
 

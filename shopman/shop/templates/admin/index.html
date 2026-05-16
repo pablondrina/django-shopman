@@ -14,7 +14,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
 
         {# Pedidos Hoje #}
-        {% component "unfold/components/card.html" with class="min-h-28" icon="assignment" href=orders_url %}
+        {% component "unfold/components/card.html" with icon="assignment" href=orders_url %}
             <div class="flex flex-col gap-1">
                 <span class="text-3xl font-bold text-font-important-light dark:text-font-important-dark">
                     {{ order_summary.total|default:"0" }}
@@ -22,7 +22,7 @@
                 <span class="text-sm text-base-500">
                     Pedidos hoje
                     {% if order_summary.new_count %}
-                        <span class="ml-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                        <span class="ml-1 text-xs font-medium text-blue-700 dark:text-blue-400">
                             {{ order_summary.new_count }} novos
                         </span>
                     {% endif %}
@@ -31,7 +31,7 @@
         {% endcomponent %}
 
         {# Faturamento Hoje #}
-        {% component "unfold/components/card.html" with class="min-h-28" icon="payments" %}
+        {% component "unfold/components/card.html" with icon="payments" %}
             <div class="flex flex-col gap-1">
                 <span class="text-3xl font-bold text-font-important-light dark:text-font-important-dark">
                     {{ revenue.today_display|default:"R$ 0,00" }}
@@ -39,7 +39,7 @@
                 <span class="text-sm text-base-500">
                     Faturamento hoje
                     {% if revenue.has_yesterday %}
-                        <span class="ml-1 text-xs font-medium {% if revenue.trend_up %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                        <span class="ml-1 text-xs font-medium {% if revenue.trend_up %}text-green-700 dark:text-green-400{% else %}text-red-700 dark:text-red-400{% endif %}">
                             {% if revenue.trend_up %}&#9650;{% else %}&#9660;{% endif %}
                             vs ontem
                         </span>
@@ -49,9 +49,9 @@
         {% endcomponent %}
 
         {# Produção Hoje #}
-        {% component "unfold/components/card.html" with class="min-h-28" icon="manufacturing" %}
+        {% component "unfold/components/card.html" with icon="manufacturing" %}
             <div class="flex flex-col gap-2">
-                <div class="flex items-baseline gap-2">
+                <div class="flex items-center gap-2">
                     <span class="text-3xl font-bold text-font-important-light dark:text-font-important-dark">
                         {{ production.finished_qty|default:"0" }}
                     </span>
@@ -70,24 +70,24 @@
                 {% if production.tracker %}
                     {% component "unfold/components/tracker.html" with data=production.tracker %}{% endcomponent %}
                 {% elif production.total %}
-                    {% include "unfold/components/progress.html" with title="" value=production.progress progress_class="bg-green-500 dark:bg-green-600" %}
+                    {% component "unfold/components/progress.html" with title="" value=production.progress progress_class="bg-green-500 dark:bg-green-600" %}{% endcomponent %}
                 {% endif %}
             </div>
         {% endcomponent %}
 
         {# Alertas Estoque #}
-        {% component "unfold/components/card.html" with class="min-h-28" icon="inventory_2" %}
+        {% component "unfold/components/card.html" with icon="inventory_2" %}
             <div class="flex flex-col gap-1">
-                <span class="text-3xl font-bold {% if kpi_stock_alerts > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
+                <span class="text-3xl font-bold {% if kpi_stock_alerts > 0 %}text-red-700 dark:text-red-400{% else %}text-green-700 dark:text-green-400{% endif %}">
                     {{ kpi_stock_alerts|default:"0" }}
                 </span>
                 <span class="text-sm text-base-500">
                     {% if kpi_stock_alerts > 0 %}
                         Alertas de estoque
-                        {% component "unfold/components/icon.html" with class="align-middle text-sm text-red-600 dark:text-red-400 ml-1" %}warning{% endcomponent %}
+                        {% component "unfold/components/icon.html" with class="align-middle text-sm text-red-700 dark:text-red-400 ml-1" %}warning{% endcomponent %}
                     {% else %}
                         Estoque OK
-                        {% component "unfold/components/icon.html" with class="align-middle text-sm text-green-600 dark:text-green-400 ml-1" %}check_circle{% endcomponent %}
+                        {% component "unfold/components/icon.html" with class="align-middle text-sm text-green-700 dark:text-green-400 ml-1" %}check_circle{% endcomponent %}
                     {% endif %}
                 </span>
             </div>
@@ -101,18 +101,22 @@
         {# Chart: Pedidos por Status (bar horizontal) #}
         {% component "unfold/components/card.html" with title="Pedidos por Status (hoje)" %}
             {% if chart_pedidos_status %}
-                {% include "unfold/components/chart/bar.html" with data=chart_pedidos_status height="260" options=chart_pedidos_status_options %}
+                {% component "unfold/components/chart/bar.html" with data=chart_pedidos_status height="260" options=chart_pedidos_status_options %}{% endcomponent %}
             {% else %}
-                <p class="text-base-400 text-sm py-8 text-center">Sem pedidos hoje</p>
+                {% component "unfold/components/text.html" with class="text-base-400 text-sm py-8 text-center" %}
+                    Sem pedidos hoje
+                {% endcomponent %}
             {% endif %}
         {% endcomponent %}
 
         {# Chart: Vendas últimos 7 dias (line) #}
         {% component "unfold/components/card.html" with title="Vendas últimos 7 dias" %}
             {% if chart_vendas_7dias %}
-                {% include "unfold/components/chart/line.html" with data=chart_vendas_7dias height="260" %}
+                {% component "unfold/components/chart/line.html" with data=chart_vendas_7dias height="260" %}{% endcomponent %}
             {% else %}
-                <p class="text-base-400 text-sm py-8 text-center">Sem dados de vendas</p>
+                {% component "unfold/components/text.html" with class="text-base-400 text-sm py-8 text-center" %}
+                    Sem dados de vendas
+                {% endcomponent %}
             {% endif %}
         {% endcomponent %}
 
@@ -124,11 +128,11 @@
         {# Pedidos Pendentes #}
         {% component "unfold/components/card.html" with title="Pedidos Pendentes" %}
             {% if table_pedidos_pendentes.rows %}
-                {% include "unfold/components/table.html" with table=table_pedidos_pendentes card_included=1 striped=1 height=220 %}
+                {% component "unfold/components/table.html" with table=table_pedidos_pendentes card_included=1 striped=1 height=220 %}{% endcomponent %}
             {% else %}
                 <div class="flex flex-col items-center gap-2 py-8">
-                    {% component "unfold/components/icon.html" with class="text-3xl text-green-500 dark:text-green-400" %}check_circle{% endcomponent %}
-                    {% component "unfold/components/text.html" with class="text-green-600 dark:text-green-400 text-center" %}
+                    {% component "unfold/components/icon.html" with class="text-3xl text-green-700 dark:text-green-400" %}check_circle{% endcomponent %}
+                    {% component "unfold/components/text.html" with class="text-green-700 dark:text-green-400 text-center" %}
                         Nenhum pedido pendente
                     {% endcomponent %}
                 </div>
@@ -138,7 +142,7 @@
         {# Produção de Hoje #}
         {% component "unfold/components/card.html" with title="Produção de Hoje" %}
             {% if table_producao.rows %}
-                {% include "unfold/components/table.html" with table=table_producao card_included=1 striped=1 height=220 %}
+                {% component "unfold/components/table.html" with table=table_producao card_included=1 striped=1 height=220 %}{% endcomponent %}
             {% else %}
                 <div class="flex flex-col items-center gap-2 py-8">
                     {% component "unfold/components/icon.html" with class="text-3xl text-base-300 dark:text-base-500" %}manufacturing{% endcomponent %}
@@ -152,11 +156,11 @@
         {# Estoque Baixo #}
         {% component "unfold/components/card.html" with title="Estoque Baixo" %}
             {% if table_estoque_baixo.rows %}
-                {% include "unfold/components/table.html" with table=table_estoque_baixo card_included=1 striped=1 height=220 %}
+                {% component "unfold/components/table.html" with table=table_estoque_baixo card_included=1 striped=1 height=220 %}{% endcomponent %}
             {% else %}
                 <div class="flex flex-col items-center gap-2 py-8">
-                    {% component "unfold/components/icon.html" with class="text-3xl text-green-500 dark:text-green-400" %}check_circle{% endcomponent %}
-                    {% component "unfold/components/text.html" with class="text-green-600 dark:text-green-400 text-center" %}
+                    {% component "unfold/components/icon.html" with class="text-3xl text-green-700 dark:text-green-400" %}check_circle{% endcomponent %}
+                    {% component "unfold/components/text.html" with class="text-green-700 dark:text-green-400 text-center" %}
                         Estoque OK — nenhum alerta
                     {% endcomponent %}
                 </div>
@@ -169,12 +173,12 @@
     {% if table_d1 %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
         {% component "unfold/components/card.html" with title="Estoque D-1" icon="schedule" %}
-            {% include "unfold/components/table.html" with table=table_d1 card_included=1 striped=1 height=220 %}
+            {% component "unfold/components/table.html" with table=table_d1 card_included=1 striped=1 height=220 %}{% endcomponent %}
             <div class="px-4 pb-3">
-                <a href="{% url 'backstage:day_closing' %}"
-                   class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
-                    Ir para Fechamento →
-                </a>
+                {% url 'admin_console_day_closing' as day_closing_url %}
+                {% component "unfold/components/link.html" with href=day_closing_url icon="arrow_forward" %}
+                    Ir para Fechamento
+                {% endcomponent %}
             </div>
         {% endcomponent %}
     </div>

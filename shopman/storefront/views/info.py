@@ -27,7 +27,10 @@ class OrderHistoryView(View):
             customer = get_authenticated_customer(request)
             if not customer:
                 return HttpResponse("")
-            count = order_service.active_order_count_for_phone(customer.phone)
+            count = order_service.active_order_count_for_customer(
+                customer_ref=customer.ref,
+                phone=customer.phone,
+            )
             if count:
                 return HttpResponse(
                     f'<span data-order-count="{count}" '

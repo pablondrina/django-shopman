@@ -161,6 +161,12 @@ def _on_commit_callback(directive_pk: int, topic: str) -> None:
             directive_pk, directive.status,
         )
         return
+    if directive.available_at and directive.available_at > timezone.now():
+        logger.debug(
+            "Directive #%s is scheduled for %s, skipping immediate dispatch.",
+            directive_pk, directive.available_at,
+        )
+        return
 
     _process_directive(directive)
     _retry_failed_directives(topic)

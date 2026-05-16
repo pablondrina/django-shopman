@@ -1,0 +1,15 @@
+{% load unfold %}
+
+{% if is_readonly %}
+  {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+    Somente leitura
+  {% endcomponent %}
+{% else %}
+  <form method="post" action="{{ action_url }}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{% if item.is_delivery %}dispatch{% else %}complete{% endif %}">
+    {% component "unfold/components/button.html" with submit=1 variant="primary" size="xs" icon=item.fulfillment_icon %}
+      {% if item.is_delivery %}Despachar{% else %}Entregar{% endif %}
+    {% endcomponent %}
+  </form>
+{% endif %}

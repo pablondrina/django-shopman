@@ -19,7 +19,7 @@ def _make_channel():
     )[0]
 
 
-def _make_order(channel, ref, total_q, status="confirmed"):
+def _make_order(channel, ref, total_q, status="confirmed", data=None):
     from shopman.orderman.models import Order
     return Order.objects.create(
         ref=ref,
@@ -28,6 +28,7 @@ def _make_order(channel, ref, total_q, status="confirmed"):
         total_q=total_q,
         handle_type="pos",
         handle_ref="pos:operator",
+        data=data or {},
     )
 
 
@@ -89,6 +90,29 @@ class ShiftSummaryViewTests(TestCase):
         # Total = R$ 40,00
         self.assertContains(resp, "40,00")
 
+    def test_summary_shows_fulfillment_and_payment_splits(self) -> None:
+        _make_order(
+            self.channel,
+            "SHIFT-PICKUP-CASH",
+            1500,
+            data={"fulfillment_type": "pickup", "payment": {"method": "cash", "cash_received_q": 1500}},
+        )
+        _make_order(
+            self.channel,
+            "SHIFT-DELIVERY-PIX",
+            2500,
+            data={"fulfillment_type": "delivery", "payment": {"method": "pix"}},
+        )
+
+        resp = self.client.get("/gestor/pos/shift-summary/")
+
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn("Retirada", content)
+        self.assertIn("Delivery", content)
+        self.assertIn("Dinheiro: R$ 15,00", content)
+        self.assertIn("Outros: R$ 25,00", content)
+
     def test_pos_footer_triggers_htmx_load(self) -> None:
         """POS page footer has hx-get for shift summary with auto-refresh."""
         resp = self.client.get("/gestor/pos/")
@@ -100,11 +124,23 @@ class ShiftSummaryViewTests(TestCase):
         import json
 
         from shopman.offerman.models import Product
+
+        from shopman.backstage.models import POSTab
+        from shopman.shop.services import pos as pos_service
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
+        POSTab.objects.create(code="00001007", label="1007")
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_code="1007",
+            actor=f"pos:{self.staff.username}",
+            operator_username=self.staff.username,
+        )
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
             "customer_name": "", "customer_phone": "", "payment_method": "cash",
             "manual_discount": None,
+            "tab_code": opened["tab_code"],
+            "tab_session_key": opened["tab_session_key"],
         })
         resp = self.client.post("/gestor/pos/close/", {"payload": payload})
         self.assertEqual(resp.status_code, 200)

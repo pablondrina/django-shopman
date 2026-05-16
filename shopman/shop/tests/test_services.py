@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -243,6 +244,86 @@ class TestAvailabilityListingMembership:
             allowed_positions=None,
             excluded_positions=None,
         )
+
+    @patch("shopman.shop.services.availability.get_adapter")
+    def test_check_reuses_loaded_availability_for_default_stock_adapter(self, mock_get_adapter):
+        from shopman.shop.services import availability
+
+        stock_adapter = SimpleNamespace(
+            get_channel_scope=MagicMock(return_value={
+                "safety_margin": 0,
+                "allowed_positions": None,
+                "excluded_positions": None,
+            }),
+            get_availability=MagicMock(return_value={
+                "total_promisable": Decimal("5"),
+                "availability_policy": "stock_only",
+                "is_paused": False,
+                "is_planned": False,
+                "is_tracked": True,
+                "available": Decimal("5"),
+                "expected": Decimal("5"),
+                "planned": Decimal("0"),
+                "positions": [{"position_ref": "vitrine"}],
+            }),
+            promise_decision_from_availability=MagicMock(return_value=SimpleNamespace(
+                approved=True,
+                sku="PAO-001",
+                requested_qty=Decimal("1"),
+                available_qty=Decimal("5"),
+                reason_code=None,
+                is_paused=False,
+                is_planned=False,
+                target_date=None,
+            )),
+            get_promise_decision=MagicMock(),
+        )
+        catalog_adapter = MagicMock()
+        catalog_adapter.listing_exists.return_value = False
+        mock_get_adapter.side_effect = lambda name: (
+            stock_adapter if name == "stock" else catalog_adapter
+        )
+
+        with patch("shopman.shop.services.availability._expand_if_bundle", return_value=None):
+            result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is True
+        stock_adapter.promise_decision_from_availability.assert_called_once()
+        stock_adapter.get_promise_decision.assert_not_called()
+
+    @patch("shopman.shop.services.availability.get_adapter")
+    @patch("shopman.shop.services.availability._sku_in_channel_listing", return_value=True)
+    @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
+    @patch("shopman.shop.services.availability.check")
+    def test_reserve_simple_success_uses_hold_as_authoritative_write(
+        self,
+        mock_check,
+        _mock_expand,
+        _mock_listing,
+        mock_get_adapter,
+    ):
+        from shopman.shop.services import availability
+
+        stock_adapter = SimpleNamespace(
+            create_hold=MagicMock(return_value={
+                "success": True,
+                "hold_id": "hold:cart-fast",
+                "error_code": None,
+            }),
+        )
+        mock_get_adapter.return_value = stock_adapter
+
+        result = availability.reserve(
+            "PAO-001",
+            Decimal("1"),
+            session_key="sess-fast",
+            channel_ref="web",
+        )
+
+        assert result["ok"] is True
+        assert result["hold_id"] == "hold:cart-fast"
+        mock_check.assert_not_called()
+        stock_adapter.create_hold.assert_called_once()
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -510,6 +591,59 @@ class TestPaymentService:
         order.save.assert_called()
 
     @patch("shopman.shop.services.payment.get_adapter")
+    def test_initiate_pix_uses_gateway_image_for_qr_and_qrcode_for_copy_paste(self, mock_get_adapter):
+        from shopman.shop.adapters.payment_types import PaymentIntent
+        from shopman.shop.services.payment import initiate
+
+        adapter = MagicMock()
+        adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="INT-IMG-001",
+            status="pending",
+            amount_q=5000,
+            metadata={
+                "qrcode": "PIX-COPIA-E-COLA",
+                "imagemQrcode": "data:image/png;base64,PNGDATA",
+            },
+        )
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(data={"payment": {"method": "pix"}}, total_q=5000)
+
+        initiate(order)
+
+        assert order.data["payment"]["qr_code"] == "data:image/png;base64,PNGDATA"
+        assert order.data["payment"]["copy_paste"] == "PIX-COPIA-E-COLA"
+
+    @pytest.mark.django_db
+    @patch("shopman.shop.services.payment.get_adapter")
+    def test_initiate_schedules_payment_timeout(self, mock_get_adapter):
+        from django.utils import timezone
+
+        from shopman.shop.adapters.payment_types import PaymentIntent
+        from shopman.shop.directives import PAYMENT_TIMEOUT
+        from shopman.shop.services.payment import initiate
+
+        expires_at = timezone.now() + timedelta(minutes=15)
+        adapter = MagicMock()
+        adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="INT-TIMEOUT",
+            status="pending",
+            amount_q=5000,
+            expires_at=expires_at,
+            metadata={"qrcode": "QR123", "brcode": "PIX123"},
+        )
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(ref="ORD-PAY-TIMEOUT", data={"payment": {"method": "pix"}}, total_q=5000)
+
+        initiate(order)
+
+        directive = Directive.objects.get(topic=PAYMENT_TIMEOUT)
+        assert directive.payload["order_ref"] == "ORD-PAY-TIMEOUT"
+        assert directive.payload["intent_ref"] == "INT-TIMEOUT"
+        assert directive.available_at == expires_at
+
+    @patch("shopman.shop.services.payment.get_adapter")
     def test_initiate_card(self, mock_get_adapter):
         from shopman.shop.adapters.payment_types import PaymentIntent
         from shopman.shop.services.payment import initiate
@@ -572,6 +706,67 @@ class TestPaymentService:
         # Status is NOT written to order.data — Payman (PaymentService) is canonical
         assert "status" not in order.data["payment"]
 
+    @patch("shopman.shop.services.payment._payman_refundable_amount", return_value=3000)
+    @patch("shopman.shop.services.payment.get_adapter")
+    def test_refund_after_partial_refund_uses_remaining_balance(self, mock_get_adapter, mock_refundable):
+        from shopman.shop.adapters.payment_types import PaymentResult
+        from shopman.shop.services.payment import refund
+
+        adapter = MagicMock()
+        adapter.refund.return_value = PaymentResult(success=True)
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(
+            total_q=10000,
+            data={"payment": {"method": "pix", "intent_ref": "INT-PARTIAL"}},
+        )
+
+        refund(order)
+
+        adapter.refund.assert_called_once_with(
+            "INT-PARTIAL",
+            amount_q=3000,
+            reason="order_cancelled",
+        )
+
+    @patch("shopman.shop.services.payment._payman_refundable_amount", return_value=0)
+    @patch("shopman.shop.services.payment.get_adapter")
+    def test_refund_noops_only_when_captured_balance_fully_refunded(self, mock_get_adapter, mock_refundable):
+        from shopman.shop.services.payment import refund
+
+        order = _make_order(
+            total_q=10000,
+            data={"payment": {"method": "pix", "intent_ref": "INT-FULLY-REFUNDED"}},
+        )
+
+        refund(order)
+
+        mock_get_adapter.assert_not_called()
+
+    @patch("shopman.shop.services.payment._payman_captured_balance_q", return_value=0)
+    @patch("shopman.shop.services.payment.get_payment_status", return_value="refunded")
+    def test_refunded_status_without_balance_is_not_sufficient_payment(self, mock_status, mock_balance):
+        from shopman.shop.services.payment import has_sufficient_captured_payment
+
+        order = _make_order(
+            total_q=5000,
+            data={"payment": {"method": "pix", "intent_ref": "INT-FULLY-REFUNDED"}},
+        )
+
+        assert has_sufficient_captured_payment(order) is False
+
+    @patch("shopman.shop.services.payment._payman_captured_balance_q", return_value=5000)
+    @patch("shopman.shop.services.payment.get_payment_status", return_value="refunded")
+    def test_refunded_status_with_remaining_balance_can_still_cover_order(self, mock_status, mock_balance):
+        from shopman.shop.services.payment import has_sufficient_captured_payment
+
+        order = _make_order(
+            total_q=5000,
+            data={"payment": {"method": "pix", "intent_ref": "INT-PARTIAL"}},
+        )
+
+        assert has_sufficient_captured_payment(order) is True
+
     @patch("shopman.shop.services.payment._payman_intent_captured", return_value=False)
     @patch("shopman.shop.services.payment.get_adapter")
     def test_capture(self, mock_get_adapter, mock_payman_check):
@@ -595,11 +790,11 @@ class TestPaymentService:
         assert "status" not in order.data["payment"]
         assert order.data["payment"]["transaction_id"] == "TXN-001"
 
-    @patch("shopman.shop.lifecycle.ensure_confirmable")
+    @patch("shopman.shop.lifecycle.dispatch")
     @patch("shopman.payman.PaymentService")
     @patch("shopman.shop.services.payment.get_payment_status", return_value=None)
-    def test_mock_confirm_captures_and_confirms_new_order(
-        self, mock_status, mock_payment_service, mock_ensure,
+    def test_mock_confirm_captures_and_dispatches_paid_flow_without_confirming_order(
+        self, mock_status, mock_payment_service, mock_dispatch,
     ):
         from shopman.shop.services.payment import mock_confirm
 
@@ -621,7 +816,8 @@ class TestPaymentService:
         )
         mock_payment_service.capture.assert_called_once_with("INT-001")
         order.emit_event.assert_called_once()
-        order.transition_status.assert_called_once_with("confirmed", actor="payment.pix")
+        mock_dispatch.assert_called_once_with(order, "on_paid")
+        order.transition_status.assert_not_called()
 
     @patch("shopman.payman.PaymentService")
     @patch("shopman.shop.services.payment.get_payment_status", return_value="captured")
@@ -657,6 +853,8 @@ class TestNotificationService:
         assert directive.topic == "notification.send"
         assert directive.payload["order_ref"] == "ORD-001"
         assert directive.payload["template"] == "order_confirmed"
+        assert directive.payload["requires_active_notification"] is False
+        assert directive.dedupe_key == "notification.send:ORD-001:order_confirmed"
 
     @pytest.mark.django_db
     def test_send_includes_origin_channel(self):
@@ -668,6 +866,96 @@ class TestNotificationService:
 
         directive = Directive.objects.last()
         assert directive.payload["origin_channel"] == "whatsapp"
+
+    @pytest.mark.django_db
+    def test_send_dedupes_same_order_template(self):
+        from shopman.shop.services.notification import send
+
+        order = _make_order()
+
+        send(order, "order_ready")
+        send(order, "order_ready")
+
+        directives = Directive.objects.filter(topic="notification.send")
+        assert directives.count() == 1
+        directive = directives.get()
+        assert directive.payload["template"] == "order_ready"
+        assert directive.payload["requires_active_notification"] is True
+
+    @pytest.mark.django_db
+    def test_active_notification_without_enabled_channel_fails_loudly(self):
+        from shopman.shop.services.notification import deliver_order_notification
+
+        order = _make_order(data={"customer_ref": "CLI-001"})
+
+        with patch("shopman.shop.services.notification._resolve_backend_chain", return_value=["manychat"]):
+            success, error = deliver_order_notification(
+                order,
+                "payment_requested",
+                {"order_ref": order.ref, "customer_ref": "CLI-001"},
+            )
+
+        assert success is False
+        assert error == "no active notification channel available"
+
+    @pytest.mark.django_db
+    def test_whatsapp_origin_is_transactional_active_channel(self):
+        from shopman.shop.services.notification import deliver_order_notification
+
+        order = _make_order(
+            handle_type="manychat",
+            handle_ref="123",
+            data={"customer_ref": "CLI-001", "origin_channel": "whatsapp"},
+        )
+        backend = SimpleNamespace(is_available=lambda: True)
+
+        with patch("shopman.shop.services.notification._resolve_backend_chain", return_value=["manychat"]):
+            with patch("shopman.shop.notifications.get_backend", return_value=backend):
+                with patch(
+                    "shopman.shop.services.notification.notify",
+                    return_value=SimpleNamespace(success=True, error=None),
+                ) as mock_notify:
+                    success, error = deliver_order_notification(
+                        order,
+                        "payment_requested",
+                        {
+                            "order_ref": order.ref,
+                            "customer_ref": "CLI-001",
+                            "origin_channel": "whatsapp",
+                        },
+                    )
+
+        assert success is True
+        assert error is None
+        mock_notify.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_debug_console_backend_can_simulate_active_notification(self, settings):
+        from shopman.shop.services.notification import deliver_order_notification
+
+        settings.DEBUG = True
+        order = _make_order(
+            handle_type="phone",
+            handle_ref="+5543999001122",
+            data={"customer_ref": "CLI-001"},
+        )
+        backend = SimpleNamespace(is_available=lambda: True)
+
+        with patch("shopman.shop.services.notification._resolve_backend_chain", return_value=["console"]):
+            with patch("shopman.shop.notifications.get_backend", return_value=backend):
+                with patch(
+                    "shopman.shop.services.notification.notify",
+                    return_value=SimpleNamespace(success=True, error=None),
+                ) as mock_notify:
+                    success, error = deliver_order_notification(
+                        order,
+                        "payment_requested",
+                        {"order_ref": order.ref, "customer_ref": "CLI-001"},
+                    )
+
+        assert success is True
+        assert error is None
+        mock_notify.assert_called_once()
 
 
 class TestNotificationSendHandler:
@@ -954,6 +1242,98 @@ class TestKDSService:
         order.refresh_from_db()
         assert result is True
         assert order.status == Order.Status.READY
+
+    @pytest.mark.django_db
+    def test_complete_ticket_from_confirmed_records_preparing_before_ready(self):
+        from shopman.orderman.models import Order
+        from shopman.payman import PaymentService
+
+        from shopman.backstage.models import KDSInstance, KDSTicket
+        from shopman.shop.models import Channel
+        from shopman.shop.services.kds import complete_ticket
+
+        channel = Channel.objects.create(ref="kds-confirmed-ready", name="KDS Confirmed Ready")
+        order = Order.objects.create(
+            ref="KDS-CONFIRMED-READY",
+            channel_ref=channel.ref,
+            status=Order.Status.CONFIRMED,
+            total_q=1000,
+            data={"payment": {"method": "pix"}},
+        )
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="pix",
+        )
+        order.data["payment"]["intent_ref"] = intent.ref
+        order.save(update_fields=["data", "updated_at"])
+        PaymentService.authorize(intent.ref)
+        PaymentService.capture(intent.ref)
+        inst = KDSInstance.objects.create(ref="prep-confirmed-ready", name="Prep", type="prep")
+        ticket = KDSTicket.objects.create(
+            order=order,
+            kds_instance=inst,
+            items=[{"sku": "SKU-1", "name": "Item", "qty": 1, "checked": False}],
+            status="pending",
+        )
+
+        result = complete_ticket(ticket, actor="kds:test")
+
+        order.refresh_from_db()
+        assert result is True
+        assert order.status == Order.Status.READY
+        assert order.preparing_at is not None
+        assert order.ready_at is not None
+        assert list(order.events.values_list("payload__new_status", flat=True))[-2:] == [
+            Order.Status.PREPARING,
+            Order.Status.READY,
+        ]
+
+    @pytest.mark.django_db
+    def test_expedition_rejects_delivery_complete_before_dispatch(self):
+        from shopman.orderman.models import Order
+
+        from shopman.shop.models import Channel
+        from shopman.shop.services.kds import expedition_action
+
+        channel = Channel.objects.create(ref="kds-delivery-guard", name="KDS Delivery Guard")
+        order = Order.objects.create(
+            ref="KDS-DLV-GUARD",
+            channel_ref=channel.ref,
+            status=Order.Status.READY,
+            total_q=1000,
+            data={"fulfillment_type": "delivery"},
+        )
+
+        with pytest.raises(ValueError):
+            expedition_action(order, action="complete", actor="kds:test")
+
+        order.refresh_from_db()
+        assert order.status == Order.Status.READY
+        assert order.completed_at is None
+
+    @pytest.mark.django_db
+    def test_expedition_rejects_pickup_dispatch(self):
+        from shopman.orderman.models import Order
+
+        from shopman.shop.models import Channel
+        from shopman.shop.services.kds import expedition_action
+
+        channel = Channel.objects.create(ref="kds-pickup-guard", name="KDS Pickup Guard")
+        order = Order.objects.create(
+            ref="KDS-PKP-GUARD",
+            channel_ref=channel.ref,
+            status=Order.Status.READY,
+            total_q=1000,
+            data={"fulfillment_type": "pickup"},
+        )
+
+        with pytest.raises(ValueError):
+            expedition_action(order, action="dispatch", actor="kds:test")
+
+        order.refresh_from_db()
+        assert order.status == Order.Status.READY
+        assert order.dispatched_at is None
 
     @pytest.mark.django_db
     def test_cancel_tickets_cancels_open_tickets(self):
@@ -1381,6 +1761,8 @@ class TestAvailabilityReserveBundles:
         # Each hold uses session_key as reference
         for call in adapter.create_hold.call_args_list:
             assert call.kwargs["reference"] == "sess-abc"
+            assert call.kwargs["cart_source_sku"] == "BUNDLE-001"
+            assert call.kwargs["cart_bundle_sku"] == "BUNDLE-001"
 
     @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability.get_adapter")

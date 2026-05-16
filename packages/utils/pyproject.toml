@@ -15,20 +15,20 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.12",
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "Django>=5.2,<6.0",
+    "Django>=6.0,<6.1",
     "phonenumbers>=8.13",
 ]
 
 [project.optional-dependencies]
 unfold = [
-    "django-unfold>=0.80,<1.0",
+    "django-unfold>=0.92,<0.93",
 ]
 dev = [
     "pytest",

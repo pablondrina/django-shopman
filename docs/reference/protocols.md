@@ -51,7 +51,7 @@ Na arquitetura atual:
 | `AccountingBackend` | `get_cash_flow`, `get_accounts_summary`, `list_entries`, `create_payable`, `create_receivable`, `mark_as_paid` | ERP contábil varia por instância |
 
 **Adapters:** atualmente mock-only em framework. Implementações reais
-(Focus NFe, Conta Azul) são plugáveis via `SHOPMAN_FISCAL_BACKEND` /
+(Focus NFe, Conta Azul) são plugáveis via `SHOPMAN_FISCAL_ADAPTER` /
 `SHOPMAN_ACCOUNTING_BACKEND`.
 
 ---
@@ -159,7 +159,7 @@ Routing entre adapters de notificação é feito por `ChannelConfig.notification
 | Setting | Default | Onde é lido |
 |---|---|---|
 | `SHOPMAN_PAYMENT_BACKEND` | `payment_mock` | `get_adapter("payment", method=...)` |
-| `SHOPMAN_FISCAL_BACKEND` | ausente → handlers não registrados | `ShopmanConfig.ready()` |
+| `SHOPMAN_FISCAL_ADAPTER` | ausente → handlers não registrados | `ShopmanConfig.ready()` |
 | `SHOPMAN_ACCOUNTING_BACKEND` | ausente → handler não registrado | `ShopmanConfig.ready()` |
 | `SHOPMAN_STOCK_BACKEND` | autodetect stockman | `ShopmanConfig.ready()` |
 

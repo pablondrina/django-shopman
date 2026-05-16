@@ -1,7 +1,7 @@
-"""Operator order command facade.
+"""Operator order mutation facade.
 
 Backstage views use this module for order mutations. Projections may still read
-orders directly, but command paths should not decide lifecycle transitions in
+orders directly, but mutation paths should not decide lifecycle transitions in
 the HTTP layer.
 """
 
@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import logging
 
-from shopman.orderman.models import Directive, Order
+from shopman.orderman.models import Order
 
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.order_helpers import get_fulfillment_type
 
 logger = logging.getLogger(__name__)
-
-NOTIFICATION_SEND = "notification.send"
 
 _NEXT_STATUS_MAP: dict[str, str] = {
     Order.Status.CONFIRMED: Order.Status.PREPARING,
@@ -67,20 +65,18 @@ def reject_order(
     rejected_by: str,
 ) -> None:
     """Reject an order and queue the customer notification directive."""
+    if order.status != Order.Status.NEW:
+        raise ValueError("Pedido só pode ser rejeitado enquanto aguarda confirmação")
+
     cancel(
         order,
         reason=reason,
         actor=actor,
         extra_data={"rejected_by": rejected_by},
     )
-    Directive.objects.create(
-        topic=NOTIFICATION_SEND,
-        payload={
-            "order_ref": order.ref,
-            "template": "order_rejected",
-            "reason": reason,
-        },
-    )
+    from shopman.shop.services import notification
+
+    notification.send(order, "order_rejected", reason=reason, rejected_by=rejected_by)
     logger.info("operator_reject order=%s reason=%s", order.ref, reason)
 
 
@@ -96,6 +92,9 @@ def advance_order(order: Order, *, actor: str) -> str:
     next_status = next_status_for(order)
     if not next_status:
         raise ValueError("Pedido não possui próxima etapa")
+    if order.status == Order.Status.CONFIRMED and _requires_captured_payment_for_work(order):
+        raise ValueError("Pagamento ainda não foi confirmado. Aguarde antes de iniciar o preparo.")
+    _sync_delivery_fulfillment(order, next_status)
     order.transition_status(next_status, actor=actor)
     return next_status
 
@@ -103,6 +102,73 @@ def advance_order(order: Order, *, actor: str) -> str:
 def cancel_order(order: Order, *, reason: str, actor: str) -> None:
     """Cancel an order through the canonical cancellation service."""
     cancel(order, reason=reason, actor=actor)
+
+
+def settle_delivery_cash(order: Order, *, cash_shift, actor: str, amount_q: int | None = None) -> int:
+    """Record cash returned from a delivery order into the active CashShift."""
+    if get_fulfillment_type(order) != "delivery":
+        raise ValueError("Acerto de entrega só se aplica a pedidos delivery.")
+    if order.status not in {Order.Status.DISPATCHED, Order.Status.DELIVERED, Order.Status.COMPLETED}:
+        raise ValueError("Acerto de entrega só é permitido depois da saída para entrega.")
+    if cash_shift is None or getattr(cash_shift, "status", "") != "open":
+        raise ValueError("Abra um turno de caixa para registrar o acerto.")
+
+    data = dict(order.data or {})
+    payment = dict(data.get("payment") or {})
+    if payment.get("collection") != "on_delivery" or payment.get("method") != "cash":
+        raise ValueError("Pedido não está marcado como dinheiro na entrega.")
+    if payment.get("cod_settled_at"):
+        raise ValueError("Dinheiro da entrega já foi acertado.")
+
+    amount = int(amount_q if amount_q is not None else order.total_q or 0)
+    if amount <= 0:
+        raise ValueError("Valor de acerto inválido.")
+    if amount != int(order.total_q or 0):
+        raise ValueError("Valor de acerto deve bater com o total do pedido.")
+
+    tenders = list(payment.get("tenders") or [])
+    updated = False
+    for tender in tenders:
+        if tender.get("method") == "cash" and tender.get("collection") == "on_delivery":
+            tender["collection"] = "terminal"
+            tender["status"] = "received"
+            tender["cash_shift_id"] = cash_shift.pk
+            tender["terminal_ref"] = cash_shift.terminal.ref
+            tender["received_at"] = timezone_now_iso()
+            updated = True
+            break
+    if not updated:
+        tenders.append({
+            "method": "cash",
+            "amount_q": amount,
+            "collection": "terminal",
+            "status": "received",
+            "cash_shift_id": cash_shift.pk,
+            "terminal_ref": cash_shift.terminal.ref,
+            "received_at": timezone_now_iso(),
+        })
+
+    payment["tenders"] = tenders
+    payment["cash_received_q"] = amount
+    payment["cod_cash_shift_id"] = cash_shift.pk
+    payment["cod_terminal_ref"] = cash_shift.terminal.ref
+    payment["cod_settled_at"] = timezone_now_iso()
+    payment["cod_settled_by"] = actor
+    data["payment"] = payment
+    order.data = data
+    order.save(update_fields=["data", "updated_at"])
+    order.emit_event(
+        event_type="payment_collected",
+        actor=actor,
+        payload={
+            "method": "cash",
+            "amount_q": amount,
+            "cash_shift_id": cash_shift.pk,
+            "terminal_ref": cash_shift.terminal.ref,
+        },
+    )
+    logger.info("operator_settle_delivery_cash order=%s shift=%s amount=%s", order.ref, cash_shift.pk, amount)
+    return amount
 
 
 def save_internal_notes(order: Order, *, notes: str) -> None:
@@ -113,30 +179,75 @@ def save_internal_notes(order: Order, *, notes: str) -> None:
     order.save(update_fields=["data", "updated_at"])
 
 
-def mark_paid(order: Order, *, actor: str, operator_username: str) -> bool:
-    """Mark an offline payment as received and run paid lifecycle hooks.
-
-    Returns False when the order was already marked paid.
-    """
-    payment_data = dict((order.data or {}).get("payment", {}))
-    if payment_data.get("marked_paid_by"):
+def _requires_captured_payment_for_work(order: Order) -> bool:
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
         return False
+    from shopman.shop.services import payment as payment_service
 
-    payment_data["marked_paid_by"] = operator_username
-    data = dict(order.data or {})
-    data["payment"] = payment_data
-    order.data = data
-    order.save(update_fields=["data", "updated_at"])
+    return payment_service.has_sufficient_captured_payment(order) is not True
 
-    if order.status == Order.Status.NEW:
-        from shopman.shop.lifecycle import ensure_confirmable
 
-        ensure_confirmable(order)
-        order.transition_status(Order.Status.CONFIRMED, actor=actor)
+def timezone_now_iso() -> str:
+    from django.utils import timezone
 
-    logger.info("mark_paid order=%s operator=%s", order.ref, operator_username)
+    return timezone.now().isoformat()
 
-    from shopman.shop.lifecycle import dispatch
 
-    dispatch(order, "on_paid")
-    return True
+def _sync_delivery_fulfillment(order: Order, next_status: str) -> None:
+    """Keep the delivery fulfillment lifecycle aligned with operator actions."""
+    if get_fulfillment_type(order) != "delivery":
+        return
+    if next_status not in {Order.Status.DISPATCHED, Order.Status.DELIVERED}:
+        return
+
+    from shopman.orderman.models import Fulfillment
+    from shopman.shop.services import fulfillment as fulfillment_service
+
+    fulfillment = order.fulfillments.order_by("pk").first()
+    if fulfillment is None:
+        fulfillment = fulfillment_service.create(order) or order.fulfillments.order_by("pk").first()
+    if fulfillment is None:
+        return
+
+    if next_status == Order.Status.DISPATCHED:
+        _advance_fulfillment_to(
+            fulfillment,
+            Fulfillment.Status.DISPATCHED,
+            fulfillment_service,
+        )
+    elif next_status == Order.Status.DELIVERED:
+        _advance_fulfillment_to(
+            fulfillment,
+            Fulfillment.Status.DELIVERED,
+            fulfillment_service,
+        )
+
+
+def _advance_fulfillment_to(fulfillment, target_status: str, fulfillment_service) -> None:
+    from shopman.orderman.models import Fulfillment
+
+    if fulfillment.status == target_status:
+        return
+    if fulfillment.status == Fulfillment.Status.DELIVERED:
+        return
+
+    if target_status == Fulfillment.Status.DISPATCHED:
+        if fulfillment.status == Fulfillment.Status.PENDING:
+            fulfillment_service.update(fulfillment, Fulfillment.Status.IN_PROGRESS)
+            fulfillment.refresh_from_db()
+        if fulfillment.status == Fulfillment.Status.IN_PROGRESS:
+            fulfillment_service.update(fulfillment, Fulfillment.Status.DISPATCHED)
+        return
+
+    if target_status == Fulfillment.Status.DELIVERED:
+        if fulfillment.status in {Fulfillment.Status.PENDING, Fulfillment.Status.IN_PROGRESS}:
+            _advance_fulfillment_to(
+                fulfillment,
+                Fulfillment.Status.DISPATCHED,
+                fulfillment_service,
+            )
+            fulfillment.refresh_from_db()
+        if fulfillment.status == Fulfillment.Status.DISPATCHED:
+            fulfillment_service.update(fulfillment, Fulfillment.Status.DELIVERED)

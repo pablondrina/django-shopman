@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from shopman.guestman.models import Customer, CustomerGroup
-from shopman.orderman.models import Order
+from shopman.offerman.models import Product
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.storefront.views.home import REORDER_MIN_DAYS, HomeView
 
@@ -24,10 +26,13 @@ ITEMS = [
 def _make_request(customer_uuid=None, customer_name=None):
     rf = RequestFactory()
     req = rf.get("/")
+    req.session = {}
     if customer_uuid is not None:
         req.customer = SimpleNamespace(
             uuid=customer_uuid,
             name=customer_name or "Test Customer",
+            phone="+5543999990001",
+            email="",
         )
     else:
         req.customer = None
@@ -49,15 +54,30 @@ class ReorderContextTests(TestCase):
 
     def _create_order(self, days_ago: int, items=None) -> Order:
         created = timezone.now() - timedelta(days=days_ago)
+        raw_items = ITEMS if items is None else items
         order = Order.objects.create(
             ref=f"ORD-RO-{days_ago}d",
             channel_ref="web",
             session_key=f"sk-ro-{days_ago}d",
             status=Order.Status.COMPLETED,
-            snapshot={"items": ITEMS if items is None else items, "pricing": {"total_q": 2000}},
+            snapshot={"items": raw_items, "pricing": {"total_q": 2000}},
             data={"customer_ref": self.customer.ref},
             total_q=2000,
         )
+        for idx, item in enumerate(raw_items, start=1):
+            qty = Decimal(str(item.get("qty", 1)))
+            unit_price_q = int(item.get("unit_price_q", 0))
+            line_total_q = int(item.get("line_total_q") or unit_price_q * int(qty))
+            OrderItem.objects.create(
+                order=order,
+                line_id=item.get("line_id") or f"L{idx}",
+                sku=item.get("sku") or f"SKU-{idx}",
+                name=item.get("name", ""),
+                qty=qty,
+                unit_price_q=unit_price_q,
+                line_total_q=line_total_q,
+                meta=item.get("meta", {}),
+            )
         # Override auto_now_add to simulate past creation
         Order.objects.filter(pk=order.pk).update(created_at=created)
         return order
@@ -78,23 +98,23 @@ class ReorderContextTests(TestCase):
         self.assertIsNone(ref)
         self.assertEqual(items, [])
 
-    # ── days_since <= REORDER_MIN_DAYS ───────────────────────────────────
+    # ── Recent orders ─────────────────────────────────────────────────────
 
-    def test_recent_order_returns_none(self):
-        self._create_order(days_ago=REORDER_MIN_DAYS)  # exactly at threshold
+    def test_recent_order_returns_ref_and_items(self):
+        order = self._create_order(days_ago=0)
         req = _make_request(customer_uuid=self.customer.uuid)
         ref, items = HomeView._reorder_context(req)
-        self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertEqual(ref, order.ref)
+        self.assertEqual(len(items), len(ITEMS))
 
-    def test_one_day_old_returns_none(self):
-        self._create_order(days_ago=1)
+    def test_one_day_old_returns_ref_and_items(self):
+        order = self._create_order(days_ago=1)
         req = _make_request(customer_uuid=self.customer.uuid)
         ref, items = HomeView._reorder_context(req)
-        self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertEqual(ref, order.ref)
+        self.assertEqual(len(items), len(ITEMS))
 
-    # ── days_since > REORDER_MIN_DAYS ────────────────────────────────────
+    # ── Prior orders, without an age gate ────────────────────────────────
 
     def test_old_order_returns_ref_and_items(self):
         order = self._create_order(days_ago=REORDER_MIN_DAYS + 1)
@@ -104,6 +124,58 @@ class ReorderContextTests(TestCase):
         self.assertEqual(len(items), len(ITEMS))
         self.assertEqual(items[0]["name"], "Croissant Clássico")
         self.assertEqual(items[0]["qty"], 2)
+
+    def test_home_renders_reorder_cta_when_customer_has_previous_order(self):
+        self._create_order(days_ago=0)
+        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
+
+        response = HomeView.as_view()(req)
+
+        content = response.content.decode()
+        self.assertIn('id="quick-reorder-cta"', content)
+        self.assertLess(content.index('id="home-carousel"'), content.index('id="quick-reorder-cta"'))
+        self.assertIn("Quer repetir seu último pedido, João?", content)
+        self.assertIn("Repetir pedido", content)
+        self.assertIn("Pedir de novo", content)
+        self.assertIn("Quer repetir seu<br>último pedido", content)
+
+    def test_home_reorder_formats_snapshot_quantities_for_customer_display(self):
+        self._create_order(
+            days_ago=0,
+            items=[
+                {"sku": "FOC-001", "name": "Focaccia", "qty": "1.000", "unit_price_q": 1200},
+                {"sku": "BAG-001", "name": "Baguete", "qty": "2.500", "unit_price_q": 900},
+            ],
+        )
+        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
+
+        response = HomeView.as_view()(req)
+
+        content = response.content.decode()
+        self.assertIn("1×</span>", content)
+        self.assertIn(">Focaccia</span>", content)
+        self.assertIn("2,5×</span>", content)
+        self.assertIn(">Baguete</span>", content)
+        self.assertNotIn("1.000×", content)
+        self.assertNotIn("2.500×", content)
+        self.assertNotIn("item do pedido", content)
+
+    def test_home_reorder_uses_catalog_name_when_order_item_name_is_empty(self):
+        Product.objects.create(sku="CAPPUCCINO", name="Cappuccino", base_price_q=1200)
+        self._create_order(
+            days_ago=0,
+            items=[
+                {"sku": "CAPPUCCINO", "name": "", "qty": "1.000", "unit_price_q": 1200},
+            ],
+        )
+        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
+
+        response = HomeView.as_view()(req)
+
+        content = response.content.decode()
+        self.assertIn("1×</span>", content)
+        self.assertIn(">Cappuccino</span>", content)
+        self.assertNotIn("item do pedido", content)
 
     def test_returns_most_recent_order(self):
         # Older order should NOT win

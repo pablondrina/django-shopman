@@ -4,6 +4,14 @@ from rest_framework import serializers
 from shopman.orderman.models import Directive, Order, Session
 
 
+class ChannelSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    ref = serializers.CharField()
+    name = serializers.CharField()
+    display_order = serializers.IntegerField()
+    is_active = serializers.BooleanField()
+
+
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
@@ -45,7 +53,7 @@ class OperationSerializer(serializers.Serializer):
     Serializer para validação de operações individuais.
 
     Operações suportadas:
-    - add_line: {op, sku, qty, unit_price_q?, meta?}
+    - add_line: {op, sku, qty, name?, unit_price_q?, meta?}
     - remove_line: {op, line_id}
     - set_qty: {op, line_id, qty}
     - replace_sku: {op, line_id, sku, unit_price_q?, meta?}
@@ -82,8 +90,7 @@ class OperationSerializer(serializers.Serializer):
         "source",        # source.* (origem do pedido)
         "operator",      # operator.* (operador/vendedor)
         "table",         # table (mesa - restaurantes)
-        "tab",           # tab (comanda label)
-        "standby",       # standby, standby_operator (session em espera)
+        "tab",           # tab label
     }
 
     NESTABLE_DATA_PATHS = {
@@ -118,6 +125,7 @@ class OperationSerializer(serializers.Serializer):
 
     op = serializers.CharField()
     sku = serializers.CharField(required=False, allow_blank=False)
+    name = serializers.CharField(required=False, allow_blank=True, max_length=200)
     qty = serializers.DecimalField(required=False, max_digits=12, decimal_places=3)
     line_id = serializers.CharField(required=False, allow_blank=False)
     unit_price_q = serializers.IntegerField(required=False, min_value=0)

@@ -17,7 +17,7 @@ they exercise the pure orchestration logic without a seeded Stockman.
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -202,19 +202,19 @@ class TestReconcileSimple:
         adapter.create_hold.assert_not_called()
         adapter.release_holds.assert_not_called()
 
+    @patch("shopman.shop.services.availability._reserve_listing_gate_error", return_value=None)
     @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
     @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability._load_session_holds_for_sku")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability.check")
     def test_reconcile_grow_creates_delta_hold(
-        self, mock_check, mock_get_adapter, mock_load_sku, mock_alts, mock_expand,
+        self, mock_check, mock_get_adapter, mock_load_sku, mock_alts, mock_expand, mock_gate,
     ):
         """update_qty from 2 → 5 creates a fresh hold for the delta=3."""
         from shopman.shop.services.availability import reconcile
 
         mock_load_sku.return_value = [("hold:A", Decimal("2"))]
-        mock_check.return_value = _ok_status(available=100)
         adapter = MagicMock()
         adapter.create_hold.return_value = {
             "success": True, "hold_id": "hold:GROW",
@@ -230,23 +230,28 @@ class TestReconcileSimple:
         assert kwargs["sku"] == "X"
         assert kwargs["qty"] == Decimal("3")
         assert kwargs["reference"] == "s1"
+        mock_check.assert_not_called()
         assert result["hold_ids"] == ["hold:GROW"]
 
+    @patch("shopman.shop.services.availability._reserve_listing_gate_error", return_value=None)
     @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
     @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability._load_session_holds_for_sku")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability.check")
     def test_reconcile_grow_shortage_returns_error(
-        self, mock_check, mock_get_adapter, mock_load_sku, mock_alts, mock_expand,
+        self, mock_check, mock_get_adapter, mock_load_sku, mock_alts, mock_expand, mock_gate,
     ):
-        """Insufficient stock on grow → ok=False, no mutation, substitutes set."""
+        """Hold refusal on grow → explain with check(), no session mutation."""
         from shopman.shop.services.availability import reconcile
 
         mock_load_sku.return_value = [("hold:A", Decimal("5"))]
         mock_check.return_value = _shortage_status(available=3)
         mock_alts.find.return_value = [{"sku": "ALT-1"}]
         adapter = MagicMock()
+        adapter.create_hold.return_value = {
+            "success": False, "error_code": "INSUFFICIENT_AVAILABLE",
+        }
         mock_get_adapter.return_value = adapter
 
         result = reconcile("X", Decimal("999"), session_key="s1", channel_ref="web")
@@ -254,7 +259,8 @@ class TestReconcileSimple:
         assert result["ok"] is False
         assert result["error_code"] == "insufficient_stock"
         assert result["substitutes"] == [{"sku": "ALT-1"}]
-        adapter.create_hold.assert_not_called()
+        adapter.create_hold.assert_called_once()
+        mock_check.assert_called_once()
         adapter.release_holds.assert_not_called()
 
     @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
@@ -336,15 +342,86 @@ class TestReconcileSimple:
         adapter.release_holds.assert_called_once_with(["hold:A", "hold:B"])
         adapter.create_hold.assert_not_called()
 
+    @patch("shopman.shop.services.availability._reserve_listing_gate_error", return_value=None)
+    @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
+    @patch("shopman.shop.services.availability._load_session_holds_for_sku")
+    @patch("shopman.shop.services.availability.get_adapter")
+    @patch("shopman.shop.services.availability.check")
+    def test_reconcile_simple_scopes_holds_to_cart_line_sku(
+        self, mock_check, mock_get_adapter, mock_load_sku, mock_expand, mock_gate,
+    ):
+        """A simple SKU line must not reconcile bundle-component holds with the same SKU."""
+        from shopman.shop.services.availability import reconcile
+
+        mock_load_sku.return_value = [("hold:A", Decimal("2"))]
+        adapter = MagicMock()
+        adapter.create_hold.return_value = {
+            "success": True, "hold_id": "hold:GROW",
+        }
+        mock_get_adapter.return_value = adapter
+
+        result = reconcile("X", Decimal("3"), session_key="s1", channel_ref="web")
+
+        assert result["ok"] is True
+        mock_load_sku.assert_called_once_with(
+            "s1",
+            "X",
+            metadata_filters={"cart_source_sku": "X"},
+        )
+        kwargs = adapter.create_hold.call_args.kwargs
+        assert kwargs["cart_source_sku"] == "X"
+        mock_check.assert_not_called()
+
+    def test_reconcile_bundle_zero_releases_all_parent_tagged_component_holds(self):
+        """Removing qty=0 for a bundle releases all holds tagged to that bundle line."""
+        from shopman.shop.services.availability import reconcile
+
+        components = [
+            {"sku": "COMP-A", "qty": Decimal("2")},
+            {"sku": "COMP-B", "qty": Decimal("1")},
+        ]
+        adapter = MagicMock()
+        adapter.find_holds_by_reference.side_effect = [
+            [
+                ("hold:A1", "COMP-A", Decimal("4")),
+                ("hold:A2", "COMP-A", Decimal("2")),
+            ],
+            [("hold:B1", "COMP-B", Decimal("2"))],
+        ]
+
+        with patch(
+            "shopman.shop.services.availability._expand_if_bundle",
+            return_value=components,
+        ), patch(
+            "shopman.shop.services.availability.get_adapter",
+            return_value=adapter,
+        ):
+            result = reconcile("COMBO", Decimal("0"), session_key="s1", channel_ref="web")
+
+        metadata_filters = {
+            "cart_source_sku": "COMBO",
+            "cart_bundle_sku": "COMBO",
+        }
+        assert result["ok"] is True
+        assert result["released_ids"] == ["hold:A1", "hold:A2", "hold:B1"]
+        adapter.find_holds_by_reference.assert_has_calls([
+            call("s1", sku="COMP-A", metadata_filters=metadata_filters),
+            call("s1", sku="COMP-B", metadata_filters=metadata_filters),
+        ])
+        adapter.release_holds.assert_has_calls([
+            call(["hold:A1", "hold:A2"]),
+            call(["hold:B1"]),
+        ])
+
 
 # ══════════════════════════════════════════════════════════════════════
-# Cart command integration — update_qty / remove_item invoke reconcile
+# Cart mutation integration — update_qty / remove_item invoke reconcile
 # ══════════════════════════════════════════════════════════════════════
 
 
 @pytest.mark.django_db
 class TestCartReconcileIntegration:
-    """Minimal integration: cart command wiring calls reconcile with the
+    """Minimal integration: cart mutation wiring calls reconcile with the
     line's SKU and the absolute new qty (not a delta).
     """
 
@@ -408,6 +485,7 @@ class TestCartReconcileIntegration:
         assert call_kwargs["sku"] == "X"
         assert call_kwargs["new_qty"] == Decimal("5")
         assert call_kwargs["session_key"] == "sess-test-1"
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")
 
     @patch("shopman.shop.services.cart.session_service")
     @patch("shopman.shop.services.cart.availability")
@@ -435,6 +513,7 @@ class TestCartReconcileIntegration:
 
         assert excinfo.value.sku == "X"
         mock_session_service.modify_session.assert_not_called()
+        mock_availability.bump_session_hold_expiry.assert_not_called()
 
     @patch("shopman.shop.services.cart.session_service")
     @patch("shopman.shop.services.cart.availability")
@@ -462,4 +541,34 @@ class TestCartReconcileIntegration:
         call_kwargs = mock_availability.reconcile.call_args.kwargs
         assert call_kwargs["sku"] == "X"
         assert call_kwargs["new_qty"] == Decimal("0")
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")
         mock_session_service.modify_session.assert_called_once()
+
+    @patch("shopman.shop.services.cart.session_service")
+    @patch("shopman.shop.services.cart.availability")
+    def test_add_item_bumps_session_hold_expiry_after_reserve(
+        self, mock_availability, mock_session_service,
+    ):
+        from shopman.shop.services import cart as cart_mutations
+
+        _channel, session = self._setup_cart()
+        mock_availability.reserve.return_value = {
+            "ok": True,
+            "hold_id": "hold:new",
+            "available_qty": Decimal("10"),
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        }
+        mock_session_service.modify_session.return_value = session
+
+        cart_mutations.add_item(
+            session_key="sess-test-1",
+            channel_ref="web",
+            origin_channel="web",
+            sku="Y",
+            qty=1,
+            unit_price_q=1000,
+        )
+
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")

@@ -5,10 +5,10 @@ from shopman.backstage.admin import dashboard
 
 def test_dashboard_table_builders_render_rows():
     pending = [
-        SimpleNamespace(url="/admin/o/1", ref="ORD-1", badge_css="bg-blue", status_label="Novo", total_display="R$ 10", created_at_display="10:00")
+        SimpleNamespace(url="/admin/o/1", ref="ORD-1", status="new", badge_css="bg-blue", status_label="Novo", total_display="R$ 10", created_at_display="10:00")
     ]
     recent = [
-        SimpleNamespace(url="/admin/o/2", ref="ORD-2", badge_css="bg-green", status_label="Pago", total_display="R$ 20", channel_name="web", created_at_display="11:00")
+        SimpleNamespace(url="/admin/o/2", ref="ORD-2", status="completed", badge_css="bg-green", status_label="Pago", total_display="R$ 20", channel_name="web", created_at_display="11:00")
     ]
     production = [
         SimpleNamespace(url="/admin/wo/1", ref="WO-1", output_sku="SKU", quantity="10", status="done")

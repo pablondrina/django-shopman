@@ -1,0 +1,27 @@
+{% load unfold %}
+
+{% if entries %}
+  <div class="flex flex-wrap items-center gap-1">
+    {% for entry in entries %}
+      {% if entry.blocked %}
+        {% include "unfold/helpers/label.html" with text=entry.button_label type="warning" label_title=entry.button_title %}
+        {% component "unfold/components/button.html" with variant="default" size="xs" href=entry.resolve_url icon="edit_calendar" title=entry.button_title %}
+          Resolver
+        {% endcomponent %}
+      {% elif context.production_access.can_edit_finished %}
+        <div class="group/action leading-none relative" x-data="{ open: false }">
+          {% component "unfold/components/button.html" with variant="default" size="xs" icon="task_alt" title=entry.button_title extra_attrs='x-on:click="open = true"' %}
+            {{ entry.button_label }}
+          {% endcomponent %}
+          {% include "admin_console/unfold/modal.html" with modal_title=entry.modal_title modal_description=entry.modal_description form=entry.form form_id=entry.form_id submit_label=entry.submit_label cancel_attrs='type="button" x-on:click="open = false"' %}
+        </div>
+      {% else %}
+        <span class="text-xs text-base-400">Pendente</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% elif row.finished_orders %}
+  {% include "unfold/helpers/label.html" with text="Concluído" type="success" %}
+{% else %}
+  <span class="text-xs text-base-400">-</span>
+{% endif %}

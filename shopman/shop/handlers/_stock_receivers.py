@@ -88,6 +88,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
     from shopman.stockman.models import Hold
 
     session_keys = set()
+    hold_ids_by_session: dict[str, list[str]] = {}
     for hold_id in hold_ids:
         try:
             pk = int(hold_id.split(":")[1])
@@ -95,6 +96,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
             ref = (hold.metadata or {}).get("reference")
             if ref:
                 session_keys.add(ref)
+                hold_ids_by_session.setdefault(ref, []).append(hold_id)
         except (Hold.DoesNotExist, IndexError, ValueError, TypeError):
             pass
 
@@ -116,7 +118,12 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
         # independent of auto-commit. The shopper needs to know their
         # reserved item arrived.
         try:
-            _notify_stock_arrived(session, sku=sku, target_date=target_date)
+            _notify_stock_arrived(
+                session,
+                sku=sku,
+                target_date=target_date,
+                hold_ids=hold_ids_by_session.get(session.session_key, []),
+            )
         except Exception:
             logger.warning(
                 "on_holds_materialized: notify failed session=%s sku=%s",
@@ -138,7 +145,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
             )
 
 
-def _notify_stock_arrived(session, *, sku: str, target_date) -> None:
+def _notify_stock_arrived(session, *, sku: str, target_date, hold_ids: list[str] | None = None) -> None:
     """Dispatch a ``stock.arrived`` notification for the session's shopper.
 
     Resolves the customer from the session, looks up the product name, and
@@ -148,16 +155,7 @@ def _notify_stock_arrived(session, *, sku: str, target_date) -> None:
     """
     from shopman.shop.notifications import notify
 
-    customer = getattr(session, "customer", None)
-    if customer is None:
-        customer_id = (session.data or {}).get("customer_id")
-        if customer_id:
-            try:
-                from shopman.guestman.models import Customer
-
-                customer = Customer.objects.filter(pk=customer_id).first()
-            except Exception:
-                customer = None
+    customer = _resolve_session_customer(session)
     if customer is None:
         logger.debug(
             "stock.arrived not dispatched (session %s has no customer)",
@@ -176,21 +174,142 @@ def _notify_stock_arrived(session, *, sku: str, target_date) -> None:
         logger.debug("stock_arrived: product lookup failed for sku=%s", sku, exc_info=True)
 
     try:
+        backend = _notification_backend(customer)
         notify(
             event="stock.arrived",
-            recipient=customer,
+            recipient=_notification_recipient(customer, backend=backend),
             context={
                 "sku": sku,
                 "product_name": product_name,
                 "target_date": str(target_date) if target_date else None,
+                "deadline_at": _deadline_at_for_holds(hold_ids or []),
+                "cart_url": _cart_url(),
                 "session_key": session.session_key,
             },
+            backend=backend,
         )
     except Exception:
         logger.warning(
             "stock.arrived dispatch failed sku=%s customer=%s",
             sku, getattr(customer, "pk", None), exc_info=True,
         )
+
+
+def _resolve_session_customer(session):
+    customer = getattr(session, "customer", None)
+    if customer is not None:
+        return customer
+
+    data = session.data or {}
+    customer_data = data.get("customer") if isinstance(data.get("customer"), dict) else {}
+    customer_id = (
+        data.get("customer_id")
+        or data.get("customer_uuid")
+        or customer_data.get("uuid")
+    )
+    customer_ref = data.get("customer_ref") or customer_data.get("ref")
+    phone = data.get("customer_phone") or customer_data.get("phone")
+
+    try:
+        from shopman.guestman.models import Customer
+    except Exception:
+        return None
+
+    if customer_id:
+        try:
+            customer = Customer.objects.filter(pk=customer_id).first()
+            if customer is not None:
+                return customer
+        except (TypeError, ValueError):
+            pass
+        try:
+            customer = Customer.objects.filter(uuid=str(customer_id)).first()
+            if customer is not None:
+                return customer
+        except (TypeError, ValueError):
+            pass
+
+    if customer_ref:
+        customer = Customer.objects.filter(ref=customer_ref).first()
+        if customer is not None:
+            return customer
+
+    if phone:
+        return Customer.objects.filter(phone=phone, is_active=True).first()
+
+    return None
+
+
+def _notification_backend(customer) -> str | None:
+    try:
+        from shopman.shop.services import customer_context
+
+        enabled = customer_context.enabled_notification_channels(
+            customer.ref,
+            ("whatsapp", "sms", "email"),
+        )
+    except Exception:
+        enabled = frozenset()
+
+    if "whatsapp" in enabled and getattr(customer, "phone", ""):
+        return "manychat"
+    if "sms" in enabled and getattr(customer, "phone", ""):
+        return "sms"
+    if "email" in enabled and getattr(customer, "email", ""):
+        return "email"
+    return None
+
+
+def _notification_recipient(customer, *, backend: str | None = None) -> str:
+    if backend == "email" and getattr(customer, "email", ""):
+        return customer.email
+    if backend in {"manychat", "sms"} and getattr(customer, "phone", ""):
+        return customer.phone
+    return (
+        getattr(customer, "phone", "")
+        or getattr(customer, "email", "")
+        or getattr(customer, "ref", "")
+        or str(getattr(customer, "pk", ""))
+    )
+
+
+def _deadline_at_for_holds(hold_ids: list[str]) -> str | None:
+    pks: list[int] = []
+    for hold_id in hold_ids:
+        try:
+            pks.append(int(hold_id.split(":")[1]))
+        except (IndexError, ValueError, TypeError):
+            continue
+    if not pks:
+        return None
+
+    from shopman.stockman.models import Hold
+
+    deadlines = list(
+        Hold.objects.filter(pk__in=pks, expires_at__isnull=False)
+        .values_list("expires_at", flat=True)
+    )
+    if not deadlines:
+        return None
+    return min(deadlines).isoformat()
+
+
+def _cart_url() -> str:
+    try:
+        from django.urls import reverse
+
+        path = reverse("storefront:cart")
+    except Exception:
+        path = "/cart/"
+
+    try:
+        from django.conf import settings
+
+        base_url = getattr(settings, "SHOPMAN_BASE_URL", "").rstrip("/")
+    except Exception:
+        base_url = ""
+
+    return f"{base_url}{path}" if base_url else path
 
 
 def _all_holds_materialized(check_result: dict) -> bool:

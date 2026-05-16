@@ -30,6 +30,11 @@ HAPPY_HOUR_START = time(17, 30)
 HAPPY_HOUR_END = time(18, 0)
 
 
+def _is_non_merchandise_line(item: dict) -> bool:
+    meta = item.get("meta") or {}
+    return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
+
+
 class D1DiscountModifier:
     """
     Desconto D-1 — aplica desconto em itens com estoque apenas D-1
@@ -47,6 +52,15 @@ class D1DiscountModifier:
         self.discount_percent = discount_percent
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        availability = (session.data or {}).get("availability", {})
+        items = session.items or []
+        if not any(
+            item.get("is_d1", False)
+            or availability.get(item.get("sku", ""), {}).get("is_d1", False)
+            for item in items
+        ):
+            return
+
         config = getattr(channel, "config", None) or {}
         channel_rules = config.get("rules", {})
         if "d1_discount_percent" in channel_rules:
@@ -55,11 +69,10 @@ class D1DiscountModifier:
             from shopman.shop.rules.engine import get_rule_params
             percent = get_rule_params("d1_discount").get("discount_percent", self.discount_percent)
 
-        availability = (session.data or {}).get("availability", {})
-
-        items = session.items or []
         modified = False
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             sku = item.get("sku", "")
             is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
             if not is_d1:
@@ -156,6 +169,8 @@ class HappyHourModifier:
         items = session.items or []
         modified = False
         for item in items:
+            if _is_non_merchandise_line(item):
+                continue
             applied = item.get("modifiers_applied", [])
             if any(m.get("type") == "employee_discount" for m in applied):
                 continue

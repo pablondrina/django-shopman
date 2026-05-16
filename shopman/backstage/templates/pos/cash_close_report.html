@@ -36,7 +36,7 @@
         </div>
         <div class="flex justify-between py-2 border-b border-outline dark:border-outline-dark">
           <span class="text-on-surface/60 dark:text-on-surface-dark/60">Informado no fechamento</span>
-          <span class="font-semibold tabular-nums">R$ {{ session.closing_amount_q|format_money }}</span>
+          <span class="font-semibold tabular-nums">R$ {{ session.blind_closing_amount_q|format_money }}</span>
         </div>
         <div class="flex justify-between py-2.5 mt-1 rounded-lg px-3
           {% if session.difference_q == 0 %}bg-success/10 text-success

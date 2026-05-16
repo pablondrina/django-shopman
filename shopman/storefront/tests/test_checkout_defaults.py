@@ -47,7 +47,7 @@ def _add_to_cart(client):
         "ok": True, "hold_id": "fake-hold", "available_qty": 999,
         "is_paused": False, "error_code": None, "substitutes": [],
     }):
-        client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+        client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
 
 
 def _login_as_customer(client, customer):

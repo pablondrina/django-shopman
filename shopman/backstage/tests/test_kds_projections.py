@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-from django.urls import reverse
-
-import pytest
+from django.urls import NoReverseMatch, reverse
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.models import KDSInstance, KDSTicket
 from shopman.backstage.projections.kds import build_kds_board, build_kds_index, build_kds_ticket
-from shopman.orderman.models import Order, OrderItem
 from shopman.shop.models import Shop
 
 
@@ -85,12 +84,27 @@ def test_kds_views_render_index_display_and_partial(client, kds_setup):
     user.user_permissions.add(permission)
     client.force_login(user)
 
-    assert client.get(reverse("backstage:kds_index")).status_code == 200
-    assert client.get(reverse("backstage:kds_display", args=[prep.ref])).status_code == 200
-    expedition_response = client.get(reverse("backstage:kds_display", args=[expedition.ref]))
+    assert client.get(reverse("admin_console_kds")).status_code == 200
+    index_response = client.get(reverse("admin_console_kds"))
+    assert reverse("backstage:kds_station_runtime", args=[prep.ref]) in index_response.content.decode()
+    assert client.get(reverse("admin_console_kds_display", args=[prep.ref])).status_code == 200
+    expedition_response = client.get(reverse("admin_console_kds_display", args=[expedition.ref]))
     assert expedition_response.status_code == 200
     assert b"2 un." in expedition_response.content
     assert b"1 item" not in expedition_response.content
-    partial = client.get(reverse("backstage:kds_ticket_list", args=[prep.ref]))
+    partial = client.get(reverse("admin_console_kds_tickets", args=[prep.ref]))
     assert partial.status_code == 200
     assert b"KDS-PROJ-1" in partial.content
+
+
+def test_old_kds_route_names_are_not_registered():
+    for name in (
+        "backstage:kds_index",
+        "backstage:kds_display",
+        "backstage:kds_ticket_list",
+        "backstage:kds_ticket_check",
+        "backstage:kds_ticket_done",
+        "backstage:kds_expedition_action",
+    ):
+        with pytest.raises(NoReverseMatch):
+            reverse(name, args=["prep"] if name in {"backstage:kds_display", "backstage:kds_ticket_list"} else [1] if name != "backstage:kds_index" else [])

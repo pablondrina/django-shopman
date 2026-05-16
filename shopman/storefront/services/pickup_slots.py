@@ -1,9 +1,10 @@
 """Pickup slot service — maps products to time slots based on production history.
 
 Each product has a "typical ready time" derived from the median finish time
-of its recent WorkOrders.  When a customer builds a cart with multiple items,
-the earliest available pickup slot is the one that starts AFTER the latest
-typical_ready_time among all items.
+of its recent WorkOrders.  When a customer builds a cart with multiple items
+and chooses a date, the earliest available pickup slot is the one that covers
+both the latest typical_ready_time among all items and, only for today, the
+current wall clock.
 
 Configuration lives in Shop.defaults["pickup_slots"] (admin-editable):
 
@@ -24,7 +25,23 @@ logger = logging.getLogger(__name__)
 
 
 def _wall_clock() -> time:
-    return datetime.now().time()
+    try:
+        from django.utils import timezone
+
+        return timezone.localtime().time().replace(second=0, microsecond=0)
+    except Exception:
+        logger.debug("pickup_slots: could not read Django local time", exc_info=True)
+        return datetime.now().time().replace(second=0, microsecond=0)
+
+
+def _local_date() -> date:
+    try:
+        from django.utils import timezone
+
+        return timezone.localtime().date()
+    except Exception:
+        logger.debug("pickup_slots: could not read Django local date", exc_info=True)
+        return date.today()
 
 
 # ── Defaults ─────────────────────────────────────────────────────────
@@ -44,6 +61,85 @@ def _parse_time(t: str) -> time:
     """Parse 'HH:MM' into time object."""
     parts = t.split(":")
     return time(int(parts[0]), int(parts[1]))
+
+
+def _sorted_slots(slots: list[dict]) -> list[dict]:
+    return sorted(slots, key=lambda s: _parse_time(s["starts_at"]))
+
+
+def _slot_at_or_after(slots: list[dict], threshold: time) -> dict:
+    """Return first slot that starts at/after ``threshold``, or the last slot."""
+    ordered = _sorted_slots(slots)
+    chosen = ordered[-1]
+    for slot in ordered:
+        if _parse_time(slot["starts_at"]) >= threshold:
+            chosen = slot
+            break
+    return chosen
+
+
+def _current_or_next_slot(slots: list[dict], clock: time) -> dict:
+    """Return the currently active "a partir" slot, or the first future slot."""
+    ordered = _sorted_slots(slots)
+    current = ordered[0]
+    for slot in ordered:
+        if _parse_time(slot["starts_at"]) <= clock:
+            current = slot
+        else:
+            break
+    return current
+
+
+def _later_slot(slots: list[dict], *candidates: dict) -> dict:
+    ordered = _sorted_slots(slots)
+    rank = {slot["ref"]: i for i, slot in enumerate(ordered)}
+    return max(candidates, key=lambda slot: rank.get(slot["ref"], -1))
+
+
+def _slot_rank(slots: list[dict]) -> dict[str, int]:
+    return {
+        str(slot.get("ref") or ""): i
+        for i, slot in enumerate(_sorted_slots(slots))
+    }
+
+
+def _slot_label(slots: list[dict], slot_ref: str | None) -> str:
+    if not slot_ref:
+        return ""
+    slot = _find_slot_by_ref(slots, slot_ref)
+    return str(slot.get("label") or slot_ref) if slot else slot_ref
+
+
+def _slot_is_at_or_after(slots: list[dict], slot_ref: str, earliest_ref: str | None) -> bool:
+    if not earliest_ref:
+        return True
+    rank = _slot_rank(slots)
+    return rank.get(slot_ref, -1) >= rank.get(earliest_ref, -1)
+
+
+def _delivery_date_is_today(delivery_date: str) -> bool:
+    if not delivery_date:
+        return True
+    try:
+        return date.fromisoformat(delivery_date) == _local_date()
+    except ValueError:
+        return True
+
+
+def is_slot_available_for_today(slots: list[dict], slot_ref: str, *, now: time | None = None) -> bool:
+    """Return whether a pickup slot is still selectable today.
+
+    Slot labels are "A partir das HHh": a slot remains available after its
+    start until a later configured slot starts. The last slot therefore stays
+    selectable for the rest of the day.
+    """
+    slot = _find_slot_by_ref(slots, slot_ref)
+    if slot is None:
+        return False
+    clock = now or _wall_clock()
+    current = _current_or_next_slot(slots, clock)
+    slot_start = _parse_time(slot["starts_at"])
+    return slot_start > clock or slot["ref"] == current["ref"]
 
 
 # ── Public API ───────────────────────────────────────────────────────
@@ -102,7 +198,7 @@ def get_typical_ready_times(
     except ImportError:
         return {}
 
-    cutoff = date.today() - timedelta(days=history_days)
+    cutoff = _local_date() - timedelta(days=history_days)
 
     # Single query: all finished WorkOrders for these SKUs in the window
     wos = production.get_finished_work_orders(skus, cutoff)
@@ -146,7 +242,11 @@ def _round_up_minutes(minutes: float, granularity: int) -> int:
     return int(math.ceil(minutes / granularity) * granularity)
 
 
-def get_earliest_slot_for_skus(skus: list[str]) -> dict:
+def get_earliest_slot_for_skus(
+    skus: list[str],
+    *,
+    include_current_time: bool = True,
+) -> dict:
     """Determine the earliest pickup slot that covers all given SKUs.
 
     Returns::
@@ -159,6 +259,8 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
         }
 
     If no production data exists for any SKU, returns the fallback slot.
+    ``include_current_time`` applies today's wall clock on top of SKU
+    readiness. Keep it false when validating a future preorder date.
     """
     slots = get_slots()
     if not slots:
@@ -170,11 +272,15 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
     ready_times = get_typical_ready_times(skus)
 
     if not ready_times:
-        # No production data — return fallback (first slot)
-        fallback = _find_slot_by_ref(slots, fallback_ref) or slots[0]
+        # No production data — use the configured fallback, but never select
+        # a slot whose "a partir" window has already been superseded today.
+        fallback = _find_slot_by_ref(slots, fallback_ref) or _sorted_slots(slots)[0]
+        chosen = fallback
+        if include_current_time:
+            chosen = _later_slot(slots, fallback, _current_or_next_slot(slots, _wall_clock()))
         return {
-            "slot": fallback,
-            "slot_ref": fallback["ref"],
+            "slot": chosen,
+            "slot_ref": chosen["ref"],
             "ready_times": {},
             "bottleneck_sku": None,
         }
@@ -187,23 +293,11 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
             latest_time = t
             bottleneck_sku = sku
 
-    # Also consider current clock: a slot that already started but is still
-    # running (no later slot has begun) is the correct default for a
-    # customer placing an order mid-afternoon. Without this, we'd suggest
-    # a morning slot whose window is long past.
-    now_t = _wall_clock()
-    effective_earliest = max(latest_time, now_t)
-
-    # Find the first slot whose starts_at >= effective_earliest. Falls back
-    # to the last slot (latest starts_at) when all slots already started —
-    # that one is the currently-running slot.
-    sorted_slots = sorted(slots, key=lambda s: _parse_time(s["starts_at"]))
-    chosen = sorted_slots[-1]
-    for slot in sorted_slots:
-        slot_start = _parse_time(slot["starts_at"])
-        if slot_start >= effective_earliest:
-            chosen = slot
-            break
+    readiness_slot = _slot_at_or_after(slots, latest_time)
+    chosen = readiness_slot
+    if include_current_time:
+        clock_slot = _current_or_next_slot(slots, _wall_clock())
+        chosen = _later_slot(slots, readiness_slot, clock_slot)
 
     return {
         "slot": chosen,
@@ -213,26 +307,81 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
     }
 
 
-def annotate_slots_for_checkout(cart_skus: list[str]) -> dict:
+def validate_pickup_slot_selection(
+    delivery_time_slot: str,
+    *,
+    delivery_date: str = "",
+    cart_skus: list[str] | None = None,
+    now: time | None = None,
+) -> str | None:
+    """Return a customer-facing error when a pickup slot cannot be selected."""
+    if not delivery_time_slot:
+        return "Selecione um horário de retirada."
+
+    slots = get_slots()
+    slot = _find_slot_by_ref(slots, delivery_time_slot)
+    if slot is None:
+        return "Horário de retirada inválido."
+
+    is_today = _delivery_date_is_today(delivery_date)
+    if is_today and not is_slot_available_for_today(slots, delivery_time_slot, now=now):
+        return "Este horário já passou. Selecione um horário futuro."
+
+    if cart_skus:
+        result = get_earliest_slot_for_skus(cart_skus, include_current_time=False)
+        earliest_ref = result.get("slot_ref")
+        if not _slot_is_at_or_after(slots, delivery_time_slot, earliest_ref):
+            label = _slot_label(slots, earliest_ref)
+            if label:
+                return f"Este horário não cobre o preparo dos itens do carrinho. Escolha {label} ou mais tarde."
+            return "Este horário não cobre o preparo dos itens do carrinho."
+
+    return None
+
+
+def annotate_slots_for_checkout(cart_skus: list[str], *, delivery_date: str = "") -> dict:
     """Build full context for checkout template.
 
     Returns::
 
         {
-            "pickup_slots": [...],        # all configured slots
-            "earliest_slot_ref": "...",   # earliest available for this cart
+            "pickup_slots": [...],        # slots annotated for this cart/date
+            "earliest_slot_ref": "...",   # earliest available for this cart/date
             "bottleneck_sku": "...",       # the SKU that pushes the slot
             "ready_times": {...},          # {sku: "HH:MM"}
         }
     """
     slots = get_slots()
-    result = get_earliest_slot_for_skus(cart_skus)
+    cart_result = get_earliest_slot_for_skus(cart_skus, include_current_time=False)
+    is_today = _delivery_date_is_today(delivery_date)
+    effective_result = get_earliest_slot_for_skus(cart_skus, include_current_time=is_today)
+    cart_earliest_ref = cart_result["slot_ref"]
+    effective_earliest_ref = effective_result["slot_ref"]
+    effective_earliest_label = _slot_label(slots, effective_earliest_ref)
+
+    annotated_slots = []
+    for slot in slots:
+        slot_ref = str(slot.get("ref") or "")
+        enabled = _slot_is_at_or_after(slots, slot_ref, effective_earliest_ref)
+        reason = ""
+        if not _slot_is_at_or_after(slots, slot_ref, cart_earliest_ref):
+            reason = f"Para este carrinho, escolha {effective_earliest_label} ou mais tarde."
+        elif not enabled:
+            reason = f"Para esta data, escolha {effective_earliest_label} ou mais tarde."
+        annotated_slots.append(
+            {
+                **slot,
+                "enabled": enabled,
+                "reason": reason,
+                "is_earliest": slot_ref == effective_earliest_ref,
+            }
+        )
 
     return {
-        "pickup_slots": slots,
-        "earliest_slot_ref": result["slot_ref"],
-        "bottleneck_sku": result["bottleneck_sku"],
-        "ready_times": result["ready_times"],
+        "pickup_slots": annotated_slots,
+        "earliest_slot_ref": effective_result["slot_ref"],
+        "bottleneck_sku": cart_result["bottleneck_sku"],
+        "ready_times": cart_result["ready_times"],
     }
 
 

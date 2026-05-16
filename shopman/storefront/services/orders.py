@@ -1,4 +1,4 @@
-"""Storefront order read and customer-facing order command service."""
+"""Storefront order read and customer-facing order mutation service."""
 
 from __future__ import annotations
 
@@ -9,12 +9,46 @@ def get_order(ref: str):
     return customer_orders.get_order(ref)
 
 
+def get_accessible_order(request, ref: str):
+    return customer_orders.get_accessible_order(request, ref)
+
+
+def grant_order_access(request, order_ref: str) -> None:
+    customer_orders.grant_order_access(request, order_ref)
+
+
 def active_order_count_for_phone(phone: str) -> int:
     return customer_orders.active_order_count_for_phone(phone)
 
 
+def active_order_count_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+) -> int:
+    return customer_orders.active_order_count_for_customer(
+        customer_ref=customer_ref,
+        phone=phone,
+    )
+
+
 def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
     return customer_orders.order_history_for_phone(phone, limit=limit)
+
+
+def order_history_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    return customer_orders.order_history_for_customer(
+        customer_ref=customer_ref,
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
 
 
 def find_order(ref: str):
@@ -30,8 +64,36 @@ def payment_status(order) -> str:
     return customer_orders.get_payment_status(order)
 
 
-def mock_confirm_payment(order) -> None:
-    customer_orders.mock_confirm_payment(order)
+def payment_is_sufficient(order) -> bool:
+    from shopman.shop.services import payment as payment_service
+
+    return payment_service.has_sufficient_captured_payment(order)
+
+
+def resolve_payment_timeout_if_due(order) -> bool:
+    return customer_orders.resolve_payment_timeout_if_due(order)
+
+
+def resolve_confirmation_timeout_if_due(order) -> bool:
+    return customer_orders.resolve_confirmation_timeout_if_due(order)
+
+
+def resolve_timeouts_if_due(order) -> bool:
+    confirmation_resolved = customer_orders.resolve_confirmation_timeout_if_due(order)
+    payment_resolved = customer_orders.resolve_payment_timeout_if_due(order)
+    return confirmation_resolved or payment_resolved
+
+
+def requires_payment_gate(order) -> bool:
+    return customer_orders.requires_payment_gate(order)
+
+
+def ensure_payment_intent(order) -> bool:
+    return customer_orders.ensure_payment_intent(order)
+
+
+def mock_confirm_payment(order) -> bool:
+    return customer_orders.mock_confirm_payment(order)
 
 
 def is_cancelled(order) -> bool:

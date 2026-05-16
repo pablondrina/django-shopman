@@ -40,6 +40,45 @@ class CreateIntentTests(TestCase):
         )
         self.assertIsNotNone(intent.expires_at)
 
+    def test_create_intent_with_idempotency_key_reuses_existing(self) -> None:
+        intent = PaymentService.create_intent(
+            "ORD-IDEM",
+            3000,
+            "pix",
+            gateway="mock",
+            idempotency_key="pay-idem-001",
+        )
+        repeated = PaymentService.create_intent(
+            "ORD-IDEM",
+            3000,
+            "pix",
+            gateway="mock",
+            idempotency_key="pay-idem-001",
+        )
+
+        self.assertEqual(repeated.pk, intent.pk)
+        self.assertEqual(PaymentIntent.objects.filter(order_ref="ORD-IDEM").count(), 1)
+
+    def test_create_intent_idempotency_key_conflict_raises(self) -> None:
+        PaymentService.create_intent(
+            "ORD-IDEM-A",
+            3000,
+            "pix",
+            gateway="mock",
+            idempotency_key="pay-idem-conflict",
+        )
+
+        with self.assertRaises(PaymentError) as ctx:
+            PaymentService.create_intent(
+                "ORD-IDEM-B",
+                3000,
+                "pix",
+                gateway="mock",
+                idempotency_key="pay-idem-conflict",
+            )
+
+        self.assertEqual(ctx.exception.code, "idempotency_key_conflict")
+
     def test_create_intent_invalid_amount(self) -> None:
         with self.assertRaises(PaymentError) as ctx:
             PaymentService.create_intent("ORD-ERR", 0, "pix")

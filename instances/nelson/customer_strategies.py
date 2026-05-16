@@ -52,12 +52,12 @@ def nelson_handle_pdv(order):
 
     Resolution order:
     1. Phone present → delegate to generic phone strategy.
-    2. CPF present → resolve/create customer by document number.
+    2. Tax ID present → resolve/create customer by document number.
     3. Neither → skip (anonymous walk-in).
     """
     customer_data = _get_customer_data(order)
     phone_raw = customer_data.get("phone", "")
-    cpf = customer_data.get("cpf", "")
+    tax_id = customer_data.get("tax_id") or customer_data.get("document") or customer_data.get("cpf", "")
     name = customer_data.get("name", "")
     adapter = get_adapter("customer")
 
@@ -82,12 +82,12 @@ def nelson_handle_pdv(order):
             source_system="pdv",
         )
 
-    if cpf:
-        cpf_normalized = "".join(filter(str.isdigit, cpf))
-        if not cpf_normalized:
+    if tax_id:
+        document_normalized = "".join(filter(str.isdigit, tax_id))
+        if not document_normalized:
             raise SkipAnonymous()
 
-        customer = adapter.get_customer_by_identifier("cpf", cpf_normalized)
+        customer = adapter.get_customer_by_identifier("cpf", document_normalized)
         if customer:
             _maybe_update_name(adapter, customer, name)
             return customer
@@ -97,12 +97,12 @@ def nelson_handle_pdv(order):
         customer = adapter.create_customer(
             ref=ref,
             first_name=first_name or "Cliente",
-            last_name=last_name or f"CPF {cpf_normalized[-4:]}",
+            last_name=last_name or f"Doc {document_normalized[-4:]}",
             phone="",
             customer_type="individual",
             source_system="pdv",
         )
-        adapter.create_identifier(customer["ref"], "cpf", cpf_normalized, is_primary=True)
+        adapter.create_identifier(customer["ref"], "cpf", document_normalized, is_primary=True)
         return customer
 
     raise SkipAnonymous()

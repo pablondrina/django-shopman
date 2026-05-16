@@ -1,4 +1,4 @@
-"""Trusted-device command service for customer-facing entry points."""
+"""Trusted-device mutation service for customer-facing entry points."""
 
 from __future__ import annotations
 

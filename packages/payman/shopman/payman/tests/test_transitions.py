@@ -95,6 +95,19 @@ class PaymentIntentTransitionTests(TestCase):
         with self.assertRaises(PaymentError):
             intent.save()
 
+    def test_transition_status_rejects_replayed_current_status(self) -> None:
+        intent = self._make_intent()
+        intent.transition_status(PaymentIntent.Status.AUTHORIZED)
+        intent.transition_status(PaymentIntent.Status.CAPTURED)
+
+        fresh = PaymentIntent.objects.get(pk=intent.pk)
+        with self.assertRaises(PaymentError) as ctx:
+            fresh.transition_status(PaymentIntent.Status.CAPTURED)
+
+        self.assertEqual(ctx.exception.code, "invalid_transition")
+        self.assertEqual(ctx.exception.context["current_status"], PaymentIntent.Status.CAPTURED)
+        self.assertEqual(ctx.exception.context["requested_status"], PaymentIntent.Status.CAPTURED)
+
     def test_failed_is_terminal(self) -> None:
         intent = self._make_intent(PaymentIntent.Status.FAILED)
         intent.status = PaymentIntent.Status.PENDING

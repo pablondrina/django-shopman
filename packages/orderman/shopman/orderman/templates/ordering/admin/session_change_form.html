@@ -1,44 +1,53 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
+{% load i18n unfold %}
 
 {% block after_field_sets %}
 {{ block.super }}
+{% trans "Bloqueante" as blocking_label %}
+{% trans "Aviso" as warning_label %}
 
 {% if issue_actions %}
-<div class="module" style="margin-top: 20px;">
-    <h2>{% trans "Problemas Pendentes" %}</h2>
-    <div style="padding: 10px;">
-        {% for issue in issue_actions %}
-        <div class="{% if issue.blocking %}bg-danger-50 border-danger-200{% else %}bg-warning-50 border-warning-200{% endif %} border rounded p-3 mb-2">
-            <strong>{{ issue.code }}</strong>
-            {% if issue.blocking %}<span class="badge bg-danger text-white ml-2">{% trans "Bloqueante" %}</span>{% endif %}
-            <p class="text-sm text-secondary mt-1">{{ issue.message }}</p>
-            {% if issue.actions %}
-            <div class="mt-2">
-                {% for action in issue.actions %}
-                <a href="{% url 'admin:orderman_session_resolve_issue' object_id=original.pk issue_id=issue.id action_id=action.id %}"
-                   class="btn btn-sm btn-outline-primary mr-1">
-                    {{ action.label }}
-                </a>
-                {% endfor %}
-            </div>
+<div class="mt-6">
+    {% component "unfold/components/title.html" with class="mb-4 text-lg" %}{% trans "Problemas Pendentes" %}{% endcomponent %}
+    <div class="flex flex-col gap-3">
+    {% for issue in issue_actions %}
+        {% capture as issue_label silent %}
+            {% if issue.blocking %}
+                {% include "unfold/helpers/label.html" with text=blocking_label type="danger" %}
+            {% else %}
+                {% include "unfold/helpers/label.html" with text=warning_label type="warning" %}
             {% endif %}
-        </div>
-        {% endfor %}
+        {% endcapture %}
+        {% component "unfold/components/card.html" with title=issue.code action=issue_label %}
+            {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+                {{ issue.message }}
+            {% endcomponent %}
+            {% if issue.actions %}
+                <div class="mt-3 flex flex-wrap gap-2">
+                    {% for action in issue.actions %}
+                        {% url 'admin:orderman_session_resolve_issue' object_id=original.pk issue_id=issue.id action_id=action.id as issue_action_url %}
+                        {% component "unfold/components/button.html" with href=issue_action_url variant="default" %}
+                            {{ action.label }}
+                        {% endcomponent %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endcomponent %}
+    {% endfor %}
     </div>
 </div>
 {% endif %}
 
 {% if manual_checks %}
-<div class="module" style="margin-top: 20px;">
-    <h2>{% trans "Verificações Manuais" %}</h2>
-    <div style="padding: 10px;">
-        {% for check in manual_checks %}
-        <a href="{% url 'admin:orderman_session_run_check' object_id=original.pk topic=check.topic %}"
-           class="btn btn-outline-secondary mr-2">
+<div class="mt-6">
+    {% component "unfold/components/title.html" with class="mb-4 text-lg" %}{% trans "Verificações Manuais" %}{% endcomponent %}
+    <div class="flex flex-wrap gap-2">
+    {% for check in manual_checks %}
+        {% url 'admin:orderman_session_run_check' object_id=original.pk topic=check.topic as manual_check_url %}
+        {% component "unfold/components/button.html" with href=manual_check_url variant="default" %}
             {% trans "Executar" %}: {{ check.label }}
-        </a>
-        {% endfor %}
+        {% endcomponent %}
+    {% endfor %}
     </div>
 </div>
 {% endif %}

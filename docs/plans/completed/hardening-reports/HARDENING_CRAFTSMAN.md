@@ -24,7 +24,7 @@ Its main hardening needs are not in the conceptual model, but in the boundaries:
 
 - integrated mode is too tolerant of external failures
 - some critical validations degrade silently
-- public HTTP API is narrower than the kernel capabilities
+- public HTTP API is narrower than the kernel resources
 - naming and packaging consistency still need cleanup
 - identity semantics should be aligned with the suite-wide `ref` convention
 

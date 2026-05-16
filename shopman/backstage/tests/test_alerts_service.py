@@ -1,4 +1,4 @@
-"""Alert command service tests."""
+"""Alert mutation service tests."""
 
 from __future__ import annotations
 

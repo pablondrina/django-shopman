@@ -77,7 +77,7 @@ class SessionManager(models.Manager):
 class Session(models.Model):
     objects = SessionManager()
     """
-    Unidade mutável pré-commit (carrinho/comanda).
+    Mutable pre-commit unit (cart/POS tab).
 
     Items schema:
     [{"line_id": "L-abc123", "sku": "CROISSANT", "qty": 2, "unit_price_q": 1200, "meta": {}}]

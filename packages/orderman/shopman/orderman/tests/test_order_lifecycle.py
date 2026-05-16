@@ -8,6 +8,7 @@ import types
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from shopman.orderman.exceptions import InvalidTransition
@@ -529,6 +530,35 @@ class EdgeCaseTests(TestCase):
 
         self.assertEqual(len(order.external_ref), 128)
 
+    def test_external_ref_unique_within_channel(self) -> None:
+        """Marketplace/provider order id cannot create duplicates in one channel."""
+        Order.objects.create(
+            ref="EDGE-EXT-001",
+            channel_ref=self.channel.ref,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            external_ref="MARKETPLACE-123",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Order.objects.create(
+                    ref="EDGE-EXT-002",
+                    channel_ref=self.channel.ref,
+                    status=Order.STATUS_NEW,
+                    total_q=1000,
+                    external_ref="MARKETPLACE-123",
+                )
+
+        other_channel = Order.objects.create(
+            ref="EDGE-EXT-003",
+            channel_ref="other",
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            external_ref="MARKETPLACE-123",
+        )
+        self.assertEqual(other_channel.external_ref, "MARKETPLACE-123")
+
     def test_order_with_special_characters_in_handle(self) -> None:
         """Order com caracteres especiais no handle."""
         order = Order.objects.create(
@@ -635,8 +665,8 @@ class SessionToOrderLifecycleTests(TestCase):
         session = Session.objects.create(
             session_key="SESS-002",
             channel_ref=self.channel.ref,
-            handle_type="comanda",
-            handle_ref="42",
+            handle_type="pos_tab",
+            handle_ref="00000042",
         )
 
         order = Order.objects.create(
@@ -649,9 +679,9 @@ class SessionToOrderLifecycleTests(TestCase):
             total_q=1000,
         )
 
-        self.assertEqual(order.handle_type, "comanda")
-        self.assertEqual(order.handle_ref, "42")
-        self.assertIn("Comanda: 42", str(order))
+        self.assertEqual(order.handle_type, "pos_tab")
+        self.assertEqual(order.handle_ref, "00000042")
+        self.assertIn("Pos Tab: 00000042", str(order))
 
 
 class OrderSaveIntegrityTests(TestCase):
@@ -785,6 +815,27 @@ class DispatchedDeliveryGuardTests(TestCase):
         order.transition_status(Order.STATUS_DISPATCHED, actor="test")
 
         self.assertEqual(order.status, Order.STATUS_DISPATCHED)
+
+    def test_delivery_order_cannot_complete_directly_from_ready(self) -> None:
+        """Delivery ready→completed direto pula despacho e deve ser bloqueado."""
+        order = Order.objects.create(
+            ref="GUARD-READY-COMPLETE",
+            channel_ref=self.channel.ref,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={"fulfillment_type": "delivery"},
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+
+        with self.assertRaises(InvalidTransition) as ctx:
+            order.transition_status(Order.STATUS_COMPLETED, actor="test")
+
+        self.assertEqual(ctx.exception.code, "delivery_requires_dispatch_before_completion")
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_READY)
+        self.assertIsNone(order.completed_at)
 
     def test_order_without_fulfillment_type_can_reach_dispatched(self) -> None:
         """Order sem fulfillment_type (legado) não é bloqueado pelo guard."""

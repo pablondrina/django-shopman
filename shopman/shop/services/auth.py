@@ -1,4 +1,4 @@
-"""Authentication command service for customer-facing entry points."""
+"""Authentication mutation service for customer-facing entry points."""
 
 from __future__ import annotations
 
@@ -131,6 +131,16 @@ def exchange_access_link(*, token: str, request):
     )
 
 
+def preserved_session_values(session) -> dict:
+    from shopman.doorman.conf import doorman_settings
+
+    return {
+        key: session[key]
+        for key in doorman_settings.PRESERVE_SESSION_KEYS
+        if key in session
+    }
+
+
 def safe_redirect_url(next_url: str | None, request) -> str:
     from shopman.doorman.utils import safe_redirect_url as _safe_redirect_url
 
@@ -171,3 +181,9 @@ def trust_device(*, response, customer_id, request) -> None:
         customer_id=customer_id,
         request=request,
     )
+
+
+def revoke_current_device(*, request, response) -> None:
+    from shopman.doorman.services.device_trust import DeviceTrustService
+
+    DeviceTrustService.revoke_device(request, response)

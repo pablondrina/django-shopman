@@ -3,6 +3,9 @@
 Este filtro complementa o framework de omotenashi. Omotenashi responde
 se a interação cuida bem da pessoa. Este filtro responde se a superfície
 foi desenhada com clareza, consistência, foco, acessibilidade e maturidade.
+Para auditorias completas que também exigem contrato firme com backend,
+confiabilidade transacional e prontidão operacional, use também
+[`docs/reference/surface-excellence-review-framework.md`](surface-excellence-review-framework.md).
 
 Use em qualquer UI do Shopman: storefront, backstage, KDS, POS, pedidos,
 produção, fechamento e admin customizado. A regra é simples: uma tela só

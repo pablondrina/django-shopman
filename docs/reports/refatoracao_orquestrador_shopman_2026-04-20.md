@@ -233,9 +233,9 @@ Deve continuar na camada:
 Se a semântica é fundamental, então o código precisa explicitar semanticamente:
 
 - o que é policy
-- o que é capability
+- o que é policy/contexto dinâmico
 - o que é workflow
-- o que é command
+- o que é mutation
 - o que é read model
 - o que é snapshot
 - o que é projection
@@ -257,7 +257,7 @@ O refinamento semântico recomendado é:
 - `adapters`: implementação de contrato
 - `read_models`: modelo de leitura para UI/API
 - `policies`: resolução declarativa de comportamento
-- `entrypoints`: HTTP/admin/webhook/command
+- `entrypoints`: HTTP/admin/webhook/management command
 
 ## Principal tese deste relatório
 
@@ -532,4 +532,3 @@ Essa camada estará muito mais próxima de primeira classe quando:
 - wiring for modular
 - semântica arquitetural for visível no código
 - a análise futura puder provar o que foi revisado e o que ainda não foi
-

@@ -61,7 +61,7 @@
     {% endif %}
 
     {% if card.can_finish %}
-    <form method="post" action="{% url 'backstage:production' %}">
+    <form method="post" action="{% url 'backstage:production_kds_finish' %}">
       {% csrf_token %}
       <input type="hidden" name="action" value="finish" />
       <input type="hidden" name="wo_id" value="{{ card.pk }}" />

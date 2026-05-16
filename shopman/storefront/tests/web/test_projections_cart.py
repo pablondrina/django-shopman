@@ -25,7 +25,7 @@ def _request_with_cart_session(client):
     """Build a RequestFactory request wearing the session key of ``client``.
 
     ``cart_session`` in conftest returns a Django test client that has
-    already POSTed to /cart/add/. We need a plain ``HttpRequest`` whose
+    already POSTed to /cart/set-qty/. We need a plain ``HttpRequest`` whose
     ``request.session`` holds the same ``cart_session_key``; the projection
     builder reads it via ``CartService.get_cart(request)``.
     """
@@ -107,6 +107,30 @@ class TestPopulatedCart:
         with pytest.raises(FrozenInstanceError):
             proj.items[0].qty = 99  # type: ignore[misc]
 
+    def test_upsell_includes_unit_price_for_surface_mutation(
+        self, cart_session, croissant, monkeypatch,
+    ):
+        def fake_upsell(cart_skus, *, channel_ref):
+            return {
+                "product": croissant,
+                "sku": croissant.sku,
+                "price_q": 800,
+                "price_display": "R$ 8,00",
+            }
+
+        monkeypatch.setattr(
+            "shopman.storefront.projections.cart.upsell_suggestion",
+            fake_upsell,
+        )
+
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.upsell is not None
+        assert proj.upsell.sku == croissant.sku
+        assert proj.upsell.unit_price_q == 800
+        assert proj.upsell.price_display == "R$ 8,00"
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Availability — own-hold correction
@@ -120,7 +144,7 @@ class TestAvailabilityOwnHoldCorrection:
 
     Previously the cart compared ``total_promisable < line.qty`` without
     knowing that ``total_promisable`` excludes the session's own hold.
-    A customer who bought the entire physical stock saw "Acabou no momento"
+    A customer who bought the entire physical stock saw a sold-out warning
     next to their own N units — nonsensical.
     """
 
@@ -153,7 +177,7 @@ class TestAvailabilityOwnHoldCorrection:
             reason="own-hold regression seed",
         )
 
-        resp = client.post("/cart/add/", {"sku": product.sku, "qty": 5})
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": 5})
         assert resp.status_code in (200, 201), (
             "adding all available stock must succeed — hold protects the qty"
         )

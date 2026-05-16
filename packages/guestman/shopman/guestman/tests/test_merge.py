@@ -254,6 +254,46 @@ class TestMergeExternalIdentities:
 
 
 # ======================================================================
+# Order history migration
+# ======================================================================
+
+
+class TestMergeOrders:
+
+    def test_migrates_order_identity_to_target_customer(self, source, target, evidence):
+        from shopman.orderman.models import Order
+
+        order = Order.objects.create(
+            ref="ORD-MERGE-001",
+            channel_ref="web",
+            session_key="sess-merge-001",
+            handle_type="phone",
+            handle_ref=source.phone,
+            status=Order.Status.CONFIRMED,
+            total_q=3900,
+            data={
+                "customer_ref": source.ref,
+                "customer": {
+                    "ref": source.ref,
+                    "uuid": str(source.uuid),
+                    "name": source.name,
+                    "phone": source.phone,
+                },
+            },
+        )
+
+        result = MergeService.merge(source, target, evidence, actor="test")
+
+        order.refresh_from_db()
+        assert result.migrated_orders == 1
+        assert order.data["customer_ref"] == target.ref
+        assert order.data["customer"]["ref"] == target.ref
+        assert order.data["customer"]["uuid"] == str(target.uuid)
+        assert order.data["customer"]["phone"] == target.phone
+        assert order.handle_ref == target.phone
+
+
+# ======================================================================
 # Identifiers migration
 # ======================================================================
 

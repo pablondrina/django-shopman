@@ -34,6 +34,15 @@ class TestModifyService(TestCase):
         assert session.items[0]["sku"] == "CROISSANT"
         assert session.rev == 1
 
+    def test_add_line_preserves_display_name(self):
+        session = ModifyService.modify_session(
+            session_key="S-1",
+            channel_ref="pos",
+            ops=[{"op": "add_line", "sku": "CROISSANT", "name": "Croissant", "qty": 2}],
+        )
+
+        assert session.items[0]["name"] == "Croissant"
+
     def test_remove_line(self):
         session = Session.objects.create(
             session_key="S-2",

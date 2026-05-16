@@ -1,6 +1,8 @@
 # WP-AV-10 — SSE Push (Active Stock & Pause Updates)
 
-**Status:** draft, executável por sessão paralela.
+**Status:** concluído e validado em 2026-05-05.
+
+**Nota de execução 2026-05-05:** a implementação final está em `shopman/shop/handlers/_sse_emitters.py`, `shopman/storefront/urls.py`, templates do storefront e `shopman/shop/eventstream.py`. O runtime canônico usa Daphne/ASGI para desenvolvimento/CI e Redis fanout via `EVENTSTREAM_REDIS` quando `REDIS_URL` está configurado; não há pendência de trocar para Redis depois.
 
 **Origem:** WP diferido do [AVAILABILITY-PLAN](AVAILABILITY-PLAN.md#wp-av-10--gap-a-push-ativo-via-htmx-sse). Esta é a expansão completa para execução standalone.
 
@@ -24,11 +26,11 @@ Avaliei três caminhos antes de propor:
 
 | Opção | Prós | Contras | Decisão |
 |---|---|---|---|
-| `django-eventstream` (Fanout/Justin Karneges) | WSGI-compatível (não exige ASGI), Redis ou Postgres backend, integração HTMX documentada, ~50 linhas pra usar | Dependência nova; modelo "rooms" é específico | **Adotar** |
+| `django-eventstream` (Fanout/Justin Karneges) | Integração HTMX documentada, Redis fanout, encaixe simples na stack Django/ASGI atual | Dependência nova; modelo "rooms" é específico | **Adotar** |
 | Django Channels (websockets/SSE) | Suportado oficial, escalável | Exige migração toda do projeto pra ASGI; mata o runserver síncrono atual; reescreve a stack | Rejeitar |
 | Bare `StreamingHttpResponse` | Zero dep | Cada conexão pendura um worker; não escala além de 5–10 abas simultâneas; sem Redis fan-out | Rejeitar |
 
-**Justificativa**: o projeto roda WSGI hoje (gunicorn no plano de produção). Migrar tudo pra ASGI por causa de SSE é desproporcional. `django-eventstream` foi feito exatamente pra esse caso (SSE em WSGI). Tem 1k+ stars no GitHub, manutenção ativa, integra com HTMX em ~10 linhas.
+**Justificativa executada**: o projeto usa Daphne/ASGI e mantém `django-eventstream` como camada simples de SSE. Redis é infraestrutura canônica do runtime, então `send_event` funciona em multi-worker quando `REDIS_URL` está presente.
 
 **Pacote**: `django-eventstream` (PyPI). **Adicionar** em `pyproject.toml` no grupo principal de deps.
 
@@ -237,15 +239,14 @@ INSTALLED_APPS = [
 ]
 
 EVENTSTREAM_STORAGE_CLASS = 'django_eventstream.storage.DjangoModelStorage'
-# Backend default usa Postgres/SQLite via Django ORM; troca pra Redis em prod
-# se a carga justificar.
+# REDIS_URL configura EVENTSTREAM_REDIS para fanout multi-worker.
 ```
 
 Migrações: `python manage.py migrate django_eventstream` cria as tabelas.
 
-### 8.2 Production: Redis backend (futuro, fora deste plano)
+### 8.2 Production: Redis fanout
 
-Anotar como TODO: trocar `EVENTSTREAM_STORAGE_CLASS` para o Redis backend da lib quando atingir N abas concorrentes (~50+). Hoje o ORM backend é suficiente.
+Executado no runtime canônico: `REDIS_URL` deriva `EVENTSTREAM_REDIS`, e os checks de deploy falham se o fanout SSE multi-worker não estiver configurado em produção.
 
 ---
 
@@ -342,7 +343,7 @@ Hoje cada elemento precisa de um endpoint que devolve o card/stepper atualizado 
 
 ## 12. Perguntas abertas (Pablo)
 
-1. **Qual storage do `django-eventstream` usar em produção?** Hoje proposta: ORM backend (Postgres). Redis quando carga justificar. Decidir agora ou deixar como evolução futura?
+1. **Qual storage do `django-eventstream` usar em produção?** Resolvido: Redis fanout via `EVENTSTREAM_REDIS`, com storage ORM mantido para persistência da lib.
 2. **Operador via POS deve receber stock-update do canal `balcao` em tempo real?** Se sim, instrumentar templates do POS também (não cobrei aqui — escopo é storefront).
 3. **`Move` post_save dispara MUITOS eventos** (cada baixa, cada produção). Para canais com volume alto, debounce? Hoje não — sigo simples.
 

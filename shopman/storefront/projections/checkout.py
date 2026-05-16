@@ -1,10 +1,10 @@
-"""CheckoutProjection — read model for the checkout page (Fase 2).
+"""CheckoutProjection — immutable UI projection for the checkout page (Fase 2).
 
 The builder pulls together all static context the checkout form needs:
 cart summary (via CartProjection), customer pre-fills, saved addresses,
 payment methods, pickup slots, and shop config. It does NOT carry transient
 form state (errors, POST values) — those travel separately in the view
-context so the projection remains a stable read model.
+context so the projection remains a stable contract.
 
 Never imports from ``shopman.storefront.views.*``.
 """
@@ -23,8 +23,11 @@ from shopman.shop.projections.types import (
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
+    SurfaceActionProjection,
 )
+from shopman.shop.services.channel_policy import ChannelPolicyResolution, resolve_channel_policy
 from shopman.shop.services import customer_context
+from shopman.shop.services.interaction_context import InteractionContext
 
 from .cart import CartProjection, build_cart
 
@@ -43,7 +46,7 @@ _DEFAULT_CHANNEL_REF = "web"
 
 @dataclass(frozen=True)
 class CheckoutProjection:
-    """Full read model for the checkout page.
+    """Full projection for the checkout page.
 
     Templates consume this alongside a separate ``errors`` dict and
     ``form_data`` dict supplied by the view for error re-renders.
@@ -66,7 +69,9 @@ class CheckoutProjection:
     payment_methods: tuple[PaymentMethodOptionProjection, ...]
     default_payment_method: str
 
-    # Fulfillment availability
+    # Resolved options/actions for the surface
+    actions: tuple[SurfaceActionProjection, ...]
+    fulfillment_options: tuple[str, ...]
     has_pickup: bool
     has_delivery: bool
 
@@ -85,6 +90,9 @@ class CheckoutProjection:
     # Dev toggle
     is_debug: bool
 
+    # Recovery/contact target sourced from Shop configuration
+    support_whatsapp_url: str
+
     # Fulfillment contextual hints shown below the pickup/delivery chips
     pickup_hint: str = ""
     delivery_hint: str = ""
@@ -99,6 +107,7 @@ def build_checkout(
     *,
     request: HttpRequest,
     channel_ref: str = _DEFAULT_CHANNEL_REF,
+    delivery_date: str | None = None,
 ) -> CheckoutProjection:
     """Build a ``CheckoutProjection`` for the current visitor.
 
@@ -127,9 +136,19 @@ def build_checkout(
             loyalty_value_display,
         ) = _load_customer_context(customer_info)
 
+    interaction = InteractionContext.from_request(
+        request,
+        channel_ref=channel_ref,
+        surface_ref="django_penguin",
+        target_kind="checkout",
+    )
+    policy = resolve_channel_policy(interaction.channel_ref)
     payment_methods = _payment_methods(channel_ref)
-    pickup_slots, earliest_slot_ref = _pickup_slots(cart)
-    max_preorder_days, closed_dates = _shop_config()
+    pickup_slots, earliest_slot_ref = _pickup_slots(
+        cart,
+        delivery_date=_delivery_date_from_context(request, delivery_date),
+    )
+    max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
 
     return CheckoutProjection(
         cart=cart,
@@ -140,8 +159,10 @@ def build_checkout(
         preselected_address_id=preselected_address_id,
         payment_methods=payment_methods,
         default_payment_method=payment_methods[0].ref if payment_methods else "cash",
-        has_pickup=True,
-        has_delivery=True,
+        actions=_checkout_actions(policy, cart=cart),
+        fulfillment_options=policy.fulfillment_types,
+        has_pickup="pickup" in policy.fulfillment_types,
+        has_delivery="delivery" in policy.fulfillment_types,
         pickup_slots=pickup_slots,
         earliest_slot_ref=earliest_slot_ref,
         loyalty_balance_q=loyalty_balance_q,
@@ -149,6 +170,7 @@ def build_checkout(
         max_preorder_days=max_preorder_days,
         closed_dates_json=json.dumps(closed_dates),
         is_debug=settings.DEBUG,
+        support_whatsapp_url=support_whatsapp_url,
         pickup_hint="Gratuita",
         delivery_hint="",
     )
@@ -176,6 +198,8 @@ def _load_customer_context(
             complement=addr.complement,
             label=addr.label,
             is_default=addr.is_default,
+            label_key=addr.label_key,
+            label_custom=addr.label_custom,
             route=addr.route,
             street_number=addr.street_number,
             neighborhood=addr.neighborhood,
@@ -229,21 +253,63 @@ def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, .
     )
 
 
+def _checkout_actions(
+    policy: ChannelPolicyResolution,
+    *,
+    cart: CartProjection,
+) -> tuple[SurfaceActionProjection, ...]:
+    enabled = policy.can_checkout and not cart.is_empty
+    reason = ""
+    if cart.is_empty:
+        reason = "Carrinho vazio."
+    elif not policy.can_checkout:
+        reason = "Checkout indisponível para este canal."
+
+    return (
+        SurfaceActionProjection(
+            ref="checkout",
+            kind="mutation",
+            label="Finalizar pedido",
+            priority="primary",
+            enabled=enabled,
+            reason=reason,
+            method="POST",
+            href="/api/v1/checkout/",
+            payload_schema={
+                "required": ["name", "phone", "fulfillment_type", "payment_method"],
+                "optional": [
+                    "delivery_address",
+                    "saved_address_id",
+                    "delivery_time_slot",
+                    "notes",
+                    "use_loyalty",
+                ],
+            },
+            idempotency="required",
+        ),
+    )
+
+
 def _pickup_slots(
     cart: CartProjection,
+    *,
+    delivery_date: str = "",
 ) -> tuple[tuple[PickupSlotProjection, ...], str | None]:
     """Resolve pickup slots and earliest available slot for the cart."""
     try:
         from shopman.storefront.services.pickup_slots import annotate_slots_for_checkout
 
         cart_skus = [item.sku for item in cart.items]
-        ctx = annotate_slots_for_checkout(cart_skus)
+        ctx = annotate_slots_for_checkout(cart_skus, delivery_date=delivery_date)
         raw_slots = ctx.get("pickup_slots") or []
         slots = tuple(
             PickupSlotProjection(
                 ref=str(s.get("ref") or ""),
                 label=str(s.get("label") or ""),
                 starts_at=str(s.get("starts_at") or ""),
+                enabled=bool(s.get("enabled", True)),
+                reason=str(s.get("reason") or ""),
+                is_earliest=bool(s.get("is_earliest", False)),
             )
             for s in raw_slots
         )
@@ -254,18 +320,31 @@ def _pickup_slots(
         return (), None
 
 
-def _shop_config() -> tuple[int, list]:
-    """Return (max_preorder_days, closed_dates)."""
+def _delivery_date_from_context(request: HttpRequest, delivery_date: str | None) -> str:
+    if delivery_date is not None:
+        return str(delivery_date or "").strip()
+    try:
+        return str(request.GET.get("delivery_date") or request.POST.get("delivery_date") or "").strip()
+    except Exception:
+        return ""
+
+
+def _shop_config() -> tuple[int, list, str]:
+    """Return (max_preorder_days, closed_dates, support_whatsapp_url)."""
     try:
         from shopman.shop.models import Shop
 
         shop = Shop.load()
         if shop:
             defaults = shop.defaults or {}
-            return int(defaults.get("max_preorder_days", 30)), defaults.get("closed_dates", [])
+            return (
+                int(defaults.get("max_preorder_days", 30)),
+                defaults.get("closed_dates", []),
+                shop.whatsapp_url,
+            )
     except Exception:
         logger.debug("checkout_projection_shop_config_failed", exc_info=True)
-    return 30, []
+    return 30, [], ""
 
 
 __all__ = ["CheckoutProjection", "build_checkout"]

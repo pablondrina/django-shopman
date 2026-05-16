@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Status dos pedidos{% if shop %} | {{ shop.brand_name|default:shop.name }}{% endif %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&display=swap">
+  <link rel="stylesheet" href="{% static 'storefront/css/output-gestor.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
+</head>
+<body class="min-h-screen bg-surface-dark text-on-surface-dark font-body overflow-hidden">
+  <main class="min-h-screen grid grid-rows-[auto_1fr_auto]">
+    <header class="px-5 md:px-8 py-4 border-b border-outline-dark bg-surface-dark-alt/80">
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm md:text-base font-semibold text-primary-dark">Retirada no balcão</p>
+          <h1 class="text-2xl md:text-4xl font-extrabold text-on-surface-dark-strong truncate">
+            {% if shop %}{{ shop.brand_name|default:shop.name }}{% else %}Status dos pedidos{% endif %}
+          </h1>
+        </div>
+        <div class="badge-neutral shrink-0">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">schedule</span>
+          <span>Atualizado <span class="tabular-nums">{{ board.updated_at_display }}</span></span>
+        </div>
+      </div>
+    </header>
+
+    <section id="customer-kds-orders"
+             hx-ext="sse"
+             sse-connect="{% url 'backstage:events' kind='orders' %}"
+             hx-get="{% url 'backstage:kds_customer_board_orders' %}"
+             hx-trigger="load, sse:backstage-orders-update, every 10s"
+             hx-swap="innerHTML"
+             aria-live="polite"
+             aria-relevant="additions text"
+             class="min-h-0 overflow-hidden">
+      {% include "runtime/kds_customer/partials/orders.html" %}
+    </section>
+
+    <footer class="px-5 md:px-8 py-3 border-t border-outline-dark bg-surface-dark-alt text-sm text-on-surface-dark/70 flex items-center justify-between gap-4">
+      <span>Confira o número do seu pedido no comprovante.</span>
+      <span class="hidden sm:inline">Aguarde ser chamado no balcão.</span>
+    </footer>
+  </main>
+</body>
+</html>

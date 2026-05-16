@@ -65,6 +65,14 @@ class BusinessHoursRule(BaseRule):
         now_time = now_dt.time()
         weekday = now_dt.strftime("%A").lower()
 
+        closed_dates = self._get_closed_dates()
+        if closed_dates:
+            from shopman.shop.services.business_calendar import closed_date_for
+
+            closed, _, _ = closed_date_for(now_dt.date(), closed_dates)
+            if closed:
+                return True
+
         opening_hours = self._get_opening_hours()
         if opening_hours is not None:
             day_hours = opening_hours.get(weekday)
@@ -93,6 +101,30 @@ class BusinessHoursRule(BaseRule):
         except Exception:
             logger.debug("business_hours_rule: could not load shop opening hours", exc_info=True)
         return None
+
+    @staticmethod
+    def _get_closed_dates() -> list:
+        try:
+            from shopman.shop.models import Shop
+
+            shop = Shop.load()
+            defaults = (shop.defaults or {}) if shop else {}
+            if not isinstance(defaults, dict):
+                return []
+            calendar = defaults.get("calendar") if isinstance(defaults.get("calendar"), dict) else {}
+            dates = []
+            for key in ("closed_dates", "closures", "holidays"):
+                value = defaults.get(key)
+                if isinstance(value, list):
+                    dates.extend(value)
+            for key in ("closed_dates", "closures", "holidays"):
+                value = calendar.get(key)
+                if isinstance(value, list):
+                    dates.extend(value)
+            return dates
+        except Exception:
+            logger.debug("business_hours_rule: could not load shop closed dates", exc_info=True)
+        return []
 
 
 class DeliveryZoneRule(BaseRule):
@@ -150,7 +182,10 @@ class MinimumOrderRule(BaseRule):
         if fulfillment_type != "delivery":
             return
 
-        items = session.items or []
+        items = [
+            item for item in (session.items or [])
+            if item.get("sku") != "__DELIVERY_FEE__" and (item.get("meta") or {}).get("type") != "delivery_fee"
+        ]
         total_q = sum(item.get("line_total_q", 0) for item in items)
 
         if total_q < self.minimum_q:

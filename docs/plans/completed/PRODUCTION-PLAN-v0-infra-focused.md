@@ -71,7 +71,7 @@ O App (shopman-app) tem storefront funcional end-to-end, dashboard operacional, 
 
 ### 0.4 Redis
 
-- Cache backend: `django-redis` → `CACHES["default"]`.
+- Cache backend: Redis nativo do Django (`django.core.cache.backends.redis.RedisCache`) em `CACHES["default"]`.
 - Session backend: `django.contrib.sessions.backends.cache`.
 - Rate limiting backend: mesmo Redis (database 1).
 

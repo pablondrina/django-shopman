@@ -8,21 +8,21 @@ version = "0.3.0"
 description = "Shopman Stockman — Inventory Management"
 requires-python = ">=3.12"
 dependencies = [
-    "Django>=5.2,<6.0",
+    "Django>=6.0,<6.1",
     "shopman-utils",
 ]
 
 [project.optional-dependencies]
 api = [
-    "djangorestframework>=3.14",
+    "djangorestframework>=3.17,<4.0",
 ]
 unfold = [
-    "django-unfold>=0.80,<1.0",
+    "django-unfold>=0.92,<0.93",
 ]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.5",
-    "djangorestframework>=3.14",
+    "djangorestframework>=3.17,<4.0",
 ]
 
 [tool.setuptools.packages.find]

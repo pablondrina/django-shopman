@@ -14,6 +14,7 @@ Covers:
 from decimal import Decimal
 
 import pytest
+from django.core.exceptions import ValidationError
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 from shopman.offerman.models import Product, ProductComponent
 
@@ -231,8 +232,8 @@ class TestRecipeIngredients:
 class TestBundleProduction:
     """Tests for producing bundled/combo products."""
 
-    def test_bundle_product_recipe(self, db, collection, croissant):
-        """Recipe can produce bundle products."""
+    def test_bundle_product_recipe_is_rejected(self, db, collection, croissant):
+        """Bundles are commercial composition; production belongs to components."""
         from shopman.offerman.models import CollectionItem
 
         coffee = Product.objects.create(
@@ -264,16 +265,14 @@ class TestBundleProduction:
             qty=Decimal("1"),
         )
 
-        recipe = Recipe.objects.create(
-            ref="combo-manha",
-            name="Combo Café da Manhã",
-            output_sku=combo.sku,
-            batch_size=Decimal("1"),
-        )
+        with pytest.raises(ValidationError):
+            Recipe.objects.create(
+                ref="combo-manha",
+                name="Combo Café da Manhã",
+                output_sku=combo.sku,
+                batch_size=Decimal("1"),
+            )
 
-        # Recipe produces the combo product
-        product = Product.objects.get(sku=recipe.output_sku)
-        assert product == combo
         assert combo.is_bundle is True
         assert combo.components.count() == 2
 

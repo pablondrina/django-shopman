@@ -84,6 +84,22 @@ class DirectiveDispatchTests(TestCase):
         self.assertEqual(directive.status, "done")
         self.assertEqual(self.success_handler.calls, 0)
 
+    def test_future_directive_is_not_processed_on_create(self) -> None:
+        """A scheduled queued directive must wait for available_at."""
+        future = timezone.now() + timedelta(seconds=30)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={"key": "value"},
+                available_at=future,
+            )
+
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "queued")
+        self.assertEqual(directive.attempts, 0)
+        self.assertEqual(self.success_handler.calls, 0)
+
     def test_failed_handler_marks_queued_with_backoff(self) -> None:
         """A failing handler sets status=queued with backoff on first attempt."""
         with self.captureOnCommitCallbacks(execute=True):

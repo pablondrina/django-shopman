@@ -1,0 +1,188 @@
+name: Runtime Gate
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  DJANGO_DEBUG: "true"
+  DJANGO_SECRET_KEY: ci-runtime-gate-local-secret-key
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  PYTHONUNBUFFERED: "1"
+  SHOPMAN_INSTANCE_APPS: nelson
+  SHOPMAN_CUSTOMER_STRATEGY_MODULES: nelson.customer_strategies
+  SHOPMAN_INSTANCE_MODIFIERS: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
+
+jobs:
+  quality:
+    name: Quality + deploy contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Lint
+        run: .venv/bin/ruff check .
+
+      - name: Migrations are committed
+        run: .venv/bin/python manage.py makemigrations --check --dry-run
+
+      - name: Deploy checks
+        env:
+          DJANGO_DEBUG: "false"
+          DJANGO_SECRET_KEY: ci-runtime-gate-nonprod-aB3dE5gH7jK9mN2pQ4rS6tU8vW0xY1zC20260505
+          DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+          CSRF_TRUSTED_ORIGINS: http://localhost,http://127.0.0.1
+          AUTH_DEFAULT_DOMAIN: shopman-ci.example
+          DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
+          REDIS_URL: redis://localhost:6379/0
+          DOORMAN_ACCESS_LINK_API_KEY: ci-doorman-access-link-key
+          EFI_WEBHOOK_TOKEN: ci-efi-webhook-token
+          IFOOD_WEBHOOK_TOKEN: ci-ifood-webhook-token
+          MANYCHAT_API_TOKEN: ci-manychat-api-token
+          MANYCHAT_WEBHOOK_SECRET: ci-manychat-webhook-secret
+          SHOPMAN_PIX_ADAPTER: shopman.shop.adapters.payment_efi
+          SHOPMAN_CARD_ADAPTER: shopman.shop.adapters.payment_stripe
+        run: .venv/bin/python manage.py check --deploy
+
+      - name: Full test suite
+        timeout-minutes: 15
+        run: make test
+
+  docker-image:
+    name: Docker deploy image
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build deploy image
+        run: docker build --tag django-shopman:ci .
+
+  runtime-security-reliability:
+    name: PostgreSQL + Redis runtime stress gate
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: shopman
+          POSTGRES_USER: shopman
+          POSTGRES_PASSWORD: shopman
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U shopman -d shopman"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Runtime stress gate
+        timeout-minutes: 25
+        run: make test-runtime
+
+  omotenashi-browser:
+    name: Omotenashi browser QA
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Toolchain availability
+        run: |
+          node --version
+          npm --version
+          google-chrome --version || chromium --version || chromium-browser --version
+
+      - name: Browser QA gate
+        timeout-minutes: 12
+        run: make omotenashi-browser-ci port=8001
+
+      - name: Upload browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omotenashi-browser-qa
+          if-no-files-found: ignore
+          path: |
+            /tmp/shopman-omotenashi-qa-browser.json
+            /tmp/shopman-omotenashi-qa-screens/
+            /tmp/shopman-omotenashi-browser-ci-server.log

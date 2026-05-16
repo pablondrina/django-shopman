@@ -55,7 +55,7 @@ class ChannelConfig:
         # "post_commit" — initiate payment after order confirmed (default for remote)
         # "at_commit"   — initiate payment at commit time
         # "external"    — no digital payment (local counter / marketplace)
-        timeout_minutes: int = 15  # só para method=pix
+        timeout_minutes: int = 10  # só para method=pix
 
         @property
         def available_methods(self) -> list[str]:

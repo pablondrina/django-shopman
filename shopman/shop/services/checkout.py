@@ -25,6 +25,14 @@ class CheckoutResult:
     items_count: int
 
 
+@dataclass(frozen=True)
+class CheckoutDomainError:
+    detail: str
+    error_code: str
+    context: dict
+    http_status: int
+
+
 def process(
     session_key: str,
     channel_ref: str,
@@ -102,6 +110,24 @@ def map_checkout_error(exc: Exception) -> dict[str, str] | None:
         msgs = exc.messages if hasattr(exc, "messages") else [str(exc)]
         return {"checkout": msgs[0] if msgs else str(exc)}
     return None
+
+
+def map_order_error(exc: Exception) -> CheckoutDomainError | None:
+    """Map Orderman checkout errors without leaking Orderman imports to surfaces."""
+    from shopman.orderman.exceptions import OrderError
+
+    if not isinstance(exc, OrderError):
+        return None
+
+    code = getattr(exc, "code", "checkout_error")
+    conflict_codes = {"in_progress", "blocking_issues", "stale_checks", "hold_expired"}
+    http_status = 409 if code in conflict_codes else 400
+    return CheckoutDomainError(
+        detail=getattr(exc, "message", str(exc)),
+        error_code=code,
+        context=getattr(exc, "context", {}),
+        http_status=http_status,
+    )
 
 
 def ensure_customer(intent) -> None:
@@ -218,6 +244,14 @@ def order_has_payment_error(order_ref: str) -> bool:
     return bool((order.data or {}).get("payment", {}).get("error"))
 
 
+def starts_payment_after_store_confirmation(channel_ref: str) -> bool:
+    try:
+        return ChannelConfig.for_channel(channel_ref).payment.timing == "post_commit"
+    except Exception:
+        logger.warning("payment_timing_lookup_failed channel=%s", channel_ref, exc_info=True)
+        return False
+
+
 def get_open_cart_session(*, session_key: str, channel_ref: str):
     from shopman.orderman.models import Session
 
@@ -248,6 +282,7 @@ def _build_ops_from_data(data: dict) -> list[dict]:
         "customer",
         "fulfillment_type",
         "delivery_address",
+        "saved_address_id",
         "delivery_address_structured",
         "delivery_date",
         "delivery_time_slot",

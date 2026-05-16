@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
-
-from shopman.backstage.models import DayClosing
+from django.urls import NoReverseMatch, reverse
 from shopman.offerman.models import Product
 from shopman.stockman import Position, Quant
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import DayClosing
 
 
 def _make_shop():
@@ -46,7 +47,7 @@ class DayClosingBlindCountTests(TestCase):
         )
 
     def test_closing_form_is_blind_count_for_operator(self) -> None:
-        resp = self.client.get("/gestor/fechamento/")
+        resp = self.client.get("/admin/operacao/fechamento/")
 
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
@@ -62,7 +63,7 @@ class DayClosingBlindCountTests(TestCase):
         self.assertNotIn('max="2"', content)
 
     def test_closing_records_reported_and_applied_quantities_without_silent_clamp(self) -> None:
-        resp = self.client.post("/gestor/fechamento/", {f"qty_{self.product.sku}": "5"})
+        resp = self.client.post("/admin/operacao/fechamento/", {f"qty_{self.product.sku}": "5"})
 
         self.assertEqual(resp.status_code, 302)
         closing = DayClosing.objects.get()
@@ -77,3 +78,7 @@ class DayClosingBlindCountTests(TestCase):
         d1 = Quant.objects.get(sku=self.product.sku, position=self.ontem, batch="D-1")
         self.assertEqual(saleable.quantity, 0)
         self.assertEqual(d1.quantity, 2)
+
+    def test_old_day_closing_route_name_is_not_registered(self) -> None:
+        with self.assertRaises(NoReverseMatch):
+            reverse("backstage:day_closing")

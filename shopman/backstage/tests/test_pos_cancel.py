@@ -23,7 +23,9 @@ from shopman.orderman.models import Order, Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 
+from shopman.backstage.models import POSTab
 from shopman.shop.models import Channel
+from shopman.shop.services import pos as pos_service
 
 
 def _create_pos_order(payment_method: str = "cash") -> Order:
@@ -156,16 +158,27 @@ class PosCloseGranularErrorTests(TestCase):
         )
         self.client.force_login(self.staff)
 
-    def _close_payload(self, items=None, payment_method: str = "cash") -> dict:
+    def _close_payload(self, items=None, payment_method: str = "cash", open_tab: bool = True) -> dict:
         import json
         if items is None:
             items = [{"sku": "TEST-SKU", "qty": 1, "unit_price_q": 1000}]
+        tab = {"tab_code": "00001007", "tab_session_key": None}
+        if open_tab:
+            POSTab.objects.get_or_create(code="00001007", defaults={"label": "1007"})
+            tab = pos_service.open_pos_tab(
+                channel_ref="pdv",
+                tab_code="1007",
+                actor=f"pos:{self.staff.username}",
+                operator_username=self.staff.username,
+            )
         return {
             "payload": json.dumps({
                 "items": items,
                 "payment_method": payment_method,
                 "customer_name": "",
                 "customer_phone": "",
+                "tab_code": tab["tab_code"],
+                "tab_session_key": tab["tab_session_key"],
             })
         }
 
@@ -173,7 +186,7 @@ class PosCloseGranularErrorTests(TestCase):
         """No pdv channel → 500 with channel error message."""
         self.channel.delete()
 
-        resp = self.client.post("/gestor/pos/close/", self._close_payload())
+        resp = self.client.post("/gestor/pos/close/", self._close_payload(open_tab=False))
         self.assertEqual(resp.status_code, 500)
         self.assertIn("pdv", resp.content.decode().lower())
 

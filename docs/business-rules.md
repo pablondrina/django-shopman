@@ -595,10 +595,10 @@ recipe:
   code:       slug(unique)
   name:       string
   output_ref: string          # SKU do produto resultante
-  batch_size: decimal(>0)     # Unidades por batelada
+  batch_size: decimal(>0)     # Rendimento base da ficha técnica
   items:
     - input_ref: string       # Referência do insumo
-      quantity:  decimal(>0)  # Quantidade por batelada
+      quantity:  decimal(>0)  # Quantidade para o rendimento base
       unit:      "kg" | "lt" | "un"
   meta:       json            # {prep_time_min, bake_temp_c, ...}
 ```
@@ -957,8 +957,8 @@ defaults:
 
 ### A.9 Receitas (6 receitas)
 
-| Código     | Produto       | Batelada |
-|------------|---------------|----------|
+| Código     | Produto       | Rendimento base |
+|------------|---------------|-----------------|
 | pao-frances| PAO-FRANCES   | 50 un    |
 | baguete    | BAGUETE       | 20 un    |
 | croissant  | CROISSANT     | 48 un    |

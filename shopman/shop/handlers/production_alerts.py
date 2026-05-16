@@ -10,7 +10,6 @@ from django.utils import timezone
 
 from shopman.shop.adapters import alert as alert_adapter
 
-
 LOW_YIELD_THRESHOLD = Decimal("0.80")
 DEFAULT_STARTED_MINUTES = 240
 logger = logging.getLogger(__name__)

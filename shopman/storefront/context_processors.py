@@ -84,7 +84,7 @@ def omotenashi(request: HttpRequest) -> dict:
     Consumed by the `{% omotenashi %}` tag and by storefront partials that
     currently duplicate time-of-day logic in Alpine.
     """
-    from shopman.storefront.omotenashi import OmotenashiContext
+    from shopman.shop.omotenashi import OmotenashiContext
 
     try:
         ctx = OmotenashiContext.from_request(request)
@@ -97,7 +97,7 @@ def cart_count(request: HttpRequest) -> dict:
     """Expose cart item count and subtotal from Orderman session to all templates."""
     from shopman.storefront.cart import CartService
 
-    cart = CartService.get_cart(request)
+    cart = CartService.get_cart_summary(request)
     return {
         "cart_count": cart["count"],
         "cart_subtotal_display": cart["subtotal_display"],

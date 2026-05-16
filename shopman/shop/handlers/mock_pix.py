@@ -5,14 +5,13 @@ In production, EFI calls :class:`EfiPixWebhookView` which delegates to
 ``services.pix_confirmation.confirm_pix``.
 
 In development with ``payment_mock`` as the PIX adapter, there is no real
-gateway to call us back. Instead, ``payment_mock.create_intent`` schedules
-a ``mock_pix.confirm`` directive with ``available_at = now + delay``. When
-the directive fires, this handler invokes the *same* ``confirm_pix`` that
-the real webhook uses.
+gateway to call us back. Tests may opt in to a ``mock_pix.confirm`` directive
+with ``available_at = now + delay``. When the directive fires, this handler
+invokes the *same* ``confirm_pix`` that the real webhook uses.
 
 This is deliberate: there is one code path from "PIX authorized" to
 "order.on_paid dispatched" in the entire system. Dev differs from prod
-only in *who schedules the call*, never in *what runs*.
+only in *who calls it*, never in *what runs*.
 """
 
 from __future__ import annotations
@@ -36,6 +35,9 @@ class MockPixConfirmHandler:
         from shopman.shop.services.pix_confirmation import confirm_pix
 
         payload = message.payload or {}
+        if payload.get("mock_pix_auto_confirm") is not True:
+            raise DirectiveTerminalError("mock PIX auto confirmation is not enabled")
+
         txid = payload.get("txid")
         if not txid:
             raise DirectiveTerminalError("missing txid in payload")

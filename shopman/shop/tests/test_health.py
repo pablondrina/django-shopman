@@ -7,8 +7,11 @@ import time
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
 from django.test import Client, override_settings
 from django.urls import reverse
+
+from shopman.shop.views.health import _LOCMEM_BACKEND
 
 
 @pytest.fixture
@@ -20,15 +23,30 @@ def client():
 
 
 def test_health_ok(client, db):
-    """Happy path: DB reachable, LocMem cache skipped, no pending migrations."""
+    """Happy path: DB reachable, configured cache healthy, no pending migrations."""
     response = client.get(reverse("health"))
 
     assert response.status_code == 200
     payload = json.loads(response.content)
     assert payload["status"] == "ok"
     assert payload["checks"]["database"] == "ok"
-    assert payload["checks"]["cache"] == "skipped"  # LocMem in dev
+    expected_cache = (
+        "skipped"
+        if settings.CACHES.get("default", {}).get("BACKEND") == _LOCMEM_BACKEND
+        else "ok"
+    )
+    assert payload["checks"]["cache"] == expected_cache
     assert payload["checks"]["migrations"] == "ok"
+
+
+@override_settings(CACHES={"default": {"BACKEND": _LOCMEM_BACKEND}})
+def test_health_cache_skipped_with_locmem(client, db):
+    """LocMem is intentionally reported as skipped for local single-process dev."""
+    response = client.get(reverse("health"))
+
+    assert response.status_code == 200
+    payload = json.loads(response.content)
+    assert payload["checks"]["cache"] == "skipped"
 
 
 def test_health_503_when_db_down(client, db):
@@ -111,6 +129,23 @@ def test_ready_503_when_db_down(client, db):
         response = client.get(reverse("ready"))
 
     assert response.status_code == 503
+
+
+@override_settings(
+    ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"],
+    SECURE_SSL_REDIRECT=True,
+)
+def test_app_platform_probe_host_reaches_ready(client, db):
+    response = client.get(reverse("ready"), HTTP_HOST="100.127.25.212:8000")
+
+    assert response.status_code == 200
+
+
+@override_settings(ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"])
+def test_app_platform_probe_host_does_not_bypass_business_routes(client, db):
+    response = client.get("/menu/", HTTP_HOST="100.127.25.212:8000")
+
+    assert response.status_code == 400
 
 
 # ── Invariants ─────────────────────────────────────────────────────

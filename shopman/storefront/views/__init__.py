@@ -26,14 +26,12 @@ from .auth import (
     VerifyCodeView,
 )
 from .cart import (
-    AddToCartView,
     ApplyCouponView,
     CartDrawerContentProjView,
     CartPageContentView,
     CartSetQtyBySkuView,
     CartSummaryView,
     CartView,
-    QuickAddView,
     RemoveCouponView,
 )
 from .catalog import MenuView, ProductDetailView, TipsView
@@ -50,14 +48,19 @@ from .info import HowItWorksView, OrderHistoryView, SitemapView
 from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
 from .pwa import OfflineView
 from .sse_state import SkuStateView
-from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
+from .tracking import (
+    OrderCancelView,
+    OrderEventsView,
+    OrderStatusPartialView,
+    OrderTrackingView,
+    ReorderView,
+)
 from .welcome import WelcomeView
 
 __all__ = [
     "AccessLinkLoginView",
     "AccountDeleteView",
     "AccountView",
-    "AddToCartView",
     "AddressCreateView",
     "AddressDeleteView",
     "AddressLabelUpdateView",
@@ -90,6 +93,7 @@ __all__ = [
     "OfflineView",
     "OrderCancelView",
     "OrderConfirmationView",
+    "OrderEventsView",
     "OrderHistoryView",
     "OrderStatusPartialView",
     "OrderTrackingView",
@@ -99,7 +103,6 @@ __all__ = [
     "ProfileDisplayView",
     "ProfileEditView",
     "ProfileUpdateView",
-    "QuickAddView",
     "RemoveCouponView",
     "ReorderView",
     "RequestCodeView",

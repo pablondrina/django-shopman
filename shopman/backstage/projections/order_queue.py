@@ -9,6 +9,7 @@ Never imports from ``shopman.backstage.views.*``.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -64,7 +65,7 @@ NEXT_ACTION_LABELS: dict[str, str] = {
     "delivered": "Concluir",
 }
 
-READY_DELIVERY_LABEL = "Saiu para entrega"
+READY_DELIVERY_LABEL = "Marcar saída para entrega"
 
 
 # ── Projections ────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ class OrderCardProjection:
     channel_icon: str
     customer_name: str
     created_at_display: str
+    created_at_iso: str
+    server_now_iso: str
     elapsed_seconds: int
     timer_class: str  # "timer-ok", "timer-warning", "timer-urgent", "timer-muted"
     items_summary: str
@@ -110,6 +113,9 @@ class OrderCardProjection:
     payment_method_label: str
     payment_status: str
     payment_pending: bool
+    can_settle_delivery_cash: bool
+    fiscal_status_label: str
+    fiscal_status: str
     has_notes: bool
     awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
 
@@ -133,6 +139,10 @@ class OperatorOrderProjection:
     payment_method: str
     payment_method_label: str
     payment_status: str
+    can_settle_delivery_cash: bool
+    fiscal_status_label: str
+    fiscal_status: str
+    fiscal_links: tuple[dict[str, str], ...]
     awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
 
 
@@ -218,6 +228,9 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
     )
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method", "")
+    payment_status = _payment_status(order)
+    payment_method_label = _payment_method_label(method, payment_data)
+    fiscal_status, fiscal_status_label, fiscal_links = _fiscal_status(order)
 
     return OperatorOrderProjection(
         ref=order.ref,
@@ -233,8 +246,12 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         timeline=timeline,
         internal_notes=order.data.get("internal_notes", ""),
         payment_method=method,
-        payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
-        payment_status=payment_svc.get_payment_status(order) or "",
+        payment_method_label=payment_method_label,
+        payment_status=payment_status,
+        can_settle_delivery_cash=_can_settle_delivery_cash(order, payment_data),
+        fiscal_status=fiscal_status,
+        fiscal_status_label=fiscal_status_label,
+        fiscal_links=fiscal_links,
         awaiting_work_orders=_awaiting_work_orders(order),
     )
 
@@ -312,6 +329,9 @@ def _build_card(order: Order) -> OrderCardProjection:
 
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method", "")
+    payment_status = _payment_status(order)
+    payment_method_label = _payment_method_label(method, payment_data)
+    fiscal_status, fiscal_status_label, _fiscal_links = _fiscal_status(order)
 
     return OrderCardProjection(
         ref=order.ref,
@@ -322,6 +342,8 @@ def _build_card(order: Order) -> OrderCardProjection:
         channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
         customer_name=customer_name,
         created_at_display=_format_datetime(order.created_at),
+        created_at_iso=order.created_at.isoformat(),
+        server_now_iso=now.isoformat(),
         elapsed_seconds=int(elapsed),
         timer_class=timer_class,
         items_summary=items_summary,
@@ -334,9 +356,12 @@ def _build_card(order: Order) -> OrderCardProjection:
         next_status=next_status,
         next_action_label=next_label,
         payment_method=method,
-        payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
-        payment_status=payment_svc.get_payment_status(order) or "",
-        payment_pending=_is_payment_pending(order, method, payment_svc.get_payment_status(order) or ""),
+        payment_method_label=payment_method_label,
+        payment_status=payment_status,
+        payment_pending=_is_payment_pending(order, method, payment_status),
+        can_settle_delivery_cash=_can_settle_delivery_cash(order, payment_data),
+        fiscal_status_label=fiscal_status_label,
+        fiscal_status=fiscal_status,
         has_notes=bool(order.data.get("internal_notes")),
         awaiting_work_orders=_awaiting_work_orders(order),
     )
@@ -349,6 +374,7 @@ def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ..
 
     try:
         from shopman.craftsman.models import WorkOrder
+
         from shopman.backstage.projections.production import WO_STATUS_LABELS, _qty, _work_order_progress_pct
     except Exception:
         logger.debug("orders.awaiting_work_orders_import_failed order=%s", order.ref, exc_info=True)
@@ -376,12 +402,86 @@ def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ..
 
 
 def _is_payment_pending(order: Order, method: str, payment_status: str) -> bool:
-    """True when the order needs payment capture before it can be confirmed."""
-    if order.status != "new":
+    """True when the order needs payment capture before physical work can start."""
+    if order.status not in {"new", "confirmed"}:
         return False
     if method in _OFFLINE_METHODS:
         return False
+    if order.status == "new" and not ((order.data or {}).get("payment") or {}).get("intent_ref"):
+        return False
     return payment_status not in _PAYMENT_COMPLETE
+
+
+def _payment_status(order: Order) -> str:
+    """Return the operator-facing payment status without duplicating Payman."""
+    return payment_svc.get_payment_status(order) or ""
+
+
+def _payment_method_label(method: str, payment_data: dict) -> str:
+    label = PAYMENT_METHOD_LABELS_PT.get(method, method)
+    if payment_data.get("collection") == "on_delivery":
+        if payment_data.get("cod_settled_at"):
+            return f"{label} entregue no caixa"
+        return f"{label} na entrega"
+    return label
+
+
+def _can_settle_delivery_cash(order: Order, payment_data: dict) -> bool:
+    return (
+        _is_delivery(order)
+        and payment_data.get("method") == "cash"
+        and payment_data.get("collection") == "on_delivery"
+        and not payment_data.get("cod_settled_at")
+        and order.status in {Order.Status.DISPATCHED, Order.Status.DELIVERED, Order.Status.COMPLETED}
+    )
+
+
+def _fiscal_status(order: Order) -> tuple[str, str, tuple[dict[str, str], ...]]:
+    data = order.data or {}
+    if data.get("nfce_cancelled"):
+        status = "cancelled"
+        label = "NFC-e cancelada"
+    elif data.get("nfce_access_key"):
+        status = "authorized"
+        label = "NFC-e autorizada"
+    elif not ((data.get("fiscal") or {}).get("issue_document")):
+        status = "not_requested"
+        label = "Fiscal não solicitado"
+    else:
+        directive_status = _latest_fiscal_directive_status(order.ref)
+        if directive_status == "failed":
+            status = "failed"
+            label = "NFC-e com falha"
+        elif directive_status in {"queued", "running"}:
+            status = "pending"
+            label = "NFC-e pendente"
+        elif order.status != Order.Status.COMPLETED:
+            status = "waiting_completion"
+            label = "Fiscal na conclusão"
+        else:
+            status = "pending"
+            label = "NFC-e pendente"
+
+    links = []
+    if data.get("nfce_danfe_url"):
+        links.append({"label": "DANFE", "url": data["nfce_danfe_url"]})
+    if data.get("nfce_qrcode_url"):
+        links.append({"label": "QR Code", "url": data["nfce_qrcode_url"]})
+    return status, label, tuple(links)
+
+
+def _latest_fiscal_directive_status(order_ref: str) -> str:
+    try:
+        from shopman.orderman.models import Directive
+        from shopman.shop.directives import FISCAL_EMIT_NFCE
+    except Exception:
+        return ""
+    directive = (
+        Directive.objects.filter(topic=FISCAL_EMIT_NFCE, payload__order_ref=order_ref)
+        .order_by("-created_at")
+        .first()
+    )
+    return directive.status if directive else ""
 
 
 def _format_customer_display(value: str) -> str:
@@ -435,6 +535,12 @@ def _is_delivery(order: Order) -> bool:
 
 
 def _next_status(order: Order) -> str:
+    payment_data = (order.data or {}).get("payment") or {}
+    method = str(payment_data.get("method") or "").lower()
+    if order.status == "confirmed" and method not in _OFFLINE_METHODS:
+        status = (_payment_status(order) or "").lower()
+        if status not in _PAYMENT_COMPLETE:
+            return ""
     if order.status == "ready" and _is_delivery(order):
         return "dispatched"
     return NEXT_STATUS_MAP.get(order.status, "")
@@ -471,9 +577,27 @@ def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
                 label=label,
                 event_type=event.type,
                 timestamp_display=_format_datetime(event.created_at),
+                actor=event.actor,
+                detail=_event_detail(payload),
             )
         )
     return tuple(result)
+
+
+def _event_detail(payload: dict) -> str:
+    if not payload:
+        return ""
+    old_status = payload.get("old_status")
+    new_status = payload.get("new_status")
+    if old_status or new_status:
+        old_label = ORDER_STATUS_LABELS_PT.get(old_status, old_status or "-")
+        new_label = ORDER_STATUS_LABELS_PT.get(new_status, new_status or "-")
+        return f"{old_label} -> {new_label}"
+    for key in ("reason", "note", "error"):
+        value = payload.get(key)
+        if value:
+            return str(value)
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
 def _money(value_q: int | None) -> str:

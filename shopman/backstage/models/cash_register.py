@@ -1,4 +1,4 @@
-"""Cash register models — CashRegisterSession + CashMovement."""
+"""POS cash domain: terminals, shifts, and manual cash movements."""
 
 from __future__ import annotations
 
@@ -9,22 +9,61 @@ from django.utils import timezone
 _POS_CHANNEL_REF: str = getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "pdv")
 
 
-class CashRegisterSession(models.Model):
-    """
-    Represents a single cash register shift opened and closed by an operator.
+class POSTerminal(models.Model):
+    """Physical or digital POS terminal."""
 
-    Lifecycle: open → closed.
-    Only one session per operator can be open at a time.
+    ref = models.SlugField("ref", max_length=80, unique=True)
+    label = models.CharField("rotulo", max_length=120, blank=True, default="")
+    channel_ref = models.CharField("canal", max_length=80, default=_POS_CHANNEL_REF)
+    location_ref = models.CharField("local", max_length=120, blank=True, default="")
+    is_active = models.BooleanField("ativo", default=True)
+    metadata = models.JSONField("metadados", default=dict, blank=True)
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+    updated_at = models.DateTimeField("atualizado em", auto_now=True)
+
+    class Meta:
+        ordering = ["ref"]
+        verbose_name = "terminal POS"
+        verbose_name_plural = "terminais POS"
+
+    def __str__(self) -> str:
+        return self.label or self.ref
+
+    @classmethod
+    def default(cls) -> POSTerminal:
+        terminal, _ = cls.objects.get_or_create(
+            ref="pdv-main",
+            defaults={
+                "label": "PDV principal",
+                "channel_ref": _POS_CHANNEL_REF,
+                "is_active": True,
+            },
+        )
+        return terminal
+
+
+class CashShift(models.Model):
+    """
+    A single POS cash shift opened by an operator at a terminal.
+
+    Legacy name: CashRegisterSession.
     """
 
     class Status(models.TextChoices):
         OPEN = "open", "Aberto"
         CLOSED = "closed", "Fechado"
+        VOID = "void", "Cancelado"
 
+    terminal = models.ForeignKey(
+        POSTerminal,
+        on_delete=models.PROTECT,
+        related_name="cash_shifts",
+        verbose_name="Terminal",
+    )
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="cash_sessions",
+        related_name="cash_shifts",
         verbose_name="Operador",
     )
     opened_at = models.DateTimeField(default=timezone.now)
@@ -33,86 +72,197 @@ class CashRegisterSession(models.Model):
         default=0,
         help_text="Valor de abertura em centavos (fundo de troco).",
     )
-    closing_amount_q = models.IntegerField(
-        null=True, blank=True,
-        help_text="Valor informado no fechamento em centavos.",
+    blind_closing_amount_q = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Valor contado no fechamento cego em centavos.",
     )
     expected_amount_q = models.IntegerField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text="Calculado: abertura + vendas_dinheiro + suprimentos - sangrias.",
     )
     difference_q = models.IntegerField(
-        null=True, blank=True,
-        help_text="Diferença: fechamento informado - esperado (positivo = sobra).",
+        null=True,
+        blank=True,
+        help_text="Diferenca: contado - esperado (positivo = sobra).",
     )
     notes = models.TextField(blank=True, default="")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-opened_at"]
-        verbose_name = "Sessão de Caixa"
-        verbose_name_plural = "Sessões de Caixa"
-        permissions = [("operate_pos", "Pode operar o PDV (abrir/fechar caixa, sangria, balcão)")]
+        verbose_name = "Turno de Caixa"
+        verbose_name_plural = "Turnos de Caixa"
+        permissions = [
+            ("operate_pos", "Pode operar o PDV (abrir/fechar caixa, sangria, balcão)"),
+            ("audit_cashshift", "Pode auditar turnos de caixa"),
+            ("adjust_cashshift", "Pode ajustar turnos de caixa"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["operator"],
+                condition=models.Q(status="open"),
+                name="backstage_cashshift_open_operator_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["terminal"],
+                condition=models.Q(status="open"),
+                name="backstage_cashshift_open_terminal_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(opening_amount_q__gte=0),
+                name="backstage_cashshift_opening_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(blind_closing_amount_q__isnull=True)
+                | models.Q(blind_closing_amount_q__gte=0),
+                name="backstage_cashshift_blind_close_nonnegative",
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"Caixa {self.operator.username} — {self.opened_at:%d/%m/%Y %H:%M} [{self.status}]"
+        return f"Caixa {self.operator.username} - {self.opened_at:%d/%m/%Y %H:%M} [{self.status}]"
+
+    def save(self, *args, **kwargs):
+        if not self.terminal_id:
+            self.terminal = POSTerminal.default()
+        super().save(*args, **kwargs)
+
+    @property
+    def closing_amount_q(self) -> int | None:
+        """Compatibility alias for the former field name."""
+        return self.blind_closing_amount_q
+
+    @closing_amount_q.setter
+    def closing_amount_q(self, value: int | None) -> None:
+        self.blind_closing_amount_q = value
 
     @classmethod
-    def get_open_for_operator(cls, operator) -> CashRegisterSession | None:
+    def get_open_for_operator(cls, operator) -> CashShift | None:
         return cls.objects.filter(operator=operator, status=cls.Status.OPEN).first()
 
-    def close(self, *, closing_amount_q: int, notes: str = "") -> None:
-        """Close the session and compute expected_amount_q / difference_q."""
+    @classmethod
+    def get_open_for_terminal(cls, terminal) -> CashShift | None:
+        return cls.objects.filter(terminal=terminal, status=cls.Status.OPEN).first()
+
+    def close(
+        self,
+        *,
+        blind_closing_amount_q: int | None = None,
+        closing_amount_q: int | None = None,
+        notes: str = "",
+    ) -> None:
+        """Close the shift and compute expected_amount_q / difference_q."""
         from django.db.models import Sum
         from shopman.orderman.models import Order
 
-        # Cash sales during this session
-        cash_sales_q = (
-            Order.objects.filter(
-                channel_ref=_POS_CHANNEL_REF,
-                created_at__gte=self.opened_at,
-                created_at__lte=timezone.now(),
-            )
-            .exclude(status="cancelled")
-            .filter(data__payment__method="cash")
-            .aggregate(t=Sum("total_q"))["t"]
-        ) or 0
+        counted_q = blind_closing_amount_q if blind_closing_amount_q is not None else closing_amount_q
+        counted_q = int(counted_q or 0)
+        now = timezone.now()
 
-        # Cash movements
+        channel_ref = self.terminal.channel_ref or _POS_CHANNEL_REF
+        orders_qs = Order.objects.filter(channel_ref=channel_ref, created_at__lte=now).filter(
+            models.Q(data__pos__cash_shift_id=self.pk)
+            | models.Q(data__payment__cod_cash_shift_id=self.pk)
+            | models.Q(created_at__gte=self.opened_at)
+        )
+
+        cash_sales_q = 0
+        for order in orders_qs.exclude(status="cancelled"):
+            data = order.data or {}
+            payment = (order.data or {}).get("payment") or {}
+            cash_received_q = payment.get("cash_received_q")
+            if cash_received_q is not None:
+                cod_shift_id = _int_or_none(payment.get("cod_cash_shift_id"))
+                pos_shift_id = _int_or_none((data.get("pos") or {}).get("cash_shift_id"))
+                if cod_shift_id:
+                    if cod_shift_id == self.pk:
+                        cash_sales_q += int(cash_received_q or 0)
+                elif pos_shift_id is None or pos_shift_id == self.pk:
+                    cash_sales_q += int(cash_received_q or 0)
+                continue
+            tenders = payment.get("tenders") or []
+            if tenders:
+                for tender in tenders:
+                    if tender.get("method") != "cash" or tender.get("collection", "terminal") != "terminal":
+                        continue
+                    tender_shift_id = _int_or_none(tender.get("cash_shift_id"))
+                    if tender_shift_id and tender_shift_id != self.pk:
+                        continue
+                    if not tender_shift_id and order.created_at < self.opened_at:
+                        continue
+                    cash_sales_q += int(tender.get("amount_q") or 0)
+                continue
+            if payment.get("method") == "cash" and payment.get("collection", "terminal") != "on_delivery":
+                cash_sales_q += int(order.total_q or 0)
+
         movements = self.movements.aggregate(
             suprimentos=Sum("amount_q", filter=models.Q(movement_type="suprimento")),
             sangrias=Sum("amount_q", filter=models.Q(movement_type="sangria")),
+            ajustes=Sum("amount_q", filter=models.Q(movement_type="ajuste")),
         )
         suprimentos_q = movements["suprimentos"] or 0
         sangrias_q = movements["sangrias"] or 0
+        ajustes_q = movements["ajustes"] or 0
 
-        expected = self.opening_amount_q + cash_sales_q + suprimentos_q - sangrias_q
+        expected = self.opening_amount_q + cash_sales_q + suprimentos_q + ajustes_q - sangrias_q
 
-        self.closing_amount_q = closing_amount_q
+        self.blind_closing_amount_q = counted_q
         self.expected_amount_q = expected
-        self.difference_q = closing_amount_q - expected
+        self.difference_q = counted_q - expected
         self.notes = notes
-        self.closed_at = timezone.now()
+        self.closed_at = now
         self.status = self.Status.CLOSED
         self.save(update_fields=[
-            "closing_amount_q", "expected_amount_q", "difference_q",
+            "blind_closing_amount_q", "expected_amount_q", "difference_q",
             "notes", "closed_at", "status",
         ])
 
 
+class _CashMovementQuerySet(models.QuerySet):
+    def filter(self, *args, **kwargs):
+        return super().filter(*args, **_cash_movement_legacy_kwargs(kwargs))
+
+    def get(self, *args, **kwargs):
+        return super().get(*args, **_cash_movement_legacy_kwargs(kwargs))
+
+    def exclude(self, *args, **kwargs):
+        return super().exclude(*args, **_cash_movement_legacy_kwargs(kwargs))
+
+
+def _cash_movement_legacy_kwargs(kwargs: dict) -> dict:
+    translated = dict(kwargs)
+    if "session" in translated and "shift" not in translated:
+        translated["shift"] = translated.pop("session")
+    if "session_id" in translated and "shift_id" not in translated:
+        translated["shift_id"] = translated.pop("session_id")
+    return translated
+
+
+def _int_or_none(value) -> int | None:
+    try:
+        if value in (None, ""):
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class CashMovement(models.Model):
-    """A single cash movement within a register session (sangria, suprimento, ajuste)."""
+    """A manual cash movement within a cash shift."""
 
     class MovementType(models.TextChoices):
         SANGRIA = "sangria", "Sangria"
         SUPRIMENTO = "suprimento", "Suprimento"
         AJUSTE = "ajuste", "Ajuste"
 
-    session = models.ForeignKey(
-        CashRegisterSession,
+    shift = models.ForeignKey(
+        CashShift,
         on_delete=models.CASCADE,
         related_name="movements",
-        verbose_name="Sessão",
+        verbose_name="Turno",
     )
     movement_type = models.CharField(
         max_length=20,
@@ -124,11 +274,48 @@ class CashMovement(models.Model):
     created_by = models.CharField(max_length=150, blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now)
 
+    objects = _CashMovementQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Movimentação de Caixa"
         verbose_name_plural = "Movimentações de Caixa"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount_q__gt=0),
+                name="backstage_cashmovement_amount_positive",
+            ),
+        ]
+
+    def __init__(self, *args, **kwargs):
+        if "session" in kwargs and "shift" not in kwargs:
+            kwargs["shift"] = kwargs.pop("session")
+        if "session_id" in kwargs and "shift_id" not in kwargs:
+            kwargs["shift_id"] = kwargs.pop("session_id")
+        super().__init__(*args, **kwargs)
+
+    @property
+    def session(self):
+        """Compatibility alias for the former FK name."""
+        return self.shift
+
+    @session.setter
+    def session(self, value) -> None:
+        self.shift = value
+
+    @property
+    def session_id(self):
+        """Compatibility alias for the former FK id name."""
+        return self.shift_id
+
+    @session_id.setter
+    def session_id(self, value) -> None:
+        self.shift_id = value
 
     def __str__(self) -> str:
         from shopman.utils.monetary import format_money
-        return f"{self.get_movement_type_display()} R$ {format_money(self.amount_q)} — {self.session}"
+
+        return f"{self.get_movement_type_display()} R$ {format_money(self.amount_q)} - {self.shift}"
+
+
+CashRegisterSession = CashShift

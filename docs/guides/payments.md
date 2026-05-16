@@ -200,3 +200,16 @@ except PaymentError as e:
 ```
 
 Códigos de erro: veja [errors.md](../reference/errors.md#paymenterror-payman).
+
+## Smoke Operacional
+
+Antes de release ou mudança em webhook/gateway:
+
+```bash
+make smoke-gateways
+make smoke-gateways-sandbox
+```
+
+O primeiro comando usa fixtures locais com rollback e valida o contrato interno.
+O segundo exige credenciais/staging reais; sem elas, retorna
+`blocked_by_credentials` para evitar falsa aprovação de sandbox.

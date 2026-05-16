@@ -11,6 +11,7 @@
   {% omotenashi 'CONFIRMATION_ITEMS_HEADING' as confirmation_items_heading %}
   {% omotenashi 'CONFIRMATION_TRACK_CTA' as confirmation_track_cta %}
   {% omotenashi 'CONFIRMATION_SHARE_CTA' as confirmation_share_cta %}
+  {% omotenashi 'CONFIRMATION_ETA_PREFIX' as confirmation_eta_prefix %}
 
   {% comment %}── Joy header — quiet, not performative ──{% endcomment %}
   <header class="text-center pt-6">
@@ -21,7 +22,7 @@
       {{ confirmation_heading.title }}{% if omotenashi_ctx.customer_name %}, {{ omotenashi_ctx.customer_name }}{% endif %}.
     </h1>
     <p class="mt-2 text-on-surface dark:text-on-surface-dark">
-      Começamos a preparar {% human_eta confirmation.eta %}.
+      {{ confirmation_eta_prefix.message }} {% human_eta confirmation.eta %}.
     </p>
     <p class="mt-4 text-xs text-on-surface/85 dark:text-on-surface-dark/60 font-mono">{{ confirmation.order_ref }}</p>
   </header>

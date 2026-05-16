@@ -156,7 +156,12 @@ def bootstrap_active_rules() -> None:
     if _bootstrapped:
         return
 
-    with _boot_lock:
+    acquired = _boot_lock.acquire(blocking=False)
+    if not acquired:
+        logger.debug("rules.engine: bootstrap already in progress; skipping reentrant call.")
+        return
+
+    try:
         if _bootstrapped:
             return
         try:
@@ -166,6 +171,8 @@ def bootstrap_active_rules() -> None:
             logger.debug("rules.engine: rules table not ready yet; bootstrap deferred.")
         except Exception:
             logger.debug("rules.engine: deferred bootstrap failed; will retry later.", exc_info=True)
+    finally:
+        _boot_lock.release()
 
 
 def invalidate_rules_cache(sender, **kwargs):

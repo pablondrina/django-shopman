@@ -1,0 +1,14 @@
+{% load unfold %}
+
+{% if is_readonly %}
+  {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+    Somente leitura
+  {% endcomponent %}
+{% else %}
+  <form method="post" action="{{ done_url }}">
+    {% csrf_token %}
+    {% component "unfold/components/button.html" with submit=1 variant="primary" size="xs" icon="done_all" %}
+      Pronto
+    {% endcomponent %}
+  </form>
+{% endif %}

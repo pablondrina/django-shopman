@@ -268,7 +268,10 @@ class DefaultAuthAdapter:
         Returns DELIVERY_CHAIN from settings, or empty list if not configured
         (which triggers backward-compat single-sender mode).
         """
-        return list(doorman_settings.DELIVERY_CHAIN)
+        chain = list(doorman_settings.DELIVERY_CHAIN)
+        if self.target_kind(target) == "phone":
+            return [method for method in chain if method != "email"]
+        return [method for method in chain if method not in {"whatsapp", "sms"}]
 
     # ===========================================
     # Lifecycle hooks

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import json
+from datetime import date, time, timedelta
+from decimal import Decimal
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import pytest
 from django.test import Client
@@ -66,6 +69,65 @@ class TestCheckoutGet:
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
 
+    def test_checkout_with_authenticated_customer_without_phone_requires_phone_gate(self, cart_session):
+        """Instagram-origin customers without phone must verify phone before checkout."""
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="WEB-IG-NOPHONE",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+        _login_as_customer(cart_session, customer)
+
+        resp = cart_session.get("/checkout/")
+
+        assert resp.status_code == 302
+        assert resp.url == "/login/?next=/checkout/"
+
+        login_resp = cart_session.get(resp.url)
+        assert login_resp.status_code == 200
+        body = login_resp.content.decode("utf-8")
+        assert 'name="phone"' in body
+
+    def test_checkout_prefills_phone_after_manychat_access_link(self, cart_session, settings):
+        """ManyChat access-link identity must survive until checkout."""
+        from shopman.guestman.models import Customer
+
+        settings.DOORMAN = {**DOORMAN_SETTINGS, "ACCESS_LINK_API_KEY": "test-access-key"}
+        customer = Customer.objects.create(
+            ref="WEB-ACCESS-MC",
+            first_name="Pablo",
+            last_name="Valentini",
+        )
+        create_resp = cart_session.post(
+            "/api/auth/access/create/",
+            data=json.dumps({
+                "customer_id": str(customer.uuid),
+                "whatsapp_id": "43984049009",
+                "first_name": "Pablo",
+                "last_name": "Valentini",
+                "manychat_id": "4605528796186498",
+                "source": "manychat",
+                "next": "/checkout/",
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test-access-key",
+        )
+        assert create_resp.status_code == 200
+
+        access_url = create_resp.json()["access_url"]
+        entry = urlsplit(access_url)
+        entry_resp = cart_session.get(f"{entry.path}?{entry.query}")
+        assert entry_resp.status_code == 302
+        assert entry_resp.url == "/checkout/"
+
+        resp = cart_session.get("/checkout/")
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert 'name="phone" value="+5543984049009"' in body
+        assert "Telefone é obrigatório" not in body
+
     def test_checkout_renders_address_picker(self, cart_session, customer):
         """Checkout page must embed the new iFood-style address picker."""
         _login_as_customer(cart_session, customer)
@@ -76,6 +138,18 @@ class TestCheckoutGet:
         assert "addressPicker(" in body
         assert "reverseGeocodeUrl" in body
         assert "Usar minha localiza" in body
+
+    def test_pickup_slot_defaults_to_current_slot_after_15h(self, cart_session, customer):
+        _login_as_customer(cart_session, customer)
+
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(15, 1)):
+            resp = cart_session.get("/checkout/?step=when")
+
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert "deliverySlot: 'slot-15'" in body
+        assert "normalizeDeliverySlot" in body
+        assert "pickupSlots:" in body
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────
@@ -198,6 +272,130 @@ class TestCheckoutPost:
         assert resp.status_code in (200, 302)
         assert mock_availability.called
         assert mock_availability.call_args.kwargs["target_date"] == future_date
+
+    def test_api_checkout_delivery_without_address_rejected_before_commit(
+        self, cart_session_delivery, channel, customer
+    ):
+        future_date = (date.today() + timedelta(days=3)).isoformat()
+        _login_as_customer(cart_session_delivery, customer)
+
+        with patch("shopman.storefront.api.views.checkout_service.process") as mock_process:
+            resp = cart_session_delivery.post(
+                "/api/v1/checkout/",
+                data=json.dumps({
+                    "idempotency_key": "api-delivery-missing-address",
+                    "phone": customer.phone,
+                    "name": customer.name,
+                    "fulfillment_type": "delivery",
+                    "delivery_date": future_date,
+                    "delivery_time_slot": "slot-09",
+                    "payment_method": "cash",
+                }),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["field"] == "delivery_address"
+        assert data["errors"]["delivery_address"] == "Informe o endereço de entrega."
+        mock_process.assert_not_called()
+
+    def test_api_checkout_saved_address_payload_preserves_canonical_fields(
+        self, cart_session_delivery, channel, customer, customer_address
+    ):
+        from shopman.shop.services.checkout import CheckoutResult
+
+        future_date = (date.today() + timedelta(days=3)).isoformat()
+        customer_address.place_id = "place-wp03"
+        customer_address.latitude = Decimal("-23.3044521")
+        customer_address.longitude = Decimal("-51.1695824")
+        customer_address.complement = "Bloco B"
+        customer_address.delivery_instructions = "Portaria 2"
+        customer_address.save()
+        _login_as_customer(cart_session_delivery, customer)
+
+        with patch(
+            "shopman.storefront.api.views.checkout_service.process",
+            return_value=CheckoutResult(
+                order_ref="ORD-API-WP03",
+                status="committed",
+                total_q=3200,
+                items_count=4,
+            ),
+        ) as mock_process:
+            resp = cart_session_delivery.post(
+                "/api/v1/checkout/",
+                data=json.dumps({
+                    "idempotency_key": "api-saved-address-wp03",
+                    "phone": customer.phone,
+                    "name": customer.name,
+                    "fulfillment_type": "delivery",
+                    "saved_address_id": customer_address.pk,
+                    "delivery_date": future_date,
+                    "delivery_time_slot": "slot-09",
+                    "payment_method": "pix",
+                    "delivery_complement": "Apto 10",
+                    "delivery_instructions": "Interfone 42",
+                    "notes": "Sem contato por telefone",
+                    "use_loyalty": False,
+                }),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 201
+        kwargs = mock_process.call_args.kwargs
+        assert kwargs["idempotency_key"] == "api-saved-address-wp03"
+        checkout_data = kwargs["data"]
+        assert checkout_data["fulfillment_type"] == "delivery"
+        assert checkout_data["saved_address_id"] == customer_address.pk
+        assert checkout_data["delivery_address"] == customer_address.formatted_address
+        assert checkout_data["delivery_date"] == future_date
+        assert checkout_data["delivery_time_slot"] == "slot-09"
+        assert checkout_data["payment"] == {"method": "pix"}
+        assert checkout_data["order_notes"] == "Sem contato por telefone"
+        structured = checkout_data["delivery_address_structured"]
+        assert structured["formatted_address"] == customer_address.formatted_address
+        assert structured["place_id"] == "place-wp03"
+        assert str(structured["latitude"]) == "-23.3044521"
+        assert str(structured["longitude"]) == "-51.1695824"
+        assert structured["complement"] == "Apto 10"
+        assert structured["delivery_instructions"] == "Interfone 42"
+
+
+class _FakeViaCepResponse:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode()
+
+
+class TestCepLookupView:
+    def test_cep_lookup_escapes_external_address_payload(self, client: Client, monkeypatch):
+        def fake_urlopen(request, timeout=5):
+            return _FakeViaCepResponse({
+                "logradouro": 'Rua <img src=x onerror=alert(1)> "A"',
+                "bairro": "Centro",
+                "localidade": "Lon'drina",
+                "uf": "PR",
+            })
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        resp = client.get("/checkout/cep-lookup/?cep=01001000")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "<img" not in body
+        assert "&lt;img src=x onerror=alert(1)&gt;" in body
+        assert 'x-init=\'$dispatch("cep-found",' in body
+        assert 'x-init="$dispatch' not in body
 
 
 # ── OrderConfirmationView ─────────────────────────────────────────────

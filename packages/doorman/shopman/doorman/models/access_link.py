@@ -48,7 +48,7 @@ class AccessLink(models.Model):
     Token for creating web session from chat or email.
 
     Lifecycle:
-    1. Manychat/backend calls POST /auth/access/create/
+    1. Manychat/backend calls POST /api/auth/access/create/
     2. Receives URL with token
     3. Sends to customer
     4. Customer clicks -> GET /auth/access/?t=...

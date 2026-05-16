@@ -105,6 +105,7 @@ class TestCheckoutProjectionShape:
         assert proj.preselected_address_id == default_addr.id
         # Structured fields are surfaced for the picker.
         assert any(a.id == non_default.id for a in proj.saved_addresses)
+        assert any(a.id == non_default.id and a.label_key == "work" for a in proj.saved_addresses)
 
     def test_loyalty_failure_preserves_addresses(
         self, cart_session, customer, customer_address, monkeypatch
@@ -227,6 +228,54 @@ class TestPickupSlots:
             assert slot.ref
             assert slot.label
             assert slot.starts_at
+            assert isinstance(slot.enabled, bool)
+            assert isinstance(slot.reason, str)
+            assert isinstance(slot.is_earliest, bool)
+
+    def test_slots_use_delivery_date_from_projection_context(self, cart_session, monkeypatch):
+        seen_dates = []
+
+        def fake_slots(cart_skus, *, delivery_date=""):
+            seen_dates.append(delivery_date)
+            return {
+                "pickup_slots": [
+                    {
+                        "ref": "slot-09",
+                        "label": "A partir das 09h",
+                        "starts_at": "09:00",
+                        "enabled": False,
+                        "reason": "Para este carrinho, escolha A partir das 12h ou mais tarde.",
+                        "is_earliest": False,
+                    },
+                    {
+                        "ref": "slot-12",
+                        "label": "A partir das 12h",
+                        "starts_at": "12:00",
+                        "enabled": True,
+                        "reason": "",
+                        "is_earliest": True,
+                    },
+                ],
+                "earliest_slot_ref": "slot-12",
+                "bottleneck_sku": "SKU",
+                "ready_times": {"SKU": "11:30"},
+            }
+
+        monkeypatch.setattr(
+            "shopman.storefront.services.pickup_slots.annotate_slots_for_checkout",
+            fake_slots,
+        )
+        request = _request_with_cart_session(cart_session)
+        proj = build_checkout(
+            request=request,
+            channel_ref=STOREFRONT_CHANNEL_REF,
+            delivery_date="2026-05-17",
+        )
+
+        assert seen_dates == ["2026-05-17"]
+        assert proj.earliest_slot_ref == "slot-12"
+        assert proj.pickup_slots[0].enabled is False
+        assert "carrinho" in proj.pickup_slots[0].reason
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -6,13 +6,25 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.http import Http404
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.shop.services import availability as avail_service
+from shopman.storefront.api.serializers import AvailabilityResponseSerializer
 from shopman.storefront.services import catalog as catalog_service
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["availability"],
+        summary="Get product availability",
+        parameters=[
+            OpenApiParameter("channel", str, description="Optional channel scope."),
+        ],
+        responses={200: AvailabilityResponseSerializer},
+    ),
+)
 class AvailabilityView(APIView):
     """
     GET /api/v1/availability/<sku>/?channel=<channel_ref>
@@ -34,6 +46,7 @@ class AvailabilityView(APIView):
 
     authentication_classes = []
     permission_classes = []
+    serializer_class = AvailabilityResponseSerializer
 
     def get(self, request, sku):
         if not catalog_service.product_exists(sku):

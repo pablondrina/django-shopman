@@ -72,6 +72,13 @@ def _join_list(value: object) -> str:
 class ProductAdminForm(forms.ModelForm):
     """Form that exposes nutrition_facts as flat per-nutrient fields."""
 
+    image_url = forms.URLField(
+        label="URL da imagem",
+        required=False,
+        max_length=500,
+        assume_scheme="https",
+        help_text="URL da imagem principal do produto (ex: Unsplash, Cloudinary, S3)",
+    )
     allergens_text = forms.CharField(
         label="Alérgenos",
         required=False,

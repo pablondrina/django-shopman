@@ -1,8 +1,16 @@
 {% extends "storefront/base.html" %}
+{% load omotenashi_tags %}
 
-{% block title %}Boas-vindas{% endblock %}
+{% block title %}{% omotenashi 'WELCOME_PAGE_TITLE' as welcome_page_title %}{{ welcome_page_title.title }}{% endblock %}
 
 {% block content %}
+{% omotenashi 'WELCOME_GREETING' as welcome_greeting %}
+{% omotenashi 'WELCOME_NAME_HEADING_PREFIX' as welcome_heading_prefix %}
+{% omotenashi 'WELCOME_NAME_HEADING_SUFFIX' as welcome_heading_suffix %}
+{% omotenashi 'WELCOME_SUGGESTED_NAME_MESSAGE' as welcome_suggested_message %}
+{% omotenashi 'LOGIN_NAME_SUBTITLE' as welcome_name_subtitle %}
+{% omotenashi 'WELCOME_CONFIRM_CTA' as welcome_confirm_cta %}
+{% omotenashi 'WELCOME_ACCOUNT_NOTE' as welcome_account_note %}
 
 <div class="max-w-xl mx-auto mt-8 sm:mt-16 px-4">
 
@@ -14,16 +22,16 @@
 
     {% comment %}── Heading grande e acolhedor — legível sem precisar apertar os olhos ──{% endcomment %}
     <p class="font-title text-xl sm:text-2xl text-on-surface dark:text-on-surface-dark mb-3">
-      Que bom te ver aqui!
+      {{ welcome_greeting.title }}
     </p>
     <h1 class="font-title text-3xl sm:text-5xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">
-      Como você quer<br>ser chamado(a)?
+      {{ welcome_heading_prefix.title }}<br>{{ welcome_heading_suffix.title }}
     </h1>
     <p class="mt-5 text-base sm:text-lg text-on-surface/85 dark:text-on-surface-dark/70">
       {% if suggested_name %}
-        Encontramos esse nome nos seus dados. Se estiver bom, é só confirmar.
+        {{ welcome_suggested_message.message }}
       {% else %}
-        Pode ser seu primeiro nome ou um apelido. O que for mais natural.
+        {{ welcome_name_subtitle.message }}
       {% endif %}
     </p>
   </div>
@@ -66,13 +74,13 @@
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
                      dark:focus-visible:outline-primary-dark"
               style="min-height: 56px;">
-        Confirmar
+        {{ welcome_confirm_cta.title }}
       </button>
     </form>
   </div>
 
   <p class="mt-6 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60">
-    Você pode mudar isso depois em Minha Conta.
+    {{ welcome_account_note.message }}
   </p>
 
 </div>

@@ -12,7 +12,7 @@ Isso funciona, mas viola dois princípios constitucionais:
 - **2.2** — a suite deve falar em compromissos, não em tabelas
 - **3.4** — core não depende de framework para existir
 
-A solução: **Projections** — read models tipados que traduzem o estado do domínio
+A solução: **Projections** — contratos tipados que traduzem o estado do domínio
 para o que a UI (ou API) precisa consumir. A view vira um thin controller que pede
 uma projection e a entrega ao template. O template consome uma interface estável,
 não os internals do domínio.
@@ -70,13 +70,13 @@ Os builders ficam no mesmo módulo. Views chamam o builder, passam o resultado a
 
 | Tela | URL | Template Atual | Projection |
 |------|-----|----------------|------------|
-| Fila de Pedidos | `/gestor/pedidos/` | `pedidos/index.html` | `OrderQueueProjection` |
-| Detalhe Pedido | `/gestor/pedidos/<ref>/detail/` | `pedidos/partials/detail.html` | `OperatorOrderProjection` |
-| KDS Picking | `/gestor/kds/` | `kds/display.html` | `KDSBoardProjection` |
-| KDS Expedição | `/gestor/kds/` | `kds/display.html` | `KDSExpeditionProjection` |
+| Fila de Pedidos | `/admin/operacao/pedidos/` | `admin_console/orders/index.html` | `OrderQueueProjection` |
+| Detalhe Pedido | `/admin/operacao/pedidos/<ref>/` | `admin_console/orders/detail.html` | `OperatorOrderProjection` |
+| KDS Picking | `/admin/operacao/kds/<ref>/` | `admin_console/kds/display.html` | `KDSBoardProjection` |
+| KDS Expedição | `/admin/operacao/kds/<ref>/` | `admin_console/kds/display.html` | `KDSExpeditionProjection` |
 | POS | `/gestor/pos/` | `pos/index.html` | `POSProjection` |
-| Produção | `/gestor/producao/` | `gestor/producao/index.html` | `ProductionBoardProjection` |
-| Fechamento | `/gestor/fechamento/` | `gestor/fechamento/index.html` | `DayClosingProjection` |
+| Produção | `/admin/operacao/producao/` | `admin_console/production/index.html` | `ProductionBoardProjection` |
+| Fechamento | `/admin/operacao/fechamento/` | `admin_console/closing/index.html` | `DayClosingProjection` |
 
 ### 3.3. Admin / Dashboard
 

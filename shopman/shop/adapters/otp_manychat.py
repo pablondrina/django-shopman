@@ -1,9 +1,8 @@
 """ManyChat OTP sender — delivers verification codes via WhatsApp (ManyChat).
 
-Uses the same ManyChat API infrastructure as the notification adapter.
-Supports two modes:
-1. Automation-based (recommended): triggers a ManyChat automation with the code as token
-2. Text-based (fallback): sends a plain text message with the code
+Uses the same ManyChat API infrastructure as the notification adapter and sends
+the code as direct content. Notification flows remain in notification_manychat;
+OTP deliberately stays simple.
 """
 
 from __future__ import annotations
@@ -31,16 +30,14 @@ def _resolve_subscriber(phone: str, config: dict) -> int | None:
     if not resolver_path:
         return None
 
-    from importlib import import_module
+    from ._dotted import import_dotted_attr
 
-    module_path, func_name = resolver_path.rsplit(".", 1)
-    module = import_module(module_path)
-    resolver = getattr(module, func_name)
+    resolver = import_dotted_attr(resolver_path)
     return resolver(phone)
 
 
 class ManychatOTPSender:
-    """Send OTP codes via ManyChat WhatsApp flow."""
+    """Send OTP codes via ManyChat WhatsApp direct content."""
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         """Send OTP code to phone via ManyChat.
@@ -64,27 +61,10 @@ class ManychatOTPSender:
             logger.warning("Could not resolve ManyChat subscriber for OTP: %s", target)
             return False
 
-        otp_flow_ns = config.get("otp_flow_ns") or getattr(
-            settings, "MANYCHAT_OTP_FLOW_NS", ""
-        )
-
-        if otp_flow_ns:
-            return self._send_via_flow(subscriber_id, code, otp_flow_ns, config)
         return self._send_via_text(subscriber_id, code, config)
 
-    def _send_via_flow(
-        self, subscriber_id: int, code: str, flow_ns: str, config: dict
-    ) -> bool:
-        """Send OTP via ManyChat flow (templated, recommended)."""
-        payload = {
-            "subscriber_id": subscriber_id,
-            "flow_ns": flow_ns,
-            "flow_token": {"code": code},
-        }
-        return self._api_call("/sending/sendFlow", payload, config)
-
     def _send_via_text(self, subscriber_id: int, code: str, config: dict) -> bool:
-        """Send OTP as plain text message (fallback)."""
+        """Send OTP as a direct ManyChat content message."""
         message = f"Seu codigo de verificacao: {code}"
         payload = {
             "subscriber_id": subscriber_id,

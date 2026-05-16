@@ -2,6 +2,7 @@
 {# Skip-OTP greeting — shown when DeviceCheckLoginView finds a valid trust cookie. #}
 {# Redirects after 2s so the user understands why no OTP was requested. #}
 {% omotenashi 'DEVICE_TRUST_GREETING' as greeting %}
+{% omotenashi 'DEVICE_TRUST_REDIRECTING' as redirecting %}
 <div class="space-y-3"
      x-data
      x-init="setTimeout(() => window.location.href = '{{ next_url|default:'/'|escapejs }}', 2000)">
@@ -13,7 +14,7 @@
         {{ greeting.title }}{% if customer_name %}, {{ customer_name }}{% endif %}!
       </p>
       <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-0.5">
-        Dispositivo reconhecido. Entrando automaticamente…
+        {{ redirecting.message }}
       </p>
     </div>
   </div>

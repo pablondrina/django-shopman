@@ -26,6 +26,7 @@ from shopman.storefront.services.pickup_slots import (
     get_earliest_slot_for_skus,
     get_slots,
     get_typical_ready_times,
+    is_slot_available_for_today,
 )
 
 
@@ -228,6 +229,73 @@ class GetEarliestSlotTests(TestCase):
         self.assertEqual(result["slot_ref"], "slot-09")  # fallback
         self.assertIsNone(result["bottleneck_sku"])
 
+    def test_unknown_sku_uses_current_slot_after_fallback_is_superseded(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            result = get_earliest_slot_for_skus(["UNKNOWN-SKU"])
+
+        self.assertEqual(result["slot_ref"], "slot-12")
+        self.assertIsNone(result["bottleneck_sku"])
+
+    def test_unknown_sku_keeps_last_slot_after_it_starts(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(15, 1)):
+            result = get_earliest_slot_for_skus(["UNKNOWN-SKU"])
+
+        self.assertEqual(result["slot_ref"], "slot-15")
+        self.assertIsNone(result["bottleneck_sku"])
+
+    def test_ready_early_item_uses_current_slot_after_noon(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            result = get_earliest_slot_for_skus(["BREAD"])
+
+        self.assertEqual(result["slot_ref"], "slot-12")
+
+    def test_ready_early_item_keeps_first_slot_for_future_date_context(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            result = get_earliest_slot_for_skus(["BREAD"], include_current_time=False)
+
+        self.assertEqual(result["slot_ref"], "slot-09")
+
+    def test_checkout_annotation_is_date_specific(self):
+        future = (_local_test_date() + timedelta(days=1)).isoformat()
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            today_ctx = annotate_slots_for_checkout(["BREAD"])
+            future_ctx = annotate_slots_for_checkout(["BREAD"], delivery_date=future)
+
+        today_by_ref = {slot["ref"]: slot for slot in today_ctx["pickup_slots"]}
+        future_by_ref = {slot["ref"]: slot for slot in future_ctx["pickup_slots"]}
+        self.assertEqual(today_ctx["earliest_slot_ref"], "slot-12")
+        self.assertFalse(today_by_ref["slot-09"]["enabled"])
+        self.assertEqual(future_ctx["earliest_slot_ref"], "slot-09")
+        self.assertTrue(future_by_ref["slot-09"]["enabled"])
+
+    def test_checkout_annotation_blocks_slots_before_sku_ready_time(self):
+        future = (_local_test_date() + timedelta(days=1)).isoformat()
+        ctx = annotate_slots_for_checkout(["BRIGADEIRO"], delivery_date=future)
+        by_ref = {slot["ref"]: slot for slot in ctx["pickup_slots"]}
+
+        self.assertEqual(ctx["earliest_slot_ref"], "slot-15")
+        self.assertFalse(by_ref["slot-09"]["enabled"])
+        self.assertFalse(by_ref["slot-12"]["enabled"])
+        self.assertTrue(by_ref["slot-15"]["enabled"])
+        self.assertIn("carrinho", by_ref["slot-09"]["reason"])
+
+    def test_ready_early_item_keeps_slot_15_at_and_after_15h(self):
+        for clock in (time(15, 0), time(16, 0)):
+            with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=clock):
+                result = get_earliest_slot_for_skus(["BREAD"])
+
+            self.assertEqual(result["slot_ref"], "slot-15")
+
+    def test_pickup_slots_are_available_from_start_until_next_slot(self):
+        slots = get_slots()
+
+        self.assertTrue(is_slot_available_for_today(slots, "slot-09", now=time(10, 0)))
+        self.assertFalse(is_slot_available_for_today(slots, "slot-09", now=time(12, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-12", now=time(12, 0)))
+        self.assertFalse(is_slot_available_for_today(slots, "slot-12", now=time(15, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(15, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(16, 0)))
+
 
 class AnnotateSlotsTests(TestCase):
     def setUp(self):
@@ -248,3 +316,7 @@ class AnnotateSlotsTests(TestCase):
         self.assertIn("bottleneck_sku", result)
         self.assertIn("ready_times", result)
         self.assertEqual(len(result["pickup_slots"]), 2)
+
+
+def _local_test_date():
+    return timezone.localtime().date()

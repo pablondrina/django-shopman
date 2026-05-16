@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Rejeitar pedido #{{ order.ref }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="order-reject-main" role="main">
+{% component "unfold/components/container.html" %}
+  <form method="post" class="flex flex-col gap-6">
+    {% csrf_token %}
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="flex flex-col gap-1">
+        {% component "unfold/components/title.html" %}
+          Rejeitar pedido #{{ order.ref }}
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          Informe o motivo para registrar auditoria e comunicar o fluxo operacional.
+        {% endcomponent %}
+      </div>
+      <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+        {% component "unfold/components/button.html" with href=order_detail_url variant="default" size="sm" icon="visibility" %}
+          Detalhe
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with href=order_console_url variant="default" size="sm" icon="arrow_back" %}
+          Pedidos
+        {% endcomponent %}
+      </div>
+    </div>
+
+    {% for field in order_reject_fields %}
+      {% include "unfold/helpers/field.html" with field=field %}
+    {% endfor %}
+
+    <div class="flex flex-wrap gap-2">
+      {% component "unfold/components/button.html" with submit=1 variant="danger" size="sm" icon="block" %}
+        Confirmar rejeicao
+      {% endcomponent %}
+      {% component "unfold/components/button.html" with href=order_console_url variant="default" size="sm" icon="close" %}
+        Cancelar
+      {% endcomponent %}
+    </div>
+  </form>
+{% endcomponent %}
+</main>
+{% endblock %}

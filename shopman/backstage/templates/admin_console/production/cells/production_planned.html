@@ -1,0 +1,5 @@
+{% if row.planned_qty %}
+  <span class="font-semibold text-font-important-light dark:text-font-important-dark">{{ row.planned_qty }} un.</span>
+{% else %}
+  <span class="text-xs text-base-400">-</span>
+{% endif %}

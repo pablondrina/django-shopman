@@ -13,7 +13,7 @@ Usage:
     # Craftsman implements this adapter:
     class CraftingCostBackend:
         def get_cost(self, sku: str) -> int | None:
-            recipe = Recipe.objects.filter(output_sku=sku).first()
+            recipe = get_active_recipe_for_output_sku(sku)
             return recipe.total_cost_q if recipe else None
 """
 

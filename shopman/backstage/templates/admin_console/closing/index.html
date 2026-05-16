@@ -1,0 +1,76 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Fechamento | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="day-closing-main" role="main">
+{% component "unfold/components/container.html" %}
+  <form method="post" class="flex flex-col gap-6">
+    {% csrf_token %}
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="flex flex-col gap-1">
+        {% component "unfold/components/title.html" %}
+          Fechamento do dia
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          {{ day_closing.today_display }} · contagem cega de sobras e perdas.
+        {% endcomponent %}
+      </div>
+      <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+        {% component "unfold/components/button.html" with href=day_closing_reports_url variant="default" size="sm" icon="download" %}
+          CSV producao
+        {% endcomponent %}
+      </div>
+    </div>
+
+    {% if day_closing.already_closed %}
+      {% component "unfold/components/text.html" with class="text-base-500" %}
+        {{ day_closing.existing_closing_display }}
+      {% endcomponent %}
+    {% endif %}
+
+    {% if day_closing.has_old_d1 %}
+      {% component "unfold/components/text.html" with class="text-red-600 dark:text-red-400" %}
+        Atencao: ha estoque D-1 com mais de 1 dia na posicao ontem.
+      {% endcomponent %}
+    {% endif %}
+
+    <div class="flex flex-col gap-2">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        Producao do dia
+      {% endcomponent %}
+      {% component "unfold/components/table.html" with table=day_closing_production_table striped=1 %}{% endcomponent %}
+    </div>
+
+    {% if day_closing.reconciliation_errors %}
+      <div class="flex flex-col gap-2">
+        {% component "unfold/components/title.html" with class="text-lg text-red-600 dark:text-red-400" %}
+          Discrepancias detectadas
+        {% endcomponent %}
+        {% component "unfold/components/table.html" with table=day_closing_reconciliation_table striped=1 %}{% endcomponent %}
+      </div>
+    {% endif %}
+
+    <div class="flex flex-col gap-2">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        Contagem final
+      {% endcomponent %}
+      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+        Informe apenas o que sobrou fisicamente. O sistema trata destino e perdas automaticamente.
+      {% endcomponent %}
+      {% component "unfold/components/table.html" with table=day_closing_items_table striped=1 %}{% endcomponent %}
+    </div>
+
+    {% if day_closing.has_items and not day_closing.already_closed %}
+      <div class="flex flex-wrap gap-2">
+        {% component "unfold/components/button.html" with submit=1 variant="primary" size="sm" icon="fact_check" %}
+          Registrar contagem final
+        {% endcomponent %}
+      </div>
+    {% endif %}
+  </form>
+{% endcomponent %}
+</main>
+{% endblock %}

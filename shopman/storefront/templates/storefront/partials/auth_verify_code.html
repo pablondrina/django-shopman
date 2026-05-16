@@ -1,4 +1,6 @@
 {# OTP code entry — embedded inside login card (Penguin UI tokens) #}
+{% load omotenashi_tags %}
+{% omotenashi 'LOGIN_CODE_HELP' as login_code_help %}
 
 <div x-data="{ show: false }"
      x-show="show"
@@ -45,7 +47,7 @@
       style="min-height: 56px; padding: 0.5rem 0.5rem 0.5rem 0.85rem;"
       x-init="$nextTick(() => $el.focus())">
     <p id="auth-code-help" class="pl-0.5 text-xs text-on-surface/70 dark:text-on-surface-dark/60">
-      Você pode colar o código. Ao completar, a confirmação é automática.
+      {{ login_code_help.message }}
     </p>
   </div>
 

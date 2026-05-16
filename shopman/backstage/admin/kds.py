@@ -5,11 +5,11 @@ from __future__ import annotations
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
 from shopman.backstage.models import KDSInstance
-from shopman.utils import unfold_badge
 
 
 @admin.register(KDSInstance)
@@ -44,8 +44,8 @@ class KDSInstanceAdmin(ModelAdmin):
     @display(description="operação")
     def open_display(self, obj):
         return format_html(
-            '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Abrir</a>',
-            reverse("backstage:kds_display", args=[obj.ref]),
+            '<a class="font-medium text-link" href="{}">Abrir</a>',
+            reverse("backstage:kds_station_runtime", args=[obj.ref]),
         )
 
     def has_add_permission(self, request):

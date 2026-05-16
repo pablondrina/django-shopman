@@ -8,20 +8,20 @@ version = "0.1.0"
 description = "Shopman Guestman — Customer Management"
 requires-python = ">=3.12"
 dependencies = [
-    "Django>=5.2,<6.0",
+    "Django>=6.0,<6.1",
     "shopman-utils>=0.3.0",
 ]
 
 [project.optional-dependencies]
 api = [
-    "djangorestframework>=3.14",
-    "django-filter>=23.0",
+    "djangorestframework>=3.17,<4.0",
+    "django-filter>=25.2,<26.0",
 ]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.5",
-    "djangorestframework>=3.14",
-    "django-filter>=23.0",
+    "djangorestframework>=3.17,<4.0",
+    "django-filter>=25.2,<26.0",
 ]
 
 [tool.setuptools.packages.find]

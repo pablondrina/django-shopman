@@ -12,6 +12,13 @@
 {% omotenashi 'LOGIN_NAME_HEADING' as login_name_heading %}
 {% omotenashi 'LOGIN_NAME_SUBTITLE' as login_name_subtitle %}
 {% omotenashi 'LOGIN_NAME_CTA' as login_name_cta %}
+{% omotenashi 'LOGIN_TRUSTED_DEVICE_MESSAGE' as trusted_device_message %}
+{% omotenashi 'LOGIN_TRUSTED_DEVICE_CTA' as trusted_device_cta %}
+{% omotenashi 'LOGIN_TRUSTED_OTHER_PHONE' as trusted_other_phone %}
+{% omotenashi 'LOGIN_NO_PASSWORD_NOTE' as login_no_password_note %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_TITLE' as change_phone_title %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_MESSAGE' as change_phone_message %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_CTA' as change_phone_cta %}
 
 <div class="relative left-1/2 w-screen -translate-x-1/2 -my-6 overflow-hidden bg-black"
      x-data="{ showChangePhoneConfirm: false }">
@@ -84,7 +91,7 @@
     {% comment %}── Dispositivo confiável: botão de skip-OTP + resultado inline ──{% endcomment %}
     <div id="trusted-device-section" class="mb-6">
       <p class="mb-3 text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-        Este aparelho já foi confirmado. Se quiser, entre direto.
+        {{ trusted_device_message.message }}
       </p>
       <button type="button"
               hx-post="{% url 'storefront:device_check_login' %}"
@@ -95,23 +102,43 @@
               style="min-height: 52px;"
               class="flex w-full items-center justify-center gap-2 rounded-radius border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-primary-dark dark:bg-primary-dark/10 dark:text-primary-dark dark:hover:bg-primary-dark/15 dark:focus-visible:outline-primary-dark">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">verified_user</span>
-        Entrar sem código
+        {{ trusted_device_cta.title }}
       </button>
       <p class="mt-4 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
-        Ou confirme outro telefone abaixo.
+        {{ trusted_other_phone.message }}
       </p>
+    </div>
+    {% endif %}
+
+    {% if whatsapp_login_url %}
+    <div class="mb-5 space-y-4">
+      <a href="{{ whatsapp_login_url }}" target="_blank" rel="noopener"
+         style="min-height: 56px;"
+         class="flex w-full items-center justify-center gap-3 rounded-radius bg-primary text-white dark:bg-primary-dark
+                px-6 py-4 text-sm font-semibold transition hover:opacity-90 active:scale-[0.99]
+                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-base
+                dark:focus-visible:outline-primary-dark">
+        <span class="material-symbols-rounded icon-md" aria-hidden="true">chat</span>
+        {{ login_cta_wa.title }}
+      </a>
+      <div class="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-on-surface/55 dark:text-on-surface-dark/45" aria-hidden="true">
+        <span class="h-px flex-1 bg-outline dark:bg-outline-dark"></span>
+        <span>ou</span>
+        <span class="h-px flex-1 bg-outline dark:bg-outline-dark"></span>
+      </div>
     </div>
     {% endif %}
 
     <form method="post"
           action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
-          x-data="{ method: 'whatsapp', loading: false }"
-          @submit="loading = true"
+          x-data="{ loading: false, loadingReset: null }"
+          @pageshow.window="loading = false"
+          @submit="loading = true; clearTimeout(loadingReset); loadingReset = setTimeout(() => loading = false, 30000)"
           novalidate
           class="space-y-6">
       {% csrf_token %}
       <input type="hidden" name="step" value="phone">
-      <input type="hidden" name="delivery_method" :value="method">
+      <input type="hidden" name="delivery_method" value="sms">
 
       <div class="flex w-full flex-col gap-2 text-on-surface dark:text-on-surface-dark"
            x-data="phoneInput('{{ phone_value|escapejs }}')" x-init="init()">
@@ -121,7 +148,7 @@
         <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
           {{ login_phone_subtitle.message }}
         </p>
-        <input type="hidden" name="phone" :value="submittedPhone()">
+        <input type="hidden" name="phone_normalized" :value="submittedPhone()">
         <input type="hidden" name="phone_region" :value="international ? 'INTL' : 'BR'">
         <div class="relative min-w-0">
           <div x-show="!international"
@@ -130,7 +157,7 @@
             <span class="text-lg leading-none">🇧🇷</span>
             <span class="font-medium">+55</span>
           </div>
-          <input type="tel" id="phone"
+          <input type="tel" id="phone" name="phone"
                  x-ref="input" x-model="display" @input="onInput()" @paste="onPaste()"
                  required autofocus :inputmode="international ? 'tel' : 'numeric'"
                  :placeholder="international ? '+1 202 555 1234' : '(43) 99999-9999'"
@@ -160,13 +187,14 @@
       <button type="submit"
               :disabled="loading"
               style="min-height: 56px;"
-              class="flex w-full items-center justify-center gap-3 rounded-radius bg-primary text-white dark:bg-primary-dark
-                     text-sm sm:text-base font-semibold px-6 py-4 hover:opacity-90 transition active:scale-[0.99]
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
-                     dark:focus-visible:outline-primary-dark disabled:opacity-60 disabled:cursor-wait">
+              class="flex w-full items-center justify-center gap-3 rounded-radius
+                     {% if whatsapp_login_url %}border border-outline bg-surface-alt text-on-surface hover:bg-surface dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:text-on-surface-dark dark:hover:bg-surface-dark{% else %}bg-primary text-white hover:opacity-90 dark:bg-primary-dark{% endif %}
+                     px-6 py-4 text-sm font-semibold transition active:scale-[0.99]
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-base
+                     dark:focus-visible:outline-primary-dark disabled:cursor-wait disabled:opacity-60">
         <span x-show="!loading" class="flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5 shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          {{ login_cta_wa.title }}
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">sms</span>
+          {{ login_cta_sms.title }}
         </span>
         <span x-show="loading" x-cloak class="flex items-center gap-2">
           <svg class="size-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -177,19 +205,9 @@
         </span>
       </button>
 
-      <div class="pt-1">
-        <button type="submit" @click="method = 'sms'"
-                :disabled="loading"
-                class="flex w-full items-center justify-center gap-2 rounded-radius border border-outline bg-surface-alt px-4 py-3 text-sm font-medium text-on-surface transition hover:bg-surface dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:text-on-surface-dark dark:hover:bg-surface-dark disabled:opacity-50"
-                style="min-height: 48px;">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">sms</span>
-          {{ login_cta_sms.title }}
-        </button>
-      </div>
-
       <p class="flex items-center justify-center gap-1.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-        Código único. Não exige senha.
+        {{ login_no_password_note.message }}
       </p>
     </form>
 
@@ -383,10 +401,10 @@
         </div>
         <h3 id="change-phone-title"
             class="font-title text-xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
-          Trocar de telefone?
+          {{ change_phone_title.title }}
         </h3>
         <p class="text-base text-on-surface/85 dark:text-on-surface-dark/70 mb-6">
-          Ao trocar, o código enviado deixa de valer. Você recebe outro em seguida.
+          {{ change_phone_message.message }}
         </p>
         <div class="flex flex-col sm:flex-row-reverse gap-3">
           <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
@@ -394,7 +412,7 @@
                     text-base font-semibold px-6 py-3 hover:opacity-90 transition"
              style="min-height: 48px;">
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">autorenew</span>
-            Trocar telefone
+            {{ change_phone_cta.title }}
           </a>
           <button type="button" @click="showChangePhoneConfirm = false"
                   class="flex-1 rounded-radius border-2 border-outline dark:border-outline-dark

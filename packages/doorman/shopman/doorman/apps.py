@@ -34,7 +34,10 @@ class DoormanConfig(AppConfig):
                 )
 
             # ConsoleSender must not be used in production
-            if ds.MESSAGE_SENDER_CLASS == "shopman.doorman.senders.ConsoleSender":
+            if (
+                ds.MESSAGE_SENDER_CLASS == "shopman.doorman.senders.ConsoleSender"
+                and not ds.DELIVERY_CHAIN
+            ):
                 raise ImproperlyConfigured(
                     "DOORMAN['MESSAGE_SENDER_CLASS'] is set to ConsoleSender. "
                     "This prints OTP codes to stdout and must NOT be used in "

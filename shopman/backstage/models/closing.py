@@ -30,6 +30,7 @@ class DayClosing(models.Model):
         permissions = [
             ("perform_closing", "Pode executar fechamento do dia"),
             ("view_production_reports", "Pode ver relatórios de produção"),
+            ("view_dayclosing_management", "Pode ver agregados gerenciais do fechamento"),
         ]
 
     def __str__(self):

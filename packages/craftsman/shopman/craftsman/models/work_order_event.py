@@ -65,7 +65,7 @@ class WorkOrderEvent(models.Model):
         PLANNED = "planned", _("Planejado")
         ADJUSTED = "adjusted", _("Ajustado")
         STARTED = "started", _("Iniciado")
-        FINISHED = "finished", _("Finalizado")
+        FINISHED = "finished", _("Concluído")
         VOIDED = "voided", _("Cancelado")
 
     work_order = models.ForeignKey(

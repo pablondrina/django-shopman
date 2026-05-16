@@ -16,9 +16,25 @@ from rest_framework.views import APIView
 
 from shopman.shop.services.geocoding import GeocodingError, reverse_geocode
 
+from .serializers import (
+    DetailSerializer,
+    ReverseGeocodeRequestSerializer,
+    ReverseGeocodeResponseSerializer,
+)
+
 
 @extend_schema_view(
-    post=extend_schema(tags=["geocode"], summary="Reverse geocode (server-side)"),
+    post=extend_schema(
+        tags=["geocode"],
+        summary="Reverse geocode (server-side)",
+        request=ReverseGeocodeRequestSerializer,
+        responses={
+            200: ReverseGeocodeResponseSerializer,
+            400: DetailSerializer,
+            429: DetailSerializer,
+            502: DetailSerializer,
+        },
+    ),
 )
 @method_decorator(
     ratelimit(key="user_or_ip", rate="30/m", method="POST", block=False),
@@ -36,6 +52,7 @@ class ReverseGeocodeView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []  # public; rate-limited by IP/user.
+    serializer_class = ReverseGeocodeRequestSerializer
 
     def post(self, request):
         if getattr(request, "limited", False):

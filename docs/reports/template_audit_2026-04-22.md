@@ -81,17 +81,14 @@
 - `auth_verify_code.html` linhas 54-55: countdown timer (deveria ser Alpine)
 - `_catalog_item_grid.html`, `availability_preview.html`, `product_detail.html`, `stock_error_modal.html`: modal de erro de estoque
 - `kds/partials/kds_js.html` linha 32: grid reference
-- `pedidos/partials/pedidos_js.html` linhas 22, 25, 48: grid + cards
-- `pedidos/index.html` linha 71: `Alpine.$data(document.getElementById(...))`
+- Pedidos standalone removido; fluxo atual esta em `admin_console/orders/`.
 
 **Regra:** "NUNCA document.getElementById em templates. Usar $refs, x-data, $store."
 
 ### P1-3: `htmx.ajax()` imperativo no backstage
 
 **Arquivos:**
-- `pedidos/partials/card.html` linha 112: reject button via `htmx.ajax('POST', ...)`
-- `pedidos/partials/card.html` linha 125: lazy detail via `htmx.ajax('GET', ...)`  
-- `pedidos/partials/pedidos_js.html` linha 82: filter reload
+- Pedidos standalone removido; acoes atuais usam rotas Admin/Unfold declaradas em `admin_console/orders/`.
 
 **Regra:** HTMX declarativo nos atributos HTML. Imperativo só quando não há alternativa.
 
@@ -117,11 +114,11 @@
 
 **Problema:** `h.classList.toggle('dark', isDark)` — manipulação direta de classe. Contexto: bootstrap de dark mode antes do Alpine carregar. **Pode ser exceção legítima** (precisa rodar antes do Alpine para evitar flash).
 
-### P1-7: `pedidos/index.html` — camel modifier inconsistente
+### P1-7: Pedidos standalone removido
 
-**Arquivo:** `pedidos/index.html`
+**Arquivo:** `admin_console/orders/index.html`
 
-**Problema:** `@htmx:after-swap.window` sem `.camel` modifier. Em `card.html` o padrão correto (`@htmx:after-swap.camel.window`) é usado. Inconsistência.
+**Problema anterior:** a antiga tela standalone de pedidos misturava listeners Alpine/HTMX. A rota atual usa Admin/Unfold e nao depende mais desses partials.
 
 ### P1-8: `base.html` — CSRF header em event listener global
 
@@ -167,11 +164,11 @@
 
 **Problema:** Passa `"account": projection` E `"customer": customer` (ORM cru) ao template. Todos os campos necessários já existem na projeção. Templates têm dois caminhos de acesso ao mesmo dado.
 
-### P2-4: Views backstage passam raw Shop/KDSInstance
+### P2-4: Superfícies backstage passam models crus em paralelo
 
 **Arquivos:**
-- `backstage/views/kds.py`: `"instance": instance` (raw KDSInstance) + `"shop": shop`
-- `backstage/views/orders.py`: `"shop": shop`
+- `backstage/admin_console/kds.py`: instancia KDS carregada para contexto operacional
+- `backstage/admin_console/orders.py`: contexto de pedido derivado das projections
 - `backstage/views/pos.py`: `"cash_session": cash_session` (raw CashRegisterSession)
 
 **Problema:** Projeções existem mas models crus são passados em paralelo.

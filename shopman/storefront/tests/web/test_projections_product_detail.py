@@ -114,6 +114,7 @@ class TestBuildProductDetailShape:
         assert proj.breadcrumb_category.ref == "paes"
         assert proj.breadcrumb_category.name == "Pães"
         assert proj.breadcrumb_category.icon
+        assert proj.breadcrumb_category.url == "/menu#paes"
 
 
 # ──────────────────────────────────────────────────────────────────────

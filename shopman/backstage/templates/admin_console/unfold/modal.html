@@ -1,6 +1,8 @@
 {% load unfold %}
 
+{% if teleport %}
 <template x-teleport="body">
+{% endif %}
   {# unfold-canonical: allow raw-modal-overlay -- authorized-by=Pablo Valentini; authorization-ref=2026-04-29 Codex thread; reason=Unfold dialog actions are ModelAdmin primitives, but this operational matrix needs in-context row modal forms without leaving the production board. #}
   <div x-show="{{ open_var|default:'open' }}"
        x-cloak
@@ -11,11 +13,13 @@
        role="dialog"
        aria-modal="true"
        aria-label="{{ modal_title }}">
-    <div class="bg-white flex flex-col max-w-sm min-h-0 mx-auto overflow-hidden rounded-default shadow-lg w-full dark:bg-base-800"
+    <div class="bg-white flex flex-col max-w-sm min-h-0 mx-auto overflow-hidden rounded-default shadow-lg w-full dark:bg-base-800 max-h-full overflow-y-auto"
          x-on:click.outside="{{ close_action|default:'open = false' }}">
       {% component "unfold/components/card.html" with title=modal_title %}
-        <form id="{{ form_id }}" method="post" novalidate>
-          {% csrf_token %}
+        <form id="{{ form_id }}" method="{{ form_method|default:'post' }}" {% if form_action %}action="{{ form_action }}"{% endif %} novalidate>
+          {% if form_method != "get" %}
+            {% csrf_token %}
+          {% endif %}
           {% for hidden in form.hidden_fields %}
             {{ hidden }}
           {% endfor %}
@@ -24,14 +28,19 @@
             {{ modal_description }}
           {% endcomponent %}
 
-          {% for field in form.visible_fields %}
+          {% for field in form_fields|default:form.visible_fields %}
             {% include "unfold/helpers/field.html" with field=field %}
           {% endfor %}
         </form>
 
         {% component "unfold/components/separator.html" %}
         {% endcomponent %}
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-wrap justify-end gap-2">
+          {% if clear_href %}
+            {% component "unfold/components/button.html" with href=clear_href variant="default" %}
+              {{ clear_label|default:"Limpar filtros" }}
+            {% endcomponent %}
+          {% endif %}
           {% component "unfold/components/button.html" with variant="default" extra_attrs=cancel_attrs %}
             {{ cancel_label|default:"Cancelar" }}
           {% endcomponent %}
@@ -42,4 +51,6 @@
       {% endcomponent %}
     </div>
   </div>
+{% if teleport %}
 </template>
+{% endif %}

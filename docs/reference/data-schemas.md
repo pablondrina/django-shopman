@@ -32,9 +32,12 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
 | `stock_check_unavailable` | `list[dict]` | `lifecycle._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
 | `manual_discount` | `dict` | POS `pos_close` view | `ModifyService` (via `set_data`) | Desconto manual do operador: `{type, value, discount_q, reason}`. `type`: `"percent"` ou `"fixed"` |
-| `standby` | `bool` | POS `pos_park` view | POS `pos_sessions`, `pos_resume` | `True` quando sessão está em espera (operador estacionou para atender outro cliente). Filtrado via `data__standby=True` |
-| `standby_operator` | `string` | POS `pos_park` view | POS `pos_sessions` | Username do operador que colocou em standby |
-| `tab` | `string` | POS `pos_park` view (via `generate_value("POS_TAB")`) | POS `pos_sessions`, `pos_resume`, template tabs | Label da comanda (RefType POS_TAB, formato curto). Ex: `"PDV-2504-A3X"` |
+| `tab_code` | `string` | POS tab service | POS tab service, projections | Código EAN-8 armazenado com 8 dígitos. Ex: `"00001007"` |
+| `tab_display` | `string` | POS tab service | POS UI, Order.data | Código curto para operador, sem zeros à esquerda. Ex: `"1007"` |
+| `pos_operator` | `string` | POS tab service | POS projections, Order.data | Username do operador que abriu/tocou o POS tab |
+| `last_touched_at` | `string` | POS tab service | POS projections | Timestamp ISO da última interação operacional |
+| `fiscal` | `dict` | POS checkout | Order.data | Preferências fiscais capturadas no checkout: `{issue_document, tax_id}` |
+| `receipt` | `dict` | POS checkout | Order.data | Preferência de recibo: `{mode, email}` |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -48,7 +51,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 O `ModifyService` aceita operações `set_data` nas seguintes paths:
 `customer`, `delivery`, `payment`, `notes`, `meta`, `extra`, `custom`, `tags`,
 `discounts`, `fees`, `tip`, `coupon`, `source`, `operator`, `table`, `tab`,
-`standby`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`,
+`fulfillment_type`, `delivery_address`, `delivery_address_structured`,
 `delivery_date`, `delivery_time_slot`, `order_notes`.
 
 Paths **proibidas** (geridas pelo sistema): `checks`, `issues`, `state`, `status`,
@@ -138,6 +141,16 @@ for key in (
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 | `awaiting_wo_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage pedidos/producao projections | Refs de WorkOrders que cobrem itens produzidos do pedido. Contextual, derivável e limpável em void. |
 
+### Chaves seed-only para QA adversarial
+
+Estas chaves só devem ser escritas por seed/dados demo. Elas existem para
+exercitar jornadas de seguranca, confiabilidade e atendimento, sem virar
+contrato de negocio em producao.
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `edge_case` | `string` | Nelson seed | QA manual/automatizado, relatorios de auditoria | Marcador deterministico de cenario adversarial. Ex: `"low_attention_payment_pending"`, `"late_payment_after_cancel"`, `"marketplace_stale_confirmation"` |
+
 
 ### Chaves lidas por views (convenience — fallback para vazio)
 
@@ -157,6 +170,7 @@ dados de display (UI) ou audit (rastreabilidade).
 {
   "method": "pix",
   "intent_ref": "INT-abc123",
+  "idempotency_key": "order-payment:ORD-001:pix:2500:...",
   "amount_q": 2500,
   "qr_code": "data:image/png;base64,...",
   "copy_paste": "00020126...",
@@ -166,7 +180,6 @@ dados de display (UI) ou audit (rastreabilidade).
   "captured_at": "2026-03-30T10:12:00Z",
   "client_secret": "pi_xxx_secret_yyy",
   "transaction_id": "TXN-001",
-  "marked_paid_by": "operator_user",
   "error": "Gateway timeout (truncado a 200 chars)"
 }
 ```
@@ -179,6 +192,7 @@ Classificações: **canonical** = fonte de verdade para decisões; **display** =
 |-----------|------|--------|-------------|----------|-----------|
 | `method` | `string` | **canonical** | CheckoutView → CommitService | lifecycle, views, handlers | `"pix"`, `"card"`, `"counter"`, `"external"` |
 | `intent_ref` | `string` | **canonical** | `payment.initiate()` | `payment_svc.get_payment_status`, PaymentStatusView | ID do intent no Payman/gateway |
+| `idempotency_key` | `string` | idempotency | `payment.initiate()` | adapters Payman/gateway | Chave da tentativa de pagamento para retry seguro; não é status e não libera fluxo operacional |
 | `amount_q` | `int` | display | `payment.initiate()` | PaymentView, templates | Valor em centavos (referência para UI) |
 | `qr_code` | `string` | display | `payment.initiate()` | PaymentView template | QR code image (data URI) — PIX only |
 | `copy_paste` | `string` | display | `payment.initiate()` | PaymentView template | Brcode PIX copia-e-cola — PIX only |
@@ -188,7 +202,7 @@ Classificações: **canonical** = fonte de verdade para decisões; **display** =
 | `paid_amount_q` | `int` | audit | `EfiPixWebhookView` | — | Valor efetivamente pago pelo cliente |
 | `captured_at` | `string` | audit | `MockPaymentConfirmView` | — | ISO datetime de captura mock (dev only) |
 | `transaction_id` | `string` | audit | `payment.capture()` | — | Transaction ID do adapter pós-capture |
-| `marked_paid_by` | `string` | audit + idempotency | `PedidoMarkPaidView` | `PedidoMarkPaidView` (deduplicação) | Username do operador que marcou como pago |
+| `marked_paid_by` | `string` | legacy audit | endpoint removido | leitura histórica apenas | Campo legado de versões antigas; não é status de pagamento, não deve liberar fluxo operacional e não existe mais como ação de operador |
 | `error` | `string` | audit | `payment.initiate()` | — | Mensagem de erro se create_intent falhou (max 200 chars) |
 
 ### returns — detalhamento
@@ -236,6 +250,7 @@ Classificações: **canonical** = fonte de verdade para decisões; **display** =
   "payment": {
     "method": "pix",
     "intent_ref": "INT-abc123",
+    "idempotency_key": "order-payment:WEB-010426-ABCD:pix:2500:...",
     "amount_q": 2500,
     "e2e_id": "E123456789",
     "paid_amount_q": 2500
@@ -259,6 +274,9 @@ Escrito uma única vez por `CommitService._do_commit()`.
 | `data` | `dict` | handlers/customer.py (fallback), hooks (stock.commit holds) | Cópia integral de `session.data` no momento do commit |
 | `pricing` | `dict` | customers.OrderingOrderHistoryBackend | Pricing da sessão: `{total_q, subtotal_q, discount_q, ...}` |
 | `rev` | `int` | hooks._build_directive_payload (stock.hold) | Revisão da sessão no commit |
+| `seed` | `string` | seed | QA/auditoria | Marcador de origem para dados demo. Não usado em lógica de negócio |
+| `seed_namespace` | `string` | seed | QA/auditoria | Grupo deterministico do seed, ex: `"security_reliability_edges"` |
+| `seed_key` | `string` | seed | seed idempotente, QA/auditoria | Chave unica do cenario seed para evitar duplicacao em reruns |
 
 ### Exemplo completo
 
@@ -668,6 +686,23 @@ Adapters aceitos por tipo:
 ### Prioridade de resolução
 
 `Shop.integrations` → `settings.SHOPMAN_*_ADAPTERS` → defaults de código.
+
+---
+
+## Customer.metadata
+
+Extensao do cadastro de cliente para contexto operacional e demos. Dados que
+alteram autorizacao, cobranca ou identidade devem viver em campos/modelos
+proprios, nao aqui.
+
+**Campo**: `Customer.metadata` (JSONField, `shopman/guestman/models/customer.py`).
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `preferences` | `string \| dict` | cadastro/importacao | atendimento, segmentacao | Preferencias gerais do cliente, ex: restricoes alimentares |
+| `birthday` | `string` | cadastro/importacao legado | atendimento, segmentacao | Data de aniversario em registros legados. Preferir campo `Customer.birthday` |
+| `seed_persona` | `string` | seed | QA/auditoria | Persona operacional deterministica. Ex: `"low_attention"` |
+| `qa_notes` | `list[string]` | seed | QA/auditoria | Observacoes de teste para simular baixa atencao, recuperacao e suporte |
 
 ---
 

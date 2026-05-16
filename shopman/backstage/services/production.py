@@ -1,4 +1,4 @@
-"""Production operator command facade.
+"""Production operator mutation facade.
 
 Backstage views call this module for production mutations. Domain invariants
 remain in ``shopman.shop.services.production`` and Craftsman; this layer is the
@@ -7,18 +7,18 @@ operator-surface boundary for form-oriented actions.
 
 from __future__ import annotations
 
-import logging
 import csv
-from io import StringIO
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 
 from django.utils import timezone
 
 from shopman.backstage.services.exceptions import ProductionError
-from shopman.shop.services.production import BulkPlanResult
 from shopman.shop.services import production as production_core
+from shopman.shop.services.production import BulkPlanResult
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,10 @@ def apply_planned(
     target_date_value,
     position_ref: str = "",
     operator_ref: str = "",
+    reason: str = "",
     actor: str,
     force: bool = False,
+    source_ref: str = "production_matrix",
 ):
     """Create or adjust the planned work order represented by a matrix cell."""
     _check_linked_order_coverage(
@@ -116,7 +118,9 @@ def apply_planned(
         target_date_value=target_date_value,
         position_ref=position_ref,
         operator_ref=operator_ref,
+        reason=reason,
         actor=actor,
+        source_ref=source_ref,
     )
 
 
@@ -232,9 +236,9 @@ def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:
         writer.writerow([
             "Operador",
             "Nome",
-            "Ordens finalizadas",
+            "Ordens concluídas",
             "Qtd total",
-            "Yield médio",
+            "Rendimento médio",
             "Tempo médio (min)",
         ])
         for row in reports.operator_rows:
@@ -252,7 +256,7 @@ def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:
             "Nome",
             "Ordens",
             "Perda total",
-            "Yield médio",
+            "Rendimento médio",
             "Utilização capacidade",
         ])
         for row in reports.waste_rows:
@@ -273,12 +277,12 @@ def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:
             "Posição",
             "Qtd planejada",
             "Qtd iniciada",
-            "Qtd finalizada",
+            "Qtd concluída",
             "Perda",
-            "Yield",
+            "Rendimento",
             "Operador",
             "Iniciada em",
-            "Finalizada em",
+            "Concluída em",
             "Duração (min)",
         ])
         for row in reports.history_rows:
@@ -313,6 +317,7 @@ def order_commitments_for_work_order(wo_ref: str):
     """Return a work order and item quantities committed by linked orders."""
     from shopman.craftsman.models import WorkOrder
     from shopman.orderman.models import Order
+
     from shopman.shop.handlers.production_order_sync import linked_order_refs
 
     work_order = WorkOrder.objects.select_related("recipe").get(ref=wo_ref)
@@ -363,6 +368,7 @@ def _check_linked_order_coverage(
         return
     try:
         from shopman.craftsman.models import Recipe, WorkOrder
+
         from shopman.shop.handlers.production_order_sync import linked_order_refs, order_requirement_for_work_order
 
         recipe = Recipe.objects.get(pk=recipe_id)

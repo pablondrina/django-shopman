@@ -30,7 +30,7 @@ make install
 ```
 
 O `make install` instala:
-- Django 5.2+, DRF, `psycopg[binary]`, django-filter, django-redis, phonenumbers, pytest
+- Django 6.0, DRF, `psycopg[binary]`, django-filter, `redis`, phonenumbers, pytest
 - Cada package core (`packages/*`) em modo editavel (`pip install -e`)
 - O framework orquestrador (`shopman/shop/`) em modo editavel
 
@@ -38,9 +38,15 @@ O `make up` sobe via `docker-compose.yml` na raiz:
 - **postgres**: `postgres:16-alpine` em `localhost:5432`, DB/usuário/senha = `shopman`
 - **redis**: `redis:7-alpine` em `localhost:6379`
 
-`DATABASE_URL` em `.env` aponta para o Postgres do compose. Se a variável estiver
-vazia/ausente, `config/settings.py` cai no fallback SQLite — útil para scripts
-rápidos ou CI leve, mas os testes de concorrência do Stockman só rodam em Postgres.
+`DATABASE_URL` em `.env` aponta para o Postgres do compose. `REDIS_URL` aponta
+para o Redis do compose. Esse é o caminho canônico de desenvolvimento porque
+exercita locks transacionais, rate limit compartilhado, caches operacionais e
+fanout SSE multi-worker.
+
+Se `DATABASE_URL` estiver vazia/ausente, `config/settings.py` cai no fallback
+SQLite. Se `REDIS_URL` estiver vazia/ausente, cai em `LocMemCache`. Esses
+fallbacks são úteis para scripts rápidos ou CI leve, mas não servem como
+evidência de release.
 
 ## Banco de Dados
 
@@ -61,8 +67,9 @@ make run
 
 - **Storefront:** http://localhost:8000/
 - **Admin:** http://localhost:8000/admin/ (`admin` / `admin`)
-- **Gestor de pedidos:** http://localhost:8000/pedidos/
-- **KDS:** http://localhost:8000/kds/
+- **Gestor de pedidos:** http://localhost:8000/admin/operacao/pedidos/
+- **KDS operacional:** http://localhost:8000/admin/operacao/kds/
+- **POS:** http://localhost:8000/gestor/pos/
 
 ## Parar a infra
 
@@ -70,17 +77,20 @@ make run
 make down    # para postgres + redis (dados persistem no volume postgres_data)
 ```
 
-## Fallback SQLite (sem Docker)
+## Fallback local sem Docker
 
-Se você não quiser subir Docker, deixe `DATABASE_URL` comentado no `.env`:
+Se você não quiser subir Docker, deixe `DATABASE_URL` e `REDIS_URL` comentados
+no `.env`:
 
 ```bash
 # DATABASE_URL=postgres://...
+# REDIS_URL=redis://...
 ```
 
 `make migrate && make seed && make run` funcionam, mas os testes de concorrência
-do Stockman (`select_for_update()`) são pulados — e o contrato "zero over-sell"
-não é exercitado localmente.
+com `select_for_update()` são pulados, rate limits ficam por processo e SSE
+multi-worker não é exercitado localmente. Esse modo é conveniência, não critério
+de pronto.
 
 ## Comandos Uteis
 

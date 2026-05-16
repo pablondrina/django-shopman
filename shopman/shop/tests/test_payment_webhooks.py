@@ -18,11 +18,12 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.orderman.models import Order, Session
+from shopman.orderman.models import IdempotencyKey, Order, Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
-from shopman.payman import PaymentService
+from shopman.payman import PaymentService, PaymentTransaction
 
+from shopman.backstage.models import OperatorAlert
 from shopman.shop.models import Channel
 
 STRIPE_SETTINGS = {
@@ -170,6 +171,31 @@ class StripeWebhookTests(WebhookTestBase):
         mock_event.data.object = mock_pi
         return mock_event
 
+    def _mock_charge_refunded_event(
+        self,
+        *,
+        event_id: str,
+        stripe_pi_id: str,
+        amount_q: int,
+        amount_refunded_q: int,
+        charge_id: str = "ch_test_refund",
+    ):
+        """Return a Stripe charge.refunded event.
+
+        Stripe's amount_refunded is cumulative, not the delta for this event.
+        """
+        mock_event = MagicMock()
+        mock_event.id = event_id
+        mock_event.type = "charge.refunded"
+        charge = MagicMock()
+        charge.id = charge_id
+        charge.payment_intent = stripe_pi_id
+        charge.amount = amount_q
+        charge.amount_captured = amount_q
+        charge.amount_refunded = amount_refunded_q
+        mock_event.data.object = charge
+        return mock_event
+
     # ── Happy path ────────────────────────────────────────────
 
     def test_stripe_payment_succeeded_captures_intent(self) -> None:
@@ -217,7 +243,7 @@ class StripeWebhookTests(WebhookTestBase):
     # ── Idempotency ───────────────────────────────────────────
 
     def test_stripe_duplicate_webhook_idempotent(self) -> None:
-        """Same webhook twice → PaymentIntent captured once, no error on second."""
+        """Same webhook twice → PaymentIntent captured once, downstream hook once."""
         order = _create_order_with_payment("web", "card")
         intent = _create_card_intent(order)
         event_dict = self._make_event("payment_intent.succeeded", intent.gateway_id, intent.ref)
@@ -228,15 +254,62 @@ class StripeWebhookTests(WebhookTestBase):
             mock_stripe.Webhook.construct_event.return_value = mock_event
             mock_get_stripe.return_value = mock_stripe
 
-            resp1 = self._post_webhook(event_dict)
-            resp2 = self._post_webhook(event_dict)
+            with patch(
+                "shopman.shop.webhooks.stripe.StripeWebhookView._trigger_order_hooks"
+            ) as mock_hooks:
+                resp1 = self._post_webhook(event_dict)
+                resp2 = self._post_webhook(event_dict)
 
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(mock_hooks.call_count, 1)
+        self.assertEqual(IdempotencyKey.objects.filter(scope="webhook:stripe").count(), 1)
 
         # Status still captured (not double-captured)
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
+
+    def test_stripe_charge_refunded_reconciles_cumulative_amounts(self) -> None:
+        """Stripe refund events report cumulative totals; Payman records deltas."""
+        order = _create_order_with_payment("web", "card")
+        intent = _create_card_intent(order)
+        PaymentService.authorize(intent.ref, gateway_id=intent.gateway_id)
+        PaymentService.capture(intent.ref, gateway_id="ch_test_refund")
+
+        first_event = self._mock_charge_refunded_event(
+            event_id="evt_refund_1",
+            stripe_pi_id=intent.gateway_id,
+            amount_q=1000,
+            amount_refunded_q=400,
+        )
+        second_event = self._mock_charge_refunded_event(
+            event_id="evt_refund_2",
+            stripe_pi_id=intent.gateway_id,
+            amount_q=1000,
+            amount_refunded_q=1000,
+        )
+
+        with patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe:
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.side_effect = [first_event, second_event]
+            mock_get_stripe.return_value = mock_stripe
+
+            resp1 = self._post_webhook({"id": "evt_refund_1", "type": "charge.refunded"})
+            resp2 = self._post_webhook({"id": "evt_refund_2", "type": "charge.refunded"})
+
+        self.assertEqual(resp1.status_code, 200, resp1.data)
+        self.assertEqual(resp2.status_code, 200, resp2.data)
+        self.assertEqual(PaymentService.refunded_total(intent.ref), 1000)
+
+        refunds = list(
+            PaymentTransaction.objects.filter(
+                intent__ref=intent.ref,
+                type=PaymentTransaction.Type.REFUND,
+            )
+            .order_by("created_at")
+            .values_list("amount_q", flat=True)
+        )
+        self.assertEqual(refunds, [400, 600])
 
     # ── Race condition ────────────────────────────────────────
 
@@ -283,6 +356,30 @@ class StripeWebhookTests(WebhookTestBase):
             resp = self._post_webhook({"type": "test"}, sig="bad-sig")
 
         self.assertEqual(resp.status_code, 400)
+
+    def test_stripe_processing_failure_creates_operator_alert(self) -> None:
+        """Verified webhook that crashes during processing creates an ops alert."""
+        event_dict = self._make_event("payment_intent.succeeded", "pi_alert", "PAY-ALERT")
+        mock_event = self._mock_stripe_construct(event_dict)
+
+        with (
+            patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe,
+            patch(
+                "shopman.shop.adapters.payment_stripe.handle_webhook_event",
+                side_effect=RuntimeError("gateway drift"),
+            ),
+        ):
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.return_value = mock_event
+            mock_get_stripe.return_value = mock_stripe
+            resp = self._post_webhook(event_dict)
+
+        self.assertEqual(resp.status_code, 500)
+        alert = OperatorAlert.objects.get(type="webhook_failed")
+        self.assertEqual(alert.severity, "error")
+        self.assertEqual(alert.order_ref, "ORD-TEST")
+        self.assertIn("Webhook stripe falhou", alert.message)
+        self.assertIn("payment_intent.succeeded", alert.message)
 
     # ── Unconfigured ──────────────────────────────────────────
 
@@ -386,9 +483,71 @@ class EfiPixWebhookTests(WebhookTestBase):
 
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp1.data["processed"], 1)
+        self.assertEqual(resp2.data["replays"], 1)
+        self.assertEqual(IdempotencyKey.objects.filter(scope="webhook:efi-pix").count(), 1)
 
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
+
+    def test_efi_same_e2e_cannot_capture_another_txid(self) -> None:
+        """A replayed PIX e2e id is global, not scoped only to a txid."""
+        order_1 = _create_order_with_payment("web", "pix")
+        intent_1 = _create_pix_intent(order_1)
+        order_2 = _create_order_with_payment("web", "pix")
+        intent_2 = PaymentService.create_intent(
+            order_ref=order_2.ref,
+            amount_q=order_2.total_q,
+            method="pix",
+            gateway="efi",
+            gateway_data={},
+        )
+        intent_2.gateway_id = "txid_second_order"
+        intent_2.save(update_fields=["gateway_id"])
+        order_2.data.setdefault("payment", {})["intent_ref"] = intent_2.ref
+        order_2.save(update_fields=["data", "updated_at"])
+
+        e2e_id = "E_GLOBAL_REPLAY"
+        resp1 = self._post(
+            {"pix": [{"txid": intent_1.gateway_id, "endToEndId": e2e_id, "valor": "10.00"}]}
+        )
+        resp2 = self._post(
+            {"pix": [{"txid": intent_2.gateway_id, "endToEndId": e2e_id, "valor": "10.00"}]}
+        )
+
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.data["replays"], 1)
+        intent_2.refresh_from_db()
+        self.assertEqual(intent_2.status, "pending")
+
+    def test_efi_in_progress_replay_returns_409(self) -> None:
+        from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+        IdempotencyKey.objects.create(
+            scope="webhook:efi-pix",
+            key=f"txid:{stable_webhook_key('txid_busy')}",
+            status="in_progress",
+        )
+
+        resp = self._post(
+            {"pix": [{"txid": "txid_busy", "endToEndId": "", "valor": "10.00"}]}
+        )
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.data["in_progress"], 1)
+
+    def test_confirm_pix_without_e2e_is_still_order_idempotent(self) -> None:
+        """Legacy callers without e2e_id must not dispatch on_paid twice."""
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = _create_order_with_payment("web", "pix")
+        intent = _create_pix_intent(order)
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid=intent.gateway_id, valor="10.00")
+            confirm_pix(txid=intent.gateway_id, valor="10.00")
+
+        self.assertEqual(mock_dispatch.call_count, 1)
 
     # ── Race condition ────────────────────────────────────────
 

@@ -88,13 +88,13 @@
 ## Guestman (Clientes)
 
 **Arquivo:** `packages/guestman/shopman/guestman/conf.py`
-**Dict:** `GUESTMAN = {}`
+**Dict:** `GUESTMAN`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
 | `DEFAULT_REGION` | str | `"BR"` | Região padrão para normalização de telefone |
 | `EVENT_CLEANUP_DAYS` | int | `90` | Dias para manter ProcessedEvent antes de cleanup |
-| `ORDER_HISTORY_BACKEND` | str | `""` | Dotted path do backend de histórico de pedidos |
+| `ORDER_HISTORY_BACKEND` | str | `shopman.guestman.adapters.orderman.OrdermanOrderHistoryBackend` | Dotted path do backend de histórico de pedidos |
 
 **Guia:** [guestman.md](../guides/guestman.md)
 
@@ -213,7 +213,7 @@ O app **recusa iniciar** com `DEBUG=False` se:
 ```python
 # settings.py
 DOORMAN = {
-    "ACCESS_LINK_API_KEY": os.environ["AUTH_ACCESS_LINK_API_KEY"],
+    "ACCESS_LINK_API_KEY": os.environ["DOORMAN_ACCESS_LINK_API_KEY"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "shop.example.com"),
     "USE_HTTPS": True,
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
@@ -245,7 +245,9 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 |---------|------|---------|-----------|
 | `SHOPMAN_STOCK_BACKEND` | str | *(auto-detecção)* | Backend de estoque. Se omitido, usa backend interno → fallback `NoopStockBackend` |
 | `SHOPMAN_PAYMENT_BACKEND` | str | backend mock interno | Backend de pagamento |
-| `SHOPMAN_FISCAL_BACKEND` | str | *(sem default)* | Backend fiscal. Se ausente, handlers fiscais não são registrados |
+| `SHOPMAN_FISCAL_ADAPTER` | str | *(sem default)* | Adapter fiscal. Se ausente, handlers fiscais não são registrados |
+| `SHOPMAN_FOCUS_NFE` | dict | homologação | Configuração do adapter `shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend` |
+| `SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q` | int | `0` | Valor de desconto em centavos acima do qual o POS exige aprovação gerencial. `0` desativa |
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 
@@ -267,8 +269,17 @@ Settings flat usados pela integração ManyChat:
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `MANYCHAT_API_TOKEN` | str | — | Token da API ManyChat. Se definido, ativa ManychatBackend de notificações |
+| `MANYCHAT_API_TOKEN` | str | `""` | Token da API ManyChat para chamadas outbound Shopman -> ManyChat. Não autentica chamadas inbound do ManyChat |
+| `MANYCHAT_WEBHOOK_SECRET` | str | `""` | Segredo HMAC para webhooks inbound do ManyChat. Não envia mensagens outbound |
+| `MANYCHAT_SUBSCRIBER_RESOLVER` | str | `shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve` | Callable para resolver telefone/customer em subscriber_id ManyChat |
+| `MANYCHAT_API_BASE` | str | `https://api.manychat.com/fb` | Base URL da API ManyChat |
+| `MANYCHAT_API_TIMEOUT` | int | `15` | Timeout em segundos das chamadas ManyChat |
+| `SHOPMAN_MANYCHAT` | dict | derivado das envs acima | Configuração canônica consumida por `notification_manychat` e `otp_manychat` |
 | `MANYCHAT_FLOW_MAP` | dict | — | Mapa de evento → flow ID do ManyChat |
+
+Para `POST /api/auth/access/create/` originado do ManyChat, use
+`DOORMAN_ACCESS_LINK_API_KEY` via header `X-Api-Key` ou `Authorization: Bearer`.
+Esse segredo pertence ao Doorman, nao ao ManyChat API token.
 
 ---
 

@@ -285,6 +285,7 @@ def find_holds_by_reference(
     reference: str,
     *,
     sku: str | None = None,
+    metadata_filters: dict[str, object] | None = None,
 ) -> list[tuple[str, str, Decimal]]:
     """Find active holds (PENDING/CONFIRMED) tagged with `reference`.
 
@@ -298,6 +299,8 @@ def find_holds_by_reference(
         sku=sku,
         status_in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
     )
+    for key, value in (metadata_filters or {}).items():
+        holds = holds.filter(**{f"metadata__{key}": value})
     return [(h.hold_id, h.sku, Decimal(str(h.quantity))) for h in holds]
 
 
@@ -387,4 +390,49 @@ def get_promise_decision(
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
         excluded_positions=excluded_positions,
+    )
+
+
+def promise_decision_from_availability(
+    sku: str,
+    qty,
+    info: dict,
+    *,
+    target_date: date | None = None,
+):
+    """Return the default promise decision from an already-loaded availability dict."""
+    from shopman.stockman.protocols.sku import PromiseDecision
+
+    qty_d = Decimal(str(qty))
+    available_qty = Decimal(str(info.get("total_promisable", 0)))
+    availability_policy = info.get("availability_policy", "planned_ok")
+    is_paused = bool(info.get("is_paused", False))
+
+    if is_paused:
+        approved = False
+        effective_available_qty = Decimal("0")
+    elif availability_policy == "demand_ok":
+        approved = True
+        effective_available_qty = max(available_qty, qty_d)
+    else:
+        approved = qty_d <= available_qty
+        effective_available_qty = available_qty
+
+    reason_code = None
+    if not approved:
+        reason_code = "paused" if is_paused else "insufficient_supply"
+
+    return PromiseDecision(
+        approved=approved,
+        sku=sku,
+        requested_qty=qty_d,
+        target_date=target_date,
+        availability_policy=availability_policy,
+        reason_code=reason_code,
+        available_qty=effective_available_qty,
+        available=Decimal(str(info.get("available", 0))),
+        expected=Decimal(str(info.get("expected", 0))),
+        planned=Decimal(str(info.get("planned", 0))),
+        is_planned=bool(info.get("is_planned", False)),
+        is_paused=is_paused,
     )

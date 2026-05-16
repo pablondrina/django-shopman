@@ -84,7 +84,7 @@
       {% comment %}Nav links{% endcomment %}
       <nav class="flex-1 py-3 flex flex-col items-center gap-1 overflow-y-auto scrollbar-hide" aria-label="Áreas operacionais">
 
-        {% url 'backstage:gestor_pedidos' as url_pedidos %}
+        {% url 'admin_console_orders' as url_pedidos %}
         <a href="{{ url_pedidos }}"
            class="btn-icon relative {% block nav_active_pedidos %}{% endblock %}"
            title="Pedidos"
@@ -98,7 +98,7 @@
           {% endif %}
         </a>
 
-        {% url 'backstage:kds_index' as url_kds %}
+        {% url 'admin_console_kds' as url_kds %}
         <a href="{{ url_kds }}"
            class="btn-icon {% block nav_active_kds %}{% endblock %}"
            title="KDS · Cozinha"
@@ -114,7 +114,7 @@
           <span class="material-symbols-rounded icon-md" aria-hidden="true">point_of_sale</span>
         </a>
 
-        {% url 'backstage:production' as url_producao %}
+        {% url 'admin_console_production' as url_producao %}
         <a href="{{ url_producao|default:'/admin/' }}"
            class="btn-icon {% block nav_active_producao %}{% endblock %}"
            title="Produção"
@@ -122,7 +122,7 @@
           <span class="material-symbols-rounded icon-md" aria-hidden="true">factory</span>
         </a>
 
-        {% url 'backstage:day_closing' as url_fechamento %}
+        {% url 'admin_console_day_closing' as url_fechamento %}
         <a href="{{ url_fechamento }}"
            class="btn-icon {% block nav_active_fechamento %}{% endblock %}"
            title="Fechamento do Dia"

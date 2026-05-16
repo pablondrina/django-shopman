@@ -113,13 +113,22 @@ class TestPaymentGuard:
     def test_blocks_pending_upfront_payment(self):
         from shopman.shop.lifecycle import ensure_payment_captured
         order = _make_order(data={"payment": {"method": "pix", "status": "pending"}})
-        with pytest.raises(InvalidTransition, match="Pagamento"):
-            ensure_payment_captured(order)
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", return_value=_config(payment_timing="at_commit", payment_method="pix")):
+            with pytest.raises(InvalidTransition, match="Pagamento"):
+                ensure_payment_captured(order)
+
+    def test_blocks_selected_upfront_payment_without_intent(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "pix"}})
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", return_value=_config(payment_timing="at_commit", payment_method="pix")):
+            with pytest.raises(InvalidTransition, match="Pagamento"):
+                ensure_payment_captured(order)
 
     def test_accepts_captured_payment(self):
         from shopman.shop.lifecycle import ensure_payment_captured
         order = _make_order(data={"payment": {"method": "pix", "status": "captured"}})
-        ensure_payment_captured(order)
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", return_value=_config(payment_timing="at_commit", payment_method="pix")):
+            ensure_payment_captured(order)
 
     def test_accepts_cash_on_delivery(self):
         from shopman.shop.lifecycle import ensure_payment_captured
@@ -171,6 +180,30 @@ class TestOnCommit:
         )
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._create_alert")
+    @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.payment")
+    @patch("shopman.shop.lifecycle.loyalty")
+    @patch("shopman.shop.lifecycle.customer")
+    @patch("shopman.shop.lifecycle.stock")
+    def test_immediate_confirmation_waits_for_upfront_payment(
+        self, mock_stock, mock_customer, mock_loyalty, mock_payment,
+        mock_notification, mock_alert, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="immediate",
+            payment_timing="at_commit",
+            payment_method="pix",
+        )
+        order = _make_order(data={"payment": {"method": "pix", "status": "pending"}})
+        dispatch(order, "on_commit")
+
+        mock_payment.initiate.assert_called_once_with(order)
+        order.transition_status.assert_not_called()
+        mock_alert.assert_called_once_with(order, "payment_awaiting_confirmation")
+        mock_notification.send.assert_called_once_with(order, "order_received")
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
@@ -187,6 +220,73 @@ class TestOnCommit:
         assert directive is not None
         assert directive.payload["order_ref"] == "ORD-001"
         assert directive.payload["action"] == "confirm"
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.loyalty")
+    @patch("shopman.shop.lifecycle.customer")
+    @patch("shopman.shop.lifecycle.stock")
+    @pytest.mark.django_db
+    def test_auto_confirm_timer_waits_for_next_opening_when_store_is_closed(
+        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+    ):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from shopman.shop.models import Shop
+
+        tz = ZoneInfo("America/Sao_Paulo")
+        Shop.objects.create(
+            name="Closed Sunday",
+            timezone="America/Sao_Paulo",
+            opening_hours={
+                "monday": {"open": "09:00", "close": "18:00"},
+                "tuesday": {"open": "09:00", "close": "18:00"},
+                "wednesday": {"open": "09:00", "close": "18:00"},
+                "thursday": {"open": "09:00", "close": "18:00"},
+                "friday": {"open": "09:00", "close": "18:00"},
+                "saturday": {"open": "09:00", "close": "18:00"},
+            },
+        )
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="auto_confirm", confirmation_timeout=5,
+        )
+        order = _make_order(ref="ORD-CLOSED-SUNDAY")
+
+        with patch(
+            "shopman.shop.services.business_calendar.timezone.now",
+            return_value=datetime(2026, 5, 3, 12, 0, tzinfo=tz),
+        ):
+            dispatch(order, "on_commit")
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout",
+            payload__order_ref="ORD-CLOSED-SUNDAY",
+        ).first()
+        assert directive is not None
+        assert directive.available_at == datetime(2026, 5, 4, 9, 5, tzinfo=tz)
+        assert directive.payload["outside_business_hours"] is True
+        assert directive.payload["deferred_until"] == datetime(
+            2026, 5, 4, 9, 0, tzinfo=tz,
+        ).isoformat()
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.payment")
+    @patch("shopman.shop.lifecycle.loyalty")
+    @patch("shopman.shop.lifecycle.customer")
+    @patch("shopman.shop.lifecycle.stock")
+    @pytest.mark.django_db
+    def test_auto_confirm_waits_for_upfront_digital_payment_before_timer(
+        self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="auto_confirm",
+            confirmation_timeout=5,
+            payment_timing="at_commit",
+            payment_method="pix",
+        )
+        order = _make_order(data={"payment": {"method": "pix", "intent_ref": "PAY-PENDING"}})
+        dispatch(order, "on_commit")
+        assert not Directive.objects.filter(topic="confirmation.timeout").exists()
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.loyalty")
@@ -242,18 +342,39 @@ class TestOnCommit:
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_no_payment_at_commit_when_post_commit(
-        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="manual", payment_timing="post_commit",
         )
         order = _make_order()
         dispatch(order, "on_commit")
-        # payment.initiate should NOT be called during commit for post_commit timing
+        mock_payment.initiate.assert_not_called()
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.payment")
+    @patch("shopman.shop.lifecycle.loyalty")
+    @patch("shopman.shop.lifecycle.customer")
+    @patch("shopman.shop.lifecycle.stock")
+    def test_selected_pix_payment_waits_for_store_confirmation_with_post_commit(
+        self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_notification, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="manual",
+            payment_timing="post_commit",
+            payment_method=["pix", "card"],
+        )
+        order = _make_order(data={"payment": {"method": "pix"}})
+
+        dispatch(order, "on_commit")
+
+        mock_payment.initiate.assert_not_called()
 
 
 class TestOnCommitAvailabilityCheck:
@@ -351,7 +472,8 @@ class TestOnConfirmed:
         order = _make_order()
         dispatch(order, "on_confirmed")
         mock_payment.initiate.assert_called_once_with(order)
-        mock_notification.send.assert_called_once_with(order, "order_confirmed")
+        mock_kds_dispatch.assert_not_called()
+        mock_notification.send.assert_called_once_with(order, "payment_requested")
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
@@ -395,13 +517,73 @@ class TestOnConfirmed:
 
 class TestOnPaid:
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._dispatch_physical_work")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.stock")
-    def test_fulfills_stock_and_notifies(self, mock_stock, mock_notification, mock_cc):
+    def test_fulfills_stock_and_notifies(self, mock_stock, mock_notification, mock_dispatch_work, mock_cc):
         mock_cc.for_channel.return_value = _config()
+        mock_dispatch_work.return_value = False
         order = _make_order(status="confirmed")
         dispatch(order, "on_paid")
         mock_stock.fulfill.assert_called_once_with(order)
+        mock_notification.send.assert_called_once_with(order, "payment_confirmed")
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._dispatch_physical_work", return_value=True)
+    @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.stock")
+    def test_confirmed_paid_order_enters_preparing_when_kds_work_is_dispatched(
+        self, mock_stock, mock_notification, mock_dispatch_work, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config()
+        order = _make_order(status=Order.Status.CONFIRMED)
+        order.can_transition_to.return_value = True
+
+        dispatch(order, "on_paid")
+
+        mock_dispatch_work.assert_called_once_with(order)
+        order.transition_status.assert_called_once_with(
+            Order.Status.PREPARING,
+            actor="system:kds_dispatch",
+        )
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._create_alert")
+    @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.stock")
+    def test_new_order_payment_waits_for_operator_confirmation(
+        self, mock_stock, mock_notification, mock_alert, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config()
+        order = _make_order(status=Order.Status.NEW)
+        dispatch(order, "on_paid")
+        mock_stock.fulfill.assert_not_called()
+        mock_alert.assert_called_once_with(order, "payment_awaiting_confirmation")
+        mock_notification.send.assert_called_once_with(order, "payment_confirmed")
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._create_alert")
+    @patch("shopman.shop.lifecycle.notification")
+    @patch("shopman.shop.lifecycle.stock")
+    @pytest.mark.django_db
+    def test_new_paid_auto_confirm_order_schedules_store_confirmation_timer(
+        self, mock_stock, mock_notification, mock_alert, mock_cc,
+    ):
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="auto_confirm",
+            confirmation_timeout=5,
+            payment_timing="at_commit",
+            payment_method="pix",
+        )
+        order = _make_order(status=Order.Status.NEW, data={"payment": {"method": "pix", "intent_ref": "PAY-1"}})
+        dispatch(order, "on_paid")
+
+        directive = Directive.objects.filter(topic="confirmation.timeout", payload__order_ref=order.ref).first()
+        assert directive is not None
+        assert directive.payload["action"] == "confirm"
+        assert directive.payload["source"] == "payment_confirmed"
+        mock_stock.fulfill.assert_not_called()
+        mock_alert.assert_called_once_with(order, "payment_awaiting_confirmation")
         mock_notification.send.assert_called_once_with(order, "payment_confirmed")
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
@@ -526,6 +708,21 @@ class TestNotificationPhases:
         dispatch(order, "on_delivered")
         mock_notification.send.assert_called_once_with(order, "order_delivered")
 
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
+    def test_on_delivered_auto_completes_post_handoff(self, mock_notification, mock_cc):
+        mock_cc.for_channel.return_value = _config()
+        order = _make_order(status=Order.Status.DELIVERED)
+        order.can_transition_to.return_value = True
+
+        dispatch(order, "on_delivered")
+
+        mock_notification.send.assert_called_once_with(order, "order_delivered")
+        order.transition_status.assert_called_once_with(
+            Order.Status.COMPLETED,
+            actor="system:post_handoff",
+        )
+
 
 # ── Channel-specific scenarios (config-driven) ──
 
@@ -573,7 +770,7 @@ class TestLocalChannelScenario:
 
 
 class TestRemoteChannelScenario:
-    """Remote channel: payment.timing=post_commit, confirmation.mode=auto_confirm."""
+    """Isolated hooks for channels that initiate payment after confirmation."""
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
@@ -588,9 +785,10 @@ class TestRemoteChannelScenario:
         mock_payment.initiate.assert_called_once_with(order)
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._dispatch_physical_work")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.stock")
-    def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_cc):
+    def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_dispatch_work, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
         )
@@ -642,9 +840,10 @@ class TestMarketplaceChannelScenario:
         mock_stock.fulfill.assert_not_called()
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle._dispatch_physical_work")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.stock")
-    def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_cc):
+    def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_dispatch_work, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="external", payment_method="external",
         )

@@ -9,7 +9,8 @@ que você o encontre. O esforço é invisível. O resultado é natural.
 Referências:
 - [`docs/omotenashi.md`](../omotenashi.md) — framework filosófico completo (Três Portões, Cinco Lentes, Cinco Testes)
 - [`docs/omotenashi-checklist.md`](../omotenashi-checklist.md) — checklist operacional por tela
-- [`shopman/storefront/omotenashi/context.py`](../../shopman/storefront/omotenashi/context.py) — OmotenashiContext (moment + audience)
+- [`docs/reference/surface-excellence-review-framework.md`](surface-excellence-review-framework.md) — régua combinada para contrato backend, omotenashi e design
+- [`shopman/shop/omotenashi/context.py`](../../shopman/shop/omotenashi/context.py) — OmotenashiContext (moment + audience)
 - [`shopman/shop/omotenashi/copy.py`](../../shopman/shop/omotenashi/copy.py) — CopyEntry registry + resolver
 
 ---

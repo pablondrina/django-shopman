@@ -5,6 +5,7 @@ Tests for shopman.rules — engine, pricing rules, validation rules, and admin.
 from __future__ import annotations
 
 from datetime import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +15,7 @@ from django.core.exceptions import ValidationError
 from shopman.shop.models import RuleConfig
 from shopman.shop.rules.engine import (
     CACHE_KEY,
+    bootstrap_active_rules,
     get_active_rules,
     invalidate_rules_cache,
     load_rule,
@@ -206,6 +208,55 @@ class TestMinimumOrderRule:
 
 
 # ── Engine tests (require DB) ────────────────────────────────────────
+
+
+class TestEngineBootstrap:
+    def test_bootstrap_active_rules_returns_when_bootstrap_is_already_running(self, monkeypatch):
+        from shopman.shop.rules import engine as rules_engine
+
+        monkeypatch.setattr(rules_engine, "_bootstrapped", False)
+        monkeypatch.setattr(
+            rules_engine,
+            "register_active_rules",
+            lambda: pytest.fail("reentrant bootstrap must not register rules"),
+        )
+
+        acquired = rules_engine._boot_lock.acquire(blocking=False)
+        assert acquired
+        try:
+            bootstrap_active_rules()
+        finally:
+            rules_engine._boot_lock.release()
+
+    def test_bootstrap_signal_ignores_non_default_database_alias(self, monkeypatch):
+        from django.db.backends.base.base import NO_DB_ALIAS
+
+        from shopman.shop.apps import bootstrap_rules_on_connection
+
+        called = []
+        monkeypatch.setattr(
+            "shopman.shop.rules.engine.bootstrap_active_rules",
+            lambda: called.append(True),
+        )
+
+        bootstrap_rules_on_connection(sender=object, connection=SimpleNamespace(alias=NO_DB_ALIAS))
+
+        assert called == []
+
+    def test_bootstrap_signal_runs_for_default_database_alias(self, monkeypatch):
+        from django.db import DEFAULT_DB_ALIAS
+
+        from shopman.shop.apps import bootstrap_rules_on_connection
+
+        called = []
+        monkeypatch.setattr(
+            "shopman.shop.rules.engine.bootstrap_active_rules",
+            lambda: called.append(True),
+        )
+
+        bootstrap_rules_on_connection(sender=object, connection=SimpleNamespace(alias=DEFAULT_DB_ALIAS))
+
+        assert called == [True]
 
 
 @pytest.mark.django_db

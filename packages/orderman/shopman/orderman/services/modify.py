@@ -224,6 +224,9 @@ class ModifyService:
             "qty": qty,
             "meta": op.get("meta", {}),
         }
+        name = str(op.get("name") or "").strip()
+        if name:
+            line["name"] = name
         if "unit_price_q" in op:
             line["unit_price_q"] = ModifyService._parse_non_negative_price_q(op["unit_price_q"])
         if op.get("is_d1"):

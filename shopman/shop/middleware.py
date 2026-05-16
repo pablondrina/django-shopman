@@ -2,17 +2,62 @@
 
 from __future__ import annotations
 
+from ipaddress import ip_address, ip_network
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.shortcuts import redirect
 
 from .models import Shop
 
 API_V1_PREFIX = "/api/v1/"
 API_VERSION = "1"
+HEALTH_PROBE_PATHS = {"/health/", "/ready/"}
+APP_PLATFORM_PROBE_NETWORK = ip_network("100.64.0.0/10")
 
 # Valid origin_channel values that can be set via ?channel= URL parameter
 VALID_CHANNEL_PARAMS = {"whatsapp", "instagram", "web"}
+
+
+class AppPlatformHealthCheckHostMiddleware:
+    """Let DigitalOcean internal probes reach health views without wildcard hosts.
+
+    App Platform probes the container through a private CGNAT address and sends
+    that IP as the Host header. Rewriting only health/readiness probe hosts keeps
+    Django's normal ALLOWED_HOSTS protection intact for every business route.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path_info in HEALTH_PROBE_PATHS and _is_app_platform_probe_host(
+            request.META.get("HTTP_HOST", "")
+        ):
+            request.META["HTTP_HOST"] = _canonical_allowed_host()
+        return self.get_response(request)
+
+
+def _is_app_platform_probe_host(raw_host: str) -> bool:
+    host = _strip_port(raw_host)
+    try:
+        return ip_address(host) in APP_PLATFORM_PROBE_NETWORK
+    except ValueError:
+        return False
+
+
+def _strip_port(raw_host: str) -> str:
+    host = raw_host.strip()
+    if host.startswith("["):
+        return host[1:].split("]", 1)[0]
+    return host.rsplit(":", 1)[0]
+
+
+def _canonical_allowed_host() -> str:
+    for host in settings.ALLOWED_HOSTS:
+        if host and host != "*" and not host.startswith("."):
+            return host
+    return "localhost"
 
 
 class ChannelParamMiddleware:

@@ -39,7 +39,7 @@ Se no futuro o produto exigir **confirmação explícita** do tipo “revisei to
 
 | Peça | Onde |
 |------|------|
-| Tela / POST de fechamento | `shopman/web/views/closing.py` → `closing_view` |
+| Tela / POST de fechamento | `shopman/backstage/admin_console/closing.py` → `day_closing_console_view` |
 | Registro auditável | `DayClosing` (`date`, `closed_by`, `data` = snapshot por SKU) |
 | Classificação por SKU | Interna: `d1` (elegível), `loss` (perecível same-day), `neutral` (restante fica onde está) |
 | Movimentação D-1 | `StockMovements.issue` nas posições vendáveis (exceto `ontem`) + `StockMovements.receive` em `ontem` com **`batch="D-1"`** |
@@ -53,7 +53,7 @@ Permissão: `shop.add_dayclosing`.
 
 - **Liquidação explícita** do que sobrou em `ontem` após o dia de venda D-1 (descarte = issue com motivo padronizado, ou tela dedicada).
 - **Relatório** produzido vs vendido vs não vendido informado vs perda — base para auditoria sem substituir o informe às cegas.
-- **Superfície operacional** `/gestor/fechamento/`: formulário alinhado a `build_day_closing()` (campos `qty_{sku}`). O Admin/Unfold mantém apenas auditoria read-only em `DayClosingAdmin`.
+- **Superfície operacional** `/admin/operacao/fechamento/`: formulário Admin/Unfold alinhado a `build_day_closing()` (campos `qty_{sku}`). `DayClosingAdmin` mantém auditoria e histórico.
 
 ---
 

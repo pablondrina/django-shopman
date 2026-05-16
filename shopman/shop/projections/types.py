@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 
 class Availability(StrEnum):
@@ -70,6 +71,7 @@ PAYMENT_METHOD_LABELS_PT: dict[str, str] = {
     "pix": "PIX",
     "card": "Cartão",
     "cash": "Dinheiro / Maquininha",
+    "mixed": "Pagamento misto",
 
     "external": "Pago online",
 }
@@ -118,6 +120,23 @@ FOOD_PREFERENCE_OPTIONS: tuple[tuple[str, str], ...] = (
 
 
 @dataclass(frozen=True)
+class SurfaceActionProjection:
+    """Canonical action offered by a Shopman projection to any surface."""
+
+    ref: str
+    kind: str
+    label: str
+    priority: str = "secondary"
+    enabled: bool = True
+    reason: str = ""
+    href: str = ""
+    method: str = ""
+    payload_schema: dict[str, Any] = field(default_factory=dict)
+    idempotency: str = "none"
+    confirmation: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class SavedAddressProjection:
     """A customer's saved delivery address.
 
@@ -131,6 +150,8 @@ class SavedAddressProjection:
     complement: str
     label: str
     is_default: bool
+    label_key: str = "home"
+    label_custom: str = ""
     # Extended fields — default empty so callers that only need display keep
     # working without extra arguments. All values are strings so they
     # serialise cleanly to JSON for Alpine.
@@ -153,6 +174,9 @@ class PickupSlotProjection:
     ref: str
     label: str    # e.g. "A partir das 09h"
     starts_at: str  # "09:00"
+    enabled: bool = True
+    reason: str = ""
+    is_earliest: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,6 +206,18 @@ class TimelineEventProjection:
     label: str
     event_type: str
     timestamp_display: str  # pre-formatted local datetime, e.g. "15/04 às 14:32"
+    actor: str = ""
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class OrderProgressStepProjection:
+    """A customer-facing step in the canonical order progress path."""
+
+    label: str
+    key: str
+    state: str  # completed | current | pending | cancelled
+    timestamp_display: str | None = None
 
 
 @dataclass(frozen=True)
@@ -190,6 +226,7 @@ class FulfillmentProjection:
 
     status: str
     status_label: str
+    tracking_label: str
     tracking_code: str | None
     tracking_url: str | None
     carrier: str | None

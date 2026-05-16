@@ -1,4 +1,4 @@
-"""CatalogProjection — read model for the storefront menu/catalog.
+"""CatalogProjection — immutable UI projection for the storefront menu/catalog.
 
 Phase 1 pilot of the PROJECTION-UI-PLAN. The builder orchestrates shop
 services for catalog/price/availability plus ``services.storefront_context``
@@ -114,7 +114,7 @@ class CatalogSectionProjection:
 
 @dataclass(frozen=True)
 class CatalogProjection:
-    """Top-level read model for the storefront menu."""
+    """Top-level projection for the storefront menu."""
 
     items: tuple[CatalogItemProjection, ...]
     categories: tuple[CategoryProjection, ...]
@@ -152,7 +152,7 @@ def build_catalog(
       hints (fulfillment type + subtotal) so prices shown on the menu match
       what the checkout will apply.
     """
-    from shopman.storefront.omotenashi.context import OmotenashiContext
+    from shopman.shop.omotenashi.context import OmotenashiContext
 
     config = ChannelConfig.for_channel(channel_ref)
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
@@ -231,16 +231,12 @@ def build_catalog(
 def _build_categories() -> tuple[CategoryProjection, ...]:
     result: list[CategoryProjection] = []
     for col in catalog_context.active_collections():
-        try:
-            url = reverse("storefront:menu_collection", args=[col.ref])
-        except NoReverseMatch:
-            url = f"/menu/{col.ref}/"
         result.append(
             CategoryProjection(
                 ref=col.ref,
                 name=col.name,
                 icon=collection_icon(col.ref),
-                url=url,
+                url=_menu_anchor_url(col.ref),
             ),
         )
     return tuple(result)
@@ -545,6 +541,10 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _menu_anchor_url(ref: str) -> str:
+    return f"/menu#{ref}" if ref else "/menu"
 
 
 def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:

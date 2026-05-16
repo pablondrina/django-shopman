@@ -9,7 +9,7 @@ The order lifecycle is:
   cart-add → services.availability.reserve(session_key)        [creates PENDING hold]
   checkout → CommitService creates Order with session_key
   on_commit → services.stock.hold(order)                       [adopts session holds]
-  on_paid  → services.stock.fulfill(order)                     [PENDING→CONFIRMED→FULFILLED]
+  on_paid/on_confirmed → services.stock.fulfill(order)          [PENDING→CONFIRMED→FULFILLED]
   cancel   → services.stock.release(order)                     [release adopted holds]
 
 `hold(order)` ADOPTS session holds **by quantity, not by SKU-first**: multiple
@@ -69,6 +69,8 @@ def hold(order) -> None:
     }
 
     for item in items:
+        if (item.get("meta") or {}).get("non_production") or (item.get("meta") or {}).get("type") == "delivery_fee":
+            continue
         sku = item["sku"]
         qty = Decimal(str(item["qty"]))
 
@@ -197,6 +199,8 @@ def revert(order) -> None:
         return
 
     for item in order.items.all():
+        if (item.meta or {}).get("non_production") or (item.meta or {}).get("type") == "delivery_fee":
+            continue
         try:
             adapter.receive_return(
                 sku=item.sku,

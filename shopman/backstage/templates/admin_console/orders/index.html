@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% load i18n static unfold %}
+
+{% block title %}Pedidos | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
+{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="orders-console-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6" hx-ext="sse" sse-connect="{% if operator.event_scope %}{% url 'backstage:events_scoped' kind='orders' scope=operator.event_scope %}{% else %}{% url 'backstage:events' kind='orders' %}{% endif %}">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-1">
+          {% component "unfold/components/title.html" %}
+            Pedidos
+          {% endcomponent %}
+          {% component "unfold/components/text.html" with class="text-base-500" %}
+            {{ orders_total_count }} pedidos ativos · atualizado as {{ orders_last_updated }}
+          {% endcomponent %}
+        </div>
+        <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+          {% component "unfold/components/button.html" with href=orders_list_url variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}sync{% endcomponent %}
+            Atualizar
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with href="/admin/orderman/order/" variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}history{% endcomponent %}
+            Historico
+          {% endcomponent %}
+        </div>
+      </div>
+
+      {% include "unfold/helpers/tab_list.html" with tabs_list=order_flow_tabs %}
+
+      {% if order_status_tracker %}
+        {% component "unfold/components/tracker.html" with data=order_status_tracker size="sm" %}{% endcomponent %}
+      {% endif %}
+    </div>
+
+    <div id="orders-console-sections"
+         hx-get="{{ orders_list_url }}"
+         hx-trigger="sse:backstage-orders-update, ped-board-refresh from:body, every 30s"
+         hx-target="#orders-console-sections"
+         hx-swap="innerHTML"
+         class="flex flex-col gap-4">
+      {% include "admin_console/orders/partials/sections.html" %}
+    </div>
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

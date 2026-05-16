@@ -12,7 +12,7 @@ import logging
 from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
 
-from shopman.shop.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
+from shopman.shop.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE
 
 logger = logging.getLogger(__name__)
 
@@ -156,13 +156,8 @@ class FulfillmentUpdateHandler:
         if not template:
             return
 
-        payload = {
-            "order_ref": order.ref,
-            "channel_ref": order.channel_ref,
-            "template": template,
-        }
-
         # Enriquecer com tracking info para DISPATCHED
+        extra = {}
         if new_status == "dispatched":
             tracking = {}
             if fulfillment.tracking_code:
@@ -172,6 +167,8 @@ class FulfillmentUpdateHandler:
             if fulfillment.carrier:
                 tracking["carrier"] = fulfillment.carrier
             if tracking:
-                payload["tracking"] = tracking
+                extra["tracking"] = tracking
 
-        Directive.objects.create(topic=NOTIFICATION_SEND, payload=payload)
+        from shopman.shop.services import notification
+
+        notification.send(order, template, **extra)

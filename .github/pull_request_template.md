@@ -5,6 +5,7 @@
 ## Checklist Omotenashi
 
 - [ ] **Copy**: mudanças em texto UI usam `{% omotenashi KEY %}`, ou têm `{# copy-ok: <razão> #}` justificando a exceção.
+- [ ] **Admin/Unfold**: backstage novo ou alterado passou `make admin`.
 - [ ] **5 testes Omotenashi**: invisível (zero onclick/document.*), antecipação (dado conhecido pré-preenchido), ma (espaço em branco generoso), calor (tom acolhedor, sem formalidade), retorno (cliente recorrente recebe sinal de reconhecimento).
 - [ ] **Acessibilidade**: contraste ≥ AAA em copy principal; touch targets ≥ 48 px; heading levels corretos (sem pulos de h1→h3).
 - [ ] **Mobile-first**: testado em viewport 375 px (iPhone SE); nada quebrado em telas pequenas.

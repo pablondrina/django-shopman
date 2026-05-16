@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}KDS | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="kds-console-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+      {% component "unfold/components/title.html" %}
+        KDS
+      {% endcomponent %}
+      {% component "unfold/components/text.html" with class="text-base-500" %}
+        Estacoes ativas para cozinha, separacao e expedicao.
+      {% endcomponent %}
+    </div>
+    {% component "unfold/components/table.html" with table=kds_station_table striped=1 %}{% endcomponent %}
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

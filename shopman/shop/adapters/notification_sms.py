@@ -21,6 +21,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 MESSAGE_TEMPLATES: dict[str, str] = {
+    "order_received": "Recebemos o pedido {order_ref}. O estabelecimento vai conferir a disponibilidade.",
     "order_confirmed": "Pedido {order_ref} confirmado! Total: {total}",
     "order_preparing": "Pedido {order_ref} em preparo! Avisaremos quando estiver pronto.",
     "order_ready_pickup": "Pedido {order_ref} pronto para retirada!",
@@ -28,7 +29,11 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "order_dispatched": "Pedido {order_ref} saiu para entrega!",
     "order_delivered": "Pedido {order_ref} entregue. Obrigado!",
     "order_cancelled": "Pedido {order_ref} cancelado. Em caso de duvidas, entre em contato.",
-    "payment_confirmed": "Pagamento do pedido {order_ref} confirmado!",
+    "order_rejected": "Pedido {order_ref} nao foi confirmado pelo estabelecimento. Motivo: {reason}",
+    "payment_confirmed": "Pagamento do pedido {order_ref} recebido. Seu pedido seguira para preparo.",
+    "payment_requested": "Pedido {order_ref}: disponibilidade confirmada. Pague aqui: {payment_url}",
+    "payment_expired": "Pedido {order_ref} cancelado: o prazo de pagamento expirou.",
+    "payment_failed": "Nao conseguimos preparar o pagamento do pedido {order_ref}. Tente novamente: {payment_url}",
 }
 
 _TWILIO_API_URL = "https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"

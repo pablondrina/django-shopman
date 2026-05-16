@@ -25,13 +25,17 @@
 {% endblock %}
 
 {% block content %}
+{% omotenashi 'ACCOUNT_GREETING_PREFIX' as account_greeting_prefix %}
+{% omotenashi 'ACCOUNT_PAGE_TITLE' as account_page_title %}
+{% omotenashi 'ACCOUNT_TRUSTED_DEVICES_MESSAGE' as trusted_devices_message %}
+{% omotenashi 'ACCOUNT_DELETE_WARNING' as account_delete_warning %}
 <div class="max-w-2xl mx-auto"
      x-data="{ tab: '{{ active_tab|default:'perfil' }}', showAddressForm: false }">
 
   {% comment %}── Header ──{% endcomment %}
   <div class="text-center mb-6">
     <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">
-      {% if account.customer_first_name %}Olá, {{ account.customer_first_name }}!{% else %}Minha Conta{% endif %}
+      {% if account.customer_first_name %}{{ account_greeting_prefix.title }}, {{ account.customer_first_name }}!{% else %}{{ account_page_title.title }}{% endif %}
     </h1>
     <p class="text-on-surface/85 dark:text-on-surface-dark/60">{{ account.customer_phone|format_phone }}</p>
   </div>
@@ -286,7 +290,7 @@
         <span class="material-symbols-rounded text-base text-on-surface/40 dark:text-on-surface-dark/40 transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
       </summary>
       <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4">
-        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mb-3">Dispositivos que podem acessar sua conta sem código de verificação.</p>
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mb-3">{{ trusted_devices_message.message }}</p>
         <div id="device-list-container"
              hx-get="{% url 'storefront:device_list' %}"
              hx-trigger="load"
@@ -343,7 +347,7 @@
           </div>
           <div class="px-6 pb-2">
             <h3 class="text-lg font-bold text-danger dark:text-danger-dark mb-2">Excluir conta permanentemente?</h3>
-            <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-2">Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:</p>
+            <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-2">{{ account_delete_warning.message }}</p>
             <ul class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-6 space-y-1 list-disc list-inside">
               <li>Nome será substituído por "Anonimizado"</li>
               <li>Telefone e email serão removidos</li>

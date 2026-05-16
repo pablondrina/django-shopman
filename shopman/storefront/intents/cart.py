@@ -1,8 +1,8 @@
 """Cart intent extraction.
 
-interpret_add_to_cart() and interpret_set_qty() absorb the product-lookup
-and cart-line-resolution logic from AddToCartView, QuickAddView, and
-CartSetQtyBySkuView, leaving each view with only HTTP parsing and rendering.
+interpret_set_qty() absorbs the product-lookup and cart-line-resolution logic
+from CartSetQtyBySkuView, leaving the view with only HTTP parsing and
+rendering.
 
 Helper functions accept scalars (not request objects) so they are testable
 without a Django request.
@@ -10,50 +10,13 @@ without a Django request.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from shopman.shop.services import cart_context
 
-from .types import AddToCartIntent, CartIntentResult, SetQtyIntent
+from .types import CartIntentResult, SetQtyIntent
 
 # ── Public API ────────────────────────────────────────────────────────────────
-
-
-def interpret_add_to_cart(
-    sku: str,
-    qty: int,
-    *,
-    picker_origin: str = "menu",
-) -> CartIntentResult:
-    """Resolve product context for an add-to-cart POST.
-
-    Steps:
-     1. Look up published product by SKU
-     2. Check is_sellable
-     3. Resolve listing price and D-1 flag
-    """
-    product_ctx = cart_context.product_context(sku)
-    if not product_ctx:
-        return CartIntentResult(intent=None, error_type="not_found", error_context={})
-
-    product = product_ctx.product
-    if not product.is_sellable:
-        return CartIntentResult(
-            intent=None,
-            error_type="not_sellable",
-            error_context={"product": product, "qty": qty, "picker_origin": picker_origin},
-        )
-
-    return CartIntentResult(
-        intent=AddToCartIntent(
-            sku=sku,
-            qty=qty,
-            unit_price_q=product_ctx.unit_price_q,
-            is_d1=product_ctx.is_d1,
-            picker_origin=picker_origin,
-            product=product,
-        ),
-        error_type=None,
-        error_context={},
-    )
 
 
 def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
@@ -65,15 +28,39 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
      3. Determine action: "remove" (qty==0) | "update" (line exists) | "add"
      4. Resolve listing price and D-1 flag for "add"
     """
-    product_ctx = cart_context.product_context(sku)
-    if not product_ctx:
-        return CartIntentResult(intent=None, error_type="not_found", error_context={})
-
-    product = product_ctx.product
     line = next(
         (item for item in cart.get("items") or [] if item.get("sku") == sku),
         None,
     )
+    if qty == 0 and line is not None:
+        product_ctx = cart_context.product_context(sku, for_add=False)
+        product = (
+            product_ctx.product
+            if product_ctx
+            else SimpleNamespace(sku=sku, name=line.get("name") or sku)
+        )
+        return CartIntentResult(
+            intent=SetQtyIntent(
+                sku=sku,
+                qty=qty,
+                action="remove",
+                line_id=line["line_id"],
+                unit_price_q=0,
+                is_d1=False,
+                product=product,
+            ),
+            error_type=None,
+            error_context={},
+        )
+
+    product_ctx = cart_context.product_context(
+        sku,
+        for_add=qty > 0 and line is None,
+    )
+    if not product_ctx:
+        return CartIntentResult(intent=None, error_type="not_found", error_context={})
+
+    product = product_ctx.product
 
     if qty == 0:
         action = "remove"

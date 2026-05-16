@@ -2,7 +2,7 @@
 {% load static omotenashi_tags %}
 
 {% block title %}Pedido {{ tracking.order_ref }}{% endblock %}
-{% block meta_description %}Acompanhe seu pedido {{ tracking.order_ref }} · {{ storefront.brand_name }}.{% endblock %}
+{% block meta_description %}{% omotenashi 'TRACKING_PAGE_META_DESCRIPTION' as tracking_meta %}{{ tracking_meta.message }} {{ tracking.order_ref }} · {{ storefront.brand_name }}.{% endblock %}
 
 {% block breadcrumb %}
 <nav class="mb-6" aria-label="Breadcrumb">
@@ -30,11 +30,25 @@
       <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
         Pedido {{ tracking.order_ref }}
       </h1>
-      <span class="inline-flex items-center mt-2 rounded-full px-3 py-1 text-sm font-medium {{ tracking.status_color }}">
+      <span id="order-status-badge"
+            class="inline-flex items-center mt-2 rounded-full px-3 py-1 text-sm font-medium {{ tracking.status_color }}">
         {{ tracking.status_label }}
       </span>
     </div>
     <div class="flex gap-2 shrink-0">
+      {% with action=tracking_actions.mock_confirm_payment %}
+      {% if tracking.is_debug and action %}
+      <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=tracking.order_ref %}">
+        {% csrf_token %}
+        <button type="submit"
+                aria-label="Capturar pagamento teste"
+                class="inline-flex items-center gap-1.5 rounded-radius border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-warning hover:bg-warning/20 focus:outline-hidden focus:ring-2 focus:ring-warning/50 min-h-[44px] transition">
+          <span class="material-symbols-rounded text-base" aria-hidden="true">credit_card</span>
+          <span class="hidden sm:inline">{{ action.label }}</span>
+        </button>
+      </form>
+      {% endif %}
+      {% endwith %}
       {% if tracking.whatsapp_url %}
       <a href="{{ tracking.whatsapp_url }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-1.5 rounded-radius bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-hidden focus:ring-2 focus:ring-[#25D366] min-h-[44px] transition"
@@ -48,58 +62,27 @@
     </div>
   </div>
 
-  {% comment %}── Live status — SSE push (server emits on order_changed) ──{% endcomment %}
+  {% comment %}── Live order state — SSE push + polling safety net ──{% endcomment %}
   {% comment %}
-  Active orders subscribe to ``order-{ref}`` and refetch the partial whenever
-  the server pushes ``order-update``. A 60s safety poll covers the case where
-  the SSE connection drops (mobile background tabs, proxy timeouts). Terminal
-  orders skip both — the partial renders once with final state.
+  Active orders subscribe to ``order-{ref}`` and refetch the full live customer
+  block whenever the server pushes ``order-update``. A short safety poll covers
+  auto-confirm/payment timeout paths and mobile background tabs.
   {% endcomment %}
   {% if tracking.is_active %}
   <div hx-ext="sse"
        sse-connect="{% url 'storefront:order_events' ref=tracking.order_ref %}">
-    <div id="order-status-area"
+    <div id="order-live-area"
+         class="space-y-6"
+         aria-live="polite"
          hx-get="{% url 'storefront:order_status_partial' ref=tracking.order_ref %}"
-         hx-trigger="load, sse:order-update, every 60s"
-         hx-swap="innerHTML"
-         aria-live="polite">
-      {% include "storefront/partials/order_status.html" with tracking_status=tracking %}
+         hx-trigger="load, sse:order-update, every 10s, countdown-expired"
+         hx-swap="innerHTML">
+      {% include "storefront/partials/order_live.html" with tracking=tracking %}
     </div>
   </div>
   {% else %}
-  <div id="order-status-area" aria-live="polite">
-    {% include "storefront/partials/order_status.html" with tracking_status=tracking %}
-  </div>
-  {% endif %}
-
-  {% comment %}── ETA ──{% endcomment %}
-  {% omotenashi 'TRACKING_ETA_PREFIX' as eta_prefix %}
-  {% if tracking.eta_display %}
-  <div class="rounded-radius border border-info/30 bg-info/5 p-4 flex items-center gap-3 text-info">
-    <span class="material-symbols-rounded text-xl shrink-0" aria-hidden="true">schedule</span>
-    <p class="text-sm font-medium">{{ eta_prefix.title }} <strong>{{ tracking.eta_display }}</strong></p>
-  </div>
-  {% endif %}
-
-  {% comment %}── Confirmation countdown (auto_confirm channels) ──{% endcomment %}
-  {% omotenashi 'TRACKING_AUTO_CONFIRM_PREFIX' as confirm_prefix %}
-  {% if tracking.confirmation_countdown %}
-  <div x-data="{
-    expiresAt: '{{ tracking.confirmation_expires_at }}',
-    timeLeft: '',
-    init() {
-      this.tick();
-      setInterval(() => this.tick(), 1000);
-    },
-    tick() {
-      const diff = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
-      if (diff === 0) { this.timeLeft = ''; return; }
-      const m = Math.floor(diff / 60), s = diff % 60;
-      this.timeLeft = m + ':' + String(s).padStart(2, '0');
-    }
-  }" class="rounded-radius border border-warning/30 bg-warning/5 p-4 flex items-center gap-3 text-warning text-sm">
-    <span class="material-symbols-rounded text-xl shrink-0" aria-hidden="true">timer</span>
-    <p>{{ confirm_prefix.message }} <strong x-text="timeLeft"></strong></p>
+  <div id="order-live-area" class="space-y-6" aria-live="polite">
+    {% include "storefront/partials/order_live.html" with tracking=tracking %}
   </div>
   {% endif %}
 
@@ -159,19 +142,18 @@
   {% endfor %}
 
   {% comment %}── Pickup info ──{% endcomment %}
-  {% omotenashi 'TRACKING_PICKUP_HEADING' as pickup_heading %}
   {% if tracking.pickup_info %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5 space-y-1">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ pickup_heading.title }}</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ tracking.pickup_info.heading }}</h2>
     <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ tracking.pickup_info.address }}</p>
     {% if tracking.pickup_info.opening_hours %}
     <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">{{ tracking.pickup_info.opening_hours }}</p>
     {% endif %}
-    {% if tracking.pickup_info.google_maps_url %}
-    <a href="{{ tracking.pickup_info.google_maps_url }}" target="_blank" rel="noopener"
+    {% if tracking.pickup_info.directions_url %}
+    <a href="{{ tracking.pickup_info.directions_url }}" target="_blank" rel="noopener"
        class="inline-flex items-center gap-1.5 text-sm text-primary dark:text-primary-dark underline underline-offset-2 hover:text-primary/80 dark:hover:text-primary-dark/80 mt-1">
       <span class="material-symbols-rounded text-base" aria-hidden="true">directions</span>
-      Como chegar
+      {{ tracking.pickup_info.directions_label }}
     </a>
     {% endif %}
   </div>
@@ -190,7 +172,8 @@
   {% endif %}
 
   {% comment %}── Rating (yoin R4 — shown once after delivery/pickup) ──{% endcomment %}
-  {% if tracking.can_rate %}
+  {% with action=tracking_actions.rate_order %}
+  {% if action %}
   {% omotenashi 'TRACKING_RATE_PROMPT' as rate_prompt %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5"
        x-data="{ rating: 0, submitted: false, hovering: 0 }" id="rating-block">
@@ -216,9 +199,9 @@
         </div>
         <button x-show="rating > 0" x-cloak
                 type="button"
-                @click="htmx.ajax('POST', '{% url 'storefront:order_rate' ref=tracking.order_ref %}', { values: { rating: String(rating) }, swap: 'none' }).then(() => submitted = true)"
+                @click="htmx.ajax('{{ action.method|default:'POST' }}', '{{ action.href }}', { values: { rating: String(rating) }, swap: 'none' }).then(() => submitted = true)"
                 class="inline-flex items-center justify-center rounded-radius bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
-          Enviar
+          {{ action.label }}
         </button>
       </div>
     </template>
@@ -232,31 +215,29 @@
     </template>
   </div>
   {% endif %}
+  {% endwith %}
 
   {% comment %}── Cancel ──{% endcomment %}
-  {% omotenashi 'TRACKING_CANCEL_HEADING' as cancel_heading %}
-  {% omotenashi 'TRACKING_CANCEL_CTA' as cancel_cta %}
-  {% omotenashi 'TRACKING_CANCEL_CONFIRM' as cancel_confirm %}
-  {% omotenashi 'TRACKING_CANCEL_YES' as cancel_yes %}
   {% omotenashi 'TRACKING_CANCEL_BACK' as cancel_back %}
-  {% if tracking.can_cancel %}
+  {% with action=tracking_actions.cancel_order %}
+  {% if action %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ cancel_heading.title }}</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ action.confirmation.title|default:action.label }}</h2>
     <form method="post" action="{% url 'storefront:order_cancel' ref=tracking.order_ref %}"
           x-data="{ confirming: false }">
       {% csrf_token %}
       <template x-if="!confirming">
         <button type="button" @click="confirming = true"
                 class="text-sm text-danger underline underline-offset-2 hover:text-danger/80 focus:outline-hidden min-h-[44px]">
-          {{ cancel_cta.title }}
+          {{ action.label }}
         </button>
       </template>
       <template x-if="confirming">
         <div class="flex items-center gap-3">
-          <span class="text-sm text-on-surface dark:text-on-surface-dark">{{ cancel_confirm.message }}</span>
+          <span class="text-sm text-on-surface dark:text-on-surface-dark">{{ action.confirmation.message }}</span>
           <button type="submit"
                   class="rounded-radius bg-danger px-4 py-2 text-sm font-semibold text-white hover:bg-danger/90 focus:outline-hidden focus:ring-2 focus:ring-danger min-h-[44px]">
-            {{ cancel_yes.title }}
+            {{ action.confirmation.confirm_label|default:action.label }}
           </button>
           <button type="button" @click="confirming = false"
                   class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 underline min-h-[44px]">
@@ -267,7 +248,9 @@
     </form>
   </div>
   {% endif %}
+  {% endwith %}
 
+  {% if not tracking.is_active %}
   {% comment %}── Tomorrow hook (yoin at the tail of the day) ──{% endcomment %}
   {% omotenashi 'TRACKING_TOMORROW_HOOK' as tomorrow %}
   {% if tomorrow.message %}
@@ -277,21 +260,30 @@
   {% endif %}
 
   {% comment %}── Share / reorder ──{% endcomment %}
-  {% omotenashi 'TRACKING_REORDER_CTA' as reorder_cta %}
   {% omotenashi 'TRACKING_MENU_CTA' as menu_cta %}
   <div class="flex gap-3">
-    <form method="post" action="{% url 'storefront:reorder' ref=tracking.order_ref %}" class="flex-1">
+    {% with action=tracking_actions.reorder %}
+    {% if action %}
+    <form method="post"
+          action="{% url 'storefront:reorder' ref=tracking.order_ref %}"
+          hx-post="{% url 'storefront:reorder' ref=tracking.order_ref %}"
+          hx-target="#reorder-conflict-modal"
+          hx-swap="innerHTML"
+          class="flex-1">
       {% csrf_token %}
       <button type="submit"
               class="w-full rounded-radius border border-outline px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px]">
-        {{ reorder_cta.title }}
+        {{ action.label }}
       </button>
     </form>
+    {% endif %}
+    {% endwith %}
     <a href="{% url 'storefront:menu' %}"
        class="flex-1 inline-flex items-center justify-center rounded-radius bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
       {{ menu_cta.title }}
     </a>
   </div>
+  {% endif %}
 
 </div>
 {% endblock %}

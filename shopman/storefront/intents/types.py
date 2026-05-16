@@ -7,18 +7,6 @@ from datetime import date as date_type
 
 
 @dataclass
-class AddToCartIntent:
-    """Domain data for adding one SKU to the cart."""
-
-    sku: str
-    qty: int
-    unit_price_q: int
-    is_d1: bool
-    picker_origin: str
-    product: object  # Product instance — carried for error-modal rendering
-
-
-@dataclass
 class SetQtyIntent:
     """Domain data for setting an absolute quantity for one SKU."""
 

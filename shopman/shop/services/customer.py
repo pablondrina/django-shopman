@@ -53,13 +53,20 @@ def ensure(order) -> None:
 
     channel_ref = order.channel_ref or ""
     handle_type = getattr(order, "handle_type", "") or ""
+    existing_customer_ref = (
+        (order.data or {}).get("customer_ref")
+        or _get_customer_data(order).get("ref")
+    )
 
     try:
-        fn = _STRATEGIES.get(handle_type) or _STRATEGIES.get(channel_ref)
-        if fn:
-            customer = fn(order)
+        if existing_customer_ref:
+            customer = _customer_by_ref(existing_customer_ref)
         else:
-            customer = _handle_phone(order)
+            fn = _STRATEGIES.get(handle_type) or _STRATEGIES.get(channel_ref)
+            if fn:
+                customer = fn(order)
+            else:
+                customer = _handle_phone(order)
     except SkipAnonymous:
         return
     except Exception as exc:
@@ -205,6 +212,22 @@ def _normalize_phone_safe(phone_raw: str) -> str:
         return normalize_phone(phone_raw)
     except Exception:
         return phone_raw
+
+
+def _customer_by_ref(customer_ref: str) -> dict | None:
+    if not customer_ref:
+        return None
+    from shopman.guestman.services import customer as customer_service
+
+    customer = customer_service.get(customer_ref)
+    if not customer:
+        return None
+    return {
+        "ref": customer.ref,
+        "first_name": customer.first_name,
+        "last_name": customer.last_name,
+        "phone": customer.phone,
+    }
 
 
 def _maybe_update_name(adapter, customer: dict, name: str) -> None:

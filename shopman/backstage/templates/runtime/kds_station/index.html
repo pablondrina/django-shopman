@@ -1,0 +1,60 @@
+{% extends "gestor/base.html" %}
+{% block title %}{{ kds_station.name }}{% endblock %}
+{% block page_title %}{{ kds_station.name }}{% endblock %}
+{% block nav_active_kds %}active{% endblock %}
+{% block main_class %}overflow-hidden flex flex-col{% endblock %}
+
+{% block navbar_actions %}
+<a href="{{ kds_admin_url }}" class="btn-icon" title="Abrir supervisão no Admin" aria-label="Abrir supervisão no Admin">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">admin_panel_settings</span>
+</a>
+<a href="{{ kds_customer_board_url }}" class="btn-icon" title="Tela do cliente" aria-label="Tela do cliente">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">display_settings</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="h-full min-h-0 flex flex-col"
+     hx-ext="sse"
+     sse-connect="{% url 'backstage:events_scoped' kind='kds' scope=kds_station.ref %}">
+  <header class="shrink-0 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt px-4 py-3">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase text-primary dark:text-primary-dark">
+          {% if kds_board.is_expedition %}Expedição{% else %}Estação KDS{% endif %}
+        </p>
+        <h2 class="text-2xl font-extrabold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong truncate">
+          {{ kds_station.name }}
+        </h2>
+      </div>
+      <div class="flex flex-wrap gap-2 text-sm">
+        <span class="badge-neutral">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">receipt_long</span>
+          {{ kds_board.counts.total }} ativos
+        </span>
+        {% if not kds_board.is_expedition %}
+        <span class="badge-info">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">pending_actions</span>
+          {{ kds_board.counts.pending }} pendentes
+        </span>
+        <span class="badge-warning">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">skillet</span>
+          {{ kds_board.counts.in_progress }} em preparo
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <section id="kds-station-cards"
+           class="flex-1 min-h-0 overflow-auto p-3 md:p-4"
+           hx-get="{{ kds_cards_url }}"
+           hx-trigger="sse:backstage-kds-update, sse:backstage-kds-created, sse:backstage-kds-status-changed, sse:backstage-kds-station-changed, kdsStationChanged from:body, every 15s"
+           hx-target="#kds-station-cards"
+           hx-swap="innerHTML"
+           aria-live="polite"
+           aria-relevant="additions text">
+    {% include "runtime/kds_station/partials/cards.html" %}
+  </section>
+</div>
+{% endblock %}

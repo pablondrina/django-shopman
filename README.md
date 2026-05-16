@@ -1,14 +1,14 @@
 # Django Shopman
 
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
-![Django](https://img.shields.io/badge/django-≥5.2-green)
+![Django](https://img.shields.io/badge/django-6.0-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Release](https://img.shields.io/github/v/release/pablondrina/django-shopman?include_prereleases&label=release)
 ![Tests](https://img.shields.io/badge/tests-~1.900-brightgreen)
 
 Django Shopman é um framework de commerce operations para pequenos negócios com operação física e remota — padarias, confeitarias, cafés, food service. Não é um e-commerce genérico; é uma base opinativa e modular para casos operacionais densos: catálogo com produção própria, estoque vivo, múltiplos canais (balcão, web, WhatsApp, marketplace), KDS, e gestão integrada.
 
-Construído com Django 5.2+, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
+Construído com Django 6.0, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
 
 ## Ecossistema
 
@@ -53,14 +53,17 @@ make seed
 # 3. Subir servidor
 make run
 # → http://localhost:8000/        (storefront)
-# → http://localhost:8000/admin/  (admin — admin/admin)
-# → http://localhost:8000/gestor/pedidos/ (gestor de pedidos)
-# → http://localhost:8000/gestor/kds/     (kitchen display)
+# → http://localhost:8000/admin/                 (admin — admin/admin)
+# → http://localhost:8000/admin/operacao/pedidos/ (gestor de pedidos)
+# → http://localhost:8000/admin/operacao/kds/     (KDS operacional)
+# → http://localhost:8000/gestor/pos/             (POS)
 ```
 
 > Postgres é o default de dev — casa com os testes de concorrência do Stockman
 > (`select_for_update`). Sem Docker? Deixe `DATABASE_URL` comentado no `.env` e o
 > settings cai no fallback SQLite (mas os testes de concorrência serão pulados).
+> Redis também faz parte do default: cache compartilhado, rate limit e SSE
+> multi-worker. Sem Docker, deixe `REDIS_URL` comentado para fallback local leve.
 > Detalhes em [`docs/getting-started/quickstart.md`](docs/getting-started/quickstart.md).
 
 ## Caminhos de Uso
@@ -69,6 +72,7 @@ make run
 |----------|---------|
 | Estudar a arquitetura | Ler [`docs/architecture.md`](docs/architecture.md) e [`docs/guides/lifecycle.md`](docs/guides/lifecycle.md) |
 | Rodar a demo | `make install && make migrate && make seed && make run` |
+| Ensaiar deploy sem tocar em Docker | copiar `.env.example`, ajustar segredos/hosts e rodar `make deploy-up` |
 | Ver o que funciona hoje | [`docs/status.md`](docs/status.md) — estado factual por módulo |
 | Usar como base do seu negócio | Fork, criar instância em `instances/`, configurar `Shop` no admin |
 | Adotar um core app isolado | `pip install shopman-stockman` (quando publicado no PyPI) |
@@ -148,6 +152,10 @@ make migrate          # Aplica migrações
 make seed             # Popula com dados demo (Nelson Boulangerie)
 make run              # Sobe servidor (localhost:8000)
 make lint             # Ruff check
+make deploy-check     # check --deploy + migrations check + collectstatic dry-run
+make deploy-up        # build/release/web/worker via compose, sem Docker manual
+make deploy-logs      # logs de web + directive worker
+make deploy-down      # para containers do deploy local
 ```
 
 ## Convenções
@@ -177,6 +185,8 @@ make lint             # Ruff check
 
 - [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter
 - [Quickstart](docs/getting-started/quickstart.md) — instalação passo a passo
+- [Runtime dependencies](docs/reference/runtime-dependencies.md) — contrato PostgreSQL/Redis/SQLite
+- [Deploy](docs/guides/deploy.md) — imagem app, compose profiles e make deploy-*
 - [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo
 - [Lifecycle](docs/guides/lifecycle.md) — guia de Lifecycles, Services, Adapters
 - [Auth](docs/guides/auth.md) — autenticação OTP e device trust
@@ -190,9 +200,10 @@ make lint             # Ruff check
 | Requisito | Versão |
 |-----------|--------|
 | Python | ≥ 3.12 |
-| Django | ≥ 5.2, < 6.0 |
+| Django | ≥ 6.0, < 6.1 |
 | Node.js | ≥ 18 (build Tailwind CSS) |
-| Banco de dados | SQLite (dev) / PostgreSQL (prod recomendado) |
+| Banco de dados | PostgreSQL 16+ em dev canônico/staging/prod; SQLite só fallback local |
+| Cache/realtime | Redis 7+ em dev canônico/staging/prod; LocMem só fallback local |
 
 ## Licença
 

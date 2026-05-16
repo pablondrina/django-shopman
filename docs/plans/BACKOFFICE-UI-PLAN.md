@@ -2,6 +2,11 @@
 
 > O sistema serve o humano para que o humano sirva o cliente.
 > — Omotenashi Protocol Framework
+>
+> Status em 2026-05-05: spec histórica/backlog visual. Pedidos e KDS
+> operacionais vivem hoje em `/admin/operacao/*`; POS e KDS de produção vivem
+> nas superfícies runtime do `backstage`. O plano concluído de POS/KDS runtime
+> está em [`completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](completed/POS-KDS-RUNTIME-SURFACE-PLAN.md).
 
 ## Visão
 
@@ -62,12 +67,12 @@ padrão "Sidebar with top navbar" do Penguin UI.
 ```
 
 **Sidebar items:**
-- Pedidos (`/pedidos/`) — com badge de contagem "new"
-- KDS (`/kds/`) — lista estações
+- Pedidos (`/admin/operacao/pedidos/`) — com badge de contagem "new"
+- KDS (`/admin/operacao/kds/`) — lista estações
 - POS (`/gestor/pos/`)
 - Produção (`/gestor/producao/`)
 - Dashboard (`/admin/`)
-- Fechamento (`/gestor/fechamento/`)
+- Fechamento (`/admin/operacao/fechamento/`)
 
 **Top navbar:**
 - Nome da loja + logo
@@ -200,7 +205,7 @@ Quando fullscreen, sidebar hidden + top navbar minimal (clock + exit).
 ### WP-5: Produção + Fechamento — Penguin UI
 
 **Migra:** superfícies operacionais de produção e fechamento
-→ `gestor/producao/` e `gestor/fechamento/` (estendem `gestor/base.html`)
+→ `admin_console/production/` e `admin_console/closing/` (estendem `admin/base.html`)
 
 **Desacopla do Unfold:** Não dependem mais de `admin/base_site.html`. O Admin/Unfold fica como backoffice/auditoria e entrada para links operacionais.
 

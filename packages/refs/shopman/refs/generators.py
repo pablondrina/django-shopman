@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import random
 import re
+import secrets
 import string
 from datetime import date, datetime
 from typing import Any
@@ -191,7 +191,7 @@ class ShortUUIDGenerator:
         m = re.search(r"\{(?:code|value):(\d+)\}", fmt)
         if m:
             length = int(m.group(1))
-        code = "".join(random.choices(self.ALPHABET, k=length))
+        code = "".join(secrets.choice(self.ALPHABET) for _ in range(length))
         return _apply_format(fmt, code, scope)
 
 

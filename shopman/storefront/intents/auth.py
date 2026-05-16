@@ -77,7 +77,7 @@ def interpret_login(request) -> AuthResult[LoginIntent]:
 
 def interpret_request_code(request) -> AuthResult[RequestCodeIntent]:
     """Extract RequestCodeIntent from RequestCodeView.post()."""
-    phone_raw = request.POST.get("phone", "").strip()
+    phone_raw = _phone_value_from_post(request)
     phone_region = request.POST.get("phone_region", "BR")
     international = phone_region == "INTL"
     form_data = {"phone": phone_raw, "phone_region": phone_region}
@@ -106,7 +106,7 @@ def interpret_request_code(request) -> AuthResult[RequestCodeIntent]:
 
 def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
     """Extract VerifyCodeIntent from VerifyCodeView.post()."""
-    phone_raw = request.POST.get("phone", "").strip()
+    phone_raw = _phone_value_from_post(request)
     code_input = request.POST.get("code", "").strip()
     code_digits = re.sub(r"\D", "", code_input)
     form_data = {"phone": phone_raw, "code": code_digits or code_input}
@@ -143,7 +143,7 @@ def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
 
 def interpret_device_check_login(request) -> AuthResult[DeviceCheckLoginIntent]:
     """Extract DeviceCheckLoginIntent from DeviceCheckLoginView.post()."""
-    phone_raw = request.POST.get("phone", "").strip()
+    phone_raw = _phone_value_from_post(request)
     form_data = {"phone": phone_raw}
 
     if not phone_raw:
@@ -210,7 +210,7 @@ def interpret_welcome(request) -> AuthResult[WelcomeIntent]:
 
 
 def _interpret_login_phone(request, next_url: str) -> AuthResult[LoginIntent]:
-    phone_raw = request.POST.get("phone", "").strip()
+    phone_raw = _phone_value_from_post(request)
     phone_region = request.POST.get("phone_region", "BR")
     international = phone_region == "INTL"
     delivery_method = request.POST.get("delivery_method", "whatsapp")
@@ -255,6 +255,13 @@ def _interpret_login_phone(request, next_url: str) -> AuthResult[LoginIntent]:
         errors={},
         form_data=form_data,
     )
+
+
+def _phone_value_from_post(request) -> str:
+    """Return Alpine-normalized phone when available, otherwise the posted input."""
+    normalized = request.POST.get("phone_normalized", "").strip()
+    visible = request.POST.get("phone", "").strip()
+    return normalized or visible
 
 
 def _interpret_login_name(request, next_url: str) -> AuthResult[LoginIntent]:

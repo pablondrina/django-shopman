@@ -40,9 +40,11 @@ def cancel(
 
     SYNC — transitions status immediately.
     """
-    if order.status in (Order.Status.CANCELLED, Order.Status.COMPLETED):
+    terminal_statuses = set(getattr(Order, "TERMINAL_STATUSES", ()))
+    terminal_statuses.update({Order.Status.CANCELLED, Order.Status.COMPLETED, Order.Status.RETURNED})
+    if order.status in terminal_statuses or not order.can_transition_to(Order.Status.CANCELLED):
         logger.info(
-            "cancellation.cancel: order %s already %s, skipping",
+            "cancellation.cancel: order %s cannot transition from %s to cancelled, skipping",
             order.ref, order.status,
         )
         return False

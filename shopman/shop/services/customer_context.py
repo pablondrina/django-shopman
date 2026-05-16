@@ -24,6 +24,8 @@ class CustomerAddressContext:
     complement: str
     label: str
     is_default: bool
+    label_key: str = "home"
+    label_custom: str = ""
     route: str = ""
     street_number: str = ""
     neighborhood: str = ""
@@ -269,6 +271,8 @@ def _address_context(addr: Any) -> CustomerAddressContext:
         formatted_address=addr.formatted_address or "",
         complement=addr.complement or "",
         label=addr.display_label or addr.formatted_address or "",
+        label_key=addr.label or "home",
+        label_custom=addr.label_custom or "",
         is_default=addr.is_default,
         route=addr.route or "",
         street_number=addr.street_number or "",

@@ -11,19 +11,19 @@
 {% component "unfold/components/card.html" %}
   {% if created %}
     {% component "unfold/components/title.html" with class="text-sm" %}
-      Sugestoes geradas para {{ target_date|date:"d/m/Y"|default:target_date }}
+      Sugestões aplicadas para {{ target_date|date:"d/m/Y"|default:target_date }}
     {% endcomponent %}
     <ul class="flex flex-col gap-1 mt-2">
       {% for row in created %}
         <li class="flex items-center gap-2">
           {% component "unfold/components/icon.html" with class="text-green-700 text-base dark:text-green-400" %}check_circle{% endcomponent %}
-          <span>{{ row.ref }} - {{ row.output_sku }} x {{ row.quantity }}</span>
+          <span>{{ row.output_sku }} × {{ row.quantity }}{% if row.ref %} · {{ row.ref }}{% endif %} · {{ row.action }}</span>
         </li>
       {% endfor %}
     </ul>
   {% else %}
     {% component "unfold/components/text.html" with class="text-base-500" %}
-      Nenhuma nova ordem criada.
+      Nenhuma sugestão aplicada.
     {% endcomponent %}
   {% endif %}
 

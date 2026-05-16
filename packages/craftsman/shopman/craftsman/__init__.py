@@ -28,8 +28,12 @@ def __getattr__(name):
         from shopman.craftsman.service import CraftService
 
         return CraftService
+    if name == "suggest":
+        from shopman.craftsman.contrib.formula import suggest
+
+        return suggest
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["craft", "CraftService", "Craft", "CraftError", "StaleRevision"]
+__all__ = ["craft", "CraftService", "Craft", "CraftError", "StaleRevision", "suggest"]
 __version__ = "0.3.0"

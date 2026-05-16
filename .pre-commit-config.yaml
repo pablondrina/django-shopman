@@ -8,3 +8,8 @@ repos:
         types: [html]
         pass_filenames: false
         # Remove --error flag after 2 sprints to switch to error mode
+      - id: unfold-canonical-gate
+        name: Unfold canonical Admin gate
+        language: system
+        entry: make admin
+        pass_filenames: false

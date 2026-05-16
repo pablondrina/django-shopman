@@ -5,16 +5,23 @@
 {% omotenashi 'PAYMENT_PIX_COPIED' as pix_copied %}
 {% omotenashi 'PAYMENT_PIX_EXPIRES_LABEL' as pix_expires_label %}
 {% omotenashi 'PAYMENT_PIX_EXPIRED' as pix_expired %}
+{% omotenashi 'PAYMENT_PIX_INSTRUCTION' as pix_instruction %}
 <div x-data="{
   copied: false,
   countdown: null,
   expiresAt: '{{ payment.pix_expires_at|default:'' }}',
+  serverNow: '{{ payment.server_now_iso }}',
+  serverOffsetMs: 0,
   timeLeft: '',
   totalSecs: 0,
   secsLeft: 0,
   init() {
+    const serverNowMs = Date.parse(this.serverNow);
+    if (Number.isFinite(serverNowMs)) this.serverOffsetMs = serverNowMs - Date.now();
     if (this.expiresAt) {
-      this.totalSecs = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+      const expiresAtMs = Date.parse(this.expiresAt);
+      if (!Number.isFinite(expiresAtMs)) return;
+      this.totalSecs = Math.max(0, Math.floor((expiresAtMs - (Date.now() + this.serverOffsetMs)) / 1000));
       this.secsLeft = this.totalSecs;
       this.startCountdown();
     }
@@ -24,7 +31,9 @@
     this.countdown = setInterval(() => this.tick(), 1000);
   },
   tick() {
-    const diff = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+    const expiresAtMs = Date.parse(this.expiresAt);
+    if (!Number.isFinite(expiresAtMs)) return;
+    const diff = Math.max(0, Math.floor((expiresAtMs - (Date.now() + this.serverOffsetMs)) / 1000));
     this.secsLeft = diff;
     if (diff === 0) { clearInterval(this.countdown); this.timeLeft = 'expirado'; return; }
     const m = Math.floor(diff / 60), s = diff % 60;
@@ -42,10 +51,16 @@
     });
   }
 }">
+  {% if pix_instruction.message %}
+  <p class="text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60 mb-4">
+    {{ pix_instruction.message }}
+  </p>
+  {% endif %}
+
   {% if payment.pix_qr_code %}
   <div class="flex justify-center">
     <div class="rounded-radius border border-outline dark:border-outline-dark p-3 bg-white inline-block">
-      <img src="data:image/png;base64,{{ payment.pix_qr_code }}"
+      <img src="{{ payment.pix_qr_code }}"
            alt="QR Code PIX" class="w-48 h-48 object-contain" loading="eager">
     </div>
   </div>

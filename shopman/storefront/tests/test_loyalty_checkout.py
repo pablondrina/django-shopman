@@ -128,6 +128,7 @@ class LoyaltyRedeemHandlerTests(TestCase):
         from shopman.shop.handlers.loyalty import LoyaltyRedeemHandler
 
         customer = Customer.objects.create(
+            ref="LOYAL-CUST-001",
             first_name="Loyal",
             last_name="Customer",
             phone="5543999990099",
@@ -139,7 +140,10 @@ class LoyaltyRedeemHandlerTests(TestCase):
             status="new",
             handle_type="phone",
             handle_ref=customer.phone,
-            data={"loyalty": {"redeem_points_q": 100}},
+            data={
+                "customer_ref": customer.ref,
+                "loyalty": {"redeem_points_q": 100},
+            },
         )
         directive = Directive.objects.create(
             topic="loyalty.redeem",
@@ -147,13 +151,11 @@ class LoyaltyRedeemHandlerTests(TestCase):
         )
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.redeem_points") as mock_redeem:
-            with patch("shopman.guestman.services.customer.get_by_phone") as mock_get:
-                mock_get.return_value = customer
-                # Enroll customer first
-                with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService._get_active_account_for_update") as mock_acct:
-                    mock_acct.return_value = MagicMock(points_balance=500)
-                    handler = LoyaltyRedeemHandler()
-                    handler.handle(message=directive, ctx={})
+            # Enroll customer first
+            with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService._get_active_account_for_update") as mock_acct:
+                mock_acct.return_value = MagicMock(points_balance=500)
+                handler = LoyaltyRedeemHandler()
+                handler.handle(message=directive, ctx={})
 
         # directive.status is managed by the directive processor, not the handler.
         mock_redeem.assert_called_once()
@@ -218,7 +220,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             phone="5543999990077",
         )
         self._login_as_customer(self.client, customer)
-        self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
+        self.client.post("/cart/set-qty/", {"sku": "LOYAL-WEB", "qty": "1"})
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 250
@@ -226,6 +228,11 @@ class CheckoutLoyaltyContextTests(TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.context["checkout"].loyalty_balance_q, 250)
+        self.assertContains(resp, 'role="switch"')
+        self.assertContains(resp, 'id="use-loyalty"')
+        self.assertContains(resp, "Usar pontos de fidelidade?")
+        self.assertContains(resp, "peer-checked:after:translate-x-5")
+        self.assertContains(resp, "useLoyalty: false")
 
     def test_no_loyalty_balance_for_new_customer(self) -> None:
         """Customer with 0 balance doesn't see loyalty section."""
@@ -237,7 +244,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             phone="5543999990088",
         )
         self._login_as_customer(self.client, customer)
-        self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
+        self.client.post("/cart/set-qty/", {"sku": "LOYAL-WEB", "qty": "1"})
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 0

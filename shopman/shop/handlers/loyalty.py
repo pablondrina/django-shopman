@@ -34,20 +34,9 @@ class LoyaltyEarnHandler:
         except Order.DoesNotExist as exc:
             raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
-        # Need a customer handle to find the customer
-        if not order.handle_ref:
-            logger.debug("loyalty.earn: no handle_ref on order %s, skipping", order_ref)
-            return
-
-        # Find customer by phone
-        try:
-            adapter = get_adapter("customer")
-            customer = adapter.get_customer_by_phone(order.handle_ref)
-        except Exception:
-            customer = None
-
-        if not customer:
-            logger.debug("loyalty.earn: no customer for handle_ref=%s, skipping", order.handle_ref)
+        customer_ref = _customer_ref_for_order(order)
+        if not customer_ref:
+            logger.warning("loyalty.earn: no customer_ref on order %s, skipping", order_ref)
             return
 
         # Calculate points: 1 point per R$ 1,00 (100 centavos)
@@ -56,19 +45,21 @@ class LoyaltyEarnHandler:
             return
 
         try:
+            adapter = get_adapter("customer")
+
             # Enroll if not yet enrolled (idempotent)
-            adapter.enroll_loyalty(customer["ref"])
+            adapter.enroll_loyalty(customer_ref)
 
             # Award points
             adapter.earn_points(
-                customer_ref=customer["ref"],
+                customer_ref=customer_ref,
                 points=points,
                 description=f"Pedido {order.ref}",
                 reference=f"order:{order.ref}",
                 created_by="system",
             )
 
-            logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer["ref"], order_ref)
+            logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer_ref, order_ref)
 
         except Exception as exc:
             raise DirectiveTransientError(str(exc)) from exc
@@ -93,30 +84,40 @@ class LoyaltyRedeemHandler:
         except Order.DoesNotExist as exc:
             raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
-        if not order.handle_ref:
-            logger.debug("loyalty.redeem: no handle_ref on order %s, skipping", order_ref)
+        customer_ref = _customer_ref_for_order(order)
+        if not customer_ref:
+            logger.warning("loyalty.redeem: no customer_ref on order %s, skipping", order_ref)
             return
 
         try:
             adapter = get_adapter("customer")
-            customer = adapter.get_customer_by_phone(order.handle_ref)
-        except Exception:
-            customer = None
-
-        if not customer:
-            logger.debug("loyalty.redeem: no customer for handle_ref=%s, skipping", order.handle_ref)
-            return
-
-        try:
             adapter.redeem_points(
-                customer_ref=customer["ref"],
+                customer_ref=customer_ref,
                 points=points,
                 description=f"Resgate pedido {order_ref}",
                 reference=f"order:{order_ref}",
                 created_by="system",
             )
 
-            logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer["ref"], order_ref)
+            logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer_ref, order_ref)
 
         except Exception as exc:
             raise DirectiveTransientError(str(exc)) from exc
+
+
+def _customer_ref_for_order(order) -> str:
+    data = order.data or {}
+    customer_ref = data.get("customer_ref")
+    if customer_ref:
+        return str(customer_ref)
+
+    try:
+        from shopman.shop.services import customer as customer_service
+
+        customer_service.ensure(order)
+        order.refresh_from_db()
+    except Exception:
+        logger.warning("loyalty.customer_ref_resolution_failed order=%s", order.ref, exc_info=True)
+        return ""
+
+    return str((order.data or {}).get("customer_ref") or "")

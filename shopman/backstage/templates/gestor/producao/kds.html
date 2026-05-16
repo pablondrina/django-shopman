@@ -5,10 +5,10 @@
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block navbar_actions %}
-<a href="{% url 'backstage:production' %}" class="btn-icon" title="Mapa de produção" aria-label="Mapa de produção">
+<a href="{% url 'admin_console_production' %}" class="btn-icon" title="Mapa de produção" aria-label="Mapa de produção">
   <span class="material-symbols-rounded icon-md" aria-hidden="true">table_view</span>
 </a>
-<a href="{% url 'backstage:production_dashboard' %}" class="btn-icon" title="Dashboard" aria-label="Dashboard de produção">
+<a href="{% url 'admin_console_production_dashboard' %}" class="btn-icon" title="Dashboard" aria-label="Dashboard de produção">
   <span class="material-symbols-rounded icon-md" aria-hidden="true">monitoring</span>
 </a>
 {% endblock %}

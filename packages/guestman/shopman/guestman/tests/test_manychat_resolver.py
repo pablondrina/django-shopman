@@ -13,7 +13,12 @@ Covers (SPEC-004 acceptance criteria):
 
 from __future__ import annotations
 
+import json
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
+
 import pytest
+from django.test import override_settings
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.resolver import ManychatSubscriberResolver
 from shopman.guestman.models import Customer
@@ -101,6 +106,20 @@ def inactive_customer():
     return customer
 
 
+class _FakeManychatResponse:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Tests — Numeric subscriber_id
 # ═══════════════════════════════════════════════════════════════════
@@ -147,6 +166,74 @@ class TestResolveByPhone:
         """Inactive customer should not be resolved."""
         result = ManychatSubscriberResolver.resolve("+5543900000000")
         assert result is None
+
+    @override_settings(MANYCHAT_API_TOKEN="test-token")
+    def test_phone_api_lookup_uses_official_phone_query_param(self):
+        """ManyChat findBySystemField expects ?phone=<E.164>, not field/value."""
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["timeout"] = timeout
+            return _FakeManychatResponse({
+                "status": "success",
+                "data": {"id": 123456789},
+            })
+
+        with patch(
+            "shopman.guestman.contrib.manychat.resolver.urlopen",
+            side_effect=fake_urlopen,
+        ):
+            result = ManychatSubscriberResolver.resolve("+5543999880000")
+
+        assert result == 123456789
+        query = parse_qs(urlparse(captured["url"]).query)
+        assert query == {"phone": ["+5543999880000"]}
+        assert "field" not in query
+        assert "value" not in query
+
+    @override_settings(MANYCHAT_API_TOKEN="test-token")
+    def test_unknown_phone_creates_whatsapp_subscriber(self):
+        """Unknown WhatsApp contacts are bootstrapped via createSubscriber."""
+        captured = []
+
+        def fake_urlopen(request, timeout):
+            captured.append({
+                "url": request.full_url,
+                "method": request.get_method(),
+                "body": (
+                    json.loads(request.data.decode("utf-8"))
+                    if getattr(request, "data", None)
+                    else None
+                ),
+                "timeout": timeout,
+            })
+            if request.get_method() == "GET":
+                return _FakeManychatResponse({
+                    "status": "success",
+                    "data": {},
+                })
+            return _FakeManychatResponse({
+                "status": "success",
+                "data": {"id": 987123},
+            })
+
+        with patch(
+            "shopman.guestman.contrib.manychat.resolver.urlopen",
+            side_effect=fake_urlopen,
+        ):
+            result = ManychatSubscriberResolver.resolve("+5543984049009")
+
+        assert result == 987123
+        lookup_query = parse_qs(urlparse(captured[0]["url"]).query)
+        assert lookup_query == {"phone": ["+5543984049009"]}
+        fallback_lookup_query = parse_qs(urlparse(captured[1]["url"]).query)
+        assert fallback_lookup_query == {"phone": ["5543984049009"]}
+        assert captured[2]["method"] == "POST"
+        assert captured[2]["url"].endswith("/fb/subscriber/createSubscriber")
+        assert captured[2]["body"] == {
+            "whatsapp_phone": "+5543984049009",
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════

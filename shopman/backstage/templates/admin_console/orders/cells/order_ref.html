@@ -1,0 +1,5 @@
+{% load unfold %}
+
+{% component "unfold/components/link.html" with href=detail_url icon=card.channel_icon %}
+  #{{ card.ref }}
+{% endcomponent %}

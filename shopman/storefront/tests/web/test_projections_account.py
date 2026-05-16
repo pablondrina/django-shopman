@@ -159,6 +159,8 @@ class TestCustomerProfileAddresses:
         assert len(proj.saved_addresses) == 1
         assert isinstance(proj.saved_addresses[0], SavedAddressProjection)
         assert "Rua das Flores" in proj.saved_addresses[0].formatted_address
+        assert proj.saved_addresses[0].label_key == "home"
+        assert proj.saved_addresses[0].route == "Rua das Flores"
 
     def test_address_default_flag(self, customer, customer_address):
         proj = build_account(customer)
@@ -209,6 +211,23 @@ class TestCustomerProfileRecentOrders:
         order.refresh_from_db()
         proj = build_account(customer)
         assert all(isinstance(o, OrderSummaryProjection) for o in proj.recent_orders)
+
+    def test_recent_orders_share_customer_identity_contract(self, customer):
+        from shopman.orderman.models import Order
+
+        order = Order.objects.create(
+            ref="ORD-ACCOUNT-PHONE",
+            channel_ref="web",
+            status="completed",
+            total_q=1900,
+            handle_type="phone",
+            handle_ref=customer.phone,
+            data={},
+        )
+
+        proj = build_account(customer)
+
+        assert [o.ref for o in proj.recent_orders] == [order.ref]
 
     def test_order_summary_fields(self, customer, order):
         from shopman.orderman.models import Order

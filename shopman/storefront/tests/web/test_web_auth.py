@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import Client, override_settings
+from django.test import Client, RequestFactory, override_settings
 from django.utils import timezone
 from shopman.doorman import TrustedDevice
 from shopman.doorman.models import AccessLink
@@ -193,11 +193,76 @@ class TestAccessLinkLoginView:
         assert response.status_code == 302
         assert response.url == "/minha-conta/"
 
+    def test_access_entry_rejects_external_next(self, client: Client, customer):
+        """Short access entry sanitizes next before redirecting."""
+        link, raw_token = AccessLink.create_with_token(
+            customer_id=customer.uuid,
+            audience=AccessLink.Audience.WEB_GENERAL,
+            source=AccessLink.Source.INTERNAL,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = client.get(f"/a/?t={raw_token}&next=https://evil.example/phish")
+
+        assert response.status_code == 302
+        assert response.url.startswith("/")
+        assert "evil.example" not in response.url
+
+    def test_access_link_grants_order_metadata_before_nuxt_tracking_redirect(self, client: Client, customer):
+        """Access links for Nuxt tracking can bind order access and redirect safely."""
+        link, raw_token = AccessLink.create_with_token(
+            customer_id=customer.uuid,
+            audience=AccessLink.Audience.WEB_GENERAL,
+            source=AccessLink.Source.INTERNAL,
+            metadata={"order_ref": "ORD-NUXT-ACCESS"},
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = client.get(f"/auth/access/{raw_token}/?next=/tracking/ORD-NUXT-ACCESS")
+
+        assert response.status_code == 302
+        assert response.url == "/tracking/ORD-NUXT-ACCESS"
+        assert "ORD-NUXT-ACCESS" in client.session.get("shopman_order_access_refs", [])
+
 
 # ── Login page ─────────────────────────────────────────────────────
 
 
 class TestLoginView:
+    def test_login_get_exposes_same_number_whatsapp_entry(self, client: Client):
+        from shopman.shop.models import Shop
+
+        Shop.objects.all().delete()
+        Shop.objects.create(name="Test Shop", phone="43984049009")
+
+        response = client.get("/login/?next=/checkout/")
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Entrar pelo WhatsApp" in content
+        assert "https://wa.me/5543984049009?text=Quero+finalizar+meu+pedido" in content
+        assert "Seu carrinho e endereços estão salvos." not in content
+
+    def test_login_rate_key_uses_normalized_phone_fallback(self):
+        from shopman.storefront.views.auth import _auth_phone_rate_key
+
+        request = RequestFactory().post("/login/", {
+            "phone": "",
+            "phone_normalized": "+5543984049009",
+        })
+
+        assert _auth_phone_rate_key(None, request) == "+5543984049009"
+
+    def test_login_rate_key_normalizes_ios_zero_ddd(self):
+        from shopman.storefront.views.auth import _auth_phone_rate_key
+
+        request = RequestFactory().post("/login/", {
+            "phone": "(043) 98404-9009",
+            "phone_normalized": "",
+        })
+
+        assert _auth_phone_rate_key(None, request) == "+5543984049009"
+
     def test_logged_in_login_rejects_external_next(self, client: Client, customer):
         _login_as_customer(client, customer)
 

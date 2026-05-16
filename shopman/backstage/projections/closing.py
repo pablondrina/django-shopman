@@ -2,7 +2,7 @@
 
 Translates saleable stock, product classifications, and closing history into
 immutable projections. Replaces the inline ``_build_items`` / ``_has_old_d1_stock``
-logic from ``shopman.backstage.views.closing``.
+logic now consumed by ``shopman.backstage.admin_console.closing``.
 
 Never imports from ``shopman.backstage.views.*``.
 """
@@ -84,6 +84,7 @@ class DayClosingProjection:
     has_old_d1: bool  # D-1 stock older than 1 day in "ontem" position
     total_available: int
     production_summary: dict
+    cash_shift_summary: dict
     reconciliation_errors: tuple[ReconciliationError, ...]
 
 
@@ -100,12 +101,14 @@ def build_day_closing() -> DayClosingProjection:
 
     closing_display = ""
     production_summary = _today_production_summary(today)
+    cash_shift_summary = _today_cash_shift_summary(today)
     reconciliation_errors: tuple[ReconciliationError, ...] = ()
     if existing:
         by = existing.closed_by.get_username() if existing.closed_by else "?"
         at = existing.closed_at.strftime("%H:%M") if existing.closed_at else ""
         closing_display = f"Fechado por {by} às {at}"
         production_summary = _closing_data(existing).get("production_summary") or production_summary
+        cash_shift_summary = _closing_data(existing).get("cash_shift_summary") or cash_shift_summary
         raw_errors = _closing_data(existing).get("reconciliation_errors") or ()
         reconciliation_errors = tuple(
             ReconciliationError.from_dict(raw) if isinstance(raw, dict) else raw
@@ -122,6 +125,7 @@ def build_day_closing() -> DayClosingProjection:
         has_old_d1=_has_old_d1_stock(),
         total_available=total_available,
         production_summary=production_summary,
+        cash_shift_summary=cash_shift_summary,
         reconciliation_errors=reconciliation_errors,
     )
 
@@ -241,3 +245,13 @@ def _today_production_summary(selected_date: date) -> dict:
     except Exception:
         logger.debug("closing.production_summary_failed", exc_info=True)
         return {}
+
+
+def _today_cash_shift_summary(selected_date: date) -> dict:
+    try:
+        from shopman.backstage.services.closing import _cash_shift_summary
+
+        return _cash_shift_summary(selected_date)
+    except Exception:
+        logger.debug("closing.cash_shift_summary_failed", exc_info=True)
+        return {"closed_shifts": [], "open_shifts": [], "totals": {}}

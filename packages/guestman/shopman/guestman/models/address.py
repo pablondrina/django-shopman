@@ -152,6 +152,8 @@ class CustomerAddress(models.Model):
         return " ".join(parts) if parts else self.formatted_address[:60]
 
     def save(self, *args, **kwargs):
+        if self.place_id is None:
+            self.place_id = ""
         if self.is_default:
             CustomerAddress.objects.filter(
                 customer=self.customer, is_default=True

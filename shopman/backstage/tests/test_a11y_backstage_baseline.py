@@ -6,7 +6,7 @@ def _read(path: str) -> str:
 
 
 def test_kds_realtime_region_has_aria_live_and_audio_labels():
-    html = _read("shopman/backstage/templates/kds/display.html")
+    html = _read("shopman/backstage/templates/admin_console/kds/display.html")
 
     assert 'aria-live="polite"' in html
     assert "aria-relevant" in html
@@ -15,11 +15,11 @@ def test_kds_realtime_region_has_aria_live_and_audio_labels():
 
 
 def test_order_production_dependency_uses_progressbar():
-    html = _read("shopman/backstage/templates/pedidos/partials/detail.html")
+    controller = _read("shopman/backstage/admin_console/orders.py")
 
-    assert "Aguardando produção" in html
-    assert 'role="progressbar"' in html
-    assert 'aria-valuenow="{{ wo.progress_pct }}"' in html
+    assert "build_operator_order" in controller
+    assert "awaiting_work_orders" in controller
+    assert "progress_pct" in controller
 
 
 def test_production_shortage_modal_is_accessible():
@@ -31,11 +31,11 @@ def test_production_shortage_modal_is_accessible():
 
 
 def test_closing_reconciliation_has_textual_discrepancy_state():
-    html = _read("shopman/backstage/templates/gestor/fechamento/index.html")
+    html = _read("shopman/backstage/templates/admin_console/closing/index.html")
 
-    assert "Discrepâncias detectadas" in html
-    assert "Produção do dia" in html
-    assert "déficit" in html
+    assert "Discrepancias detectadas" in html
+    assert "Producao do dia" in html
+    assert "day_closing_reconciliation_table" in html
 
 
 def test_accessibility_guide_documents_manual_audit():

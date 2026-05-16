@@ -1,4 +1,5 @@
-{% load storefront_tags %}
+{% load storefront_tags omotenashi_tags %}
+{% omotenashi 'PROFILE_NAME_LABEL' as profile_name_label %}
 <div id="profile-section">
   <div class="flex items-center justify-between mb-4">
     <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Editar dados</h3>
@@ -20,7 +21,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label for="first_name" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">
-          Como quer ser chamado?
+          {{ profile_name_label.title }}
         </label>
         <input type="text"
                id="first_name"

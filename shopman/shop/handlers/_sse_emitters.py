@@ -90,10 +90,18 @@ def _connect() -> None:
     """Wire post_save / pre_save receivers. Called once from ``register_all``."""
     from shopman.craftsman.signals import production_changed
     from shopman.offerman.models import ListingItem, Product
+    from shopman.orderman.signals import order_changed
+    from shopman.payman.signals import (
+        payment_authorized,
+        payment_cancelled,
+        payment_captured,
+        payment_failed,
+        payment_refunded,
+    )
+    from shopman.stockman.models import Hold, Move
+
     from shopman.shop.adapters import alert as alert_adapter
     from shopman.shop.adapters import kds as kds_adapter
-    from shopman.orderman.signals import order_changed
-    from shopman.stockman.models import Hold, Move
 
     post_save.connect(_on_hold_saved, sender=Hold, weak=False)
     post_save.connect(_on_move_saved, sender=Move, weak=False)
@@ -114,6 +122,18 @@ def _connect() -> None:
         dispatch_uid="shopman.shop.handlers._sse_emitters.on_production_changed",
         weak=False,
     )
+    for signal, name in (
+        (payment_authorized, "payment_authorized"),
+        (payment_captured, "payment_captured"),
+        (payment_failed, "payment_failed"),
+        (payment_cancelled, "payment_cancelled"),
+        (payment_refunded, "payment_refunded"),
+    ):
+        signal.connect(
+            _on_payment_changed,
+            dispatch_uid=f"shopman.shop.handlers._sse_emitters.on_{name}",
+            weak=False,
+        )
     alert_adapter.connect_saved(
         _on_operator_alert_saved,
         dispatch_uid="shopman.shop.handlers._sse_emitters.on_operator_alert_saved",
@@ -158,6 +178,33 @@ def _on_order_changed(sender, order, event_type, actor, **kwargs):
         "orders",
         "backstage-orders-update",
         {"ref": order.ref, "status": order.status, "kind": event_type},
+        scope=_scope_for_order(order),
+    )
+
+
+def _on_payment_changed(sender, intent=None, order_ref=None, **kwargs):
+    order_ref = order_ref or getattr(intent, "order_ref", "")
+    if not order_ref:
+        return
+    payment_status = getattr(intent, "status", "")
+    payload = {
+        "ref": order_ref,
+        "payment_status": payment_status,
+        "kind": "payment_changed",
+    }
+    _emit_for_order(order_ref, event_type="order-update", payload=payload)
+
+    try:
+        from shopman.orderman.models import Order
+
+        order = Order.objects.get(ref=order_ref)
+    except Exception:
+        return
+
+    _emit_backstage(
+        "orders",
+        "backstage-orders-update",
+        {**payload, "status": order.status},
         scope=_scope_for_order(order),
     )
 

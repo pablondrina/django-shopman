@@ -5,9 +5,10 @@ import pytest
 
 @pytest.mark.django_db
 def test_dispatch_prefers_collection_specific_station_before_picking_catchall():
-    from shopman.backstage.models import KDSInstance
     from shopman.offerman.models import Collection, CollectionItem, Product
     from shopman.orderman.models import Order, OrderItem
+
+    from shopman.backstage.models import KDSInstance
     from shopman.shop.models import Channel
     from shopman.shop.services.kds import dispatch
 
