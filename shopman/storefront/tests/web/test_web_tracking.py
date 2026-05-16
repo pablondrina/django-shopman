@@ -102,6 +102,29 @@ class TestReorderView:
         add_item.assert_not_called()
         assert cart_session.session.get("reorder_source") is None
 
+    def test_reorder_api_conflict_returns_projection(
+        self, cart_session: Client, order_items,
+    ):
+        """API surfaces receive cart, copy and actions before choosing append/replace."""
+        with patch("shopman.storefront.services.orders.add_reorder_items") as add_items:
+            resp = cart_session.post(f"/api/v1/orders/{order_items.ref}/reorder/")
+
+        assert resp.status_code == 409
+        data = resp.json()
+        assert data["error_code"] == "cart_not_empty"
+        assert data["order_ref"] == order_items.ref
+        assert data["copy"]["title"]["title"] == "Seu carrinho já tem itens"
+        assert data["copy"]["replace_ack_label"]["message"]
+        assert data["cart"]["is_empty"] is False
+        assert data["items"][0]["sku"]
+        assert [action["ref"] for action in data["actions"]] == [
+            "reorder_append",
+            "reorder_replace",
+        ]
+        assert data["actions"][0]["priority"] == "primary"
+        assert data["actions"][1]["confirmation"]["severity"] == "danger"
+        add_items.assert_not_called()
+
     def test_reorder_add_mode_appends_to_existing_cart(
         self, cart_session: Client, order_items, channel, product, croissant,
     ):

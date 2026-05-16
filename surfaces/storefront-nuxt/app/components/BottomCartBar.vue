@@ -4,7 +4,7 @@ const { cart } = useCartState()
 const isHydrated = ref(false)
 
 const target = computed(() => route.path.startsWith('/cart') ? '/checkout' : '/cart')
-const actionLabel = computed(() => route.path.startsWith('/cart') ? 'Finalizar' : 'Ver')
+const actionLabel = computed(() => route.path.startsWith('/cart') ? 'Finalizar' : 'Carrinho')
 const isBrowsingSurface = computed(() =>
   route.path === '/' ||
   route.path.startsWith('/menu') ||
@@ -37,7 +37,7 @@ onMounted(() => {
             {{ cart.items_count === 1 ? '1 item no carrinho' : `${cart.items_count} itens no carrinho` }}
           </span>
         </span>
-        <UButton color="primary" variant="solid" size="sm" :label="actionLabel" />
+        <UButton as="span" color="primary" variant="solid" size="sm" :label="actionLabel" />
       </NuxtLink>
     </UPageCard>
   </Transition>

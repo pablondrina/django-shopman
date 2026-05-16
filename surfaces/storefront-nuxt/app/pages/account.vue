@@ -151,7 +151,7 @@ const logoutRoute = { path: '/sair', query: { cancel: '/conta' } }
 const accountTabValues: AccountTab[] = ['profile', 'orders', 'addresses', 'loyalty', 'preferences', 'security']
 const activeTab = ref<AccountTab>(normalizeAccountTab(route.query.tab))
 
-const { performReorder, pending: reorderPending } = useReorder()
+const { performReorderAction, pending: reorderPending } = useReorder()
 
 function normalizeAccountTab (value: unknown): AccountTab {
   const candidate = Array.isArray(value) ? value[0] : value

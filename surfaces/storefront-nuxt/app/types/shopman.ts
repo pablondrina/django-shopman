@@ -355,6 +355,33 @@ export interface CartResponse {
   cart: CartProjection
 }
 
+export interface ReorderConflictItemProjection {
+  sku: string
+  name: string
+  qty: number
+}
+
+export interface ReorderConflictCopyProjection {
+  title: CopyEntryProjection
+  message: CopyEntryProjection
+  current_cart_label: CopyEntryProjection
+  previous_order_label: CopyEntryProjection
+  append_help: CopyEntryProjection
+  replace_help: CopyEntryProjection
+  replace_ack_label: CopyEntryProjection
+  cancel_label: CopyEntryProjection
+}
+
+export interface ReorderConflictProjection {
+  detail: string
+  error_code: 'cart_not_empty'
+  order_ref: string
+  cart: CartProjection
+  items: ReorderConflictItemProjection[]
+  copy: ReorderConflictCopyProjection
+  actions: SurfaceActionProjection[]
+}
+
 export interface CartMutationResponse {
   ok: true
   action: 'add' | 'update' | 'remove'

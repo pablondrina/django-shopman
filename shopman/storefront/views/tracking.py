@@ -15,6 +15,7 @@ from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 
 from ..cart import CartService
+from ..projections import build_reorder_conflict
 from ..services import orders as order_service
 
 logger = logging.getLogger(__name__)
@@ -122,11 +123,19 @@ class ReorderView(View):
         return redirect("storefront:cart")
 
     def _cart_choice_response(self, request: HttpRequest, order) -> HttpResponse:
+        conflict = build_reorder_conflict(request, order)
+        actions = {action.ref: action for action in conflict.actions}
+        context = {
+            "order": order,
+            "conflict": conflict,
+            "append_action": actions.get("reorder_append"),
+            "replace_action": actions.get("reorder_replace"),
+        }
         if not request.headers.get("HX-Request"):
             response = render(
                 request,
                 "storefront/partials/reorder_conflict_modal.html",
-                {"order": order},
+                context,
                 status=409,
             )
             return response
@@ -134,7 +143,7 @@ class ReorderView(View):
         response = render(
             request,
             "storefront/partials/reorder_conflict_modal.html",
-            {"order": order},
+            context,
         )
         response["HX-Retarget"] = "#reorder-conflict-modal"
         response["HX-Reswap"] = "innerHTML"

@@ -1,12 +1,4 @@
-import type { CartProjection, SurfaceActionProjection } from '~/types/shopman'
-
-interface ReorderConflict {
-  orderRef: string
-  href: string
-  method: string
-  items: Array<{ sku: string, name: string, qty: number }>
-  actions: SurfaceActionProjection[]
-}
+import type { CartProjection, ReorderConflictProjection, SurfaceActionProjection } from '~/types/shopman'
 
 interface ReorderSkippedItem {
   sku?: string
@@ -31,7 +23,7 @@ interface ReorderResponse {
   cart: CartProjection
 }
 
-const conflictState = () => useState<ReorderConflict | null>('shopman-reorder-conflict', () => null)
+const conflictState = () => useState<ReorderConflictProjection | null>('shopman-reorder-conflict', () => null)
 const skippedState = () => useState<ReorderSkippedItem[]>('shopman-reorder-skipped-items', () => [])
 const rateLimitState = () => useState<ReorderRateLimitRecovery | null>('shopman-reorder-rate-limit-recovery', () => null)
 
@@ -108,12 +100,25 @@ export function useReorder () {
       const status = err?.response?.status
       const data = err?.data
       if (status === 409 && data?.error_code === 'cart_not_empty') {
+        const conflictData = data as Partial<ReorderConflictProjection>
+        if (data.cart) setFromServer(data.cart)
+        if (!conflictData.cart || !conflictData.copy || !conflictData.order_ref) {
+          toast.add({
+            icon: 'i-lucide-circle-x',
+            color: 'error',
+            title: 'Não foi possível repetir o pedido',
+            description: 'A resposta de conflito veio incompleta.'
+          })
+          return false
+        }
         conflict.value = {
-          orderRef: data.order_ref || orderRef,
-          href,
-          method,
-          items: Array.isArray(data.items) ? data.items : [],
-          actions: Array.isArray(data.actions) ? data.actions : []
+          detail: conflictData.detail || '',
+          error_code: 'cart_not_empty',
+          order_ref: conflictData.order_ref,
+          items: Array.isArray(conflictData.items) ? conflictData.items : [],
+          cart: conflictData.cart,
+          copy: conflictData.copy,
+          actions: Array.isArray(conflictData.actions) ? conflictData.actions : []
         }
         return false
       }
@@ -164,24 +169,16 @@ export function useReorder () {
   async function resolveConflict (mode: 'replace' | 'append') {
     if (!conflict.value) return
     const action = conflict.value.actions.find(candidate => candidate.ref === `reorder_${mode}` && candidate.enabled !== false)
-    await performReorder(
-      conflict.value.orderRef,
-      mode,
-      undefined,
-      action || {
-        ref: `reorder_${mode}`,
-        kind: 'mutation',
-        label: mode === 'replace' ? 'Substituir o carrinho' : 'Adicionar ao carrinho atual',
-        priority: mode === 'replace' ? 'danger' : 'secondary',
-        enabled: true,
-        reason: '',
-        href: conflict.value.href,
-        method: conflict.value.method,
-        payload_schema: {},
-        idempotency: 'required',
-        confirmation: {}
-      }
-    )
+    if (!action) {
+      toast.add({
+        icon: 'i-lucide-circle-x',
+        color: 'error',
+        title: 'Não foi possível repetir o pedido',
+        description: 'A ação solicitada não veio na projeção.'
+      })
+      return
+    }
+    await performReorder(conflict.value.order_ref, mode, undefined, action)
   }
 
   async function retryRateLimitedReorder () {

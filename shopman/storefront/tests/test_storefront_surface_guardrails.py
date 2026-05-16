@@ -177,6 +177,7 @@ def test_home_reorder_closes_open_shell_overlays_before_htmx_swap():
     reorder_modal = _read_template("partials/reorder_conflict_modal.html")
     tracking = _read_template("order_tracking.html")
     history = _read_template("order_history.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
 
     assert "x-on:close-mobile-menu.window=\"mobileMenuIsOpen = false\"" in base
     assert 'id="reorder-conflict-modal"' in base
@@ -204,8 +205,10 @@ def test_home_reorder_closes_open_shell_overlays_before_htmx_swap():
     assert 'hx-target="#reorder-conflict-modal"' in history
     assert 'name="reorder_mode" value="replace"' in reorder_modal
     assert 'name="reorder_mode" value="add"' in reorder_modal
-    assert "Substituir carrinho" in reorder_modal
-    assert "Adicionar ao carrinho atual" in reorder_modal
+    assert "{{ replace_action.label }}" in reorder_modal
+    assert "{{ append_action.label }}" in reorder_modal
+    assert "Substituir carrinho" in omotenashi_copy
+    assert "Adicionar ao carrinho atual" in omotenashi_copy
     assert "close-mobile-menu" in quick_reorder
     assert "close-cart-drawer" in quick_reorder
     assert quick_reorder.count("close-mobile-menu") >= 2

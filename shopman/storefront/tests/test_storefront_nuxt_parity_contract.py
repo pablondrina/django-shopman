@@ -679,7 +679,7 @@ def test_nuxt_sensitive_account_actions_require_confirmation():
 
     assert "UModal v-model:open=\"open\"" in reorder_modal
     assert "replaceAcknowledged" in reorder_modal
-    assert ":disabled=\"!replaceAcknowledged\"" in reorder_modal
+    assert ":disabled=\"!replaceAction || !replaceAcknowledged\"" in reorder_modal
     assert "resolveConflict('replace')" in reorder_modal
 
 
@@ -699,21 +699,28 @@ def test_reorder_requires_explicit_mode_before_replacing_cart():
     reorder = _nuxt_file("composables/useReorder.ts")
     modal = _nuxt_file("components/ReorderConflictModal.vue")
     api = _read(REPO_ROOT / "shopman" / "storefront" / "api" / "surface.py")
+    projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "reorder.py")
 
     assert "mode?: 'replace' | 'append'" in reorder
     assert "body: mode ? { mode, idempotency_key: idempotencyKey } : { idempotency_key: idempotencyKey }" in reorder
     assert "status === 409" in reorder
     assert "data?.error_code === 'cart_not_empty'" in reorder
+    assert "setFromServer(data.cart)" in reorder
+    assert "order_ref: conflictData.order_ref" in reorder
 
     assert "replaceAcknowledged" in modal
-    assert "appendAction?.label || 'Adicionar ao carrinho atual'" in modal
-    assert "replaceAction?.label || 'Substituir o carrinho'" in modal
+    assert "conflict.value?.cart.items" in modal
+    assert "copy.value?.message.message" in modal
+    assert ":label=\"appendAction?.label\"" in modal
+    assert ":label=\"replaceAction?.label\"" in modal
     assert "resolveConflict('append')" in modal
     assert "resolveConflict('replace')" in modal
-    assert ":disabled=\"!replaceAcknowledged\"" in modal
+    assert ":disabled=\"!replaceAction || !replaceAcknowledged\"" in modal
 
     assert "mode not in {\"replace\", \"append\"}" in api
-    assert "\"error_code\": \"cart_not_empty\"" in api
+    assert "build_reorder_conflict" in api
+    assert 'error_code="cart_not_empty"' in projection
+    assert "cart=build_cart" in projection
     assert "if mode == \"replace\":" in api
     assert "CartService.clear(request)" in api
 

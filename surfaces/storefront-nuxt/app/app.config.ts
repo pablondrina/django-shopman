@@ -48,6 +48,11 @@ export default defineAppConfig({
         title: 'text-base font-semibold',
         description: 'text-sm'
       }
+    },
+    badge: {
+      slots: {
+        base: 'rounded-full'
+      }
     }
   }
 })

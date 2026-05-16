@@ -134,22 +134,18 @@ useHead({ title: 'Seu carrinho' })
     />
 
     <div v-else>
-      <section class="shop-soft-panel rounded-lg p-4 sm:p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p class="shop-section-kicker">
-              Carrinho
-            </p>
-            <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">Seu pedido</h1>
-            <p class="mt-2 text-sm leading-relaxed text-muted sm:text-base">{{ summaryDescription }}</p>
-          </div>
-          <UButton label="Continuar comprando" to="/menu" color="neutral" variant="outline" size="lg" class="self-start" />
-        </div>
-      </section>
+      <UPageHeader title="Seu pedido" :description="summaryDescription">
+        <template #headline>
+          Carrinho
+        </template>
+        <template #links>
+          <UButton label="Continuar comprando" to="/menu" color="neutral" variant="outline" />
+        </template>
+      </UPageHeader>
 
       <div
         v-if="cart.is_empty"
-        class="mt-12 rounded-lg border border-default bg-default p-8 text-center"
+        class="mt-8 rounded-lg border border-default bg-default p-8 text-center"
       >
         <h2 class="text-lg font-semibold text-highlighted">Carrinho vazio</h2>
         <p class="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-muted">
@@ -158,7 +154,7 @@ useHead({ title: 'Seu carrinho' })
         <UButton to="/menu" label="Ver cardápio" class="mt-5" />
       </div>
 
-      <div v-else class="mt-6 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
+      <div v-else class="mt-8 grid lg:grid-cols-[1fr_380px] gap-6 items-start">
         <div class="grid gap-3">
           <UAlert
             v-if="cart.summary_pending"

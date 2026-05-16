@@ -25,6 +25,7 @@ from shopman.storefront.projections import (
     build_checkout,
     build_home,
     build_product_detail,
+    build_reorder_conflict,
 )
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.cart_mutations import (
@@ -325,66 +326,8 @@ class OrderReorderView(APIView):
         cart_has_items = CartService.has_items(request)
 
         if cart_has_items and mode not in {"replace", "append"}:
-            snapshot_items = (order.snapshot or {}).get("items") or []
-            return Response(
-                {
-                    "detail": "Carrinho não está vazio. Escolha como continuar.",
-                    "error_code": "cart_not_empty",
-                    "order_ref": ref,
-                    "items": [
-                        {
-                            "sku": item.get("sku"),
-                            "name": item.get("name"),
-                            "qty": int(item.get("qty", 1) or 1),
-                        }
-                        for item in snapshot_items
-                        if item.get("sku")
-                    ],
-                    "actions": [
-                        action_payload(
-                            ref="reorder_append",
-                            kind="mutation",
-                            label="Adicionar ao carrinho atual",
-                            priority="secondary",
-                            href=f"/api/v1/orders/{ref}/reorder/",
-                            method="POST",
-                            payload_schema={
-                                "type": "object",
-                                "required": ["mode", "idempotency_key"],
-                                "properties": {
-                                    "mode": {"type": "string", "const": "append"},
-                                    "idempotency_key": {"type": "string"},
-                                },
-                            },
-                            idempotency="required",
-                        ),
-                        action_payload(
-                            ref="reorder_replace",
-                            kind="mutation",
-                            label="Substituir o carrinho",
-                            priority="danger",
-                            href=f"/api/v1/orders/{ref}/reorder/",
-                            method="POST",
-                            payload_schema={
-                                "type": "object",
-                                "required": ["mode", "idempotency_key"],
-                                "properties": {
-                                    "mode": {"type": "string", "const": "replace"},
-                                    "idempotency_key": {"type": "string"},
-                                },
-                            },
-                            idempotency="required",
-                            confirmation={
-                                "title": "Substituir carrinho",
-                                "message": "Os itens atuais serão removidos antes de recriar o pedido.",
-                                "confirm_label": "Substituir carrinho",
-                                "severity": "danger",
-                            },
-                        ),
-                    ],
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
+            conflict = build_reorder_conflict(request, order, order_ref=ref)
+            return Response(projection_data(conflict), status=status.HTTP_409_CONFLICT)
 
         key = remote_mutations.idempotency_key_from_request(
             request,

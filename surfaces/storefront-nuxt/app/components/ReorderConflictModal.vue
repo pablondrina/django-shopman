@@ -1,6 +1,5 @@
 <script setup lang="ts">
 const { conflict, resolveConflict, dismissConflict, pending } = useReorder()
-const { cart } = useCartState()
 const replaceAcknowledged = ref(false)
 
 const open = computed({
@@ -8,7 +7,16 @@ const open = computed({
   set: (val) => { if (!val) dismissConflict() }
 })
 
-const currentCartItems = computed(() => cart.value.items || [])
+const copy = computed(() => conflict.value?.copy || null)
+const modalTitle = computed(() => copy.value?.title.title || '')
+const modalMessage = computed(() => copy.value?.message.message || '')
+const currentCartLabel = computed(() => copy.value?.current_cart_label.title || '')
+const previousOrderLabel = computed(() => copy.value?.previous_order_label.title || '')
+const appendHelp = computed(() => copy.value?.append_help.message || '')
+const replaceHelp = computed(() => copy.value?.replace_help.message || '')
+const replaceAckLabel = computed(() => copy.value?.replace_ack_label.message || '')
+const cancelLabel = computed(() => copy.value?.cancel_label.title || '')
+const currentCartItems = computed(() => conflict.value?.cart.items || [])
 const hasCurrentCart = computed(() => currentCartItems.value.length > 0)
 const appendAction = computed(() => conflict.value?.actions.find(action => action.ref === 'reorder_append' && action.enabled !== false) || null)
 const replaceAction = computed(() => conflict.value?.actions.find(action => action.ref === 'reorder_replace' && action.enabled !== false) || null)
@@ -24,16 +32,16 @@ async function replaceCart () {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Carrinho não está vazio" :ui="{ content: 'max-w-lg' }">
+  <UModal v-model:open="open" :title="modalTitle" :ui="{ content: 'max-w-lg' }">
     <template #body>
       <div class="grid gap-4">
         <p class="text-sm text-muted leading-relaxed">
-          Você ainda tem itens no carrinho. Como prefere continuar?
+          {{ modalMessage }}
         </p>
 
-        <div v-if="hasCurrentCart" class="rounded-lg border border-warning/30 bg-warning/10 p-4">
-          <p class="text-xs uppercase font-semibold text-warning mb-2">
-            Carrinho atual
+        <div v-if="hasCurrentCart" class="rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <p class="mb-2 text-sm font-medium text-highlighted">
+            {{ currentCartLabel }}
           </p>
           <ul class="grid gap-1.5 text-sm">
             <li
@@ -48,9 +56,9 @@ async function replaceCart () {
           </ul>
         </div>
 
-        <div class="rounded-lg border border-default p-4">
-          <p class="text-xs uppercase font-semibold text-muted mb-2">
-            Itens do pedido {{ conflict?.orderRef }}
+        <div class="rounded-lg border border-default p-3">
+          <p class="mb-2 text-sm font-medium text-highlighted">
+            {{ previousOrderLabel }} {{ conflict?.order_ref }}
           </p>
           <ul class="grid gap-1.5 text-sm">
             <li
@@ -64,31 +72,40 @@ async function replaceCart () {
           </ul>
         </div>
 
-        <UCheckbox
-          v-model="replaceAcknowledged"
-          label="Entendo que substituir o carrinho remove os itens atuais antes de recriar este pedido."
-        />
-
-        <div class="grid sm:grid-cols-2 gap-3 mt-2">
+        <div class="grid gap-2">
           <UButton
-            color="neutral"
-            variant="outline"
+            color="primary"
+            variant="solid"
             size="lg"
             block
             icon="i-lucide-plus-circle"
             :loading="pending"
-            :label="appendAction?.label || 'Adicionar ao carrinho atual'"
+            :disabled="!appendAction"
+            :label="appendAction?.label"
             @click="resolveConflict('append')"
           />
+          <p v-if="appendHelp" class="text-xs leading-relaxed text-muted">
+            {{ appendHelp }}
+          </p>
+        </div>
+
+        <div class="grid gap-2">
+          <p v-if="replaceHelp" class="text-xs leading-relaxed text-muted">
+            {{ replaceHelp }}
+          </p>
+          <UCheckbox
+            v-model="replaceAcknowledged"
+            :label="replaceAckLabel"
+          />
           <UButton
-            color="warning"
-            variant="solid"
+            color="error"
+            variant="outline"
             size="lg"
             block
             icon="i-lucide-rotate-ccw"
             :loading="pending"
-            :disabled="!replaceAcknowledged"
-            :label="replaceAction?.label || 'Substituir o carrinho'"
+            :disabled="!replaceAction || !replaceAcknowledged"
+            :label="replaceAction?.label"
             @click="replaceCart"
           />
         </div>
@@ -98,7 +115,7 @@ async function replaceCart () {
           variant="ghost"
           size="sm"
           block
-          label="Cancelar"
+          :label="cancelLabel"
           @click="dismissConflict"
         />
       </div>

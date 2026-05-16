@@ -57,6 +57,12 @@ from .product_detail import (
     ProductDetailProjection,
     build_product_detail,
 )
+from .reorder import (
+    ReorderConflictCopyProjection,
+    ReorderConflictItemProjection,
+    ReorderConflictProjection,
+    build_reorder_conflict,
+)
 from .shop import ShopProjection, SocialLinkProjection, build_shop_projection
 
 __all__ = [
@@ -91,6 +97,9 @@ __all__ = [
     "PaymentStatusProjection",
     "PickupInfoProjection",
     "ProductDetailProjection",
+    "ReorderConflictCopyProjection",
+    "ReorderConflictItemProjection",
+    "ReorderConflictProjection",
     "ShopProjection",
     "ShopStatusProjection",
     "SocialLinkProjection",
@@ -108,5 +117,6 @@ __all__ = [
     "build_payment",
     "build_payment_status",
     "build_product_detail",
+    "build_reorder_conflict",
     "build_shop_projection",
 ]

@@ -1165,6 +1165,30 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "REORDER_CONFLICT_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha como deseja repetir este pedido.")},
     },
+    "REORDER_CONFLICT_CURRENT_CART_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="No carrinho agora")},
+    },
+    "REORDER_CONFLICT_PREVIOUS_ORDER_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido anterior")},
+    },
+    "REORDER_CONFLICT_APPEND_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Adicionar ao carrinho atual")},
+    },
+    "REORDER_CONFLICT_APPEND_HELP": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Mantemos o carrinho atual e somamos os itens disponíveis do pedido anterior.")},
+    },
+    "REORDER_CONFLICT_REPLACE_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Substituir carrinho")},
+    },
+    "REORDER_CONFLICT_REPLACE_HELP": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Os itens atuais serão removidos antes de recriar o pedido anterior.")},
+    },
+    "REORDER_CONFLICT_REPLACE_ACK_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Entendo que os itens atuais serão removidos.")},
+    },
+    "REORDER_CONFLICT_CANCEL_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Manter meu carrinho")},
+    },
 }
 
 
