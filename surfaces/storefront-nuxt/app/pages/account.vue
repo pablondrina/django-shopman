@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { CalendarDate, parseDate } from '@internationalized/date'
 import type { TabsItem } from '@nuxt/ui'
-import type { AuthSessionResponse, SurfaceActionProjection } from '~/types/shopman'
+import type { AuthSessionResponse, SavedAddressProjection, SurfaceActionProjection } from '~/types/shopman'
 
 type UiColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 type OrderFilter = 'todos' | 'ativos' | 'anteriores'
@@ -32,14 +33,7 @@ if (!authSession.value?.is_authenticated) {
   await navigateTo('/login?next=/conta')
 }
 
-interface AddressItem {
-  id: number
-  label: string
-  formatted_address: string
-  is_default: boolean
-  complement: string
-  delivery_instructions: string
-}
+type AddressItem = SavedAddressProjection
 
 interface OrderItem {
   ref: string
@@ -430,6 +424,33 @@ function formatOrderDate (order: { created_at?: string, created_at_display?: str
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function isoFromCalendarDate (date: CalendarDate): string {
+  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+}
+
+const maxBirthdayDate = computed(() => {
+  const now = new Date()
+  return new CalendarDate(now.getFullYear(), now.getMonth() + 1, now.getDate())
+})
+
+const birthdayCalendarValue = computed({
+  get () {
+    if (!profileForm.birthday) return undefined
+    try {
+      return parseDate(profileForm.birthday)
+    } catch {
+      return undefined
+    }
+  },
+  set (value: any) {
+    profileForm.birthday = value ? isoFromCalendarDate(value) : ''
+  }
+})
+
+function isBirthdayUnavailable (date: any): boolean {
+  return date.compare(maxBirthdayDate.value) > 0
+}
+
 function orderColor (order: OrderItem): UiColor {
   if (['completed', 'delivered'].includes(order.status)) return 'success'
   if (['cancelled', 'returned'].includes(order.status)) return 'error'
@@ -447,6 +468,12 @@ const loyaltyProgress = computed(() => {
   const loyalty = accountSummary.value?.loyalty
   if (!loyalty?.stamps_target) return 0
   return Math.min(100, Math.round((loyalty.stamps_current / loyalty.stamps_target) * 100))
+})
+
+const profileInitials = computed(() => {
+  const name = customerName.value || profile.value?.name || ''
+  const parts = name.split(' ').filter(Boolean)
+  return parts.slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || 'C'
 })
 
 const accountMemoryCards = computed(() => [
@@ -474,12 +501,12 @@ const accountMemoryCards = computed(() => [
 ])
 
 const tabs = computed<TabsItem[]>(() => [
-  { label: 'Perfil', value: 'profile', slot: 'profile' as const },
-  { label: 'Pedidos', value: 'orders', slot: 'orders' as const },
-  { label: 'Endereços', value: 'addresses', slot: 'addresses' as const },
-  { label: 'Fidelidade', value: 'loyalty', slot: 'loyalty' as const },
-  { label: 'Preferências', value: 'preferences', slot: 'preferences' as const },
-  { label: 'Segurança', value: 'security', slot: 'security' as const }
+  { label: 'Perfil', value: 'profile', slot: 'profile' as const, icon: 'i-lucide-user' },
+  { label: 'Pedidos', value: 'orders', slot: 'orders' as const, icon: 'i-lucide-receipt-text' },
+  { label: 'Endereços', value: 'addresses', slot: 'addresses' as const, icon: 'i-lucide-map-pin' },
+  { label: 'Fidelidade', value: 'loyalty', slot: 'loyalty' as const, icon: 'i-lucide-sparkles' },
+  { label: 'Preferências', value: 'preferences', slot: 'preferences' as const, icon: 'i-lucide-sliders-horizontal' },
+  { label: 'Segurança', value: 'security', slot: 'security' as const, icon: 'i-lucide-shield-check' }
 ])
 
 watch(orderFilter, () => {
@@ -511,7 +538,7 @@ useHead({ title: 'Sua conta' })
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-12">
+  <UContainer class="py-6 sm:py-10">
     <UPageHeader title="Sua conta">
       <template #description>
         Perfil, pedidos, endereços e preferências do cliente.
@@ -521,66 +548,78 @@ useHead({ title: 'Sua conta' })
       </template>
     </UPageHeader>
 
-    <div class="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <UCard
-        v-for="card in accountMemoryCards"
-        :key="card.label"
-        :ui="{ body: 'p-4' }"
-      >
-        <NuxtLink
-          v-if="card.to"
-          :to="card.to"
-          class="block min-w-0 hover:text-primary"
+    <UCard class="mt-6 overflow-hidden" :ui="{ body: 'p-0 sm:p-0' }">
+      <div class="grid divide-y divide-default sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+        <template
+          v-for="card in accountMemoryCards"
+          :key="card.label"
         >
-          <span class="text-xs font-semibold uppercase text-muted">{{ card.label }}</span>
-          <strong class="mt-1 block truncate text-base text-highlighted">{{ card.value }}</strong>
-          <span class="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">{{ card.detail }}</span>
-        </NuxtLink>
-        <div v-else class="min-w-0">
-          <span class="text-xs font-semibold uppercase text-muted">{{ card.label }}</span>
-          <strong class="mt-1 block truncate text-base text-highlighted">{{ card.value }}</strong>
-          <span class="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">{{ card.detail }}</span>
-        </div>
-      </UCard>
+          <NuxtLink
+            v-if="card.to"
+            :to="card.to"
+            class="block min-w-0 p-4 transition-colors hover:bg-elevated/55 sm:p-5"
+          >
+            <span class="text-sm font-medium text-muted">{{ card.label }}</span>
+            <strong class="mt-1 block text-base leading-snug text-highlighted">{{ card.value }}</strong>
+            <span class="mt-1 block text-sm leading-relaxed text-muted">{{ card.detail }}</span>
+          </NuxtLink>
+          <div v-else class="min-w-0 p-4 sm:p-5">
+            <span class="text-sm font-medium text-muted">{{ card.label }}</span>
+            <strong class="mt-1 block text-base leading-snug text-highlighted">{{ card.value }}</strong>
+            <span class="mt-1 block text-sm leading-relaxed text-muted">{{ card.detail }}</span>
+          </div>
+        </template>
+      </div>
+    </UCard>
+
+    <div class="mt-6 grid gap-3">
+      <USelectMenu
+        v-model="activeTab"
+        :items="tabs"
+        value-key="value"
+        label-key="label"
+        :search-input="false"
+        size="lg"
+        class="w-full md:hidden"
+      />
+      <UTabs
+        v-model="activeTab"
+        :items="tabs"
+        :content="false"
+        variant="pill"
+        class="hidden md:block"
+      />
     </div>
 
-    <UTabs
-      v-model="activeTab"
-      :items="tabs"
-      class="mt-8"
-      variant="link"
-      :ui="{ list: 'border-b border-default overflow-x-auto' }"
-    >
-      <template #profile>
-        <UCard class="mt-6" :ui="{ body: 'p-6 sm:p-8' }">
-          <USkeleton v-if="profilePending" class="h-32" />
-          <div v-else-if="profile" class="grid gap-6">
-            <div class="flex items-center gap-4">
+    <div class="mt-4">
+      <section v-if="activeTab === 'profile'">
+        <UCard :ui="{ body: 'p-4 sm:p-6' }">
+          <USkeleton v-if="profilePending" class="h-40" />
+          <div v-else-if="profile" class="grid gap-5">
+            <div class="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
               <UAvatar
-                :text="(customerName || profile.name).split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase()"
-                size="xl"
+                :text="profileInitials"
+                size="lg"
                 class="bg-primary/10 text-primary font-semibold"
               />
-              <div>
-                <h2 class="text-xl font-semibold">{{ profile.name || 'Sem nome' }}</h2>
-                <p class="text-sm text-muted">Cliente cadastrado</p>
+              <div class="min-w-0">
+                <h2 class="text-xl font-semibold leading-tight text-highlighted">{{ profile.name || 'Sem nome' }}</h2>
+                <p class="mt-1 text-sm text-muted">Cliente cadastrado</p>
               </div>
             </div>
 
-            <USeparator />
-
-            <dl class="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt class="mb-1 text-xs font-semibold uppercase text-muted">Telefone</dt>
-                <dd class="font-medium tabular-nums">{{ profile.phone || '—' }}</dd>
+            <dl class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg bg-elevated/50 p-3">
+                <dt class="text-sm text-muted">Telefone</dt>
+                <dd class="mt-1 font-medium tabular-nums text-highlighted">{{ profile.phone || '—' }}</dd>
               </div>
-              <div>
-                <dt class="mb-1 text-xs font-semibold uppercase text-muted">E-mail</dt>
-                <dd class="font-medium">{{ profile.email || '—' }}</dd>
+              <div class="rounded-lg bg-elevated/50 p-3">
+                <dt class="text-sm text-muted">E-mail</dt>
+                <dd class="mt-1 break-words font-medium text-highlighted">{{ profile.email || '—' }}</dd>
               </div>
             </dl>
 
-            <form class="grid gap-4 rounded-lg border border-default bg-elevated/40 p-4 sm:grid-cols-2" @submit.prevent="saveProfile">
+            <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveProfile">
               <UAlert
                 v-if="profileError"
                 color="error"
@@ -614,19 +653,31 @@ useHead({ title: 'Sua conta' })
                 />
               </UFormField>
               <UFormField label="Aniversário" name="birthday">
-                <UInput
-                  v-model="profileForm.birthday"
-                  type="date"
-                  autocomplete="bday"
-                  class="w-full"
-                />
+                <UPopover :ui="{ content: 'p-2' }">
+                  <UInputDate
+                    v-model="birthdayCalendarValue"
+                    autocomplete="bday"
+                    icon="i-lucide-calendar"
+                    fixed
+                    class="w-full"
+                  />
+                  <template #content>
+                    <UCalendar
+                      v-model="birthdayCalendarValue"
+                      :max-value="maxBirthdayDate"
+                      :is-date-unavailable="isBirthdayUnavailable"
+                      color="primary"
+                    />
+                  </template>
+                </UPopover>
               </UFormField>
-              <div class="flex flex-wrap justify-end gap-2 sm:col-span-2">
+              <div class="grid gap-2 sm:col-span-2 sm:flex sm:justify-end">
                 <UButton
                   type="button"
                   color="neutral"
                   variant="ghost"
                   label="Desfazer alterações"
+                  class="justify-center"
                   :disabled="profileSaving"
                   @click="syncProfileForm(profile)"
                 />
@@ -634,6 +685,7 @@ useHead({ title: 'Sua conta' })
                   type="submit"
                   icon="i-lucide-save"
                   label="Salvar perfil"
+                  class="justify-center"
                   :loading="profileSaving"
                 />
               </div>
@@ -641,146 +693,153 @@ useHead({ title: 'Sua conta' })
           </div>
           <UEmpty v-else title="Não foi possível carregar seu perfil" />
         </UCard>
-      </template>
+      </section>
 
-      <template #orders>
-        <div class="mt-6 grid gap-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="inline-flex rounded-lg border border-default bg-elevated p-1">
-              <button
-                v-for="option in orderFilterOptions"
-                :key="option.value"
-                type="button"
-                class="rounded-md px-3 py-1.5 text-sm transition-colors"
-                :class="orderFilter === option.value ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
-                @click="orderFilter = option.value"
-              >
-                {{ option.label }}
-              </button>
-            </div>
-            <UButton label="Atualizar" color="neutral" variant="outline" size="sm" :loading="ordersPending" @click="loadOrders" />
-          </div>
-
-          <USkeleton v-if="ordersPending" class="h-24" />
-          <UEmpty
-            v-else-if="!orders.length"
-            title="Nenhum pedido neste filtro"
-            description="Altere o filtro ou faça um novo pedido pelo cardápio."
-            :actions="[{ label: 'Ver cardápio', to: '/menu' }]"
+      <section v-else-if="activeTab === 'orders'" class="grid gap-4">
+        <div class="grid gap-3 sm:flex sm:items-center sm:justify-between">
+          <USelectMenu
+            v-model="orderFilter"
+            :items="orderFilterOptions"
+            value-key="value"
+            label-key="label"
+            :search-input="false"
+            class="w-full sm:hidden"
           />
-          <UCard
-            v-for="order in orders"
-            :key="order.ref"
-            :ui="{ body: 'p-4 sm:p-5' }"
-          >
-            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
-              <NuxtLink :to="`/tracking/${order.ref}`" class="min-w-0 hover:text-primary transition-colors">
-                <div class="flex flex-wrap items-center gap-2">
-                  <strong class="text-base">Pedido {{ order.ref }}</strong>
-                  <UBadge :color="orderColor(order)" variant="subtle" size="xs">{{ order.status_label }}</UBadge>
-                </div>
-                <p class="mt-1 text-sm text-muted">
-                  {{ formatOrderDate(order) }}
-                  <span v-if="order.item_count"> · {{ order.item_count }} {{ order.item_count === 1 ? 'item' : 'itens' }}</span>
-                </p>
-              </NuxtLink>
-              <strong class="text-left text-lg tabular-nums sm:text-right">{{ order.total_display }}</strong>
-              <div class="flex items-center gap-1">
+          <div class="hidden flex-wrap gap-2 sm:flex">
+            <UButton
+              v-for="option in orderFilterOptions"
+              :key="option.value"
+              :label="option.label"
+              :color="orderFilter === option.value ? 'primary' : 'neutral'"
+              :variant="orderFilter === option.value ? 'solid' : 'outline'"
+              size="sm"
+              @click="orderFilter = option.value"
+            />
+          </div>
+          <UButton label="Atualizar" color="neutral" variant="outline" :loading="ordersPending" @click="loadOrders" />
+        </div>
+
+        <USkeleton v-if="ordersPending" class="h-24" />
+        <UEmpty
+          v-else-if="!orders.length"
+          title="Nenhum pedido neste filtro"
+          description="Altere o filtro ou faça um novo pedido pelo cardápio."
+          :actions="[{ label: 'Ver cardápio', to: '/menu' }]"
+        />
+        <UCard
+          v-for="order in orders"
+          :key="order.ref"
+          :ui="{ body: 'p-4 sm:p-5' }"
+        >
+          <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <NuxtLink :to="`/tracking/${order.ref}`" class="min-w-0 transition-colors hover:text-primary">
+              <div class="flex flex-wrap items-center gap-2">
+                <strong class="text-base text-highlighted">Pedido {{ order.ref }}</strong>
+                <UBadge :color="orderColor(order)" variant="subtle">{{ order.status_label }}</UBadge>
+              </div>
+              <p class="mt-1 text-sm text-muted">
+                {{ formatOrderDate(order) }}
+                <span v-if="order.item_count"> · {{ order.item_count }} {{ order.item_count === 1 ? 'item' : 'itens' }}</span>
+              </p>
+              <strong class="mt-2 block text-lg tabular-nums text-highlighted sm:hidden">{{ order.total_display }}</strong>
+            </NuxtLink>
+            <div class="grid gap-2 sm:justify-items-end">
+              <strong class="hidden text-lg tabular-nums text-highlighted sm:block">{{ order.total_display }}</strong>
+              <div class="flex flex-wrap gap-2 sm:justify-end">
                 <UButton
                   v-if="reorderActionForOrder(order)"
-                  size="xs"
+                  size="sm"
                   color="neutral"
-                  variant="ghost"
+                  variant="outline"
                   icon="i-lucide-rotate-ccw"
+                  label="Repetir"
                   aria-label="Repetir pedido"
                   :loading="reorderPending"
                   @click="reorderById(order.ref)"
                 />
                 <UButton
-                  size="xs"
+                  size="sm"
                   color="neutral"
                   variant="ghost"
-                  icon="i-lucide-chevron-right"
+                  trailing-icon="i-lucide-chevron-right"
+                  label="Detalhes"
                   :to="`/tracking/${order.ref}`"
-                  aria-label="Ver detalhes"
                 />
               </div>
             </div>
-          </UCard>
-        </div>
-      </template>
-
-      <template #addresses>
-        <div class="mt-6 grid gap-3">
-          <div class="flex justify-end">
-            <UButton
-              icon="i-lucide-plus"
-              label="Novo endereço"
-              size="sm"
-              @click="openAddressModal(null)"
-            />
           </div>
+        </UCard>
+      </section>
 
-          <USkeleton v-if="addressesPending" class="h-24" />
-          <UEmpty
-            v-else-if="!addresses.length"
-            title="Nenhum endereço salvo"
-            description="Salve um endereço para acelerar próximos pedidos."
-            :actions="[{ label: 'Adicionar endereço', icon: 'i-lucide-plus', onClick: () => openAddressModal(null) }]"
+      <section v-else-if="activeTab === 'addresses'" class="grid gap-3">
+        <div class="grid sm:flex sm:justify-end">
+          <UButton
+            icon="i-lucide-plus"
+            label="Novo endereço"
+            class="justify-center"
+            @click="openAddressModal(null)"
           />
-          <UCard
-            v-for="address in addresses"
-            :key="address.id"
-            :ui="{ body: 'p-4 sm:p-5' }"
-          >
-            <div class="flex items-start gap-3">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <strong>{{ address.label }}</strong>
-                  <UBadge v-if="address.is_default" color="primary" variant="subtle" size="xs">Padrão</UBadge>
-                </div>
-                <p class="mt-1 text-sm leading-relaxed text-muted">{{ address.formatted_address }}</p>
-                <p v-if="address.complement" class="mt-1 text-sm text-muted">
-                  Complemento: {{ address.complement }}
-                </p>
-                <p v-if="address.delivery_instructions" class="mt-1 text-sm text-muted">
-                  {{ address.delivery_instructions }}
-                </p>
-              </div>
-              <div class="flex shrink-0 items-center gap-1">
-                <UButton
-                  v-if="!address.is_default"
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  icon="i-lucide-star"
-                  aria-label="Marcar como padrão"
-                  @click="setDefaultAddress(address)"
-                />
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  icon="i-lucide-pencil"
-                  aria-label="Editar endereço"
-                  @click="openAddressModal(address)"
-                />
-                <UButton
-                  size="xs"
-                  color="error"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  aria-label="Excluir endereço"
-                  @click="openDeleteAddress(address)"
-                />
-              </div>
-            </div>
-          </UCard>
         </div>
-      </template>
 
-      <template #loyalty>
-        <UCard class="mt-6" :ui="{ body: 'p-6 sm:p-8' }">
+        <USkeleton v-if="addressesPending" class="h-24" />
+        <UEmpty
+          v-else-if="!addresses.length"
+          title="Nenhum endereço salvo"
+          description="Salve um endereço para acelerar próximos pedidos."
+          :actions="[{ label: 'Adicionar endereço', icon: 'i-lucide-plus', onClick: () => openAddressModal(null) }]"
+        />
+        <UCard
+          v-for="address in addresses"
+          :key="address.id"
+          :ui="{ body: 'p-4 sm:p-5' }"
+        >
+          <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <strong class="text-highlighted">{{ address.label }}</strong>
+                <UBadge v-if="address.is_default" color="primary" variant="subtle">Padrão</UBadge>
+              </div>
+              <p class="mt-1 text-sm leading-relaxed text-muted">{{ address.formatted_address }}</p>
+              <p v-if="address.complement" class="mt-1 text-sm text-muted">
+                Complemento: {{ address.complement }}
+              </p>
+              <p v-if="address.delivery_instructions" class="mt-1 text-sm text-muted">
+                {{ address.delivery_instructions }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 sm:justify-end">
+              <UButton
+                v-if="!address.is_default"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-star"
+                label="Padrão"
+                @click="setDefaultAddress(address)"
+              />
+              <UButton
+                size="sm"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-pencil"
+                label="Editar"
+                @click="openAddressModal(address)"
+              />
+              <UButton
+                size="sm"
+                color="error"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                label="Excluir"
+                @click="openDeleteAddress(address)"
+              />
+            </div>
+          </div>
+        </UCard>
+      </section>
+
+      <section v-else-if="activeTab === 'loyalty'">
+        <UCard :ui="{ body: 'p-4 sm:p-6' }">
           <USkeleton v-if="summaryPending" class="h-40" />
           <UEmpty v-else-if="!accountSummary?.loyalty" title="Fidelidade indisponível" description="Nenhuma conta de fidelidade associada a este cliente." />
           <div v-else class="grid gap-6">
@@ -821,10 +880,10 @@ useHead({ title: 'Sua conta' })
             </div>
           </div>
         </UCard>
-      </template>
+      </section>
 
-      <template #preferences>
-        <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <section v-else-if="activeTab === 'preferences'">
+        <div class="grid gap-4 lg:grid-cols-2">
           <UCard :ui="{ body: 'p-5 sm:p-6' }">
             <template #header>
               <strong>Preferências alimentares</strong>
@@ -872,10 +931,10 @@ useHead({ title: 'Sua conta' })
             </div>
           </UCard>
         </div>
-      </template>
+      </section>
 
-      <template #security>
-        <div class="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section v-else-if="activeTab === 'security'">
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <UCard :ui="{ body: 'p-5 sm:p-6' }">
             <template #header>
               <div class="flex flex-wrap items-center justify-between gap-3">
@@ -901,8 +960,8 @@ useHead({ title: 'Sua conta' })
               >
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <strong class="truncate">{{ device.label }}</strong>
-                    <UBadge v-if="device.is_current" color="primary" variant="subtle" size="xs">Atual</UBadge>
+                    <strong class="min-w-0 break-words">{{ device.label }}</strong>
+                    <UBadge v-if="device.is_current" color="primary" variant="subtle">Atual</UBadge>
                   </div>
                   <p class="mt-1 text-sm text-muted">Último uso: {{ device.last_used_at_display }}</p>
                   <p v-if="device.location" class="mt-1 text-xs text-muted">{{ device.location }}</p>
@@ -946,8 +1005,8 @@ useHead({ title: 'Sua conta' })
             </div>
           </UCard>
         </div>
-      </template>
-    </UTabs>
+      </section>
+    </div>
 
     <AddressFormModal
       v-model:open="addressModalOpen"

@@ -105,6 +105,7 @@ class TestCheckoutProjectionShape:
         assert proj.preselected_address_id == default_addr.id
         # Structured fields are surfaced for the picker.
         assert any(a.id == non_default.id for a in proj.saved_addresses)
+        assert any(a.id == non_default.id and a.label_key == "work" for a in proj.saved_addresses)
 
     def test_loyalty_failure_preserves_addresses(
         self, cart_session, customer, customer_address, monkeypatch

@@ -150,6 +150,8 @@ class SavedAddressProjection:
     complement: str
     label: str
     is_default: bool
+    label_key: str = "home"
+    label_custom: str = ""
     # Extended fields — default empty so callers that only need display keep
     # working without extra arguments. All values are strings so they
     # serialise cleanly to JSON for Alpine.

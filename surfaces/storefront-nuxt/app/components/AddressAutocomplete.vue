@@ -78,7 +78,9 @@ async function setup () {
     })
     initialized.value = true
   } catch (e: any) {
-    error.value = e?.message || 'Não foi possível carregar a busca de endereços.'
+    error.value = e?.message === 'SSR'
+      ? null
+      : 'Busca automática indisponível. Digite o endereço completo.'
   } finally {
     isLoading.value = false
   }

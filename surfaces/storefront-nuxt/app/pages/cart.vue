@@ -201,7 +201,7 @@ useHead({ title: 'Seu carrinho' })
           <UCard
             v-if="cart.upsell"
             :ui="{ body: 'p-0 sm:p-0' }"
-            class="overflow-hidden border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
+            class="mt-2 overflow-hidden border border-primary/30 bg-primary/5 ring-1 ring-primary/10 sm:mt-3"
           >
             <div class="grid grid-cols-[96px_minmax(0,1fr)] sm:grid-cols-[120px_minmax(0,1fr)]">
               <div

@@ -430,6 +430,8 @@ export interface PickupSlotProjection {
 export interface SavedAddressProjection {
   id: number
   label: string
+  label_key?: 'home' | 'work' | 'other' | string
+  label_custom?: string
   formatted_address: string
   complement: string
   delivery_instructions: string

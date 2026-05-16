@@ -159,6 +159,8 @@ class TestCustomerProfileAddresses:
         assert len(proj.saved_addresses) == 1
         assert isinstance(proj.saved_addresses[0], SavedAddressProjection)
         assert "Rua das Flores" in proj.saved_addresses[0].formatted_address
+        assert proj.saved_addresses[0].label_key == "home"
+        assert proj.saved_addresses[0].route == "Rua das Flores"
 
     def test_address_default_flag(self, customer, customer_address):
         proj = build_account(customer)

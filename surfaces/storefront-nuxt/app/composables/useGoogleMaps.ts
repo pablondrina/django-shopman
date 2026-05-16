@@ -7,10 +7,21 @@ declare global {
 
 export function useGoogleMaps () {
   const { publicConfig } = useShopSession()
+  const runtimeConfig = useRuntimeConfig()
 
-  const apiKey = computed(() => publicConfig.value?.google_maps_api_key || '')
+  const apiKey = computed(() => publicConfig.value?.google_maps_api_key || runtimeConfig.public.googleMapsApiKey || '')
   const isReady = ref(false)
   const isAvailable = computed(() => !!apiKey.value)
+
+  async function ensurePlacesLibrary () {
+    if (window.google?.maps?.places) return
+    if (window.google?.maps?.importLibrary) {
+      await window.google.maps.importLibrary('places')
+    }
+    if (!window.google?.maps?.places) {
+      throw new Error('Google Places library unavailable')
+    }
+  }
 
   function ensureLoaded (): Promise<void> {
     if (!apiKey.value) return Promise.reject(new Error('Google Maps API key not configured'))
@@ -27,11 +38,18 @@ export function useGoogleMaps () {
       script.async = true
       script.defer = true
       script.onload = () => {
-        isReady.value = true
-        resolve()
+        ensurePlacesLibrary()
+          .then(() => {
+            isReady.value = true
+            resolve()
+          })
+          .catch(reject)
       }
       script.onerror = () => reject(new Error('Failed to load Google Maps'))
       document.head.appendChild(script)
+    }).catch((error) => {
+      window.__shopman_maps_loading = undefined
+      throw error
     })
 
     return window.__shopman_maps_loading

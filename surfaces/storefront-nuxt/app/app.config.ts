@@ -52,6 +52,25 @@ export default defineAppConfig({
     badge: {
       slots: {
         base: 'rounded-full'
+      },
+      variants: {
+        size: {
+          xs: {
+            base: 'rounded-full'
+          },
+          sm: {
+            base: 'rounded-full'
+          },
+          md: {
+            base: 'rounded-full'
+          },
+          lg: {
+            base: 'rounded-full'
+          },
+          xl: {
+            base: 'rounded-full'
+          }
+        }
       }
     }
   }

@@ -4,6 +4,8 @@ import type { StructuredAddressProjection } from '~/types/shopman'
 interface AddressShape {
   id?: number
   label?: string
+  label_key?: string
+  label_custom?: string
   formatted_address?: string
   complement?: string
   delivery_instructions?: string
@@ -31,6 +33,7 @@ const errorMessage = ref<string | null>(null)
 
 const form = reactive({
   label: 'home',
+  label_custom: '',
   formatted_address: '',
   complement: '',
   delivery_instructions: '',
@@ -44,9 +47,27 @@ const labelOptions = [
   { label: 'Outro', value: 'other' }
 ]
 
-watchEffect(() => {
-  if (props.open) {
-    form.label = props.address?.label === 'work' || props.address?.label === 'other' ? props.address.label : 'home'
+function addressLabelKey (address?: AddressShape | null): 'home' | 'work' | 'other' {
+  const raw = String(address?.label_key || address?.label || '').trim().toLowerCase()
+  if (raw === 'home' || raw === 'work' || raw === 'other') return raw
+  if (raw === 'casa') return 'home'
+  if (raw === 'trabalho') return 'work'
+  if (raw === 'outro') return 'other'
+  return raw ? 'other' : 'home'
+}
+
+function addressLabelCustom (address: AddressShape | null | undefined, labelKey: string): string {
+  if (!address || labelKey !== 'other') return ''
+  if (address.label_custom) return address.label_custom
+  const displayLabel = String(address.label || '').trim()
+  return displayLabel && !/^outro$/i.test(displayLabel) ? displayLabel : ''
+}
+
+watch([() => props.open, () => props.address], ([open]) => {
+  if (open) {
+    const labelKey = addressLabelKey(props.address)
+    form.label = labelKey
+    form.label_custom = addressLabelCustom(props.address, labelKey)
     form.formatted_address = props.address?.formatted_address || ''
     form.complement = props.address?.complement || ''
     form.delivery_instructions = props.address?.delivery_instructions || ''
@@ -67,7 +88,7 @@ watchEffect(() => {
       : {}
     errorMessage.value = null
   }
-})
+}, { immediate: true })
 
 function onAddressSelected (address: StructuredAddressProjection) {
   structuredAddress.value = address
@@ -108,6 +129,7 @@ async function submit () {
       method,
       body: {
         label: form.label,
+        label_custom: form.label === 'other' ? form.label_custom : '',
         formatted_address: form.formatted_address,
         route: structuredAddress.value.route || '',
         street_number: structuredAddress.value.street_number || '',
@@ -142,13 +164,18 @@ async function submit () {
         <UAlert v-if="errorMessage" color="error" variant="soft" :title="errorMessage" />
 
         <UFormField label="Apelido">
-          <URadioGroup
+          <USelectMenu
             v-model="form.label"
             :items="labelOptions"
-            orientation="horizontal"
-            variant="card"
-            :ui="{ fieldset: 'gap-2' }"
+            value-key="value"
+            label-key="label"
+            :search-input="false"
+            class="w-full"
           />
+        </UFormField>
+
+        <UFormField v-if="form.label === 'other'" label="Nome do endereço">
+          <UInput v-model="form.label_custom" placeholder="Casa da mãe" class="w-full" />
         </UFormField>
 
         <UFormField label="Endereço">
@@ -165,9 +192,21 @@ async function submit () {
 
         <UCheckbox v-model="form.is_default" label="Salvar como padrão" />
 
-        <div class="flex items-center justify-end gap-2 pt-2">
-          <UButton color="neutral" variant="ghost" label="Cancelar" @click="emit('update:open', false)" />
-          <UButton type="submit" :loading="submitting" icon="i-lucide-save" label="Salvar" />
+        <div class="grid gap-2 pt-2 sm:flex sm:justify-end">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            label="Cancelar"
+            class="justify-center"
+            @click="emit('update:open', false)"
+          />
+          <UButton
+            type="submit"
+            :loading="submitting"
+            icon="i-lucide-save"
+            label="Salvar"
+            class="justify-center"
+          />
         </div>
       </form>
     </template>

@@ -199,6 +199,18 @@ def _build_addresses(customer: AccountCustomer) -> tuple[SavedAddressProjection,
                 complement=addr.complement,
                 label=addr.label,
                 is_default=addr.is_default,
+                label_key=addr.label_key,
+                label_custom=addr.label_custom,
+                route=addr.route,
+                street_number=addr.street_number,
+                neighborhood=addr.neighborhood,
+                city=addr.city,
+                state_code=addr.state_code,
+                postal_code=addr.postal_code,
+                latitude=addr.latitude,
+                longitude=addr.longitude,
+                place_id=addr.place_id,
+                delivery_instructions=addr.delivery_instructions,
             )
             for addr in customer_context.saved_addresses(customer.ref)
         )

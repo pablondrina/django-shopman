@@ -66,6 +66,8 @@ def _serialize_address(addr) -> dict:
     return {
         "id": addr.pk,
         "label": getattr(addr, "display_label", addr.label),
+        "label_key": getattr(addr, "label", "home") or "home",
+        "label_custom": getattr(addr, "label_custom", "") or "",
         "formatted_address": addr.formatted_address,
         "complement": addr.complement or "",
         "delivery_instructions": addr.delivery_instructions or "",

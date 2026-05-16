@@ -932,6 +932,17 @@ def test_nuxt_account_menu_targets_real_account_tabs():
         assert token in account
 
     assert 'default-value="profile"' not in account
+    assert "<UInputDate" in account
+    assert 'type="date"' not in account
+
+
+def test_nuxt_address_form_preserves_operational_label_fields():
+    modal = _nuxt_file("components/AddressFormModal.vue")
+
+    assert "label_key" in modal
+    assert "label_custom" in modal
+    assert "addressLabelKey" in modal
+    assert "form.label === 'other'" in modal
 
 
 def test_nuxt_cart_primary_and_secondary_actions_use_matching_size():

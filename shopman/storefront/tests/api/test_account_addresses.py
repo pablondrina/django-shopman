@@ -52,6 +52,30 @@ def test_account_address_create_accepts_manual_address_without_place_id(client: 
     assert address.place_id == ""
 
 
+def test_account_address_list_exposes_display_and_edit_labels(client: Client):
+    customer = Customer.objects.create(
+        ref="CUS-ADDR-API-LABEL",
+        first_name="Alice",
+        phone="+5543999991099",
+    )
+    CustomerAddress.objects.create(
+        customer=customer,
+        label="other",
+        label_custom="Casa da mãe",
+        formatted_address="Rua Familia, 45",
+        is_default=True,
+    )
+    _login_as_customer(client, customer)
+
+    response = client.get("/api/v1/account/addresses/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["label"] == "Casa da mãe"
+    assert data[0]["label_key"] == "other"
+    assert data[0]["label_custom"] == "Casa da mãe"
+
+
 def test_account_address_update_accepts_manual_address_without_place_id(client: Client):
     customer = Customer.objects.create(
         ref="CUS-ADDR-API-02",

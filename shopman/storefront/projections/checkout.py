@@ -194,6 +194,8 @@ def _load_customer_context(
             complement=addr.complement,
             label=addr.label,
             is_default=addr.is_default,
+            label_key=addr.label_key,
+            label_custom=addr.label_custom,
             route=addr.route,
             street_number=addr.street_number,
             neighborhood=addr.neighborhood,

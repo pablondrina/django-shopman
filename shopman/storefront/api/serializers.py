@@ -255,6 +255,8 @@ class CustomerProfileSerializer(serializers.Serializer):
 class AddressSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     label = serializers.CharField()
+    label_key = serializers.CharField(required=False, read_only=True)
+    label_custom = serializers.CharField(allow_blank=True, required=False)
     formatted_address = serializers.CharField()
     complement = serializers.CharField(allow_blank=True, required=False)
     delivery_instructions = serializers.CharField(allow_blank=True, required=False)
