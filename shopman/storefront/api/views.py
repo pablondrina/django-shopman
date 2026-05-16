@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
@@ -270,6 +271,33 @@ class CheckoutView(APIView):
                 {"detail": "Escolha a data.", "field": "delivery_date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if fulfillment_type == "pickup":
+            from shopman.storefront.services.pickup_slots import validate_pickup_slot_selection
+
+            try:
+                now_local = timezone.localtime().time().replace(second=0, microsecond=0)
+            except (ValueError, KeyError):
+                now_local = None
+            slot_error = validate_pickup_slot_selection(
+                delivery_time_slot,
+                delivery_date=delivery_date,
+                cart_skus=[
+                    str(item.get("sku") or "")
+                    for item in cart.get("items", [])
+                    if item.get("sku")
+                ],
+                now=now_local,
+            )
+            if slot_error:
+                return Response(
+                    {
+                        "detail": slot_error,
+                        "field": "delivery_time_slot",
+                        "errors": {"delivery_time_slot": slot_error},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if fulfillment_type == "delivery" and saved_address_id:
             saved_payload, saved_error = _saved_address_payload(request, saved_address_id)

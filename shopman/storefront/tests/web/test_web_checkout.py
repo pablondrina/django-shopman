@@ -149,7 +149,7 @@ class TestCheckoutGet:
         body = resp.content.decode("utf-8")
         assert "deliverySlot: 'slot-15'" in body
         assert "normalizeDeliverySlot" in body
-        assert 'value="slot-15"' in body
+        assert "pickupSlots:" in body
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────

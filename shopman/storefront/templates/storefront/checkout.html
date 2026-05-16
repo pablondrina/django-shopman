@@ -49,8 +49,8 @@
   submitting: false,
   closedDates: {{ checkout.closed_dates_json }},
   maxPreorderDays: {{ checkout.max_preorder_days }},
-  pickupSlots: [{% for slot in checkout.pickup_slots %}{ ref: '{{ slot.ref|escapejs }}', startsAt: '{{ slot.starts_at|escapejs }}' }{% if not forloop.last %},{% endif %}{% endfor %}],
-  pickupSlotTimes: [{% for slot in checkout.pickup_slots %}'{{ slot.starts_at }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+  pickupProjectionUrl: '/api/v1/storefront/checkout/',
+  pickupSlots: [{% for slot in checkout.pickup_slots %}{ ref: '{{ slot.ref|escapejs }}', label: '{{ slot.label|escapejs }}', startsAt: '{{ slot.starts_at|escapejs }}', enabled: {% if slot.enabled %}true{% else %}false{% endif %}, reason: '{{ slot.reason|escapejs }}' }{% if not forloop.last %},{% endif %}{% endfor %}],
   notes: '{{ form_data.notes|default:''|escapejs }}',
   slotLabels: { {% for slot in checkout.pickup_slots %}'{{ slot.ref }}': '{{ slot.label|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %} },
   paymentLabels: { {% for m in checkout.payment_methods %}'{{ m.ref }}': '{{ m.label|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %} },
@@ -78,13 +78,9 @@
     if (this.paymentMethod === 'card') return 'credit_card';
     return 'payments';
   },
-  anyTodaySlotAvailable() {
-    if (this.fulfillmentType !== 'pickup') return true;
-    return this.pickupSlotTimes.some(t => this.isSlotAvailableForToday(null, t));
-  },
   availablePickupSlotRefs() {
     return this.pickupSlots
-      .filter(slot => this.isSlotAvailableForToday(slot.ref, slot.startsAt))
+      .filter(slot => slot.enabled)
       .map(slot => slot.ref);
   },
   normalizeDeliverySlot() {
@@ -96,18 +92,37 @@
     }
     if (!refs.includes(this.deliverySlot)) this.deliverySlot = refs[0];
   },
-  isSlotAvailableForToday(ref, startsAt) {
-    if (this.deliveryDate && this.deliveryDate !== new Date().toISOString().slice(0, 10)) return true;
-    const [h, m] = startsAt.split(':').map(Number);
-    const slotMin = h * 60 + m;
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    if (slotMin > nowMin) return true;
-    return !this.pickupSlotTimes.some(t => {
-      const [lh, lm] = t.split(':').map(Number);
-      const lMin = lh * 60 + lm;
-      return lMin <= nowMin && lMin > slotMin;
-    });
+  async refreshPickupSlotsForDate() {
+    if (this.fulfillmentType !== 'pickup' || !this.deliveryDate) {
+      this.normalizeDeliverySlot();
+      return;
+    }
+    try {
+      const url = new URL(this.pickupProjectionUrl, window.location.origin);
+      url.searchParams.set('delivery_date', this.deliveryDate);
+      const response = await fetch(url.toString(), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        this.normalizeDeliverySlot();
+        return;
+      }
+      const payload = await response.json();
+      const checkout = payload.checkout || {};
+      this.pickupSlots = (checkout.pickup_slots || []).map(slot => ({
+        ref: String(slot.ref || ''),
+        label: String(slot.label || ''),
+        startsAt: String(slot.starts_at || ''),
+        enabled: slot.enabled !== false,
+        reason: String(slot.reason || ''),
+      }));
+      this.slotLabels = {};
+      this.pickupSlots.forEach(slot => { this.slotLabels[slot.ref] = slot.label; });
+    } catch (e) {
+      // Keep the last projection; submit still validates server-side.
+    }
+    this.normalizeDeliverySlot();
   },
   isClosedDate(dateStr) {
     for (const entry of this.closedDates) {
@@ -147,7 +162,7 @@
       }
       this.$nextTick(() => this.normalizeDeliverySlot());
     });
-    this.$watch('deliveryDate', () => this.$nextTick(() => this.normalizeDeliverySlot()));
+    this.$watch('deliveryDate', () => this.refreshPickupSlotsForDate());
   },
   effectiveSteps() {
     return this.fulfillmentType === 'delivery'
@@ -179,6 +194,7 @@
     if (s === 'when') {
       if (!this.deliveryDate) return false;
       if (this.fulfillmentType === 'pickup' && !this.deliverySlot) return false;
+      if (this.fulfillmentType === 'pickup' && !this.availablePickupSlotRefs().includes(this.deliverySlot)) return false;
     }
     return true;
   },
@@ -420,11 +436,9 @@
                         class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]"
                         {% if errors.delivery_time_slot %}aria-invalid="true"{% endif %}>
                   <option value="">Selecione um horário</option>
-                  {% for slot in checkout.pickup_slots %}
-                  <template x-if="isSlotAvailableForToday('{{ slot.ref }}', '{{ slot.starts_at }}')">
-                    <option value="{{ slot.ref }}" {% if slot.ref == form_data.delivery_time_slot or slot.ref == checkout.earliest_slot_ref %}selected{% endif %}>{{ slot.label }}</option>
+                  <template x-for="slot in pickupSlots" :key="slot.ref">
+                    <option :value="slot.ref" :disabled="!slot.enabled" x-text="slot.label"></option>
                   </template>
-                  {% endfor %}
                 </select>
                 {% if errors.delivery_time_slot %}<p class="mt-1 text-xs text-danger">{{ errors.delivery_time_slot }}</p>{% endif %}
               </div>

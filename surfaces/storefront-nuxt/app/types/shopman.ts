@@ -425,6 +425,9 @@ export interface PickupSlotProjection {
   ref: string
   label: string
   starts_at: string
+  enabled: boolean
+  reason: string
+  is_earliest: boolean
 }
 
 export interface SavedAddressProjection {

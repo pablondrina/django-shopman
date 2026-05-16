@@ -6,7 +6,6 @@ Scoped dentro do x-data externo do checkout. Reutiliza state herdado:
   - minDate, maxDate (getters)
   - closedDates, isClosedDate()
   - fulfillmentType
-  - anyTodaySlotAvailable()
 
 Submete via <input type="hidden" name="delivery_date">.
 {% endcomment %}
@@ -22,10 +21,7 @@ Submete via <input type="hidden" name="delivery_date">.
   parseIso(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); },
   get todayWeekday() { return this.WEEKDAY_FULL[this.parseIso(this.isoToday()).getDay()]; },
   get tomorrowWeekday() { return this.WEEKDAY_FULL[this.parseIso(this.isoTomorrow()).getDay()]; },
-  get todayDisabled() {
-    return this.isClosedDate(this.isoToday())
-      || (this.fulfillmentType === 'pickup' && !this.anyTodaySlotAvailable());
-  },
+  get todayDisabled() { return this.isClosedDate(this.isoToday()); },
   get tomorrowDisabled() { return this.isClosedDate(this.isoTomorrow()); },
   get isToday() { return this.deliveryDate === this.isoToday(); },
   get isTomorrow() { return this.deliveryDate === this.isoTomorrow(); },

@@ -44,19 +44,32 @@ def _fake_now(hour: int, minute: int = 0) -> object:
 
 
 class TestValidateSlot(TestCase):
-    def _call(self, slot_ref: str, fulfillment: str, delivery_date: str = "") -> dict:
+    def _call(
+        self,
+        slot_ref: str,
+        fulfillment: str,
+        delivery_date: str = "",
+        *,
+        cart_skus: list[str] | None = None,
+    ) -> dict:
         with patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS):
-            return _validate_slot(slot_ref, fulfillment, delivery_date)
+            return _validate_slot(slot_ref, fulfillment, delivery_date, cart_skus=cart_skus)
 
     def _call_at_hour(
-        self, slot_ref: str, fulfillment: str, delivery_date: str, hour: int
+        self,
+        slot_ref: str,
+        fulfillment: str,
+        delivery_date: str,
+        hour: int,
+        *,
+        cart_skus: list[str] | None = None,
     ) -> dict:
         fake = _fake_now(hour)
         with (
             patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS),
             patch("shopman.storefront.intents.checkout.timezone.localtime", return_value=fake),
         ):
-            return _validate_slot(slot_ref, fulfillment, delivery_date)
+            return _validate_slot(slot_ref, fulfillment, delivery_date, cart_skus=cart_skus)
 
     # ── Slot inexistente ──────────────────────────────────────────────────
 
@@ -108,6 +121,57 @@ class TestValidateSlot(TestCase):
     def test_slot_12_data_futura(self):
         errors = self._call_at_hour("slot-12", "pickup", _future_date_str(), hour=22)
         assert errors == {}
+
+    def test_future_date_uses_sku_readiness_not_today_clock(self):
+        with patch(
+            "shopman.storefront.services.pickup_slots.get_earliest_slot_for_skus",
+            return_value={"slot_ref": "slot-09", "ready_times": {"BREAD": "05:30"}, "bottleneck_sku": "BREAD"},
+        ):
+            errors = self._call_at_hour(
+                "slot-09",
+                "pickup",
+                _future_date_str(),
+                hour=22,
+                cart_skus=["BREAD"],
+            )
+
+        assert errors == {}
+
+    def test_today_still_blocks_superseded_slot_even_when_sku_ready(self):
+        with patch(
+            "shopman.storefront.services.pickup_slots.get_earliest_slot_for_skus",
+            return_value={"slot_ref": "slot-09", "ready_times": {"BREAD": "05:30"}, "bottleneck_sku": "BREAD"},
+        ):
+            errors = self._call_at_hour(
+                "slot-09",
+                "pickup",
+                _today_str(),
+                hour=15,
+                cart_skus=["BREAD"],
+            )
+
+        assert "delivery_time_slot" in errors
+        assert "passou" in errors["delivery_time_slot"].lower()
+
+    def test_future_date_blocks_slot_before_sku_ready_time(self):
+        with patch(
+            "shopman.storefront.services.pickup_slots.get_earliest_slot_for_skus",
+            return_value={
+                "slot_ref": "slot-15",
+                "ready_times": {"BRIGADEIRO": "13:30"},
+                "bottleneck_sku": "BRIGADEIRO",
+            },
+        ):
+            errors = self._call_at_hour(
+                "slot-09",
+                "pickup",
+                _future_date_str(),
+                hour=10,
+                cart_skus=["BRIGADEIRO"],
+            )
+
+        assert "delivery_time_slot" in errors
+        assert "preparo" in errors["delivery_time_slot"].lower()
 
     # ── Slot vazio + pickup → exige seleção ──────────────────────────────
 

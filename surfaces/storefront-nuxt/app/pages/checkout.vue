@@ -32,9 +32,30 @@ const { setFromServer, clearCart } = useCartState()
 const { isAuthenticated } = useShopSession()
 const apiPath = useShopmanApiPath()
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
+const state = reactive({
+  name: '',
+  phone: '',
+  fulfillment_type: 'pickup' as 'pickup' | 'delivery',
+  saved_address_id: null as number | null,
+  delivery_address: '',
+  delivery_address_structured: {} as StructuredAddressProjection,
+  delivery_complement: '',
+  delivery_instructions: '',
+  delivery_date: '',
+  delivery_time_slot: '',
+  payment_method: '',
+  notes: ''
+})
+
+const checkoutQuery = computed(() => (
+  state.delivery_date ? { delivery_date: state.delivery_date } : {}
+))
+
 const { data, pending, error } = await useFetch<CheckoutResponse>(apiPath('/api/v1/storefront/checkout/'), {
   credentials: 'include',
-  headers: requestHeaders
+  headers: requestHeaders,
+  query: checkoutQuery
 })
 
 const checkout = computed(() => data.value?.checkout)
@@ -73,21 +94,6 @@ const checkoutRequestId = ref<string | null>(null)
 const createdOrderRecovery = ref<{ order_ref: string, next_url: string } | null>(null)
 const rateLimitRecovery = ref<{ detail: string, retryAfterSeconds: number | null } | null>(null)
 const commitRecovery = ref<{ detail: string, errorCode: string } | null>(null)
-
-const state = reactive({
-  name: '',
-  phone: '',
-  fulfillment_type: 'pickup' as 'pickup' | 'delivery',
-  saved_address_id: null as number | null,
-  delivery_address: '',
-  delivery_address_structured: {} as StructuredAddressProjection,
-  delivery_complement: '',
-  delivery_instructions: '',
-  delivery_date: '',
-  delivery_time_slot: '',
-  payment_method: '',
-  notes: ''
-})
 
 watchEffect(() => {
   if (!checkout.value) return
@@ -146,8 +152,29 @@ function paymentIcon (ref: string): string {
 }
 
 const slotOptions = computed(() => (checkout.value?.pickup_slots || []).map(s => ({
-  label: s.label, value: s.ref
+  label: s.label,
+  value: s.ref,
+  disabled: s.enabled === false,
+  description: s.reason || undefined
 })))
+const selectedSlotOption = computed(() =>
+  slotOptions.value.find(s => s.value === state.delivery_time_slot) || null
+)
+const firstEnabledSlotOption = computed(() =>
+  slotOptions.value.find(s => !s.disabled) || null
+)
+
+function reconcileDeliverySlot () {
+  if (!slotOptions.value.length) {
+    state.delivery_time_slot = ''
+    return
+  }
+  if (!state.delivery_time_slot || selectedSlotOption.value?.disabled || !selectedSlotOption.value) {
+    state.delivery_time_slot = checkout.value?.earliest_slot_ref || firstEnabledSlotOption.value?.value || ''
+  }
+}
+
+watch(slotOptions, () => reconcileDeliverySlot(), { immediate: true })
 
 const savedAddresses = computed(() => checkout.value?.saved_addresses || [])
 const selectedSavedAddress = computed(() => savedAddresses.value.find(a => a.id === state.saved_address_id) || null)
@@ -270,14 +297,26 @@ function commitAddress () {
   completeStep('address')
 }
 
+function slotSelectionError (): string {
+  if (!slotOptions.value.length) return ''
+  if (!state.delivery_time_slot) return 'Escolha o horário.'
+  const selected = selectedSlotOption.value
+  if (!selected || selected.disabled) {
+    return selected?.description || 'Este horário não está disponível para este carrinho e esta data.'
+  }
+  return ''
+}
+
 function commitWhen () {
   validationErrors.value.delivery_date = ''
+  validationErrors.value.delivery_time_slot = ''
   if (requiresWhen.value && !state.delivery_date) {
     validationErrors.value.delivery_date = 'Escolha a data.'
     return
   }
-  if (slotOptions.value.length && !state.delivery_time_slot) {
-    validationErrors.value.delivery_time_slot = 'Escolha o horário.'
+  const slotError = slotSelectionError()
+  if (slotError) {
+    validationErrors.value.delivery_time_slot = slotError
     return
   }
   completeStep('when')
@@ -328,8 +367,9 @@ function collectValidationErrors () {
   if (requiresWhen.value && !state.delivery_date) {
     next.delivery_date = 'Escolha a data.'
   }
-  if (slotOptions.value.length && !state.delivery_time_slot) {
-    next.delivery_time_slot = 'Escolha o horário.'
+  const slotError = slotSelectionError()
+  if (slotError) {
+    next.delivery_time_slot = slotError
   }
   if (!state.payment_method) next.payment_method = 'Escolha como pagar.'
   return next
@@ -885,7 +925,13 @@ useHead({ title: 'Finalizar pedido' })
               </UFormField>
 
               <UFormField v-if="slotOptions.length" label="Horário" name="delivery_time_slot" :error="validationErrors.delivery_time_slot">
-                <USelect v-model="state.delivery_time_slot" :items="slotOptions" placeholder="Escolha um horário" class="w-full" />
+                <USelect
+                  v-model="state.delivery_time_slot"
+                  :items="slotOptions"
+                  :disabled="requiresWhen && !state.delivery_date"
+                  :placeholder="state.delivery_date ? 'Escolha um horário' : 'Escolha a data primeiro'"
+                  class="w-full"
+                />
               </UFormField>
             </div>
 

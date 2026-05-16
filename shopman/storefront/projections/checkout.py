@@ -107,6 +107,7 @@ def build_checkout(
     *,
     request: HttpRequest,
     channel_ref: str = _DEFAULT_CHANNEL_REF,
+    delivery_date: str | None = None,
 ) -> CheckoutProjection:
     """Build a ``CheckoutProjection`` for the current visitor.
 
@@ -143,7 +144,10 @@ def build_checkout(
     )
     policy = resolve_channel_policy(interaction.channel_ref)
     payment_methods = _payment_methods(channel_ref)
-    pickup_slots, earliest_slot_ref = _pickup_slots(cart)
+    pickup_slots, earliest_slot_ref = _pickup_slots(
+        cart,
+        delivery_date=_delivery_date_from_context(request, delivery_date),
+    )
     max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
 
     return CheckoutProjection(
@@ -288,19 +292,24 @@ def _checkout_actions(
 
 def _pickup_slots(
     cart: CartProjection,
+    *,
+    delivery_date: str = "",
 ) -> tuple[tuple[PickupSlotProjection, ...], str | None]:
     """Resolve pickup slots and earliest available slot for the cart."""
     try:
         from shopman.storefront.services.pickup_slots import annotate_slots_for_checkout
 
         cart_skus = [item.sku for item in cart.items]
-        ctx = annotate_slots_for_checkout(cart_skus)
+        ctx = annotate_slots_for_checkout(cart_skus, delivery_date=delivery_date)
         raw_slots = ctx.get("pickup_slots") or []
         slots = tuple(
             PickupSlotProjection(
                 ref=str(s.get("ref") or ""),
                 label=str(s.get("label") or ""),
                 starts_at=str(s.get("starts_at") or ""),
+                enabled=bool(s.get("enabled", True)),
+                reason=str(s.get("reason") or ""),
+                is_earliest=bool(s.get("is_earliest", False)),
             )
             for s in raw_slots
         )
@@ -309,6 +318,15 @@ def _pickup_slots(
     except Exception:
         logger.debug("checkout_projection_slots_failed", exc_info=True)
         return (), None
+
+
+def _delivery_date_from_context(request: HttpRequest, delivery_date: str | None) -> str:
+    if delivery_date is not None:
+        return str(delivery_date or "").strip()
+    try:
+        return str(request.GET.get("delivery_date") or request.POST.get("delivery_date") or "").strip()
+    except Exception:
+        return ""
 
 
 def _shop_config() -> tuple[int, list, str]:

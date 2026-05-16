@@ -100,6 +100,9 @@ Fontes tipicas:
 - device, viewport/capacidade tecnica, origem e handoff anterior.
 - carrinho, pedido, payment intent ou AccessLink em foco.
 - localidade, endereco, area atendida, distancia e disponibilidade operacional.
+- selecoes ainda transientes que mudam a Projection, como `delivery_date`
+  no checkout: slots devem ser projetados para o carrinho e para a data
+  escolhida, nao recalculados pela superficie.
 
 `OmotenashiContext` e uma lente dentro desse contexto, nao sinonimo dele. Omotenashi e cross-system: decide a forma humana, acionavel e cuidadosa da Projection em storefront, WhatsApp, POS e backstage.
 

@@ -597,6 +597,12 @@ def test_checkout_payload_uses_backend_canonical_field_names():
     assert "function buildCheckoutPayload" in checkout
     assert "useRequestHeaders(['cookie'])" in checkout
     assert "headers: requestHeaders" in checkout
+    assert "query: checkoutQuery" in checkout
+    assert "state.delivery_date ? { delivery_date: state.delivery_date } : {}" in checkout
+    assert "disabled: s.enabled === false" in checkout
+    assert "function slotSelectionError" in checkout
+    assert "Este horário não está disponível para este carrinho e esta data." in checkout
+    assert ":disabled=\"requiresWhen && !state.delivery_date\"" in checkout
     assert "deliveryStructuredPayload()" in checkout
     assert "delivery_address_structured: isDelivery ? deliveryStructuredPayload() : {}" in checkout
     assert "if (formatted && !structured.formatted_address) structured.formatted_address = formatted" in checkout
@@ -607,6 +613,7 @@ def test_checkout_payload_uses_backend_canonical_field_names():
     assert "\"error_code\": \"rate_limited\"" in api
     assert "headers={\"Retry-After\": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)}" in api
     assert "\"errors\": {\"delivery_address\": \"Informe o endereço de entrega.\"}" in api
+    assert "validate_pickup_slot_selection" in api
 
 
 def test_checkout_step_invariants_and_recovery_contracts_are_enforced():

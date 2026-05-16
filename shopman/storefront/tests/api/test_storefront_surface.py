@@ -55,6 +55,10 @@ def test_api_storefront_checkout_returns_projection_contract(client):
     assert data["default_payment_method"]
     assert data["support_whatsapp_url"].startswith("https://wa.me/")
     assert isinstance(data["payment_methods"], list)
+    assert isinstance(data["pickup_slots"], list)
+    if data["pickup_slots"]:
+        slot = data["pickup_slots"][0]
+        assert {"ref", "label", "starts_at", "enabled", "reason", "is_earliest"}.issubset(slot)
     assert "csrftoken" in resp.cookies
 
 

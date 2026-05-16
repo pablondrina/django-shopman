@@ -174,6 +174,9 @@ class PickupSlotProjection:
     ref: str
     label: str    # e.g. "A partir das 09h"
     starts_at: str  # "09:00"
+    enabled: bool = True
+    reason: str = ""
+    is_earliest: bool = False
 
 
 @dataclass(frozen=True)
