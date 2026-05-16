@@ -136,7 +136,7 @@ async function activateSlideCta (item: HeroSlide) {
           class="absolute inset-0 size-full object-cover"
         >
         <div class="absolute inset-0 bg-gradient-to-t from-black/82 via-black/48 to-black/18" />
-        <UContainer class="relative flex min-h-[560px] items-center px-4 py-20 sm:min-h-[640px] sm:px-6 lg:py-24">
+        <div class="relative mx-auto flex min-h-[560px] w-full max-w-(--ui-container) items-center px-4 py-20 sm:min-h-[640px] sm:px-6 lg:px-8 lg:py-24">
           <div class="w-full max-w-3xl">
             <p v-if="item.eyebrow" class="shop-section-kicker text-white/85">
               {{ item.eyebrow }}
@@ -178,7 +178,7 @@ async function activateSlideCta (item: HeroSlide) {
               />
             </div>
           </div>
-        </UContainer>
+        </div>
       </article>
     </UCarousel>
   </section>
