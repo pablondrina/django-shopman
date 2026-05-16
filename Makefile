@@ -15,7 +15,7 @@ APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 NUXT_DIR := surfaces/storefront-nuxt
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run run-nuxt dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -137,7 +137,7 @@ $(NUXT_DIR)/node_modules/.package-lock.json: $(NUXT_DIR)/package.json $(NUXT_DIR
 	cd $(NUXT_DIR) && npm install --silent
 	@echo "✓ node_modules Nuxt pronto"
 
-run-nuxt: $(NUXT_DIR)/node_modules/.package-lock.json ## Sobe Nuxt storefront (127.0.0.1:3000)
+nuxt: $(NUXT_DIR)/node_modules/.package-lock.json ## Sobe Nuxt storefront (127.0.0.1:3000)
 	@echo "── Nuxt storefront: http://127.0.0.1:3000 ──"
 	cd $(NUXT_DIR) && npm run dev
 
