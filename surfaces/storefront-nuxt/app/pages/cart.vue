@@ -207,27 +207,29 @@ useHead({ title: 'Seu carrinho' })
             :ui="{ body: 'p-4 sm:p-5' }"
             class="border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
           >
-            <div class="flex items-center gap-4">
+            <div class="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4 gap-y-3">
               <div
-                class="relative size-16 shrink-0 overflow-hidden rounded-md bg-default ring-1 ring-primary/20"
+                class="relative row-span-2 size-16 overflow-hidden rounded-md bg-default ring-1 ring-primary/20"
               >
                 <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </div>
-              <div class="flex-1 min-w-0">
+              <div class="min-w-0">
                 <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
                 <p class="font-semibold text-highlighted truncate">
                   {{ cart.upsell.name }}
                 </p>
                 <span class="text-sm text-muted tabular-nums">{{ cart.upsell.price_display }}</span>
               </div>
-              <ProductStepper
-                v-if="upsellMeta"
-                :meta="upsellMeta"
-                :can-add="true"
-                size="sm"
-                add-label="Adicionar"
-              />
+              <div class="flex justify-start">
+                <ProductStepper
+                  v-if="upsellMeta"
+                  :meta="upsellMeta"
+                  :can-add="true"
+                  size="sm"
+                  add-label="Adicionar"
+                />
+              </div>
             </div>
           </UCard>
         </div>
