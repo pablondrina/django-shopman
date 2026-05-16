@@ -207,9 +207,9 @@ useHead({ title: 'Seu carrinho' })
             :ui="{ body: 'p-0 sm:p-0' }"
             class="overflow-hidden border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
           >
-            <div class="grid grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[104px_minmax(0,1fr)]">
+            <div class="grid grid-cols-[96px_minmax(0,1fr)] sm:grid-cols-[120px_minmax(0,1fr)]">
               <div
-                class="relative min-h-28 overflow-hidden bg-default"
+                class="relative m-3 size-[72px] overflow-hidden rounded-md bg-elevated sm:m-4 sm:size-[88px]"
               >
                 <img
                   v-if="cart.upsell.image_url"
@@ -217,7 +217,7 @@ useHead({ title: 'Seu carrinho' })
                   :alt="cart.upsell.name"
                   loading="lazy"
                   decoding="async"
-                  sizes="104px"
+                  sizes="80px"
                   class="size-full object-cover"
                 >
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
