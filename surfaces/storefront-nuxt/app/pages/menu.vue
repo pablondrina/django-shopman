@@ -238,7 +238,7 @@ useSeoMeta({
         <UContainer class="relative flex min-h-[560px] items-end py-8 sm:min-h-[640px] lg:py-12">
           <div class="grid min-w-0 w-full gap-6 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
             <div class="min-w-0 w-full max-w-[22rem] pb-2 sm:max-w-3xl">
-              <p class="shop-section-kicker rounded-full bg-black/45 px-3 py-1 text-white ring-1 ring-white/20 backdrop-blur-sm">
+              <p class="shop-section-kicker shop-section-kicker--inverse-muted">
                 Cardápio do dia
               </p>
               <h1 class="shop-hero-copy mt-4 max-w-[22rem] text-3xl font-bold leading-tight sm:max-w-2xl sm:text-5xl lg:text-6xl">

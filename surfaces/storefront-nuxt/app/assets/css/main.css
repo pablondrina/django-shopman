@@ -78,6 +78,10 @@ body {
   text-transform: uppercase;
 }
 
+.shop-section-kicker--inverse-muted {
+  color: color-mix(in srgb, white 70%, transparent);
+}
+
 .shop-auth-note {
   color: var(--ui-text-muted);
   font-size: .875rem;
