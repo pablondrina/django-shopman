@@ -144,6 +144,7 @@ class OrderItemSerializer(serializers.Serializer):
 class FulfillmentSerializer(serializers.Serializer):
     status = serializers.CharField()
     status_label = serializers.CharField()
+    tracking_label = serializers.CharField()
     tracking_code = serializers.CharField(allow_null=True, allow_blank=True)
     tracking_url = serializers.CharField(allow_null=True)
     carrier = serializers.CharField(allow_null=True, allow_blank=True)
@@ -196,9 +197,43 @@ class OrderProgressStepSerializer(serializers.Serializer):
 
 
 class PickupInfoSerializer(serializers.Serializer):
+    heading = serializers.CharField()
     address = serializers.CharField()
     opening_hours = serializers.CharField()
-    google_maps_url = serializers.CharField(allow_null=True, required=False)
+    directions_label = serializers.CharField()
+    directions_url = serializers.CharField(allow_null=True, required=False)
+
+
+class OrderTrackingCopySerializer(serializers.Serializer):
+    page_kicker = serializers.CharField()
+    order_ref_label = serializers.CharField()
+    menu_label = serializers.CharField()
+    support_label = serializers.CharField()
+    progress_heading = serializers.CharField()
+    live_badge = serializers.CharField()
+    polling_badge = serializers.CharField()
+    finished_badge = serializers.CharField()
+    items_heading = serializers.CharField()
+    total_label = serializers.CharField()
+    delivery_fee_label = serializers.CharField()
+    promise_fallback_message = serializers.CharField()
+    payment_confirmed_notice = serializers.CharField()
+    retry_label = serializers.CharField()
+    not_found_title = serializers.CharField()
+    not_found_description = serializers.CharField()
+    rate_limit_title = serializers.CharField()
+    cancel_success_title = serializers.CharField()
+    cancel_success_message = serializers.CharField()
+    cancel_failed_message = serializers.CharField()
+    mock_payment_success_title = serializers.CharField()
+    mock_payment_success_message = serializers.CharField()
+    mock_payment_failed_title = serializers.CharField()
+    mock_payment_failed_message = serializers.CharField()
+    rating_success_title = serializers.CharField()
+    rating_failed_message = serializers.CharField()
+    rating_comment_placeholder = serializers.CharField()
+    rating_comment_aria_label = serializers.CharField()
+    rating_submit_label = serializers.CharField()
 
 
 class OrderTrackingSerializer(serializers.Serializer):
@@ -206,6 +241,7 @@ class OrderTrackingSerializer(serializers.Serializer):
     status = serializers.CharField()
     status_label = serializers.CharField()
     status_color = serializers.CharField()
+    copy = OrderTrackingCopySerializer()
     promise = OrderTrackingPromiseSerializer()
     promise_rows = OrderTrackingPromiseRowSerializer(many=True)
     promise_deadline_label = serializers.CharField()
@@ -215,6 +251,8 @@ class OrderTrackingSerializer(serializers.Serializer):
     is_delivery = serializers.BooleanField()
     timeline = TimelineEventSerializer(many=True)
     items = OrderItemSerializer(many=True)
+    delivery_fulfillments = FulfillmentSerializer(many=True, required=False)
+    pickup_fulfillments = FulfillmentSerializer(many=True, required=False)
     fulfillments = FulfillmentSerializer(many=True)
     pickup_info = PickupInfoSerializer(allow_null=True, required=False)
     actions = SurfaceActionSerializer(many=True, required=False)
@@ -232,6 +270,7 @@ class OrderTrackingSerializer(serializers.Serializer):
     confirmation_expires_at = serializers.CharField(allow_null=True, required=False)
     eta_display = serializers.CharField(allow_null=True, required=False)
     whatsapp_url = serializers.CharField(allow_blank=True, required=False)
+    support_url = serializers.CharField(allow_blank=True, required=False)
     share_text = serializers.CharField(allow_blank=True, required=False)
     is_debug = serializers.BooleanField()
     last_updated_iso = serializers.CharField()

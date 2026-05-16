@@ -561,6 +561,7 @@ export interface OrderItemProjection {
 export interface TrackingFulfillmentProjection {
   status: string
   status_label: string
+  tracking_label: string
   tracking_code: string | null
   tracking_url: string | null
   carrier: string | null
@@ -569,9 +570,43 @@ export interface TrackingFulfillmentProjection {
 }
 
 export interface PickupInfoProjection {
+  heading: string
   address: string
   opening_hours: string
-  google_maps_url: string | null
+  directions_label: string
+  directions_url: string | null
+}
+
+export interface TrackingCopyProjection {
+  page_kicker: string
+  order_ref_label: string
+  menu_label: string
+  support_label: string
+  progress_heading: string
+  live_badge: string
+  polling_badge: string
+  finished_badge: string
+  items_heading: string
+  total_label: string
+  delivery_fee_label: string
+  promise_fallback_message: string
+  payment_confirmed_notice: string
+  retry_label: string
+  not_found_title: string
+  not_found_description: string
+  rate_limit_title: string
+  cancel_success_title: string
+  cancel_success_message: string
+  cancel_failed_message: string
+  mock_payment_success_title: string
+  mock_payment_success_message: string
+  mock_payment_failed_title: string
+  mock_payment_failed_message: string
+  rating_success_title: string
+  rating_failed_message: string
+  rating_comment_placeholder: string
+  rating_comment_aria_label: string
+  rating_submit_label: string
 }
 
 export interface TrackingResponse {
@@ -579,6 +614,7 @@ export interface TrackingResponse {
   status: string
   status_label: string
   status_color: string
+  copy: TrackingCopyProjection
   promise: TrackingPromiseProjection
   promise_rows: TrackingPromiseRowProjection[]
   promise_deadline_label: string
@@ -608,6 +644,7 @@ export interface TrackingResponse {
   confirmation_expires_at: string | null
   eta_display: string | null
   whatsapp_url: string
+  support_url: string
   share_text: string
   is_debug: boolean
   last_updated_iso: string

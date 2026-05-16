@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.storefront.projections.order_tracking import build_order_tracking
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
 from shopman.storefront.services import orders as order_service
 
@@ -26,6 +27,22 @@ from .serializers import DetailSerializer, OrderTrackingSerializer
 TRACKING_RATE_LIMIT_RETRY_SECONDS = 30
 
 
+def _copy_title(key: str, fallback: str) -> str:
+    try:
+        entry = resolve_copy(key, moment="*", audience="*")
+        return entry.title or fallback
+    except Exception:
+        return fallback
+
+
+def _copy_message(key: str, fallback: str) -> str:
+    try:
+        entry = resolve_copy(key, moment="*", audience="*")
+        return entry.message or fallback
+    except Exception:
+        return fallback
+
+
 def _payment_gate_url(ref: str) -> str:
     return f"/pedido/{ref}/pagamento"
 
@@ -33,6 +50,7 @@ def _payment_gate_url(ref: str) -> str:
 def _rate_limited_response(detail: str = "Muitas tentativas. Aguarde um instante.") -> Response:
     return Response(
         {
+            "title": _copy_title("TRACKING_RATE_LIMIT_TITLE", "Atualização pausada por um instante"),
             "detail": detail,
             "error_code": "rate_limited",
             "retry_after_seconds": TRACKING_RATE_LIMIT_RETRY_SECONDS,
@@ -67,6 +85,7 @@ def _tracking_payload(order) -> dict:
         {
             "status": f.status,
             "status_label": f.status_label,
+            "tracking_label": f.tracking_label,
             "tracking_code": f.tracking_code,
             "tracking_url": f.tracking_url,
             "carrier": f.carrier,
@@ -110,7 +129,16 @@ class OrderTrackingView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=404)
+            return Response(
+                {
+                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    "detail": _copy_message(
+                        "TRACKING_NOT_FOUND_MESSAGE",
+                        "Confira o link do pedido ou fale com a equipe.",
+                    ),
+                },
+                status=404,
+            )
 
         order_service.resolve_timeouts_if_due(order)
         data = _tracking_payload(order)
@@ -153,7 +181,16 @@ class OrderCancelView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {
+                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    "detail": _copy_message(
+                        "TRACKING_NOT_FOUND_MESSAGE",
+                        "Confira o link do pedido ou fale com a equipe.",
+                    ),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         key = remote_mutations.idempotency_key_from_request(
             request,
@@ -221,7 +258,16 @@ class OrderRateView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {
+                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    "detail": _copy_message(
+                        "TRACKING_NOT_FOUND_MESSAGE",
+                        "Confira o link do pedido ou fale com a equipe.",
+                    ),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         try:
             rating = int((request.data if hasattr(request, "data") else {}).get("rating"))

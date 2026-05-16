@@ -81,6 +81,13 @@ Isso evita control plane paralelo e evita duplicar estado.
   fica em `checkout.actions[]`.
 - Em tracking e payment, a decisao acionavel pertence a promise operacional ja
   existente, portanto fica em `promise.actions[]`.
+- Em tracking, copy de chrome operacional (`copy.*`), labels de fulfillment
+  (`fulfillment.tracking_label`) e retirada (`pickup_info.heading`,
+  `pickup_info.directions_label`, `pickup_info.directions_url`) sao parte da
+  projection. Superficies nao devem inventar copy ou construir URLs de mapa.
+- Para pedido de retirada pronto, `promise.actions[]` deve carregar o handoff
+  acionavel para rota (`kind="external"`, `href`) quando houver destino de loja
+  suficiente. `pickup_info` nao depende da existencia de um fulfillment tecnico.
 - Em conversa, `RemoteConversationProjection.actions[]` e uma projection
   compacta derivada da promise escolhida para WhatsApp/ManyChat.
 

@@ -1177,6 +1177,15 @@ def test_tracking_surface_supports_live_promise_details_and_rating():
     assert "promise_deadline_label" in tracking
     assert "formatCountdown" in tracking
     assert "showInitialSkeleton" in tracking
+    assert "data.copy.page_kicker" in tracking
+    assert "data.pickup_info.directions_url" in tracking
+    assert "data.pickup_info.directions_label" in tracking
+    assert "i-lucide-map-pin" in tracking
+    assert "promiseActionLink.external ? '_blank'" in tracking
+    assert "fulfillment.tracking_label" in tracking
+    assert "Seu pedido está pronto para retirada ou para sair em entrega." not in tracking
+    assert "Abrir mapa" not in tracking
+    assert "Acompanhar entrega" not in tracking
     assert "eventSource.onopen" in tracking
     assert "stopPolling()" in tracking
     assert "Aviso ativo" not in tracking

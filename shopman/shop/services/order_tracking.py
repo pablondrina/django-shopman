@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlencode
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -74,9 +75,46 @@ DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 class PickupInfoProjection:
     """Store address and hours shown when the fulfillment type is pickup."""
 
+    heading: str
     address: str
     opening_hours: str
-    google_maps_url: str | None
+    directions_label: str
+    directions_url: str | None
+
+
+@dataclass(frozen=True)
+class OrderTrackingCopyProjection:
+    """Surface chrome copy for the tracking projection."""
+
+    page_kicker: str
+    order_ref_label: str
+    menu_label: str
+    support_label: str
+    progress_heading: str
+    live_badge: str
+    polling_badge: str
+    finished_badge: str
+    items_heading: str
+    total_label: str
+    delivery_fee_label: str
+    promise_fallback_message: str
+    payment_confirmed_notice: str
+    retry_label: str
+    not_found_title: str
+    not_found_description: str
+    rate_limit_title: str
+    cancel_success_title: str
+    cancel_success_message: str
+    cancel_failed_message: str
+    mock_payment_success_title: str
+    mock_payment_success_message: str
+    mock_payment_failed_title: str
+    mock_payment_failed_message: str
+    rating_success_title: str
+    rating_failed_message: str
+    rating_comment_placeholder: str
+    rating_comment_aria_label: str
+    rating_submit_label: str
 
 
 @dataclass(frozen=True)
@@ -121,6 +159,7 @@ class OrderTrackingProjection:
     status: str
     status_label: str
     status_color: str
+    copy: OrderTrackingCopyProjection
     promise: OrderTrackingPromiseProjection
     promise_rows: tuple[OrderTrackingPromiseRowProjection, ...]
     promise_deadline_label: str
@@ -146,6 +185,7 @@ class OrderTrackingProjection:
     confirmation_expires_at: str | None
     eta_display: str | None
     whatsapp_url: str
+    support_url: str
     share_text: str
     is_debug: bool
     last_updated_iso: str
@@ -182,7 +222,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         is_delivery=is_delivery,
         is_pickup=is_pickup,
     )
-    pickup_info = _pickup_info() if is_pickup and pickup_fulfillments else None
+    pickup_info = _pickup_info() if is_pickup else None
 
     delivery_fee_q = order_data.get("delivery_fee_q")
     delivery_fee_display: str | None = None
@@ -203,7 +243,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         payment_pending=payment_pending,
         business_state=business_state,
     )
-    whatsapp_url, share_text = _contact_and_share(order)
+    whatsapp_url, support_url, share_text = _contact_and_share(order)
     eta_display = _eta_display(order)
     promise = _build_promise(
         order,
@@ -216,6 +256,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         confirmation_expires_at=confirmation_expires_at,
         eta_display=eta_display,
         business_state=business_state,
+        pickup_directions_url=pickup_info.directions_url if pickup_info else None,
     )
     last_updated_display = _copy_title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora")
 
@@ -233,6 +274,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         status=order.status,
         status_label=status_label,
         status_color=status_color,
+        copy=_tracking_copy(),
         promise=promise,
         promise_rows=_build_promise_rows(promise, last_updated_display=last_updated_display),
         promise_deadline_label=_clean_label(_copy_title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo")),
@@ -261,6 +303,7 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         confirmation_expires_at=confirmation_expires_at,
         eta_display=eta_display,
         whatsapp_url=whatsapp_url,
+        support_url=support_url,
         share_text=share_text,
         is_debug=is_debug,
         last_updated_iso=server_now.isoformat(),
@@ -440,10 +483,23 @@ def _build_order_actions(
             idempotency="required",
             confirmation={
                 "title": _copy_title("TRACKING_CANCEL_CONFIRM_TITLE", "Cancelar pedido"),
+                "warning_title": _copy_title(
+                    "TRACKING_CANCEL_WARNING_TITLE",
+                    "Essa ação altera o pedido em andamento",
+                ),
+                "warning_message": _copy_message(
+                    "TRACKING_CANCEL_WARNING_MESSAGE",
+                    "O cancelamento só é permitido enquanto o pagamento não foi capturado e a loja ainda permite reversão.",
+                ),
                 "message": _copy_message(
                     "TRACKING_CANCEL_CONFIRM_MESSAGE",
                     "Confirme apenas se não quiser mais seguir com este pedido.",
                 ),
+                "ack_label": _copy_title(
+                    "TRACKING_CANCEL_ACK_LABEL",
+                    "Entendo que o pedido será cancelado e deixará de ser preparado.",
+                ),
+                "cancel_label": _copy_title("TRACKING_CANCEL_KEEP_CTA", "Manter pedido"),
                 "confirm_label": _copy_title("TRACKING_CANCEL_CONFIRM_CTA", "Confirmar cancelamento"),
                 "severity": "danger",
             },
@@ -558,6 +614,7 @@ def _build_promise(
     confirmation_expires_at: str | None,
     eta_display: str | None,
     business_state: BusinessCalendarState,
+    pickup_directions_url: str | None = None,
 ) -> OrderTrackingPromiseProjection:
     if payment_expired:
         title, message = _copy_pair(
@@ -772,13 +829,16 @@ def _build_promise(
             state = "ready_pickup"
         ready_actions = ()
         if state == "ready_pickup":
+            pickup_action_kwargs = {
+                "ref": "pickup_directions" if pickup_directions_url else "pickup",
+                "kind": "external" if pickup_directions_url else "instruction",
+                "label": _copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido"),
+                "priority": "primary",
+            }
+            if pickup_directions_url:
+                pickup_action_kwargs["href"] = pickup_directions_url
             ready_actions = (
-                _action(
-                    ref="pickup",
-                    kind="instruction",
-                    label=_copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido"),
-                    priority="primary",
-                ),
+                _action(**pickup_action_kwargs),
             )
         return OrderTrackingPromiseProjection(
             state=state,
@@ -903,6 +963,67 @@ def _copy_message(key: str, fallback: str) -> str:
     except Exception:
         logger.debug("order_tracking_copy_failed key=%s", key, exc_info=True)
         return fallback
+
+
+def _tracking_copy() -> OrderTrackingCopyProjection:
+    return OrderTrackingCopyProjection(
+        page_kicker=_copy_title("TRACKING_PAGE_KICKER", "Acompanhamento"),
+        order_ref_label=_copy_title("TRACKING_ORDER_REF_LABEL", "Pedido"),
+        menu_label=_copy_title("TRACKING_MENU_CTA", "Ver cardápio"),
+        support_label=_copy_title("TRACKING_SUPPORT_CTA", "Ajuda"),
+        progress_heading=_copy_title("TRACKING_PROGRESS_HEADING", "Progresso"),
+        live_badge=_copy_title("TRACKING_LIVE_BADGE", "Ao vivo"),
+        polling_badge=_copy_title("TRACKING_POLLING_BADGE", "Atualização periódica"),
+        finished_badge=_copy_title("TRACKING_FINISHED_BADGE", "Finalizado"),
+        items_heading=_copy_title("TRACKING_ITEMS_HEADING", "Itens do pedido"),
+        total_label=_copy_title("TRACKING_TOTAL_LABEL", "Total"),
+        delivery_fee_label=_copy_title("TRACKING_DELIVERY_FEE_LABEL", "Entrega"),
+        promise_fallback_message=_copy_message(
+            "TRACKING_PROMISE_FALLBACK_MESSAGE",
+            "Acompanhando atualizações do pedido.",
+        ),
+        payment_confirmed_notice=_copy_message(
+            "TRACKING_PAYMENT_CONFIRMED_NOTICE",
+            "Pagamento confirmado. Acompanhe o próximo passo nesta página.",
+        ),
+        retry_label=_copy_title("TRACKING_RETRY_CTA", "Tentar novamente"),
+        not_found_title=_copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+        not_found_description=_copy_message(
+            "TRACKING_NOT_FOUND_MESSAGE",
+            "Confira o link do pedido ou fale com a equipe.",
+        ),
+        rate_limit_title=_copy_title("TRACKING_RATE_LIMIT_TITLE", "Atualização pausada por um instante"),
+        cancel_success_title=_copy_title("TRACKING_CANCEL_SUCCESS_TITLE", "Pedido cancelado"),
+        cancel_success_message=_copy_message(
+            "TRACKING_CANCEL_SUCCESS_MESSAGE",
+            "Recebemos o cancelamento. Acompanhe o status nesta página.",
+        ),
+        cancel_failed_message=_copy_message(
+            "TRACKING_CANCEL_FAILED_MESSAGE",
+            "Não foi possível cancelar este pedido agora.",
+        ),
+        mock_payment_success_title=_copy_title("TRACKING_MOCK_PAYMENT_SUCCESS_TITLE", "Pagamento teste capturado"),
+        mock_payment_success_message=_copy_message(
+            "TRACKING_MOCK_PAYMENT_SUCCESS_MESSAGE",
+            "Atualizamos o pedido com o estado financeiro simulado.",
+        ),
+        mock_payment_failed_title=_copy_title(
+            "TRACKING_MOCK_PAYMENT_FAILED_TITLE",
+            "Não foi possível capturar o pagamento teste",
+        ),
+        mock_payment_failed_message=_copy_message(
+            "TRACKING_MOCK_PAYMENT_FAILED_MESSAGE",
+            "Atualize o pedido e tente novamente.",
+        ),
+        rating_success_title=_copy_title("TRACKING_RATING_SUCCESS_TITLE", "Avaliação registrada"),
+        rating_failed_message=_copy_message(
+            "TRACKING_RATING_FAILED_MESSAGE",
+            "Não foi possível registrar a avaliação agora.",
+        ),
+        rating_comment_placeholder=_copy_title("TRACKING_RATING_COMMENT_PLACEHOLDER", "Comentário opcional"),
+        rating_comment_aria_label=_copy_title("TRACKING_RATING_COMMENT_ARIA_LABEL", "Comentário da avaliação"),
+        rating_submit_label=_copy_title("TRACKING_RATING_SUBMIT_CTA", "Enviar avaliação"),
+    )
 
 
 def _fmt_timestamp(dt) -> str:
@@ -1254,6 +1375,7 @@ def _build_fulfillments(
         projected = FulfillmentProjection(
             status=ful.status,
             status_label=FULFILLMENT_STATUS_LABELS.get(ful.status, ful.status),
+            tracking_label=_fulfillment_tracking_label(ful.carrier),
             tracking_code=ful.tracking_code or None,
             tracking_url=tracking_url,
             carrier=ful.carrier or None,
@@ -1278,19 +1400,67 @@ def _pickup_info() -> PickupInfoProjection | None:
 
         hours_list = _format_opening_hours()
         hours_str = "; ".join(f"{hour['label']}: {hour['hours']}" for hour in hours_list)
-        google_maps_url = None
-        if shop.latitude and shop.longitude:
-            google_maps_url = (
-                f"https://www.google.com/maps/dir/?api=1&destination={shop.latitude},{shop.longitude}"
-            )
+        directions_url = _pickup_directions_url(shop)
+        address = _pickup_display_address(shop)
+        if not (address or hours_str or directions_url):
+            return None
         return PickupInfoProjection(
-            address=shop.formatted_address or "",
+            heading=_copy_title("TRACKING_PICKUP_HEADING", "Retirada"),
+            address=address,
             opening_hours=hours_str,
-            google_maps_url=google_maps_url,
+            directions_label=_copy_title("TRACKING_PICKUP_DIRECTIONS_CTA", "Como chegar"),
+            directions_url=directions_url,
         )
     except Exception:
         logger.warning("order_tracking_pickup_info_failed", exc_info=True)
         return None
+
+
+def _pickup_directions_url(shop) -> str | None:
+    destination = ""
+    if shop.latitude and shop.longitude:
+        destination = f"{shop.latitude},{shop.longitude}"
+    else:
+        destination = _pickup_route_address(shop)
+    if not destination:
+        return None
+
+    params = {"api": "1", "destination": destination}
+    if shop.place_id:
+        params["destination_place_id"] = shop.place_id
+    return f"https://www.google.com/maps/dir/?{urlencode(params)}"
+
+
+def _pickup_display_address(shop) -> str:
+    formatted = str(getattr(shop, "formatted_address", "") or "").strip()
+    if formatted:
+        return formatted
+    if not _shop_has_specific_address(shop):
+        return ""
+    return str(getattr(shop, "full_address", "") or "").strip()
+
+
+def _pickup_route_address(shop) -> str:
+    formatted = str(getattr(shop, "formatted_address", "") or "").strip()
+    if formatted:
+        return formatted
+    if not _shop_has_specific_address(shop):
+        return ""
+    return _pickup_display_address(shop).replace("\n", ", ")
+
+
+def _shop_has_specific_address(shop) -> bool:
+    return any(
+        str(getattr(shop, field, "") or "").strip()
+        for field in ("route", "street_number", "neighborhood", "postal_code")
+    )
+
+
+def _fulfillment_tracking_label(carrier: str | None) -> str:
+    if carrier:
+        template = _copy_title("TRACKING_TRACK_SHIPMENT_WITH_CARRIER", "Acompanhar via {carrier}")
+        return template.format(carrier=carrier)
+    return _copy_title("TRACKING_TRACK_SHIPMENT", "Rastrear envio")
 
 
 def _format_opening_hours() -> list[dict]:
@@ -1439,7 +1609,7 @@ def _eta_display(order) -> str | None:
         return None
 
 
-def _contact_and_share(order) -> tuple[str, str]:
+def _contact_and_share(order) -> tuple[str, str, str]:
     whatsapp_url = ""
     shop_name = "loja"
     try:
@@ -1458,7 +1628,16 @@ def _contact_and_share(order) -> tuple[str, str]:
     except Exception:
         logger.warning("order_tracking_contact_failed order=%s", order.ref, exc_info=True)
 
-    return whatsapp_url, f"Meu pedido {order.ref} na {shop_name}"
+    support_url = whatsapp_url
+    if support_url:
+        support_message = _copy_message(
+            "TRACKING_SUPPORT_WHATSAPP_MESSAGE",
+            "Oi! Posso ajudar com o pedido {order_ref}?",
+        ).format(order_ref=order.ref)
+        separator = "&" if "?" in support_url else "?"
+        support_url = f"{support_url}{separator}{urlencode({'text': support_message})}"
+
+    return whatsapp_url, support_url, f"Meu pedido {order.ref} na {shop_name}"
 
 
 __all__ = [

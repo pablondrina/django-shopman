@@ -213,6 +213,9 @@ class TestTrackingApi:
         assert data["status"] == "new"
         assert data["is_active"] is True
         assert "can_cancel" not in data
+        assert data["copy"]["page_kicker"] == "Acompanhamento"
+        assert data["copy"]["payment_confirmed_notice"]
+        assert "support_url" in data
         assert any(action["ref"] == "cancel_order" for action in data["actions"])
         assert data["promise"]["title"]
         assert isinstance(data["promise_rows"], list)

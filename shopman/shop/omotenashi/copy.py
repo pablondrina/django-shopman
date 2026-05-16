@@ -319,11 +319,125 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PAGE_META_DESCRIPTION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Acompanhe seu pedido")},
     },
+    "TRACKING_PAGE_KICKER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Acompanhamento")},
+    },
+    "TRACKING_ORDER_REF_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido")},
+    },
     "TRACKING_REORDER_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedir novamente")},
     },
     "TRACKING_MENU_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ver cardápio")},
+    },
+    "TRACKING_SUPPORT_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Ajuda")},
+    },
+    "TRACKING_ACTION_CANCEL_ORDER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
+    },
+    "TRACKING_ACTION_RATE_ORDER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Avaliar pedido")},
+    },
+    "TRACKING_ACTION_MOCK_CONFIRM_PAYMENT": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Capturar pagamento teste")},
+    },
+    "TRACKING_PROGRESS_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Progresso")},
+    },
+    "TRACKING_LIVE_BADGE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Ao vivo")},
+    },
+    "TRACKING_POLLING_BADGE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Atualização periódica")},
+    },
+    "TRACKING_FINISHED_BADGE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Finalizado")},
+    },
+    "TRACKING_TOTAL_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Total")},
+    },
+    "TRACKING_DELIVERY_FEE_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Entrega")},
+    },
+    "TRACKING_PROMISE_FALLBACK_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Acompanhando atualizações do pedido.")},
+    },
+    "TRACKING_PAYMENT_CONFIRMED_NOTICE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Pagamento confirmado. Acompanhe o próximo passo nesta página.")},
+    },
+    "TRACKING_RETRY_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
+    },
+    "TRACKING_NOT_FOUND_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido não encontrado")},
+    },
+    "TRACKING_NOT_FOUND_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Confira o link do pedido ou fale com a equipe.")},
+    },
+    "TRACKING_RATE_LIMIT_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Atualização pausada por um instante")},
+    },
+    "TRACKING_CANCEL_SUCCESS_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido cancelado")},
+    },
+    "TRACKING_CANCEL_SUCCESS_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Recebemos o cancelamento. Acompanhe o status nesta página.")},
+    },
+    "TRACKING_CANCEL_FAILED_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível cancelar este pedido agora.")},
+    },
+    "TRACKING_CANCEL_CONFIRM_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
+    },
+    "TRACKING_CANCEL_WARNING_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Essa ação altera o pedido em andamento")},
+    },
+    "TRACKING_CANCEL_WARNING_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="O cancelamento só é permitido enquanto o pagamento não foi capturado e a loja ainda permite reversão.")},
+    },
+    "TRACKING_CANCEL_CONFIRM_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Confirme apenas se não quiser mais seguir com este pedido.")},
+    },
+    "TRACKING_CANCEL_ACK_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Entendo que o pedido será cancelado e deixará de ser preparado.")},
+    },
+    "TRACKING_CANCEL_KEEP_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Manter pedido")},
+    },
+    "TRACKING_CANCEL_CONFIRM_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar cancelamento")},
+    },
+    "TRACKING_MOCK_PAYMENT_SUCCESS_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pagamento teste capturado")},
+    },
+    "TRACKING_MOCK_PAYMENT_SUCCESS_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Atualizamos o pedido com o estado financeiro simulado.")},
+    },
+    "TRACKING_MOCK_PAYMENT_FAILED_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Não foi possível capturar o pagamento teste")},
+    },
+    "TRACKING_MOCK_PAYMENT_FAILED_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Atualize o pedido e tente novamente.")},
+    },
+    "TRACKING_RATING_SUCCESS_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Avaliação registrada")},
+    },
+    "TRACKING_RATING_FAILED_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível registrar a avaliação agora.")},
+    },
+    "TRACKING_RATING_COMMENT_PLACEHOLDER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Comentário opcional")},
+    },
+    "TRACKING_RATING_COMMENT_ARIA_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Comentário da avaliação")},
+    },
+    "TRACKING_RATING_SUBMIT_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Enviar avaliação")},
+    },
+    "TRACKING_SUPPORT_WHATSAPP_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Oi! Posso ajudar com o pedido {order_ref}?")},
     },
     "TRACKING_ETA_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(
@@ -563,8 +677,14 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PICKUP_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Retirada")},
     },
+    "TRACKING_PICKUP_DIRECTIONS_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Como chegar")},
+    },
     "TRACKING_TRACK_SHIPMENT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Rastrear envio")},
+    },
+    "TRACKING_TRACK_SHIPMENT_WITH_CARRIER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Acompanhar via {carrier}")},
     },
     "TRACKING_CANCEL_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},

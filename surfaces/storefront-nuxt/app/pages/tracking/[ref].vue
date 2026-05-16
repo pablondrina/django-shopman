@@ -4,15 +4,16 @@ import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
 type UiColor = 'neutral' | 'info' | 'success' | 'warning' | 'error'
 
 interface RateLimitRecovery {
+  title: string
   detail: string
   retryAfterSeconds: number | null
+  retryLabel: string
 }
 
 const route = useRoute()
 const orderRef = computed(() => String(route.params.ref || ''))
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
-const { shop } = useShopSession()
 const toast = useToast()
 const { performReorderAction, pending: reorderPending } = useReorder()
 
@@ -62,7 +63,6 @@ const progressItems = computed(() => (data.value?.progress_steps ?? []).map(step
 
 const showInitialSkeleton = computed(() => pending.value && !data.value)
 const isTerminal = computed(() => data.value ? !data.value.is_active : false)
-const isReady = computed(() => data.value?.status === 'ready')
 const fulfillment = computed(() => {
   const current = data.value
   if (!current) return undefined
@@ -72,6 +72,7 @@ const fulfillment = computed(() => {
 })
 const promiseColor = computed(() => toneToColor(data.value?.promise?.tone))
 const statusIcon = computed(() => STATUS_ICONS[data.value?.status || ''] || 'i-lucide-info')
+const trackingCopy = computed(() => data.value?.copy || null)
 const paymentUrl = computed(() => data.value?.ref ? `/pedido/${encodeURIComponent(data.value.ref)}/pagamento` : null)
 const paymentGateUrl = computed(() => data.value?.payment_gate_url || paymentUrl.value)
 const promiseActionLink = computed(() => {
@@ -83,15 +84,20 @@ const promiseActionLink = computed(() => {
   if (!action) return null
   const url = action.href || (action.ref === 'pay_now' ? paymentGateUrl.value : null)
   if (!url) return null
+  const isExternal = action.kind === 'external' || /^https?:\/\//.test(url)
+  const isPayment = action.ref.includes('pay')
+  const isPickupDirections = action.ref.includes('pickup') || url.includes('google.com/maps')
   return {
     action: action.ref,
-    label: action.label || 'Continuar',
+    label: action.label,
     url,
-    icon: action.ref.includes('pay') || action.kind === 'external' ? 'i-lucide-credit-card' : 'i-lucide-arrow-right'
+    icon: isPayment ? 'i-lucide-credit-card' : isPickupDirections ? 'i-lucide-map-pin' : isExternal ? 'i-lucide-external-link' : 'i-lucide-arrow-right',
+    external: isExternal
   }
 })
 const trackingActions = computed(() => data.value?.actions || [])
 const cancelOrderAction = computed(() => findTrackingAction('cancel_order'))
+const cancelConfirmation = computed(() => cancelOrderAction.value?.confirmation || {})
 const rateOrderAction = computed(() => findTrackingAction('rate_order'))
 const mockConfirmPaymentAction = computed(() => findTrackingAction('mock_confirm_payment'))
 const reorderAction = computed(() => findTrackingAction('reorder'))
@@ -122,14 +128,20 @@ function rateLimitFromFetchError (err: any): RateLimitRecovery | null {
   const payload = err?.data || {}
   const statusCode = err?.statusCode || err?.status || err?.response?.status
   if (statusCode !== 429 && payload.error_code !== 'rate_limited') return null
+  const action = Array.isArray(payload.actions) ? payload.actions[0] : null
   return {
-    detail: payload.detail || operationalCopy.recovery.rateLimit,
-    retryAfterSeconds: typeof payload.retry_after_seconds === 'number' ? payload.retry_after_seconds : null
+    title: payload.title || trackingCopy.value?.rate_limit_title || '',
+    detail: payload.detail || '',
+    retryAfterSeconds: typeof payload.retry_after_seconds === 'number' ? payload.retry_after_seconds : null,
+    retryLabel: action?.label || trackingCopy.value?.retry_label || ''
   }
 }
 
 const initialRateLimitRecovery = computed(() => rateLimitFromFetchError(error.value))
 const activeRateLimitRecovery = computed(() => rateLimitRecovery.value || initialRateLimitRecovery.value)
+const errorPayload = computed(() => (error.value as any)?.data || {})
+const notFoundTitle = computed(() => String(errorPayload.value?.title || ''))
+const notFoundDescription = computed(() => String(errorPayload.value?.detail || ''))
 
 function captureRateLimitRecovery (err: any): boolean {
   const recovery = rateLimitFromFetchError(err)
@@ -150,11 +162,7 @@ watch(() => data.value?.requires_payment_gate, () => {
 })
 
 const whatsappHelpUrl = computed(() => {
-  const base = data.value?.whatsapp_url || shop.value?.whatsapp_url
-  if (!base) return null
-  const message = `Oi! Posso ajudar com o pedido ${orderRef.value}?`
-  const sep = base.includes('?') ? '&' : '?'
-  return `${base}${sep}text=${encodeURIComponent(message)}`
+  return data.value?.support_url || null
 })
 
 function formatCountdown (deadline: string | null | undefined) {
@@ -214,12 +222,12 @@ async function cancelOrder () {
     toast.add({
       icon: 'i-lucide-circle-check',
       color: 'success',
-      title: 'Pedido cancelado',
-      description: 'Recebemos o cancelamento. Acompanhe o status nesta página.'
+      title: data.value?.copy.cancel_success_title || '',
+      description: data.value?.copy.cancel_success_message || ''
     })
   } catch (err: any) {
     if (captureRateLimitRecovery(err)) return
-    cancelError.value = err?.data?.detail || 'Não foi possível cancelar este pedido agora.'
+    cancelError.value = err?.data?.detail || trackingCopy.value?.cancel_failed_message || ''
   } finally {
     cancelling.value = false
   }
@@ -244,16 +252,16 @@ async function mockConfirmPayment () {
     toast.add({
       icon: 'i-lucide-circle-check',
       color: 'success',
-      title: 'Pagamento teste capturado',
-      description: 'Atualizamos o pedido com o estado financeiro simulado.'
+      title: trackingCopy.value?.mock_payment_success_title || '',
+      description: trackingCopy.value?.mock_payment_success_message || ''
     })
   } catch (err: any) {
     if (captureRateLimitRecovery(err)) return
     toast.add({
       icon: 'i-lucide-circle-alert',
       color: 'error',
-      title: 'Não foi possível capturar o pagamento teste',
-      description: err?.data?.detail || 'Atualize o pedido e tente novamente.'
+      title: trackingCopy.value?.mock_payment_failed_title || '',
+      description: err?.data?.detail || trackingCopy.value?.mock_payment_failed_message || ''
     })
   } finally {
     mockPaymentPending.value = false
@@ -280,10 +288,10 @@ async function submitRating () {
     })
     data.value = response
     ratingRequestId.value = null
-    toast.add({ color: 'success', title: 'Avaliação registrada' })
+    toast.add({ color: 'success', title: trackingCopy.value?.rating_success_title || '' })
   } catch (err: any) {
     if (captureRateLimitRecovery(err)) return
-    ratingError.value = err?.data?.detail || 'Não foi possível registrar a avaliação agora.'
+    ratingError.value = err?.data?.detail || trackingCopy.value?.rating_failed_message || ''
   } finally {
     ratingPending.value = false
   }
@@ -385,7 +393,7 @@ if (import.meta.client) {
 }
 
 useHead(() => ({
-  title: data.value ? `Pedido ${data.value.ref}` : 'Pedido'
+  title: data.value ? `${data.value.copy.order_ref_label} ${data.value.ref}` : ''
 }))
 </script>
 
@@ -398,17 +406,17 @@ useHead(() => ({
         color="info"
         variant="soft"
         icon="i-lucide-clock"
-        title="Aguarde um instante"
-        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds)"
+        :title="activeRateLimitRecovery.title"
+        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, '')"
       />
       <div class="flex flex-wrap gap-2">
-        <UButton label="Tentar novamente" icon="i-lucide-refresh-cw" @click="refreshAfterRateLimit" />
+        <UButton :label="activeRateLimitRecovery.retryLabel" icon="i-lucide-refresh-cw" @click="refreshAfterRateLimit" />
         <UButton
-          v-if="whatsappHelpUrl"
+          v-if="whatsappHelpUrl && trackingCopy?.support_label"
           :to="whatsappHelpUrl"
           target="_blank"
           rel="noopener"
-          label="Falar com a equipe"
+          :label="trackingCopy?.support_label"
           icon="i-lucide-message-circle"
           color="success"
           variant="soft"
@@ -420,8 +428,8 @@ useHead(() => ({
       v-else-if="(error && !activeRateLimitRecovery) || !data"
       color="error"
       variant="soft"
-      title="Pedido não encontrado"
-      description="Confira o link do pedido ou fale com a equipe."
+      :title="notFoundTitle"
+      :description="notFoundDescription"
     />
 
     <section v-else>
@@ -430,9 +438,9 @@ useHead(() => ({
           <div>
             <p class="shop-section-kicker">
               <UIcon :name="statusIcon" class="size-3.5" />
-              Acompanhamento
+              {{ data.copy.page_kicker }}
             </p>
-            <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">Pedido {{ data.ref }}</h1>
+            <h1 class="mt-2 text-3xl font-bold leading-tight text-highlighted sm:text-4xl">{{ data.copy.order_ref_label }} {{ data.ref }}</h1>
             <p class="mt-2 text-sm leading-relaxed text-muted sm:text-base">
               {{ data.status_label }} · {{ data.total_display }}
             </p>
@@ -443,25 +451,27 @@ useHead(() => ({
               :label="promiseActionLink.label"
               :to="promiseActionLink.url"
               :icon="promiseActionLink.icon"
+              :target="promiseActionLink.external ? '_blank' : undefined"
+              :rel="promiseActionLink.external ? 'noopener' : undefined"
               color="warning"
               variant="solid"
             />
             <UButton
               v-if="mockConfirmPaymentAction"
-              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
+              :label="mockConfirmPaymentAction.label"
               icon="i-lucide-credit-card"
               color="warning"
               variant="soft"
               :loading="mockPaymentPending"
               @click="mockConfirmPayment"
             />
-            <UButton label="Cardápio" to="/menu" icon="i-lucide-store" color="neutral" variant="outline" />
+            <UButton :label="data.copy.menu_label" to="/menu" icon="i-lucide-store" color="neutral" variant="outline" />
             <UButton
               v-if="whatsappHelpUrl"
               :to="whatsappHelpUrl"
               target="_blank"
               rel="noopener"
-              label="Ajuda"
+              :label="data.copy.support_label"
               icon="i-lucide-message-circle"
               color="success"
               variant="soft"
@@ -475,7 +485,7 @@ useHead(() => ({
         variant="subtle"
         :icon="statusIcon"
         :title="data.promise?.title || data.status_label"
-        :description="data.promise?.message || 'Acompanhando atualizações do pedido.'"
+        :description="data.promise?.message || data.copy.promise_fallback_message"
         class="mt-6"
       />
 
@@ -484,8 +494,8 @@ useHead(() => ({
         color="info"
         variant="soft"
         icon="i-lucide-clock"
-        title="Atualização pausada por um instante"
-        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds)"
+        :title="activeRateLimitRecovery.title"
+        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, '')"
         class="mt-4"
       >
         <template #actions>
@@ -493,7 +503,7 @@ useHead(() => ({
             size="xs"
             color="info"
             variant="solid"
-            label="Tentar novamente"
+            :label="activeRateLimitRecovery.retryLabel"
             icon="i-lucide-refresh-cw"
             @click="refreshAfterRateLimit"
           />
@@ -502,7 +512,7 @@ useHead(() => ({
             size="xs"
             color="success"
             variant="outline"
-            label="Falar com a equipe"
+            :label="data.copy.support_label"
             icon="i-lucide-message-circle"
             :to="whatsappHelpUrl"
             target="_blank"
@@ -537,47 +547,37 @@ useHead(() => ({
         v-if="data.show_payment_confirmed_notice"
         class="mt-4 rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success"
       >
-        Pagamento confirmado. Acompanhe o próximo passo nesta página.
+        {{ data.copy.payment_confirmed_notice }}
       </div>
 
       <div class="mt-6 grid lg:grid-cols-[1fr_360px] gap-6 items-start">
         <UCard class="shop-soft-panel">
           <template #header>
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <strong>Progresso</strong>
+              <strong>{{ data.copy.progress_heading }}</strong>
               <UBadge v-if="!isTerminal && liveConnected" color="info" variant="subtle" class="gap-1.5">
                 <span class="size-1.5 rounded-full bg-info animate-pulse" />
-                Ao vivo
+                {{ data.copy.live_badge }}
               </UBadge>
               <UBadge v-else-if="!isTerminal" color="neutral" variant="subtle">
-                Atualização periódica
+                {{ data.copy.polling_badge }}
               </UBadge>
-              <UBadge v-else color="neutral" variant="subtle">Finalizado</UBadge>
+              <UBadge v-else color="neutral" variant="subtle">{{ data.copy.finished_badge }}</UBadge>
             </div>
           </template>
 
           <UTimeline :items="progressItems" />
 
-          <UAlert
-            v-if="isReady"
-            color="success"
-            variant="soft"
-            icon="i-lucide-package-check"
-            title="Tudo pronto!"
-            description="Seu pedido está pronto para retirada ou para sair em entrega."
-            class="mt-6"
-          />
-
           <div v-if="data.pickup_info" class="mt-6 rounded-lg border border-default p-4">
-            <p class="text-sm font-semibold text-highlighted">Retirada</p>
+            <p class="text-sm font-semibold text-highlighted">{{ data.pickup_info.heading }}</p>
             <p class="mt-1 text-sm text-muted">{{ data.pickup_info.address }}</p>
             <p class="mt-1 text-sm text-muted">{{ data.pickup_info.opening_hours }}</p>
             <UButton
-              v-if="data.pickup_info.google_maps_url"
-              :to="data.pickup_info.google_maps_url"
+              v-if="data.pickup_info.directions_url"
+              :to="data.pickup_info.directions_url"
               target="_blank"
               rel="noopener"
-              label="Abrir mapa"
+              :label="data.pickup_info.directions_label"
               icon="i-lucide-map-pin"
               color="neutral"
               variant="outline"
@@ -591,7 +591,7 @@ useHead(() => ({
               :to="fulfillment.tracking_url"
               target="_blank"
               rel="noopener"
-              :label="fulfillment.carrier ? `Acompanhar via ${fulfillment.carrier}` : 'Acompanhar entrega'"
+              :label="fulfillment.tracking_label"
               icon="i-lucide-truck"
               color="neutral"
               variant="outline"
@@ -603,7 +603,7 @@ useHead(() => ({
 
         <UCard variant="subtle" class="shop-soft-panel lg:sticky lg:top-[calc(var(--ui-header-height)+24px)]">
           <template #header>
-            <strong>Itens</strong>
+            <strong>{{ data.copy.items_heading }}</strong>
           </template>
 
           <div class="grid gap-2">
@@ -620,12 +620,12 @@ useHead(() => ({
           <USeparator class="my-3" />
 
           <div class="flex justify-between items-baseline">
-            <span class="font-medium">Total</span>
+            <span class="font-medium">{{ data.copy.total_label }}</span>
             <strong class="text-xl tabular-nums">{{ data.total_display }}</strong>
           </div>
 
           <p v-if="data.delivery_fee_display" class="mt-1 text-xs text-muted">
-            Entrega: {{ data.delivery_fee_display }}
+            {{ data.copy.delivery_fee_label }}: {{ data.delivery_fee_display }}
           </p>
 
           <div class="mt-4 grid gap-2">
@@ -643,7 +643,7 @@ useHead(() => ({
             />
             <UButton
               v-if="mockConfirmPaymentAction"
-              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
+              :label="mockConfirmPaymentAction.label"
               icon="i-lucide-credit-card"
               color="warning"
               variant="soft"
@@ -653,7 +653,7 @@ useHead(() => ({
             />
             <UButton
               v-if="cancelOrderAction"
-              :label="cancelOrderAction.label || 'Cancelar pedido'"
+              :label="cancelOrderAction.label"
               icon="i-lucide-circle-x"
               color="error"
               variant="outline"
@@ -662,7 +662,7 @@ useHead(() => ({
             />
             <UButton
               v-if="reorderAction"
-              :label="reorderAction.label || 'Pedir novamente'"
+              :label="reorderAction.label"
               icon="i-lucide-rotate-ccw"
               color="neutral"
               variant="outline"
@@ -673,7 +673,7 @@ useHead(() => ({
           </div>
 
           <div v-if="rateOrderAction" class="mt-5 border-t border-default pt-5">
-            <p class="text-sm font-semibold text-highlighted">{{ rateOrderAction.label || 'Avaliar pedido' }}</p>
+            <p class="text-sm font-semibold text-highlighted">{{ rateOrderAction.label }}</p>
             <div class="mt-3 grid grid-cols-5 gap-2">
               <button
                 v-for="score in [1, 2, 3, 4, 5]"
@@ -690,12 +690,12 @@ useHead(() => ({
               v-model="ratingComment"
               class="mt-3 w-full"
               :rows="3"
-              placeholder="Comentário opcional"
-              aria-label="Comentário da avaliação"
+              :placeholder="data.copy.rating_comment_placeholder"
+              :aria-label="data.copy.rating_comment_aria_label"
             />
             <UAlert v-if="ratingError" color="error" variant="soft" :title="ratingError" class="mt-3" />
             <UButton
-              label="Enviar avaliação"
+              :label="data.copy.rating_submit_label"
               block
               class="mt-3"
               :disabled="!rating"
@@ -708,7 +708,7 @@ useHead(() => ({
     </section>
 
     <UModal v-model:open="cancelOpen"
-      title="Cancelar pedido"
+      :title="String(cancelConfirmation.title || '')"
       :ui="{ content: 'max-w-lg' }"
       data-swipe-dismiss
       @shopman-swipe-dismiss="cancelOpen = false"
@@ -719,13 +719,13 @@ useHead(() => ({
             color="warning"
             variant="soft"
             icon="i-lucide-triangle-alert"
-            title="Essa ação altera o pedido em andamento"
-            description="O cancelamento só é permitido enquanto o pagamento não foi capturado e a loja ainda permite reversão."
+            :title="String(cancelConfirmation.warning_title || '')"
+            :description="String(cancelConfirmation.warning_message || cancelConfirmation.message || '')"
           />
 
           <UCheckbox
             v-model="cancelAcknowledged"
-            label="Entendo que o pedido será cancelado e deixará de ser preparado."
+            :label="String(cancelConfirmation.ack_label || '')"
           />
 
           <UAlert v-if="cancelError" color="error" variant="soft" :title="cancelError" />
@@ -734,14 +734,14 @@ useHead(() => ({
             <UButton
               color="neutral"
               variant="outline"
-              label="Manter pedido"
+              :label="String(cancelConfirmation.cancel_label || '')"
               block
               @click="cancelOpen = false"
             />
             <UButton
               color="error"
               variant="solid"
-              label="Cancelar pedido"
+              :label="String(cancelConfirmation.confirm_label || cancelOrderAction?.label || '')"
               icon="i-lucide-circle-x"
               block
               :loading="cancelling"

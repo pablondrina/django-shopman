@@ -226,6 +226,7 @@ class FulfillmentProjection:
 
     status: str
     status_label: str
+    tracking_label: str
     tracking_code: str | None
     tracking_url: str | None
     carrier: str | None
