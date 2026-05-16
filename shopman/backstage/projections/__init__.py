@@ -30,8 +30,13 @@ from .order_queue import (
     build_two_zone_queue,
 )
 from .pos import (
+    POSFulfillmentOptionProjection,
+    POSPaymentCollectionProjection,
+    POSPaymentMethodProjection,
+    POSProductProjection,
     POSProjection,
     POSShiftSummaryProjection,
+    POSTabProjection,
     build_pos,
     build_pos_shift_summary,
 )
@@ -64,7 +69,12 @@ __all__ = [
     "OrderQueueProjection",
     "TwoZoneQueueProjection",
     "POSProjection",
+    "POSProductProjection",
+    "POSPaymentMethodProjection",
+    "POSFulfillmentOptionProjection",
+    "POSPaymentCollectionProjection",
     "POSShiftSummaryProjection",
+    "POSTabProjection",
     "BaseRecipeOptionProjection",
     "BaseRecipeUsageProjection",
     "ProductionBoardProjection",

@@ -16,6 +16,8 @@ from django.conf import settings
 from django.utils import timezone
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
+from shopman.shop.projections.types import PAYMENT_METHOD_LABELS_PT, SurfaceActionProjection
+from shopman.shop.services.channel_policy import resolve_channel_policy
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
@@ -52,6 +54,27 @@ class POSPaymentMethodProjection:
 
     ref: str
     label: str
+
+
+@dataclass(frozen=True)
+class POSFulfillmentOptionProjection:
+    """A fulfillment option the POS is allowed to submit."""
+
+    ref: str
+    label: str
+    description: str
+    requires_address: bool
+
+
+@dataclass(frozen=True)
+class POSPaymentCollectionProjection:
+    """Where payment is collected for a POS sale."""
+
+    ref: str
+    label: str
+    description: str
+    fulfillment_types: tuple[str, ...]
+    payment_method_refs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -96,6 +119,9 @@ class POSProjection:
     products: tuple[POSProductProjection, ...]
     collections: tuple[POSCollectionProjection, ...]
     payment_methods: tuple[POSPaymentMethodProjection, ...]
+    fulfillment_options: tuple[POSFulfillmentOptionProjection, ...]
+    payment_collections: tuple[POSPaymentCollectionProjection, ...]
+    actions: tuple[SurfaceActionProjection, ...]
     has_open_cash_session: bool
     terminal_ref: str
     terminal_label: str
@@ -112,10 +138,23 @@ class POSProjection:
 
 # ── Constants ──────────────────────────────────────────────────────────
 
-_PAYMENT_METHODS = (
-    POSPaymentMethodProjection(ref="cash", label="Dinheiro"),
-    POSPaymentMethodProjection(ref="pix", label="PIX"),
-    POSPaymentMethodProjection(ref="card", label="Cartão"),
+_POS_PAYMENT_METHOD_REFS = ("cash", "pix", "card")
+
+_PAYMENT_COLLECTIONS = (
+    POSPaymentCollectionProjection(
+        ref="terminal",
+        label="Receber no caixa",
+        description="Pagamento confirmado no atendimento de balcão.",
+        fulfillment_types=("pickup", "delivery"),
+        payment_method_refs=_POS_PAYMENT_METHOD_REFS,
+    ),
+    POSPaymentCollectionProjection(
+        ref="on_delivery",
+        label="Receber na entrega",
+        description="Disponível apenas para entrega em dinheiro.",
+        fulfillment_types=("delivery",),
+        payment_method_refs=("cash",),
+    ),
 )
 
 
@@ -140,13 +179,17 @@ def build_pos(*, terminal=None) -> POSProjection:
     from shopman.backstage.services.pos_terminal import runtime_profile
 
     runtime = runtime_profile(terminal)
+    policy = resolve_channel_policy(POS_CHANNEL_REF)
     delivery_minimum_q = _delivery_minimum_q()
     fiscal_status, fiscal_label, fiscal_message = _fiscal_runtime()
 
     return POSProjection(
         products=tuple(products),
         collections=collections,
-        payment_methods=_PAYMENT_METHODS,
+        payment_methods=_payment_methods(),
+        fulfillment_options=_fulfillment_options(policy.fulfillment_types),
+        payment_collections=_PAYMENT_COLLECTIONS,
+        actions=_pos_actions(),
         has_open_cash_session=True,  # caller checks this before building
         terminal_ref=runtime.terminal_ref,
         terminal_label=runtime.terminal_label,
@@ -295,6 +338,95 @@ def _load_products() -> list[POSProductProjection]:
             products.append(_product_projection(p, p.base_price_q))
 
     return products
+
+
+def _payment_methods() -> tuple[POSPaymentMethodProjection, ...]:
+    """Return POS tender methods accepted by the canonical POS intent contract."""
+    return tuple(
+        POSPaymentMethodProjection(
+            ref=ref,
+            label=PAYMENT_METHOD_LABELS_PT.get(ref, ref),
+        )
+        for ref in _POS_PAYMENT_METHOD_REFS
+    )
+
+
+def _fulfillment_options(fulfillment_types: tuple[str, ...]) -> tuple[POSFulfillmentOptionProjection, ...]:
+    """Expose POS fulfillment choices resolved from channel policy."""
+    options = []
+    for ref in fulfillment_types:
+        if ref == "delivery":
+            options.append(POSFulfillmentOptionProjection(
+                ref="delivery",
+                label="Entrega",
+                description="Entrega local com endereço informado pelo operador.",
+                requires_address=True,
+            ))
+        elif ref == "pickup":
+            options.append(POSFulfillmentOptionProjection(
+                ref="pickup",
+                label="Retirada",
+                description="Retirada no balcão ou consumo local.",
+                requires_address=False,
+            ))
+    return tuple(options)
+
+
+def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
+    """Canonical POS mutations consumed by headless operator surfaces."""
+    return (
+        SurfaceActionProjection(
+            ref="open_tab",
+            kind="mutation",
+            label="Abrir comanda",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/{tab_code}/open/",
+            payload_schema={"path": {"tab_code": "string"}},
+        ),
+        SurfaceActionProjection(
+            ref="save_tab",
+            kind="mutation",
+            label="Salvar comanda",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/save/",
+            payload_schema={
+                "required": ["tab_session_key", "items"],
+                "optional": ["customer_name", "customer_phone", "fulfillment_type", "payment_method"],
+            },
+        ),
+        SurfaceActionProjection(
+            ref="close_sale",
+            kind="mutation",
+            label="Finalizar venda",
+            priority="primary",
+            method="POST",
+            href="/api/v1/backstage/pos/sale/close/",
+            payload_schema={
+                "required": ["tab_session_key", "items", "payment_method"],
+                "optional": [
+                    "customer_name",
+                    "customer_phone",
+                    "fulfillment_type",
+                    "delivery_address",
+                    "payment_collection",
+                    "client_request_id",
+                ],
+            },
+            idempotency="required",
+        ),
+        SurfaceActionProjection(
+            ref="clear_tab",
+            kind="mutation",
+            label="Liberar comanda",
+            priority="quiet",
+            method="DELETE",
+            href="/api/v1/backstage/pos/tabs/{session_key}/clear/",
+            payload_schema={"path": {"session_key": "string"}},
+            confirmation={"style": "destructive"},
+        ),
+    )
 
 
 def _product_projection(product: Product, price_q: int) -> POSProductProjection:

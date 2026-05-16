@@ -98,6 +98,35 @@ export interface POSPaymentMethodProjection {
   label: string
 }
 
+export interface POSFulfillmentOptionProjection {
+  ref: 'pickup' | 'delivery'
+  label: string
+  description: string
+  requires_address: boolean
+}
+
+export interface POSPaymentCollectionProjection {
+  ref: 'terminal' | 'on_delivery'
+  label: string
+  description: string
+  fulfillment_types: Array<'pickup' | 'delivery'>
+  payment_method_refs: string[]
+}
+
+export interface SurfaceActionProjection {
+  ref: string
+  kind: string
+  label: string
+  priority: string
+  enabled: boolean
+  reason: string
+  href: string
+  method: string
+  payload_schema: Record<string, unknown>
+  idempotency: string
+  confirmation: Record<string, unknown>
+}
+
 export interface POSShiftSummaryProjection {
   count: number
   total_display: string
@@ -125,6 +154,9 @@ export interface POSProjection {
   products: POSProductProjection[]
   collections: POSCollectionProjection[]
   payment_methods: POSPaymentMethodProjection[]
+  fulfillment_options: POSFulfillmentOptionProjection[]
+  payment_collections: POSPaymentCollectionProjection[]
+  actions: SurfaceActionProjection[]
   has_open_cash_session: boolean
 }
 
