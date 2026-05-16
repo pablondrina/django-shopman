@@ -107,6 +107,30 @@ class TestPopulatedCart:
         with pytest.raises(FrozenInstanceError):
             proj.items[0].qty = 99  # type: ignore[misc]
 
+    def test_upsell_includes_unit_price_for_surface_mutation(
+        self, cart_session, croissant, monkeypatch,
+    ):
+        def fake_upsell(cart_skus, *, channel_ref):
+            return {
+                "product": croissant,
+                "sku": croissant.sku,
+                "price_q": 800,
+                "price_display": "R$ 8,00",
+            }
+
+        monkeypatch.setattr(
+            "shopman.storefront.projections.cart.upsell_suggestion",
+            fake_upsell,
+        )
+
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.upsell is not None
+        assert proj.upsell.sku == croissant.sku
+        assert proj.upsell.unit_price_q == 800
+        assert proj.upsell.price_display == "R$ 8,00"
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Availability — own-hold correction

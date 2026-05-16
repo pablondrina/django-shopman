@@ -75,6 +75,17 @@ const checkoutLabel = computed(() => {
 })
 
 const checkoutColor = computed(() => cart.value.has_ready_for_confirmation_items ? 'success' as const : 'primary' as const)
+const upsellMeta = computed<ProductMutationMeta | null>(() => {
+  const upsell = cart.value.upsell
+  if (!upsell) return null
+  return {
+    sku: upsell.sku,
+    name: upsell.name,
+    price_q: upsell.unit_price_q,
+    price_display: upsell.price_display,
+    image_url: upsell.image_url
+  }
+})
 const releaseCandidate = ref<CartItemProjection | null>(null)
 const releaseModalOpen = computed({
   get: () => !!releaseCandidate.value,
@@ -194,32 +205,28 @@ useHead({ title: 'Seu carrinho' })
           <UCard
             v-if="cart.upsell"
             :ui="{ body: 'p-4 sm:p-5' }"
-            class="border border-primary/35 bg-primary/8 ring-1 ring-primary/15"
+            class="border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
           >
             <div class="flex items-center gap-4">
-              <NuxtLink
-                :to="`/produto/${cart.upsell.sku}`"
-                :aria-label="`Ver ${cart.upsell.name}`"
+              <div
                 class="relative size-16 shrink-0 overflow-hidden rounded-md bg-default ring-1 ring-primary/20"
               >
                 <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
-              </NuxtLink>
+              </div>
               <div class="flex-1 min-w-0">
-                <UBadge color="primary" variant="solid" size="xs" class="mb-1.5">
-                  Sugestão
-                </UBadge>
-                <NuxtLink :to="`/produto/${cart.upsell.sku}`" class="font-semibold text-highlighted hover:text-primary truncate block">
+                <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
+                <p class="font-semibold text-highlighted truncate">
                   {{ cart.upsell.name }}
-                </NuxtLink>
+                </p>
                 <span class="text-sm text-muted tabular-nums">{{ cart.upsell.price_display }}</span>
               </div>
-              <UButton
-                :to="`/produto/${cart.upsell.sku}`"
+              <ProductStepper
+                v-if="upsellMeta"
+                :meta="upsellMeta"
+                :can-add="true"
                 size="sm"
-                color="primary"
-                variant="solid"
-                label="Ver"
+                add-label="Adicionar"
               />
             </div>
           </UCard>

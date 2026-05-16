@@ -672,7 +672,10 @@ def test_nuxt_sensitive_account_actions_require_confirmation():
     assert "v-model:open=\"releaseModalOpen\"" in cart
     assert "releaseCandidate.value = line" in cart
     assert "@click=\"confirmReleaseReservation\"" in cart
-    assert ":aria-label=\"`Ver ${cart.upsell.name}`\"" in cart
+    assert "upsellMeta" in cart
+    assert "<ProductStepper" in cart
+    assert "add-label=\"Adicionar\"" in cart
+    assert ":to=\"`/produto/${cart.upsell.sku}`\"" not in cart
 
     assert "UModal v-model:open=\"open\"" in reorder_modal
     assert "replaceAcknowledged" in reorder_modal

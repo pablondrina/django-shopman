@@ -180,7 +180,7 @@ export interface CartProjection {
   has_awaiting_confirmation_items: boolean
   has_ready_for_confirmation_items: boolean
   minimum_order_progress: MinimumOrderProgressProjection | null
-  upsell: { sku: string, name: string, price_display: string, image_url: string | null } | null
+  upsell: { sku: string, name: string, unit_price_q: number, price_display: string, image_url: string | null } | null
 }
 
 export interface SocialLinkProjection {

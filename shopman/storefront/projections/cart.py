@@ -106,6 +106,7 @@ class UpsellSuggestionProjection:
 
     sku: str
     name: str
+    unit_price_q: int
     price_display: str
     image_url: str | None
 
@@ -208,6 +209,7 @@ def build_cart(
             upsell = UpsellSuggestionProjection(
                 sku=str(upsell_raw.get("sku") or ""),
                 name=str(getattr(product, "name", "") or ""),
+                unit_price_q=int(upsell_raw.get("price_q") or 0),
                 price_display=str(upsell_raw.get("price_display") or ""),
                 image_url=(
                     getattr(product, "image_url", None) or None
