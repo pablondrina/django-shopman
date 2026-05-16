@@ -194,19 +194,21 @@ useHead({ title: 'Seu carrinho' })
           <UCard
             v-if="cart.upsell"
             :ui="{ body: 'p-4 sm:p-5' }"
-            class="border-dashed"
+            class="border border-primary/35 bg-primary/8 ring-1 ring-primary/15"
           >
             <div class="flex items-center gap-4">
               <NuxtLink
                 :to="`/produto/${cart.upsell.sku}`"
                 :aria-label="`Ver ${cart.upsell.name}`"
-                class="size-16 shrink-0 overflow-hidden rounded-md bg-elevated"
+                class="relative size-16 shrink-0 overflow-hidden rounded-md bg-default ring-1 ring-primary/20"
               >
                 <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </NuxtLink>
               <div class="flex-1 min-w-0">
-                <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
+                <UBadge color="primary" variant="solid" size="xs" class="mb-1.5">
+                  Sugestão
+                </UBadge>
                 <NuxtLink :to="`/produto/${cart.upsell.sku}`" class="font-semibold text-highlighted hover:text-primary truncate block">
                   {{ cart.upsell.name }}
                 </NuxtLink>
@@ -215,8 +217,8 @@ useHead({ title: 'Seu carrinho' })
               <UButton
                 :to="`/produto/${cart.upsell.sku}`"
                 size="sm"
-                color="neutral"
-                variant="outline"
+                color="primary"
+                variant="solid"
                 label="Ver"
               />
             </div>
