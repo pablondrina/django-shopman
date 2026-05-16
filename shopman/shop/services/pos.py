@@ -21,7 +21,7 @@ from shopman.shop.config import ChannelConfig
 from shopman.shop.models import Channel
 from shopman.shop.services import sessions as session_service
 from shopman.shop.services.cancellation import cancel
-from shopman.shop.services.pos_intent import parse_pos_sale_intent
+from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentError, parse_pos_sale_intent
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,27 @@ class PosSaleResult:
     order_ref: str
     total_q: int
     fiscal_hint: str = ""
+
+
+@dataclass(frozen=True)
+class PosSaleReview:
+    intent_version: str
+    tab_code: str
+    subtotal_q: int
+    discount_q: int
+    delivery_fee_q: int
+    total_q: int
+    payment_method: str
+    payment_collection: str
+    tender_total_q: int
+    tender_count: int
+    tendered_amount_q: int
+    change_q: int
+    requires_manager_approval: bool
+    manager_approval_threshold_q: int
+    receipt_mode: str
+    issue_fiscal_document: bool
+    warnings: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -149,6 +170,7 @@ def close_sale(
     """Create and commit a POS sale from a parsed cart payload."""
     payload = parse_pos_sale_intent(payload, for_commit=True).payload
     validate_manager_approval(payload, operator_username=operator_username)
+    _validate_payment_completion(payload)
     channel, config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     if session is None:
@@ -204,6 +226,66 @@ def close_sale(
         order_ref=result.order_ref,
         total_q=int(order.total_q if order is not None else result.total_q),
         fiscal_hint=_sale_fiscal_hint(order),
+    )
+
+
+def review_sale(
+    *,
+    channel_ref: str,
+    payload: dict,
+    operator_username: str,
+) -> PosSaleReview:
+    """Validate a POS checkout intent without committing the Orderman session."""
+    payload = parse_pos_sale_intent(payload, for_commit=True).payload
+    _validate_payment_completion(payload)
+    channel, _config = _channel_and_config(channel_ref)
+    session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
+    if session is None:
+        raise ValueError("Abra um POS tab antes de finalizar.")
+
+    fulfillment_type = _payload_fulfillment_type(payload)
+    payment_collection = _payload_payment_collection(payload, fulfillment_type)
+    subtotal_q = _payload_subtotal_q(payload)
+    discount_q = _payload_discount_q(payload)
+    delivery_fee_q = _payload_delivery_fee_q(payload)
+    total_q = _payload_total_q(payload)
+    tenders = _payload_tenders(
+        payload,
+        payment_collection=payment_collection,
+        total_q=total_q,
+        cash_shift_id=payload.get("cash_shift_id"),
+        pos_terminal_ref=str(payload.get("pos_terminal_ref") or "").strip(),
+    )
+    payment_method = _legacy_payment_method(payload, tenders)
+    tender_total_q = sum(_int_q(tender.get("amount_q")) for tender in tenders)
+    tendered_amount_q = _int_q(payload.get("tendered_amount_q"))
+    threshold_q = _discount_approval_threshold_q()
+    warnings: list[dict] = []
+    if payment_method == "cash" and payment_collection == "terminal" and tendered_amount_q <= 0:
+        warnings.append({
+            "code": "cash_tendered_amount_blank",
+            "field": "tendered_amount_q",
+            "message": "Valor recebido em dinheiro não informado; o fechamento assumirá valor exato.",
+        })
+
+    return PosSaleReview(
+        intent_version=POS_SALE_INTENT_VERSION,
+        tab_code=_session_tab_code(session),
+        subtotal_q=subtotal_q,
+        discount_q=discount_q,
+        delivery_fee_q=delivery_fee_q,
+        total_q=total_q,
+        payment_method=payment_method,
+        payment_collection=payment_collection,
+        tender_total_q=tender_total_q,
+        tender_count=len(tenders),
+        tendered_amount_q=tendered_amount_q,
+        change_q=max(0, tendered_amount_q - total_q) if tendered_amount_q else 0,
+        requires_manager_approval=threshold_q > 0 and discount_q > threshold_q,
+        manager_approval_threshold_q=threshold_q,
+        receipt_mode=str(payload.get("receipt_mode") or "none").strip() or "none",
+        issue_fiscal_document=bool(payload.get("issue_fiscal_document")),
+        warnings=tuple(warnings),
     )
 
 
@@ -497,7 +579,7 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
 
 def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     """Require manager credentials for configured POS discount thresholds."""
-    threshold_q = int(getattr(settings, "SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", 0) or 0)
+    threshold_q = _discount_approval_threshold_q()
     if threshold_q <= 0:
         return
     manual_discount = payload.get("manual_discount") or {}
@@ -568,22 +650,59 @@ def _payload_payment_collection(payload: dict, fulfillment_type: str) -> str:
 
 
 def _payload_total_q(payload: dict) -> int:
+    return max(0, _payload_subtotal_q(payload) - _payload_discount_q(payload) + _payload_delivery_fee_q(payload))
+
+
+def _payload_subtotal_q(payload: dict) -> int:
     subtotal_q = 0
     for item in payload.get("items", []):
         try:
             subtotal_q += int(item.get("qty", 1)) * int(item.get("unit_price_q", 0))
         except (TypeError, ValueError):
             continue
+    return max(0, subtotal_q)
+
+
+def _payload_discount_q(payload: dict) -> int:
     manual_discount = payload.get("manual_discount") or {}
     try:
-        discount_q = int(manual_discount.get("discount_q", 0) or 0)
+        return max(0, int(manual_discount.get("discount_q", 0) or 0))
     except (TypeError, ValueError):
-        discount_q = 0
+        return 0
+
+
+def _payload_delivery_fee_q(payload: dict) -> int:
     try:
-        delivery_fee_q = int(payload.get("delivery_fee_q", 0) or 0)
+        return max(0, int(payload.get("delivery_fee_q", 0) or 0))
     except (TypeError, ValueError):
-        delivery_fee_q = 0
-    return max(0, subtotal_q - discount_q + max(0, delivery_fee_q))
+        return 0
+
+
+def _validate_payment_completion(payload: dict) -> None:
+    total_q = _payload_total_q(payload)
+    fulfillment_type = _payload_fulfillment_type(payload)
+    payment_collection = _payload_payment_collection(payload, fulfillment_type)
+    tenders = _payload_tenders(
+        payload,
+        payment_collection=payment_collection,
+        total_q=total_q,
+        cash_shift_id=payload.get("cash_shift_id"),
+        pos_terminal_ref=str(payload.get("pos_terminal_ref") or "").strip(),
+    )
+    payment_method = _legacy_payment_method(payload, tenders)
+    tendered_q = _int_q(payload.get("tendered_amount_q"))
+    if payment_method == "cash" and payment_collection == "terminal" and tendered_q and tendered_q < total_q:
+        raise PosIntentError(
+            code="cash_tendered_amount_too_low",
+            message="Valor recebido em dinheiro menor que o total da venda.",
+            field="tendered_amount_q",
+            focus="payment",
+            recovery="Informe o valor recebido ou use dinheiro exato.",
+        )
+
+
+def _discount_approval_threshold_q() -> int:
+    return max(0, int(getattr(settings, "SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", 0) or 0))
 
 
 def _payload_tenders(

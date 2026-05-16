@@ -19,6 +19,7 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/pos/cash/open/              -> open cash shift
   POST /api/v1/backstage/pos/cash/close/             -> close cash shift
   POST /api/v1/backstage/pos/cash/movement/          → register cash movement
+  POST /api/v1/backstage/pos/sale/review/            → validate POS checkout without commit
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from datetime import date
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.closing import build_day_closing
@@ -90,6 +92,51 @@ def _cash_shift_result(shift) -> dict:
         "blind_closing_amount_q": shift.blind_closing_amount_q,
         "expected_amount_q": shift.expected_amount_q,
         "difference_q": shift.difference_q,
+    }
+
+
+def _pos_payload_with_runtime(request, body: dict) -> dict:
+    """Attach the active POS runtime context that browser surfaces should not invent."""
+    payload = dict(body or {})
+    try:
+        from shopman.backstage.models import CashShift
+
+        cash_shift = CashShift.get_open_for_operator(request.user)
+    except Exception:
+        logger.debug("pos_runtime_payload_enrichment_failed user=%s", _actor(request), exc_info=True)
+        return payload
+    if cash_shift:
+        payload.setdefault("cash_shift_id", cash_shift.pk)
+        payload.setdefault("pos_terminal_ref", cash_shift.terminal.ref)
+    return payload
+
+
+def _pos_sale_review_payload(review) -> dict:
+    return {
+        "intent_version": review.intent_version,
+        "tab_code": review.tab_code,
+        "subtotal_q": review.subtotal_q,
+        "subtotal_display": f"R$ {format_money(review.subtotal_q)}",
+        "discount_q": review.discount_q,
+        "discount_display": f"R$ {format_money(review.discount_q)}",
+        "delivery_fee_q": review.delivery_fee_q,
+        "delivery_fee_display": f"R$ {format_money(review.delivery_fee_q)}",
+        "total_q": review.total_q,
+        "total_display": f"R$ {format_money(review.total_q)}",
+        "payment_method": review.payment_method,
+        "payment_collection": review.payment_collection,
+        "tender_total_q": review.tender_total_q,
+        "tender_total_display": f"R$ {format_money(review.tender_total_q)}",
+        "tender_count": review.tender_count,
+        "tendered_amount_q": review.tendered_amount_q,
+        "tendered_amount_display": f"R$ {format_money(review.tendered_amount_q)}",
+        "change_q": review.change_q,
+        "change_display": f"R$ {format_money(review.change_q)}",
+        "requires_manager_approval": review.requires_manager_approval,
+        "manager_approval_threshold_q": review.manager_approval_threshold_q,
+        "receipt_mode": review.receipt_mode,
+        "issue_fiscal_document": review.issue_fiscal_document,
+        "warnings": list(review.warnings),
     }
 
 
@@ -656,6 +703,35 @@ class POSCustomerLookupView(APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
+        summary="Review POS sale intent without committing",
+        responses={200: OpenApiResponse(description="Checkout review and normalized totals.")},
+    ),
+)
+class POSReviewSaleView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            review = pos_tabs_service.review_sale(
+                channel_ref=POS_CHANNEL_REF,
+                payload=_pos_payload_with_runtime(request, body),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=422)
+        except Exception as exc:
+            logger.debug("pos_review_sale_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao revisar checkout."}, status=400)
+        return Response({"ok": True, "review": _pos_sale_review_payload(review)})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
         summary="Close POS sale (commit cart as order)",
         responses={200: OpenApiResponse(description="Order created.")},
     ),
@@ -669,7 +745,7 @@ class POSCloseSaleView(APIView):
         try:
             result = pos_tabs_service.close_sale(
                 channel_ref=POS_CHANNEL_REF,
-                payload=body,
+                payload=_pos_payload_with_runtime(request, body),
                 actor=_actor_pos(request),
                 operator_username=_username(request),
             )

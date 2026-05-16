@@ -72,7 +72,28 @@ class POSHeadlessSurfaceContractTests(TestCase):
         payment_collections = {collection["ref"]: collection for collection in payload["pos"]["payment_collections"]}
         self.assertEqual(payment_collections["terminal"]["payment_method_refs"], ["cash", "pix", "card"])
         self.assertEqual(payment_collections["on_delivery"]["payment_method_refs"], ["cash"])
-        self.assertIn("close_sale", {action["ref"] for action in payload["pos"]["actions"]})
+        action_refs = {action["ref"] for action in payload["pos"]["actions"]}
+        self.assertIn("review_sale", action_refs)
+        self.assertIn("close_sale", action_refs)
+
+        checkout = payload["pos"]["checkout"]
+        self.assertEqual(checkout["intent_version"], POS_SALE_INTENT_VERSION)
+        self.assertIn("customer_tax_id", checkout["allowed_payload_keys"])
+        self.assertIn("payment_tenders", checkout["allowed_payload_keys"])
+        self.assertIn("manager_approval", checkout["allowed_payload_keys"])
+        self.assertEqual(
+            {mode["ref"] for mode in checkout["receipt_modes"]},
+            {"none", "print", "email"},
+        )
+        field_refs = {field["ref"]: field for field in checkout["fields"]}
+        self.assertEqual(field_refs["delivery_address"]["required_when"], {"fulfillment_type": "delivery"})
+        self.assertEqual(
+            field_refs["tendered_amount_q"]["required_when"],
+            {"payment_method": "cash", "payment_collection": "terminal"},
+        )
+        self.assertTrue(checkout["capabilities"]["supports_split_payment"])
+        self.assertEqual(checkout["capabilities"]["prepare_checkout_action_ref"], "save_tab")
+        self.assertEqual(checkout["capabilities"]["review_action_ref"], "review_sale")
 
     def test_api_headless_pos_flow_opens_tab_and_closes_sale(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
@@ -116,3 +137,65 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(order.data["payment"]["method"], "cash")
         self.assertEqual(order.data["payment"]["amount_q"], 2600)
         self.assertEqual(order.data["pos"]["client_request_id"], "pos-headless-contract-001")
+
+    def test_api_headless_pos_review_validates_checkout_without_committing(self) -> None:
+        opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
+        self.assertEqual(opened.status_code, 200)
+        tab = opened.json()
+        payload = {
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "tab_code": tab["tab_code"],
+            "tab_session_key": tab["tab_session_key"],
+            "items": [
+                {
+                    "sku": "POS-HEADLESS-ITEM",
+                    "name": "Headless Item",
+                    "qty": 1,
+                    "unit_price_q": 1300,
+                }
+            ],
+            "customer_name": "Cliente Balcao",
+            "fulfillment_type": "pickup",
+            "payment_method": "cash",
+            "payment_collection": "terminal",
+            "tendered_amount_q": 2000,
+            "receipt_mode": "none",
+            "client_request_id": "pos-headless-review-001",
+        }
+
+        reviewed = self.client.post(
+            "/api/v1/backstage/pos/sale/review/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(reviewed.status_code, 200)
+        body = reviewed.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["review"]["total_q"], 1300)
+        self.assertEqual(body["review"]["change_q"], 700)
+        self.assertEqual(body["review"]["payment_method"], "cash")
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_api_headless_pos_review_uses_same_intent_errors_as_close(self) -> None:
+        opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
+        self.assertEqual(opened.status_code, 200)
+        tab = opened.json()
+        payload = {
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "tab_code": tab["tab_code"],
+            "tab_session_key": tab["tab_session_key"],
+            "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
+            "fulfillment_type": "delivery",
+            "payment_method": "cash",
+        }
+
+        reviewed = self.client.post(
+            "/api/v1/backstage/pos/sale/review/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(reviewed.status_code, 422)
+        self.assertEqual(reviewed.json()["error"]["code"], "delivery_address_required")
+        self.assertEqual(Order.objects.count(), 0)

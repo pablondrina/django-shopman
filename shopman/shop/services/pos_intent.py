@@ -47,6 +47,11 @@ _ALLOWED_PAYMENT_METHODS = {"cash", "pix", "card", "external", "mixed"}
 _ALLOWED_PAYMENT_COLLECTIONS = {"terminal", "on_delivery"}
 _ALLOWED_RECEIPT_MODES = {"none", "print", "email"}
 
+POS_SALE_INTENT_PAYLOAD_KEYS = tuple(sorted(_ALLOWED_TOP_LEVEL_KEYS))
+POS_SALE_INTENT_PAYMENT_METHODS = tuple(sorted(_ALLOWED_PAYMENT_METHODS))
+POS_SALE_INTENT_PAYMENT_COLLECTIONS = tuple(sorted(_ALLOWED_PAYMENT_COLLECTIONS))
+POS_SALE_INTENT_RECEIPT_MODES = tuple(sorted(_ALLOWED_RECEIPT_MODES))
+
 
 @dataclass(frozen=True)
 class PosIntentError(ValueError):
@@ -370,4 +375,13 @@ def _optional_nonnegative_int(value, field: str) -> int | None:
     return parsed
 
 
-__all__ = ["POS_SALE_INTENT_VERSION", "PosIntentError", "PosSaleIntent", "parse_pos_sale_intent"]
+__all__ = [
+    "POS_SALE_INTENT_PAYLOAD_KEYS",
+    "POS_SALE_INTENT_PAYMENT_COLLECTIONS",
+    "POS_SALE_INTENT_PAYMENT_METHODS",
+    "POS_SALE_INTENT_RECEIPT_MODES",
+    "POS_SALE_INTENT_VERSION",
+    "PosIntentError",
+    "PosSaleIntent",
+    "parse_pos_sale_intent",
+]

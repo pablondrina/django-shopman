@@ -46,6 +46,48 @@ export interface POSPaymentCollectionProjection {
   payment_method_refs: string[];
 }
 
+export interface POSCheckoutOptionProjection {
+  ref: string;
+  label: string;
+  description: string;
+}
+
+export interface POSCheckoutFieldProjection {
+  ref: string;
+  payload_key: string;
+  section_ref: string;
+  label: string;
+  input_type: string;
+  required: boolean;
+  required_when: Record<string, unknown>;
+  placeholder: string;
+  help_text: string;
+  max_length: number;
+  options: POSCheckoutOptionProjection[];
+  capability_ref: string;
+}
+
+export interface POSCheckoutSectionProjection {
+  ref: string;
+  label: string;
+  description: string;
+  field_refs: string[];
+}
+
+export interface POSCheckoutContractProjection {
+  intent_version: string;
+  allowed_payload_keys: string[];
+  sections: POSCheckoutSectionProjection[];
+  fields: POSCheckoutFieldProjection[];
+  receipt_modes: POSCheckoutOptionProjection[];
+  tender_methods: POSCheckoutOptionProjection[];
+  cash_tender_delta_presets_q: number[];
+  discount_types: POSCheckoutOptionProjection[];
+  discount_reasons: POSCheckoutOptionProjection[];
+  customer_memory_actions: POSCheckoutOptionProjection[];
+  capabilities: Record<string, unknown>;
+}
+
 export interface POSTerminalComponentProjection {
   key: string;
   label: string;
@@ -59,6 +101,7 @@ export interface POSProjection {
   payment_methods: POSPaymentMethodProjection[];
   fulfillment_options: POSFulfillmentOptionProjection[];
   payment_collections: POSPaymentCollectionProjection[];
+  checkout: POSCheckoutContractProjection;
   actions: SurfaceActionProjection[];
   has_open_cash_session: boolean;
   terminal_ref: string;
@@ -126,11 +169,26 @@ export interface POSTabPayload {
   items: POSCartItem[];
   customer_phone: string;
   customer_name: string;
+  customer_ref: string;
+  customer_tax_id: string;
+  customer_email: string;
   fulfillment_type: "pickup" | "delivery";
   delivery_address: string;
+  delivery_address_structured: Record<string, string>;
+  delivery_date: string;
   delivery_time_slot: string;
+  delivery_fee_q: number;
+  order_notes: string;
   payment_method: string;
   payment_collection: "terminal" | "on_delivery";
+  payment_tenders: POSIntentCartState["paymentTenders"];
+  tendered_amount_q: number | string;
+  issue_fiscal_document: boolean;
+  receipt_mode: string;
+  receipt_email: string;
+  discount_type: string;
+  discount_value: string;
+  discount_reason: string;
 }
 
 export interface POSCloseSaleResponse {
@@ -145,10 +203,61 @@ export interface POSIntentCartState {
   items: POSCartItem[];
   customerName: string;
   customerPhone: string;
+  customerTaxId: string;
+  customerEmail: string;
+  customerMemoryAction: string;
   fulfillmentType: "pickup" | "delivery";
   deliveryAddress: string;
+  deliveryAddressStructured: Record<string, string>;
+  deliveryDate: string;
   deliveryTimeSlot: string;
+  deliveryFeeQ: number;
+  orderNotes: string;
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
+  paymentTenders: Array<{
+    method: string;
+    amount_q: number;
+    collection: "terminal" | "on_delivery";
+    reference?: string;
+  }>;
+  tenderedAmountQ: number | null;
+  issueFiscalDocument: boolean;
+  receiptMode: string;
+  receiptEmail: string;
+  manualDiscount: Record<string, unknown> | null;
+  managerApproval: Record<string, unknown> | null;
   clientRequestId: string;
+}
+
+export interface POSSaleReviewProjection {
+  intent_version: string;
+  tab_code: string;
+  subtotal_q: number;
+  subtotal_display: string;
+  discount_q: number;
+  discount_display: string;
+  delivery_fee_q: number;
+  delivery_fee_display: string;
+  total_q: number;
+  total_display: string;
+  payment_method: string;
+  payment_collection: string;
+  tender_total_q: number;
+  tender_total_display: string;
+  tender_count: number;
+  tendered_amount_q: number;
+  tendered_amount_display: string;
+  change_q: number;
+  change_display: string;
+  requires_manager_approval: boolean;
+  manager_approval_threshold_q: number;
+  receipt_mode: string;
+  issue_fiscal_document: boolean;
+  warnings: Array<{ code: string; field: string; message: string }>;
+}
+
+export interface POSSaleReviewResponse {
+  ok: boolean;
+  review: POSSaleReviewProjection;
 }

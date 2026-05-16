@@ -113,6 +113,48 @@ export interface POSPaymentCollectionProjection {
   payment_method_refs: string[]
 }
 
+export interface POSCheckoutOptionProjection {
+  ref: string
+  label: string
+  description: string
+}
+
+export interface POSCheckoutFieldProjection {
+  ref: string
+  payload_key: string
+  section_ref: string
+  label: string
+  input_type: string
+  required: boolean
+  required_when: Record<string, unknown>
+  placeholder: string
+  help_text: string
+  max_length: number
+  options: POSCheckoutOptionProjection[]
+  capability_ref: string
+}
+
+export interface POSCheckoutSectionProjection {
+  ref: string
+  label: string
+  description: string
+  field_refs: string[]
+}
+
+export interface POSCheckoutContractProjection {
+  intent_version: string
+  allowed_payload_keys: string[]
+  sections: POSCheckoutSectionProjection[]
+  fields: POSCheckoutFieldProjection[]
+  receipt_modes: POSCheckoutOptionProjection[]
+  tender_methods: POSCheckoutOptionProjection[]
+  cash_tender_delta_presets_q: number[]
+  discount_types: POSCheckoutOptionProjection[]
+  discount_reasons: POSCheckoutOptionProjection[]
+  customer_memory_actions: POSCheckoutOptionProjection[]
+  capabilities: Record<string, unknown>
+}
+
 export interface SurfaceActionProjection {
   ref: string
   kind: string
@@ -156,6 +198,7 @@ export interface POSProjection {
   payment_methods: POSPaymentMethodProjection[]
   fulfillment_options: POSFulfillmentOptionProjection[]
   payment_collections: POSPaymentCollectionProjection[]
+  checkout: POSCheckoutContractProjection
   actions: SurfaceActionProjection[]
   has_open_cash_session: boolean
 }

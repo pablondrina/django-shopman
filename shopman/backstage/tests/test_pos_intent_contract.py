@@ -12,7 +12,13 @@ from shopman.guestman.models import Customer
 from shopman.orderman.models import Order
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
-from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentError, parse_pos_sale_intent
+from shopman.shop.services.pos_intent import (
+    POS_SALE_INTENT_PAYLOAD_KEYS,
+    POS_SALE_INTENT_RECEIPT_MODES,
+    POS_SALE_INTENT_VERSION,
+    PosIntentError,
+    parse_pos_sale_intent,
+)
 
 
 def _grant_pos_perm(user):
@@ -27,6 +33,12 @@ def _grant_pos_perm(user):
 
 
 class PosSaleIntentParserTests(TestCase):
+    def test_exposes_public_contract_constants_for_projections(self) -> None:
+        self.assertIn("customer_tax_id", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertIn("payment_tenders", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertIn("manager_approval", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertEqual(set(POS_SALE_INTENT_RECEIPT_MODES), {"none", "print", "email"})
+
     def test_rejects_unknown_intent_version(self) -> None:
         with self.assertRaises(PosIntentError) as ctx:
             parse_pos_sale_intent({"intent_version": "pos.sale-intent.v99", "items": []})

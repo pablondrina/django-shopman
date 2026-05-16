@@ -10,7 +10,7 @@ Never imports from ``shopman.backstage.views.*``.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.utils import timezone
@@ -18,6 +18,11 @@ from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
 from shopman.shop.projections.types import PAYMENT_METHOD_LABELS_PT, SurfaceActionProjection
 from shopman.shop.services.channel_policy import resolve_channel_policy
+from shopman.shop.services.pos_intent import (
+    POS_SALE_INTENT_PAYLOAD_KEYS,
+    POS_SALE_INTENT_RECEIPT_MODES,
+    POS_SALE_INTENT_VERSION,
+)
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
@@ -78,6 +83,60 @@ class POSPaymentCollectionProjection:
 
 
 @dataclass(frozen=True)
+class POSCheckoutOptionProjection:
+    """A stable option value accepted by the POS sale intent."""
+
+    ref: str
+    label: str
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class POSCheckoutFieldProjection:
+    """A payload field a POS surface may collect during checkout."""
+
+    ref: str
+    payload_key: str
+    section_ref: str
+    label: str
+    input_type: str
+    required: bool = False
+    required_when: dict[str, object] = field(default_factory=dict)
+    placeholder: str = ""
+    help_text: str = ""
+    max_length: int = 0
+    options: tuple[POSCheckoutOptionProjection, ...] = ()
+    capability_ref: str = ""
+
+
+@dataclass(frozen=True)
+class POSCheckoutSectionProjection:
+    """Logical checkout section independent from any concrete UI layout."""
+
+    ref: str
+    label: str
+    description: str
+    field_refs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class POSCheckoutContractProjection:
+    """Canonical headless checkout contract for POS operator surfaces."""
+
+    intent_version: str
+    allowed_payload_keys: tuple[str, ...]
+    sections: tuple[POSCheckoutSectionProjection, ...]
+    fields: tuple[POSCheckoutFieldProjection, ...]
+    receipt_modes: tuple[POSCheckoutOptionProjection, ...]
+    tender_methods: tuple[POSCheckoutOptionProjection, ...]
+    cash_tender_delta_presets_q: tuple[int, ...]
+    discount_types: tuple[POSCheckoutOptionProjection, ...]
+    discount_reasons: tuple[POSCheckoutOptionProjection, ...]
+    customer_memory_actions: tuple[POSCheckoutOptionProjection, ...]
+    capabilities: dict[str, object]
+
+
+@dataclass(frozen=True)
 class POSShiftSummaryProjection:
     """Today's shift totals for the POS."""
 
@@ -121,6 +180,7 @@ class POSProjection:
     payment_methods: tuple[POSPaymentMethodProjection, ...]
     fulfillment_options: tuple[POSFulfillmentOptionProjection, ...]
     payment_collections: tuple[POSPaymentCollectionProjection, ...]
+    checkout: POSCheckoutContractProjection
     actions: tuple[SurfaceActionProjection, ...]
     has_open_cash_session: bool
     terminal_ref: str
@@ -139,6 +199,7 @@ class POSProjection:
 # ── Constants ──────────────────────────────────────────────────────────
 
 _POS_PAYMENT_METHOD_REFS = ("cash", "pix", "card")
+_POS_TENDER_METHOD_REFS = ("cash", "pix", "card", "external")
 
 _PAYMENT_COLLECTIONS = (
     POSPaymentCollectionProjection(
@@ -189,6 +250,13 @@ def build_pos(*, terminal=None) -> POSProjection:
         payment_methods=_payment_methods(),
         fulfillment_options=_fulfillment_options(policy.fulfillment_types),
         payment_collections=_PAYMENT_COLLECTIONS,
+        checkout=_checkout_contract(
+            fulfillment_types=policy.fulfillment_types,
+            delivery_minimum_q=delivery_minimum_q,
+            fiscal_status=fiscal_status,
+            fiscal_label=fiscal_label,
+            fiscal_message=fiscal_message,
+        ),
         actions=_pos_actions(),
         has_open_cash_session=True,  # caller checks this before building
         terminal_ref=runtime.terminal_ref,
@@ -397,6 +465,19 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
         ),
         SurfaceActionProjection(
+            ref="review_sale",
+            kind="mutation",
+            label="Revisar checkout",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/sale/review/",
+            payload_schema={
+                "required": ["intent_version", "tab_session_key", "items"],
+                "optional": POS_SALE_INTENT_PAYLOAD_KEYS,
+            },
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
             ref="close_sale",
             kind="mutation",
             label="Finalizar venda",
@@ -408,13 +489,38 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
                 "optional": [
                     "customer_name",
                     "customer_phone",
+                    "customer_tax_id",
+                    "customer_email",
+                    "customer_memory_action",
                     "fulfillment_type",
                     "delivery_address",
+                    "delivery_address_structured",
+                    "delivery_date",
+                    "delivery_time_slot",
+                    "delivery_fee_q",
+                    "order_notes",
                     "payment_collection",
+                    "payment_tenders",
+                    "tendered_amount_q",
+                    "issue_fiscal_document",
+                    "receipt_mode",
+                    "receipt_email",
+                    "manual_discount",
+                    "manager_approval",
                     "client_request_id",
                 ],
             },
             idempotency="required",
+        ),
+        SurfaceActionProjection(
+            ref="customer_lookup",
+            kind="query",
+            label="Buscar cliente",
+            priority="quiet",
+            method="GET",
+            href="/api/v1/backstage/pos/customer/lookup/?phone={phone}",
+            payload_schema={"query": {"phone": "string"}},
+            idempotency="none",
         ),
         SurfaceActionProjection(
             ref="clear_tab",
@@ -426,6 +532,305 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"path": {"session_key": "string"}},
             confirmation={"style": "destructive"},
         ),
+    )
+
+
+def _checkout_contract(
+    *,
+    fulfillment_types: tuple[str, ...],
+    delivery_minimum_q: int,
+    fiscal_status: str,
+    fiscal_label: str,
+    fiscal_message: str,
+) -> POSCheckoutContractProjection:
+    """Expose the mature POS sale intent as a headless checkout contract."""
+    receipt_modes = (
+        POSCheckoutOptionProjection(ref="none", label="Sem comprovante"),
+        POSCheckoutOptionProjection(ref="print", label="Imprimir"),
+        POSCheckoutOptionProjection(ref="email", label="Enviar por e-mail"),
+    )
+    tender_methods = tuple(
+        POSCheckoutOptionProjection(ref=ref, label=PAYMENT_METHOD_LABELS_PT.get(ref, ref))
+        for ref in _POS_TENDER_METHOD_REFS
+    )
+    fields = (
+        POSCheckoutFieldProjection(
+            ref="customer_phone",
+            payload_key="customer_phone",
+            section_ref="customer",
+            label="WhatsApp",
+            input_type="tel",
+            placeholder="(43) 99999-0000",
+            max_length=80,
+        ),
+        POSCheckoutFieldProjection(
+            ref="customer_name",
+            payload_key="customer_name",
+            section_ref="customer",
+            label="Nome",
+            input_type="text",
+            placeholder="Nome do cliente",
+            max_length=160,
+        ),
+        POSCheckoutFieldProjection(
+            ref="customer_tax_id",
+            payload_key="customer_tax_id",
+            section_ref="customer",
+            label="CPF/CNPJ",
+            input_type="tax_id",
+            max_length=32,
+            capability_ref="fiscal_document",
+        ),
+        POSCheckoutFieldProjection(
+            ref="customer_email",
+            payload_key="customer_email",
+            section_ref="customer",
+            label="E-mail do cliente",
+            input_type="email",
+            max_length=180,
+        ),
+        POSCheckoutFieldProjection(
+            ref="customer_memory_action",
+            payload_key="customer_memory_action",
+            section_ref="customer",
+            label="Ação de memória",
+            input_type="select",
+            options=(
+                POSCheckoutOptionProjection(ref="favorite_item", label="Adicionar favorito"),
+                POSCheckoutOptionProjection(ref="last_order", label="Repetir último pedido"),
+            ),
+            capability_ref="customer_memory",
+        ),
+        POSCheckoutFieldProjection(
+            ref="fulfillment_type",
+            payload_key="fulfillment_type",
+            section_ref="fulfillment",
+            label="Fulfillment",
+            input_type="segmented",
+            required=True,
+            options=tuple(
+                POSCheckoutOptionProjection(ref=ref, label="Entrega" if ref == "delivery" else "Retirada")
+                for ref in fulfillment_types
+            ),
+        ),
+        POSCheckoutFieldProjection(
+            ref="delivery_address",
+            payload_key="delivery_address",
+            section_ref="fulfillment",
+            label="Endereço de entrega",
+            input_type="textarea",
+            required_when={"fulfillment_type": "delivery"},
+            placeholder="Rua, número, bairro e referência",
+            max_length=400,
+        ),
+        POSCheckoutFieldProjection(
+            ref="delivery_address_structured",
+            payload_key="delivery_address_structured",
+            section_ref="fulfillment",
+            label="Endereço estruturado",
+            input_type="object",
+            required_when={"fulfillment_type": "delivery"},
+            help_text="Objeto aceito: route, street_number, neighborhood, reference.",
+        ),
+        POSCheckoutFieldProjection(
+            ref="delivery_date",
+            payload_key="delivery_date",
+            section_ref="fulfillment",
+            label="Data combinada",
+            input_type="date",
+            max_length=32,
+        ),
+        POSCheckoutFieldProjection(
+            ref="delivery_time_slot",
+            payload_key="delivery_time_slot",
+            section_ref="fulfillment",
+            label="Horário combinado",
+            input_type="text",
+            placeholder="Ex: 14:00-14:30",
+            max_length=80,
+        ),
+        POSCheckoutFieldProjection(
+            ref="delivery_fee_q",
+            payload_key="delivery_fee_q",
+            section_ref="fulfillment",
+            label="Taxa de entrega",
+            input_type="money_q",
+            required_when={"fulfillment_type": "delivery"},
+        ),
+        POSCheckoutFieldProjection(
+            ref="order_notes",
+            payload_key="order_notes",
+            section_ref="fulfillment",
+            label="Observações do pedido",
+            input_type="textarea",
+            max_length=500,
+        ),
+        POSCheckoutFieldProjection(
+            ref="payment_method",
+            payload_key="payment_method",
+            section_ref="payment",
+            label="Forma principal",
+            input_type="segmented",
+            required=True,
+            options=tuple(
+                POSCheckoutOptionProjection(ref=ref, label=PAYMENT_METHOD_LABELS_PT.get(ref, ref))
+                for ref in _POS_PAYMENT_METHOD_REFS
+            ),
+        ),
+        POSCheckoutFieldProjection(
+            ref="payment_collection",
+            payload_key="payment_collection",
+            section_ref="payment",
+            label="Recebimento",
+            input_type="segmented",
+            required=True,
+            options=tuple(
+                POSCheckoutOptionProjection(ref=collection.ref, label=collection.label, description=collection.description)
+                for collection in _PAYMENT_COLLECTIONS
+            ),
+        ),
+        POSCheckoutFieldProjection(
+            ref="payment_tenders",
+            payload_key="payment_tenders",
+            section_ref="payment",
+            label="Pagamentos divididos",
+            input_type="tender_list",
+            required_when={"payment_method": "mixed"},
+            capability_ref="split_payment",
+        ),
+        POSCheckoutFieldProjection(
+            ref="tendered_amount_q",
+            payload_key="tendered_amount_q",
+            section_ref="payment",
+            label="Valor recebido",
+            input_type="money_q",
+            required_when={"payment_method": "cash", "payment_collection": "terminal"},
+            capability_ref="cash_change",
+        ),
+        POSCheckoutFieldProjection(
+            ref="issue_fiscal_document",
+            payload_key="issue_fiscal_document",
+            section_ref="receipt",
+            label="Emitir fiscal",
+            input_type="boolean",
+            capability_ref="fiscal_document",
+        ),
+        POSCheckoutFieldProjection(
+            ref="receipt_mode",
+            payload_key="receipt_mode",
+            section_ref="receipt",
+            label="Comprovante",
+            input_type="segmented",
+            options=receipt_modes,
+        ),
+        POSCheckoutFieldProjection(
+            ref="receipt_email",
+            payload_key="receipt_email",
+            section_ref="receipt",
+            label="E-mail do comprovante",
+            input_type="email",
+            required_when={"receipt_mode": "email"},
+            max_length=180,
+        ),
+        POSCheckoutFieldProjection(
+            ref="manual_discount",
+            payload_key="manual_discount",
+            section_ref="approval",
+            label="Desconto manual",
+            input_type="discount",
+            capability_ref="manual_discount",
+        ),
+        POSCheckoutFieldProjection(
+            ref="manager_approval",
+            payload_key="manager_approval",
+            section_ref="approval",
+            label="Aprovação gerencial",
+            input_type="credentials",
+            required_when={"manual_discount.discount_q": {"gt": _discount_approval_threshold_q()}},
+            capability_ref="manager_approval",
+        ),
+    )
+    sections = (
+        POSCheckoutSectionProjection(
+            ref="customer",
+            label="Cliente",
+            description="Identificação, WhatsApp e memória de atendimento.",
+            field_refs=("customer_phone", "customer_name", "customer_tax_id", "customer_email", "customer_memory_action"),
+        ),
+        POSCheckoutSectionProjection(
+            ref="fulfillment",
+            label="Entrega ou retirada",
+            description="Campos que viram fulfillment e dados de entrega no Orderman.",
+            field_refs=(
+                "fulfillment_type",
+                "delivery_address",
+                "delivery_address_structured",
+                "delivery_date",
+                "delivery_time_slot",
+                "delivery_fee_q",
+                "order_notes",
+            ),
+        ),
+        POSCheckoutSectionProjection(
+            ref="payment",
+            label="Pagamento",
+            description="Recebimento no terminal, na entrega, dinheiro e pagamentos divididos.",
+            field_refs=("payment_method", "payment_collection", "payment_tenders", "tendered_amount_q"),
+        ),
+        POSCheckoutSectionProjection(
+            ref="receipt",
+            label="Fiscal e comprovante",
+            description="Dados opcionais para fiscal e comprovante.",
+            field_refs=("issue_fiscal_document", "receipt_mode", "receipt_email"),
+        ),
+        POSCheckoutSectionProjection(
+            ref="approval",
+            label="Controle comercial",
+            description="Desconto manual e aprovação gerencial quando configurada.",
+            field_refs=("manual_discount", "manager_approval"),
+        ),
+    )
+    return POSCheckoutContractProjection(
+        intent_version=POS_SALE_INTENT_VERSION,
+        allowed_payload_keys=POS_SALE_INTENT_PAYLOAD_KEYS,
+        sections=sections,
+        fields=fields,
+        receipt_modes=tuple(option for option in receipt_modes if option.ref in POS_SALE_INTENT_RECEIPT_MODES),
+        tender_methods=tender_methods,
+        cash_tender_delta_presets_q=(0, 1000, 2000, 5000, 10000),
+        discount_types=(
+            POSCheckoutOptionProjection(ref="percent", label="Percentual"),
+            POSCheckoutOptionProjection(ref="fixed", label="Valor fixo"),
+        ),
+        discount_reasons=(
+            POSCheckoutOptionProjection(ref="cortesia", label="Cortesia"),
+            POSCheckoutOptionProjection(ref="fidelidade", label="Fidelidade"),
+            POSCheckoutOptionProjection(ref="ajuste_operacional", label="Ajuste operacional"),
+            POSCheckoutOptionProjection(ref="qualidade", label="Qualidade"),
+        ),
+        customer_memory_actions=(
+            POSCheckoutOptionProjection(ref="favorite_item", label="Adicionar favorito"),
+            POSCheckoutOptionProjection(ref="last_order", label="Repetir último pedido"),
+        ),
+        capabilities={
+            "prepare_checkout_action_ref": "save_tab",
+            "review_action_ref": "review_sale",
+            "submit_action_ref": "close_sale",
+            "customer_lookup_action_ref": "customer_lookup",
+            "supports_split_payment": True,
+            "supports_cash_change": True,
+            "supports_on_delivery_cash": "delivery" in fulfillment_types,
+            "supports_customer_lookup": True,
+            "supports_customer_memory": True,
+            "supports_receipt_email": True,
+            "supports_manual_discount": True,
+            "fiscal_document": fiscal_status,
+            "fiscal_label": fiscal_label,
+            "fiscal_message": fiscal_message,
+            "delivery_minimum_q": delivery_minimum_q,
+            "delivery_minimum_display": f"R$ {format_money(delivery_minimum_q)}" if delivery_minimum_q else "",
+            "requires_manager_approval_above_q": _discount_approval_threshold_q(),
+        },
     )
 
 
@@ -584,6 +989,11 @@ def _delivery_minimum_q() -> int:
     except Exception:
         logger.debug("pos_delivery_minimum_shop_lookup_failed", exc_info=True)
     return 0
+
+
+def _discount_approval_threshold_q() -> int:
+    """Return configured POS discount approval threshold in cents."""
+    return max(0, int(getattr(settings, "SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", 0) or 0))
 
 
 def _fiscal_runtime() -> tuple[str, str, str]:

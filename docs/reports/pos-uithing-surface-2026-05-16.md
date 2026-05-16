@@ -13,6 +13,14 @@
 - Os gaps foram resolvidos na projection canonica com campos aditivos: `fulfillment_options`, `payment_collections.payment_method_refs` e `actions`.
 - Nenhum lifecycle, status ou control plane novo foi criado.
 
+## Canonizacao do checkout POS
+
+- O POS antigo ja tinha maturidade de checkout: dados de cliente, entrega estruturada, taxa, observacoes, recebimento no terminal ou na entrega, comprovante, fiscal, troco, pagamentos divididos, desconto manual e aprovacao gerencial.
+- Esse comportamento nao foi copiado para a superficie. O contrato foi canonizado como `POSProjection.checkout`, apontando para o intent `pos.sale-intent.v1`, os campos aceitos, secoes, modos de comprovante, metodos de tender, presets de dinheiro e capabilities.
+- A action headless `review_sale` valida o mesmo intent antes do commit e retorna resumo de checkout sem criar pedido. A action final continua sendo `close_sale`, via `shopman.shop.services.pos.close_sale()`.
+- A API headless agora injeta `cash_shift_id` e `pos_terminal_ref` do runtime ativo no fechamento/revisao, porque isso e contexto do terminal, nao algo que uma superficie deve inventar.
+- O gap restante e ergonomico: a superficie UI Thing ainda nao replica todos os atalhos do POS antigo, como pagamentos divididos completos e memoria de cliente com repeticao automatica. O contrato e a action canonica ja expõem os campos para implementar isso sem regra local.
+
 ## Superficie adicionada
 
 - `surfaces/pos-uithing-nuxt`

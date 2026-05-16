@@ -4,6 +4,8 @@ import type {
   POSCloseSaleResponse,
   POSProductProjection,
   POSResponse,
+  POSSaleReviewProjection,
+  POSSaleReviewResponse,
   POSTabPayload,
   POSTabProjection,
 } from "~/types/pos";
@@ -13,6 +15,7 @@ import {
   cartTotalQ,
   concreteActionHref,
   formatBRL,
+  moneyInputToQ,
 } from "~/utils/posIntent";
 
 type FulfillmentType = "pickup" | "delivery";
@@ -35,6 +38,8 @@ const busy = ref(false);
 const saving = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
+const checkoutMode = ref(false);
+const review = ref<POSSaleReviewProjection | null>(null);
 
 const cart = reactive({
   tabCode: "",
@@ -43,11 +48,26 @@ const cart = reactive({
   items: [] as POSCartItem[],
   customerName: "",
   customerPhone: "",
+  customerTaxId: "",
+  customerEmail: "",
+  customerMemoryAction: "",
   fulfillmentType: "pickup" as FulfillmentType,
   deliveryAddress: "",
+  deliveryStreetNumber: "",
+  deliveryNeighborhood: "",
+  deliveryDate: "",
   deliveryTimeSlot: "",
+  deliveryFeeInput: "",
+  orderNotes: "",
   paymentMethod: "",
   paymentCollection: "terminal" as PaymentCollection,
+  paymentTenders: [] as Array<{ method: string; amount_q: number; collection: PaymentCollection; reference?: string }>,
+  tenderedAmountInput: "",
+  issueFiscalDocument: false,
+  receiptMode: "none",
+  receiptEmail: "",
+  manualDiscount: null as Record<string, unknown> | null,
+  managerApproval: null as Record<string, unknown> | null,
   clientRequestId: "",
 });
 
@@ -55,9 +75,12 @@ const pos = computed(() => data.value?.pos || null);
 const tabs = computed(() => data.value?.tabs || []);
 const shift = computed(() => data.value?.shift || null);
 const actions = computed(() => pos.value?.actions || []);
+const checkoutContract = computed(() => pos.value?.checkout || null);
 const totalDisplay = computed(() => formatBRL(cartTotalQ(cart.items)));
 const itemCount = computed(() => cart.items.reduce((sum, item) => sum + item.qty, 0));
 const hasOpenTab = computed(() => Boolean(cart.tabSessionKey));
+const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
+const tenderedAmountQ = computed(() => moneyInputToQ(cart.tenderedAmountInput));
 
 const favoriteCollections = computed(() => new Set(pos.value?.favorite_collection_refs || []));
 const orderedCollections = computed(() => {
@@ -107,12 +130,35 @@ watch(availablePaymentCollections, (collections) => {
   }
 }, { immediate: true });
 
+watch(() => [
+  cart.customerTaxId,
+  cart.customerEmail,
+  cart.fulfillmentType,
+  cart.deliveryAddress,
+  cart.deliveryStreetNumber,
+  cart.deliveryNeighborhood,
+  cart.deliveryDate,
+  cart.deliveryTimeSlot,
+  cart.deliveryFeeInput,
+  cart.orderNotes,
+  cart.paymentMethod,
+  cart.paymentCollection,
+  cart.tenderedAmountInput,
+  cart.issueFiscalDocument,
+  cart.receiptMode,
+  cart.receiptEmail,
+], () => {
+  if (checkoutMode.value) review.value = null;
+});
+
 function productQty(sku: string): number {
   return cart.items.find((item) => item.sku === sku)?.qty || 0;
 }
 
 function addProduct(product: POSProductProjection) {
   result.value = null;
+  review.value = null;
+  checkoutMode.value = false;
   const existing = cart.items.find((item) => item.sku === product.sku);
   if (existing) {
     existing.qty += 1;
@@ -129,6 +175,8 @@ function addProduct(product: POSProductProjection) {
 }
 
 function setQty(sku: string, qty: number) {
+  review.value = null;
+  checkoutMode.value = false;
   const existing = cart.items.find((item) => item.sku === sku);
   if (!existing) return;
   if (qty <= 0) {
@@ -145,10 +193,27 @@ function resetCart() {
   cart.items = [];
   cart.customerName = "";
   cart.customerPhone = "";
+  cart.customerTaxId = "";
+  cart.customerEmail = "";
+  cart.customerMemoryAction = "";
   cart.deliveryAddress = "";
+  cart.deliveryStreetNumber = "";
+  cart.deliveryNeighborhood = "";
+  cart.deliveryDate = "";
   cart.deliveryTimeSlot = "";
+  cart.deliveryFeeInput = "";
+  cart.orderNotes = "";
   cart.paymentCollection = "terminal";
+  cart.paymentTenders = [];
+  cart.tenderedAmountInput = "";
+  cart.issueFiscalDocument = false;
+  cart.receiptMode = "none";
+  cart.receiptEmail = "";
+  cart.manualDiscount = null;
+  cart.managerApproval = null;
   cart.clientRequestId = "";
+  checkoutMode.value = false;
+  review.value = null;
 }
 
 function setFromTabPayload(payload: POSTabPayload) {
@@ -158,12 +223,28 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.items = (payload.items || []).map((item) => ({ ...item }));
   cart.customerName = payload.customer_name || "";
   cart.customerPhone = payload.customer_phone || "";
+  cart.customerTaxId = payload.customer_tax_id || "";
+  cart.customerEmail = payload.customer_email || "";
   cart.fulfillmentType = payload.fulfillment_type === "delivery" ? "delivery" : "pickup";
   cart.deliveryAddress = payload.delivery_address || "";
+  cart.deliveryStreetNumber = payload.delivery_address_structured?.street_number || "";
+  cart.deliveryNeighborhood = payload.delivery_address_structured?.neighborhood || "";
+  cart.deliveryDate = payload.delivery_date || "";
   cart.deliveryTimeSlot = payload.delivery_time_slot || "";
+  cart.deliveryFeeInput = payload.delivery_fee_q ? (Number(payload.delivery_fee_q) / 100).toFixed(2).replace(".", ",") : "";
+  cart.orderNotes = payload.order_notes || "";
   cart.paymentMethod = payload.payment_method || cart.paymentMethod || pos.value?.payment_methods[0]?.ref || "cash";
   cart.paymentCollection = payload.payment_collection === "on_delivery" ? "on_delivery" : "terminal";
+  cart.paymentTenders = payload.payment_tenders || [];
+  cart.tenderedAmountInput = payload.tendered_amount_q ? (Number(payload.tendered_amount_q) / 100).toFixed(2).replace(".", ",") : "";
+  cart.issueFiscalDocument = !!payload.issue_fiscal_document;
+  cart.receiptMode = payload.receipt_mode || "none";
+  cart.receiptEmail = payload.receipt_email || "";
+  cart.manualDiscount = null;
+  cart.managerApproval = null;
   cart.clientRequestId = "";
+  checkoutMode.value = false;
+  review.value = null;
 }
 
 async function openTab(tab: POSTabProjection | string) {
@@ -191,19 +272,56 @@ async function openTab(tab: POSTabProjection | string) {
 }
 
 function currentIntentState() {
+  const deliveryAddressParts = [cart.deliveryAddress.trim(), cart.deliveryStreetNumber.trim(), cart.deliveryNeighborhood.trim()]
+    .filter(Boolean);
   return {
     tabCode: cart.tabCode,
     tabSessionKey: cart.tabSessionKey,
     items: cart.items,
     customerName: cart.customerName,
     customerPhone: cart.customerPhone,
+    customerTaxId: cart.customerTaxId,
+    customerEmail: cart.customerEmail,
+    customerMemoryAction: cart.customerMemoryAction,
     fulfillmentType: cart.fulfillmentType,
-    deliveryAddress: cart.deliveryAddress,
+    deliveryAddress: deliveryAddressParts.join(", "),
+    deliveryAddressStructured: {
+      route: cart.deliveryAddress.trim(),
+      street_number: cart.deliveryStreetNumber.trim(),
+      neighborhood: cart.deliveryNeighborhood.trim(),
+      reference: cart.orderNotes.trim(),
+    },
+    deliveryDate: cart.deliveryDate,
     deliveryTimeSlot: cart.deliveryTimeSlot,
+    deliveryFeeQ: deliveryFeeQ.value,
+    orderNotes: cart.orderNotes,
     paymentMethod: cart.paymentMethod,
     paymentCollection: cart.paymentCollection,
+    paymentTenders: cart.paymentTenders,
+    tenderedAmountQ: tenderedAmountQ.value > 0 ? tenderedAmountQ.value : null,
+    issueFiscalDocument: cart.issueFiscalDocument,
+    receiptMode: cart.receiptMode,
+    receiptEmail: cart.receiptEmail || cart.customerEmail,
+    manualDiscount: cart.manualDiscount,
+    managerApproval: cart.managerApproval,
     clientRequestId: cart.clientRequestId || newClientRequestId(),
   };
+}
+
+function buildCurrentIntent() {
+  return buildPosSaleIntent(
+    currentIntentState(),
+    checkoutContract.value?.intent_version,
+  );
+}
+
+async function persistTab() {
+  const state = currentIntentState();
+  cart.clientRequestId = state.clientRequestId;
+  await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
+    body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
+  });
+  await refresh();
 }
 
 async function saveTab() {
@@ -211,12 +329,7 @@ async function saveTab() {
   serverError.value = "";
   saving.value = true;
   try {
-    const state = currentIntentState();
-    cart.clientRequestId = state.clientRequestId;
-    await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
-      body: buildPosSaleIntent(state),
-    });
-    await refresh();
+    await persistTab();
   } catch (err: any) {
     serverError.value = err?.data?.detail || err?.message || "Falha ao salvar comanda.";
   } finally {
@@ -224,17 +337,63 @@ async function saveTab() {
   }
 }
 
-async function submitSale() {
+async function reloadCurrentTab() {
+  if (!cart.tabCode) return;
+  const path = concreteActionHref(
+    actions.value,
+    "open_tab",
+    "/api/v1/backstage/pos/tabs/{tab_code}/open/",
+    { tab_code: cart.tabCode },
+  );
+  const payload = await action.call<POSTabPayload>(path);
+  setFromTabPayload(payload);
+  await refresh();
+}
+
+async function reviewSale() {
+  if (!hasOpenTab.value || !cart.items.length) return null;
+  const state = currentIntentState();
+  cart.clientRequestId = state.clientRequestId;
+  const response = await action.call<POSSaleReviewResponse>(
+    actionHref(actions.value, "review_sale", "/api/v1/backstage/pos/sale/review/"),
+    { body: buildPosSaleIntent(state, checkoutContract.value?.intent_version) },
+  );
+  review.value = response.review;
+  return response.review;
+}
+
+async function prepareCheckout() {
   if (!hasOpenTab.value || !cart.items.length) return;
   serverError.value = "";
   result.value = null;
   busy.value = true;
   try {
-    const state = currentIntentState();
-    cart.clientRequestId = state.clientRequestId;
+    await persistTab();
+    await reloadCurrentTab();
+    await reviewSale();
+    checkoutMode.value = true;
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao revisar checkout.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function submitSale() {
+  if (!hasOpenTab.value || !cart.items.length) return;
+  if (!checkoutMode.value) {
+    await prepareCheckout();
+    return;
+  }
+  serverError.value = "";
+  result.value = null;
+  busy.value = true;
+  try {
+    const reviewed = await reviewSale();
+    if (!reviewed) return;
     const response = await action.call<POSCloseSaleResponse>(
       actionHref(actions.value, "close_sale", "/api/v1/backstage/pos/sale/close/"),
-      { body: buildPosSaleIntent(state) },
+      { body: buildCurrentIntent() },
     );
     if (response.ok && response.order_ref) {
       const orderRef = response.order_ref;
@@ -405,19 +564,35 @@ function newClientRequestId(): string {
           :fulfillment-options="pos?.fulfillment_options || []"
           :payment-methods="pos?.payment_methods || []"
           :payment-collections="pos?.payment_collections || []"
+          :checkout-contract="checkoutContract"
+          :checkout-mode="checkoutMode"
+          :review="review"
           v-model:fulfillment-type="cart.fulfillmentType"
           v-model:payment-method="cart.paymentMethod"
           v-model:payment-collection="cart.paymentCollection"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"
+          v-model:customer-tax-id="cart.customerTaxId"
+          v-model:customer-email="cart.customerEmail"
           v-model:delivery-address="cart.deliveryAddress"
+          v-model:delivery-street-number="cart.deliveryStreetNumber"
+          v-model:delivery-neighborhood="cart.deliveryNeighborhood"
+          v-model:delivery-date="cart.deliveryDate"
           v-model:delivery-time-slot="cart.deliveryTimeSlot"
+          v-model:delivery-fee-input="cart.deliveryFeeInput"
+          v-model:order-notes="cart.orderNotes"
+          v-model:tendered-amount-input="cart.tenderedAmountInput"
+          v-model:issue-fiscal-document="cart.issueFiscalDocument"
+          v-model:receipt-mode="cart.receiptMode"
+          v-model:receipt-email="cart.receiptEmail"
           :loading="busy"
           :saving="saving"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
           @save="saveTab"
+          @prepare="prepareCheckout"
+          @back="checkoutMode = false"
           @submit="submitSale"
           @clear="clearCurrentTab"
         />

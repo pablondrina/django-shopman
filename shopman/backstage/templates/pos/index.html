@@ -2123,7 +2123,7 @@ document.addEventListener('alpine:init', function() {
         if (self.$refs.result) {
           self.$refs.result.innerHTML = html;
           var el = self.$refs.result.querySelector('[data-order-ref]');
-          if (el) self.successMsg = 'Pedido ' + el.dataset.orderRef + ' — ' + el.dataset.totalDisplay;
+          if (el) self.successMsg = 'Pedido ' + el.dataset.orderRef + ' · ' + el.dataset.totalDisplay;
         }
         if (queue.length) self.flushOfflineQueue();
       }).catch(function(error) {
