@@ -9,6 +9,12 @@ import {
   cartTotalQ,
   concreteActionHref,
 } from "../app/utils/posIntent";
+import {
+  draftAssociationTargetStates,
+  requiresOpenTabForCart,
+  requiresTabBeforeSave,
+  tabCodeMaxDigits,
+} from "../app/utils/posTabLifecycle";
 
 describe("POS sale intent", () => {
   it("serializes cart state into the canonical POS intent contract", () => {
@@ -128,6 +134,23 @@ describe("POS sale intent", () => {
 });
 
 describe("surface architecture guardrails", () => {
+  it("drives tab-first POS UX from the canonical tab lifecycle capability", () => {
+    const capabilities = {
+      tab_lifecycle: {
+        requires_open_tab_for_cart: true,
+        requires_tab_before_save: true,
+        tab_code_max_digits: 6,
+        draft_association_target_states: ["empty"],
+      },
+    };
+
+    expect(requiresOpenTabForCart(capabilities)).toBe(true);
+    expect(requiresTabBeforeSave(capabilities)).toBe(true);
+    expect(tabCodeMaxDigits(capabilities)).toBe(6);
+    expect(draftAssociationTargetStates(capabilities)).toEqual(["empty"]);
+    expect(requiresOpenTabForCart({ tab_lifecycle: { requires_open_tab_for_cart: false } })).toBe(false);
+  });
+
   it("does not reach around POS projections to catalog, stock, or checkout contracts", () => {
     const sources = readSources(join(process.cwd(), "app"))
       .filter((entry) => !entry.path.includes(`${join("components", "Ui")}${"/"}`));

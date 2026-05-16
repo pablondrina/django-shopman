@@ -991,6 +991,10 @@ def _checkout_contract(
                 "clear_action_ref": "clear_tab",
                 "tab_code_max_digits": 8,
                 "requires_open_tab_for_cart": True,
+                "requires_tab_before_save": True,
+                "allows_operator_tab_creation": True,
+                "draft_association_target_states": ("empty",),
+                "occupied_tab_selection": "open_existing_not_merge",
             },
             "cash_management": {
                 "open_action_ref": "open_cash_shift",

@@ -4,6 +4,7 @@ import type { POSProductProjection } from "~/types/pos";
 defineProps<{
   product: POSProductProjection;
   qty: number;
+  disabled?: boolean;
 }>();
 
 defineEmits<{
@@ -16,7 +17,11 @@ defineEmits<{
     as="button"
     type="button"
     class="relative min-h-32 gap-3 rounded-lg p-3 text-left shadow-none transition hover:border-primary/40 hover:bg-accent/60 active:translate-y-px"
-    :class="qty > 0 ? 'border-primary/50 bg-primary/5' : ''"
+    :class="[
+      qty > 0 ? 'border-primary/50 bg-primary/5' : '',
+      disabled ? 'cursor-not-allowed opacity-50 hover:border-border hover:bg-card active:translate-y-0' : '',
+    ]"
+    :disabled="disabled"
     @click="$emit('add', product)"
   >
     <div class="flex items-start justify-between gap-3">

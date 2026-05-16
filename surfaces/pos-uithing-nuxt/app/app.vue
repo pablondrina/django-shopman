@@ -22,6 +22,12 @@ import {
   formatBRL,
   moneyInputToQ,
 } from "~/utils/posIntent";
+import {
+  draftAssociationTargetStates,
+  requiresOpenTabForCart,
+  requiresTabBeforeSave,
+  tabCodeMaxDigits,
+} from "~/utils/posTabLifecycle";
 
 type FulfillmentType = "pickup" | "delivery";
 type PaymentCollection = "terminal" | "on_delivery";
@@ -47,6 +53,8 @@ const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
 const customerLookup = ref<POSCustomerLookupProjection | null>(null);
+const tabDialogOpen = ref(false);
+const tabDialogReason = ref<"start" | "save" | "checkout" | "cart">("start");
 
 const cart = reactive({
   tabCode: "",
@@ -87,6 +95,11 @@ const tabs = computed(() => data.value?.tabs || []);
 const shift = computed(() => data.value?.shift || null);
 const actions = computed(() => pos.value?.actions || []);
 const checkoutContract = computed(() => pos.value?.checkout || null);
+const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
+const tabMaxDigits = computed(() => tabCodeMaxDigits(checkoutCapabilities.value));
+const tabDraftTargetStates = computed(() => draftAssociationTargetStates(checkoutCapabilities.value));
+const tabRequiredForCart = computed(() => requiresOpenTabForCart(checkoutCapabilities.value));
+const tabRequiredForSave = computed(() => requiresTabBeforeSave(checkoutCapabilities.value));
 const addressAutocomplete = computed<POSAddressAutocompleteProjection | null>(() => {
   const raw = checkoutContract.value?.capabilities?.address_autocomplete;
   return raw && typeof raw === "object" ? raw as POSAddressAutocompleteProjection : null;
@@ -94,8 +107,21 @@ const addressAutocomplete = computed<POSAddressAutocompleteProjection | null>(()
 const totalDisplay = computed(() => formatBRL(cartTotalQ(cart.items)));
 const itemCount = computed(() => cart.items.reduce((sum, item) => sum + item.qty, 0));
 const hasOpenTab = computed(() => Boolean(cart.tabSessionKey));
+const hasDraftWithoutTab = computed(() => !hasOpenTab.value && cart.items.length > 0);
+const canUseCart = computed(() => !tabRequiredForCart.value || hasOpenTab.value);
 const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
 const tenderedAmountQ = computed(() => moneyInputToQ(cart.tenderedAmountInput));
+const tabDialogTitle = computed(() => {
+  if (tabDialogReason.value === "save") return "Associar comanda";
+  if (tabDialogReason.value === "checkout") return "Abrir comanda para checkout";
+  return "Abrir comanda";
+});
+const tabDialogDescription = computed(() => {
+  if (hasDraftWithoutTab.value) {
+    return "Escolha uma comanda livre ou digite um número novo para salvar este atendimento sem perder recuperação no caixa.";
+  }
+  return "Digite uma comanda nova ou busque uma comanda salva para iniciar o atendimento.";
+});
 
 const favoriteCollections = computed(() => new Set(pos.value?.favorite_collection_refs || []));
 const orderedCollections = computed(() => {
@@ -174,6 +200,10 @@ function productQty(sku: string): number {
 }
 
 function addProduct(product: POSProductProjection) {
+  if (!canUseCart.value) {
+    requestTabAssociation("cart");
+    return;
+  }
   result.value = null;
   review.value = null;
   checkoutMode.value = false;
@@ -193,6 +223,7 @@ function addProduct(product: POSProductProjection) {
 }
 
 function setQty(sku: string, qty: number) {
+  if (!canUseCart.value) return;
   review.value = null;
   checkoutMode.value = false;
   const existing = cart.items.find((item) => item.sku === sku);
@@ -239,10 +270,22 @@ function resetCart() {
   review.value = null;
 }
 
-function setFromTabPayload(payload: POSTabPayload) {
+function sanitizeTabCode(value: string): string {
+  return String(value || "").replace(/\D/g, "").slice(0, tabMaxDigits.value);
+}
+
+function updateTabInput(value: unknown) {
+  tabInput.value = sanitizeTabCode(String(value || ""));
+}
+
+function assignTabIdentityFromPayload(payload: POSTabPayload) {
   cart.tabCode = payload.tab_code;
   cart.tabDisplay = payload.tab_display;
   cart.tabSessionKey = payload.tab_session_key || payload.session_key;
+}
+
+function setFromTabPayload(payload: POSTabPayload) {
+  assignTabIdentityFromPayload(payload);
   cart.items = (payload.items || []).map((item) => ({ ...item }));
   cart.customerName = payload.customer_name || "";
   cart.customerRef = payload.customer_ref || "";
@@ -275,8 +318,14 @@ function setFromTabPayload(payload: POSTabPayload) {
   review.value = null;
 }
 
-async function openTab(tab: POSTabProjection | string) {
-  const tabCode = typeof tab === "string" ? tab.trim() : tab.code;
+function requestTabAssociation(reason: "start" | "save" | "checkout" | "cart" = "start") {
+  tabDialogReason.value = reason;
+  serverError.value = "";
+  tabDialogOpen.value = true;
+}
+
+async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
+  const tabCode = sanitizeTabCode(typeof tab === "string" ? tab : tab.code);
   if (!tabCode) return;
   serverError.value = "";
   result.value = null;
@@ -289,13 +338,35 @@ async function openTab(tab: POSTabProjection | string) {
       { tab_code: tabCode },
     );
     const payload = await action.call<POSTabPayload>(path);
-    setFromTabPayload(payload);
+    if (options.preserveDraft && cart.items.length) {
+      if ((payload.items || []).length) {
+        throw new Error("Esta comanda já possui pedido. Abra a comanda separadamente ou escolha uma comanda livre.");
+      }
+      assignTabIdentityFromPayload(payload);
+      checkoutMode.value = false;
+      review.value = null;
+    } else {
+      setFromTabPayload(payload);
+    }
     tabInput.value = "";
     await refresh();
   } catch (err: any) {
     serverError.value = err?.data?.detail || err?.message || "Falha ao abrir comanda.";
   } finally {
     busy.value = false;
+  }
+}
+
+async function openTabFromDialog(tab: POSTabProjection | string) {
+  const reason = tabDialogReason.value;
+  const preserveDraft = hasDraftWithoutTab.value;
+  await openTab(tab, { preserveDraft });
+  if (!cart.tabSessionKey) return;
+  tabDialogOpen.value = false;
+  if (reason === "save" && cart.items.length) {
+    await saveTab();
+  } else if (reason === "checkout" && cart.items.length) {
+    await prepareCheckout();
   }
 }
 
@@ -446,7 +517,10 @@ async function persistTab() {
 }
 
 async function saveTab() {
-  if (!hasOpenTab.value) return;
+  if (tabRequiredForSave.value && !hasOpenTab.value) {
+    requestTabAssociation("save");
+    return;
+  }
   serverError.value = "";
   saving.value = true;
   try {
@@ -472,7 +546,8 @@ async function reloadCurrentTab() {
 }
 
 async function reviewSale() {
-  if (!hasOpenTab.value || !cart.items.length) return null;
+  if (tabRequiredForSave.value && !hasOpenTab.value) return null;
+  if (!cart.items.length) return null;
   const state = currentIntentState();
   cart.clientRequestId = state.clientRequestId;
   const response = await action.call<POSSaleReviewResponse>(
@@ -484,7 +559,11 @@ async function reviewSale() {
 }
 
 async function prepareCheckout() {
-  if (!hasOpenTab.value || !cart.items.length) return;
+  if (tabRequiredForSave.value && !hasOpenTab.value) {
+    requestTabAssociation("checkout");
+    return;
+  }
+  if (!cart.items.length) return;
   serverError.value = "";
   result.value = null;
   busy.value = true;
@@ -501,7 +580,11 @@ async function prepareCheckout() {
 }
 
 async function submitSale() {
-  if (!hasOpenTab.value || !cart.items.length) return;
+  if (tabRequiredForSave.value && !hasOpenTab.value) {
+    requestTabAssociation("checkout");
+    return;
+  }
+  if (!cart.items.length) return;
   if (!checkoutMode.value) {
     await prepareCheckout();
     return;
@@ -609,12 +692,27 @@ function newClientRequestId(): string {
           </UiAlertDescription>
         </UiAlert>
 
-        <section class="grid gap-3">
+        <section
+          class="grid gap-3"
+          :class="!canUseCart ? 'rounded-lg border border-primary/30 bg-primary/5 p-4' : ''"
+        >
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base font-semibold">Comandas</h2>
+            <div>
+              <h2 class="text-base font-semibold">Comandas</h2>
+              <p v-if="!canUseCart" class="text-sm text-muted-foreground">
+                Abra uma comanda para iniciar o pedido e manter o atendimento recuperável.
+              </p>
+            </div>
             <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
-              <UiInput v-model="tabInput" class="max-w-40" inputmode="numeric" placeholder="Comanda" />
-              <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir</UiButton>
+              <UiInput
+                :model-value="tabInput"
+                class="max-w-40"
+                inputmode="numeric"
+                :maxlength="tabMaxDigits"
+                placeholder="Comanda"
+                @update:model-value="updateTabInput"
+              />
+              <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
             </form>
           </div>
           <div class="flex gap-2 overflow-x-auto pb-1">
@@ -627,7 +725,7 @@ function newClientRequestId(): string {
                 cart.tabCode === tab.code ? 'border-primary bg-primary/5' : '',
                 tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
               ]"
-              @click="openTab(tab)"
+              @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
             >
               <span class="font-semibold tabular-nums">#{{ tab.display_code }}</span>
               <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
@@ -636,7 +734,24 @@ function newClientRequestId(): string {
           </div>
         </section>
 
-        <section class="grid gap-3">
+        <section v-if="!canUseCart" class="grid gap-3 rounded-lg border border-dashed p-6 text-center">
+          <div class="mx-auto grid size-12 place-items-center rounded-lg border bg-muted">
+            <Icon name="lucide:lock-keyhole" class="size-5 text-muted-foreground" />
+          </div>
+          <div class="grid gap-1">
+            <h2 class="text-base font-semibold">Catálogo bloqueado até abrir comanda</h2>
+            <p class="mx-auto max-w-xl text-sm text-muted-foreground">
+              O POS só deve montar carrinho depois de existir um handle canônico para recuperar, pausar ou finalizar o pedido.
+            </p>
+          </div>
+          <div>
+            <UiButton type="button" @click="requestTabAssociation('start')">
+              Escolher comanda
+            </UiButton>
+          </div>
+        </section>
+
+        <section v-else class="grid gap-3">
           <div class="flex flex-wrap items-center gap-2">
             <div class="relative min-w-64 flex-1">
               <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -672,6 +787,7 @@ function newClientRequestId(): string {
               :key="product.sku"
               :product="product"
               :qty="productQty(product.sku)"
+              :disabled="!canUseCart"
               @add="addProduct"
             />
           </div>
@@ -690,6 +806,8 @@ function newClientRequestId(): string {
           :customer-lookup="customerLookup"
           :checkout-mode="checkoutMode"
           :review="review"
+          :requires-tab="tabRequiredForCart"
+          :has-open-tab="hasOpenTab"
           v-model:fulfillment-type="cart.fulfillmentType"
           v-model:payment-method="cart.paymentMethod"
           v-model:payment-collection="cart.paymentCollection"
@@ -722,6 +840,7 @@ function newClientRequestId(): string {
           @back="checkoutMode = false"
           @submit="submitSale"
           @clear="clearCurrentTab"
+          @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"
           @apply-customer-favorite="applyCustomerFavorite"
           @repeat-customer-last-order="repeatCustomerLastOrder"
@@ -732,5 +851,19 @@ function newClientRequestId(): string {
         </p>
       </aside>
     </div>
+
+    <PosTabPickerDialog
+      v-model:open="tabDialogOpen"
+      v-model="tabInput"
+      :tabs="sortedTabs"
+      :busy="busy || saving"
+      :has-draft="hasDraftWithoutTab"
+      :allowed-target-states="tabDraftTargetStates"
+      :title="tabDialogTitle"
+      :description="tabDialogDescription"
+      :max-digits="tabMaxDigits"
+      @confirm="openTabFromDialog"
+      @select="openTabFromDialog"
+    />
   </main>
 </template>

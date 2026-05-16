@@ -24,6 +24,8 @@ const props = defineProps<{
   customerLookup: POSCustomerLookupProjection | null;
   checkoutMode: boolean;
   review: POSSaleReviewProjection | null;
+  requiresTab: boolean;
+  hasOpenTab: boolean;
   fulfillmentType: "pickup" | "delivery";
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
@@ -80,6 +82,7 @@ const emit = defineEmits<{
   back: [];
   submit: [];
   clear: [];
+  requestTab: [];
   lookupCustomer: [];
   applyCustomerFavorite: [];
   repeatCustomerLastOrder: [];
@@ -118,7 +121,24 @@ function onAddressSelected(address: StructuredAddressProjection) {
 </script>
 
 <template>
-  <UiCard class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
+  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
+    <div class="grid gap-3 text-center">
+      <div class="mx-auto grid size-11 place-items-center rounded-lg border bg-muted">
+        <Icon name="lucide:receipt-text" class="size-5 text-muted-foreground" />
+      </div>
+      <div class="grid gap-1">
+        <p class="text-base font-semibold">Abra uma comanda</p>
+        <p class="text-sm text-muted-foreground">
+          O carrinho do POS fica recuperável somente depois de associado a uma comanda.
+        </p>
+      </div>
+      <UiButton type="button" :disabled="loading" @click="$emit('requestTab')">
+        Escolher comanda
+      </UiButton>
+    </div>
+  </UiCard>
+
+  <UiCard v-else class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
     <div class="flex items-center justify-between gap-3">
       <div>
         <p class="text-xs font-medium uppercase text-muted-foreground">Comanda</p>

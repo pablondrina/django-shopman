@@ -40,3 +40,8 @@ Current POS capabilities consumed from the projection include tab lifecycle,
 cash runtime/actions, checkout review/close, customer lookup with saved
 addresses and memory, delivery address autocomplete/reverse geocode metadata,
 recent sale correction, and idempotent replay via `client_request_id`.
+
+`tab_lifecycle.requires_open_tab_for_cart` drives the tab-first UX: the
+operator opens or creates a comanda before the catalog is enabled, and any draft
+without a tab must be associated through the UI Thing dialog before save or
+checkout.
