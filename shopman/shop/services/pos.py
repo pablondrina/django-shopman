@@ -174,22 +174,36 @@ def close_sale(
     channel, config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     if session is None:
+        if _payload_has_tab_identity(payload):
+            raise ValueError("Abra um POS tab antes de finalizar.")
         existing = _existing_sale_by_client_request_id(channel_ref=channel.ref, payload=payload)
         if existing is not None:
             return PosSaleResult(order_ref=existing.ref, total_q=existing.total_q, fiscal_hint=_sale_fiscal_hint(existing))
-        raise ValueError("Abra um POS tab antes de finalizar.")
+        session = _create_direct_checkout_session(
+            channel_ref=channel.ref,
+            payload=payload,
+            operator_username=operator_username,
+        )
+        direct_checkout = True
+    else:
+        direct_checkout = False
 
-    tab_code = _session_tab_code(session)
+    tab_code = "" if direct_checkout else _session_tab_code(session)
     fulfillment_type = _payload_fulfillment_type(payload)
     ops = _replace_session_ops(session, payload, operator_username)
     ops.extend([
         {"op": "set_data", "path": "origin_channel", "value": "pos"},
         {"op": "set_data", "path": "fulfillment_type", "value": fulfillment_type},
-        {"op": "set_data", "path": "tab_code", "value": tab_code},
-        {"op": "set_data", "path": "tab_display", "value": display_tab_code(tab_code)},
         {"op": "set_data", "path": "pos_operator", "value": operator_username},
         {"op": "set_data", "path": "last_touched_at", "value": timezone.now().isoformat()},
     ])
+    if direct_checkout:
+        ops.append({"op": "set_data", "path": "pos.direct_checkout", "value": True})
+    else:
+        ops.extend([
+            {"op": "set_data", "path": "tab_code", "value": tab_code},
+            {"op": "set_data", "path": "tab_display", "value": display_tab_code(tab_code)},
+        ])
     client_request_id = _payload_client_request_id(payload)
     if client_request_id:
         ops.extend([
@@ -240,7 +254,7 @@ def review_sale(
     _validate_payment_completion(payload)
     channel, _config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
-    if session is None:
+    if session is None and _payload_has_tab_identity(payload):
         raise ValueError("Abra um POS tab antes de finalizar.")
 
     fulfillment_type = _payload_fulfillment_type(payload)
@@ -270,7 +284,7 @@ def review_sale(
 
     return PosSaleReview(
         intent_version=POS_SALE_INTENT_VERSION,
-        tab_code=_session_tab_code(session),
+        tab_code=_session_tab_code(session) if session is not None else "",
         subtotal_q=subtotal_q,
         discount_q=discount_q,
         delivery_fee_q=delivery_fee_q,
@@ -901,6 +915,26 @@ def _payload_open_tab_session(*, channel_ref: str, payload: dict) -> Session | N
     return None
 
 
+def _payload_has_tab_identity(payload: dict) -> bool:
+    return bool(_payload_tab_session_key(payload) or _payload_tab_code(payload))
+
+
+def _create_direct_checkout_session(*, channel_ref: str, payload: dict, operator_username: str) -> Session:
+    now = timezone.now().isoformat()
+    return session_service.create_session(
+        channel_ref,
+        data={
+            "origin_channel": "pos",
+            "fulfillment_type": _payload_fulfillment_type(payload),
+            "pos_operator": operator_username,
+            "last_touched_at": now,
+            "pos": {
+                "direct_checkout": True,
+            },
+        },
+    )
+
+
 def _get_open_pos_tab_session_by_key(*, channel_ref: str, session_key: str) -> Session | None:
     return Session.objects.filter(
         session_key=session_key,
@@ -994,8 +1028,9 @@ def _mark_tab_committed(
     if order is None:
         return
     order_data = dict(order.data or {})
-    order_data["tab_code"] = tab_code
-    order_data["tab_display"] = display_tab_code(tab_code)
+    if tab_code:
+        order_data["tab_code"] = tab_code
+        order_data["tab_display"] = display_tab_code(tab_code)
     order_data["pos_operator"] = operator_username
     order_data["pos_committed_at"] = now
     session_data = session_data or {}

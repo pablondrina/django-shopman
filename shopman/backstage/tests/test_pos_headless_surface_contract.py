@@ -71,6 +71,8 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(payload["pos"], expected)
         self.assertEqual(payload["pos"]["products"][0]["sku"], "POS-HEADLESS-ITEM")
         self.assertEqual(payload["pos"]["products"][0]["price_q"], 1300)
+        payment_methods = {method["ref"]: method for method in payload["pos"]["payment_methods"]}
+        self.assertEqual(payment_methods["cash"]["label"], "Dinheiro")
         self.assertIn("delivery", {option["ref"] for option in payload["pos"]["fulfillment_options"]})
         payment_collections = {collection["ref"]: collection for collection in payload["pos"]["payment_collections"]}
         self.assertEqual(payment_collections["terminal"]["payment_method_refs"], ["cash", "pix", "card"])
@@ -111,8 +113,9 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(checkout["capabilities"]["address_autocomplete"]["provider"], "google_places")
         self.assertIn("place_id", checkout["capabilities"]["address_autocomplete"]["structured_fields"])
         self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["create_action_ref"], "create_tab")
-        self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["requires_open_tab_for_cart"])
+        self.assertFalse(checkout["capabilities"]["tab_lifecycle"]["requires_open_tab_for_cart"])
         self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["requires_tab_before_save"])
+        self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["allows_direct_checkout_without_tab"])
         self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["allows_operator_tab_creation"])
         self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["draft_association_target_states"], ["empty"])
         self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["occupied_tab_selection"], "open_existing_not_merge")
@@ -162,6 +165,52 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(order.data["payment"]["method"], "cash")
         self.assertEqual(order.data["payment"]["amount_q"], 2600)
         self.assertEqual(order.data["pos"]["client_request_id"], "pos-headless-contract-001")
+
+    def test_api_headless_pos_can_review_and_close_direct_checkout_without_tab(self) -> None:
+        payload = {
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "items": [
+                {
+                    "sku": "POS-HEADLESS-ITEM",
+                    "name": "Headless Item",
+                    "qty": 1,
+                    "unit_price_q": 1300,
+                }
+            ],
+            "customer_name": "Cliente Rapido",
+            "fulfillment_type": "pickup",
+            "payment_method": "cash",
+            "payment_collection": "terminal",
+            "client_request_id": "pos-headless-direct-001",
+        }
+
+        reviewed = self.client.post(
+            "/api/v1/backstage/pos/sale/review/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertEqual(reviewed.json()["review"]["tab_code"], "")
+        self.assertEqual(Order.objects.count(), 0)
+
+        closed = self.client.post(
+            "/api/v1/backstage/pos/sale/close/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(closed.status_code, 200)
+        body = closed.json()
+        self.assertTrue(body["ok"])
+        order = Order.objects.get(ref=body["order_ref"])
+        self.assertEqual(order.channel_ref, "pdv")
+        self.assertEqual(order.total_q, 1300)
+        self.assertEqual(order.data["origin_channel"], "pos")
+        self.assertEqual(order.data["payment"]["method"], "cash")
+        self.assertEqual(order.data["pos"]["direct_checkout"], True)
+        self.assertEqual(order.data["pos"]["client_request_id"], "pos-headless-direct-001")
+        self.assertNotIn("tab_code", order.data)
 
     def test_api_headless_pos_review_validates_checkout_without_committing(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})

@@ -134,11 +134,12 @@ describe("POS sale intent", () => {
 });
 
 describe("surface architecture guardrails", () => {
-  it("drives tab-first POS UX from the canonical tab lifecycle capability", () => {
+  it("drives POS tab association UX from the canonical tab lifecycle capability", () => {
     const capabilities = {
       tab_lifecycle: {
         requires_open_tab_for_cart: true,
         requires_tab_before_save: true,
+        allows_direct_checkout_without_tab: true,
         tab_code_max_digits: 6,
         draft_association_target_states: ["empty"],
       },

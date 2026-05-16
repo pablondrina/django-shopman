@@ -142,7 +142,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
     <div class="flex items-center justify-between gap-3">
       <div>
         <p class="text-xs font-medium uppercase text-muted-foreground">Comanda</p>
-        <p class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
+        <p v-if="hasOpenTab" class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
+        <p v-else class="text-xl font-semibold">Venda rápida</p>
       </div>
       <UiBadge :variant="checkoutMode ? 'default' : 'outline'">
         {{ checkoutMode ? "Checkout" : "Venda" }}

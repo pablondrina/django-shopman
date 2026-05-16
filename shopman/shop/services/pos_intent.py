@@ -192,14 +192,6 @@ def parse_pos_sale_intent(raw: dict, *, for_commit: bool = True) -> PosSaleInten
     payload["client_request_id"] = _client_request_id(payload.get("client_request_id"))
     payload["tab_code"] = _text(payload.get("tab_code"), limit=16)
     payload["tab_session_key"] = _text(payload.get("tab_session_key"), limit=120)
-    if for_commit and not payload["tab_session_key"] and not payload["tab_code"]:
-        raise PosIntentError(
-            code="tab_required",
-            message="Abra uma comanda antes de finalizar.",
-            field="tab_code",
-            focus="tab_code",
-            recovery="Leia ou selecione uma comanda.",
-        )
 
     payload["manual_discount"] = _manual_discount(payload.get("manual_discount"))
     payload["manager_approval"] = _manager_approval(payload.get("manager_approval"))

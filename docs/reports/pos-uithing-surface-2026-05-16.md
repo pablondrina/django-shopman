@@ -24,7 +24,7 @@
 
 - `address_autocomplete`: provider, chave publica restrita, paises, campos Google Places, bias pela loja, shape de `delivery_address_structured` e action de reverse geocode.
 - `customer_lookup`: action por telefone que retorna `ref`, nome, email, grupo, endereco padrao, enderecos salvos e memoria de consumo.
-- `tab_lifecycle`: actions de criar, abrir, salvar e liberar comanda, limite canonico do codigo, exigencia de comanda antes do carrinho/salvamento e politica de associacao de rascunho somente em comanda livre.
+- `tab_lifecycle`: actions de criar, abrir, salvar e liberar comanda, limite canonico do codigo, venda rapida sem comanda para checkout direto, exigencia de comanda antes de salvar/pausar e politica de associacao de rascunho somente em comanda livre.
 - `cash_management`: actions de abrir/fechar caixa, movimento de caixa e tipos aceitos.
 - `sale_correction`: action headless para cancelar/corrigir venda recente com a mesma janela operacional do POS antigo.
 - `idempotent_replay`: `client_request_id` como chave canonica de reenvio/offline queue, consumida por `close_sale`.
@@ -34,8 +34,8 @@
 
 - `surfaces/pos-uithing-nuxt`
 - Stack: Nuxt 4, UI Thing scaffoldado por `npx ui-thing@latest init` e componentes copiados para `app/components/Ui`.
-- Fluxo minimo: abrir/criar comanda como primeira acao, buscar/listar produtos, montar carrinho, buscar cliente, reutilizar memoria/endereco salvo, usar autocomplete de endereco quando configurado, escolher retirada/entrega, escolher pagamento/recebimento, revisar, finalizar venda e abrir o pedido no gestor.
-- A superficie bloqueia catalogo/carrinho enquanto `tab_lifecycle.requires_open_tab_for_cart` estiver ativo. Se houver rascunho local sem comanda e o operador tentar salvar ou fazer checkout, um Dialog UI Thing solicita associar a uma comanda livre ou criar uma nova sem duplicar regra de lifecycle na superficie.
+- Fluxo minimo: abrir/criar comanda ou iniciar venda rapida, buscar/listar produtos, montar carrinho, buscar cliente, reutilizar memoria/endereco salvo, usar autocomplete de endereco quando configurado, escolher retirada/entrega, escolher pagamento/recebimento, revisar, finalizar venda e abrir o pedido no gestor.
+- A superficie permite checkout direto sem comanda quando `tab_lifecycle.allows_direct_checkout_without_tab` estiver ativo. Se houver rascunho local sem comanda e o operador tentar salvar/pausar ou abrir outra comanda, um Dialog UI Thing solicita associar a uma comanda livre ou criar uma nova sem duplicar regra de lifecycle na superficie.
 
 ## Guardrails
 

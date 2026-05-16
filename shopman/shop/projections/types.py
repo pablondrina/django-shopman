@@ -70,7 +70,7 @@ class HappyHourProjection:
 PAYMENT_METHOD_LABELS_PT: dict[str, str] = {
     "pix": "PIX",
     "card": "Cartão",
-    "cash": "Dinheiro / Maquininha",
+    "cash": "Dinheiro",
     "mixed": "Pagamento misto",
 
     "external": "Pago online",

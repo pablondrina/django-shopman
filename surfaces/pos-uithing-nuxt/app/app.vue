@@ -326,6 +326,11 @@ function requestTabAssociation(reason: "start" | "save" | "cart" = "start") {
 async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
   const tabCode = sanitizeTabCode(typeof tab === "string" ? tab : tab.code);
   if (!tabCode) return;
+  if (hasDraftWithoutTab.value && !options.preserveDraft) {
+    tabInput.value = tabCode;
+    requestTabAssociation("start");
+    return;
+  }
   serverError.value = "";
   result.value = null;
   busy.value = true;
@@ -543,7 +548,6 @@ async function reloadCurrentTab() {
 }
 
 async function reviewSale() {
-  if (tabRequiredForSave.value && !hasOpenTab.value) return null;
   if (!cart.items.length) return null;
   const state = currentIntentState();
   cart.clientRequestId = state.clientRequestId;
@@ -556,17 +560,15 @@ async function reviewSale() {
 }
 
 async function prepareCheckout() {
-  if (tabRequiredForSave.value && !hasOpenTab.value) {
-    requestTabAssociation("start");
-    return;
-  }
   if (!cart.items.length) return;
   serverError.value = "";
   result.value = null;
   busy.value = true;
   try {
-    await persistTab();
-    await reloadCurrentTab();
+    if (hasOpenTab.value) {
+      await persistTab();
+      await reloadCurrentTab();
+    }
     await reviewSale();
     checkoutMode.value = true;
   } catch (err: any) {
@@ -577,10 +579,6 @@ async function prepareCheckout() {
 }
 
 async function submitSale() {
-  if (tabRequiredForSave.value && !hasOpenTab.value) {
-    requestTabAssociation("start");
-    return;
-  }
   if (!cart.items.length) return;
   if (!checkoutMode.value) {
     await prepareCheckout();

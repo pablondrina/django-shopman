@@ -6,6 +6,7 @@ export interface POSTabLifecycleProjection {
   tab_code_max_digits?: number;
   requires_open_tab_for_cart?: boolean;
   requires_tab_before_save?: boolean;
+  allows_direct_checkout_without_tab?: boolean;
   allows_operator_tab_creation?: boolean;
   draft_association_target_states?: string[];
   occupied_tab_selection?: string;

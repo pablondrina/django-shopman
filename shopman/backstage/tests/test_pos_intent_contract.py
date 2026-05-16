@@ -104,6 +104,18 @@ class PosSaleIntentParserTests(TestCase):
         self.assertNotIn("ignored", structured)
         self.assertEqual(intent.payload["payment_collection"], "on_delivery")
 
+    def test_allows_direct_checkout_intent_without_tab(self) -> None:
+        intent = parse_pos_sale_intent({
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "items": [{"sku": "SKU", "name": "Produto", "qty": "1", "unit_price_q": "500"}],
+            "fulfillment_type": "pickup",
+            "payment_method": "cash",
+        })
+
+        self.assertEqual(intent.payload["tab_code"], "")
+        self.assertEqual(intent.payload["tab_session_key"], "")
+        self.assertEqual(intent.payload["payment_method"], "cash")
+
 
 class PosIntentViewContractTests(TestCase):
     def setUp(self) -> None:
