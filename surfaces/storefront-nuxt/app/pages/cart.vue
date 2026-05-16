@@ -209,7 +209,7 @@ useHead({ title: 'Seu carrinho' })
           >
             <div class="grid grid-cols-[96px_minmax(0,1fr)] sm:grid-cols-[120px_minmax(0,1fr)]">
               <div
-                class="relative m-3 size-[72px] overflow-hidden rounded-md bg-elevated sm:m-4 sm:size-[88px]"
+                class="relative m-3 min-h-[96px] self-stretch overflow-hidden rounded-md bg-elevated sm:m-4 sm:min-h-[112px]"
               >
                 <img
                   v-if="cart.upsell.image_url"
@@ -222,7 +222,7 @@ useHead({ title: 'Seu carrinho' })
                 >
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </div>
-              <div class="min-w-0 p-4 sm:p-5">
+              <div class="min-w-0 py-3 pr-3 sm:py-4 sm:pr-4">
                 <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
                 <p class="font-semibold text-highlighted truncate">
                   {{ cart.upsell.name }}
