@@ -47,12 +47,23 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
         </NuxtLink>
 
         <div class="flex min-w-0 items-start justify-between gap-3">
-          <NuxtLink
-            :to="`/produto/${line.sku}`"
-            class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted hover:text-primary sm:text-base"
-          >
-            {{ line.name }}
-          </NuxtLink>
+          <div class="min-w-0">
+            <NuxtLink
+              :to="`/produto/${line.sku}`"
+              class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted hover:text-primary sm:text-base"
+            >
+              {{ line.name }}
+            </NuxtLink>
+            <p class="mt-1 whitespace-nowrap text-xs text-muted sm:text-sm">
+              <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
+                {{ line.original_price_display }}
+              </span>
+              <span class="tabular-nums">{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}</span>
+            </p>
+            <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="mt-1 max-w-full">
+              <span class="truncate">{{ line.discount_label }}</span>
+            </UBadge>
+          </div>
           <UButton
             color="neutral"
             variant="ghost"
@@ -66,18 +77,7 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
           />
         </div>
 
-        <div class="flex min-w-0 items-end justify-between gap-3">
-          <div class="min-w-0 text-xs text-muted sm:text-sm">
-            <p class="whitespace-nowrap">
-              <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
-                {{ line.original_price_display }}
-              </span>
-              <span class="tabular-nums">{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}</span>
-            </p>
-            <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="mt-1 max-w-full">
-              <span class="truncate">{{ line.discount_label }}</span>
-            </UBadge>
-          </div>
+        <div class="flex justify-end">
           <ProductStepper
             :meta="meta"
             :can-add="line.is_available"
