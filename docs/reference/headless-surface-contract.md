@@ -85,9 +85,8 @@ Isso evita control plane paralelo e evita duplicar estado.
   (`fulfillment.tracking_label`) e retirada (`pickup_info.heading`,
   `pickup_info.directions_label`, `pickup_info.directions_url`) sao parte da
   projection. Superficies nao devem inventar copy ou construir URLs de mapa.
-- Para pedido de retirada pronto, `promise.actions[]` deve carregar o handoff
-  acionavel para rota (`kind="external"`, `href`) quando houver destino de loja
-  suficiente. `pickup_info` nao depende da existencia de um fulfillment tecnico.
+- `pickup_info` nao depende da existencia de um fulfillment tecnico; em retirada,
+  o handoff de rota pertence ao proprio `pickup_info`, junto do endereco exibido.
 - Em conversa, `RemoteConversationProjection.actions[]` e uma projection
   compacta derivada da promise escolhida para WhatsApp/ManyChat.
 

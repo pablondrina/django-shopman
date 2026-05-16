@@ -256,7 +256,6 @@ def build_tracking(order, *, is_debug: bool = False) -> OrderTrackingProjection:
         confirmation_expires_at=confirmation_expires_at,
         eta_display=eta_display,
         business_state=business_state,
-        pickup_directions_url=pickup_info.directions_url if pickup_info else None,
     )
     last_updated_display = _copy_title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora")
 
@@ -614,7 +613,6 @@ def _build_promise(
     confirmation_expires_at: str | None,
     eta_display: str | None,
     business_state: BusinessCalendarState,
-    pickup_directions_url: str | None = None,
 ) -> OrderTrackingPromiseProjection:
     if payment_expired:
         title, message = _copy_pair(
@@ -829,20 +827,13 @@ def _build_promise(
             state = "ready_pickup"
         ready_actions = ()
         if state == "ready_pickup":
-            pickup_action_kwargs = {
-                "ref": "pickup_directions" if pickup_directions_url else "pickup",
-                "kind": "external" if pickup_directions_url else "instruction",
-                "label": (
-                    _copy_title("TRACKING_PICKUP_DIRECTIONS_CTA", "Como chegar")
-                    if pickup_directions_url
-                    else _copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido")
-                ),
-                "priority": "primary",
-            }
-            if pickup_directions_url:
-                pickup_action_kwargs["href"] = pickup_directions_url
             ready_actions = (
-                _action(**pickup_action_kwargs),
+                _action(
+                    ref="pickup",
+                    kind="instruction",
+                    label=_copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido"),
+                    priority="primary",
+                ),
             )
         return OrderTrackingPromiseProjection(
             state=state,
@@ -1422,10 +1413,11 @@ def _pickup_info() -> PickupInfoProjection | None:
 
 def _pickup_directions_url(shop) -> str | None:
     destination = ""
-    if shop.latitude and shop.longitude:
+    route_address = _pickup_route_address(shop)
+    if route_address:
+        destination = route_address
+    elif shop.latitude and shop.longitude:
         destination = f"{shop.latitude},{shop.longitude}"
-    else:
-        destination = _pickup_route_address(shop)
     if not destination:
         return None
 

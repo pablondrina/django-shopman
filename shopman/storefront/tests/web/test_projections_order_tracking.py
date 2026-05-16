@@ -363,19 +363,20 @@ class TestStatusColours:
         assert proj.promise.state == "ready_pickup"
         assert proj.promise.requires_active_notification is False
         assert proj.promise.notification_topic is None
-        assert proj.promise.actions[0].label == "Como chegar"
-        assert proj.promise.actions[0].kind == "external"
-        assert proj.promise.actions[0].href.startswith("https://www.google.com/maps/dir/?")
-        assert "destination=Rua+das+Flores" in proj.promise.actions[0].href
+        assert proj.promise.actions[0].label == "Retirar pedido"
+        assert proj.promise.actions[0].kind == "instruction"
+        assert proj.promise.actions[0].href == ""
         assert proj.promise.active_notification == ""
         assert proj.pickup_fulfillments == ()
         assert proj.pickup_info is not None
-        assert proj.pickup_info.directions_url == proj.promise.actions[0].href
+        assert proj.pickup_info.directions_url is not None
+        assert proj.pickup_info.directions_url.startswith("https://www.google.com/maps/dir/?")
+        assert "destination=Rua+das+Flores" in proj.pickup_info.directions_url
         assert proj.copy.page_kicker == "Acompanhamento"
         assert proj.copy.support_label == "Ajuda"
         rows = [(row.label, row.value, row.url) for row in proj.promise_rows]
         assert ("Próximo passo", "Retire no estabelecimento quando puder.", None) in rows
-        assert ("Sua ação", "Como chegar", proj.promise.actions[0].href) in rows
+        assert ("Sua ação", "Retirar pedido", None) in rows
         assert ("Última atualização", "Atualizado agora", None) in rows
         assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
@@ -418,10 +419,11 @@ class TestStatusColours:
         from shopman.orderman.models import Order as _Order
 
         shop = Shop.load()
+        shop.formatted_address = "Av. Madre Leônia Milito, 446 - Bela Suíça, Londrina - PR"
         shop.latitude = Decimal("-23.3044521")
         shop.longitude = Decimal("-51.1695824")
         shop.place_id = "ChIJ-shopman"
-        shop.save(update_fields=["latitude", "longitude", "place_id"])
+        shop.save(update_fields=["formatted_address", "latitude", "longitude", "place_id"])
 
         _Order.objects.filter(pk=order.pk).update(status="ready", data={"fulfillment_type": "pickup"})
         Fulfillment.objects.create(order=order)
@@ -434,10 +436,45 @@ class TestStatusColours:
         assert proj.pickup_info.directions_label == "Como chegar"
         assert proj.pickup_info.directions_url is not None
         assert proj.pickup_info.directions_url.startswith("https://www.google.com/maps/dir/?")
-        assert "destination=-23.3044521%2C-51.1695824" in proj.pickup_info.directions_url
+        assert "destination=Av.+Madre+Le%C3%B4nia+Milito%2C+446" in proj.pickup_info.directions_url
         assert "destination_place_id=ChIJ-shopman" in proj.pickup_info.directions_url
         assert "origin=" not in proj.pickup_info.directions_url
         assert "travelmode=" not in proj.pickup_info.directions_url
+
+    def test_pickup_directions_fall_back_to_coordinates_without_address(self, order):
+        from decimal import Decimal
+
+        from shopman.orderman.models import Fulfillment
+        from shopman.shop.models import Shop
+        from shopman.orderman.models import Order as _Order
+
+        shop = Shop.load()
+        shop.formatted_address = ""
+        shop.route = ""
+        shop.street_number = ""
+        shop.neighborhood = ""
+        shop.postal_code = ""
+        shop.latitude = Decimal("-23.3044521")
+        shop.longitude = Decimal("-51.1695824")
+        shop.save(update_fields=[
+            "formatted_address",
+            "route",
+            "street_number",
+            "neighborhood",
+            "postal_code",
+            "latitude",
+            "longitude",
+        ])
+
+        _Order.objects.filter(pk=order.pk).update(status="ready", data={"fulfillment_type": "pickup"})
+        Fulfillment.objects.create(order=order)
+        order.refresh_from_db()
+
+        proj = build_order_tracking(order)
+
+        assert proj.pickup_info is not None
+        assert proj.pickup_info.directions_url is not None
+        assert "destination=-23.3044521%2C-51.1695824" in proj.pickup_info.directions_url
 
     def test_ready_unknown_fulfillment_label_is_not_pickup(self, order):
         from shopman.orderman.models import Order as _Order

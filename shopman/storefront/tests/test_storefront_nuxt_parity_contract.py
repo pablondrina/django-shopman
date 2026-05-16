@@ -1180,8 +1180,10 @@ def test_tracking_surface_supports_live_promise_details_and_rating():
     assert "data.copy.page_kicker" in tracking
     assert "data.pickup_info.directions_url" in tracking
     assert "data.pickup_info.directions_label" in tracking
+    assert ":href=\"data.pickup_info.directions_url\"" in tracking
     assert "i-lucide-map-pin" in tracking
-    assert "promiseActionLink.external ? '_blank'" in tracking
+    assert "candidate.ref === 'pay_now'" in tracking
+    assert "candidate.href || candidate.ref === 'pay_now'" not in tracking
     assert "fulfillment.tracking_label" in tracking
     assert "Seu pedido está pronto para retirada ou para sair em entrega." not in tracking
     assert "Abrir mapa" not in tracking

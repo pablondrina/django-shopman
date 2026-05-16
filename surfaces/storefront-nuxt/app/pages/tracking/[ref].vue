@@ -79,7 +79,7 @@ const promiseActionLink = computed(() => {
   const promise = data.value?.promise
   const action = (promise?.actions || []).find(candidate =>
     candidate.enabled !== false
-    && (candidate.href || candidate.ref === 'pay_now')
+    && candidate.ref === 'pay_now'
   )
   if (!action) return null
   const url = action.href || (action.ref === 'pay_now' ? paymentGateUrl.value : null)
@@ -574,9 +574,8 @@ useHead(() => ({
             <p class="mt-1 text-sm text-muted">{{ data.pickup_info.opening_hours }}</p>
             <UButton
               v-if="data.pickup_info.directions_url"
-              :to="data.pickup_info.directions_url"
-              target="_blank"
-              rel="noopener"
+              :href="data.pickup_info.directions_url"
+              external
               :label="data.pickup_info.directions_label"
               icon="i-lucide-map-pin"
               color="neutral"
