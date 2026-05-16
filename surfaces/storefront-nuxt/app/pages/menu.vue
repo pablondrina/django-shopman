@@ -238,7 +238,7 @@ useSeoMeta({
         <UContainer class="relative flex min-h-[560px] items-end py-8 sm:min-h-[640px] lg:py-12">
           <div class="grid min-w-0 w-full gap-6 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
             <div class="min-w-0 w-full max-w-[22rem] pb-2 sm:max-w-3xl">
-              <p class="shop-section-kicker text-white/82">
+              <p class="shop-section-kicker rounded-full bg-black/45 px-3 py-1 text-white ring-1 ring-white/20 backdrop-blur-sm">
                 Cardápio do dia
               </p>
               <h1 class="shop-hero-copy mt-4 max-w-[22rem] text-3xl font-bold leading-tight sm:max-w-2xl sm:text-5xl lg:text-6xl">
@@ -299,8 +299,8 @@ useSeoMeta({
                 </div>
               </div>
 
-              <div class="mt-4 grid gap-3 border-t border-white/15 pt-4 sm:flex sm:items-end sm:justify-between sm:gap-4">
-                <div>
+              <div class="mt-4 flex items-end justify-between gap-3 border-t border-white/15 pt-4">
+                <div class="min-w-0">
                   <p v-if="heroItem.original_price_display" class="text-sm text-white/48 line-through">{{ heroItem.original_price_display }}</p>
                   <p class="text-2xl font-bold tabular-nums">{{ heroItem.price_display }}</p>
                 </div>
@@ -311,7 +311,6 @@ useSeoMeta({
                   add-label="Adicionar"
                   :unavailable-label="heroItem.availability_label"
                   size="sm"
-                  class="justify-self-start sm:justify-self-auto"
                 />
               </div>
 
