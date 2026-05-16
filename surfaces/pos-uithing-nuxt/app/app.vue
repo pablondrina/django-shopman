@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import type {
+  POSAddressAutocompleteProjection,
   POSCartItem,
   POSCloseSaleResponse,
+  POSCustomerLookupProjection,
+  POSCustomerLookupResponse,
   POSProductProjection,
   POSResponse,
   POSSaleReviewProjection,
   POSSaleReviewResponse,
   POSTabPayload,
   POSTabProjection,
+  SavedAddressProjection,
+  StructuredAddressProjection,
 } from "~/types/pos";
 import {
   actionHref,
@@ -36,10 +41,12 @@ const activeCollection = ref("");
 const tabInput = ref("");
 const busy = ref(false);
 const saving = ref(false);
+const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
+const customerLookup = ref<POSCustomerLookupProjection | null>(null);
 
 const cart = reactive({
   tabCode: "",
@@ -47,14 +54,18 @@ const cart = reactive({
   tabSessionKey: "",
   items: [] as POSCartItem[],
   customerName: "",
+  customerRef: "",
   customerPhone: "",
   customerTaxId: "",
   customerEmail: "",
   customerMemoryAction: "",
   fulfillmentType: "pickup" as FulfillmentType,
   deliveryAddress: "",
+  deliveryAddressStructured: {} as StructuredAddressProjection,
   deliveryStreetNumber: "",
   deliveryNeighborhood: "",
+  deliveryComplement: "",
+  deliveryInstructions: "",
   deliveryDate: "",
   deliveryTimeSlot: "",
   deliveryFeeInput: "",
@@ -76,6 +87,10 @@ const tabs = computed(() => data.value?.tabs || []);
 const shift = computed(() => data.value?.shift || null);
 const actions = computed(() => pos.value?.actions || []);
 const checkoutContract = computed(() => pos.value?.checkout || null);
+const addressAutocomplete = computed<POSAddressAutocompleteProjection | null>(() => {
+  const raw = checkoutContract.value?.capabilities?.address_autocomplete;
+  return raw && typeof raw === "object" ? raw as POSAddressAutocompleteProjection : null;
+});
 const totalDisplay = computed(() => formatBRL(cartTotalQ(cart.items)));
 const itemCount = computed(() => cart.items.reduce((sum, item) => sum + item.qty, 0));
 const hasOpenTab = computed(() => Boolean(cart.tabSessionKey));
@@ -135,8 +150,11 @@ watch(() => [
   cart.customerEmail,
   cart.fulfillmentType,
   cart.deliveryAddress,
+  cart.deliveryAddressStructured,
   cart.deliveryStreetNumber,
   cart.deliveryNeighborhood,
+  cart.deliveryComplement,
+  cart.deliveryInstructions,
   cart.deliveryDate,
   cart.deliveryTimeSlot,
   cart.deliveryFeeInput,
@@ -192,13 +210,17 @@ function resetCart() {
   cart.tabSessionKey = "";
   cart.items = [];
   cart.customerName = "";
+  cart.customerRef = "";
   cart.customerPhone = "";
   cart.customerTaxId = "";
   cart.customerEmail = "";
   cart.customerMemoryAction = "";
   cart.deliveryAddress = "";
+  cart.deliveryAddressStructured = {};
   cart.deliveryStreetNumber = "";
   cart.deliveryNeighborhood = "";
+  cart.deliveryComplement = "";
+  cart.deliveryInstructions = "";
   cart.deliveryDate = "";
   cart.deliveryTimeSlot = "";
   cart.deliveryFeeInput = "";
@@ -212,6 +234,7 @@ function resetCart() {
   cart.manualDiscount = null;
   cart.managerApproval = null;
   cart.clientRequestId = "";
+  customerLookup.value = null;
   checkoutMode.value = false;
   review.value = null;
 }
@@ -222,13 +245,17 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.tabSessionKey = payload.tab_session_key || payload.session_key;
   cart.items = (payload.items || []).map((item) => ({ ...item }));
   cart.customerName = payload.customer_name || "";
+  cart.customerRef = payload.customer_ref || "";
   cart.customerPhone = payload.customer_phone || "";
   cart.customerTaxId = payload.customer_tax_id || "";
   cart.customerEmail = payload.customer_email || "";
   cart.fulfillmentType = payload.fulfillment_type === "delivery" ? "delivery" : "pickup";
   cart.deliveryAddress = payload.delivery_address || "";
+  cart.deliveryAddressStructured = payload.delivery_address_structured || {};
   cart.deliveryStreetNumber = payload.delivery_address_structured?.street_number || "";
   cart.deliveryNeighborhood = payload.delivery_address_structured?.neighborhood || "";
+  cart.deliveryComplement = payload.delivery_address_structured?.complement || "";
+  cart.deliveryInstructions = payload.delivery_address_structured?.delivery_instructions || payload.delivery_address_structured?.reference || "";
   cart.deliveryDate = payload.delivery_date || "";
   cart.deliveryTimeSlot = payload.delivery_time_slot || "";
   cart.deliveryFeeInput = payload.delivery_fee_q ? (Number(payload.delivery_fee_q) / 100).toFixed(2).replace(".", ",") : "";
@@ -243,6 +270,7 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.manualDiscount = null;
   cart.managerApproval = null;
   cart.clientRequestId = "";
+  customerLookup.value = null;
   checkoutMode.value = false;
   review.value = null;
 }
@@ -272,25 +300,38 @@ async function openTab(tab: POSTabProjection | string) {
 }
 
 function currentIntentState() {
-  const deliveryAddressParts = [cart.deliveryAddress.trim(), cart.deliveryStreetNumber.trim(), cart.deliveryNeighborhood.trim()]
+  const structured: StructuredAddressProjection = {
+    ...cart.deliveryAddressStructured,
+    route: cart.deliveryAddress.trim() || cart.deliveryAddressStructured.route || "",
+    street_number: cart.deliveryStreetNumber.trim() || cart.deliveryAddressStructured.street_number || "",
+    neighborhood: cart.deliveryNeighborhood.trim() || cart.deliveryAddressStructured.neighborhood || "",
+    complement: cart.deliveryComplement.trim() || cart.deliveryAddressStructured.complement || "",
+    delivery_instructions: cart.deliveryInstructions.trim() || cart.deliveryAddressStructured.delivery_instructions || "",
+    reference: cart.deliveryInstructions.trim() || cart.deliveryAddressStructured.reference || "",
+  };
+  const deliveryAddressParts = [
+    structured.formatted_address || "",
+    structured.route || "",
+    structured.street_number || "",
+    structured.neighborhood || "",
+  ]
     .filter(Boolean);
+  const deliveryAddress = structured.formatted_address || deliveryAddressParts.join(", ");
   return {
     tabCode: cart.tabCode,
     tabSessionKey: cart.tabSessionKey,
     items: cart.items,
     customerName: cart.customerName,
+    customerRef: cart.customerRef,
     customerPhone: cart.customerPhone,
     customerTaxId: cart.customerTaxId,
     customerEmail: cart.customerEmail,
     customerMemoryAction: cart.customerMemoryAction,
     fulfillmentType: cart.fulfillmentType,
-    deliveryAddress: deliveryAddressParts.join(", "),
-    deliveryAddressStructured: {
-      route: cart.deliveryAddress.trim(),
-      street_number: cart.deliveryStreetNumber.trim(),
-      neighborhood: cart.deliveryNeighborhood.trim(),
-      reference: cart.orderNotes.trim(),
-    },
+    deliveryAddress,
+    deliveryAddressStructured: structured,
+    deliveryComplement: cart.deliveryComplement,
+    deliveryInstructions: cart.deliveryInstructions,
     deliveryDate: cart.deliveryDate,
     deliveryTimeSlot: cart.deliveryTimeSlot,
     deliveryFeeQ: deliveryFeeQ.value,
@@ -306,6 +347,86 @@ function currentIntentState() {
     managerApproval: cart.managerApproval,
     clientRequestId: cart.clientRequestId || newClientRequestId(),
   };
+}
+
+function applyStructuredAddress(address: StructuredAddressProjection) {
+  cart.deliveryAddressStructured = {
+    ...cart.deliveryAddressStructured,
+    ...address,
+  };
+  cart.deliveryAddress = address.route || address.formatted_address || cart.deliveryAddress;
+  cart.deliveryStreetNumber = address.street_number || cart.deliveryStreetNumber;
+  cart.deliveryNeighborhood = address.neighborhood || cart.deliveryNeighborhood;
+  cart.deliveryComplement = address.complement || cart.deliveryComplement;
+  cart.deliveryInstructions = address.delivery_instructions || address.reference || cart.deliveryInstructions;
+}
+
+function applySavedAddress(address: SavedAddressProjection) {
+  applyStructuredAddress(address);
+  cart.deliveryAddress = address.route || address.formatted_address;
+}
+
+async function lookupCustomer() {
+  const phone = cart.customerPhone.trim();
+  if (!phone) return;
+  lookupBusy.value = true;
+  serverError.value = "";
+  try {
+    const path = concreteActionHref(
+      actions.value,
+      "customer_lookup",
+      "/api/v1/backstage/pos/customer/lookup/?phone={phone}",
+      { phone },
+    );
+    const response = await $fetch<POSCustomerLookupResponse>(apiPath(path), {
+      method: "GET",
+      credentials: "include",
+      headers: requestHeaders,
+    });
+    customerLookup.value = response.customer;
+    if (!response.customer) return;
+    cart.customerRef = response.customer.ref;
+    cart.customerName = response.customer.name || cart.customerName;
+    cart.customerPhone = response.customer.phone || cart.customerPhone;
+    cart.customerEmail = response.customer.email || cart.customerEmail;
+    if (response.customer.is_staff) cart.customerMemoryAction = "";
+    if (cart.fulfillmentType === "delivery" && response.customer.default_address && !cart.deliveryAddress.trim()) {
+      applySavedAddress(response.customer.default_address);
+    }
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.message || "Falha ao buscar cliente.";
+  } finally {
+    lookupBusy.value = false;
+  }
+}
+
+function productFromMemoryItem(item: Record<string, unknown>): POSProductProjection | null {
+  const sku = String(item.sku || "");
+  return pos.value?.products.find((product) => product.sku === sku) || null;
+}
+
+function addProductQty(product: POSProductProjection, qty: number) {
+  for (let idx = 0; idx < Math.max(1, qty); idx += 1) addProduct(product);
+}
+
+function applyCustomerFavorite() {
+  const item = customerLookup.value?.memory.favorite_item;
+  if (!item) return;
+  const product = productFromMemoryItem(item);
+  if (!product) return;
+  addProductQty(product, 1);
+  cart.customerMemoryAction = "favorite_item";
+}
+
+function repeatCustomerLastOrder() {
+  const items = customerLookup.value?.memory.last_order_items || [];
+  for (const item of items) {
+    const product = productFromMemoryItem(item);
+    if (!product) continue;
+    const qty = Number.parseInt(String(item.qty || 1), 10);
+    addProductQty(product, Number.isFinite(qty) ? qty : 1);
+  }
+  if (items.length) cart.customerMemoryAction = "last_order";
 }
 
 function buildCurrentIntent() {
@@ -565,6 +686,8 @@ function newClientRequestId(): string {
           :payment-methods="pos?.payment_methods || []"
           :payment-collections="pos?.payment_collections || []"
           :checkout-contract="checkoutContract"
+          :address-autocomplete="addressAutocomplete"
+          :customer-lookup="customerLookup"
           :checkout-mode="checkoutMode"
           :review="review"
           v-model:fulfillment-type="cart.fulfillmentType"
@@ -575,8 +698,11 @@ function newClientRequestId(): string {
           v-model:customer-tax-id="cart.customerTaxId"
           v-model:customer-email="cart.customerEmail"
           v-model:delivery-address="cart.deliveryAddress"
+          v-model:delivery-address-structured="cart.deliveryAddressStructured"
           v-model:delivery-street-number="cart.deliveryStreetNumber"
           v-model:delivery-neighborhood="cart.deliveryNeighborhood"
+          v-model:delivery-complement="cart.deliveryComplement"
+          v-model:delivery-instructions="cart.deliveryInstructions"
           v-model:delivery-date="cart.deliveryDate"
           v-model:delivery-time-slot="cart.deliveryTimeSlot"
           v-model:delivery-fee-input="cart.deliveryFeeInput"
@@ -587,6 +713,7 @@ function newClientRequestId(): string {
           v-model:receipt-email="cart.receiptEmail"
           :loading="busy"
           :saving="saving"
+          :lookup-busy="lookupBusy"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
@@ -595,6 +722,10 @@ function newClientRequestId(): string {
           @back="checkoutMode = false"
           @submit="submitSale"
           @clear="clearCurrentTab"
+          @lookup-customer="lookupCustomer"
+          @apply-customer-favorite="applyCustomerFavorite"
+          @repeat-customer-last-order="repeatCustomerLastOrder"
+          @pick-saved-address="applySavedAddress"
         />
         <p class="mt-3 text-xs text-muted-foreground">
           {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.

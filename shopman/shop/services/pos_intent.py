@@ -263,11 +263,35 @@ def _tenders(raw) -> list[dict] | None:
 def _structured_address(raw) -> dict:
     if not isinstance(raw, dict):
         return {}
-    allowed = {
-        "route", "street_number", "neighborhood", "city", "state",
-        "postal_code", "country", "complement", "reference",
+    text_limits = {
+        "formatted_address": 500,
+        "route": 200,
+        "street_number": 40,
+        "neighborhood": 120,
+        "city": 120,
+        "state": 80,
+        "state_code": 10,
+        "postal_code": 40,
+        "country": 120,
+        "country_code": 10,
+        "place_id": 255,
+        "complement": 160,
+        "delivery_instructions": 500,
+        "reference": 160,
     }
-    return {key: _text(value, limit=160) for key, value in raw.items() if key in allowed and _text(value, limit=160)}
+    cleaned: dict = {}
+    for key, value in raw.items():
+        if key in text_limits:
+            text = _text(value, limit=text_limits[key])
+            if text:
+                cleaned[key] = text
+        elif key in {"latitude", "longitude"}:
+            number = _optional_float(value)
+            if number is not None:
+                cleaned[key] = number
+        elif key == "is_verified":
+            cleaned[key] = bool(value)
+    return cleaned
 
 
 def _manual_discount(raw) -> dict | None:
@@ -346,6 +370,15 @@ def _text(value, *, limit: int) -> str:
     if len(text) > limit:
         text = text[:limit]
     return text
+
+
+def _optional_float(value) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _positive_int(value, field: str) -> int:

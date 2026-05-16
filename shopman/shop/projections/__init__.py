@@ -8,6 +8,7 @@ from .types import (  # noqa: F401
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     PAYMENT_METHOD_LABELS_PT,
+    AddressAutocompleteProjection,
     Availability,
     CategoryProjection,
     ComponentProjection,

@@ -88,6 +88,86 @@ export interface POSCheckoutContractProjection {
   capabilities: Record<string, unknown>;
 }
 
+export interface POSCashRuntimeProjection {
+  has_open_shift: boolean;
+  shift_id: number | null;
+  terminal_ref: string;
+  terminal_label: string;
+  operator_username: string;
+  opened_at: string;
+}
+
+export interface POSAddressAutocompleteProjection {
+  enabled: boolean;
+  provider: "google_places" | string;
+  public_api_key: string;
+  language: string;
+  region: string;
+  countries: string[];
+  types: string[];
+  fields: string[];
+  structured_fields: string[];
+  reverse_geocode_action_ref: string;
+  shop_latitude: number | null;
+  shop_longitude: number | null;
+  bias_radius_m: number;
+}
+
+export interface StructuredAddressProjection {
+  formatted_address?: string;
+  route?: string;
+  street_number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  state_code?: string;
+  postal_code?: string;
+  country?: string;
+  country_code?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  place_id?: string | null;
+  complement?: string;
+  delivery_instructions?: string;
+  reference?: string;
+  is_verified?: boolean;
+}
+
+export interface SavedAddressProjection extends StructuredAddressProjection {
+  id: number;
+  label: string;
+  label_key: string;
+  label_custom: string;
+  formatted_address: string;
+  complement: string;
+  delivery_instructions: string;
+  is_default: boolean;
+}
+
+export interface POSCustomerMemoryProjection {
+  total_orders: number;
+  average_order_display: string;
+  favorite_product: string;
+  favorite_item: Record<string, unknown>;
+  last_order_items: Array<Record<string, unknown>>;
+}
+
+export interface POSCustomerLookupProjection {
+  ref: string;
+  name: string;
+  phone: string;
+  email: string;
+  loyalty_group: string;
+  is_staff: boolean;
+  default_address: SavedAddressProjection | null;
+  saved_addresses: SavedAddressProjection[];
+  memory: POSCustomerMemoryProjection;
+}
+
+export interface POSCustomerLookupResponse {
+  customer: POSCustomerLookupProjection | null;
+}
+
 export interface POSTerminalComponentProjection {
   key: string;
   label: string;
@@ -104,6 +184,7 @@ export interface POSProjection {
   checkout: POSCheckoutContractProjection;
   actions: SurfaceActionProjection[];
   has_open_cash_session: boolean;
+  cash_runtime: POSCashRuntimeProjection;
   terminal_ref: string;
   terminal_label: string;
   terminal_default_fulfillment_type: "pickup" | "delivery" | string;
@@ -170,11 +251,12 @@ export interface POSTabPayload {
   customer_phone: string;
   customer_name: string;
   customer_ref: string;
+  customer_group?: string;
   customer_tax_id: string;
   customer_email: string;
   fulfillment_type: "pickup" | "delivery";
   delivery_address: string;
-  delivery_address_structured: Record<string, string>;
+  delivery_address_structured: StructuredAddressProjection;
   delivery_date: string;
   delivery_time_slot: string;
   delivery_fee_q: number;
@@ -202,13 +284,16 @@ export interface POSIntentCartState {
   tabSessionKey: string;
   items: POSCartItem[];
   customerName: string;
+  customerRef: string;
   customerPhone: string;
   customerTaxId: string;
   customerEmail: string;
   customerMemoryAction: string;
   fulfillmentType: "pickup" | "delivery";
   deliveryAddress: string;
-  deliveryAddressStructured: Record<string, string>;
+  deliveryAddressStructured: StructuredAddressProjection;
+  deliveryComplement: string;
+  deliveryInstructions: string;
   deliveryDate: string;
   deliveryTimeSlot: string;
   deliveryFeeQ: number;

@@ -75,14 +75,33 @@ class PosSaleIntentParserTests(TestCase):
             "items": [{"sku": "SKU", "name": "Produto", "qty": "2", "unit_price_q": "500"}],
             "fulfillment_type": "delivery",
             "delivery_address": "Rua A, 10",
-            "delivery_address_structured": {"route": "Rua A", "street_number": "10", "ignored": "x"},
+            "delivery_address_structured": {
+                "formatted_address": "Rua A, 10 - Centro, Londrina - PR",
+                "route": "Rua A",
+                "street_number": "10",
+                "neighborhood": "Centro",
+                "city": "Londrina",
+                "state_code": "PR",
+                "postal_code": "86000-000",
+                "latitude": "-23.3",
+                "longitude": "-51.1",
+                "place_id": "ChIJ-pos-intent",
+                "delivery_instructions": "Portaria",
+                "is_verified": True,
+                "ignored": "x",
+            },
             "payment_method": "cash",
             "payment_collection": "on_delivery",
             "tab_code": "00000001",
         })
 
         self.assertEqual(intent.payload["items"][0]["qty"], 2)
-        self.assertEqual(intent.payload["delivery_address_structured"], {"route": "Rua A", "street_number": "10"})
+        structured = intent.payload["delivery_address_structured"]
+        self.assertEqual(structured["route"], "Rua A")
+        self.assertEqual(structured["place_id"], "ChIJ-pos-intent")
+        self.assertEqual(structured["latitude"], -23.3)
+        self.assertEqual(structured["longitude"], -51.1)
+        self.assertNotIn("ignored", structured)
         self.assertEqual(intent.payload["payment_collection"], "on_delivery")
 
 

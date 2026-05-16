@@ -168,6 +168,47 @@ class SavedAddressProjection:
 
 
 @dataclass(frozen=True)
+class AddressAutocompleteProjection:
+    """Client-side address autocomplete capability for headless surfaces.
+
+    ``public_api_key`` is intentionally the browser key. It must be restricted
+    in Google Cloud; reverse geocoding stays server-side via the advertised
+    action ref.
+    """
+
+    enabled: bool
+    provider: str = "google_places"
+    public_api_key: str = ""
+    language: str = "pt-BR"
+    region: str = "BR"
+    countries: tuple[str, ...] = ("br",)
+    types: tuple[str, ...] = ("address",)
+    fields: tuple[str, ...] = ("formatted_address", "address_components", "geometry", "place_id")
+    structured_fields: tuple[str, ...] = (
+        "formatted_address",
+        "route",
+        "street_number",
+        "neighborhood",
+        "city",
+        "state_code",
+        "postal_code",
+        "country",
+        "country_code",
+        "latitude",
+        "longitude",
+        "place_id",
+        "complement",
+        "delivery_instructions",
+        "reference",
+        "is_verified",
+    )
+    reverse_geocode_action_ref: str = "reverse_geocode"
+    shop_latitude: float | None = None
+    shop_longitude: float | None = None
+    bias_radius_m: int = 15000
+
+
+@dataclass(frozen=True)
 class PickupSlotProjection:
     """A single configured pickup time slot."""
 

@@ -10,8 +10,9 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
 from shopman.backstage.api.projections import projection_data
-from shopman.backstage.models import CashRegisterSession, POSTab
+from shopman.backstage.models import CashRegisterSession, CashShift, POSTab, POSTerminal
 from shopman.backstage.projections.pos import build_pos
+from shopman.guestman.models import Customer, CustomerAddress
 from shopman.offerman.models import Listing, ListingItem, Product
 from shopman.orderman.models import Order
 from shopman.shop.models import Channel, Shop
@@ -58,12 +59,14 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.operator = User.objects.create_user(username="pos-headless", password="x", is_staff=True)
         _grant_pos_perm(self.operator)
         self.client.force_login(self.operator)
+        self.terminal = POSTerminal.default()
+        self.shift = CashShift.objects.create(operator=self.operator, terminal=self.terminal, opening_amount_q=0)
 
     def test_api_pos_payload_matches_projection_builder(self) -> None:
         response = self.client.get("/api/v1/backstage/pos/")
 
         self.assertEqual(response.status_code, 200)
-        expected = projection_data(build_pos())
+        expected = projection_data(build_pos(operator=self.operator))
         payload = response.json()
         self.assertEqual(payload["pos"], expected)
         self.assertEqual(payload["pos"]["products"][0]["sku"], "POS-HEADLESS-ITEM")
@@ -75,6 +78,14 @@ class POSHeadlessSurfaceContractTests(TestCase):
         action_refs = {action["ref"] for action in payload["pos"]["actions"]}
         self.assertIn("review_sale", action_refs)
         self.assertIn("close_sale", action_refs)
+        self.assertIn("reverse_geocode", action_refs)
+        self.assertIn("create_tab", action_refs)
+        self.assertIn("cancel_recent_sale", action_refs)
+        self.assertIn("open_cash_shift", action_refs)
+        self.assertIn("close_cash_shift", action_refs)
+        self.assertIn("cash_movement", action_refs)
+        self.assertTrue(payload["pos"]["cash_runtime"]["has_open_shift"])
+        self.assertEqual(payload["pos"]["cash_runtime"]["shift_id"], self.shift.pk)
 
         checkout = payload["pos"]["checkout"]
         self.assertEqual(checkout["intent_version"], POS_SALE_INTENT_VERSION)
@@ -86,6 +97,8 @@ class POSHeadlessSurfaceContractTests(TestCase):
             {"none", "print", "email"},
         )
         field_refs = {field["ref"]: field for field in checkout["fields"]}
+        self.assertEqual(field_refs["delivery_address"]["input_type"], "address_autocomplete")
+        self.assertEqual(field_refs["delivery_address"]["capability_ref"], "delivery_address_autocomplete")
         self.assertEqual(field_refs["delivery_address"]["required_when"], {"fulfillment_type": "delivery"})
         self.assertEqual(
             field_refs["tendered_amount_q"]["required_when"],
@@ -94,6 +107,13 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertTrue(checkout["capabilities"]["supports_split_payment"])
         self.assertEqual(checkout["capabilities"]["prepare_checkout_action_ref"], "save_tab")
         self.assertEqual(checkout["capabilities"]["review_action_ref"], "review_sale")
+        self.assertEqual(checkout["capabilities"]["customer_lookup_action_ref"], "customer_lookup")
+        self.assertEqual(checkout["capabilities"]["address_autocomplete"]["provider"], "google_places")
+        self.assertIn("place_id", checkout["capabilities"]["address_autocomplete"]["structured_fields"])
+        self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["create_action_ref"], "create_tab")
+        self.assertEqual(checkout["capabilities"]["cash_management"]["movement_kinds"], ["sangria", "suprimento", "ajuste"])
+        self.assertEqual(checkout["capabilities"]["sale_correction"]["cancel_recent_action_ref"], "cancel_recent_sale")
+        self.assertTrue(checkout["capabilities"]["idempotent_replay"]["safe_for_offline_queue"])
 
     def test_api_headless_pos_flow_opens_tab_and_closes_sale(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
@@ -199,3 +219,82 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(reviewed.status_code, 422)
         self.assertEqual(reviewed.json()["error"]["code"], "delivery_address_required")
         self.assertEqual(Order.objects.count(), 0)
+
+    def test_api_customer_lookup_returns_memory_and_default_address_projection(self) -> None:
+        customer = Customer.objects.create(
+            ref="CUST-POS-HEADLESS",
+            first_name="Lia",
+            last_name="Cliente",
+            phone="+5543999993333",
+            email="lia@example.com",
+        )
+        CustomerAddress.objects.create(
+            customer=customer,
+            label="home",
+            formatted_address="Rua Headless, 77",
+            route="Rua Headless",
+            street_number="77",
+            neighborhood="Centro",
+            city="Londrina",
+            state_code="PR",
+            postal_code="86000-000",
+            latitude=-23.3,
+            longitude=-51.1,
+            place_id="ChIJ-pos-headless",
+            is_default=True,
+        )
+        Order.objects.create(
+            ref="ORD-POS-HEADLESS-MEM",
+            channel_ref="pdv",
+            session_key="sess-pos-headless-mem",
+            status=Order.Status.COMPLETED,
+            snapshot={
+                "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 2, "unit_price_q": 1300}],
+                "pricing": {"total_q": 2600},
+            },
+            data={"customer_ref": customer.ref, "customer": {"ref": customer.ref, "name": customer.name}},
+            total_q=2600,
+        )
+
+        response = self.client.get("/api/v1/backstage/pos/customer/lookup/?phone=(43)%2099999-3333")
+
+        self.assertEqual(response.status_code, 200)
+        lookup = response.json()["customer"]
+        self.assertEqual(lookup["ref"], customer.ref)
+        self.assertEqual(lookup["email"], "lia@example.com")
+        self.assertEqual(lookup["default_address"]["place_id"], "ChIJ-pos-headless")
+        self.assertEqual(lookup["default_address"]["route"], "Rua Headless")
+        self.assertEqual(lookup["saved_addresses"][0]["place_id"], "ChIJ-pos-headless")
+        self.assertEqual(lookup["memory"]["total_orders"], 1)
+        self.assertEqual(lookup["memory"]["favorite_item"]["sku"], "POS-HEADLESS-ITEM")
+
+    def test_api_headless_pos_can_cancel_recent_sale_through_pos_contract(self) -> None:
+        opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
+        self.assertEqual(opened.status_code, 200)
+        tab = opened.json()
+        closed = self.client.post(
+            "/api/v1/backstage/pos/sale/close/",
+            data=json.dumps({
+                "intent_version": POS_SALE_INTENT_VERSION,
+                "tab_code": tab["tab_code"],
+                "tab_session_key": tab["tab_session_key"],
+                "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
+                "payment_method": "cash",
+                "payment_collection": "terminal",
+                "client_request_id": "pos-headless-cancel-001",
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(closed.status_code, 200)
+        order_ref = closed.json()["order_ref"]
+
+        cancelled = self.client.post(
+            "/api/v1/backstage/pos/sale/recent/cancel/",
+            data=json.dumps({"order_ref": order_ref, "reason": "Erro de lançamento"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(cancelled.status_code, 200)
+        order = Order.objects.get(ref=order_ref)
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+        self.assertEqual(order.data["pos_correction_reason"], "Erro de lançamento")

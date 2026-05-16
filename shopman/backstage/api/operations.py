@@ -20,6 +20,7 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/pos/cash/close/             -> close cash shift
   POST /api/v1/backstage/pos/cash/movement/          → register cash movement
   POST /api/v1/backstage/pos/sale/review/            → validate POS checkout without commit
+  POST /api/v1/backstage/pos/sale/recent/cancel/     → cancel recent POS sale
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.projections.order_queue import build_operator_order, build_two_zone_queue
 from shopman.backstage.projections.pos import (
     build_pos,
+    build_pos_customer_lookup,
     build_pos_shift_summary,
     build_pos_tabs,
 )
@@ -155,7 +157,7 @@ class POSView(APIView):
     required_permission = "backstage.operate_pos"
 
     def get(self, request):
-        pos = build_pos()
+        pos = build_pos(operator=request.user)
         shift = build_pos_shift_summary()
         query = request.query_params.get("q", "")
         tabs = build_pos_tabs(query=query)
@@ -686,18 +688,10 @@ class POSCustomerLookupView(APIView):
         phone = (request.query_params.get("phone") or "").strip()
         if not phone:
             return Response({"customer": None})
-        customer = pos_tabs_service.resolve_customer(phone)
+        customer = build_pos_customer_lookup(phone)
         if customer is None:
             return Response({"customer": None})
-        return Response({
-            "customer": {
-                "ref": getattr(customer, "ref", ""),
-                "name": getattr(customer, "name", "") or getattr(customer, "first_name", ""),
-                "phone": getattr(customer, "phone", "") or phone,
-                "loyalty_group": getattr(customer, "loyalty_group", "") or "",
-                "is_staff": bool(getattr(customer, "is_staff", False)),
-            }
-        })
+        return Response({"customer": projection_data(customer)})
 
 
 @extend_schema_view(
@@ -759,3 +753,40 @@ class POSCloseSaleView(APIView):
             "order_ref": getattr(result, "order_ref", None),
             "tab_code": getattr(result, "tab_code", None),
         })
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Cancel a recent POS sale",
+        responses={200: OpenApiResponse(description="Recent POS sale cancelled.")},
+    ),
+)
+class POSCancelRecentSaleView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        order_ref = (request.data.get("order_ref") or "").strip()
+        reason = (request.data.get("reason") or "").strip()
+        if not order_ref:
+            return Response({"detail": "Referência do pedido não informada."}, status=422)
+        try:
+            if reason:
+                pos_tabs_service.reopen_recent_order_for_correction(
+                    order_ref=order_ref,
+                    actor=_actor_pos(request),
+                    reason=reason,
+                )
+            else:
+                pos_tabs_service.cancel_recent_order(
+                    order_ref=order_ref,
+                    actor=_actor_pos(request),
+                )
+        except ValueError as exc:
+            status_code = 404 if "não encontrado" in str(exc) else 422
+            return Response({"detail": str(exc)}, status=status_code)
+        except Exception as exc:
+            logger.debug("pos_cancel_recent_sale_failed order=%s user=%s", order_ref, _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao cancelar venda."}, status=400)
+        return Response({"ok": True, "order_ref": order_ref})

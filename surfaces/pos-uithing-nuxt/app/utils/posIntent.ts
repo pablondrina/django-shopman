@@ -69,6 +69,7 @@ export function buildPosSaleIntent(
   };
 
   if (state.customerName.trim()) payload.customer_name = state.customerName.trim();
+  if (state.customerRef.trim()) payload.customer_ref = state.customerRef.trim();
   if (state.customerPhone.trim()) payload.customer_phone = state.customerPhone.replace(/\D/g, "");
   if (state.customerTaxId.trim()) payload.customer_tax_id = state.customerTaxId.replace(/\D/g, "");
   if (state.customerEmail.trim()) payload.customer_email = state.customerEmail.trim();
@@ -76,7 +77,11 @@ export function buildPosSaleIntent(
 
   if (state.fulfillmentType === "delivery") {
     payload.delivery_address = state.deliveryAddress.trim();
-    payload.delivery_address_structured = state.deliveryAddressStructured;
+    payload.delivery_address_structured = {
+      ...state.deliveryAddressStructured,
+      complement: state.deliveryComplement.trim() || state.deliveryAddressStructured.complement,
+      delivery_instructions: state.deliveryInstructions.trim() || state.deliveryAddressStructured.delivery_instructions,
+    };
     if (state.deliveryDate.trim()) payload.delivery_date = state.deliveryDate.trim();
     if (state.deliveryTimeSlot.trim()) payload.delivery_time_slot = state.deliveryTimeSlot.trim();
     payload.delivery_fee_q = Math.max(0, state.deliveryFeeQ || 0);

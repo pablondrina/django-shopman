@@ -858,7 +858,8 @@ def _int_q(value) -> int:
 
 
 def _append_delivery_ops(ops: list[dict], payload: dict) -> None:
-    address = str(payload.get("delivery_address") or "").strip()
+    structured_address = payload.get("delivery_address_structured") if isinstance(payload.get("delivery_address_structured"), dict) else {}
+    address = str(payload.get("delivery_address") or structured_address.get("formatted_address") or "").strip()
     if address:
         ops.append({"op": "set_data", "path": "delivery_address", "value": address})
     structured = payload.get("delivery_address_structured") or {}
@@ -1068,7 +1069,8 @@ def _persist_customer_from_payload(payload: dict, *, operator_username: str) -> 
     email = str(payload.get("customer_email") or "").strip().lower()
     if not email and str(payload.get("receipt_mode") or "").strip() == "email":
         email = str(payload.get("receipt_email") or "").strip().lower()
-    address = str(payload.get("delivery_address") or "").strip()
+    structured_address = payload.get("delivery_address_structured") if isinstance(payload.get("delivery_address_structured"), dict) else {}
+    address = str(payload.get("delivery_address") or structured_address.get("formatted_address") or "").strip()
     raw_ref = str(payload.get("customer_ref") or "").strip()
 
     if not any((raw_ref, name, phone, tax_id, email, address)):
@@ -1126,7 +1128,7 @@ def _persist_customer_from_payload(payload: dict, *, operator_username: str) -> 
         if tax_id:
             _ensure_customer_identifier(customer.ref, "cpf", tax_id)
         if address:
-            _ensure_customer_address(address_service, customer.ref, address)
+            _ensure_customer_address(address_service, customer.ref, address, structured_address)
 
         customer.refresh_from_db()
         return {
@@ -1279,15 +1281,70 @@ def _find_customer_identifier(identifier_type: str, identifier_value: str):
         return None
 
 
-def _ensure_customer_address(address_service, customer_ref: str, formatted_address: str) -> None:
-    if address_service.has_address(customer_ref, formatted_address):
+def _ensure_customer_address(address_service, customer_ref: str, formatted_address: str, structured: dict | None = None) -> None:
+    structured = structured if isinstance(structured, dict) else {}
+    place_id = str(structured.get("place_id") or "").strip()
+    existing = address_service.find_by_place_id(customer_ref, place_id) if place_id else None
+    if existing is None and address_service.has_address(customer_ref, formatted_address):
         return
+
+    components = {
+        key: str(structured.get(key) or "").strip()
+        for key in (
+            "route",
+            "street_number",
+            "neighborhood",
+            "city",
+            "state",
+            "state_code",
+            "postal_code",
+            "country",
+            "country_code",
+        )
+        if str(structured.get(key) or "").strip()
+    }
+    coordinates = _structured_coordinates(structured)
+    complement = str(structured.get("complement") or "").strip()
+    delivery_instructions = str(structured.get("delivery_instructions") or structured.get("reference") or "").strip()
+
+    if existing is not None:
+        updates = {
+            "formatted_address": formatted_address,
+            "place_id": place_id,
+            **components,
+        }
+        if complement:
+            updates["complement"] = complement
+        if delivery_instructions:
+            updates["delivery_instructions"] = delivery_instructions
+        if coordinates:
+            updates["latitude"] = coordinates[0]
+            updates["longitude"] = coordinates[1]
+        address_service.update_address(customer_ref, existing.id, **updates)
+        return
+
     address_service.add_address(
         customer_ref=customer_ref,
         label="home",
         formatted_address=formatted_address,
+        place_id=place_id or None,
+        components=components,
+        coordinates=coordinates,
+        complement=complement,
+        delivery_instructions=delivery_instructions,
         is_default=not address_service.has_any_address(customer_ref),
     )
+
+
+def _structured_coordinates(structured: dict) -> tuple[float, float] | None:
+    try:
+        lat = float(structured.get("latitude"))
+        lng = float(structured.get("longitude"))
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return lat, lng
 
 
 def _split_name(full_name: str) -> tuple[str, str]:

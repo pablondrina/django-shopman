@@ -16,7 +16,12 @@ from django.conf import settings
 from django.utils import timezone
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
-from shopman.shop.projections.types import PAYMENT_METHOD_LABELS_PT, SurfaceActionProjection
+from shopman.shop.projections.types import (
+    PAYMENT_METHOD_LABELS_PT,
+    AddressAutocompleteProjection,
+    SavedAddressProjection,
+    SurfaceActionProjection,
+)
 from shopman.shop.services.channel_policy import resolve_channel_policy
 from shopman.shop.services.pos_intent import (
     POS_SALE_INTENT_PAYLOAD_KEYS,
@@ -137,6 +142,44 @@ class POSCheckoutContractProjection:
 
 
 @dataclass(frozen=True)
+class POSCashRuntimeProjection:
+    """Active cash runtime resolved for the current operator surface."""
+
+    has_open_shift: bool
+    shift_id: int | None
+    terminal_ref: str
+    terminal_label: str
+    operator_username: str
+    opened_at: str
+
+
+@dataclass(frozen=True)
+class POSCustomerMemoryProjection:
+    """Consumption memory resolved for an operator-assisted POS customer."""
+
+    total_orders: int
+    average_order_display: str
+    favorite_product: str
+    favorite_item: dict[str, object]
+    last_order_items: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class POSCustomerLookupProjection:
+    """Customer data a POS surface can prefill without reading Guestman."""
+
+    ref: str
+    name: str
+    phone: str
+    email: str
+    loyalty_group: str
+    is_staff: bool
+    default_address: SavedAddressProjection | None
+    saved_addresses: tuple[SavedAddressProjection, ...]
+    memory: POSCustomerMemoryProjection
+
+
+@dataclass(frozen=True)
 class POSShiftSummaryProjection:
     """Today's shift totals for the POS."""
 
@@ -183,6 +226,7 @@ class POSProjection:
     checkout: POSCheckoutContractProjection
     actions: tuple[SurfaceActionProjection, ...]
     has_open_cash_session: bool
+    cash_runtime: POSCashRuntimeProjection
     terminal_ref: str
     terminal_label: str
     terminal_default_fulfillment_type: str
@@ -222,7 +266,7 @@ _PAYMENT_COLLECTIONS = (
 # ── Builders ───────────────────────────────────────────────────────────
 
 
-def build_pos(*, terminal=None) -> POSProjection:
+def build_pos(*, terminal=None, operator=None) -> POSProjection:
     """Build the POS terminal projection."""
     products = _load_products()
 
@@ -233,6 +277,9 @@ def build_pos(*, terminal=None) -> POSProjection:
         .values("ref", "name")
     )
 
+    cash_shift = _active_cash_shift(operator)
+    if terminal is None and cash_shift is not None:
+        terminal = cash_shift.terminal
     if terminal is None:
         from shopman.backstage.models import POSTerminal
 
@@ -258,7 +305,8 @@ def build_pos(*, terminal=None) -> POSProjection:
             fiscal_message=fiscal_message,
         ),
         actions=_pos_actions(),
-        has_open_cash_session=True,  # caller checks this before building
+        has_open_cash_session=bool(cash_shift) if operator is not None else True,
+        cash_runtime=_cash_runtime_projection(cash_shift, runtime, operator),
         terminal_ref=runtime.terminal_ref,
         terminal_label=runtime.terminal_label,
         terminal_default_fulfillment_type=runtime.default_fulfillment_type,
@@ -374,6 +422,41 @@ def build_pos_tabs(
     return tuple(tabs[:limit])
 
 
+def build_pos_customer_lookup(phone: str) -> POSCustomerLookupProjection | None:
+    """Resolve POS customer lookup as a headless projection."""
+    from shopman.shop.services import customer_context
+    from shopman.shop.services import pos as pos_service
+
+    customer = pos_service.resolve_customer(phone)
+    if customer is None:
+        return None
+
+    name = getattr(customer, "name", "") or f"{getattr(customer, 'first_name', '')} {getattr(customer, 'last_name', '')}".strip()
+    group_ref = customer.group.ref if getattr(customer, "group_id", None) else ""
+    summary = pos_service.customer_history_summary(customer.ref)
+    addresses = customer_context.saved_addresses(customer.ref)
+    default_address = next((addr for addr in addresses if addr.is_default), addresses[0] if addresses else None)
+    saved_addresses = tuple(_saved_address_projection(addr) for addr in addresses)
+
+    return POSCustomerLookupProjection(
+        ref=getattr(customer, "ref", ""),
+        name=name,
+        phone=getattr(customer, "phone", "") or phone,
+        email=getattr(customer, "email", "") or "",
+        loyalty_group=group_ref,
+        is_staff=group_ref == "staff",
+        default_address=_saved_address_projection(default_address) if default_address else None,
+        saved_addresses=saved_addresses,
+        memory=POSCustomerMemoryProjection(
+            total_orders=int(summary.get("total_orders") or 0),
+            average_order_display=format_money(int(summary.get("average_order_q") or 0)) if summary.get("average_order_q") else "",
+            favorite_product=str(summary.get("favorite_product") or ""),
+            favorite_item=dict(summary.get("favorite_item") or {}),
+            last_order_items=tuple(dict(item) for item in (summary.get("last_order_items") or ())),
+        ),
+    )
+
+
 # ── Internals ──────────────────────────────────────────────────────────
 
 
@@ -444,6 +527,16 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
     """Canonical POS mutations consumed by headless operator surfaces."""
     return (
         SurfaceActionProjection(
+            ref="create_tab",
+            kind="mutation",
+            label="Cadastrar comanda",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/",
+            payload_schema={"required": ["tab_code"], "optional": ["label"]},
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
             ref="open_tab",
             kind="mutation",
             label="Abrir comanda",
@@ -513,6 +606,50 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             idempotency="required",
         ),
         SurfaceActionProjection(
+            ref="cancel_recent_sale",
+            kind="mutation",
+            label="Cancelar venda recente",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/sale/recent/cancel/",
+            payload_schema={
+                "required": ["order_ref"],
+                "optional": ["reason"],
+            },
+            confirmation={"style": "destructive"},
+        ),
+        SurfaceActionProjection(
+            ref="open_cash_shift",
+            kind="mutation",
+            label="Abrir caixa",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/cash/open/",
+            payload_schema={"optional": ["opening_amount", "terminal_ref"]},
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
+            ref="close_cash_shift",
+            kind="mutation",
+            label="Fechar caixa",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/cash/close/",
+            payload_schema={"required": ["closing_amount"], "optional": ["notes"]},
+            confirmation={"style": "destructive"},
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
+            ref="cash_movement",
+            kind="mutation",
+            label="Movimento de caixa",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/cash/movement/",
+            payload_schema={"required": ["kind", "amount", "reason"]},
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
             ref="customer_lookup",
             kind="query",
             label="Buscar cliente",
@@ -520,6 +657,19 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             method="GET",
             href="/api/v1/backstage/pos/customer/lookup/?phone={phone}",
             payload_schema={"query": {"phone": "string"}},
+            idempotency="none",
+        ),
+        SurfaceActionProjection(
+            ref="reverse_geocode",
+            kind="mutation",
+            label="Resolver coordenadas",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/geocode/reverse",
+            payload_schema={
+                "required": ["lat", "lng"],
+                "returns": {"shape": "delivery_address_structured"},
+            },
             idempotency="none",
         ),
         SurfaceActionProjection(
@@ -618,10 +768,11 @@ def _checkout_contract(
             payload_key="delivery_address",
             section_ref="fulfillment",
             label="Endereço de entrega",
-            input_type="textarea",
+            input_type="address_autocomplete",
             required_when={"fulfillment_type": "delivery"},
             placeholder="Rua, número, bairro e referência",
             max_length=400,
+            capability_ref="delivery_address_autocomplete",
         ),
         POSCheckoutFieldProjection(
             ref="delivery_address_structured",
@@ -630,7 +781,8 @@ def _checkout_contract(
             label="Endereço estruturado",
             input_type="object",
             required_when={"fulfillment_type": "delivery"},
-            help_text="Objeto aceito: route, street_number, neighborhood, reference.",
+            help_text="Objeto aceito: formatted_address, route, street_number, neighborhood, city, state_code, postal_code, latitude, longitude, place_id, complement, delivery_instructions, reference.",
+            capability_ref="delivery_address_autocomplete",
         ),
         POSCheckoutFieldProjection(
             ref="delivery_date",
@@ -822,6 +974,7 @@ def _checkout_contract(
             "supports_on_delivery_cash": "delivery" in fulfillment_types,
             "supports_customer_lookup": True,
             "supports_customer_memory": True,
+            "supports_delivery_address_autocomplete": bool(getattr(settings, "GOOGLE_MAPS_API_KEY", "")),
             "supports_receipt_email": True,
             "supports_manual_discount": True,
             "fiscal_document": fiscal_status,
@@ -830,7 +983,127 @@ def _checkout_contract(
             "delivery_minimum_q": delivery_minimum_q,
             "delivery_minimum_display": f"R$ {format_money(delivery_minimum_q)}" if delivery_minimum_q else "",
             "requires_manager_approval_above_q": _discount_approval_threshold_q(),
+            "address_autocomplete": _address_autocomplete_capability(),
+            "tab_lifecycle": {
+                "create_action_ref": "create_tab",
+                "open_action_ref": "open_tab",
+                "save_action_ref": "save_tab",
+                "clear_action_ref": "clear_tab",
+                "tab_code_max_digits": 8,
+                "requires_open_tab_for_cart": True,
+            },
+            "cash_management": {
+                "open_action_ref": "open_cash_shift",
+                "close_action_ref": "close_cash_shift",
+                "movement_action_ref": "cash_movement",
+                "movement_kinds": ("sangria", "suprimento", "ajuste"),
+                "requires_open_shift_for_sale": True,
+                "blocks_close_when_offline_queue_pending": True,
+            },
+            "sale_correction": {
+                "cancel_recent_action_ref": "cancel_recent_sale",
+                "max_age_minutes": 5,
+                "supports_reason": True,
+                "allowed_statuses": ("new", "confirmed"),
+            },
+            "idempotent_replay": {
+                "request_key": "client_request_id",
+                "required_for_close": True,
+                "close_action_ref": "close_sale",
+                "safe_for_offline_queue": True,
+            },
+            "customer_lookup": {
+                "action_ref": "customer_lookup",
+                "lookup_key": "phone",
+                "returns_default_address": True,
+                "returns_saved_addresses": True,
+                "returns_memory": True,
+            },
+            "live_refresh": {
+                "product_projection_refresh": "pos",
+                "shift_projection_refresh": "pos.shift",
+                "tab_projection_refresh": "pos.tabs",
+                "supports_push_updates": False,
+            },
         },
+    )
+
+
+def _active_cash_shift(operator):
+    if operator is None:
+        return None
+    try:
+        from shopman.backstage.models import CashShift
+
+        return CashShift.get_open_for_operator(operator)
+    except Exception:
+        logger.debug("pos_active_cash_shift_lookup_failed", exc_info=True)
+        return None
+
+
+def _cash_runtime_projection(cash_shift, runtime, operator) -> POSCashRuntimeProjection:
+    if cash_shift is None:
+        return POSCashRuntimeProjection(
+            has_open_shift=False,
+            shift_id=None,
+            terminal_ref=runtime.terminal_ref,
+            terminal_label=runtime.terminal_label,
+            operator_username=getattr(operator, "username", "") if operator is not None else "",
+            opened_at="",
+        )
+    return POSCashRuntimeProjection(
+        has_open_shift=True,
+        shift_id=cash_shift.pk,
+        terminal_ref=cash_shift.terminal.ref,
+        terminal_label=str(cash_shift.terminal),
+        operator_username=cash_shift.operator.get_username(),
+        opened_at=cash_shift.opened_at.isoformat() if cash_shift.opened_at else "",
+    )
+
+
+def _address_autocomplete_capability() -> AddressAutocompleteProjection:
+    api_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
+    lat, lng = _shop_coordinates()
+    return AddressAutocompleteProjection(
+        enabled=bool(api_key),
+        public_api_key=api_key,
+        shop_latitude=lat,
+        shop_longitude=lng,
+    )
+
+
+def _shop_coordinates() -> tuple[float | None, float | None]:
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.objects.order_by("pk").first()
+    except Exception:
+        logger.debug("pos_shop_coordinates_lookup_failed", exc_info=True)
+        return None, None
+    if shop is None or shop.latitude is None or shop.longitude is None:
+        return None, None
+    return float(shop.latitude), float(shop.longitude)
+
+
+def _saved_address_projection(addr) -> SavedAddressProjection:
+    return SavedAddressProjection(
+        id=addr.id,
+        formatted_address=addr.formatted_address,
+        complement=addr.complement,
+        label=addr.label,
+        is_default=addr.is_default,
+        label_key=addr.label_key,
+        label_custom=addr.label_custom,
+        route=addr.route,
+        street_number=addr.street_number,
+        neighborhood=addr.neighborhood,
+        city=addr.city,
+        state_code=addr.state_code,
+        postal_code=addr.postal_code,
+        latitude=addr.latitude,
+        longitude=addr.longitude,
+        place_id=addr.place_id,
+        delivery_instructions=addr.delivery_instructions,
     )
 
 

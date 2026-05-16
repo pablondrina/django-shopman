@@ -111,7 +111,20 @@ class POSCustomerMemoryTests(TestCase):
                 receipt_mode="email",
                 receipt_email="ana@example.com",
                 fulfillment_type="delivery",
-                delivery_address="Rua das Flores, 100",
+                delivery_address="Rua das Flores, 100 - Centro, Londrina - PR",
+                delivery_address_structured={
+                    "formatted_address": "Rua das Flores, 100 - Centro, Londrina - PR",
+                    "route": "Rua das Flores",
+                    "street_number": "100",
+                    "neighborhood": "Centro",
+                    "city": "Londrina",
+                    "state_code": "PR",
+                    "postal_code": "86000-000",
+                    "latitude": -23.3,
+                    "longitude": -51.1,
+                    "place_id": "ChIJ-pos-merge-address",
+                    "delivery_instructions": "Portaria",
+                },
                 payment_collection="on_delivery",
             ),
             actor="pos:ana",
@@ -127,10 +140,16 @@ class POSCustomerMemoryTests(TestCase):
         self.assertTrue(
             CustomerAddress.objects.filter(
                 customer=customer,
-                formatted_address="Rua das Flores, 100",
+                formatted_address="Rua das Flores, 100 - Centro, Londrina - PR",
                 is_default=True,
             ).exists()
         )
+        address = CustomerAddress.objects.get(customer=customer)
+        self.assertEqual(address.route, "Rua das Flores")
+        self.assertEqual(address.street_number, "100")
+        self.assertEqual(address.neighborhood, "Centro")
+        self.assertEqual(address.place_id, "ChIJ-pos-merge-address")
+        self.assertEqual(float(address.latitude), -23.3)
         self.assertEqual(order.data["customer"]["email"], "ana@example.com")
 
     def test_pos_customer_lookup_exposes_consumption_memory_and_default_address(self) -> None:

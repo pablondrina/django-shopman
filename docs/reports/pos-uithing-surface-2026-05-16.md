@@ -19,13 +19,22 @@
 - Esse comportamento nao foi copiado para a superficie. O contrato foi canonizado como `POSProjection.checkout`, apontando para o intent `pos.sale-intent.v1`, os campos aceitos, secoes, modos de comprovante, metodos de tender, presets de dinheiro e capabilities.
 - A action headless `review_sale` valida o mesmo intent antes do commit e retorna resumo de checkout sem criar pedido. A action final continua sendo `close_sale`, via `shopman.shop.services.pos.close_sale()`.
 - A API headless agora injeta `cash_shift_id` e `pos_terminal_ref` do runtime ativo no fechamento/revisao, porque isso e contexto do terminal, nao algo que uma superficie deve inventar.
-- O gap restante e ergonomico: a superficie UI Thing ainda nao replica todos os atalhos do POS antigo, como pagamentos divididos completos e memoria de cliente com repeticao automatica. O contrato e a action canonica ja expõem os campos para implementar isso sem regra local.
+
+## Capabilities canonicas de POS
+
+- `address_autocomplete`: provider, chave publica restrita, paises, campos Google Places, bias pela loja, shape de `delivery_address_structured` e action de reverse geocode.
+- `customer_lookup`: action por telefone que retorna `ref`, nome, email, grupo, endereco padrao, enderecos salvos e memoria de consumo.
+- `tab_lifecycle`: actions de criar, abrir, salvar e liberar comanda, mais limite canonico do codigo.
+- `cash_management`: actions de abrir/fechar caixa, movimento de caixa e tipos aceitos.
+- `sale_correction`: action headless para cancelar/corrigir venda recente com a mesma janela operacional do POS antigo.
+- `idempotent_replay`: `client_request_id` como chave canonica de reenvio/offline queue, consumida por `close_sale`.
+- `live_refresh`: declara que esta projection suporta refresh por polling da projection; push/SSE de POS ainda nao e contrato canonico.
 
 ## Superficie adicionada
 
 - `surfaces/pos-uithing-nuxt`
 - Stack: Nuxt 4, UI Thing scaffoldado por `npx ui-thing@latest init` e componentes copiados para `app/components/Ui`.
-- Fluxo minimo: abrir comanda, buscar/listar produtos, montar carrinho, escolher retirada/entrega, escolher pagamento/recebimento, finalizar venda e abrir o pedido no gestor.
+- Fluxo minimo: abrir comanda, buscar/listar produtos, montar carrinho, buscar cliente, reutilizar memoria/endereco salvo, usar autocomplete de endereco quando configurado, escolher retirada/entrega, escolher pagamento/recebimento, revisar, finalizar venda e abrir o pedido no gestor.
 
 ## Guardrails
 

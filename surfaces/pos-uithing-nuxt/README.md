@@ -35,3 +35,8 @@ npm run test
 The UI reads `GET /api/v1/backstage/pos/` and submits only projection-provided
 POS actions. Price, stock, fulfillment validation, status, and order persistence
 remain in the Django/Shopman contract.
+
+Current POS capabilities consumed from the projection include tab lifecycle,
+cash runtime/actions, checkout review/close, customer lookup with saved
+addresses and memory, delivery address autocomplete/reverse geocode metadata,
+recent sale correction, and idempotent replay via `client_request_id`.

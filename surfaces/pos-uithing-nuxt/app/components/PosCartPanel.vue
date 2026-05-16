@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import type {
+  POSAddressAutocompleteProjection,
   POSCartItem,
   POSCheckoutContractProjection,
+  POSCustomerLookupProjection,
   POSFulfillmentOptionProjection,
   POSPaymentCollectionProjection,
   POSPaymentMethodProjection,
   POSSaleReviewProjection,
+  SavedAddressProjection,
+  StructuredAddressProjection,
 } from "~/types/pos";
 import { cartTotalQ, formatBRL } from "~/utils/posIntent";
 
@@ -16,6 +20,8 @@ const props = defineProps<{
   paymentMethods: POSPaymentMethodProjection[];
   paymentCollections: POSPaymentCollectionProjection[];
   checkoutContract: POSCheckoutContractProjection | null;
+  addressAutocomplete: POSAddressAutocompleteProjection | null;
+  customerLookup: POSCustomerLookupProjection | null;
   checkoutMode: boolean;
   review: POSSaleReviewProjection | null;
   fulfillmentType: "pickup" | "delivery";
@@ -26,8 +32,11 @@ const props = defineProps<{
   customerTaxId: string;
   customerEmail: string;
   deliveryAddress: string;
+  deliveryAddressStructured: StructuredAddressProjection;
   deliveryStreetNumber: string;
   deliveryNeighborhood: string;
+  deliveryComplement: string;
+  deliveryInstructions: string;
   deliveryDate: string;
   deliveryTimeSlot: string;
   deliveryFeeInput: string;
@@ -38,6 +47,7 @@ const props = defineProps<{
   receiptEmail: string;
   loading: boolean;
   saving: boolean;
+  lookupBusy: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -49,8 +59,11 @@ const emit = defineEmits<{
   "update:customerTaxId": [string];
   "update:customerEmail": [string];
   "update:deliveryAddress": [string];
+  "update:deliveryAddressStructured": [StructuredAddressProjection];
   "update:deliveryStreetNumber": [string];
   "update:deliveryNeighborhood": [string];
+  "update:deliveryComplement": [string];
+  "update:deliveryInstructions": [string];
   "update:deliveryDate": [string];
   "update:deliveryTimeSlot": [string];
   "update:deliveryFeeInput": [string];
@@ -67,6 +80,10 @@ const emit = defineEmits<{
   back: [];
   submit: [];
   clear: [];
+  lookupCustomer: [];
+  applyCustomerFavorite: [];
+  repeatCustomerLastOrder: [];
+  pickSavedAddress: [SavedAddressProjection];
 }>();
 
 const totalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
@@ -83,11 +100,20 @@ const receiptModes = computed(() => props.checkoutContract?.receipt_modes || [
 ]);
 const cashPresetDeltas = computed(() => props.checkoutContract?.cash_tender_delta_presets_q || [0, 1000, 2000, 5000, 10000]);
 const totalForCashQ = computed(() => props.review?.total_q || cartTotalQ(props.items));
+const customerMemory = computed(() => props.customerLookup?.memory || null);
+const savedAddresses = computed(() => props.customerLookup?.saved_addresses || []);
 
 function setTenderedByDelta(deltaQ: number) {
   const amountQ = Math.max(0, totalForCashQ.value + deltaQ);
   const formatted = (amountQ / 100).toFixed(2).replace(".", ",");
   emit("update:tenderedAmountInput", formatted);
+}
+
+function onAddressSelected(address: StructuredAddressProjection) {
+  emit("update:deliveryAddressStructured", address);
+  if (address.route) emit("update:deliveryAddress", address.route);
+  if (address.street_number) emit("update:deliveryStreetNumber", address.street_number);
+  if (address.neighborhood) emit("update:deliveryNeighborhood", address.neighborhood);
 }
 </script>
 
@@ -125,12 +151,26 @@ function setTenderedByDelta(deltaQ: number) {
       </label>
       <label class="grid gap-1 text-sm">
         <span class="font-medium text-muted-foreground">WhatsApp</span>
-        <UiInput
-          :model-value="customerPhone"
-          inputmode="tel"
-          placeholder="(43) 99999-0000"
-          @update:model-value="$emit('update:customerPhone', String($event || ''))"
-        />
+        <div class="flex gap-2">
+          <UiInput
+            :model-value="customerPhone"
+            inputmode="tel"
+            placeholder="(43) 99999-0000"
+            @update:model-value="$emit('update:customerPhone', String($event || ''))"
+            @keydown.enter.prevent="$emit('lookupCustomer')"
+          />
+          <UiButton
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Buscar cliente"
+            title="Buscar cliente"
+            :disabled="lookupBusy || !customerPhone.trim()"
+            @click="$emit('lookupCustomer')"
+          >
+            <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
+          </UiButton>
+        </div>
       </label>
       <label v-if="checkoutMode" class="grid gap-1 text-sm">
         <span class="font-medium text-muted-foreground">CPF/CNPJ</span>
@@ -150,6 +190,53 @@ function setTenderedByDelta(deltaQ: number) {
           @update:model-value="$emit('update:customerEmail', String($event || ''))"
         />
       </label>
+    </div>
+
+    <div
+      v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length || savedAddresses.length)"
+      class="grid gap-2 rounded-lg border bg-muted/30 p-2"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
+        <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">
+          {{ customerMemory.total_orders }} pedidos
+        </span>
+      </div>
+      <div v-if="customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length" class="flex flex-wrap gap-2">
+        <UiButton
+          v-if="customerMemory?.favorite_item?.sku"
+          type="button"
+          variant="outline"
+          size="sm"
+          @click="$emit('applyCustomerFavorite')"
+        >
+          <Icon name="lucide:heart" class="size-4" />
+          Favorito
+        </UiButton>
+        <UiButton
+          v-if="customerMemory?.last_order_items?.length"
+          type="button"
+          variant="outline"
+          size="sm"
+          @click="$emit('repeatCustomerLastOrder')"
+        >
+          <Icon name="lucide:rotate-ccw" class="size-4" />
+          Último pedido
+        </UiButton>
+      </div>
+      <div v-if="fulfillmentType === 'delivery' && savedAddresses.length" class="flex gap-2 overflow-x-auto pb-1">
+        <UiButton
+          v-for="address in savedAddresses"
+          :key="address.id"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-auto shrink-0 justify-start whitespace-normal px-2 py-1 text-left"
+          @click="$emit('pickSavedAddress', address)"
+        >
+          <span class="max-w-48 truncate">{{ address.label || address.formatted_address }}</span>
+        </UiButton>
+      </div>
     </div>
 
     <div class="grid gap-2">
@@ -173,12 +260,12 @@ function setTenderedByDelta(deltaQ: number) {
 
     <div v-if="fulfillmentType === 'delivery'" class="grid gap-2">
       <label class="grid gap-1 text-sm">
-        <span class="font-medium text-muted-foreground">Rua</span>
-        <UiTextarea
+        <span class="font-medium text-muted-foreground">Endereço</span>
+        <PosAddressAutocomplete
           :model-value="deliveryAddress"
-          rows="2"
-          placeholder="Rua ou avenida"
+          :capability="addressAutocomplete"
           @update:model-value="$emit('update:deliveryAddress', String($event || ''))"
+          @selected="onAddressSelected"
         />
       </label>
       <div class="grid gap-2 sm:grid-cols-2">
@@ -196,6 +283,24 @@ function setTenderedByDelta(deltaQ: number) {
             :model-value="deliveryNeighborhood"
             placeholder="Centro"
             @update:model-value="$emit('update:deliveryNeighborhood', String($event || ''))"
+          />
+        </label>
+      </div>
+      <div v-if="checkoutMode" class="grid gap-2 sm:grid-cols-2">
+        <label class="grid gap-1 text-sm">
+          <span class="font-medium text-muted-foreground">Complemento</span>
+          <UiInput
+            :model-value="deliveryComplement"
+            placeholder="Apto, bloco"
+            @update:model-value="$emit('update:deliveryComplement', String($event || ''))"
+          />
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="font-medium text-muted-foreground">Instruções</span>
+          <UiInput
+            :model-value="deliveryInstructions"
+            placeholder="Portaria, referência"
+            @update:model-value="$emit('update:deliveryInstructions', String($event || ''))"
           />
         </label>
       </div>
@@ -230,7 +335,7 @@ function setTenderedByDelta(deltaQ: number) {
         <span class="font-medium text-muted-foreground">Observações</span>
         <UiTextarea
           :model-value="orderNotes"
-          rows="2"
+          :rows="2"
           placeholder="Complemento, referência, instruções"
           @update:model-value="$emit('update:orderNotes', String($event || ''))"
         />
