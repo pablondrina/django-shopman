@@ -832,7 +832,11 @@ def _build_promise(
             pickup_action_kwargs = {
                 "ref": "pickup_directions" if pickup_directions_url else "pickup",
                 "kind": "external" if pickup_directions_url else "instruction",
-                "label": _copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido"),
+                "label": (
+                    _copy_title("TRACKING_PICKUP_DIRECTIONS_CTA", "Como chegar")
+                    if pickup_directions_url
+                    else _copy_title("TRACKING_ACTION_READY_PICKUP", "Retirar pedido")
+                ),
                 "priority": "primary",
             }
             if pickup_directions_url:

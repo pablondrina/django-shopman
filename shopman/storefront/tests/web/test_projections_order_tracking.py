@@ -363,7 +363,7 @@ class TestStatusColours:
         assert proj.promise.state == "ready_pickup"
         assert proj.promise.requires_active_notification is False
         assert proj.promise.notification_topic is None
-        assert proj.promise.actions[0].label == "Retirar pedido"
+        assert proj.promise.actions[0].label == "Como chegar"
         assert proj.promise.actions[0].kind == "external"
         assert proj.promise.actions[0].href.startswith("https://www.google.com/maps/dir/?")
         assert "destination=Rua+das+Flores" in proj.promise.actions[0].href
@@ -375,7 +375,7 @@ class TestStatusColours:
         assert proj.copy.support_label == "Ajuda"
         rows = [(row.label, row.value, row.url) for row in proj.promise_rows]
         assert ("Próximo passo", "Retire no estabelecimento quando puder.", None) in rows
-        assert ("Sua ação", "Retirar pedido", proj.promise.actions[0].href) in rows
+        assert ("Sua ação", "Como chegar", proj.promise.actions[0].href) in rows
         assert ("Última atualização", "Atualizado agora", None) in rows
         assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
