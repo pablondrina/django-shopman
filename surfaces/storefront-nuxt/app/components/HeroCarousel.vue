@@ -115,7 +115,7 @@ async function activateSlideCta (item: HeroSlide) {
       :autoplay="{ delay: 6000 }"
       :ui="{
         viewport: 'overflow-hidden',
-        container: 'flex items-stretch',
+        container: '!ms-0 flex items-stretch',
         item: 'min-w-0 shrink-0 basis-full ps-0',
         dots: 'absolute inset-x-0 bottom-4 z-20 flex items-center justify-center gap-2',
         dot: 'size-2 rounded-full bg-white/45 transition data-[state=active]:w-6 data-[state=active]:bg-white'
