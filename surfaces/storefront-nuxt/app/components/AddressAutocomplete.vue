@@ -60,11 +60,11 @@ async function setup () {
   if (initialized.value || !isAvailable.value) return
   isLoading.value = true
   try {
-    await ensureLoaded()
+    const places = await ensureLoaded()
     await nextTick()
     const input = getInputElement()
-    if (!input || !window.google?.maps?.places) return
-    autocomplete = new window.google.maps.places.Autocomplete(input, {
+    if (!input || !places?.Autocomplete) return
+    autocomplete = new places.Autocomplete(input, {
       componentRestrictions: { country: 'br' },
       fields: ['formatted_address', 'address_components', 'geometry', 'place_id'],
       types: ['address']

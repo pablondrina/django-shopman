@@ -1,7 +1,8 @@
 declare global {
   interface Window {
     google?: any
-    __shopman_maps_loading?: Promise<void>
+    __shopman_maps_loading?: Promise<any>
+    __shopman_places_library?: any
   }
 }
 
@@ -14,34 +15,43 @@ export function useGoogleMaps () {
   const isAvailable = computed(() => !!apiKey.value)
 
   async function ensurePlacesLibrary () {
-    if (window.google?.maps?.places) return
-    if (window.google?.maps?.importLibrary) {
-      await window.google.maps.importLibrary('places')
+    if (window.__shopman_places_library?.Autocomplete) return window.__shopman_places_library
+    if (window.google?.maps?.places?.Autocomplete) {
+      window.__shopman_places_library = window.google.maps.places
+      return window.__shopman_places_library
     }
-    if (!window.google?.maps?.places) {
+    if (window.google?.maps?.importLibrary) {
+      const library = await window.google.maps.importLibrary('places')
+      window.__shopman_places_library = library || window.google?.maps?.places
+    }
+    if (!window.__shopman_places_library?.Autocomplete && window.google?.maps?.places?.Autocomplete) {
+      window.__shopman_places_library = window.google.maps.places
+    }
+    if (!window.__shopman_places_library?.Autocomplete) {
       throw new Error('Google Places library unavailable')
     }
+    return window.__shopman_places_library
   }
 
-  function ensureLoaded (): Promise<void> {
+  function ensureLoaded (): Promise<any> {
     if (!apiKey.value) return Promise.reject(new Error('Google Maps API key not configured'))
     if (typeof window === 'undefined') return Promise.reject(new Error('SSR'))
-    if (window.google?.maps?.places) {
+    if (window.__shopman_places_library?.Autocomplete || window.google?.maps?.places?.Autocomplete) {
       isReady.value = true
-      return Promise.resolve()
+      return Promise.resolve(window.__shopman_places_library || window.google.maps.places)
     }
     if (window.__shopman_maps_loading) return window.__shopman_maps_loading
 
-    window.__shopman_maps_loading = new Promise<void>((resolve, reject) => {
+    window.__shopman_maps_loading = new Promise<any>((resolve, reject) => {
       const script = document.createElement('script')
       script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey.value)}&libraries=places&language=pt-BR&region=BR&loading=async`
       script.async = true
       script.defer = true
       script.onload = () => {
         ensurePlacesLibrary()
-          .then(() => {
+          .then((places) => {
             isReady.value = true
-            resolve()
+            resolve(places)
           })
           .catch(reject)
       }
