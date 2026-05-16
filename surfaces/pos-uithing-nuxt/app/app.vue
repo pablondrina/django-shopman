@@ -54,7 +54,7 @@ const checkoutMode = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
 const customerLookup = ref<POSCustomerLookupProjection | null>(null);
 const tabDialogOpen = ref(false);
-const tabDialogReason = ref<"start" | "save" | "checkout" | "cart">("start");
+const tabDialogReason = ref<"start" | "save" | "cart">("start");
 
 const cart = reactive({
   tabCode: "",
@@ -113,7 +113,6 @@ const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
 const tenderedAmountQ = computed(() => moneyInputToQ(cart.tenderedAmountInput));
 const tabDialogTitle = computed(() => {
   if (tabDialogReason.value === "save") return "Associar comanda";
-  if (tabDialogReason.value === "checkout") return "Abrir comanda para checkout";
   return "Abrir comanda";
 });
 const tabDialogDescription = computed(() => {
@@ -318,7 +317,7 @@ function setFromTabPayload(payload: POSTabPayload) {
   review.value = null;
 }
 
-function requestTabAssociation(reason: "start" | "save" | "checkout" | "cart" = "start") {
+function requestTabAssociation(reason: "start" | "save" | "cart" = "start") {
   tabDialogReason.value = reason;
   serverError.value = "";
   tabDialogOpen.value = true;
@@ -365,8 +364,6 @@ async function openTabFromDialog(tab: POSTabProjection | string) {
   tabDialogOpen.value = false;
   if (reason === "save" && cart.items.length) {
     await saveTab();
-  } else if (reason === "checkout" && cart.items.length) {
-    await prepareCheckout();
   }
 }
 
@@ -560,7 +557,7 @@ async function reviewSale() {
 
 async function prepareCheckout() {
   if (tabRequiredForSave.value && !hasOpenTab.value) {
-    requestTabAssociation("checkout");
+    requestTabAssociation("start");
     return;
   }
   if (!cart.items.length) return;
@@ -581,7 +578,7 @@ async function prepareCheckout() {
 
 async function submitSale() {
   if (tabRequiredForSave.value && !hasOpenTab.value) {
-    requestTabAssociation("checkout");
+    requestTabAssociation("start");
     return;
   }
   if (!cart.items.length) return;
