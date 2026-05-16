@@ -204,31 +204,39 @@ useHead({ title: 'Seu carrinho' })
 
           <UCard
             v-if="cart.upsell"
-            :ui="{ body: 'p-4 sm:p-5' }"
-            class="border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
+            :ui="{ body: 'p-0 sm:p-0' }"
+            class="overflow-hidden border border-primary/30 bg-primary/5 ring-1 ring-primary/10"
           >
-            <div class="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4 gap-y-3">
+            <div class="grid grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[104px_minmax(0,1fr)]">
               <div
-                class="relative row-span-2 size-16 overflow-hidden rounded-md bg-default ring-1 ring-primary/20"
+                class="relative min-h-28 overflow-hidden bg-default"
               >
-                <img v-if="cart.upsell.image_url" :src="cart.upsell.image_url" :alt="cart.upsell.name" class="size-full object-cover">
+                <img
+                  v-if="cart.upsell.image_url"
+                  :src="cart.upsell.image_url"
+                  :alt="cart.upsell.name"
+                  loading="lazy"
+                  decoding="async"
+                  sizes="104px"
+                  class="size-full object-cover"
+                >
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </div>
-              <div class="min-w-0">
+              <div class="min-w-0 p-4 sm:p-5">
                 <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
                 <p class="font-semibold text-highlighted truncate">
                   {{ cart.upsell.name }}
                 </p>
                 <span class="text-sm text-muted tabular-nums">{{ cart.upsell.price_display }}</span>
-              </div>
-              <div class="flex justify-start">
-                <ProductStepper
-                  v-if="upsellMeta"
-                  :meta="upsellMeta"
-                  :can-add="true"
-                  size="sm"
-                  add-label="Adicionar"
-                />
+                <div class="mt-3 flex justify-end">
+                  <ProductStepper
+                    v-if="upsellMeta"
+                    :meta="upsellMeta"
+                    :can-add="true"
+                    size="sm"
+                    add-label="Adicionar"
+                  />
+                </div>
               </div>
             </div>
           </UCard>
