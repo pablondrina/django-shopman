@@ -346,7 +346,7 @@ def pos_tab_save(request: HttpRequest) -> HttpResponse:
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
     response = HttpResponse(
-        f'<span data-tab-code="{result.tab_code}" class="text-xs text-success font-semibold">'
+        f'<span data-tab-ref="{result.tab_ref}" class="text-xs text-success font-semibold">'
         f'POS tab {result.tab_display} em uso</span>'
     )
     response["HX-Trigger"] = "posTabSaved"
@@ -360,7 +360,7 @@ def pos_tabs(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("", status=403)
 
-    query = (request.GET.get("q") or request.GET.get("tab_code") or "").strip()
+    query = (request.GET.get("q") or request.GET.get("tab_ref") or "").strip()
     tabs = build_pos_tabs(channel_ref=POS_CHANNEL_REF, query=query)
 
     return render(request, "pos/partials/tab_grid.html", {"tabs": tabs, "query": query})
@@ -375,7 +375,7 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
 
     try:
         tab = pos_service.register_pos_tab(
-            tab_code=request.POST.get("tab_code", ""),
+            tab_ref=request.POST.get("tab_ref", ""),
             label=request.POST.get("label", ""),
         )
     except Exception as e:
@@ -383,7 +383,7 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
     response = HttpResponse(
-        f'<span data-tab-code="{tab["tab_code"]}" class="text-xs text-success font-semibold">'
+        f'<span data-tab-ref="{tab["tab_ref"]}" class="text-xs text-success font-semibold">'
         f'POS tab {tab["tab_display"]} cadastrada</span>'
     )
     response["HX-Trigger"] = "posTabSaved"
@@ -391,17 +391,17 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-def pos_tab_open(request: HttpRequest, tab_code: str = "") -> HttpResponse:
+def pos_tab_open(request: HttpRequest, tab_ref: str = "") -> HttpResponse:
     """POST /gestor/pos/tab/open/ — open or load a POS tab as JSON."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse('{"error":"forbidden"}', content_type="application/json", status=403)
 
-    code = tab_code or request.POST.get("tab_code", "").strip()
+    ref = tab_ref or request.POST.get("tab_ref", "").strip()
     try:
         payload = pos_service.open_pos_tab(
             channel_ref=POS_CHANNEL_REF,
-            tab_code=code,
+            tab_ref=ref,
             actor=f"pos:{request.user.username}",
             operator_username=request.user.username,
         )

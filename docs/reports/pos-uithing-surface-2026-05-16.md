@@ -24,7 +24,8 @@
 
 - `address_autocomplete`: provider, chave publica restrita, paises, campos Google Places, bias pela loja, shape de `delivery_address_structured` e action de reverse geocode.
 - `customer_lookup`: action por telefone que retorna `ref`, nome, email, grupo, endereco padrao, enderecos salvos e memoria de consumo.
-- `tab_lifecycle`: actions de criar, abrir, salvar e liberar comanda, limite canonico do codigo, venda rapida sem comanda para checkout direto, exigencia de comanda antes de salvar/pausar e politica de associacao de rascunho somente em comanda livre.
+- `tab_lifecycle`: actions de criar, abrir, salvar e liberar comanda, limite canonico da referencia, venda rapida sem comanda para checkout direto, exigencia de comanda antes de salvar/pausar e politica de associacao de rascunho somente em comanda livre.
+- `POSTab.ref`: referencia canonica da comanda. Aceita texto curto alfanumerico para identificacao operacional; referencias numericas de ate 8 digitos continuam normalizadas com zeros para preservar leitura antiga. Sessoes POS abertas no formato antigo sao abandonadas pela migracao, porque eram dados transientes/seed.
 - `cash_management`: actions de abrir/fechar caixa, movimento de caixa e tipos aceitos.
 - `sale_correction`: action headless para cancelar/corrigir venda recente com a mesma janela operacional do POS antigo.
 - `idempotent_replay`: `client_request_id` como chave canonica de reenvio/offline queue, consumida por `close_sale`.

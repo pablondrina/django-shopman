@@ -3190,9 +3190,9 @@ class Command(BaseCommand):
             ("00001011", "1011"),
             ("00001012", "1012"),
         ]
-        for code, label in tabs:
+        for ref, label in tabs:
             POSTab.objects.update_or_create(
-                code=code,
+                ref=ref,
                 defaults={"label": label, "is_active": True},
             )
 
@@ -3230,14 +3230,14 @@ class Command(BaseCommand):
                 "edit_policy": cfg.editing.policy,
             }
             if channel_ref == "pdv":
-                tab_code = "00001007"
+                tab_ref = "00001007"
                 defaults["handle_type"] = "pos_tab"
-                defaults["handle_ref"] = tab_code
+                defaults["handle_ref"] = tab_ref
                 defaults["data"] = {
                     "origin_channel": "pos",
                     "fulfillment_type": "pickup",
-                    "tab_code": tab_code,
-                    "tab_display": tab_code.lstrip("0"),
+                    "tab_ref": tab_ref,
+                    "tab_display": tab_ref.lstrip("0"),
                     "pos_operator": "seed",
                     "last_touched_at": timezone.now().isoformat(),
                 }
@@ -3245,7 +3245,7 @@ class Command(BaseCommand):
                     channel_ref=ch.ref,
                     state="open",
                     handle_type="pos_tab",
-                    handle_ref=tab_code,
+                    handle_ref=tab_ref,
                     defaults=defaults,
                 )
             else:

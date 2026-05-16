@@ -63,7 +63,7 @@ class PosSaleIntentParserTests(TestCase):
                 "intent_version": POS_SALE_INTENT_VERSION,
                 "items": [{"sku": "SKU", "qty": 1, "unit_price_q": 1000}],
                 "fulfillment_type": "delivery",
-                "tab_code": "00000001",
+                "tab_ref": "00000001",
             })
 
         self.assertEqual(ctx.exception.code, "delivery_address_required")
@@ -92,7 +92,7 @@ class PosSaleIntentParserTests(TestCase):
             },
             "payment_method": "cash",
             "payment_collection": "on_delivery",
-            "tab_code": "00000001",
+            "tab_ref": "00000001",
         })
 
         self.assertEqual(intent.payload["items"][0]["qty"], 2)
@@ -112,7 +112,7 @@ class PosSaleIntentParserTests(TestCase):
             "payment_method": "cash",
         })
 
-        self.assertEqual(intent.payload["tab_code"], "")
+        self.assertEqual(intent.payload["tab_ref"], "")
         self.assertEqual(intent.payload["tab_session_key"], "")
         self.assertEqual(intent.payload["payment_method"], "cash")
 
@@ -131,7 +131,7 @@ class PosIntentViewContractTests(TestCase):
             is_published=True,
             is_sellable=True,
         )
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         User = get_user_model()
         self.operator = User.objects.create_user(username="intent-pos", password="x", is_staff=True)
         _grant_pos_perm(self.operator)
@@ -142,7 +142,7 @@ class PosIntentViewContractTests(TestCase):
     def _opened(self) -> dict:
         return pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor="pos:intent-pos",
             operator_username="intent-pos",
         )
@@ -152,7 +152,7 @@ class PosIntentViewContractTests(TestCase):
         payload = {
             "intent_version": "pos.sale-intent.v99",
             "items": [{"sku": "POS-INTENT-ITEM", "name": "Intent Item", "qty": 1, "unit_price_q": 1200}],
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
 
@@ -176,7 +176,7 @@ class PosIntentViewContractTests(TestCase):
             "delivery_fee_q": 300,
             "payment_method": "cash",
             "tendered_amount_q": 1500,
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
             "client_request_id": "pos:intent-contract-001",
         }

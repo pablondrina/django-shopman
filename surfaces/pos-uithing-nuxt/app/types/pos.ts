@@ -212,8 +212,8 @@ export interface POSShiftSummaryProjection {
 }
 
 export interface POSTabProjection {
-  code: string;
-  display_code: string;
+  ref: string;
+  display_ref: string;
   session_key: string;
   state: "empty" | "in_use" | string;
   status_label: string;
@@ -245,7 +245,7 @@ export interface POSCartItem {
 export interface POSTabPayload {
   session_key: string;
   tab_session_key: string;
-  tab_code: string;
+  tab_ref: string;
   tab_display: string;
   items: POSCartItem[];
   customer_phone: string;
@@ -276,11 +276,11 @@ export interface POSTabPayload {
 export interface POSCloseSaleResponse {
   ok: boolean;
   order_ref?: string;
-  tab_code?: string;
+  tab_ref?: string;
 }
 
 export interface POSIntentCartState {
-  tabCode: string;
+  tabRef: string;
   tabSessionKey: string;
   items: POSCartItem[];
   customerName: string;
@@ -317,7 +317,7 @@ export interface POSIntentCartState {
 
 export interface POSSaleReviewProjection {
   intent_version: string;
-  tab_code: string;
+  tab_ref: string;
   subtotal_q: number;
   subtotal_display: string;
   discount_q: number;

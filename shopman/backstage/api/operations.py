@@ -116,7 +116,7 @@ def _pos_payload_with_runtime(request, body: dict) -> dict:
 def _pos_sale_review_payload(review) -> dict:
     return {
         "intent_version": review.intent_version,
-        "tab_code": review.tab_code,
+        "tab_ref": review.tab_ref,
         "subtotal_q": review.subtotal_q,
         "subtotal_display": f"R$ {format_money(review.subtotal_q)}",
         "discount_q": review.discount_q,
@@ -575,14 +575,14 @@ class POSTabCreateView(APIView):
     required_permission = "backstage.operate_pos"
 
     def post(self, request):
-        tab_code = (request.data.get("tab_code") or "").strip()
+        tab_ref = (request.data.get("tab_ref") or "").strip()
         label = (request.data.get("label") or "").strip()
-        if not tab_code:
-            return Response({"detail": "Código da comanda é obrigatório."}, status=400)
+        if not tab_ref:
+            return Response({"detail": "Referência da comanda é obrigatória."}, status=400)
         try:
-            tab = pos_tabs_service.register_pos_tab(tab_code=tab_code, label=label)
+            tab = pos_tabs_service.register_pos_tab(tab_ref=tab_ref, label=label)
         except Exception as exc:
-            logger.debug("pos_tab_create_failed tab_code=%s", tab_code, exc_info=True)
+            logger.debug("pos_tab_create_failed tab_ref=%s", tab_ref, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao criar comanda."}, status=400)
         return Response({"ok": True, "tab": tab})
 
@@ -591,23 +591,23 @@ class POSTabCreateView(APIView):
     post=extend_schema(
         tags=["backstage"],
         summary="Open or load a POS tab",
-        responses={200: OpenApiResponse(description="Tab payload (items + customer + tab_code).")},
+        responses={200: OpenApiResponse(description="Tab payload (items + customer + tab_ref).")},
     ),
 )
 class POSTabOpenView(APIView):
     permission_classes = [HasBackstagePermission]
     required_permission = "backstage.operate_pos"
 
-    def post(self, request, tab_code: str):
+    def post(self, request, tab_ref: str):
         try:
             payload = pos_tabs_service.open_pos_tab(
                 channel_ref=POS_CHANNEL_REF,
-                tab_code=tab_code,
+                tab_ref=tab_ref,
                 actor=_actor_pos(request),
                 operator_username=_username(request),
             )
         except Exception as exc:
-            logger.debug("pos_tab_open_failed tab_code=%s", tab_code, exc_info=True)
+            logger.debug("pos_tab_open_failed tab_ref=%s", tab_ref, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao abrir comanda."}, status=400)
         return Response(payload)
 
@@ -641,7 +641,7 @@ class POSTabSaveView(APIView):
             return Response({"detail": str(exc) or "Falha ao salvar comanda."}, status=400)
         return Response({
             "ok": True,
-            "tab_code": result.tab_code,
+            "tab_ref": result.tab_ref,
             "tab_display": result.tab_display,
             "session_key": result.session_key,
         })
@@ -751,7 +751,7 @@ class POSCloseSaleView(APIView):
         return Response({
             "ok": True,
             "order_ref": getattr(result, "order_ref", None),
-            "tab_code": getattr(result, "tab_code", None),
+            "tab_ref": getattr(result, "tab_ref", None),
         })
 
 

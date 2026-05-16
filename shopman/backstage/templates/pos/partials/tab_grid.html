@@ -1,13 +1,13 @@
 {% for tab in tabs %}
 <button type="button"
         class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative border active:scale-95 hover:shadow-sm {% if tab.state == 'in_use' %}border-warning/40 bg-warning/10{% else %}border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt{% endif %}"
-        :class="activeTabTileCode === '{{ tab.code }}' ? 'ring-2 ring-primary/50 dark:ring-primary-dark/50' : ''"
+        :class="activeTabTileRef === '{{ tab.ref }}' ? 'ring-2 ring-primary/50 dark:ring-primary-dark/50' : ''"
         data-tab-tile
-        data-tab-code="{{ tab.code }}"
-        @focus="activeTabTileCode = '{{ tab.code }}'"
-        @click="openTabByCode('{{ tab.code }}')">
+        data-tab-ref="{{ tab.ref }}"
+        @focus="activeTabTileRef = '{{ tab.ref }}'"
+        @click="openTabByRef('{{ tab.ref }}')">
   <span class="material-symbols-rounded icon-md text-on-surface/45 dark:text-on-surface-dark/45" aria-hidden="true">confirmation_number</span>
-  <span class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums truncate">{{ tab.display_code }}</span>
+  <span class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums truncate">{{ tab.display_ref }}</span>
   <span class="{{ tab.status_class }} leading-none">{{ tab.status_label }}</span>
   {% if tab.state == "in_use" %}
   <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums">{{ tab.total_display }}</span>

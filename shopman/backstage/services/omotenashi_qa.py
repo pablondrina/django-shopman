@@ -279,11 +279,11 @@ def _ifood_stale_check() -> OmotenashiQACheck:
 
 
 def _pos_check() -> OmotenashiQACheck:
-    tab = POSTab.objects.filter(is_active=True).order_by("code").first()
+    tab = POSTab.objects.filter(is_active=True).order_by("ref").first()
     session = Session.objects.filter(state="open", handle_type="pos_tab").order_by("-id").first()
     evidence = ""
     if tab and session:
-        evidence = f"tab={tab.code} session={session.session_key}"
+        evidence = f"tab={tab.ref} session={session.session_key}"
     return _check(
         id="desktop.pos.counter",
         surface="pos",

@@ -26,7 +26,9 @@ import {
   draftAssociationTargetStates,
   requiresOpenTabForCart,
   requiresTabBeforeSave,
-  tabCodeMaxDigits,
+  tabRefDisallowedChars,
+  tabRefMaxLength,
+  tabRefPlaceholder,
 } from "~/utils/posTabLifecycle";
 
 type FulfillmentType = "pickup" | "delivery";
@@ -57,7 +59,7 @@ const tabDialogOpen = ref(false);
 const tabDialogReason = ref<"start" | "save" | "cart">("start");
 
 const cart = reactive({
-  tabCode: "",
+  tabRef: "",
   tabDisplay: "",
   tabSessionKey: "",
   items: [] as POSCartItem[],
@@ -96,7 +98,9 @@ const shift = computed(() => data.value?.shift || null);
 const actions = computed(() => pos.value?.actions || []);
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
-const tabMaxDigits = computed(() => tabCodeMaxDigits(checkoutCapabilities.value));
+const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
+const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
+const tabDisallowedChars = computed(() => tabRefDisallowedChars(checkoutCapabilities.value));
 const tabDraftTargetStates = computed(() => draftAssociationTargetStates(checkoutCapabilities.value));
 const tabRequiredForCart = computed(() => requiresOpenTabForCart(checkoutCapabilities.value));
 const tabRequiredForSave = computed(() => requiresTabBeforeSave(checkoutCapabilities.value));
@@ -117,9 +121,9 @@ const tabDialogTitle = computed(() => {
 });
 const tabDialogDescription = computed(() => {
   if (hasDraftWithoutTab.value) {
-    return "Escolha uma comanda livre ou digite um número novo para salvar este atendimento sem perder recuperação no caixa.";
+    return "Escolha uma comanda livre ou digite uma nova referência para salvar este atendimento sem perder recuperação no caixa.";
   }
-  return "Digite uma comanda nova ou busque uma comanda salva para iniciar o atendimento.";
+  return "Digite uma referência de comanda ou busque uma comanda salva para iniciar o atendimento.";
 });
 
 const favoriteCollections = computed(() => new Set(pos.value?.favorite_collection_refs || []));
@@ -144,7 +148,7 @@ const filteredProducts = computed<POSProductProjection[]>(() => {
 const sortedTabs = computed(() => [...tabs.value].sort((a, b) => {
   const aOpen = a.state === "in_use" ? 0 : 1;
   const bOpen = b.state === "in_use" ? 0 : 1;
-  return aOpen - bOpen || a.display_code.localeCompare(b.display_code, "pt-BR", { numeric: true });
+  return aOpen - bOpen || a.display_ref.localeCompare(b.display_ref, "pt-BR", { numeric: true });
 }));
 
 const availablePaymentCollections = computed(() =>
@@ -235,7 +239,7 @@ function setQty(sku: string, qty: number) {
 }
 
 function resetCart() {
-  cart.tabCode = "";
+  cart.tabRef = "";
   cart.tabDisplay = "";
   cart.tabSessionKey = "";
   cart.items = [];
@@ -269,16 +273,23 @@ function resetCart() {
   review.value = null;
 }
 
-function sanitizeTabCode(value: string): string {
-  return String(value || "").replace(/\D/g, "").slice(0, tabMaxDigits.value);
+function sanitizeTabRef(value: string): string {
+  const disallowed = new Set(tabDisallowedChars.value);
+  return String(value || "")
+    .replace(/[\r\n\t]/g, "")
+    .split("")
+    .filter((char) => !disallowed.has(char))
+    .join("")
+    .replace(/\s+/g, " ")
+    .slice(0, tabMaxLength.value);
 }
 
 function updateTabInput(value: unknown) {
-  tabInput.value = sanitizeTabCode(String(value || ""));
+  tabInput.value = sanitizeTabRef(String(value || ""));
 }
 
 function assignTabIdentityFromPayload(payload: POSTabPayload) {
-  cart.tabCode = payload.tab_code;
+  cart.tabRef = payload.tab_ref;
   cart.tabDisplay = payload.tab_display;
   cart.tabSessionKey = payload.tab_session_key || payload.session_key;
 }
@@ -324,10 +335,10 @@ function requestTabAssociation(reason: "start" | "save" | "cart" = "start") {
 }
 
 async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
-  const tabCode = sanitizeTabCode(typeof tab === "string" ? tab : tab.code);
-  if (!tabCode) return;
+  const tabRef = sanitizeTabRef(typeof tab === "string" ? tab : tab.ref);
+  if (!tabRef) return;
   if (hasDraftWithoutTab.value && !options.preserveDraft) {
-    tabInput.value = tabCode;
+    tabInput.value = tabRef;
     requestTabAssociation("start");
     return;
   }
@@ -338,8 +349,8 @@ async function openTab(tab: POSTabProjection | string, options: { preserveDraft?
     const path = concreteActionHref(
       actions.value,
       "open_tab",
-      "/api/v1/backstage/pos/tabs/{tab_code}/open/",
-      { tab_code: tabCode },
+      "/api/v1/backstage/pos/tabs/{tab_ref}/open/",
+      { tab_ref: tabRef },
     );
     const payload = await action.call<POSTabPayload>(path);
     if (options.preserveDraft && cart.items.length) {
@@ -391,7 +402,7 @@ function currentIntentState() {
     .filter(Boolean);
   const deliveryAddress = structured.formatted_address || deliveryAddressParts.join(", ");
   return {
-    tabCode: cart.tabCode,
+    tabRef: cart.tabRef,
     tabSessionKey: cart.tabSessionKey,
     items: cart.items,
     customerName: cart.customerName,
@@ -535,12 +546,12 @@ async function saveTab() {
 }
 
 async function reloadCurrentTab() {
-  if (!cart.tabCode) return;
+  if (!cart.tabRef) return;
   const path = concreteActionHref(
     actions.value,
     "open_tab",
-    "/api/v1/backstage/pos/tabs/{tab_code}/open/",
-    { tab_code: cart.tabCode },
+    "/api/v1/backstage/pos/tabs/{tab_ref}/open/",
+    { tab_ref: cart.tabRef },
   );
   const payload = await action.call<POSTabPayload>(path);
   setFromTabPayload(payload);
@@ -702,9 +713,8 @@ function newClientRequestId(): string {
               <UiInput
                 :model-value="tabInput"
                 class="max-w-40"
-                inputmode="numeric"
-                :maxlength="tabMaxDigits"
-                placeholder="Comanda"
+                :maxlength="tabMaxLength"
+                :placeholder="tabPlaceholder"
                 @update:model-value="updateTabInput"
               />
               <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
@@ -713,16 +723,16 @@ function newClientRequestId(): string {
           <div class="flex gap-2 overflow-x-auto pb-1">
             <button
               v-for="tab in sortedTabs"
-              :key="tab.code"
+              :key="tab.ref"
               type="button"
               class="grid min-w-24 gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
               :class="[
-                cart.tabCode === tab.code ? 'border-primary bg-primary/5' : '',
+                cart.tabRef === tab.ref ? 'border-primary bg-primary/5' : '',
                 tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
               ]"
               @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
             >
-              <span class="font-semibold tabular-nums">#{{ tab.display_code }}</span>
+              <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
               <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
               <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">{{ tab.item_count }} · {{ tab.total_display }}</span>
             </button>
@@ -856,7 +866,9 @@ function newClientRequestId(): string {
       :allowed-target-states="tabDraftTargetStates"
       :title="tabDialogTitle"
       :description="tabDialogDescription"
-      :max-digits="tabMaxDigits"
+      :max-length="tabMaxLength"
+      :placeholder="tabPlaceholder"
+      :disallowed-chars="tabDisallowedChars"
       @confirm="openTabFromDialog"
       @select="openTabFromDialog"
     />

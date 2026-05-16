@@ -32,7 +32,7 @@ class POSCustomerMemoryTests(TestCase):
         super().setUp()
         Shop.objects.create(name="Test Shop", brand_name="Test")
         Channel.objects.create(ref="pdv", name="Balcão", is_active=True)
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         from shopman.offerman.models import Product
 
         Product.objects.create(
@@ -46,7 +46,7 @@ class POSCustomerMemoryTests(TestCase):
     def _open_tab(self) -> dict:
         return pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor="pos:ana",
             operator_username="ana",
         )
@@ -57,7 +57,7 @@ class POSCustomerMemoryTests(TestCase):
             "customer_name": "Ana Cliente",
             "customer_phone": "",
             "payment_method": "cash",
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
         payload.update(overrides)

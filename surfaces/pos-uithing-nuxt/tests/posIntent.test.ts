@@ -13,13 +13,14 @@ import {
   draftAssociationTargetStates,
   requiresOpenTabForCart,
   requiresTabBeforeSave,
-  tabCodeMaxDigits,
+  tabRefMaxLength,
+  tabRefPlaceholder,
 } from "../app/utils/posTabLifecycle";
 
 describe("POS sale intent", () => {
   it("serializes cart state into the canonical POS intent contract", () => {
     const payload = buildPosSaleIntent({
-      tabCode: "00001007",
+      tabRef: "00001007",
       tabSessionKey: "session-1",
       customerName: "Ana",
       customerRef: "CUST-1",
@@ -65,7 +66,7 @@ describe("POS sale intent", () => {
 
     expect(payload).toMatchObject({
       intent_version: POS_SALE_INTENT_VERSION,
-      tab_code: "00001007",
+      tab_ref: "00001007",
       tab_session_key: "session-1",
       fulfillment_type: "delivery",
       customer_ref: "CUST-1",
@@ -111,7 +112,7 @@ describe("POS sale intent", () => {
         priority: "secondary",
         enabled: true,
         reason: "",
-        href: "/api/v1/backstage/pos/tabs/{tab_code}/open/",
+        href: "/api/v1/backstage/pos/tabs/{tab_ref}/open/",
         method: "POST",
         payload_schema: {},
         idempotency: "none",
@@ -120,7 +121,7 @@ describe("POS sale intent", () => {
     ];
 
     expect(actionHref(actions, "missing", "/fallback/")).toBe("/fallback/");
-    expect(concreteActionHref(actions, "open_tab", "/fallback/", { tab_code: "00001007" })).toBe(
+    expect(concreteActionHref(actions, "open_tab", "/fallback/", { tab_ref: "00001007" })).toBe(
       "/api/v1/backstage/pos/tabs/00001007/open/",
     );
   });
@@ -140,14 +141,16 @@ describe("surface architecture guardrails", () => {
         requires_open_tab_for_cart: true,
         requires_tab_before_save: true,
         allows_direct_checkout_without_tab: true,
-        tab_code_max_digits: 6,
+        tab_ref_max_length: 64,
+        tab_ref_placeholder: "Mesa, nome ou referência",
         draft_association_target_states: ["empty"],
       },
     };
 
     expect(requiresOpenTabForCart(capabilities)).toBe(true);
     expect(requiresTabBeforeSave(capabilities)).toBe(true);
-    expect(tabCodeMaxDigits(capabilities)).toBe(6);
+    expect(tabRefMaxLength(capabilities)).toBe(64);
+    expect(tabRefPlaceholder(capabilities)).toBe("Mesa, nome ou referência");
     expect(draftAssociationTargetStates(capabilities)).toEqual(["empty"]);
     expect(requiresOpenTabForCart({ tab_lifecycle: { requires_open_tab_for_cart: false } })).toBe(false);
   });

@@ -127,10 +127,10 @@ class POSCloseWithDiscountTests(TestCase):
         _grant_pos_perm(self.staff)
 
     def _close_sale(self, items, manual_discount=None, manager_approval=None):
-        POSTab.objects.get_or_create(code="00001007", defaults={"label": "1007"})
+        POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
         opened = pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor=f"pos:{self.staff.username}",
             operator_username=self.staff.username,
         )
@@ -141,7 +141,7 @@ class POSCloseWithDiscountTests(TestCase):
             "payment_method": "cash",
             "manual_discount": manual_discount,
             "manager_approval": manager_approval,
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
         self.client.force_login(self.staff)

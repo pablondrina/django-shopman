@@ -38,7 +38,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
                 "surface_policy": {"fulfillment_types": ["pickup", "delivery"]},
             },
         )
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         product = Product.objects.create(
             sku="POS-HEADLESS-ITEM",
             name="Headless Item",
@@ -113,6 +113,9 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(checkout["capabilities"]["address_autocomplete"]["provider"], "google_places")
         self.assertIn("place_id", checkout["capabilities"]["address_autocomplete"]["structured_fields"])
         self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["create_action_ref"], "create_tab")
+        self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["tab_ref_format"], "free_text")
+        self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["tab_ref_max_length"], 64)
+        self.assertEqual(checkout["capabilities"]["tab_lifecycle"]["numeric_refs_zero_padded_to"], 8)
         self.assertFalse(checkout["capabilities"]["tab_lifecycle"]["requires_open_tab_for_cart"])
         self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["requires_tab_before_save"])
         self.assertTrue(checkout["capabilities"]["tab_lifecycle"]["allows_direct_checkout_without_tab"])
@@ -130,7 +133,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
         tab = opened.json()
         payload = {
             "intent_version": POS_SALE_INTENT_VERSION,
-            "tab_code": tab["tab_code"],
+            "tab_ref": tab["tab_ref"],
             "tab_session_key": tab["tab_session_key"],
             "items": [
                 {
@@ -191,7 +194,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
         )
 
         self.assertEqual(reviewed.status_code, 200)
-        self.assertEqual(reviewed.json()["review"]["tab_code"], "")
+        self.assertEqual(reviewed.json()["review"]["tab_ref"], "")
         self.assertEqual(Order.objects.count(), 0)
 
         closed = self.client.post(
@@ -210,7 +213,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(order.data["payment"]["method"], "cash")
         self.assertEqual(order.data["pos"]["direct_checkout"], True)
         self.assertEqual(order.data["pos"]["client_request_id"], "pos-headless-direct-001")
-        self.assertNotIn("tab_code", order.data)
+        self.assertNotIn("tab_ref", order.data)
 
     def test_api_headless_pos_review_validates_checkout_without_committing(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
@@ -218,7 +221,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
         tab = opened.json()
         payload = {
             "intent_version": POS_SALE_INTENT_VERSION,
-            "tab_code": tab["tab_code"],
+            "tab_ref": tab["tab_ref"],
             "tab_session_key": tab["tab_session_key"],
             "items": [
                 {
@@ -257,7 +260,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
         tab = opened.json()
         payload = {
             "intent_version": POS_SALE_INTENT_VERSION,
-            "tab_code": tab["tab_code"],
+            "tab_ref": tab["tab_ref"],
             "tab_session_key": tab["tab_session_key"],
             "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
             "fulfillment_type": "delivery",
@@ -330,7 +333,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
             "/api/v1/backstage/pos/sale/close/",
             data=json.dumps({
                 "intent_version": POS_SALE_INTENT_VERSION,
-                "tab_code": tab["tab_code"],
+                "tab_ref": tab["tab_ref"],
                 "tab_session_key": tab["tab_session_key"],
                 "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
                 "payment_method": "cash",

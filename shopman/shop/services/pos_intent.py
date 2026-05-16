@@ -36,7 +36,7 @@ _ALLOWED_TOP_LEVEL_KEYS = {
     "receipt_mode",
     "receipt_email",
     "client_request_id",
-    "tab_code",
+    "tab_ref",
     "tab_session_key",
     "manual_discount",
     "manager_approval",
@@ -190,7 +190,7 @@ def parse_pos_sale_intent(raw: dict, *, for_commit: bool = True) -> PosSaleInten
         )
 
     payload["client_request_id"] = _client_request_id(payload.get("client_request_id"))
-    payload["tab_code"] = _text(payload.get("tab_code"), limit=16)
+    payload["tab_ref"] = _text(payload.get("tab_ref"), limit=64)
     payload["tab_session_key"] = _text(payload.get("tab_session_key"), limit=120)
 
     payload["manual_discount"] = _manual_discount(payload.get("manual_discount"))

@@ -7,6 +7,7 @@ module owns the Orderman session writes and POS order mutations.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -25,6 +26,9 @@ from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentE
 
 logger = logging.getLogger(__name__)
 
+_TAB_REF_MAX_LENGTH = 64
+_TAB_REF_DISALLOWED = set('/\\?#%\r\n\t')
+
 
 @dataclass(frozen=True)
 class PosSaleResult:
@@ -36,7 +40,7 @@ class PosSaleResult:
 @dataclass(frozen=True)
 class PosSaleReview:
     intent_version: str
-    tab_code: str
+    tab_ref: str
     subtotal_q: int
     discount_q: int
     delivery_fee_q: int
@@ -56,29 +60,58 @@ class PosSaleReview:
 
 @dataclass(frozen=True)
 class PosTabResult:
-    tab_code: str
+    tab_ref: str
     tab_display: str
     session_key: str
 
 
-def normalize_tab_code(value: str) -> str:
-    """Normalize a POS tab number to the stored 8-digit code."""
-    raw = str(value or "").strip()
-    if not raw or not raw.isdigit() or len(raw) > 8:
-        raise ValueError("Informe um POS tab com até 8 dígitos.")
-    return raw.zfill(8)
+def normalize_tab_ref(value: str) -> str:
+    """Normalize a POS tab reference.
+
+    Numeric references keep the legacy 8-digit storage shape. Text references
+    are accepted as operator-facing identifiers and normalized to uppercase for
+    stable lookup across surfaces.
+    """
+    raw = _clean_tab_ref(value)
+    if raw.isdigit() and len(raw) <= 8:
+        return raw.zfill(8)
+    return raw.upper()
 
 
-def display_tab_code(tab_code: str) -> str:
-    return str(tab_code or "").lstrip("0") or "0"
+def display_tab_ref(tab_ref: str) -> str:
+    value = str(tab_ref or "").strip()
+    if value.isdigit():
+        return value.lstrip("0") or "0"
+    return value
 
 
-def register_pos_tab(*, tab_code: str, label: str = "") -> dict:
+def _clean_tab_ref(value: str) -> str:
+    raw = re.sub(r"\s+", " ", str(value or "").strip())
+    if not raw:
+        raise ValueError("Informe uma referência de comanda.")
+    if len(raw) > _TAB_REF_MAX_LENGTH:
+        raise ValueError(f"Informe uma comanda com até {_TAB_REF_MAX_LENGTH} caracteres.")
+    if any(ch in _TAB_REF_DISALLOWED or ord(ch) < 32 for ch in raw):
+        raise ValueError("A referência da comanda não pode conter barras ou caracteres de URL.")
+    return raw
+
+
+def _tab_label_from_input(value: str, ref: str) -> str:
+    try:
+        raw = _clean_tab_ref(value)
+    except ValueError:
+        return display_tab_ref(ref)
+    if raw.isdigit() and len(raw) <= 8:
+        return display_tab_ref(ref)
+    return raw
+
+
+def register_pos_tab(*, tab_ref: str, label: str = "") -> dict:
     """Register or reactivate a POS tab without opening a sale session."""
-    code = normalize_tab_code(tab_code)
-    display = display_tab_code(code)
-    label = str(label or "").strip()
-    return pos_adapter.upsert_tab(code=code, label=label, display=display)
+    ref = normalize_tab_ref(tab_ref)
+    display = _tab_label_from_input(tab_ref, ref)
+    label = str(label or "").strip() or display
+    return pos_adapter.upsert_tab(ref=ref, label=label, display=display)
 
 
 def resolve_customer(phone: str):
@@ -173,12 +206,12 @@ def close_sale(
     _validate_payment_completion(payload)
     channel, config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
+    existing = _existing_sale_by_client_request_id(channel_ref=channel.ref, payload=payload)
+    if existing is not None and session is None:
+        return PosSaleResult(order_ref=existing.ref, total_q=existing.total_q, fiscal_hint=_sale_fiscal_hint(existing))
     if session is None:
         if _payload_has_tab_identity(payload):
             raise ValueError("Abra um POS tab antes de finalizar.")
-        existing = _existing_sale_by_client_request_id(channel_ref=channel.ref, payload=payload)
-        if existing is not None:
-            return PosSaleResult(order_ref=existing.ref, total_q=existing.total_q, fiscal_hint=_sale_fiscal_hint(existing))
         session = _create_direct_checkout_session(
             channel_ref=channel.ref,
             payload=payload,
@@ -188,7 +221,8 @@ def close_sale(
     else:
         direct_checkout = False
 
-    tab_code = "" if direct_checkout else _session_tab_code(session)
+    tab_ref = "" if direct_checkout else _session_tab_ref(session)
+    tab_display = "" if direct_checkout else _session_tab_display(session)
     fulfillment_type = _payload_fulfillment_type(payload)
     ops = _replace_session_ops(session, payload, operator_username)
     ops.extend([
@@ -201,8 +235,8 @@ def close_sale(
         ops.append({"op": "set_data", "path": "pos.direct_checkout", "value": True})
     else:
         ops.extend([
-            {"op": "set_data", "path": "tab_code", "value": tab_code},
-            {"op": "set_data", "path": "tab_display", "value": display_tab_code(tab_code)},
+            {"op": "set_data", "path": "tab_ref", "value": tab_ref},
+            {"op": "set_data", "path": "tab_display", "value": tab_display},
         ])
     client_request_id = _payload_client_request_id(payload)
     if client_request_id:
@@ -228,11 +262,11 @@ def close_sale(
     )
     _mark_tab_committed(
         order_ref=result.order_ref,
-        tab_code=tab_code,
+        tab_ref=tab_ref,
         operator_username=operator_username,
         session_data=session.data,
     )
-    logger.info("pos_close_tab order=%s tab=%s session=%s total=%s", result.order_ref, tab_code, session.session_key, result.total_q)
+    logger.info("pos_close_tab order=%s tab=%s session=%s total=%s", result.order_ref, tab_ref, session.session_key, result.total_q)
     order = Order.objects.filter(ref=result.order_ref).first()
     if order is not None:
         order = _reconcile_order_payment_to_total(order)
@@ -284,7 +318,7 @@ def review_sale(
 
     return PosSaleReview(
         intent_version=POS_SALE_INTENT_VERSION,
-        tab_code=_session_tab_code(session) if session is not None else "",
+        tab_ref=_session_tab_ref(session) if session is not None else "",
         subtotal_q=subtotal_q,
         discount_q=discount_q,
         delivery_fee_q=delivery_fee_q,
@@ -306,25 +340,25 @@ def review_sale(
 def open_pos_tab(
     *,
     channel_ref: str,
-    tab_code: str,
+    tab_ref: str,
     actor: str,
     operator_username: str,
 ) -> dict:
     """Open or load the current order for a POS tab."""
     channel, config = _channel_and_config(channel_ref)
-    code = normalize_tab_code(tab_code)
-    _ensure_pos_tab(code)
-    session = _get_open_pos_tab_session(channel_ref=channel.ref, tab_code=code)
+    ref = normalize_tab_ref(tab_ref)
+    tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(tab_ref, ref))
+    session = _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref)
     if session is None:
         session = session_service.create_session(
             channel.ref,
             handle_type="pos_tab",
-            handle_ref=code,
+            handle_ref=ref,
             data={
                 "origin_channel": "pos",
                 "fulfillment_type": "pickup",
-                "tab_code": code,
-                "tab_display": display_tab_code(code),
+                "tab_ref": ref,
+                "tab_display": tab_display,
                 "pos_operator": operator_username,
                 "last_touched_at": timezone.now().isoformat(),
             },
@@ -334,14 +368,14 @@ def open_pos_tab(
             session_key=session.session_key,
             channel_ref=channel.ref,
             handle_type="pos_tab",
-            handle_ref=code,
+            handle_ref=ref,
         )
         session_service.modify_session(
             session_key=session.session_key,
             channel_ref=channel.ref,
             ops=[
-                {"op": "set_data", "path": "tab_code", "value": code},
-                {"op": "set_data", "path": "tab_display", "value": display_tab_code(code)},
+                {"op": "set_data", "path": "tab_ref", "value": ref},
+                {"op": "set_data", "path": "tab_display", "value": tab_display},
                 {"op": "set_data", "path": "pos_operator", "value": operator_username},
                 {"op": "set_data", "path": "last_touched_at", "value": timezone.now().isoformat()},
             ],
@@ -350,7 +384,7 @@ def open_pos_tab(
         )
         session.refresh_from_db()
 
-    logger.info("pos_open_tab tab=%s session=%s operator=%s", code, session.session_key, operator_username)
+    logger.info("pos_open_tab tab=%s session=%s operator=%s", ref, session.session_key, operator_username)
     return _tab_payload(session)
 
 
@@ -368,15 +402,15 @@ def save_pos_tab(
     if session is None:
         raise ValueError("Abra um POS tab antes de deixar em espera.")
 
-    tab_code = _session_tab_code(session)
-    _ensure_pos_tab(tab_code)
+    tab_ref = _session_tab_ref(session)
+    tab_display = _ensure_pos_tab(tab_ref, display=_session_tab_display(session))
     fulfillment_type = _payload_fulfillment_type(payload)
     ops = _replace_session_ops(session, payload, operator_username)
     ops.extend([
         {"op": "set_data", "path": "origin_channel", "value": "pos"},
         {"op": "set_data", "path": "fulfillment_type", "value": fulfillment_type},
-        {"op": "set_data", "path": "tab_code", "value": tab_code},
-        {"op": "set_data", "path": "tab_display", "value": display_tab_code(tab_code)},
+        {"op": "set_data", "path": "tab_ref", "value": tab_ref},
+        {"op": "set_data", "path": "tab_display", "value": tab_display},
         {"op": "set_data", "path": "pos_operator", "value": operator_username},
         {"op": "set_data", "path": "last_touched_at", "value": timezone.now().isoformat()},
     ])
@@ -394,8 +428,8 @@ def save_pos_tab(
         ctx={"actor": actor},
         channel_config=config.to_dict(),
     )
-    logger.info("pos_save_tab tab=%s session=%s operator=%s", tab_code, session.session_key, operator_username)
-    return PosTabResult(tab_code=tab_code, tab_display=display_tab_code(tab_code), session_key=session.session_key)
+    logger.info("pos_save_tab tab=%s session=%s operator=%s", tab_ref, session.session_key, operator_username)
+    return PosTabResult(tab_ref=tab_ref, tab_display=tab_display, session_key=session.session_key)
 
 
 def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str) -> bool:
@@ -405,7 +439,7 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
         return False
     cleared = session_service.abandon_session(session_key=session.session_key, channel_ref=channel_ref)
     if cleared:
-        logger.info("pos_clear_tab tab=%s session=%s operator=%s", _session_tab_code(session), session.session_key, operator_username)
+        logger.info("pos_clear_tab tab=%s session=%s operator=%s", _session_tab_ref(session), session.session_key, operator_username)
     return cleared
 
 
@@ -900,23 +934,23 @@ def _payload_tab_session_key(payload: dict) -> str:
     return str(payload.get("tab_session_key") or "").strip()
 
 
-def _payload_tab_code(payload: dict) -> str:
-    raw = str(payload.get("tab_code") or "").strip()
-    return normalize_tab_code(raw) if raw else ""
+def _payload_tab_ref(payload: dict) -> str:
+    raw = str(payload.get("tab_ref") or "").strip()
+    return normalize_tab_ref(raw) if raw else ""
 
 
 def _payload_open_tab_session(*, channel_ref: str, payload: dict) -> Session | None:
     session_key = _payload_tab_session_key(payload)
     if session_key:
         return _get_open_pos_tab_session_by_key(channel_ref=channel_ref, session_key=session_key)
-    tab_code = _payload_tab_code(payload)
-    if tab_code:
-        return _get_open_pos_tab_session(channel_ref=channel_ref, tab_code=tab_code)
+    tab_ref = _payload_tab_ref(payload)
+    if tab_ref:
+        return _get_open_pos_tab_session(channel_ref=channel_ref, tab_ref=tab_ref)
     return None
 
 
 def _payload_has_tab_identity(payload: dict) -> bool:
-    return bool(_payload_tab_session_key(payload) or _payload_tab_code(payload))
+    return bool(_payload_tab_session_key(payload) or _payload_tab_ref(payload))
 
 
 def _create_direct_checkout_session(*, channel_ref: str, payload: dict, operator_username: str) -> Session:
@@ -943,18 +977,26 @@ def _get_open_pos_tab_session_by_key(*, channel_ref: str, session_key: str) -> S
     ).first()
 
 
-def _get_open_pos_tab_session(*, channel_ref: str, tab_code: str) -> Session | None:
+def _get_open_pos_tab_session(*, channel_ref: str, tab_ref: str) -> Session | None:
     return Session.objects.filter(
-        Q(handle_type="pos_tab", handle_ref=tab_code) | Q(data__tab_code=tab_code),
+        Q(handle_type="pos_tab", handle_ref=tab_ref) | Q(data__tab_ref=tab_ref),
         channel_ref=channel_ref,
         state="open",
     ).order_by("-opened_at").first()
 
 
-def _session_tab_code(session: Session) -> str:
+def _session_tab_ref(session: Session) -> str:
     data = session.data or {}
-    raw = str(data.get("tab_code") or session.handle_ref or "").strip()
-    return normalize_tab_code(raw)
+    raw = str(data.get("tab_ref") or session.handle_ref or "").strip()
+    return normalize_tab_ref(raw)
+
+
+def _session_tab_display(session: Session) -> str:
+    data = session.data or {}
+    display = str(data.get("tab_display") or "").strip()
+    if display:
+        return display
+    return display_tab_ref(_session_tab_ref(session))
 
 
 def _tab_payload(session: Session) -> dict:
@@ -964,7 +1006,7 @@ def _tab_payload(session: Session) -> dict:
     fiscal = data.get("fiscal") or {}
     receipt = data.get("receipt") or {}
     discount = data.get("manual_discount") or {}
-    tab_code = _session_tab_code(session)
+    tab_ref = _session_tab_ref(session)
     items = [
         {
             "sku": item["sku"],
@@ -981,8 +1023,8 @@ def _tab_payload(session: Session) -> dict:
     return {
         "session_key": session.session_key,
         "tab_session_key": session.session_key,
-        "tab_code": tab_code,
-        "tab_display": display_tab_code(tab_code),
+        "tab_ref": tab_ref,
+        "tab_display": _session_tab_display(session),
         "items": items,
         "customer_phone": customer.get("phone", ""),
         "customer_name": customer.get("name", ""),
@@ -1011,14 +1053,14 @@ def _tab_payload(session: Session) -> dict:
     }
 
 
-def _ensure_pos_tab(tab_code: str) -> None:
-    pos_adapter.ensure_tab(code=tab_code, display=display_tab_code(tab_code))
+def _ensure_pos_tab(tab_ref: str, display: str = "") -> str:
+    return pos_adapter.ensure_tab(ref=tab_ref, display=display or display_tab_ref(tab_ref))
 
 
 def _mark_tab_committed(
     *,
     order_ref: str,
-    tab_code: str,
+    tab_ref: str,
     operator_username: str,
     session_data: dict | None = None,
 ) -> None:
@@ -1028,12 +1070,12 @@ def _mark_tab_committed(
     if order is None:
         return
     order_data = dict(order.data or {})
-    if tab_code:
-        order_data["tab_code"] = tab_code
-        order_data["tab_display"] = display_tab_code(tab_code)
     order_data["pos_operator"] = operator_username
     order_data["pos_committed_at"] = now
     session_data = session_data or {}
+    if tab_ref:
+        order_data["tab_ref"] = tab_ref
+        order_data["tab_display"] = str(session_data.get("tab_display") or display_tab_ref(tab_ref))
     session_pos_data = dict(session_data.get("pos") or {})
     if session_pos_data:
         order_data["pos"] = {**dict(order_data.get("pos") or {}), **session_pos_data}

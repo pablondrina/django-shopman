@@ -69,7 +69,7 @@ urlpatterns = [
     path("pos/cash/movement/", POSCashMovementView.as_view(), name="api-backstage-pos-cash-movement"),
     # POS — tab (comanda) lifecycle
     path("pos/tabs/", POSTabCreateView.as_view(), name="api-backstage-pos-tab-create"),
-    path("pos/tabs/<str:tab_code>/open/", POSTabOpenView.as_view(), name="api-backstage-pos-tab-open"),
+    path("pos/tabs/<str:tab_ref>/open/", POSTabOpenView.as_view(), name="api-backstage-pos-tab-open"),
     path("pos/tabs/save/", POSTabSaveView.as_view(), name="api-backstage-pos-tab-save"),
     path("pos/tabs/<str:session_key>/clear/", POSTabClearView.as_view(), name="api-backstage-pos-tab-clear"),
     path("pos/sale/review/", POSReviewSaleView.as_view(), name="api-backstage-pos-review-sale"),

@@ -199,8 +199,8 @@ class POSShiftSummaryProjection:
 class POSTabProjection:
     """A visible POS tab card."""
 
-    code: str
-    display_code: str
+    ref: str
+    display_ref: str
     session_key: str
     state: str
     status_label: str
@@ -386,39 +386,43 @@ def build_pos_tabs(
 
     query_norm = _norm(query)
     sessions = {
-        str((session.data or {}).get("tab_code") or session.handle_ref or "").strip(): session
+        str((session.data or {}).get("tab_ref") or session.handle_ref or "").strip(): session
         for session in Session.objects.filter(
             channel_ref=channel_ref,
             state="open",
         ).filter(handle_type="pos_tab")
     }
     sessions.update({
-        str((session.data or {}).get("tab_code") or "").strip(): session
+        str((session.data or {}).get("tab_ref") or "").strip(): session
         for session in Session.objects.filter(
             channel_ref=channel_ref,
             state="open",
-            data__has_key="tab_code",
+            data__has_key="tab_ref",
         )
     })
-    sessions = {code: session for code, session in sessions.items() if code}
+    sessions = {ref: session for ref, session in sessions.items() if ref}
 
-    codes = list(
-        POSTab.objects.filter(is_active=True)
-        .order_by("code")
-        .values_list("code", flat=True)
-    )
-    for code in sessions:
-        if code not in codes:
-            codes.append(code)
+    tab_displays = {
+        row["ref"]: row["label"] or _display_ref(row["ref"])
+        for row in POSTab.objects.filter(is_active=True)
+        .order_by("ref")
+        .values("ref", "label")
+    }
+    refs = list(tab_displays)
+    for ref in sessions:
+        if ref not in refs:
+            refs.append(ref)
 
     tabs = []
-    for code in codes:
-        tab = _tab_projection(code=code, session=sessions.get(code))
-        if query_norm and query_norm not in _tab_haystack(tab, sessions.get(code)):
+    for ref in refs:
+        session = sessions.get(ref)
+        session_display = str(((session.data or {}) if session is not None else {}).get("tab_display") or "").strip()
+        tab = _tab_projection(ref=ref, session=session, display_ref=session_display or tab_displays.get(ref, ""))
+        if query_norm and query_norm not in _tab_haystack(tab, sessions.get(ref)):
             continue
         tabs.append(tab)
 
-    tabs.sort(key=lambda tab: (tab.state != "in_use", tab.code))
+    tabs.sort(key=lambda tab: (tab.state != "in_use", tab.ref))
     return tuple(tabs[:limit])
 
 
@@ -533,7 +537,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             priority="quiet",
             method="POST",
             href="/api/v1/backstage/pos/tabs/",
-            payload_schema={"required": ["tab_code"], "optional": ["label"]},
+            payload_schema={"required": ["tab_ref"], "optional": ["label"]},
             idempotency="none",
         ),
         SurfaceActionProjection(
@@ -542,8 +546,8 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             label="Abrir comanda",
             priority="secondary",
             method="POST",
-            href="/api/v1/backstage/pos/tabs/{tab_code}/open/",
-            payload_schema={"path": {"tab_code": "string"}},
+            href="/api/v1/backstage/pos/tabs/{tab_ref}/open/",
+            payload_schema={"path": {"tab_ref": "string"}},
         ),
         SurfaceActionProjection(
             ref="save_tab",
@@ -989,7 +993,11 @@ def _checkout_contract(
                 "open_action_ref": "open_tab",
                 "save_action_ref": "save_tab",
                 "clear_action_ref": "clear_tab",
-                "tab_code_max_digits": 8,
+                "tab_ref_format": "free_text",
+                "tab_ref_max_length": 64,
+                "tab_ref_placeholder": "Mesa, nome ou referência",
+                "tab_ref_disallowed_chars": ("/", "\\", "?", "#", "%"),
+                "numeric_refs_zero_padded_to": 8,
                 "requires_open_tab_for_cart": False,
                 "requires_tab_before_save": True,
                 "allows_direct_checkout_without_tab": True,
@@ -1137,12 +1145,12 @@ def _product_projection(product: Product, price_q: int) -> POSProductProjection:
     )
 
 
-def _tab_projection(*, code: str, session: Session | None) -> POSTabProjection:
-    display_code = _display_code(code)
+def _tab_projection(*, ref: str, session: Session | None, display_ref: str = "") -> POSTabProjection:
+    display_ref = display_ref or _display_ref(ref)
     if session is None:
         return POSTabProjection(
-            code=code,
-            display_code=display_code,
+            ref=ref,
+            display_ref=display_ref,
             session_key="",
             state="empty",
             status_label="Livre",
@@ -1168,8 +1176,8 @@ def _tab_projection(*, code: str, session: Session | None) -> POSTabProjection:
     discount_q = int((data.get("manual_discount") or {}).get("discount_q", 0))
 
     return POSTabProjection(
-        code=code,
-        display_code=display_code,
+        ref=ref,
+        display_ref=display_ref,
         session_key=session.session_key,
         state="in_use",
         status_label="Em uso",
@@ -1228,8 +1236,8 @@ def _tab_haystack(tab: POSTabProjection, session: Session | None) -> str:
             item_parts.extend([str(item.get("sku") or ""), str(item.get("name") or "")])
     return _norm(
         " ".join([
-            tab.code,
-            tab.display_code,
+            tab.ref,
+            tab.display_ref,
             tab.customer_name,
             tab.customer_phone,
             tab.items_preview,
@@ -1238,8 +1246,11 @@ def _tab_haystack(tab: POSTabProjection, session: Session | None) -> str:
     )
 
 
-def _display_code(code: str) -> str:
-    return str(code or "").lstrip("0") or "0"
+def _display_ref(ref: str) -> str:
+    value = str(ref or "").strip()
+    if value.isdigit():
+        return value.lstrip("0") or "0"
+    return value
 
 
 def _norm(value: str) -> str:

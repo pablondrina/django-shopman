@@ -162,12 +162,12 @@ class PosCloseGranularErrorTests(TestCase):
         import json
         if items is None:
             items = [{"sku": "TEST-SKU", "qty": 1, "unit_price_q": 1000}]
-        tab = {"tab_code": "00001007", "tab_session_key": None}
+        tab = {"tab_ref": "00001007", "tab_session_key": None}
         if open_tab:
-            POSTab.objects.get_or_create(code="00001007", defaults={"label": "1007"})
+            POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
             tab = pos_service.open_pos_tab(
                 channel_ref="pdv",
-                tab_code="1007",
+                tab_ref="1007",
                 actor=f"pos:{self.staff.username}",
                 operator_username=self.staff.username,
             )
@@ -177,7 +177,7 @@ class PosCloseGranularErrorTests(TestCase):
                 "payment_method": payment_method,
                 "customer_name": "",
                 "customer_phone": "",
-                "tab_code": tab["tab_code"],
+                "tab_ref": tab["tab_ref"],
                 "tab_session_key": tab["tab_session_key"],
             })
         }

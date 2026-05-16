@@ -50,7 +50,7 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
         for ref, created_at in Order.objects.values_list("ref", "created_at")
         if len(ref.split("-")) >= 3
     )
-    assert set(POSTab.objects.values_list("code", flat=True)) >= {
+    assert set(POSTab.objects.values_list("ref", flat=True)) >= {
         "00001007",
         "00001008",
         "00001009",
@@ -63,7 +63,7 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
         state="open",
         handle_type="pos_tab",
         handle_ref="00001007",
-        data__tab_code="00001007",
+        data__tab_ref="00001007",
     ).exists()
 
     recipe = Recipe.objects.get(ref="croissant")

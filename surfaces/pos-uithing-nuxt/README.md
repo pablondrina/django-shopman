@@ -17,6 +17,8 @@ Start the surface on `http://127.0.0.1:3002/`:
 npm run dev
 ```
 
+Nuxt will choose another port, such as `3001`, if `3002` is already in use.
+
 The API proxy targets `http://127.0.0.1:8000` by default. Override it with
 `NUXT_DJANGO_BASE_URL` when Django is elsewhere.
 
@@ -40,6 +42,10 @@ Current POS capabilities consumed from the projection include tab lifecycle,
 cash runtime/actions, checkout review/close, customer lookup with saved
 addresses and memory, delivery address autocomplete/reverse geocode metadata,
 recent sale correction, and idempotent replay via `client_request_id`.
+
+The tab reference contract is `tab_ref`. Numeric refs up to 8 digits keep the
+zero-padded storage shape, while alphanumeric operator references are accepted
+as short text and remain owned by the canonical POS service/projection layer.
 
 `tab_lifecycle.allows_direct_checkout_without_tab` enables quick sales without a
 comanda for direct checkout. Any draft without a tab must still be associated

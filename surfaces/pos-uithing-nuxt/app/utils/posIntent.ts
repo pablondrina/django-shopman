@@ -51,7 +51,7 @@ export function buildPosSaleIntent(
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     intent_version: intentVersion || POS_SALE_INTENT_VERSION,
-    tab_code: state.tabCode,
+    tab_ref: state.tabRef,
     tab_session_key: state.tabSessionKey,
     items: state.items.map((item) => ({
       sku: item.sku,

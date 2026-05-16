@@ -10,7 +10,9 @@ const props = defineProps<{
   allowedTargetStates: string[];
   title: string;
   description: string;
-  maxDigits: number;
+  maxLength: number;
+  placeholder: string;
+  disallowedChars: string[];
 }>();
 
 const emit = defineEmits<{
@@ -26,8 +28,8 @@ const filteredTabs = computed(() => {
   return props.tabs.filter((tab) => {
     if (!query) return true;
     return [
-      tab.display_code,
-      tab.code,
+      tab.display_ref,
+      tab.ref,
       tab.customer_name,
       tab.customer_phone,
       tab.items_preview,
@@ -36,12 +38,19 @@ const filteredTabs = computed(() => {
   });
 });
 
-function sanitizeTabCode(value: string): string {
-  return value.replace(/\D/g, "").slice(0, props.maxDigits || 8);
+function sanitizeTabRef(value: string): string {
+  const disallowed = new Set(props.disallowedChars || []);
+  return value
+    .replace(/[\r\n\t]/g, "")
+    .split("")
+    .filter((char) => !disallowed.has(char))
+    .join("")
+    .replace(/\s+/g, " ")
+    .slice(0, props.maxLength || 64);
 }
 
 function updateValue(value: unknown) {
-  emit("update:modelValue", sanitizeTabCode(String(value || "")));
+  emit("update:modelValue", sanitizeTabRef(String(value || "")));
 }
 
 function canAssociate(tab: POSTabProjection): boolean {
@@ -55,7 +64,7 @@ function selectTab(tab: POSTabProjection) {
 }
 
 function confirmTyped() {
-  const code = sanitizeTabCode(props.modelValue);
+  const code = sanitizeTabRef(props.modelValue);
   if (!code) return;
   emit("confirm", code);
 }
@@ -71,13 +80,12 @@ function confirmTyped() {
 
       <form class="grid gap-2" @submit.prevent="confirmTyped">
         <label class="grid gap-1 text-sm">
-          <span class="font-medium text-muted-foreground">Comanda</span>
+          <span class="font-medium text-muted-foreground">Referência da comanda</span>
           <div class="flex gap-2">
             <UiInput
               :model-value="modelValue"
-              inputmode="numeric"
-              :maxlength="maxDigits"
-              placeholder="Número"
+              :maxlength="maxLength"
+              :placeholder="placeholder"
               autofocus
               @update:model-value="updateValue"
             />
@@ -96,14 +104,14 @@ function confirmTyped() {
         <div v-if="filteredTabs.length" class="grid max-h-72 gap-2 overflow-auto pr-1 sm:grid-cols-2">
           <button
             v-for="tab in filteredTabs"
-            :key="tab.code"
+            :key="tab.ref"
             type="button"
             class="grid gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border disabled:hover:bg-transparent"
             :class="tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''"
             :disabled="busy || !canAssociate(tab)"
             @click="selectTab(tab)"
           >
-            <span class="font-semibold tabular-nums">#{{ tab.display_code }}</span>
+            <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
             <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
             <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">
               {{ tab.item_count }} · {{ tab.total_display }}
@@ -114,7 +122,7 @@ function confirmTyped() {
           </button>
         </div>
         <p v-else class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-          Nenhuma comanda encontrada. Digite um número para abrir uma nova.
+          Nenhuma comanda encontrada. Digite uma referência para abrir uma nova.
         </p>
       </div>
 

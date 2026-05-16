@@ -326,6 +326,7 @@ def _delivery_date_from_context(request: HttpRequest, delivery_date: str | None)
     try:
         return str(request.GET.get("delivery_date") or request.POST.get("delivery_date") or "").strip()
     except Exception:
+        logger.debug("checkout_projection_delivery_date_failed", exc_info=True)
         return ""
 
 
