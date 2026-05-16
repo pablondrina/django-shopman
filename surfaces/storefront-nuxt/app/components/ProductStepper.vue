@@ -17,7 +17,7 @@ const max = computed(() => props.maxQty ?? 99)
 const pending = computed(() => isPending(props.meta.sku))
 const canIncrement = computed(() => props.canAdd && qty.value < max.value && !pending.value)
 const canDecrement = computed(() => qty.value > 0 && !pending.value)
-const controlSize = computed(() => props.size || 'xs')
+const controlSize = computed(() => props.size || 'sm')
 const label = computed(() => props.canAdd ? (props.addLabel || 'Adicionar') : (props.unavailableLabel || 'Indisponível'))
 const productName = computed(() => props.meta.name || 'item')
 

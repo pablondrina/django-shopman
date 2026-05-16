@@ -48,16 +48,16 @@ const availabilityColor = computed<BadgeColor>(() => {
       <div class="flex min-w-0 flex-col p-3 sm:p-4">
         <div class="min-w-0 flex-1">
           <div class="mb-2 flex flex-wrap gap-1.5">
-            <UBadge :color="availabilityColor" variant="subtle" size="xs">
+            <UBadge :color="availabilityColor" variant="subtle">
               {{ item.availability_label }}
             </UBadge>
-            <UBadge v-if="item.promotion_label" color="primary" variant="solid" size="xs">
+            <UBadge v-if="item.promotion_label" color="primary" variant="solid">
               {{ item.promotion_label }}
             </UBadge>
-            <UBadge v-if="item.is_new" color="info" variant="subtle" size="xs">Novo</UBadge>
+            <UBadge v-if="item.is_new" color="info" variant="subtle">Novo</UBadge>
           </div>
 
-          <h3 class="text-sm font-semibold leading-snug text-highlighted sm:text-base">
+          <h3 class="text-sm font-semibold leading-snug text-highlighted">
             <NuxtLink :to="`/produto/${item.sku}`" class="hover:text-primary">
               {{ item.name }}
             </NuxtLink>
@@ -71,7 +71,6 @@ const availabilityColor = computed<BadgeColor>(() => {
               :key="tag"
               color="neutral"
               variant="subtle"
-              size="xs"
             >
               {{ tag }}
             </UBadge>
@@ -83,14 +82,13 @@ const availabilityColor = computed<BadgeColor>(() => {
             <div v-if="item.original_price_display" class="text-xs text-muted line-through">
               {{ item.original_price_display }}
             </div>
-            <div class="text-lg font-bold tabular-nums text-highlighted">{{ item.price_display }}</div>
+            <div class="text-lg font-semibold tabular-nums text-highlighted">{{ item.price_display }}</div>
           </div>
           <ProductStepper
             :meta="meta"
             :can-add="item.can_add_to_cart"
             :max-qty="item.available_qty"
             :unavailable-label="item.availability_label"
-            size="xs"
           />
         </div>
       </div>

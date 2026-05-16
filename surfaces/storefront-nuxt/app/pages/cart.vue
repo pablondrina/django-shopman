@@ -176,7 +176,7 @@ useHead({ title: 'Seu carrinho' })
             description="Alguns itens mudaram de disponibilidade. Revise antes de finalizar."
           />
 
-          <UCard v-if="cart.minimum_order_progress?.remaining_q && cart.minimum_order_progress.remaining_q > 0" :ui="{ body: 'p-4' }">
+          <UCard v-if="cart.minimum_order_progress?.remaining_q && cart.minimum_order_progress.remaining_q > 0">
             <div class="grid gap-3">
               <div class="flex items-center justify-between text-sm">
                 <span class="font-medium">
@@ -223,7 +223,7 @@ useHead({ title: 'Seu carrinho' })
                 <UIcon v-else name="i-lucide-image" class="absolute inset-0 m-auto size-6 text-muted" />
               </div>
               <div class="min-w-0 py-3 pr-3 sm:py-4 sm:pr-4">
-                <p class="text-xs uppercase text-primary font-semibold">Sugestão</p>
+                <p class="shop-section-kicker">Sugestão</p>
                 <p class="font-semibold text-highlighted truncate">
                   {{ cart.upsell.name }}
                 </p>
@@ -233,7 +233,6 @@ useHead({ title: 'Seu carrinho' })
                     v-if="upsellMeta"
                     :meta="upsellMeta"
                     :can-add="true"
-                    size="sm"
                     add-label="Adicionar"
                   />
                 </div>

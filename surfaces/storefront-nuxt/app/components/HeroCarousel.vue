@@ -154,14 +154,14 @@ async function activateSlideCta (item: HeroSlide) {
                 v-if="item.cta.to"
                 :label="item.cta.label"
                 :to="item.cta.to"
-                size="xl"
+                size="lg"
                 color="neutral"
                 variant="solid"
               />
               <UButton
                 v-else
                 :label="item.cta.label"
-                size="xl"
+                size="lg"
                 color="neutral"
                 variant="solid"
                 :loading="reorderPending"
@@ -171,7 +171,7 @@ async function activateSlideCta (item: HeroSlide) {
                 v-if="item.secondaryCta"
                 :label="item.secondaryCta.label"
                 :to="item.secondaryCta.to"
-                size="xl"
+                size="lg"
                 color="neutral"
                 variant="outline"
                 class="bg-white/5 text-white ring-white/30 hover:bg-white/10"

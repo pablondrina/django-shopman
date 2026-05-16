@@ -241,7 +241,7 @@ useSeoMeta({
               <p class="shop-section-kicker shop-section-kicker--inverse-muted">
                 Cardápio do dia
               </p>
-              <h1 class="shop-hero-copy mt-4 max-w-[22rem] text-3xl font-bold leading-tight sm:max-w-2xl sm:text-5xl lg:text-6xl">
+              <h1 class="shop-hero-copy mt-4 max-w-[22rem] text-4xl font-bold leading-tight sm:max-w-2xl sm:text-5xl lg:text-6xl">
                 Cardápio com disponibilidade informada.
               </h1>
               <p class="mt-5 max-w-[22rem] text-base leading-relaxed text-white/76 sm:max-w-xl sm:text-lg">
@@ -249,14 +249,14 @@ useSeoMeta({
               </p>
 
               <div class="mt-7 flex flex-wrap gap-3">
-                <UButton label="Explorar cardápio" to="#cardapio" size="xl" color="neutral" />
+                <UButton label="Explorar cardápio" to="#cardapio" size="lg" color="neutral" />
                 <UButton
                   v-if="!cart.is_empty"
                   :label="cart.summary_pending ? 'Atualizando...' : cart.grand_total_display"
                   to="/cart"
                   color="neutral"
                   variant="outline"
-                  size="xl"
+                  size="lg"
                   class="bg-white/5 text-white ring-white/30 hover:bg-white/10"
                 />
               </div>
@@ -290,7 +290,7 @@ useSeoMeta({
                     <UBadge v-if="heroItem.promotion_label" color="primary" variant="solid">{{ heroItem.promotion_label }}</UBadge>
                     <UBadge :color="availabilityColor(heroItem)" variant="subtle">{{ heroItem.availability_label }}</UBadge>
                   </div>
-                  <NuxtLink :to="`/produto/${heroItem.sku}`" class="line-clamp-2 text-lg font-bold leading-snug text-white hover:text-primary">
+                  <NuxtLink :to="`/produto/${heroItem.sku}`" class="line-clamp-2 text-base font-semibold leading-snug text-white hover:text-primary">
                     {{ heroItem.name }}
                   </NuxtLink>
                   <p v-if="heroItem.short_description" class="mt-1 line-clamp-2 text-sm leading-relaxed text-white/68">
@@ -302,7 +302,7 @@ useSeoMeta({
               <div class="mt-4 flex items-end justify-between gap-3 border-t border-white/15 pt-4">
                 <div class="min-w-0">
                   <p v-if="heroItem.original_price_display" class="text-sm text-white/48 line-through">{{ heroItem.original_price_display }}</p>
-                  <p class="text-2xl font-bold tabular-nums">{{ heroItem.price_display }}</p>
+                  <p class="text-xl font-semibold tabular-nums">{{ heroItem.price_display }}</p>
                 </div>
                 <ProductStepper
                   :meta="itemMeta(heroItem)"
@@ -310,7 +310,6 @@ useSeoMeta({
                   :max-qty="heroItem.available_qty"
                   add-label="Adicionar"
                   :unavailable-label="heroItem.availability_label"
-                  size="sm"
                 />
               </div>
 

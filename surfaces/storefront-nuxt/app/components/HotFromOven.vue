@@ -16,8 +16,10 @@ const heading = computed(() => props.copy.availability_heading)
     :title="heading.title"
     :description="heading.message"
   >
-    <UPageGrid>
-      <ProductCard v-for="item in items" :key="item.sku" :item="item" />
-    </UPageGrid>
+    <template #body>
+      <UPageGrid>
+        <ProductCard v-for="item in items" :key="item.sku" :item="item" />
+      </UPageGrid>
+    </template>
   </UPageSection>
 </template>

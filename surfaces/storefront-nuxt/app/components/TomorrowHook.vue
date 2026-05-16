@@ -30,7 +30,6 @@ const message = computed(() => {
       :description="message"
       orientation="horizontal"
       variant="subtle"
-      :ui="{ container: 'p-6 sm:p-8 items-center', title: 'text-lg sm:text-xl' }"
     >
       <div class="flex justify-end">
         <UButton label="Ver cardápio" to="/menu" />

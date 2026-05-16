@@ -34,7 +34,6 @@ const closingHint = computed(() => {
     <UCard
       v-if="showBirthday"
       class="shop-soft-panel"
-      :ui="{ body: 'p-4 sm:p-5' }"
     >
       <div class="flex items-center gap-4">
         <div class="min-w-0 flex-1">
@@ -48,11 +47,10 @@ const closingHint = computed(() => {
     <UCard
       v-if="showQuickReorder"
       class="shop-soft-panel"
-      :ui="{ body: 'p-5 sm:p-6' }"
     >
       <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div class="min-w-0">
-          <p class="text-base font-semibold text-highlighted">Quer repetir seu último pedido?</p>
+          <p class="font-semibold text-highlighted">Quer repetir seu último pedido?</p>
           <ul
             v-if="quickReorderItems.length"
             class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted"
@@ -80,7 +78,6 @@ const closingHint = computed(() => {
     <UCard
       v-if="showClosing"
       class="shop-soft-panel"
-      :ui="{ body: 'p-4 sm:p-5' }"
     >
       <div class="flex items-center gap-4">
         <div>
@@ -93,7 +90,6 @@ const closingHint = computed(() => {
     <UCard
       v-if="showWhatsappWelcome"
       class="shop-soft-panel"
-      :ui="{ body: 'p-4 sm:p-5' }"
     >
       <div class="flex items-center gap-4">
         <div class="min-w-0 flex-1">

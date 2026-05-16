@@ -10,17 +10,13 @@ const show = computed(() => !!props.shop.whatsapp_url)
 </script>
 
 <template>
-  <UPageSection
-    v-if="show"
-    :ui="{ container: 'py-12 sm:py-16' }"
-  >
+  <UPageSection v-if="show">
     <UPageCard
       orientation="horizontal"
       variant="solid"
-      :ui="{ container: 'p-8 sm:p-10 lg:p-12 items-center', title: 'text-2xl sm:text-3xl font-bold' }"
     >
       <template #header>
-        <UBadge color="success" variant="subtle" class="rounded-full">
+        <UBadge color="success" variant="subtle">
           WhatsApp
         </UBadge>
       </template>
@@ -41,7 +37,7 @@ const show = computed(() => !!props.shop.whatsapp_url)
           :label="copy.whatsapp_cta_label.title"
           color="success"
           variant="solid"
-          size="xl"
+          size="lg"
         />
       </div>
     </UPageCard>

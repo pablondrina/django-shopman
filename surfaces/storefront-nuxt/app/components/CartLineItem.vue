@@ -27,7 +27,6 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
 <template>
   <UCard
     as="article"
-    :ui="{ body: 'p-3 sm:p-4' }"
     :class="[
       showWarning && 'ring-1 ring-warning',
       line.is_ready_for_confirmation && 'ring-1 ring-success'
@@ -50,17 +49,17 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
           <div class="min-w-0">
             <NuxtLink
               :to="`/produto/${line.sku}`"
-              class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted hover:text-primary sm:text-base"
+              class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted hover:text-primary"
             >
               {{ line.name }}
             </NuxtLink>
-            <p class="mt-1 whitespace-nowrap text-xs text-muted sm:text-sm">
+            <p class="mt-1 whitespace-nowrap text-sm text-muted">
               <span v-if="line.original_price_display" class="mr-2 line-through tabular-nums">
                 {{ line.original_price_display }}
               </span>
               <span class="tabular-nums">{{ line.qty }} x {{ line.price_display }} · {{ line.total_display }}</span>
             </p>
-            <UBadge v-if="line.discount_label" color="success" variant="subtle" size="xs" class="mt-1 max-w-full">
+            <UBadge v-if="line.discount_label" color="success" variant="subtle" class="mt-1 max-w-full">
               <span class="truncate">{{ line.discount_label }}</span>
             </UBadge>
           </div>
@@ -82,7 +81,6 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
             :meta="meta"
             :can-add="line.is_available"
             :max-qty="line.available_qty"
-            size="xs"
           />
         </div>
       </div>
@@ -95,12 +93,11 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
         :description="line.available_qty != null && line.available_qty > 0
           ? `Disponível para este pedido: ${line.available_qty}.`
           : 'Item indisponível para este pedido.'"
-        :ui="{ root: 'p-3' }"
       >
         <template #actions>
           <UButton
             v-if="line.available_qty != null && line.available_qty > 0"
-            size="xs"
+            size="sm"
             color="warning"
             variant="solid"
             :label="`Aceitar ${line.available_qty}`"
@@ -108,7 +105,7 @@ const removeLabel = computed(() => props.line.is_awaiting_confirmation || props.
             @click="emit('acceptAvailable', line)"
           />
           <UButton
-            size="xs"
+            size="sm"
             color="neutral"
             variant="outline"
             :label="removeLabel"
