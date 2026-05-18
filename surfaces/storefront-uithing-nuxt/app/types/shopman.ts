@@ -190,6 +190,49 @@ export interface SocialLinkProjection {
   icon_svg: string
 }
 
+export interface ShopDesignTokensProjection {
+  background?: string
+  foreground?: string
+  card?: string
+  card_foreground?: string
+  popover?: string
+  popover_foreground?: string
+  primary?: string
+  primary_foreground?: string
+  secondary?: string
+  secondary_foreground?: string
+  muted?: string
+  muted_foreground?: string
+  accent?: string
+  accent_foreground?: string
+  destructive?: string
+  destructive_foreground?: string
+  success?: string
+  success_foreground?: string
+  warning?: string
+  warning_foreground?: string
+  info?: string
+  info_foreground?: string
+  border?: string
+  input?: string
+  ring?: string
+  surface?: string
+  surface_hover?: string
+  foreground_muted?: string
+  border_strong?: string
+  primary_hover?: string
+  secondary_hover?: string
+  accent_hover?: string
+  error?: string
+  error_foreground?: string
+  background_hex?: string
+  theme_hex?: string
+  heading_font?: string
+  body_font?: string
+  color_mode?: string
+  dark?: Record<string, string>
+}
+
 export interface ShopProjection {
   brand_name: string
   tagline: string
@@ -198,6 +241,7 @@ export interface ShopProjection {
   logo_url: string
   color_mode: string
   theme_color: string
+  background_color?: string
   whatsapp_url: string
   phone: string
   phone_display: string
@@ -207,6 +251,7 @@ export interface ShopProjection {
   maps_url: string
   default_city: string
   social_links: SocialLinkProjection[]
+  design_tokens?: ShopDesignTokensProjection
 }
 
 export interface OmotenashiProjection {

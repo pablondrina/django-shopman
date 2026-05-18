@@ -26,7 +26,7 @@
   import type { HTMLAttributes } from "vue";
 
   export const accordionTriggerStyle = tv({
-    base: "focus-visible:border-ring focus-visible:ring-ring/50 flex w-full flex-1 items-center justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180",
+    base: "focus-visible:border-ring focus-visible:ring-ring/50 flex w-full flex-1 items-center justify-between gap-4 rounded-md px-4 py-4 text-left text-sm font-medium transition-all outline-none hover:bg-muted/60 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180",
   });
 </script>
 

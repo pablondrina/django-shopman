@@ -4,7 +4,7 @@
     v-bind="forwarded"
     :class="styles({ class: normalizeClass(props.class) || undefined })"
   >
-    <div class="pt-0 pb-4">
+    <div class="px-4 pt-0 pb-4">
       <slot>{{ content }}</slot>
     </div>
   </AccordionContent>

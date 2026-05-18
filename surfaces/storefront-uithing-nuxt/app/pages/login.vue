@@ -98,7 +98,7 @@ useSeoMeta({
       <UiCard>
         <UiCardHeader>
           <UiCardTitle>Entrar por telefone</UiCardTitle>
-          <UiCardDescription>O backend normaliza o telefone e devolve o alvo confirmado.</UiCardDescription>
+          <UiCardDescription>Sem senha: enviamos um codigo para confirmar que o telefone e seu.</UiCardDescription>
         </UiCardHeader>
         <UiCardContent class="space-y-4">
           <UiAlert v-if="error" variant="destructive">

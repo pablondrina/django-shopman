@@ -27,3 +27,8 @@ export function normalizeSearchText (value: string | null | undefined): string {
 export function compactText (parts: Array<string | null | undefined>, separator = ' '): string {
   return parts.map(part => (part || '').trim()).filter(Boolean).join(separator)
 }
+
+export function formatCount (value: number | null | undefined, singular: string, plural = `${singular}s`): string {
+  const count = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
+  return `${count} ${count === 1 ? singular : plural}`
+}

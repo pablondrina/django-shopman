@@ -19,7 +19,7 @@ useSeoMeta({
     <div class="shop-container max-w-3xl space-y-5">
       <div>
         <p class="shop-kicker">Carrinho</p>
-        <h1 class="mt-1 text-3xl font-semibold">Resumo autoritativo do backend</h1>
+        <h1 class="mt-1 text-3xl font-semibold">Seu carrinho</h1>
       </div>
 
       <UiSkeleton v-if="pending" class="h-72 rounded-lg" />
@@ -33,13 +33,13 @@ useSeoMeta({
 
       <UiCard v-else>
         <UiCardHeader>
-          <UiCardTitle>{{ cart.is_empty ? 'Carrinho vazio' : `${cart.items_count} item(ns)` }}</UiCardTitle>
+          <UiCardTitle>{{ cart.is_empty ? 'Carrinho vazio' : formatCount(cart.items_count, 'item', 'itens') }}</UiCardTitle>
           <UiCardDescription>{{ cart.summary_pending ? 'Atualizando...' : cart.grand_total_display }}</UiCardDescription>
         </UiCardHeader>
         <UiCardContent class="space-y-4">
           <UiAlert v-if="cart.has_unavailable_items" variant="warning">
             <UiAlertTitle>Revise itens indisponiveis</UiAlertTitle>
-            <UiAlertDescription>O checkout depende das mensagens projetadas no carrinho.</UiAlertDescription>
+            <UiAlertDescription>Algum item precisa de ajuste antes de finalizar.</UiAlertDescription>
           </UiAlert>
 
           <div v-if="cart.is_empty" class="rounded-lg border border-dashed p-8 text-center">

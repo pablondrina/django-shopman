@@ -88,6 +88,23 @@ const steps = computed<Step[]>(() => {
   return list
 })
 
+const activeStepNumber = computed({
+  get () {
+    const index = steps.value.indexOf(activeStep.value)
+    return index >= 0 ? index + 1 : 1
+  },
+  set (value: number) {
+    const step = steps.value[value - 1]
+    if (step) activeStep.value = step
+  }
+})
+
+watchEffect(() => {
+  if (!steps.value.includes(activeStep.value)) {
+    activeStep.value = steps.value[0] || 'identity'
+  }
+})
+
 const stepLabels: Record<Step, string> = {
   identity: 'Contato',
   fulfillment: 'Entrega',
@@ -213,12 +230,12 @@ useSeoMeta({
 
 <template>
   <main class="shop-section">
-    <div class="shop-container grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section class="space-y-5">
         <div>
           <p class="shop-kicker">Checkout</p>
-          <h1 class="mt-1 text-3xl font-semibold">Pedido guiado por projection/action</h1>
-          <p class="mt-2 shop-muted">Identificacao, entrega, pagamento e revisao antes da mutation canonica.</p>
+          <h1 class="mt-1 text-3xl font-semibold">Finalize seu pedido</h1>
+          <p class="mt-2 shop-muted">Informe contato, recebimento e pagamento. Antes de enviar, voce revisa tudo.</p>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -238,8 +255,8 @@ useSeoMeta({
             </UiAlertDescription>
           </UiAlert>
 
-          <UiStepper v-model="activeStep" class="overflow-x-auto" orientation="horizontal">
-            <UiStepperItem v-for="step in steps" :key="step" :step="step" :value="step" class="flex-1">
+          <UiStepper v-model="activeStepNumber" class="no-scrollbar overflow-x-auto" orientation="horizontal">
+            <UiStepperItem v-for="step in steps" :key="step" :step="stepNumber(step)" class="flex-1">
               <UiStepperTrigger class="w-full" @click="activeStep = step">
                 <UiStepperIndicator>{{ stepNumber(step) }}</UiStepperIndicator>
                 <span class="text-xs font-medium sm:text-sm">{{ stepLabels[step] }}</span>
@@ -257,9 +274,9 @@ useSeoMeta({
               <UiCard>
                 <UiCardHeader>
                   <UiCardTitle>Contato</UiCardTitle>
-                  <UiCardDescription>Usado pelo backend para criar ou vincular o cliente.</UiCardDescription>
+                  <UiCardDescription>Usaremos estes dados para confirmar o pedido e avisar qualquer ajuste.</UiCardDescription>
                 </UiCardHeader>
-                <UiCardContent class="grid gap-4 sm:grid-cols-2">
+                <UiCardContent class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div class="space-y-2">
                     <UiLabel for="checkout-name">Nome</UiLabel>
                     <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
@@ -301,7 +318,7 @@ useSeoMeta({
                     </label>
                   </UiRadioGroup>
 
-                  <div class="grid gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
                     <div class="space-y-2">
                       <UiLabel>Data</UiLabel>
                       <UiDatepicker v-model="chosenDate" is-required :min-date="new Date()" expanded />
@@ -335,7 +352,7 @@ useSeoMeta({
               <UiCard>
                 <UiCardHeader>
                   <UiCardTitle>Endereco de entrega</UiCardTitle>
-                  <UiCardDescription>Use endereco salvo, manual ou geocode reverso canonico.</UiCardDescription>
+                  <UiCardDescription>Escolha um endereco salvo ou informe onde deseja receber.</UiCardDescription>
                 </UiCardHeader>
                 <UiCardContent class="space-y-4">
                   <UiRadioGroup v-if="savedAddresses.length" v-model="state.saved_address_id" @update:model-value="pickSavedAddress(Number($event))">
@@ -353,7 +370,7 @@ useSeoMeta({
                     <UiInput id="checkout-address" v-model="state.delivery_address" @blur="useManualAddress" />
                     <p v-if="fieldErrors.delivery_address" class="text-xs text-destructive">{{ fieldErrors.delivery_address }}</p>
                   </div>
-                  <div class="grid gap-4 sm:grid-cols-2">
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="space-y-2">
                       <UiLabel for="checkout-complement">Complemento</UiLabel>
                       <UiInput id="checkout-complement" v-model="state.delivery_complement" />
@@ -377,7 +394,7 @@ useSeoMeta({
               <UiCard>
                 <UiCardHeader>
                   <UiCardTitle>Pagamento</UiCardTitle>
-                  <UiCardDescription>Metodos resolvidos em ChannelConfig.</UiCardDescription>
+                  <UiCardDescription>Escolha a forma mais conveniente para este pedido.</UiCardDescription>
                 </UiCardHeader>
                 <UiCardContent class="space-y-4">
                   <UiRadioGroup v-model="state.payment_method">
@@ -415,7 +432,7 @@ useSeoMeta({
                     <UiAlertTitle>Nao confirmado</UiAlertTitle>
                     <UiAlertDescription>{{ serverError }}</UiAlertDescription>
                   </UiAlert>
-                  <div class="grid gap-3 text-sm sm:grid-cols-2">
+                  <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                     <div class="rounded-lg border p-3">
                       <p class="text-muted-foreground">Contato</p>
                       <p class="font-medium">{{ state.name }}</p>
@@ -457,7 +474,7 @@ useSeoMeta({
                       <UiAlertDialogHeader>
                         <UiAlertDialogTitle>Confirmar envio?</UiAlertDialogTitle>
                         <UiAlertDialogDescription>
-                          A proxima etapa cria a mutation de checkout com chave idempotente.
+                          Vamos enviar o pedido para a loja e abrir o acompanhamento.
                         </UiAlertDialogDescription>
                       </UiAlertDialogHeader>
                       <UiAlertDialogFooter>
@@ -477,7 +494,7 @@ useSeoMeta({
         <UiCard>
           <UiCardHeader>
             <UiCardTitle>Carrinho</UiCardTitle>
-            <UiCardDescription>{{ cart?.items_count || 0 }} item(ns)</UiCardDescription>
+            <UiCardDescription>{{ formatCount(cart?.items_count || 0, 'item', 'itens') }}</UiCardDescription>
           </UiCardHeader>
           <UiCardContent class="space-y-3">
             <UiItem v-for="line in cart?.items || []" :key="line.line_id" class="p-0">

@@ -154,7 +154,7 @@ useSeoMeta({
       </UiAlert>
 
       <UiTabs v-else v-model="activeTab">
-        <UiTabsList class="overflow-x-auto">
+        <UiTabsList class="no-scrollbar overflow-x-auto">
           <UiTabsTrigger value="overview">Resumo</UiTabsTrigger>
           <UiTabsTrigger value="orders">Pedidos</UiTabsTrigger>
           <UiTabsTrigger value="addresses">Enderecos</UiTabsTrigger>
@@ -162,13 +162,13 @@ useSeoMeta({
         </UiTabsList>
 
         <UiTabsContent value="overview">
-          <div class="grid gap-4 lg:grid-cols-3">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <UiCard class="lg:col-span-2">
               <UiCardHeader>
                 <UiCardTitle>{{ summary?.customer_first_name || session.customerName.value || 'Cliente' }}</UiCardTitle>
-                <UiCardDescription>{{ summaryPending ? 'Carregando...' : `${summary?.recent_order_count || 0} pedido(s) recentes` }}</UiCardDescription>
+                <UiCardDescription>{{ summaryPending ? 'Carregando...' : formatCount(summary?.recent_order_count || 0, 'pedido recente', 'pedidos recentes') }}</UiCardDescription>
               </UiCardHeader>
-              <UiCardContent class="grid gap-3 sm:grid-cols-3">
+              <UiCardContent class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div class="rounded-lg border p-3">
                   <p class="text-sm text-muted-foreground">Ativos</p>
                   <p class="text-2xl font-semibold">{{ summary?.active_order_count || 0 }}</p>
@@ -212,7 +212,7 @@ useSeoMeta({
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <UiCardTitle>Pedidos</UiCardTitle>
-                  <UiCardDescription>{{ ordersPending ? 'Carregando...' : `${orders?.length || 0} item(ns)` }}</UiCardDescription>
+                  <UiCardDescription>{{ ordersPending ? 'Carregando...' : formatCount(orders?.length || 0, 'pedido', 'pedidos') }}</UiCardDescription>
                 </div>
                 <UiSelect v-model="orderFilter">
                   <UiSelectTrigger class="w-44" />
@@ -251,9 +251,9 @@ useSeoMeta({
           <UiCard>
             <UiCardHeader>
               <UiCardTitle>Enderecos</UiCardTitle>
-              <UiCardDescription>{{ addressesPending ? 'Carregando...' : `${addresses?.length || 0} salvo(s)` }}</UiCardDescription>
+              <UiCardDescription>{{ addressesPending ? 'Carregando...' : formatCount(addresses?.length || 0, 'endereco salvo', 'enderecos salvos') }}</UiCardDescription>
             </UiCardHeader>
-            <UiCardContent class="grid gap-3 md:grid-cols-2">
+            <UiCardContent class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <UiItem v-for="address in addresses || []" :key="address.id" class="rounded-lg border p-3">
                 <UiItemContent>
                   <UiItemTitle>{{ address.label }}</UiItemTitle>
@@ -268,7 +268,7 @@ useSeoMeta({
         </UiTabsContent>
 
         <UiTabsContent value="preferences">
-          <div class="grid gap-4 lg:grid-cols-2">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <UiCard>
               <UiCardHeader>
                 <UiCardTitle>Preferencias alimentares</UiCardTitle>

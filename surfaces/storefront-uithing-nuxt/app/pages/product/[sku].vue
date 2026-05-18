@@ -24,6 +24,10 @@ const meta = computed<ProductMutationMeta | null>(() => product.value
     }
   : null)
 const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) || product.value.qty_in_cart || 0 : 0)
+const detailDescription = computed(() => {
+  if (!product.value?.long_description) return ''
+  return product.value.long_description === product.value.short_description ? '' : product.value.long_description
+})
 
 useSeoMeta({
   title: () => product.value?.name || 'Produto',
@@ -43,7 +47,7 @@ useSeoMeta({
         ]"
       />
 
-      <div v-if="pending" class="grid gap-5 lg:grid-cols-2">
+      <div v-if="pending" class="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <UiSkeleton class="h-96 rounded-lg" />
         <UiSkeleton class="h-96 rounded-lg" />
       </div>
@@ -58,8 +62,8 @@ useSeoMeta({
         </UiAlertDescription>
       </UiAlert>
 
-      <article v-else-if="product && meta" class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <section class="space-y-4">
+      <article v-else-if="product && meta" class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section class="min-w-0 space-y-4">
           <div class="shop-panel overflow-hidden">
             <img
               v-if="product.image_url"
@@ -85,7 +89,7 @@ useSeoMeta({
           </div>
         </section>
 
-        <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <aside class="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
           <UiCard>
             <UiCardHeader>
               <div class="mb-2 flex flex-wrap gap-2">
@@ -96,8 +100,8 @@ useSeoMeta({
               <UiCardDescription>{{ product.short_description }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
-              <p class="text-sm leading-6 text-muted-foreground">{{ product.long_description }}</p>
-              <div class="flex items-end justify-between gap-4">
+              <p v-if="detailDescription" class="text-sm leading-6 text-muted-foreground">{{ detailDescription }}</p>
+              <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p v-if="product.original_price_display" class="text-sm text-muted-foreground line-through">
                     {{ product.original_price_display }}
@@ -124,14 +128,14 @@ useSeoMeta({
                 </div>
               </UiAccordionContent>
             </UiAccordionItem>
-            <UiAccordionItem value="ingredients">
+            <UiAccordionItem v-if="product.allergen?.has_any || product.ingredients_text || product.trace_notice" value="ingredients">
               <UiAccordionTrigger>Ingredientes e restricoes</UiAccordionTrigger>
               <UiAccordionContent>
                 <div class="space-y-2 text-sm leading-6 text-muted-foreground">
                   <p v-if="product.ingredients_text">{{ product.ingredients_text }}</p>
                   <p v-if="product.allergen?.allergens.length">Alergenos: {{ product.allergen.allergens.join(', ') }}</p>
                   <p v-if="product.allergen?.dietary_info.length">Dieta: {{ product.allergen.dietary_info.join(', ') }}</p>
-                  <p>{{ product.trace_notice }}</p>
+                  <p v-if="product.trace_notice">{{ product.trace_notice }}</p>
                 </div>
               </UiAccordionContent>
             </UiAccordionItem>
@@ -144,12 +148,14 @@ useSeoMeta({
                 </div>
               </UiAccordionContent>
             </UiAccordionItem>
-            <UiAccordionItem v-if="product.conservation?.has_any" value="care">
+            <UiAccordionItem v-if="product.conservation?.has_any || product.unit_weight_label || product.approx_dimensions_label" value="care">
               <UiAccordionTrigger>Conservacao</UiAccordionTrigger>
               <UiAccordionContent>
                 <div class="space-y-2 text-sm text-muted-foreground">
                   <p v-if="product.conservation?.shelf_life_label">{{ product.conservation.shelf_life_label }}</p>
                   <p v-if="product.conservation?.storage_tip">{{ product.conservation.storage_tip }}</p>
+                  <p v-if="product.unit_weight_label">Peso: {{ product.unit_weight_label }}</p>
+                  <p v-if="product.approx_dimensions_label">Dimensoes: {{ product.approx_dimensions_label }}</p>
                 </div>
               </UiAccordionContent>
             </UiAccordionItem>

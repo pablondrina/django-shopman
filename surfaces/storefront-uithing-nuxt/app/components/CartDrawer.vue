@@ -4,7 +4,6 @@ const {
   drawerOpen,
   cartIssue,
   rateLimitRecovery,
-  setSkuQty,
   applyCoupon,
   removeCoupon,
   acceptAvailableQty,
@@ -13,10 +12,6 @@ const {
 
 const coupon = ref('')
 const couponPending = ref(false)
-
-async function updateLine (sku: string, name: string, price_q: number, price_display: string, image_url: string | null, qty: number) {
-  await setSkuQty({ sku, name, price_q, price_display, image_url }, qty)
-}
 
 async function submitCoupon () {
   if (!coupon.value.trim()) return
@@ -36,7 +31,7 @@ async function submitCoupon () {
       <template #header>
         <UiSheetHeader>
           <UiSheetTitle title="Carrinho" />
-          <UiSheetDescription :description="cart.summary_pending ? 'Atualizando pelo servidor.' : cart.items_count + ' item(ns) no pedido.'" />
+          <UiSheetDescription :description="cart.summary_pending ? 'Atualizando carrinho.' : `${formatCount(cart.items_count, 'item', 'itens')} no pedido.`" />
         </UiSheetHeader>
       </template>
 
@@ -85,24 +80,14 @@ async function submitCoupon () {
                 <span>{{ line.price_display }}</span>
                 <span v-if="line.availability_warning"> · {{ line.availability_warning }}</span>
               </UiItemDescription>
-              <div class="mt-2 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-1">
-                  <UiButton
-                    size="icon-xs"
-                    variant="outline"
-                    icon="lucide:minus"
-                    aria-label="Diminuir item"
-                    @click="updateLine(line.sku, line.name, line.unit_price_q, line.price_display, line.image_url, line.qty - 1)"
-                  />
-                  <span class="w-8 text-center text-sm tabular-nums">{{ line.qty }}</span>
-                  <UiButton
-                    size="icon-xs"
-                    variant="outline"
-                    icon="lucide:plus"
-                    aria-label="Aumentar item"
-                    @click="updateLine(line.sku, line.name, line.unit_price_q, line.price_display, line.image_url, line.qty + 1)"
-                  />
-                </div>
+              <div class="mt-2 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <QuantityControl
+                  :meta="{ sku: line.sku, name: line.name, price_q: line.unit_price_q, price_display: line.price_display, image_url: line.image_url }"
+                  :qty="line.qty"
+                  :disabled="!line.is_available"
+                  :max-qty="line.available_qty"
+                  compact
+                />
                 <p class="text-sm font-semibold">{{ line.total_display }}</p>
               </div>
             </UiItemContent>
@@ -141,7 +126,7 @@ async function submitCoupon () {
           </div>
           <UiSeparator />
           <div class="flex justify-between text-base font-semibold">
-            <span>Total projetado</span>
+            <span>Total</span>
             <span>{{ cart.grand_total_display }}</span>
           </div>
         </div>

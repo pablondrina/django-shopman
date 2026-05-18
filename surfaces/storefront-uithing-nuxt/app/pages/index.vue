@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { HomeResponse, ProductMutationMeta } from '~/types/shopman'
+import type { HomeResponse, ProductMutationMeta, SurfaceActionProjection } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
 const { setFromServer, qtyForSku, drawerOpen } = useCartState()
+const { performAction, pending: reorderPending } = useReorder()
 
 const { data, pending, error, refresh } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include'
@@ -30,6 +31,18 @@ function metaFor (item: HomeResponse['home']['featured_items'][number]): Product
   }
 }
 
+async function handleReorder (action: SurfaceActionProjection | null) {
+  if (!action) {
+    await navigateTo('/account')
+    return
+  }
+  try {
+    await performAction(action)
+  } catch {
+    // The reorder composable already exposes the failure in cart/toast state.
+  }
+}
+
 useSeoMeta({
   title: () => home.value?.shop.brand_name || 'Shopman',
   description: () => home.value?.shop.description || 'Storefront Shopman'
@@ -40,7 +53,7 @@ useSeoMeta({
   <main>
     <section class="shop-section">
       <div class="shop-container">
-        <div v-if="pending" class="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+        <div v-if="pending" class="grid grid-cols-1 gap-4 md:grid-cols-[1.2fr_0.8fr]">
           <UiSkeleton class="h-80 rounded-lg" />
           <UiSkeleton class="h-80 rounded-lg" />
         </div>
@@ -55,7 +68,7 @@ useSeoMeta({
           </UiAlertDescription>
         </UiAlert>
 
-        <div v-else-if="home" class="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+        <div v-else-if="home" class="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
           <div class="shop-panel overflow-hidden">
             <div class="relative min-h-[420px]">
               <img
@@ -121,7 +134,12 @@ useSeoMeta({
                 </UiItem>
               </UiCardContent>
               <UiCardFooter>
-                <UiButton :to="localRouteFromBackend(reorderAction?.href || '/account')" variant="secondary" icon="lucide:rotate-ccw">
+                <UiButton
+                  variant="secondary"
+                  icon="lucide:rotate-ccw"
+                  :loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
+                  @click="handleReorder(reorderAction)"
+                >
                   {{ reorderAction?.label || 'Ver historico' }}
                 </UiButton>
               </UiCardFooter>
@@ -148,12 +166,12 @@ useSeoMeta({
       <div class="shop-container space-y-4">
         <div class="flex items-end justify-between gap-4">
           <div>
-            <p class="shop-kicker">Disponibilidade projetada</p>
+            <p class="shop-kicker">Disponiveis agora</p>
             <h2 class="mt-1 text-2xl font-semibold">Destaques de agora</h2>
           </div>
           <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">Cardapio completo</UiButton>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <UiCard v-for="item in featured.slice(0, 4)" :key="item.sku" class="overflow-hidden">
             <NuxtLink :to="`/product/${encodeURIComponent(item.sku)}`">
               <img

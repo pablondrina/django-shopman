@@ -64,7 +64,7 @@ useSeoMeta({
 
 <template>
   <main class="shop-section">
-    <div class="shop-container grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section class="space-y-5">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
@@ -77,7 +77,7 @@ useSeoMeta({
           <UiAlertTitle>Pedido nao encontrado</UiAlertTitle>
           <UiAlertDescription>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>Nao recebemos a projection de tracking.</span>
+              <span>Nao conseguimos carregar o acompanhamento agora.</span>
               <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
             </div>
           </UiAlertDescription>
@@ -110,7 +110,7 @@ useSeoMeta({
             </UiCardHeader>
             <UiCardContent class="space-y-4">
               <UiProgress :model-value="progressPercent" />
-              <div class="grid gap-3 sm:grid-cols-2">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div v-for="row in tracking.promise_rows" :key="row.label" class="rounded-lg border p-3 text-sm">
                   <p class="text-muted-foreground">{{ row.label }}</p>
                   <a v-if="row.url" :href="row.url" target="_blank" class="font-medium text-primary">{{ row.value }}</a>
@@ -216,7 +216,7 @@ useSeoMeta({
               <UiAlertDialogContent>
                 <UiAlertDialogHeader>
                   <UiAlertDialogTitle>Cancelar pedido?</UiAlertDialogTitle>
-                  <UiAlertDialogDescription>Esta acao usa a mutation canonica de cancelamento.</UiAlertDialogDescription>
+                  <UiAlertDialogDescription>Vamos avisar a loja e atualizar o acompanhamento.</UiAlertDialogDescription>
                 </UiAlertDialogHeader>
                 <UiAlertDialogFooter>
                   <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>

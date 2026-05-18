@@ -28,9 +28,9 @@ function active (to: string) {
         <Icon :name="item.icon" class="size-5" />
         <span class="truncate">{{ item.label }}</span>
       </NuxtLink>
-      <button
-        type="button"
-        class="relative flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[11px] font-medium text-muted-foreground"
+      <UiButton
+        variant="ghost"
+        class="relative h-auto min-w-0 flex-col gap-1 px-1 py-2 text-[11px] font-medium text-muted-foreground"
         @click="drawerOpen = true"
       >
         <Icon name="lucide:shopping-cart" class="size-5" />
@@ -38,7 +38,7 @@ function active (to: string) {
         <UiBadge v-if="!cart.is_empty" variant="success" class="absolute right-2 top-1 px-1">
           {{ cart.items_count }}
         </UiBadge>
-      </button>
+      </UiButton>
     </div>
   </nav>
 </template>

@@ -91,7 +91,7 @@ useSeoMeta({
           <UiAlertDescription>{{ payment.promise.message }}</UiAlertDescription>
         </UiAlert>
 
-        <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <UiCard>
             <UiCardHeader>
               <UiCardTitle>{{ payment.total_display }}</UiCardTitle>
@@ -105,7 +105,7 @@ useSeoMeta({
                 </UiButton>
               </div>
 
-              <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
+              <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid grid-cols-1 gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
                 <div class="rounded-lg border bg-white p-4">
                   <img v-if="payment.pix_qr_code" :src="payment.pix_qr_code" alt="QR Code PIX" class="w-full" />
                   <div v-else class="flex aspect-square items-center justify-center text-muted-foreground">

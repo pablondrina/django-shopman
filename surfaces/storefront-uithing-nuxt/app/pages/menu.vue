@@ -69,9 +69,9 @@ useSeoMeta({
       <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="shop-kicker">Cardapio</p>
-          <h1 class="mt-1 text-3xl font-semibold leading-tight">Busca, secoes e disponibilidade do backend</h1>
+          <h1 class="mt-1 text-3xl font-semibold leading-tight">Escolha com calma, ajuste em um toque</h1>
           <p class="mt-2 shop-muted">
-            {{ pending ? 'Carregando projections.' : `${filteredCount} item(ns) exibidos.` }}
+            {{ pending ? 'Carregando o cardapio.' : `${formatCount(filteredCount, 'item disponivel', 'itens disponiveis')} para escolher.` }}
           </p>
         </div>
         <div v-if="catalog?.happy_hour?.active" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -79,7 +79,7 @@ useSeoMeta({
         </div>
       </div>
 
-      <div v-if="pending" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-if="pending" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <UiSkeleton v-for="n in 6" :key="n" class="h-72 rounded-lg" />
       </div>
 
@@ -87,24 +87,24 @@ useSeoMeta({
         <UiAlertTitle>Cardapio indisponivel</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>Nao recebemos a projection do cardapio.</span>
+            <span>Nao conseguimos carregar o cardapio agora.</span>
             <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
           </div>
         </UiAlertDescription>
       </UiAlert>
 
       <template v-else-if="catalog">
-        <div class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <aside class="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
             <UiCard>
               <UiCardHeader>
                 <UiCardTitle>Encontrar item</UiCardTitle>
-                <UiCardDescription>Command usa a lista projetada; o filtro visual fica na superficie.</UiCardDescription>
+                <UiCardDescription>Busque por nome, ingrediente, categoria ou restricao.</UiCardDescription>
               </UiCardHeader>
               <UiCardContent class="space-y-3">
-                <UiInput v-model="query" placeholder="Buscar por nome, tag, alergeno..." />
-                <UiCommand class="h-72 border">
-                  <UiCommandInput placeholder="Abrir rapido..." />
+                <UiInput v-model="query" placeholder="Buscar por nome, ingrediente ou restricao..." />
+                <UiCommand class="hidden h-72 border lg:block">
+                  <UiCommandInput placeholder="Encontrar rapido..." />
                   <UiCommandList>
                     <UiCommandEmpty>Nenhum item encontrado.</UiCommandEmpty>
                     <UiCommandGroup heading="Produtos">
@@ -126,9 +126,9 @@ useSeoMeta({
             </UiCard>
           </aside>
 
-          <section class="space-y-4">
+          <section class="min-w-0 space-y-4">
             <UiTabs v-model="activeSection" class="min-w-0">
-              <div class="overflow-x-auto pb-1">
+              <div class="no-scrollbar overflow-x-auto pb-1">
                 <UiTabsList>
                   <UiTabsTrigger value="all">Tudo</UiTabsTrigger>
                   <UiTabsTrigger v-for="section in sections" :key="section.ref" :value="section.ref">
@@ -147,7 +147,7 @@ useSeoMeta({
                     <h2 class="text-xl font-semibold">{{ section.label }}</h2>
                     <p class="shop-muted">{{ section.description }}</p>
                   </div>
-                  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <ProductTile v-for="item in section.items" :key="`${section.ref}-${item.sku}`" :item="item" :section-label="section.label" @select="openProduct" />
                   </div>
                 </div>
@@ -158,7 +158,7 @@ useSeoMeta({
                     <h2 class="text-xl font-semibold">{{ visible.label }}</h2>
                     <p class="shop-muted">{{ visible.description }}</p>
                   </div>
-                  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <ProductTile v-for="item in visible.items" :key="`${visible.ref}-${item.sku}`" :item="item" :section-label="visible.label" @select="openProduct" />
                   </div>
                 </div>

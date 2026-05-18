@@ -30,40 +30,17 @@ async function commit (value: number) {
   emit('changed', next)
 }
 
-function decrement () {
-  void commit(localQty.value - 1)
-}
-
-function increment () {
-  void commit(localQty.value + 1)
-}
+const controlClass = computed(() => props.compact ? 'w-28' : 'w-36')
 </script>
 
 <template>
-  <div class="flex items-center gap-2">
-    <UiButton
-      variant="outline"
-      :size="compact ? 'icon-sm' : 'icon'"
-      icon="lucide:minus"
-      :disabled="disabled || pending || localQty <= 0"
-      aria-label="Diminuir quantidade"
-      @click="decrement"
-    />
-    <UiNumberField
-      v-model="localQty"
-      :min="0"
-      :max="maxQty ?? undefined"
-      :disabled="disabled || pending"
-      class="w-24"
-      @update:model-value="commit(Number($event || 0))"
-    />
-    <UiButton
-      variant="outline"
-      :size="compact ? 'icon-sm' : 'icon'"
-      icon="lucide:plus"
-      :disabled="disabled || pending"
-      aria-label="Aumentar quantidade"
-      @click="increment"
-    />
-  </div>
+  <UiNumberField
+    v-model="localQty"
+    :min="0"
+    :max="maxQty ?? undefined"
+    :disabled="disabled || pending"
+    :class="controlClass"
+    aria-label="Quantidade"
+    @update:model-value="commit(Number($event || 0))"
+  />
 </template>

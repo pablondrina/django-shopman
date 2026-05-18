@@ -34,6 +34,10 @@ const meta = computed<ProductMutationMeta | null>(() => product.value
     }
   : null)
 const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) || product.value.qty_in_cart || 0 : 0)
+const detailDescription = computed(() => {
+  if (!product.value?.long_description) return ''
+  return product.value.long_description === product.value.short_description ? '' : product.value.long_description
+})
 </script>
 
 <template>
@@ -77,8 +81,9 @@ const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) |
             <UiBadge v-if="product.is_bundle" variant="info">Combo</UiBadge>
           </div>
           <h2 class="text-2xl font-semibold leading-tight">{{ product.name }}</h2>
-          <p class="text-sm leading-6 text-muted-foreground">{{ product.long_description || product.short_description }}</p>
-          <div class="flex items-end justify-between gap-4">
+          <p v-if="product.short_description" class="text-sm leading-6 text-muted-foreground">{{ product.short_description }}</p>
+          <p v-if="detailDescription" class="text-sm leading-6 text-muted-foreground">{{ detailDescription }}</p>
+          <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p v-if="product.original_price_display" class="text-sm text-muted-foreground line-through">
                 {{ product.original_price_display }}

@@ -23,35 +23,31 @@ const currentQty = computed(() => qtyForSku(props.item.sku) || props.item.qty_in
 
 <template>
   <UiCard class="overflow-hidden">
-    <button type="button" class="block w-full text-left" @click="emit('select', item.sku)">
-      <div class="aspect-[4/3] bg-muted">
-        <img
-          v-if="item.image_url"
-          :src="item.image_url"
-          :alt="item.name"
-          loading="lazy"
-          decoding="async"
-          class="size-full object-cover"
-        >
-        <div v-else class="flex size-full items-center justify-center text-muted-foreground">
-          <Icon name="lucide:image" class="size-7" />
-        </div>
+    <div class="relative aspect-[4/3] bg-muted">
+      <img
+        v-if="item.image_url"
+        :src="item.image_url"
+        :alt="item.name"
+        loading="lazy"
+        decoding="async"
+        class="size-full object-cover"
+      >
+      <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+        <Icon name="lucide:image" class="size-7" />
       </div>
-    </button>
-
-    <UiCardContent class="space-y-3 p-4">
-      <div class="flex items-start gap-3">
-        <div class="min-w-0 flex-1">
-          <button type="button" class="text-left" @click="emit('select', item.sku)">
-            <h3 class="line-clamp-2 text-sm font-semibold leading-5">{{ item.name }}</h3>
-          </button>
-          <p class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-            {{ item.short_description || sectionLabel }}
-          </p>
-        </div>
-        <UiBadge :variant="availabilityVariant(item.availability)" class="shrink-0">
+      <div class="absolute left-3 top-3">
+        <UiBadge :variant="availabilityVariant(item.availability)">
           {{ item.availability_label }}
         </UiBadge>
+      </div>
+    </div>
+
+    <UiCardContent class="space-y-3 p-4">
+      <div class="min-w-0">
+        <h3 class="line-clamp-2 text-sm font-semibold leading-5">{{ item.name }}</h3>
+        <p class="mt-1 line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">
+          {{ item.short_description || sectionLabel }}
+        </p>
       </div>
 
       <div class="flex flex-wrap gap-1">
@@ -77,7 +73,7 @@ const currentQty = computed(() => qtyForSku(props.item.sku) || props.item.qty_in
             <p class="text-sm font-medium">{{ item.name }}</p>
             <p class="mt-1 text-sm text-muted-foreground">{{ item.availability_label }}</p>
             <p v-if="item.available_qty != null" class="mt-2 text-xs text-muted-foreground">
-              Quantidade disponivel projetada: {{ item.available_qty }}
+              Disponivel agora: {{ item.available_qty }}
             </p>
             <p v-if="item.allergens.length" class="mt-2 text-xs text-muted-foreground">
               Alergenos: {{ item.allergens.join(', ') }}
@@ -86,6 +82,9 @@ const currentQty = computed(() => qtyForSku(props.item.sku) || props.item.qty_in
         </UiHoverCard>
       </div>
 
+    </UiCardContent>
+
+    <UiCardFooter class="flex items-center justify-between gap-3 p-4 pt-0">
       <QuantityControl
         :meta="meta"
         :qty="currentQty"
@@ -93,6 +92,9 @@ const currentQty = computed(() => qtyForSku(props.item.sku) || props.item.qty_in
         :max-qty="item.available_qty"
         compact
       />
-    </UiCardContent>
+      <UiButton variant="outline" size="sm" icon="lucide:info" @click="emit('select', item.sku)">
+        Detalhes
+      </UiButton>
+    </UiCardFooter>
   </UiCard>
 </template>
