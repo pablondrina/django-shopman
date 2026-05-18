@@ -152,6 +152,10 @@ const slides = computed<HeroSlide[]>(() => {
   return next
 })
 
+const activeSlide = computed<HeroSlide | null>(() =>
+  slides.value.find(slide => slide.key === activeHero.value) || slides.value[0] || null
+)
+
 watchEffect(() => {
   if (!slides.value.some(slide => slide.key === activeHero.value)) {
     activeHero.value = slides.value[0]?.key || 'order'
@@ -182,49 +186,50 @@ watchEffect(() => {
         </div>
       </div>
 
-      <UiTabsContent v-for="slide in slides" :key="slide.key" :value="slide.key" class="m-0">
+      <UiTabsContent v-if="activeSlide" :key="activeSlide.key" :value="activeSlide.key" class="m-0">
         <div class="relative min-h-[500px] sm:min-h-[560px]">
           <img
-            v-if="slide.imageUrl"
-            :src="slide.imageUrl"
-            :alt="slide.imageAlt"
+            v-if="activeSlide.imageUrl"
+            :src="activeSlide.imageUrl"
+            :alt="activeSlide.imageAlt"
             fetchpriority="high"
+            decoding="async"
             class="absolute inset-0 size-full object-cover"
           >
           <div v-else class="absolute inset-0 bg-muted" />
           <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,18,14,.22),rgba(5,18,14,.86))]" />
           <div class="absolute inset-x-0 bottom-0 z-10 p-5 pt-24 text-white sm:p-7 lg:p-9">
-            <p class="text-sm font-medium text-white/80">{{ slide.eyebrow }}</p>
+            <p class="text-sm font-medium text-white/80">{{ activeSlide.eyebrow }}</p>
             <h1 class="mt-2 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
-              <span v-for="line in slide.titleLines" :key="line" class="block">{{ line }}</span>
+              <span v-for="line in activeSlide.titleLines" :key="line" class="block">{{ line }}</span>
             </h1>
             <p class="mt-4 max-w-xl text-sm leading-6 text-white/84 sm:text-base">
-              {{ slide.description }}
+              {{ activeSlide.description }}
             </p>
             <div class="mt-6 flex flex-wrap gap-3">
               <UiButton
-                v-if="slide.action === 'reorder'"
+                v-if="activeSlide.action === 'reorder'"
                 size="lg"
-                :icon="slide.primaryIcon"
+                :icon="activeSlide.primaryIcon"
                 :loading="reorderLoading"
                 @click="emit('reorder', reorderAction)"
               >
-                {{ slide.primaryLabel }}
+                {{ activeSlide.primaryLabel }}
               </UiButton>
-              <UiButton v-else :to="slide.primaryTo" size="lg" :icon="slide.primaryIcon">
-                {{ slide.primaryLabel }}
+              <UiButton v-else :to="activeSlide.primaryTo" size="lg" :icon="activeSlide.primaryIcon">
+                {{ activeSlide.primaryLabel }}
               </UiButton>
               <UiButton
-                v-if="slide.secondaryTo || slide.secondaryHref"
-                :to="slide.secondaryTo"
-                :href="slide.secondaryHref"
-                :target="slide.external ? '_blank' : undefined"
+                v-if="activeSlide.secondaryTo || activeSlide.secondaryHref"
+                :to="activeSlide.secondaryTo"
+                :href="activeSlide.secondaryHref"
+                :target="activeSlide.external ? '_blank' : undefined"
                 variant="outline"
                 size="lg"
-                :icon="slide.secondaryIcon"
+                :icon="activeSlide.secondaryIcon"
                 class="border-white/40 bg-white/8 text-white hover:bg-white/16"
               >
-                {{ slide.secondaryLabel }}
+                {{ activeSlide.secondaryLabel }}
               </UiButton>
             </div>
           </div>

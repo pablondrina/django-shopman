@@ -93,6 +93,14 @@ describe('surface UX guardrails', () => {
     expect((menu.match(/<ProductTile/g) || [])).toHaveLength(1)
   })
 
+  it('renders one active home hero panel instead of duplicating heavy hidden panels', () => {
+    const hero = read('app/components/HomeHeroThing.vue')
+
+    expect(hero).not.toMatch(/<UiTabsContent(?=[^>]*\bv-for=)/)
+    expect(hero).toContain('activeSlide')
+    expect(hero).toContain('v-if="activeSlide"')
+  })
+
   it('keeps checkout authentication driven by the projection contract', () => {
     const checkout = read('app/pages/checkout.vue')
     const types = read('app/types/shopman.ts')

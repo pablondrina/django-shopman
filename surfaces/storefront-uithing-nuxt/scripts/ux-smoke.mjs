@@ -5,7 +5,13 @@ import { join } from 'node:path'
 
 const baseUrl = (process.env.SHOPMAN_THING_URL || 'http://127.0.0.1:3003/thing').replace(/\/$/, '')
 const port = Number(process.env.SHOPMAN_CHROME_PORT || 9243)
+const cdpTimeoutMs = Number(process.env.SHOPMAN_CDP_TIMEOUT_MS || 15000)
+const traceUx = process.env.SHOPMAN_UX_TRACE === '1'
 const failures = []
+
+function trace (message) {
+  if (traceUx) console.error(`[ux-smoke] ${message}`)
+}
 
 function assert (condition, message) {
   if (!condition) failures.push(message)
@@ -94,7 +100,7 @@ async function connectCdp () {
       const timer = setTimeout(() => {
         pending.delete(id)
         reject(new Error(`CDP command timed out: ${method}`))
-      }, 15000)
+      }, cdpTimeoutMs)
       pending.set(id, {
         resolve: value => {
           clearTimeout(timer)
@@ -226,14 +232,19 @@ async function run () {
   await waitForHttp(baseUrl)
   const chrome = await launchChrome()
   try {
+    trace('open mobile home')
     const home = await openPage('/', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+    trace('probe mobile home')
     const homeState = await evaluate(home, pageProbe())
     assert(!(homeState.text.includes('Loja aberta') && homeState.text.includes('Loja em pausa')), 'home shows open and paused status at the same time')
     assert(homeState.quantityControls === 0, `home initial render should show add buttons instead of zero quantity controls, found ${homeState.quantityControls}`)
+    assert(homeState.tabContents === 1, `home hero should mount one active tab panel, found ${homeState.tabContents}`)
+    assert(homeState.domNodes < 3200, `home initial DOM is too large: ${homeState.domNodes} nodes`)
     assert(['Agora', 'Pedir', 'Forno'].every(label => homeState.tabs.some(tab => tab.label === label)), 'home hero does not expose the expected distinct moments')
 
     const heroTitles = []
     for (const label of ['Agora', 'Pedir', 'Forno']) {
+      trace(`click hero tab ${label}`)
       const state = await clickHeroTab(home, label)
       assert(state.clicked, `home hero tab ${label} was not clickable`)
       assert(state.selected, `home hero tab ${label} did not become active`)
@@ -242,21 +253,27 @@ async function run () {
     assert(new Set(heroTitles).size >= 2, 'home hero moments are visually collapsed into one title')
     home.close()
 
+    trace('open desktop home')
     const desktopHome = await openPage('/', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false })
+    trace('probe desktop home')
     const desktopHomeState = await evaluate(desktopHome, pageProbe())
     assert(!desktopHomeState.buttons.includes('Finalizar'), 'desktop header should not expose checkout as a global nav item')
     desktopHome.close()
 
+    trace('open product detail')
     const product = await openPage('/product/BAGUETE', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+    trace('probe product detail')
     const productState = await evaluate(product, pageProbe())
     assert(productState.h1.some(title => title.includes('Baguete')), 'product detail route does not expose the product name as h1')
     assert(productState.quantityControls === 0, `product detail route should show add button before cart mutation, found ${productState.quantityControls} quantity controls`)
     assert(productState.buttons.includes('Adicionar'), 'product detail route does not expose an add-to-cart button before quantity editing')
     product.close()
 
+    trace('open menu')
     const menu = await openPage('/menu', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
     const requests = []
     cdpRequestCapture(menu, requests)
+    trace('probe menu')
     const menuState = await evaluate(menu, pageProbe())
     assert(menuState.searchInputs.length === 1, `menu should show exactly one text search, found ${menuState.searchInputs.length}`)
     assert(menuState.tabContents === 0, `menu should not duplicate grids inside hidden tab panels, found ${menuState.tabContents} tab contents`)
@@ -272,6 +289,7 @@ async function run () {
       || await dispatchClickButtonText(menu, 'Adicionar')
     assert(clicked, 'menu add control was not found')
     await wait(1500)
+    trace('probe menu after add')
     const afterCart = await evaluate(menu, pageProbe())
     const cartMutations = requests.filter(request => request.url.includes('/api/v1/cart/skus/'))
     assert(cartMutations.length >= 1, 'menu quantity increment did not call the canonical cart sku endpoint')
@@ -281,7 +299,9 @@ async function run () {
     assert(afterCart.buttons.some(label => label.includes('Finalizar compra')), 'cart drawer should open after add and expose a visible checkout entry point')
     menu.close()
 
+    trace('open checkout')
     const checkout = await openPage('/checkout', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+    trace('probe checkout')
     const checkoutState = await evaluate(checkout, pageProbe())
     assert(checkoutState.url.includes('/thing/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
     assert(checkoutState.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo')), 'login gate should expose a visible h1')
