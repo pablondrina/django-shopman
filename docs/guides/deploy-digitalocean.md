@@ -65,12 +65,14 @@ IFOOD_WEBHOOK_TOKEN=<token webhook sandbox/produção>
 MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 ```
 
-O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSender`
-para permitir staging técnico sem token ManyChat real e falhar fechado no OTP por
-telefone. Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório: ele é diferente
-de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
-autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
-inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
+O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.LogSender`
+para permitir staging técnico sem envio real de OTP; o código é exposto na UI
+somente porque `SHOPMAN_EXPOSE_DEBUG_OTP=true` e `SHOPMAN_ENVIRONMENT=staging`.
+Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório e esse modo debug deve
+ser removido: o token ManyChat é diferente de `MANYCHAT_WEBHOOK_SECRET` e de
+`DOORMAN_ACCESS_LINK_API_KEY`. O primeiro autentica chamadas outbound Shopman ->
+ManyChat; o segundo valida webhooks HMAC inbound; o terceiro autentica a criação
+servidor-servidor de AccessLinks.
 
 Em planos PostgreSQL pequenos, use pool antes de manter conexões Django
 persistentes. O staging usa o pool `shopman-staging-pool`:

@@ -78,7 +78,7 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: DOORMAN_MESSAGE_SENDER_CLASS
-    value: shopman.doorman.senders.EmailSender
+    value: shopman.doorman.senders.LogSender
     scope: RUN_TIME
     type: GENERAL
   - key: DATABASE_URL
