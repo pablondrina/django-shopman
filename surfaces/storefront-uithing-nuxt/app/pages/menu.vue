@@ -19,6 +19,15 @@ const sections = computed(() => catalog.value?.sections || [])
 const allItems = computed(() => catalog.value?.items || [])
 const favoriteRef = computed(() => catalog.value?.favorite_category_ref || '')
 const normalizedQuery = computed(() => normalizeSearchText(query.value))
+const sectionsBySku = computed(() => {
+  const map = new Map<string, CatalogSectionProjection>()
+  for (const section of sections.value) {
+    for (const item of section.items) {
+      if (!map.has(item.sku)) map.set(item.sku, section)
+    }
+  }
+  return map
+})
 const activeSections = computed(() => {
   const raw = activeSection.value === 'all'
     ? sections.value
@@ -34,13 +43,23 @@ const activeSections = computed(() => {
 })
 
 const filteredCount = computed(() => activeSections.value.reduce((sum, section) => sum + section.items.length, 0))
+const quickItems = computed(() => {
+  const q = normalizedQuery.value
+  const items = !q
+    ? allItems.value
+    : allItems.value.filter(item => {
+        const section = sectionsBySku.value.get(item.sku)
+        return matches(item, section, q)
+      })
+  return items.slice(0, 10)
+})
 
-function matches (item: CatalogItemProjection, section: CatalogSectionProjection, search: string) {
+function matches (item: CatalogItemProjection, section: CatalogSectionProjection | undefined, search: string) {
   return normalizeSearchText([
     item.name,
     item.short_description,
     item.category,
-    section.label,
+    section?.label,
     (item.tags || []).join(' '),
     (item.search_terms || []).join(' '),
     (item.allergens || []).join(' '),
@@ -104,12 +123,11 @@ useSeoMeta({
               <UiCardContent class="space-y-3">
                 <UiInput v-model="query" placeholder="Buscar por nome, ingrediente ou restricao..." />
                 <UiCommand class="hidden h-72 border lg:block">
-                  <UiCommandInput placeholder="Encontrar rapido..." />
                   <UiCommandList>
-                    <UiCommandEmpty>Nenhum item encontrado.</UiCommandEmpty>
-                    <UiCommandGroup heading="Produtos">
+                    <UiCommandEmpty v-if="!quickItems.length">Nenhum item encontrado.</UiCommandEmpty>
+                    <UiCommandGroup v-else :heading="normalizedQuery ? 'Resultados da busca' : 'Sugestoes rapidas'">
                       <UiCommandItem
-                        v-for="item in allItems.slice(0, 40)"
+                        v-for="item in quickItems"
                         :key="item.sku"
                         :value="`${item.name} ${item.sku}`"
                         @select="selectCommand(item.sku)"

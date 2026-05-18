@@ -8,6 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview --host 127.0.0.1 --port 3003",
     "test": "vitest run",
+    "test:ux": "node scripts/ux-smoke.mjs",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

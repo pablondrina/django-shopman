@@ -262,14 +262,13 @@ export interface OmotenashiProjection {
   customer_name: string | null
   is_birthday: boolean
   audience: 'anon' | 'new' | 'returning' | 'vip'
-  is_open: boolean
-  opens_at: string | null
-  closes_at: string | null
 }
 
 export interface ShopStatusProjection {
   is_open: boolean
   message: string | null
+  opens_at: string | null
+  closes_at: string | null
 }
 
 export interface CopyEntryProjection {

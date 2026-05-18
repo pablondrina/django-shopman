@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -105,6 +106,48 @@ def test_is_open_property(shop_7_to_19):
         assert OmotenashiContext.from_request(None).is_open is True
     with patch("django.utils.timezone.localtime", return_value=_freeze(3)):
         assert OmotenashiContext.from_request(None).is_open is False
+
+
+def test_context_operational_moment_uses_business_calendar_projection_source(shop_7_to_19):
+    state = SimpleNamespace(
+        is_open=True,
+        opens_at="07:00",
+        closes_at="19:00",
+        message="Aberto até 19h",
+        next_open_at=None,
+        closure_source="",
+    )
+
+    with (
+        patch("django.utils.timezone.localtime", return_value=_freeze(10)),
+        patch("shopman.shop.services.business_calendar.current_business_state", return_value=state),
+    ):
+        ctx = OmotenashiContext.from_request(None)
+
+    assert ctx.is_open is True
+    assert ctx.moment == MOMENT_MANHA
+    assert ctx.shop_hint == "Aberto até 19h"
+
+
+def test_context_closed_before_open_uses_business_calendar_projection_source(shop_7_to_19):
+    state = SimpleNamespace(
+        is_open=False,
+        opens_at="07:00",
+        closes_at="19:00",
+        message="Fechado. Abrimos às 7h",
+        next_open_at=_freeze(7),
+        closure_source="before_open",
+    )
+
+    with (
+        patch("django.utils.timezone.localtime", return_value=_freeze(3)),
+        patch("shopman.shop.services.business_calendar.current_business_state", return_value=state),
+    ):
+        ctx = OmotenashiContext.from_request(None)
+
+    assert ctx.is_open is False
+    assert ctx.moment == MOMENT_MADRUGADA
+    assert ctx.shop_hint == "Fechado. Abrimos às 7h"
 
 
 # ── resolve_copy (cascade) ─────────────────────────────────────────────

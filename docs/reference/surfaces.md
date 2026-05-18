@@ -59,6 +59,15 @@ Novas superficies devem seguir o ciclo:
 
 `InteractionContext -> Projection -> node canonico(actions[]) -> Action -> Intent -> Mutation -> Projection`.
 
+### Status Operacional
+
+O estado operacional da loja tem uma unica projection canonica:
+`home.shop_status`, servida por `/api/v1/storefront/home/` e resolvida pelo
+calendario operacional (`business_calendar.current_business_state`). Superficies
+nao devem derivar "aberta", "fechada", "em pausa", horarios de abertura ou
+fechamento a partir de `omotenashi` ou de relogio local. `omotenashi` e lente de
+momento/copy/personalizacao; nao e fonte de verdade operacional.
+
 ## UI Thing
 
 UI Thing nao e tratado como dependencia opaca. A superficie
@@ -67,3 +76,11 @@ UI Thing nao e tratado como dependencia opaca. A superficie
 `npx ui-thing@latest add`. Os componentes vivem em
 `surfaces/storefront-uithing-nuxt/app/components/Ui` e podem ser ajustados como
 codigo da propria superficie.
+
+A superficie Thing possui guardrails locais:
+
+- `npm run test`: valida endpoints canonicos, payloads, uso de actions/projections
+  e ausencia de controles nativos fora dos componentes UI Thing scaffoldados.
+- `npm run test:ux`: smoke real via Chrome headless contra a superficie rodando,
+  cobrindo status contraditorio, hero colapsado, busca duplicada no cardapio e
+  mutacao canonica de quantidade/carrinho sem erro indevido de estoque.

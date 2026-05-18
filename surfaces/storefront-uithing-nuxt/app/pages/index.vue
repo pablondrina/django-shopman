@@ -19,7 +19,20 @@ const home = computed(() => data.value?.home || null)
 const featured = computed(() => home.value?.featured_items || [])
 const primaryAction = computed(() => home.value?.actions.find(action => action.priority === 'primary' && action.enabled) || null)
 const reorderAction = computed(() => home.value?.actions.find(action => action.ref.includes('reorder') && action.enabled) || null)
-const menuAction = computed(() => primaryAction.value?.href || '/menu')
+const operationalStatus = computed(() => {
+  const status = home.value?.shop_status
+  const isOpen = !!status?.is_open
+  const projectedMessage = status?.message?.trim() || ''
+  return {
+    isOpen,
+    label: projectedMessage || (isOpen ? 'Loja aberta' : 'Loja fechada'),
+    title: isOpen ? 'Pedido online ativo' : 'Atendimento em pausa',
+    description: projectedMessage || (isOpen
+      ? 'Escolha pelo cardapio publicado e acompanhe o pedido por aqui.'
+      : 'O cardapio continua disponivel para consulta; finalize quando o atendimento reabrir.'),
+    variant: isOpen ? 'success' : 'warning'
+  } as const
+})
 
 function metaFor (item: HomeResponse['home']['featured_items'][number]): ProductMutationMeta {
   return {
@@ -69,54 +82,21 @@ useSeoMeta({
         </UiAlert>
 
         <div v-else-if="home" class="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-          <div class="shop-panel overflow-hidden">
-            <div class="relative min-h-[420px]">
-              <img
-                v-if="featured[0]?.image_url"
-                :src="featured[0].image_url"
-                :alt="featured[0].name"
-                fetchpriority="high"
-                class="absolute inset-0 size-full object-cover"
-              >
-              <div v-else class="absolute inset-0 bg-muted" />
-              <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,20,16,.16),rgba(5,20,16,.82))]" />
-              <div class="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
-                <UiBadge :variant="home.shop_status.is_open ? 'success' : 'warning'">
-                  {{ home.shop_status.message || (home.shop_status.is_open ? 'Loja aberta' : 'Loja fechada') }}
-                </UiBadge>
-                <p class="mt-4 text-sm font-medium text-white/80">{{ home.omotenashi.greeting_with_name }}</p>
-                <h1 class="mt-2 max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl">
-                  {{ home.hero_copy.order_title_prefix.title || home.shop.brand_name }}
-                  <span class="block">{{ home.hero_copy.order_title_suffix.title || home.shop.tagline }}</span>
-                </h1>
-                <p class="mt-4 max-w-xl text-sm leading-6 text-white/82 sm:text-base">
-                  {{ home.omotenashi.shop_hint || home.hero_copy.order_subtitle.message || home.shop.description }}
-                </p>
-                <div class="mt-6 flex flex-wrap gap-3">
-                  <UiButton :to="localRouteFromBackend(menuAction)" size="lg" icon="lucide:utensils">
-                    {{ primaryAction?.label || home.hero_copy.menu_cta.title || 'Ver cardapio' }}
-                  </UiButton>
-                  <UiButton
-                    v-if="home.public_config.whatsapp_url"
-                    :href="home.public_config.whatsapp_url"
-                    target="_blank"
-                    variant="outline"
-                    size="lg"
-                    icon="lucide:message-circle"
-                    class="border-white/40 bg-white/8 text-white hover:bg-white/16"
-                  >
-                    WhatsApp
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </div>
+          <HomeHeroThing
+            :home="home"
+            :primary-action="primaryAction"
+            :reorder-action="reorderAction"
+            :reorder-loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
+            :status-label="operationalStatus.label"
+            :status-open="operationalStatus.isOpen"
+            @reorder="handleReorder"
+          />
 
           <aside class="space-y-4">
-            <UiAlert :variant="home.omotenashi.is_open ? 'success' : 'warning'" filled>
-              <UiAlertTitle>{{ home.omotenashi.is_open ? 'Proxima melhor acao' : 'Loja em pausa' }}</UiAlertTitle>
+            <UiAlert :variant="operationalStatus.variant" filled>
+              <UiAlertTitle>{{ operationalStatus.title }}</UiAlertTitle>
               <UiAlertDescription>
-                {{ home.omotenashi.shop_hint || home.shop_status.message || 'Confira o cardapio publicado pela loja.' }}
+                {{ operationalStatus.description }}
               </UiAlertDescription>
             </UiAlert>
 

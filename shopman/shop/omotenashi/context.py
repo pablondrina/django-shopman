@@ -80,12 +80,14 @@ class OmotenashiContext:
     def from_request(cls, request: HttpRequest | None) -> OmotenashiContext:
         """Build context from an HTTP request. Safe even when request is None."""
         now = timezone.localtime()
-        hours = _shop_hours_for(now)
-        moment = _compute_moment(now, hours)
+        from shopman.shop.services.business_calendar import current_business_state
+
+        state = current_business_state(now=now)
+        moment = _compute_moment(now, state)
         greeting = _compute_greeting(now.hour)
-        opens_at = hours.get("open") if hours else None
-        closes_at = hours.get("close") if hours else None
-        shop_hint = _compute_shop_hint(moment, opens_at, closes_at)
+        opens_at = state.opens_at
+        closes_at = state.closes_at
+        shop_hint = _compute_shop_hint(moment, opens_at, closes_at, state.message)
 
         audience, customer_name, is_birthday, days_since, fav_cat = _customer_signals(request, now.date())
 
@@ -119,43 +121,23 @@ class OmotenashiContext:
 # ── Internals ──────────────────────────────────────────────────────────
 
 
-def _shop_hours_for(now: datetime) -> dict[str, str] | None:
-    """Return {"open": "07:00", "close": "19:00"} for today, or None if closed."""
-    try:
-        from shopman.shop.models import Shop
-    except Exception:
-        return None
-    shop = Shop.load()
-    if not shop or not getattr(shop, "opening_hours", None):
-        return None
-    day_name = now.strftime("%A").lower()
-    hours = shop.opening_hours.get(day_name)
-    if not hours or not hours.get("open") or not hours.get("close"):
-        return None
-    return hours
-
-
-def _compute_moment(now: datetime, hours: dict[str, str] | None) -> str:
+def _compute_moment(now: datetime, state: Any) -> str:
     """Reduce current time to one of six moments."""
-    if not hours:
-        return MOMENT_FECHADO if now.hour >= 12 else MOMENT_MADRUGADA
-
-    open_t = time.fromisoformat(hours["open"])
-    close_t = time.fromisoformat(hours["close"])
-    current = now.time()
-
-    if current < open_t:
-        return MOMENT_MADRUGADA
-    if current >= close_t:
+    if not getattr(state, "is_open", False):
+        source = getattr(state, "closure_source", "")
+        next_open_at = getattr(state, "next_open_at", None)
+        if source == "before_open":
+            return MOMENT_MADRUGADA
+        if next_open_at and getattr(next_open_at, "date", lambda: None)() == now.date() and now.hour < 12:
+            return MOMENT_MADRUGADA
         return MOMENT_FECHADO
 
-    # Open window — subdivide by meal time and proximity to closing.
-    from datetime import datetime as _dt
-    from datetime import timedelta
-
-    close_dt = _dt.combine(now.date(), close_t, tzinfo=now.tzinfo)
-    if close_dt - now <= timedelta(hours=1):
-        return MOMENT_FECHANDO
+    closes_at = getattr(state, "closes_at", None)
+    if closes_at:
+        close_t = time.fromisoformat(closes_at)
+        close_dt = datetime.combine(now.date(), close_t, tzinfo=now.tzinfo)
+        if close_dt - now <= timedelta(hours=1):
+            return MOMENT_FECHANDO
     h = now.hour
     if h < 11:
         return MOMENT_MANHA
@@ -174,14 +156,16 @@ def _compute_greeting(hour: int) -> str:
     return "Boa noite"
 
 
-def _compute_shop_hint(moment: str, opens_at: str | None, closes_at: str | None) -> str:
+def _compute_shop_hint(moment: str, opens_at: str | None, closes_at: str | None, message: str = "") -> str:
     """Short, contextual line about the shop's current state."""
+    if moment == MOMENT_FECHANDO and closes_at:
+        return f"Últimos pedidos · fechamos às {_fmt(closes_at)}"
+    if message:
+        return message
     if moment == MOMENT_FECHADO and opens_at:
         return f"Fechado · abre {_fmt(opens_at)}"
     if moment == MOMENT_MADRUGADA and opens_at:
         return f"Abrimos às {_fmt(opens_at)}"
-    if moment == MOMENT_FECHANDO and closes_at:
-        return f"Últimos pedidos · fechamos às {_fmt(closes_at)}"
     if closes_at:
         return f"Aberto até {_fmt(closes_at)}"
     return ""

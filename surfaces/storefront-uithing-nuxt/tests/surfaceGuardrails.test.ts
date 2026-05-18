@@ -69,6 +69,19 @@ describe('surface UX guardrails', () => {
     expect(joined).not.toMatch(/qtyForSku\([^)]*\)\s*\|\|\s*[^\n]*qty_in_cart/)
   })
 
+  it('keeps storefront operational status sourced from shop_status', () => {
+    const typeSource = read('app/types/shopman.ts')
+    const omotenashiType = typeSource.match(/export interface OmotenashiProjection \{([\s\S]*?)\n\}/)?.[1] || ''
+
+    expect(read('app/pages/index.vue')).not.toContain('home.omotenashi.is_open')
+    expect(read('app/pages/index.vue')).toContain('home.value?.shop_status')
+    expect(omotenashiType).not.toMatch(/\b(is_open|opens_at|closes_at)\b/)
+  })
+
+  it('does not render a second command search field in the menu', () => {
+    expect(read('app/pages/menu.vue')).not.toContain('<UiCommandInput')
+  })
+
   it('formats simple Portuguese counts without placeholder copy', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')

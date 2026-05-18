@@ -30,9 +30,6 @@ class OmotenashiProjection:
     customer_name: str | None
     is_birthday: bool
     audience: str
-    is_open: bool
-    opens_at: str | None
-    closes_at: str | None
 
 
 @dataclass(frozen=True)
@@ -45,6 +42,8 @@ class OpeningHoursEntry:
 class ShopStatusProjection:
     is_open: bool
     message: str | None
+    opens_at: str | None
+    closes_at: str | None
 
 
 @dataclass(frozen=True)
@@ -161,9 +160,6 @@ def build_home(request: HttpRequest) -> HomeProjection:
         customer_name=omo.customer_name,
         is_birthday=omo.is_birthday,
         audience=omo.audience,
-        is_open=omo.is_open,
-        opens_at=omo.opens_at,
-        closes_at=omo.closes_at,
     )
 
     shop = Shop.load()
@@ -173,6 +169,8 @@ def build_home(request: HttpRequest) -> HomeProjection:
     shop_status = ShopStatusProjection(
         is_open=bool(status_dict.get("is_open", False)),
         message=status_dict.get("message"),
+        opens_at=status_dict.get("opens_at"),
+        closes_at=status_dict.get("closes_at"),
     )
 
     hours = tuple(
