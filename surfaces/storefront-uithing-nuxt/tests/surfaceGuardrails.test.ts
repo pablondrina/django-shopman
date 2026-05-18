@@ -82,6 +82,13 @@ describe('surface UX guardrails', () => {
     expect(read('app/pages/menu.vue')).not.toContain('<UiCommandInput')
   })
 
+  it('renders the menu product grid once instead of duplicating it in hidden tab panels', () => {
+    const menu = read('app/pages/menu.vue')
+
+    expect(menu).not.toMatch(/<UiTabsContent[\s\S]*?v-for=/)
+    expect((menu.match(/<ProductTile/g) || [])).toHaveLength(1)
+  })
+
   it('formats simple Portuguese counts without placeholder copy', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')

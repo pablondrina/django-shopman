@@ -51,10 +51,31 @@ Guardrails ativos:
 - `tests/surfaceGuardrails.test.ts` impede controles nativos fora de
   `app/components/Ui`, busca duplicada por `UiCommandInput` no cardapio e uso de
   `home.omotenashi.is_open` como status.
+- O cardapio nao pode renderizar grids de produto dentro de `UiTabsContent`
+  repetidos. Essa regressao montava centenas de `ProductTile`/`NumberField`
+  escondidos e deixava o browser lento.
 - `scripts/ux-smoke.mjs` executa smoke real via Chrome headless contra a app
   rodando e falha em status contraditorio, hero colapsado, busca duplicada,
-  endpoint de carrinho nao canonico ou 409 indevido em item projetado como
-  disponivel.
+  DOM inicial grande demais, muitos steppers no primeiro render, endpoint de
+  carrinho nao canonico ou 409 indevido em item projetado como disponivel.
+
+## Performance 2026-05-18
+
+Achado: o menu renderizava o grid em um `UiTabsContent value="all"` e novamente
+em um `UiTabsContent v-for="section in sections"`. Como `activeSections` era
+compartilhado, a tela podia montar centenas de cards e steppers escondidos.
+
+Correcao: `UiTabs` ficou apenas como controle de filtro; o grid de
+`activeSections` e renderizado uma unica vez. `ProductTile` agora monta
+`QuantityControl` somente quando `qty > 0`; no primeiro render exibe um
+`UiButton` de adicionar que chama a mesma mutation canonica de carrinho.
+
+Evidencia local em `/menu`, viewport mobile:
+
+- `tabContents`: 0
+- `quantityControls`: 0 no primeiro render
+- `domNodes`: 2026
+- `loadEventEnd`: 916 ms em dev server local
 
 ## Evidencia Executada
 

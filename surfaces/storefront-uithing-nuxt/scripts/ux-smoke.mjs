@@ -155,6 +155,10 @@ function pageProbe () {
         state: el.getAttribute('data-state'),
       })),
       searchInputs: [...document.querySelectorAll('input[placeholder]')].filter(visible).map(el => el.placeholder).filter(Boolean),
+      productTiles: document.querySelectorAll('[data-slot="card"]').length,
+      quantityControls: document.querySelectorAll('[data-slot="number-field"]').length,
+      tabContents: document.querySelectorAll('[data-slot="tabs-content"]').length,
+      domNodes: document.querySelectorAll('*').length,
     }
   })()`
 }
@@ -177,6 +181,22 @@ async function clickHeroTab (cdp, label) {
 async function dispatchClickRectCenter (cdp, selector) {
   const rect = await evaluate(cdp, `(() => {
     const el = document.querySelector(${JSON.stringify(selector)})
+    if (!el) return null
+    el.scrollIntoView({ block: 'center', inline: 'center' })
+    const r = el.getBoundingClientRect()
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height }
+  })()`)
+  if (!rect) return false
+  await wait(150)
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: rect.x, y: rect.y })
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
+  return true
+}
+
+async function dispatchClickButtonText (cdp, text) {
+  const rect = await evaluate(cdp, `(() => {
+    const el = [...document.querySelectorAll('button')].find(button => button.innerText.trim() === ${JSON.stringify(text)})
     if (!el) return null
     el.scrollIntoView({ block: 'center', inline: 'center' })
     const r = el.getBoundingClientRect()
@@ -214,6 +234,9 @@ async function run () {
     cdpRequestCapture(menu, requests)
     const menuState = await evaluate(menu, pageProbe())
     assert(menuState.searchInputs.length === 1, `menu should show exactly one text search, found ${menuState.searchInputs.length}`)
+    assert(menuState.tabContents === 0, `menu should not duplicate grids inside hidden tab panels, found ${menuState.tabContents} tab contents`)
+    assert(menuState.quantityControls <= 5, `menu initial render mounted too many quantity controls: ${menuState.quantityControls}`)
+    assert(menuState.domNodes < 4000, `menu initial DOM is too large: ${menuState.domNodes} nodes`)
     await evaluate(menu, `(() => {
       const input = document.querySelector('input[placeholder]')
       input.value = 'croissant'
@@ -221,7 +244,8 @@ async function run () {
     })()`)
     await wait(300)
     const clicked = await dispatchClickRectCenter(menu, '[data-slot="number-field-increment"]')
-    assert(clicked, 'menu quantity increment was not found')
+      || await dispatchClickButtonText(menu, 'Adicionar')
+    assert(clicked, 'menu add control was not found')
     await wait(1500)
     const afterCart = await evaluate(menu, pageProbe())
     const cartMutations = requests.filter(request => request.url.includes('/api/v1/cart/skus/'))

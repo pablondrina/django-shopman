@@ -159,31 +159,21 @@ useSeoMeta({
                   </UiTabsTrigger>
                 </UiTabsList>
               </div>
-              <UiTabsContent value="all" class="space-y-6">
-                <div v-for="section in activeSections" :key="section.ref" class="space-y-3">
-                  <div>
-                    <h2 class="text-xl font-semibold">{{ section.label }}</h2>
-                    <p class="shop-muted">{{ section.description }}</p>
-                  </div>
-                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <ProductTile v-for="item in section.items" :key="`${section.ref}-${item.sku}`" :item="item" :section-label="section.label" @select="openProduct" />
-                  </div>
-                </div>
-              </UiTabsContent>
-              <UiTabsContent v-for="section in sections" :key="section.ref" :value="section.ref" class="space-y-6">
-                <div v-for="visible in activeSections" :key="visible.ref" class="space-y-3">
-                  <div>
-                    <h2 class="text-xl font-semibold">{{ visible.label }}</h2>
-                    <p class="shop-muted">{{ visible.description }}</p>
-                  </div>
-                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <ProductTile v-for="item in visible.items" :key="`${visible.ref}-${item.sku}`" :item="item" :section-label="visible.label" @select="openProduct" />
-                  </div>
-                </div>
-              </UiTabsContent>
             </UiTabs>
 
-            <UiAlert v-if="!activeSections.length">
+            <div v-if="activeSections.length" class="space-y-6">
+              <div v-for="section in activeSections" :key="section.ref" class="space-y-3">
+                <div>
+                  <h2 class="text-xl font-semibold">{{ section.label }}</h2>
+                  <p class="shop-muted">{{ section.description }}</p>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <ProductTile v-for="item in section.items" :key="`${section.ref}-${item.sku}`" :item="item" :section-label="section.label" @select="openProduct" />
+                </div>
+              </div>
+            </div>
+
+            <UiAlert v-else>
               <UiAlertTitle>Nada por esse filtro</UiAlertTitle>
               <UiAlertDescription>Limpe a busca ou escolha outra secao.</UiAlertDescription>
             </UiAlert>
