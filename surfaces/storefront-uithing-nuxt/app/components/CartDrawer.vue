@@ -12,6 +12,12 @@ const {
 
 const coupon = ref('')
 const couponPending = ref(false)
+const cartIssueQtyAction = computed(() => cartIssue.value?.actions.find(action => action.ref === 'set_available_qty' && action.enabled) || null)
+const cartIssueQtyLabel = computed(() => {
+  if (cartIssueQtyAction.value?.label) return cartIssueQtyAction.value.label
+  const qty = cartIssue.value?.available_qty
+  return qty != null ? `Usar ${formatCount(qty, 'unidade disponível', 'unidades disponíveis')}` : ''
+})
 
 async function submitCoupon () {
   if (!coupon.value.trim()) return
@@ -40,9 +46,19 @@ async function submitCoupon () {
           <UiAlertTitle>{{ cartIssue.title }}</UiAlertTitle>
           <UiAlertDescription>
             <p>{{ cartIssue.detail }}</p>
+            <div v-if="cartIssue.substitutes.length" class="mt-3 space-y-2">
+              <p class="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Alternativas disponíveis</p>
+              <div v-for="substitute in cartIssue.substitutes.slice(0, 3)" :key="substitute.sku || substitute.name" class="rounded-md border bg-background p-2">
+                <p class="text-sm font-medium">{{ substitute.name || substitute.sku }}</p>
+                <p v-if="substitute.reason" class="text-xs text-muted-foreground">{{ substitute.reason }}</p>
+                <p v-else-if="substitute.available_qty != null" class="text-xs text-muted-foreground">
+                  {{ formatCount(substitute.available_qty, 'unidade disponível', 'unidades disponíveis') }}
+                </p>
+              </div>
+            </div>
             <div class="mt-3 flex flex-wrap gap-2">
               <UiButton v-if="cartIssue.available_qty != null" size="sm" variant="outline" @click="acceptAvailableQty">
-                Ajustar para {{ cartIssue.available_qty }}
+                {{ cartIssueQtyLabel }}
               </UiButton>
               <UiButton size="sm" variant="ghost" @click="retryLastMutation">Tentar novamente</UiButton>
             </div>

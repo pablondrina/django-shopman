@@ -23,11 +23,26 @@ watch(() => props.qty, value => {
 const pending = computed(() => isPending(props.meta.sku))
 
 async function commit (value: number) {
-  const numeric = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
-  const next = props.maxQty != null ? Math.min(numeric, props.maxQty) : numeric
+  const next = clampQuantity(value, props.maxQty)
   localQty.value = next
   await setSkuQty(props.meta, next)
   emit('changed', next)
+}
+
+function handleModelValue (value: unknown) {
+  const next = quantityFromModelValue(value)
+  if (next === null) return
+  if (pending.value) {
+    localQty.value = props.qty
+    return
+  }
+  if (next === props.qty) {
+    localQty.value = next
+    return
+  }
+  void commit(next).catch(() => {
+    localQty.value = props.qty
+  })
 }
 
 const controlClass = computed(() => props.compact ? 'w-28' : 'w-36')
@@ -41,6 +56,6 @@ const controlClass = computed(() => props.compact ? 'w-28' : 'w-36')
     :disabled="disabled || pending"
     :class="controlClass"
     aria-label="Quantidade"
-    @update:model-value="commit(Number($event || 0))"
+    @update:model-value="handleModelValue"
   />
 </template>

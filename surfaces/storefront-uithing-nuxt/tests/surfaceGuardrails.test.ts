@@ -64,6 +64,11 @@ describe('surface UX guardrails', () => {
     }
   })
 
+  it('does not revive stale projected quantities after cart removal', () => {
+    const joined = surfaceVueFiles.map(read).join('\n')
+    expect(joined).not.toMatch(/qtyForSku\([^)]*\)\s*\|\|\s*[^\n]*qty_in_cart/)
+  })
+
   it('formats simple Portuguese counts without placeholder copy', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')

@@ -23,7 +23,7 @@ const meta = computed<ProductMutationMeta | null>(() => product.value
       image_url: product.value.image_url
     }
   : null)
-const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) || product.value.qty_in_cart || 0 : 0)
+const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) : 0)
 const detailDescription = computed(() => {
   if (!product.value?.long_description) return ''
   return product.value.long_description === product.value.short_description ? '' : product.value.long_description

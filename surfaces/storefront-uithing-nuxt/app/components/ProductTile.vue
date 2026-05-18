@@ -18,7 +18,7 @@ const meta = computed<ProductMutationMeta>(() => ({
   price_display: props.item.price_display,
   image_url: props.item.image_url
 }))
-const currentQty = computed(() => qtyForSku(props.item.sku) || props.item.qty_in_cart || 0)
+const currentQty = computed(() => qtyForSku(props.item.sku))
 </script>
 
 <template>

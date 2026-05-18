@@ -31,6 +31,18 @@ from .serializers import (
 CHECKOUT_RATE_LIMIT_RETRY_SECONDS = 60
 
 
+def _stock_unit_count_label(qty: int) -> str:
+    unit_word = "unidade disponível" if qty == 1 else "unidades disponíveis"
+    return f"{qty} {unit_word}"
+
+
+def _stock_error_detail(exc) -> str:
+    available_qty = getattr(exc, "available_qty", None)
+    if available_qty is not None and available_qty > 0:
+        return f"Estoque disponível agora: {_stock_unit_count_label(available_qty)}."
+    return "Sem estoque disponível para a quantidade solicitada."
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["cart"],
@@ -75,7 +87,7 @@ class CartAddItemView(APIView):
             201: CartSerializer,
             400: DetailSerializer,
             404: DetailSerializer,
-            409: OpenApiResponse(description="Insufficient stock."),
+            409: OpenApiResponse(description="Estoque insuficiente para a quantidade solicitada."),
         },
     )
     def post(self, request):
@@ -117,7 +129,7 @@ class CartAddItemView(APIView):
         except CartUnavailableError as exc:
             return Response(
                 {
-                    "detail": "Insufficient stock.",
+                    "detail": _stock_error_detail(exc),
                     "error_code": exc.error_code,
                     "sku": exc.sku,
                     "requested_qty": exc.requested_qty,

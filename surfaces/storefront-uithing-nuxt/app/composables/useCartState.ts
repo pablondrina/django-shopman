@@ -1,4 +1,4 @@
-import type { CartMutationResponse, CartProjection, ProductMutationMeta } from '~/types/shopman'
+import type { CartMutationResponse, CartProjection, ProductMutationMeta, SurfaceActionProjection } from '~/types/shopman'
 
 interface CartIssue {
   title: string
@@ -10,7 +10,8 @@ interface CartIssue {
   available_qty: number | null
   is_paused: boolean
   is_planned: boolean
-  substitutes: Array<{ sku?: string, name?: string, reason?: string }>
+  substitutes: Array<{ sku?: string, name?: string, reason?: string, available_qty?: number, target_qty?: number, can_order?: boolean }>
+  actions: SurfaceActionProjection[]
   items: Array<{
     sku: string
     name: string
@@ -66,9 +67,12 @@ function numberOrNull (value: unknown): number | null {
 
 function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
   const fallbackName = String(data?.name || meta.name || data?.sku || meta.sku)
-  const fallbackReason = typeof data?.detail === 'string' ? data.detail : 'Revise a quantidade deste item.'
-  const items = Array.isArray(data?.items)
-    ? data.items.map((item: any) => ({
+  const rawItems = Array.isArray(data?.items) ? data.items : []
+  const firstItemReason = rawItems.map((item: any) => item?.reason).find((reason: unknown) => typeof reason === 'string' && reason.trim())
+  const rawDetail = typeof data?.detail === 'string' && !/^insufficient stock\.?$/i.test(data.detail.trim()) ? data.detail : ''
+  const fallbackReason = String(firstItemReason || rawDetail || 'Revise a quantidade deste item.')
+  const items = rawItems.length
+    ? rawItems.map((item: any) => ({
         sku: String(item?.sku || data?.sku || meta.sku),
         name: String(item?.name || fallbackName),
         requested_qty: numberOrNull(item?.requested_qty),
@@ -85,7 +89,7 @@ function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
 
   return {
     title: String(data?.title || 'Revise este item'),
-    detail: String(data?.detail || fallbackReason),
+    detail: fallbackReason,
     error_code: String(data?.error_code || 'cart_issue'),
     sku: String(data?.sku || meta.sku),
     name: fallbackName,
@@ -94,6 +98,7 @@ function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
     is_paused: !!data?.is_paused,
     is_planned: !!data?.is_planned,
     substitutes: Array.isArray(data?.substitutes) ? data.substitutes : [],
+    actions: Array.isArray(data?.actions) ? data.actions : [],
     items
   }
 }
@@ -169,6 +174,7 @@ export function useCartState () {
       if (status === 409 && data) {
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
+        drawerOpen.value = true
       } else if (status === 429) {
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {

@@ -163,6 +163,7 @@ def test_api_cart_sku_qty_stock_error_returns_rich_payload(client):
     assert response.status_code == 409
     data = response.json()
     assert data["title"] == "Revise este item"
+    assert data["detail"] == "Estoque disponível agora: 2 unidades disponíveis."
     assert data["name"] == product.name
     assert data["items"] == [
         {
@@ -170,9 +171,12 @@ def test_api_cart_sku_qty_stock_error_returns_rich_payload(client):
             "name": product.name,
             "requested_qty": 5,
             "available_qty": 2,
-            "reason": "Estoque disponível agora: 2 unidade(s).",
+            "reason": "Estoque disponível agora: 2 unidades disponíveis.",
         }
     ]
+    assert data["actions"][0]["ref"] == "set_available_qty"
+    assert data["actions"][0]["label"] == "Usar 2 unidades disponíveis"
+    assert data["actions"][0]["payload_schema"]["properties"]["qty"]["const"] == 2
     assert data["substitutes"][0]["name"] == "Pão alternativo"
 
 

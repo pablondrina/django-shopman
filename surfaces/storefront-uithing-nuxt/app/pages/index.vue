@@ -193,7 +193,7 @@ useSeoMeta({
                 </div>
                 <UiBadge :variant="availabilityVariant(item.availability)">{{ item.availability_label }}</UiBadge>
               </div>
-              <QuantityControl :meta="metaFor(item)" :qty="qtyForSku(item.sku) || item.qty_in_cart" :disabled="!item.can_add_to_cart" :max-qty="item.available_qty" compact />
+              <QuantityControl :meta="metaFor(item)" :qty="qtyForSku(item.sku)" :disabled="!item.can_add_to_cart" :max-qty="item.available_qty" compact />
             </UiCardContent>
           </UiCard>
         </div>
