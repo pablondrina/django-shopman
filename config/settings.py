@@ -405,7 +405,12 @@ SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
-if MANYCHAT_API_TOKEN:
+if SHOPMAN_EXPOSE_DEBUG_OTP and SHOPMAN_ENVIRONMENT == "staging":
+    DOORMAN.update({
+        "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
+        "DELIVERY_CHAIN": [],
+    })
+elif MANYCHAT_API_TOKEN:
     DOORMAN.update({
         "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
         "DELIVERY_SENDERS": {
@@ -414,11 +419,6 @@ if MANYCHAT_API_TOKEN:
             "email": "shopman.doorman.senders.EmailSender",
             "console": "shopman.doorman.senders.ConsoleSender",
         },
-    })
-elif SHOPMAN_EXPOSE_DEBUG_OTP and SHOPMAN_ENVIRONMENT == "staging":
-    DOORMAN.update({
-        "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
-        "DELIVERY_CHAIN": [],
     })
 
 LANGUAGE_CODE = "pt-br"
