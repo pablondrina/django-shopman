@@ -68,6 +68,9 @@ MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.LogSender`
 para permitir staging técnico sem envio real de OTP; o código é exposto na UI
 somente porque `SHOPMAN_EXPOSE_DEBUG_OTP=true` e `SHOPMAN_ENVIRONMENT=staging`.
+Se a spec ativa ainda não tiver essas variáveis, `config.settings` infere
+`staging` quando os domínios do ambiente contêm `staging`, mantendo produção
+fechada por padrão.
 Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório e esse modo debug deve
 ser removido: o token ManyChat é diferente de `MANYCHAT_WEBHOOK_SECRET` e de
 `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro autentica chamadas outbound Shopman ->

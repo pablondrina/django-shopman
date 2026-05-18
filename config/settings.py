@@ -39,12 +39,32 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-product
 # ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false (default já é false)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
+
+def _default_shopman_environment() -> str:
+    hints = " ".join(
+        os.environ.get(name, "")
+        for name in (
+            "SHOPMAN_DOMAIN",
+            "WHATSAPP_STOREFRONT_URL",
+            "DJANGO_ALLOWED_HOSTS",
+            "APP_DOMAIN",
+            "APP_URL",
+        )
+    ).lower()
+    if "staging" in hints:
+        return "staging"
+    return "development" if DEBUG else "production"
+
+
 SHOPMAN_ENVIRONMENT = os.environ.get(
     "SHOPMAN_ENVIRONMENT",
-    "development" if DEBUG else "production",
+    _default_shopman_environment(),
 ).strip().lower()
 
-SHOPMAN_EXPOSE_DEBUG_OTP = _env_bool("SHOPMAN_EXPOSE_DEBUG_OTP", DEBUG)
+SHOPMAN_EXPOSE_DEBUG_OTP = _env_bool(
+    "SHOPMAN_EXPOSE_DEBUG_OTP",
+    DEBUG or SHOPMAN_ENVIRONMENT == "staging",
+)
 
 # ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
@@ -394,6 +414,11 @@ if MANYCHAT_API_TOKEN:
             "email": "shopman.doorman.senders.EmailSender",
             "console": "shopman.doorman.senders.ConsoleSender",
         },
+    })
+elif SHOPMAN_EXPOSE_DEBUG_OTP and SHOPMAN_ENVIRONMENT == "staging":
+    DOORMAN.update({
+        "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
+        "DELIVERY_CHAIN": [],
     })
 
 LANGUAGE_CODE = "pt-br"
