@@ -23,7 +23,9 @@ O blueprint `.do/app.yaml` preserva os prefixes `/nuxt` e `/thing` no proxy da
 App Platform. Cada superficie Nuxt define seu proprio `app.baseURL`:
 
 - `storefront-nuxt`: `/nuxt/` em producao.
-- `storefront-uithing-nuxt`: `/thing/` em producao.
+- `storefront-uithing-nuxt`: `/thing/` em producao e tambem no dev server
+  local (`cd surfaces/storefront-uithing-nuxt && npm run dev` abre
+  `http://127.0.0.1:3003/thing/`).
 
 ## Regras De Superficie
 
@@ -83,4 +85,5 @@ A superficie Thing possui guardrails locais:
   e ausencia de controles nativos fora dos componentes UI Thing scaffoldados.
 - `npm run test:ux`: smoke real via Chrome headless contra a superficie rodando,
   cobrindo status contraditorio, hero colapsado, busca duplicada no cardapio e
-  mutacao canonica de quantidade/carrinho sem erro indevido de estoque.
+  mutacao canonica de quantidade/carrinho sem erro indevido de estoque. O smoke
+  roda no prefixo canonico `/thing/`.

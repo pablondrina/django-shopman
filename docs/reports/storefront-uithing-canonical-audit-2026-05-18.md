@@ -25,8 +25,9 @@ divergencia interna.
    - Mutacao de quantidade via `/api/v1/cart/skus/{sku}/`.
 
 2. Deve ser canonizado:
-   - Nenhum novo contrato foi necessario nesta rodada. O gap real era uso
-     incorreto/duplicado da projection existente.
+   - Nenhum novo contrato foi necessario nesta rodada. Os gaps reais eram uso
+     incorreto/duplicado de projections existentes e uma regra de auth inventada
+     na superficie.
 
 3. Detalhe efemero de superficie:
    - Organizacao visual do hero em momentos `Agora`, `Pedir` e `Forno`.
@@ -37,6 +38,9 @@ divergencia interna.
    - Expor `omotenashi.is_open`, `omotenashi.opens_at` e
      `omotenashi.closes_at` na home projection.
    - Qualquer derivacao de status operacional na superficie.
+   - Auth gate local no checkout quando a projection `/api/v1/storefront/checkout/`
+     ja expoe a action `checkout` habilitada para carrinho anonimo com payload
+     `name`/`phone`.
 
 ## UI Thing
 
@@ -58,6 +62,37 @@ Guardrails ativos:
   rodando e falha em status contraditorio, hero colapsado, busca duplicada,
   DOM inicial grande demais, muitos steppers no primeiro render, endpoint de
   carrinho nao canonico ou 409 indevido em item projetado como disponivel.
+- `tests/surfaceGuardrails.test.ts` falha se o checkout Thing voltar a impor
+  `navigateTo('/login?next=/checkout')` por cima da action canonica de checkout.
+
+## Checkout 2026-05-18
+
+Achado: a projection de checkout permite compra anonima quando o carrinho tem
+itens (`checkout.actions[ref=checkout].enabled == true`) e declara `name`,
+`phone`, `fulfillment_type` e `payment_method` como payload obrigatorio. A UI
+Thing ignorava esse contrato e redirecionava qualquer visitante anonimo para
+`/login?next=/checkout` antes de mostrar o fluxo.
+
+Correcao: o auth gate local foi removido. A tela agora preserva o fluxo de
+identificacao/contato sustentado pela projection e deixa login por telefone como
+atalho opcional para preencher dados salvos. O contrato foi fixado em
+`shopman/storefront/tests/api/test_storefront_surface.py`.
+
+Evidencia local via proxy Nuxt em `/thing/`:
+
+- carrinho: 1 item
+- `checkout.is_authenticated`: `false`
+- `checkout.actions[checkout].enabled`: `true`
+- required payload: `name`, `phone`, `fulfillment_type`, `payment_method`
+
+## Prefixo Local 2026-05-18
+
+Achado: o staging publico e canonico em `/thing/`, mas o dev server da nova
+superficie abria em `/`. Abrir `http://127.0.0.1:3003/thing/` retornava 404 e
+criava uma segunda verdade operacional para a propria superficie.
+
+Correcao: `npm run dev` agora sobe Nuxt com `NUXT_APP_BASE_URL=/thing/`, e o
+smoke usa `http://127.0.0.1:3003/thing` por padrao.
 
 ## Performance 2026-05-18
 

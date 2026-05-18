@@ -89,6 +89,23 @@ describe('surface UX guardrails', () => {
     expect((menu.match(/<ProductTile/g) || [])).toHaveLength(1)
   })
 
+  it('does not invent a login gate over the checkout projection contract', () => {
+    const checkout = read('app/pages/checkout.vue')
+
+    expect(checkout).toContain('buildCheckoutPayload')
+    expect(checkout).toContain('Compra sem senha')
+    expect(checkout).not.toContain("navigateTo('/login?next=/checkout')")
+    expect(checkout).not.toContain('Entre para continuar')
+  })
+
+  it('serves the Thing surface locally under the same prefix used in staging', () => {
+    const pkg = JSON.parse(read('package.json'))
+    const smoke = read('scripts/ux-smoke.mjs')
+
+    expect(pkg.scripts.dev).toContain('NUXT_APP_BASE_URL=/thing/')
+    expect(smoke).toContain('http://127.0.0.1:3003/thing')
+  })
+
   it('formats simple Portuguese counts without placeholder copy', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')

@@ -62,6 +62,32 @@ def test_api_storefront_checkout_returns_projection_contract(client):
     assert "csrftoken" in resp.cookies
 
 
+def test_api_storefront_checkout_projection_allows_anonymous_cart_checkout(client):
+    product = _seed_surface(stock_qty=Decimal("10"))
+
+    add = client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 1}),
+        content_type="application/json",
+    )
+    assert add.status_code == 200
+
+    resp = client.get("/api/v1/storefront/checkout/")
+
+    assert resp.status_code == 200
+    checkout = resp.json()["checkout"]
+    action = next(candidate for candidate in checkout["actions"] if candidate["ref"] == "checkout")
+    assert checkout["is_authenticated"] is False
+    assert checkout["cart"]["items_count"] == 1
+    assert action["enabled"] is True
+    assert action["payload_schema"]["required"] == [
+        "name",
+        "phone",
+        "fulfillment_type",
+        "payment_method",
+    ]
+
+
 def test_api_cart_sku_qty_accepts_authenticated_session_with_csrf_header():
     product = _seed_surface(stock_qty=Decimal("10"))
     user = get_user_model().objects.create_user(username="staff", password="secret")

@@ -77,10 +77,6 @@ watch(chosenDate, value => {
   state.delivery_date = `${year}-${month}-${day}`
 })
 
-watch(() => checkout.value?.is_authenticated, value => {
-  if (value === false && import.meta.client) void navigateTo('/login?next=/checkout')
-}, { immediate: true })
-
 const steps = computed<Step[]>(() => {
   const list: Step[] = ['identity', 'fulfillment']
   if (state.fulfillment_type === 'delivery') list.push('address')
@@ -248,10 +244,11 @@ useSeoMeta({
         </UiAlert>
 
         <template v-else-if="checkout">
-          <UiAlert v-if="!isAuthed" variant="warning">
-            <UiAlertTitle>Entre para continuar</UiAlertTitle>
+          <UiAlert v-if="!isAuthed" variant="info">
+            <UiAlertTitle>Compra sem senha</UiAlertTitle>
             <UiAlertDescription>
-              <UiButton to="/login?next=/checkout" size="sm" class="mt-2">Entrar por telefone</UiButton>
+              Informe nome e telefone no checkout. Entrar por telefone continua opcional para preencher dados salvos.
+              <UiButton to="/login?next=/checkout" size="sm" variant="outline" class="mt-2">Entrar e preencher meus dados</UiButton>
             </UiAlertDescription>
           </UiAlert>
 

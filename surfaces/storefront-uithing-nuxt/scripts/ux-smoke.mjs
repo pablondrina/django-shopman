@@ -3,7 +3,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const baseUrl = (process.env.SHOPMAN_THING_URL || 'http://127.0.0.1:3003').replace(/\/$/, '')
+const baseUrl = (process.env.SHOPMAN_THING_URL || 'http://127.0.0.1:3003/thing').replace(/\/$/, '')
 const port = Number(process.env.SHOPMAN_CHROME_PORT || 9243)
 const failures = []
 
@@ -164,15 +164,25 @@ function pageProbe () {
 }
 
 async function clickHeroTab (cdp, label) {
-  return evaluate(cdp, `(async () => {
+  const rect = await evaluate(cdp, `(() => {
     const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
-    if (!tab) return { clicked: false, h1: [] }
-    tab.click()
-    await new Promise(resolve => setTimeout(resolve, 250))
+    if (!tab) return null
+    tab.scrollIntoView({ block: 'center', inline: 'center' })
+    const r = tab.getBoundingClientRect()
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height }
+  })()`)
+  if (!rect) return { clicked: false, h1: [] }
+  await wait(150)
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: rect.x, y: rect.y })
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
+  await wait(350)
+  return evaluate(cdp, `(() => {
+    const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
     const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
     return {
       clicked: true,
-      selected: tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('data-state') === 'active',
+      selected: !!tab && (tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('data-state') === 'active'),
       h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
     }
   })()`)

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host 127.0.0.1 --port 3003",
+    "dev": "NUXT_APP_BASE_URL=/thing/ nuxt dev --host 127.0.0.1 --port 3003",
     "generate": "nuxt generate",
     "preview": "nuxt preview --host 127.0.0.1 --port 3003",
     "test": "vitest run",
