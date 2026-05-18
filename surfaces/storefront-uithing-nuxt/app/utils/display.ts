@@ -1,10 +1,10 @@
 import type { CatalogItemProjection, SurfaceActionProjection } from '~/types/shopman'
 
 export function availabilityVariant (availability: CatalogItemProjection['availability'] | string | null | undefined) {
-  if (availability === 'available') return 'success'
+  if (availability === 'available') return 'secondary'
   if (availability === 'low_stock') return 'warning'
-  if (availability === 'planned_ok') return 'info'
-  if (availability === 'unavailable') return 'error'
+  if (availability === 'planned_ok') return 'outline'
+  if (availability === 'unavailable') return 'destructive'
   return 'secondary'
 }
 

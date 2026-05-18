@@ -39,7 +39,8 @@ async function submitCoupon () {
         <UiSheetDescription :description="cart.summary_pending ? 'Atualizando carrinho.' : `${formatCount(cart.items_count, 'item', 'itens')} no pedido.`" />
       </UiSheetHeader>
 
-      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 pb-6">
+      <UiScrollArea class="min-h-0 flex-1">
+        <div class="space-y-4 p-4 pb-6">
         <UiAlert v-if="cartIssue" variant="destructive">
           <UiAlertTitle>{{ cartIssue.title }}</UiAlertTitle>
           <UiAlertDescription>
@@ -68,12 +69,18 @@ async function submitCoupon () {
           <UiAlertDescription>{{ rateLimitRecovery.detail }}</UiAlertDescription>
         </UiAlert>
 
-        <div v-if="cart.is_empty" class="rounded-lg border border-dashed p-6 text-center">
-          <Icon name="lucide:shopping-cart" class="mx-auto size-8 text-muted-foreground" />
-          <p class="mt-3 font-medium">Seu carrinho esta vazio.</p>
-          <p class="mt-1 text-sm text-muted-foreground">Escolha no cardapio e acompanhe tudo por aqui.</p>
-          <UiButton to="/menu" class="mt-4" icon="lucide:utensils">Ver cardapio</UiButton>
-        </div>
+        <UiEmpty v-if="cart.is_empty" class="border">
+          <UiEmptyMedia variant="icon">
+            <Icon name="lucide:shopping-cart" />
+          </UiEmptyMedia>
+          <UiEmptyHeader>
+            <UiEmptyTitle>Seu carrinho esta vazio.</UiEmptyTitle>
+            <UiEmptyDescription>Escolha no cardapio e acompanhe tudo por aqui.</UiEmptyDescription>
+          </UiEmptyHeader>
+          <UiEmptyContent>
+            <UiButton to="/menu" icon="lucide:utensils">Ver cardapio</UiButton>
+          </UiEmptyContent>
+        </UiEmpty>
 
         <div v-else class="space-y-3">
           <UiItem v-for="line in cart.items" :key="line.line_id" class="rounded-lg border p-3">
@@ -144,7 +151,8 @@ async function submitCoupon () {
             <span>{{ cart.grand_total_display }}</span>
           </div>
         </div>
-      </div>
+        </div>
+      </UiScrollArea>
 
       <UiSheetFooter class="border-t bg-background">
         <div v-if="!cart.is_empty" class="flex items-center justify-between gap-3">

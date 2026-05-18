@@ -263,7 +263,7 @@ useSeoMeta({
                   <UiItemDescription>{{ address.formatted_address }}</UiItemDescription>
                 </UiItemContent>
                 <UiItemActions>
-                  <UiBadge v-if="address.is_default" variant="success">Padrao</UiBadge>
+                  <UiBadge v-if="address.is_default" variant="secondary">Padrao</UiBadge>
                 </UiItemActions>
               </UiItem>
             </UiCardContent>

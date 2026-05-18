@@ -167,6 +167,58 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('as="h1"')
   })
 
+  it('uses scaffolded UI Thing components for OTP, empty states and structured fields', () => {
+    const login = read('app/pages/login.vue')
+    const cartDrawer = read('app/components/CartDrawer.vue')
+    const menu = read('app/pages/menu.vue')
+    const productSheet = read('app/components/ProductDetailSheet.vue')
+    const productRoute = read('app/pages/product/[sku].vue')
+
+    expect(read('app/components/Ui/PinInput/PinInput.vue')).toContain('PinInputRoot')
+    expect(read('app/components/Ui/Field/Field.vue')).toContain('data-slot="field"')
+    expect(read('app/components/Ui/Empty/Empty.vue')).toContain('data-slot="empty"')
+    expect(read('app/components/Ui/DescriptionList/DescriptionList.vue')).toContain('data-slot="description-list"')
+    expect(read('app/components/Ui/ScrollArea/ScrollArea.vue')).toContain('ScrollAreaRoot')
+    expect(read('app/components/Ui/ButtonGroup/ButtonGroup.vue')).toContain('data-slot="button-group"')
+
+    expect(login).toContain('<UiPinInput')
+    expect(login).toContain('<UiField')
+    expect(login).toContain('<UiButtonGroup')
+    expect(login).not.toContain('id="login-code" v-model="code"')
+    expect(cartDrawer).toContain('<UiScrollArea')
+    expect(cartDrawer).toContain('<UiEmpty')
+    expect(menu).toContain('<UiEmpty')
+    expect(productSheet).toContain('<UiDescriptionList')
+    expect(productRoute).toContain('<UiDescriptionList')
+  })
+
+  it('keeps badges discreet and reserves success tone for explicit alerts', () => {
+    const offenders = surfaceVueFiles
+      .filter(file => /<UiBadge[^>]*variant="success"/.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+
+    expect(offenders).toEqual([])
+    expect(read('app/utils/display.ts')).toContain("availability === 'available') return 'secondary'")
+    expect(read('app/utils/display.ts')).not.toContain("availability === 'available') return 'success'")
+  })
+
+  it('keeps the UI Thing theme surface-owned with taupe primary and compact radius', () => {
+    const css = read('app/assets/css/tailwind.css')
+    const config = read('ui-thing.config.ts')
+    const theme = read('app/utils/shopTheme.ts')
+
+    expect(config).toContain('"theme": "stone"')
+    expect(css).toContain('--radius: 0.25rem')
+    expect(css).toContain('--radius-xl: var(--radius)')
+    expect(css).toContain('--primary: oklch(0.535 0.028 64.5)')
+    expect(css).toContain('--font-sans: ui-sans-serif')
+    expect(css).not.toContain('"Inter"')
+    expect(css).toContain('@apply min-h-dvh min-w-0 bg-background text-foreground')
+    expect(theme).toContain('--shop-brand-color')
+    expect(theme).not.toContain('TOKEN_TO_CSS_VAR')
+    expect(theme).not.toContain("style['--primary']")
+  })
+
   it('does not shadow Vue refs in tracking after checkout navigation', () => {
     const tracking = read('app/pages/tracking/[ref].vue')
 

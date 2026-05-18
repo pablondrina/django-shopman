@@ -96,7 +96,7 @@ useSeoMeta({
             <UiCardHeader>
               <div class="mb-2 flex flex-wrap gap-2">
                 <UiBadge :variant="availabilityVariant(product.availability)">{{ product.availability_label }}</UiBadge>
-                <UiBadge v-if="product.promotion_label" variant="warning">{{ product.promotion_label }}</UiBadge>
+                <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
               </div>
               <UiCardTitle as="h1" class="text-3xl leading-tight">{{ product.name }}</UiCardTitle>
               <UiCardDescription>{{ product.short_description }}</UiCardDescription>
@@ -144,10 +144,16 @@ useSeoMeta({
             <UiAccordionItem v-if="product.nutrition?.has_any" value="nutrition">
               <UiAccordionTrigger>Nutricional</UiAccordionTrigger>
               <UiAccordionContent>
-                <div v-for="row in product.nutrition?.rows || []" :key="row.field" class="flex justify-between gap-3 border-t py-2 text-sm">
-                  <span>{{ row.label }}</span>
-                  <span>{{ row.value_display }}</span>
-                </div>
+                <UiDescriptionList>
+                  <template v-if="product.nutrition?.serving_size_display">
+                    <UiDescriptionListTerm>Porcao</UiDescriptionListTerm>
+                    <UiDescriptionListDetails>{{ product.nutrition.serving_size_display }}</UiDescriptionListDetails>
+                  </template>
+                  <template v-for="row in product.nutrition?.rows || []" :key="row.field">
+                    <UiDescriptionListTerm>{{ row.label }}</UiDescriptionListTerm>
+                    <UiDescriptionListDetails class="font-medium">{{ row.value_display }}</UiDescriptionListDetails>
+                  </template>
+                </UiDescriptionList>
               </UiAccordionContent>
             </UiAccordionItem>
             <UiAccordionItem v-if="product.conservation?.has_any || product.unit_weight_label || product.approx_dimensions_label" value="care">

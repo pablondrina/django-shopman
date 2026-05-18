@@ -57,11 +57,42 @@ A superficie Thing usa componentes scaffoldados locais em
 `QuantityControl`) sao composicoes da superficie sobre esses primitives, nao
 componentes de dominio.
 
+Revisao 2026-05-18: o MCP oficial do UI Thing foi usado para listar os
+componentes disponiveis e cruzar necessidade de UX com componente scaffoldado.
+A matriz aplicada agora e:
+
+- OTP/login: `Pin Input`, `Field`, `Button Group`, `Alert`, `Badge` discreto
+  dentro do alert de debug.
+- Carrinho vazio e busca sem resultado: `Empty`.
+- Drawer de carrinho: `Sheet` + `Scroll Area`.
+- Informacao nutricional de PDP: `Accordion` + `Description List`.
+- Busca e sugestao de cardapio: `Command`, mantendo um unico campo de busca.
+- Filtros de secoes: `Tabs`.
+- Compra: `Button`, `Number Field`, `Tooltip`, `Hover Card`, `Toast/Sonner`,
+  `Progress`, `Radio Group`, `Calendar/Datepicker` conforme telas existentes.
+
+Correcao visual: a superficie agora usa `theme: "stone"` no `ui-thing.config.ts`,
+fonte `ui-sans-serif/system-ui`, primary taupe
+`oklch(0.535 0.028 64.5)` e raio base `0.25rem`. A projection da loja nao
+sobrescreve mais `--primary`, `--background` ou outros tokens do UI Thing; ela
+expoe apenas `--shop-brand-color` e `--shop-brand-background` como pistas de
+marca. Isso removeu a segunda fonte de verdade visual entre projection e
+superficie.
+
+Badges: `success` nao e mais usado para disponibilidade, contadores ou labels
+genericas. Disponivel usa `secondary`, planejado usa `outline`, indisponivel
+usa `destructive`, promocao usa primary/taupe quando precisa destaque. Verde
+fica reservado para alertas/estados de sucesso evidentes.
+
 Guardrails ativos:
 
 - `tests/surfaceGuardrails.test.ts` impede controles nativos fora de
   `app/components/Ui`, busca duplicada por `UiCommandInput` no cardapio e uso de
   `home.omotenashi.is_open` como status.
+- `tests/surfaceGuardrails.test.ts` tambem exige `PinInput`, `Field`,
+  `ButtonGroup`, `Empty`, `ScrollArea` e `DescriptionList` nos pontos de UX
+  acima, e falha se `UiBadge variant="success"` reaparecer nas telas de
+  superficie.
 - O cardapio nao pode renderizar grids de produto dentro de `UiTabsContent`
   repetidos. Essa regressao montava centenas de `ProductTile`/`NumberField`
   escondidos e deixava o browser lento.

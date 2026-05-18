@@ -79,8 +79,8 @@ const detailDescription = computed(() => {
         <div class="space-y-2">
           <div class="flex flex-wrap gap-2">
             <UiBadge :variant="availabilityVariant(product.availability)">{{ product.availability_label }}</UiBadge>
-            <UiBadge v-if="product.promotion_label" variant="warning">{{ product.promotion_label }}</UiBadge>
-            <UiBadge v-if="product.is_bundle" variant="info">Combo</UiBadge>
+            <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
+            <UiBadge v-if="product.is_bundle" variant="secondary">Combo</UiBadge>
           </div>
           <h2 class="text-2xl font-semibold leading-tight">{{ product.name }}</h2>
           <p v-if="product.short_description" class="text-sm leading-6 text-muted-foreground">{{ product.short_description }}</p>
@@ -129,15 +129,16 @@ const detailDescription = computed(() => {
           <UiAccordionItem v-if="product.nutrition?.has_any" value="nutrition">
             <UiAccordionTrigger>Informacao nutricional</UiAccordionTrigger>
             <UiAccordionContent>
-              <div class="space-y-2 text-sm">
-                <p v-if="product.nutrition?.serving_size_display" class="text-muted-foreground">
-                  Porcao: {{ product.nutrition.serving_size_display }}
-                </p>
-                <div v-for="row in product.nutrition?.rows || []" :key="row.field" class="flex justify-between gap-3 border-t py-2">
-                  <span>{{ row.label }}</span>
-                  <span class="font-medium">{{ row.value_display }}</span>
-                </div>
-              </div>
+              <UiDescriptionList>
+                <template v-if="product.nutrition?.serving_size_display">
+                  <UiDescriptionListTerm>Porcao</UiDescriptionListTerm>
+                  <UiDescriptionListDetails>{{ product.nutrition.serving_size_display }}</UiDescriptionListDetails>
+                </template>
+                <template v-for="row in product.nutrition?.rows || []" :key="row.field">
+                  <UiDescriptionListTerm>{{ row.label }}</UiDescriptionListTerm>
+                  <UiDescriptionListDetails class="font-medium">{{ row.value_display }}</UiDescriptionListDetails>
+                </template>
+              </UiDescriptionList>
             </UiAccordionContent>
           </UiAccordionItem>
 

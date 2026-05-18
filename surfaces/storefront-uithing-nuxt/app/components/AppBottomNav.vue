@@ -34,7 +34,7 @@ function active (to: string) {
       >
         <Icon name="lucide:shopping-cart" class="size-5" />
         <span class="truncate">Carrinho</span>
-        <UiBadge v-if="!cart.is_empty" variant="success" class="absolute right-2 top-1 px-1">
+        <UiBadge v-if="!cart.is_empty" variant="default" class="absolute right-2 top-1 px-1">
           {{ cart.items_count }}
         </UiBadge>
       </UiButton>

@@ -51,8 +51,8 @@ const currentQty = computed(() => qtyForSku(props.item.sku))
       </div>
 
       <div class="flex flex-wrap gap-1">
-        <UiBadge v-if="item.promotion_label" variant="warning">{{ item.promotion_label }}</UiBadge>
-        <UiBadge v-if="item.is_new" variant="info">Novo</UiBadge>
+        <UiBadge v-if="item.promotion_label" variant="default">{{ item.promotion_label }}</UiBadge>
+        <UiBadge v-if="item.is_new" variant="secondary">Novo</UiBadge>
         <UiBadge v-if="item.is_featured" variant="secondary">Destaque</UiBadge>
         <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline">{{ tag }}</UiBadge>
       </div>

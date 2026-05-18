@@ -23,7 +23,7 @@ const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : unde
 const session = useShopSession()
 const phone = ref('')
 const requestedPhone = ref('')
-const code = ref('')
+const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
 const error = ref('')
@@ -40,6 +40,8 @@ const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
 const step = computed(() => requestedPhone.value ? 'code' : 'phone')
+const code = computed(() => codeDigits.value.join('').slice(0, 6))
+const canVerifyCode = computed(() => code.value.length === 6 && !pending.value)
 const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
 const supportUrl = computed(() => withWhatsAppText(
   loginHome.value?.home.public_config.whatsapp_url || '',
@@ -68,6 +70,7 @@ function withWhatsAppText (href: string, text: string) {
 async function requestCode (method: 'whatsapp' | 'sms' = 'whatsapp') {
   pending.value = true
   error.value = ''
+  codeDigits.value = []
   devConsoleHint.value = false
   debugOtpCode.value = ''
   debugOtpExpiresAt.value = ''
@@ -103,6 +106,10 @@ async function requestCode (method: 'whatsapp' | 'sms' = 'whatsapp') {
 }
 
 async function verifyCode () {
+  if (code.value.length !== 6) {
+    error.value = 'Informe os 6 digitos do codigo.'
+    return
+  }
   pending.value = true
   error.value = ''
   try {
@@ -130,6 +137,15 @@ async function verifyCode () {
   } finally {
     pending.value = false
   }
+}
+
+function returnToPhoneStep () {
+  requestedPhone.value = ''
+  codeDigits.value = []
+  error.value = ''
+  devConsoleHint.value = false
+  debugOtpCode.value = ''
+  debugOtpExpiresAt.value = ''
 }
 
 useSeoMeta({
@@ -173,18 +189,21 @@ useSeoMeta({
           </UiAlert>
 
           <form v-if="step === 'phone'" class="space-y-4" @submit.prevent="requestCode('whatsapp')">
-            <div class="space-y-2">
-              <UiLabel for="login-phone">Telefone</UiLabel>
+            <UiField>
+              <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
               <UiInput id="login-phone" v-model="phone" inputmode="tel" autocomplete="tel" placeholder="+55..." />
-            </div>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <UiButton type="submit" :loading="pending" icon="lucide:message-circle">
+              <UiFieldDescription>
+                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o codigo enviado para entrar.') }}
+              </UiFieldDescription>
+            </UiField>
+            <UiButtonGroup orientation="vertical" class="w-full sm:w-fit">
+              <UiButton type="submit" :loading="pending" icon="lucide:message-circle" class="justify-start">
                 {{ copyTitle(authCopy?.phone_cta_wa, 'Receber por WhatsApp') }}
               </UiButton>
-              <UiButton type="button" variant="outline" :loading="pending" @click="requestCode('sms')">
+              <UiButton type="button" variant="outline" :loading="pending" class="justify-start" @click="requestCode('sms')">
                 {{ copyTitle(authCopy?.phone_cta_sms, 'SMS') }}
               </UiButton>
-            </div>
+            </UiButtonGroup>
             <UiButton
               v-if="supportUrl"
               :href="supportUrl"
@@ -196,9 +215,6 @@ useSeoMeta({
             >
               Abrir conversa com a loja
             </UiButton>
-            <p class="text-xs leading-5 text-muted-foreground">
-              {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o codigo enviado para entrar.') }}
-            </p>
           </form>
 
           <form v-else class="space-y-4" @submit.prevent="verifyCode">
@@ -211,7 +227,7 @@ useSeoMeta({
               <UiAlertDescription>
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p>
-                    Use <UiBadge variant="warning" class="font-mono text-sm tabular-nums">{{ debugOtpCode }}</UiBadge>
+                    Use <UiBadge variant="secondary" class="font-mono text-sm tabular-nums">{{ debugOtpCode }}</UiBadge>
                     para entrar neste ambiente.
                   </p>
                   <UiButton type="button" size="sm" variant="ghost" icon="lucide:x" @click="debugOtpCode = ''">
@@ -225,21 +241,30 @@ useSeoMeta({
               <UiAlertTitle>Codigo no terminal local</UiAlertTitle>
               <UiAlertDescription>Leia o codigo no terminal onde o projeto esta rodando.</UiAlertDescription>
             </UiAlert>
-            <div class="space-y-2">
-              <UiLabel for="login-code">Codigo de 6 digitos</UiLabel>
-              <UiInput id="login-code" v-model="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
-            </div>
-            <label class="flex items-center justify-between rounded-lg border p-3">
-              <span>
-                <span class="block font-medium">Confiar neste dispositivo</span>
-                <span class="block text-sm text-muted-foreground">Evita codigo nas proximas compras quando o cookie for valido.</span>
-              </span>
+            <UiField>
+              <UiFieldLabel>Codigo de 6 digitos</UiFieldLabel>
+              <UiPinInput
+                v-model="codeDigits"
+                :input-count="6"
+                type="number"
+                otp
+                placeholder="0"
+                :aria-invalid="!!error"
+                class="justify-between sm:justify-start"
+              />
+              <UiFieldDescription>Use o codigo recebido por {{ deliveryLabel }} para liberar o checkout neste aparelho.</UiFieldDescription>
+            </UiField>
+            <UiField orientation="horizontal" class="rounded-md border p-3">
+              <UiFieldContent>
+                <UiFieldLabel>Confiar neste dispositivo</UiFieldLabel>
+                <UiFieldDescription>Evita codigo nas proximas compras quando o cookie for valido.</UiFieldDescription>
+              </UiFieldContent>
               <UiCheckbox v-model:checked="trustedDevice" />
-            </label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <UiButton type="submit" :loading="pending" icon="lucide:check">Entrar</UiButton>
-              <UiButton type="button" variant="ghost" @click="requestedPhone = ''">Trocar telefone</UiButton>
-            </div>
+            </UiField>
+            <UiButtonGroup orientation="vertical" class="w-full sm:w-fit">
+              <UiButton type="submit" :loading="pending" :disabled="!canVerifyCode" icon="lucide:check" class="justify-start">Entrar</UiButton>
+              <UiButton type="button" variant="ghost" class="justify-start" @click="returnToPhoneStep">Trocar telefone</UiButton>
+            </UiButtonGroup>
           </form>
           <p class="text-xs leading-5 text-muted-foreground">
             {{ copyMessage(authCopy?.terms_note, 'Usamos seu telefone para autenticar a entrada. Seus dados nao sao compartilhados.') }}

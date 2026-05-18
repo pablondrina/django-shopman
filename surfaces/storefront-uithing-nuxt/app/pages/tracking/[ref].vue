@@ -103,7 +103,7 @@ useSeoMeta({
                   <UiCardTitle>{{ tracking.status_label }}</UiCardTitle>
                   <UiCardDescription>{{ tracking.promise.next_event || tracking.last_updated_display }}</UiCardDescription>
                 </div>
-                <UiBadge :variant="tracking.is_active ? 'success' : 'secondary'">
+                <UiBadge :variant="tracking.is_active ? 'default' : 'secondary'">
                   {{ tracking.is_active ? tracking.copy.live_badge : tracking.copy.finished_badge }}
                 </UiBadge>
               </div>

@@ -167,7 +167,7 @@ watchEffect(() => {
   <UiTabs v-model="activeHero" class="shop-panel gap-0 overflow-hidden">
     <div class="relative">
       <div class="absolute inset-x-0 top-0 z-20 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <UiBadge :variant="statusOpen ? 'success' : 'warning'" class="w-fit shadow-sm">
+        <UiBadge :variant="statusOpen ? 'default' : 'warning'" class="w-fit shadow-sm">
           {{ statusLabel }}
         </UiBadge>
         <div class="no-scrollbar max-w-full overflow-x-auto rounded-md bg-black/35 p-1 shadow-sm backdrop-blur">

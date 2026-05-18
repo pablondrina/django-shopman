@@ -136,7 +136,7 @@ useSeoMeta({
                       >
                         <div class="flex min-w-0 items-center justify-between gap-3">
                           <span class="truncate">{{ item.name }}</span>
-                          <UiBadge :variant="availabilityVariant(item.availability)">{{ item.price_display }}</UiBadge>
+                          <UiBadge variant="secondary">{{ item.price_display }}</UiBadge>
                         </div>
                       </UiCommandItem>
                     </UiCommandGroup>
@@ -154,7 +154,7 @@ useSeoMeta({
                   <UiTabsTrigger v-for="section in sections" :key="section.ref" :value="section.ref">
                     <span class="inline-flex items-center gap-1">
                       {{ section.label }}
-                      <UiBadge v-if="favoriteRef && [section.ref, section.category?.ref, section.dynamic_ref].includes(favoriteRef)" variant="success">
+                      <UiBadge v-if="favoriteRef && [section.ref, section.category?.ref, section.dynamic_ref].includes(favoriteRef)" variant="outline">
                         habitual
                       </UiBadge>
                     </span>
@@ -175,10 +175,15 @@ useSeoMeta({
               </div>
             </div>
 
-            <UiAlert v-else>
-              <UiAlertTitle>Nada por esse filtro</UiAlertTitle>
-              <UiAlertDescription>Limpe a busca ou escolha outra secao.</UiAlertDescription>
-            </UiAlert>
+            <UiEmpty v-else class="border">
+              <UiEmptyMedia variant="icon">
+                <Icon name="lucide:search-x" />
+              </UiEmptyMedia>
+              <UiEmptyHeader>
+                <UiEmptyTitle>Nada por esse filtro</UiEmptyTitle>
+                <UiEmptyDescription>Limpe a busca ou escolha outra secao.</UiEmptyDescription>
+              </UiEmptyHeader>
+            </UiEmpty>
           </section>
         </div>
       </template>

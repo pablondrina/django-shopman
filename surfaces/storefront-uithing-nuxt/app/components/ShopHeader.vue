@@ -53,7 +53,7 @@ const navItems = [
         </UiTooltip>
       </UiTooltipProvider>
 
-      <UiBadge v-if="!cart.is_empty" variant="success" class="-ml-3 -mt-7">
+      <UiBadge v-if="!cart.is_empty" variant="default" class="-ml-3 -mt-7">
         {{ cart.items_count }}
       </UiBadge>
     </div>
