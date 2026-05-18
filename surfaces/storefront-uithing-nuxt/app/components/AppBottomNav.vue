@@ -5,7 +5,6 @@ const { cart, drawerOpen } = useCartState()
 const items = [
   { to: '/', label: 'Inicio', icon: 'lucide:home' },
   { to: '/menu', label: 'Cardapio', icon: 'lucide:search' },
-  { to: '/checkout', label: 'Checkout', icon: 'lucide:clipboard-check' },
   { to: '/account', label: 'Conta', icon: 'lucide:user-round' }
 ]
 
@@ -17,7 +16,7 @@ function active (to: string) {
 
 <template>
   <nav class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-    <div class="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
+    <div class="mx-auto grid h-16 max-w-md grid-cols-4 items-center px-2">
       <NuxtLink
         v-for="item in items"
         :key="item.to"

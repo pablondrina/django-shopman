@@ -45,11 +45,22 @@ const { data, pending, error, refresh } = await useFetch<CheckoutResponse>(apiPa
 const checkout = computed(() => data.value?.checkout || null)
 const cart = computed(() => checkout.value?.cart)
 const action = computed(() => checkout.value?.actions.find(candidate => candidate.ref === 'checkout') || null)
+const checkoutActionLabel = computed(() => action.value?.label || 'Finalizar pedido')
+const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
 const isAuthed = computed(() => session.isAuthenticated.value || checkout.value?.is_authenticated)
+const authAction = computed(() => checkout.value?.auth_action || null)
+const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/login?next=/checkout'))
 const availableFulfillment = computed(() => (checkout.value?.fulfillment_options || []).filter((value): value is FulfillmentType => value === 'pickup' || value === 'delivery'))
 const savedAddresses = computed(() => checkout.value?.saved_addresses || [])
 const paymentMethods = computed(() => checkout.value?.payment_methods || [])
 const slots = computed(() => checkout.value?.pickup_slots || [])
+
+function localDateValue (value: Date): string {
+  const year = value.getFullYear()
+  const month = `${value.getMonth() + 1}`.padStart(2, '0')
+  const day = `${value.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 watchEffect(() => {
   if (!checkout.value) return
@@ -58,6 +69,11 @@ watchEffect(() => {
   if (!state.phone) state.phone = checkout.value.customer_phone || ''
   if (!state.payment_method) state.payment_method = checkout.value.default_payment_method || paymentMethods.value[0]?.ref || ''
   if (!state.delivery_time_slot) state.delivery_time_slot = checkout.value.earliest_slot_ref || slots.value.find(slot => slot.enabled)?.ref || ''
+  if (import.meta.client && !chosenDate.value && slots.value.length) {
+    const today = new Date()
+    chosenDate.value = today
+    state.delivery_date = localDateValue(today)
+  }
   if (!availableFulfillment.value.includes(state.fulfillment_type)) {
     state.fulfillment_type = availableFulfillment.value[0] || 'pickup'
   }
@@ -71,10 +87,14 @@ watch(chosenDate, value => {
     state.delivery_date = ''
     return
   }
-  const year = value.getFullYear()
-  const month = `${value.getMonth() + 1}`.padStart(2, '0')
-  const day = `${value.getDate()}`.padStart(2, '0')
-  state.delivery_date = `${year}-${month}-${day}`
+  state.delivery_date = localDateValue(value)
+})
+
+watchEffect(() => {
+  if (!checkout.value || !import.meta.client) return
+  if (checkout.value.requires_authentication && !isAuthed.value) {
+    void navigateTo(authRoute.value)
+  }
 })
 
 const steps = computed<Step[]>(() => {
@@ -145,6 +165,62 @@ function useManualAddress () {
   }
 }
 
+function validateIdentityStep (): boolean {
+  const errors = { ...fieldErrors.value }
+  delete errors.name
+  delete errors.phone
+  if (!state.name.trim()) errors.name = 'Informe seu nome.'
+  if (!state.phone.trim()) errors.phone = 'Informe seu telefone.'
+  fieldErrors.value = errors
+  if (errors.name || errors.phone) {
+    activeStep.value = 'identity'
+    return false
+  }
+  return true
+}
+
+function validateFulfillmentStep (): boolean {
+  const errors = { ...fieldErrors.value }
+  delete errors.fulfillment_type
+  delete errors.delivery_date
+  delete errors.delivery_time_slot
+  if (!availableFulfillment.value.includes(state.fulfillment_type)) errors.fulfillment_type = 'Escolha retirada ou entrega.'
+  if ((state.fulfillment_type === 'delivery' || state.delivery_time_slot) && !state.delivery_date) errors.delivery_date = 'Escolha a data.'
+  if (slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horario.'
+  fieldErrors.value = errors
+  if (errors.fulfillment_type || errors.delivery_date || errors.delivery_time_slot) {
+    activeStep.value = 'fulfillment'
+    return false
+  }
+  return true
+}
+
+function validatePaymentStep (): boolean {
+  const errors = { ...fieldErrors.value }
+  delete errors.payment_method
+  if (!state.payment_method) errors.payment_method = 'Escolha o pagamento.'
+  fieldErrors.value = errors
+  if (errors.payment_method) {
+    activeStep.value = 'payment'
+    return false
+  }
+  return true
+}
+
+function continueFromIdentity () {
+  if (validateIdentityStep()) activeStep.value = 'fulfillment'
+}
+
+function continueFromFulfillment () {
+  if (validateFulfillmentStep()) {
+    activeStep.value = state.fulfillment_type === 'delivery' ? 'address' : 'payment'
+  }
+}
+
+function continueFromPayment () {
+  if (validatePaymentStep()) activeStep.value = 'review'
+}
+
 async function geocodeHere () {
   if (!import.meta.client || !navigator.geolocation) {
     serverError.value = 'Geolocalizacao nao esta disponivel neste dispositivo.'
@@ -180,12 +256,13 @@ function validate (): boolean {
   if (!state.name.trim()) errors.name = 'Informe seu nome.'
   if (!state.phone.trim()) errors.phone = 'Informe seu telefone.'
   if (!availableFulfillment.value.includes(state.fulfillment_type)) errors.fulfillment_type = 'Escolha retirada ou entrega.'
+  if ((state.fulfillment_type === 'delivery' || state.delivery_time_slot) && !state.delivery_date) errors.delivery_date = 'Escolha a data.'
   if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) errors.delivery_address = 'Informe o endereco.'
   if (!state.payment_method) errors.payment_method = 'Escolha o pagamento.'
   if (slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horario.'
   fieldErrors.value = errors
   if (errors.name || errors.phone) activeStep.value = 'identity'
-  else if (errors.fulfillment_type || errors.delivery_time_slot) activeStep.value = 'fulfillment'
+  else if (errors.fulfillment_type || errors.delivery_date || errors.delivery_time_slot) activeStep.value = 'fulfillment'
   else if (errors.delivery_address) activeStep.value = 'address'
   else if (errors.payment_method) activeStep.value = 'payment'
   return Object.keys(errors).length === 0
@@ -244,11 +321,11 @@ useSeoMeta({
         </UiAlert>
 
         <template v-else-if="checkout">
-          <UiAlert v-if="!isAuthed" variant="info">
-            <UiAlertTitle>Compra sem senha</UiAlertTitle>
+          <UiAlert v-if="checkout.requires_authentication && !isAuthed" variant="warning">
+            <UiAlertTitle>{{ authAction?.label || 'Entrar por telefone' }}</UiAlertTitle>
             <UiAlertDescription>
-              Informe nome e telefone no checkout. Entrar por telefone continua opcional para preencher dados salvos.
-              <UiButton to="/login?next=/checkout" size="sm" variant="outline" class="mt-2">Entrar e preencher meus dados</UiButton>
+              {{ action?.reason || 'Confirme seu telefone para continuar o checkout.' }}
+              <UiButton :to="authRoute" size="sm" variant="outline" class="mt-2">{{ authAction?.label || 'Entrar por telefone' }}</UiButton>
             </UiAlertDescription>
           </UiAlert>
 
@@ -286,7 +363,7 @@ useSeoMeta({
                   </div>
                 </UiCardContent>
                 <UiCardFooter>
-                  <UiButton @click="activeStep = 'fulfillment'">Continuar</UiButton>
+                  <UiButton @click="continueFromIdentity">Continuar</UiButton>
                 </UiCardFooter>
               </UiCard>
             </UiTabsContent>
@@ -319,6 +396,7 @@ useSeoMeta({
                     <div class="space-y-2">
                       <UiLabel>Data</UiLabel>
                       <UiDatepicker v-model="chosenDate" is-required :min-date="new Date()" expanded />
+                      <p v-if="fieldErrors.delivery_date" class="text-xs text-destructive">{{ fieldErrors.delivery_date }}</p>
                     </div>
                     <div class="space-y-3">
                       <UiLabel>Horario</UiLabel>
@@ -340,7 +418,7 @@ useSeoMeta({
                   </div>
                 </UiCardContent>
                 <UiCardFooter>
-                  <UiButton @click="activeStep = state.fulfillment_type === 'delivery' ? 'address' : 'payment'">Continuar</UiButton>
+                  <UiButton @click="continueFromFulfillment">Continuar</UiButton>
                 </UiCardFooter>
               </UiCard>
             </UiTabsContent>
@@ -413,7 +491,7 @@ useSeoMeta({
                   </label>
                 </UiCardContent>
                 <UiCardFooter>
-                  <UiButton @click="activeStep = 'review'">Revisar</UiButton>
+                  <UiButton @click="continueFromPayment">Revisar</UiButton>
                 </UiCardFooter>
               </UiCard>
             </UiTabsContent>
@@ -460,30 +538,40 @@ useSeoMeta({
                     <UiTextarea id="checkout-notes" v-model="state.notes" rows="3" />
                   </div>
                 </UiCardContent>
-                <UiCardFooter>
-                  <UiAlertDialog>
-                    <UiAlertDialogTrigger as-child>
-                      <UiButton :loading="submitting" :disabled="!action?.enabled || cart?.is_empty" icon="lucide:check">
-                        Enviar pedido
-                      </UiButton>
-                    </UiAlertDialogTrigger>
-                    <UiAlertDialogContent>
-                      <UiAlertDialogHeader>
-                        <UiAlertDialogTitle>Confirmar envio?</UiAlertDialogTitle>
-                        <UiAlertDialogDescription>
-                          Vamos enviar o pedido para a loja e abrir o acompanhamento.
-                        </UiAlertDialogDescription>
-                      </UiAlertDialogHeader>
-                      <UiAlertDialogFooter>
-                        <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>
-                        <UiAlertDialogAction @click="submitCheckout">Confirmar</UiAlertDialogAction>
-                      </UiAlertDialogFooter>
-                    </UiAlertDialogContent>
-                  </UiAlertDialog>
-                </UiCardFooter>
               </UiCard>
             </UiTabsContent>
           </UiTabs>
+
+          <div
+            v-if="activeStep === 'review'"
+            class="sticky bottom-20 z-30 -mx-1 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur md:bottom-4"
+          >
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
+                <p class="text-xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+              </div>
+              <UiAlertDialog>
+                <UiAlertDialogTrigger as-child>
+                  <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full sm:w-auto">
+                    {{ checkoutActionLabel }}
+                  </UiButton>
+                </UiAlertDialogTrigger>
+                <UiAlertDialogContent>
+                  <UiAlertDialogHeader>
+                    <UiAlertDialogTitle>Confirmar pedido?</UiAlertDialogTitle>
+                    <UiAlertDialogDescription>
+                      Vamos enviar o pedido para a loja e abrir o acompanhamento.
+                    </UiAlertDialogDescription>
+                  </UiAlertDialogHeader>
+                  <UiAlertDialogFooter>
+                    <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>
+                    <UiAlertDialogAction @click="submitCheckout">Confirmar</UiAlertDialogAction>
+                  </UiAlertDialogFooter>
+                </UiAlertDialogContent>
+              </UiAlertDialog>
+            </div>
+          </div>
         </template>
       </section>
 

@@ -51,17 +51,21 @@ describe('surface UX guardrails', () => {
     expect(offenders).toEqual([])
   })
 
-  it('uses the shared quantity control instead of plus/minus clones', () => {
-    const quantitySurfaces = [
+  it('uses a single add-or-quantity action instead of zero-value steppers', () => {
+    const addSurfaces = [
       'app/components/ProductTile.vue',
       'app/components/ProductDetailSheet.vue',
-      'app/components/CartDrawer.vue',
+      'app/pages/index.vue',
       'app/pages/product/[sku].vue'
     ]
-    for (const file of quantitySurfaces) {
-      expect(read(file)).toContain('<QuantityControl')
+    for (const file of addSurfaces) {
+      expect(read(file)).toContain('<CartQuantityAction')
+      expect(read(file)).not.toContain('<QuantityControl')
       expect(read(file)).not.toMatch(/lucide:(plus|minus)/)
     }
+
+    expect(read('app/components/CartQuantityAction.vue')).toContain('<QuantityControl')
+    expect(read('app/components/CartDrawer.vue')).toContain('<QuantityControl')
   })
 
   it('does not revive stale projected quantities after cart removal', () => {
@@ -89,13 +93,78 @@ describe('surface UX guardrails', () => {
     expect((menu.match(/<ProductTile/g) || [])).toHaveLength(1)
   })
 
-  it('does not invent a login gate over the checkout projection contract', () => {
+  it('keeps checkout authentication driven by the projection contract', () => {
     const checkout = read('app/pages/checkout.vue')
+    const types = read('app/types/shopman.ts')
 
     expect(checkout).toContain('buildCheckoutPayload')
-    expect(checkout).toContain('Compra sem senha')
-    expect(checkout).not.toContain("navigateTo('/login?next=/checkout')")
-    expect(checkout).not.toContain('Entre para continuar')
+    expect(checkout).toContain('checkout.value.requires_authentication')
+    expect(checkout).toContain('checkout.value?.auth_action')
+    expect(checkout).toContain('navigateTo(authRoute.value)')
+    expect(checkout).toContain('continueFromIdentity')
+    expect(checkout).toContain('continueFromFulfillment')
+    expect(checkout).toContain('fieldErrors.delivery_date')
+    expect(checkout).toContain('state.delivery_date = localDateValue(today)')
+    expect(checkout).toContain("activeStep === 'review'")
+    expect(checkout).toContain('sticky bottom-20')
+    expect(checkout).toContain('Total do pedido')
+    expect(checkout).toContain('checkoutActionLabel')
+    expect(checkout).toContain('Finalizar pedido')
+    expect(checkout).not.toContain('Enviar pedido')
+    expect(checkout).not.toContain('Compra sem senha')
+    expect(types).toContain('requires_authentication: boolean')
+    expect(types).toContain('auth_action: SurfaceActionProjection | null')
+  })
+
+  it('keeps checkout entry points visible before authentication', () => {
+    const drawer = read('app/components/CartDrawer.vue')
+    const bottomNav = read('app/components/AppBottomNav.vue')
+    const header = read('app/components/ShopHeader.vue')
+    const cartState = read('app/composables/useCartState.ts')
+    const cartPage = read('app/pages/cart.vue')
+
+    expect(cartState).toContain('if (qty > 0) drawerOpen.value = true')
+    expect(drawer).toContain('Finalizar compra')
+    expect(drawer).toContain('Total')
+    expect(drawer).toContain('flex-1')
+    expect(drawer).not.toContain('Continuar para checkout')
+    expect(bottomNav).not.toContain("label: 'Finalizar'")
+    expect(bottomNav).not.toContain("to: '/checkout'")
+    expect(header).not.toContain("label: 'Finalizar'")
+    expect(header).not.toContain("to: '/checkout'")
+    expect(cartPage).toContain('Finalizar compra')
+    expect(cartPage).toContain('sticky bottom-20')
+  })
+
+  it('keeps login copy and recovery actions projection-driven', () => {
+    const login = read('app/pages/login.vue')
+
+    expect(login).toContain("apiPath('/api/v1/storefront/home/')")
+    expect(login).toContain('home.auth_copy')
+    expect(login).toContain('home.public_config.whatsapp_url')
+    expect(login).toContain('response.dev_console_hint')
+    expect(login).toContain('response.debug_otp_code')
+    expect(login).toContain('data-testid="debug-otp-alert"')
+    expect(login).toContain('debugOtpCode = ref')
+    expect(login).toContain('Codigo no terminal local')
+    expect(login).toContain('as="h1"')
+  })
+
+  it('does not shadow Vue refs in tracking after checkout navigation', () => {
+    const tracking = read('app/pages/tracking/[ref].vue')
+
+    expect(tracking).toContain('const orderRef = computed')
+    expect(tracking).not.toContain('const ref = computed')
+    expect(tracking).toContain('const rating = ref(5)')
+  })
+
+  it('prevents dead add-to-cart taps before client hydration', () => {
+    const action = read('app/components/CartQuantityAction.vue')
+
+    expect(action).toContain('const hydrated = ref(false)')
+    expect(action).toContain('onMounted')
+    expect(action).toContain('!hydrated.value')
+    expect(action).toContain(':disabled="!hydrated || disabled || pending"')
   })
 
   it('serves the Thing surface locally under the same prefix used in staging', () => {

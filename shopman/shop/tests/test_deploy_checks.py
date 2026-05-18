@@ -71,6 +71,25 @@ def test_access_link_api_key_accepts_configured_secret_outside_debug():
     assert checks.check_doorman_access_link_api_key(None) == []
 
 
+@override_settings(DEBUG=False, SHOPMAN_ENVIRONMENT="production", SHOPMAN_EXPOSE_DEBUG_OTP=True)
+def test_debug_otp_exposure_errors_outside_non_production():
+    messages = checks.check_debug_otp_exposure(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_E010"]
+
+
+@override_settings(DEBUG=False, SHOPMAN_ENVIRONMENT="staging", SHOPMAN_EXPOSE_DEBUG_OTP=True)
+def test_debug_otp_exposure_warns_for_staging():
+    messages = checks.check_debug_otp_exposure(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_W007"]
+
+
+@override_settings(DEBUG=False, SHOPMAN_ENVIRONMENT="production", SHOPMAN_EXPOSE_DEBUG_OTP=False)
+def test_debug_otp_exposure_disabled_is_clean():
+    assert checks.check_debug_otp_exposure(None) == []
+
+
 @override_settings(
     DEBUG=False,
     SHOPMAN_PAYMENT_ADAPTERS={

@@ -147,8 +147,10 @@ function pageProbe () {
   return `(() => {
     const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
     return {
+      url: location.href,
       text: document.body.innerText,
       h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
+      buttons: [...document.querySelectorAll('button,a')].filter(visible).map(el => el.innerText.trim()).filter(Boolean),
       tabs: [...document.querySelectorAll('[data-slot="tabs-trigger"]')].filter(visible).map(el => ({
         label: el.innerText.trim(),
         selected: el.getAttribute('aria-selected') === 'true',
@@ -227,6 +229,7 @@ async function run () {
     const home = await openPage('/', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
     const homeState = await evaluate(home, pageProbe())
     assert(!(homeState.text.includes('Loja aberta') && homeState.text.includes('Loja em pausa')), 'home shows open and paused status at the same time')
+    assert(homeState.quantityControls === 0, `home initial render should show add buttons instead of zero quantity controls, found ${homeState.quantityControls}`)
     assert(['Agora', 'Pedir', 'Forno'].every(label => homeState.tabs.some(tab => tab.label === label)), 'home hero does not expose the expected distinct moments')
 
     const heroTitles = []
@@ -238,6 +241,18 @@ async function run () {
     }
     assert(new Set(heroTitles).size >= 2, 'home hero moments are visually collapsed into one title')
     home.close()
+
+    const desktopHome = await openPage('/', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false })
+    const desktopHomeState = await evaluate(desktopHome, pageProbe())
+    assert(!desktopHomeState.buttons.includes('Finalizar'), 'desktop header should not expose checkout as a global nav item')
+    desktopHome.close()
+
+    const product = await openPage('/product/BAGUETE', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+    const productState = await evaluate(product, pageProbe())
+    assert(productState.h1.some(title => title.includes('Baguete')), 'product detail route does not expose the product name as h1')
+    assert(productState.quantityControls === 0, `product detail route should show add button before cart mutation, found ${productState.quantityControls} quantity controls`)
+    assert(productState.buttons.includes('Adicionar'), 'product detail route does not expose an add-to-cart button before quantity editing')
+    product.close()
 
     const menu = await openPage('/menu', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
     const requests = []
@@ -263,7 +278,15 @@ async function run () {
     assert(cartMutations.every(request => request.method === 'PUT'), 'menu quantity increment used a non-canonical cart method')
     assert(cartMutations.every(request => !request.status || request.status < 400), 'menu quantity increment returned a failed cart response')
     assert(!afterCart.text.toLowerCase().includes('estoque insuficiente'), 'menu quantity increment surfaced insufficient stock for a projected available item')
+    assert(afterCart.buttons.some(label => label.includes('Finalizar compra')), 'cart drawer should open after add and expose a visible checkout entry point')
     menu.close()
+
+    const checkout = await openPage('/checkout', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+    const checkoutState = await evaluate(checkout, pageProbe())
+    assert(checkoutState.url.includes('/thing/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
+    assert(checkoutState.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo')), 'login gate should expose a visible h1')
+    assert(checkoutState.buttons.some(label => label.includes('WhatsApp')), 'login gate should expose WhatsApp recovery/send action')
+    checkout.close()
   } finally {
     chrome.kill()
   }

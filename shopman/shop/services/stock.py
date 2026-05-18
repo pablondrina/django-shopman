@@ -222,7 +222,9 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict]:
     try:
         catalog = get_adapter("catalog")
         return catalog.expand_bundle(sku, qty)
-    except Exception:
+    except Exception as exc:
+        if getattr(exc, "code", "") == "NOT_A_BUNDLE":
+            return [{"sku": sku, "qty": qty}]
         logger.exception("stock._expand_if_bundle: unexpected error expanding sku=%s", sku)
         return [{"sku": sku, "qty": qty}]
 

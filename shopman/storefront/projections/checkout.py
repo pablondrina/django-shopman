@@ -59,6 +59,8 @@ class CheckoutProjection:
     customer_phone: str
     customer_name: str
     is_authenticated: bool
+    requires_authentication: bool
+    auth_action: SurfaceActionProjection | None
 
     # Saved addresses
     saved_addresses: tuple[SavedAddressProjection, ...]
@@ -150,16 +152,26 @@ def build_checkout(
     )
     max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
 
+    is_authenticated = customer_info is not None
+    requires_authentication = _requires_authentication(channel_ref)
+
     return CheckoutProjection(
         cart=cart,
         customer_phone=customer_phone,
         customer_name=customer_name,
-        is_authenticated=customer_info is not None,
+        is_authenticated=is_authenticated,
+        requires_authentication=requires_authentication,
+        auth_action=_auth_action() if requires_authentication and not is_authenticated else None,
         saved_addresses=saved_addresses,
         preselected_address_id=preselected_address_id,
         payment_methods=payment_methods,
         default_payment_method=payment_methods[0].ref if payment_methods else "cash",
-        actions=_checkout_actions(policy, cart=cart),
+        actions=_checkout_actions(
+            policy,
+            cart=cart,
+            is_authenticated=is_authenticated,
+            requires_authentication=requires_authentication,
+        ),
         fulfillment_options=policy.fulfillment_types,
         has_pickup="pickup" in policy.fulfillment_types,
         has_delivery="delivery" in policy.fulfillment_types,
@@ -257,11 +269,16 @@ def _checkout_actions(
     policy: ChannelPolicyResolution,
     *,
     cart: CartProjection,
+    is_authenticated: bool,
+    requires_authentication: bool,
 ) -> tuple[SurfaceActionProjection, ...]:
-    enabled = policy.can_checkout and not cart.is_empty
+    auth_blocked = requires_authentication and not is_authenticated
+    enabled = policy.can_checkout and not cart.is_empty and not auth_blocked
     reason = ""
     if cart.is_empty:
         reason = "Carrinho vazio."
+    elif auth_blocked:
+        reason = "Entre por telefone para continuar."
     elif not policy.can_checkout:
         reason = "Checkout indisponível para este canal."
 
@@ -287,6 +304,21 @@ def _checkout_actions(
             },
             idempotency="required",
         ),
+    )
+
+
+def _requires_authentication(channel_ref: str) -> bool:
+    """Storefront checkout currently requires a phone-authenticated customer."""
+    return channel_ref == _DEFAULT_CHANNEL_REF
+
+
+def _auth_action() -> SurfaceActionProjection:
+    return SurfaceActionProjection(
+        ref="checkout_login",
+        kind="link",
+        label="Entrar por telefone",
+        priority="primary",
+        href="/login?next=/checkout",
     )
 
 

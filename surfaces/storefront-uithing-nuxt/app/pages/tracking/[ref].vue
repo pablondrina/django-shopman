@@ -4,14 +4,14 @@ import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
 const route = useRoute()
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
-const ref = computed(() => String(route.params.ref || ''))
+const orderRef = computed(() => String(route.params.ref || ''))
 const rating = ref(5)
 const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
 const supportOpen = ref(false)
 
 const { data, pending, error, refresh } = await useFetch<TrackingResponse>(
-  () => apiPath(`/api/v1/tracking/${encodeURIComponent(ref.value)}/`),
+  () => apiPath(`/api/v1/tracking/${encodeURIComponent(orderRef.value)}/`),
   { credentials: 'include' }
 )
 
@@ -68,7 +68,7 @@ useSeoMeta({
       <section class="space-y-5">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 text-3xl font-semibold">Pedido {{ ref }}</h1>
+          <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />

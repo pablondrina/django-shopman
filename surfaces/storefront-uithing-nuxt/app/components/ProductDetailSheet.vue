@@ -90,7 +90,7 @@ const detailDescription = computed(() => {
               </p>
               <p class="text-xl font-semibold">{{ product.price_display }}</p>
             </div>
-            <QuantityControl
+            <CartQuantityAction
               :meta="meta"
               :qty="currentQty"
               :disabled="!product.can_add_to_cart"

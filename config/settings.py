@@ -39,6 +39,13 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-product
 # ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false (default já é false)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
+SHOPMAN_ENVIRONMENT = os.environ.get(
+    "SHOPMAN_ENVIRONMENT",
+    "development" if DEBUG else "production",
+).strip().lower()
+
+SHOPMAN_EXPOSE_DEBUG_OTP = _env_bool("SHOPMAN_EXPOSE_DEBUG_OTP", DEBUG)
+
 # ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 

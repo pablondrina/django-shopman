@@ -181,6 +181,7 @@ class TestRequestCodeWithFallback:
         assert result.success is True
         code = VerificationCode.objects.get(pk=result.code_id)
         assert code.delivery_method == "whatsapp"
+        assert result.delivery_method == "whatsapp"
         assert code.status == "sent"
 
     @override_settings(DOORMAN={
@@ -204,4 +205,5 @@ class TestRequestCodeWithFallback:
         code = VerificationCode.objects.get(pk=result.code_id)
         # ConsoleSender succeeds on first method
         assert code.delivery_method == "whatsapp"
+        assert result.delivery_method == "whatsapp"
         assert code.status == "sent"

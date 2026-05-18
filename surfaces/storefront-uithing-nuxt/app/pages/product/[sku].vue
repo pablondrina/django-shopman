@@ -96,7 +96,7 @@ useSeoMeta({
                 <UiBadge :variant="availabilityVariant(product.availability)">{{ product.availability_label }}</UiBadge>
                 <UiBadge v-if="product.promotion_label" variant="warning">{{ product.promotion_label }}</UiBadge>
               </div>
-              <UiCardTitle class="text-3xl">{{ product.name }}</UiCardTitle>
+              <UiCardTitle as="h1" class="text-3xl leading-tight">{{ product.name }}</UiCardTitle>
               <UiCardDescription>{{ product.short_description }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
@@ -108,7 +108,7 @@ useSeoMeta({
                   </p>
                   <p class="text-2xl font-semibold">{{ product.price_display }}</p>
                 </div>
-                <QuantityControl
+                <CartQuantityAction
                   :meta="meta"
                   :qty="currentQty"
                   :disabled="!product.can_add_to_cart"

@@ -35,6 +35,9 @@ O arquivo `.do/app.yaml` define:
 - pagamentos em staging técnico via `payment_mock` para Pix e cartão, com
   `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true` e auto-confirmação de Pix, até
   existirem credenciais sandbox reais de EFI/Stripe;
+- OTP debug exposto somente em staging técnico via
+  `SHOPMAN_ENVIRONMENT=staging` e `SHOPMAN_EXPOSE_DEBUG_OTP=true`, para permitir
+  login web enquanto envio real por WhatsApp/SMS ainda não está operacional;
 - instância Nelson ativa via `SHOPMAN_INSTANCE_APPS`, `SHOPMAN_CUSTOMER_STRATEGY_MODULES`
   e `SHOPMAN_INSTANCE_MODIFIERS`;
 - health checks em `/ready/` e liveness em `/health/`.
@@ -115,6 +118,17 @@ O `manage.py check --deploy` emite `SHOPMAN_W006` nesse modo. Para habilitar
 gateway real, troque os adapters para `payment_efi`/`payment_stripe` somente
 depois de preencher as credenciais listadas acima; se faltar certificado EFI,
 segredo Stripe ou webhook secret, o release falha com `SHOPMAN_E009`.
+
+Enquanto o envio real de OTP não estiver funcional, staging técnico pode expor o
+código OTP no login da superfície web:
+
+```env
+SHOPMAN_ENVIRONMENT=staging
+SHOPMAN_EXPOSE_DEBUG_OTP=true
+```
+
+Esse modo emite `SHOPMAN_W007` em `check --deploy`. Em produção,
+`SHOPMAN_EXPOSE_DEBUG_OTP=true` falha com `SHOPMAN_E010`.
 
 ### ManyChat inbound e AccessLink
 

@@ -33,15 +33,13 @@ async function submitCoupon () {
 
 <template>
   <UiSheet v-model:open="drawerOpen">
-    <UiSheetContent side="right" class="w-[92vw] overflow-y-auto sm:max-w-md">
-      <template #header>
-        <UiSheetHeader>
-          <UiSheetTitle title="Carrinho" />
-          <UiSheetDescription :description="cart.summary_pending ? 'Atualizando carrinho.' : `${formatCount(cart.items_count, 'item', 'itens')} no pedido.`" />
-        </UiSheetHeader>
-      </template>
+    <UiSheetContent side="right" class="w-[92vw] sm:max-w-md">
+      <UiSheetHeader>
+        <UiSheetTitle title="Carrinho" />
+        <UiSheetDescription :description="cart.summary_pending ? 'Atualizando carrinho.' : `${formatCount(cart.items_count, 'item', 'itens')} no pedido.`" />
+      </UiSheetHeader>
 
-      <div class="space-y-4 p-4">
+      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 pb-6">
         <UiAlert v-if="cartIssue" variant="destructive">
           <UiAlertTitle>{{ cartIssue.title }}</UiAlertTitle>
           <UiAlertDescription>
@@ -148,19 +146,22 @@ async function submitCoupon () {
         </div>
       </div>
 
-      <template #footer>
-        <div class="border-t p-4">
-          <UiButton
-            to="/checkout"
-            class="w-full"
-            size="lg"
-            icon="lucide:clipboard-check"
-            :disabled="cart.is_empty || cart.has_unavailable_items"
-          >
-            Continuar para checkout
-          </UiButton>
+      <UiSheetFooter class="border-t bg-background">
+        <div v-if="!cart.is_empty" class="flex items-center justify-between gap-3">
+          <span class="text-sm text-muted-foreground">Total</span>
+          <strong class="text-lg tabular-nums">{{ cart.grand_total_display }}</strong>
         </div>
-      </template>
+        <UiButton
+          to="/checkout"
+          class="w-full"
+          size="lg"
+          icon="lucide:clipboard-check"
+          :disabled="cart.is_empty || cart.has_unavailable_items"
+          @click="drawerOpen = false"
+        >
+          Finalizar compra
+        </UiButton>
+      </UiSheetFooter>
     </UiSheetContent>
   </UiSheet>
 </template>

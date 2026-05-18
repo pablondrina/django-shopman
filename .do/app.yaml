@@ -133,6 +133,14 @@ envs:
     value: "250"
     scope: RUN_TIME
     type: GENERAL
+  - key: SHOPMAN_ENVIRONMENT
+    value: staging
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_EXPOSE_DEBUG_OTP
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
 
 services:
   - name: web

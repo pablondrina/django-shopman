@@ -77,9 +77,30 @@ class TestCheckoutProjectionShape:
         # No customer attached to request — addresses should be empty
         assert proj.saved_addresses == ()
         assert proj.is_authenticated is False
+        assert proj.requires_authentication is True
+        assert proj.auth_action is not None
+        assert proj.auth_action.href == "/login?next=/checkout"
+        assert proj.actions[0].enabled is False
+        assert proj.actions[0].reason == "Entre por telefone para continuar."
         assert proj.customer_phone == ""
         assert proj.customer_name == ""
         assert proj.preselected_address_id is None
+
+    def test_authenticated_cart_can_checkout(self, cart_session, customer):
+        request = _request_with_cart_session(cart_session)
+        request.customer = SimpleNamespace(
+            uuid=customer.uuid,
+            phone=customer.phone,
+            name=customer.name,
+        )
+
+        proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.is_authenticated is True
+        assert proj.requires_authentication is True
+        assert proj.auth_action is None
+        assert proj.actions[0].enabled is True
+        assert proj.actions[0].reason == ""
 
     def test_preselected_address_uses_default(self, cart_session):
         """Authenticated customer with a default address gets it pre-selected."""

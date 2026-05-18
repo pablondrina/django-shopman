@@ -70,6 +70,20 @@ nao devem derivar "aberta", "fechada", "em pausa", horarios de abertura ou
 fechamento a partir de `omotenashi` ou de relogio local. `omotenashi` e lente de
 momento/copy/personalizacao; nao e fonte de verdade operacional.
 
+### Checkout/Auth
+
+Checkout web exige cliente autenticado por telefone quando a projection
+`/api/v1/storefront/checkout/` declarar `requires_authentication = true`.
+Superficies devem seguir `checkout.auth_action` e o `reason` da action
+`checkout`; nao devem decidir localmente se login e opcional ou obrigatorio.
+
+O fluxo de auth usa `/api/v1/auth/request-code/`,
+`/api/v1/auth/verify-code/`, `device-check`, `trust-device` e `logout`. A
+resposta de request-code informa o metodo real de entrega (`delivery_method` e
+`delivery_label`) e `dev_console_hint` quando o ambiente local usa sender de
+desenvolvimento. Copy de login vem de `home.auth_copy`; recuperacao WhatsApp
+usa `home.public_config.whatsapp_url`.
+
 ## UI Thing
 
 UI Thing nao e tratado como dependencia opaca. A superficie
@@ -85,5 +99,6 @@ A superficie Thing possui guardrails locais:
   e ausencia de controles nativos fora dos componentes UI Thing scaffoldados.
 - `npm run test:ux`: smoke real via Chrome headless contra a superficie rodando,
   cobrindo status contraditorio, hero colapsado, busca duplicada no cardapio e
-  mutacao canonica de quantidade/carrinho sem erro indevido de estoque. O smoke
-  roda no prefixo canonico `/thing/`.
+  mutacao canonica de quantidade/carrinho sem erro indevido de estoque, PDP
+  com `h1`, botao de adicionar antes do stepper e checkout anonimo seguindo a
+  action de auth projetada. O smoke roda no prefixo canonico `/thing/`.

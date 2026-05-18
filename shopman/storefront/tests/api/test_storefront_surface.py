@@ -62,7 +62,7 @@ def test_api_storefront_checkout_returns_projection_contract(client):
     assert "csrftoken" in resp.cookies
 
 
-def test_api_storefront_checkout_projection_allows_anonymous_cart_checkout(client):
+def test_api_storefront_checkout_projection_requires_login_for_anonymous_cart(client):
     product = _seed_surface(stock_qty=Decimal("10"))
 
     add = client.put(
@@ -78,8 +78,11 @@ def test_api_storefront_checkout_projection_allows_anonymous_cart_checkout(clien
     checkout = resp.json()["checkout"]
     action = next(candidate for candidate in checkout["actions"] if candidate["ref"] == "checkout")
     assert checkout["is_authenticated"] is False
+    assert checkout["requires_authentication"] is True
+    assert checkout["auth_action"]["href"] == "/login?next=/checkout"
     assert checkout["cart"]["items_count"] == 1
-    assert action["enabled"] is True
+    assert action["enabled"] is False
+    assert action["reason"] == "Entre por telefone para continuar."
     assert action["payload_schema"]["required"] == [
         "name",
         "phone",

@@ -10,7 +10,7 @@ const emit = defineEmits<{
   select: [sku: string]
 }>()
 
-const { qtyForSku, setSkuQty, isPending } = useCartState()
+const { qtyForSku } = useCartState()
 const meta = computed<ProductMutationMeta>(() => ({
   sku: props.item.sku,
   name: props.item.name,
@@ -19,12 +19,6 @@ const meta = computed<ProductMutationMeta>(() => ({
   image_url: props.item.image_url
 }))
 const currentQty = computed(() => qtyForSku(props.item.sku))
-const pending = computed(() => isPending(props.item.sku))
-
-async function addOne () {
-  if (!props.item.can_add_to_cart || pending.value) return
-  await setSkuQty(meta.value, 1)
-}
 </script>
 
 <template>
@@ -91,25 +85,13 @@ async function addOne () {
     </UiCardContent>
 
     <UiCardFooter class="flex items-center justify-between gap-3 p-4 pt-0">
-      <QuantityControl
-        v-if="currentQty > 0"
+      <CartQuantityAction
         :meta="meta"
         :qty="currentQty"
         :disabled="!item.can_add_to_cart"
         :max-qty="item.available_qty"
         compact
       />
-      <UiButton
-        v-else
-        variant="secondary"
-        size="sm"
-        icon="lucide:shopping-cart"
-        :disabled="!item.can_add_to_cart || pending"
-        :loading="pending"
-        @click="addOne"
-      >
-        Adicionar
-      </UiButton>
       <UiButton variant="outline" size="sm" icon="lucide:info" @click="emit('select', item.sku)">
         Detalhes
       </UiButton>

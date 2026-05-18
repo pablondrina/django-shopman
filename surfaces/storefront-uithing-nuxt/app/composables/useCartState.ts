@@ -164,6 +164,7 @@ export function useCartState () {
       setFromServer(response.cart)
       lastMutation.value = null
       if (import.meta.client) {
+        if (qty > 0) drawerOpen.value = true
         useSonner(qty > 0 ? `${meta.name} atualizado no carrinho.` : `${meta.name} removido do carrinho.`)
       }
       return response

@@ -528,6 +528,8 @@ export interface CheckoutProjection {
   customer_phone: string
   customer_name: string
   is_authenticated: boolean
+  requires_authentication: boolean
+  auth_action: SurfaceActionProjection | null
   saved_addresses: SavedAddressProjection[]
   preselected_address_id: number | null
   payment_methods: PaymentMethodProjection[]

@@ -120,6 +120,28 @@ def _delivery_response(delivery_method: str) -> dict:
     }
 
 
+def _debug_otp_allowed() -> bool:
+    if getattr(settings, "DEBUG", False):
+        return True
+    environment = str(getattr(settings, "SHOPMAN_ENVIRONMENT", "production")).strip().lower()
+    return bool(
+        getattr(settings, "SHOPMAN_EXPOSE_DEBUG_OTP", False)
+        and environment in {"development", "dev", "local", "staging"}
+    )
+
+
+def _debug_otp_response(auth_result=None) -> dict:
+    if not _debug_otp_allowed():
+        return {}
+    code = str(getattr(auth_result, "debug_code", "") or "")
+    if not code:
+        return {}
+    return {
+        "debug_otp_code": code,
+        "debug_otp_expires_at": getattr(auth_result, "expires_at", None) or "",
+    }
+
+
 @method_decorator(ratelimit(key="user_or_ip", rate="5/m", method="POST", block=False), name="dispatch")
 class RequestCodeView(APIView):
     """POST /api/v1/auth/request-code/ — request OTP as JSON."""
@@ -161,7 +183,13 @@ class RequestCodeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({"ok": True, "phone": phone, **_delivery_response(delivery_method)})
+        actual_method = getattr(auth_result, "delivery_method", None) or delivery_method
+        return Response({
+            "ok": True,
+            "phone": phone,
+            **_delivery_response(actual_method),
+            **_debug_otp_response(auth_result),
+        })
 
 
 @method_decorator(ratelimit(key="user_or_ip", rate="10/m", method="POST", block=False), name="dispatch")

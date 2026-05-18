@@ -91,6 +91,27 @@ useSeoMeta({
           </UiButton>
         </UiCardFooter>
       </UiCard>
+
+      <div
+        v-if="!cart.is_empty"
+        class="sticky bottom-20 z-30 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur md:bottom-4"
+      >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
+            <p class="text-xl font-semibold tabular-nums">{{ cart.grand_total_display }}</p>
+          </div>
+          <UiButton
+            to="/checkout"
+            size="lg"
+            icon="lucide:clipboard-check"
+            class="w-full sm:w-auto"
+            :disabled="cart.has_unavailable_items"
+          >
+            Finalizar compra
+          </UiButton>
+        </div>
+      </div>
     </div>
   </main>
 </template>
