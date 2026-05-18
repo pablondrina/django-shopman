@@ -19,7 +19,7 @@ async function waitForHttp (url, timeoutMs = 10000) {
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
       if (response.ok) return response
     } catch {}
     await wait(200)
@@ -91,7 +91,20 @@ async function connectCdp () {
   function send (method, params = {}) {
     return new Promise((resolve, reject) => {
       const id = nextId++
-      pending.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        pending.delete(id)
+        reject(new Error(`CDP command timed out: ${method}`))
+      }, 15000)
+      pending.set(id, {
+        resolve: value => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        reject: error => {
+          clearTimeout(timer)
+          reject(error)
+        },
+      })
       ws.send(JSON.stringify({ id, method, params }))
     })
   }
