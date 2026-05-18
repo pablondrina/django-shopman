@@ -133,6 +133,17 @@ async function evaluate (cdp, expression) {
   return result.result.value
 }
 
+async function waitForProbe (cdp, description, predicate, timeoutMs = 8000) {
+  const started = Date.now()
+  let lastState = null
+  while (Date.now() - started < timeoutMs) {
+    lastState = await evaluate(cdp, pageProbe())
+    if (predicate(lastState)) return lastState
+    await wait(250)
+  }
+  throw new Error(`Timed out waiting for ${description}: ${JSON.stringify(lastState)}`)
+}
+
 async function openPage (path, viewport) {
   const cdp = await connectCdp()
   await cdp.send('Page.enable')
@@ -302,7 +313,11 @@ async function run () {
     trace('open checkout')
     const checkout = await openPage('/checkout', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
     trace('probe checkout')
-    const checkoutState = await evaluate(checkout, pageProbe())
+    const checkoutState = await waitForProbe(
+      checkout,
+      'checkout login gate',
+      state => state.url.includes('/thing/login?next=/checkout') && state.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo'))
+    )
     assert(checkoutState.url.includes('/thing/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
     assert(checkoutState.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo')), 'login gate should expose a visible h1')
     assert(checkoutState.buttons.some(label => label.includes('WhatsApp')), 'login gate should expose WhatsApp recovery/send action')
