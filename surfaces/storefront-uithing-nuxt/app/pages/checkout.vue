@@ -62,25 +62,29 @@ function localDateValue (value: Date): string {
   return `${year}-${month}-${day}`
 }
 
-watchEffect(() => {
-  if (!checkout.value) return
-  setFromServer(checkout.value.cart)
-  if (!state.name) state.name = checkout.value.customer_name || ''
-  if (!state.phone) state.phone = checkout.value.customer_phone || ''
-  if (!state.payment_method) state.payment_method = checkout.value.default_payment_method || paymentMethods.value[0]?.ref || ''
-  if (!state.delivery_time_slot) state.delivery_time_slot = checkout.value.earliest_slot_ref || slots.value.find(slot => slot.enabled)?.ref || ''
-  if (import.meta.client && !chosenDate.value && slots.value.length) {
+watch(() => checkout.value, value => {
+  if (!value) return
+  const fulfillments = (value.fulfillment_options || []).filter((item): item is FulfillmentType => item === 'pickup' || item === 'delivery')
+  const methods = value.payment_methods || []
+  const projectedSlots = value.pickup_slots || []
+
+  setFromServer(value.cart)
+  if (!state.name) state.name = value.customer_name || ''
+  if (!state.phone) state.phone = value.customer_phone || ''
+  if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
+  if (!state.delivery_time_slot) state.delivery_time_slot = value.earliest_slot_ref || projectedSlots.find(slot => slot.enabled)?.ref || ''
+  if (import.meta.client && !chosenDate.value && projectedSlots.length) {
     const today = new Date()
     chosenDate.value = today
     state.delivery_date = localDateValue(today)
   }
-  if (!availableFulfillment.value.includes(state.fulfillment_type)) {
-    state.fulfillment_type = availableFulfillment.value[0] || 'pickup'
+  if (!fulfillments.includes(state.fulfillment_type)) {
+    state.fulfillment_type = fulfillments[0] || 'pickup'
   }
-  if (state.saved_address_id == null && checkout.value.preselected_address_id) {
-    pickSavedAddress(checkout.value.preselected_address_id)
+  if (state.saved_address_id == null && value.preselected_address_id) {
+    pickSavedAddress(value.preselected_address_id)
   }
-})
+}, { immediate: true })
 
 watch(chosenDate, value => {
   if (!value) {

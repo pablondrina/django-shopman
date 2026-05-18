@@ -12,10 +12,10 @@ const { data: shellHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
   key: 'shopman-shell-home'
 })
 
-watchEffect(() => {
-  session.setFromHome(shellHome.value?.home)
-  setFromServer(shellHome.value?.cart)
-})
+watch(() => shellHome.value, value => {
+  session.setFromHome(value?.home)
+  setFromServer(value?.cart)
+}, { immediate: true })
 
 useShopTheme(session.shop)
 

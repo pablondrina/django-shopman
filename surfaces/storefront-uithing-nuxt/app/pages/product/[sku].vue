@@ -11,7 +11,9 @@ const { data, pending, error, refresh } = await useFetch<ProductResponse>(
   { credentials: 'include' }
 )
 
-watchEffect(() => setFromServer(data.value?.cart))
+watch(() => data.value?.cart, cart => {
+  setFromServer(cart)
+}, { immediate: true })
 
 const product = computed(() => data.value?.product || null)
 const meta = computed<ProductMutationMeta | null>(() => product.value

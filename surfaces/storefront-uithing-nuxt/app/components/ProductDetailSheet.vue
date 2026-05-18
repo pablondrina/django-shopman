@@ -21,7 +21,9 @@ watch(() => [open.value, props.sku] as const, ([isOpen, sku]) => {
   if (isOpen && sku) void execute()
 })
 
-watchEffect(() => setFromServer(data.value?.cart))
+watch(() => data.value?.cart, cart => {
+  setFromServer(cart)
+}, { immediate: true })
 
 const product = computed(() => data.value?.product || null)
 const meta = computed<ProductMutationMeta | null>(() => product.value

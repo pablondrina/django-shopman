@@ -51,13 +51,16 @@ const { data: auth } = await useFetch<AuthSessionResponse>(apiPath('/api/auth/se
   credentials: 'include',
   headers: requestHeaders
 })
-session.setFromAuthSession(auth.value)
 
-watchEffect(() => {
-  if (auth.value?.is_authenticated === false && import.meta.client) {
+watch(() => auth.value, value => {
+  session.setFromAuthSession(value)
+}, { immediate: true })
+
+watch(() => auth.value?.is_authenticated, isAuthenticated => {
+  if (isAuthenticated === false && import.meta.client) {
     void navigateTo('/login?next=/account')
   }
-})
+}, { immediate: true })
 
 const { data: summary, pending: summaryPending, refresh: refreshSummary } = await useFetch<AccountSummary>(apiPath('/api/v1/account/summary/'), {
   credentials: 'include',

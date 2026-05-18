@@ -7,7 +7,9 @@ const { data, pending, error, refresh } = await useFetch<MenuResponse>(apiPath('
   credentials: 'include'
 })
 
-watchEffect(() => setFromServer(data.value?.cart))
+watch(() => data.value?.cart, cart => {
+  setFromServer(cart)
+}, { immediate: true })
 
 const query = ref('')
 const activeSection = ref('all')

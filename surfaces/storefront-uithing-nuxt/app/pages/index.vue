@@ -10,10 +10,10 @@ const { data, pending, error, refresh } = await useFetch<HomeResponse>(apiPath('
   credentials: 'include'
 })
 
-watchEffect(() => {
-  session.setFromHome(data.value?.home)
-  setFromServer(data.value?.cart)
-})
+watch(() => data.value, value => {
+  session.setFromHome(value?.home)
+  setFromServer(value?.cart)
+}, { immediate: true })
 
 const home = computed(() => data.value?.home || null)
 const featured = computed(() => home.value?.featured_items || [])

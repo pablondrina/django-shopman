@@ -82,6 +82,15 @@ describe('surface UX guardrails', () => {
     expect(omotenashiType).not.toMatch(/\b(is_open|opens_at|closes_at)\b/)
   })
 
+  it('syncs backend projections with explicit watch sources instead of self-tracking effects', () => {
+    const forbidden = /watchEffect\(\s*\(\)\s*=>[\s\S]{0,320}\b(setFromHome|setFromAuthSession|setFromServer)\(/
+    const offenders = surfaceVueFiles
+      .filter(file => forbidden.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+
+    expect(offenders).toEqual([])
+  })
+
   it('does not render a second command search field in the menu', () => {
     expect(read('app/pages/menu.vue')).not.toContain('<UiCommandInput')
   })

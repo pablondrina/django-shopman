@@ -7,7 +7,9 @@ const { data, pending, error, refresh } = await useFetch<CartResponse>(apiPath('
   credentials: 'include'
 })
 
-watchEffect(() => setFromServer(data.value?.cart))
+watch(() => data.value?.cart, cart => {
+  setFromServer(cart)
+}, { immediate: true })
 
 useSeoMeta({
   title: 'Carrinho'
