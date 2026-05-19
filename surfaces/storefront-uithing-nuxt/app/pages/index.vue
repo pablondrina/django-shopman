@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { HomeResponse, ProductMutationMeta, SurfaceActionProjection } from '~/types/shopman'
+import type { HomeResponse, SurfaceActionProjection } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
-const { setFromServer, qtyForSku, drawerOpen } = useCartState()
+const { setFromServer } = useCartState()
 const { performAction, pending: reorderPending } = useReorder()
 
 const { data, pending, error, refresh } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
@@ -17,7 +17,8 @@ watch(() => data.value, value => {
 
 const home = computed(() => data.value?.home || null)
 const featured = computed(() => home.value?.featured_items || [])
-const primaryAction = computed(() => home.value?.actions.find(action => action.priority === 'primary' && action.enabled) || null)
+const sectionsCopy = computed(() => home.value?.sections_copy || null)
+const primaryAction = computed(() => home.value?.actions.find(action => action.priority === 'primary' && action.enabled && !action.ref.includes('reorder')) || null)
 const reorderAction = computed(() => home.value?.actions.find(action => action.ref.includes('reorder') && action.enabled) || null)
 const operationalStatus = computed(() => {
   const status = home.value?.shop_status
@@ -26,23 +27,45 @@ const operationalStatus = computed(() => {
   return {
     isOpen,
     label: projectedMessage || (isOpen ? 'Loja aberta' : 'Loja fechada'),
-    title: isOpen ? 'Pedido online ativo' : 'Atendimento em pausa',
-    description: projectedMessage || (isOpen
-      ? 'Escolha pelo cardapio publicado e acompanhe o pedido por aqui.'
-      : 'O cardapio continua disponivel para consulta; finalize quando o atendimento reabrir.'),
-    variant: isOpen ? 'success' : 'warning'
+    message: projectedMessage,
+    variant: isOpen ? 'info' : 'warning'
   } as const
 })
-
-function metaFor (item: HomeResponse['home']['featured_items'][number]): ProductMutationMeta {
-  return {
-    sku: item.sku,
-    name: item.name,
-    price_q: item.base_price_q,
-    price_display: item.price_display,
-    image_url: item.image_url
-  }
-}
+const quickReorderItems = computed(() => home.value?.last_order_items.slice(0, 3) || [])
+const quickReorderTitle = computed(() => {
+  const name = home.value?.omotenashi.customer_name
+  return `Quer repetir seu último pedido${name ? `, ${name}` : ''}?`
+})
+const featuredPreview = computed(() => featured.value.slice(0, 3))
+const quickReorderImageItem = computed(() => {
+  const reorderSkus = new Set(quickReorderItems.value.map(item => item.sku))
+  return featured.value.find(item => reorderSkus.has(item.sku) && item.image_url) || featured.value.find(item => item.image_url) || null
+})
+const openingHoursInline = computed(() => {
+  const entries = home.value?.opening_hours || []
+  if (!entries.length) return sectionsCopy.value?.how_hours_empty.message || 'Consulte nossos horários'
+  return entries.slice(0, 3).map(entry => `${entry.label}: ${entry.hours}`).join(' · ')
+})
+const howOnlineSteps = computed(() => {
+  const copy = sectionsCopy.value
+  if (!copy) return []
+  return [
+    { icon: 'lucide:shopping-basket', title: copy.how_step_choose.title, description: copy.how_online_choose_message.message },
+    { icon: 'lucide:badge-dollar-sign', title: copy.how_step_pay.title, description: copy.how_online_pay_message.message },
+    { icon: 'lucide:route', title: copy.how_step_fulfill.title, description: copy.how_online_track_message.message }
+  ]
+})
+const storeSteps = computed(() => {
+  const copy = sectionsCopy.value
+  if (!copy) return []
+  return [
+    { icon: 'lucide:store', title: copy.how_self_service_label.title, description: copy.how_store_self_service_message.message },
+    { icon: 'lucide:coffee', title: copy.how_counter_label.title, description: copy.how_store_counter_message.message },
+    { icon: 'lucide:clock', title: copy.how_hours_label.title, description: openingHoursInline.value }
+  ]
+})
+const whatsappUrl = computed(() => home.value?.public_config.whatsapp_url || '')
+const whatsappImage = computed(() => featured.value[1]?.image_url || featured.value[0]?.image_url || null)
 
 async function handleReorder (action: SurfaceActionProjection | null) {
   if (!action) {
@@ -63,16 +86,16 @@ useSeoMeta({
 </script>
 
 <template>
-  <main>
-    <section class="shop-section">
+  <main class="bg-muted">
+    <section class="bg-muted pb-6 pt-0 sm:py-8 lg:py-10">
       <div class="shop-container">
-        <div v-if="pending" class="grid grid-cols-1 gap-4 md:grid-cols-[1.2fr_0.8fr]">
-          <UiSkeleton class="h-80 rounded-lg" />
-          <UiSkeleton class="h-80 rounded-lg" />
+        <div v-if="pending" class="space-y-5">
+          <UiSkeleton class="-mx-4 h-[calc(100svh-4rem)] rounded-none sm:mx-0 sm:h-[440px] sm:rounded-lg" />
+          <UiSkeleton class="h-72 rounded-lg" />
         </div>
 
         <UiAlert v-else-if="error" variant="destructive">
-          <UiAlertTitle>Nao foi possivel carregar a loja</UiAlertTitle>
+          <UiAlertTitle>Não foi possível carregar a loja</UiAlertTitle>
           <UiAlertDescription>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span>Atualize a vitrine ou fale pelo WhatsApp se precisar fechar um pedido agora.</span>
@@ -81,7 +104,7 @@ useSeoMeta({
           </UiAlertDescription>
         </UiAlert>
 
-        <div v-else-if="home" class="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+        <div v-else-if="home" class="space-y-5">
           <HomeHeroThing
             :home="home"
             :primary-action="primaryAction"
@@ -92,104 +115,161 @@ useSeoMeta({
             @reorder="handleReorder"
           />
 
-          <aside class="space-y-4">
-            <UiAlert :variant="operationalStatus.variant" filled>
-              <UiAlertTitle>{{ operationalStatus.title }}</UiAlertTitle>
-              <UiAlertDescription>
-                {{ operationalStatus.description }}
-              </UiAlertDescription>
-            </UiAlert>
+          <UiAlert v-if="operationalStatus.message" :variant="operationalStatus.variant">
+            <UiAlertTitle>{{ operationalStatus.label }}</UiAlertTitle>
+            <UiAlertDescription>{{ operationalStatus.message }}</UiAlertDescription>
+          </UiAlert>
 
-            <UiCard v-if="reorderAction || home.last_order_items.length">
-              <UiCardHeader>
-                <UiCardTitle>Voltar ao que funcionou</UiCardTitle>
-                <UiCardDescription v-if="home.last_order_ref">Pedido {{ home.last_order_ref }}</UiCardDescription>
-              </UiCardHeader>
-              <UiCardContent class="space-y-2">
-                <UiItem v-for="item in home.last_order_items.slice(0, 3)" :key="item.sku" class="p-0">
-                  <UiItemContent>
-                    <UiItemTitle>{{ item.name }}</UiItemTitle>
-                    <UiItemDescription>{{ item.qty }} unidade(s)</UiItemDescription>
-                  </UiItemContent>
-                </UiItem>
-              </UiCardContent>
-              <UiCardFooter>
+          <UiAlert v-if="home.origin_channel === 'whatsapp'" variant="info">
+            <UiAlertTitle>Você veio do WhatsApp</UiAlertTitle>
+            <UiAlertDescription>Seu pedido pode continuar por aqui, com carrinho e acompanhamento atualizados.</UiAlertDescription>
+          </UiAlert>
+
+          <UiCard v-if="reorderAction || quickReorderItems.length" class="gap-0 overflow-hidden py-0" data-home-reorder-card>
+            <div class="grid grid-cols-1 md:grid-cols-2">
+              <UiAspectRatio :ratio="16 / 9" class="overflow-hidden bg-muted md:h-full">
+                <img
+                  v-if="quickReorderImageItem?.image_url"
+                  :src="quickReorderImageItem.image_url"
+                  :alt="quickReorderImageItem.name"
+                  loading="lazy"
+                  decoding="async"
+                  class="size-full object-cover"
+                >
+                <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+                  <Icon name="lucide:croissant" class="size-10" />
+                </div>
+              </UiAspectRatio>
+
+              <UiCardContent class="flex flex-col justify-center gap-4 p-5 sm:p-7 lg:p-8">
+                <UiItemMedia variant="icon" class="size-12 rounded-full">
+                  <Icon name="lucide:rotate-ccw" />
+                </UiItemMedia>
+                <div class="space-y-2">
+                  <h2 class="text-2xl font-semibold leading-tight">{{ quickReorderTitle }}</h2>
+                  <ul v-if="quickReorderItems.length" class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground" aria-label="Itens do último pedido">
+                    <li v-for="item in quickReorderItems" :key="item.sku" class="inline-flex items-center gap-1">
+                      <span class="font-medium text-foreground">{{ item.qty }}×</span>
+                      <span>{{ item.name }}</span>
+                    </li>
+                  </ul>
+                  <p v-else class="text-sm text-muted-foreground">Seu pedido anterior volta ao carrinho para revisão.</p>
+                </div>
                 <UiButton
-                  variant="secondary"
-                  icon="lucide:rotate-ccw"
+                  icon="lucide:shopping-bag"
                   :loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
+                  class="w-full sm:w-fit"
                   @click="handleReorder(reorderAction)"
                 >
-                  {{ reorderAction?.label || 'Ver historico' }}
+                  {{ reorderAction?.label || 'Ver histórico' }}
                 </UiButton>
-              </UiCardFooter>
-            </UiCard>
-
-            <UiCard>
-              <UiCardHeader>
-                <UiCardTitle>Horario e atendimento</UiCardTitle>
-                <UiCardDescription>{{ home.shop.phone_display || home.shop.email }}</UiCardDescription>
-              </UiCardHeader>
-              <UiCardContent class="space-y-2">
-                <div v-for="entry in home.opening_hours.slice(0, 4)" :key="entry.label" class="flex justify-between gap-3 text-sm">
-                  <span class="text-muted-foreground">{{ entry.label }}</span>
-                  <span class="text-right font-medium">{{ entry.hours }}</span>
-                </div>
               </UiCardContent>
-            </UiCard>
-          </aside>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="home && featured.length" class="shop-section pt-0">
-      <div class="shop-container space-y-4">
-        <div class="flex items-end justify-between gap-4">
-          <div>
-            <p class="shop-kicker">Disponiveis agora</p>
-            <h2 class="mt-1 text-2xl font-semibold">Destaques de agora</h2>
-          </div>
-          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">Cardapio completo</UiButton>
-        </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <UiCard v-for="item in featured.slice(0, 4)" :key="item.sku" class="overflow-hidden">
-            <NuxtLink :to="`/product/${encodeURIComponent(item.sku)}`">
-              <img
-                v-if="item.image_url"
-                :src="item.image_url"
-                :alt="item.name"
-                class="aspect-[4/3] w-full object-cover"
-                loading="lazy"
-              >
-              <div v-else class="flex aspect-[4/3] items-center justify-center bg-muted">
-                <Icon name="lucide:image" class="size-6 text-muted-foreground" />
-              </div>
-            </NuxtLink>
-            <UiCardContent class="space-y-3 p-4">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <p class="line-clamp-2 text-sm font-semibold">{{ item.name }}</p>
-                  <p class="mt-1 text-sm text-muted-foreground">{{ item.price_display }}</p>
-                </div>
-                <UiBadge :variant="availabilityVariant(item.availability)">{{ item.availability_label }}</UiBadge>
-              </div>
-              <CartQuantityAction :meta="metaFor(item)" :qty="qtyForSku(item.sku)" :disabled="!item.can_add_to_cart" :max-qty="item.available_qty" compact />
-            </UiCardContent>
+            </div>
           </UiCard>
         </div>
       </div>
     </section>
 
-    <div class="fixed bottom-20 right-4 z-30 md:bottom-6">
-      <UiButton
-        variant="default"
-        size="lg"
-        icon="lucide:shopping-cart"
-        class="shadow-lg"
-        @click="drawerOpen = true"
-      >
-        Carrinho
-      </UiButton>
-    </div>
+    <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-10 md:pt-12">
+      <div class="shop-container space-y-6">
+        <div class="mx-auto max-w-2xl text-center">
+          <h2 class="text-2xl font-semibold">{{ sectionsCopy.availability_heading.title }}</h2>
+          <p class="mt-2 text-sm text-muted-foreground">{{ sectionsCopy.availability_heading.message }}</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ProductTile v-for="item in featuredPreview" :key="item.sku" :item="item" />
+        </div>
+        <div class="text-center">
+          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">
+            {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio completo' }}
+          </UiButton>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="home && sectionsCopy" class="shop-section bg-muted">
+      <div class="shop-container space-y-8">
+        <div class="mx-auto max-w-2xl text-center">
+          <h2 class="text-2xl font-semibold">{{ sectionsCopy.how_it_works_heading.title }}</h2>
+          <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 text-sm text-muted-foreground">
+            {{ sectionsCopy.how_it_works_intro.message }}
+          </p>
+        </div>
+
+        <div class="mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
+          <section class="space-y-4">
+            <h3 class="flex items-center gap-2 text-lg font-semibold">
+              <UiItemMedia variant="icon" class="size-8 rounded-full">
+                <Icon name="lucide:shopping-bag" />
+              </UiItemMedia>
+              {{ sectionsCopy.how_online_heading.title }}
+            </h3>
+            <UiItemGroup class="gap-3">
+              <UiItem v-for="(step, index) in howOnlineSteps" :key="step.title" size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full text-xs">
+                  <span class="font-semibold tabular-nums">{{ index + 1 }}</span>
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>{{ step.title }}</UiItemTitle>
+                  <UiItemDescription>{{ step.description }}</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+            </UiItemGroup>
+          </section>
+
+          <section class="space-y-4">
+            <h3 class="flex items-center gap-2 text-lg font-semibold">
+              <UiItemMedia variant="icon" class="size-8 rounded-full">
+                <Icon name="lucide:store" />
+              </UiItemMedia>
+              {{ sectionsCopy.how_store_heading.title }}
+            </h3>
+            <UiItemGroup class="gap-3">
+              <UiItem v-for="step in storeSteps" :key="step.title" size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full">
+                  <Icon :name="step.icon" class="size-4" />
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>{{ step.title }}</UiItemTitle>
+                  <UiItemDescription>{{ step.description }}</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+            </UiItemGroup>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="home && whatsappUrl && sectionsCopy" class="border-y bg-background py-0 sm:py-8 lg:py-10">
+      <div class="shop-container">
+        <div class="relative -mx-4 overflow-hidden rounded-none bg-foreground text-background sm:mx-0 sm:rounded-lg">
+          <img
+            v-if="whatsappImage"
+            :src="whatsappImage"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            class="absolute inset-0 size-full object-cover opacity-35"
+          >
+          <div class="relative mx-auto max-w-2xl px-6 py-14 text-center md:py-16">
+            <h2 class="text-2xl font-semibold md:text-3xl">{{ sectionsCopy.whatsapp_cta.title }}</h2>
+            <p class="mt-3 text-sm leading-6 text-background/80 md:text-base">
+              {{ sectionsCopy.whatsapp_cta.message }}
+            </p>
+            <UiButton
+              :href="whatsappUrl"
+              target="_blank"
+              rel="noopener"
+              size="lg"
+              variant="secondary"
+              icon="lucide:message-circle"
+              class="mt-6"
+            >
+              {{ sectionsCopy.whatsapp_cta_label.title || 'Falar no WhatsApp' }}
+            </UiButton>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </template>

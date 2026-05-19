@@ -31,6 +31,10 @@ def test_api_storefront_menu_returns_projection_contract(client):
         "unavailable",
     }
     assert data["cart"]["is_empty"] is True
+    cart_checkout = next(action for action in data["cart"]["actions"] if action["ref"] == "checkout")
+    assert cart_checkout["kind"] == "link"
+    assert cart_checkout["enabled"] is False
+    assert cart_checkout["reason"] == "Carrinho vazio."
 
 
 def test_api_storefront_menu_sets_csrf_cookie(client):
@@ -81,6 +85,7 @@ def test_api_storefront_checkout_projection_requires_login_for_anonymous_cart(cl
     assert checkout["requires_authentication"] is True
     assert checkout["auth_action"]["href"] == "/login?next=/checkout"
     assert checkout["cart"]["items_count"] == 1
+    assert action["label"] == "Confirmar pedido"
     assert action["enabled"] is False
     assert action["reason"] == "Entre por telefone para continuar."
     assert action["payload_schema"]["required"] == [
@@ -156,6 +161,15 @@ def test_api_cart_sku_qty_sets_absolute_qty_and_returns_cart_projection(client):
     assert add_data["summary"]["count"] == 2
     assert add_data["cart"]["items_count"] == 2
     assert add_data["cart"]["items"][0]["sku"] == product.sku
+    cart_checkout = next(action for action in add_data["cart"]["actions"] if action["ref"] == "checkout")
+    assert cart_checkout["label"] == "Finalizar pedido"
+    assert cart_checkout["href"] == "/checkout"
+    if add_data["cart"]["minimum_order_progress"]:
+        assert cart_checkout["enabled"] is False
+        assert cart_checkout["reason"].startswith("Faltam ")
+    else:
+        assert cart_checkout["enabled"] is True
+        assert cart_checkout["reason"] == ""
 
     remove = client.put(
         f"/api/v1/cart/skus/{product.sku}/",

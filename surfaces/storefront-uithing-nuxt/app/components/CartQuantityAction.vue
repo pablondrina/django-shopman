@@ -8,9 +8,16 @@ const props = withDefaults(defineProps<{
   maxQty?: number | null
   compact?: boolean
   addLabel?: string
+  addTargetQty?: number
+  tone?: 'default' | 'inverted'
 }>(), {
-  addLabel: 'Adicionar'
+  addLabel: 'Adicionar',
+  tone: 'default'
 })
+
+const emit = defineEmits<{
+  changed: [qty: number]
+}>()
 
 const { setSkuQty, isPending } = useCartState()
 const hydrated = ref(false)
@@ -22,7 +29,9 @@ onMounted(() => {
 
 async function addOne () {
   if (!hydrated.value || props.disabled || pending.value) return
-  await setSkuQty(props.meta, 1)
+  const nextQty = props.addTargetQty ?? 1
+  await setSkuQty(props.meta, nextQty)
+  emit('changed', nextQty)
 }
 </script>
 
@@ -34,10 +43,12 @@ async function addOne () {
     :disabled="disabled"
     :max-qty="maxQty"
     :compact="compact"
+    :tone="tone"
+    @changed="emit('changed', $event)"
   />
   <UiButton
     v-else
-    variant="default"
+    :variant="tone === 'inverted' ? 'secondary' : 'default'"
     :size="compact ? 'sm' : 'default'"
     icon="lucide:shopping-cart"
     :disabled="!hydrated || disabled || pending"

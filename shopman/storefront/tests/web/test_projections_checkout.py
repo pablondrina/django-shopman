@@ -99,6 +99,7 @@ class TestCheckoutProjectionShape:
         assert proj.is_authenticated is True
         assert proj.requires_authentication is True
         assert proj.auth_action is None
+        assert proj.actions[0].label == "Confirmar pedido"
         assert proj.actions[0].enabled is True
         assert proj.actions[0].reason == ""
 

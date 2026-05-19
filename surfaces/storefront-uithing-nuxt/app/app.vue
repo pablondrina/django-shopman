@@ -20,14 +20,26 @@ watch(() => shellHome.value, value => {
 useShopTheme(session.shop)
 
 const shellStyle = computed(() => shopThemeStyle(session.shop.value))
+const shopStatusMessage = computed(() => session.shopStatus.value?.message?.trim() || '')
 </script>
 
 <template>
-  <div class="shop-shell shop-bottom-safe" :style="shellStyle">
+  <div class="shop-shell shop-bottom-safe flex min-h-dvh flex-col" :style="shellStyle">
     <NuxtRouteAnnouncer />
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+    >
+      Pular para o conteúdo
+    </a>
+    <div v-if="shopStatusMessage" class="border-b bg-foreground px-4 py-2 text-center text-xs font-medium text-background">
+      {{ shopStatusMessage }}
+    </div>
     <ShopHeader />
-    <NuxtPage />
-    <CartDrawer />
+    <div id="main-content" class="flex-1">
+      <NuxtPage />
+    </div>
+    <ShopFooter />
     <AppBottomNav />
     <UiSonner />
   </div>

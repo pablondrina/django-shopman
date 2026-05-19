@@ -286,7 +286,7 @@ def _checkout_actions(
         SurfaceActionProjection(
             ref="checkout",
             kind="mutation",
-            label="Finalizar pedido",
+            label="Confirmar pedido",
             priority="primary",
             enabled=enabled,
             reason=reason,

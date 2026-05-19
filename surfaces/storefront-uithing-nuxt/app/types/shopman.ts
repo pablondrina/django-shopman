@@ -19,6 +19,7 @@ export interface CatalogItemProjection {
   has_promotion: boolean
   original_price_display: string | null
   promotion_label: string | null
+  unit_weight_label: string | null
   availability: 'available' | 'low_stock' | 'planned_ok' | 'unavailable'
   availability_label: string
   can_add_to_cart: boolean
@@ -181,6 +182,7 @@ export interface CartProjection {
   has_ready_for_confirmation_items: boolean
   minimum_order_progress: MinimumOrderProgressProjection | null
   upsell: { sku: string, name: string, unit_price_q: number, price_display: string, image_url: string | null } | null
+  actions: SurfaceActionProjection[]
 }
 
 export interface SocialLinkProjection {

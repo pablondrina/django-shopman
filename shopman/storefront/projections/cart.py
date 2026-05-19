@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import Availability
+from shopman.shop.projections.types import Availability, SurfaceActionProjection
 from shopman.shop.services import catalog_context
 from shopman.shop.services.storefront_context import (
     minimum_order_progress,
@@ -149,6 +149,10 @@ class CartProjection:
     minimum_order_progress: MinimumOrderProgressProjection | None
     upsell: UpsellSuggestionProjection | None
 
+    # Canonical cart-level actions. Surfaces render these instead of deriving
+    # checkout eligibility from local cart flags.
+    actions: tuple[SurfaceActionProjection, ...]
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Builder
@@ -216,6 +220,13 @@ def build_cart(
                 ),
             )
 
+    actions = _cart_actions(
+        is_empty=not items,
+        has_unavailable_items=has_unavailable_items,
+        has_ready_for_confirmation_items=has_ready_for_confirmation_items,
+        minimum_order_progress=min_order,
+    )
+
     return CartProjection(
         items=items,
         items_count=items_count,
@@ -250,6 +261,7 @@ def build_cart(
         has_ready_for_confirmation_items=has_ready_for_confirmation_items,
         minimum_order_progress=min_order,
         upsell=upsell,
+        actions=actions,
     )
 
 
@@ -311,6 +323,50 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _cart_actions(
+    *,
+    is_empty: bool,
+    has_unavailable_items: bool,
+    has_ready_for_confirmation_items: bool,
+    minimum_order_progress: MinimumOrderProgressProjection | None,
+) -> tuple[SurfaceActionProjection, ...]:
+    checkout_enabled = True
+    checkout_reason = ""
+    checkout_label = "Finalizar pedido"
+
+    if is_empty:
+        checkout_enabled = False
+        checkout_reason = "Carrinho vazio."
+    elif has_unavailable_items:
+        checkout_enabled = False
+        checkout_reason = "Revise itens indisponíveis antes de finalizar."
+    elif minimum_order_progress is not None:
+        checkout_enabled = False
+        checkout_reason = f"Faltam {minimum_order_progress.remaining_display} para o pedido mínimo."
+    elif has_ready_for_confirmation_items:
+        checkout_label = "Confirmar agora"
+
+    return (
+        SurfaceActionProjection(
+            ref="checkout",
+            kind="link",
+            label=checkout_label,
+            priority="primary",
+            enabled=checkout_enabled,
+            reason=checkout_reason,
+            href="/checkout",
+        ),
+        SurfaceActionProjection(
+            ref="continue_shopping",
+            kind="link",
+            label="Continuar comprando",
+            priority="secondary",
+            enabled=True,
+            href="/menu",
+        ),
+    )
 
 
 # Re-export for convenience so ``from shopman.shop.projections import Availability``

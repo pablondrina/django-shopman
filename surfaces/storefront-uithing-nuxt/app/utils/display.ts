@@ -32,3 +32,7 @@ export function formatCount (value: number | null | undefined, singular: string,
   const count = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
   return `${count} ${count === 1 ? singular : plural}`
 }
+
+export function compactUnitWeightLabel (value: string | null | undefined): string {
+  return (value || '').replace(/\s+a unidade$/i, '/un.')
+}

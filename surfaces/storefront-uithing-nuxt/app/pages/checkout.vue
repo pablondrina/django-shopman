@@ -2,11 +2,10 @@
 import type { CheckoutMutationResponse, CheckoutResponse, SavedAddressProjection, StructuredAddressProjection } from '~/types/shopman'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState, type FulfillmentType } from '~/utils/checkoutPayload'
 
-type Step = 'identity' | 'fulfillment' | 'address' | 'payment' | 'review'
+type Step = 'fulfillment' | 'address' | 'when' | 'payment'
 
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
-const session = useShopSession()
 const { setFromServer, clearCart } = useCartState()
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
@@ -26,13 +25,15 @@ const state = reactive<CheckoutFormState>({
 })
 
 const chosenDate = ref<Date | null>(null)
-const activeStep = ref<Step>('identity')
+const activeStep = ref<Step>('fulfillment')
+const contactEditing = ref(false)
 const useLoyalty = ref(false)
 const submitting = ref(false)
 const serverError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const locating = ref(false)
+const confirmOpen = ref(false)
 
 const checkoutQuery = computed(() => state.delivery_date ? { delivery_date: state.delivery_date } : {})
 
@@ -45,21 +46,72 @@ const { data, pending, error, refresh } = await useFetch<CheckoutResponse>(apiPa
 const checkout = computed(() => data.value?.checkout || null)
 const cart = computed(() => checkout.value?.cart)
 const action = computed(() => checkout.value?.actions.find(candidate => candidate.ref === 'checkout') || null)
-const checkoutActionLabel = computed(() => action.value?.label || 'Finalizar pedido')
+const checkoutActionLabel = computed(() => action.value?.label || 'Confirmar pedido')
 const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
-const isAuthed = computed(() => session.isAuthenticated.value || checkout.value?.is_authenticated)
+const isAuthed = computed(() => !!checkout.value?.is_authenticated)
 const authAction = computed(() => checkout.value?.auth_action || null)
 const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/login?next=/checkout'))
 const availableFulfillment = computed(() => (checkout.value?.fulfillment_options || []).filter((value): value is FulfillmentType => value === 'pickup' || value === 'delivery'))
 const savedAddresses = computed(() => checkout.value?.saved_addresses || [])
 const paymentMethods = computed(() => checkout.value?.payment_methods || [])
 const slots = computed(() => checkout.value?.pickup_slots || [])
+const paymentMethodLabel = computed(() => paymentMethods.value.find(method => method.ref === state.payment_method)?.label || state.payment_method || 'Pagamento')
+const selectedSlotLabel = computed(() => slots.value.find(slot => slot.ref === state.delivery_time_slot)?.label || state.delivery_time_slot || '')
+const fulfillmentLabel = computed(() => state.fulfillment_type === 'delivery' ? 'Entrega' : 'Retirada')
+const fulfillmentIcon = computed(() => state.fulfillment_type === 'delivery' ? 'lucide:truck' : 'lucide:store')
+const selectedDateLabel = computed(() => displayDate(state.delivery_date))
+const whenSummary = computed(() => compactText([selectedDateLabel.value, selectedSlotLabel.value], ' · '))
+const fulfillmentSummary = computed(() => compactText([fulfillmentLabel.value, whenSummary.value], ' · '))
+const confirmItemSummary = computed(() => {
+  const items = cart.value?.items || []
+  const visible = items.slice(0, 3).map(item => `${item.qty}x ${item.name}`)
+  const remaining = items.length - visible.length
+  if (remaining > 0) visible.push(`+${remaining}`)
+  return visible.join(' · ') || 'Sem itens'
+})
+const phoneDisplay = computed(() => state.phone || checkout.value?.customer_phone || '')
+const contactComplete = computed(() => !!state.name.trim() && !!phoneDisplay.value.trim())
+const contactSummary = computed(() => compactText([state.name, phoneDisplay.value], ' · '))
+const addressSummary = computed(() => compactText([state.delivery_address, state.delivery_complement], ' · '))
+const confirmSheetDescription = computed(() => `${formatCount(cart.value?.items_count || 0, 'item', 'itens')} · ${cart.value?.grand_total_display || 'R$ 0,00'}`)
+
+const steps = computed<Step[]>(() => {
+  const list: Step[] = ['fulfillment']
+  if (state.fulfillment_type === 'delivery') list.push('address')
+  list.push('when', 'payment')
+  return list
+})
+
+const stepLabels: Record<Step, string> = {
+  fulfillment: 'Como receber',
+  address: 'Endereço de entrega',
+  when: 'Quando',
+  payment: 'Pagamento'
+}
 
 function localDateValue (value: Date): string {
   const year = value.getFullYear()
   const month = `${value.getMonth() + 1}`.padStart(2, '0')
   const day = `${value.getDate()}`.padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function displayDate (value: string): string {
+  if (!value) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return value
+  const date = new Date(year, month - 1, day)
+  const today = localDateValue(new Date())
+  const tomorrowDate = new Date()
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+  const tomorrow = localDateValue(tomorrowDate)
+  if (value === today) return 'Hoje'
+  if (value === tomorrow) return 'Amanhã'
+  return new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  }).format(date).replace('.', '')
 }
 
 watch(() => checkout.value, value => {
@@ -101,40 +153,46 @@ watchEffect(() => {
   }
 })
 
-const steps = computed<Step[]>(() => {
-  const list: Step[] = ['identity', 'fulfillment']
-  if (state.fulfillment_type === 'delivery') list.push('address')
-  list.push('payment', 'review')
-  return list
-})
-
-const activeStepNumber = computed({
-  get () {
-    const index = steps.value.indexOf(activeStep.value)
-    return index >= 0 ? index + 1 : 1
-  },
-  set (value: number) {
-    const step = steps.value[value - 1]
-    if (step) activeStep.value = step
-  }
-})
-
 watchEffect(() => {
   if (!steps.value.includes(activeStep.value)) {
-    activeStep.value = steps.value[0] || 'identity'
+    activeStep.value = steps.value[0] || 'fulfillment'
   }
 })
 
-const stepLabels: Record<Step, string> = {
-  identity: 'Contato',
-  fulfillment: 'Entrega',
-  address: 'Endereco',
-  payment: 'Pagamento',
-  review: 'Revisao'
+function stepIndex (step: Step) {
+  return steps.value.indexOf(step)
 }
 
-function stepNumber (step: Step) {
-  return steps.value.indexOf(step) + 1
+function isDone (step: Step) {
+  return stepIndex(step) >= 0 && stepIndex(step) < stepIndex(activeStep.value)
+}
+
+function isUpcoming (step: Step) {
+  return stepIndex(step) > stepIndex(activeStep.value)
+}
+
+function stepCardClass (step: Step) {
+  if (activeStep.value === step) return 'gap-0 overflow-hidden py-0 border-primary/50 shadow-sm'
+  if (isDone(step)) return 'gap-0 overflow-hidden py-0'
+  return 'gap-0 overflow-hidden py-0 opacity-70'
+}
+
+function stepIcon (step: Step) {
+  if (isDone(step)) return 'lucide:check'
+  if (activeStep.value === step) return 'lucide:circle-dot'
+  return 'lucide:circle'
+}
+
+function stepSummary (step: Step) {
+  if (step === 'fulfillment') return fulfillmentLabel.value
+  if (step === 'address') return addressSummary.value || 'Informe onde receber'
+  if (step === 'when') return whenSummary.value || 'Escolha data e horário'
+  return paymentMethodLabel.value
+}
+
+function goToStep (step: Step) {
+  if (!steps.value.includes(step)) return
+  activeStep.value = step
 }
 
 function pickSavedAddress (id: number) {
@@ -169,7 +227,7 @@ function useManualAddress () {
   }
 }
 
-function validateIdentityStep (): boolean {
+function validateContact (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.name
   delete errors.phone
@@ -177,23 +235,46 @@ function validateIdentityStep (): boolean {
   if (!state.phone.trim()) errors.phone = 'Informe seu telefone.'
   fieldErrors.value = errors
   if (errors.name || errors.phone) {
-    activeStep.value = 'identity'
+    contactEditing.value = true
     return false
   }
+  contactEditing.value = false
   return true
 }
 
 function validateFulfillmentStep (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.fulfillment_type
+  if (!availableFulfillment.value.includes(state.fulfillment_type)) errors.fulfillment_type = 'Escolha retirada ou entrega.'
+  fieldErrors.value = errors
+  if (errors.fulfillment_type) {
+    activeStep.value = 'fulfillment'
+    return false
+  }
+  return true
+}
+
+function validateAddressStep (): boolean {
+  const errors = { ...fieldErrors.value }
+  delete errors.delivery_address
+  if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) errors.delivery_address = 'Informe o endereço.'
+  fieldErrors.value = errors
+  if (errors.delivery_address) {
+    activeStep.value = 'address'
+    return false
+  }
+  return true
+}
+
+function validateWhenStep (): boolean {
+  const errors = { ...fieldErrors.value }
   delete errors.delivery_date
   delete errors.delivery_time_slot
-  if (!availableFulfillment.value.includes(state.fulfillment_type)) errors.fulfillment_type = 'Escolha retirada ou entrega.'
   if ((state.fulfillment_type === 'delivery' || state.delivery_time_slot) && !state.delivery_date) errors.delivery_date = 'Escolha a data.'
-  if (slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horario.'
+  if (slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horário.'
   fieldErrors.value = errors
-  if (errors.fulfillment_type || errors.delivery_date || errors.delivery_time_slot) {
-    activeStep.value = 'fulfillment'
+  if (errors.delivery_date || errors.delivery_time_slot) {
+    activeStep.value = 'when'
     return false
   }
   return true
@@ -211,23 +292,38 @@ function validatePaymentStep (): boolean {
   return true
 }
 
-function continueFromIdentity () {
-  if (validateIdentityStep()) activeStep.value = 'fulfillment'
+function saveContact () {
+  validateContact()
 }
 
 function continueFromFulfillment () {
-  if (validateFulfillmentStep()) {
-    activeStep.value = state.fulfillment_type === 'delivery' ? 'address' : 'payment'
-  }
+  if (validateFulfillmentStep()) activeStep.value = state.fulfillment_type === 'delivery' ? 'address' : 'when'
+}
+
+function continueFromAddress () {
+  if (validateAddressStep()) activeStep.value = 'when'
+}
+
+function continueFromWhen () {
+  if (validateWhenStep()) activeStep.value = 'payment'
 }
 
 function continueFromPayment () {
-  if (validatePaymentStep()) activeStep.value = 'review'
+  if (validatePaymentStep()) openConfirmSheet()
+}
+
+function openConfirmSheet () {
+  if (!validate()) return
+  if (submitDisabled.value) {
+    serverError.value = action.value?.reason || 'Pedido não pode ser confirmado agora.'
+    return
+  }
+  confirmOpen.value = true
 }
 
 async function geocodeHere () {
   if (!import.meta.client || !navigator.geolocation) {
-    serverError.value = 'Geolocalizacao nao esta disponivel neste dispositivo.'
+    serverError.value = 'Geolocalização não está disponível neste dispositivo.'
     return
   }
   locating.value = true
@@ -249,27 +345,19 @@ async function geocodeHere () {
     state.delivery_address_structured = result
     state.delivery_address = result.formatted_address || compactText([result.route, result.street_number, result.neighborhood, result.city], ', ')
   } catch (e: any) {
-    serverError.value = e?.data?.detail || 'Nao foi possivel resolver sua localizacao.'
+    serverError.value = e?.data?.detail || 'Não foi possível resolver sua localização.'
   } finally {
     locating.value = false
   }
 }
 
 function validate (): boolean {
-  const errors: Record<string, string> = {}
-  if (!state.name.trim()) errors.name = 'Informe seu nome.'
-  if (!state.phone.trim()) errors.phone = 'Informe seu telefone.'
-  if (!availableFulfillment.value.includes(state.fulfillment_type)) errors.fulfillment_type = 'Escolha retirada ou entrega.'
-  if ((state.fulfillment_type === 'delivery' || state.delivery_time_slot) && !state.delivery_date) errors.delivery_date = 'Escolha a data.'
-  if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) errors.delivery_address = 'Informe o endereco.'
-  if (!state.payment_method) errors.payment_method = 'Escolha o pagamento.'
-  if (slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horario.'
-  fieldErrors.value = errors
-  if (errors.name || errors.phone) activeStep.value = 'identity'
-  else if (errors.fulfillment_type || errors.delivery_date || errors.delivery_time_slot) activeStep.value = 'fulfillment'
-  else if (errors.delivery_address) activeStep.value = 'address'
-  else if (errors.payment_method) activeStep.value = 'payment'
-  return Object.keys(errors).length === 0
+  if (!validateContact()) return false
+  if (!validateFulfillmentStep()) return false
+  if (state.fulfillment_type === 'delivery' && !validateAddressStep()) return false
+  if (!validateWhenStep()) return false
+  if (!validatePaymentStep()) return false
+  return true
 }
 
 async function submitCheckout () {
@@ -292,7 +380,7 @@ async function submitCheckout () {
     await navigateTo(localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref)))
   } catch (e: any) {
     const data = e?.data || {}
-    serverError.value = data.detail || 'Nao foi possivel confirmar o pedido.'
+    serverError.value = data.detail || 'Não foi possível confirmar o pedido.'
     if (data.field) fieldErrors.value = { ...fieldErrors.value, [data.field]: serverError.value }
     if (import.meta.client) useSonner.error(serverError.value)
   } finally {
@@ -309,16 +397,24 @@ useSeoMeta({
   <main class="shop-section">
     <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section class="space-y-5">
+        <UiBreadcrumbs
+          :items="[
+            { label: 'Início', link: '/' },
+            { label: 'Carrinho', link: '/cart' },
+            { label: 'Finalizar pedido' }
+          ]"
+        />
+
         <div>
-          <p class="shop-kicker">Checkout</p>
+          <p class="shop-kicker">Finalizar pedido</p>
           <h1 class="mt-1 text-3xl font-semibold">Finalize seu pedido</h1>
-          <p class="mt-2 shop-muted">Informe contato, recebimento e pagamento. Antes de enviar, voce revisa tudo.</p>
+          <p class="mt-2 shop-muted">Escolha recebimento, horário e pagamento. A revisão final acontece antes de confirmar.</p>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
 
         <UiAlert v-else-if="error" variant="destructive">
-          <UiAlertTitle>Checkout indisponivel</UiAlertTitle>
+          <UiAlertTitle>Checkout indisponível</UiAlertTitle>
           <UiAlertDescription>
             <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
           </UiAlertDescription>
@@ -333,119 +429,127 @@ useSeoMeta({
             </UiAlertDescription>
           </UiAlert>
 
-          <UiStepper v-model="activeStepNumber" class="no-scrollbar overflow-x-auto" orientation="horizontal">
-            <UiStepperItem v-for="step in steps" :key="step" :step="stepNumber(step)" class="flex-1">
-              <UiStepperTrigger class="w-full" @click="activeStep = step">
-                <UiStepperIndicator>{{ stepNumber(step) }}</UiStepperIndicator>
-                <span class="text-xs font-medium sm:text-sm">{{ stepLabels[step] }}</span>
-              </UiStepperTrigger>
-              <UiStepperSeparator v-if="step !== steps[steps.length - 1]" class="mx-2 hidden flex-1 sm:block" />
-            </UiStepperItem>
-          </UiStepper>
+          <div class="space-y-3" data-checkout-progress-stack>
+            <UiCard class="gap-0 overflow-hidden py-0" data-checkout-contact-card>
+              <div class="flex items-center gap-3 p-4 sm:p-5">
+                <UiItemMedia variant="icon" :class="contactComplete ? 'size-8 rounded-full bg-primary text-primary-foreground' : 'size-8 rounded-full'">
+                  <Icon :name="contactComplete ? 'lucide:check' : 'lucide:user-round'" />
+                </UiItemMedia>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">Contato</p>
+                  <p class="truncate text-sm text-muted-foreground">
+                    {{ contactSummary || 'Informe nome e telefone' }}
+                  </p>
+                </div>
+                <UiButton size="sm" variant="ghost" @click="contactEditing = !contactEditing">
+                  {{ contactEditing ? 'Fechar' : contactComplete ? 'Editar' : 'Completar' }}
+                </UiButton>
+              </div>
 
-          <UiTabs v-model="activeStep">
-            <UiTabsList class="hidden">
-              <UiTabsTrigger v-for="step in steps" :key="step" :value="step">{{ stepLabels[step] }}</UiTabsTrigger>
-            </UiTabsList>
+              <div v-if="contactEditing" class="grid grid-cols-1 gap-4 border-t p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:p-5">
+                <div class="space-y-2">
+                  <UiLabel for="checkout-name">Nome</UiLabel>
+                  <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
+                  <p v-if="fieldErrors.name" class="text-xs text-destructive">{{ fieldErrors.name }}</p>
+                </div>
+                <div class="rounded-lg border bg-muted/30 p-3">
+                  <p class="text-xs font-medium uppercase text-muted-foreground">Telefone confirmado</p>
+                  <p class="mt-1 text-sm font-medium">{{ phoneDisplay || 'Entre por telefone para continuar' }}</p>
+                  <p v-if="fieldErrors.phone" class="text-xs text-destructive">{{ fieldErrors.phone }}</p>
+                  <UiButton :to="authRoute" variant="link" size="sm" class="mt-2 h-auto p-0">Trocar telefone</UiButton>
+                </div>
+                <div class="sm:col-span-2">
+                  <UiButton size="sm" @click="saveContact">Salvar contato</UiButton>
+                </div>
+              </div>
+            </UiCard>
 
-            <UiTabsContent value="identity">
-              <UiCard>
-                <UiCardHeader>
-                  <UiCardTitle>Contato</UiCardTitle>
-                  <UiCardDescription>Usaremos estes dados para confirmar o pedido e avisar qualquer ajuste.</UiCardDescription>
-                </UiCardHeader>
-                <UiCardContent class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div class="space-y-2">
-                    <UiLabel for="checkout-name">Nome</UiLabel>
-                    <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
-                    <p v-if="fieldErrors.name" class="text-xs text-destructive">{{ fieldErrors.name }}</p>
+            <UiCard :class="stepCardClass('fulfillment')" data-checkout-step="fulfillment">
+              <div v-if="activeStep !== 'fulfillment'" class="flex items-center gap-3 p-4 sm:p-5">
+                <UiItemMedia variant="icon" :class="isDone('fulfillment') ? 'size-8 rounded-full bg-primary text-primary-foreground' : 'size-8 rounded-full'">
+                  <Icon :name="stepIcon('fulfillment')" />
+                </UiItemMedia>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">{{ stepLabels.fulfillment }}</p>
+                  <p class="truncate text-sm text-muted-foreground">{{ stepSummary('fulfillment') }}</p>
+                </div>
+                <UiButton v-if="isDone('fulfillment')" size="sm" variant="ghost" @click="goToStep('fulfillment')">Editar</UiButton>
+              </div>
+              <template v-else>
+                <UiCardHeader class="flex-row items-center gap-3 space-y-0">
+                  <UiItemMedia variant="icon" class="size-8 rounded-full bg-primary text-primary-foreground">
+                    <Icon name="lucide:circle-dot" />
+                  </UiItemMedia>
+                  <div>
+                    <UiCardTitle>Como receber</UiCardTitle>
+                    <UiCardDescription>{{ state.fulfillment_type === 'delivery' ? checkout.delivery_hint : checkout.pickup_hint }}</UiCardDescription>
                   </div>
-                  <div class="space-y-2">
-                    <UiLabel for="checkout-phone">Telefone</UiLabel>
-                    <UiInput id="checkout-phone" v-model="state.phone" autocomplete="tel" inputmode="tel" />
-                    <p v-if="fieldErrors.phone" class="text-xs text-destructive">{{ fieldErrors.phone }}</p>
-                  </div>
-                </UiCardContent>
-                <UiCardFooter>
-                  <UiButton @click="continueFromIdentity">Continuar</UiButton>
-                </UiCardFooter>
-              </UiCard>
-            </UiTabsContent>
-
-            <UiTabsContent value="fulfillment">
-              <UiCard>
-                <UiCardHeader>
-                  <UiCardTitle>Como receber</UiCardTitle>
-                  <UiCardDescription>{{ state.fulfillment_type === 'delivery' ? checkout.delivery_hint : checkout.pickup_hint }}</UiCardDescription>
                 </UiCardHeader>
-                <UiCardContent class="space-y-5">
-                  <UiRadioGroup v-model="state.fulfillment_type">
-                    <label v-if="availableFulfillment.includes('pickup')" class="flex gap-3 rounded-lg border p-4">
-                      <UiRadioGroupItem value="pickup" />
-                      <span>
-                        <span class="block font-medium">Retirada</span>
-                        <span class="block text-sm text-muted-foreground">{{ checkout.pickup_hint }}</span>
-                      </span>
-                    </label>
-                    <label v-if="availableFulfillment.includes('delivery')" class="flex gap-3 rounded-lg border p-4">
-                      <UiRadioGroupItem value="delivery" />
-                      <span>
-                        <span class="block font-medium">Entrega</span>
-                        <span class="block text-sm text-muted-foreground">{{ checkout.delivery_hint }}</span>
-                      </span>
-                    </label>
+                <UiCardContent class="space-y-4">
+                  <UiRadioGroup v-model="state.fulfillment_type" class="sm:grid-cols-2">
+                    <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup">
+                      <UiField orientation="horizontal">
+                        <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
+                        <UiFieldContent>
+                          <UiFieldTitle>Retirada</UiFieldTitle>
+                          <UiFieldDescription>{{ checkout.pickup_hint }}</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
+                    <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery">
+                      <UiField orientation="horizontal">
+                        <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
+                        <UiFieldContent>
+                          <UiFieldTitle>Entrega</UiFieldTitle>
+                          <UiFieldDescription>{{ checkout.delivery_hint }}</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
                   </UiRadioGroup>
-
-                  <div class="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
-                    <div class="space-y-2">
-                      <UiLabel>Data</UiLabel>
-                      <UiDatepicker v-model="chosenDate" is-required :min-date="new Date()" expanded />
-                      <p v-if="fieldErrors.delivery_date" class="text-xs text-destructive">{{ fieldErrors.delivery_date }}</p>
-                    </div>
-                    <div class="space-y-3">
-                      <UiLabel>Horario</UiLabel>
-                      <UiSelect v-model="state.delivery_time_slot">
-                        <UiSelectTrigger placeholder="Escolha um horario" />
-                        <UiSelectContent>
-                          <UiSelectItem
-                            v-for="slot in slots"
-                            :key="slot.ref"
-                            :value="slot.ref"
-                            :disabled="!slot.enabled"
-                          >
-                            {{ slot.label }}{{ slot.reason ? ` - ${slot.reason}` : '' }}
-                          </UiSelectItem>
-                        </UiSelectContent>
-                      </UiSelect>
-                      <p v-if="fieldErrors.delivery_time_slot" class="text-xs text-destructive">{{ fieldErrors.delivery_time_slot }}</p>
-                    </div>
-                  </div>
+                  <p v-if="fieldErrors.fulfillment_type" class="text-xs text-destructive">{{ fieldErrors.fulfillment_type }}</p>
                 </UiCardContent>
                 <UiCardFooter>
                   <UiButton @click="continueFromFulfillment">Continuar</UiButton>
                 </UiCardFooter>
-              </UiCard>
-            </UiTabsContent>
+              </template>
+            </UiCard>
 
-            <UiTabsContent value="address">
-              <UiCard>
-                <UiCardHeader>
-                  <UiCardTitle>Endereco de entrega</UiCardTitle>
-                  <UiCardDescription>Escolha um endereco salvo ou informe onde deseja receber.</UiCardDescription>
+            <UiCard v-if="steps.includes('address')" :class="stepCardClass('address')" data-checkout-step="address">
+              <div v-if="activeStep !== 'address'" class="flex items-center gap-3 p-4 sm:p-5">
+                <UiItemMedia variant="icon" :class="isDone('address') ? 'size-8 rounded-full bg-primary text-primary-foreground' : 'size-8 rounded-full'">
+                  <Icon :name="stepIcon('address')" />
+                </UiItemMedia>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">{{ stepLabels.address }}</p>
+                  <p class="truncate text-sm text-muted-foreground">{{ stepSummary('address') }}</p>
+                </div>
+                <UiButton v-if="isDone('address')" size="sm" variant="ghost" @click="goToStep('address')">Editar</UiButton>
+              </div>
+              <template v-else>
+                <UiCardHeader class="flex-row items-center gap-3 space-y-0">
+                  <UiItemMedia variant="icon" class="size-8 rounded-full bg-primary text-primary-foreground">
+                    <Icon name="lucide:map-pin" />
+                  </UiItemMedia>
+                  <div>
+                    <UiCardTitle>Endereço de entrega</UiCardTitle>
+                    <UiCardDescription>Escolha um endereço salvo ou informe onde deseja receber.</UiCardDescription>
+                  </div>
                 </UiCardHeader>
                 <UiCardContent class="space-y-4">
                   <UiRadioGroup v-if="savedAddresses.length" v-model="state.saved_address_id" @update:model-value="pickSavedAddress(Number($event))">
-                    <label v-for="address in savedAddresses" :key="address.id" class="flex gap-3 rounded-lg border p-4">
-                      <UiRadioGroupItem :value="address.id" />
-                      <span>
-                        <span class="block font-medium">{{ address.label }}</span>
-                        <span class="block text-sm text-muted-foreground">{{ address.formatted_address }}</span>
-                      </span>
-                    </label>
+                    <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`checkout-address-${address.id}`">
+                      <UiField orientation="horizontal">
+                        <UiRadioGroupItem :id="`checkout-address-${address.id}`" :value="address.id" />
+                        <UiFieldContent>
+                          <UiFieldTitle>{{ address.label }}</UiFieldTitle>
+                          <UiFieldDescription>{{ address.formatted_address }}</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
                   </UiRadioGroup>
 
                   <div class="space-y-2">
-                    <UiLabel for="checkout-address">Endereco</UiLabel>
+                    <UiLabel for="checkout-address">Endereço</UiLabel>
                     <UiInput id="checkout-address" v-model="state.delivery_address" @blur="useManualAddress" />
                     <p v-if="fieldErrors.delivery_address" class="text-xs text-destructive">{{ fieldErrors.delivery_address }}</p>
                   </div>
@@ -455,154 +559,250 @@ useSeoMeta({
                       <UiInput id="checkout-complement" v-model="state.delivery_complement" />
                     </div>
                     <div class="space-y-2">
-                      <UiLabel for="checkout-instructions">Instrucao</UiLabel>
+                      <UiLabel for="checkout-instructions">Instruções</UiLabel>
                       <UiInput id="checkout-instructions" v-model="state.delivery_instructions" />
                     </div>
                   </div>
                   <UiButton variant="outline" icon="lucide:map-pin" :loading="locating" @click="geocodeHere">
-                    Usar minha localizacao
+                    Usar minha localização
                   </UiButton>
                 </UiCardContent>
                 <UiCardFooter>
-                  <UiButton @click="activeStep = 'payment'">Continuar</UiButton>
+                  <UiButton @click="continueFromAddress">Continuar</UiButton>
                 </UiCardFooter>
-              </UiCard>
-            </UiTabsContent>
+              </template>
+            </UiCard>
 
-            <UiTabsContent value="payment">
-              <UiCard>
-                <UiCardHeader>
-                  <UiCardTitle>Pagamento</UiCardTitle>
-                  <UiCardDescription>Escolha a forma mais conveniente para este pedido.</UiCardDescription>
+            <UiCard :class="stepCardClass('when')" data-checkout-step="when">
+              <div v-if="activeStep !== 'when'" class="flex items-center gap-3 p-4 sm:p-5">
+                <UiItemMedia variant="icon" :class="isDone('when') ? 'size-8 rounded-full bg-primary text-primary-foreground' : 'size-8 rounded-full'">
+                  <Icon :name="stepIcon('when')" />
+                </UiItemMedia>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">{{ stepLabels.when }}</p>
+                  <p class="truncate text-sm text-muted-foreground">{{ stepSummary('when') }}</p>
+                </div>
+                <UiButton v-if="isDone('when')" size="sm" variant="ghost" @click="goToStep('when')">Editar</UiButton>
+              </div>
+              <template v-else>
+                <UiCardHeader class="flex-row items-center gap-3 space-y-0">
+                  <UiItemMedia variant="icon" class="size-8 rounded-full bg-primary text-primary-foreground">
+                    <Icon name="lucide:clock" />
+                  </UiItemMedia>
+                  <div>
+                    <UiCardTitle>Quando</UiCardTitle>
+                    <UiCardDescription>Escolha data e horário disponíveis para {{ state.fulfillment_type === 'delivery' ? 'entrega' : 'retirada' }}.</UiCardDescription>
+                  </div>
+                </UiCardHeader>
+                <UiCardContent class="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div class="space-y-2">
+                    <UiLabel>Data</UiLabel>
+                    <UiDatepicker v-model="chosenDate" is-required :min-date="new Date()" expanded />
+                    <p v-if="fieldErrors.delivery_date" class="text-xs text-destructive">{{ fieldErrors.delivery_date }}</p>
+                  </div>
+                  <div class="space-y-3">
+                    <UiLabel>Horário</UiLabel>
+                    <UiSelect v-model="state.delivery_time_slot">
+                      <UiSelectTrigger placeholder="Escolha um horário" />
+                      <UiSelectContent>
+                        <UiSelectItem
+                          v-for="slot in slots"
+                          :key="slot.ref"
+                          :value="slot.ref"
+                          :disabled="!slot.enabled"
+                        >
+                          {{ slot.label }}{{ slot.reason ? ` - ${slot.reason}` : '' }}
+                        </UiSelectItem>
+                      </UiSelectContent>
+                    </UiSelect>
+                    <p v-if="fieldErrors.delivery_time_slot" class="text-xs text-destructive">{{ fieldErrors.delivery_time_slot }}</p>
+                  </div>
+                </UiCardContent>
+                <UiCardFooter>
+                  <UiButton @click="continueFromWhen">Continuar</UiButton>
+                </UiCardFooter>
+              </template>
+            </UiCard>
+
+            <UiCard :class="stepCardClass('payment')" data-checkout-step="payment">
+              <div v-if="activeStep !== 'payment'" class="flex items-center gap-3 p-4 sm:p-5">
+                <UiItemMedia variant="icon" :class="isDone('payment') ? 'size-8 rounded-full bg-primary text-primary-foreground' : 'size-8 rounded-full'">
+                  <Icon :name="stepIcon('payment')" />
+                </UiItemMedia>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">{{ stepLabels.payment }}</p>
+                  <p class="truncate text-sm text-muted-foreground">{{ stepSummary('payment') }}</p>
+                </div>
+                <UiButton v-if="isDone('payment')" size="sm" variant="ghost" @click="goToStep('payment')">Editar</UiButton>
+              </div>
+              <template v-else>
+                <UiCardHeader class="flex-row items-center gap-3 space-y-0">
+                  <UiItemMedia variant="icon" class="size-8 rounded-full bg-primary text-primary-foreground">
+                    <Icon name="lucide:credit-card" />
+                  </UiItemMedia>
+                  <div>
+                    <UiCardTitle>Pagamento</UiCardTitle>
+                    <UiCardDescription>Escolha a forma mais conveniente para este pedido.</UiCardDescription>
+                  </div>
                 </UiCardHeader>
                 <UiCardContent class="space-y-4">
-                  <UiRadioGroup v-model="state.payment_method">
-                    <label v-for="method in paymentMethods" :key="method.ref" class="flex gap-3 rounded-lg border p-4">
-                      <UiRadioGroupItem :value="method.ref" />
-                      <span>
-                        <span class="block font-medium">{{ method.label }}</span>
-                        <span v-if="method.is_default" class="block text-sm text-muted-foreground">Padrao da loja</span>
-                      </span>
-                    </label>
+                  <UiRadioGroup v-model="state.payment_method" class="sm:grid-cols-2">
+                    <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`">
+                      <UiField orientation="horizontal">
+                        <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
+                        <UiFieldContent>
+                          <UiFieldTitle>{{ method.label }}</UiFieldTitle>
+                          <UiFieldDescription v-if="method.is_default">Padrão da loja</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
                   </UiRadioGroup>
                   <p v-if="fieldErrors.payment_method" class="text-xs text-destructive">{{ fieldErrors.payment_method }}</p>
-                  <label v-if="checkout.loyalty_balance_q > 0" class="flex items-center justify-between rounded-lg border p-4">
-                    <span>
-                      <span class="block font-medium">Usar fidelidade</span>
-                      <span class="block text-sm text-muted-foreground">{{ checkout.loyalty_value_display }}</span>
-                    </span>
-                    <UiSwitch v-model:checked="useLoyalty" />
-                  </label>
+                  <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty">
+                    <UiField orientation="horizontal">
+                      <UiFieldContent>
+                        <UiFieldTitle>Usar fidelidade</UiFieldTitle>
+                        <UiFieldDescription>{{ checkout.loyalty_value_display }}</UiFieldDescription>
+                      </UiFieldContent>
+                      <UiSwitch id="checkout-loyalty" v-model:checked="useLoyalty" />
+                    </UiField>
+                  </UiFieldLabel>
+                  <div class="space-y-2">
+                    <UiLabel for="checkout-notes">Observações</UiLabel>
+                    <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" />
+                  </div>
                 </UiCardContent>
-                <UiCardFooter>
-                  <UiButton @click="continueFromPayment">Revisar</UiButton>
+                <UiCardFooter class="flex-col items-stretch gap-3 border-t bg-card sm:flex-row sm:items-center sm:justify-between">
+                  <div class="min-w-0">
+                    <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
+                    <p class="text-xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+                    <p class="truncate text-xs text-muted-foreground">{{ confirmItemSummary }}</p>
+                  </div>
+                  <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:clipboard-check" size="lg" class="w-full sm:w-auto" @click="continueFromPayment">
+                    Revisar pedido
+                  </UiButton>
+                  <p v-if="submitDisabled && action?.reason" class="text-xs text-muted-foreground sm:max-w-xs">{{ action.reason }}</p>
                 </UiCardFooter>
-              </UiCard>
-            </UiTabsContent>
+              </template>
+            </UiCard>
+          </div>
 
-            <UiTabsContent value="review">
-              <UiCard>
-                <UiCardHeader>
-                  <UiCardTitle>Revisao</UiCardTitle>
-                  <UiCardDescription>{{ action?.label || 'Confirmar pedido' }}</UiCardDescription>
-                </UiCardHeader>
-                <UiCardContent class="space-y-4">
+          <UiSheet v-model:open="confirmOpen">
+            <UiSheetContent
+              side="bottom"
+              variant="floating"
+              class="mx-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl overflow-hidden"
+            >
+              <UiSheetHeader>
+                <UiSheetTitle title="Confirmar pedido" />
+                <UiSheetDescription :description="confirmSheetDescription" />
+              </UiSheetHeader>
+
+              <UiScrollArea class="min-h-0 flex-1">
+                <div class="space-y-4 p-4 pt-0">
                   <UiAlert v-if="serverError" variant="destructive">
-                    <UiAlertTitle>Nao confirmado</UiAlertTitle>
+                    <UiAlertTitle>Não confirmado</UiAlertTitle>
                     <UiAlertDescription>{{ serverError }}</UiAlertDescription>
                   </UiAlert>
-                  <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                    <div class="rounded-lg border p-3">
-                      <p class="text-muted-foreground">Contato</p>
-                      <p class="font-medium">{{ state.name }}</p>
-                      <p>{{ state.phone }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                      <p class="text-muted-foreground">Recebimento</p>
-                      <p class="font-medium">{{ state.fulfillment_type === 'delivery' ? 'Entrega' : 'Retirada' }}</p>
-                      <p>{{ state.delivery_date || 'Data mais proxima' }} {{ state.delivery_time_slot }}</p>
-                    </div>
-                    <div v-if="state.fulfillment_type === 'delivery'" class="rounded-lg border p-3 sm:col-span-2">
-                      <p class="text-muted-foreground">Endereco</p>
-                      <p class="font-medium">{{ state.delivery_address }}</p>
-                      <p>{{ compactText([state.delivery_complement, state.delivery_instructions], ' · ') }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                      <p class="text-muted-foreground">Pagamento</p>
-                      <p class="font-medium">{{ paymentMethods.find(method => method.ref === state.payment_method)?.label || state.payment_method }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                      <p class="text-muted-foreground">Total</p>
-                      <p class="font-medium">{{ cart?.grand_total_display }}</p>
-                    </div>
+
+                  <div class="rounded-lg border bg-muted/30 p-4">
+                    <p class="text-xs font-medium uppercase text-muted-foreground">Total</p>
+                    <p class="mt-1 text-3xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+                    <p class="mt-2 text-sm text-muted-foreground">{{ confirmItemSummary }}</p>
                   </div>
 
-                  <div class="space-y-2">
-                    <UiLabel for="checkout-notes">Observacoes</UiLabel>
-                    <UiTextarea id="checkout-notes" v-model="state.notes" rows="3" />
-                  </div>
-                </UiCardContent>
-              </UiCard>
-            </UiTabsContent>
-          </UiTabs>
+                  <UiDescriptionList>
+                    <UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>
+                    <UiDescriptionListDetails class="font-medium">{{ fulfillmentSummary || fulfillmentLabel }}</UiDescriptionListDetails>
+                    <UiDescriptionListTerm v-if="state.fulfillment_type === 'delivery'">Endereço</UiDescriptionListTerm>
+                    <UiDescriptionListDetails v-if="state.fulfillment_type === 'delivery'" class="font-medium">{{ addressSummary }}</UiDescriptionListDetails>
+                    <UiDescriptionListTerm>Pagamento</UiDescriptionListTerm>
+                    <UiDescriptionListDetails class="font-medium">{{ paymentMethodLabel }}</UiDescriptionListDetails>
+                    <UiDescriptionListTerm>Contato</UiDescriptionListTerm>
+                    <UiDescriptionListDetails>{{ contactSummary }}</UiDescriptionListDetails>
+                  </UiDescriptionList>
 
-          <div
-            v-if="activeStep === 'review'"
-            class="sticky bottom-20 z-30 -mx-1 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur md:bottom-4"
-          >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
-                <p class="text-xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
-              </div>
-              <UiAlertDialog>
-                <UiAlertDialogTrigger as-child>
-                  <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full sm:w-auto">
-                    {{ checkoutActionLabel }}
-                  </UiButton>
-                </UiAlertDialogTrigger>
-                <UiAlertDialogContent>
-                  <UiAlertDialogHeader>
-                    <UiAlertDialogTitle>Confirmar pedido?</UiAlertDialogTitle>
-                    <UiAlertDialogDescription>
-                      Vamos enviar o pedido para a loja e abrir o acompanhamento.
-                    </UiAlertDialogDescription>
-                  </UiAlertDialogHeader>
-                  <UiAlertDialogFooter>
-                    <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>
-                    <UiAlertDialogAction @click="submitCheckout">Confirmar</UiAlertDialogAction>
-                  </UiAlertDialogFooter>
-                </UiAlertDialogContent>
-              </UiAlertDialog>
-            </div>
-          </div>
+                  <p v-if="state.notes" class="rounded-lg border p-3 text-sm text-muted-foreground">
+                    Observações: {{ state.notes }}
+                  </p>
+                </div>
+              </UiScrollArea>
+
+              <UiSheetFooter class="border-t bg-background">
+                <UiButton variant="outline" class="w-full" @click="confirmOpen = false">Voltar</UiButton>
+                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full" @click="submitCheckout">
+                  {{ checkoutActionLabel }}
+                </UiButton>
+              </UiSheetFooter>
+            </UiSheetContent>
+          </UiSheet>
         </template>
       </section>
 
       <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
         <UiCard>
           <UiCardHeader>
-            <UiCardTitle>Carrinho</UiCardTitle>
+            <UiCardTitle>Seu pedido</UiCardTitle>
             <UiCardDescription>{{ formatCount(cart?.items_count || 0, 'item', 'itens') }}</UiCardDescription>
           </UiCardHeader>
-          <UiCardContent class="space-y-3">
-            <UiItem v-for="line in cart?.items || []" :key="line.line_id" class="p-0">
-              <UiItemContent>
-                <UiItemTitle>{{ line.name }}</UiItemTitle>
-                <UiItemDescription>{{ line.qty }} x {{ line.price_display }}</UiItemDescription>
-              </UiItemContent>
-              <UiItemActions class="text-sm font-semibold">{{ line.total_display }}</UiItemActions>
-            </UiItem>
+          <UiCardContent class="space-y-4">
+            <UiItemGroup v-if="checkout" class="gap-2" data-checkout-live-summary>
+              <UiItem size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full">
+                  <Icon :name="fulfillmentIcon" />
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>{{ fulfillmentLabel }}</UiItemTitle>
+                  <UiItemDescription>{{ whenSummary || 'Escolha data e horário' }}</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+              <UiItem v-if="state.payment_method" size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full">
+                  <Icon name="lucide:credit-card" />
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>{{ paymentMethodLabel }}</UiItemTitle>
+                  <UiItemDescription>Forma de pagamento</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+              <UiItem v-if="useLoyalty && checkout.loyalty_balance_q > 0" size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full text-primary">
+                  <Icon name="lucide:badge-percent" />
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>Usando fidelidade</UiItemTitle>
+                  <UiItemDescription>{{ checkout.loyalty_value_display }}</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+              <UiItem v-if="state.notes.trim()" size="sm" class="items-start bg-transparent p-0">
+                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full">
+                  <Icon name="lucide:sticky-note" />
+                </UiItemMedia>
+                <UiItemContent>
+                  <UiItemTitle>Com observação</UiItemTitle>
+                  <UiItemDescription class="line-clamp-2">{{ state.notes }}</UiItemDescription>
+                </UiItemContent>
+              </UiItem>
+            </UiItemGroup>
+
             <UiSeparator />
-            <div class="flex justify-between text-base font-semibold">
-              <span>Total</span>
-              <span>{{ cart?.grand_total_display || 'R$ 0,00' }}</span>
-            </div>
+
+            <UiItemGroup class="gap-2">
+              <UiItem v-for="line in cart?.items || []" :key="line.line_id" size="sm" class="items-start bg-transparent p-0">
+                <UiItemContent>
+                  <UiItemTitle class="line-clamp-1">{{ line.qty }}× {{ line.name }}</UiItemTitle>
+                  <UiItemDescription>{{ line.price_display }} cada</UiItemDescription>
+                </UiItemContent>
+                <UiItemActions class="text-sm font-semibold tabular-nums">{{ line.total_display }}</UiItemActions>
+              </UiItem>
+            </UiItemGroup>
+
+            <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
           </UiCardContent>
         </UiCard>
 
         <UiAlert v-if="checkout?.support_whatsapp_url" variant="info">
-          <UiAlertTitle>Atendimento rapido</UiAlertTitle>
+          <UiAlertTitle>Atendimento rápido</UiAlertTitle>
           <UiAlertDescription>
             <UiButton :href="checkout.support_whatsapp_url" target="_blank" variant="outline" size="sm" icon="lucide:message-circle" class="mt-2">
               WhatsApp

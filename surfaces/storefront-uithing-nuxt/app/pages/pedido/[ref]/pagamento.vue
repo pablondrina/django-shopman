@@ -41,21 +41,25 @@ onBeforeUnmount(() => {
 async function copyPix () {
   if (!payment.value?.pix_copy_paste || !import.meta.client) return
   await navigator.clipboard.writeText(payment.value.pix_copy_paste)
-  useSonner.success('Codigo PIX copiado.')
+  useSonner.success('Código PIX copiado.')
 }
 
 async function postAction (action: SurfaceActionProjection) {
   actionPending.value = { ...actionPending.value, [action.ref]: true }
   try {
+    const headers = await csrfHeaders()
+    if (action.idempotency === 'required' || action.idempotency === 'recommended') {
+      headers['x-idempotency-key'] = newRemoteMutationKey(action.ref)
+    }
     const result = await $fetch<{ redirect_url?: string }>(apiPath(action.href), {
       method: action.method || 'POST',
-      headers: await csrfHeaders(),
+      headers,
       credentials: 'include'
     })
     if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
     else await refresh()
   } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Nao foi possivel atualizar o pagamento.')
+    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível atualizar o pagamento.')
   } finally {
     const next = { ...actionPending.value }
     delete next[action.ref]
@@ -71,6 +75,14 @@ useSeoMeta({
 <template>
   <main class="shop-section">
     <div class="shop-container max-w-4xl space-y-5">
+      <UiBreadcrumbs
+        :items="[
+          { label: 'Início', link: '/' },
+          { label: 'Pedido', link: orderTrackingRoute(orderRef) },
+          { label: 'Pagamento' }
+        ]"
+      />
+
       <div>
         <p class="shop-kicker">Pagamento</p>
         <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
@@ -79,14 +91,18 @@ useSeoMeta({
       <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
 
       <UiAlert v-else-if="error" variant="destructive">
-        <UiAlertTitle>Pagamento indisponivel</UiAlertTitle>
+        <UiAlertTitle>Pagamento indisponível</UiAlertTitle>
         <UiAlertDescription>
           <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
         </UiAlertDescription>
       </UiAlert>
 
       <template v-else-if="payment">
-        <UiAlert :variant="payment.promise.tone === 'danger' ? 'destructive' : payment.promise.tone === 'warning' ? 'warning' : 'info'" filled>
+        <UiAlert
+          :variant="payment.promise.tone === 'danger' ? 'destructive' : payment.promise.tone === 'warning' ? 'warning' : 'info'"
+          :filled="payment.promise.tone !== 'danger'"
+          :icon="payment.promise.tone === 'danger' ? 'lucide:triangle-alert' : payment.promise.tone === 'warning' ? 'lucide:circle-alert' : 'lucide:info'"
+        >
           <UiAlertTitle>{{ payment.promise.title }}</UiAlertTitle>
           <UiAlertDescription>{{ payment.promise.message }}</UiAlertDescription>
         </UiAlert>
@@ -115,7 +131,7 @@ useSeoMeta({
                 <div class="space-y-3">
                   <p class="text-sm text-muted-foreground">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
-                  <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar codigo</UiButton>
+                  <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
                   <p v-if="payment.pix_expires_at" class="text-sm text-muted-foreground">Expira em {{ payment.pix_expires_at }}</p>
                 </div>
               </div>
@@ -135,7 +151,7 @@ useSeoMeta({
           <aside class="space-y-4">
             <UiCard>
               <UiCardHeader>
-                <UiCardTitle>Proxima acao</UiCardTitle>
+                <UiCardTitle>Próxima ação</UiCardTitle>
                 <UiCardDescription>{{ payment.promise.next_event }}</UiCardDescription>
               </UiCardHeader>
               <UiCardContent class="space-y-2">
@@ -156,15 +172,10 @@ useSeoMeta({
               </UiCardContent>
             </UiCard>
 
-            <UiCard>
-              <UiCardHeader>
-                <UiCardTitle>Status</UiCardTitle>
-                <UiCardDescription>{{ payment.promise.active_notification || 'Atualizacao periodica' }}</UiCardDescription>
-              </UiCardHeader>
-              <UiCardContent>
-                <UiProgress :model-value="payment.payment_status === 'paid' ? 100 : 45" />
-              </UiCardContent>
-            </UiCard>
+            <UiAlert v-if="payment.promise.active_notification" variant="info">
+              <UiAlertTitle>Status</UiAlertTitle>
+              <UiAlertDescription>{{ payment.promise.active_notification }}</UiAlertDescription>
+            </UiAlert>
           </aside>
         </div>
       </template>

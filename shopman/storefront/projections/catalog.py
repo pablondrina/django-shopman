@@ -61,6 +61,7 @@ class CatalogItemProjection:
     has_promotion: bool
     original_price_display: str | None
     promotion_label: str | None
+    unit_weight_label: str | None
 
     # Availability (canonical enum + pt-BR label)
     availability: Availability
@@ -400,6 +401,7 @@ def _build_items(
                 has_promotion=has_promo,
                 original_price_display=original_price_display,
                 promotion_label=promotion_label,
+                unit_weight_label=_unit_weight_label(p),
                 availability=availability,
                 availability_label=avail_label,
                 can_add_to_cart=can_add,
@@ -514,6 +516,10 @@ def _resolve_availability(
 def _product_tags(product: Any) -> tuple[str, ...]:
     """Read keywords (django-taggit) defensively — tests often skip tagging."""
     return catalog_context.product_tags(product)
+
+
+def _unit_weight_label(product: Any) -> str | None:
+    return f"~{product.unit_weight_g}g a unidade" if getattr(product, "unit_weight_g", None) else None
 
 
 def _search_terms(

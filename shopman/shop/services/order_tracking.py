@@ -456,6 +456,25 @@ def _action(
     )
 
 
+def _reorder_action(order, *, priority: str = "secondary") -> SurfaceActionProjection:
+    return _action(
+        ref="reorder",
+        kind="mutation",
+        label=_copy_title("TRACKING_REORDER_CTA", "Repetir pedido"),
+        priority=priority,
+        href=f"/api/v1/orders/{order.ref}/reorder/",
+        method="POST",
+        payload_schema={
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "enum": ["append", "replace"]},
+                "idempotency_key": {"type": "string"},
+            },
+        },
+        idempotency="required",
+    )
+
+
 def _build_order_actions(
     order,
     *,
@@ -539,22 +558,7 @@ def _build_order_actions(
             idempotency="recommended",
         ))
     if order.status in TERMINAL_STATUSES:
-        actions.append(_action(
-            ref="reorder",
-            kind="mutation",
-            label=_copy_title("TRACKING_REORDER_CTA", "Pedir novamente"),
-            priority="secondary",
-            href=f"/api/v1/orders/{order.ref}/reorder/",
-            method="POST",
-            payload_schema={
-                "type": "object",
-                "properties": {
-                    "mode": {"type": "string", "enum": ["append", "replace"]},
-                    "idempotency_key": {"type": "string"},
-                },
-            },
-            idempotency="required",
-        ))
+        actions.append(_reorder_action(order))
     return tuple(actions)
 
 
@@ -632,8 +636,8 @@ def _build_promise(
             requires_active_notification=True,
             notification_topic="payment_expired",
             actions=(),
-            next_event=_copy_message("TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT", "Você pode refazer o pedido quando quiser."),
-            recovery=_copy_message("TRACKING_PROMISE_RECOVERY_HELP", "Se precisar de ajuda, fale com o estabelecimento."),
+            next_event="",
+            recovery="",
         )
 
     if payment_pending:
@@ -885,7 +889,7 @@ def _build_promise(
             "O pedido foi cancelado.",
             "danger",
             "",
-            _copy_message("TRACKING_PROMISE_CANCELLED_NEXT", "Você pode refazer o pedido quando quiser."),
+            "",
         ),
     }
     if order.status in state_by_status:

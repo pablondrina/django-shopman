@@ -163,9 +163,10 @@ async function openPage (path, viewport) {
 function pageProbe () {
   return `(() => {
     const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
+    const body = document.body
     return {
       url: location.href,
-      text: document.body.innerText,
+      text: body ? body.innerText : '',
       h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
       buttons: [...document.querySelectorAll('button,a')].filter(visible).map(el => el.innerText.trim()).filter(Boolean),
       tabs: [...document.querySelectorAll('[data-slot="tabs-trigger"]')].filter(visible).map(el => ({
@@ -174,6 +175,7 @@ function pageProbe () {
         state: el.getAttribute('data-state'),
       })),
       searchInputs: [...document.querySelectorAll('input[placeholder]')].filter(visible).map(el => el.placeholder).filter(Boolean),
+      menuSearchButtons: [...document.querySelectorAll('button[aria-label="Buscar no cardápio"]')].filter(visible).length,
       productTiles: document.querySelectorAll('[data-slot="card"]').length,
       quantityControls: document.querySelectorAll('[data-slot="number-field"]').length,
       tabContents: document.querySelectorAll('[data-slot="tabs-content"]').length,
@@ -196,7 +198,7 @@ async function clickHeroTab (cdp, label) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
   await wait(350)
-  return evaluate(cdp, `(() => {
+  let state = await evaluate(cdp, `(() => {
     const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
     const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
     return {
@@ -205,13 +207,40 @@ async function clickHeroTab (cdp, label) {
       h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
     }
   })()`)
+  if (!state.selected) {
+    await evaluate(cdp, `(() => {
+      const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
+      if (tab) tab.click()
+      return true
+    })()`)
+    await wait(350)
+    state = await evaluate(cdp, `(() => {
+      const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
+      const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
+      return {
+        clicked: true,
+        selected: !!tab && (tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('data-state') === 'active'),
+        h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
+      }
+    })()`)
+  }
+  return state
 }
 
 async function dispatchClickRectCenter (cdp, selector) {
+  const found = await evaluate(cdp, `(() => {
+    const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
+    const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(visible)
+    if (!el) return false
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' })
+    return true
+  })()`)
+  if (!found) return false
+  await wait(250)
   const rect = await evaluate(cdp, `(() => {
-    const el = document.querySelector(${JSON.stringify(selector)})
+    const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
+    const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(visible)
     if (!el) return null
-    el.scrollIntoView({ block: 'center', inline: 'center' })
     const r = el.getBoundingClientRect()
     return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height }
   })()`)
@@ -224,19 +253,16 @@ async function dispatchClickRectCenter (cdp, selector) {
 }
 
 async function dispatchClickButtonText (cdp, text) {
-  const rect = await evaluate(cdp, `(() => {
-    const el = [...document.querySelectorAll('button')].find(button => button.innerText.trim() === ${JSON.stringify(text)})
-    if (!el) return null
-    el.scrollIntoView({ block: 'center', inline: 'center' })
-    const r = el.getBoundingClientRect()
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height }
+  const clicked = await evaluate(cdp, `(() => {
+    const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
+    const el = [...document.querySelectorAll('button')].find(button => visible(button) && button.innerText.trim() === ${JSON.stringify(text)})
+    if (!el) return false
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' })
+    el.click()
+    return true
   })()`)
-  if (!rect) return false
-  await wait(150)
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: rect.x, y: rect.y })
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
-  return true
+  if (clicked) await wait(250)
+  return clicked
 }
 
 async function run () {
@@ -249,19 +275,55 @@ async function run () {
     const homeState = await evaluate(home, pageProbe())
     assert(!(homeState.text.includes('Loja aberta') && homeState.text.includes('Loja em pausa')), 'home shows open and paused status at the same time')
     assert(homeState.quantityControls === 0, `home initial render should show add buttons instead of zero quantity controls, found ${homeState.quantityControls}`)
-    assert(homeState.tabContents === 1, `home hero should mount one active tab panel, found ${homeState.tabContents}`)
+    assert(homeState.tabContents === 0, `home should not mount hero tab panels, found ${homeState.tabContents}`)
+    assert(homeState.tabs.length === 0, `home hero carousel should not be implemented with tabs, found ${homeState.tabs.length} tab triggers`)
     assert(homeState.domNodes < 3200, `home initial DOM is too large: ${homeState.domNodes} nodes`)
-    assert(['Agora', 'Pedir', 'Forno'].every(label => homeState.tabs.some(tab => tab.label === label)), 'home hero does not expose the expected distinct moments')
-
-    const heroTitles = []
-    for (const label of ['Agora', 'Pedir', 'Forno']) {
-      trace(`click hero tab ${label}`)
-      const state = await clickHeroTab(home, label)
-      assert(state.clicked, `home hero tab ${label} was not clickable`)
-      assert(state.selected, `home hero tab ${label} did not become active`)
-      heroTitles.push(state.h1[0] || '')
-    }
-    assert(new Set(heroTitles).size >= 2, 'home hero moments are visually collapsed into one title')
+    assert(homeState.text.includes('Direto do forno'), 'home should expose the projected availability section')
+    assert(homeState.text.includes('Como Funciona'), 'home should expose the projected how-it-works section')
+    assert(homeState.text.includes('WhatsApp'), 'home should expose a single projected WhatsApp handoff section')
+    const heroLayout = await evaluate(home, `(() => {
+      const hero = document.querySelector('[data-home-hero-carousel]')
+      const title = hero?.querySelector('h1')
+      if (!hero || !title) return null
+      const r = hero.getBoundingClientRect()
+      return {
+        x: Math.round(r.x),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        titleAlign: getComputedStyle(title).textAlign,
+        dots: hero.querySelectorAll('[role="tab"]').length,
+      }
+    })()`)
+    assert(heroLayout && heroLayout.x <= 1 && heroLayout.width >= heroLayout.viewportWidth - 2, `mobile home hero should be full-bleed, got ${JSON.stringify(heroLayout)}`)
+    assert(heroLayout && heroLayout.height >= heroLayout.viewportHeight - 72, `mobile home hero should fill the visible viewport under the navbar, got ${JSON.stringify(heroLayout)}`)
+    assert(heroLayout && heroLayout.titleAlign === 'center', `home hero copy should be centered, got ${JSON.stringify(heroLayout)}`)
+    assert(heroLayout && heroLayout.dots >= 3, `home hero should expose carousel slide controls, got ${JSON.stringify(heroLayout)}`)
+    const homeMobileDensity = await evaluate(home, `(() => {
+      const whatsappSection = [...document.querySelectorAll('main > section')].find(section =>
+        section.innerText.includes('WhatsApp') && section.querySelector('a[href*="wa.me"], a[href*="whatsapp"]')
+      )
+      const firstProductTile = document.querySelector('[data-product-tile]')
+      const price = firstProductTile?.querySelector('.text-base.font-semibold')
+      const action = firstProductTile ? [...firstProductTile.querySelectorAll('button')].find(button => button.innerText.includes('Adicionar')) : null
+      const rect = el => {
+        const r = el.getBoundingClientRect()
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), height: Math.round(r.height) }
+      }
+      return {
+        whatsappPaddingTop: whatsappSection ? getComputedStyle(whatsappSection).paddingTop : null,
+        whatsappPaddingBottom: whatsappSection ? getComputedStyle(whatsappSection).paddingBottom : null,
+        product: firstProductTile && price && action ? {
+          tile: rect(firstProductTile),
+          price: rect(price),
+          action: rect(action),
+          sameRow: Math.abs((price.getBoundingClientRect().top + price.getBoundingClientRect().bottom) / 2 - (action.getBoundingClientRect().top + action.getBoundingClientRect().bottom) / 2) <= 18
+        } : null,
+      }
+    })()`)
+    assert(homeMobileDensity.whatsappPaddingTop === '0px' && homeMobileDensity.whatsappPaddingBottom === '0px', `mobile WhatsApp hero should not have outer vertical padding, got ${JSON.stringify(homeMobileDensity)}`)
+    assert(homeMobileDensity.product?.sameRow, `mobile product tile price and add action should share a row when space allows, got ${JSON.stringify(homeMobileDensity)}`)
     home.close()
 
     trace('open desktop home')
@@ -269,6 +331,7 @@ async function run () {
     trace('probe desktop home')
     const desktopHomeState = await evaluate(desktopHome, pageProbe())
     assert(!desktopHomeState.buttons.includes('Finalizar'), 'desktop header should not expose checkout as a global nav item')
+    assert(desktopHomeState.text.includes('Horário') && desktopHomeState.text.includes('Contato'), 'desktop shell should render the web footer')
     desktopHome.close()
 
     trace('open product detail')
@@ -286,15 +349,28 @@ async function run () {
     cdpRequestCapture(menu, requests)
     trace('probe menu')
     const menuState = await evaluate(menu, pageProbe())
-    assert(menuState.searchInputs.length === 1, `menu should show exactly one text search, found ${menuState.searchInputs.length}`)
+    assert(menuState.menuSearchButtons === 1, `menu should show one sticky search action, found ${menuState.menuSearchButtons}`)
+    assert(menuState.searchInputs.length === 0, `menu should keep text search collapsed initially, found ${menuState.searchInputs.length}`)
     assert(menuState.tabContents === 0, `menu should not duplicate grids inside hidden tab panels, found ${menuState.tabContents} tab contents`)
     assert(menuState.quantityControls <= 5, `menu initial render mounted too many quantity controls: ${menuState.quantityControls}`)
     assert(menuState.domNodes < 4000, `menu initial DOM is too large: ${menuState.domNodes} nodes`)
-    await evaluate(menu, `(() => {
+    const searchOpened = await dispatchClickRectCenter(menu, 'button[aria-label="Buscar no cardápio"]')
+    assert(searchOpened, 'menu sticky search action was not clickable')
+    const searchOpenState = await waitForProbe(
+      menu,
+      'expanded menu search',
+      state => state.searchInputs.length === 1,
+      3000
+    )
+    assert(searchOpenState.searchInputs.length === 1, `menu expanded search should show one text search, found ${searchOpenState.searchInputs.length}`)
+    const searchTyped = await evaluate(menu, `(() => {
       const input = document.querySelector('input[placeholder]')
+      if (!input) return false
       input.value = 'croissant'
       input.dispatchEvent(new Event('input', { bubbles: true }))
+      return true
     })()`)
+    assert(searchTyped, 'menu expanded search input was not writable')
     await wait(300)
     const clicked = await dispatchClickRectCenter(menu, '[data-slot="number-field-increment"]')
       || await dispatchClickButtonText(menu, 'Adicionar')
@@ -307,7 +383,8 @@ async function run () {
     assert(cartMutations.every(request => request.method === 'PUT'), 'menu quantity increment used a non-canonical cart method')
     assert(cartMutations.every(request => !request.status || request.status < 400), 'menu quantity increment returned a failed cart response')
     assert(!afterCart.text.toLowerCase().includes('estoque insuficiente'), 'menu quantity increment surfaced insufficient stock for a projected available item')
-    assert(afterCart.buttons.some(label => label.includes('Finalizar compra')), 'cart drawer should open after add and expose a visible checkout entry point')
+    assert(afterCart.buttons.includes('Carrinho'), 'cart page entry point should remain visible after add')
+    assert(!afterCart.buttons.some(label => label.includes('Finalizar pedido') || label.includes('Confirmar agora')), 'cart page should not open automatically after add')
     menu.close()
 
     trace('open checkout')
@@ -316,10 +393,10 @@ async function run () {
     const checkoutState = await waitForProbe(
       checkout,
       'checkout login gate',
-      state => state.url.includes('/thing/login?next=/checkout') && state.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo'))
+      state => state.url.includes('/thing/login?next=/checkout') && state.h1.some(title => title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('telefone') || title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('codigo'))
     )
     assert(checkoutState.url.includes('/thing/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
-    assert(checkoutState.h1.some(title => title.toLowerCase().includes('telefone') || title.toLowerCase().includes('codigo')), 'login gate should expose a visible h1')
+    assert(checkoutState.h1.some(title => title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('telefone') || title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('codigo')), 'login gate should expose a visible h1')
     assert(checkoutState.buttons.some(label => label.includes('WhatsApp')), 'login gate should expose WhatsApp recovery/send action')
     checkout.close()
   } finally {

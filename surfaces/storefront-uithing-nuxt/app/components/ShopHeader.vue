@@ -1,27 +1,43 @@
 <script setup lang="ts">
 const session = useShopSession()
-const { cart, drawerOpen } = useCartState()
+const { cart } = useCartState()
+const mobileMenuOpen = ref(false)
+const cartPulse = ref(false)
+let cartPulseTimer: ReturnType<typeof setTimeout> | null = null
 
 const navItems = [
-  { to: '/', label: 'Inicio', icon: 'lucide:home' },
-  { to: '/menu', label: 'Cardapio', icon: 'lucide:utensils' },
+  { to: '/', label: 'Início', icon: 'lucide:home' },
+  { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils' },
   { to: '/account', label: 'Conta', icon: 'lucide:user-round' }
 ]
+
+const whatsappUrl = computed(() => session.publicConfig.value?.whatsapp_url || session.shop.value?.whatsapp_url || '')
+
+watch(() => cart.value.items_count, (next, previous) => {
+  if (previous == null || next <= previous) return
+  cartPulse.value = true
+  if (cartPulseTimer) clearTimeout(cartPulseTimer)
+  cartPulseTimer = setTimeout(() => {
+    cartPulse.value = false
+    cartPulseTimer = null
+  }, 900)
+})
+
+onBeforeUnmount(() => {
+  if (cartPulseTimer) clearTimeout(cartPulseTimer)
+})
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 border-b bg-background/92 backdrop-blur supports-[backdrop-filter]:bg-background/78">
+  <header class="sticky top-0 z-40 border-b bg-background">
     <div class="shop-container flex h-16 items-center gap-3">
       <NuxtLink to="/" class="flex min-w-0 items-center gap-3">
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Icon name="lucide:shopping-basket" class="size-5" />
+        <div class="flex size-8 shrink-0 items-center justify-center text-foreground">
+          <Icon name="lucide:store" class="size-5" />
         </div>
         <div class="min-w-0">
           <p class="truncate text-sm font-semibold leading-5">
             {{ session.shop.value?.brand_name || 'Shopman' }}
-          </p>
-          <p class="truncate text-xs text-muted-foreground">
-            {{ session.shopStatus.value?.message || session.shop.value?.tagline || 'Compra rapida e acompanhada' }}
           </p>
         </div>
       </NuxtLink>
@@ -38,24 +54,57 @@ const navItems = [
         />
       </nav>
 
-      <UiTooltipProvider>
-        <UiTooltip>
-          <UiTooltipTrigger as-child>
-            <UiButton
-              variant="outline"
-              size="icon"
-              icon="lucide:shopping-cart"
-              aria-label="Abrir carrinho"
-              @click="drawerOpen = true"
-            />
-          </UiTooltipTrigger>
-          <UiTooltipContent>Carrinho</UiTooltipContent>
-        </UiTooltip>
-      </UiTooltipProvider>
+      <UiButton
+        to="/cart"
+        variant="outline"
+        size="sm"
+        icon="lucide:shopping-cart"
+        :text="cart.is_empty ? 'Carrinho' : `Carrinho (${cart.items_count})`"
+        class="hidden md:inline-flex"
+        :class="cartPulse ? 'scale-[1.03] ring-2 ring-primary/25' : ''"
+        aria-label="Ver carrinho"
+      />
 
-      <UiBadge v-if="!cart.is_empty" variant="default" class="-ml-3 -mt-7">
-        {{ cart.items_count }}
-      </UiBadge>
+      <UiSheet v-model:open="mobileMenuOpen">
+        <UiButton
+          variant="ghost"
+          size="icon"
+          icon="lucide:menu"
+          class="ml-auto md:hidden"
+          aria-label="Abrir menu"
+          @click="mobileMenuOpen = true"
+        />
+        <UiSheetContent side="bottom" variant="floating" class="mx-auto max-w-md">
+          <UiSheetHeader>
+            <UiSheetTitle title="Menu" />
+            <UiSheetDescription :description="session.shop.value?.brand_name || 'Shopman'" />
+          </UiSheetHeader>
+          <div class="grid gap-2 px-4 pb-4">
+            <UiButton
+              v-for="item in navItems"
+              :key="item.to"
+              :to="item.to"
+              variant="ghost"
+              class="w-full justify-start"
+              :icon="item.icon"
+              @click="mobileMenuOpen = false"
+            >
+              {{ item.label }}
+            </UiButton>
+            <UiButton
+              v-if="whatsappUrl"
+              :href="whatsappUrl"
+              target="_blank"
+              variant="outline"
+              class="w-full justify-start"
+              icon="lucide:message-circle"
+              @click="mobileMenuOpen = false"
+            >
+              WhatsApp
+            </UiButton>
+          </div>
+        </UiSheetContent>
+      </UiSheet>
     </div>
   </header>
 </template>

@@ -374,6 +374,7 @@ class TestStatusColours:
         assert "destination=Rua+das+Flores" in proj.pickup_info.directions_url
         assert proj.copy.page_kicker == "Acompanhamento"
         assert proj.copy.support_label == "Ajuda"
+        assert proj.copy.progress_heading == "Etapas do pedido"
         rows = [(row.label, row.value, row.url) for row in proj.promise_rows]
         assert ("Próximo passo", "Retire no estabelecimento quando puder.", None) in rows
         assert ("Sua ação", "Retirar pedido", None) in rows
@@ -661,6 +662,14 @@ class TestStatusColours:
         assert proj.confirmation_countdown is False
         assert proj.promise.requires_active_notification is True
         assert proj.promise.notification_topic == "payment_expired"
+        assert proj.promise.actions == ()
+        assert "repetir o pedido" in proj.promise.message
+        assert proj.promise.next_event == ""
+        assert proj.promise.recovery == ""
+        assert any(action.ref == "reorder" and action.label == "Repetir pedido" for action in proj.actions)
+        row_labels = [row.label for row in proj.promise_rows]
+        assert "Próximo passo" not in row_labels
+        assert "Se algo mudar" not in row_labels
 
     def test_confirmed_paid_order_keeps_payment_confirmation_visible(self, order_with_payment):
         from shopman.payman import PaymentService

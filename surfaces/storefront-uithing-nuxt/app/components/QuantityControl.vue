@@ -6,7 +6,9 @@ const props = defineProps<{
   qty: number
   disabled?: boolean
   maxQty?: number | null
+  minQty?: number
   compact?: boolean
+  tone?: 'default' | 'inverted'
 }>()
 
 const emit = defineEmits<{
@@ -23,14 +25,14 @@ watch(() => props.qty, value => {
 const pending = computed(() => isPending(props.meta.sku))
 
 async function commit (value: number) {
-  const next = clampQuantity(value, props.maxQty)
+  const next = clampQuantity(value, props.maxQty, props.minQty ?? 0)
   localQty.value = next
   await setSkuQty(props.meta, next)
   emit('changed', next)
 }
 
 function handleModelValue (value: unknown) {
-  const next = quantityFromModelValue(value)
+  const next = quantityFromModelValue(value, props.minQty ?? 0)
   if (next === null) return
   if (pending.value) {
     localQty.value = props.qty
@@ -45,13 +47,16 @@ function handleModelValue (value: unknown) {
   })
 }
 
-const controlClass = computed(() => props.compact ? 'w-28' : 'w-36')
+const controlClass = computed(() => [
+  props.compact ? 'w-28' : 'w-36',
+  props.tone === 'inverted' ? 'border-background/30 bg-background text-foreground' : ''
+])
 </script>
 
 <template>
   <UiNumberField
     v-model="localQty"
-    :min="0"
+    :min="minQty ?? 0"
     :max="maxQty ?? undefined"
     :disabled="disabled || pending"
     :class="controlClass"

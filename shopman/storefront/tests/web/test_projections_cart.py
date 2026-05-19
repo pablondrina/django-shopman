@@ -60,6 +60,11 @@ class TestEmptyCart:
         assert proj.coupon_code is None
         assert proj.minimum_order_progress is None
         assert proj.upsell is None
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.kind == "link"
+        assert checkout.enabled is False
+        assert checkout.reason == "Carrinho vazio."
+        assert checkout.href == "/checkout"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -90,6 +95,15 @@ class TestPopulatedCart:
         assert proj.items_count == 2
         assert proj.subtotal_q == item.total_price_q
         assert proj.grand_total_q == item.total_price_q
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.label == "Finalizar pedido"
+        assert checkout.href == "/checkout"
+        if proj.minimum_order_progress is not None:
+            assert checkout.enabled is False
+            assert checkout.reason == f"Faltam {proj.minimum_order_progress.remaining_display} para o pedido mínimo."
+        else:
+            assert checkout.enabled is True
+            assert checkout.reason == ""
 
     def test_projection_is_immutable(self, cart_session):
         from dataclasses import FrozenInstanceError
@@ -226,6 +240,9 @@ class TestMinimumOrderProgress:
         assert progress.remaining_q == 5000 - proj.subtotal_q
         assert progress.minimum_display == "R$ 50,00"
         assert 0 <= progress.percent <= 100
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.enabled is False
+        assert checkout.reason == f"Faltam {progress.remaining_display} para o pedido mínimo."
 
     def test_no_progress_when_rule_inactive(self, cart_session):
         # Explicitly disable validators on the channel ([] = run none).
@@ -238,6 +255,9 @@ class TestMinimumOrderProgress:
         request = _request_with_cart_session(cart_session)
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         assert proj.minimum_order_progress is None
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.enabled is True
+        assert checkout.reason == ""
 
 
 # ──────────────────────────────────────────────────────────────────────

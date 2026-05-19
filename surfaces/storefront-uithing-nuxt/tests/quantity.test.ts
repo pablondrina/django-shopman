@@ -21,4 +21,10 @@ describe('quantity control serialization', () => {
     expect(clampQuantity(-3, 17)).toBe(0)
     expect(clampQuantity(5, null)).toBe(5)
   })
+
+  it('supports explicit removal outside cart review and a minimum of one inside cart lines', () => {
+    expect(quantityFromModelValue(0)).toBe(0)
+    expect(quantityFromModelValue(0, 1)).toBe(1)
+    expect(clampQuantity(0, null, 1)).toBe(1)
+  })
 })

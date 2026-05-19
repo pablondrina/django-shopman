@@ -1,26 +1,19 @@
 <script setup lang="ts">
 import type { CopyEntryProjection, HomeProjection, SurfaceActionProjection } from '~/types/shopman'
 
-type HeroKey = 'now' | 'order' | 'reorder' | 'handmade'
-
 interface HeroSlide {
-  key: HeroKey
-  tabLabel: string
-  icon: string
-  eyebrow: string
+  ref: string
+  eyebrow?: string
   titleLines: string[]
-  description: string
+  description?: string
   imageUrl: string | null
   imageAlt: string
   primaryLabel: string
   primaryIcon: string
   primaryTo?: string
-  action?: 'reorder'
+  primaryAction?: SurfaceActionProjection | null
   secondaryLabel?: string
-  secondaryIcon?: string
   secondaryTo?: string
-  secondaryHref?: string
-  external?: boolean
 }
 
 const props = defineProps<{
@@ -36,9 +29,13 @@ const emit = defineEmits<{
   reorder: [action: SurfaceActionProjection | null]
 }>()
 
-const activeHero = ref<HeroKey>('now')
 const featured = computed(() => props.home.featured_items || [])
 const menuTo = computed(() => localRouteFromBackend(props.primaryAction?.href || '/menu'))
+const statusVariant = computed(() => props.statusOpen ? 'secondary' : 'warning')
+const activeIndex = ref(0)
+const paused = ref(false)
+const touchStartX = ref(0)
+let autoplayTimer: ReturnType<typeof setInterval> | null = null
 
 function titleOf (entry: CopyEntryProjection, fallback: string) {
   return entry.title?.trim() || fallback
@@ -56,185 +53,267 @@ function imageAltAt (index: number, fallback: string) {
   return featured.value[index]?.name || fallback
 }
 
+function sentence (value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
+function activatePreviousSlide () {
+  const total = slides.value.length
+  if (!total) return
+  activeIndex.value = activeIndex.value === 0 ? total - 1 : activeIndex.value - 1
+}
+
+function activateNextSlide () {
+  const total = slides.value.length
+  if (!total) return
+  activeIndex.value = activeIndex.value === total - 1 ? 0 : activeIndex.value + 1
+}
+
+function activateSlide (index: number) {
+  activeIndex.value = index
+}
+
+function handleTouchEnd (event: TouchEvent) {
+  const dx = event.changedTouches[0]?.screenX - touchStartX.value
+  if (Math.abs(dx) < 50) return
+  if (dx < 0) activateNextSlide()
+  else activatePreviousSlide()
+}
+
+function handlePrimaryAction (slide: HeroSlide) {
+  if (slide.primaryAction) emit('reorder', slide.primaryAction)
+}
+
 const slides = computed<HeroSlide[]>(() => {
   const copy = props.home.hero_copy
   const shop = props.home.shop
-  const next: HeroSlide[] = []
+  const omo = props.home.omotenashi
+  const customerName = omo.customer_name?.trim()
+  const menuLabel = titleOf(copy.menu_cta, 'Ver cardápio')
+  const handmadeTitle = `${titleOf(copy.handmade_title_prefix, 'Feito à mão,')} ${titleOf(copy.handmade_title_suffix, 'todo dia')}`
+  const greetingTitle = sentence(omo.greeting_with_name || handmadeTitle)
+  const list: HeroSlide[] = []
 
-  next.push({
-    key: 'now',
-    tabLabel: props.home.omotenashi.is_birthday ? 'Hoje' : 'Agora',
-    icon: props.home.omotenashi.is_birthday ? 'lucide:sparkles' : 'lucide:store',
-    eyebrow: props.home.omotenashi.greeting_with_name,
-    titleLines: props.home.omotenashi.is_birthday
-      ? [titleOf(copy.birthday_heading, 'Um cuidado especial hoje')]
-      : [shop.brand_name, shop.tagline],
-    description: props.home.omotenashi.is_birthday
-      ? messageOf(copy.birthday_sub, shop.description)
-      : (props.home.omotenashi.shop_hint || shop.description),
-    imageUrl: imageAt(0),
-    imageAlt: imageAltAt(0, shop.brand_name),
-    primaryLabel: props.home.omotenashi.is_birthday
-      ? titleOf(copy.birthday_cta, titleOf(copy.menu_cta, 'Ver cardapio'))
-      : titleOf(copy.menu_cta, 'Ver cardapio'),
-    primaryIcon: props.home.omotenashi.is_birthday ? 'lucide:gift' : 'lucide:arrow-right',
-    primaryTo: menuTo.value,
-    secondaryLabel: props.home.public_config.whatsapp_url ? 'WhatsApp' : undefined,
-    secondaryIcon: 'lucide:message-circle',
-    secondaryHref: props.home.public_config.whatsapp_url || undefined,
-    external: true
-  })
+  if (omo.is_birthday) {
+    list.push({
+      ref: 'birthday',
+      titleLines: [`${titleOf(copy.birthday_heading, 'Um cuidado especial hoje')}${customerName ? `, ${customerName}` : ''}!`],
+      description: messageOf(copy.birthday_sub, shop.description),
+      imageUrl: imageAt(0),
+      imageAlt: imageAltAt(0, shop.brand_name),
+      primaryLabel: titleOf(copy.birthday_cta, titleOf(copy.menu_cta, 'Ver cardápio')),
+      primaryIcon: 'lucide:gift',
+      primaryTo: menuTo.value
+    })
+  } else {
+    list.push({
+      ref: 'greeting',
+      titleLines: [greetingTitle],
+      description: omo.shop_hint || shop.description,
+      imageUrl: imageAt(0),
+      imageAlt: imageAltAt(0, shop.brand_name),
+      primaryLabel: menuLabel,
+      primaryIcon: 'lucide:utensils',
+      primaryTo: menuTo.value
+    })
+  }
 
-  next.push({
-    key: 'order',
-    tabLabel: 'Pedir',
-    icon: 'lucide:shopping-bag',
-    eyebrow: props.home.omotenashi.greeting_with_name,
+  list.push({
+    ref: 'order',
     titleLines: [
       titleOf(copy.order_title_prefix, shop.brand_name),
       titleOf(copy.order_title_suffix, shop.tagline)
     ],
-    description: messageOf(copy.order_subtitle, shop.description),
-    imageUrl: imageAt(0),
-    imageAlt: imageAltAt(0, shop.brand_name),
-    primaryLabel: props.primaryAction?.label || titleOf(copy.menu_cta, 'Ver cardapio'),
+    description: messageOf(copy.order_subtitle, omo.shop_hint || shop.description),
+    imageUrl: imageAt(1),
+    imageAlt: imageAltAt(1, shop.brand_name),
+    primaryLabel: props.primaryAction?.label || menuLabel,
     primaryIcon: 'lucide:utensils',
-    primaryTo: menuTo.value,
-    secondaryLabel: props.home.public_config.whatsapp_url ? 'WhatsApp' : undefined,
-    secondaryIcon: 'lucide:message-circle',
-    secondaryHref: props.home.public_config.whatsapp_url || undefined,
-    external: true
+    primaryTo: menuTo.value
   })
 
-  if (props.reorderAction || props.home.last_order_items.length) {
-    next.push({
-      key: 'reorder',
-      tabLabel: 'Repetir',
-      icon: 'lucide:rotate-ccw',
-      eyebrow: props.home.last_order_ref ? `Pedido ${props.home.last_order_ref}` : 'Historico',
+  if (props.home.last_order_ref && props.reorderAction) {
+    list.push({
+      ref: 'reorder',
       titleLines: [
-        titleOf(copy.reorder_title_prefix, 'Seu pedido favorito'),
-        titleOf(copy.reorder_title_suffix, 'de volta')
+        titleOf(copy.reorder_title_prefix, 'Quer repetir seu'),
+        `${titleOf(copy.reorder_title_suffix, 'último pedido')}${customerName ? `, ${customerName}` : ''}?`
       ],
-      description: messageOf(copy.reorder_subtitle, 'Revise o pedido anterior antes de confirmar.'),
-      imageUrl: imageAt(1),
-      imageAlt: imageAltAt(1, shop.brand_name),
-      primaryLabel: props.reorderAction?.label || 'Ver historico',
+      description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
+      imageUrl: imageAt(2),
+      imageAlt: imageAltAt(2, shop.brand_name),
+      primaryLabel: props.reorderAction.label || 'Pedir de novo',
       primaryIcon: 'lucide:rotate-ccw',
-      action: 'reorder',
-      secondaryLabel: titleOf(copy.menu_cta, 'Cardapio'),
-      secondaryIcon: 'lucide:utensils',
+      primaryAction: props.reorderAction,
+      secondaryLabel: menuLabel,
       secondaryTo: menuTo.value
+    })
+  } else {
+    list.push({
+      ref: 'greeting-return',
+      titleLines: [greetingTitle],
+      description: omo.shop_hint || shop.description,
+      imageUrl: imageAt(2),
+      imageAlt: imageAltAt(2, shop.brand_name),
+      primaryLabel: menuLabel,
+      primaryIcon: 'lucide:utensils',
+      primaryTo: menuTo.value
     })
   }
 
-  next.push({
-    key: 'handmade',
-    tabLabel: 'Forno',
-    icon: 'lucide:wheat',
-    eyebrow: 'Producao artesanal',
+  list.push({
+    ref: 'handmade',
     titleLines: [
-      titleOf(copy.handmade_title_prefix, 'Feito aqui'),
-      titleOf(copy.handmade_title_suffix, 'para hoje')
+      titleOf(copy.handmade_title_prefix, 'Feito à mão,'),
+      titleOf(copy.handmade_title_suffix, 'todo dia')
     ],
-    description: messageOf(copy.handmade_subtitle, shop.description),
-    imageUrl: imageAt(2),
-    imageAlt: imageAltAt(2, shop.brand_name),
-    primaryLabel: titleOf(copy.menu_cta, 'Ver cardapio'),
-    primaryIcon: 'lucide:arrow-right',
-    primaryTo: menuTo.value,
-    secondaryLabel: props.home.public_config.whatsapp_url ? 'WhatsApp' : undefined,
-    secondaryIcon: 'lucide:message-circle',
-    secondaryHref: props.home.public_config.whatsapp_url || undefined,
-    external: true
+    description: messageOf(copy.handmade_subtitle, 'Do forno para a sua mesa.'),
+    imageUrl: imageAt(3),
+    imageAlt: imageAltAt(3, shop.brand_name),
+    primaryLabel: menuLabel,
+    primaryIcon: 'lucide:utensils',
+    primaryTo: menuTo.value
   })
 
-  return next
+  return list
+})
+const activeSlide = computed(() => slides.value[activeIndex.value] || slides.value[0])
+const heroTitleLabel = computed(() => activeSlide.value?.titleLines.join(' ') || '')
+
+watch(slides, value => {
+  if (activeIndex.value >= value.length) activeIndex.value = 0
 })
 
-const activeSlide = computed<HeroSlide | null>(() =>
-  slides.value.find(slide => slide.key === activeHero.value) || slides.value[0] || null
-)
-
-watchEffect(() => {
-  if (!slides.value.some(slide => slide.key === activeHero.value)) {
-    activeHero.value = slides.value[0]?.key || 'order'
+watch(paused, value => {
+  if (value && autoplayTimer) {
+    clearInterval(autoplayTimer)
+    autoplayTimer = null
+  } else if (!value && !autoplayTimer && slides.value.length > 1) {
+    autoplayTimer = setInterval(activateNextSlide, 6000)
   }
+})
+
+onMounted(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!reduceMotion && slides.value.length > 1) {
+    autoplayTimer = setInterval(activateNextSlide, 6000)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (autoplayTimer) clearInterval(autoplayTimer)
 })
 </script>
 
 <template>
-  <UiTabs v-model="activeHero" class="shop-panel gap-0 overflow-hidden">
-    <div class="relative">
-      <div class="absolute inset-x-0 top-0 z-20 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <UiBadge :variant="statusOpen ? 'default' : 'warning'" class="w-fit shadow-sm">
+  <section
+    v-if="activeSlide"
+    class="-mx-4 overflow-hidden rounded-none border-y bg-card text-card-foreground shadow-sm sm:mx-0 sm:rounded-lg sm:border"
+    data-home-hero-carousel
+    aria-roledescription="carousel"
+    aria-label="Destaques da loja"
+    @mouseenter="paused = true"
+    @mouseleave="paused = false"
+    @focusin="paused = true"
+    @focusout="paused = false"
+    @touchstart.passive="touchStartX = $event.changedTouches[0]?.screenX || 0"
+    @touchend.passive="handleTouchEnd"
+  >
+    <div class="relative min-h-[calc(100svh-4rem)] select-none sm:min-h-[440px] lg:min-h-[480px]">
+      <img
+        v-if="activeSlide.imageUrl"
+        :key="activeSlide.ref"
+        :src="activeSlide.imageUrl"
+        :alt="activeSlide.imageAlt"
+        fetchpriority="high"
+        decoding="async"
+        class="absolute inset-0 size-full object-cover"
+      >
+      <div v-else class="absolute inset-0 bg-muted" />
+      <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,.74),rgba(0,0,0,.34),rgba(0,0,0,.18))]" />
+
+      <div class="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 sm:p-5">
+        <UiBadge :variant="statusVariant" class="shadow-sm">
           {{ statusLabel }}
         </UiBadge>
-        <div class="no-scrollbar max-w-full overflow-x-auto rounded-md bg-black/35 p-1 shadow-sm backdrop-blur">
-          <UiTabsList class="bg-transparent text-white/80">
-            <UiTabsTrigger
-              v-for="slide in slides"
-              :key="slide.key"
-              :value="slide.key"
-              class="gap-1.5 text-white/80 data-[state=active]:bg-white data-[state=active]:text-foreground hover:text-white"
-              @click="activeHero = slide.key"
+      </div>
+
+      <div class="relative z-10 flex min-h-[calc(100svh-4rem)] items-center justify-center px-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] pt-16 text-center text-white sm:min-h-[440px] sm:px-7 sm:py-20 lg:min-h-[480px] lg:px-9">
+        <div class="mx-auto flex max-w-3xl flex-col items-center">
+          <p v-if="activeSlide.eyebrow" class="text-sm font-medium text-white/80">{{ activeSlide.eyebrow }}</p>
+          <h1 class="mt-2 text-4xl font-semibold leading-tight sm:text-5xl" :aria-label="heroTitleLabel">
+            <span v-for="line in activeSlide.titleLines" :key="line" class="block" aria-hidden="true">
+              {{ line }}
+            </span>
+          </h1>
+          <p v-if="activeSlide.description" class="mt-4 max-w-xl text-sm leading-6 text-white/84 sm:text-base">
+            {{ activeSlide.description }}
+          </p>
+          <div class="mt-6 flex flex-wrap justify-center gap-3">
+            <UiButton
+              v-if="activeSlide.primaryTo"
+              :to="activeSlide.primaryTo"
+              size="lg"
+              :icon="activeSlide.primaryIcon"
             >
-              <Icon :name="slide.icon" class="size-3.5" />
-              {{ slide.tabLabel }}
-            </UiTabsTrigger>
-          </UiTabsList>
+              {{ activeSlide.primaryLabel }}
+            </UiButton>
+            <UiButton
+              v-else
+              size="lg"
+              :icon="activeSlide.primaryIcon"
+              :loading="props.reorderLoading"
+              @click="handlePrimaryAction(activeSlide)"
+            >
+              {{ activeSlide.primaryLabel }}
+            </UiButton>
+            <UiButton
+              v-if="activeSlide.secondaryTo"
+              :to="activeSlide.secondaryTo"
+              size="lg"
+              variant="outline"
+              class="border-white/30 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            >
+              {{ activeSlide.secondaryLabel }}
+            </UiButton>
+          </div>
         </div>
       </div>
 
-      <UiTabsContent v-if="activeSlide" :key="activeSlide.key" :value="activeSlide.key" class="m-0">
-        <div class="relative min-h-[500px] sm:min-h-[560px]">
-          <img
-            v-if="activeSlide.imageUrl"
-            :src="activeSlide.imageUrl"
-            :alt="activeSlide.imageAlt"
-            fetchpriority="high"
-            decoding="async"
-            class="absolute inset-0 size-full object-cover"
-          >
-          <div v-else class="absolute inset-0 bg-muted" />
-          <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,18,14,.22),rgba(5,18,14,.86))]" />
-          <div class="absolute inset-x-0 bottom-0 z-10 p-5 pt-24 text-white sm:p-7 lg:p-9">
-            <p class="text-sm font-medium text-white/80">{{ activeSlide.eyebrow }}</p>
-            <h1 class="mt-2 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
-              <span v-for="line in activeSlide.titleLines" :key="line" class="block">{{ line }}</span>
-            </h1>
-            <p class="mt-4 max-w-xl text-sm leading-6 text-white/84 sm:text-base">
-              {{ activeSlide.description }}
-            </p>
-            <div class="mt-6 flex flex-wrap gap-3">
-              <UiButton
-                v-if="activeSlide.action === 'reorder'"
-                size="lg"
-                :icon="activeSlide.primaryIcon"
-                :loading="reorderLoading"
-                @click="emit('reorder', reorderAction)"
-              >
-                {{ activeSlide.primaryLabel }}
-              </UiButton>
-              <UiButton v-else :to="activeSlide.primaryTo" size="lg" :icon="activeSlide.primaryIcon">
-                {{ activeSlide.primaryLabel }}
-              </UiButton>
-              <UiButton
-                v-if="activeSlide.secondaryTo || activeSlide.secondaryHref"
-                :to="activeSlide.secondaryTo"
-                :href="activeSlide.secondaryHref"
-                :target="activeSlide.external ? '_blank' : undefined"
-                variant="outline"
-                size="lg"
-                :icon="activeSlide.secondaryIcon"
-                class="border-white/40 bg-white/8 text-white hover:bg-white/16"
-              >
-                {{ activeSlide.secondaryLabel }}
-              </UiButton>
-            </div>
-          </div>
+      <template v-if="slides.length > 1">
+        <UiButton
+          variant="ghost"
+          size="icon-sm"
+          icon="lucide:chevron-left"
+          class="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25 hover:text-white"
+          aria-label="Slide anterior"
+          @click="activatePreviousSlide"
+        />
+        <UiButton
+          variant="ghost"
+          size="icon-sm"
+          icon="lucide:chevron-right"
+          class="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/15 text-white hover:bg-white/25 hover:text-white"
+          aria-label="Próximo slide"
+          @click="activateNextSlide"
+        />
+        <div class="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
+          <UiButton
+            v-for="(slide, index) in slides"
+            :key="slide.ref"
+            variant="ghost"
+            size="icon-xs"
+            class="h-2 min-h-0 rounded-full p-0 hover:bg-white/70"
+            :class="index === activeIndex ? 'w-6 bg-white' : 'w-2 bg-white/45'"
+            :aria-label="`Slide ${index + 1}`"
+            :aria-selected="index === activeIndex"
+            role="tab"
+            @click="activateSlide(index)"
+          />
         </div>
-      </UiTabsContent>
+      </template>
     </div>
-  </UiTabs>
+  </section>
 </template>

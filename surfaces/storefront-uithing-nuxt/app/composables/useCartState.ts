@@ -57,7 +57,35 @@ function emptyCart (): CartProjection {
     has_awaiting_confirmation_items: false,
     has_ready_for_confirmation_items: false,
     minimum_order_progress: null,
-    upsell: null
+    upsell: null,
+    actions: [
+      {
+        ref: 'checkout',
+        kind: 'link',
+        label: 'Finalizar pedido',
+        priority: 'primary',
+        enabled: false,
+        reason: 'Carrinho vazio.',
+        href: '/checkout',
+        method: '',
+        payload_schema: {},
+        idempotency: 'none',
+        confirmation: {}
+      },
+      {
+        ref: 'continue_shopping',
+        kind: 'link',
+        label: 'Continuar comprando',
+        priority: 'secondary',
+        enabled: true,
+        reason: '',
+        href: '/menu',
+        method: '',
+        payload_schema: {},
+        idempotency: 'none',
+        confirmation: {}
+      }
+    ]
   }
 }
 
@@ -110,7 +138,6 @@ export function useCartState () {
   const cartIssue = useState<CartIssue | null>('shopman-thing-cart-issue', () => null)
   const rateLimitRecovery = useState<RateLimitRecovery | null>('shopman-thing-cart-rate-limit', () => null)
   const lastMutation = useState<CartMutationSnapshot | null>('shopman-thing-cart-last-mutation', () => null)
-  const drawerOpen = useState<boolean>('shopman-thing-cart-drawer', () => false)
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
 
@@ -164,7 +191,6 @@ export function useCartState () {
       setFromServer(response.cart)
       lastMutation.value = null
       if (import.meta.client) {
-        if (qty > 0) drawerOpen.value = true
         useSonner(qty > 0 ? `${meta.name} atualizado no carrinho.` : `${meta.name} removido do carrinho.`)
       }
       return response
@@ -175,7 +201,7 @@ export function useCartState () {
       if (status === 409 && data) {
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
-        drawerOpen.value = true
+        if (import.meta.client) await navigateTo('/cart')
       } else if (status === 429) {
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {
@@ -184,7 +210,7 @@ export function useCartState () {
         }
         lastError.value = detail
       } else {
-        lastError.value = String(data?.detail || 'Nao foi possivel atualizar o carrinho.')
+        lastError.value = String(data?.detail || 'Não foi possível atualizar o carrinho.')
       }
       if (import.meta.client) useSonner.error(lastError.value)
       throw error
@@ -199,7 +225,7 @@ export function useCartState () {
     const response = await $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
       method: 'POST',
       headers: await csrfHeaders(),
-      body: { coupon_code },
+      body: { code: coupon_code },
       credentials: 'include'
     })
     setFromServer(response.cart)
@@ -233,7 +259,6 @@ export function useCartState () {
 
   return {
     cart,
-    drawerOpen,
     hasPendingMutations,
     pendingBySku,
     lastError,

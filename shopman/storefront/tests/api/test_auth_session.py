@@ -356,6 +356,30 @@ def test_auth_device_check_trusted_cookie_creates_json_session(client: Client):
     assert client.session.get("_auth_user_id") is not None
 
 
+def test_auth_device_check_preserves_international_phone_region(monkeypatch, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    checked = {}
+
+    def fake_trusted_device_login(request, *, phone):
+        checked["phone"] = phone
+        return None
+
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "trusted_device_login", fake_trusted_device_login)
+
+    response = client.post(
+        "/api/v1/auth/device-check/",
+        data={"phone": "+1 202 555 1234", "phone_region": "INTL"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["trusted"] is False
+    assert response.json()["phone"] == "+12025551234"
+    assert checked["phone"] == "+12025551234"
+
+
 def test_auth_device_check_wrong_customer_does_not_skip_otp(client: Client):
     from shopman.doorman import TrustedDevice
     from shopman.doorman.conf import doorman_settings

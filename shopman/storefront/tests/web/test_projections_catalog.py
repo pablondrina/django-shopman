@@ -133,9 +133,21 @@ class TestCatalogItemProjection:
         assert item.has_promotion is False
         assert item.original_price_display is None
         assert item.promotion_label is None
+        assert item.unit_weight_label is None
         assert item.category == "paes"
         # Builder should return the item even when stock was never seeded.
         assert item.availability_label  # pt-BR label always present
+
+    def test_item_projects_unit_weight_label(self, listing, collection, collection_item, product):
+        product.unit_weight_g = 100
+        product.save(update_fields=["unit_weight_g"])
+        _publish_on_listing(listing, product)
+
+        proj = build_catalog(channel_ref="web")
+        item = _find_item(proj, product.sku)
+
+        assert item is not None
+        assert item.unit_weight_label == "~100g a unidade"
 
     def test_item_search_terms_include_remote_purchase_facts(
         self, listing, collection, collection_item, product,

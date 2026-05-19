@@ -3,7 +3,7 @@ import type { CartProjection, ReorderConflictProjection, SurfaceActionProjection
 export function useReorder () {
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
-  const { setFromServer, drawerOpen } = useCartState()
+  const { setFromServer } = useCartState()
   const pending = useState<Record<string, boolean>>('shopman-thing-reorder-pending', () => ({}))
   const conflict = useState<ReorderConflictProjection | null>('shopman-thing-reorder-conflict', () => null)
 
@@ -20,15 +20,15 @@ export function useReorder () {
         body: { mode }
       })
       if (response.cart) setFromServer(response.cart)
-      drawerOpen.value = true
       if (import.meta.client) useSonner.success('Itens adicionados ao carrinho.')
+      if (import.meta.client) await navigateTo('/cart')
       conflict.value = null
       return response
     } catch (e: any) {
       if (e?.response?.status === 409 && e?.data) {
         conflict.value = e.data as ReorderConflictProjection
       } else if (import.meta.client) {
-        useSonner.error(e?.data?.detail || 'Nao foi possivel refazer este pedido.')
+        useSonner.error(e?.data?.detail || 'Não foi possível refazer este pedido.')
       }
       throw e
     } finally {
