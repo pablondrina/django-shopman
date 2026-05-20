@@ -80,6 +80,59 @@ class TestShopAdminStorefrontPreview:
         assert b"Atualizar preview" in resp.content
 
 
+class TestShopAdminOpeningHours:
+    def test_change_page_uses_structured_opening_hour_fields(self, db, admin_user, shop):
+        client = Client()
+        client.force_login(admin_user)
+        url = reverse("admin:shop_shop_change", args=[shop.pk])
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert b'name="opening_hours_wednesday_status"' in resp.content
+        assert b'name="opening_hours_wednesday_open"' in resp.content
+        assert b'name="opening_hours_wednesday_close"' in resp.content
+        assert b'name="opening_hours"' not in resp.content
+
+    def test_form_saves_opening_hours_from_day_fields(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.opening_hours = {
+            "wednesday": {"open": "09:00", "close": "23:00"},
+        }
+        shop.save(update_fields=["opening_hours"])
+
+        initial_form = ShopForm(instance=shop)
+        data = {}
+        for name, field in initial_form.fields.items():
+            if name.startswith("opening_hours_"):
+                continue
+            value = initial_form.initial.get(name)
+            if value is None:
+                value = getattr(shop, name, field.initial)
+            if value is None:
+                value = [] if name == "social_links" else {}
+            data[name] = value
+        data["social_links"] = "[]"
+        data["tracking_copy"] = "{}"
+        data["defaults"] = "{}"
+        data["integrations"] = "{}"
+
+        for day in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday"):
+            data[f"opening_hours_{day}_status"] = "open"
+            data[f"opening_hours_{day}_open"] = "09:00"
+            data[f"opening_hours_{day}_close"] = "18:00"
+        data["opening_hours_sunday_status"] = "closed"
+        data["opening_hours_sunday_open"] = ""
+        data["opening_hours_sunday_close"] = ""
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.opening_hours["wednesday"] == {"open": "09:00", "close": "18:00"}
+        assert saved.opening_hours["saturday"] == {"open": "09:00", "close": "18:00"}
+        assert "sunday" not in saved.opening_hours
+
+
 class TestShopAdminSingleton:
     def test_has_add_permission_when_empty(self, db, rf, admin_user):
         shop_admin = admin.site._registry[Shop]

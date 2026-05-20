@@ -3,20 +3,170 @@
 from __future__ import annotations
 
 import json
+from datetime import time
 
 from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
-from unfold.widgets import UnfoldAdminColorInputWidget
+from unfold.widgets import UnfoldAdminColorInputWidget, UnfoldAdminSelectWidget, UnfoldAdminTimeWidget
 
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
 from shopman.shop.models import NotificationTemplate, Shop
 
 
+OPENING_HOUR_DAYS = (
+    ("monday", "Segunda"),
+    ("tuesday", "Terça"),
+    ("wednesday", "Quarta"),
+    ("thursday", "Quinta"),
+    ("friday", "Sexta"),
+    ("saturday", "Sábado"),
+    ("sunday", "Domingo"),
+)
+
+OPENING_STATUS_CHOICES = (
+    ("open", "Aberto"),
+    ("closed", "Fechado"),
+)
+
+
+def _opening_field(day: str, suffix: str) -> str:
+    return f"opening_hours_{day}_{suffix}"
+
+
+def _format_admin_time(value) -> str:
+    if isinstance(value, time):
+        return value.strftime("%H:%M")
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    return raw[:5]
+
+
 class ShopForm(forms.ModelForm):
+    opening_hours_monday_status = forms.ChoiceField(
+        label="Segunda",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_monday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_monday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_tuesday_status = forms.ChoiceField(
+        label="Terça",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_tuesday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_tuesday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_wednesday_status = forms.ChoiceField(
+        label="Quarta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_wednesday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_wednesday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_thursday_status = forms.ChoiceField(
+        label="Quinta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_thursday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_thursday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_friday_status = forms.ChoiceField(
+        label="Sexta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_friday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_friday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_saturday_status = forms.ChoiceField(
+        label="Sábado",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_saturday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_saturday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_sunday_status = forms.ChoiceField(
+        label="Domingo",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_sunday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_sunday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+
     class Meta:
         model = Shop
         fields = "__all__"
@@ -29,6 +179,51 @@ class ShopForm(forms.ModelForm):
             "heading_font": FontPreviewWidget(sample_text="Aa Bb Cc \u2014 O sabor que encanta"),
             "body_font": FontPreviewWidget(sample_text="O p\u00e3o fresco de cada dia, feito com amor e tradi\u00e7\u00e3o."),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop("opening_hours", None)
+
+        opening_hours = getattr(self.instance, "opening_hours", None) or {}
+        if not isinstance(opening_hours, dict):
+            opening_hours = {}
+
+        for day, _label in OPENING_HOUR_DAYS:
+            entry = opening_hours.get(day) if isinstance(opening_hours.get(day), dict) else {}
+            opens_at = _format_admin_time(entry.get("open"))
+            closes_at = _format_admin_time(entry.get("close"))
+            self.fields[_opening_field(day, "status")].initial = "open" if opens_at and closes_at else "closed"
+            self.fields[_opening_field(day, "open")].initial = opens_at
+            self.fields[_opening_field(day, "close")].initial = closes_at
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for day, label in OPENING_HOUR_DAYS:
+            status = cleaned_data.get(_opening_field(day, "status"))
+            opens_at = cleaned_data.get(_opening_field(day, "open"))
+            closes_at = cleaned_data.get(_opening_field(day, "close"))
+            if status != "open":
+                continue
+            if not opens_at or not closes_at:
+                raise forms.ValidationError(f"Informe abertura e fechamento para {label}, ou marque como fechado.")
+            if opens_at >= closes_at:
+                raise forms.ValidationError(f"Em {label}, o horário de abertura precisa ser anterior ao fechamento.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.opening_hours = {
+            day: {
+                "open": _format_admin_time(self.cleaned_data.get(_opening_field(day, "open"))),
+                "close": _format_admin_time(self.cleaned_data.get(_opening_field(day, "close"))),
+            }
+            for day, _label in OPENING_HOUR_DAYS
+            if self.cleaned_data.get(_opening_field(day, "status")) == "open"
+        }
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 def _oklch_raw_to_hex(raw: str) -> str:
@@ -75,7 +270,18 @@ class ShopAdmin(ModelAdmin):
             "fields": ("phone", "email", "default_ddd"),
         }),
         ("Operação", {
-            "fields": ("currency", "timezone", "opening_hours"),
+            "fields": (
+                "currency",
+                "timezone",
+                ("opening_hours_monday_status", "opening_hours_monday_open", "opening_hours_monday_close"),
+                ("opening_hours_tuesday_status", "opening_hours_tuesday_open", "opening_hours_tuesday_close"),
+                ("opening_hours_wednesday_status", "opening_hours_wednesday_open", "opening_hours_wednesday_close"),
+                ("opening_hours_thursday_status", "opening_hours_thursday_open", "opening_hours_thursday_close"),
+                ("opening_hours_friday_status", "opening_hours_friday_open", "opening_hours_friday_close"),
+                ("opening_hours_saturday_status", "opening_hours_saturday_open", "opening_hours_saturday_close"),
+                ("opening_hours_sunday_status", "opening_hours_sunday_open", "opening_hours_sunday_close"),
+            ),
+            "description": "Horários gravados em Shop.opening_hours, editados aqui como campos por dia.",
         }),
         ("Branding", {
             "fields": ("brand_name", "short_name", "tagline", "description", "logo"),
@@ -262,5 +468,3 @@ class NotificationTemplateAdmin(ModelAdmin):
     list_editable = ("is_active",)
     fields = ("event", "subject", "body", "is_active")
     readonly_fields = ("event",)
-
-
