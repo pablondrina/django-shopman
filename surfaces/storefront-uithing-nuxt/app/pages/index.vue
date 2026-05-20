@@ -22,13 +22,9 @@ const primaryAction = computed(() => home.value?.actions.find(action => action.p
 const reorderAction = computed(() => home.value?.actions.find(action => action.ref.includes('reorder') && action.enabled) || null)
 const operationalStatus = computed(() => {
   const status = home.value?.shop_status
-  const isOpen = !!status?.is_open
-  const projectedMessage = status?.message?.trim() || ''
   return {
-    isOpen,
-    label: projectedMessage || (isOpen ? 'Loja aberta' : 'Loja fechada'),
-    message: projectedMessage,
-    variant: isOpen ? 'info' : 'warning'
+    isOpen: !!status?.is_open,
+    label: status?.label?.trim() || ''
   } as const
 })
 const quickReorderItems = computed(() => home.value?.last_order_items.slice(0, 3) || [])
@@ -114,11 +110,6 @@ useSeoMeta({
             :status-open="operationalStatus.isOpen"
             @reorder="handleReorder"
           />
-
-          <UiAlert v-if="operationalStatus.message" :variant="operationalStatus.variant">
-            <UiAlertTitle>{{ operationalStatus.label }}</UiAlertTitle>
-            <UiAlertDescription>{{ operationalStatus.message }}</UiAlertDescription>
-          </UiAlert>
 
           <UiAlert v-if="home.origin_channel === 'whatsapp'" variant="info">
             <UiAlertTitle>Você veio do WhatsApp</UiAlertTitle>

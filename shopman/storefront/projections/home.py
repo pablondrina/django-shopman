@@ -41,6 +41,7 @@ class OpeningHoursEntry:
 @dataclass(frozen=True)
 class ShopStatusProjection:
     is_open: bool
+    label: str
     message: str | None
     opens_at: str | None
     closes_at: str | None
@@ -168,6 +169,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
     status_dict = _shop_status()
     shop_status = ShopStatusProjection(
         is_open=bool(status_dict.get("is_open", False)),
+        label=status_dict.get("label") or ("Aberto agora" if status_dict.get("is_open") else "Fechado agora"),
         message=status_dict.get("message"),
         opens_at=status_dict.get("opens_at"),
         closes_at=status_dict.get("closes_at"),

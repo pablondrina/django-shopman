@@ -26,5 +26,6 @@ def test_home_projection_keeps_operational_status_single_sourced(rf):
     payload = projection_data(build_home(rf.get("/api/v1/storefront/home/")))
 
     assert {"is_open", "opens_at", "closes_at"}.isdisjoint(payload["omotenashi"])
-    assert set(payload["shop_status"]) == {"is_open", "message", "opens_at", "closes_at"}
+    assert set(payload["shop_status"]) == {"is_open", "label", "message", "opens_at", "closes_at"}
     assert payload["shop_status"]["is_open"] in {True, False}
+    assert payload["shop_status"]["label"] in {"Aberto agora", "Fechado agora"}

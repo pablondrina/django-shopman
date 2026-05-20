@@ -21,7 +21,7 @@ const year = new Date().getFullYear()
       <section class="min-w-0 space-y-2">
         <p class="text-sm font-semibold">Horário</p>
         <div v-if="openingHours.length" class="space-y-1">
-          <p v-for="entry in openingHours.slice(0, 5)" :key="entry.label" class="flex justify-between gap-3 text-sm">
+          <p v-for="entry in openingHours" :key="entry.label" class="flex justify-between gap-3 text-sm">
             <span class="text-muted-foreground">{{ entry.label }}</span>
             <span class="text-right">{{ entry.hours }}</span>
           </p>

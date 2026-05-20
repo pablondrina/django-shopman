@@ -45,6 +45,11 @@ function messageOf (entry: CopyEntryProjection, fallback: string) {
   return entry.message?.trim() || fallback
 }
 
+function shopDescription () {
+  const shop = props.home.shop
+  return shop.description?.trim() || shop.tagline?.trim() || shop.brand_name
+}
+
 function imageAt (index: number) {
   return featured.value[index]?.image_url || featured.value[0]?.image_url || null
 }
@@ -91,6 +96,7 @@ const slides = computed<HeroSlide[]>(() => {
   const shop = props.home.shop
   const omo = props.home.omotenashi
   const customerName = omo.customer_name?.trim()
+  const description = shopDescription()
   const menuLabel = titleOf(copy.menu_cta, 'Ver cardápio')
   const handmadeTitle = `${titleOf(copy.handmade_title_prefix, 'Feito à mão,')} ${titleOf(copy.handmade_title_suffix, 'todo dia')}`
   const greetingTitle = sentence(omo.greeting_with_name || handmadeTitle)
@@ -100,7 +106,7 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'birthday',
       titleLines: [`${titleOf(copy.birthday_heading, 'Um cuidado especial hoje')}${customerName ? `, ${customerName}` : ''}!`],
-      description: messageOf(copy.birthday_sub, shop.description),
+      description: messageOf(copy.birthday_sub, description),
       imageUrl: imageAt(0),
       imageAlt: imageAltAt(0, shop.brand_name),
       primaryLabel: titleOf(copy.birthday_cta, titleOf(copy.menu_cta, 'Ver cardápio')),
@@ -111,7 +117,7 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting',
       titleLines: [greetingTitle],
-      description: omo.shop_hint || shop.description,
+      description,
       imageUrl: imageAt(0),
       imageAlt: imageAltAt(0, shop.brand_name),
       primaryLabel: menuLabel,
@@ -126,7 +132,7 @@ const slides = computed<HeroSlide[]>(() => {
       titleOf(copy.order_title_prefix, shop.brand_name),
       titleOf(copy.order_title_suffix, shop.tagline)
     ],
-    description: messageOf(copy.order_subtitle, omo.shop_hint || shop.description),
+    description: messageOf(copy.order_subtitle, description),
     imageUrl: imageAt(1),
     imageAlt: imageAltAt(1, shop.brand_name),
     primaryLabel: props.primaryAction?.label || menuLabel,
@@ -154,7 +160,7 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting-return',
       titleLines: [greetingTitle],
-      description: omo.shop_hint || shop.description,
+      description,
       imageUrl: imageAt(2),
       imageAlt: imageAltAt(2, shop.brand_name),
       primaryLabel: menuLabel,
@@ -235,7 +241,7 @@ onBeforeUnmount(() => {
       <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,.74),rgba(0,0,0,.34),rgba(0,0,0,.18))]" />
 
       <div class="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 sm:p-5">
-        <UiBadge :variant="statusVariant" class="shadow-sm">
+        <UiBadge v-if="statusLabel" :variant="statusVariant" class="shadow-sm">
           {{ statusLabel }}
         </UiBadge>
       </div>

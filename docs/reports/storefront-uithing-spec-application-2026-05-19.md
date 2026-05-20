@@ -194,3 +194,12 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 - Recomendacao produto-a-produto para PDP continua pendente de projection propria se quisermos algo alem de `cart.upsell`.
 - Notices/banners temporais da home, incluindo closing awareness, devem ser canonizados em projection antes de materializar na UI Thing. Pendencia de produto: revisar quais avisos existem, ordem, copy, tom e actions.
 - Chunk grande do build permanece como risco tecnico de bundle, nao como bloqueio funcional desta aplicacao de Spec.
+
+## Atualizacao 2026-05-20 - status operacional da home
+
+- Gap encontrado: a home UI Thing repetia `shop_status.message` como banner global, label do hero, descricao do hero e alerta abaixo do hero. Isso transformava uma informacao operacional util em ruido e violava Hyper Focus/Omotenashi.
+- Correcao canonica: `home.shop_status` passou a projetar `label` (`Aberto agora`/`Fechado agora`). A superficie usa esse label no badge e manteve a frase operacional completa apenas no banner global da shell.
+- Correcao de superficie: `HomeHeroThing` deixou de usar `omotenashi.shop_hint` como descricao do carousel, pois ele pode ser identico a `shop_status.message`; o hero agora usa copy/descricao da loja. O alerta operacional redundante abaixo do hero foi removido.
+- Rodape: `ShopFooter` segue lendo `session.openingHours` de `home.opening_hours` e deixou de truncar a lista com `slice(0, 5)`.
+- Evidencia de dados: staging em `2026-05-20` retornava `home.opening_hours` com `Quarta: 9h as 23h`, enquanto `instances/nelson/management/commands/seed.py` define quarta como `09:00` a `18:00`. Ou seja, o valor errado exibido no rodape vem do banco/projection de staging, nao de calculo local da UI Thing. Tentativa de console remoto via `doctl apps console 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f web` falhou com `403`, entao a correcao do dado persistido ficou bloqueada por permissao.
+- Evidencias executadas: `pytest shopman/storefront/tests/test_shop_status.py shopman/storefront/tests/test_home_projection_contract.py` -> `5 passed`; `npm run test` em `surfaces/storefront-uithing-nuxt` -> `8 passed`, `51 passed`; `npm run build` -> passou com warnings conhecidos; `SHOPMAN_THING_URL=http://127.0.0.1:3003/thing npm run test:ux` -> `UX smoke passed`; browser local contra backend staging confirmou `Fechado. Abrimos as 9h` aparecendo 1 vez e nenhum alert operacional redundante.

@@ -268,6 +268,7 @@ export interface OmotenashiProjection {
 
 export interface ShopStatusProjection {
   is_open: boolean
+  label: string
   message: string | null
   opens_at: string | null
   closes_at: string | null

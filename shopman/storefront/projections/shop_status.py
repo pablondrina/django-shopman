@@ -28,6 +28,7 @@ def _shop_status() -> dict:
             message = f"{message}. Abrimos {next_opening}." if message else f"Abrimos {next_opening}."
     return {
         "is_open": state.is_open,
+        "label": "Aberto agora" if state.is_open else "Fechado agora",
         "opens_at": state.opens_at,
         "closes_at": state.closes_at,
         "message": message,

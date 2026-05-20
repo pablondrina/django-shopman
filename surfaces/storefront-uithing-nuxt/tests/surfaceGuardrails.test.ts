@@ -77,6 +77,11 @@ describe('surface UX guardrails', () => {
 
     expect(read('app/pages/index.vue')).not.toContain('home.omotenashi.is_open')
     expect(read('app/pages/index.vue')).toContain('home.value?.shop_status')
+    expect(read('app/types/shopman.ts')).toContain('label: string')
+    expect(read('app/pages/index.vue')).toContain("label: status?.label?.trim() || ''")
+    expect(read('app/pages/index.vue')).not.toContain("label: isOpen ? 'Aberto agora' : 'Fechado agora'")
+    expect(read('app/pages/index.vue')).not.toContain('v-if="operationalStatus.message"')
+    expect(read('app/components/HomeHeroThing.vue')).not.toContain('omo.shop_hint')
     expect(omotenashiType).not.toMatch(/\b(is_open|opens_at|closes_at)\b/)
   })
 
@@ -205,7 +210,7 @@ describe('surface UX guardrails', () => {
     expect(home).toContain('class="shop-section bg-muted"')
     expect(home).toContain('class="border-y bg-background py-0 sm:py-8 lg:py-10"')
     expect(home).toContain('class="relative -mx-4 overflow-hidden rounded-none bg-foreground text-background sm:mx-0 sm:rounded-lg"')
-    expect(home).toContain('v-if="operationalStatus.message"')
+    expect(home).not.toContain('v-if="operationalStatus.message"')
     expect(home).toContain('data-home-reorder-card')
     expect(home).toContain('const quickReorderImageItem = computed')
     expect(home).toContain('<UiCard v-if="reorderAction || quickReorderItems.length" class="gap-0 overflow-hidden py-0" data-home-reorder-card>')
@@ -363,6 +368,7 @@ describe('surface UX guardrails', () => {
     expect(app).toContain('shopStatusMessage')
     expect(footer).toContain('session.shop.value')
     expect(footer).toContain('session.openingHours.value')
+    expect(footer).not.toContain('openingHours.slice')
     expect(footer).toContain('<footer class="border-t bg-background">')
     expect(footer).not.toContain('bg-muted/40')
     expect(footer).toContain('Falar no WhatsApp')

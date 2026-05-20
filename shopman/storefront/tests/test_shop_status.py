@@ -23,6 +23,7 @@ class TestShopStatusVsBusinessHoursRule:
         with patch("shopman.shop.models.Shop.load", return_value=shop):
             st = _shop_status()
             assert st["is_open"] is True
+            assert st["label"] == "Aberto agora"
 
     def test_business_hours_rule_not_outside_without_shop_hours(self):
         from shopman.shop.rules.validation import BusinessHoursRule
@@ -51,6 +52,7 @@ class TestShopStatusVsBusinessHoursRule:
             st = _shop_status()
 
         assert st["message"] == "Fechado. Abrimos às 9h"
+        assert st["label"] == "Fechado agora"
 
     def test_opening_hours_format_uses_plain_preposition(self):
         from shopman.storefront.projections.shop_status import _format_opening_hours
