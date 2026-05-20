@@ -253,7 +253,7 @@ def cancel(intent_ref: str, **config) -> PaymentResult:
         stripe.PaymentIntent.cancel(intent.gateway_id)
 
         try:
-            PaymentService.cancel(intent_ref)
+            PaymentService.cancel(intent_ref, reason=str(config.get("reason") or ""))
         except PaymentError:
             pass
 

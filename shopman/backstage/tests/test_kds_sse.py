@@ -60,6 +60,23 @@ def test_kds_ticket_status_change_emits_status_and_update(monkeypatch, kds_ticke
 
 
 @pytest.mark.django_db
+def test_cancel_tickets_emits_kds_status_update(monkeypatch, kds_ticket):
+    calls = []
+    monkeypatch.setattr(_sse_emitters, "_emit_backstage", lambda kind, event_type, payload, **kwargs: calls.append(event_type))
+
+    from shopman.shop.services.kds import cancel_tickets
+
+    count = cancel_tickets(kds_ticket.order)
+    kds_ticket.refresh_from_db()
+
+    assert count == 1
+    assert kds_ticket.status == "cancelled"
+    assert kds_ticket.cancelled_at is not None
+    assert "backstage-kds-status-changed" in calls
+    assert "backstage-kds-update" in calls
+
+
+@pytest.mark.django_db
 def test_kds_ticket_items_change_emits_update(monkeypatch, kds_ticket):
     calls = []
     monkeypatch.setattr(_sse_emitters, "_emit_backstage", lambda kind, event_type, payload, **kwargs: calls.append(event_type))

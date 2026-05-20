@@ -1,6 +1,10 @@
 {% load unfold %}
 
-{% if is_readonly %}
+{% if ticket.is_cancelled %}
+  {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+    Cancelado
+  {% endcomponent %}
+{% elif is_readonly %}
   {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
     Somente leitura
   {% endcomponent %}

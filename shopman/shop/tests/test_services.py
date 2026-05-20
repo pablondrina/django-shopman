@@ -1359,6 +1359,8 @@ class TestKDSService:
         t2.refresh_from_db()
         assert t1.status == "cancelled"
         assert t2.status == "cancelled"
+        assert t1.cancelled_at is not None
+        assert t2.cancelled_at is not None
 
     @pytest.mark.django_db
     def test_cancel_tickets_returns_zero_when_no_open_tickets(self):

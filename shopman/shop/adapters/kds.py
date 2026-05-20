@@ -32,11 +32,19 @@ def create_ticket(order, kds_instance, items: list) -> Any:
 
 def cancel_open_tickets(order) -> int:
     """Cancel all open tickets for order. Returns count cancelled."""
+    from django.utils import timezone
+
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(
+    tickets = list(KDSTicket.objects.filter(
         order=order, status__in=["pending", "in_progress"]
-    ).update(status="cancelled")
+    ))
+    cancelled_at = timezone.now()
+    for ticket in tickets:
+        ticket.status = "cancelled"
+        ticket.cancelled_at = cancelled_at
+        ticket.save(update_fields=["status", "cancelled_at"])
+    return len(tickets)
 
 
 def get_tickets(order):

@@ -212,7 +212,7 @@ pipeline:
   dispatched:         [notificar:order_dispatched]
   delivered:          [notificar:order_delivered]
   completed:          [loyalty.earn]
-  cancelled:          [stock.release, notificar:order_cancelled]
+  cancelled:          [kds.cancel_tickets, stock.release, payment.cancel se não capturado, payment.refund se houver saldo capturado, fiscal.cancel, notificar:order_cancelled]
 ```
 
 #### `marketplace()` — iFood / Rappi

@@ -27,6 +27,8 @@ from shopman.shop.services.order_helpers import get_fulfillment_type
 
 logger = logging.getLogger(__name__)
 
+OPEN_TICKET_STATUSES = {"pending", "in_progress"}
+
 
 def dispatch(order) -> list:
     """
@@ -265,6 +267,8 @@ def on_all_tickets_done(order, *, actor: str = "kds.all_done") -> bool:
 
 def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
     """Toggle a KDS ticket item and start preparation when work begins."""
+    if ticket.status not in OPEN_TICKET_STATUSES:
+        return False
     if not 0 <= index < len(ticket.items):
         return False
 
@@ -281,7 +285,10 @@ def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
 
 def complete_ticket(ticket, *, actor: str) -> bool:
     """Mark a KDS ticket done and move the order to ready when all tickets finish."""
-    _ensure_order_preparing_for_work(ticket.order, actor=actor)
+    if ticket.status not in OPEN_TICKET_STATUSES:
+        return False
+    if not _ensure_order_preparing_for_work(ticket.order, actor=actor):
+        return False
     for item in ticket.items:
         item["checked"] = True
     ticket.status = "done"

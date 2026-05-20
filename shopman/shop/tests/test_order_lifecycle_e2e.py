@@ -150,6 +150,8 @@ def test_cancellation_while_preparing_cleans_kds_tickets(channel):
     t2.refresh_from_db()
     assert t1.status == "cancelled"
     assert t2.status == "cancelled"
+    assert t1.cancelled_at is not None
+    assert t2.cancelled_at is not None
 
 
 # ── returned is terminal ─────────────────────────────────────────────────────

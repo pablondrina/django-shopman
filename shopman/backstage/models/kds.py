@@ -50,6 +50,7 @@ class KDSTicket(models.Model):
         ("pending", "Pendente"),
         ("in_progress", "Em andamento"),
         ("done", "Concluído"),
+        ("cancelled", "Cancelado"),
     ]
 
     order = models.ForeignKey(
@@ -73,6 +74,7 @@ class KDSTicket(models.Model):
     )
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     completed_at = models.DateTimeField("concluído em", null=True, blank=True)
+    cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
 
     class Meta:
         verbose_name = "ticket KDS"

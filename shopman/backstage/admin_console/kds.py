@@ -214,18 +214,27 @@ def _ticket_table(request: HttpRequest, board, *, is_readonly: bool) -> dict:
     return {
         "collapsible": True,
         "headers": ["Pedido", "Cliente", "Tempo", "Itens", "Estado", "Acao"],
-        "rows": [_ticket_row(request, item, is_readonly=is_readonly) for item in board.tickets],
+        "rows": [
+            *[_ticket_row(request, item, is_readonly=is_readonly) for item in board.tickets],
+            *[_ticket_row(request, item, is_readonly=True) for item in board.cancelled_tickets],
+        ],
     }
 
 
 def _ticket_row(request: HttpRequest, ticket: KDSTicketProjection, *, is_readonly: bool) -> dict:
+    if ticket.is_cancelled:
+        status_label = ticket.status_label
+    elif ticket.all_checked:
+        status_label = "Conferido"
+    else:
+        status_label = "Pendente"
     return {
         "cols": [
             f"#{ticket.order_ref}",
             ticket.customer_name or "-",
             _elapsed_label(ticket.elapsed_seconds, ticket.target_seconds),
             _items_summary(ticket),
-            "Conferido" if ticket.all_checked else "Pendente",
+            status_label,
             _ticket_actions_cell(request, ticket, is_readonly=is_readonly),
         ],
         "table": _ticket_detail_table(request, ticket, is_readonly=is_readonly),
@@ -265,7 +274,7 @@ def _ticket_detail_table(request: HttpRequest, ticket: KDSTicketProjection, *, i
                 item.qty,
                 item.notes or "-",
                 item.stock_warning or "-",
-                "Conferido" if is_readonly else _item_action_cell(request, ticket, index, checked=item.checked),
+                _ticket_item_state(request, ticket, item, index, is_readonly=is_readonly),
             ]
             for index, item in enumerate(ticket.items)
         ],
@@ -346,6 +355,21 @@ def _items_summary(ticket: KDSTicketProjection) -> str:
     lines = len(ticket.items)
     line_label = "linha" if lines == 1 else "linhas"
     return f"{total} un. - {lines} {line_label}"
+
+
+def _ticket_item_state(
+    request: HttpRequest,
+    ticket: KDSTicketProjection,
+    item,
+    index: int,
+    *,
+    is_readonly: bool,
+):
+    if ticket.is_cancelled:
+        return "Cancelado"
+    if is_readonly:
+        return "Conferido" if item.checked else "Pendente"
+    return _item_action_cell(request, ticket, index, checked=item.checked)
 
 
 def _elapsed_label(seconds: int, target_seconds: int) -> str:

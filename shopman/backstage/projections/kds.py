@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Q, Sum
@@ -24,6 +25,10 @@ from shopman.shop.services.order_helpers import get_fulfillment_type
 from .order_queue import _DEFAULT_CHANNEL_ICON, CHANNEL_ICONS
 
 logger = logging.getLogger(__name__)
+
+ACTIVE_TICKET_STATUSES = ("pending", "in_progress")
+RECENT_CANCELLED_WINDOW = timedelta(minutes=10)
+RECENT_CANCELLED_LIMIT = 8
 
 
 # ── Projections ────────────────────────────────────────────────────────
@@ -57,6 +62,9 @@ class KDSTicketProjection:
     items: tuple[KDSItemProjection, ...]
     status: str
     all_checked: bool
+    status_label: str = ""
+    is_cancelled: bool = False
+    cancelled_at_display: str = ""
 
 
 @dataclass(frozen=True)
@@ -96,6 +104,7 @@ class KDSBoardProjection:
     is_expedition: bool
     tickets: tuple[KDSTicketProjection | KDSExpeditionCardProjection, ...]
     counts: dict[str, int]  # "pending", "in_progress", "total"
+    cancelled_tickets: tuple[KDSTicketProjection, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -133,7 +142,7 @@ def build_kds_index() -> tuple[KDSInstanceSummaryProjection, ...]:
         else:
             count = KDSTicket.objects.filter(
                 kds_instance=inst,
-                status__in=["pending", "in_progress"],
+                status__in=ACTIVE_TICKET_STATUSES,
             ).count()
 
         result.append(
@@ -158,16 +167,26 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
     if instance.type == "expedition":
         return _build_expedition_board(instance)
 
-    tickets_qs = (
+    active_qs = (
         KDSTicket.objects.filter(
             kds_instance=instance,
-            status__in=["pending", "in_progress"],
+            status__in=ACTIVE_TICKET_STATUSES,
         )
         .select_related("order")
         .order_by("created_at")
     )
+    cancelled_qs = (
+        KDSTicket.objects.filter(
+            kds_instance=instance,
+            status="cancelled",
+            cancelled_at__gte=timezone.now() - RECENT_CANCELLED_WINDOW,
+        )
+        .select_related("order")
+        .order_by("-cancelled_at", "-created_at")[:RECENT_CANCELLED_LIMIT]
+    )
 
-    tickets = tuple(_build_ticket(t, instance) for t in tickets_qs)
+    tickets = tuple(_build_ticket(t, instance) for t in active_qs)
+    cancelled_tickets = tuple(_build_ticket(t, instance) for t in cancelled_qs)
     pending = sum(1 for t in tickets if t.status == "pending")
     in_progress = sum(1 for t in tickets if t.status == "in_progress")
 
@@ -177,7 +196,13 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
         instance_type=instance.type,
         is_expedition=False,
         tickets=tickets,
-        counts={"pending": pending, "in_progress": in_progress, "total": len(tickets)},
+        counts={
+            "pending": pending,
+            "in_progress": in_progress,
+            "total": len(tickets),
+            "cancelled_recent": len(cancelled_tickets),
+        },
+        cancelled_tickets=cancelled_tickets,
     )
 
 
@@ -242,13 +267,20 @@ def _build_expedition_board(instance) -> KDSBoardProjection:
         instance_type=instance.type,
         is_expedition=True,
         tickets=cards,
-        counts={"pending": len(cards), "in_progress": 0, "total": len(cards)},
+        counts={
+            "pending": len(cards),
+            "in_progress": 0,
+            "total": len(cards),
+            "cancelled_recent": 0,
+        },
     )
 
 
 def _build_ticket(ticket, instance) -> KDSTicketProjection:
     now = timezone.now()
-    elapsed = (now - ticket.created_at).total_seconds()
+    is_cancelled = ticket.status == "cancelled"
+    elapsed_until = ticket.cancelled_at if is_cancelled and ticket.cancelled_at else now
+    elapsed = (elapsed_until - ticket.created_at).total_seconds()
     target_sec = instance.target_time_minutes * 60
 
     if elapsed < target_sec:
@@ -296,7 +328,20 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
         items=items,
         status=ticket.status,
         all_checked=all(it.checked for it in items) if items else False,
+        status_label=_ticket_status_label(ticket.status),
+        is_cancelled=is_cancelled,
+        cancelled_at_display=_format_time(ticket.cancelled_at),
     )
+
+
+def _ticket_status_label(status: str) -> str:
+    labels = {
+        "pending": "Pendente",
+        "in_progress": "Em preparo",
+        "done": "Concluído",
+        "cancelled": "Cancelado",
+    }
+    return labels.get(status, status)
 
 
 def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:

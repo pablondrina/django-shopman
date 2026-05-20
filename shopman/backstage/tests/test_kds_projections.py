@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.models import KDSInstance, KDSTicket
@@ -46,6 +47,21 @@ def test_build_kds_board_returns_ticket_projection(kds_setup):
     assert board.counts["pending"] == 1
     assert board.tickets[0].order_ref == "KDS-PROJ-1"
     assert board.tickets[0].items[0].notes == "Sem sal"
+
+
+@pytest.mark.django_db
+def test_build_kds_board_exposes_recent_cancelled_tickets(kds_setup):
+    prep, _, ticket, _ = kds_setup
+    ticket.status = "cancelled"
+    ticket.cancelled_at = timezone.now()
+    ticket.save(update_fields=["status", "cancelled_at"])
+
+    board = build_kds_board(prep.ref)
+
+    assert board.counts["total"] == 0
+    assert board.counts["cancelled_recent"] == 1
+    assert board.cancelled_tickets[0].order_ref == "KDS-PROJ-1"
+    assert board.cancelled_tickets[0].status_label == "Cancelado"
 
 
 @pytest.mark.django_db

@@ -32,6 +32,12 @@
           <span class="material-symbols-rounded icon-sm" aria-hidden="true">receipt_long</span>
           {{ kds_board.counts.total }} ativos
         </span>
+        {% if kds_board.counts.cancelled_recent %}
+        <span class="badge-danger">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">block</span>
+          {{ kds_board.counts.cancelled_recent }} cancelados
+        </span>
+        {% endif %}
         {% if not kds_board.is_expedition %}
         <span class="badge-info">
           <span class="material-symbols-rounded icon-sm" aria-hidden="true">pending_actions</span>
