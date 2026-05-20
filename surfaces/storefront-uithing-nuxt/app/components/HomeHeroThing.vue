@@ -117,7 +117,6 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting',
       titleLines: [greetingTitle],
-      description,
       imageUrl: imageAt(0),
       imageAlt: imageAltAt(0, shop.brand_name),
       primaryLabel: menuLabel,
@@ -160,7 +159,6 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting-return',
       titleLines: [greetingTitle],
-      description,
       imageUrl: imageAt(2),
       imageAlt: imageAltAt(2, shop.brand_name),
       primaryLabel: menuLabel,

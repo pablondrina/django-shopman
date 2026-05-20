@@ -189,6 +189,8 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain("ref: 'order'")
     expect(hero).toContain("ref: 'reorder'")
     expect(hero).toContain("ref: 'handmade'")
+    expect(hero).toMatch(/ref: 'greeting',\n\s+titleLines: \[greetingTitle\],\n\s+imageUrl/)
+    expect(hero).toMatch(/ref: 'greeting-return',\n\s+titleLines: \[greetingTitle\],\n\s+imageUrl/)
     expect(hero).toContain('copy.reorder_title_prefix')
     expect(hero).toContain('copy.handmade_title_prefix')
     expect(hero).toContain('data-home-hero-carousel')
