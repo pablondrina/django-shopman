@@ -21,6 +21,20 @@ from shopman.shop.adapters.payment_types import PaymentIntent, PaymentResult
 logger = logging.getLogger(__name__)
 
 
+def _metadata_value(metadata, key: str) -> str:
+    """Read metadata from dicts and StripeObject instances."""
+    if not metadata:
+        return ""
+    if isinstance(metadata, dict):
+        value = metadata.get(key)
+    else:
+        try:
+            value = metadata[key]
+        except (AttributeError, KeyError, TypeError):
+            value = getattr(metadata, key, "")
+    return str(value or "")
+
+
 def _get_config() -> dict:
     """Read Stripe configuration from settings."""
     return getattr(settings, "SHOPMAN_STRIPE", {})
@@ -327,7 +341,7 @@ def handle_webhook_event(event) -> dict:
     if event.type == "checkout.session.completed":
         session = event.data.object
         session_metadata = getattr(session, "metadata", None) or {}
-        shopman_ref = session_metadata.get("shopman_ref")
+        shopman_ref = _metadata_value(session_metadata, "shopman_ref")
         payment_intent_id = getattr(session, "payment_intent", None)
         if shopman_ref:
             intent_ref = shopman_ref
@@ -350,7 +364,10 @@ def handle_webhook_event(event) -> dict:
 
     elif event.type == "payment_intent.succeeded":
         stripe_intent = event.data.object
-        shopman_ref = stripe_intent.metadata.get("shopman_ref")
+        shopman_ref = _metadata_value(
+            getattr(stripe_intent, "metadata", None),
+            "shopman_ref",
+        )
         if shopman_ref:
             intent_ref = shopman_ref
             try:
@@ -364,10 +381,13 @@ def handle_webhook_event(event) -> dict:
 
     elif event.type == "payment_intent.payment_failed":
         stripe_intent = event.data.object
-        shopman_ref = stripe_intent.metadata.get("shopman_ref")
+        shopman_ref = _metadata_value(
+            getattr(stripe_intent, "metadata", None),
+            "shopman_ref",
+        )
         if shopman_ref:
             intent_ref = shopman_ref
-            last_error = stripe_intent.last_payment_error
+            last_error = getattr(stripe_intent, "last_payment_error", None)
             try:
                 PaymentService.fail(
                     shopman_ref,

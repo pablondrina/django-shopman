@@ -39,9 +39,13 @@ def _event_metadata_value(event, key: str) -> str:
     data = getattr(event, "data", None)
     obj = getattr(data, "object", None)
     metadata = getattr(obj, "metadata", None) or {}
-    if not hasattr(metadata, "get"):
-        return ""
-    value = metadata.get(key)
+    if isinstance(metadata, dict):
+        value = metadata.get(key)
+    else:
+        try:
+            value = metadata[key]
+        except (AttributeError, KeyError, TypeError):
+            value = getattr(metadata, key, "")
     return str(value or "")
 
 
