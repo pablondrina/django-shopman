@@ -169,6 +169,7 @@ describe('surface UX guardrails', () => {
     expect(menu).toContain('scrollToSection')
     expect(menu).toContain('syncActiveSectionFromScroll')
     expect(menu).toContain('data-menu-section-ref')
+    expect(menu).toContain('if (searchPanelOpen.value) closeSearchPanel()')
     expect(menu).not.toContain('sections.value.filter(section => section.ref === activeSection.value)')
   })
 

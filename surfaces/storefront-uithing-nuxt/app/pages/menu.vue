@@ -436,6 +436,7 @@ function scrollToSection (ref: string) {
 
 function selectSection (value: string | number | undefined) {
   const ref = String(value || 'all')
+  if (searchPanelOpen.value) closeSearchPanel()
   if (ref === 'clear-filter') {
     clearMenuFilters()
     return
