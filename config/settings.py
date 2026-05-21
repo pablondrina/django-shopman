@@ -4,6 +4,7 @@ Django settings for the Shopman project.
 
 import os
 import sys
+from base64 import b64decode
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +32,36 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.lower() in ("true", "1", "yes")
+
+
+def _materialized_secret_file(*, content: str, filename: str) -> str:
+    secret_dir = Path(os.environ.get("SHOPMAN_RUNTIME_SECRET_DIR", "/tmp/shopman-secrets"))
+    secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    secret_path = secret_dir / filename
+    if not secret_path.exists() or secret_path.read_text() != content:
+        secret_path.write_text(content)
+        secret_path.chmod(0o600)
+    return str(secret_path)
+
+
+def _efi_certificate_path() -> str:
+    configured_path = os.environ.get("EFI_CERTIFICATE_PATH", "").strip()
+    if configured_path:
+        return configured_path
+
+    encoded = (
+        os.environ.get("EFI_CERTIFICATE_PEM_BASE64", "").strip()
+        or os.environ.get("EFI_CERTIFICATE_BASE64", "").strip()
+    )
+    if encoded:
+        pem = b64decode(encoded).decode("utf-8")
+        return _materialized_secret_file(content=pem, filename="efi_certificate.pem")
+
+    pem = os.environ.get("EFI_CERTIFICATE_PEM", "").strip()
+    if pem:
+        return _materialized_secret_file(content=pem.replace("\\n", "\n"), filename="efi_certificate.pem")
+
+    return ""
 
 
 # ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
@@ -706,7 +737,7 @@ SHOPMAN_EFI = {
     "sandbox": os.environ.get("EFI_SANDBOX", "true").lower() in ("true", "1", "yes"),
     "client_id": os.environ.get("EFI_CLIENT_ID", ""),
     "client_secret": os.environ.get("EFI_CLIENT_SECRET", ""),
-    "certificate_path": os.environ.get("EFI_CERTIFICATE_PATH", ""),
+    "certificate_path": _efi_certificate_path(),
     "pix_key": os.environ.get("EFI_PIX_KEY", ""),
 }
 

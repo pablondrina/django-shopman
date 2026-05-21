@@ -37,6 +37,26 @@ def test_gateway_smoke_local_fixtures_pass_and_rollback():
 
 
 @pytest.mark.django_db
+@override_settings(
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_efi",
+        "card": "shopman.shop.adapters.payment_stripe",
+        "cash": None,
+        "external": None,
+    },
+)
+def test_gateway_smoke_local_fixtures_do_not_call_real_payment_adapters():
+    report = run_gateway_smoke(
+        include_local=True,
+        include_sandbox_readiness=False,
+        rollback=True,
+    )
+
+    assert report.status == "passed"
+    assert report.counts["passed"] == 5
+
+
+@pytest.mark.django_db
 def test_gateway_smoke_command_outputs_json_for_local_contract():
     stdout = StringIO()
 

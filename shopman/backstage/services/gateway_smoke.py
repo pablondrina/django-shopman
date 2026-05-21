@@ -35,6 +35,12 @@ _LOCAL_STRIPE = {
     "capture_method": "manual",
     "domain": "http://localhost:8000",
 }
+_LOCAL_PAYMENT_ADAPTERS = {
+    "pix": "shopman.shop.adapters.payment_mock",
+    "card": "shopman.shop.adapters.payment_mock",
+    "cash": None,
+    "external": None,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +155,7 @@ def _run_local_fixtures(*, rollback: bool) -> tuple[GatewaySmokeCheck, ...]:
     with override_settings(
         SHOPMAN_EFI_WEBHOOK=_LOCAL_EFI_WEBHOOK,
         SHOPMAN_IFOOD=_LOCAL_IFOOD,
+        SHOPMAN_PAYMENT_ADAPTERS=_LOCAL_PAYMENT_ADAPTERS,
         SHOPMAN_STRIPE=_LOCAL_STRIPE,
     ):
         with transaction.atomic():

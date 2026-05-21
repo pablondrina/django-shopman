@@ -587,6 +587,18 @@ class EfiPixWebhookTests(WebhookTestBase):
 
     # ── Missing pix data ──────────────────────────────────────
 
+    def test_efi_empty_payload_returns_200_for_registration_check(self) -> None:
+        """Authenticated empty POST is accepted for EFI webhook registration checks."""
+        resp = self._post({})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["check"], "accepted")
+
+    def test_efi_registration_test_event_returns_200(self) -> None:
+        """EFI sends evento=teste_webhook while registering the webhook URL."""
+        resp = self._post({"evento": "teste_webhook", "data_criacao": "2026-05-21T13:24:06.791Z"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["check"], "accepted")
+
     def test_efi_empty_pix_list_returns_400(self) -> None:
         """POST with empty pix list → 400."""
         resp = self._post({"pix": []})

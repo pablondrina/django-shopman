@@ -1,5 +1,9 @@
+from base64 import b64encode
+from pathlib import Path
+
 from django.test import override_settings
 
+from config import settings as project_settings
 from shopman.shop import checks
 
 
@@ -29,6 +33,19 @@ def test_database_backend_blocks_sqlite_outside_debug():
 )
 def test_database_backend_accepts_postgres_outside_debug():
     assert checks.check_database_backend(None) == []
+
+
+def test_efi_certificate_can_be_materialized_from_base64_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("EFI_CERTIFICATE_PATH", raising=False)
+    monkeypatch.delenv("EFI_CERTIFICATE_PEM", raising=False)
+    monkeypatch.setenv("SHOPMAN_RUNTIME_SECRET_DIR", str(tmp_path))
+    monkeypatch.setenv("EFI_CERTIFICATE_PEM_BASE64", b64encode(b"certificate-body").decode())
+
+    path = Path(project_settings._efi_certificate_path())
+
+    assert path == tmp_path / "efi_certificate.pem"
+    assert path.read_text() == "certificate-body"
+    assert path.stat().st_mode & 0o777 == 0o600
 
 
 @override_settings(
