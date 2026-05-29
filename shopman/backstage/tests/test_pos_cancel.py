@@ -83,6 +83,13 @@ class PosCancelLastTests(TestCase):
             name="Balcão",
             is_active=True,
         )
+        from shopman.backstage.models import CashShift, POSTerminal
+
+        CashShift.objects.create(
+            operator=self.staff,
+            terminal=POSTerminal.default(),
+            opening_amount_q=0,
+        )
         self.client.force_login(self.staff)
 
     def test_cancel_last_happy_path(self) -> None:
@@ -155,6 +162,13 @@ class PosCloseGranularErrorTests(TestCase):
             ref="pdv",
             name="Balcão",
             is_active=True,
+        )
+        from shopman.backstage.models import CashShift, POSTerminal
+
+        CashShift.objects.create(
+            operator=self.staff,
+            terminal=POSTerminal.default(),
+            opening_amount_q=0,
         )
         self.client.force_login(self.staff)
 

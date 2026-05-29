@@ -41,6 +41,20 @@ def _pos_error_response(exc: PosIntentError, *, fallback_status: int = 422) -> H
     )
 
 
+def _cash_shift_required_response() -> HttpResponse:
+    return HttpResponse(
+        '<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm" '
+        'data-error-code="cash_shift_required" '
+        'data-focus-target="cash" '
+        'data-error-field="cash_shift_id">'
+        '<span class="font-semibold">Abra o caixa antes de finalizar uma venda.</span>'
+        '<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">'
+        'Abra um turno de caixa neste terminal e tente novamente.'
+        '</span></div>',
+        status=409,
+    )
+
+
 def _perm_required(request):
     """Redirect to login if not staff; 403 if missing operate_pos perm."""
     if not request.user.is_authenticated or not request.user.is_staff:
@@ -175,13 +189,15 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             status=422,
         )
 
-    try:
-        from shopman.backstage.models import CashShift
+    from shopman.backstage.models import CashShift
 
-        cash_shift = CashShift.get_open_for_operator(request.user)
-        if cash_shift:
-            body["cash_shift_id"] = cash_shift.pk
-            body["pos_terminal_ref"] = cash_shift.terminal.ref
+    cash_shift = CashShift.get_open_for_operator(request.user)
+    if not cash_shift:
+        return _cash_shift_required_response()
+    body["cash_shift_id"] = cash_shift.pk
+    body["pos_terminal_ref"] = cash_shift.terminal.ref
+
+    try:
         result = pos_service.close_sale(
             channel_ref=POS_CHANNEL_REF,
             payload=body,

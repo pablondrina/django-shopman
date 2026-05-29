@@ -10,6 +10,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -20,9 +21,11 @@ from shopman.orderman.models import Order, Session
 from shopman.shop.adapters import pos as pos_adapter
 from shopman.shop.config import ChannelConfig
 from shopman.shop.models import Channel
+from shopman.shop.services import payment as payment_service
 from shopman.shop.services import sessions as session_service
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentError, parse_pos_sale_intent
+from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,7 @@ class PosSaleResult:
     order_ref: str
     total_q: int
     fiscal_hint: str = ""
+    payment: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -268,12 +272,15 @@ def close_sale(
     )
     logger.info("pos_close_tab order=%s tab=%s session=%s total=%s", result.order_ref, tab_ref, session.session_key, result.total_q)
     order = Order.objects.filter(ref=result.order_ref).first()
+    payment_result = {}
     if order is not None:
         order = _reconcile_order_payment_to_total(order)
+        payment_result = _maybe_initiate_pos_gateway_payment(order)
     return PosSaleResult(
         order_ref=result.order_ref,
         total_q=int(order.total_q if order is not None else result.total_q),
         fiscal_hint=_sale_fiscal_hint(order),
+        payment=payment_result,
     )
 
 
@@ -285,7 +292,6 @@ def review_sale(
 ) -> PosSaleReview:
     """Validate a POS checkout intent without committing the Orderman session."""
     payload = parse_pos_sale_intent(payload, for_commit=True).payload
-    _validate_payment_completion(payload)
     channel, _config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     if session is None and _payload_has_tab_identity(payload):
@@ -303,6 +309,7 @@ def review_sale(
         total_q=total_q,
         cash_shift_id=payload.get("cash_shift_id"),
         pos_terminal_ref=str(payload.get("pos_terminal_ref") or "").strip(),
+        require_complete=False,
     )
     payment_method = _legacy_payment_method(payload, tenders)
     tender_total_q = sum(_int_q(tender.get("amount_q")) for tender in tenders)
@@ -314,6 +321,24 @@ def review_sale(
             "code": "cash_tendered_amount_blank",
             "field": "tendered_amount_q",
             "message": "Valor recebido em dinheiro não informado; o fechamento assumirá valor exato.",
+        })
+    if payment_method == "cash" and payment_collection == "terminal" and 0 < tendered_amount_q < total_q:
+        warnings.append({
+            "code": "cash_tendered_amount_too_low",
+            "field": "tendered_amount_q",
+            "message": "Valor recebido em dinheiro menor que o total da venda.",
+        })
+    if payment_method == "mixed" and total_q > 0 and tender_total_q <= 0:
+        warnings.append({
+            "code": "payment_tenders_required",
+            "field": "payment_tenders",
+            "message": "Adicione as linhas do pagamento misto antes de finalizar.",
+        })
+    elif payment_method == "mixed" and total_q > 0 and tender_total_q != total_q:
+        warnings.append({
+            "code": "payment_tenders_total_mismatch",
+            "field": "payment_tenders",
+            "message": "Pagamentos informados não fecham o total da venda.",
         })
 
     return PosSaleReview(
@@ -610,8 +635,8 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
     if receipt_email:
         ops.append({"op": "set_data", "path": "receipt.email", "value": receipt_email})
 
-    manual_discount = payload.get("manual_discount") or {}
-    if manual_discount and int(manual_discount.get("discount_q", 0)) > 0:
+    manual_discount = _payload_manual_discount(payload)
+    if manual_discount:
         ops.extend([
             {"op": "set_data", "path": "manual_discount.type", "value": manual_discount.get("type", "percent")},
             {"op": "set_data", "path": "manual_discount.value", "value": manual_discount.get("value", 0)},
@@ -630,11 +655,7 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     threshold_q = _discount_approval_threshold_q()
     if threshold_q <= 0:
         return
-    manual_discount = payload.get("manual_discount") or {}
-    try:
-        discount_q = int(manual_discount.get("discount_q", 0) or 0)
-    except (TypeError, ValueError):
-        discount_q = 0
+    discount_q = _payload_discount_q(payload)
     if discount_q <= threshold_q:
         return
 
@@ -642,13 +663,25 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     username = str(approval.get("username") or "").strip()
     password = str(approval.get("password") or "")
     if not username or not password:
-        raise ValueError("Desconto exige aprovação gerencial.")
+        raise PosIntentError(
+            code="manager_approval_required",
+            message="Desconto exige aprovação gerencial.",
+            field="manager_approval",
+            focus="approval",
+            recovery="Peça a um gerente autorizado para aprovar o desconto antes de finalizar.",
+        )
 
     from django.contrib.auth import authenticate
 
     user = authenticate(username=username, password=password)
     if not user or not user.is_active or not user.has_perm("backstage.adjust_cashshift"):
-        raise ValueError("Aprovação gerencial inválida.")
+        raise PosIntentError(
+            code="manager_approval_invalid",
+            message="Aprovação gerencial inválida.",
+            field="manager_approval",
+            focus="approval",
+            recovery="Revise usuário e senha do gerente ou reduza o desconto.",
+        )
     logger.info(
         "pos_manager_approval operator=%s approved_by=%s discount_q=%s",
         operator_username,
@@ -712,11 +745,57 @@ def _payload_subtotal_q(payload: dict) -> int:
 
 
 def _payload_discount_q(payload: dict) -> int:
+    return int(_payload_manual_discount(payload).get("discount_q", 0) or 0)
+
+
+def _payload_manual_discount(payload: dict) -> dict:
     manual_discount = payload.get("manual_discount") or {}
+    if not isinstance(manual_discount, dict):
+        return {}
+
+    subtotal_q = _payload_subtotal_q(payload)
+    if subtotal_q <= 0:
+        return {}
+
+    type_ref = str(manual_discount.get("type") or "percent").strip().lower()
+    if type_ref not in {"percent", "fixed"}:
+        type_ref = "percent"
+
+    value = _decimal_discount_value(manual_discount.get("value"))
+    fallback_q = _int_q(manual_discount.get("discount_q"))
+    if value > 0:
+        if type_ref == "fixed":
+            discount_q = int((value * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        else:
+            discount_q = int((Decimal(subtotal_q) * value / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    else:
+        discount_q = fallback_q
+        value = _decimal_discount_value(manual_discount.get("value") or 0)
+
+    discount_q = min(subtotal_q, max(0, discount_q))
+    if discount_q <= 0:
+        return {}
+
+    reason = str(manual_discount.get("reason") or "cortesia").strip()[:120] or "cortesia"
+    return {
+        "type": type_ref,
+        "value": float(value) if value > 0 else manual_discount.get("value", 0),
+        "discount_q": discount_q,
+        "reason": reason,
+    }
+
+
+def _decimal_discount_value(value) -> Decimal:
+    if isinstance(value, str):
+        raw = value.strip()
+        raw = raw.replace(".", "").replace(",", ".") if "," in raw else raw
+    else:
+        raw = str(value or "0")
     try:
-        return max(0, int(manual_discount.get("discount_q", 0) or 0))
-    except (TypeError, ValueError):
-        return 0
+        parsed = Decimal(raw)
+    except (InvalidOperation, ValueError):
+        return Decimal("0")
+    return max(Decimal("0"), parsed)
 
 
 def _payload_delivery_fee_q(payload: dict) -> int:
@@ -736,6 +815,7 @@ def _validate_payment_completion(payload: dict) -> None:
         total_q=total_q,
         cash_shift_id=payload.get("cash_shift_id"),
         pos_terminal_ref=str(payload.get("pos_terminal_ref") or "").strip(),
+        require_complete=True,
     )
     payment_method = _legacy_payment_method(payload, tenders)
     tendered_q = _int_q(payload.get("tendered_amount_q"))
@@ -760,8 +840,10 @@ def _payload_tenders(
     total_q: int,
     cash_shift_id,
     pos_terminal_ref: str,
+    require_complete: bool = False,
 ) -> list[dict]:
     raw = payload.get("payment_tenders")
+    payment_method = _normalize_payment_method(payload.get("payment_method") or "cash")
     if isinstance(raw, list) and raw:
         tenders = []
         for tender in raw:
@@ -775,6 +857,14 @@ def _payload_tenders(
             collection = str(tender.get("collection") or payment_collection).strip().lower()
             if collection not in {"terminal", "on_delivery"}:
                 collection = payment_collection
+            if collection == "on_delivery" and method != "cash":
+                raise PosIntentError(
+                    code="invalid_on_delivery_tender_payment",
+                    message="Pagamento na entrega só é permitido em dinheiro.",
+                    field=f"payment_tenders.{len(tenders)}.collection",
+                    focus="payment",
+                    recovery="Altere a linha para dinheiro ou receba esse valor no caixa.",
+                )
             entry = {
                 "method": method,
                 "amount_q": amount_q,
@@ -792,13 +882,28 @@ def _payload_tenders(
                 entry["received_at"] = timezone.now().isoformat()
             tenders.append(entry)
         paid_q = sum(int(tender["amount_q"]) for tender in tenders)
-        if total_q > 0 and paid_q != total_q:
-            raise ValueError("Pagamentos informados não fecham o total da venda.")
+        if require_complete and total_q > 0 and paid_q != total_q:
+            raise PosIntentError(
+                code="payment_tenders_total_mismatch",
+                message="Pagamentos informados não fecham o total da venda.",
+                field="payment_tenders",
+                focus="payment",
+                recovery="Ajuste as linhas do pagamento misto até somarem o total revisado.",
+            )
         return tenders
 
     if total_q <= 0:
         return []
-    payment_method = _normalize_payment_method(payload.get("payment_method") or "cash")
+    if require_complete and payment_method == "mixed":
+        raise PosIntentError(
+            code="payment_tenders_required",
+            message="Informe as linhas do pagamento misto.",
+            field="payment_tenders",
+            focus="payment",
+            recovery="Adicione ao menos uma linha e confira se a soma fecha o total.",
+        )
+    if payment_method == "mixed":
+        return []
     tender = {
         "method": payment_method,
         "amount_q": total_q,
@@ -815,13 +920,16 @@ def _payload_tenders(
 
 
 def _legacy_payment_method(payload: dict, tenders: list[dict]) -> str:
+    requested = _normalize_payment_method(payload.get("payment_method") or "cash")
+    if requested == "mixed" and tenders:
+        return "mixed"
     methods = {str(tender.get("method") or "").strip() for tender in tenders if tender.get("amount_q")}
     methods.discard("")
     if len(methods) > 1:
         return "mixed"
     if len(methods) == 1:
         return next(iter(methods))
-    return _normalize_payment_method(payload.get("payment_method") or "cash")
+    return requested
 
 
 def _normalize_payment_method(value) -> str:
@@ -879,6 +987,64 @@ def _reconcile_order_payment_to_total(order: Order) -> Order:
     order.data = data
     order.save(update_fields=["data", "updated_at"])
     return order
+
+
+def _maybe_initiate_pos_gateway_payment(order: Order) -> dict:
+    """Create gateway payment display data for POS terminal digital tenders."""
+    payment = dict((order.data or {}).get("payment") or {})
+    method = str(payment.get("method") or "").strip().lower()
+    collection = str(payment.get("collection") or "terminal").strip().lower()
+    if collection != "terminal" or method not in {"pix", "card"}:
+        return {}
+
+    try:
+        payment_service.initiate(order)
+    except Exception as exc:
+        logger.warning("pos_payment_initiate_failed order=%s method=%s", order.ref, method, exc_info=True)
+        return {
+            "method": method,
+            "amount_q": int(payment.get("amount_q") or order.total_q or 0),
+            "amount_display": f"R$ {format_money(int(payment.get('amount_q') or order.total_q or 0))}",
+            "status": "error",
+            "error": str(exc),
+            "message": "Pagamento não foi criado no gateway. Revise a configuração e use recuperação operacional.",
+        }
+    order = Order.objects.get(ref=order.ref)
+    return _pos_payment_response(order)
+
+
+def _pos_payment_response(order: Order) -> dict:
+    payment = dict((order.data or {}).get("payment") or {})
+    method = str(payment.get("method") or "").strip().lower()
+    if method not in {"pix", "card"}:
+        return {}
+
+    response = {
+        "method": method,
+        "amount_q": int(payment.get("amount_q") or order.total_q or 0),
+        "amount_display": f"R$ {format_money(int(payment.get('amount_q') or order.total_q or 0))}",
+    }
+    for key in (
+        "intent_ref",
+        "qr_code",
+        "copy_paste",
+        "expires_at",
+        "checkout_url",
+        "error",
+    ):
+        value = payment.get(key)
+        if value:
+            response[key] = value
+    if payment.get("intent_ref"):
+        response["status"] = "pending"
+        response["message"] = "Pagamento criado. Aguarde confirmação do gateway antes de tratar como recebido."
+    elif payment.get("error"):
+        response["status"] = "error"
+        response["message"] = "Pagamento não foi criado no gateway. Revise a configuração e use recuperação operacional."
+    else:
+        response["status"] = "unavailable"
+        response["message"] = "Pagamento digital não retornou dados exibíveis."
+    return response
 
 
 def _reconcile_tenders_to_total(tenders: list[dict], final_total_q: int) -> None:
@@ -1041,8 +1207,8 @@ def _tab_payload(session: Session) -> dict:
         "order_notes": data.get("order_notes", ""),
         "payment_method": payment.get("method", "cash"),
         "payment_collection": payment.get("collection", "terminal"),
-        "payment_tenders": payment.get("tenders", []),
-        "tendered_amount_q": payment.get("tendered_q", ""),
+        "payment_tenders": _tab_payload_payment_tenders(payment),
+        "tendered_amount_q": "",
         "client_request_id": data.get("client_request_id", (data.get("pos") or {}).get("client_request_id", "")),
         "issue_fiscal_document": bool(fiscal.get("issue_document")),
         "receipt_mode": receipt.get("mode", "none"),
@@ -1051,6 +1217,16 @@ def _tab_payload(session: Session) -> dict:
         "discount_value": str(discount.get("value", "")) if discount.get("value") else "",
         "discount_reason": discount.get("reason", "cortesia"),
     }
+
+
+def _tab_payload_payment_tenders(payment: dict) -> list[dict]:
+    tenders = payment.get("tenders")
+    if not isinstance(tenders, list) or not tenders:
+        return []
+    method = str(payment.get("method") or "").strip().lower()
+    if method == "mixed" or len(tenders) > 1:
+        return tenders
+    return []
 
 
 def _ensure_pos_tab(tab_ref: str, display: str = "") -> str:

@@ -131,6 +131,58 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(loaded["tab_session_key"], opened["tab_session_key"])
         self.assertEqual(loaded["items"][0]["qty"], 3)
 
+    def test_reopening_saved_tab_does_not_replay_generated_payment_tender(self) -> None:
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_ref="1007",
+            actor="pos:alice",
+            operator_username="alice",
+        )
+        pos_service.save_pos_tab(
+            channel_ref="pdv",
+            payload=_payload(qty=1, tab_session_key=opened["tab_session_key"]),
+            actor="pos:alice",
+            operator_username="alice",
+        )
+        session = Session.objects.get(session_key=opened["tab_session_key"])
+        self.assertEqual(session.data["payment"]["tenders"][0]["amount_q"], 1000)
+
+        loaded = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_ref="1007",
+            actor="pos:bob",
+            operator_username="bob",
+        )
+
+        self.assertEqual(loaded["payment_tenders"], [])
+        self.assertEqual(loaded["tendered_amount_q"], "")
+
+    def test_saving_tab_allows_incomplete_mixed_payment_draft(self) -> None:
+        opened = pos_service.open_pos_tab(
+            channel_ref="pdv",
+            tab_ref="1007",
+            actor="pos:alice",
+            operator_username="alice",
+        )
+        payload = _payload(qty=2, tab_session_key=opened["tab_session_key"])
+        payload.update({
+            "payment_method": "mixed",
+            "payment_tenders": [
+                {"method": "cash", "amount_q": 1000, "collection": "terminal"},
+            ],
+        })
+
+        saved = pos_service.save_pos_tab(
+            channel_ref="pdv",
+            payload=payload,
+            actor="pos:alice",
+            operator_username="alice",
+        )
+
+        session = Session.objects.get(session_key=saved.session_key)
+        self.assertEqual(session.data["payment"]["method"], "mixed")
+        self.assertEqual(session.data["payment"]["tenders"][0]["amount_q"], 1000)
+
     def test_closing_tab_consumes_original_session_and_frees_tab(self) -> None:
         opened = pos_service.open_pos_tab(
             channel_ref="pdv",

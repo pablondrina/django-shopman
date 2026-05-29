@@ -290,16 +290,18 @@ def _manual_discount(raw) -> dict | None:
     if not isinstance(raw, dict):
         return None
     discount_q = _optional_nonnegative_int(raw.get("discount_q"), "manual_discount.discount_q") or 0
-    if discount_q <= 0:
-        return None
     discount_type = str(raw.get("type") or "percent").strip().lower()
     if discount_type not in {"percent", "fixed"}:
-        discount_type = "fixed"
+        discount_type = "percent"
+    value = raw.get("value", "")
+    value_text = _text(value, limit=40)
+    if discount_q <= 0 and not value_text:
+        return None
     return {
         "type": discount_type,
-        "value": raw.get("value", 0),
+        "value": value_text,
         "discount_q": discount_q,
-        "reason": _text(raw.get("reason") or "outro", limit=120),
+        "reason": _text(raw.get("reason") or "cortesia", limit=120),
     }
 
 

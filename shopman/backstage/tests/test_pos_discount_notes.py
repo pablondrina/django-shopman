@@ -125,6 +125,13 @@ class POSCloseWithDiscountTests(TestCase):
         User = get_user_model()
         self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)
         _grant_pos_perm(self.staff)
+        from shopman.backstage.models import CashShift, POSTerminal
+
+        CashShift.objects.create(
+            operator=self.staff,
+            terminal=POSTerminal.default(),
+            opening_amount_q=0,
+        )
 
     def _close_sale(self, items, manual_discount=None, manager_approval=None):
         POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
@@ -171,7 +178,7 @@ class POSCloseWithDiscountTests(TestCase):
             manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
         )
 
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 422)
         self.assertIn("aprovação gerencial", resp.content.decode().lower())
 
     @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)

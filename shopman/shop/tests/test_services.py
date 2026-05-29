@@ -1078,13 +1078,27 @@ class TestFiscalService:
         mock_pool.get_backend.return_value = MagicMock()
 
         item = _make_item()
-        order = _make_order(data={}, items_list=[item])
+        order = _make_order(data={"fiscal": {"issue_document": True}}, items_list=[item])
 
         emit(order)
 
         directive = Directive.objects.last()
         assert directive is not None
         assert directive.topic == "fiscal.emit_nfce"
+
+    @pytest.mark.django_db
+    @patch("shopman.shop.services.fiscal.fiscal_pool")
+    def test_emit_noop_without_fiscal_intent(self, mock_pool):
+        from shopman.shop.services.fiscal import emit
+
+        mock_pool.get_backend.return_value = MagicMock()
+
+        item = _make_item()
+        order = _make_order(data={}, items_list=[item])
+
+        emit(order)
+
+        assert Directive.objects.count() == 0
 
     @pytest.mark.django_db
     @patch("shopman.shop.services.fiscal.fiscal_pool")

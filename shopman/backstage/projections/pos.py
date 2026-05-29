@@ -31,6 +31,10 @@ from shopman.shop.services.pos_intent import (
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
+from shopman.backstage.services.integration_readiness import (
+    build_provider_readiness,
+    focus_nfe_readiness,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +155,10 @@ class POSCashRuntimeProjection:
     terminal_label: str
     operator_username: str
     opened_at: str
+    status: str = "closed"
+    blocking_operator_username: str = ""
+    blocking_shift_id: int | None = None
+    blocking_message: str = ""
 
 
 @dataclass(frozen=True)
@@ -242,7 +250,7 @@ class POSProjection:
 
 # ── Constants ──────────────────────────────────────────────────────────
 
-_POS_PAYMENT_METHOD_REFS = ("cash", "pix", "card")
+_POS_PAYMENT_METHOD_REFS = ("cash", "pix", "card", "mixed")
 _POS_TENDER_METHOD_REFS = ("cash", "pix", "card", "external")
 
 _PAYMENT_COLLECTIONS = (
@@ -258,7 +266,7 @@ _PAYMENT_COLLECTIONS = (
         label="Receber na entrega",
         description="Disponível apenas para entrega em dinheiro.",
         fulfillment_types=("delivery",),
-        payment_method_refs=("cash",),
+        payment_method_refs=("cash", "mixed"),
     ),
 )
 
@@ -284,6 +292,7 @@ def build_pos(*, terminal=None, operator=None) -> POSProjection:
         from shopman.backstage.models import POSTerminal
 
         terminal = POSTerminal.default()
+    terminal_cash_shift = _active_cash_shift_for_terminal(terminal)
     from shopman.backstage.services.pos_terminal import runtime_profile
 
     runtime = runtime_profile(terminal)
@@ -306,7 +315,12 @@ def build_pos(*, terminal=None, operator=None) -> POSProjection:
         ),
         actions=_pos_actions(),
         has_open_cash_session=bool(cash_shift) if operator is not None else True,
-        cash_runtime=_cash_runtime_projection(cash_shift, runtime, operator),
+        cash_runtime=_cash_runtime_projection(
+            cash_shift,
+            runtime,
+            operator,
+            terminal_cash_shift=terminal_cash_shift,
+        ),
         terminal_ref=runtime.terminal_ref,
         terminal_label=runtime.terminal_label,
         terminal_default_fulfillment_type=runtime.default_fulfillment_type,
@@ -981,6 +995,10 @@ def _checkout_contract(
             "supports_delivery_address_autocomplete": bool(getattr(settings, "GOOGLE_MAPS_API_KEY", "")),
             "supports_receipt_email": True,
             "supports_manual_discount": True,
+            "provider_readiness": tuple(
+                item.as_projection()
+                for item in build_provider_readiness(mode="runtime")
+            ),
             "fiscal_document": fiscal_status,
             "fiscal_label": fiscal_label,
             "fiscal_message": fiscal_message,
@@ -1054,8 +1072,34 @@ def _active_cash_shift(operator):
         return None
 
 
-def _cash_runtime_projection(cash_shift, runtime, operator) -> POSCashRuntimeProjection:
+def _active_cash_shift_for_terminal(terminal):
+    if terminal is None:
+        return None
+    try:
+        from shopman.backstage.models import CashShift
+
+        return CashShift.get_open_for_terminal(terminal)
+    except Exception:
+        logger.debug("pos_terminal_cash_shift_lookup_failed", exc_info=True)
+        return None
+
+
+def _cash_runtime_projection(cash_shift, runtime, operator, *, terminal_cash_shift=None) -> POSCashRuntimeProjection:
     if cash_shift is None:
+        if terminal_cash_shift is not None:
+            operator_username = terminal_cash_shift.operator.get_username()
+            return POSCashRuntimeProjection(
+                has_open_shift=False,
+                shift_id=None,
+                terminal_ref=runtime.terminal_ref,
+                terminal_label=runtime.terminal_label,
+                operator_username=getattr(operator, "username", "") if operator is not None else "",
+                opened_at="",
+                status="terminal_occupied",
+                blocking_operator_username=operator_username,
+                blocking_shift_id=terminal_cash_shift.pk,
+                blocking_message=f"Terminal aberto por {operator_username}.",
+            )
         return POSCashRuntimeProjection(
             has_open_shift=False,
             shift_id=None,
@@ -1063,6 +1107,7 @@ def _cash_runtime_projection(cash_shift, runtime, operator) -> POSCashRuntimePro
             terminal_label=runtime.terminal_label,
             operator_username=getattr(operator, "username", "") if operator is not None else "",
             opened_at="",
+            status="closed",
         )
     return POSCashRuntimeProjection(
         has_open_shift=True,
@@ -1071,6 +1116,7 @@ def _cash_runtime_projection(cash_shift, runtime, operator) -> POSCashRuntimePro
         terminal_label=str(cash_shift.terminal),
         operator_username=cash_shift.operator.get_username(),
         opened_at=cash_shift.opened_at.isoformat() if cash_shift.opened_at else "",
+        status="open",
     )
 
 
@@ -1292,16 +1338,7 @@ def _fiscal_runtime() -> tuple[str, str, str]:
         return ("warning", "Fiscal", "sem adapter")
 
     if "fiscal_focusnfe.FocusNFeBackend" in str(adapter_path):
-        config = dict(getattr(settings, "SHOPMAN_FOCUS_NFE", {}) or {})
-        environment = str(config.get("environment") or "homologacao").strip().lower() or "homologacao"
-        label = "Focus NFe / NFC-e"
-        missing = []
-        if not str(config.get("token") or "").strip():
-            missing.append("token")
-        if not str(config.get("cnpj_emitente") or "").strip():
-            missing.append("CNPJ")
-        if missing:
-            return ("warning", label, f"{environment}: falta {', '.join(missing)}")
-        return ("ready", label, environment)
+        readiness = focus_nfe_readiness(mode="runtime")
+        return (readiness.status, readiness.label, readiness.message)
 
     return ("warning", "Fiscal", "adapter customizado")

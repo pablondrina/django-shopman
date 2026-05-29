@@ -58,7 +58,7 @@ from shopman.backstage.services import (
 from shopman.backstage.services import (
     production as production_service,
 )
-from shopman.backstage.services.exceptions import OrderError, ProductionError
+from shopman.backstage.services.exceptions import OrderError, POSError, ProductionError
 from shopman.shop.services import pos as pos_tabs_service
 from shopman.shop.services.pos_intent import PosIntentError
 
@@ -100,17 +100,37 @@ def _cash_shift_result(shift) -> dict:
 def _pos_payload_with_runtime(request, body: dict) -> dict:
     """Attach the active POS runtime context that browser surfaces should not invent."""
     payload = dict(body or {})
-    try:
-        from shopman.backstage.models import CashShift
-
-        cash_shift = CashShift.get_open_for_operator(request.user)
-    except Exception:
-        logger.debug("pos_runtime_payload_enrichment_failed user=%s", _actor(request), exc_info=True)
-        return payload
+    cash_shift = _open_cash_shift_for_request(request)
     if cash_shift:
         payload.setdefault("cash_shift_id", cash_shift.pk)
         payload.setdefault("pos_terminal_ref", cash_shift.terminal.ref)
     return payload
+
+
+def _open_cash_shift_for_request(request):
+    try:
+        from shopman.backstage.models import CashShift
+
+        return CashShift.get_open_for_operator(request.user)
+    except Exception:
+        logger.debug("pos_runtime_payload_enrichment_failed user=%s", _actor(request), exc_info=True)
+        return None
+
+
+def _cash_shift_required_response() -> Response:
+    return Response(
+        {
+            "detail": "Abra o caixa antes de revisar ou finalizar uma venda.",
+            "error": {
+                "code": "cash_shift_required",
+                "message": "Abra o caixa antes de revisar ou finalizar uma venda.",
+                "field": "cash_shift_id",
+                "focus": "cash",
+                "recovery": "Abra um turno de caixa neste terminal e tente novamente.",
+            },
+        },
+        status=409,
+    )
 
 
 def _pos_sale_review_payload(review) -> dict:
@@ -490,6 +510,26 @@ class POSCashOpenView(APIView):
                 opening_amount_raw=str(amount),
                 terminal_ref=str(request.data.get("terminal_ref") or ""),
             )
+        except POSError as exc:
+            message = str(exc) or "Falha ao abrir caixa."
+            terminal_occupied = "Terminal POS" in message and "turno aberto" in message
+            return Response(
+                {
+                    "detail": message,
+                    "error": {
+                        "code": "cash_terminal_occupied" if terminal_occupied else "cash_shift_open_failed",
+                        "message": message,
+                        "field": "terminal_ref" if terminal_occupied else "opening_amount",
+                        "focus": "cash",
+                        "recovery": (
+                            "Use o operador correto, feche o turno atual no gestor ou selecione outro terminal antes de vender."
+                            if terminal_occupied
+                            else "Corrija os dados de abertura do caixa e tente novamente."
+                        ),
+                    },
+                },
+                status=409 if terminal_occupied else 400,
+            )
         except Exception as exc:
             logger.debug("pos_cash_shift_open_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao abrir caixa."}, status=400)
@@ -707,6 +747,8 @@ class POSReviewSaleView(APIView):
 
     def post(self, request):
         body = request.data if hasattr(request, "data") else {}
+        if _open_cash_shift_for_request(request) is None:
+            return _cash_shift_required_response()
         try:
             review = pos_tabs_service.review_sale(
                 channel_ref=POS_CHANNEL_REF,
@@ -736,6 +778,8 @@ class POSCloseSaleView(APIView):
 
     def post(self, request):
         body = request.data if hasattr(request, "data") else {}
+        if _open_cash_shift_for_request(request) is None:
+            return _cash_shift_required_response()
         try:
             result = pos_tabs_service.close_sale(
                 channel_ref=POS_CHANNEL_REF,
@@ -752,6 +796,7 @@ class POSCloseSaleView(APIView):
             "ok": True,
             "order_ref": getattr(result, "order_ref", None),
             "tab_ref": getattr(result, "tab_ref", None),
+            "payment": getattr(result, "payment", None) or {},
         })
 
 
