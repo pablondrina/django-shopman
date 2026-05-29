@@ -43,11 +43,7 @@ class POSTerminal(models.Model):
 
 
 class CashShift(models.Model):
-    """
-    A single POS cash shift opened by an operator at a terminal.
-
-    Legacy name: CashRegisterSession.
-    """
+    """A single POS cash shift opened by an operator at a terminal."""
 
     class Status(models.TextChoices):
         OPEN = "open", "Aberto"
@@ -316,6 +312,3 @@ class CashMovement(models.Model):
         from shopman.utils.monetary import format_money
 
         return f"{self.get_movement_type_display()} R$ {format_money(self.amount_q)} - {self.shift}"
-
-
-CashRegisterSession = CashShift

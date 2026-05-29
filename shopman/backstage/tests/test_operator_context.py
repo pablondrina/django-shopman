@@ -12,7 +12,7 @@ from shopman.craftsman.models import Recipe
 from shopman.orderman.models import Order
 from shopman.stockman.models import Position
 
-from shopman.backstage.models import CashRegisterSession, OperatorAlert
+from shopman.backstage.models import CashShift, OperatorAlert
 from shopman.backstage.operator.context import build_operator_context
 from shopman.shop.models import Shop
 
@@ -30,7 +30,7 @@ def test_operator_context_summarizes_alerts_shift_kpis_and_permissions(rf):
     _grant(user, "shop", "manage_orders")
     _grant(user, "shop", "view_production_started")
 
-    CashRegisterSession.objects.create(operator=user, opening_amount_q=1000)
+    CashShift.objects.create(operator=user, opening_amount_q=1000)
     OperatorAlert.objects.create(type="stock_low", severity="warning", message="Estoque baixo")
     OperatorAlert.objects.create(type="production_late", severity="critical", message="Produção atrasada")
     Position.objects.create(ref="balcao", name="Balcão", is_default=True)

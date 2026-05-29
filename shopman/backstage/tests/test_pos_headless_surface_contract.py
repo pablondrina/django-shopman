@@ -10,7 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
 
 from shopman.backstage.api.projections import projection_data
-from shopman.backstage.models import CashRegisterSession, CashShift, POSTab, POSTerminal
+from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.backstage.projections.pos import build_pos
 from shopman.guestman.models import Customer, CustomerAddress
 from shopman.offerman.models import Listing, ListingItem, Product
@@ -20,13 +20,13 @@ from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION
 
 
 def _grant_pos_perm(user) -> None:
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
 
 def _grant_adjust_cashshift_perm(user) -> None:
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="adjust_cashshift")
     user.user_permissions.add(perm)
 

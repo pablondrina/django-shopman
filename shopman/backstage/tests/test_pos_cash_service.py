@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth.models import User
 
-from shopman.backstage.models import CashMovement, CashRegisterSession, CashShift, POSTerminal
+from shopman.backstage.models import CashMovement, CashShift, POSTerminal
 from shopman.backstage.services import pos
 from shopman.backstage.services.exceptions import POSError
 
@@ -28,7 +28,7 @@ def test_open_cash_session_creates_or_returns_current_session(operator):
 
     assert session.pk == same.pk
     assert session.opening_amount_q == 5000
-    assert CashRegisterSession.objects.count() == 1
+    assert CashShift.objects.count() == 1
     assert CashShift.objects.count() == 1
     assert session.terminal == POSTerminal.default()
 
@@ -51,7 +51,7 @@ def test_register_cash_movement_requires_open_session(operator):
 
 @pytest.mark.django_db
 def test_register_cash_movement_validates_amount_and_normalizes_type(operator):
-    session = CashRegisterSession.objects.create(operator=operator, opening_amount_q=0)
+    session = CashShift.objects.create(operator=operator, opening_amount_q=0)
 
     with pytest.raises(POSError):
         pos.register_cash_movement(operator=operator, amount_raw="0")
@@ -88,7 +88,7 @@ def test_close_cash_session_requires_open_session(operator):
 
 @pytest.mark.django_db
 def test_close_cash_session_closes_and_records_notes(operator):
-    CashRegisterSession.objects.create(operator=operator, opening_amount_q=1000)
+    CashShift.objects.create(operator=operator, opening_amount_q=1000)
 
     session = pos.close_cash_session(
         operator=operator,
@@ -96,7 +96,7 @@ def test_close_cash_session_closes_and_records_notes(operator):
         notes="fim do turno",
     )
 
-    assert session.status == CashRegisterSession.Status.CLOSED
+    assert session.status == CashShift.Status.CLOSED
     assert session.status == CashShift.Status.CLOSED
     assert session.blind_closing_amount_q == 1000
     assert session.closing_amount_q == 1000

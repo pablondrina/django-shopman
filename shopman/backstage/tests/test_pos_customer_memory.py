@@ -20,9 +20,9 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
+    from shopman.backstage.models import CashShift
 
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 

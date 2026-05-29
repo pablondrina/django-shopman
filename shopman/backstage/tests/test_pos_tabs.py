@@ -18,9 +18,9 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
+    from shopman.backstage.models import CashShift
 
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
@@ -341,12 +341,12 @@ class POSTabSessionTests(TestCase):
         self.assertTrue(POSTab.objects.filter(ref="00001009", label="1009", is_active=True).exists())
 
     def test_pos_page_starts_on_tab_selection_mode(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
+        from shopman.backstage.models import CashShift
 
         User = get_user_model()
         staff = User.objects.create_user(username="tab_page_staff", password="x", is_staff=True)
         _grant_pos_perm(staff)
-        CashRegisterSession.objects.create(operator=staff, opening_amount_q=0)
+        CashShift.objects.create(operator=staff, opening_amount_q=0)
         self.client.force_login(staff)
 
         response = self.client.get("/gestor/pos/")
