@@ -269,9 +269,10 @@ python manage.py reconcile_financial_day --date=2026-05-05 --dry-run --json
 **Arquivo:** `shopman/backstage/management/commands/smoke_gateways.py`
 
 Executa um smoke operacional de gateways usando fixtures locais com rollback:
-EFI PIX duplicado e atrasado após cancelamento, Stripe capture/replay/refund
+Efí PIX duplicado e atrasado após cancelamento, Stripe capture/replay/refund
 cumulativo fora de ordem e iFood pedido externo duplicado. Também reporta matriz
-de prontidão sandbox/staging sem marcar provedor real como validado quando faltam
+de prontidão sandbox/staging para Focus NFe homologação, Efí sandbox, Stripe
+test e demais provedores, sem marcar provedor real como validado quando faltam
 credenciais.
 
 | Flag | Default | Descrição |
@@ -295,6 +296,10 @@ make smoke-gateways-sandbox
 
 Sem credenciais reais, `smoke-gateways-sandbox` retorna
 `blocked_by_credentials`; isso é bloqueio honesto, não sucesso falso.
+
+Para staging de POS, a matriz também bloqueia configurações perigosas: Focus NFe
+em produção, Efí com `EFI_SANDBOX=false` ou Stripe com chaves `sk_live_` /
+`pk_live_`.
 
 ---
 
@@ -473,6 +478,29 @@ SHOPMAN_ADMIN_PASSWORD=<senha forte> python manage.py bootstrap_admin \
   --username pablo \
   --email pablo@example.com \
   --deactivate-seed-admin
+```
+
+### configure_shop_contact
+
+**App:** `shop`
+**Arquivo:** `shopman/shop/management/commands/configure_shop_contact.py`
+
+Configura telefone, email e WhatsApp público da loja singleton de forma
+idempotente. Use depois do seed ou em pre-prod/prod para garantir que
+`home.public_config.whatsapp_url` esteja projetado no storefront.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--name` | `SHOPMAN_SHOP_NAME` | Nome usado se a loja ainda não existir |
+| `--phone` | `SHOPMAN_SHOP_PHONE` | Telefone público em E.164 BR, com ou sem `+` |
+| `--email` | `SHOPMAN_SHOP_EMAIL` | Email público da loja |
+| `--whatsapp` | `SHOPMAN_SHOP_WHATSAPP` | Número WhatsApp ou URL `wa.me` / `api.whatsapp.com` |
+| `--dry-run` | — | Mostra o resultado sem salvar |
+
+```bash
+python manage.py configure_shop_contact \
+  --phone 554333231997 \
+  --email nelson@boulangerie.com.br
 ```
 
 ### bootstrap_admin

@@ -70,6 +70,7 @@ O POS deve ser operavel por uma pessoa em horario de pico sem mouse, sem planilh
 - `Order` continua sendo source of truth de venda; `CashShift` de dinheiro em caixa; `FiscalBackend` de documento fiscal.
 - Nenhum dinheiro entra em `CashShift` se nao foi recebido fisicamente no terminal.
 - Foco e atalhos sao comportamento de produto, nao acessorio de acessibilidade.
+- A sessao Django/staff autoriza o terminal; o operador ativo do turno e uma identidade operacional propria, trocada por PIN no runtime e registrada em auditoria.
 - Fiscal e idempotente por `Order.ref`.
 - Venda por peso fica fora dos WPs iniciais.
 
@@ -90,6 +91,7 @@ Atalhos alvo:
 | `F10` | Confirmar venda quando checkout estiver valido. |
 | `Ctrl+S` | Salvar comanda. |
 | `Ctrl+P` | Reimprimir/abrir recibo da ultima venda. |
+| `Ctrl+Alt+U` | Trocar operador ativo via modal de PIN. |
 | `Alt+1..9` | Selecionar categoria/colecao por posicao visivel. |
 | `Enter` | Acionar item focado: abrir comanda, adicionar produto, confirmar campo. |
 | `Setas` | Navegacao roving-tabindex em grids de comandas/produtos/carrinho. |
@@ -538,7 +540,10 @@ Objetivo: reduzir friccao de troca de operador e manter auditoria forte.
 
 Escopo:
 
-- PIN de operador no POS sem logout completo.
+- Trocar usuario/operador ativo no runtime por modal de PIN de 4 digitos, sem logout completo do Django Admin.
+- Requisito transversal: o fluxo deve valer para o POS Django, POS Nuxt UI Thing e demais superficies operacionais/backoffice que assumirem operador ativo, como KDS, Pedidos, caixa e producao.
+- Separar claramente autenticacao de terminal (`request.user`/staff) de identidade operacional ativa (`active_operator`) usada em auditoria, com timeout/bloqueio configuravel por terminal.
+- PIN nunca fica em texto puro; deve ser validado no backend contra hash/perfil autorizado e usar rate limit/bloqueio apos tentativas invalidas.
 - Aprovar desconto, cancelamento, sangria, reprocessamento fiscal e divergencia de caixa.
 - Eventos auditaveis por operador e gerente aprovador.
 
@@ -551,15 +556,20 @@ Contexto:
 - Hoje permissao usa usuario Django/staff e perm backstage.operate_pos.
 - CashShift guarda operator.
 - Vendas guardam pos_operator em Order.data.
+- A sessao Django autoriza o terminal, mas o operador ativo do atendimento precisa poder ser trocado rapidamente por PIN de 4 digitos, sem contaminar auditoria com o usuario que apenas abriu o navegador.
 
 Tarefa:
-1. Criar fluxo de PIN para assumir operador no terminal sem logout.
-2. Exigir aprovacao gerencial para acoes sensiveis.
-3. Registrar ator operacional e aprovador em eventos/order data/cash movements.
-4. Manter compatibilidade com permissao Django.
+1. Criar endpoint backend canonico para trocar operador ativo por PIN de 4 digitos, com validacao server-side, rate limit e erro sem revelar se usuario/PIN existe.
+2. Criar modal "Trocar operador" com keypad numerico, foco preso, restore de foco e atalho `Ctrl+Alt+U`.
+3. Propagar `active_operator` para POS Django, POS Nuxt UI Thing e proximas superficies operacionais, sem duplicar regra por frontend.
+4. Exigir aprovacao gerencial para acoes sensiveis.
+5. Registrar ator operacional, usuario autenticado do terminal e aprovador em eventos/order data/cash movements.
+6. Manter compatibilidade com permissao Django/staff como gate de acesso ao terminal.
 
 Aceite:
 - Auditoria distingue caixa, operador e gerente aprovador.
+- Troca de operador por PIN funciona sem logout e fica visivel no topo do runtime.
+- PIN invalido nao troca operador, nao limpa a comanda atual e gera evento auditavel/rate-limited.
 - Desconto/cancelamento sensivel exige aprovacao configuravel.
 ```
 

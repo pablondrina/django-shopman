@@ -64,7 +64,7 @@ somente o processo que ele iniciou. Use `port=...` para mudar a porta.
 | `desktop.orders.queue` | desktop 1440x900 | Backstage | fila de pedidos | Urgência, bloqueios, pagamento e ação primária. |
 | `desktop.marketplace.ifood_stale` | desktop 1440x900 | Backstage | pedido iFood seed | Pedido externo atrasado com ação segura. |
 | `desktop.payment.after_cancel` | desktop 1440x900 | Backstage | pedido cancelado seed | Alerta crítico, reembolso e comunicação. |
-| `desktop.pos.counter` | touch/desktop 1280x800 | POS | `/gestor/pos/` | Venda, edição, comanda e caixa sem admin genérico. |
+| `desktop.pos.counter` | touch/desktop 1280x800 | POS | `/gestor/pos/` | Venda, edição, comanda disponível e caixa aberto sem admin genérico. |
 | `desktop.cash_register.shift` | touch/desktop 1280x800 | POS | `/gestor/pos/` | Estado de caixa, sangria/fechamento e diferença. |
 | `desktop.closing.day` | desktop 1440x900 | Backstage | fechamento do dia | Sobras, D-1, caixa e divergências sem planilha paralela. |
 

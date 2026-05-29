@@ -229,9 +229,9 @@ DOORMAN = {
 
 ## Payments (Pagamentos)
 
-O payments core não tem `conf.py` próprio — configuração é feita via settings do orquestrador (`SHOPMAN_PAYMENT_BACKEND`) e via `ChannelConfig.payment`.
+O payments core não tem `conf.py` próprio — configuração é feita via settings do orquestrador (`SHOPMAN_PAYMENT_ADAPTERS`) e via `ChannelConfig.payment`.
 
-Veja [Shopman — Orquestrador](#shopman--orquestrador) para `SHOPMAN_PAYMENT_BACKEND`.
+Veja [Shopman — Orquestrador](#shopman--orquestrador) para `SHOPMAN_PAYMENT_ADAPTERS`.
 
 ---
 
@@ -244,12 +244,31 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
 | `SHOPMAN_STOCK_BACKEND` | str | *(auto-detecção)* | Backend de estoque. Se omitido, usa backend interno → fallback `NoopStockBackend` |
-| `SHOPMAN_PAYMENT_BACKEND` | str | backend mock interno | Backend de pagamento |
+| `SHOPMAN_PAYMENT_ADAPTERS` | dict | mock por método | Adapters de pagamento por método (`pix`, `card`, `cash`, `external`) |
+| `SHOPMAN_PIX_ADAPTER` | env str | `shopman.shop.adapters.payment_mock` | Override do adapter PIX; staging real usa `shopman.shop.adapters.payment_efi` |
+| `SHOPMAN_CARD_ADAPTER` | env str | `shopman.shop.adapters.payment_mock` | Override do adapter cartão; staging real usa `shopman.shop.adapters.payment_stripe` |
 | `SHOPMAN_FISCAL_ADAPTER` | str | *(sem default)* | Adapter fiscal. Se ausente, handlers fiscais não são registrados |
 | `SHOPMAN_FOCUS_NFE` | dict | homologação | Configuração do adapter `shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend` |
+| `SHOPMAN_EFI` | dict | sandbox | Configuração Efí PIX (`sandbox`, `client_id`, `client_secret`, `certificate_path`, `pix_key`) |
+| `SHOPMAN_EFI_WEBHOOK` | dict | vazio | Segredo de webhook Efí e header mTLS opcional |
+| `SHOPMAN_STRIPE` | dict | vazio | Configuração Stripe Checkout (`publishable_key`, `secret_key`, `webhook_secret`, `capture_method`, `domain`) |
 | `SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q` | int | `0` | Valor de desconto em centavos acima do qual o POS exige aprovação gerencial. `0` desativa |
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
+
+Para staging/homologação de POS, `make smoke-gateways-sandbox` exige Focus NFe
+em homologação, Efí sandbox e Stripe test. Configurações live/producao nesses
+provedores são tratadas como erro de prontidão fora de produção.
+
+Focus NFe NFC-e usa `SHOPMAN_FISCAL_ADAPTER=shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend`.
+Em homologação, deixe `FOCUS_NFE_ENVIRONMENT=homologacao` e não force
+`FOCUS_NFE_BASE_URL`; o adapter resolve para `https://homologacao.focusnfe.com.br`.
+O token é enviado por HTTP Basic Auth como usuário e senha vazia. O CNPJ do
+emitente vem de `FOCUS_NFE_CNPJ_EMITENTE` quando definido; caso contrário, o
+adapter usa `Shop.document`, mantendo o perfil do estabelecimento como fonte
+canônica. A emissão usa `POST /v2/nfce?ref=...&completa=1`,
+`local_destino=1`, `presenca_comprador=1`, `modalidade_frete=9` e só é
+enfileirada quando o pedido carrega `data.fiscal.issue_document=true`.
 
 **Guia:** [lifecycle.md](../guides/lifecycle.md)
 

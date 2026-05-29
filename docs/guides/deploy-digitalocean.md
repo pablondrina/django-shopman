@@ -54,6 +54,11 @@ compartilhado entre release job e web para CSS/admin/assets.
 
 ## Segredos Obrigatórios
 
+Use também o runbook de fechamento em
+[`docs/predeploy/release-secrets-runbook.md`](../predeploy/release-secrets-runbook.md),
+que lista os nomes exatos de variáveis, a configuração do WhatsApp público da
+loja e os comandos de validação.
+
 Antes do primeiro deploy com `DJANGO_DEBUG=false`, crie estas variáveis como
 encrypted runtime variables no nível do app:
 
@@ -216,7 +221,9 @@ make smoke-gateways-sandbox json=1
 
 O primeiro comando ainda só fica verde para release real depois de anexarmos
 evidência manual/física de QA Omotenashi e pré-produção. O segundo só fica verde
-quando EFI, Stripe, iFood e ManyChat estiverem com sandbox/staging reais.
+quando Focus NFe homologação, Efí sandbox, Stripe test, iFood e ManyChat
+estiverem com sandbox/staging reais; Focus/Efí/Stripe em modo produção são
+bloqueio explícito fora de produção.
 
 ## Bootstrap de Dados e Admin
 

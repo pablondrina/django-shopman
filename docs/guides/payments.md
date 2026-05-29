@@ -136,33 +136,43 @@ O timeout total de hold de estoque deve cobrir: confirmação + pagamento + marg
 Para testes e desenvolvimento. Simula fluxo completo com PIX mockado.
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_mock.MockPaymentBackend"
+SHOPMAN_PAYMENT_ADAPTERS = {
+    "pix": "shopman.shop.adapters.payment_mock",
+    "card": "shopman.shop.adapters.payment_mock",
+}
 ```
 
-### EfiPixBackend
+### Efí PIX
 
-Integração com Efi (Gerencianet) para PIX real.
+Integração com Efí para PIX real via Payman. Em staging/homologação, mantenha
+`EFI_SANDBOX=true` e use certificado/credenciais de homologação.
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_efi.EfiPixBackend"
-
-# Settings necessários:
-EFI_CLIENT_ID = "..."
-EFI_CLIENT_SECRET = "..."
-EFI_CERTIFICATE = "/path/to/cert.pem"
-EFI_SANDBOX = True  # False em produção
+SHOPMAN_PAYMENT_ADAPTERS["pix"] = "shopman.shop.adapters.payment_efi"
+SHOPMAN_EFI = {
+    "sandbox": True,
+    "client_id": "...",
+    "client_secret": "...",
+    "certificate_path": "/path/to/efi.pem",
+    "pix_key": "...",
+}
+SHOPMAN_EFI_WEBHOOK = {"webhook_token": "..."}
 ```
 
-### StripeBackend
+### Stripe Checkout
 
-Integração com Stripe (cartão, PIX via Stripe).
+Integração com Stripe Checkout para cartão. Staging/test deve usar chaves
+`sk_test_` / `pk_test_`; chaves live são bloqueadas pelo smoke de sandbox.
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_stripe.StripeBackend"
-
-# Settings necessários:
-STRIPE_SECRET_KEY = "sk_..."
-STRIPE_WEBHOOK_SECRET = "whsec_..."
+SHOPMAN_PAYMENT_ADAPTERS["card"] = "shopman.shop.adapters.payment_stripe"
+SHOPMAN_STRIPE = {
+    "publishable_key": "pk_test_...",
+    "secret_key": "sk_test_...",
+    "webhook_secret": "whsec_...",
+    "capture_method": "manual",
+    "domain": "https://staging.example.com",
+}
 ```
 
 ## Signals
@@ -211,5 +221,6 @@ make smoke-gateways-sandbox
 ```
 
 O primeiro comando usa fixtures locais com rollback e valida o contrato interno.
-O segundo exige credenciais/staging reais; sem elas, retorna
-`blocked_by_credentials` para evitar falsa aprovação de sandbox.
+O segundo exige credenciais/staging reais para Focus NFe homologação, Efí
+sandbox e Stripe test; sem elas, retorna `blocked_by_credentials` para evitar
+falsa aprovação de sandbox. Também bloqueia configuração de produção em staging.
