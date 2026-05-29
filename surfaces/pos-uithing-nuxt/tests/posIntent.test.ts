@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { buildAdminLoginUrl, isOperatorAccessError, statusCodeFromError } from "../app/utils/operatorAccess";
 import {
   POS_SALE_INTENT_VERSION,
   actionHref,
@@ -16,6 +17,10 @@ import {
   tabRefMaxLength,
   tabRefPlaceholder,
 } from "../app/utils/posTabLifecycle";
+import {
+  csrfTokenFromCookieHeader,
+  mergeSetCookieIntoCookieHeader,
+} from "../server/utils/djangoProxy";
 
 describe("POS sale intent", () => {
   it("serializes cart state into the canonical POS intent contract", () => {
@@ -132,6 +137,55 @@ describe("POS sale intent", () => {
       { sku: "B", name: "B", price_q: 300, qty: 1, notes: "", is_d1: false },
     ])).toBe(1300);
   });
+
+  it("does not replay saved tender lines unless split payment is explicit", () => {
+    const staleTender = { method: "cash", amount_q: 1000, collection: "terminal" as const };
+    const simple = buildPosSaleIntent(baseIntentState({
+      paymentMethod: "cash",
+      paymentTenders: [staleTender],
+      tenderedAmountQ: null,
+    }));
+
+    expect(simple).not.toHaveProperty("payment_tenders");
+
+    const mixed = buildPosSaleIntent(baseIntentState({
+      paymentMethod: "mixed",
+      paymentTenders: [staleTender],
+      tenderedAmountQ: null,
+    }));
+
+    expect(mixed.payment_tenders).toEqual([staleTender]);
+  });
+
+  it("sends cash received amount only for terminal cash payments", () => {
+    expect(buildPosSaleIntent(baseIntentState({
+      paymentMethod: "pix",
+      paymentCollection: "terminal",
+      tenderedAmountQ: 2000,
+    }))).not.toHaveProperty("tendered_amount_q");
+
+    expect(buildPosSaleIntent(baseIntentState({
+      paymentMethod: "cash",
+      paymentCollection: "on_delivery",
+      tenderedAmountQ: 2000,
+    }))).not.toHaveProperty("tendered_amount_q");
+
+    expect(buildPosSaleIntent(baseIntentState({
+      paymentMethod: "cash",
+      paymentCollection: "terminal",
+      tenderedAmountQ: 2000,
+    }))).toMatchObject({ tendered_amount_q: 2000 });
+  });
+
+  it("serializes manual discount as a canonical intent for backend review", () => {
+    expect(buildPosSaleIntent(baseIntentState({
+      manualDiscount: { type: "percent", value: "10", reason: "fidelidade" },
+      managerApproval: { username: "gerente", password: "secret" },
+    }))).toMatchObject({
+      manual_discount: { type: "percent", value: "10", reason: "fidelidade" },
+      manager_approval: { username: "gerente", password: "secret" },
+    });
+  });
 });
 
 describe("surface architecture guardrails", () => {
@@ -168,6 +222,44 @@ describe("surface architecture guardrails", () => {
   });
 });
 
+describe("operator access", () => {
+  it("recognizes Django/DRF auth failures as operator access states", () => {
+    expect(statusCodeFromError({ statusCode: 403 })).toBe(403);
+    expect(statusCodeFromError({ response: { status: 401 } })).toBe(401);
+    expect(isOperatorAccessError({ statusCode: 403 })).toBe(true);
+    expect(isOperatorAccessError({ response: { status: 401 } })).toBe(true);
+    expect(isOperatorAccessError({ statusCode: 500 })).toBe(false);
+  });
+
+  it("builds an admin login URL without taking ownership of credentials", () => {
+    expect(buildAdminLoginUrl({
+      djangoPublicBaseUrl: "https://shop.example.com/",
+      nextPath: "/pos/",
+    })).toBe("https://shop.example.com/admin/login/?next=%2Fpos%2F");
+
+    expect(buildAdminLoginUrl({
+      djangoPublicBaseUrl: "http://127.0.0.1:8000",
+      nextPath: "pos/",
+    })).toBe("http://127.0.0.1:8000/admin/login/?next=%2Fpos%2F");
+
+    expect(buildAdminLoginUrl({
+      djangoPublicBaseUrl: "http://127.0.0.1:8000",
+      nextPath: "/admin/",
+    })).toBe("http://127.0.0.1:8000/admin/login/?next=%2Fadmin%2F");
+  });
+
+  it("preserves Django session cookies while refreshing CSRF state", () => {
+    const cookie = "sessionid=session-123; csrftoken=old-token";
+    expect(csrfTokenFromCookieHeader(cookie)).toBe("old-token");
+    expect(mergeSetCookieIntoCookieHeader(cookie, "csrftoken=new-token; Path=/; SameSite=Lax")).toBe(
+      "sessionid=session-123; csrftoken=new-token",
+    );
+    expect(mergeSetCookieIntoCookieHeader(cookie, "other=value=with-equals; Path=/")).toBe(
+      "sessionid=session-123; csrftoken=old-token; other=value=with-equals",
+    );
+  });
+});
+
 function readSources(dir: string): Array<{ path: string; content: string }> {
   const entries: Array<{ path: string; content: string }> = [];
   for (const name of readdirSync(dir)) {
@@ -182,4 +274,40 @@ function readSources(dir: string): Array<{ path: string; content: string }> {
     }
   }
   return entries;
+}
+
+function baseIntentState(overrides: Record<string, unknown> = {}) {
+  return {
+    tabRef: "00001007",
+    tabSessionKey: "session-1",
+    customerName: "",
+    customerRef: "",
+    customerPhone: "",
+    customerTaxId: "",
+    customerEmail: "",
+    customerMemoryAction: "",
+    fulfillmentType: "pickup",
+    deliveryAddress: "",
+    deliveryAddressStructured: {},
+    deliveryComplement: "",
+    deliveryInstructions: "",
+    deliveryDate: "",
+    deliveryTimeSlot: "",
+    deliveryFeeQ: 0,
+    orderNotes: "",
+    paymentMethod: "cash",
+    paymentCollection: "terminal",
+    paymentTenders: [],
+    tenderedAmountQ: null,
+    issueFiscalDocument: false,
+    receiptMode: "none",
+    receiptEmail: "",
+    manualDiscount: null,
+    managerApproval: null,
+    clientRequestId: "pos-uithing:test-base",
+    items: [
+      { sku: "PAO", name: "Pao", price_q: 1200, qty: 1, notes: "", is_d1: false },
+    ],
+    ...overrides,
+  };
 }

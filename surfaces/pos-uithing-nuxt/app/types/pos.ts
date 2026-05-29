@@ -95,6 +95,10 @@ export interface POSCashRuntimeProjection {
   terminal_label: string;
   operator_username: string;
   opened_at: string;
+  status?: "open" | "closed" | "terminal_occupied" | string;
+  blocking_operator_username?: string;
+  blocking_shift_id?: number | null;
+  blocking_message?: string;
 }
 
 export interface POSAddressAutocompleteProjection {
@@ -242,6 +246,13 @@ export interface POSCartItem {
   is_d1: boolean;
 }
 
+export interface POSPaymentTenderDraft {
+  method: string;
+  amount_q: number;
+  collection: "terminal" | "on_delivery";
+  reference?: string;
+}
+
 export interface POSTabPayload {
   session_key: string;
   tab_session_key: string;
@@ -277,6 +288,21 @@ export interface POSCloseSaleResponse {
   ok: boolean;
   order_ref?: string;
   tab_ref?: string;
+  payment?: POSPaymentResultProjection;
+}
+
+export interface POSPaymentResultProjection {
+  method: string;
+  amount_q: number;
+  amount_display: string;
+  status: string;
+  message: string;
+  intent_ref?: string;
+  qr_code?: string;
+  copy_paste?: string;
+  expires_at?: string;
+  checkout_url?: string;
+  error?: string;
 }
 
 export interface POSIntentCartState {
@@ -300,12 +326,7 @@ export interface POSIntentCartState {
   orderNotes: string;
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
-  paymentTenders: Array<{
-    method: string;
-    amount_q: number;
-    collection: "terminal" | "on_delivery";
-    reference?: string;
-  }>;
+  paymentTenders: POSPaymentTenderDraft[];
   tenderedAmountQ: number | null;
   issueFiscalDocument: boolean;
   receiptMode: string;

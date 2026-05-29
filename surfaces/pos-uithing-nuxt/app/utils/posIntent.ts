@@ -88,8 +88,15 @@ export function buildPosSaleIntent(
   }
 
   if (state.orderNotes.trim()) payload.order_notes = state.orderNotes.trim();
-  if (state.paymentTenders.length) payload.payment_tenders = state.paymentTenders;
-  if (state.tenderedAmountQ !== null && state.tenderedAmountQ > 0) payload.tendered_amount_q = state.tenderedAmountQ;
+  if (state.paymentMethod === "mixed" && state.paymentTenders.length) payload.payment_tenders = state.paymentTenders;
+  if (
+    state.paymentMethod === "cash"
+    && state.paymentCollection === "terminal"
+    && state.tenderedAmountQ !== null
+    && state.tenderedAmountQ > 0
+  ) {
+    payload.tendered_amount_q = state.tenderedAmountQ;
+  }
   if (state.receiptEmail.trim()) payload.receipt_email = state.receiptEmail.trim();
   if (state.manualDiscount) payload.manual_discount = state.manualDiscount;
   if (state.managerApproval) payload.manager_approval = state.managerApproval;

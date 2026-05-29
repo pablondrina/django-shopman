@@ -16,7 +16,7 @@ defineEmits<{
   <UiCard
     as="button"
     type="button"
-    class="relative min-h-32 gap-3 rounded-lg p-3 text-left shadow-none transition hover:border-primary/40 hover:bg-accent/60 active:translate-y-px"
+    class="relative min-h-28 gap-2 rounded-lg p-2.5 text-left shadow-none transition hover:border-primary/40 hover:bg-accent/60 active:translate-y-px"
     :class="[
       qty > 0 ? 'border-primary/50 bg-primary/5' : '',
       disabled ? 'cursor-not-allowed opacity-50 hover:border-border hover:bg-card active:translate-y-0' : '',

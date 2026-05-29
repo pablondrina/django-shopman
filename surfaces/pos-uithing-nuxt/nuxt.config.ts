@@ -1,5 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const isProduction = process.env.NODE_ENV === "production";
+
 export default defineNuxtConfig({
   compatibilityDate: "2026-05-16",
   devtools: { enabled: false },
@@ -9,6 +11,7 @@ export default defineNuxtConfig({
     public: {
       djangoPublicBaseUrl:
         process.env.NUXT_PUBLIC_DJANGO_BASE_URL || process.env.NUXT_DJANGO_BASE_URL || "http://127.0.0.1:8000",
+      operatorLoginNextPath: process.env.NUXT_POS_LOGIN_NEXT_PATH || (isProduction ? "/pos/" : "/admin/"),
     },
   },
 
@@ -51,7 +54,7 @@ export default defineNuxtConfig({
   css: ["~/assets/css/tailwind.css"],
 
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || (process.env.NODE_ENV === "production" ? "/pos/" : "/"),
+    baseURL: process.env.NUXT_APP_BASE_URL || (isProduction ? "/pos/" : "/"),
     head: {
       htmlAttrs: { lang: "pt-BR" },
       title: "Shopman POS",
