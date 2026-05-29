@@ -5,6 +5,8 @@ import type { KDSIndexResponse } from '~/types/backstage'
 const route = useRoute()
 const open = ref(false)
 const apiPath = useBackstageApiPath()
+const runtimeConfig = useRuntimeConfig()
+const posSurfaceUrl = computed(() => String(runtimeConfig.public.posSurfaceUrl || '/pos/'))
 
 // Stations live in sidebar children; only fetch on auth — fail silently if 403.
 const { data: kdsData } = await useFetch<KDSIndexResponse>(
@@ -53,7 +55,7 @@ const navMain = computed<NavigationMenuItem[]>(() => [
   {
     label: 'POS',
     icon: 'i-lucide-shopping-bag',
-    to: '/pos',
+    to: posSurfaceUrl.value,
     onSelect: closeOnSelect
   },
   {
