@@ -6,7 +6,6 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal
 from unittest.mock import patch
@@ -21,6 +20,7 @@ from shopman.payman import PaymentService
 from shopman.payman.models import PaymentTransaction
 
 from shopman.backstage.services.financial_reconciliation import build_financial_reconciliation
+from shopman.backstage.services.integration_readiness import staging_missing
 from shopman.shop.models import Channel
 from shopman.shop.services import sessions as session_service
 
@@ -532,16 +532,23 @@ def _ifood_payload(order_id: str) -> dict:
 def _sandbox_readiness_checks() -> tuple[GatewaySmokeCheck, ...]:
     return (
         _credential_check(
+            provider="focus_nfe",
+            name="homologation_credentials",
+            missing=staging_missing("focus_nfe"),
+            ready_message="Credenciais Focus NFe homologação presentes para NFC-e.",
+            blocked_message="Credenciais Focus NFe homologação ausentes; smoke fiscal real não executado.",
+        ),
+        _credential_check(
             provider="efi",
             name="sandbox_credentials",
-            missing=_missing_efi_credentials(),
+            missing=staging_missing("efi_pix"),
             ready_message="Credenciais EFI sandbox presentes para smoke real.",
             blocked_message="Credenciais EFI sandbox ausentes; smoke externo não executado.",
         ),
         _credential_check(
             provider="stripe",
             name="sandbox_credentials",
-            missing=_missing_stripe_credentials(),
+            missing=staging_missing("stripe_card"),
             ready_message="Credenciais Stripe test presentes para smoke real.",
             blocked_message="Credenciais Stripe test ausentes; smoke externo não executado.",
         ),
@@ -603,36 +610,6 @@ def _manychat_readiness_check() -> GatewaySmokeCheck:
             "permanece pendente de reimplementação; não marcar como smoke real provado."
         ),
     )
-
-
-def _missing_efi_credentials() -> list[str]:
-    cfg = getattr(settings, "SHOPMAN_EFI", {}) or {}
-    webhook = getattr(settings, "SHOPMAN_EFI_WEBHOOK", {}) or {}
-    missing = [
-        name
-        for name in ("client_id", "client_secret", "certificate_path", "pix_key")
-        if not str(cfg.get(name) or "").strip()
-    ]
-    certificate_path = str(cfg.get("certificate_path") or "").strip()
-    if certificate_path and not Path(certificate_path).exists():
-        missing.append("certificate_path_exists")
-    if not str(webhook.get("webhook_token") or "").strip():
-        missing.append("webhook_token")
-    return missing
-
-
-def _missing_stripe_credentials() -> list[str]:
-    cfg = getattr(settings, "SHOPMAN_STRIPE", {}) or {}
-    missing = [
-        name
-        for name in ("secret_key", "webhook_secret")
-        if not str(cfg.get(name) or "").strip()
-    ]
-    secret_key = str(cfg.get("secret_key") or "")
-    if secret_key and not secret_key.startswith("sk_test_"):
-        missing.append("secret_key_must_be_test_key")
-    return missing
-
 
 def _missing_ifood_credentials() -> list[str]:
     cfg = getattr(settings, "SHOPMAN_IFOOD", {}) or {}

@@ -703,6 +703,12 @@ SHOPMAN_FOCUS_NFE = {
     "token": os.environ.get("FOCUS_NFE_TOKEN", ""),
     "cnpj_emitente": os.environ.get("FOCUS_NFE_CNPJ_EMITENTE", ""),
     "serie_nfce": os.environ.get("FOCUS_NFE_NFCE_SERIE", ""),
+    "completa_nfce": os.environ.get("FOCUS_NFE_NFCE_COMPLETA", "1"),
+    "local_destino_nfce": os.environ.get("FOCUS_NFE_NFCE_LOCAL_DESTINO", "1"),
+    "presenca_comprador_nfce": os.environ.get("FOCUS_NFE_NFCE_PRESENCA_COMPRADOR", "1"),
+    "modalidade_frete_nfce": os.environ.get("FOCUS_NFE_NFCE_MODALIDADE_FRETE", "9"),
+    "natureza_operacao": os.environ.get("FOCUS_NFE_NATUREZA_OPERACAO", "VENDA AO CONSUMIDOR"),
+    "default_cfop_nfce": os.environ.get("FOCUS_NFE_NFCE_DEFAULT_CFOP", "5102"),
     "timeout": int(os.environ.get("FOCUS_NFE_TIMEOUT", "30")),
     "base_url": os.environ.get("FOCUS_NFE_BASE_URL", ""),
 }

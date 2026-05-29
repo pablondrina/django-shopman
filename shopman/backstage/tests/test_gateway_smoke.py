@@ -74,6 +74,8 @@ def test_gateway_smoke_command_outputs_json_for_local_contract():
     SHOPMAN_EFI={"sandbox": True, "client_id": "", "client_secret": "", "certificate_path": "", "pix_key": ""},
     SHOPMAN_EFI_WEBHOOK={"webhook_token": ""},
     SHOPMAN_STRIPE={"secret_key": "", "webhook_secret": ""},
+    SHOPMAN_FISCAL_ADAPTER=None,
+    SHOPMAN_FOCUS_NFE={"environment": "homologacao", "token": "", "cnpj_emitente": "", "base_url": ""},
     SHOPMAN_IFOOD={"webhook_token": "", "merchant_id": ""},
     MANYCHAT_API_TOKEN="",
     MANYCHAT_WEBHOOK_SECRET="",
@@ -87,5 +89,41 @@ def test_gateway_smoke_sandbox_required_blocks_without_credentials():
 
     data = json.loads(stdout.getvalue())
     assert data["status"] == "blocked_by_credentials"
-    assert data["counts"]["blocked_by_credentials"] == 4
+    assert data["counts"]["blocked_by_credentials"] == 5
     assert all(check["scope"] == "sandbox_readiness" for check in data["checks"])
+
+
+@pytest.mark.django_db
+@override_settings(
+    SHOPMAN_FISCAL_ADAPTER="shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend",
+    SHOPMAN_FOCUS_NFE={
+        "environment": "homologacao",
+        "token": "focus-token",
+        "cnpj_emitente": "12345678000190",
+        "base_url": "",
+    },
+)
+def test_gateway_smoke_reports_focus_nfe_homologation_ready():
+    report = run_gateway_smoke(include_local=False, include_sandbox_readiness=True)
+
+    focus = next(check for check in report.checks if check.provider == "focus_nfe")
+    assert focus.status == "ready"
+    assert focus.name == "homologation_credentials"
+
+
+@pytest.mark.django_db
+@override_settings(
+    SHOPMAN_FISCAL_ADAPTER="shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend",
+    SHOPMAN_FOCUS_NFE={
+        "environment": "producao",
+        "token": "focus-token",
+        "cnpj_emitente": "12345678000190",
+        "base_url": "https://api.focusnfe.com.br",
+    },
+)
+def test_gateway_smoke_blocks_focus_nfe_production_config_for_staging():
+    report = run_gateway_smoke(include_local=False, include_sandbox_readiness=True)
+
+    focus = next(check for check in report.checks if check.provider == "focus_nfe")
+    assert focus.status == "blocked_by_credentials"
+    assert "FOCUS_NFE_ENVIRONMENT_homologacao" in focus.details["missing"]

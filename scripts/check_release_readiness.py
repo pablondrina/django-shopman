@@ -150,6 +150,7 @@ def build_report(
         checks = [
             _django_system_check(),
             _migration_check(),
+            _storefront_contact_check(),
             _omotenashi_seed_check(),
             _gateway_smoke_check(),
             _gateway_sandbox_check(),
@@ -209,6 +210,38 @@ def _migration_check() -> ReadinessCheck:
         title="Migrations committed",
         status="passed",
         message="No model changes without migrations.",
+    )
+
+
+def _storefront_contact_check() -> ReadinessCheck:
+    from shopman.shop.models import Shop
+
+    shop = Shop.load() or Shop.objects.order_by("pk").first()
+    if not shop:
+        return ReadinessCheck(
+            id="storefront.contact",
+            title="Storefront public contact",
+            status="blocked_external",
+            message="Shop contact is not configured.",
+            details={"expected": "Run python manage.py configure_shop_contact --phone 554333231997."},
+        )
+
+    whatsapp_url = (shop.whatsapp_url or "").strip()
+    if not whatsapp_url:
+        return ReadinessCheck(
+            id="storefront.contact",
+            title="Storefront public contact",
+            status="blocked_external",
+            message="Storefront WhatsApp URL is missing.",
+            details={"expected": "Set Shop.phone or Shop.social_links via configure_shop_contact."},
+        )
+
+    return ReadinessCheck(
+        id="storefront.contact",
+        title="Storefront public contact",
+        status="passed",
+        message="Storefront WhatsApp contact is configured.",
+        details={"whatsapp_url": whatsapp_url},
     )
 
 
@@ -328,12 +361,25 @@ def _gateway_sandbox_check() -> ReadinessCheck:
 def _manual_qa_check(evidence_path: str) -> ReadinessCheck:
     evidence = (evidence_path or os.environ.get("SHOPMAN_MANUAL_QA_EVIDENCE", "")).strip()
     if evidence and Path(evidence).expanduser().exists():
+        path = Path(evidence).expanduser()
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+        if "manual_qa_status: passed" not in content:
+            return ReadinessCheck(
+                id="omotenashi.manual",
+                title="Physical/staging Omotenashi QA evidence",
+                status="blocked_external",
+                message="Manual QA evidence exists but is not marked as passed.",
+                details={"expected": "Add manual_qa_status: passed after completing the device/staging checklist."},
+            )
         return ReadinessCheck(
             id="omotenashi.manual",
             title="Physical/staging Omotenashi QA evidence",
             status="passed",
             message="Manual QA evidence file exists.",
-            details={"evidence": str(Path(evidence).expanduser())},
+            details={"evidence": str(path)},
         )
     return ReadinessCheck(
         id="omotenashi.manual",

@@ -280,20 +280,20 @@ def _ifood_stale_check() -> OmotenashiQACheck:
 
 def _pos_check() -> OmotenashiQACheck:
     tab = POSTab.objects.filter(is_active=True).order_by("ref").first()
-    session = Session.objects.filter(state="open", handle_type="pos_tab").order_by("-id").first()
+    shift = CashShift.objects.filter(status="open").order_by("-opened_at", "-id").first()
     evidence = ""
-    if tab and session:
-        evidence = f"tab={tab.ref} session={session.session_key}"
+    if tab and shift:
+        evidence = f"tab={tab.ref} cash_shift={shift.pk}"
     return _check(
         id="desktop.pos.counter",
         surface="pos",
         viewport="desktop/touch 1280x800",
         persona="balcao com cliente na frente",
-        title="POS com comanda aberta e caixa vivo",
+        title="POS com comanda disponível e caixa vivo",
         url=_url("backstage:pos"),
         expectation="Operador deve vender, editar e fechar sem procurar funcao nem tocar em admin generico.",
         evidence=evidence,
-        blocker="Rode make seed; POS tab ativa ou sessao POS aberta ausente.",
+        blocker="Rode make seed; POS tab ativa ou caixa aberto ausente.",
     )
 
 
