@@ -179,6 +179,12 @@ export interface POSTerminalComponentProjection {
   message: string;
 }
 
+export interface POSOperatorProjection {
+  id: number;
+  username: string;
+  name: string;
+}
+
 export interface POSProjection {
   products: POSProductProjection[];
   collections: POSCollectionProjection[];
@@ -200,6 +206,8 @@ export interface POSProjection {
   fiscal_status: "ready" | "warning" | "error" | string;
   fiscal_label: string;
   fiscal_message: string;
+  operators: POSOperatorProjection[];
+  auto_lock_seconds: number;
 }
 
 export interface POSShiftSummaryProjection {
@@ -235,6 +243,7 @@ export interface POSResponse {
   pos: POSProjection;
   shift: POSShiftSummaryProjection;
   tabs: POSTabProjection[];
+  operator: POSOperatorProjection | null;
 }
 
 export interface POSCartItem {

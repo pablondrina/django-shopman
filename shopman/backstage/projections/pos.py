@@ -246,6 +246,8 @@ class POSProjection:
     fiscal_status: str
     fiscal_label: str
     fiscal_message: str
+    operators: tuple[dict, ...] = ()
+    auto_lock_seconds: int = 60
 
 
 # ── Constants ──────────────────────────────────────────────────────────
@@ -332,7 +334,16 @@ def build_pos(*, terminal=None, operator=None) -> POSProjection:
         fiscal_status=fiscal_status,
         fiscal_label=fiscal_label,
         fiscal_message=fiscal_message,
+        operators=_eligible_operator_cards(),
+        auto_lock_seconds=int((getattr(terminal, "metadata", None) or {}).get("auto_lock_seconds", 60)),
     )
+
+
+def _eligible_operator_cards() -> tuple[dict, ...]:
+    """Operators (staff with operate_pos + a PIN) for the lock-screen picker."""
+    from shopman.backstage.services.operator import eligible_operators, operator_card
+
+    return tuple(operator_card(u) for u in eligible_operators())
 
 
 def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSummaryProjection:
