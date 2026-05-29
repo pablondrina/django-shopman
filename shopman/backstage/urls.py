@@ -50,6 +50,8 @@ urlpatterns = [
     path("gestor/pos/caixa/abrir/", views.pos_cash_open, name="pos_cash_open"),
     path("gestor/pos/caixa/sangria/", views.pos_cash_sangria, name="pos_cash_sangria"),
     path("gestor/pos/caixa/fechar/", views.pos_cash_close, name="pos_cash_close"),
+    path("gestor/pos/operator/unlock/", views.pos_operator_unlock, name="pos_operator_unlock"),
+    path("gestor/pos/operator/lock/", views.pos_operator_lock, name="pos_operator_lock"),
     # Production
     path("gestor/producao/kds/", views.production_kds_view, name="production_kds"),
     path("gestor/producao/kds/cards/", views.production_kds_cards_view, name="production_kds_cards"),

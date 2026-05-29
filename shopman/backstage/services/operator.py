@@ -9,6 +9,7 @@ operational surfaces (POS today; KDS/order manager next).
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from shopman.doorman.models import PinCredential
 
@@ -16,6 +17,39 @@ User = get_user_model()
 
 OPERATE_POS = "backstage.operate_pos"
 ADJUST_CASHSHIFT = "backstage.adjust_cashshift"
+
+# Server-session key holding the active operator on a (shared) terminal. The
+# terminal is authenticated as a Django staff user; the *active operator* is a
+# lightweight identity layer established by PIN, used for attribution and
+# cleared by auto-lock. Decouples "who is authenticated to the device" from
+# "who is ringing this sale".
+ACTIVE_OPERATOR_SESSION_KEY = "pos_active_operator"
+
+
+def operator_card(user) -> dict:
+    """Public projection of an operator (for the lock-screen picker / chip)."""
+    return {
+        "id": user.pk,
+        "username": user.get_username(),
+        "name": user.get_full_name().strip() or user.get_username(),
+    }
+
+
+def set_active_operator(request, user) -> dict:
+    """Bind the active operator to the current terminal session."""
+    card = operator_card(user)
+    request.session[ACTIVE_OPERATOR_SESSION_KEY] = {**card, "since": timezone.now().isoformat()}
+    return card
+
+
+def clear_active_operator(request) -> None:
+    """Lock the terminal: drop the active operator from the session."""
+    request.session.pop(ACTIVE_OPERATOR_SESSION_KEY, None)
+
+
+def active_operator(request) -> dict | None:
+    """The active operator bound to this terminal session, if any."""
+    return request.session.get(ACTIVE_OPERATOR_SESSION_KEY)
 
 
 def eligible_operators():

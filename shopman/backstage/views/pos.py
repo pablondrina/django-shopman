@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.contrib.auth import get_user_model
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.shortcuts import redirect, render
@@ -14,6 +15,7 @@ from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary, build_pos_tabs
+from shopman.backstage.services import operator as operator_service
 from shopman.backstage.services import pos as pos_cash_service
 from shopman.backstage.services.exceptions import POSError
 from shopman.shop.services import pos as pos_service
@@ -528,3 +530,39 @@ def pos_cash_close(request: HttpRequest) -> HttpResponse:
     logger.info("pos_cash_close operator=%s diff_q=%s", request.user.username, session.difference_q)
 
     return render(request, "pos/cash_close_report.html", {"session": session})
+
+
+# ── Operator identity (PIN lock screen) ─────────────────────────────
+
+
+@require_POST
+def pos_operator_unlock(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/operator/unlock/ — claim the terminal as an operator via PIN."""
+    denied = _perm_required(request)
+    if denied:
+        return JsonResponse({"ok": False, "error": {"code": "forbidden"}}, status=403)
+
+    operator_id = request.POST.get("operator_id", "").strip()
+    pin = request.POST.get("pin", "")
+
+    operator = get_user_model().objects.filter(pk=operator_id, is_active=True).first() if operator_id else None
+    if operator is None or not operator_service.verify_operator_pin(operator, pin):
+        logger.info("pos_operator_unlock rejected operator_id=%s", operator_id or "-")
+        return JsonResponse(
+            {"ok": False, "error": {"code": "operator_pin_invalid", "message": "PIN inválido."}},
+            status=403,
+        )
+
+    card = operator_service.set_active_operator(request, operator)
+    logger.info("pos_operator_unlock operator=%s", operator.get_username())
+    return JsonResponse({"ok": True, "operator": card})
+
+
+@require_POST
+def pos_operator_lock(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/operator/lock/ — lock the terminal (drop active operator)."""
+    denied = _perm_required(request)
+    if denied:
+        return JsonResponse({"ok": False, "error": {"code": "forbidden"}}, status=403)
+    operator_service.clear_active_operator(request)
+    return JsonResponse({"ok": True})
