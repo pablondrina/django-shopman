@@ -30,6 +30,13 @@ class DoormanSettings:
     ACCESS_CODE_RATE_LIMIT_MAX: int = 5
     ACCESS_CODE_COOLDOWN_SECONDS: int = 60
 
+    # PIN Credential (persistent short-secret for a principal; generic, surface-agnostic)
+    PIN_MIN_LENGTH: int = 4
+    PIN_DIGITS_ONLY: bool = True
+    PIN_MAX_ATTEMPTS: int = 5
+    PIN_LOCKOUT_MINUTES: int = 5
+    PIN_HMAC_KEY: str = ""  # empty → falls back to SECRET_KEY
+
     # Sender (shortcut — equivalent to a single-item DELIVERY_CHAIN)
     MESSAGE_SENDER_CLASS: str = "shopman.doorman.senders.ConsoleSender"
 
@@ -131,6 +138,12 @@ def validate_settings() -> list[str]:
         errors.append("DOORMAN.ACCESS_LINK_TTL_MINUTES must be > 0")
     if s.DEVICE_TRUST_TTL_DAYS <= 0:
         errors.append("DOORMAN.DEVICE_TRUST_TTL_DAYS must be > 0")
+    if s.PIN_MIN_LENGTH <= 0:
+        errors.append("DOORMAN.PIN_MIN_LENGTH must be > 0")
+    if s.PIN_MAX_ATTEMPTS <= 0:
+        errors.append("DOORMAN.PIN_MAX_ATTEMPTS must be > 0")
+    if s.PIN_LOCKOUT_MINUTES < 0:
+        errors.append("DOORMAN.PIN_LOCKOUT_MINUTES must be >= 0")
 
     return errors
 
