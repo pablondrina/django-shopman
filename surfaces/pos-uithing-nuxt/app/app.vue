@@ -96,6 +96,23 @@ const pos = computed(() => data.value?.pos || null);
 const tabs = computed(() => data.value?.tabs || []);
 const shift = computed(() => data.value?.shift || null);
 const actions = computed(() => pos.value?.actions || []);
+
+// Operator identity / lock screen (Phase 1: PIN attribution).
+const operators = computed(() => pos.value?.operators || []);
+const {
+  activeOperator,
+  locked,
+  busy: lockBusy,
+  error: lockError,
+  unlock,
+  lock,
+} = useOperatorLock({
+  initialOperator: data.value?.operator ?? null,
+  autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
+});
+async function onUnlock(operatorId: number, pin: string) {
+  if (await unlock(operatorId, pin)) await refresh();
+}
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
 const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
@@ -669,12 +686,34 @@ function newClientRequestId(): string {
           <UiBadge v-if="shift" variant="outline" class="tabular-nums">
             {{ shift.count }} hoje · {{ shift.total_display }}
           </UiBadge>
+          <UiBadge v-if="activeOperator" variant="default" class="gap-1">
+            <Icon name="lucide:user" class="size-3.5" />
+            {{ activeOperator.name }}
+          </UiBadge>
+          <UiButton
+            v-if="activeOperator"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Travar caixa"
+            title="Travar caixa"
+            @click="lock()"
+          >
+            <Icon name="lucide:lock" class="size-4" />
+          </UiButton>
           <UiButton variant="outline" size="icon-sm" aria-label="Atualizar" title="Atualizar" :disabled="pending" @click="refresh()">
             <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
           </UiButton>
         </div>
       </div>
     </header>
+
+    <PosLockScreen
+      v-if="locked && !!pos"
+      :operators="operators"
+      :busy="lockBusy"
+      :error="lockError"
+      @unlock="onUnlock"
+    />
 
     <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <section class="grid gap-4">
