@@ -26,6 +26,8 @@ from .operations import (
     POSCancelRecentSaleView,
     POSCloseSaleView,
     POSCustomerLookupView,
+    POSOperatorLockView,
+    POSOperatorUnlockView,
     POSReviewSaleView,
     POSTabClearView,
     POSTabCreateView,
@@ -49,6 +51,8 @@ urlpatterns = [
     path("kds/expedition/<int:order_pk>/action/", KDSExpeditionActionView.as_view(), name="api-backstage-kds-expedition"),
     # Operations — read views
     path("pos/", POSView.as_view(), name="api-backstage-pos"),
+    path("pos/operator/unlock/", POSOperatorUnlockView.as_view(), name="api-backstage-pos-operator-unlock"),
+    path("pos/operator/lock/", POSOperatorLockView.as_view(), name="api-backstage-pos-operator-lock"),
     path("production/", ProductionBoardView.as_view(), name="api-backstage-production"),
     path("production/kds/", ProductionKDSView.as_view(), name="api-backstage-production-kds"),
     path("closing/", DayClosingView.as_view(), name="api-backstage-closing"),
