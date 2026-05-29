@@ -134,6 +134,10 @@ for key in (
 | `nfce_qrcode_url` | `string` | NFCeEmitHandler | — | URL do QR code |
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
+| `nfce_series` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Série do documento NFC-e emitido via FocusNFe |
+| `nfce_protocol` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Número do protocolo de autorização |
+| `nfce_xml_url` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | URL do XML autorizado |
+| `nfce_status` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Status da emissão (ex.: `autorizado`, `erro`) |
 | `availability_decision` | `dict` | `lifecycle.approve_with_adjustments()`, `lifecycle.approve_order()`, `lifecycle.reject_order()` | `lifecycle.has_availability_approval()`, `lifecycle.ensure_confirmable()`, `services/stock.py` | Decisão do operador sobre disponibilidade: `{approved: bool, decisions: [{sku, original_qty, approved_qty, action}], decided_at, decided_by}`. Guard para confirmação |
 | `cancelled_by` | `string` | `services/cancellation.py` | `hooks._on_cancelled` | Identificador de quem cancelou: `"customer"` ou `"operator:<username>"` |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
