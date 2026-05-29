@@ -48,8 +48,12 @@ class NFCeEmitHandler:
         if result.success:
             order.data["nfce_access_key"] = result.access_key
             order.data["nfce_number"] = result.document_number
+            order.data["nfce_series"] = result.document_series
+            order.data["nfce_protocol"] = result.protocol_number
+            order.data["nfce_xml_url"] = result.xml_url
             order.data["nfce_danfe_url"] = result.danfe_url
             order.data["nfce_qrcode_url"] = result.qrcode_url
+            order.data["nfce_status"] = result.status
             order.save(update_fields=["data", "updated_at"])
             return
 

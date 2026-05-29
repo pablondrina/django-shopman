@@ -28,17 +28,21 @@ def emit(order) -> None:
     if not fiscal_pool.get_backend():
         return
 
-    if (order.data or {}).get("nfce_access_key"):
+    data = order.data or {}
+    if data.get("nfce_access_key"):
         return
 
-    payment = dict((order.data or {}).get("payment", {}) or {})
+    if not (data.get("fiscal") or {}).get("issue_document"):
+        return
+
+    payment = dict(data.get("payment", {}) or {})
     payment.setdefault("amount_q", order.total_q)
 
     directives.queue(
         FISCAL_EMIT_NFCE, order,
         items=_build_fiscal_items(order),
         payment=payment,
-        customer=(order.data or {}).get("customer", {}),
+        customer=data.get("customer", {}),
     )
 
     logger.info("fiscal.emit: queued for order %s", order.ref)
