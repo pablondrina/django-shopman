@@ -27,5 +27,25 @@ def test_home_projection_keeps_operational_status_single_sourced(rf):
 
     assert {"is_open", "opens_at", "closes_at"}.isdisjoint(payload["omotenashi"])
     assert set(payload["shop_status"]) == {"is_open", "label", "message", "opens_at", "closes_at"}
+    assert "notices" in payload
+    assert all({"ref", "tone", "title", "message", "priority", "actions"} <= set(notice) for notice in payload["notices"])
     assert payload["shop_status"]["is_open"] in {True, False}
     assert payload["shop_status"]["label"] in {"Aberto agora", "Fechado agora"}
+
+
+def test_home_projection_promotes_whatsapp_origin_as_contract_notice(rf):
+    from shopman.storefront.api.projections import projection_data
+    from shopman.storefront.projections.home import build_home
+    from shopman.shop.models import Shop
+
+    Shop.load() or Shop.objects.create(name="Test Padaria")
+
+    request = rf.get("/api/v1/storefront/home/")
+    request.session = {"origin_channel": "whatsapp"}
+
+    payload = projection_data(build_home(request))
+    notices = {notice["ref"]: notice for notice in payload["notices"]}
+
+    assert notices["origin_whatsapp"]["priority"] == "contextual"
+    assert notices["origin_whatsapp"]["tone"] == "info"
+    assert notices["origin_whatsapp"]["actions"][0]["href"] == "/checkout"

@@ -48,6 +48,16 @@ class ShopStatusProjection:
 
 
 @dataclass(frozen=True)
+class HomeNoticeProjection:
+    ref: str
+    tone: str
+    title: str
+    message: str
+    priority: str
+    actions: tuple[SurfaceActionProjection, ...] = ()
+
+
+@dataclass(frozen=True)
 class CopyEntryProjection:
     title: str
     message: str
@@ -139,6 +149,7 @@ class HomeProjection:
     auth_copy: AuthCopyProjection
     shop: ShopProjection
     shop_status: ShopStatusProjection
+    notices: tuple[HomeNoticeProjection, ...]
     opening_hours: tuple[OpeningHoursEntry, ...]
     last_order_ref: str | None
     last_order_items: tuple[LastOrderItemProjection, ...]
@@ -201,6 +212,13 @@ def build_home(request: HttpRequest) -> HomeProjection:
         whatsapp_url=shop_proj.whatsapp_url or "",
     )
 
+    notices = _home_notices(
+        shop_status=shop_status,
+        omotenashi=omotenashi,
+        origin_channel=origin_channel,
+        whatsapp_url=public_config.whatsapp_url,
+    )
+
     return HomeProjection(
         omotenashi=omotenashi,
         hero_copy=_home_hero_copy(omotenashi),
@@ -208,6 +226,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
         auth_copy=_auth_copy(omotenashi),
         shop=shop_proj,
         shop_status=shop_status,
+        notices=notices,
         opening_hours=hours,
         last_order_ref=last_ref,
         last_order_items=last_items,
@@ -216,6 +235,75 @@ def build_home(request: HttpRequest) -> HomeProjection:
         origin_channel=origin_channel,
         public_config=public_config,
     )
+
+
+def _home_notices(
+    *,
+    shop_status: ShopStatusProjection,
+    omotenashi: OmotenashiProjection,
+    origin_channel: str | None,
+    whatsapp_url: str,
+) -> tuple[HomeNoticeProjection, ...]:
+    notices: list[HomeNoticeProjection] = []
+
+    status_message = (shop_status.message or "").strip()
+    if status_message:
+        if not shop_status.is_open:
+            tone = "warning"
+            title = "Loja fechada agora"
+        elif omotenashi.moment == "fechando":
+            tone = "warning"
+            title = "Estamos perto do fechamento"
+        else:
+            tone = "info"
+            title = "Status da loja"
+
+        actions = [
+            SurfaceActionProjection(
+                ref="view_menu",
+                kind="link",
+                label="Ver cardápio",
+                href="/menu",
+                priority="secondary",
+            )
+        ]
+        if whatsapp_url:
+            actions.append(SurfaceActionProjection(
+                ref="contact_whatsapp",
+                kind="external",
+                label="Falar no WhatsApp",
+                href=whatsapp_url,
+                priority="quiet",
+            ))
+
+        notices.append(HomeNoticeProjection(
+            ref="shop_status",
+            tone=tone,
+            title=title,
+            message=status_message,
+            priority="global",
+            actions=tuple(actions),
+        ))
+
+    if origin_channel == "whatsapp":
+        notices.append(HomeNoticeProjection(
+            ref="origin_whatsapp",
+            tone="info",
+            title="Você veio do WhatsApp",
+            message="Seu pedido pode continuar por aqui, com carrinho e acompanhamento atualizados.",
+            priority="contextual",
+            actions=(
+                SurfaceActionProjection(
+                    ref="continue_checkout",
+                    kind="link",
+                    label="Continuar pedido",
+                    href="/checkout",
+                    priority="primary",
+                ),
+            ),
+        ))
+
+    return tuple(notices)
 
 
 def _home_actions(last_order_ref: str | None) -> tuple[SurfaceActionProjection, ...]:
