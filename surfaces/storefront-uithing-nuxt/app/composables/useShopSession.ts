@@ -1,4 +1,4 @@
-import type { OmotenashiProjection, OpeningHoursEntry, PublicConfigProjection, ShopProjection, ShopStatusProjection } from '~/types/shopman'
+import type { HomeNoticeProjection, OmotenashiProjection, OpeningHoursEntry, PublicConfigProjection, ShopProjection, ShopStatusProjection } from '~/types/shopman'
 
 interface ShopSessionState {
   customerName: string | null
@@ -9,6 +9,7 @@ interface ShopSessionState {
   lastOrderRef: string | null
   shop: ShopProjection | null
   shopStatus: ShopStatusProjection | null
+  homeNotices: HomeNoticeProjection[]
   openingHours: OpeningHoursEntry[]
   omotenashi: OmotenashiProjection | null
   publicConfig: PublicConfigProjection | null
@@ -41,6 +42,7 @@ function emptyState (): ShopSessionState {
     lastOrderRef: null,
     shop: null,
     shopStatus: null,
+    homeNotices: [],
     openingHours: [],
     omotenashi: null,
     publicConfig: null
@@ -54,6 +56,7 @@ export function useShopSession () {
     omotenashi: OmotenashiProjection
     shop: ShopProjection
     shop_status: ShopStatusProjection
+    notices?: HomeNoticeProjection[]
     opening_hours?: OpeningHoursEntry[]
     last_order_ref: string | null
     public_config?: PublicConfigProjection
@@ -70,6 +73,7 @@ export function useShopSession () {
       lastOrderRef: homeAuthenticated ? home.last_order_ref : null,
       shop: home.shop,
       shopStatus: home.shop_status,
+      homeNotices: home.notices || [],
       openingHours: home.opening_hours || [],
       omotenashi: home.omotenashi,
       publicConfig: home.public_config || state.value.publicConfig
@@ -121,6 +125,7 @@ export function useShopSession () {
   const lastOrderRef = computed(() => state.value.lastOrderRef)
   const shop = computed(() => state.value.shop)
   const shopStatus = computed(() => state.value.shopStatus)
+  const homeNotices = computed(() => state.value.homeNotices)
   const openingHours = computed(() => state.value.openingHours)
   const omotenashi = computed(() => state.value.omotenashi)
   const publicConfig = computed(() => state.value.publicConfig)
@@ -135,6 +140,7 @@ export function useShopSession () {
     lastOrderRef,
     shop,
     shopStatus,
+    homeNotices,
     openingHours,
     omotenashi,
     publicConfig,

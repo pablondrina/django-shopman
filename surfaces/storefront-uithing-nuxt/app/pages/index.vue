@@ -20,6 +20,7 @@ const featured = computed(() => home.value?.featured_items || [])
 const sectionsCopy = computed(() => home.value?.sections_copy || null)
 const primaryAction = computed(() => home.value?.actions.find(action => action.priority === 'primary' && action.enabled && !action.ref.includes('reorder')) || null)
 const reorderAction = computed(() => home.value?.actions.find(action => action.ref.includes('reorder') && action.enabled) || null)
+const contextualNotices = computed(() => home.value?.notices.filter(notice => notice.priority !== 'global') || [])
 const operationalStatus = computed(() => {
   const status = home.value?.shop_status
   return {
@@ -75,6 +76,13 @@ async function handleReorder (action: SurfaceActionProjection | null) {
   }
 }
 
+function noticeVariant (tone: string) {
+  if (tone === 'danger') return 'destructive'
+  if (tone === 'warning') return 'warning'
+  if (tone === 'info') return 'info'
+  return 'default'
+}
+
 useSeoMeta({
   title: () => home.value?.shop.brand_name || 'Shopman',
   description: () => home.value?.shop.description || 'Storefront Shopman'
@@ -111,9 +119,27 @@ useSeoMeta({
             @reorder="handleReorder"
           />
 
-          <UiAlert v-if="home.origin_channel === 'whatsapp'" variant="info">
-            <UiAlertTitle>Você veio do WhatsApp</UiAlertTitle>
-            <UiAlertDescription>Seu pedido pode continuar por aqui, com carrinho e acompanhamento atualizados.</UiAlertDescription>
+          <UiAlert v-for="notice in contextualNotices" :key="notice.ref" :variant="noticeVariant(notice.tone)">
+            <UiAlertTitle>{{ notice.title }}</UiAlertTitle>
+            <UiAlertDescription>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>{{ notice.message }}</span>
+                <div v-if="notice.actions.length" class="flex flex-wrap gap-2">
+                  <UiButton
+                    v-for="action in notice.actions"
+                    :key="action.ref"
+                    size="sm"
+                    :variant="action.priority === 'primary' ? 'default' : 'outline'"
+                    :to="action.kind === 'link' ? localRouteFromBackend(action.href) : undefined"
+                    :href="action.kind === 'external' ? action.href : undefined"
+                    :target="action.kind === 'external' ? '_blank' : undefined"
+                    rel="noopener"
+                  >
+                    {{ action.label }}
+                  </UiButton>
+                </div>
+              </div>
+            </UiAlertDescription>
           </UiAlert>
 
           <UiCard v-if="reorderAction || quickReorderItems.length" class="gap-0 overflow-hidden py-0" data-home-reorder-card>

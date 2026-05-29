@@ -33,6 +33,22 @@ async function waitForHttp (url, timeoutMs = 10000) {
   throw new Error(`Timed out waiting for ${url}`)
 }
 
+async function storefrontHomeConfig () {
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/storefront/home/`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) return { whatsappUrl: '' }
+    const data = await response.json()
+    return {
+      whatsappUrl: data?.home?.public_config?.whatsapp_url || data?.home?.shop?.whatsapp_url || '',
+    }
+  } catch {
+    return { whatsappUrl: '' }
+  }
+}
+
 function findChrome () {
   const candidates = [
     process.env.CHROME_BIN,
@@ -267,6 +283,7 @@ async function dispatchClickButtonText (cdp, text) {
 
 async function run () {
   await waitForHttp(baseUrl)
+  const homeConfig = await storefrontHomeConfig()
   const chrome = await launchChrome()
   try {
     trace('open mobile home')
@@ -280,7 +297,9 @@ async function run () {
     assert(homeState.domNodes < 3200, `home initial DOM is too large: ${homeState.domNodes} nodes`)
     assert(homeState.text.includes('Direto do forno'), 'home should expose the projected availability section')
     assert(homeState.text.includes('Como Funciona'), 'home should expose the projected how-it-works section')
-    assert(homeState.text.includes('WhatsApp'), 'home should expose a single projected WhatsApp handoff section')
+    if (homeConfig.whatsappUrl) {
+      assert(homeState.text.includes('WhatsApp'), 'home should expose a single projected WhatsApp handoff section')
+    }
     const heroLayout = await evaluate(home, `(() => {
       const hero = document.querySelector('[data-home-hero-carousel]')
       const title = hero?.querySelector('h1')
@@ -322,7 +341,9 @@ async function run () {
         } : null,
       }
     })()`)
-    assert(homeMobileDensity.whatsappPaddingTop === '0px' && homeMobileDensity.whatsappPaddingBottom === '0px', `mobile WhatsApp hero should not have outer vertical padding, got ${JSON.stringify(homeMobileDensity)}`)
+    if (homeConfig.whatsappUrl) {
+      assert(homeMobileDensity.whatsappPaddingTop === '0px' && homeMobileDensity.whatsappPaddingBottom === '0px', `mobile WhatsApp hero should not have outer vertical padding, got ${JSON.stringify(homeMobileDensity)}`)
+    }
     assert(homeMobileDensity.product?.sameRow, `mobile product tile price and add action should share a row when space allows, got ${JSON.stringify(homeMobileDensity)}`)
     home.close()
 

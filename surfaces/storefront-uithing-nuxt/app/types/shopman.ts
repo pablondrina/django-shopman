@@ -274,6 +274,15 @@ export interface ShopStatusProjection {
   closes_at: string | null
 }
 
+export interface HomeNoticeProjection {
+  ref: string
+  tone: 'success' | 'warning' | 'danger' | 'info' | string
+  title: string
+  message: string
+  priority: 'global' | 'contextual' | string
+  actions: SurfaceActionProjection[]
+}
+
 export interface CopyEntryProjection {
   title: string
   message: string
@@ -364,6 +373,7 @@ export interface HomeProjection {
   auth_copy: AuthCopyProjection
   shop: ShopProjection
   shop_status: ShopStatusProjection
+  notices: HomeNoticeProjection[]
   opening_hours: OpeningHoursEntry[]
   last_order_ref: string | null
   last_order_items: LastOrderItemProjection[]

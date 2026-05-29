@@ -20,7 +20,8 @@ watch(() => shellHome.value, value => {
 useShopTheme(session.shop)
 
 const shellStyle = computed(() => shopThemeStyle(session.shop.value))
-const shopStatusMessage = computed(() => session.shopStatus.value?.message?.trim() || '')
+const globalHomeNotice = computed(() => session.homeNotices.value.find(notice => notice.priority === 'global') || null)
+const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim() || session.shopStatus.value?.message?.trim() || '')
 </script>
 
 <template>
@@ -33,7 +34,7 @@ const shopStatusMessage = computed(() => session.shopStatus.value?.message?.trim
       Pular para o conteúdo
     </a>
     <div v-if="shopStatusMessage" class="border-b bg-foreground px-4 py-2 text-center text-xs font-medium text-background">
-      {{ shopStatusMessage }}
+      <span v-if="globalHomeNotice?.title" class="font-semibold">{{ globalHomeNotice.title }}: </span>{{ shopStatusMessage }}
     </div>
     <ShopHeader />
     <div id="main-content" class="flex-1">
