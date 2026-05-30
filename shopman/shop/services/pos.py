@@ -468,6 +468,72 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
     return cleared
 
 
+def rename_pos_tab(
+    *,
+    channel_ref: str,
+    session_key: str,
+    new_tab_ref: str,
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Rename an open comanda's handle (e.g. ``Mesa 5`` → ``João``).
+
+    Respects the open-session handle uniqueness constraint
+    (``ord_uniq_open_session_handle``): a ref already held by another open
+    comanda is rejected before the write. Updates both the session handle and
+    the ``tab_ref``/``tab_display`` markers the surface reads — written directly
+    (no re-pricing of the open comanda).
+    """
+    channel, _config = _channel_and_config(channel_ref)
+    session = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=session_key)
+    if session is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda não encontrada.",
+            field="session_key",
+            focus="cart",
+        )
+
+    try:
+        ref = normalize_tab_ref(new_tab_ref)
+    except ValueError as exc:
+        raise PosIntentError(
+            code="invalid_tab_ref",
+            message=str(exc) or "Referência de comanda inválida.",
+            field="new_tab_ref",
+            focus="cart",
+        ) from exc
+
+    if ref == _session_tab_ref(session):
+        return {"ok": True, "tab": _tab_payload(session)}
+
+    existing = _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref)
+    if existing is not None and existing.session_key != session.session_key:
+        raise PosIntentError(
+            code="tab_in_use",
+            message="Já existe uma comanda aberta com essa referência.",
+            field="new_tab_ref",
+            focus="cart",
+        )
+
+    tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(new_tab_ref, ref))
+    session_service.assign_handle(
+        session_key=session.session_key,
+        channel_ref=channel.ref,
+        handle_type="pos_tab",
+        handle_ref=ref,
+    )
+    session.refresh_from_db()
+    session.data = {**(session.data or {}), "tab_ref": ref, "tab_display": tab_display}
+    session.save(update_fields=["data"])
+
+    logger.info(
+        "pos_rename_tab session=%s new_ref=%s operator=%s",
+        session.session_key, ref, operator_username,
+    )
+    return {"ok": True, "tab": _tab_payload(session)}
+
+
 def move_pos_tab_lines(
     *,
     channel_ref: str,

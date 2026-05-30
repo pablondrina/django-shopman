@@ -799,6 +799,28 @@ class POSTabMoveLinesView(APIView):
         return Response(result)
 
 
+class POSTabRenameView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.rename_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                new_tab_ref=str(body.get("new_tab_ref") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_rename_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao renomear comanda."}, status=400)
+        return Response(result)
+
+
 class POSTabFireView(APIView):
     permission_classes = [HasBackstagePermission]
     required_permission = "backstage.operate_pos"

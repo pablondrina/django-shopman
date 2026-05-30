@@ -52,6 +52,10 @@ const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
 const firing = ref(false);
+const renamingTab = ref(false);
+const cancellingSale = ref(false);
+const cancelSaleReason = ref("");
+const saleCancelled = ref(false);
 const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
@@ -126,6 +130,10 @@ const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities
 const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
 const kitchenHandoff = computed(() => (checkoutCapabilities.value as Record<string, any>)?.kitchen_handoff || null);
 const canFireTab = computed(() => Boolean(kitchenHandoff.value?.fire_action_ref));
+const tabManipulation = computed(() => (checkoutCapabilities.value as Record<string, any>)?.tab_manipulation || null);
+const canRenameTab = computed(() => Boolean(tabManipulation.value?.rename_action_ref));
+const saleCorrection = computed(() => (checkoutCapabilities.value as Record<string, any>)?.sale_correction || null);
+const canCancelRecentSale = computed(() => Boolean(saleCorrection.value?.cancel_recent_action_ref));
 const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
 const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
 const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
@@ -661,6 +669,7 @@ async function reviewCheckout() {
 
 async function submitSale() {
   if (!cart.items.length) return;
+  saleCancelled.value = false;
   if (!checkoutMode.value) {
     await prepareCheckout();
     return;
@@ -809,6 +818,46 @@ async function unfireTab(lineId: string) {
     serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
   } finally {
     firing.value = false;
+  }
+}
+
+async function renameTab(newTabRef: string) {
+  if (!cart.tabSessionKey || !newTabRef) return;
+  serverError.value = "";
+  renamingTab.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "rename_tab", "/api/v1/backstage/pos/tabs/rename/"),
+      { body: { session_key: cart.tabSessionKey, new_tab_ref: newTabRef } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao renomear comanda.";
+  } finally {
+    renamingTab.value = false;
+  }
+}
+
+async function cancelRecentSale() {
+  if (!result.value) return;
+  serverError.value = "";
+  cancellingSale.value = true;
+  try {
+    const orderRef = result.value.orderRef;
+    const reason = cancelSaleReason.value.trim();
+    await action.call(
+      actionHref(actions.value, "cancel_recent_sale", "/api/v1/backstage/pos/sale/recent/cancel/"),
+      { body: { order_ref: orderRef, ...(reason ? { reason } : {}) } },
+    );
+    result.value = null;
+    cancelSaleReason.value = "";
+    saleCancelled.value = true;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar venda.";
+  } finally {
+    cancellingSale.value = false;
   }
 }
 
@@ -997,8 +1046,34 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
-          <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
+          <div class="flex flex-col gap-2">
+            <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
+            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
+              <UiInput
+                v-model="cancelSaleReason"
+                placeholder="Motivo do cancelamento (opcional)"
+                class="h-8 text-sm"
+              />
+              <UiButton
+                variant="destructive"
+                size="sm"
+                class="self-start"
+                :loading="cancellingSale"
+                :disabled="cancellingSale"
+                @click="cancelRecentSale"
+              >
+                <Icon name="lucide:rotate-ccw" class="size-4" />
+                Cancelar venda
+              </UiButton>
+            </div>
+          </div>
         </UiAlertDescription>
+      </UiAlert>
+
+      <UiAlert v-if="saleCancelled" class="border-amber-500/30 bg-amber-500/10 text-amber-800">
+        <Icon name="lucide:circle-check" class="size-4" />
+        <UiAlertTitle>Venda cancelada</UiAlertTitle>
+        <UiAlertDescription>O pedido foi cancelado dentro da janela do operador.</UiAlertDescription>
       </UiAlert>
 
       <PosCheckoutWorkspace
@@ -1230,6 +1305,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           :lookup-busy="lookupBusy"
           :can-fire="canFireTab"
           :firing="firing"
+          :can-rename="canRenameTab"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
@@ -1238,6 +1314,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @move="openMoveDialog"
           @fire="fireTab"
           @unfire="unfireTab"
+          @rename="renameTab"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"

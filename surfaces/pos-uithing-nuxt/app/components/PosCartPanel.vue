@@ -18,6 +18,7 @@ const props = defineProps<{
   lookupBusy: boolean;
   canFire: boolean;
   firing: boolean;
+  canRename: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -31,6 +32,7 @@ const emit = defineEmits<{
   move: [];
   fire: [];
   unfire: [string];
+  rename: [string];
   clear: [];
   requestTab: [];
   lookupCustomer: [];
@@ -39,6 +41,22 @@ const emit = defineEmits<{
 }>();
 
 const unfiredCount = computed(() => props.items.filter((item) => !item.fired).length);
+
+const renaming = ref(false);
+const renameValue = ref("");
+
+function startRename() {
+  renameValue.value = props.tabDisplay || "";
+  renaming.value = true;
+}
+function confirmRename() {
+  const next = renameValue.value.trim();
+  renaming.value = false;
+  if (next && next !== (props.tabDisplay || "")) emit("rename", next);
+}
+function cancelRename() {
+  renaming.value = false;
+}
 
 const totalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
@@ -64,9 +82,35 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
 
   <UiCard v-else class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
     <div class="flex items-center justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <p class="text-xs font-medium uppercase text-muted-foreground">Comanda</p>
-        <p v-if="hasOpenTab" class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
+        <div v-if="renaming" class="mt-1 flex items-center gap-1">
+          <UiInput
+            v-model="renameValue"
+            class="h-9 w-40 text-lg font-semibold"
+            placeholder="Mesa, nome…"
+            autofocus
+            @keydown.enter.prevent="confirmRename"
+            @keydown.esc.prevent="cancelRename"
+          />
+          <UiButton variant="ghost" size="icon-sm" aria-label="Confirmar nome" @click="confirmRename">
+            <Icon name="lucide:check" class="size-4" />
+          </UiButton>
+          <UiButton variant="ghost" size="icon-sm" aria-label="Cancelar" @click="cancelRename">
+            <Icon name="lucide:x" class="size-4" />
+          </UiButton>
+        </div>
+        <button
+          v-else-if="hasOpenTab && canRename"
+          type="button"
+          class="group mt-1 flex items-center gap-1.5"
+          aria-label="Renomear comanda"
+          @click="startRename"
+        >
+          <span class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</span>
+          <Icon name="lucide:pencil" class="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+        <p v-else-if="hasOpenTab" class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
         <p v-else class="text-xl font-semibold">Venda rápida</p>
       </div>
       <UiButton

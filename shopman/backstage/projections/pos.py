@@ -712,6 +712,15 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             confirmation={"style": "destructive"},
         ),
         SurfaceActionProjection(
+            ref="rename_tab",
+            kind="mutation",
+            label="Renomear comanda",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/rename/",
+            payload_schema={"required": ["session_key", "new_tab_ref"]},
+        ),
+        SurfaceActionProjection(
             ref="move_tab_lines",
             kind="mutation",
             label="Mover itens (transferir/dividir/juntar)",
@@ -1071,6 +1080,7 @@ def _checkout_contract(
             },
             "tab_manipulation": {
                 "move_action_ref": "move_tab_lines",
+                "rename_action_ref": "rename_tab",
                 "allows_transfer": True,
                 "allows_split": True,
                 "allows_merge": True,
