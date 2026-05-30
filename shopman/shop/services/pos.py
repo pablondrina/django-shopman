@@ -197,6 +197,52 @@ def customer_history_summary(customer_ref: str, *, limit: int = 5) -> dict:
     }
 
 
+# ----------------------------------------------------------------- audit trail
+# Anti-fraud trail of session-phase actions, emitted by this orchestration layer
+# (the kernel SessionEvent stays vocabulary-free). Anchored on session_key, so it
+# is durable (survives clear/delete) and continuous into the Order (same key);
+# post-commit actions like cancellation are covered by OrderEvent.
+
+
+def _audit_qty(item: dict):
+    try:
+        qty = Decimal(str(item.get("qty", 0)))
+    except (InvalidOperation, TypeError):
+        return 0
+    return int(qty) if qty == qty.to_integral_value() else float(qty)
+
+
+def _audit_item_index(items: list[dict]) -> dict:
+    index: dict = {}
+    for item in items or []:
+        if _is_delivery_fee_item(item):
+            continue
+        key = item.get("line_id") or f"sku:{item.get('sku')}"
+        index[key] = item
+    return index
+
+
+def _audit_line_diff(session: Session, *, before: list[dict], after: list[dict], actor: str) -> None:
+    """Emit add/remove/qty events for the net change between two item snapshots."""
+    old = _audit_item_index(before)
+    new = _audit_item_index(after)
+    for key, item in new.items():
+        if key not in old:
+            session.emit_event("line_added", actor=actor, payload={
+                "sku": item.get("sku"), "name": item.get("name"), "qty": _audit_qty(item),
+            })
+        elif _audit_qty(item) != _audit_qty(old[key]):
+            session.emit_event("qty_changed", actor=actor, payload={
+                "sku": item.get("sku"), "name": item.get("name"),
+                "qty_before": _audit_qty(old[key]), "qty_after": _audit_qty(item),
+            })
+    for key, item in old.items():
+        if key not in new:
+            session.emit_event("line_removed", actor=actor, payload={
+                "sku": item.get("sku"), "name": item.get("name"), "qty": _audit_qty(item),
+            })
+
+
 def close_sale(
     *,
     channel_ref: str,
@@ -270,6 +316,11 @@ def close_sale(
         operator_username=operator_username,
         session_data=session.data,
     )
+    # Transition marker on the session trail; the same session_key now resolves
+    # to the Order, whose own lifecycle is audited by OrderEvent.
+    session.emit_event("sale_committed", actor=operator_username, payload={
+        "order_ref": result.order_ref, "total_q": int(result.total_q),
+    })
     logger.info("pos_close_tab order=%s tab=%s session=%s total=%s", result.order_ref, tab_ref, session.session_key, result.total_q)
     order = Order.objects.filter(ref=result.order_ref).first()
     payment_result = {}
@@ -430,6 +481,7 @@ def save_pos_tab(
     if session is None:
         raise ValueError("Abra um POS tab antes de deixar em espera.")
 
+    before_items = session.items
     tab_ref = _session_tab_ref(session)
     tab_display = _ensure_pos_tab(tab_ref, display=_session_tab_display(session))
     fulfillment_type = _payload_fulfillment_type(payload)
@@ -449,13 +501,17 @@ def save_pos_tab(
             {"op": "set_data", "path": "pos.client_request_id", "value": client_request_id},
         ])
 
-    session_service.modify_session(
-        session_key=session.session_key,
-        channel_ref=channel.ref,
-        ops=ops,
-        ctx={"actor": actor},
-        channel_config=config.to_dict(),
-    )
+    with transaction.atomic():
+        session_service.modify_session(
+            session_key=session.session_key,
+            channel_ref=channel.ref,
+            ops=ops,
+            ctx={"actor": actor},
+            channel_config=config.to_dict(),
+        )
+        # Audit the net change vs the previously-saved snapshot (catches
+        # "saved with N items, later saved with fewer"). Emitted atomically.
+        _audit_line_diff(session, before=before_items, after=payload.get("items", []), actor=operator_username)
     logger.info("pos_save_tab tab=%s session=%s operator=%s", tab_ref, session.session_key, operator_username)
     return PosTabResult(tab_ref=tab_ref, tab_display=tab_display, session_key=session.session_key)
 
@@ -465,7 +521,19 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
     session = _get_open_pos_tab_session_by_key(channel_ref=channel_ref, session_key=session_key)
     if session is None:
         return False
-    cleared = session_service.abandon_session(session_key=session.session_key, channel_ref=channel_ref)
+    discarded = [
+        {"sku": i.get("sku"), "name": i.get("name"), "qty": _audit_qty(i)}
+        for i in session.items if not _is_delivery_fee_item(i)
+    ]
+    fired = bool((session.data or {}).get("fired_lines"))
+    with transaction.atomic():
+        # Audit BEFORE abandoning: record what was on the tab when discarded.
+        # A tab that was fired to the kitchen and then cleared without a sale is
+        # the canonical anti-fraud red flag.
+        session.emit_event("tab_cleared", actor=operator_username, payload={
+            "items": discarded, "item_count": len(discarded), "was_fired": fired,
+        })
+        cleared = session_service.abandon_session(session_key=session.session_key, channel_ref=channel_ref)
     if cleared:
         logger.info("pos_clear_tab tab=%s session=%s operator=%s", _session_tab_ref(session), session.session_key, operator_username)
     return cleared
@@ -519,6 +587,7 @@ def rename_pos_tab(
             focus="cart",
         )
 
+    old_ref = _session_tab_ref(session)
     tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(new_tab_ref, ref))
     session_service.assign_handle(
         session_key=session.session_key,
@@ -529,6 +598,8 @@ def rename_pos_tab(
     session.refresh_from_db()
     session.data = {**(session.data or {}), "tab_ref": ref, "tab_display": tab_display}
     session.save(update_fields=["data"])
+
+    session.emit_event("tab_renamed", actor=operator_username, payload={"from_ref": old_ref, "to_ref": ref})
 
     logger.info(
         "pos_rename_tab session=%s new_ref=%s operator=%s",
@@ -749,6 +820,11 @@ def fire_pos_tab(
     session.data = {**(session.data or {}), "fired_lines": fired}
     session.save(update_fields=["data"])
 
+    session.emit_event("fired", actor=operator_username, payload={
+        "lines": [{"sku": ln["sku"], "name": ln["name"], "qty": ln["qty"]} for ln in lines],
+        "count": len(tickets),
+    })
+
     logger.info(
         "pos_fire_tab tab=%s session=%s fired_now=%d total_fired=%d operator=%s req=%s",
         _session_tab_ref(session), session.session_key, len(tickets), len(fired),
@@ -798,10 +874,19 @@ def cancel_fired_pos_tab_lines(
             focus="cart",
         )
 
+    target_set = set(targets)
+    unfired_lines = [
+        {"sku": i.get("sku"), "name": i.get("name"), "qty": _audit_qty(i)}
+        for i in session.items if i.get("line_id") in target_set
+    ]
     result = kds_service.unfire_lines(session_key=session.session_key, line_ids=targets)
     fired = sorted(kds_service.fired_line_ids(session.session_key))
     session.data = {**(session.data or {}), "fired_lines": fired}
     session.save(update_fields=["data"])
+
+    session.emit_event("unfired", actor=operator_username, payload={
+        "lines": unfired_lines, "line_ids": targets, "cancelled": result["cancelled"],
+    })
 
     logger.info(
         "pos_unfire_tab tab=%s session=%s cancelled=%d trimmed=%d total_fired=%d operator=%s",
