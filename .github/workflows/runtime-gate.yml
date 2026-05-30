@@ -63,8 +63,13 @@ jobs:
           IFOOD_WEBHOOK_TOKEN: ci-ifood-webhook-token
           MANYCHAT_API_TOKEN: ci-manychat-api-token
           MANYCHAT_WEBHOOK_SECRET: ci-manychat-webhook-secret
-          SHOPMAN_PIX_ADAPTER: shopman.shop.adapters.payment_efi
-          SHOPMAN_CARD_ADAPTER: shopman.shop.adapters.payment_stripe
+          # CI has no real payment credentials. Use the mock adapters with the
+          # explicit staging allowance the deploy check provides for exactly this
+          # case — it downgrades the payment-adapter error to W006 (non-blocking)
+          # instead of demanding real EFI/Stripe secrets (and an on-disk EFI cert).
+          SHOPMAN_PIX_ADAPTER: shopman.shop.adapters.payment_mock
+          SHOPMAN_CARD_ADAPTER: shopman.shop.adapters.payment_mock
+          SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS: "true"
         run: .venv/bin/python manage.py check --deploy
 
       - name: Full test suite
