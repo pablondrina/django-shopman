@@ -64,6 +64,9 @@ const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
+// Odoo-style: the Command Board (tabs) is the first screen; opening a tab moves
+// to the sale workspace. "Comandas" returns to the board with the tab still open.
+const showBoard = ref(true);
 const cashDialogOpen = ref(false);
 const moveDialogOpen = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
@@ -152,6 +155,10 @@ const addressAutocomplete = computed<POSAddressAutocompleteProjection | null>(()
 const totalDisplay = computed(() => formatBRL(cartTotalQ(cart.items)));
 const itemCount = computed(() => cart.items.reduce((sum, item) => sum + item.qty, 0));
 const hasOpenTab = computed(() => Boolean(cart.tabSessionKey));
+const inSaleView = computed(() => !showBoard.value && hasOpenTab.value);
+function goToBoard() {
+  showBoard.value = true;
+}
 const hasDraftWithoutTab = computed(() => !hasOpenTab.value && cart.items.length > 0);
 const canUseCart = computed(() => !tabRequiredForCart.value || hasOpenTab.value);
 const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
@@ -337,6 +344,7 @@ function resetCart() {
   customerLookup.value = null;
   checkoutMode.value = false;
   review.value = null;
+  showBoard.value = true;
 }
 
 function sanitizeTabRef(value: string): string {
@@ -358,6 +366,7 @@ function assignTabIdentityFromPayload(payload: POSTabPayload) {
   cart.tabRef = payload.tab_ref;
   cart.tabDisplay = payload.tab_display;
   cart.tabSessionKey = payload.tab_session_key || payload.session_key;
+  showBoard.value = false;
 }
 
 function setFromTabPayload(payload: POSTabPayload) {
@@ -1155,24 +1164,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @pick-saved-address="applySavedAddress"
       />
 
-      <div v-else class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-      <section class="grid gap-4 lg:order-2">
-        <section
-          class="grid gap-3"
-          :class="!canUseCart ? 'rounded-lg border border-primary/30 bg-primary/5 p-4' : ''"
-        >
+      <div v-else>
+        <!-- BOARD VIEW — Command Board é a PRIMEIRA tela (benchmark Odoo: comandas/mesas antes do pedido) -->
+        <section v-if="!inSaleView" class="grid gap-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="text-base font-semibold">Comandas</h2>
-              <p v-if="!canUseCart" class="text-sm text-muted-foreground">
-                Abra uma comanda para iniciar o pedido e manter o atendimento recuperável.
-              </p>
-            </div>
+            <h2 class="text-lg font-semibold">Comandas</h2>
             <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
               <UiInput
                 ref="tabInputRef"
                 :model-value="tabInput"
-                class="max-w-40"
+                class="max-w-44"
                 :maxlength="tabMaxLength"
                 :placeholder="tabPlaceholder"
                 @update:model-value="updateTabInput"
@@ -1223,7 +1224,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             </div>
           </div>
 
-          <p v-if="!tabs.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <p v-if="!tabs.length" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
             Nenhuma comanda ainda. Digite uma referência acima para abrir a primeira.
           </p>
           <p v-else-if="!visibleTabs.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
@@ -1232,7 +1233,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </p>
           <div
             v-else
-            class="max-h-56 overflow-y-auto pr-1"
+            class="max-h-[72vh] overflow-y-auto pr-1"
             :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
           >
             <button
@@ -1267,106 +1268,94 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </div>
         </section>
 
-        <section v-if="!canUseCart" class="grid gap-3 rounded-lg border border-dashed p-6 text-center">
-          <div class="mx-auto grid size-12 place-items-center rounded-lg border bg-muted">
-            <Icon name="lucide:lock-keyhole" class="size-5 text-muted-foreground" />
-          </div>
-          <div class="grid gap-1">
-            <h2 class="text-base font-semibold">Catálogo bloqueado até abrir comanda</h2>
-            <p class="mx-auto max-w-xl text-sm text-muted-foreground">
-              O POS só deve montar carrinho depois de existir um handle canônico para recuperar, pausar ou finalizar o pedido.
-            </p>
-          </div>
-          <div>
-            <UiButton type="button" @click="requestTabAssociation('start')">
-              Escolher comanda
+        <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
+        <div v-else class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <aside class="grid content-start gap-3 lg:order-1">
+            <UiButton variant="outline" size="sm" class="w-fit gap-2" @click="goToBoard">
+              <Icon name="lucide:arrow-left" class="size-4" />
+              Comandas
             </UiButton>
-          </div>
-        </section>
-
-        <section v-else class="grid gap-3">
-          <div class="relative">
-            <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
-          </div>
-
-          <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
-            <button
-              type="button"
-              class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
-              :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
-              @click="activeCollection = ''"
-            >
-              Tudo
-            </button>
-            <button
-              v-for="collection in orderedCollections"
-              :key="collection.ref"
-              type="button"
-              class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
-              :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
-              @click="activeCollection = collection.ref"
-            >
-              {{ collection.name }}
-            </button>
-          </div>
-
-          <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
-          </div>
-          <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-            Nenhum produto encontrado.
-          </div>
-          <div v-else class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <PosProductTile
-              v-for="product in filteredProducts"
-              :key="product.sku"
-              :product="product"
-              :qty="productQty(product.sku)"
-              :disabled="!canUseCart"
-              @add="addProduct"
+            <PosCartPanel
+              :tab-display="cart.tabDisplay"
+              :items="cart.items"
+              :customer-lookup="customerLookup"
+              :requires-tab="tabRequiredForCart"
+              :has-open-tab="hasOpenTab"
+              v-model:customer-name="cart.customerName"
+              v-model:customer-phone="cart.customerPhone"
+              :loading="busy"
+              :saving="saving"
+              :lookup-busy="lookupBusy"
+              :can-fire="canFireTab"
+              :firing="firing"
+              :can-rename="canRenameTab"
+              :discount-reasons="checkoutContract?.discount_reasons || []"
+              @increment="(sku) => setQty(sku, productQty(sku) + 1)"
+              @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
+              @remove="(sku) => setQty(sku, 0)"
+              @set-qty="(sku, qty) => setQty(sku, qty)"
+              @set-discount="setLineDiscount"
+              @save="saveTab"
+              @prepare="prepareCheckout"
+              @move="openMoveDialog"
+              @fire="fireTab"
+              @unfire="unfireTab"
+              @rename="renameTab"
+              @clear="clearCurrentTab"
+              @request-tab="requestTabAssociation('start')"
+              @lookup-customer="lookupCustomer"
+              @apply-customer-favorite="applyCustomerFavorite"
+              @repeat-customer-last-order="repeatCustomerLastOrder"
             />
-          </div>
-        </section>
-      </section>
+            <p class="text-xs text-muted-foreground">
+              {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
+            </p>
+          </aside>
 
-      <aside class="lg:order-1">
-        <PosCartPanel
-          :tab-display="cart.tabDisplay"
-          :items="cart.items"
-          :customer-lookup="customerLookup"
-          :requires-tab="tabRequiredForCart"
-          :has-open-tab="hasOpenTab"
-          v-model:customer-name="cart.customerName"
-          v-model:customer-phone="cart.customerPhone"
-          :loading="busy"
-          :saving="saving"
-          :lookup-busy="lookupBusy"
-          :can-fire="canFireTab"
-          :firing="firing"
-          :can-rename="canRenameTab"
-          :discount-reasons="checkoutContract?.discount_reasons || []"
-          @increment="(sku) => setQty(sku, productQty(sku) + 1)"
-          @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
-          @remove="(sku) => setQty(sku, 0)"
-          @set-qty="(sku, qty) => setQty(sku, qty)"
-          @set-discount="setLineDiscount"
-          @save="saveTab"
-          @prepare="prepareCheckout"
-          @move="openMoveDialog"
-          @fire="fireTab"
-          @unfire="unfireTab"
-          @rename="renameTab"
-          @clear="clearCurrentTab"
-          @request-tab="requestTabAssociation('start')"
-          @lookup-customer="lookupCustomer"
-          @apply-customer-favorite="applyCustomerFavorite"
-          @repeat-customer-last-order="repeatCustomerLastOrder"
-        />
-        <p class="mt-3 text-xs text-muted-foreground">
-          {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
-        </p>
-      </aside>
+          <section class="grid content-start gap-3 lg:order-2">
+            <div class="relative">
+              <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
+            </div>
+
+            <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+              <button
+                type="button"
+                class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+                :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
+                @click="activeCollection = ''"
+              >
+                Tudo
+              </button>
+              <button
+                v-for="collection in orderedCollections"
+                :key="collection.ref"
+                type="button"
+                class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+                :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
+                @click="activeCollection = collection.ref"
+              >
+                {{ collection.name }}
+              </button>
+            </div>
+
+            <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
+            </div>
+            <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+              Nenhum produto encontrado.
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              <PosProductTile
+                v-for="product in filteredProducts"
+                :key="product.sku"
+                :product="product"
+                :qty="productQty(product.sku)"
+                @add="addProduct"
+              />
+            </div>
+          </section>
+        </div>
       </div>
     </div>
 

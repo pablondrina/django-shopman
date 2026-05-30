@@ -95,7 +95,16 @@ const reasonOptions = computed(() => {
 });
 const discountReason = ref("");
 
-const selectedItem = computed(() => props.items.find((item) => item.sku === selectedSku.value) || null);
+// The numpad always targets a line: the explicitly selected one, or — when none
+// is selected — the last added/edited line. So a single-item ticket is editable
+// without tapping it first.
+const activeSku = computed(() => {
+  if (selectedSku.value && props.items.some((item) => item.sku === selectedSku.value)) {
+    return selectedSku.value;
+  }
+  return props.items.length ? props.items[props.items.length - 1].sku : "";
+});
+const activeItem = computed(() => props.items.find((item) => item.sku === activeSku.value) || null);
 
 function qtyOf(sku: string): number {
   return props.items.find((item) => item.sku === sku)?.qty || 0;
@@ -104,13 +113,16 @@ function qtyOf(sku: string): number {
 function syncBufferToMode() {
   numpadFresh.value = true;
   if (numpadMode.value === "qty") {
-    numpadBuffer.value = String(qtyOf(selectedSku.value));
+    numpadBuffer.value = String(qtyOf(activeSku.value));
   } else {
-    const item = selectedItem.value;
+    const item = activeItem.value;
     numpadBuffer.value = item?.discount?.value ? String(item.discount.value) : "";
     discountReason.value = item?.discount?.reason || reasonOptions.value[0]?.ref || "cortesia";
   }
 }
+
+watch(activeSku, () => syncBufferToMode());
+watch(numpadMode, () => syncBufferToMode());
 
 function selectLine(sku: string) {
   selectedSku.value = sku;
@@ -119,33 +131,60 @@ function selectLine(sku: string) {
 
 function setMode(mode: "qty" | "disc") {
   numpadMode.value = mode;
-  syncBufferToMode();
+}
+
+// Destructive actions require a confirmation modal naming the irreversible effect.
+const confirmAction = ref<{ kind: "remove" | "clear"; sku?: string; name?: string } | null>(null);
+function askRemove(sku: string) {
+  const item = props.items.find((entry) => entry.sku === sku);
+  confirmAction.value = { kind: "remove", sku, name: item?.name || "item" };
+}
+function askClear() {
+  confirmAction.value = { kind: "clear" };
+}
+function cancelConfirm() {
+  confirmAction.value = null;
+}
+function runConfirm() {
+  const action = confirmAction.value;
+  confirmAction.value = null;
+  if (!action) return;
+  if (action.kind === "remove" && action.sku) {
+    if (selectedSku.value === action.sku) selectedSku.value = "";
+    emit("remove", action.sku);
+  } else if (action.kind === "clear") {
+    emit("clear");
+  }
 }
 
 function commitQty() {
-  if (!selectedSku.value) return;
+  const sku = activeSku.value;
+  if (!sku) return;
   const next = Math.min(MAX_QTY, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
-  emit("setQty", selectedSku.value, next);
-  if (next <= 0) selectedSku.value = "";
+  if (next <= 0) {
+    askRemove(sku);
+    return;
+  }
+  emit("setQty", sku, next);
 }
 
 function commitDiscount() {
-  if (!selectedSku.value) return;
+  const sku = activeSku.value;
+  if (!sku) return;
   const value = Math.min(100, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
-  emit("setDiscount", selectedSku.value, value, discountReason.value || "cortesia");
+  emit("setDiscount", sku, value, discountReason.value || "cortesia");
 }
 
 function onDigit(digit: string) {
-  if (!selectedSku.value) return;
-  const limit = numpadMode.value === "qty" ? 3 : 3;
-  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, limit);
+  if (!activeSku.value) return;
+  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, 3);
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
   else commitDiscount();
 }
 
 function onBackspace() {
-  if (!selectedSku.value) return;
+  if (!activeSku.value) return;
   numpadBuffer.value = numpadBuffer.value.slice(0, -1);
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
@@ -153,30 +192,29 @@ function onBackspace() {
 }
 
 function onClear() {
-  if (!selectedSku.value) return;
-  numpadBuffer.value = "";
-  numpadFresh.value = true;
+  const sku = activeSku.value;
+  if (!sku) return;
   if (numpadMode.value === "qty") {
-    emit("setQty", selectedSku.value, 0);
-    selectedSku.value = "";
+    askRemove(sku);
   } else {
-    emit("setDiscount", selectedSku.value, 0, discountReason.value || "cortesia");
+    numpadBuffer.value = "";
+    numpadFresh.value = true;
+    emit("setDiscount", sku, 0, discountReason.value || "cortesia");
   }
 }
 
 function pickReason(reason: string) {
   discountReason.value = reason;
-  if (selectedSku.value && numpadMode.value === "disc") commitDiscount();
+  if (activeSku.value && numpadMode.value === "disc") commitDiscount();
 }
 
-function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
-  emit(emitName, sku);
-  if (emitName === "remove") {
-    if (selectedSku.value === sku) selectedSku.value = "";
+function bump(sku: string, emitName: "increment" | "decrement") {
+  selectedSku.value = sku;
+  if (emitName === "decrement" && qtyOf(sku) <= 1) {
+    askRemove(sku);
     return;
   }
-  selectedSku.value = sku;
-  numpadFresh.value = true;
+  emit(emitName, sku);
 }
 </script>
 
@@ -236,7 +274,7 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
         size="icon-sm"
         aria-label="Liberar comanda"
         title="Liberar comanda"
-        @click="$emit('clear')"
+        @click="askClear()"
       >
         <Icon name="lucide:x" class="size-4" />
       </UiButton>
@@ -323,8 +361,8 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
           v-for="item in items"
           :key="item.sku"
           class="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-2 rounded-lg px-2 py-1.5 transition"
-          :class="selectedSku === item.sku ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-          :aria-current="selectedSku === item.sku ? 'true' : undefined"
+          :class="activeSku === item.sku ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+          :aria-current="activeSku === item.sku ? 'true' : undefined"
           @click="selectLine(item.sku)"
         >
           <div class="min-w-0">
@@ -368,7 +406,7 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
             <UiButton variant="ghost" size="icon-xs" aria-label="Aumentar" @click="bump(item.sku, 'increment')">
               <Icon name="lucide:plus" class="size-3.5" />
             </UiButton>
-            <UiButton variant="ghost" size="icon-xs" aria-label="Remover" @click="bump(item.sku, 'remove')">
+            <UiButton variant="ghost" size="icon-xs" aria-label="Remover" @click="askRemove(item.sku)">
               <Icon name="lucide:trash-2" class="size-3.5 text-destructive" />
             </UiButton>
           </div>
@@ -396,15 +434,15 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
         </button>
       </div>
       <p class="text-xs text-muted-foreground">
-        <template v-if="selectedItem && numpadMode === 'qty'">
-          Quantidade de <span class="font-medium text-foreground">{{ selectedItem.name }}</span>
+        <template v-if="activeItem && numpadMode === 'qty'">
+          Quantidade de <span class="font-medium text-foreground">{{ activeItem.name }}</span>
         </template>
-        <template v-else-if="selectedItem">
-          Desconto de <span class="font-medium text-foreground">{{ selectedItem.name }}</span> (%)
+        <template v-else-if="activeItem">
+          Desconto de <span class="font-medium text-foreground">{{ activeItem.name }}</span> (%)
         </template>
-        <template v-else>Toque um item para editar</template>
+        <template v-else>Adicione um item</template>
       </p>
-      <div v-if="numpadMode === 'disc' && selectedSku" class="flex flex-wrap gap-1">
+      <div v-if="numpadMode === 'disc' && activeSku" class="flex flex-wrap gap-1">
         <button
           v-for="reason in reasonOptions"
           :key="reason.ref"
@@ -417,7 +455,7 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
         </button>
       </div>
       <PosNumpad
-        :disabled="!selectedSku"
+        :disabled="!items.length"
         @digit="onDigit"
         @backspace="onBackspace"
         @clear="onClear"
@@ -469,4 +507,28 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
       </div>
     </div>
   </UiCard>
+
+  <UiDialog :open="!!confirmAction" @update:open="(value) => { if (!value) cancelConfirm(); }">
+    <UiDialogContent class="sm:max-w-sm">
+      <UiDialogHeader>
+        <UiDialogTitle>
+          {{ confirmAction?.kind === "clear" ? "Liberar comanda?" : "Remover item?" }}
+        </UiDialogTitle>
+        <UiDialogDescription>
+          <template v-if="confirmAction?.kind === 'clear'">
+            Isso descarta este atendimento e libera a comanda. A ação não pode ser desfeita.
+          </template>
+          <template v-else>
+            Remover <strong>{{ confirmAction?.name }}</strong> do pedido? A ação não pode ser desfeita.
+          </template>
+        </UiDialogDescription>
+      </UiDialogHeader>
+      <UiDialogFooter class="gap-2">
+        <UiButton variant="outline" @click="cancelConfirm">Cancelar</UiButton>
+        <UiButton variant="destructive" @click="runConfirm">
+          {{ confirmAction?.kind === "clear" ? "Liberar comanda" : "Remover item" }}
+        </UiButton>
+      </UiDialogFooter>
+    </UiDialogContent>
+  </UiDialog>
 </template>

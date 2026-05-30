@@ -105,7 +105,6 @@ const receiptModes = computed(() => props.checkoutContract?.receipt_modes || [
   { ref: "print", label: "Imprimir", description: "" },
   { ref: "email", label: "E-mail", description: "" },
 ]);
-const cashPresetDeltas = computed(() => props.checkoutContract?.cash_tender_delta_presets_q || [0, 1000, 2000, 5000, 10000]);
 const totalForCashQ = computed(() => props.review?.total_q || cartTotalQ(props.items));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 const savedAddresses = computed(() => props.customerLookup?.saved_addresses || []);
@@ -115,11 +114,20 @@ const approvalBlocking = computed(() =>
   && (!props.managerUsername.trim() || !props.managerPin.trim()),
 );
 
-function setTenderedByDelta(deltaQ: number) {
-  const amountQ = Math.max(0, totalForCashQ.value + deltaQ);
-  const formatted = (amountQ / 100).toFixed(2).replace(".", ",");
+// Cash quick amounts are ABSOLUTE values the customer hands over (a R$50 note),
+// never "total + delta". The change is tendered - total.
+const cashBills = [2000, 5000, 10000, 20000];
+const cashPresets = computed(() => {
+  const exact = totalForCashQ.value;
+  const bills = cashBills.filter((bill) => bill >= exact);
+  return [exact, ...bills];
+});
+function setTenderedAbsolute(amountQ: number) {
+  const formatted = amountQ > 0 ? (amountQ / 100).toFixed(2).replace(".", ",") : "";
   emit("update:tenderedAmountInput", formatted);
 }
+const tenderedCentsLive = computed(() => inputToCents(props.tenderedAmountInput));
+const liveChangeQ = computed(() => Math.max(0, tenderedCentsLive.value - totalForCashQ.value));
 
 // Odoo-style cash numpad: digits accumulate as cents (1,0,0,0 → R$ 10,00).
 const PAYMENT_ICONS: Record<string, string> = {
@@ -541,17 +549,21 @@ function onAddressSelected(address: StructuredAddressProjection) {
             <span class="text-sm font-medium text-muted-foreground">Recebido</span>
             <strong class="text-2xl tabular-nums">{{ tenderedAmountInput ? `R$ ${tenderedAmountInput}` : "R$ 0,00" }}</strong>
           </div>
+          <div v-if="liveChangeQ > 0" class="flex items-baseline justify-between rounded-lg bg-primary/10 px-3 py-1.5">
+            <span class="text-sm font-medium">Troco</span>
+            <strong class="text-lg tabular-nums">{{ formatBRL(liveChangeQ) }}</strong>
+          </div>
           <div class="flex gap-1.5 overflow-x-auto pb-1">
             <UiButton
-              v-for="delta in cashPresetDeltas"
-              :key="delta"
+              v-for="(amount, idx) in cashPresets"
+              :key="`${amount}-${idx}`"
               type="button"
               variant="outline"
               size="sm"
               class="shrink-0"
-              @click="setTenderedByDelta(delta)"
+              @click="setTenderedAbsolute(amount)"
             >
-              {{ delta === 0 ? "Exato" : `+${formatBRL(delta)}` }}
+              {{ idx === 0 ? "Exato" : formatBRL(amount) }}
             </UiButton>
           </div>
           <PosNumpad @digit="pushCashDigit" @backspace="cashBackspace" @clear="cashClear" />
