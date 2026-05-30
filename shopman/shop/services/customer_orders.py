@@ -700,6 +700,7 @@ def _same_phone(left: str, right: str) -> bool:
 
         return normalize_phone(left) == normalize_phone(right)
     except Exception:
+        logger.debug("customer_orders._same_phone degraded; using fallback", exc_info=True)
         return str(left).strip() == str(right).strip()
 
 

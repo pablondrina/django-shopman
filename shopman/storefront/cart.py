@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from decimal import Decimal
 
@@ -11,6 +12,8 @@ from shopman.shop.models import Channel
 from shopman.shop.services import availability
 from shopman.shop.services import cart as cart_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
+
+logger = logging.getLogger(__name__)
 
 
 class CartService:
@@ -171,6 +174,7 @@ class CartService:
                 if Decimal(str(item.get("qty", 0))) > 0:
                     return True
             except Exception:
+                logger.debug("cart.has_items degraded; using fallback", exc_info=True)
                 continue
         return False
 
@@ -284,6 +288,7 @@ class CartService:
                     local_dl = _tz.localtime(deadline)
                     item["confirmation_deadline_display"] = local_dl.strftime("%H:%M")
                 except Exception:
+                    logger.debug("cart.get_cart degraded; using fallback", exc_info=True)
                     item["confirmation_deadline_display"] = deadline.strftime("%H:%M")
             else:
                 item["confirmation_deadline_iso"] = None

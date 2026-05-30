@@ -199,6 +199,7 @@ def _on_payment_changed(sender, intent=None, order_ref=None, **kwargs):
 
         order = Order.objects.get(ref=order_ref)
     except Exception:
+        logger.debug("_sse_emitters._on_payment_changed degraded; using fallback", exc_info=True)
         return
 
     _emit_backstage(

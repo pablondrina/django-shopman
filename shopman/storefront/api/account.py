@@ -10,27 +10,27 @@ import logging
 from django.http import HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
-from shopman.shop.projections.types import SurfaceActionProjection
-from shopman.storefront.projections.account import build_account
 from shopman.storefront.intents.types import AddressIntent
+from shopman.storefront.projections.account import build_account
 from shopman.storefront.services import orders as order_service
 from shopman.storefront.views.auth import get_authenticated_customer
 
+from .projections import projection_data
 from .serializers import (
     AddressSerializer,
     CustomerProfileSerializer,
     DetailSerializer,
     OrderHistoryItemSerializer,
 )
-from .projections import projection_data
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ def _fmt_dt(value) -> str:
     try:
         return timezone.localtime(value).strftime("%d/%m/%Y às %H:%M")
     except Exception:
+        logger.debug("account._fmt_dt degraded; using fallback", exc_info=True)
         return str(value)
 
 
@@ -222,6 +223,7 @@ class ProfileView(APIView):
         try:
             updated = account_service.update_profile(customer.ref, intent)
         except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("account.patch degraded; using fallback", exc_info=True)
             return Response({"detail": str(exc) or "Não foi possível atualizar."}, status=400)
 
         return Response(

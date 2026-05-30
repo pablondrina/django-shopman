@@ -61,6 +61,7 @@ def preorder_config() -> tuple[int, list]:
         closed_dates = ((shop.defaults or {}).get("closed_dates", [])) if shop else []
         return max_preorder_days, closed_dates
     except Exception:
+        logger.debug("checkout_context.preorder_config degraded; using fallback", exc_info=True)
         return 30, []
 
 
