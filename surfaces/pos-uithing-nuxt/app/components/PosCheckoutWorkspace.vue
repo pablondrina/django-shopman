@@ -121,6 +121,46 @@ function setTenderedByDelta(deltaQ: number) {
   emit("update:tenderedAmountInput", formatted);
 }
 
+// Odoo-style cash numpad: digits accumulate as cents (1,0,0,0 → R$ 10,00).
+const PAYMENT_ICONS: Record<string, string> = {
+  cash: "lucide:banknote",
+  pix: "lucide:qr-code",
+  card: "lucide:credit-card",
+  mixed: "lucide:layers",
+  external: "lucide:ellipsis",
+};
+function paymentIcon(ref: string): string {
+  return PAYMENT_ICONS[ref] || "lucide:wallet";
+}
+
+const cashDigits = ref("");
+function inputToCents(value: string): number {
+  const normalized = String(value || "").replace(/\./g, "").replace(",", ".");
+  return Math.round((Number.parseFloat(normalized) || 0) * 100);
+}
+watch(() => props.tenderedAmountInput, (value) => {
+  const cents = inputToCents(value);
+  if (cents !== Number.parseInt(cashDigits.value || "0", 10)) {
+    cashDigits.value = cents ? String(cents) : "";
+  }
+}, { immediate: true });
+function emitCash() {
+  const cents = Number.parseInt(cashDigits.value || "0", 10);
+  emit("update:tenderedAmountInput", cents ? (cents / 100).toFixed(2).replace(".", ",") : "");
+}
+function pushCashDigit(digit: string) {
+  cashDigits.value = `${cashDigits.value}${digit}`.replace(/^0+/, "").slice(0, 7);
+  emitCash();
+}
+function cashBackspace() {
+  cashDigits.value = cashDigits.value.slice(0, -1);
+  emitCash();
+}
+function cashClear() {
+  cashDigits.value = "";
+  emitCash();
+}
+
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
   if (address.route) emit("update:deliveryAddress", address.route);
@@ -473,11 +513,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
             v-for="method in paymentMethods"
             :key="method.ref"
             variant="outline"
-            class="justify-center"
+            class="h-auto flex-col gap-1.5 py-3"
             :class="paymentMethod === method.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
             @click="$emit('update:paymentMethod', method.ref)"
           >
-            {{ method.label }}
+            <Icon :name="paymentIcon(method.ref)" class="size-6" />
+            <span class="text-xs font-medium">{{ method.label }}</span>
           </UiButton>
         </div>
         <div v-if="filteredCollections.length > 1" class="grid grid-cols-2 gap-2">
@@ -496,16 +537,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </UiButton>
         </div>
         <div v-if="paymentMethod === 'cash' && paymentCollection === 'terminal'" class="grid gap-2">
-          <label class="grid gap-1 text-sm">
-            <span class="font-medium text-muted-foreground">Valor recebido</span>
-            <UiInput
-              :model-value="tenderedAmountInput"
-              inputmode="decimal"
-              placeholder="Dinheiro recebido"
-              @update:model-value="$emit('update:tenderedAmountInput', String($event || ''))"
-            />
-          </label>
-          <div class="flex gap-2 overflow-x-auto pb-1">
+          <div class="flex items-baseline justify-between rounded-lg border bg-muted/40 px-3 py-2">
+            <span class="text-sm font-medium text-muted-foreground">Recebido</span>
+            <strong class="text-2xl tabular-nums">{{ tenderedAmountInput ? `R$ ${tenderedAmountInput}` : "R$ 0,00" }}</strong>
+          </div>
+          <div class="flex gap-1.5 overflow-x-auto pb-1">
             <UiButton
               v-for="delta in cashPresetDeltas"
               :key="delta"
@@ -518,6 +554,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               {{ delta === 0 ? "Exato" : `+${formatBRL(delta)}` }}
             </UiButton>
           </div>
+          <PosNumpad @digit="pushCashDigit" @backspace="cashBackspace" @clear="cashClear" />
         </div>
       </div>
 
@@ -538,11 +575,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
         </div>
         <div class="flex items-baseline justify-between border-t pt-2">
           <span class="text-sm font-semibold">Total revisado</span>
-          <strong class="text-xl tabular-nums">{{ review.total_display }}</strong>
+          <strong class="text-3xl tabular-nums text-primary">{{ review.total_display }}</strong>
         </div>
-        <div v-if="review.change_q" class="flex items-baseline justify-between">
-          <span class="text-sm text-muted-foreground">Troco</span>
-          <span class="font-semibold tabular-nums">{{ review.change_display }}</span>
+        <div v-if="review.change_q" class="flex items-baseline justify-between rounded-lg bg-primary/10 px-2 py-1">
+          <span class="text-sm font-medium">Troco</span>
+          <span class="text-lg font-bold tabular-nums">{{ review.change_display }}</span>
         </div>
         <p v-for="warning in review.warnings" :key="warning.code" class="text-xs text-amber-700">
           {{ warning.message }}
