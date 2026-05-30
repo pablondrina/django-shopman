@@ -3,7 +3,7 @@ import type {
   POSCartItem,
   POSCustomerLookupProjection,
 } from "~/types/pos";
-import { cartTotalQ, formatBRL } from "~/utils/posIntent";
+import { formatBRL } from "~/utils/posIntent";
 
 const props = defineProps<{
   tabDisplay: string;
@@ -19,6 +19,7 @@ const props = defineProps<{
   canFire: boolean;
   firing: boolean;
   canRename: boolean;
+  discountReasons?: Array<{ ref: string; label?: string } | string>;
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   decrement: [string];
   remove: [string];
   setQty: [string, number];
+  setDiscount: [string, number, string];
   save: [];
   prepare: [];
   move: [];
@@ -59,7 +61,13 @@ function cancelRename() {
   renaming.value = false;
 }
 
-const totalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
+// Interim local total — reflects per-line manual discount as an estimate so the
+// operator sees the discount land. Backend review remains the authoritative total.
+const totalDisplay = computed(() => formatBRL(props.items.reduce((sum, item) => {
+  const gross = item.price_q * item.qty;
+  const perUnit = item.discount?.value ? Math.min(item.price_q, Math.round(item.price_q * item.discount.value / 100)) : 0;
+  return sum + Math.max(0, gross - perUnit * item.qty);
+}, 0)));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 
 // Numpad targets the selected line: select a line, type a quantity (first
@@ -70,6 +78,22 @@ const MAX_QTY = 999;
 const selectedSku = ref("");
 const numpadBuffer = ref("");
 const numpadFresh = ref(true);
+const numpadMode = ref<"qty" | "disc">("qty");
+
+const defaultReasons = [
+  { ref: "cortesia", label: "Cortesia" },
+  { ref: "fidelidade", label: "Fidelidade" },
+  { ref: "ajuste", label: "Ajuste" },
+  { ref: "qualidade", label: "Qualidade" },
+];
+const reasonOptions = computed(() => {
+  const raw = props.discountReasons;
+  if (raw?.length) {
+    return raw.map((r) => (typeof r === "string" ? { ref: r, label: r } : { ref: r.ref, label: r.label || r.ref }));
+  }
+  return defaultReasons;
+});
+const discountReason = ref("");
 
 const selectedItem = computed(() => props.items.find((item) => item.sku === selectedSku.value) || null);
 
@@ -77,10 +101,25 @@ function qtyOf(sku: string): number {
   return props.items.find((item) => item.sku === sku)?.qty || 0;
 }
 
+function syncBufferToMode() {
+  numpadFresh.value = true;
+  if (numpadMode.value === "qty") {
+    numpadBuffer.value = String(qtyOf(selectedSku.value));
+  } else {
+    const item = selectedItem.value;
+    numpadBuffer.value = item?.discount?.value ? String(item.discount.value) : "";
+    discountReason.value = item?.discount?.reason || reasonOptions.value[0]?.ref || "cortesia";
+  }
+}
+
 function selectLine(sku: string) {
   selectedSku.value = sku;
-  numpadBuffer.value = String(qtyOf(sku));
-  numpadFresh.value = true;
+  syncBufferToMode();
+}
+
+function setMode(mode: "qty" | "disc") {
+  numpadMode.value = mode;
+  syncBufferToMode();
 }
 
 function commitQty() {
@@ -90,24 +129,44 @@ function commitQty() {
   if (next <= 0) selectedSku.value = "";
 }
 
+function commitDiscount() {
+  if (!selectedSku.value) return;
+  const value = Math.min(100, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
+  emit("setDiscount", selectedSku.value, value, discountReason.value || "cortesia");
+}
+
 function onDigit(digit: string) {
   if (!selectedSku.value) return;
-  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, 3);
+  const limit = numpadMode.value === "qty" ? 3 : 3;
+  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, limit);
   numpadFresh.value = false;
-  commitQty();
+  if (numpadMode.value === "qty") commitQty();
+  else commitDiscount();
 }
 
 function onBackspace() {
   if (!selectedSku.value) return;
   numpadBuffer.value = numpadBuffer.value.slice(0, -1);
   numpadFresh.value = false;
-  commitQty();
+  if (numpadMode.value === "qty") commitQty();
+  else commitDiscount();
 }
 
 function onClear() {
   if (!selectedSku.value) return;
-  emit("setQty", selectedSku.value, 0);
-  selectedSku.value = "";
+  numpadBuffer.value = "";
+  numpadFresh.value = true;
+  if (numpadMode.value === "qty") {
+    emit("setQty", selectedSku.value, 0);
+    selectedSku.value = "";
+  } else {
+    emit("setDiscount", selectedSku.value, 0, discountReason.value || "cortesia");
+  }
+}
+
+function pickReason(reason: string) {
+  discountReason.value = reason;
+  if (selectedSku.value && numpadMode.value === "disc") commitDiscount();
 }
 
 function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
@@ -273,6 +332,14 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
             <p class="mt-0.5 text-xs text-muted-foreground tabular-nums">
               {{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
             </p>
+            <span
+              v-if="item.discount && item.discount.value > 0"
+              class="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+              :title="`Desconto: ${item.discount.reason}`"
+            >
+              <Icon name="lucide:tag" class="size-3" />
+              −{{ item.discount.value }}% · {{ item.discount.reason }}
+            </span>
             <button
               v-if="item.fired && canFire && item.line_id"
               type="button"
@@ -310,12 +377,45 @@ function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
     </div>
 
     <div v-if="items.length" class="grid gap-1.5">
+      <div class="flex gap-1">
+        <button
+          type="button"
+          class="flex-1 rounded-lg border py-1 text-sm font-medium transition"
+          :class="numpadMode === 'qty' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          @click="setMode('qty')"
+        >
+          Qtd
+        </button>
+        <button
+          type="button"
+          class="flex-1 rounded-lg border py-1 text-sm font-medium transition"
+          :class="numpadMode === 'disc' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          @click="setMode('disc')"
+        >
+          Desc %
+        </button>
+      </div>
       <p class="text-xs text-muted-foreground">
-        <template v-if="selectedItem">
+        <template v-if="selectedItem && numpadMode === 'qty'">
           Quantidade de <span class="font-medium text-foreground">{{ selectedItem.name }}</span>
         </template>
-        <template v-else>Toque um item para editar a quantidade</template>
+        <template v-else-if="selectedItem">
+          Desconto de <span class="font-medium text-foreground">{{ selectedItem.name }}</span> (%)
+        </template>
+        <template v-else>Toque um item para editar</template>
       </p>
+      <div v-if="numpadMode === 'disc' && selectedSku" class="flex flex-wrap gap-1">
+        <button
+          v-for="reason in reasonOptions"
+          :key="reason.ref"
+          type="button"
+          class="rounded-full border px-2.5 py-0.5 text-xs transition"
+          :class="discountReason === reason.ref ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-accent'"
+          @click="pickReason(reason.ref)"
+        >
+          {{ reason.label }}
+        </button>
+      </div>
       <PosNumpad
         :disabled="!selectedSku"
         @digit="onDigit"

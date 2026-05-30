@@ -103,7 +103,7 @@ describe("POS sale intent", () => {
       receipt_email: "ana@example.com",
     });
     expect(payload.items).toEqual([
-      { sku: "PAO", name: "Pao", qty: 2, unit_price_q: 1200, notes: "" },
+      { sku: "PAO", name: "Pao", qty: 2, unit_price_q: 1200, notes: "", is_d1: false },
     ]);
     expect(payload.items[0]).not.toHaveProperty("price_q");
   });

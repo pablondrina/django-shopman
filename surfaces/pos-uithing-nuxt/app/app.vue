@@ -293,6 +293,14 @@ function setQty(sku: string, qty: number) {
   existing.qty = qty;
 }
 
+function setLineDiscount(sku: string, value: number, reason: string) {
+  const item = cart.items.find((entry) => entry.sku === sku);
+  if (!item) return;
+  review.value = null;
+  if (value > 0) item.discount = { value, reason };
+  else delete item.discount;
+}
+
 function resetCart() {
   cart.tabRef = "";
   cart.tabDisplay = "";
@@ -1337,10 +1345,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           :can-fire="canFireTab"
           :firing="firing"
           :can-rename="canRenameTab"
+          :discount-reasons="checkoutContract?.discount_reasons || []"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
           @set-qty="(sku, qty) => setQty(sku, qty)"
+          @set-discount="setLineDiscount"
           @save="saveTab"
           @prepare="prepareCheckout"
           @move="openMoveDialog"

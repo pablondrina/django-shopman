@@ -257,6 +257,7 @@ export interface POSCartItem {
   is_d1: boolean;
   line_id?: string;
   fired?: boolean;
+  discount?: { value: number; reason: string };
 }
 
 export interface POSPaymentTenderDraft {
