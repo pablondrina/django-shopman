@@ -104,6 +104,21 @@ class POSFireTabTests(TestCase):
         self.assertEqual(third["fired_count"], 0)
         self.assertEqual(KDSTicket.objects.filter(session_key=session.session_key).count(), 2)
 
+    def test_command_board_flags_fired_unpaid_tab(self) -> None:
+        from shopman.backstage.projections.pos import build_pos_tabs
+
+        session = self._open_tab_with_two_items()
+        before = {t.ref: t for t in build_pos_tabs(channel_ref="pdv")}
+        assert before["00002001"].fired is False
+
+        pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            actor="pos:alice", operator_username="alice",
+        )
+
+        after = {t.ref: t for t in build_pos_tabs(channel_ref="pdv")}
+        assert after["00002001"].fired is True
+
     def test_fire_unknown_tab_raises(self) -> None:
         from shopman.shop.services.pos_intent import PosIntentError
 

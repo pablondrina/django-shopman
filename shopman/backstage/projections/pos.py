@@ -220,6 +220,10 @@ class POSTabProjection:
     total_display: str
     last_touched_display: str
     items_preview: str
+    # "Disparado + não-pago" anti-fraud signal: an open comanda whose courses
+    # already went to the kitchen is, by nature, still unpaid. Derived from
+    # Session.data["fired_lines"] — no extra storage.
+    fired: bool = False
 
 
 @dataclass(frozen=True)
@@ -1305,6 +1309,7 @@ def _tab_projection(*, ref: str, session: Session | None, display_ref: str = "")
         total_display=f"R$ {format_money(max(0, total_q - discount_q))}",
         last_touched_display=_format_time(last_touched),
         items_preview=_items_preview(items),
+        fired=bool(data.get("fired_lines")),
     )
 
 

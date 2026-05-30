@@ -1222,6 +1222,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
                 <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
                 <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
               </div>
+              <span
+                v-if="tab.fired"
+                class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
+                title="Disparado para a cozinha e ainda não pago"
+              >
+                <Icon name="lucide:flame" class="size-3" />
+                Na cozinha · não pago
+              </span>
               <span v-if="tab.customer_name" class="truncate text-xs font-medium">{{ tab.customer_name }}</span>
               <span v-if="tab.items_preview" class="truncate text-xs text-muted-foreground">{{ tab.items_preview }}</span>
               <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">

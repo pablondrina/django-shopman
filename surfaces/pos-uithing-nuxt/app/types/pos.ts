@@ -237,6 +237,7 @@ export interface POSTabProjection {
   total_display: string;
   last_touched_display: string;
   items_preview: string;
+  fired?: boolean;
 }
 
 export interface POSResponse {
