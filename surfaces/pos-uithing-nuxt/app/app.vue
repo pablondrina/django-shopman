@@ -606,18 +606,36 @@ async function prepareCheckout() {
   }
 }
 
+async function reviewCheckout() {
+  if (!cart.items.length) return;
+  serverError.value = "";
+  result.value = null;
+  busy.value = true;
+  try {
+    await reviewSale();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao revisar venda.";
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function submitSale() {
   if (!cart.items.length) return;
   if (!checkoutMode.value) {
     await prepareCheckout();
     return;
   }
+  // Spec: the commit click must not hide an implicit review. If the review is
+  // stale (sale data changed), return to review instead of committing.
+  if (!review.value) {
+    await reviewCheckout();
+    return;
+  }
   serverError.value = "";
   result.value = null;
   busy.value = true;
   try {
-    const reviewed = await reviewSale();
-    if (!reviewed) return;
     const response = await action.call<POSCloseSaleResponse>(
       actionHref(actions.value, "close_sale", "/api/v1/backstage/pos/sale/close/"),
       { body: buildCurrentIntent() },
@@ -715,28 +733,73 @@ function newClientRequestId(): string {
       @unlock="onUnlock"
     />
 
-    <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4">
+      <UiAlert v-if="error" variant="destructive">
+        <Icon name="lucide:triangle-alert" class="size-4" />
+        <UiAlertTitle>POS indisponível</UiAlertTitle>
+        <UiAlertDescription>Confira login e permissão de operação no gestor.</UiAlertDescription>
+      </UiAlert>
+
+      <UiAlert v-if="serverError" variant="destructive">
+        <Icon name="lucide:circle-x" class="size-4" />
+        <UiAlertTitle>Ação recusada</UiAlertTitle>
+        <UiAlertDescription>{{ serverError }}</UiAlertDescription>
+      </UiAlert>
+
+      <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
+        <Icon name="lucide:circle-check" class="size-4" />
+        <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
+        <UiAlertDescription>
+          <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
+        </UiAlertDescription>
+      </UiAlert>
+
+      <PosCheckoutWorkspace
+        v-if="checkoutMode"
+        :tab-display="cart.tabDisplay"
+        :items="cart.items"
+        :has-open-tab="hasOpenTab"
+        :fulfillment-options="pos?.fulfillment_options || []"
+        :payment-methods="pos?.payment_methods || []"
+        :payment-collections="pos?.payment_collections || []"
+        :checkout-contract="checkoutContract"
+        :address-autocomplete="addressAutocomplete"
+        :customer-lookup="customerLookup"
+        :review="review"
+        v-model:fulfillment-type="cart.fulfillmentType"
+        v-model:payment-method="cart.paymentMethod"
+        v-model:payment-collection="cart.paymentCollection"
+        v-model:customer-name="cart.customerName"
+        v-model:customer-phone="cart.customerPhone"
+        v-model:customer-tax-id="cart.customerTaxId"
+        v-model:customer-email="cart.customerEmail"
+        v-model:delivery-address="cart.deliveryAddress"
+        v-model:delivery-address-structured="cart.deliveryAddressStructured"
+        v-model:delivery-street-number="cart.deliveryStreetNumber"
+        v-model:delivery-neighborhood="cart.deliveryNeighborhood"
+        v-model:delivery-complement="cart.deliveryComplement"
+        v-model:delivery-instructions="cart.deliveryInstructions"
+        v-model:delivery-date="cart.deliveryDate"
+        v-model:delivery-time-slot="cart.deliveryTimeSlot"
+        v-model:delivery-fee-input="cart.deliveryFeeInput"
+        v-model:order-notes="cart.orderNotes"
+        v-model:tendered-amount-input="cart.tenderedAmountInput"
+        v-model:issue-fiscal-document="cart.issueFiscalDocument"
+        v-model:receipt-mode="cart.receiptMode"
+        v-model:receipt-email="cart.receiptEmail"
+        :loading="busy"
+        :lookup-busy="lookupBusy"
+        @back="checkoutMode = false"
+        @review="reviewCheckout"
+        @submit="submitSale"
+        @lookup-customer="lookupCustomer"
+        @apply-customer-favorite="applyCustomerFavorite"
+        @repeat-customer-last-order="repeatCustomerLastOrder"
+        @pick-saved-address="applySavedAddress"
+      />
+
+      <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <section class="grid gap-4">
-        <UiAlert v-if="error" variant="destructive">
-          <Icon name="lucide:triangle-alert" class="size-4" />
-          <UiAlertTitle>POS indisponível</UiAlertTitle>
-          <UiAlertDescription>Confira login e permissão de operação no gestor.</UiAlertDescription>
-        </UiAlert>
-
-        <UiAlert v-if="serverError" variant="destructive">
-          <Icon name="lucide:circle-x" class="size-4" />
-          <UiAlertTitle>Ação recusada</UiAlertTitle>
-          <UiAlertDescription>{{ serverError }}</UiAlertDescription>
-        </UiAlert>
-
-        <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
-          <Icon name="lucide:circle-check" class="size-4" />
-          <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
-          <UiAlertDescription>
-            <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
-          </UiAlertDescription>
-        </UiAlert>
-
         <section
           class="grid gap-3"
           :class="!canUseCart ? 'rounded-lg border border-primary/30 bg-primary/5 p-4' : ''"
@@ -842,37 +905,11 @@ function newClientRequestId(): string {
         <PosCartPanel
           :tab-display="cart.tabDisplay"
           :items="cart.items"
-          :fulfillment-options="pos?.fulfillment_options || []"
-          :payment-methods="pos?.payment_methods || []"
-          :payment-collections="pos?.payment_collections || []"
-          :checkout-contract="checkoutContract"
-          :address-autocomplete="addressAutocomplete"
           :customer-lookup="customerLookup"
-          :checkout-mode="checkoutMode"
-          :review="review"
           :requires-tab="tabRequiredForCart"
           :has-open-tab="hasOpenTab"
-          v-model:fulfillment-type="cart.fulfillmentType"
-          v-model:payment-method="cart.paymentMethod"
-          v-model:payment-collection="cart.paymentCollection"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"
-          v-model:customer-tax-id="cart.customerTaxId"
-          v-model:customer-email="cart.customerEmail"
-          v-model:delivery-address="cart.deliveryAddress"
-          v-model:delivery-address-structured="cart.deliveryAddressStructured"
-          v-model:delivery-street-number="cart.deliveryStreetNumber"
-          v-model:delivery-neighborhood="cart.deliveryNeighborhood"
-          v-model:delivery-complement="cart.deliveryComplement"
-          v-model:delivery-instructions="cart.deliveryInstructions"
-          v-model:delivery-date="cart.deliveryDate"
-          v-model:delivery-time-slot="cart.deliveryTimeSlot"
-          v-model:delivery-fee-input="cart.deliveryFeeInput"
-          v-model:order-notes="cart.orderNotes"
-          v-model:tendered-amount-input="cart.tenderedAmountInput"
-          v-model:issue-fiscal-document="cart.issueFiscalDocument"
-          v-model:receipt-mode="cart.receiptMode"
-          v-model:receipt-email="cart.receiptEmail"
           :loading="busy"
           :saving="saving"
           :lookup-busy="lookupBusy"
@@ -881,19 +918,17 @@ function newClientRequestId(): string {
           @remove="(sku) => setQty(sku, 0)"
           @save="saveTab"
           @prepare="prepareCheckout"
-          @back="checkoutMode = false"
-          @submit="submitSale"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"
           @apply-customer-favorite="applyCustomerFavorite"
           @repeat-customer-last-order="repeatCustomerLastOrder"
-          @pick-saved-address="applySavedAddress"
         />
         <p class="mt-3 text-xs text-muted-foreground">
           {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
         </p>
       </aside>
+      </div>
     </div>
 
     <PosTabPickerDialog
