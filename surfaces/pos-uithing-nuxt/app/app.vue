@@ -763,12 +763,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           <h1 class="text-xl font-semibold tracking-normal">POS</h1>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <UiBadge v-if="pos" :variant="pos.terminal_health_status === 'ready' ? 'success' : 'warning'">
-            {{ pos.terminal_label }}
-          </UiBadge>
-          <UiBadge v-if="pos" variant="outline">
-            Fiscal: {{ pos.fiscal_message || pos.fiscal_label }}
-          </UiBadge>
+          <PosTerminalHealth
+            v-if="pos"
+            :terminal-label="pos.terminal_label"
+            :health-status="pos.terminal_health_status"
+            :components="pos.terminal_components"
+            :fiscal-status="pos.fiscal_status"
+            :fiscal-label="pos.fiscal_label"
+            :fiscal-message="pos.fiscal_message"
+          />
           <UiBadge v-if="shift" variant="outline" class="tabular-nums">
             {{ shift.count }} hoje · {{ shift.total_display }}
           </UiBadge>
