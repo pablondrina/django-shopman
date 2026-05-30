@@ -36,6 +36,10 @@ type PaymentCollection = "terminal" | "on_delivery";
 
 const apiPath = usePosApiPath();
 const action = usePosAction();
+const colorMode = useColorMode();
+function toggleColorMode() {
+  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
+}
 const runtimeConfig = useRuntimeConfig();
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
@@ -1014,6 +1018,22 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           >
             <Icon name="lucide:lock" class="size-4" />
           </UiButton>
+          <ClientOnly>
+            <UiButton
+              variant="outline"
+              size="icon-sm"
+              :aria-label="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
+              :title="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
+              @click="toggleColorMode"
+            >
+              <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
+            </UiButton>
+            <template #fallback>
+              <UiButton variant="outline" size="icon-sm" aria-label="Tema" title="Tema">
+                <Icon name="lucide:sun-moon" class="size-4" />
+              </UiButton>
+            </template>
+          </ClientOnly>
           <UiButton variant="outline" size="icon-sm" aria-label="Atualizar" title="Atualizar" :disabled="pending" @click="refresh()">
             <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
           </UiButton>
@@ -1127,8 +1147,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @pick-saved-address="applySavedAddress"
       />
 
-      <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="grid gap-4">
+      <div v-else class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section class="grid gap-4 lg:order-2">
         <section
           class="grid gap-3"
           :class="!canUseCart ? 'rounded-lg border border-primary/30 bg-primary/5 p-4' : ''"
@@ -1205,7 +1225,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           <div
             v-else
             class="max-h-56 overflow-y-auto pr-1"
-            :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid gap-2'"
+            :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
           >
             <button
               v-for="tab in visibleTabs"
@@ -1257,36 +1277,39 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </section>
 
         <section v-else class="grid gap-3">
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="relative min-w-64 flex-1">
-              <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <UiInput ref="searchInputRef" v-model="search" class="pl-9" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
-            </div>
-            <UiButton
-              variant="outline"
-              :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+          <div class="relative">
+            <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
+          </div>
+
+          <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+            <button
+              type="button"
+              class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+              :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
               @click="activeCollection = ''"
             >
               Tudo
-            </UiButton>
-            <UiButton
+            </button>
+            <button
               v-for="collection in orderedCollections"
               :key="collection.ref"
-              variant="outline"
-              :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              type="button"
+              class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+              :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
               @click="activeCollection = collection.ref"
             >
               {{ collection.name }}
-            </UiButton>
+            </button>
           </div>
 
-          <div v-if="pending" class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            <div v-for="idx in 10" :key="idx" class="h-32 animate-pulse rounded-lg border bg-muted" />
+          <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
           </div>
           <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
             Nenhum produto encontrado.
           </div>
-          <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          <div v-else class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <PosProductTile
               v-for="product in filteredProducts"
               :key="product.sku"
@@ -1299,7 +1322,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </section>
       </section>
 
-      <aside>
+      <aside class="lg:order-1">
         <PosCartPanel
           :tab-display="cart.tabDisplay"
           :items="cart.items"
@@ -1317,6 +1340,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
+          @set-qty="(sku, qty) => setQty(sku, qty)"
           @save="saveTab"
           @prepare="prepareCheckout"
           @move="openMoveDialog"

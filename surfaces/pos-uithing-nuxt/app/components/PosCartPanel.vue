@@ -27,6 +27,7 @@ const emit = defineEmits<{
   increment: [string];
   decrement: [string];
   remove: [string];
+  setQty: [string, number];
   save: [];
   prepare: [];
   move: [];
@@ -60,6 +61,64 @@ function cancelRename() {
 
 const totalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
+
+// Numpad targets the selected line: select a line, type a quantity (first
+// digit replaces, the rest append). Stepper buttons stay for touch and re-arm
+// the numpad on the line they touch. Price/discount-per-line modes are out of
+// scope until the intent contract supports them.
+const MAX_QTY = 999;
+const selectedSku = ref("");
+const numpadBuffer = ref("");
+const numpadFresh = ref(true);
+
+const selectedItem = computed(() => props.items.find((item) => item.sku === selectedSku.value) || null);
+
+function qtyOf(sku: string): number {
+  return props.items.find((item) => item.sku === sku)?.qty || 0;
+}
+
+function selectLine(sku: string) {
+  selectedSku.value = sku;
+  numpadBuffer.value = String(qtyOf(sku));
+  numpadFresh.value = true;
+}
+
+function commitQty() {
+  if (!selectedSku.value) return;
+  const next = Math.min(MAX_QTY, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
+  emit("setQty", selectedSku.value, next);
+  if (next <= 0) selectedSku.value = "";
+}
+
+function onDigit(digit: string) {
+  if (!selectedSku.value) return;
+  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, 3);
+  numpadFresh.value = false;
+  commitQty();
+}
+
+function onBackspace() {
+  if (!selectedSku.value) return;
+  numpadBuffer.value = numpadBuffer.value.slice(0, -1);
+  numpadFresh.value = false;
+  commitQty();
+}
+
+function onClear() {
+  if (!selectedSku.value) return;
+  emit("setQty", selectedSku.value, 0);
+  selectedSku.value = "";
+}
+
+function bump(sku: string, emitName: "increment" | "decrement" | "remove") {
+  emit(emitName, sku);
+  if (emitName === "remove") {
+    if (selectedSku.value === sku) selectedSku.value = "";
+    return;
+  }
+  selectedSku.value = sku;
+  numpadFresh.value = true;
+}
 </script>
 
 <template>
@@ -196,20 +255,23 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
 
     <UiSeparator />
 
-    <div class="min-h-36">
+    <div class="min-h-28">
       <p v-if="!items.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         Carrinho vazio
       </p>
-      <ul v-else class="grid max-h-[42vh] gap-2 overflow-auto pr-1">
+      <ul v-else class="grid max-h-[34vh] gap-0.5 overflow-auto pr-1">
         <li
           v-for="item in items"
           :key="item.sku"
-          class="grid grid-cols-[1fr_auto] gap-2 border-b pb-2 last:border-0"
+          class="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-2 rounded-lg px-2 py-1.5 transition"
+          :class="selectedSku === item.sku ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+          :aria-current="selectedSku === item.sku ? 'true' : undefined"
+          @click="selectLine(item.sku)"
         >
           <div class="min-w-0">
             <p class="line-clamp-2 text-sm font-semibold leading-snug">{{ item.name }}</p>
-            <p class="mt-1 text-xs text-muted-foreground tabular-nums">
-              {{ item.qty }}x {{ formatBRL(item.price_q) }}
+            <p class="mt-0.5 text-xs text-muted-foreground tabular-nums">
+              {{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
             </p>
             <button
               v-if="item.fired && canFire && item.line_id"
@@ -217,7 +279,7 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
               class="group mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               :disabled="firing"
               :aria-label="`Cancelar envio de ${item.name}`"
-              @click="$emit('unfire', item.line_id || '')"
+              @click.stop="$emit('unfire', item.line_id || '')"
             >
               <Icon name="lucide:flame" class="size-3 group-hover:hidden" />
               <Icon name="lucide:x" class="hidden size-3 group-hover:inline" />
@@ -231,20 +293,35 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
               Na cozinha
             </span>
           </div>
-          <div class="flex items-center gap-1">
-            <UiButton variant="ghost" size="icon-xs" aria-label="Diminuir" @click="$emit('decrement', item.sku)">
+          <div class="flex items-center gap-1" @click.stop>
+            <UiButton variant="ghost" size="icon-xs" aria-label="Diminuir" @click="bump(item.sku, 'decrement')">
               <Icon name="lucide:minus" class="size-3.5" />
             </UiButton>
             <span class="w-6 text-center text-sm font-semibold tabular-nums">{{ item.qty }}</span>
-            <UiButton variant="ghost" size="icon-xs" aria-label="Aumentar" @click="$emit('increment', item.sku)">
+            <UiButton variant="ghost" size="icon-xs" aria-label="Aumentar" @click="bump(item.sku, 'increment')">
               <Icon name="lucide:plus" class="size-3.5" />
             </UiButton>
-            <UiButton variant="ghost" size="icon-xs" aria-label="Remover" @click="$emit('remove', item.sku)">
+            <UiButton variant="ghost" size="icon-xs" aria-label="Remover" @click="bump(item.sku, 'remove')">
               <Icon name="lucide:trash-2" class="size-3.5 text-destructive" />
             </UiButton>
           </div>
         </li>
       </ul>
+    </div>
+
+    <div v-if="items.length" class="grid gap-1.5">
+      <p class="text-xs text-muted-foreground">
+        <template v-if="selectedItem">
+          Quantidade de <span class="font-medium text-foreground">{{ selectedItem.name }}</span>
+        </template>
+        <template v-else>Toque um item para editar a quantidade</template>
+      </p>
+      <PosNumpad
+        :disabled="!selectedSku"
+        @digit="onDigit"
+        @backspace="onBackspace"
+        @clear="onClear"
+      />
     </div>
 
     <UiSeparator />
