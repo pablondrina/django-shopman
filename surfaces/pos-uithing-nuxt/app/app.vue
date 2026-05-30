@@ -55,6 +55,7 @@ const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
+const cashDialogOpen = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
 const customerLookup = ref<POSCustomerLookupProjection | null>(null);
 const tabDialogOpen = ref(false);
@@ -117,6 +118,8 @@ async function onUnlock(operatorId: number, pin: string) {
 }
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
+const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
+const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
 const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
 const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
 const tabDisallowedChars = computed(() => tabRefDisallowedChars(checkoutCapabilities.value));
@@ -694,6 +697,53 @@ function newClientRequestId(): string {
   return `pos-uithing:${random}`;
 }
 
+async function openCashShift(amount: string) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "open_cash_shift", "/api/v1/backstage/pos/cash/open/"), {
+      body: { opening_amount: amount || "0", terminal_ref: pos.value?.terminal_ref || "" },
+    });
+    cashDialogOpen.value = false;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao abrir caixa.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function closeCashShift(payload: { amount: string; notes: string }) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "close_cash_shift", "/api/v1/backstage/pos/cash/close/"), {
+      body: { closing_amount: payload.amount || "0", notes: payload.notes },
+    });
+    cashDialogOpen.value = false;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao fechar caixa.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function registerCashMovement(payload: { kind: string; amount: string; reason: string }) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "cash_movement", "/api/v1/backstage/pos/cash/movement/"), {
+      body: { kind: payload.kind, amount: payload.amount || "0", reason: payload.reason },
+    });
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao registrar movimento.";
+  } finally {
+    busy.value = false;
+  }
+}
+
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
 const tabInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
@@ -772,9 +822,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             :fiscal-label="pos.fiscal_label"
             :fiscal-message="pos.fiscal_message"
           />
-          <UiBadge v-if="shift" variant="outline" class="tabular-nums">
-            {{ shift.count }} hoje · {{ shift.total_display }}
-          </UiBadge>
+          <UiButton
+            v-if="pos"
+            variant="outline"
+            size="sm"
+            class="gap-2 tabular-nums"
+            :class="pos.has_open_cash_session ? '' : 'border-amber-500/50 text-amber-700 hover:text-amber-700'"
+            aria-label="Caixa"
+            title="Caixa"
+            @click="cashDialogOpen = true"
+          >
+            <Icon name="lucide:wallet" class="size-4" />
+            <span v-if="pos.has_open_cash_session && shift">{{ shift.count }} hoje · {{ shift.total_display }}</span>
+            <span v-else>Abrir caixa</span>
+          </UiButton>
           <UiBadge v-if="activeOperator" variant="default" class="gap-1">
             <Icon name="lucide:user" class="size-3.5" />
             {{ activeOperator.name }}
@@ -1077,6 +1138,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       :disallowed-chars="tabDisallowedChars"
       @confirm="openTabFromDialog"
       @select="openTabFromDialog"
+    />
+
+    <PosCashPanel
+      v-if="pos"
+      v-model:open="cashDialogOpen"
+      :cash-runtime="pos.cash_runtime"
+      :shift="shift"
+      :has-open-shift="pos.has_open_cash_session"
+      :movement-kinds="movementKinds"
+      :operator-name="activeOperator?.name || ''"
+      :busy="busy"
+      @open-shift="openCashShift"
+      @close-shift="closeCashShift"
+      @movement="registerCashMovement"
     />
   </main>
 </template>
