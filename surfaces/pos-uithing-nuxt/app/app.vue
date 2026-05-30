@@ -684,6 +684,65 @@ function newClientRequestId(): string {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `pos-uithing:${random}`;
 }
+
+// Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
+// Escape backs out of checkout, "/" focuses product search when not editing).
+const tabInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
+const searchInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
+
+function focusUiInput(component: { inputRef?: HTMLInputElement } | null) {
+  component?.inputRef?.focus();
+}
+
+async function gotoTabInput() {
+  checkoutMode.value = false;
+  await nextTick();
+  focusUiInput(tabInputRef.value);
+}
+
+async function gotoProductSearch() {
+  if (!canUseCart.value) return;
+  checkoutMode.value = false;
+  await nextTick();
+  focusUiInput(searchInputRef.value);
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if (locked.value || !pos.value) return;
+  const target = event.target as HTMLElement | null;
+  const isEditing = !!target
+    && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+  switch (event.key) {
+    case "Escape":
+      if (checkoutMode.value) {
+        event.preventDefault();
+        checkoutMode.value = false;
+      }
+      return;
+    case "F2":
+      event.preventDefault();
+      gotoTabInput();
+      return;
+    case "F3":
+      event.preventDefault();
+      gotoProductSearch();
+      return;
+    case "F4":
+      event.preventDefault();
+      if (checkoutMode.value) reviewCheckout();
+      else if (cart.items.length) prepareCheckout();
+      return;
+    case "/":
+      if (!isEditing) {
+        event.preventDefault();
+        gotoProductSearch();
+      }
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onGlobalKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
@@ -813,6 +872,7 @@ function newClientRequestId(): string {
             </div>
             <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
               <UiInput
+                ref="tabInputRef"
                 :model-value="tabInput"
                 class="max-w-40"
                 :maxlength="tabMaxLength"
@@ -862,7 +922,7 @@ function newClientRequestId(): string {
           <div class="flex flex-wrap items-center gap-2">
             <div class="relative min-w-64 flex-1">
               <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <UiInput v-model="search" class="pl-9" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
+              <UiInput ref="searchInputRef" v-model="search" class="pl-9" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
             </div>
             <UiButton
               variant="outline"
