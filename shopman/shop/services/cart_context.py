@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -78,4 +81,5 @@ def _availability_for_sku(sku: str, *, channel_ref: str) -> dict | None:
             excluded_positions=scope.get("excluded_positions"),
         )
     except Exception:
+        logger.debug("cart_context._availability_for_sku degraded; using fallback", exc_info=True)
         return None

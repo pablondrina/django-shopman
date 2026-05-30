@@ -13,10 +13,13 @@ Configuration lives in ``SHOPMAN_IFOOD`` Django setting:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import requests
 from shopman.offerman.protocols.projection import ProjectedItem, ProjectionResult
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -99,6 +102,7 @@ class IFoodCatalogProjection:
             except IFoodRateLimitError:
                 raise
             except Exception as exc:
+                logger.debug("catalog_projection_ifood.project degraded; using fallback", exc_info=True)
                 errors.append(f"{item.sku}: {exc}")
 
         return ProjectionResult(
@@ -133,6 +137,7 @@ class IFoodCatalogProjection:
             except IFoodRateLimitError:
                 raise
             except Exception as exc:
+                logger.debug("catalog_projection_ifood.retract degraded; using fallback", exc_info=True)
                 errors.append(f"{sku}: {exc}")
 
         return ProjectionResult(

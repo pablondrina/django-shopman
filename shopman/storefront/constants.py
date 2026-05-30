@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from shopman.stockman.services.availability import availability_for_sku  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_DDD_FALLBACK = "43"
 
@@ -14,6 +18,7 @@ def get_default_ddd() -> str:
         shop = Shop.load()
         return shop.default_ddd if shop else _DEFAULT_DDD_FALLBACK
     except Exception:
+        logger.debug("constants.get_default_ddd degraded; using fallback", exc_info=True)
         return _DEFAULT_DDD_FALLBACK
 
 
