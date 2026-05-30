@@ -9,6 +9,7 @@ import {
   buildPosSaleIntent,
   cartTotalQ,
   concreteActionHref,
+  resolvePayment,
 } from "../app/utils/posIntent";
 import {
   draftAssociationTargetStates,
@@ -311,3 +312,38 @@ function baseIntentState(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("resolvePayment (injeção de tenders → contrato)", () => {
+  const t = (method: string, amount_q: number) => ({ method, amount_q, collection: "terminal" as const });
+
+  it("dinheiro único com troco vai pelo caminho de caixa (sem tenders)", () => {
+    const r = resolvePayment([t("cash", 5000)], 4300);
+    expect(r.paymentMethod).toBe("cash");
+    expect(r.paymentTenders).toEqual([]);
+    expect(r.tenderedAmountQ).toBe(5000);
+  });
+
+  it("dinheiro único exato também usa o caminho de caixa", () => {
+    const r = resolvePayment([t("cash", 4300)], 4300);
+    expect(r.tenderedAmountQ).toBe(4300);
+    expect(r.paymentTenders).toEqual([]);
+  });
+
+  it("um cartão: só o método (backend constrói o tender), sem replay", () => {
+    const r = resolvePayment([t("card", 4300)], 4300);
+    expect(r.paymentMethod).toBe("card");
+    expect(r.paymentTenders).toEqual([]);
+    expect(r.tenderedAmountQ).toBeNull();
+  });
+
+  it("split deriva 'mixed' e envia as linhas", () => {
+    const r = resolvePayment([t("card", 3000), t("cash", 1300)], 4300);
+    expect(r.paymentMethod).toBe("mixed");
+    expect(r.paymentTenders).toHaveLength(2);
+    expect(r.tenderedAmountQ).toBeNull();
+  });
+
+  it("sem tenders não resolve método", () => {
+    expect(resolvePayment([], 4300).paymentMethod).toBe("");
+  });
+});

@@ -102,7 +102,7 @@ const activeSku = computed(() => {
   if (selectedSku.value && props.items.some((item) => item.sku === selectedSku.value)) {
     return selectedSku.value;
   }
-  return props.items.length ? props.items[props.items.length - 1].sku : "";
+  return props.items[props.items.length - 1]?.sku ?? "";
 });
 const activeItem = computed(() => props.items.find((item) => item.sku === activeSku.value) || null);
 
@@ -210,11 +210,15 @@ function pickReason(reason: string) {
 
 function bump(sku: string, emitName: "increment" | "decrement") {
   selectedSku.value = sku;
-  if (emitName === "decrement" && qtyOf(sku) <= 1) {
-    askRemove(sku);
+  if (emitName === "decrement") {
+    if (qtyOf(sku) <= 1) {
+      askRemove(sku);
+      return;
+    }
+    emit("decrement", sku);
     return;
   }
-  emit(emitName, sku);
+  emit("increment", sku);
 }
 </script>
 

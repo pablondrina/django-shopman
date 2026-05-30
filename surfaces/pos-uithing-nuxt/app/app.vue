@@ -21,6 +21,7 @@ import {
   concreteActionHref,
   formatBRL,
   moneyInputToQ,
+  resolvePayment,
 } from "~/utils/posIntent";
 import {
   draftAssociationTargetStates,
@@ -163,6 +164,38 @@ const hasDraftWithoutTab = computed(() => !hasOpenTab.value && cart.items.length
 const canUseCart = computed(() => !tabRequiredForCart.value || hasOpenTab.value);
 const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
 const tenderedAmountQ = computed(() => moneyInputToQ(cart.tenderedAmountInput));
+
+// Payment by injection (Odoo-style): the operator adds tender lines in any form;
+// the method is derived (no "mixed" selection). Finalize is gated until covered.
+const paymentTotalQ = computed(() => review.value?.total_q || cartTotalQ(cart.items));
+const tenderSumQ = computed(() => cart.paymentTenders.reduce((sum, tender) => sum + (tender.amount_q || 0), 0));
+const paymentRemainingQ = computed(() => paymentTotalQ.value - tenderSumQ.value);
+const paymentChangeQ = computed(() => Math.max(0, tenderSumQ.value - paymentTotalQ.value));
+const paymentCovered = computed(() => cart.paymentTenders.length > 0 && paymentRemainingQ.value <= 0);
+
+function addTender(method: string) {
+  const total = paymentTotalQ.value;
+  const remaining = Math.max(0, paymentRemainingQ.value);
+  const enteredQ = tenderedAmountQ.value;
+  let amountQ: number;
+  if (cart.paymentTenders.length === 0 && method === "cash") {
+    // Lone cash payment may overpay (change); default to the full total.
+    amountQ = enteredQ > 0 ? enteredQ : total;
+  } else {
+    // Split / electronic: clamp to the remaining so the lines sum to the total
+    // (the backend rejects overpay inside the tenders list).
+    amountQ = enteredQ > 0 ? Math.min(enteredQ, remaining) : remaining;
+  }
+  if (amountQ <= 0) return;
+  cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
+  cart.tenderedAmountInput = "";
+  review.value = null;
+}
+
+function removeTender(index: number) {
+  cart.paymentTenders.splice(index, 1);
+  review.value = null;
+}
 const tabDialogTitle = computed(() => {
   if (tabDialogReason.value === "save") return "Associar comanda";
   return "Abrir comanda";
@@ -390,7 +423,8 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.orderNotes = payload.order_notes || "";
   cart.paymentMethod = payload.payment_method || cart.paymentMethod || pos.value?.payment_methods[0]?.ref || "cash";
   cart.paymentCollection = payload.payment_collection === "on_delivery" ? "on_delivery" : "terminal";
-  cart.paymentTenders = payload.payment_tenders || [];
+  // Spec: do not replay saved/default tender lines as operator payment input.
+  cart.paymentTenders = [];
   cart.tenderedAmountInput = payload.tendered_amount_q ? (Number(payload.tendered_amount_q) / 100).toFixed(2).replace(".", ",") : "";
   cart.issueFiscalDocument = !!payload.issue_fiscal_document;
   cart.receiptMode = payload.receipt_mode || "none";
@@ -486,6 +520,7 @@ function currentIntentState() {
   const managerApproval = cart.managerUsername.trim() && cart.managerPin.trim()
     ? { username: cart.managerUsername.trim(), pin: cart.managerPin.trim() }
     : null;
+  const resolvedPayment = resolvePayment(cart.paymentTenders, paymentTotalQ.value);
   return {
     tabRef: cart.tabRef,
     tabSessionKey: cart.tabSessionKey,
@@ -505,10 +540,10 @@ function currentIntentState() {
     deliveryTimeSlot: cart.deliveryTimeSlot,
     deliveryFeeQ: deliveryFeeQ.value,
     orderNotes: cart.orderNotes,
-    paymentMethod: cart.paymentMethod,
+    paymentMethod: resolvedPayment.paymentMethod,
     paymentCollection: cart.paymentCollection,
-    paymentTenders: cart.paymentTenders,
-    tenderedAmountQ: tenderedAmountQ.value > 0 ? tenderedAmountQ.value : null,
+    paymentTenders: resolvedPayment.paymentTenders,
+    tenderedAmountQ: resolvedPayment.tenderedAmountQ,
     issueFiscalDocument: cart.issueFiscalDocument,
     receiptMode: cart.receiptMode,
     receiptEmail: cart.receiptEmail || cart.customerEmail,
@@ -1135,6 +1170,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-method="cart.paymentMethod"
         v-model:payment-collection="cart.paymentCollection"
+        :payment-tenders="cart.paymentTenders"
+        :payment-total-q="paymentTotalQ"
         v-model:customer-name="cart.customerName"
         v-model:customer-phone="cart.customerPhone"
         v-model:customer-tax-id="cart.customerTaxId"
@@ -1158,6 +1195,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @back="checkoutMode = false"
         @review="reviewCheckout"
         @submit="submitSale"
+        @add-tender="addTender"
+        @remove-tender="removeTender"
         @lookup-customer="lookupCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
         @repeat-customer-last-order="repeatCustomerLastOrder"

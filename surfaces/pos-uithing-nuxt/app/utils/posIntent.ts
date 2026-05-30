@@ -1,4 +1,4 @@
-import type { POSCartItem, POSIntentCartState, SurfaceActionProjection } from "~/types/pos";
+import type { POSCartItem, POSIntentCartState, POSPaymentTenderDraft, SurfaceActionProjection } from "~/types/pos";
 
 export const POS_SALE_INTENT_VERSION = "pos.sale-intent.v1";
 
@@ -22,6 +22,36 @@ export function moneyInputToQ(value: string): number {
 
 export function qToMoneyInput(amountQ: number): string {
   return (Math.max(0, amountQ) / 100).toFixed(2).replace(".", ",");
+}
+
+export interface ResolvedPayment {
+  paymentMethod: string;
+  paymentTenders: POSPaymentTenderDraft[];
+  tenderedAmountQ: number | null;
+}
+
+/**
+ * Map operator-injected tender lines onto the backend payment contract (Odoo-style:
+ * no "mixed" selection — you inject amounts in different forms; the method is derived).
+ * - A single cash tender covering the total → single-cash path, so overpayment becomes
+ *   change (tendered_amount_q). The backend rejects overpay inside the tenders list, so
+ *   cash change only exists for a lone cash payment.
+ * - A single non-cash tender → just the method; the backend builds the tender from the
+ *   total (no need to replay a tender line — and the spec forbids replaying saved ones).
+ * - Two or more tenders → "mixed" with the lines (they must sum to the total).
+ */
+export function resolvePayment(tenders: POSPaymentTenderDraft[], totalQ: number): ResolvedPayment {
+  const only = tenders.length === 1 ? tenders[0] : undefined;
+  if (only) {
+    if (only.method === "cash" && only.amount_q >= totalQ) {
+      return { paymentMethod: "cash", paymentTenders: [], tenderedAmountQ: only.amount_q };
+    }
+    return { paymentMethod: only.method, paymentTenders: [], tenderedAmountQ: null };
+  }
+  if (tenders.length >= 2) {
+    return { paymentMethod: "mixed", paymentTenders: tenders, tenderedAmountQ: null };
+  }
+  return { paymentMethod: "", paymentTenders: [], tenderedAmountQ: null };
 }
 
 export function actionHref(

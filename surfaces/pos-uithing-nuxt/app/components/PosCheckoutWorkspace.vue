@@ -8,6 +8,7 @@ import type {
   POSFulfillmentOptionProjection,
   POSPaymentCollectionProjection,
   POSPaymentMethodProjection,
+  POSPaymentTenderDraft,
   POSSaleReviewProjection,
   SavedAddressProjection,
   StructuredAddressProjection,
@@ -35,6 +36,8 @@ const props = defineProps<{
   fulfillmentType: "pickup" | "delivery";
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
+  paymentTenders: POSPaymentTenderDraft[];
+  paymentTotalQ: number;
   customerName: string;
   customerPhone: string;
   customerTaxId: string;
@@ -66,6 +69,8 @@ const emit = defineEmits<{
   "update:fulfillmentType": ["pickup" | "delivery"];
   "update:paymentMethod": [string];
   "update:paymentCollection": ["terminal" | "on_delivery"];
+  addTender: [string];
+  removeTender: [number];
   "update:customerName": [string];
   "update:customerPhone": [string];
   "update:customerTaxId": [string];
@@ -94,18 +99,11 @@ const emit = defineEmits<{
 }>();
 
 const interimTotalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
-const filteredCollections = computed(() =>
-  props.paymentCollections.filter((collection) =>
-    collection.fulfillment_types.includes(props.fulfillmentType)
-    && collection.payment_method_refs.includes(props.paymentMethod),
-  ),
-);
 const receiptModes = computed(() => props.checkoutContract?.receipt_modes || [
   { ref: "none", label: "Sem comprovante", description: "" },
   { ref: "print", label: "Imprimir", description: "" },
   { ref: "email", label: "E-mail", description: "" },
 ]);
-const totalForCashQ = computed(() => props.review?.total_q || cartTotalQ(props.items));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 const savedAddresses = computed(() => props.customerLookup?.saved_addresses || []);
 const needsReview = computed(() => !props.review);
@@ -114,22 +112,23 @@ const approvalBlocking = computed(() =>
   && (!props.managerUsername.trim() || !props.managerPin.trim()),
 );
 
-// Cash quick amounts are ABSOLUTE values the customer hands over (a R$50 note),
-// never "total + delta". The change is tendered - total.
-const cashBills = [2000, 5000, 10000, 20000];
-const cashPresets = computed(() => {
-  const exact = totalForCashQ.value;
-  const bills = cashBills.filter((bill) => bill >= exact);
-  return [exact, ...bills];
-});
-function setTenderedAbsolute(amountQ: number) {
-  const formatted = amountQ > 0 ? (amountQ / 100).toFixed(2).replace(".", ",") : "";
-  emit("update:tenderedAmountInput", formatted);
+// Payment by injection: methods become "add a tender" buttons; the operator
+// covers the total in any combination of forms. No "mixed" selection.
+const injectableMethods = computed(() => props.paymentMethods.filter((method) => method.ref !== "mixed"));
+function methodLabel(ref: string): string {
+  return props.paymentMethods.find((method) => method.ref === ref)?.label || ref;
 }
-const tenderedCentsLive = computed(() => inputToCents(props.tenderedAmountInput));
-const liveChangeQ = computed(() => Math.max(0, tenderedCentsLive.value - totalForCashQ.value));
+const deliveryCollections = computed(() =>
+  props.paymentCollections.filter((collection) => collection.fulfillment_types.includes(props.fulfillmentType)),
+);
+const tenderSumQ = computed(() => props.paymentTenders.reduce((sum, tender) => sum + (tender.amount_q || 0), 0));
+const remainingQ = computed(() => props.paymentTotalQ - tenderSumQ.value);
+const changeQ = computed(() => Math.max(0, tenderSumQ.value - props.paymentTotalQ));
+const paymentCovered = computed(() => props.paymentTenders.length > 0 && remainingQ.value <= 0);
+const nextAmountDisplay = computed(() =>
+  props.tenderedAmountInput ? `R$ ${props.tenderedAmountInput}` : formatBRL(Math.max(0, remainingQ.value)),
+);
 
-// Odoo-style cash numpad: digits accumulate as cents (1,0,0,0 → R$ 10,00).
 const PAYMENT_ICONS: Record<string, string> = {
   cash: "lucide:banknote",
   pix: "lucide:qr-code",
@@ -515,58 +514,69 @@ function onAddressSelected(address: StructuredAddressProjection) {
       <p class="text-sm font-semibold">Pagamento e conferência</p>
 
       <div class="grid gap-2">
-        <p class="text-sm font-medium text-muted-foreground">Forma de pagamento</p>
-        <div class="grid grid-cols-3 gap-2">
-          <UiButton
-            v-for="method in paymentMethods"
-            :key="method.ref"
-            variant="outline"
-            class="h-auto flex-col gap-1.5 py-3"
-            :class="paymentMethod === method.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-            @click="$emit('update:paymentMethod', method.ref)"
+        <div class="flex items-baseline justify-between">
+          <p class="text-sm font-medium text-muted-foreground">Pagamento</p>
+          <span
+            class="text-sm tabular-nums"
+            :class="remainingQ > 0 ? 'text-muted-foreground' : 'font-semibold text-primary'"
           >
-            <Icon :name="paymentIcon(method.ref)" class="size-6" />
-            <span class="text-xs font-medium">{{ method.label }}</span>
-          </UiButton>
+            <template v-if="remainingQ > 0">Falta {{ formatBRL(remainingQ) }}</template>
+            <template v-else-if="changeQ > 0">Troco {{ formatBRL(changeQ) }}</template>
+            <template v-else>Pago</template>
+          </span>
         </div>
-        <div v-if="filteredCollections.length > 1" class="grid grid-cols-2 gap-2">
-          <UiButton
-            v-for="collection in filteredCollections"
-            :key="collection.ref"
-            variant="outline"
-            class="h-auto justify-start whitespace-normal px-3 py-2 text-left"
-            :class="paymentCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-            @click="$emit('update:paymentCollection', collection.ref)"
+
+        <ul v-if="paymentTenders.length" class="grid gap-1">
+          <li
+            v-for="(tender, idx) in paymentTenders"
+            :key="idx"
+            class="flex items-center justify-between rounded-lg border px-3 py-1.5"
           >
-            <span>
-              <span class="block text-sm font-semibold">{{ collection.label }}</span>
-              <span class="block text-xs opacity-80">{{ collection.description }}</span>
+            <span class="flex items-center gap-2 text-sm font-medium">
+              <Icon :name="paymentIcon(tender.method)" class="size-4" />
+              {{ methodLabel(tender.method) }}
             </span>
-          </UiButton>
-        </div>
-        <div v-if="paymentMethod === 'cash' && paymentCollection === 'terminal'" class="grid gap-2">
+            <span class="flex items-center gap-2">
+              <strong class="tabular-nums">{{ formatBRL(tender.amount_q) }}</strong>
+              <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click="$emit('removeTender', idx)">
+                <Icon name="lucide:x" class="size-3.5 text-destructive" />
+              </UiButton>
+            </span>
+          </li>
+        </ul>
+
+        <div v-if="!paymentCovered" class="grid gap-2">
           <div class="flex items-baseline justify-between rounded-lg border bg-muted/40 px-3 py-2">
-            <span class="text-sm font-medium text-muted-foreground">Recebido</span>
-            <strong class="text-2xl tabular-nums">{{ tenderedAmountInput ? `R$ ${tenderedAmountInput}` : "R$ 0,00" }}</strong>
-          </div>
-          <div v-if="liveChangeQ > 0" class="flex items-baseline justify-between rounded-lg bg-primary/10 px-3 py-1.5">
-            <span class="text-sm font-medium">Troco</span>
-            <strong class="text-lg tabular-nums">{{ formatBRL(liveChangeQ) }}</strong>
-          </div>
-          <div class="flex gap-1.5 overflow-x-auto pb-1">
-            <UiButton
-              v-for="(amount, idx) in cashPresets"
-              :key="`${amount}-${idx}`"
-              type="button"
-              variant="outline"
-              size="sm"
-              class="shrink-0"
-              @click="setTenderedAbsolute(amount)"
-            >
-              {{ idx === 0 ? "Exato" : formatBRL(amount) }}
-            </UiButton>
+            <span class="text-sm font-medium text-muted-foreground">Valor</span>
+            <strong class="text-2xl tabular-nums">{{ nextAmountDisplay }}</strong>
           </div>
           <PosNumpad @digit="pushCashDigit" @backspace="cashBackspace" @clear="cashClear" />
+          <p class="text-xs text-muted-foreground">Toque a forma para registrar o valor (vazio = o restante):</p>
+          <div class="grid grid-cols-3 gap-2">
+            <UiButton
+              v-for="method in injectableMethods"
+              :key="method.ref"
+              variant="outline"
+              class="h-auto flex-col gap-1.5 py-3"
+              @click="$emit('addTender', method.ref)"
+            >
+              <Icon :name="paymentIcon(method.ref)" class="size-6" />
+              <span class="text-xs font-medium">{{ method.label }}</span>
+            </UiButton>
+          </div>
+          <div v-if="deliveryCollections.length > 1" class="grid grid-cols-2 gap-2">
+            <UiButton
+              v-for="collection in deliveryCollections"
+              :key="collection.ref"
+              variant="outline"
+              size="sm"
+              class="h-auto justify-start whitespace-normal px-3 py-1.5 text-left"
+              :class="paymentCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              @click="$emit('update:paymentCollection', collection.ref)"
+            >
+              <span class="text-xs font-medium">{{ collection.label }}</span>
+            </UiButton>
+          </div>
         </div>
       </div>
 
@@ -636,11 +646,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
       <UiButton
         v-else
         size="lg"
-        :disabled="!items.length || loading || approvalBlocking"
+        :disabled="!items.length || loading || approvalBlocking || !paymentCovered"
         :loading="loading"
         @click="$emit('submit')"
       >
-        Finalizar venda · {{ review?.total_display }}
+        <template v-if="!paymentCovered">Falta {{ formatBRL(remainingQ) }}</template>
+        <template v-else>Finalizar venda · {{ review?.total_display }}</template>
       </UiButton>
     </div>
   </section>
