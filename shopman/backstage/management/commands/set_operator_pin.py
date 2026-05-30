@@ -14,8 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from shopman.backstage.services.operator import OPERATE_POS
-from shopman.doorman.models import PinCredential
-from shopman.doorman.models.pin_credential import PinCredentialError
+from shopman.doorman.models import PinCredential, PinCredentialError
 
 
 class Command(BaseCommand):
