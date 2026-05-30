@@ -220,14 +220,37 @@ def _items(raw, *, for_commit: bool) -> list[dict]:
             raise PosIntentError("item_sku_required", "Item sem SKU no carrinho.", field=f"items.{idx}.sku", focus="search")
         qty = _positive_int(item.get("qty", 1), f"items.{idx}.qty")
         unit_price_q = _nonnegative_int(item.get("unit_price_q", item.get("price_q", 0)), f"items.{idx}.unit_price_q")
-        items.append({
+        entry = {
             "sku": sku,
             "name": _text(item.get("name"), limit=180),
             "qty": qty,
             "unit_price_q": unit_price_q,
             "notes": _text(item.get("notes"), limit=280),
-        })
+        }
+        if item.get("is_d1"):
+            entry["is_d1"] = True
+        line_discount = _line_discount(item.get("discount"))
+        if line_discount:
+            entry["discount"] = line_discount
+        items.append(entry)
     return items
+
+
+def _line_discount(raw) -> dict | None:
+    """Operator per-line manual discount (percent only), clamped to 0–100%."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        value = float(raw.get("value") or 0)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    return {
+        "type": "percent",
+        "value": min(100.0, value),
+        "reason": _text(raw.get("reason"), limit=120) or "cortesia",
+    }
 
 
 def _tenders(raw) -> list[dict] | None:

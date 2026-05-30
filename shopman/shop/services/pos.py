@@ -354,7 +354,10 @@ def review_sale(
         tender_count=len(tenders),
         tendered_amount_q=tendered_amount_q,
         change_q=max(0, tendered_amount_q - total_q) if tendered_amount_q else 0,
-        requires_manager_approval=threshold_q > 0 and discount_q > threshold_q,
+        requires_manager_approval=(
+            (threshold_q > 0 and discount_q > threshold_q)
+            or _payload_has_d1_line_discount(payload)
+        ),
         manager_approval_threshold_q=threshold_q,
         receipt_mode=str(payload.get("receipt_mode") or "none").strip() or "none",
         issue_fiscal_document=bool(payload.get("issue_fiscal_document")),
@@ -866,6 +869,8 @@ def reopen_recent_order_for_correction(
 def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
     """Build canonical Orderman session ops from a POS cart payload."""
     ops = []
+    approval = payload.get("manager_approval") or {}
+    approved_by = str(approval.get("username") or "").strip()
     for item in payload.get("items", []):
         op = {
             "op": "add_line",
@@ -876,9 +881,17 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
         name = str(item.get("name", "") or "").strip()
         if name:
             op["name"] = name
+        meta: dict = {}
         notes = str(item.get("notes", "") or "").strip()
         if notes:
-            op["meta"] = {"notes": notes}
+            meta["notes"] = notes
+        line_discount = _normalize_line_discount(item.get("discount"))
+        if line_discount:
+            if approved_by:
+                line_discount["approved_by"] = approved_by
+            meta["manual_discount"] = line_discount
+        if meta:
+            op["meta"] = meta
         ops.append(op)
 
     customer_name = str(payload.get("customer_name", "") or "").strip()
@@ -1022,12 +1035,16 @@ def _verify_manager_pin(username: str, pin: str):
 
 
 def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
-    """Require a manager PIN challenge for configured POS discount thresholds."""
+    """Require a manager PIN challenge for configured POS discount thresholds.
+
+    A manual discount on a D-1 line always requires manager approval (audited
+    exception), independent of the configured monetary threshold.
+    """
     threshold_q = _discount_approval_threshold_q()
-    if threshold_q <= 0:
-        return
     discount_q = _payload_discount_q(payload)
-    if discount_q <= threshold_q:
+    d1_forces_approval = _payload_has_d1_line_discount(payload)
+    over_threshold = threshold_q > 0 and discount_q > threshold_q
+    if not d1_forces_approval and not over_threshold:
         return
 
     approval = payload.get("manager_approval") or {}
@@ -1113,7 +1130,47 @@ def _payload_subtotal_q(payload: dict) -> int:
 
 
 def _payload_discount_q(payload: dict) -> int:
-    return int(_payload_manual_discount(payload).get("discount_q", 0) or 0)
+    order_discount_q = int(_payload_manual_discount(payload).get("discount_q", 0) or 0)
+    return order_discount_q + _payload_line_discounts_q(payload)
+
+
+def _normalize_line_discount(raw) -> dict:
+    """Normalize an operator per-line discount (percent only) from the intent."""
+    if not isinstance(raw, dict):
+        return {}
+    try:
+        value = float(raw.get("value") or 0)
+    except (TypeError, ValueError):
+        return {}
+    if value <= 0:
+        return {}
+    reason = str(raw.get("reason") or "cortesia").strip()[:120] or "cortesia"
+    return {"type": "percent", "value": value, "reason": reason}
+
+
+def _payload_line_discounts_q(payload: dict) -> int:
+    """Sum per-line manual discounts (percent, per unit, clamped) for preview/gate."""
+    total = 0
+    for item in payload.get("items", []):
+        line_discount = _normalize_line_discount(item.get("discount"))
+        if not line_discount:
+            continue
+        try:
+            unit_price_q = int(item.get("unit_price_q", 0))
+            qty = int(item.get("qty", 1))
+        except (TypeError, ValueError):
+            continue
+        per_unit = min(int(round(unit_price_q * line_discount["value"] / 100)), unit_price_q)
+        total += max(0, per_unit) * max(0, qty)
+    return total
+
+
+def _payload_has_d1_line_discount(payload: dict) -> bool:
+    """True if any D-1 line carries a manual discount (always needs approval)."""
+    return any(
+        item.get("is_d1") and _normalize_line_discount(item.get("discount"))
+        for item in payload.get("items", [])
+    )
 
 
 def _payload_manual_discount(payload: dict) -> dict:

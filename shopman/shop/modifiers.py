@@ -136,34 +136,51 @@ class DiscountModifier:
             if not price_q:
                 continue
 
-            # D-1 items skip all other discounts
+            # D-1 items skip auto promos. A manager-approved manual discount may
+            # still apply to a D-1 line (audited exception); a plain operator
+            # manual discount on a non-D-1 line competes under "best wins".
             applied = item.get("modifiers_applied", [])
-            if any(m.get("type") == "d1_discount" for m in applied):
+            is_d1_line = any(m.get("type") == "d1_discount" for m in applied)
+            manual = (item.get("meta") or {}).get("manual_discount") or {}
+            manual_allowed = bool(
+                manual.get("value")
+                and (not is_d1_line or manual.get("approved_by"))
+            )
+            if is_d1_line and not manual_allowed:
                 continue
 
             # Find best discount candidate
             best_discount_q = 0
             best_source = None  # (type, name)
 
-            # Evaluate auto-promotions
-            for promo in promotions:
-                if promo.min_order_q and session_total < promo.min_order_q:
-                    continue
-                if not self._matches(promo, sku, ctx):
-                    continue
-                discount_q = self._calc_discount(promo, price_q)
-                if discount_q > best_discount_q:
-                    best_discount_q = discount_q
-                    best_source = ("promotion", promo.name, promo.pk)
+            # Auto-promotions and coupon do not apply to D-1 lines.
+            if not is_d1_line:
+                # Evaluate auto-promotions
+                for promo in promotions:
+                    if promo.min_order_q and session_total < promo.min_order_q:
+                        continue
+                    if not self._matches(promo, sku, ctx):
+                        continue
+                    discount_q = self._calc_discount(promo, price_q)
+                    if discount_q > best_discount_q:
+                        best_discount_q = discount_q
+                        best_source = ("promotion", promo.name, promo.pk)
 
-            # Evaluate coupon
-            if coupon_promo:
-                if not (coupon_promo.min_order_q and session_total < coupon_promo.min_order_q):
-                    if self._matches(coupon_promo, sku, ctx):
-                        coupon_discount_q = self._calc_discount(coupon_promo, price_q)
-                        if coupon_discount_q >= best_discount_q:
-                            best_discount_q = coupon_discount_q
-                            best_source = ("coupon", coupon_code, None)
+                # Evaluate coupon
+                if coupon_promo:
+                    if not (coupon_promo.min_order_q and session_total < coupon_promo.min_order_q):
+                        if self._matches(coupon_promo, sku, ctx):
+                            coupon_discount_q = self._calc_discount(coupon_promo, price_q)
+                            if coupon_discount_q >= best_discount_q:
+                                best_discount_q = coupon_discount_q
+                                best_source = ("coupon", coupon_code, None)
+
+            # Evaluate operator manual per-line discount (percent), best wins.
+            if manual_allowed:
+                manual_discount_q = self._calc_manual(manual, price_q)
+                if manual_discount_q > best_discount_q:
+                    best_discount_q = manual_discount_q
+                    best_source = ("manual", manual.get("reason") or "manual", None)
 
             # Apply winner
             if best_source and best_discount_q > 0:
@@ -243,6 +260,17 @@ class DiscountModifier:
         if promo.type == "percent":
             return monetary_div(price_q * promo.value, 100)
         return min(promo.value, price_q)
+
+    @staticmethod
+    def _calc_manual(manual: dict, price_q: int) -> int:
+        """Per-unit discount from an operator manual line discount (percent only)."""
+        try:
+            value = float(manual.get("value") or 0)
+        except (TypeError, ValueError):
+            return 0
+        if value <= 0:
+            return 0
+        return min(monetary_div(int(round(price_q * value)), 100), price_q)
 
 
 

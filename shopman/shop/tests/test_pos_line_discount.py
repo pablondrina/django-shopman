@@ -1,0 +1,124 @@
+"""Per-line manual discount (POS numpad "Desc"): pricing, intent and gate.
+
+Operator policy (decided 2026-05-30):
+- promo vs manual on the same line → "maior desconto ganha" (best wins);
+- a manual discount on a D-1 line is only honored with manager approval
+  (``approved_by`` stamped), and always requires the manager PIN gate.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from shopman.shop.modifiers import DiscountModifier
+from shopman.shop.services import pos as pos_service
+from shopman.shop.services.pos_intent import (
+    PosIntentError,
+    parse_pos_sale_intent,
+)
+
+
+class TestCalcManual:
+    def test_percent_of_unit_price(self) -> None:
+        # 10% of R$ 13,00 (1300) = 130
+        assert DiscountModifier._calc_manual({"value": 10}, 1300) == 130
+
+    def test_clamped_to_unit_price(self) -> None:
+        assert DiscountModifier._calc_manual({"value": 200}, 1300) == 1300
+
+    def test_zero_or_invalid_is_no_discount(self) -> None:
+        assert DiscountModifier._calc_manual({"value": 0}, 1300) == 0
+        assert DiscountModifier._calc_manual({"value": "abc"}, 1300) == 0
+        assert DiscountModifier._calc_manual({}, 1300) == 0
+
+
+class TestIntentPreservesLineDiscount:
+    def test_discount_and_is_d1_survive_parsing(self) -> None:
+        intent = parse_pos_sale_intent(
+            {
+                "items": [
+                    {"sku": "BAGUETE", "qty": 2, "unit_price_q": 1300,
+                     "is_d1": True, "discount": {"value": 15, "reason": "fidelidade"}},
+                ],
+            },
+            for_commit=True,
+        )
+        item = intent.payload["items"][0]
+        assert item["is_d1"] is True
+        assert item["discount"] == {"type": "percent", "value": 15.0, "reason": "fidelidade"}
+
+    def test_percent_clamped_to_100(self) -> None:
+        intent = parse_pos_sale_intent(
+            {"items": [{"sku": "X", "qty": 1, "unit_price_q": 1000, "discount": {"value": 250}}]},
+            for_commit=True,
+        )
+        assert intent.payload["items"][0]["discount"]["value"] == 100.0
+
+    def test_no_discount_when_absent_or_zero(self) -> None:
+        intent = parse_pos_sale_intent(
+            {"items": [{"sku": "X", "qty": 1, "unit_price_q": 1000, "discount": {"value": 0}}]},
+            for_commit=True,
+        )
+        assert "discount" not in intent.payload["items"][0]
+
+
+class TestPayloadDiscountHelpers:
+    def test_line_discounts_sum_per_unit_times_qty(self) -> None:
+        payload = {"items": [
+            {"sku": "A", "qty": 2, "unit_price_q": 1300, "discount": {"value": 10}},  # 130 * 2
+            {"sku": "B", "qty": 1, "unit_price_q": 800},                               # no discount
+        ]}
+        assert pos_service._payload_line_discounts_q(payload) == 260
+
+    def test_d1_line_discount_detected(self) -> None:
+        payload = {"items": [
+            {"sku": "A", "qty": 1, "unit_price_q": 1300, "is_d1": True, "discount": {"value": 10}},
+        ]}
+        assert pos_service._payload_has_d1_line_discount(payload) is True
+
+    def test_non_d1_line_discount_not_flagged(self) -> None:
+        payload = {"items": [
+            {"sku": "A", "qty": 1, "unit_price_q": 1300, "discount": {"value": 10}},
+        ]}
+        assert pos_service._payload_has_d1_line_discount(payload) is False
+
+
+@pytest.mark.django_db
+class TestBuildSessionOpsStampsDiscount:
+    def test_stamps_manual_discount_meta_with_approved_by(self) -> None:
+        payload = {
+            "items": [{"sku": "BAGUETE", "name": "Baguete", "qty": 1, "unit_price_q": 1300,
+                       "discount": {"type": "percent", "value": 10, "reason": "cortesia"}}],
+            "manager_approval": {"username": "gerente", "pin": "1234"},
+        }
+        ops = pos_service.build_session_ops(payload, operator_username="op")
+        add_line = next(op for op in ops if op["op"] == "add_line" and op["sku"] == "BAGUETE")
+        assert add_line["meta"]["manual_discount"]["value"] == 10
+        assert add_line["meta"]["manual_discount"]["reason"] == "cortesia"
+        assert add_line["meta"]["manual_discount"]["approved_by"] == "gerente"
+
+    def test_no_meta_discount_without_line_discount(self) -> None:
+        payload = {"items": [{"sku": "BAGUETE", "name": "Baguete", "qty": 1, "unit_price_q": 1300}]}
+        ops = pos_service.build_session_ops(payload, operator_username="op")
+        add_line = next(op for op in ops if op["op"] == "add_line" and op["sku"] == "BAGUETE")
+        assert "manual_discount" not in (add_line.get("meta") or {})
+
+
+@pytest.mark.django_db
+class TestManagerApprovalGate:
+    def test_d1_line_discount_requires_approval_even_without_threshold(self) -> None:
+        payload = {
+            "items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300,
+                       "is_d1": True, "discount": {"value": 10}}],
+        }
+        with pytest.raises(PosIntentError) as exc:
+            pos_service.validate_manager_approval(payload, operator_username="op")
+        assert exc.value.code == "manager_approval_required"
+
+    def test_plain_line_discount_below_threshold_passes(self) -> None:
+        # Default threshold is 0 (no approval); a non-D-1 line discount does not gate.
+        payload = {
+            "items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300, "discount": {"value": 10}}],
+        }
+        # Must not raise.
+        pos_service.validate_manager_approval(payload, operator_username="op")
