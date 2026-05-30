@@ -19,7 +19,7 @@ EXCEPT_PATTERN = re.compile(r"^\s*except\s+Exception\b")
 LOG_OR_RAISE = re.compile(r"\b(logger\.|log\.|logging\.|raise\b)")
 
 # Current backlog ceilings (measured 2026-05-29). LOWER as you fix; never raise.
-BASELINES = {"shop": 44, "storefront": 19}
+BASELINES = {"shop": 36, "storefront": 19}
 
 _ROOT = Path(__file__).resolve().parents[2]  # shopman/
 
