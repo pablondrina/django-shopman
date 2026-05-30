@@ -47,6 +47,8 @@ const { data, pending, error, refresh } = await useFetch<POSResponse>(
 const search = ref("");
 const activeCollection = ref("");
 const tabInput = ref("");
+const tabFilter = ref<"all" | "in_use">("all");
+const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
 const lookupBusy = ref(false);
@@ -167,6 +169,13 @@ const sortedTabs = computed(() => [...tabs.value].sort((a, b) => {
   const bOpen = b.state === "in_use" ? 0 : 1;
   return aOpen - bOpen || a.display_ref.localeCompare(b.display_ref, "pt-BR", { numeric: true });
 }));
+
+const openTabsCount = computed(() => tabs.value.filter((tab) => tab.state === "in_use").length);
+const visibleTabs = computed(() =>
+  tabFilter.value === "in_use"
+    ? sortedTabs.value.filter((tab) => tab.state === "in_use")
+    : sortedTabs.value,
+);
 
 const availablePaymentCollections = computed(() =>
   (pos.value?.payment_collections || []).filter((collection) =>
@@ -882,21 +891,81 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
             </form>
           </div>
-          <div class="flex gap-2 overflow-x-auto pb-1">
+          <div v-if="tabs.length" class="flex flex-wrap items-center gap-2">
+            <div class="flex gap-1">
+              <UiButton
+                size="sm"
+                variant="outline"
+                :class="tabFilter === 'all' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabFilter = 'all'"
+              >
+                Todas {{ tabs.length }}
+              </UiButton>
+              <UiButton
+                size="sm"
+                variant="outline"
+                :class="tabFilter === 'in_use' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabFilter = 'in_use'"
+              >
+                Em uso {{ openTabsCount }}
+              </UiButton>
+            </div>
+            <div class="ml-auto flex gap-1">
+              <UiButton
+                size="icon-sm"
+                variant="outline"
+                aria-label="Ver em grade"
+                title="Grade"
+                :class="tabView === 'grid' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabView = 'grid'"
+              >
+                <Icon name="lucide:layout-grid" class="size-4" />
+              </UiButton>
+              <UiButton
+                size="icon-sm"
+                variant="outline"
+                aria-label="Ver em lista"
+                title="Lista"
+                :class="tabView === 'list' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabView = 'list'"
+              >
+                <Icon name="lucide:list" class="size-4" />
+              </UiButton>
+            </div>
+          </div>
+
+          <p v-if="!tabs.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Nenhuma comanda ainda. Digite uma referência acima para abrir a primeira.
+          </p>
+          <p v-else-if="!visibleTabs.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Nenhuma comanda em uso agora.
+            <button type="button" class="font-medium underline underline-offset-4" @click="tabFilter = 'all'">Ver todas</button>
+          </p>
+          <div
+            v-else
+            class="max-h-56 overflow-y-auto pr-1"
+            :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid gap-2'"
+          >
             <button
-              v-for="tab in sortedTabs"
+              v-for="tab in visibleTabs"
               :key="tab.ref"
               type="button"
-              class="grid min-w-24 gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
+              class="grid gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
               :class="[
                 cart.tabRef === tab.ref ? 'border-primary bg-primary/5' : '',
                 tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
               ]"
               @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
             >
-              <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
-              <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
-              <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">{{ tab.item_count }} · {{ tab.total_display }}</span>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
+                <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
+              </div>
+              <span v-if="tab.customer_name" class="truncate text-xs font-medium">{{ tab.customer_name }}</span>
+              <span v-if="tab.items_preview" class="truncate text-xs text-muted-foreground">{{ tab.items_preview }}</span>
+              <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">
+                {{ tab.item_count }} {{ tab.item_count === 1 ? "item" : "itens" }} · {{ tab.total_display }}
+              </span>
             </button>
           </div>
         </section>
