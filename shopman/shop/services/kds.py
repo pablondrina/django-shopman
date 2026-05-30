@@ -32,27 +32,51 @@ OPEN_TICKET_STATUSES = {"pending", "in_progress"}
 
 def dispatch(order) -> list:
     """
-    Route order items to KDS instances, creating KDSTickets.
+    Route an order's not-yet-fired lines to KDS, creating KDSTickets.
 
-    For each OrderItem:
-    - If item's product has an active Recipe → type = "prep"
-    - Otherwise → type = "picking"
-    - Match to KDSInstance by type + collection overlap
-    - If no exact type match exists, prefer a collection-specific station
-      before falling back to a generic catch-all
-    - Fallback: instances with no collections (catch-all)
-
-    Idempotent: skips if tickets already exist for this order.
+    Reconciliation at commit: a comanda may have fired courses progressively
+    before commit, so dispatch fires only the remaining (unfired) lines. Delta
+    is computed per ``line_id`` against the live ticket ledger, so a fresh order
+    fires everything and an already-fired one fires nothing (idempotent).
 
     Returns list of created KDSTicket instances.
 
     SYNC — tickets must be ready for the KDS display.
     """
+    lines = _order_to_lines(order)
+    if not lines:
+        return []
+    tickets = fire_lines(session_key=order.session_key, lines=lines)
+    if tickets:
+        logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
+    return tickets
+
+
+def fire_lines(*, session_key: str, lines: list[dict]) -> list:
+    """
+    Route the not-yet-fired delta of ``lines`` to KDS instances.
+
+    Source-agnostic: ``lines`` may come from a committed Order (commit
+    reconciliation) or an open Session (progressive comanda fire). Each line is
+    a dict ``{line_id, sku, name, qty, notes, meta}``.
+
+    For each routable item:
+    - active Recipe → type "prep"; otherwise "picking"
+    - match to KDSInstance by type + collection overlap, preferring a
+      collection-specific station over a generic catch-all
+
+    Idempotent per ``line_id``: a line already on a live (non-cancelled) ticket
+    is skipped; a cancelled line may re-fire (reprint). Returns created tickets.
+    """
     from shopman.shop.adapters import get_adapter
     from shopman.shop.adapters import kds as kds_adapter
 
-    # Idempotent check
-    if kds_adapter.ticket_exists_for_order(order):
+    already_fired = kds_adapter.fired_line_ids_for_session(session_key)
+    pending = [
+        ln for ln in lines
+        if ln.get("line_id") and ln["line_id"] not in already_fired
+    ]
+    if not pending:
         return []
 
     # Get active KDS instances (exclude expedition — query-based)
@@ -60,12 +84,8 @@ def dispatch(order) -> list:
     if not instances:
         return []
 
-    order_items = list(order.items.all())
-    if not order_items:
-        return []
-
     catalog = get_adapter("catalog")
-    routable_items = _build_routable_items(order_items)
+    routable_items = _build_routable_items(pending)
     skus = list({item["sku"] for item in routable_items})
 
     # Bulk-query primary collections: sku → collection_id
@@ -88,7 +108,8 @@ def dispatch(order) -> list:
                 type_col_map[(inst.type, col_id)].append(inst)
 
     # Route each item. Bundles are expanded by _build_routable_items(), so
-    # each component can land in the correct KDS station independently.
+    # each component can land in the correct KDS station independently. The
+    # component carries its parent line's line_id so dedup stays per-line.
     instance_items = defaultdict(list)
 
     for item in routable_items:
@@ -105,7 +126,7 @@ def dispatch(order) -> list:
 
         if not matched:
             logger.warning(
-                "kds.dispatch: no KDS instance for sku=%s type=%s col=%s parent=%s - skipped",
+                "kds.fire_lines: no KDS instance for sku=%s type=%s col=%s parent=%s - skipped",
                 sku, item_type, col_id, item.get("parent_sku") or "-",
             )
             continue
@@ -116,6 +137,7 @@ def dispatch(order) -> list:
             "qty": item["qty"],
             "notes": item["notes"],
             "checked": False,
+            "line_id": item["line_id"],
         }
 
         for inst in matched:
@@ -126,11 +148,26 @@ def dispatch(order) -> list:
     inst_by_pk = {inst.pk: inst for inst in instances}
 
     for inst_pk, items in instance_items.items():
-        ticket = kds_adapter.create_ticket(order.session_key, inst_by_pk[inst_pk], items)
+        ticket = kds_adapter.create_ticket(session_key, inst_by_pk[inst_pk], items)
         tickets.append(ticket)
 
-    logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
     return tickets
+
+
+def _order_to_lines(order) -> list[dict]:
+    """Normalize an Order's items to source-agnostic fire lines."""
+    lines = []
+    for item in order.items.all():
+        meta = item.meta or {}
+        lines.append({
+            "line_id": item.line_id,
+            "sku": item.sku,
+            "name": item.name or item.sku,
+            "qty": int(item.qty),
+            "notes": meta.get("notes", ""),
+            "meta": meta,
+        })
+    return lines
 
 
 def _match_instances(
@@ -166,11 +203,16 @@ def _match_instances(
     return []
 
 
-def _build_routable_items(order_items) -> list[dict]:
-    """Return order items expanded to concrete SKUs for KDS routing."""
+def _build_routable_items(lines: list[dict]) -> list[dict]:
+    """Expand normalized fire lines to concrete SKUs for KDS routing.
+
+    ``lines``: ``[{line_id, sku, name, qty, notes, meta}]`` — source-agnostic
+    (Order or open Session). Bundles expand to their components; each component
+    inherits the parent line's ``line_id`` so the fire-ledger stays per-line.
+    """
     from shopman.offerman.models import ProductComponent
 
-    skus = [item.sku for item in order_items]
+    skus = [ln["sku"] for ln in lines]
     bundle_components = defaultdict(list)
     for pc in (
         ProductComponent.objects
@@ -184,28 +226,34 @@ def _build_routable_items(order_items) -> list[dict]:
         ))
 
     routable_items = []
-    for item in order_items:
-        if (item.meta or {}).get("non_production") or (item.meta or {}).get("type") == "delivery_fee":
+    for ln in lines:
+        meta = ln.get("meta") or {}
+        if meta.get("non_production") or meta.get("type") == "delivery_fee":
             continue
-        notes = item.meta.get("notes", "") if item.meta else ""
-        components = bundle_components.get(item.sku, [])
+        notes = ln.get("notes") or meta.get("notes", "")
+        line_id = ln.get("line_id", "")
+        qty = int(ln["qty"])
+        name = ln.get("name") or ln["sku"]
+        components = bundle_components.get(ln["sku"], [])
         if components:
             for comp_sku, comp_name, comp_qty in components:
                 routable_items.append({
                     "sku": comp_sku,
-                    "name": f"{comp_name} ({item.name or item.sku})",
-                    "qty": int(item.qty * comp_qty),
+                    "name": f"{comp_name} ({name})",
+                    "qty": qty * comp_qty,
                     "notes": notes,
-                    "parent_sku": item.sku,
+                    "parent_sku": ln["sku"],
+                    "line_id": line_id,
                 })
             continue
 
         routable_items.append({
-            "sku": item.sku,
-            "name": item.name or item.sku,
-            "qty": int(item.qty),
+            "sku": ln["sku"],
+            "name": name,
+            "qty": qty,
             "notes": notes,
             "parent_sku": None,
+            "line_id": line_id,
         })
     return routable_items
 

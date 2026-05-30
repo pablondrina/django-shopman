@@ -24,6 +24,28 @@ def ticket_exists_for_order(order) -> bool:
     return KDSTicket.objects.filter(session_key=order.session_key).exists()
 
 
+def fired_line_ids_for_session(session_key: str) -> set[str]:
+    """Line ids already on a live (non-cancelled) ticket for this session_key.
+
+    The durable fire-ledger: survives commit (tickets are keyed by session_key,
+    not the Order). A cancelled line is absent — so it may re-fire (reprint).
+    """
+    from shopman.backstage.models import KDSTicket
+
+    fired: set[str] = set()
+    rows = (
+        KDSTicket.objects.filter(session_key=session_key)
+        .exclude(status="cancelled")
+        .values_list("items", flat=True)
+    )
+    for items in rows:
+        for item in items or []:
+            line_id = item.get("line_id")
+            if line_id:
+                fired.add(line_id)
+    return fired
+
+
 def create_ticket(session_key: str, kds_instance, items: list) -> Any:
     from shopman.backstage.models import KDSTicket
 
