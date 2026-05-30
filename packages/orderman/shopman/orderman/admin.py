@@ -100,6 +100,7 @@ from shopman.orderman.models import (
     OrderEvent,
     OrderItem,
     Session,
+    SessionEvent,
 )
 from shopman.orderman.services import CommitService, ResolveService
 from shopman.utils.monetary import format_money
@@ -674,6 +675,31 @@ class OrderEventInline(admin.TabularInline):
     ordering = ("-created_at", "-id")
 
     def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SessionEvent)
+class SessionEventAdmin(ModelAdmin):
+    """Read-only audit trail of session-phase actions (anti-fraud conference).
+
+    Append-only by design: creation happens only via ``Session.emit_event``;
+    add/change/delete are all disabled so the trail cannot be tampered with
+    through the Admin (same posture as ``OrderEvent``, taken to fully read-only
+    because this log defends against the operators who use the system)."""
+
+    list_display = ("session_key", "seq", "type", "actor", "created_at")
+    list_filter = ("type", "actor")
+    search_fields = ("session_key", "actor", "type")
+    ordering = ("session_key", "seq")
+    readonly_fields = ("session_key", "seq", "type", "actor", "payload", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

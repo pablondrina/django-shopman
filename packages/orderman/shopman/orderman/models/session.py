@@ -259,6 +259,34 @@ class Session(models.Model):
             "meta": item.get("meta", {}) or {},
         }
 
+    def emit_event(self, event_type: str, actor: str = "system", payload: dict | None = None) -> SessionEvent:
+        """Append an immutable audit event for this session's stable key.
+
+        Mirrors ``Order.emit_event``: monotonic ``seq`` per ``session_key`` via
+        ``select_for_update`` to avoid races. The event is anchored on
+        ``session_key`` (string ref, not FK) so the trail survives session
+        deletion and stays continuous across the commit into an Order with the
+        same ``session_key``. The model is intentionally opinion-free
+        (``type`` is a plain string); the action vocabulary belongs to callers.
+        """
+        from django.db import transaction
+        from django.db.models import Max, Value
+        from django.db.models.functions import Coalesce
+
+        with transaction.atomic():
+            last_seq = (
+                SessionEvent.objects.select_for_update()
+                .filter(session_key=self.session_key)
+                .aggregate(m=Coalesce(Max("seq"), Value(-1)))["m"]
+            )
+            return SessionEvent.objects.create(
+                session_key=self.session_key,
+                seq=last_seq + 1,
+                type=event_type,
+                actor=actor,
+                payload=payload or {},
+            )
+
 
 class SessionItem(models.Model):
     """Item de uma sessão."""
@@ -327,3 +355,44 @@ class SessionItem(models.Model):
             "line_total_q": self.line_total_q,
             "meta": self.meta or {},
         }
+
+
+class SessionEvent(models.Model):
+    """Append-only audit log for session-phase actions (anti-fraud / forensics).
+
+    Sibling of ``OrderEvent`` but anchored on ``session_key`` (string ref, not a
+    FK): the trail is durable (survives clearing/deleting the session, so the
+    evidence of a removal is not cascade-wiped) and continuous across the commit
+    into an Order that carries the same ``session_key``.
+
+    Immutability is enforced at the application layer, exactly like ``OrderEvent``:
+    the only creation path is ``Session.emit_event`` and the Admin is read-only
+    with add/delete disabled. The model stays opinion-free — ``type`` is a plain
+    string whose vocabulary is owned by the orchestration layer (POS), keeping
+    the kernel agnostic.
+    """
+
+    session_key = models.CharField(_("chave da sessão"), max_length=64, db_index=True)
+    seq = models.PositiveIntegerField(_("sequência"), default=0)
+    type = models.CharField(_("tipo"), max_length=64, db_index=True)
+    actor = models.CharField(_("ator"), max_length=128)
+    payload = models.JSONField(
+        _("payload"), default=dict,
+        help_text=_('Delta da ação. Ex: {"sku": "PAO", "qty_before": 3, "qty_after": 0}'),
+    )
+    created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
+
+    class Meta:
+        app_label = "orderman"
+        verbose_name = _("evento da sessão")
+        verbose_name_plural = _("eventos da sessão")
+        ordering = ("session_key", "seq")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session_key", "seq"],
+                name="ord_uniq_session_event_seq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.session_key}#{self.seq} {self.type}"
