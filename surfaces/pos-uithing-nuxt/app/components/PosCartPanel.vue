@@ -16,6 +16,8 @@ const props = defineProps<{
   loading: boolean;
   saving: boolean;
   lookupBusy: boolean;
+  canFire: boolean;
+  firing: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,12 +29,15 @@ const emit = defineEmits<{
   save: [];
   prepare: [];
   move: [];
+  fire: [];
   clear: [];
   requestTab: [];
   lookupCustomer: [];
   applyCustomerFavorite: [];
   repeatCustomerLastOrder: [];
 }>();
+
+const unfiredCount = computed(() => props.items.filter((item) => !item.fired).length);
 
 const totalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
 const customerMemory = computed(() => props.customerLookup?.memory || null);
@@ -161,6 +166,13 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
             <p class="mt-1 text-xs text-muted-foreground tabular-nums">
               {{ item.qty }}x {{ formatBRL(item.price_q) }}
             </p>
+            <span
+              v-if="item.fired"
+              class="mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
+              <Icon name="lucide:flame" class="size-3" />
+              Na cozinha
+            </span>
           </div>
           <div class="flex items-center gap-1">
             <UiButton variant="ghost" size="icon-xs" aria-label="Diminuir" @click="$emit('decrement', item.sku)">
@@ -185,6 +197,18 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
         <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
         <strong class="text-2xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
+      <UiButton
+        v-if="canFire && hasOpenTab && items.length"
+        variant="outline"
+        size="sm"
+        class="justify-center gap-2"
+        :disabled="loading || saving || firing || !unfiredCount"
+        :loading="firing"
+        @click="$emit('fire')"
+      >
+        <Icon name="lucide:flame" class="size-4" />
+        {{ unfiredCount ? `Enviar para cozinha (${unfiredCount})` : "Tudo na cozinha" }}
+      </UiButton>
       <UiButton
         v-if="hasOpenTab && items.length"
         variant="ghost"

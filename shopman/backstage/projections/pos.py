@@ -16,6 +16,13 @@ from django.conf import settings
 from django.utils import timezone
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
+from shopman.utils.monetary import format_money
+
+from shopman.backstage.constants import POS_CHANNEL_REF
+from shopman.backstage.services.integration_readiness import (
+    build_provider_readiness,
+    focus_nfe_readiness,
+)
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     AddressAutocompleteProjection,
@@ -27,13 +34,6 @@ from shopman.shop.services.pos_intent import (
     POS_SALE_INTENT_PAYLOAD_KEYS,
     POS_SALE_INTENT_RECEIPT_MODES,
     POS_SALE_INTENT_VERSION,
-)
-from shopman.utils.monetary import format_money
-
-from shopman.backstage.constants import POS_CHANNEL_REF
-from shopman.backstage.services.integration_readiness import (
-    build_provider_readiness,
-    focus_nfe_readiness,
 )
 
 logger = logging.getLogger(__name__)
@@ -723,6 +723,19 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
                 "optional": ["to_session_key", "to_tab_ref", "close_source_when_empty"],
             },
         ),
+        SurfaceActionProjection(
+            ref="fire_tab",
+            kind="mutation",
+            label="Enviar para cozinha",
+            priority="normal",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/fire/",
+            payload_schema={
+                "required": ["session_key"],
+                "optional": ["line_ids", "client_request_id"],
+            },
+            idempotency="client_request_id",
+        ),
     )
 
 
@@ -1052,6 +1065,12 @@ def _checkout_contract(
                 "allows_split": True,
                 "allows_merge": True,
                 "freezes_price_on_move": True,
+            },
+            "kitchen_handoff": {
+                "fire_action_ref": "fire_tab",
+                "progressive": True,
+                "per_line_state_key": "fired",
+                "fires_whole_tab_when_no_lines": True,
             },
             "cash_management": {
                 "open_action_ref": "open_cash_shift",

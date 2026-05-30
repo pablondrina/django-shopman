@@ -51,6 +51,7 @@ const tabFilter = ref<"all" | "in_use">("all");
 const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
+const firing = ref(false);
 const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
@@ -123,6 +124,8 @@ async function onUnlock(operatorId: number, pin: string) {
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
 const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
+const kitchenHandoff = computed(() => (checkoutCapabilities.value as Record<string, any>)?.kitchen_handoff || null);
+const canFireTab = computed(() => Boolean(kitchenHandoff.value?.fire_action_ref));
 const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
 const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
 const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
@@ -773,6 +776,24 @@ async function submitMove(payload: {
   }
 }
 
+async function fireTab() {
+  if (!cart.tabSessionKey) return;
+  serverError.value = "";
+  firing.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "fire_tab", "/api/v1/backstage/pos/tabs/fire/"),
+      { body: { session_key: cart.tabSessionKey, client_request_id: newClientRequestId() } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao enviar à cozinha.";
+  } finally {
+    firing.value = false;
+  }
+}
+
 async function openCashShift(amount: string) {
   serverError.value = "";
   busy.value = true;
@@ -1189,12 +1210,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           :loading="busy"
           :saving="saving"
           :lookup-busy="lookupBusy"
+          :can-fire="canFireTab"
+          :firing="firing"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
           @save="saveTab"
           @prepare="prepareCheckout"
           @move="openMoveDialog"
+          @fire="fireTab"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"
