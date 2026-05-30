@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.http import HttpRequest
 
 from shopman.shop.models import Shop
+
+logger = logging.getLogger(__name__)
 
 
 def shop(request: HttpRequest) -> dict:
@@ -40,6 +44,7 @@ def shop(request: HttpRequest) -> dict:
         shop_status = _shop_status()
         opening_hours_display = _format_opening_hours()
     except Exception:
+        logger.debug("context_processors.shop degraded; using fallback", exc_info=True)
         shop_status = {"is_open": True, "message": None, "opens_at": None, "closes_at": None}
         opening_hours_display = []
 
@@ -54,6 +59,7 @@ def shop(request: HttpRequest) -> dict:
         handle_label = _cfg.handle_label
         handle_placeholder = _cfg.handle_placeholder
     except Exception:
+        logger.debug("context_processors.shop degraded; using fallback", exc_info=True)
         handle_label = "Identificador"
         handle_placeholder = ""
 
@@ -89,6 +95,7 @@ def omotenashi(request: HttpRequest) -> dict:
     try:
         ctx = OmotenashiContext.from_request(request)
     except Exception:
+        logger.debug("context_processors.omotenashi degraded; using fallback", exc_info=True)
         ctx = OmotenashiContext.from_request(None)
     return {"omotenashi_ctx": ctx}
 

@@ -7,12 +7,14 @@ rules.
 
 from __future__ import annotations
 
+import logging
+
 from django.utils.decorators import method_decorator
-from django_ratelimit.core import is_ratelimited
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django_ratelimit.core import is_ratelimited
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,9 +36,11 @@ from shopman.storefront.services.cart_mutations import (
     set_qty_by_sku,
 )
 
-from .projections import projection_data
 from .actions import action_payload, retry_after_action
+from .projections import projection_data
 from .serializers import DetailSerializer, SetSkuQtySerializer
+
+logger = logging.getLogger(__name__)
 
 
 CART_RATE_LIMIT_RETRY_SECONDS = 30
@@ -321,6 +325,7 @@ class OrderReorderView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Exception:
+            logger.debug("surface.post degraded; using fallback", exc_info=True)
             return Response({"detail": "Pedido não encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
         if order is None:

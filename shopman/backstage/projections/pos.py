@@ -16,6 +16,13 @@ from django.conf import settings
 from django.utils import timezone
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Session
+from shopman.utils.monetary import format_money
+
+from shopman.backstage.constants import POS_CHANNEL_REF
+from shopman.backstage.services.integration_readiness import (
+    build_provider_readiness,
+    focus_nfe_readiness,
+)
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     AddressAutocompleteProjection,
@@ -27,13 +34,6 @@ from shopman.shop.services.pos_intent import (
     POS_SALE_INTENT_PAYLOAD_KEYS,
     POS_SALE_INTENT_RECEIPT_MODES,
     POS_SALE_INTENT_VERSION,
-)
-from shopman.utils.monetary import format_money
-
-from shopman.backstage.constants import POS_CHANNEL_REF
-from shopman.backstage.services.integration_readiness import (
-    build_provider_readiness,
-    focus_nfe_readiness,
 )
 
 logger = logging.getLogger(__name__)
@@ -220,6 +220,10 @@ class POSTabProjection:
     total_display: str
     last_touched_display: str
     items_preview: str
+    # "Disparado + não-pago" anti-fraud signal: an open comanda whose courses
+    # already went to the kitchen is, by nature, still unpaid. Derived from
+    # Session.data["fired_lines"] — no extra storage.
+    fired: bool = False
 
 
 @dataclass(frozen=True)
@@ -711,6 +715,50 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"path": {"session_key": "string"}},
             confirmation={"style": "destructive"},
         ),
+        SurfaceActionProjection(
+            ref="rename_tab",
+            kind="mutation",
+            label="Renomear comanda",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/rename/",
+            payload_schema={"required": ["session_key", "new_tab_ref"]},
+        ),
+        SurfaceActionProjection(
+            ref="move_tab_lines",
+            kind="mutation",
+            label="Mover itens (transferir/dividir/juntar)",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/move-lines/",
+            payload_schema={
+                "required": ["from_session_key", "line_ids"],
+                "optional": ["to_session_key", "to_tab_ref", "close_source_when_empty"],
+            },
+        ),
+        SurfaceActionProjection(
+            ref="fire_tab",
+            kind="mutation",
+            label="Enviar para cozinha",
+            priority="normal",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/fire/",
+            payload_schema={
+                "required": ["session_key"],
+                "optional": ["line_ids", "client_request_id"],
+            },
+            idempotency="client_request_id",
+        ),
+        SurfaceActionProjection(
+            ref="unfire_tab",
+            kind="mutation",
+            label="Cancelar envio à cozinha",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/unfire/",
+            payload_schema={"required": ["session_key", "line_ids"]},
+            confirmation={"style": "destructive"},
+        ),
     )
 
 
@@ -1034,6 +1082,21 @@ def _checkout_contract(
                 "draft_association_target_states": ("empty",),
                 "occupied_tab_selection": "open_existing_not_merge",
             },
+            "tab_manipulation": {
+                "move_action_ref": "move_tab_lines",
+                "rename_action_ref": "rename_tab",
+                "allows_transfer": True,
+                "allows_split": True,
+                "allows_merge": True,
+                "freezes_price_on_move": True,
+            },
+            "kitchen_handoff": {
+                "fire_action_ref": "fire_tab",
+                "unfire_action_ref": "unfire_tab",
+                "progressive": True,
+                "per_line_state_key": "fired",
+                "fires_whole_tab_when_no_lines": True,
+            },
             "cash_management": {
                 "open_action_ref": "open_cash_shift",
                 "close_action_ref": "close_cash_shift",
@@ -1246,6 +1309,7 @@ def _tab_projection(*, ref: str, session: Session | None, display_ref: str = "")
         total_display=f"R$ {format_money(max(0, total_q - discount_q))}",
         last_touched_display=_format_time(last_touched),
         items_preview=_items_preview(items),
+        fired=bool(data.get("fired_lines")),
     )
 
 

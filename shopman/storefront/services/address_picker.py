@@ -61,6 +61,7 @@ def address_picker_context(
         if shop and shop.latitude and shop.longitude:
             shop_location = {"lat": float(shop.latitude), "lng": float(shop.longitude)}
     except Exception:
+        logger.debug("address_picker.address_picker_context degraded; using fallback", exc_info=True)
         shop_location = None
 
     initial_draft = None

@@ -473,6 +473,7 @@ def _fiscal_status(order: Order) -> tuple[str, str, tuple[dict[str, str], ...]]:
 def _latest_fiscal_directive_status(order_ref: str) -> str:
     try:
         from shopman.orderman.models import Directive
+
         from shopman.shop.directives import FISCAL_EMIT_NFCE
     except Exception:
         logger.debug("orders.fiscal_directive_import_failed order_ref=%s", order_ref, exc_info=True)

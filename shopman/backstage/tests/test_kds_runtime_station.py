@@ -19,13 +19,14 @@ def kds_runtime_setup(db):
     order = Order.objects.create(
         ref="KDS-RUNTIME-1",
         channel_ref="web",
+        session_key="sk-kds-runtime-1",
         status=Order.Status.CONFIRMED,
         total_q=1500,
         data={"customer": {"name": "Ana"}, "fulfillment_type": "pickup"},
     )
     OrderItem.objects.create(order=order, line_id="1", sku="SKU", name="Produto", qty=1, unit_price_q=1500, line_total_q=1500)
     ticket = KDSTicket.objects.create(
-        order=order,
+        session_key=order.session_key,
         kds_instance=prep,
         items=[{"sku": "SKU", "name": "Produto", "qty": 1, "notes": "Sem sal", "checked": False}],
     )

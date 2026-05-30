@@ -203,6 +203,7 @@ def _sync_delivery_fulfillment(order: Order, next_status: str) -> None:
         return
 
     from shopman.orderman.models import Fulfillment
+
     from shopman.shop.services import fulfillment as fulfillment_service
 
     fulfillment = order.fulfillments.order_by("pk").first()

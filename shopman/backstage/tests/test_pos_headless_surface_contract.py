@@ -8,13 +8,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
+from shopman.guestman.models import Customer, CustomerAddress
+from shopman.offerman.models import Listing, ListingItem, Product
+from shopman.orderman.models import Order
 
 from shopman.backstage.api.projections import projection_data
 from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.backstage.projections.pos import build_pos
-from shopman.guestman.models import Customer, CustomerAddress
-from shopman.offerman.models import Listing, ListingItem, Product
-from shopman.orderman.models import Order
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION
 
@@ -410,8 +410,11 @@ class POSHeadlessSurfaceContractTests(TestCase):
 
     @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
     def test_api_headless_pos_close_accepts_manager_approval_for_canonical_discount(self) -> None:
+        from shopman.doorman.models import PinCredential
+
         manager = get_user_model().objects.create_user(username="pos-manager-api", password="secret", is_staff=True)
         _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
         payload = {
             "intent_version": POS_SALE_INTENT_VERSION,
             "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
@@ -419,7 +422,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
             "payment_method": "cash",
             "payment_collection": "terminal",
             "manual_discount": {"type": "fixed", "value": "1,00", "reason": "cortesia"},
-            "manager_approval": {"username": "pos-manager-api", "password": "secret"},
+            "manager_approval": {"username": "pos-manager-api", "pin": "4321"},
             "client_request_id": "pos-headless-manager-approval-002",
         }
 

@@ -1244,10 +1244,10 @@ class TestKDSService:
         from shopman.shop.models import Channel
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
-            ref="KDS-ORD-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-ORD-001", channel_ref=channel.ref, session_key="sess-kds-ord-001", status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-1", name="Prep", type="prep")
-        KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
+        KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="done")
 
         from shopman.shop.services.kds import on_all_tickets_done
 
@@ -1269,6 +1269,7 @@ class TestKDSService:
         channel = Channel.objects.create(ref="kds-confirmed-ready", name="KDS Confirmed Ready")
         order = Order.objects.create(
             ref="KDS-CONFIRMED-READY",
+            session_key="sess-kds-confirmed-ready",
             channel_ref=channel.ref,
             status=Order.Status.CONFIRMED,
             total_q=1000,
@@ -1285,7 +1286,7 @@ class TestKDSService:
         PaymentService.capture(intent.ref)
         inst = KDSInstance.objects.create(ref="prep-confirmed-ready", name="Prep", type="prep")
         ticket = KDSTicket.objects.create(
-            order=order,
+            session_key=order.session_key,
             kds_instance=inst,
             items=[{"sku": "SKU-1", "name": "Item", "qty": 1, "checked": False}],
             status="pending",
@@ -1358,11 +1359,11 @@ class TestKDSService:
         from shopman.shop.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
         order = Order.objects.create(
-            ref="KDS-CANCEL-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-CANCEL-001", channel_ref=channel.ref, session_key="sess-kds-cancel-001", status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-cancel-1", name="Prep Cancel", type="prep")
-        t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="pending")
-        t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="in_progress")
+        t1 = KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="pending")
+        t2 = KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="in_progress")
 
         from shopman.shop.services.kds import cancel_tickets
 
@@ -1385,11 +1386,11 @@ class TestKDSService:
         from shopman.shop.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
         order = Order.objects.create(
-            ref="KDS-CANCEL-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-CANCEL-002", channel_ref=channel.ref, session_key="sess-kds-cancel-002", status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-cancel-2", name="Prep Cancel 2", type="prep")
         # Ticket already done — not "open"
-        KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
+        KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="done")
 
         from shopman.shop.services.kds import cancel_tickets
 
@@ -1420,11 +1421,11 @@ class TestKDSService:
         from shopman.shop.models import Channel
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
-            ref="KDS-ORD-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-ORD-002", channel_ref=channel.ref, session_key="sess-kds-ord-002", status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-2", name="Prep 2", type="prep")
-        KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
-        KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="pending")
+        KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="done")
+        KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="pending")
 
         from shopman.shop.services.kds import on_all_tickets_done
 

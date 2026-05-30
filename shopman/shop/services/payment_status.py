@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.utils.monetary import format_money
 
 from shopman.shop.omotenashi import resolve_copy
+from shopman.shop.projections.types import SurfaceActionProjection
 from shopman.shop.services import payment as payment_service
 from shopman.shop.services.interaction_context import InteractionContext
 

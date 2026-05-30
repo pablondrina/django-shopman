@@ -36,6 +36,7 @@ def _check_database() -> tuple[str, str | None]:
             cursor.execute("SELECT 1")
             cursor.fetchone()
     except Exception as exc:  # noqa: BLE001 — health endpoint must never raise
+        logger.debug("health._check_database degraded; using fallback", exc_info=True)
         return "fail", exc.__class__.__name__
     return "ok", None
 
@@ -52,6 +53,7 @@ def _check_cache() -> tuple[str, str | None]:
         value = cache.get(key)
         cache.delete(key)
     except Exception as exc:  # noqa: BLE001
+        logger.debug("health._check_cache degraded; using fallback", exc_info=True)
         return "fail", exc.__class__.__name__
     if value != "1":
         return "fail", "roundtrip mismatch"
@@ -64,6 +66,7 @@ def _check_migrations() -> tuple[str, str | None]:
         targets = executor.loader.graph.leaf_nodes()
         plan = executor.migration_plan(targets)
     except Exception as exc:  # noqa: BLE001
+        logger.debug("health._check_migrations degraded; using fallback", exc_info=True)
         return "fail", exc.__class__.__name__
     if plan:
         return "fail", f"{len(plan)} pending"

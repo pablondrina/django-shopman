@@ -126,15 +126,6 @@ class CashShift(models.Model):
             self.terminal = POSTerminal.default()
         super().save(*args, **kwargs)
 
-    @property
-    def closing_amount_q(self) -> int | None:
-        """Compatibility alias for the former field name."""
-        return self.blind_closing_amount_q
-
-    @closing_amount_q.setter
-    def closing_amount_q(self, value: int | None) -> None:
-        self.blind_closing_amount_q = value
-
     @classmethod
     def get_open_for_operator(cls, operator) -> CashShift | None:
         return cls.objects.filter(operator=operator, status=cls.Status.OPEN).first()
@@ -147,15 +138,13 @@ class CashShift(models.Model):
         self,
         *,
         blind_closing_amount_q: int | None = None,
-        closing_amount_q: int | None = None,
         notes: str = "",
     ) -> None:
         """Close the shift and compute expected_amount_q / difference_q."""
         from django.db.models import Sum
         from shopman.orderman.models import Order
 
-        counted_q = blind_closing_amount_q if blind_closing_amount_q is not None else closing_amount_q
-        counted_q = int(counted_q or 0)
+        counted_q = int(blind_closing_amount_q or 0)
         now = timezone.now()
 
         channel_ref = self.terminal.channel_ref or _POS_CHANNEL_REF
@@ -217,26 +206,6 @@ class CashShift(models.Model):
         ])
 
 
-class _CashMovementQuerySet(models.QuerySet):
-    def filter(self, *args, **kwargs):
-        return super().filter(*args, **_cash_movement_legacy_kwargs(kwargs))
-
-    def get(self, *args, **kwargs):
-        return super().get(*args, **_cash_movement_legacy_kwargs(kwargs))
-
-    def exclude(self, *args, **kwargs):
-        return super().exclude(*args, **_cash_movement_legacy_kwargs(kwargs))
-
-
-def _cash_movement_legacy_kwargs(kwargs: dict) -> dict:
-    translated = dict(kwargs)
-    if "session" in translated and "shift" not in translated:
-        translated["shift"] = translated.pop("session")
-    if "session_id" in translated and "shift_id" not in translated:
-        translated["shift_id"] = translated.pop("session_id")
-    return translated
-
-
 def _int_or_none(value) -> int | None:
     try:
         if value in (None, ""):
@@ -270,8 +239,6 @@ class CashMovement(models.Model):
     created_by = models.CharField(max_length=150, blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now)
 
-    objects = _CashMovementQuerySet.as_manager()
-
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Movimentação de Caixa"
@@ -282,31 +249,6 @@ class CashMovement(models.Model):
                 name="backstage_cashmovement_amount_positive",
             ),
         ]
-
-    def __init__(self, *args, **kwargs):
-        if "session" in kwargs and "shift" not in kwargs:
-            kwargs["shift"] = kwargs.pop("session")
-        if "session_id" in kwargs and "shift_id" not in kwargs:
-            kwargs["shift_id"] = kwargs.pop("session_id")
-        super().__init__(*args, **kwargs)
-
-    @property
-    def session(self):
-        """Compatibility alias for the former FK name."""
-        return self.shift
-
-    @session.setter
-    def session(self, value) -> None:
-        self.shift = value
-
-    @property
-    def session_id(self):
-        """Compatibility alias for the former FK id name."""
-        return self.shift_id
-
-    @session_id.setter
-    def session_id(self, value) -> None:
-        self.shift_id = value
 
     def __str__(self) -> str:
         from shopman.utils.monetary import format_money

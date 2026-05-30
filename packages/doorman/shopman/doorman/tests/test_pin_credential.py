@@ -6,7 +6,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
-
 from shopman.doorman.models import PinCredential
 from shopman.doorman.models.pin_credential import (
     PinCredentialError,

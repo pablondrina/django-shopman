@@ -85,6 +85,7 @@ class CheckoutView(View):
                 idempotency_key=intent.idempotency_key,
             )
         except Exception as exc:
+            logger.debug("checkout.post degraded; using fallback", exc_info=True)
             errors = checkout_service.map_checkout_error(exc)
             if errors:
                 return self._render_with_errors(
@@ -225,6 +226,7 @@ class SimulateIFoodView(View):
                 channel_ref=channel.ref,
             )
         except Exception:
+            logger.debug("checkout.post degraded; using fallback", exc_info=True)
             messages.warning(request, "Carrinho não encontrado.")
             return redirect("storefront:cart")
 

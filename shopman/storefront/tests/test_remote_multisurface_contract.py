@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REMOTE_MATRIX = REPO_ROOT / "docs" / "reference" / "remote-order-e2e-matrix.md"
 REMOTE_PLAN = REPO_ROOT / "docs" / "plans" / "REMOTE-MULTISURFACE-PLAN.md"

@@ -213,6 +213,7 @@ def _resolve_session_customer(session):
     try:
         from shopman.guestman.models import Customer
     except Exception:
+        logger.debug("stock_receivers._resolve_session_customer degraded; returning None", exc_info=True)
         return None
 
     if customer_id:
@@ -249,6 +250,7 @@ def _notification_backend(customer) -> str | None:
             ("whatsapp", "sms", "email"),
         )
     except Exception:
+        logger.debug("stock_receivers._notification_backend degraded; no backends", exc_info=True)
         enabled = frozenset()
 
     if "whatsapp" in enabled and getattr(customer, "phone", ""):
@@ -300,6 +302,7 @@ def _cart_url() -> str:
 
         path = reverse("storefront:cart")
     except Exception:
+        logger.debug("stock_receivers._cart_url path resolution degraded", exc_info=True)
         path = "/cart/"
 
     try:
@@ -307,6 +310,7 @@ def _cart_url() -> str:
 
         base_url = getattr(settings, "SHOPMAN_BASE_URL", "").rstrip("/")
     except Exception:
+        logger.debug("stock_receivers._cart_url base_url resolution degraded", exc_info=True)
         base_url = ""
 
     return f"{base_url}{path}" if base_url else path

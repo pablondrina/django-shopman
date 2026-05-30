@@ -95,6 +95,7 @@ def test_alerts_badge_partial_uses_operator_context(client):
 @pytest.mark.django_db
 def test_alerts_panel_lists_and_acknowledges_active_alerts(client):
     user = User.objects.create_user("alerts", password="x", is_staff=True)
+    Shop.objects.create(name="Loja Teste")
     alert = OperatorAlert.objects.create(
         type="production_stock_short",
         severity="warning",

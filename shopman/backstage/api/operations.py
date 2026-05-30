@@ -83,6 +83,10 @@ def _actor(request) -> str:
 
 
 def _cash_shift_result(shift) -> dict:
+    # Blind close: the operator sees only what they counted, never the expected
+    # amount or variance. ``expected_amount_q``/``difference_q`` are still
+    # computed and stored on the shift; managers review them via Admin and the
+    # day-closing reconciliation, never at the cashier terminal.
     return {
         "id": shift.pk,
         "terminal_ref": shift.terminal.ref,
@@ -92,8 +96,6 @@ def _cash_shift_result(shift) -> dict:
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else "",
         "opening_amount_q": shift.opening_amount_q,
         "blind_closing_amount_q": shift.blind_closing_amount_q,
-        "expected_amount_q": shift.expected_amount_q,
-        "difference_q": shift.difference_q,
     }
 
 
@@ -763,6 +765,105 @@ class POSTabClearView(APIView):
         if not cleared:
             return Response({"detail": "Comanda não encontrada."}, status=404)
         return Response({"ok": True})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Move lines between POS tabs (transfer/split/merge)",
+        responses={200: OpenApiResponse(description="Lines moved.")},
+    ),
+)
+class POSTabMoveLinesView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.move_pos_tab_lines(
+                channel_ref=POS_CHANNEL_REF,
+                from_session_key=str(body.get("from_session_key") or "").strip(),
+                to_session_key=str(body.get("to_session_key") or "").strip(),
+                to_tab_ref=str(body.get("to_tab_ref") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                close_source_when_empty=bool(body.get("close_source_when_empty")),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_move_lines_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao mover itens entre comandas."}, status=400)
+        return Response(result)
+
+
+class POSTabRenameView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.rename_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                new_tab_ref=str(body.get("new_tab_ref") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_rename_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao renomear comanda."}, status=400)
+        return Response(result)
+
+
+class POSTabFireView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.fire_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                client_request_id=str(body.get("client_request_id") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_fire_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao enviar à cozinha."}, status=400)
+        return Response(result)
+
+
+class POSTabUnfireView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.cancel_fired_pos_tab_lines(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_unfire_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao cancelar envio à cozinha."}, status=400)
+        return Response(result)
 
 
 @extend_schema_view(

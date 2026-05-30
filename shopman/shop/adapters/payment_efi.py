@@ -186,6 +186,7 @@ def create_intent(
             },
         )
     except Exception:
+        logger.debug("payment_efi.create_intent degraded; using fallback", exc_info=True)
         try:
             PaymentService.fail(
                 db_intent.ref,

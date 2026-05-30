@@ -32,7 +32,7 @@ class OperatorContext:
     is_active: bool = False
     event_scope: str = "main"
     shift_state: str = "closed"
-    shift_cash_session_id: int | None = None
+    cash_shift_id: int | None = None
     active_alerts_count: int = 0
     critical_alerts_count: int = 0
     kpis_today: OperatorKpisToday = OperatorKpisToday()
@@ -46,7 +46,7 @@ def build_operator_context(request) -> OperatorContext:
     if not user or not user.is_authenticated or not user.is_staff:
         return OperatorContext()
 
-    cash_session = _open_cash_shift(user)
+    cash_shift = _open_cash_shift(user)
     active_alerts_count, critical_alerts_count = _alert_counts()
     kpis = _kpis_today()
     default_position_ref = _default_position_ref()
@@ -55,8 +55,8 @@ def build_operator_context(request) -> OperatorContext:
     return OperatorContext(
         is_active=True,
         event_scope=event_scope,
-        shift_state="open" if cash_session else "closed",
-        shift_cash_session_id=getattr(cash_session, "pk", None),
+        shift_state="open" if cash_shift else "closed",
+        cash_shift_id=getattr(cash_shift, "pk", None),
         active_alerts_count=active_alerts_count,
         critical_alerts_count=critical_alerts_count,
         kpis_today=kpis,

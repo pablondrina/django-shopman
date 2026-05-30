@@ -1,11 +1,9 @@
-"""Ratchet invariant: silent broad `except Exception` must not grow in shop/storefront.
+"""Invariant: NO silent broad `except Exception` in shop/storefront.
 
-Backstage already enforces zero silent broad catches (test_exception_hygiene).
-shop and storefront carry a known backlog (faxina B2,
-docs/reports/upper-layers-smell-audit-2026-05-29.md). This test freezes that
-backlog as a ceiling: any NEW silent broad catch (no logger./raise within ~4
-lines) fails the build. Drive the baselines DOWN to 0 as the backlog is fixed —
-never up.
+Backstage already enforces zero silent broad catches (test_exception_hygiene);
+shop and storefront are now at zero too (the faxina B2 backlog was driven down
+to 0 on 2026-05-30). Every broad catch must log (logger./logging.) or re-raise
+within ~4 lines. Baselines are kept at 0 — never raise them; fix the catch.
 """
 
 from __future__ import annotations
@@ -18,8 +16,8 @@ import pytest
 EXCEPT_PATTERN = re.compile(r"^\s*except\s+Exception\b")
 LOG_OR_RAISE = re.compile(r"\b(logger\.|log\.|logging\.|raise\b)")
 
-# Current backlog ceilings (measured 2026-05-29). LOWER as you fix; never raise.
-BASELINES = {"shop": 44, "storefront": 19}
+# Zero silent broad catches across all surfaces. Keep at 0.
+BASELINES = {"shop": 0, "storefront": 0}
 
 _ROOT = Path(__file__).resolve().parents[2]  # shopman/
 

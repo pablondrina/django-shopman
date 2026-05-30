@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
 from shopman.shop.services import customer_orders, payment_status
@@ -132,7 +132,16 @@ def test_customer_cancel_gate_preserves_payment_specific_refusal(order_with_paym
     assert payment_status.can_cancel(order_with_payment) is False
 
 
+@override_settings(
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_mock",
+        "card": "shopman.shop.adapters.payment_mock",
+    }
+)
 def test_customer_cancel_cancels_pending_payment_intent(order_with_payment, django_capture_on_commit_callbacks):
+    # Pin the mock adapter: cancelling a PIX intent must not reach a real
+    # gateway. The dev .env may point SHOPMAN_PIX_ADAPTER at payment_efi, whose
+    # cancel makes a network call that times out under test.
     from shopman.payman import PaymentService
 
     intent = PaymentService.create_intent(

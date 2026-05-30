@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from shopman.doorman.models import PinCredential, PinCredentialError
 
 from shopman.backstage.services.operator import OPERATE_POS
-from shopman.doorman.models import PinCredential
-from shopman.doorman.models.pin_credential import PinCredentialError
 
 
 class Command(BaseCommand):

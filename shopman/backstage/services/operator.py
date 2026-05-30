@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-
 from shopman.doorman.models import PinCredential
 
 User = get_user_model()

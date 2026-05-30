@@ -74,6 +74,7 @@ def bump_session_hold_expiry(session_key: str, *, ttl_minutes: int = 30) -> int:
         from django.utils import timezone
         from shopman.stockman import Hold, HoldStatus
     except Exception:
+        logger.debug("availability.bump_session_hold_expiry degraded; returning 0", exc_info=True)
         return 0
 
     new_expiry = timezone.now() + timedelta(minutes=ttl_minutes)
@@ -126,6 +127,7 @@ def classify_planned_hold_for_session_sku(
         from django.utils import timezone
         from shopman.stockman import Hold, HoldStatus
     except Exception:
+        logger.debug("availability.classify_planned_hold degraded; returning empty", exc_info=True)
         return empty
 
     holds = list(
@@ -172,6 +174,7 @@ def own_holds_by_sku(session_key: str, skus: list[str]) -> dict[str, Decimal]:
         from django.utils import timezone
         from shopman.stockman import Hold, HoldStatus
     except Exception:
+        logger.debug("availability.own_holds_by_sku degraded; returning {}", exc_info=True)
         return {}
 
     rows = (
@@ -371,6 +374,7 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict] | None:
             return None
         return components
     except Exception:
+        logger.debug("availability._expand_if_bundle degraded; returning None", exc_info=True)
         return None
 
 

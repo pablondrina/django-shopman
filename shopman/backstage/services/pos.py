@@ -33,15 +33,6 @@ def open_cash_shift(*, operator, opening_amount_raw="0", terminal_ref: str = "")
     )
 
 
-def open_cash_session(*, operator, opening_amount_raw="0", terminal_ref: str = ""):
-    """Compatibility wrapper for the former service name."""
-    return open_cash_shift(
-        operator=operator,
-        opening_amount_raw=opening_amount_raw,
-        terminal_ref=terminal_ref,
-    )
-
-
 def register_cash_movement(
     *,
     operator,
@@ -83,15 +74,6 @@ def close_cash_shift(*, operator, closing_amount_raw="0", notes: str = ""):
         notes=notes.strip(),
     )
     return shift
-
-
-def close_cash_session(*, operator, closing_amount_raw="0", notes: str = ""):
-    """Compatibility wrapper for the former service name."""
-    return close_cash_shift(
-        operator=operator,
-        closing_amount_raw=closing_amount_raw,
-        notes=notes,
-    )
 
 
 def _terminal(terminal_ref: str = ""):

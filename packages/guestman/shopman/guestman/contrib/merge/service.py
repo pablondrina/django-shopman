@@ -640,6 +640,15 @@ class MergeService:
         A customer merge that leaves those fields behind fragments history.
         """
         try:
+            from django.apps import apps
+
+            # Orderman is an optional integration: the module may be importable
+            # as a namespace package while its app (and tables) are absent —
+            # e.g. guestman running standalone. Skip order migration gracefully
+            # in that case instead of hitting "no such table: orderman_order".
+            if not apps.is_installed("shopman.orderman"):
+                snapshot["orders"] = []
+                return 0
             from django.db.models import Q
             from shopman.orderman.models import Order
         except ImportError:

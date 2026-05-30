@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from shopman.offerman.exceptions import CatalogError
+
 from shopman.shop.services.stock import _expand_if_bundle
 
 

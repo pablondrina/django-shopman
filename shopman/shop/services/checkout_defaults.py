@@ -172,4 +172,5 @@ def _classify_timing(delivery_date: str, order) -> str:
         else:
             return "future"
     except Exception:
+        logger.debug("checkout_defaults._classify_timing degraded; using fallback", exc_info=True)
         return "same_day"

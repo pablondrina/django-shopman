@@ -926,6 +926,10 @@ class TestChannelConfigIntegration:
         self, mock_stock, mock_customer, mock_loyalty,
     ):
         from shopman.shop.models import Shop
+        Shop.objects.get_or_create(
+            name="Test Shop",
+            defaults={"defaults": {"confirmation": {"mode": "manual"}}},
+        )
         shop = Shop.load()
         shop.defaults = {"confirmation": {"mode": "manual"}}
         shop.save()

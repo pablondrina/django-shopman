@@ -118,6 +118,7 @@ class EfiPixWebhookView(APIView):
                 )
                 processed += 1
             except Exception as exc:
+                logger.debug("efi.post degraded; using fallback", exc_info=True)
                 webhook_idempotency.mark_failed(claim)
                 from shopman.shop.services import observability
 

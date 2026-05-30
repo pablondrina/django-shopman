@@ -10,13 +10,14 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import timedelta
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from shopman.orderman.models import Order, Session
+from shopman.utils.monetary import format_money
 
 from shopman.shop.adapters import pos as pos_adapter
 from shopman.shop.config import ChannelConfig
@@ -25,7 +26,6 @@ from shopman.shop.services import payment as payment_service
 from shopman.shop.services import sessions as session_service
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentError, parse_pos_sale_intent
-from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
 
@@ -468,6 +468,352 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
     return cleared
 
 
+def rename_pos_tab(
+    *,
+    channel_ref: str,
+    session_key: str,
+    new_tab_ref: str,
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Rename an open comanda's handle (e.g. ``Mesa 5`` → ``João``).
+
+    Respects the open-session handle uniqueness constraint
+    (``ord_uniq_open_session_handle``): a ref already held by another open
+    comanda is rejected before the write. Updates both the session handle and
+    the ``tab_ref``/``tab_display`` markers the surface reads — written directly
+    (no re-pricing of the open comanda).
+    """
+    channel, _config = _channel_and_config(channel_ref)
+    session = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=session_key)
+    if session is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda não encontrada.",
+            field="session_key",
+            focus="cart",
+        )
+
+    try:
+        ref = normalize_tab_ref(new_tab_ref)
+    except ValueError as exc:
+        raise PosIntentError(
+            code="invalid_tab_ref",
+            message=str(exc) or "Referência de comanda inválida.",
+            field="new_tab_ref",
+            focus="cart",
+        ) from exc
+
+    if ref == _session_tab_ref(session):
+        return {"ok": True, "tab": _tab_payload(session)}
+
+    existing = _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref)
+    if existing is not None and existing.session_key != session.session_key:
+        raise PosIntentError(
+            code="tab_in_use",
+            message="Já existe uma comanda aberta com essa referência.",
+            field="new_tab_ref",
+            focus="cart",
+        )
+
+    tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(new_tab_ref, ref))
+    session_service.assign_handle(
+        session_key=session.session_key,
+        channel_ref=channel.ref,
+        handle_type="pos_tab",
+        handle_ref=ref,
+    )
+    session.refresh_from_db()
+    session.data = {**(session.data or {}), "tab_ref": ref, "tab_display": tab_display}
+    session.save(update_fields=["data"])
+
+    logger.info(
+        "pos_rename_tab session=%s new_ref=%s operator=%s",
+        session.session_key, ref, operator_username,
+    )
+    return {"ok": True, "tab": _tab_payload(session)}
+
+
+def move_pos_tab_lines(
+    *,
+    channel_ref: str,
+    from_session_key: str,
+    line_ids: list[str],
+    to_session_key: str = "",
+    to_tab_ref: str = "",
+    close_source_when_empty: bool = False,
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Move lines between POS comandas (transfer / split / merge), freezing price.
+
+    - transfer: ``to_session_key`` points at an existing open comanda.
+    - split: ``to_tab_ref`` names a new comanda; it is created, then the lines
+      move into it (suggested child handle is editable on the surface).
+    - merge: pass every ``line_id`` plus ``close_source_when_empty`` so the
+      emptied source comanda is released.
+
+    Prices carry over verbatim via the kernel ``move_lines`` op.
+    """
+    channel, _config = _channel_and_config(channel_ref)
+    line_ids = [str(line_id) for line_id in (line_ids or []) if str(line_id).strip()]
+    if not line_ids:
+        raise PosIntentError(
+            code="no_line_ids",
+            message="Selecione ao menos um item para mover.",
+            field="line_ids",
+            focus="cart",
+        )
+
+    source = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=from_session_key)
+    if source is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda de origem não encontrada.",
+            field="from_session_key",
+            focus="cart",
+        )
+
+    target_created = False
+    if to_session_key:
+        target = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=to_session_key)
+        if target is None:
+            raise PosIntentError(
+                code="tab_not_found",
+                message="Comanda de destino não encontrada.",
+                field="to_session_key",
+                focus="cart",
+            )
+    elif to_tab_ref:
+        ref = normalize_tab_ref(to_tab_ref)
+        if not ref:
+            raise PosIntentError(
+                code="invalid_tab_ref",
+                message="Referência de comanda inválida.",
+                field="to_tab_ref",
+                focus="cart",
+            )
+        if _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref) is not None:
+            raise PosIntentError(
+                code="tab_in_use",
+                message="Já existe uma comanda aberta com essa referência.",
+                field="to_tab_ref",
+                focus="cart",
+            )
+        tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(to_tab_ref, ref))
+        target = session_service.create_session(
+            channel.ref,
+            handle_type="pos_tab",
+            handle_ref=ref,
+            data={
+                "origin_channel": "pos",
+                "fulfillment_type": "pickup",
+                "tab_ref": ref,
+                "tab_display": tab_display,
+                "pos_operator": operator_username,
+                "last_touched_at": timezone.now().isoformat(),
+            },
+        )
+        target_created = True
+    else:
+        raise PosIntentError(
+            code="missing_target",
+            message="Informe a comanda de destino.",
+            field="to_session_key",
+            focus="cart",
+        )
+
+    if target.session_key == source.session_key:
+        raise PosIntentError(
+            code="same_tab",
+            message="Origem e destino não podem ser a mesma comanda.",
+            field="to_session_key",
+            focus="cart",
+        )
+
+    try:
+        session_service.move_session_lines(
+            from_session_key=source.session_key,
+            to_session_key=target.session_key,
+            channel_ref=channel.ref,
+            line_ids=line_ids,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface kernel errors as a recoverable POS error
+        if target_created:
+            # Roll back the freshly-created split target so no empty comanda lingers.
+            session_service.abandon_session(session_key=target.session_key, channel_ref=channel.ref)
+        raise PosIntentError(
+            code="move_failed",
+            message=str(exc) or "Falha ao mover itens entre comandas.",
+            field="line_ids",
+            focus="cart",
+        ) from exc
+
+    source.refresh_from_db()
+    target.refresh_from_db()
+
+    source_closed = False
+    if close_source_when_empty and not source.items:
+        source_closed = session_service.abandon_session(
+            session_key=source.session_key,
+            channel_ref=channel.ref,
+        )
+
+    logger.info(
+        "pos_move_tab_lines from=%s to=%s count=%s split=%s closed=%s operator=%s",
+        source.session_key,
+        target.session_key,
+        len(line_ids),
+        target_created,
+        source_closed,
+        operator_username,
+    )
+    return {
+        "ok": True,
+        "source_closed": bool(source_closed),
+        "source": None if source_closed else _tab_payload(source),
+        "target": _tab_payload(target),
+    }
+
+
+def _session_to_fire_lines(session: Session) -> list[dict]:
+    """Normalize an open comanda's items to source-agnostic KDS fire lines."""
+    lines = []
+    for item in (session.items or []):
+        meta = item.get("meta") or {}
+        lines.append({
+            "line_id": item.get("line_id", ""),
+            "sku": item.get("sku", ""),
+            "name": item.get("name") or item.get("sku", ""),
+            "qty": int(item.get("qty", 1)),
+            "notes": meta.get("notes", ""),
+            "meta": meta,
+        })
+    return lines
+
+
+def fire_pos_tab(
+    *,
+    channel_ref: str,
+    session_key: str,
+    line_ids: list[str] | None = None,
+    client_request_id: str = "",
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Send an open comanda's not-yet-fired courses to the kitchen (KDS).
+
+    Progressive (course-by-course): only the unfired delta is dispatched.
+    ``line_ids`` (optional) limits the fire to specific lines; omitted means
+    "fire the whole tab" (every still-unfired line). Idempotent — the kitchen
+    ticket ledger keyed by ``session_key`` is authoritative, so re-sending a
+    course is a no-op and a cancelled course may re-fire (reprint).
+
+    Payment is never stored on the comanda: an open tab is unpaid by nature, so
+    "fired + unpaid" is derived downstream (``session_key → Order → payman``) as
+    a free anti-fraud signal.
+    """
+    from shopman.shop.services import kds as kds_service
+
+    channel, _config = _channel_and_config(channel_ref)
+    session = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=session_key)
+    if session is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda não encontrada.",
+            field="session_key",
+            focus="cart",
+        )
+
+    requested = {str(lid).strip() for lid in (line_ids or []) if str(lid).strip()}
+    lines = _session_to_fire_lines(session)
+    if requested:
+        lines = [ln for ln in lines if ln["line_id"] in requested]
+    if not lines:
+        raise PosIntentError(
+            code="no_lines",
+            message="Não há itens para enviar à cozinha.",
+            field="line_ids",
+            focus="cart",
+        )
+
+    tickets = kds_service.fire_lines(session_key=session.session_key, lines=lines)
+
+    # Mirror the fired-line ledger onto the comanda for the cart UI. The kitchen
+    # tickets stay authoritative; this marker is a cheap read for the projection
+    # and is written directly (no re-pricing of the open comanda).
+    fired = sorted(kds_service.fired_line_ids(session.session_key))
+    session.data = {**(session.data or {}), "fired_lines": fired}
+    session.save(update_fields=["data"])
+
+    logger.info(
+        "pos_fire_tab tab=%s session=%s fired_now=%d total_fired=%d operator=%s req=%s",
+        _session_tab_ref(session), session.session_key, len(tickets), len(fired),
+        operator_username, client_request_id or "-",
+    )
+    return {
+        "ok": True,
+        "fired_count": len(tickets),
+        "fired_lines": fired,
+        "tab": _tab_payload(session),
+    }
+
+
+def cancel_fired_pos_tab_lines(
+    *,
+    channel_ref: str,
+    session_key: str,
+    line_ids: list[str],
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Cancel the kitchen fire for specific comanda lines (course returned/wrong).
+
+    The targeted lines leave their live KDS tickets (a ticket is cancelled when
+    it empties), drop from ``Session.data["fired_lines"]`` and become re-fireable
+    — so a reprint is simply cancel + fire again. The kitchen sees the change via
+    the ticket's SSE event.
+    """
+    from shopman.shop.services import kds as kds_service
+
+    channel, _config = _channel_and_config(channel_ref)
+    session = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=session_key)
+    if session is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda não encontrada.",
+            field="session_key",
+            focus="cart",
+        )
+
+    targets = [str(lid).strip() for lid in (line_ids or []) if str(lid).strip()]
+    if not targets:
+        raise PosIntentError(
+            code="no_lines",
+            message="Selecione itens para cancelar o envio.",
+            field="line_ids",
+            focus="cart",
+        )
+
+    result = kds_service.unfire_lines(session_key=session.session_key, line_ids=targets)
+    fired = sorted(kds_service.fired_line_ids(session.session_key))
+    session.data = {**(session.data or {}), "fired_lines": fired}
+    session.save(update_fields=["data"])
+
+    logger.info(
+        "pos_unfire_tab tab=%s session=%s cancelled=%d trimmed=%d total_fired=%d operator=%s",
+        _session_tab_ref(session), session.session_key,
+        result["cancelled"], result["trimmed"], len(fired), operator_username,
+    )
+    return {
+        "ok": True,
+        "cancelled": result["cancelled"],
+        "trimmed": result["trimmed"],
+        "fired_lines": fired,
+        "tab": _tab_payload(session),
+    }
+
+
 def cancel_recent_order(
     *,
     order_ref: str,
@@ -650,8 +996,33 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
     return ops
 
 
+def _verify_manager_pin(username: str, pin: str):
+    """Resolve a manager by username and verify their override PIN.
+
+    A short, rate-limited PIN challenge replaces account passwords in the sale
+    payload. Reuses doorman's generic ``PinCredential`` (HMAC hash + lockout)
+    and the same ``backstage.adjust_cashshift`` permission the override gates
+    require. Returns the authorizing user, or ``None`` if the challenge fails.
+    """
+    from django.contrib.auth import get_user_model
+    from shopman.doorman.models import PinCredential
+
+    user_model = get_user_model()
+    try:
+        user = user_model.objects.get(username=username, is_active=True, is_staff=True)
+    except user_model.DoesNotExist:
+        return None
+    if not user.has_perm("backstage.adjust_cashshift"):
+        return None
+    try:
+        credential = user.pin_credential
+    except PinCredential.DoesNotExist:
+        return None
+    return user if credential.verify(pin) else None
+
+
 def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
-    """Require manager credentials for configured POS discount thresholds."""
+    """Require a manager PIN challenge for configured POS discount thresholds."""
     threshold_q = _discount_approval_threshold_q()
     if threshold_q <= 0:
         return
@@ -661,26 +1032,23 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
 
     approval = payload.get("manager_approval") or {}
     username = str(approval.get("username") or "").strip()
-    password = str(approval.get("password") or "")
-    if not username or not password:
+    pin = str(approval.get("pin") or "")
+    if not username or not pin:
         raise PosIntentError(
             code="manager_approval_required",
             message="Desconto exige aprovação gerencial.",
             field="manager_approval",
             focus="approval",
-            recovery="Peça a um gerente autorizado para aprovar o desconto antes de finalizar.",
+            recovery="Peça a um gerente autorizado para aprovar o desconto com o PIN antes de finalizar.",
         )
 
-    from django.contrib.auth import authenticate
-
-    user = authenticate(username=username, password=password)
-    if not user or not user.is_active or not user.has_perm("backstage.adjust_cashshift"):
+    if _verify_manager_pin(username, pin) is None:
         raise PosIntentError(
             code="manager_approval_invalid",
             message="Aprovação gerencial inválida.",
             field="manager_approval",
             focus="approval",
-            recovery="Revise usuário e senha do gerente ou reduza o desconto.",
+            recovery="Revise o gerente e o PIN ou reduza o desconto.",
         )
     logger.info(
         "pos_manager_approval operator=%s approved_by=%s discount_q=%s",
@@ -1173,14 +1541,17 @@ def _tab_payload(session: Session) -> dict:
     receipt = data.get("receipt") or {}
     discount = data.get("manual_discount") or {}
     tab_ref = _session_tab_ref(session)
+    fired_lines = set(data.get("fired_lines") or [])
     items = [
         {
+            "line_id": item.get("line_id", ""),
             "sku": item["sku"],
             "name": item.get("name", item["sku"]),
             "price_q": item.get("unit_price_q", 0),
             "qty": int(item.get("qty", 1)),
             "notes": (item.get("meta") or {}).get("notes", ""),
             "is_d1": bool(item.get("is_d1")),
+            "fired": item.get("line_id", "") in fired_lines,
         }
         for item in (session.items or [])
         if not _is_delivery_fee_item(item)

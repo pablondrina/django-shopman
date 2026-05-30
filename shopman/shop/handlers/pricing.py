@@ -40,6 +40,7 @@ class OffermanPricingBackend:
         try:
             return catalog.get_product_base_price(sku)
         except Exception:
+            logger.debug("pricing.get_price degraded; using fallback", exc_info=True)
             return None
 
     def _get_listing_item(self, catalog, listing_ref, sku, qty=1):

@@ -157,6 +157,116 @@ class ModifyService:
         return session
 
     @staticmethod
+    @transaction.atomic
+    def move_lines(
+        *,
+        from_session_key: str,
+        to_session_key: str,
+        channel_ref: str,
+        line_ids: list[str],
+    ) -> tuple[Session, Session]:
+        """Move lines verbatim between two open sessions, freezing their price.
+
+        Unlike ``modify_session`` (which re-runs pricing modifiers), this is a
+        session-integrity operation: each moved line keeps its quoted
+        ``unit_price_q``, ``line_total_q`` and ``meta`` exactly, so the customer
+        pays what was quoted on the source comanda. Both sessions are locked and
+        the move is atomic. Re-pricing is intentionally skipped; only the
+        structural total is recomputed. Covers transfer (move some lines), split
+        (target is a fresh session) and merge (move every line of B into A).
+        """
+        if from_session_key == to_session_key:
+            raise ValidationError(
+                code="same_session",
+                message="Origem e destino não podem ser a mesma sessão.",
+            )
+        if not line_ids:
+            raise ValidationError(code="no_line_ids", message="Nenhuma linha para mover.")
+
+        # Lock both sessions in a deterministic order to avoid deadlocks.
+        ordered_keys = sorted({from_session_key, to_session_key})
+        locked = {
+            session.session_key: session
+            for session in (
+                Session.objects.select_for_update().filter(
+                    channel_ref=channel_ref,
+                    session_key__in=ordered_keys,
+                )
+            )
+        }
+        source = locked.get(from_session_key)
+        target = locked.get(to_session_key)
+        for label, session in (("origem", source), ("destino", target)):
+            if session is None:
+                raise SessionError(
+                    code="not_found",
+                    message=f"Sessão de {label} não encontrada.",
+                )
+            if session.state != "open":
+                raise SessionError(
+                    code="not_open",
+                    message=f"Sessão de {label} não está aberta.",
+                    context={"session_key": session.session_key, "state": session.state},
+                )
+            if session.edit_policy == "locked":
+                raise SessionError(
+                    code="locked",
+                    message=f"Sessão de {label} está bloqueada para edição.",
+                    context={"session_key": session.session_key},
+                )
+
+        source_items = list(source.items)
+        by_line_id = {item["line_id"]: item for item in source_items}
+        missing = [line_id for line_id in line_ids if line_id not in by_line_id]
+        if missing:
+            raise ValidationError(
+                code="unknown_line_id",
+                message=f"line_id não encontrado na origem: {', '.join(missing)}",
+                context={"missing": missing},
+            )
+
+        moving = set(line_ids)
+        moved_lines = [
+            {
+                # New line_id: line_ids are unique per session, the price is what
+                # carries over verbatim — never the identity.
+                "line_id": generate_line_id(),
+                "sku": src.get("sku", ""),
+                "name": src.get("name", ""),
+                "qty": src["qty"],
+                "unit_price_q": int(src.get("unit_price_q", 0)),
+                "line_total_q": int(src.get("line_total_q", 0)),
+                "meta": src.get("meta", {}) or {},
+            }
+            for src in (by_line_id[line_id] for line_id in line_ids)
+        ]
+
+        source.update_items([item for item in source_items if item["line_id"] not in moving])
+        target.update_items(list(target.items) + moved_lines)
+
+        ModifyService._recompute_structural_total(source)
+        ModifyService._recompute_structural_total(target)
+
+        source.rev += 1
+        target.rev += 1
+        source.save()
+        target.save()
+        return source, target
+
+    @staticmethod
+    def _recompute_structural_total(session: Session) -> None:
+        """Recompute the session total from stored line totals, without pricing.
+
+        Mirrors the session-total modifier but never re-resolves item prices —
+        used by ``move_lines`` to keep frozen line totals intact.
+        """
+        items = session.items
+        if not session.pricing:
+            session.pricing = {}
+        session.pricing["total_q"] = sum(int(item.get("line_total_q", 0)) for item in items)
+        session.pricing["items_count"] = len(items)
+
+    @staticmethod
     def _apply_op(
         items: list[dict],
         data: dict,

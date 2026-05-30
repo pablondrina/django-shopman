@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, time
 from decimal import Decimal
 
@@ -25,6 +26,8 @@ from shopman.shop import dynamic_collections
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
 from shopman.shop.models import NotificationTemplate, Shop
+
+logger = logging.getLogger(__name__)
 
 OPENING_HOUR_DAYS = (
     ("monday", "Segunda"),
@@ -884,6 +887,7 @@ class ShopAdmin(ModelAdmin):
         try:
             url = reverse("storefront:home")
         except Exception:
+            logger.debug("shop.storefront_preview degraded; using fallback", exc_info=True)
             url = "/"
 
         url_json = mark_safe(json.dumps(url))

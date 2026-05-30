@@ -47,12 +47,21 @@ const { data, pending, error, refresh } = await useFetch<POSResponse>(
 const search = ref("");
 const activeCollection = ref("");
 const tabInput = ref("");
+const tabFilter = ref<"all" | "in_use">("all");
+const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
+const firing = ref(false);
+const renamingTab = ref(false);
+const cancellingSale = ref(false);
+const cancelSaleReason = ref("");
+const saleCancelled = ref(false);
 const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
+const cashDialogOpen = ref(false);
+const moveDialogOpen = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
 const customerLookup = ref<POSCustomerLookupProjection | null>(null);
 const tabDialogOpen = ref(false);
@@ -87,8 +96,11 @@ const cart = reactive({
   issueFiscalDocument: false,
   receiptMode: "none",
   receiptEmail: "",
-  manualDiscount: null as Record<string, unknown> | null,
-  managerApproval: null as Record<string, unknown> | null,
+  discountType: "percent" as "percent" | "fixed",
+  discountValue: "",
+  discountReason: "",
+  managerUsername: "",
+  managerPin: "",
   clientRequestId: "",
 });
 
@@ -115,6 +127,14 @@ async function onUnlock(operatorId: number, pin: string) {
 }
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
+const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
+const kitchenHandoff = computed(() => (checkoutCapabilities.value as Record<string, any>)?.kitchen_handoff || null);
+const canFireTab = computed(() => Boolean(kitchenHandoff.value?.fire_action_ref));
+const tabManipulation = computed(() => (checkoutCapabilities.value as Record<string, any>)?.tab_manipulation || null);
+const canRenameTab = computed(() => Boolean(tabManipulation.value?.rename_action_ref));
+const saleCorrection = computed(() => (checkoutCapabilities.value as Record<string, any>)?.sale_correction || null);
+const canCancelRecentSale = computed(() => Boolean(saleCorrection.value?.cancel_recent_action_ref));
+const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
 const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
 const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
 const tabDisallowedChars = computed(() => tabRefDisallowedChars(checkoutCapabilities.value));
@@ -168,6 +188,17 @@ const sortedTabs = computed(() => [...tabs.value].sort((a, b) => {
   return aOpen - bOpen || a.display_ref.localeCompare(b.display_ref, "pt-BR", { numeric: true });
 }));
 
+const openTabsCount = computed(() => tabs.value.filter((tab) => tab.state === "in_use").length);
+const otherOpenTabs = computed(() =>
+  sortedTabs.value.filter((tab) => tab.state === "in_use" && tab.session_key && tab.ref !== cart.tabRef),
+);
+const suggestedSplitRef = computed(() => (cart.tabDisplay ? `${cart.tabDisplay}-2` : ""));
+const visibleTabs = computed(() =>
+  tabFilter.value === "in_use"
+    ? sortedTabs.value.filter((tab) => tab.state === "in_use")
+    : sortedTabs.value,
+);
+
 const availablePaymentCollections = computed(() =>
   (pos.value?.payment_collections || []).filter((collection) =>
     collection.fulfillment_types.includes(cart.fulfillmentType)
@@ -211,6 +242,9 @@ watch(() => [
   cart.issueFiscalDocument,
   cart.receiptMode,
   cart.receiptEmail,
+  cart.discountType,
+  cart.discountValue,
+  cart.discountReason,
 ], () => {
   if (checkoutMode.value) review.value = null;
 });
@@ -282,8 +316,11 @@ function resetCart() {
   cart.issueFiscalDocument = false;
   cart.receiptMode = "none";
   cart.receiptEmail = "";
-  cart.manualDiscount = null;
-  cart.managerApproval = null;
+  cart.discountType = "percent";
+  cart.discountValue = "";
+  cart.discountReason = "";
+  cart.managerUsername = "";
+  cart.managerPin = "";
   cart.clientRequestId = "";
   customerLookup.value = null;
   checkoutMode.value = false;
@@ -337,8 +374,11 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.issueFiscalDocument = !!payload.issue_fiscal_document;
   cart.receiptMode = payload.receipt_mode || "none";
   cart.receiptEmail = payload.receipt_email || "";
-  cart.manualDiscount = null;
-  cart.managerApproval = null;
+  cart.discountType = "percent";
+  cart.discountValue = "";
+  cart.discountReason = "";
+  cart.managerUsername = "";
+  cart.managerPin = "";
   cart.clientRequestId = "";
   customerLookup.value = null;
   checkoutMode.value = false;
@@ -418,6 +458,13 @@ function currentIntentState() {
   ]
     .filter(Boolean);
   const deliveryAddress = structured.formatted_address || deliveryAddressParts.join(", ");
+  const discountValueNum = Number(String(cart.discountValue).replace(",", ".").replace(/[^0-9.]/g, "")) || 0;
+  const manualDiscount = discountValueNum > 0
+    ? { type: cart.discountType, value: discountValueNum, reason: cart.discountReason || "cortesia" }
+    : null;
+  const managerApproval = cart.managerUsername.trim() && cart.managerPin.trim()
+    ? { username: cart.managerUsername.trim(), pin: cart.managerPin.trim() }
+    : null;
   return {
     tabRef: cart.tabRef,
     tabSessionKey: cart.tabSessionKey,
@@ -444,8 +491,8 @@ function currentIntentState() {
     issueFiscalDocument: cart.issueFiscalDocument,
     receiptMode: cart.receiptMode,
     receiptEmail: cart.receiptEmail || cart.customerEmail,
-    manualDiscount: cart.manualDiscount,
-    managerApproval: cart.managerApproval,
+    manualDiscount,
+    managerApproval,
     clientRequestId: cart.clientRequestId || newClientRequestId(),
   };
 }
@@ -606,18 +653,37 @@ async function prepareCheckout() {
   }
 }
 
+async function reviewCheckout() {
+  if (!cart.items.length) return;
+  serverError.value = "";
+  result.value = null;
+  busy.value = true;
+  try {
+    await reviewSale();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao revisar venda.";
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function submitSale() {
   if (!cart.items.length) return;
+  saleCancelled.value = false;
   if (!checkoutMode.value) {
     await prepareCheckout();
+    return;
+  }
+  // Spec: the commit click must not hide an implicit review. If the review is
+  // stale (sale data changed), return to review instead of committing.
+  if (!review.value) {
+    await reviewCheckout();
     return;
   }
   serverError.value = "";
   result.value = null;
   busy.value = true;
   try {
-    const reviewed = await reviewSale();
-    if (!reviewed) return;
     const response = await action.call<POSCloseSaleResponse>(
       actionHref(actions.value, "close_sale", "/api/v1/backstage/pos/sale/close/"),
       { body: buildCurrentIntent() },
@@ -666,6 +732,240 @@ function newClientRequestId(): string {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `pos-uithing:${random}`;
 }
+
+async function openMoveDialog() {
+  if (!hasOpenTab.value || !cart.items.length) return;
+  // Persist + reload so the lines carry server line_ids the move op needs.
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await persistTab();
+    await reloadCurrentTab();
+    moveDialogOpen.value = true;
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.message || "Falha ao preparar a comanda para mover itens.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function submitMove(payload: {
+  mode: "split" | "transfer" | "merge";
+  lineIds: string[];
+  toTabRef?: string;
+  toSessionKey?: string;
+  closeSource?: boolean;
+}) {
+  if (!cart.tabSessionKey) return;
+  serverError.value = "";
+  busy.value = true;
+  try {
+    const body: Record<string, unknown> = {
+      from_session_key: cart.tabSessionKey,
+      line_ids: payload.lineIds,
+    };
+    if (payload.toTabRef) body.to_tab_ref = payload.toTabRef;
+    if (payload.toSessionKey) body.to_session_key = payload.toSessionKey;
+    if (payload.closeSource) body.close_source_when_empty = true;
+    const response = await action.call<{ source_closed: boolean; source: POSTabPayload | null }>(
+      actionHref(actions.value, "move_tab_lines", "/api/v1/backstage/pos/tabs/move-lines/"),
+      { body },
+    );
+    moveDialogOpen.value = false;
+    if (response.source_closed || !response.source) {
+      resetCart();
+    } else {
+      setFromTabPayload(response.source);
+    }
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao mover itens.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function fireTab() {
+  if (!cart.tabSessionKey) return;
+  serverError.value = "";
+  firing.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "fire_tab", "/api/v1/backstage/pos/tabs/fire/"),
+      { body: { session_key: cart.tabSessionKey, client_request_id: newClientRequestId() } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao enviar à cozinha.";
+  } finally {
+    firing.value = false;
+  }
+}
+
+async function unfireTab(lineId: string) {
+  if (!cart.tabSessionKey || !lineId) return;
+  serverError.value = "";
+  firing.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "unfire_tab", "/api/v1/backstage/pos/tabs/unfire/"),
+      { body: { session_key: cart.tabSessionKey, line_ids: [lineId] } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
+  } finally {
+    firing.value = false;
+  }
+}
+
+async function renameTab(newTabRef: string) {
+  if (!cart.tabSessionKey || !newTabRef) return;
+  serverError.value = "";
+  renamingTab.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "rename_tab", "/api/v1/backstage/pos/tabs/rename/"),
+      { body: { session_key: cart.tabSessionKey, new_tab_ref: newTabRef } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao renomear comanda.";
+  } finally {
+    renamingTab.value = false;
+  }
+}
+
+async function cancelRecentSale() {
+  if (!result.value) return;
+  serverError.value = "";
+  cancellingSale.value = true;
+  try {
+    const orderRef = result.value.orderRef;
+    const reason = cancelSaleReason.value.trim();
+    await action.call(
+      actionHref(actions.value, "cancel_recent_sale", "/api/v1/backstage/pos/sale/recent/cancel/"),
+      { body: { order_ref: orderRef, ...(reason ? { reason } : {}) } },
+    );
+    result.value = null;
+    cancelSaleReason.value = "";
+    saleCancelled.value = true;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar venda.";
+  } finally {
+    cancellingSale.value = false;
+  }
+}
+
+async function openCashShift(amount: string) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "open_cash_shift", "/api/v1/backstage/pos/cash/open/"), {
+      body: { opening_amount: amount || "0", terminal_ref: pos.value?.terminal_ref || "" },
+    });
+    cashDialogOpen.value = false;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao abrir caixa.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function closeCashShift(payload: { amount: string; notes: string }) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "close_cash_shift", "/api/v1/backstage/pos/cash/close/"), {
+      body: { closing_amount: payload.amount || "0", notes: payload.notes },
+    });
+    cashDialogOpen.value = false;
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao fechar caixa.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function registerCashMovement(payload: { kind: string; amount: string; reason: string }) {
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await action.call(actionHref(actions.value, "cash_movement", "/api/v1/backstage/pos/cash/movement/"), {
+      body: { kind: payload.kind, amount: payload.amount || "0", reason: payload.reason },
+    });
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao registrar movimento.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+// Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
+// Escape backs out of checkout, "/" focuses product search when not editing).
+const tabInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
+const searchInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
+
+function focusUiInput(component: { inputRef?: HTMLInputElement } | null) {
+  component?.inputRef?.focus();
+}
+
+async function gotoTabInput() {
+  checkoutMode.value = false;
+  await nextTick();
+  focusUiInput(tabInputRef.value);
+}
+
+async function gotoProductSearch() {
+  if (!canUseCart.value) return;
+  checkoutMode.value = false;
+  await nextTick();
+  focusUiInput(searchInputRef.value);
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if (locked.value || !pos.value) return;
+  const target = event.target as HTMLElement | null;
+  const isEditing = !!target
+    && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+  switch (event.key) {
+    case "Escape":
+      if (checkoutMode.value) {
+        event.preventDefault();
+        checkoutMode.value = false;
+      }
+      return;
+    case "F2":
+      event.preventDefault();
+      gotoTabInput();
+      return;
+    case "F3":
+      event.preventDefault();
+      gotoProductSearch();
+      return;
+    case "F4":
+      event.preventDefault();
+      if (checkoutMode.value) reviewCheckout();
+      else if (cart.items.length) prepareCheckout();
+      return;
+    case "/":
+      if (!isEditing) {
+        event.preventDefault();
+        gotoProductSearch();
+      }
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onGlobalKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
@@ -677,15 +977,29 @@ function newClientRequestId(): string {
           <h1 class="text-xl font-semibold tracking-normal">POS</h1>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <UiBadge v-if="pos" :variant="pos.terminal_health_status === 'ready' ? 'success' : 'warning'">
-            {{ pos.terminal_label }}
-          </UiBadge>
-          <UiBadge v-if="pos" variant="outline">
-            Fiscal: {{ pos.fiscal_message || pos.fiscal_label }}
-          </UiBadge>
-          <UiBadge v-if="shift" variant="outline" class="tabular-nums">
-            {{ shift.count }} hoje · {{ shift.total_display }}
-          </UiBadge>
+          <PosTerminalHealth
+            v-if="pos"
+            :terminal-label="pos.terminal_label"
+            :health-status="pos.terminal_health_status"
+            :components="pos.terminal_components"
+            :fiscal-status="pos.fiscal_status"
+            :fiscal-label="pos.fiscal_label"
+            :fiscal-message="pos.fiscal_message"
+          />
+          <UiButton
+            v-if="pos"
+            variant="outline"
+            size="sm"
+            class="gap-2 tabular-nums"
+            :class="pos.has_open_cash_session ? '' : 'border-amber-500/50 text-amber-700 hover:text-amber-700'"
+            aria-label="Caixa"
+            title="Caixa"
+            @click="cashDialogOpen = true"
+          >
+            <Icon name="lucide:wallet" class="size-4" />
+            <span v-if="pos.has_open_cash_session && shift">{{ shift.count }} hoje · {{ shift.total_display }}</span>
+            <span v-else>Abrir caixa</span>
+          </UiButton>
           <UiBadge v-if="activeOperator" variant="default" class="gap-1">
             <Icon name="lucide:user" class="size-3.5" />
             {{ activeOperator.name }}
@@ -715,28 +1029,106 @@ function newClientRequestId(): string {
       @unlock="onUnlock"
     />
 
-    <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-      <section class="grid gap-4">
-        <UiAlert v-if="error" variant="destructive">
-          <Icon name="lucide:triangle-alert" class="size-4" />
-          <UiAlertTitle>POS indisponível</UiAlertTitle>
-          <UiAlertDescription>Confira login e permissão de operação no gestor.</UiAlertDescription>
-        </UiAlert>
+    <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4">
+      <UiAlert v-if="error" variant="destructive">
+        <Icon name="lucide:triangle-alert" class="size-4" />
+        <UiAlertTitle>POS indisponível</UiAlertTitle>
+        <UiAlertDescription>Confira login e permissão de operação no gestor.</UiAlertDescription>
+      </UiAlert>
 
-        <UiAlert v-if="serverError" variant="destructive">
-          <Icon name="lucide:circle-x" class="size-4" />
-          <UiAlertTitle>Ação recusada</UiAlertTitle>
-          <UiAlertDescription>{{ serverError }}</UiAlertDescription>
-        </UiAlert>
+      <UiAlert v-if="serverError" variant="destructive">
+        <Icon name="lucide:circle-x" class="size-4" />
+        <UiAlertTitle>Ação recusada</UiAlertTitle>
+        <UiAlertDescription>{{ serverError }}</UiAlertDescription>
+      </UiAlert>
 
-        <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
-          <Icon name="lucide:circle-check" class="size-4" />
-          <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
-          <UiAlertDescription>
+      <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
+        <Icon name="lucide:circle-check" class="size-4" />
+        <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
+        <UiAlertDescription>
+          <div class="flex flex-col gap-2">
             <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
-          </UiAlertDescription>
-        </UiAlert>
+            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
+              <UiInput
+                v-model="cancelSaleReason"
+                placeholder="Motivo do cancelamento (opcional)"
+                class="h-8 text-sm"
+              />
+              <UiButton
+                variant="destructive"
+                size="sm"
+                class="self-start"
+                :loading="cancellingSale"
+                :disabled="cancellingSale"
+                @click="cancelRecentSale"
+              >
+                <Icon name="lucide:rotate-ccw" class="size-4" />
+                Cancelar venda
+              </UiButton>
+            </div>
+          </div>
+        </UiAlertDescription>
+      </UiAlert>
 
+      <UiAlert v-if="saleCancelled" class="border-amber-500/30 bg-amber-500/10 text-amber-800">
+        <Icon name="lucide:circle-check" class="size-4" />
+        <UiAlertTitle>Venda cancelada</UiAlertTitle>
+        <UiAlertDescription>O pedido foi cancelado dentro da janela do operador.</UiAlertDescription>
+      </UiAlert>
+
+      <PosCheckoutWorkspace
+        v-if="checkoutMode"
+        :tab-display="cart.tabDisplay"
+        :items="cart.items"
+        :has-open-tab="hasOpenTab"
+        :fulfillment-options="pos?.fulfillment_options || []"
+        :payment-methods="pos?.payment_methods || []"
+        :payment-collections="pos?.payment_collections || []"
+        :checkout-contract="checkoutContract"
+        :address-autocomplete="addressAutocomplete"
+        :customer-lookup="customerLookup"
+        :review="review"
+        :discount-types="checkoutContract?.discount_types || []"
+        :discount-reasons="checkoutContract?.discount_reasons || []"
+        v-model:discount-type="cart.discountType"
+        v-model:discount-value="cart.discountValue"
+        v-model:discount-reason="cart.discountReason"
+        v-model:manager-username="cart.managerUsername"
+        v-model:manager-pin="cart.managerPin"
+        v-model:fulfillment-type="cart.fulfillmentType"
+        v-model:payment-method="cart.paymentMethod"
+        v-model:payment-collection="cart.paymentCollection"
+        v-model:customer-name="cart.customerName"
+        v-model:customer-phone="cart.customerPhone"
+        v-model:customer-tax-id="cart.customerTaxId"
+        v-model:customer-email="cart.customerEmail"
+        v-model:delivery-address="cart.deliveryAddress"
+        v-model:delivery-address-structured="cart.deliveryAddressStructured"
+        v-model:delivery-street-number="cart.deliveryStreetNumber"
+        v-model:delivery-neighborhood="cart.deliveryNeighborhood"
+        v-model:delivery-complement="cart.deliveryComplement"
+        v-model:delivery-instructions="cart.deliveryInstructions"
+        v-model:delivery-date="cart.deliveryDate"
+        v-model:delivery-time-slot="cart.deliveryTimeSlot"
+        v-model:delivery-fee-input="cart.deliveryFeeInput"
+        v-model:order-notes="cart.orderNotes"
+        v-model:tendered-amount-input="cart.tenderedAmountInput"
+        v-model:issue-fiscal-document="cart.issueFiscalDocument"
+        v-model:receipt-mode="cart.receiptMode"
+        v-model:receipt-email="cart.receiptEmail"
+        :loading="busy"
+        :lookup-busy="lookupBusy"
+        @back="checkoutMode = false"
+        @review="reviewCheckout"
+        @submit="submitSale"
+        @lookup-customer="lookupCustomer"
+        @apply-customer-favorite="applyCustomerFavorite"
+        @repeat-customer-last-order="repeatCustomerLastOrder"
+        @pick-saved-address="applySavedAddress"
+      />
+
+      <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <section class="grid gap-4">
         <section
           class="grid gap-3"
           :class="!canUseCart ? 'rounded-lg border border-primary/30 bg-primary/5 p-4' : ''"
@@ -750,6 +1142,7 @@ function newClientRequestId(): string {
             </div>
             <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
               <UiInput
+                ref="tabInputRef"
                 :model-value="tabInput"
                 class="max-w-40"
                 :maxlength="tabMaxLength"
@@ -759,21 +1152,89 @@ function newClientRequestId(): string {
               <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
             </form>
           </div>
-          <div class="flex gap-2 overflow-x-auto pb-1">
+          <div v-if="tabs.length" class="flex flex-wrap items-center gap-2">
+            <div class="flex gap-1">
+              <UiButton
+                size="sm"
+                variant="outline"
+                :class="tabFilter === 'all' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabFilter = 'all'"
+              >
+                Todas {{ tabs.length }}
+              </UiButton>
+              <UiButton
+                size="sm"
+                variant="outline"
+                :class="tabFilter === 'in_use' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabFilter = 'in_use'"
+              >
+                Em uso {{ openTabsCount }}
+              </UiButton>
+            </div>
+            <div class="ml-auto flex gap-1">
+              <UiButton
+                size="icon-sm"
+                variant="outline"
+                aria-label="Ver em grade"
+                title="Grade"
+                :class="tabView === 'grid' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabView = 'grid'"
+              >
+                <Icon name="lucide:layout-grid" class="size-4" />
+              </UiButton>
+              <UiButton
+                size="icon-sm"
+                variant="outline"
+                aria-label="Ver em lista"
+                title="Lista"
+                :class="tabView === 'list' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                @click="tabView = 'list'"
+              >
+                <Icon name="lucide:list" class="size-4" />
+              </UiButton>
+            </div>
+          </div>
+
+          <p v-if="!tabs.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Nenhuma comanda ainda. Digite uma referência acima para abrir a primeira.
+          </p>
+          <p v-else-if="!visibleTabs.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Nenhuma comanda em uso agora.
+            <button type="button" class="font-medium underline underline-offset-4" @click="tabFilter = 'all'">Ver todas</button>
+          </p>
+          <div
+            v-else
+            class="max-h-56 overflow-y-auto pr-1"
+            :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid gap-2'"
+          >
             <button
-              v-for="tab in sortedTabs"
+              v-for="tab in visibleTabs"
               :key="tab.ref"
               type="button"
-              class="grid min-w-24 gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
+              class="grid gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
               :class="[
                 cart.tabRef === tab.ref ? 'border-primary bg-primary/5' : '',
                 tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
               ]"
               @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
             >
-              <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
-              <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
-              <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">{{ tab.item_count }} · {{ tab.total_display }}</span>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
+                <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
+              </div>
+              <span
+                v-if="tab.fired"
+                class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
+                title="Disparado para a cozinha e ainda não pago"
+              >
+                <Icon name="lucide:flame" class="size-3" />
+                Na cozinha · não pago
+              </span>
+              <span v-if="tab.customer_name" class="truncate text-xs font-medium">{{ tab.customer_name }}</span>
+              <span v-if="tab.items_preview" class="truncate text-xs text-muted-foreground">{{ tab.items_preview }}</span>
+              <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">
+                {{ tab.item_count }} {{ tab.item_count === 1 ? "item" : "itens" }} · {{ tab.total_display }}
+              </span>
             </button>
           </div>
         </section>
@@ -799,7 +1260,7 @@ function newClientRequestId(): string {
           <div class="flex flex-wrap items-center gap-2">
             <div class="relative min-w-64 flex-1">
               <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <UiInput v-model="search" class="pl-9" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
+              <UiInput ref="searchInputRef" v-model="search" class="pl-9" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
             </div>
             <UiButton
               variant="outline"
@@ -842,58 +1303,37 @@ function newClientRequestId(): string {
         <PosCartPanel
           :tab-display="cart.tabDisplay"
           :items="cart.items"
-          :fulfillment-options="pos?.fulfillment_options || []"
-          :payment-methods="pos?.payment_methods || []"
-          :payment-collections="pos?.payment_collections || []"
-          :checkout-contract="checkoutContract"
-          :address-autocomplete="addressAutocomplete"
           :customer-lookup="customerLookup"
-          :checkout-mode="checkoutMode"
-          :review="review"
           :requires-tab="tabRequiredForCart"
           :has-open-tab="hasOpenTab"
-          v-model:fulfillment-type="cart.fulfillmentType"
-          v-model:payment-method="cart.paymentMethod"
-          v-model:payment-collection="cart.paymentCollection"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"
-          v-model:customer-tax-id="cart.customerTaxId"
-          v-model:customer-email="cart.customerEmail"
-          v-model:delivery-address="cart.deliveryAddress"
-          v-model:delivery-address-structured="cart.deliveryAddressStructured"
-          v-model:delivery-street-number="cart.deliveryStreetNumber"
-          v-model:delivery-neighborhood="cart.deliveryNeighborhood"
-          v-model:delivery-complement="cart.deliveryComplement"
-          v-model:delivery-instructions="cart.deliveryInstructions"
-          v-model:delivery-date="cart.deliveryDate"
-          v-model:delivery-time-slot="cart.deliveryTimeSlot"
-          v-model:delivery-fee-input="cart.deliveryFeeInput"
-          v-model:order-notes="cart.orderNotes"
-          v-model:tendered-amount-input="cart.tenderedAmountInput"
-          v-model:issue-fiscal-document="cart.issueFiscalDocument"
-          v-model:receipt-mode="cart.receiptMode"
-          v-model:receipt-email="cart.receiptEmail"
           :loading="busy"
           :saving="saving"
           :lookup-busy="lookupBusy"
+          :can-fire="canFireTab"
+          :firing="firing"
+          :can-rename="canRenameTab"
           @increment="(sku) => setQty(sku, productQty(sku) + 1)"
           @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
           @remove="(sku) => setQty(sku, 0)"
           @save="saveTab"
           @prepare="prepareCheckout"
-          @back="checkoutMode = false"
-          @submit="submitSale"
+          @move="openMoveDialog"
+          @fire="fireTab"
+          @unfire="unfireTab"
+          @rename="renameTab"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"
           @apply-customer-favorite="applyCustomerFavorite"
           @repeat-customer-last-order="repeatCustomerLastOrder"
-          @pick-saved-address="applySavedAddress"
         />
         <p class="mt-3 text-xs text-muted-foreground">
           {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
         </p>
       </aside>
+      </div>
     </div>
 
     <PosTabPickerDialog
@@ -910,6 +1350,30 @@ function newClientRequestId(): string {
       :disallowed-chars="tabDisallowedChars"
       @confirm="openTabFromDialog"
       @select="openTabFromDialog"
+    />
+
+    <PosCashPanel
+      v-if="pos"
+      v-model:open="cashDialogOpen"
+      :cash-runtime="pos.cash_runtime"
+      :shift="shift"
+      :has-open-shift="pos.has_open_cash_session"
+      :movement-kinds="movementKinds"
+      :operator-name="activeOperator?.name || ''"
+      :busy="busy"
+      @open-shift="openCashShift"
+      @close-shift="closeCashShift"
+      @movement="registerCashMovement"
+    />
+
+    <PosMoveLinesDialog
+      v-model:open="moveDialogOpen"
+      :tab-display="cart.tabDisplay"
+      :items="cart.items"
+      :suggested-split-ref="suggestedSplitRef"
+      :other-tabs="otherOpenTabs"
+      :busy="busy"
+      @submit="submitMove"
     />
   </main>
 </template>

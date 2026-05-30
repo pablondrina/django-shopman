@@ -211,6 +211,7 @@ def _normalize_phone_safe(phone_raw: str) -> str:
         from shopman.utils.phone import normalize_phone
         return normalize_phone(phone_raw)
     except Exception:
+        logger.debug("customer._normalize_phone_safe degraded; using fallback", exc_info=True)
         return phone_raw
 
 

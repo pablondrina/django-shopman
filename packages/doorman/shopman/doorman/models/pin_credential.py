@@ -144,8 +144,9 @@ class PinCredential(models.Model):
         """Record a failed attempt; lock out when the limit is reached."""
         from datetime import timedelta
 
-        from ..conf import doorman_settings
         from django.db.models import F
+
+        from ..conf import doorman_settings
 
         PinCredential.objects.filter(pk=self.pk).update(attempts=F("attempts") + 1)
         self.refresh_from_db(fields=["attempts"])

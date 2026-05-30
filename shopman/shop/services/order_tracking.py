@@ -23,12 +23,12 @@ from shopman.shop.projections.types import (
     TimelineEventProjection,
 )
 from shopman.shop.services import payment_status
-from shopman.shop.services.interaction_context import InteractionContext
 from shopman.shop.services.business_calendar import (
     BusinessCalendarState,
     current_business_state,
     format_next_opening,
 )
+from shopman.shop.services.interaction_context import InteractionContext
 
 logger = logging.getLogger(__name__)
 
@@ -1030,6 +1030,7 @@ def _fmt_timestamp(dt) -> str:
         local = timezone.localtime(dt)
         return local.strftime("%d/%m às %H:%M")
     except Exception:
+        logger.debug("order_tracking._fmt_timestamp degraded; using fallback", exc_info=True)
         return str(dt)
 
 

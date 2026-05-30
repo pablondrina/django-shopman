@@ -237,6 +237,7 @@ export interface POSTabProjection {
   total_display: string;
   last_touched_display: string;
   items_preview: string;
+  fired?: boolean;
 }
 
 export interface POSResponse {
@@ -253,6 +254,8 @@ export interface POSCartItem {
   qty: number;
   notes: string;
   is_d1: boolean;
+  line_id?: string;
+  fired?: boolean;
 }
 
 export interface POSPaymentTenderDraft {

@@ -231,6 +231,7 @@ def _history_signals(customer: Any) -> tuple[int | None, str | None]:
     try:
         from shopman.orderman.models import Order
     except Exception:
+        logger.debug("context._history_signals degraded; using fallback", exc_info=True)
         return None, None
 
     cutoff = timezone.now() - timedelta(days=90)
@@ -256,6 +257,7 @@ def _favorite_category_from_orders(orders: list[dict]) -> str | None:
     try:
         from shopman.offerman.models import CollectionItem
     except Exception:
+        logger.debug("context._favorite_category_from_orders degraded; using fallback", exc_info=True)
         return None
 
     sku_counts: dict[str, int] = {}

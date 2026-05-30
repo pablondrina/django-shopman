@@ -36,6 +36,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `tab_display` | `string` | POS tab service | POS UI, Order.data | Rótulo curto para operador. Em numéricos, remove zeros à esquerda; em texto, preserva o rótulo informado. Ex: `"1007"`, `"mesa ana"` |
 | `pos_operator` | `string` | POS tab service | POS projections, Order.data | Username do operador que abriu/tocou o POS tab |
 | `last_touched_at` | `string` | POS tab service | POS projections | Timestamp ISO da última interação operacional |
+| `fired_lines` | `list[str]` | POS `fire_pos_tab` (`session.save`) | `_tab_payload` (flag `fired` por item) | Marker UI de quais `line_id` da comanda já foram disparados à cozinha (KDS). Mirror do ledger autoritativo (tickets KDS por `session_key`, que sobrevive ao commit); escrito direto, sem re-pricing. Disparo progressivo curso-a-curso. **Não propagado ao Order.data** — o ledger pós-commit são os próprios `KDSTicket` |
 | `fiscal` | `dict` | POS checkout | Order.data | Preferências fiscais capturadas no checkout: `{issue_document, tax_id}` |
 | `receipt` | `dict` | POS checkout | Order.data | Preferência de recibo: `{mode, email}` |
 
@@ -144,6 +145,12 @@ for key in (
 | `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entry: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 | `awaiting_wo_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage pedidos/producao projections | Refs de WorkOrders que cobrem itens produzidos do pedido. Contextual, derivável e limpável em void. |
+| `pos_committed_at` | `string` | `shop/services/pos.py` (`_mark_tab_committed`) | — | Timestamp ISO de quando a comanda foi finalizada no POS |
+| `client_request_id` | `string` | `shop/services/pos.py` (`_mark_tab_committed`) | `_existing_sale_by_client_request_id` (dedupe) | Chave de idempotência do checkout direto POS. Espelhada em `pos.client_request_id` |
+| `pos` | `dict` | `shop/services/pos.py` (`_mark_tab_committed`) | POS projections, `CashShift.close()` | Contexto POS selado no Order: `{cash_shift_id, client_request_id, ...}`. `cash_shift_id` liga a venda ao turno de caixa para reconciliação |
+| `external_order_code` | `string` | `shop/services/ifood_ingest.py` | — | Código do pedido no marketplace iFood. Duplicado em `ifood.order_code` |
+| `merchant_id` | `string` | `shop/services/ifood_ingest.py` | — | ID do merchant na iFood. Duplicado em `ifood.merchant_id` |
+| `ifood` | `dict` | `shop/services/ifood_ingest.py` | — | Contexto da iFood (só em pedidos ingeridos via `ifood_ingest`): `{order_code, merchant_id, created_at}` |
 
 ### Chaves seed-only para QA adversarial
 

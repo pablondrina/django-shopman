@@ -21,13 +21,73 @@ def get_active_prep_instances() -> list[Any]:
 def ticket_exists_for_order(order) -> bool:
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(order=order).exists()
+    return KDSTicket.objects.filter(session_key=order.session_key).exists()
 
 
-def create_ticket(order, kds_instance, items: list) -> Any:
+def fired_line_ids_for_session(session_key: str) -> set[str]:
+    """Line ids already on a live (non-cancelled) ticket for this session_key.
+
+    The durable fire-ledger: survives commit (tickets are keyed by session_key,
+    not the Order). A cancelled line is absent — so it may re-fire (reprint).
+    """
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.create(order=order, kds_instance=kds_instance, items=items)
+    fired: set[str] = set()
+    rows = (
+        KDSTicket.objects.filter(session_key=session_key)
+        .exclude(status="cancelled")
+        .values_list("items", flat=True)
+    )
+    for items in rows:
+        for item in items or []:
+            line_id = item.get("line_id")
+            if line_id:
+                fired.add(line_id)
+    return fired
+
+
+def create_ticket(session_key: str, kds_instance, items: list) -> Any:
+    from shopman.backstage.models import KDSTicket
+
+    return KDSTicket.objects.create(
+        session_key=session_key, kds_instance=kds_instance, items=items,
+    )
+
+
+def unfire_session_lines(session_key: str, line_ids: list[str]) -> dict:
+    """Un-fire specific lines for a session: remove them from their live tickets.
+
+    A ticket loses only the targeted line items; when that empties the ticket it
+    is cancelled (status="cancelled"), otherwise the surviving courses keep their
+    prep progress. The model save re-emits the KDS SSE event either way. Removing
+    a line drops it from the fire-ledger, so it may be fired again (reprint =
+    un-fire + fire). Returns ``{"cancelled": n, "trimmed": n}``.
+    """
+    from django.utils import timezone
+
+    from shopman.backstage.models import KDSTicket
+
+    targets = {str(lid) for lid in (line_ids or []) if str(lid)}
+    cancelled = trimmed = 0
+    if not targets:
+        return {"cancelled": 0, "trimmed": 0}
+
+    tickets = KDSTicket.objects.filter(session_key=session_key).exclude(status="cancelled")
+    for ticket in tickets:
+        items = ticket.items or []
+        kept = [it for it in items if it.get("line_id") not in targets]
+        if len(kept) == len(items):
+            continue
+        if kept:
+            ticket.items = kept
+            ticket.save(update_fields=["items"])
+            trimmed += 1
+        else:
+            ticket.status = "cancelled"
+            ticket.cancelled_at = timezone.now()
+            ticket.save(update_fields=["status", "cancelled_at"])
+            cancelled += 1
+    return {"cancelled": cancelled, "trimmed": trimmed}
 
 
 def cancel_open_tickets(order) -> int:
@@ -37,7 +97,7 @@ def cancel_open_tickets(order) -> int:
     from shopman.backstage.models import KDSTicket
 
     tickets = list(KDSTicket.objects.filter(
-        order=order, status__in=["pending", "in_progress"]
+        session_key=order.session_key, status__in=["pending", "in_progress"]
     ))
     cancelled_at = timezone.now()
     for ticket in tickets:
@@ -50,7 +110,7 @@ def cancel_open_tickets(order) -> int:
 def get_tickets(order):
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(order=order)
+    return KDSTicket.objects.filter(session_key=order.session_key)
 
 
 def get_completed_ticket_timestamps(order) -> list[tuple[int, Any]]:
@@ -58,7 +118,7 @@ def get_completed_ticket_timestamps(order) -> list[tuple[int, Any]]:
     from shopman.backstage.models import KDSTicket
 
     return list(
-        KDSTicket.objects.filter(order=order, completed_at__isnull=False)
+        KDSTicket.objects.filter(session_key=order.session_key, completed_at__isnull=False)
         .values_list("pk", "completed_at")
     )
 

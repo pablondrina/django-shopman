@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def customer_by_uuid(customer_uuid):
     from shopman.guestman.services import customer as customer_service
@@ -45,6 +49,7 @@ def trusted_device_prefill(request) -> tuple[str, str]:
             return "", ""
         return customer.phone or "", customer.first_name or ""
     except Exception:
+        logger.debug("auth.trusted_device_prefill degraded; using fallback", exc_info=True)
         return "", ""
 
 
@@ -117,6 +122,7 @@ def confirmed_customer_name(auth_result) -> str:
         customer = customer_by_uuid(auth_result.customer.uuid)
         return customer.first_name if customer else ""
     except Exception:
+        logger.debug("auth.confirmed_customer_name degraded; using fallback", exc_info=True)
         return ""
 
 

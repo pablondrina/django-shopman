@@ -12,6 +12,21 @@ from shopman.storefront.tests.web.conftest import _grant_order_access
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _pin_mock_payment_adapters(settings):
+    """Pin the mock payment adapter for the whole payment-page suite.
+
+    The dev .env may point SHOPMAN_PIX_ADAPTER/CARD_ADAPTER at real gateways
+    (Efí/Stripe); without this, create_intent makes a network call that times
+    out and makes these tests flaky. Tests that exercise gateway *failure* patch
+    get_adapter explicitly, which overrides this.
+    """
+    settings.SHOPMAN_PAYMENT_ADAPTERS = {
+        "pix": "shopman.shop.adapters.payment_mock",
+        "card": "shopman.shop.adapters.payment_mock",
+    }
+
+
 @pytest.fixture
 def order_card(channel, client):
     from shopman.orderman.models import Order
@@ -277,6 +292,7 @@ class TestAuthorizedCardPaymentGate:
         from django.utils import timezone
         from shopman.orderman.models import Order
         from shopman.payman import PaymentService
+
         from shopman.shop.services.customer_orders import resolve_payment_timeout_if_due
 
         order = Order.objects.create(

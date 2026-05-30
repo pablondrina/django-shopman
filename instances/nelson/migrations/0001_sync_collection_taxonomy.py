@@ -4,7 +4,6 @@ from datetime import date
 
 from django.db import migrations
 
-
 COLLECTIONS = [
     {
         "ref": "paes-artesanais",

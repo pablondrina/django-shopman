@@ -65,6 +65,7 @@ def requeue_fiscal_emission(order, *, actor: str):
     try:
         from django.utils import timezone
         from shopman.orderman.models import Directive
+
         from shopman.shop.directives import FISCAL_EMIT_NFCE
         from shopman.shop.services import fiscal
     except Exception as exc:

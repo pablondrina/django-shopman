@@ -15,10 +15,10 @@ from shopman.backstage.services.exceptions import KDSError
 
 @pytest.fixture
 def ticket(db):
-    order = Order.objects.create(ref="KDS-SVC-1", channel_ref="web", total_q=1000)
+    order = Order.objects.create(ref="KDS-SVC-1", channel_ref="web", session_key="sk-kds-svc-1", total_q=1000)
     instance = KDSInstance.objects.create(ref="prep-svc", name="Preparo", type="prep")
     return KDSTicket.objects.create(
-        order=order,
+        session_key=order.session_key,
         kds_instance=instance,
         items=[{"sku": "A", "name": "Item", "qty": 1, "checked": False}],
     )
