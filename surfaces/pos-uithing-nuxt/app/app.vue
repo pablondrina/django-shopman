@@ -64,9 +64,9 @@ const lookupBusy = ref(false);
 const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
-// Odoo-style: the Command Board (tabs) is the first screen; opening a tab moves
-// to the sale workspace. "Comandas" returns to the board with the tab still open.
-const showBoard = ref(true);
+// Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
+// sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
+const showTabs = ref(true);
 const cashDialogOpen = ref(false);
 const moveDialogOpen = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
@@ -155,9 +155,9 @@ const addressAutocomplete = computed<POSAddressAutocompleteProjection | null>(()
 const totalDisplay = computed(() => formatBRL(cartTotalQ(cart.items)));
 const itemCount = computed(() => cart.items.reduce((sum, item) => sum + item.qty, 0));
 const hasOpenTab = computed(() => Boolean(cart.tabSessionKey));
-const inSaleView = computed(() => !showBoard.value && hasOpenTab.value);
-function goToBoard() {
-  showBoard.value = true;
+const inSaleView = computed(() => !showTabs.value && hasOpenTab.value);
+function goToTabs() {
+  showTabs.value = true;
 }
 const hasDraftWithoutTab = computed(() => !hasOpenTab.value && cart.items.length > 0);
 const canUseCart = computed(() => !tabRequiredForCart.value || hasOpenTab.value);
@@ -344,7 +344,7 @@ function resetCart() {
   customerLookup.value = null;
   checkoutMode.value = false;
   review.value = null;
-  showBoard.value = true;
+  showTabs.value = true;
 }
 
 function sanitizeTabRef(value: string): string {
@@ -366,7 +366,7 @@ function assignTabIdentityFromPayload(payload: POSTabPayload) {
   cart.tabRef = payload.tab_ref;
   cart.tabDisplay = payload.tab_display;
   cart.tabSessionKey = payload.tab_session_key || payload.session_key;
-  showBoard.value = false;
+  showTabs.value = false;
 }
 
 function setFromTabPayload(payload: POSTabPayload) {
@@ -1165,7 +1165,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       />
 
       <div v-else>
-        <!-- BOARD VIEW — Command Board é a PRIMEIRA tela (benchmark Odoo: comandas/mesas antes do pedido) -->
+        <!-- TABS VIEW — a tela de Comandas/Tabs é a PRIMEIRA (benchmark Odoo: tabs/mesas antes do pedido) -->
         <section v-if="!inSaleView" class="grid gap-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-lg font-semibold">Comandas</h2>
@@ -1271,7 +1271,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
         <div v-else class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside class="grid content-start gap-3 lg:order-1">
-            <UiButton variant="outline" size="sm" class="w-fit gap-2" @click="goToBoard">
+            <UiButton variant="outline" size="sm" class="w-fit gap-2" @click="goToTabs">
               <Icon name="lucide:arrow-left" class="size-4" />
               Comandas
             </UiButton>
