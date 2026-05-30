@@ -104,6 +104,26 @@ def test_close_cash_session_closes_and_records_notes(operator):
 
 
 @pytest.mark.django_db
+def test_cash_shift_result_is_blind_to_operator(operator):
+    """The operator close response never exposes the expected amount or variance."""
+    from shopman.backstage.api.operations import _cash_shift_result
+
+    terminal = POSTerminal.default()
+    shift = CashShift.objects.create(operator=operator, terminal=terminal, opening_amount_q=1000)
+    shift.close(blind_closing_amount_q=800)
+
+    # The shift still stores the variance for manager review...
+    assert shift.expected_amount_q == 1000
+    assert shift.difference_q == -200
+
+    # ...but the operator-facing payload hides both.
+    result = _cash_shift_result(shift)
+    assert result["blind_closing_amount_q"] == 800
+    assert "expected_amount_q" not in result
+    assert "difference_q" not in result
+
+
+@pytest.mark.django_db
 def test_close_cash_shift_counts_terminal_cash_not_delivery_cash(operator):
     from shopman.orderman.models import Order
 

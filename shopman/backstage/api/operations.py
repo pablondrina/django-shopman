@@ -83,6 +83,10 @@ def _actor(request) -> str:
 
 
 def _cash_shift_result(shift) -> dict:
+    # Blind close: the operator sees only what they counted, never the expected
+    # amount or variance. ``expected_amount_q``/``difference_q`` are still
+    # computed and stored on the shift; managers review them via Admin and the
+    # day-closing reconciliation, never at the cashier terminal.
     return {
         "id": shift.pk,
         "terminal_ref": shift.terminal.ref,
@@ -92,8 +96,6 @@ def _cash_shift_result(shift) -> dict:
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else "",
         "opening_amount_q": shift.opening_amount_q,
         "blind_closing_amount_q": shift.blind_closing_amount_q,
-        "expected_amount_q": shift.expected_amount_q,
-        "difference_q": shift.difference_q,
     }
 
 
