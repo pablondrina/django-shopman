@@ -19,6 +19,7 @@ export interface POSProductProjection {
   price_display: string;
   collection_ref: string;
   is_d1: boolean;
+  image_url: string;
 }
 
 export interface POSCollectionProjection {

@@ -52,6 +52,7 @@ class POSProductProjection:
     price_display: str
     collection_ref: str
     is_d1: bool
+    image_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -1262,6 +1263,7 @@ def _product_projection(product: Product, price_q: int) -> POSProductProjection:
         price_display=f"R$ {format_money(price_q)}",
         collection_ref=ci.collection.ref if ci else "",
         is_d1=is_d1,
+        image_url=product.image_url or "",
     )
 
 
