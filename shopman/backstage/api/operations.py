@@ -799,6 +799,29 @@ class POSTabMoveLinesView(APIView):
         return Response(result)
 
 
+class POSTabFireView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.fire_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                client_request_id=str(body.get("client_request_id") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_fire_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao enviar à cozinha."}, status=400)
+        return Response(result)
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["backstage"],

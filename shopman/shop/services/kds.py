@@ -154,6 +154,13 @@ def fire_lines(*, session_key: str, lines: list[dict]) -> list:
     return tickets
 
 
+def fired_line_ids(session_key: str) -> set:
+    """Line ids already on a live (non-cancelled) ticket for this session_key."""
+    from shopman.shop.adapters import kds as kds_adapter
+
+    return kds_adapter.fired_line_ids_for_session(session_key)
+
+
 def _order_to_lines(order) -> list[dict]:
     """Normalize an Order's items to source-agnostic fire lines."""
     lines = []

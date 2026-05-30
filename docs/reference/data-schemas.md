@@ -36,6 +36,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `tab_display` | `string` | POS tab service | POS UI, Order.data | Rótulo curto para operador. Em numéricos, remove zeros à esquerda; em texto, preserva o rótulo informado. Ex: `"1007"`, `"mesa ana"` |
 | `pos_operator` | `string` | POS tab service | POS projections, Order.data | Username do operador que abriu/tocou o POS tab |
 | `last_touched_at` | `string` | POS tab service | POS projections | Timestamp ISO da última interação operacional |
+| `fired_lines` | `list[str]` | POS `fire_pos_tab` (`session.save`) | `_tab_payload` (flag `fired` por item) | Marker UI de quais `line_id` da comanda já foram disparados à cozinha (KDS). Mirror do ledger autoritativo (tickets KDS por `session_key`, que sobrevive ao commit); escrito direto, sem re-pricing. Disparo progressivo curso-a-curso. **Não propagado ao Order.data** — o ledger pós-commit são os próprios `KDSTicket` |
 | `fiscal` | `dict` | POS checkout | Order.data | Preferências fiscais capturadas no checkout: `{issue_document, tax_id}` |
 | `receipt` | `dict` | POS checkout | Order.data | Preferência de recibo: `{mode, email}` |
 
