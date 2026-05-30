@@ -410,8 +410,11 @@ class POSHeadlessSurfaceContractTests(TestCase):
 
     @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
     def test_api_headless_pos_close_accepts_manager_approval_for_canonical_discount(self) -> None:
+        from shopman.doorman.models import PinCredential
+
         manager = get_user_model().objects.create_user(username="pos-manager-api", password="secret", is_staff=True)
         _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
         payload = {
             "intent_version": POS_SALE_INTENT_VERSION,
             "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
@@ -419,7 +422,7 @@ class POSHeadlessSurfaceContractTests(TestCase):
             "payment_method": "cash",
             "payment_collection": "terminal",
             "manual_discount": {"type": "fixed", "value": "1,00", "reason": "cortesia"},
-            "manager_approval": {"username": "pos-manager-api", "password": "secret"},
+            "manager_approval": {"username": "pos-manager-api", "pin": "4321"},
             "client_request_id": "pos-headless-manager-approval-002",
         }
 

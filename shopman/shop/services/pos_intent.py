@@ -309,10 +309,10 @@ def _manager_approval(raw) -> dict | None:
     if not isinstance(raw, dict):
         return None
     username = _text(raw.get("username"), limit=150)
-    password = str(raw.get("password") or "")
-    if not username and not password:
+    pin = str(raw.get("pin") or "")
+    if not username and not pin:
         return None
-    return {"username": username, "password": password}
+    return {"username": username, "pin": pin}
 
 
 def _fulfillment_type(value) -> str:

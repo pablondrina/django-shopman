@@ -650,8 +650,33 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
     return ops
 
 
+def _verify_manager_pin(username: str, pin: str):
+    """Resolve a manager by username and verify their override PIN.
+
+    A short, rate-limited PIN challenge replaces account passwords in the sale
+    payload. Reuses doorman's generic ``PinCredential`` (HMAC hash + lockout)
+    and the same ``backstage.adjust_cashshift`` permission the override gates
+    require. Returns the authorizing user, or ``None`` if the challenge fails.
+    """
+    from django.contrib.auth import get_user_model
+    from shopman.doorman.models import PinCredential
+
+    user_model = get_user_model()
+    try:
+        user = user_model.objects.get(username=username, is_active=True, is_staff=True)
+    except user_model.DoesNotExist:
+        return None
+    if not user.has_perm("backstage.adjust_cashshift"):
+        return None
+    try:
+        credential = user.pin_credential
+    except PinCredential.DoesNotExist:
+        return None
+    return user if credential.verify(pin) else None
+
+
 def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
-    """Require manager credentials for configured POS discount thresholds."""
+    """Require a manager PIN challenge for configured POS discount thresholds."""
     threshold_q = _discount_approval_threshold_q()
     if threshold_q <= 0:
         return
@@ -661,26 +686,23 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
 
     approval = payload.get("manager_approval") or {}
     username = str(approval.get("username") or "").strip()
-    password = str(approval.get("password") or "")
-    if not username or not password:
+    pin = str(approval.get("pin") or "")
+    if not username or not pin:
         raise PosIntentError(
             code="manager_approval_required",
             message="Desconto exige aprovação gerencial.",
             field="manager_approval",
             focus="approval",
-            recovery="Peça a um gerente autorizado para aprovar o desconto antes de finalizar.",
+            recovery="Peça a um gerente autorizado para aprovar o desconto com o PIN antes de finalizar.",
         )
 
-    from django.contrib.auth import authenticate
-
-    user = authenticate(username=username, password=password)
-    if not user or not user.is_active or not user.has_perm("backstage.adjust_cashshift"):
+    if _verify_manager_pin(username, pin) is None:
         raise PosIntentError(
             code="manager_approval_invalid",
             message="Aprovação gerencial inválida.",
             field="manager_approval",
             focus="approval",
-            recovery="Revise usuário e senha do gerente ou reduza o desconto.",
+            recovery="Revise o gerente e o PIN ou reduza o desconto.",
         )
     logger.info(
         "pos_manager_approval operator=%s approved_by=%s discount_q=%s",

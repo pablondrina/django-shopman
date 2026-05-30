@@ -183,19 +183,40 @@ class POSCloseWithDiscountTests(TestCase):
 
     @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
     def test_close_with_discount_accepts_manager_approval(self) -> None:
+        from shopman.doorman.models import PinCredential
+
         User = get_user_model()
         manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
         _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
 
         resp = self._close_sale(
             [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
             manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-            manager_approval={"username": "pos_manager", "password": "secret"},
+            manager_approval={"username": "pos_manager", "pin": "4321"},
         )
 
         self.assertEqual(resp.status_code, 200)
         order = Order.objects.latest("created_at")
         self.assertEqual(order.data["manual_discount"]["approved_by"], "pos_manager")
+
+    @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
+    def test_close_with_discount_rejects_wrong_manager_pin(self) -> None:
+        from shopman.doorman.models import PinCredential
+
+        User = get_user_model()
+        manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
+        _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
+
+        resp = self._close_sale(
+            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
+            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
+            manager_approval={"username": "pos_manager", "pin": "0000"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        self.assertIn("aprovação gerencial", resp.content.decode().lower())
 
     def test_close_with_item_note(self) -> None:
         """Item notes are accepted in payload and stored in canonical meta."""
