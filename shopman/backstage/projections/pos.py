@@ -711,6 +711,18 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"path": {"session_key": "string"}},
             confirmation={"style": "destructive"},
         ),
+        SurfaceActionProjection(
+            ref="move_tab_lines",
+            kind="mutation",
+            label="Mover itens (transferir/dividir/juntar)",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/move-lines/",
+            payload_schema={
+                "required": ["from_session_key", "line_ids"],
+                "optional": ["to_session_key", "to_tab_ref", "close_source_when_empty"],
+            },
+        ),
     )
 
 
@@ -1033,6 +1045,13 @@ def _checkout_contract(
                 "allows_operator_tab_creation": True,
                 "draft_association_target_states": ("empty",),
                 "occupied_tab_selection": "open_existing_not_merge",
+            },
+            "tab_manipulation": {
+                "move_action_ref": "move_tab_lines",
+                "allows_transfer": True,
+                "allows_split": True,
+                "allows_merge": True,
+                "freezes_price_on_move": True,
             },
             "cash_management": {
                 "open_action_ref": "open_cash_shift",

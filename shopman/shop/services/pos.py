@@ -468,6 +468,148 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
     return cleared
 
 
+def move_pos_tab_lines(
+    *,
+    channel_ref: str,
+    from_session_key: str,
+    line_ids: list[str],
+    to_session_key: str = "",
+    to_tab_ref: str = "",
+    close_source_when_empty: bool = False,
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Move lines between POS comandas (transfer / split / merge), freezing price.
+
+    - transfer: ``to_session_key`` points at an existing open comanda.
+    - split: ``to_tab_ref`` names a new comanda; it is created, then the lines
+      move into it (suggested child handle is editable on the surface).
+    - merge: pass every ``line_id`` plus ``close_source_when_empty`` so the
+      emptied source comanda is released.
+
+    Prices carry over verbatim via the kernel ``move_lines`` op.
+    """
+    channel, _config = _channel_and_config(channel_ref)
+    line_ids = [str(line_id) for line_id in (line_ids or []) if str(line_id).strip()]
+    if not line_ids:
+        raise PosIntentError(
+            code="no_line_ids",
+            message="Selecione ao menos um item para mover.",
+            field="line_ids",
+            focus="cart",
+        )
+
+    source = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=from_session_key)
+    if source is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda de origem não encontrada.",
+            field="from_session_key",
+            focus="cart",
+        )
+
+    target_created = False
+    if to_session_key:
+        target = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=to_session_key)
+        if target is None:
+            raise PosIntentError(
+                code="tab_not_found",
+                message="Comanda de destino não encontrada.",
+                field="to_session_key",
+                focus="cart",
+            )
+    elif to_tab_ref:
+        ref = normalize_tab_ref(to_tab_ref)
+        if not ref:
+            raise PosIntentError(
+                code="invalid_tab_ref",
+                message="Referência de comanda inválida.",
+                field="to_tab_ref",
+                focus="cart",
+            )
+        if _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref) is not None:
+            raise PosIntentError(
+                code="tab_in_use",
+                message="Já existe uma comanda aberta com essa referência.",
+                field="to_tab_ref",
+                focus="cart",
+            )
+        tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(to_tab_ref, ref))
+        target = session_service.create_session(
+            channel.ref,
+            handle_type="pos_tab",
+            handle_ref=ref,
+            data={
+                "origin_channel": "pos",
+                "fulfillment_type": "pickup",
+                "tab_ref": ref,
+                "tab_display": tab_display,
+                "pos_operator": operator_username,
+                "last_touched_at": timezone.now().isoformat(),
+            },
+        )
+        target_created = True
+    else:
+        raise PosIntentError(
+            code="missing_target",
+            message="Informe a comanda de destino.",
+            field="to_session_key",
+            focus="cart",
+        )
+
+    if target.session_key == source.session_key:
+        raise PosIntentError(
+            code="same_tab",
+            message="Origem e destino não podem ser a mesma comanda.",
+            field="to_session_key",
+            focus="cart",
+        )
+
+    try:
+        session_service.move_session_lines(
+            from_session_key=source.session_key,
+            to_session_key=target.session_key,
+            channel_ref=channel.ref,
+            line_ids=line_ids,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface kernel errors as a recoverable POS error
+        if target_created:
+            # Roll back the freshly-created split target so no empty comanda lingers.
+            session_service.abandon_session(session_key=target.session_key, channel_ref=channel.ref)
+        raise PosIntentError(
+            code="move_failed",
+            message=str(exc) or "Falha ao mover itens entre comandas.",
+            field="line_ids",
+            focus="cart",
+        ) from exc
+
+    source.refresh_from_db()
+    target.refresh_from_db()
+
+    source_closed = False
+    if close_source_when_empty and not source.items:
+        source_closed = session_service.abandon_session(
+            session_key=source.session_key,
+            channel_ref=channel.ref,
+        )
+
+    logger.info(
+        "pos_move_tab_lines from=%s to=%s count=%s split=%s closed=%s operator=%s",
+        source.session_key,
+        target.session_key,
+        len(line_ids),
+        target_created,
+        source_closed,
+        operator_username,
+    )
+    return {
+        "ok": True,
+        "source_closed": bool(source_closed),
+        "source": None if source_closed else _tab_payload(source),
+        "target": _tab_payload(target),
+    }
+
+
 def cancel_recent_order(
     *,
     order_ref: str,

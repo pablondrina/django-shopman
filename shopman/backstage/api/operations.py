@@ -768,6 +768,38 @@ class POSTabClearView(APIView):
 
 
 @extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Move lines between POS tabs (transfer/split/merge)",
+        responses={200: OpenApiResponse(description="Lines moved.")},
+    ),
+)
+class POSTabMoveLinesView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.move_pos_tab_lines(
+                channel_ref=POS_CHANNEL_REF,
+                from_session_key=str(body.get("from_session_key") or "").strip(),
+                to_session_key=str(body.get("to_session_key") or "").strip(),
+                to_tab_ref=str(body.get("to_tab_ref") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                close_source_when_empty=bool(body.get("close_source_when_empty")),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_move_lines_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao mover itens entre comandas."}, status=400)
+        return Response(result)
+
+
+@extend_schema_view(
     get=extend_schema(
         tags=["backstage"],
         summary="Look up customer by phone",
