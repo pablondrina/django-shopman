@@ -1339,6 +1339,7 @@ def _tab_payload(session: Session) -> dict:
     tab_ref = _session_tab_ref(session)
     items = [
         {
+            "line_id": item.get("line_id", ""),
             "sku": item["sku"],
             "name": item.get("name", item["sku"]),
             "price_q": item.get("unit_price_q", 0),

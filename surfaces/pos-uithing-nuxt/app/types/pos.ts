@@ -253,6 +253,7 @@ export interface POSCartItem {
   qty: number;
   notes: string;
   is_d1: boolean;
+  line_id?: string;
 }
 
 export interface POSPaymentTenderDraft {

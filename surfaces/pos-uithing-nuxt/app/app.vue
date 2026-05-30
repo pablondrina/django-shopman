@@ -56,6 +56,7 @@ const serverError = ref("");
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
 const cashDialogOpen = ref(false);
+const moveDialogOpen = ref(false);
 const review = ref<POSSaleReviewProjection | null>(null);
 const customerLookup = ref<POSCustomerLookupProjection | null>(null);
 const tabDialogOpen = ref(false);
@@ -177,6 +178,10 @@ const sortedTabs = computed(() => [...tabs.value].sort((a, b) => {
 }));
 
 const openTabsCount = computed(() => tabs.value.filter((tab) => tab.state === "in_use").length);
+const otherOpenTabs = computed(() =>
+  sortedTabs.value.filter((tab) => tab.state === "in_use" && tab.session_key && tab.ref !== cart.tabRef),
+);
+const suggestedSplitRef = computed(() => (cart.tabDisplay ? `${cart.tabDisplay}-2` : ""));
 const visibleTabs = computed(() =>
   tabFilter.value === "in_use"
     ? sortedTabs.value.filter((tab) => tab.state === "in_use")
@@ -716,6 +721,58 @@ function newClientRequestId(): string {
   return `pos-uithing:${random}`;
 }
 
+async function openMoveDialog() {
+  if (!hasOpenTab.value || !cart.items.length) return;
+  // Persist + reload so the lines carry server line_ids the move op needs.
+  serverError.value = "";
+  busy.value = true;
+  try {
+    await persistTab();
+    await reloadCurrentTab();
+    moveDialogOpen.value = true;
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.message || "Falha ao preparar a comanda para mover itens.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function submitMove(payload: {
+  mode: "split" | "transfer" | "merge";
+  lineIds: string[];
+  toTabRef?: string;
+  toSessionKey?: string;
+  closeSource?: boolean;
+}) {
+  if (!cart.tabSessionKey) return;
+  serverError.value = "";
+  busy.value = true;
+  try {
+    const body: Record<string, unknown> = {
+      from_session_key: cart.tabSessionKey,
+      line_ids: payload.lineIds,
+    };
+    if (payload.toTabRef) body.to_tab_ref = payload.toTabRef;
+    if (payload.toSessionKey) body.to_session_key = payload.toSessionKey;
+    if (payload.closeSource) body.close_source_when_empty = true;
+    const response = await action.call<{ source_closed: boolean; source: POSTabPayload | null }>(
+      actionHref(actions.value, "move_tab_lines", "/api/v1/backstage/pos/tabs/move-lines/"),
+      { body },
+    );
+    moveDialogOpen.value = false;
+    if (response.source_closed || !response.source) {
+      resetCart();
+    } else {
+      setFromTabPayload(response.source);
+    }
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao mover itens.";
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function openCashShift(amount: string) {
   serverError.value = "";
   busy.value = true;
@@ -1137,6 +1194,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @remove="(sku) => setQty(sku, 0)"
           @save="saveTab"
           @prepare="prepareCheckout"
+          @move="openMoveDialog"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"
@@ -1178,6 +1236,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       @open-shift="openCashShift"
       @close-shift="closeCashShift"
       @movement="registerCashMovement"
+    />
+
+    <PosMoveLinesDialog
+      v-model:open="moveDialogOpen"
+      :tab-display="cart.tabDisplay"
+      :items="cart.items"
+      :suggested-split-ref="suggestedSplitRef"
+      :other-tabs="otherOpenTabs"
+      :busy="busy"
+      @submit="submitMove"
     />
   </main>
 </template>

@@ -26,6 +26,7 @@ const emit = defineEmits<{
   remove: [string];
   save: [];
   prepare: [];
+  move: [];
   clear: [];
   requestTab: [];
   lookupCustomer: [];
@@ -184,6 +185,17 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
         <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
         <strong class="text-2xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
+      <UiButton
+        v-if="hasOpenTab && items.length"
+        variant="ghost"
+        size="sm"
+        class="justify-start gap-2 text-muted-foreground"
+        :disabled="loading || saving"
+        @click="$emit('move')"
+      >
+        <Icon name="lucide:split" class="size-4" />
+        Mover itens (dividir / transferir / juntar)
+      </UiButton>
       <div class="grid grid-cols-2 gap-2">
         <UiButton
           variant="outline"
