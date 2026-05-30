@@ -126,7 +126,7 @@ def dispatch(order) -> list:
     inst_by_pk = {inst.pk: inst for inst in instances}
 
     for inst_pk, items in instance_items.items():
-        ticket = kds_adapter.create_ticket(order, inst_by_pk[inst_pk], items)
+        ticket = kds_adapter.create_ticket(order.session_key, inst_by_pk[inst_pk], items)
         tickets.append(ticket)
 
     logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
@@ -265,6 +265,17 @@ def on_all_tickets_done(order, *, actor: str = "kds.all_done") -> bool:
     return True
 
 
+def _ticket_order(ticket):
+    """Resolve a ticket's ``session_key`` to its committed Order, if any.
+
+    A ticket fired from an open comanda (pre-commit) has no Order yet — the
+    same ``session_key`` only resolves to an Order after ``commit``. The
+    done-loop (advance to PREPARING / READY) is a no-op until then: kitchen
+    progress on an open comanda does not move an order that does not exist.
+    """
+    return Order.objects.filter(session_key=ticket.session_key).order_by("-id").first()
+
+
 def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
     """Toggle a KDS ticket item and start preparation when work begins."""
     if ticket.status not in OPEN_TICKET_STATUSES:
@@ -279,7 +290,9 @@ def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
 
     ticket.save(update_fields=["items", "status"])
 
-    _ensure_order_preparing_for_work(ticket.order, actor=actor)
+    order = _ticket_order(ticket)
+    if order is not None:
+        _ensure_order_preparing_for_work(order, actor=actor)
     return True
 
 
@@ -287,7 +300,8 @@ def complete_ticket(ticket, *, actor: str) -> bool:
     """Mark a KDS ticket done and move the order to ready when all tickets finish."""
     if ticket.status not in OPEN_TICKET_STATUSES:
         return False
-    if not _ensure_order_preparing_for_work(ticket.order, actor=actor):
+    order = _ticket_order(ticket)
+    if order is not None and not _ensure_order_preparing_for_work(order, actor=actor):
         return False
     for item in ticket.items:
         item["checked"] = True
@@ -295,8 +309,10 @@ def complete_ticket(ticket, *, actor: str) -> bool:
     ticket.completed_at = timezone.now()
     ticket.save(update_fields=["items", "status", "completed_at"])
 
-    logger.info("kds_done ticket=%d order=%s", ticket.pk, ticket.order.ref)
-    return on_all_tickets_done(ticket.order, actor=actor)
+    logger.info("kds_done ticket=%d session=%s", ticket.pk, ticket.session_key)
+    if order is None:
+        return False
+    return on_all_tickets_done(order, actor=actor)
 
 
 def expedition_action(order, *, action: str, actor: str) -> str:

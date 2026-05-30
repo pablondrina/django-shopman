@@ -9,10 +9,10 @@ from shopman.shop.handlers import _sse_emitters
 
 @pytest.fixture
 def kds_ticket(db):
-    order = Order.objects.create(ref="KDS-SSE-ORD", channel_ref="web", status="confirmed", total_q=1000)
+    order = Order.objects.create(ref="KDS-SSE-ORD", channel_ref="web", session_key="sk-kds-sse-ord", status="confirmed", total_q=1000)
     station = KDSInstance.objects.create(ref="prep", name="Preparo", type="prep")
     return KDSTicket.objects.create(
-        order=order,
+        session_key=order.session_key,
         kds_instance=station,
         items=[{"sku": "P1", "name": "Produto", "qty": 1, "checked": False}],
     )
@@ -38,10 +38,10 @@ def test_emit_kds_change_payload(monkeypatch, kds_ticket):
 def test_kds_ticket_created_emits_created_and_update(monkeypatch):
     calls = []
     monkeypatch.setattr(_sse_emitters, "_emit_backstage", lambda kind, event_type, payload, **kwargs: calls.append(event_type))
-    order = Order.objects.create(ref="KDS-SSE-NEW", channel_ref="web", status="confirmed", total_q=1000)
+    order = Order.objects.create(ref="KDS-SSE-NEW", channel_ref="web", session_key="sk-kds-sse-new", status="confirmed", total_q=1000)
     station = KDSInstance.objects.create(ref="prep-new", name="Preparo", type="prep")
 
-    KDSTicket.objects.create(order=order, kds_instance=station, items=[])
+    KDSTicket.objects.create(session_key=order.session_key, kds_instance=station, items=[])
 
     assert "backstage-kds-created" in calls
     assert "backstage-kds-update" in calls
@@ -66,7 +66,8 @@ def test_cancel_tickets_emits_kds_status_update(monkeypatch, kds_ticket):
 
     from shopman.shop.services.kds import cancel_tickets
 
-    count = cancel_tickets(kds_ticket.order)
+    order = Order.objects.get(session_key=kds_ticket.session_key)
+    count = cancel_tickets(order)
     kds_ticket.refresh_from_db()
 
     assert count == 1
@@ -99,11 +100,11 @@ def test_kds_multi_instance_scopes_events_per_station(monkeypatch):
 
     prep = KDSInstance.objects.create(ref="prep-multi", name="Preparo", type="prep")
     expedicao = KDSInstance.objects.create(ref="expedicao-multi", name="Expedição", type="expedition")
-    order_a = Order.objects.create(ref="MULTI-A", channel_ref="web", status="confirmed", total_q=100)
-    order_b = Order.objects.create(ref="MULTI-B", channel_ref="web", status="confirmed", total_q=100)
+    order_a = Order.objects.create(ref="MULTI-A", channel_ref="web", session_key="sk-multi-a", status="confirmed", total_q=100)
+    order_b = Order.objects.create(ref="MULTI-B", channel_ref="web", session_key="sk-multi-b", status="confirmed", total_q=100)
 
-    KDSTicket.objects.create(order=order_a, kds_instance=prep, items=[])
-    KDSTicket.objects.create(order=order_b, kds_instance=expedicao, items=[])
+    KDSTicket.objects.create(session_key=order_a.session_key, kds_instance=prep, items=[])
+    KDSTicket.objects.create(session_key=order_b.session_key, kds_instance=expedicao, items=[])
 
     prep_scopes = {scope for scope, _ in captured if scope == "prep-multi"}
     exp_scopes = {scope for scope, _ in captured if scope == "expedicao-multi"}

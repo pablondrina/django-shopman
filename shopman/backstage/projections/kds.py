@@ -172,8 +172,7 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
             kds_instance=instance,
             status__in=ACTIVE_TICKET_STATUSES,
         )
-        .select_related("order")
-        .order_by("created_at")
+                .order_by("created_at")
     )
     cancelled_qs = (
         KDSTicket.objects.filter(
@@ -181,8 +180,7 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
             status="cancelled",
             cancelled_at__gte=timezone.now() - RECENT_CANCELLED_WINDOW,
         )
-        .select_related("order")
-        .order_by("-cancelled_at", "-created_at")[:RECENT_CANCELLED_LIMIT]
+                .order_by("-cancelled_at", "-created_at")[:RECENT_CANCELLED_LIMIT]
     )
 
     tickets = tuple(_build_ticket(t, instance) for t in active_qs)
@@ -210,7 +208,7 @@ def build_kds_ticket(ticket_pk: int) -> KDSTicketProjection:
     """Build a single ticket projection (for HTMX partial re-renders)."""
     from shopman.backstage.models import KDSTicket
 
-    ticket = KDSTicket.objects.select_related("order", "kds_instance").get(pk=ticket_pk)
+    ticket = KDSTicket.objects.select_related("kds_instance").get(pk=ticket_pk)
     return _build_ticket(ticket, ticket.kds_instance)
 
 
@@ -276,6 +274,30 @@ def _build_expedition_board(instance) -> KDSBoardProjection:
     )
 
 
+def _resolve_ticket_source(ticket):
+    """Resolve a ticket's ``session_key`` to its current source for display.
+
+    Returns the committed Order when it exists, otherwise the open Session
+    (comanda fired progressively before commit). Both expose ``data`` /
+    ``handle_ref`` / ``channel_ref``; ``ref`` only exists on Order, so the
+    pre-commit comanda falls back to its handle (tab label) for the heading.
+    """
+    from shopman.orderman.models import Session
+
+    order = (
+        Order.objects.filter(session_key=ticket.session_key)
+        .order_by("-id")
+        .first()
+    )
+    if order is not None:
+        return order
+    return (
+        Session.objects.filter(session_key=ticket.session_key, state="open")
+        .order_by("-id")
+        .first()
+    )
+
+
 def _build_ticket(ticket, instance) -> KDSTicketProjection:
     now = timezone.now()
     is_cancelled = ticket.status == "cancelled"
@@ -290,13 +312,17 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
     else:
         timer_class = "timer-late"
 
-    order = ticket.order
+    source = _resolve_ticket_source(ticket)
+    source_data = (getattr(source, "data", None) or {}) if source is not None else {}
+    handle_ref = getattr(source, "handle_ref", "") if source is not None else ""
+    order_ref = getattr(source, "ref", "") or handle_ref or ticket.session_key
+    channel_ref = getattr(source, "channel_ref", "") if source is not None else ""
     customer_name = (
-        order.data.get("customer", {}).get("name", "")
-        or order.handle_ref
+        source_data.get("customer", {}).get("name", "")
+        or handle_ref
         or ""
     )
-    fulfillment_type = get_fulfillment_type(order)
+    fulfillment_type = source_data.get("fulfillment_type") or source_data.get("delivery_method", "")
     fulfillment_icon = "local_shipping" if fulfillment_type == "delivery" else "storefront"
 
     raw_items = ticket.items
@@ -317,8 +343,8 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
 
     return KDSTicketProjection(
         pk=ticket.pk,
-        order_ref=order.ref,
-        channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
+        order_ref=order_ref,
+        channel_icon=CHANNEL_ICONS.get(channel_ref or "", _DEFAULT_CHANNEL_ICON),
         customer_name=customer_name,
         fulfillment_icon=fulfillment_icon,
         created_at_display=_format_datetime(ticket.created_at),

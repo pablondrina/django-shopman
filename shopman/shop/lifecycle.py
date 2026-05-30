@@ -506,7 +506,8 @@ def _dispatch_physical_work(order) -> bool:
     if tickets:
         return True
     try:
-        return bool(order.kds_tickets.exists())
+        from shopman.shop.adapters import kds as kds_adapter
+        return kds_adapter.ticket_exists_for_order(order)
     except Exception:
         return False
 

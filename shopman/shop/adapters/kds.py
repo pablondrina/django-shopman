@@ -21,13 +21,15 @@ def get_active_prep_instances() -> list[Any]:
 def ticket_exists_for_order(order) -> bool:
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(order=order).exists()
+    return KDSTicket.objects.filter(session_key=order.session_key).exists()
 
 
-def create_ticket(order, kds_instance, items: list) -> Any:
+def create_ticket(session_key: str, kds_instance, items: list) -> Any:
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.create(order=order, kds_instance=kds_instance, items=items)
+    return KDSTicket.objects.create(
+        session_key=session_key, kds_instance=kds_instance, items=items,
+    )
 
 
 def cancel_open_tickets(order) -> int:
@@ -37,7 +39,7 @@ def cancel_open_tickets(order) -> int:
     from shopman.backstage.models import KDSTicket
 
     tickets = list(KDSTicket.objects.filter(
-        order=order, status__in=["pending", "in_progress"]
+        session_key=order.session_key, status__in=["pending", "in_progress"]
     ))
     cancelled_at = timezone.now()
     for ticket in tickets:
@@ -50,7 +52,7 @@ def cancel_open_tickets(order) -> int:
 def get_tickets(order):
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(order=order)
+    return KDSTicket.objects.filter(session_key=order.session_key)
 
 
 def get_completed_ticket_timestamps(order) -> list[tuple[int, Any]]:
@@ -58,7 +60,7 @@ def get_completed_ticket_timestamps(order) -> list[tuple[int, Any]]:
     from shopman.backstage.models import KDSTicket
 
     return list(
-        KDSTicket.objects.filter(order=order, completed_at__isnull=False)
+        KDSTicket.objects.filter(session_key=order.session_key, completed_at__isnull=False)
         .values_list("pk", "completed_at")
     )
 

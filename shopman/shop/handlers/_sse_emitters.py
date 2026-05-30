@@ -241,13 +241,23 @@ def _on_operator_alert_saved(sender, instance, created, **kwargs):
 def emit_kds_change(ticket, *, event_type: str = "backstage-kds-update", scope: str | None = None) -> None:
     """Publish a Backstage KDS event for ticket creation/status/item changes."""
     station_ref = ticket.kds_instance.ref if ticket.kds_instance_id else ""
+    order_ref = ""
+    if ticket.session_key:
+        from shopman.orderman.models import Order
+        order_ref = (
+            Order.objects.filter(session_key=ticket.session_key)
+            .values_list("ref", flat=True)
+            .first()
+            or ""
+        )
     payload = {
         "ticket_ref": f"KDS-{ticket.pk}",
         "ticket_id": ticket.pk,
         "kds_instance_ref": station_ref,
         "status": ticket.status,
         "station": station_ref,
-        "order_ref": ticket.order.ref if ticket.order_id else "",
+        "session_key": ticket.session_key,
+        "order_ref": order_ref,
         "count_active": _active_kds_count(ticket.kds_instance_id),
     }
     _emit_backstage("kds", event_type, payload, scope=scope or station_ref)
