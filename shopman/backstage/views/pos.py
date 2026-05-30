@@ -80,12 +80,12 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     from shopman.shop.models import Shop
 
     shop = Shop.load()
-    cash_session = CashShift.get_open_for_operator(request.user)
+    cash_shift = CashShift.get_open_for_operator(request.user)
 
-    if not cash_session:
+    if not cash_shift:
         return render(request, "pos/cash_open.html", {"shop": shop})
 
-    pos = build_pos(terminal=cash_session.terminal)
+    pos = build_pos(terminal=cash_shift.terminal)
 
     return render(request, "pos/index.html", {
         "pos": pos,
@@ -93,7 +93,7 @@ def pos_view(request: HttpRequest) -> HttpResponse:
         "collections": pos.collections,
         "shop": shop,
         "payment_methods": pos.payment_methods,
-        "cash_session": cash_session,
+        "cash_shift": cash_shift,
         "terminal_profile": pos,
     })
 

@@ -22,15 +22,14 @@ def test_parse_money_to_q_accepts_common_operator_inputs():
 
 
 @pytest.mark.django_db
-def test_open_cash_session_creates_or_returns_current_session(operator):
-    session = pos.open_cash_session(operator=operator, opening_amount_raw="50,00")
-    same = pos.open_cash_session(operator=operator, opening_amount_raw="99,00")
+def test_open_cash_shift_creates_or_returns_current_shift(operator):
+    shift = pos.open_cash_shift(operator=operator, opening_amount_raw="50,00")
+    same = pos.open_cash_shift(operator=operator, opening_amount_raw="99,00")
 
-    assert session.pk == same.pk
-    assert session.opening_amount_q == 5000
+    assert shift.pk == same.pk
+    assert shift.opening_amount_q == 5000
     assert CashShift.objects.count() == 1
-    assert CashShift.objects.count() == 1
-    assert session.terminal == POSTerminal.default()
+    assert shift.terminal == POSTerminal.default()
 
 
 @pytest.mark.django_db
@@ -64,43 +63,31 @@ def test_register_cash_movement_validates_amount_and_normalizes_type(operator):
     )
 
     assert movement.shift_id == session.pk
-    assert movement.session_id == session.pk
     assert movement.movement_type == "sangria"
     assert movement.amount_q == 2550
     assert movement.created_by == operator.username
     assert CashMovement.objects.count() == 1
 
-    legacy_movement = CashMovement.objects.create(
-        session_id=session.pk,
-        movement_type="suprimento",
-        amount_q=100,
-        reason="legacy",
-    )
-    assert legacy_movement.shift_id == session.pk
-    assert legacy_movement.session_id == session.pk
-
 
 @pytest.mark.django_db
-def test_close_cash_session_requires_open_session(operator):
+def test_close_cash_shift_requires_open_shift(operator):
     with pytest.raises(POSError):
-        pos.close_cash_session(operator=operator, closing_amount_raw="0")
+        pos.close_cash_shift(operator=operator, closing_amount_raw="0")
 
 
 @pytest.mark.django_db
-def test_close_cash_session_closes_and_records_notes(operator):
+def test_close_cash_shift_closes_and_records_notes(operator):
     CashShift.objects.create(operator=operator, opening_amount_q=1000)
 
-    session = pos.close_cash_session(
+    shift = pos.close_cash_shift(
         operator=operator,
         closing_amount_raw="10,00",
         notes="fim do turno",
     )
 
-    assert session.status == CashShift.Status.CLOSED
-    assert session.status == CashShift.Status.CLOSED
-    assert session.blind_closing_amount_q == 1000
-    assert session.closing_amount_q == 1000
-    assert session.notes == "fim do turno"
+    assert shift.status == CashShift.Status.CLOSED
+    assert shift.blind_closing_amount_q == 1000
+    assert shift.notes == "fim do turno"
 
 
 @pytest.mark.django_db

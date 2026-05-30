@@ -56,7 +56,7 @@ class CashShiftModelTests(TestCase):
     def test_close_session(self) -> None:
         from shopman.backstage.models import CashShift
         session = CashShift.objects.create(operator=self.operator, opening_amount_q=10000)
-        session.close(closing_amount_q=10000)
+        session.close(blind_closing_amount_q=10000)
         self.assertEqual(session.status, "closed")
         self.assertIsNotNone(session.closed_at)
         self.assertIsNotNone(session.expected_amount_q)
@@ -66,14 +66,14 @@ class CashShiftModelTests(TestCase):
         from shopman.backstage.models import CashShift
         session = CashShift.objects.create(operator=self.operator, opening_amount_q=10000)
         # Close with 200 less than expected (only opening, no sales)
-        session.close(closing_amount_q=9800)
+        session.close(blind_closing_amount_q=9800)
         self.assertEqual(session.difference_q, -200)
 
     def test_sangria_movement_created(self) -> None:
         from shopman.backstage.models import CashMovement, CashShift
         session = CashShift.objects.create(operator=self.operator, opening_amount_q=5000)
         CashMovement.objects.create(
-            session=session, movement_type="sangria", amount_q=2000, reason="retirada"
+            shift=session, movement_type="sangria", amount_q=2000, reason="retirada"
         )
         self.assertEqual(session.movements.count(), 1)
 
@@ -134,7 +134,7 @@ class CashRegisterViewTests(TestCase):
             "movement_type": "sangria", "amount": "20.00", "reason": "retirada",
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(CashMovement.objects.filter(session=session).count(), 1)
+        self.assertEqual(CashMovement.objects.filter(shift=session).count(), 1)
 
     def test_close_register(self) -> None:
         """Closing register renders report template."""
