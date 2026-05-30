@@ -29,8 +29,8 @@ class PaymentView(View):
         if order_service.payment_is_sufficient(order):
             return redirect("storefront:order_tracking", ref=ref)
 
-        from shopman.storefront.projections import build_payment
         from shopman.shop.services.payment_status import promise_has_pending_payment_action
+        from shopman.storefront.projections import build_payment
 
         proj = build_payment(order)
         if not promise_has_pending_payment_action(proj.promise):

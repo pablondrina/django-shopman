@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from base64 import b64encode
 import json
+from base64 import b64encode
 from unittest.mock import patch
 
 from django.test import override_settings

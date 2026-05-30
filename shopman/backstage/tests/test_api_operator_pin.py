@@ -3,8 +3,8 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.test import TestCase
-
 from shopman.doorman.models import PinCredential
+
 from shopman.shop.models import Channel, Shop
 
 User = get_user_model()

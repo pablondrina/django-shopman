@@ -8,13 +8,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
+from shopman.guestman.models import Customer, CustomerAddress
+from shopman.offerman.models import Listing, ListingItem, Product
+from shopman.orderman.models import Order
 
 from shopman.backstage.api.projections import projection_data
 from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.backstage.projections.pos import build_pos
-from shopman.guestman.models import Customer, CustomerAddress
-from shopman.offerman.models import Listing, ListingItem, Product
-from shopman.orderman.models import Order
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION
 

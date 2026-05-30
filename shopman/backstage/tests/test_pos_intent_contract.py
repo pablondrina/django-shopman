@@ -6,10 +6,10 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-
-from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.guestman.models import Customer
 from shopman.orderman.models import Order
+
+from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import (

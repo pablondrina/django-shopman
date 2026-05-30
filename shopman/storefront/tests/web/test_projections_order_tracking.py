@@ -350,8 +350,9 @@ class TestStatusColours:
         assert expected_fragment in proj.status_color
 
     def test_ready_pickup_label(self, order):
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
         shop = Shop.load()
         shop.formatted_address = "Rua das Flores, 123 - Centro, Londrina - PR"
         shop.save(update_fields=["formatted_address"])
@@ -382,8 +383,9 @@ class TestStatusColours:
         assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
     def test_pickup_info_uses_structured_shop_address_without_fulfillment(self, order):
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = ""
@@ -416,8 +418,9 @@ class TestStatusColours:
         from decimal import Decimal
 
         from shopman.orderman.models import Fulfillment
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = "Av. Madre Leônia Milito, 446 - Bela Suíça, Londrina - PR"
@@ -446,8 +449,9 @@ class TestStatusColours:
         from decimal import Decimal
 
         from shopman.orderman.models import Fulfillment
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = ""

@@ -11,14 +11,13 @@ from __future__ import annotations
 import json
 import logging
 from base64 import b64encode
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.utils import timezone
-
 from shopman.orderman.protocols import FiscalCancellationResult, FiscalDocumentResult
 
 logger = logging.getLogger(__name__)
@@ -189,7 +188,7 @@ def _nfce_completa(config: dict) -> str:
 def _request(method: str, path: str, payload: dict | None, config: dict) -> dict:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     token = str(config["token"]).strip()
-    auth = b64encode(f"{token}:".encode("utf-8")).decode("ascii")
+    auth = b64encode(f"{token}:".encode()).decode("ascii")
     request = Request(
         f"{_base_url(config)}{path}",
         data=data,

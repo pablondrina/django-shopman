@@ -187,8 +187,9 @@ def _reconciliation_errors(*, closing_date: date, items: list[dict]) -> list[dic
 
 
 def _cash_shift_summary(closing_date: date) -> dict:
-    from shopman.backstage.models import CashShift
     from shopman.orderman.models import Order
+
+    from shopman.backstage.models import CashShift
 
     closed = CashShift.objects.filter(closed_at__date=closing_date).select_related("terminal", "operator")
     open_shifts = CashShift.objects.filter(status=CashShift.Status.OPEN).select_related("terminal", "operator")

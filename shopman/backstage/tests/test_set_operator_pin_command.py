@@ -4,9 +4,9 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from shopman.doorman.models import PinCredential
 
 from shopman.backstage.services.operator import verify_operator_pin
-from shopman.doorman.models import PinCredential
 
 User = get_user_model()
 

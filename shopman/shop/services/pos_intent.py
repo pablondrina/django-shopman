@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 POS_SALE_INTENT_VERSION = "pos.sale-intent.v1"
 
 _ALLOWED_TOP_LEVEL_KEYS = {

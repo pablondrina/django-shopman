@@ -7,9 +7,9 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import escape, format_html
-from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from shopman.utils.monetary import format_money
 

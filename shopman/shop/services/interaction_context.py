@@ -36,7 +36,7 @@ class InteractionContext:
         surface_ref: str,
         target_kind: str = "",
         target_ref: str = "",
-    ) -> "InteractionContext":
+    ) -> InteractionContext:
         customer = getattr(request, "customer", None) if request is not None else None
         session = getattr(request, "session", None) if request is not None else None
         headers = getattr(request, "headers", {}) if request is not None else {}
@@ -71,7 +71,7 @@ class InteractionContext:
         *,
         surface_ref: str,
         channel_ref: str | None = None,
-    ) -> "InteractionContext":
+    ) -> InteractionContext:
         data = getattr(order, "data", None) or {}
         customer = data.get("customer") if isinstance(data, dict) else {}
         customer_ref = ""
