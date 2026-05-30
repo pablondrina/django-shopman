@@ -54,6 +54,42 @@ def create_ticket(session_key: str, kds_instance, items: list) -> Any:
     )
 
 
+def unfire_session_lines(session_key: str, line_ids: list[str]) -> dict:
+    """Un-fire specific lines for a session: remove them from their live tickets.
+
+    A ticket loses only the targeted line items; when that empties the ticket it
+    is cancelled (status="cancelled"), otherwise the surviving courses keep their
+    prep progress. The model save re-emits the KDS SSE event either way. Removing
+    a line drops it from the fire-ledger, so it may be fired again (reprint =
+    un-fire + fire). Returns ``{"cancelled": n, "trimmed": n}``.
+    """
+    from django.utils import timezone
+
+    from shopman.backstage.models import KDSTicket
+
+    targets = {str(lid) for lid in (line_ids or []) if str(lid)}
+    cancelled = trimmed = 0
+    if not targets:
+        return {"cancelled": 0, "trimmed": 0}
+
+    tickets = KDSTicket.objects.filter(session_key=session_key).exclude(status="cancelled")
+    for ticket in tickets:
+        items = ticket.items or []
+        kept = [it for it in items if it.get("line_id") not in targets]
+        if len(kept) == len(items):
+            continue
+        if kept:
+            ticket.items = kept
+            ticket.save(update_fields=["items"])
+            trimmed += 1
+        else:
+            ticket.status = "cancelled"
+            ticket.cancelled_at = timezone.now()
+            ticket.save(update_fields=["status", "cancelled_at"])
+            cancelled += 1
+    return {"cancelled": cancelled, "trimmed": trimmed}
+
+
 def cancel_open_tickets(order) -> int:
     """Cancel all open tickets for order. Returns count cancelled."""
     from django.utils import timezone

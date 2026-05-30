@@ -736,6 +736,16 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             idempotency="client_request_id",
         ),
+        SurfaceActionProjection(
+            ref="unfire_tab",
+            kind="mutation",
+            label="Cancelar envio à cozinha",
+            priority="quiet",
+            method="POST",
+            href="/api/v1/backstage/pos/tabs/unfire/",
+            payload_schema={"required": ["session_key", "line_ids"]},
+            confirmation={"style": "destructive"},
+        ),
     )
 
 
@@ -1068,6 +1078,7 @@ def _checkout_contract(
             },
             "kitchen_handoff": {
                 "fire_action_ref": "fire_tab",
+                "unfire_action_ref": "unfire_tab",
                 "progressive": True,
                 "per_line_state_key": "fired",
                 "fires_whole_tab_when_no_lines": True,

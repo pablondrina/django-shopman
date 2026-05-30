@@ -794,6 +794,24 @@ async function fireTab() {
   }
 }
 
+async function unfireTab(lineId: string) {
+  if (!cart.tabSessionKey || !lineId) return;
+  serverError.value = "";
+  firing.value = true;
+  try {
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "unfire_tab", "/api/v1/backstage/pos/tabs/unfire/"),
+      { body: { session_key: cart.tabSessionKey, line_ids: [lineId] } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  } catch (err: any) {
+    serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
+  } finally {
+    firing.value = false;
+  }
+}
+
 async function openCashShift(amount: string) {
   serverError.value = "";
   busy.value = true;
@@ -1219,6 +1237,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @prepare="prepareCheckout"
           @move="openMoveDialog"
           @fire="fireTab"
+          @unfire="unfireTab"
           @clear="clearCurrentTab"
           @request-tab="requestTabAssociation('start')"
           @lookup-customer="lookupCustomer"

@@ -693,6 +693,61 @@ def fire_pos_tab(
     }
 
 
+def cancel_fired_pos_tab_lines(
+    *,
+    channel_ref: str,
+    session_key: str,
+    line_ids: list[str],
+    actor: str,
+    operator_username: str,
+) -> dict:
+    """Cancel the kitchen fire for specific comanda lines (course returned/wrong).
+
+    The targeted lines leave their live KDS tickets (a ticket is cancelled when
+    it empties), drop from ``Session.data["fired_lines"]`` and become re-fireable
+    — so a reprint is simply cancel + fire again. The kitchen sees the change via
+    the ticket's SSE event.
+    """
+    from shopman.shop.services import kds as kds_service
+
+    channel, _config = _channel_and_config(channel_ref)
+    session = _get_open_pos_tab_session_by_key(channel_ref=channel.ref, session_key=session_key)
+    if session is None:
+        raise PosIntentError(
+            code="tab_not_found",
+            message="Comanda não encontrada.",
+            field="session_key",
+            focus="cart",
+        )
+
+    targets = [str(lid).strip() for lid in (line_ids or []) if str(lid).strip()]
+    if not targets:
+        raise PosIntentError(
+            code="no_lines",
+            message="Selecione itens para cancelar o envio.",
+            field="line_ids",
+            focus="cart",
+        )
+
+    result = kds_service.unfire_lines(session_key=session.session_key, line_ids=targets)
+    fired = sorted(kds_service.fired_line_ids(session.session_key))
+    session.data = {**(session.data or {}), "fired_lines": fired}
+    session.save(update_fields=["data"])
+
+    logger.info(
+        "pos_unfire_tab tab=%s session=%s cancelled=%d trimmed=%d total_fired=%d operator=%s",
+        _session_tab_ref(session), session.session_key,
+        result["cancelled"], result["trimmed"], len(fired), operator_username,
+    )
+    return {
+        "ok": True,
+        "cancelled": result["cancelled"],
+        "trimmed": result["trimmed"],
+        "fired_lines": fired,
+        "tab": _tab_payload(session),
+    }
+
+
 def cancel_recent_order(
     *,
     order_ref: str,

@@ -112,3 +112,76 @@ class POSFireTabTests(TestCase):
                 channel_ref="pdv", session_key="does-not-exist",
                 actor="pos:alice", operator_username="alice",
             )
+
+    def test_unfire_trims_then_cancels_and_frees_line_to_refire(self) -> None:
+        session = self._open_tab_with_two_items()
+        line_ids = sorted(it["line_id"] for it in session.items)
+        first_line, second_line = line_ids[0], line_ids[1]
+
+        # Fire the whole tab → one ticket holding both lines.
+        pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            actor="pos:alice", operator_username="alice",
+        )
+        ticket = KDSTicket.objects.get(session_key=session.session_key)
+        self.assertEqual(len(ticket.items), 2)
+
+        # Cancel one line → ticket is trimmed (still live), line drops from fired.
+        trim = pos_service.cancel_fired_pos_tab_lines(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[first_line], actor="pos:alice", operator_username="alice",
+        )
+        self.assertEqual(trim["trimmed"], 1)
+        self.assertEqual(trim["cancelled"], 0)
+        self.assertEqual(trim["fired_lines"], [second_line])
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "pending")
+        self.assertEqual({it["line_id"] for it in ticket.items}, {second_line})
+        # The cart shows the cancelled line as fireable again.
+        fired_flags = {it["line_id"]: it["fired"] for it in trim["tab"]["items"]}
+        self.assertFalse(fired_flags[first_line])
+        self.assertTrue(fired_flags[second_line])
+
+        # The freed line re-fires (reprint = un-fire + fire).
+        refire = pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[first_line], actor="pos:alice", operator_username="alice",
+        )
+        self.assertEqual(refire["fired_count"], 1)
+        self.assertEqual(set(refire["fired_lines"]), {first_line, second_line})
+
+        # Cancel the last line on the original ticket → it empties → cancelled.
+        cancel = pos_service.cancel_fired_pos_tab_lines(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[second_line], actor="pos:alice", operator_username="alice",
+        )
+        self.assertEqual(cancel["cancelled"], 1)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "cancelled")
+        self.assertIsNotNone(ticket.cancelled_at)
+        self.assertEqual(cancel["fired_lines"], [first_line])
+
+    def test_unfire_only_touches_targeted_progressive_ticket(self) -> None:
+        session = self._open_tab_with_two_items()
+        line_ids = sorted(it["line_id"] for it in session.items)
+        first_line, second_line = line_ids[0], line_ids[1]
+
+        # Fire course by course → two separate tickets.
+        pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[first_line], actor="pos:alice", operator_username="alice",
+        )
+        pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[second_line], actor="pos:alice", operator_username="alice",
+        )
+        self.assertEqual(KDSTicket.objects.filter(session_key=session.session_key).count(), 2)
+
+        # Cancel course 1 → only its ticket is cancelled, course 2 untouched.
+        pos_service.cancel_fired_pos_tab_lines(
+            channel_ref="pdv", session_key=session.session_key,
+            line_ids=[first_line], actor="pos:alice", operator_username="alice",
+        )
+        live = KDSTicket.objects.filter(session_key=session.session_key).exclude(status="cancelled")
+        self.assertEqual(live.count(), 1)
+        self.assertEqual({it["line_id"] for it in live.first().items}, {second_line})

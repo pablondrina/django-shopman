@@ -30,6 +30,7 @@ const emit = defineEmits<{
   prepare: [];
   move: [];
   fire: [];
+  unfire: [string];
   clear: [];
   requestTab: [];
   lookupCustomer: [];
@@ -166,8 +167,20 @@ const customerMemory = computed(() => props.customerLookup?.memory || null);
             <p class="mt-1 text-xs text-muted-foreground tabular-nums">
               {{ item.qty }}x {{ formatBRL(item.price_q) }}
             </p>
+            <button
+              v-if="item.fired && canFire && item.line_id"
+              type="button"
+              class="group mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              :disabled="firing"
+              :aria-label="`Cancelar envio de ${item.name}`"
+              @click="$emit('unfire', item.line_id || '')"
+            >
+              <Icon name="lucide:flame" class="size-3 group-hover:hidden" />
+              <Icon name="lucide:x" class="hidden size-3 group-hover:inline" />
+              Na cozinha
+            </button>
             <span
-              v-if="item.fired"
+              v-else-if="item.fired"
               class="mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
             >
               <Icon name="lucide:flame" class="size-3" />

@@ -161,6 +161,13 @@ def fired_line_ids(session_key: str) -> set:
     return kds_adapter.fired_line_ids_for_session(session_key)
 
 
+def unfire_lines(*, session_key: str, line_ids: list[str]) -> dict:
+    """Cancel the kitchen fire for specific lines, freeing them to re-fire."""
+    from shopman.shop.adapters import kds as kds_adapter
+
+    return kds_adapter.unfire_session_lines(session_key, line_ids)
+
+
 def _order_to_lines(order) -> list[dict]:
     """Normalize an Order's items to source-agnostic fire lines."""
     lines = []
