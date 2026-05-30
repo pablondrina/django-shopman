@@ -213,12 +213,13 @@ def _audit_qty(item: dict):
 
 
 def _audit_item_index(items: list[dict]) -> dict:
+    # Key by SKU (stable operator-meaningful identity), not line_id — line_ids are
+    # reassigned on reload/persist and would produce false add/remove churn.
     index: dict = {}
     for item in items or []:
         if _is_delivery_fee_item(item):
             continue
-        key = item.get("line_id") or f"sku:{item.get('sku')}"
-        index[key] = item
+        index[str(item.get("sku") or "")] = item
     return index
 
 
