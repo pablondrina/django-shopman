@@ -3,6 +3,7 @@ import type {
   POSAddressAutocompleteProjection,
   POSCartItem,
   POSCheckoutContractProjection,
+  POSCheckoutOptionProjection,
   POSCustomerLookupProjection,
   POSFulfillmentOptionProjection,
   POSPaymentCollectionProjection,
@@ -24,6 +25,13 @@ const props = defineProps<{
   addressAutocomplete: POSAddressAutocompleteProjection | null;
   customerLookup: POSCustomerLookupProjection | null;
   review: POSSaleReviewProjection | null;
+  discountTypes: POSCheckoutOptionProjection[];
+  discountReasons: POSCheckoutOptionProjection[];
+  discountType: "percent" | "fixed";
+  discountValue: string;
+  discountReason: string;
+  managerUsername: string;
+  managerPin: string;
   fulfillmentType: "pickup" | "delivery";
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
@@ -50,6 +58,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  "update:discountType": ["percent" | "fixed"];
+  "update:discountValue": [string];
+  "update:discountReason": [string];
+  "update:managerUsername": [string];
+  "update:managerPin": [string];
   "update:fulfillmentType": ["pickup" | "delivery"];
   "update:paymentMethod": [string];
   "update:paymentCollection": ["terminal" | "on_delivery"];
@@ -97,6 +110,10 @@ const totalForCashQ = computed(() => props.review?.total_q || cartTotalQ(props.i
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 const savedAddresses = computed(() => props.customerLookup?.saved_addresses || []);
 const needsReview = computed(() => !props.review);
+const approvalBlocking = computed(() =>
+  !!props.review?.requires_manager_approval
+  && (!props.managerUsername.trim() || !props.managerPin.trim()),
+);
 
 function setTenderedByDelta(deltaQ: number) {
   const amountQ = Math.max(0, totalForCashQ.value + deltaQ);
@@ -370,6 +387,43 @@ function onAddressSelected(address: StructuredAddressProjection) {
         </label>
       </div>
 
+      <div v-if="discountTypes.length" class="grid gap-2">
+        <p class="text-sm font-medium text-muted-foreground">Desconto</p>
+        <div class="grid grid-cols-2 gap-2">
+          <UiButton
+            v-for="option in discountTypes"
+            :key="option.ref"
+            variant="outline"
+            size="sm"
+            :class="discountType === option.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+            @click="$emit('update:discountType', option.ref === 'fixed' ? 'fixed' : 'percent')"
+          >
+            {{ option.label }}
+          </UiButton>
+        </div>
+        <label class="grid gap-1 text-sm">
+          <span class="font-medium text-muted-foreground">{{ discountType === "fixed" ? "Valor (R$)" : "Percentual (%)" }}</span>
+          <UiInput
+            :model-value="discountValue"
+            inputmode="decimal"
+            placeholder="0"
+            @update:model-value="$emit('update:discountValue', String($event || ''))"
+          />
+        </label>
+        <div v-if="discountReasons.length" class="flex flex-wrap gap-2">
+          <UiButton
+            v-for="reason in discountReasons"
+            :key="reason.ref"
+            variant="outline"
+            size="sm"
+            :class="discountReason === reason.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+            @click="$emit('update:discountReason', reason.ref)"
+          >
+            {{ reason.label }}
+          </UiButton>
+        </div>
+      </div>
+
       <div class="grid gap-2">
         <p class="text-sm font-medium text-muted-foreground">Fiscal e comprovante</p>
         <UiButton
@@ -498,6 +552,29 @@ function onAddressSelected(address: StructuredAddressProjection) {
         Revise a venda para conferir o total final, descontos e troco antes de finalizar.
       </div>
 
+      <div v-if="review?.requires_manager_approval" class="grid gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+        <p class="text-sm font-semibold text-amber-800">Aprovação gerencial necessária</p>
+        <p class="text-xs text-amber-700">
+          O desconto excede o limite. Um gerente autorizado deve aprovar com usuário e PIN.
+        </p>
+        <div class="grid grid-cols-2 gap-2">
+          <UiInput
+            :model-value="managerUsername"
+            placeholder="Gerente (usuário)"
+            autocomplete="off"
+            @update:model-value="$emit('update:managerUsername', String($event || ''))"
+          />
+          <UiInput
+            :model-value="managerPin"
+            type="password"
+            inputmode="numeric"
+            placeholder="PIN do gerente"
+            autocomplete="off"
+            @update:model-value="$emit('update:managerPin', String($event || ''))"
+          />
+        </div>
+      </div>
+
       <UiButton
         v-if="needsReview"
         size="lg"
@@ -510,7 +587,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
       <UiButton
         v-else
         size="lg"
-        :disabled="!items.length || loading"
+        :disabled="!items.length || loading || approvalBlocking"
         :loading="loading"
         @click="$emit('submit')"
       >

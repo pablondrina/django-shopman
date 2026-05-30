@@ -90,8 +90,11 @@ const cart = reactive({
   issueFiscalDocument: false,
   receiptMode: "none",
   receiptEmail: "",
-  manualDiscount: null as Record<string, unknown> | null,
-  managerApproval: null as Record<string, unknown> | null,
+  discountType: "percent" as "percent" | "fixed",
+  discountValue: "",
+  discountReason: "",
+  managerUsername: "",
+  managerPin: "",
   clientRequestId: "",
 });
 
@@ -223,6 +226,9 @@ watch(() => [
   cart.issueFiscalDocument,
   cart.receiptMode,
   cart.receiptEmail,
+  cart.discountType,
+  cart.discountValue,
+  cart.discountReason,
 ], () => {
   if (checkoutMode.value) review.value = null;
 });
@@ -294,8 +300,11 @@ function resetCart() {
   cart.issueFiscalDocument = false;
   cart.receiptMode = "none";
   cart.receiptEmail = "";
-  cart.manualDiscount = null;
-  cart.managerApproval = null;
+  cart.discountType = "percent";
+  cart.discountValue = "";
+  cart.discountReason = "";
+  cart.managerUsername = "";
+  cart.managerPin = "";
   cart.clientRequestId = "";
   customerLookup.value = null;
   checkoutMode.value = false;
@@ -349,8 +358,11 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.issueFiscalDocument = !!payload.issue_fiscal_document;
   cart.receiptMode = payload.receipt_mode || "none";
   cart.receiptEmail = payload.receipt_email || "";
-  cart.manualDiscount = null;
-  cart.managerApproval = null;
+  cart.discountType = "percent";
+  cart.discountValue = "";
+  cart.discountReason = "";
+  cart.managerUsername = "";
+  cart.managerPin = "";
   cart.clientRequestId = "";
   customerLookup.value = null;
   checkoutMode.value = false;
@@ -430,6 +442,13 @@ function currentIntentState() {
   ]
     .filter(Boolean);
   const deliveryAddress = structured.formatted_address || deliveryAddressParts.join(", ");
+  const discountValueNum = Number(String(cart.discountValue).replace(",", ".").replace(/[^0-9.]/g, "")) || 0;
+  const manualDiscount = discountValueNum > 0
+    ? { type: cart.discountType, value: discountValueNum, reason: cart.discountReason || "cortesia" }
+    : null;
+  const managerApproval = cart.managerUsername.trim() && cart.managerPin.trim()
+    ? { username: cart.managerUsername.trim(), pin: cart.managerPin.trim() }
+    : null;
   return {
     tabRef: cart.tabRef,
     tabSessionKey: cart.tabSessionKey,
@@ -456,8 +475,8 @@ function currentIntentState() {
     issueFiscalDocument: cart.issueFiscalDocument,
     receiptMode: cart.receiptMode,
     receiptEmail: cart.receiptEmail || cart.customerEmail,
-    manualDiscount: cart.manualDiscount,
-    managerApproval: cart.managerApproval,
+    manualDiscount,
+    managerApproval,
     clientRequestId: cart.clientRequestId || newClientRequestId(),
   };
 }
@@ -898,6 +917,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         :address-autocomplete="addressAutocomplete"
         :customer-lookup="customerLookup"
         :review="review"
+        :discount-types="checkoutContract?.discount_types || []"
+        :discount-reasons="checkoutContract?.discount_reasons || []"
+        v-model:discount-type="cart.discountType"
+        v-model:discount-value="cart.discountValue"
+        v-model:discount-reason="cart.discountReason"
+        v-model:manager-username="cart.managerUsername"
+        v-model:manager-pin="cart.managerPin"
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-method="cart.paymentMethod"
         v-model:payment-collection="cart.paymentCollection"
