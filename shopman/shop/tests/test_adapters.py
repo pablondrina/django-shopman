@@ -226,7 +226,16 @@ class TestGetAdapter:
         assert hasattr(adapter, "create_intent")
         assert hasattr(adapter, "capture")
 
+    @override_settings(
+        SHOPMAN_PAYMENT_ADAPTERS={
+            "pix": "shopman.shop.adapters.payment_mock",
+            "card": "shopman.shop.adapters.payment_mock",
+        }
+    )
     def test_payment_default_returns_mock(self):
+        # Pin the adapter map so the resolution chain is deterministic
+        # regardless of the dev .env (which may point pix/card at real
+        # gateways like Efí/Stripe).
         from shopman.shop.adapters import get_adapter
 
         adapter = get_adapter("payment", method="pix")

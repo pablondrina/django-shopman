@@ -14,7 +14,7 @@ def test_dispatch_prefers_collection_specific_station_before_picking_catchall():
 
     Channel.objects.create(ref="web", name="Web")
 
-    cafes = Collection.objects.create(ref="cafes-bebidas", name="Cafés e bebidas")
+    cafes = Collection.objects.create(ref="kdsroute-cafes", name="KDSRoute Cafés")
     product = Product.objects.create(
         sku="CAPPUCCINO",
         name="Cappuccino",
@@ -23,15 +23,15 @@ def test_dispatch_prefers_collection_specific_station_before_picking_catchall():
     CollectionItem.objects.create(collection=cafes, product=product, is_primary=True)
 
     cafes_kds = KDSInstance.objects.create(
-        ref="cafes",
-        name="Cafés",
+        ref="kdsroute-cafes-station",
+        name="KDSRoute Cafés",
         type="prep",
         target_time_minutes=3,
     )
     cafes_kds.collections.add(cafes)
     KDSInstance.objects.create(
-        ref="encomendas",
-        name="Encomendas",
+        ref="kdsroute-encomendas",
+        name="KDSRoute Encomendas",
         type="picking",
         target_time_minutes=5,
     )
@@ -55,7 +55,7 @@ def test_dispatch_prefers_collection_specific_station_before_picking_catchall():
     tickets = dispatch(order)
 
     assert len(tickets) == 1
-    assert tickets[0].kds_instance.ref == "cafes"
+    assert tickets[0].kds_instance.ref == "kdsroute-cafes-station"
     assert tickets[0].items == [
         {
             "sku": "CAPPUCCINO",
