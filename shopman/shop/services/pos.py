@@ -1590,6 +1590,26 @@ def _session_tab_display(session: Session) -> str:
     return display_tab_ref(_session_tab_ref(session))
 
 
+def _tab_payload_line_discount(item: dict) -> dict | None:
+    """Surface the operator's per-line manual discount (percent) for restore."""
+    manual = (item.get("meta") or {}).get("manual_discount") or {}
+    value = manual.get("value")
+    if not value:
+        return None
+    return {"value": value, "reason": manual.get("reason", "cortesia")}
+
+
+def _tab_line_display_price_q(item: dict) -> int:
+    """Pre-discount unit price for display: when a manual discount won, the
+    DiscountModifier stored the original price; otherwise the stored unit price."""
+    manual = (item.get("meta") or {}).get("manual_discount") or {}
+    if manual.get("value"):
+        for mod in (item.get("modifiers_applied") or []):
+            if mod.get("type") == "manual" and mod.get("original_price_q"):
+                return int(mod["original_price_q"])
+    return int(item.get("unit_price_q", 0))
+
+
 def _tab_payload(session: Session) -> dict:
     data = session.data or {}
     customer = data.get("customer") or {}
@@ -1604,11 +1624,12 @@ def _tab_payload(session: Session) -> dict:
             "line_id": item.get("line_id", ""),
             "sku": item["sku"],
             "name": item.get("name", item["sku"]),
-            "price_q": item.get("unit_price_q", 0),
+            "price_q": _tab_line_display_price_q(item),
             "qty": int(item.get("qty", 1)),
             "notes": (item.get("meta") or {}).get("notes", ""),
             "is_d1": bool(item.get("is_d1")),
             "fired": item.get("line_id", "") in fired_lines,
+            "discount": _tab_payload_line_discount(item),
         }
         for item in (session.items or [])
         if not _is_delivery_fee_item(item)

@@ -122,3 +122,26 @@ class TestManagerApprovalGate:
         }
         # Must not raise.
         pos_service.validate_manager_approval(payload, operator_username="op")
+
+
+class TestTabPayloadRestore:
+    def test_line_discount_surfaced_for_restore(self) -> None:
+        item = {"sku": "X", "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}}}
+        assert pos_service._tab_payload_line_discount(item) == {"value": 10, "reason": "cortesia"}
+
+    def test_no_discount_returns_none(self) -> None:
+        assert pos_service._tab_payload_line_discount({"sku": "X", "meta": {}}) is None
+
+    def test_display_price_uses_pre_discount_when_manual_applied(self) -> None:
+        # After the modifier ran, unit_price_q is discounted; display restores base.
+        item = {
+            "sku": "X",
+            "unit_price_q": 1170,  # 1300 - 10%
+            "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}},
+            "modifiers_applied": [{"type": "manual", "original_price_q": 1300, "discount_q": 130}],
+        }
+        assert pos_service._tab_line_display_price_q(item) == 1300
+
+    def test_display_price_falls_back_to_unit_price(self) -> None:
+        item = {"sku": "X", "unit_price_q": 1300, "meta": {}}
+        assert pos_service._tab_line_display_price_q(item) == 1300
