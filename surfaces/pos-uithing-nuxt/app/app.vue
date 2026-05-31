@@ -42,6 +42,11 @@ function toggleColorMode() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 const runtimeConfig = useRuntimeConfig();
+const loginUrl = computed(() => {
+  const base = String(runtimeConfig.public.djangoPublicBaseUrl || "");
+  const next = String(runtimeConfig.public.operatorLoginNextPath || "/pos/");
+  return `${base}/admin/login/?next=${encodeURIComponent(next)}`;
+});
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
 const { data, pending, error, refresh } = await useFetch<POSResponse>(
@@ -1103,12 +1108,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
     <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 lg:min-h-0 lg:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
-      <UiAlert v-if="error" variant="destructive">
-        <Icon name="lucide:triangle-alert" class="size-4" />
-        <UiAlertTitle>POS indisponível</UiAlertTitle>
-        <UiAlertDescription>Confira login e permissão de operação no gestor.</UiAlertDescription>
-      </UiAlert>
-
       <UiAlert v-if="serverError" variant="destructive">
         <Icon name="lucide:circle-x" class="size-4" />
         <UiAlertTitle>Ação recusada</UiAlertTitle>
@@ -1151,7 +1150,31 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       </div>
 
       <div class="flex-1 lg:min-h-0 lg:overflow-hidden">
-      <div v-if="checkoutMode" class="h-full lg:overflow-y-auto">
+      <div v-if="error" class="grid h-full place-items-center p-4">
+        <div class="grid max-w-sm gap-4 text-center">
+          <div class="mx-auto grid size-14 place-items-center rounded-full border bg-muted">
+            <Icon name="lucide:lock-keyhole" class="size-7 text-muted-foreground" />
+          </div>
+          <div class="grid gap-1.5">
+            <h2 class="text-2xl font-semibold">Entre para operar o caixa</h2>
+            <p class="text-sm text-muted-foreground">
+              Faça login no gestor com uma conta autorizada a operar o POS e volte para esta tela.
+            </p>
+          </div>
+          <a
+            :href="loginUrl"
+            class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-base font-medium text-primary-foreground transition hover:bg-primary/90"
+          >
+            <Icon name="lucide:log-in" class="size-5" />
+            Entrar no gestor
+          </a>
+          <UiButton variant="outline" :disabled="pending" @click="refresh()">
+            <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
+            Já entrei — atualizar
+          </UiButton>
+        </div>
+      </div>
+      <div v-else-if="checkoutMode" class="h-full lg:overflow-y-auto">
       <PosCheckoutWorkspace
         :tab-display="cart.tabDisplay"
         :items="cart.items"
