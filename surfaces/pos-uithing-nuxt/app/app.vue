@@ -42,10 +42,13 @@ function toggleColorMode() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 const runtimeConfig = useRuntimeConfig();
+// In prod the POS and Django share one domain (path-routed), so admin links are
+// relative and resolve against the current origin. Only dev needs the absolute
+// Django host (POS :3002 vs Django :8000).
+const djangoOrigin = computed(() => (import.meta.dev ? String(runtimeConfig.public.djangoPublicBaseUrl || "") : ""));
 const loginUrl = computed(() => {
-  const base = String(runtimeConfig.public.djangoPublicBaseUrl || "");
   const next = String(runtimeConfig.public.operatorLoginNextPath || "/pos/");
-  return `${base}/admin/login/?next=${encodeURIComponent(next)}`;
+  return `${djangoOrigin.value}/admin/login/?next=${encodeURIComponent(next)}`;
 });
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
@@ -753,7 +756,7 @@ async function submitSale() {
       const orderRef = response.order_ref;
       result.value = {
         orderRef,
-        nextUrl: `${runtimeConfig.public.djangoPublicBaseUrl}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
+        nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
       };
       resetCart();
       await refresh();
