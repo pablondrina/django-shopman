@@ -1,6 +1,7 @@
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   disabled?: boolean;
+  compact?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -10,15 +11,18 @@ const emit = defineEmits<{
 }>();
 
 const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const cellBase = "rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
+const cell = computed(() => (props.compact ? `${cellBase} py-1.5 text-base` : `${cellBase} py-2.5 text-lg`));
+const cellSm = computed(() => (props.compact ? "rounded-lg border bg-card py-1.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40" : "rounded-lg border bg-card py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"));
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado numérico de quantidade">
+  <div :class="compact ? 'grid grid-cols-3 gap-1' : 'grid grid-cols-3 gap-1.5'" role="group" aria-label="Teclado numérico de quantidade">
     <button
       v-for="key in keys"
       :key="key"
       type="button"
-      class="rounded-lg border bg-card py-2.5 text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      :class="cell"
       :disabled="disabled"
       :aria-label="`Dígito ${key}`"
       @click="emit('digit', key)"
@@ -27,7 +31,7 @@ const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
     </button>
     <button
       type="button"
-      class="rounded-lg border bg-card py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      :class="cellSm"
       :disabled="disabled"
       aria-label="Limpar quantidade"
       @click="emit('clear')"
@@ -36,7 +40,7 @@ const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
     </button>
     <button
       type="button"
-      class="rounded-lg border bg-card py-2.5 text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      :class="cell"
       :disabled="disabled"
       aria-label="Dígito 0"
       @click="emit('digit', '0')"
@@ -45,12 +49,13 @@ const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
     </button>
     <button
       type="button"
-      class="grid place-items-center rounded-lg border bg-card py-2.5 transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      :class="compact ? 'py-1.5' : 'py-2.5'"
       :disabled="disabled"
       aria-label="Apagar último dígito"
       @click="emit('backspace')"
     >
-      <Icon name="lucide:delete" class="size-5" />
+      <Icon name="lucide:delete" :class="compact ? 'size-4' : 'size-5'" />
     </button>
   </div>
 </template>

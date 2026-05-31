@@ -45,6 +45,8 @@ const emit = defineEmits<{
 
 const unfiredCount = computed(() => props.items.filter((item) => !item.fired).length);
 
+const customerSheetOpen = ref(false);
+
 const renaming = ref(false);
 const renameValue = ref("");
 
@@ -223,7 +225,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
 </script>
 
 <template>
-  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
+  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none lg:h-full lg:min-h-0">
     <div class="grid gap-3 text-center">
       <div class="mx-auto grid size-11 place-items-center rounded-lg border bg-muted">
         <Icon name="lucide:receipt-text" class="size-5 text-muted-foreground" />
@@ -240,14 +242,14 @@ function bump(sku: string, emitName: "increment" | "decrement") {
     </div>
   </UiCard>
 
-  <UiCard v-else class="gap-4 rounded-lg p-4 shadow-none lg:sticky lg:top-4">
-    <div class="flex items-center justify-between gap-3">
+  <UiCard v-else class="gap-2.5 rounded-lg p-3 shadow-none lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+    <div class="flex shrink-0 items-center justify-between gap-2">
       <div class="min-w-0">
-        <p class="text-xs font-medium uppercase text-muted-foreground">Comanda</p>
-        <div v-if="renaming" class="mt-1 flex items-center gap-1">
+        <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comanda</p>
+        <div v-if="renaming" class="mt-0.5 flex items-center gap-1">
           <UiInput
             v-model="renameValue"
-            class="h-9 w-40 text-lg font-semibold"
+            class="h-8 w-40 text-lg font-semibold"
             placeholder="Mesa, nome…"
             autofocus
             @keydown.enter.prevent="confirmRename"
@@ -263,15 +265,15 @@ function bump(sku: string, emitName: "increment" | "decrement") {
         <button
           v-else-if="hasOpenTab && canRename"
           type="button"
-          class="group mt-1 flex items-center gap-1.5"
+          class="group mt-0.5 flex items-center gap-1.5"
           aria-label="Renomear comanda"
           @click="startRename"
         >
-          <span class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</span>
-          <Icon name="lucide:pencil" class="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          <span class="text-xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</span>
+          <Icon name="lucide:pencil" class="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
         </button>
-        <p v-else-if="hasOpenTab" class="text-2xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
-        <p v-else class="text-xl font-semibold">Venda rápida</p>
+        <p v-else-if="hasOpenTab" class="text-xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
+        <p v-else class="text-lg font-semibold">Venda rápida</p>
       </div>
       <UiButton
         variant="ghost"
@@ -284,99 +286,42 @@ function bump(sku: string, emitName: "increment" | "decrement") {
       </UiButton>
     </div>
 
-    <UiSeparator />
-
-    <div class="grid gap-2 sm:grid-cols-2">
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium text-muted-foreground">Cliente</span>
-        <UiInput
-          :model-value="customerName"
-          placeholder="Nome no balcão"
-          @update:model-value="$emit('update:customerName', String($event || ''))"
-        />
-      </label>
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium text-muted-foreground">WhatsApp</span>
-        <div class="flex gap-2">
-          <UiInput
-            :model-value="customerPhone"
-            inputmode="tel"
-            placeholder="(43) 99999-0000"
-            @update:model-value="$emit('update:customerPhone', String($event || ''))"
-            @keydown.enter.prevent="$emit('lookupCustomer')"
-          />
-          <UiButton
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Buscar cliente"
-            title="Buscar cliente"
-            :disabled="lookupBusy || !customerPhone.trim()"
-            @click="$emit('lookupCustomer')"
-          >
-            <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
-          </UiButton>
-        </div>
-      </label>
-    </div>
-
-    <div
-      v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length)"
-      class="grid gap-2 rounded-lg border bg-muted/30 p-2"
+    <button
+      type="button"
+      class="flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition hover:bg-accent"
+      aria-haspopup="dialog"
+      @click="customerSheetOpen = true"
     >
-      <div class="flex items-center justify-between gap-2">
-        <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
-        <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">
-          {{ customerMemory.total_orders }} pedidos
-        </span>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <UiButton
-          v-if="customerMemory?.favorite_item?.sku"
-          type="button"
-          variant="outline"
-          size="sm"
-          @click="$emit('applyCustomerFavorite')"
-        >
-          <Icon name="lucide:heart" class="size-4" />
-          Favorito
-        </UiButton>
-        <UiButton
-          v-if="customerMemory?.last_order_items?.length"
-          type="button"
-          variant="outline"
-          size="sm"
-          @click="$emit('repeatCustomerLastOrder')"
-        >
-          <Icon name="lucide:rotate-ccw" class="size-4" />
-          Último pedido
-        </UiButton>
-      </div>
-    </div>
+      <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
+      <span v-if="customerName" class="min-w-0 flex-1 truncate font-medium">{{ customerName }}</span>
+      <span v-else class="min-w-0 flex-1 truncate text-muted-foreground">Adicionar cliente</span>
+      <span v-if="customerPhone" class="shrink-0 text-xs text-muted-foreground tabular-nums">{{ customerPhone }}</span>
+      <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
+    </button>
 
-    <UiSeparator />
+    <UiSeparator class="shrink-0" />
 
-    <div class="min-h-28">
-      <p v-if="!items.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+    <div class="min-h-24 max-h-[40vh] overflow-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
+      <p v-if="!items.length" class="grid h-full min-h-24 place-items-center rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
         Carrinho vazio
       </p>
-      <ul v-else class="grid max-h-[34vh] gap-0.5 overflow-auto pr-1">
+      <ul v-else class="grid gap-0.5">
         <li
           v-for="item in items"
           :key="item.sku"
-          class="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-2 rounded-lg px-2 py-1.5 transition"
+          class="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-2 rounded-lg px-2 py-1 transition"
           :class="activeSku === item.sku ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
           :aria-current="activeSku === item.sku ? 'true' : undefined"
           @click="selectLine(item.sku)"
         >
           <div class="min-w-0">
-            <p class="line-clamp-2 text-sm font-semibold leading-snug">{{ item.name }}</p>
-            <p class="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            <p class="truncate text-sm font-medium leading-tight">{{ item.name }}</p>
+            <p class="text-xs text-muted-foreground tabular-nums">
               {{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
             </p>
             <span
               v-if="item.discount && item.discount.value > 0"
-              class="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+              class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
               :title="`Desconto: ${item.discount.reason}`"
             >
               <Icon name="lucide:tag" class="size-3" />
@@ -385,7 +330,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
             <button
               v-if="item.fired && canFire && item.line_id"
               type="button"
-              class="group mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              class="group mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               :disabled="firing"
               :aria-label="`Cancelar envio de ${item.name}`"
               @click.stop="$emit('unfire', item.line_id || '')"
@@ -396,7 +341,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
             </button>
             <span
               v-else-if="item.fired"
-              class="mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
             >
               <Icon name="lucide:flame" class="size-3" />
               Na cozinha
@@ -418,11 +363,11 @@ function bump(sku: string, emitName: "increment" | "decrement") {
       </ul>
     </div>
 
-    <div v-if="items.length" class="grid gap-1.5">
+    <div v-if="items.length" class="grid shrink-0 gap-1.5">
       <div class="flex gap-1">
         <button
           type="button"
-          class="flex-1 rounded-lg border py-1 text-sm font-medium transition"
+          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
           :class="numpadMode === 'qty' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
           @click="setMode('qty')"
         >
@@ -430,22 +375,13 @@ function bump(sku: string, emitName: "increment" | "decrement") {
         </button>
         <button
           type="button"
-          class="flex-1 rounded-lg border py-1 text-sm font-medium transition"
+          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
           :class="numpadMode === 'disc' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
           @click="setMode('disc')"
         >
           Desc %
         </button>
       </div>
-      <p class="text-xs text-muted-foreground">
-        <template v-if="activeItem && numpadMode === 'qty'">
-          Quantidade de <span class="font-medium text-foreground">{{ activeItem.name }}</span>
-        </template>
-        <template v-else-if="activeItem">
-          Desconto de <span class="font-medium text-foreground">{{ activeItem.name }}</span> (%)
-        </template>
-        <template v-else>Adicione um item</template>
-      </p>
       <div v-if="numpadMode === 'disc' && activeSku" class="flex flex-wrap gap-1">
         <button
           v-for="reason in reasonOptions"
@@ -459,6 +395,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
         </button>
       </div>
       <PosNumpad
+        compact
         :disabled="!items.length"
         @digit="onDigit"
         @backspace="onBackspace"
@@ -466,36 +403,11 @@ function bump(sku: string, emitName: "increment" | "decrement") {
       />
     </div>
 
-    <UiSeparator />
-
-    <div class="grid gap-3">
+    <div class="grid shrink-0 gap-2 border-t pt-2.5">
       <div class="flex items-baseline justify-between">
         <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
-        <strong class="text-2xl tabular-nums">{{ totalDisplay }}</strong>
+        <strong class="text-xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
-      <UiButton
-        v-if="canFire && hasOpenTab && items.length"
-        variant="outline"
-        size="sm"
-        class="justify-center gap-2"
-        :disabled="loading || saving || firing || !unfiredCount"
-        :loading="firing"
-        @click="$emit('fire')"
-      >
-        <Icon name="lucide:flame" class="size-4" />
-        {{ unfiredCount ? `Enviar para cozinha (${unfiredCount})` : "Tudo na cozinha" }}
-      </UiButton>
-      <UiButton
-        v-if="hasOpenTab && items.length"
-        variant="ghost"
-        size="sm"
-        class="justify-start gap-2 text-muted-foreground"
-        :disabled="loading || saving"
-        @click="$emit('move')"
-      >
-        <Icon name="lucide:split" class="size-4" />
-        Mover itens (dividir / transferir / juntar)
-      </UiButton>
       <div class="grid grid-cols-2 gap-2">
         <UiButton
           variant="outline"
@@ -509,8 +421,108 @@ function bump(sku: string, emitName: "increment" | "decrement") {
           Checkout
         </UiButton>
       </div>
+      <div v-if="hasOpenTab && items.length" class="flex flex-wrap items-center gap-1">
+        <UiButton
+          v-if="canFire"
+          variant="ghost"
+          size="sm"
+          class="gap-1.5"
+          :disabled="loading || saving || firing || !unfiredCount"
+          :loading="firing"
+          @click="$emit('fire')"
+        >
+          <Icon name="lucide:flame" class="size-4" />
+          {{ unfiredCount ? `Cozinha (${unfiredCount})` : "Tudo na cozinha" }}
+        </UiButton>
+        <UiButton
+          variant="ghost"
+          size="sm"
+          class="gap-1.5 text-muted-foreground"
+          :disabled="loading || saving"
+          @click="$emit('move')"
+        >
+          <Icon name="lucide:split" class="size-4" />
+          Mover
+        </UiButton>
+      </div>
     </div>
   </UiCard>
+
+  <UiSheet v-model:open="customerSheetOpen">
+    <UiSheetContent side="right" title="Cliente" description="Identifique o cliente desta comanda. Tudo opcional.">
+      <template #content>
+        <div class="grid gap-4 overflow-y-auto px-4 pb-6">
+          <label class="grid gap-1.5 text-sm">
+            <span class="font-medium text-muted-foreground">Nome</span>
+            <UiInput
+              :model-value="customerName"
+              placeholder="Nome no balcão"
+              @update:model-value="$emit('update:customerName', String($event || ''))"
+            />
+          </label>
+          <label class="grid gap-1.5 text-sm">
+            <span class="font-medium text-muted-foreground">WhatsApp</span>
+            <div class="flex gap-2">
+              <UiInput
+                :model-value="customerPhone"
+                inputmode="tel"
+                placeholder="(43) 99999-0000"
+                @update:model-value="$emit('update:customerPhone', String($event || ''))"
+                @keydown.enter.prevent="$emit('lookupCustomer')"
+              />
+              <UiButton
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Buscar cliente"
+                title="Buscar cliente"
+                :disabled="lookupBusy || !customerPhone.trim()"
+                @click="$emit('lookupCustomer')"
+              >
+                <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
+              </UiButton>
+            </div>
+          </label>
+
+          <div
+            v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length)"
+            class="grid gap-2 rounded-lg border bg-muted/30 p-3"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
+              <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">
+                {{ customerMemory.total_orders }} pedidos
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <UiButton
+                v-if="customerMemory?.favorite_item?.sku"
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="$emit('applyCustomerFavorite')"
+              >
+                <Icon name="lucide:heart" class="size-4" />
+                Favorito
+              </UiButton>
+              <UiButton
+                v-if="customerMemory?.last_order_items?.length"
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="$emit('repeatCustomerLastOrder')"
+              >
+                <Icon name="lucide:rotate-ccw" class="size-4" />
+                Último pedido
+              </UiButton>
+            </div>
+          </div>
+
+          <UiButton class="mt-2" @click="customerSheetOpen = false">Concluir</UiButton>
+        </div>
+      </template>
+    </UiSheetContent>
+  </UiSheet>
 
   <UiDialog :open="!!confirmAction" @update:open="(value) => { if (!value) cancelConfirm(); }">
     <UiDialogContent class="sm:max-w-sm">
