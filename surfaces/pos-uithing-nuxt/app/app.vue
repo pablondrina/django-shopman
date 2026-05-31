@@ -1025,8 +1025,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
-  <main class="min-h-dvh bg-background text-foreground">
-    <header class="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+  <main class="flex min-h-dvh flex-col bg-background text-foreground lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
+    <header class="shrink-0 border-b bg-background">
       <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <p class="text-xs font-medium uppercase text-muted-foreground">Shopman</p>
@@ -1101,7 +1101,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       @unlock="onUnlock"
     />
 
-    <div class="mx-auto grid max-w-screen-2xl gap-4 px-4 py-4">
+    <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 lg:min-h-0 lg:overflow-hidden">
+      <div class="grid shrink-0 gap-3 empty:hidden">
       <UiAlert v-if="error" variant="destructive">
         <Icon name="lucide:triangle-alert" class="size-4" />
         <UiAlertTitle>POS indisponível</UiAlertTitle>
@@ -1147,9 +1148,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertTitle>Venda cancelada</UiAlertTitle>
         <UiAlertDescription>O pedido foi cancelado dentro da janela do operador.</UiAlertDescription>
       </UiAlert>
+      </div>
 
+      <div class="flex-1 lg:min-h-0 lg:overflow-hidden">
+      <div v-if="checkoutMode" class="h-full lg:overflow-y-auto">
       <PosCheckoutWorkspace
-        v-if="checkoutMode"
         :tab-display="cart.tabDisplay"
         :items="cart.items"
         :has-open-tab="hasOpenTab"
@@ -1202,11 +1205,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @repeat-customer-last-order="repeatCustomerLastOrder"
         @pick-saved-address="applySavedAddress"
       />
+      </div>
 
-      <div v-else>
+      <div v-else class="h-full min-h-0">
         <!-- TABS VIEW — a tela de Comandas/Tabs é a PRIMEIRA (benchmark Odoo: tabs/mesas antes do pedido) -->
-        <section v-if="!inSaleView" class="grid gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
+        <section v-if="!inSaleView" class="flex h-full min-h-0 flex-col gap-3">
+          <div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
             <h2 class="text-lg font-semibold">Comandas</h2>
             <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
               <UiInput
@@ -1220,7 +1224,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
             </form>
           </div>
-          <div v-if="tabs.length" class="flex flex-wrap items-center gap-2">
+          <div v-if="tabs.length" class="flex shrink-0 flex-wrap items-center gap-2">
             <div class="flex gap-1">
               <UiButton
                 size="sm"
@@ -1272,7 +1276,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </p>
           <div
             v-else
-            class="max-h-[72vh] overflow-y-auto pr-1"
+            class="max-h-[72vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1"
             :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
           >
             <button
@@ -1308,12 +1312,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </section>
 
         <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
-        <div v-else class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside class="grid content-start gap-3 lg:order-1">
-            <UiButton variant="outline" size="sm" class="w-fit gap-2" @click="goToTabs">
+        <div v-else class="grid h-full min-h-0 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <aside class="flex min-h-0 flex-col gap-3 lg:order-1">
+            <UiButton variant="outline" size="sm" class="w-fit shrink-0 gap-2" @click="goToTabs">
               <Icon name="lucide:arrow-left" class="size-4" />
               Comandas
             </UiButton>
+            <div class="min-h-0 lg:flex-1">
             <PosCartPanel
               :tab-display="cart.tabDisplay"
               :items="cart.items"
@@ -1346,18 +1351,19 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               @apply-customer-favorite="applyCustomerFavorite"
               @repeat-customer-last-order="repeatCustomerLastOrder"
             />
-            <p class="text-xs text-muted-foreground">
+            </div>
+            <p class="shrink-0 text-xs text-muted-foreground">
               {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
             </p>
           </aside>
 
-          <section class="grid content-start gap-3 lg:order-2">
-            <div class="relative">
+          <section class="flex min-h-0 flex-col gap-3 lg:order-2">
+            <div class="relative shrink-0">
               <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
             </div>
 
-            <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+            <div class="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
               <button
                 type="button"
                 class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
@@ -1378,6 +1384,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               </button>
             </div>
 
+            <div class="-mx-1 px-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
             </div>
@@ -1393,8 +1400,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
                 @add="addProduct"
               />
             </div>
+            </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
 
