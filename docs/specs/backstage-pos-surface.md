@@ -79,7 +79,7 @@ visible without tooltip.
   terminal state with operator, terminal and shift id. Do not show "Abrir caixa"
   as the primary action because the backend will reject it.
 
-### Command Board
+### Tab Board
 
 - Primary task: choose or create a tab/comanda.
 - Required blocks:
@@ -241,7 +241,7 @@ are not orders.
 2. If open shift is required and missing, show Cash Shift screen.
 3. Operator enters opening amount and submits `open_cash_shift`.
 4. Refresh projection.
-5. Move to Command Board.
+5. Move to Tab Board.
 
 ### Sale With Tab
 
@@ -337,7 +337,7 @@ Frameworks may change component names, not the interaction contract:
 
 Required:
 
-- F2 or equivalent: command board/tab input.
+- F2 or equivalent: tab board/tab input.
 - F3 or equivalent: sale/product search.
 - F4 or equivalent: checkout/review.
 - `/` focuses product search when not editing.

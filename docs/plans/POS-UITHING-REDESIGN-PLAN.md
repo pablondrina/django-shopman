@@ -146,7 +146,7 @@ Implementar o blueprint da spec, momento a momento (Hyper Focus), com primitivas
 | Momento | Componentes |
 | --- | --- |
 | PIN / lock de operador | **PinInput**, Avatar, Chip |
-| Command Board (escolher/criar comanda) | **Command** (cmdk), Datatable, Empty, ToggleGroup |
+| Tab Board (escolher/criar comanda) | **Command** (cmdk), Datatable, Empty, ToggleGroup |
 | Sale Workspace (grade + busca) | ScrollArea, Item/List, **NumberField/Stepper** (qty), Kbd |
 | Checkout dedicado (3 zonas) | **Splitter**, **Sheet/Drawer**, Field/Form (+Vee/zod), CurrencyInput |
 | Pagamento | CurrencyInput, RadioGroup/Select, TagsInput (split tenders) |
@@ -181,7 +181,7 @@ F2/F3/F4; acessibilidade first-class (nomes em ícones, alvos estáveis, status 
   Migrar `manager_approval` → desafio de PIN (servidor). Testes de contrato.
 - **Fase 1 — Fundação de atribuição (PIN).** `PinCredential` no doorman + camada de
   operador no backstage (lock screen, PIN+crachá, auto-lock, chip, atribuição). Cross-surface.
-- **Fase 2 — Núcleo da comanda.** Command Board (listar/criar/abrir/setar handle) +
+- **Fase 2 — Núcleo da comanda.** Tab Board (listar/criar/abrir/setar handle) +
   Sale Workspace (grade de produtos + carrinho) sobre UI Thing.
 - **Fase 3 — Checkout + pagamento.** Workspace dedicado (3 zonas), tenders/split,
   fiscal, review→commit; override de gerente por PIN nos 4 gates; **caixa cego**.

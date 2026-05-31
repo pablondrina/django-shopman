@@ -199,7 +199,7 @@ Kind: backstage/operational surface
 - Add order result actions for fiscal/receipt recovery and reprint once backend
   exposes canonical action refs.
 - Expand visual smoke with screenshot capture once the in-app browser screenshot
-  path is stable; authenticated DOM smoke now covers cash runtime, command board,
+  path is stable; authenticated DOM smoke now covers cash runtime, tab board,
   checkout entry, PIX selection and backend re-review.
 - Older `surfaces/backstage-nuxt/app/pages/pos.vue` is now deprecated as an active POS route; remaining cleanup is optional removal of unused legacy POS helpers/components from `surfaces/backstage-nuxt` once no code imports them.
 

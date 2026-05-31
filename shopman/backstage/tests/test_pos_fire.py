@@ -104,7 +104,7 @@ class POSFireTabTests(TestCase):
         self.assertEqual(third["fired_count"], 0)
         self.assertEqual(KDSTicket.objects.filter(session_key=session.session_key).count(), 2)
 
-    def test_command_board_flags_fired_unpaid_tab(self) -> None:
+    def test_tab_board_flags_fired_unpaid_tab(self) -> None:
         from shopman.backstage.projections.pos import build_pos_tabs
 
         session = self._open_tab_with_two_items()
