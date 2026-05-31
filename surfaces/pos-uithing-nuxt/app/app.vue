@@ -1283,29 +1283,34 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               v-for="tab in visibleTabs"
               :key="tab.ref"
               type="button"
-              class="grid gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
+              class="flex h-[5.5rem] flex-col gap-0.5 overflow-hidden rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
               :class="[
                 cart.tabRef === tab.ref ? 'border-primary bg-primary/5' : '',
                 tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
               ]"
               @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
             >
-              <div class="flex items-baseline justify-between gap-2">
-                <span class="font-semibold tabular-nums">#{{ tab.display_ref }}</span>
-                <span class="text-xs text-muted-foreground">{{ tab.status_label }}</span>
+              <div class="flex items-center justify-between gap-2">
+                <span class="truncate font-semibold tabular-nums">#{{ tab.display_ref }}</span>
+                <span
+                  v-if="tab.fired"
+                  class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                  title="Disparado para a cozinha e ainda não pago"
+                >
+                  <Icon name="lucide:flame" class="size-3" />
+                  não pago
+                </span>
+                <span v-else class="shrink-0 text-xs text-muted-foreground">{{ tab.status_label }}</span>
               </div>
+              <span class="truncate text-xs font-medium">{{ tab.customer_name || tab.items_preview || "—" }}</span>
               <span
-                v-if="tab.fired"
-                class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
-                title="Disparado para a cozinha e ainda não pago"
+                class="mt-auto truncate text-xs tabular-nums"
+                :class="tab.item_count ? 'font-semibold' : 'text-muted-foreground'"
               >
-                <Icon name="lucide:flame" class="size-3" />
-                Na cozinha · não pago
-              </span>
-              <span v-if="tab.customer_name" class="truncate text-xs font-medium">{{ tab.customer_name }}</span>
-              <span v-if="tab.items_preview" class="truncate text-xs text-muted-foreground">{{ tab.items_preview }}</span>
-              <span v-if="tab.item_count" class="text-xs font-semibold tabular-nums">
-                {{ tab.item_count }} {{ tab.item_count === 1 ? "item" : "itens" }} · {{ tab.total_display }}
+                <template v-if="tab.item_count">
+                  {{ tab.item_count }} {{ tab.item_count === 1 ? "item" : "itens" }} · {{ tab.total_display }}
+                </template>
+                <template v-else>Comanda livre</template>
               </span>
             </button>
           </div>
