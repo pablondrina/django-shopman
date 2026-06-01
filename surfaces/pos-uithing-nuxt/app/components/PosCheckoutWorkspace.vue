@@ -70,6 +70,7 @@ const emit = defineEmits<{
   "update:paymentMethod": [string];
   "update:paymentCollection": ["terminal" | "on_delivery"];
   addTender: [string];
+  addCashTender: [number];
   removeTender: [number];
   "update:customerName": [string];
   "update:customerPhone": [string];
@@ -189,13 +190,6 @@ function cashClear() {
 // Cash quick-bills (restored): notes set the amount to register absolutely;
 // "Exato" sets the remaining due. The operator then taps a payment method.
 const cashPresets = [2000, 5000, 10000];
-function setTenderedAbsolute(cents: number) {
-  cashDigits.value = cents ? String(cents) : "";
-  emitCash();
-}
-function setExactRemaining() {
-  setTenderedAbsolute(Math.max(0, remainingQ.value));
-}
 
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
@@ -246,74 +240,30 @@ function onAddressSelected(address: StructuredAddressProjection) {
     </div>
 
     <!-- Main: order + totals (left) · payment controls (right) -->
-    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
-      <!-- LEFT — order summary, totals, tender lines, remaining/change -->
+    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <!-- LEFT — total to pay, payment lines, remaining/change (Odoo: no item re-list) -->
       <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4">
-        <div class="flex shrink-0 items-baseline justify-between gap-2">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Comanda</p>
-          <p v-if="hasOpenTab" class="text-lg font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
-          <p v-else class="text-base font-semibold">Venda rápida</p>
-        </div>
-
-        <div class="min-h-0 flex-1 overflow-auto pr-1">
-          <p v-if="!items.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Carrinho vazio
+        <div class="shrink-0">
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Total a pagar{{ hasOpenTab && tabDisplay ? ` · #${tabDisplay}` : "" }}
           </p>
-          <ul v-else class="grid gap-1.5">
-            <li
-              v-for="item in items"
-              :key="item.sku"
-              class="grid grid-cols-[1fr_auto] items-center gap-2 border-b pb-1.5 last:border-0"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium leading-tight">{{ item.name }}</p>
-                <p class="text-xs text-muted-foreground tabular-nums">{{ item.qty }}× {{ formatBRL(item.price_q) }}</p>
-              </div>
-              <span class="text-sm font-semibold tabular-nums">{{ formatBRL(item.price_q * item.qty) }}</span>
-            </li>
-          </ul>
+          <strong class="text-4xl tabular-nums text-primary">{{ review ? review.total_display : interimTotalDisplay }}</strong>
+          <div v-if="review" class="mt-2 grid gap-1 border-t pt-2 text-sm text-muted-foreground">
+            <div class="flex items-baseline justify-between"><span>Subtotal</span><span class="tabular-nums">{{ review.subtotal_display }}</span></div>
+            <div v-if="review.discount_q" class="flex items-baseline justify-between"><span>Desconto</span><span class="tabular-nums">-{{ review.discount_display }}</span></div>
+            <div v-if="review.delivery_fee_q" class="flex items-baseline justify-between"><span>Entrega</span><span class="tabular-nums">{{ review.delivery_fee_display }}</span></div>
+          </div>
+          <p v-else class="mt-1 text-xs text-muted-foreground">Revise a venda para confirmar o total final.</p>
+          <p v-for="warning in review?.warnings || []" :key="warning.code" class="mt-1 text-xs text-amber-700">{{ warning.message }}</p>
         </div>
 
-        <!-- Totals: backend review when present, interim otherwise -->
-        <div class="grid shrink-0 gap-1.5 border-t pt-3">
-          <template v-if="review">
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-muted-foreground">Subtotal</span>
-              <span class="tabular-nums">{{ review.subtotal_display }}</span>
-            </div>
-            <div v-if="review.delivery_fee_q" class="flex items-baseline justify-between text-sm">
-              <span class="text-muted-foreground">Entrega</span>
-              <span class="tabular-nums">{{ review.delivery_fee_display }}</span>
-            </div>
-            <div v-if="review.discount_q" class="flex items-baseline justify-between text-sm">
-              <span class="text-muted-foreground">Desconto</span>
-              <span class="tabular-nums">-{{ review.discount_display }}</span>
-            </div>
-            <div class="flex items-baseline justify-between border-t pt-1.5">
-              <span class="text-sm font-semibold">Total</span>
-              <strong class="text-3xl tabular-nums text-primary">{{ review.total_display }}</strong>
-            </div>
-            <p v-for="warning in review.warnings" :key="warning.code" class="text-xs text-amber-700">
-              {{ warning.message }}
-            </p>
-          </template>
-          <template v-else>
-            <div class="flex items-baseline justify-between">
-              <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
-              <strong class="text-2xl tabular-nums">{{ interimTotalDisplay }}</strong>
-            </div>
-            <p class="text-xs text-muted-foreground">Revise a venda para confirmar total, desconto e troco.</p>
-          </template>
-        </div>
-
-        <!-- Tender lines + remaining/change -->
-        <div class="grid shrink-0 gap-1.5">
-          <ul v-if="paymentTenders.length" class="grid gap-1">
-            <li
-              v-for="(tender, idx) in paymentTenders"
-              :key="idx"
-              class="flex items-center justify-between rounded-lg border px-3 py-1.5"
-            >
+        <div class="min-h-0 flex-1 overflow-auto">
+          <p class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
+          <p v-if="!paymentTenders.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Nenhum pagamento ainda. Toque uma forma ou uma nota ao lado.
+          </p>
+          <ul v-else class="grid gap-1">
+            <li v-for="(tender, idx) in paymentTenders" :key="idx" class="flex items-center justify-between rounded-lg border px-3 py-2">
               <span class="flex items-center gap-2 text-sm font-medium">
                 <Icon :name="paymentIcon(tender.method)" class="size-4" />
                 {{ methodLabel(tender.method) }}
@@ -326,29 +276,35 @@ function onAddressSelected(address: StructuredAddressProjection) {
               </span>
             </li>
           </ul>
-          <div
-            class="flex items-baseline justify-between rounded-lg px-3 py-2"
-            :class="remainingQ > 0 ? 'bg-muted/50' : 'bg-primary/10'"
-          >
-            <span class="text-sm font-medium">
-              <template v-if="remainingQ > 0">Resta a pagar</template>
-              <template v-else-if="changeQ > 0">Troco</template>
-              <template v-else>Pago</template>
-            </span>
-            <strong class="text-xl tabular-nums" :class="remainingQ > 0 ? '' : 'text-primary'">
-              <template v-if="remainingQ > 0">{{ formatBRL(remainingQ) }}</template>
-              <template v-else-if="changeQ > 0">{{ formatBRL(changeQ) }}</template>
-              <template v-else>✓</template>
-            </strong>
-          </div>
+        </div>
+
+        <div class="flex shrink-0 items-baseline justify-between rounded-lg px-3 py-3" :class="remainingQ > 0 ? 'bg-muted/50' : 'bg-primary/10'">
+          <span class="text-base font-medium">
+            <template v-if="remainingQ > 0">Resta a pagar</template>
+            <template v-else-if="changeQ > 0">Troco</template>
+            <template v-else>Pago</template>
+          </span>
+          <strong class="text-3xl tabular-nums" :class="remainingQ > 0 ? '' : 'text-primary'">
+            <template v-if="remainingQ > 0">{{ formatBRL(remainingQ) }}</template>
+            <template v-else-if="changeQ > 0">{{ formatBRL(changeQ) }}</template>
+            <template v-else>✓</template>
+          </strong>
         </div>
       </div>
 
-      <!-- RIGHT — payment input controls -->
+      <!-- RIGHT — payment controls: methods, cash bills, numpad -->
       <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4">
-        <div class="flex shrink-0 items-baseline justify-between rounded-lg border bg-muted/40 px-3 py-2">
-          <span class="text-sm font-medium text-muted-foreground">Valor a registrar</span>
-          <strong class="text-2xl tabular-nums">{{ nextAmountDisplay }}</strong>
+        <div class="grid shrink-0 grid-cols-3 gap-2">
+          <UiButton
+            v-for="method in injectableMethods"
+            :key="method.ref"
+            variant="outline"
+            class="h-auto flex-col gap-1.5 py-4"
+            @click="$emit('addTender', method.ref)"
+          >
+            <Icon :name="paymentIcon(method.ref)" class="size-6" />
+            <span class="text-xs font-medium">{{ method.label }}</span>
+          </UiButton>
         </div>
 
         <div class="grid shrink-0 grid-cols-4 gap-2">
@@ -357,36 +313,29 @@ function onAddressSelected(address: StructuredAddressProjection) {
             :key="preset"
             type="button"
             class="rounded-lg border bg-card py-2 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-            @click="setTenderedAbsolute(preset)"
+            @click="$emit('addCashTender', preset)"
           >
             R$ {{ preset / 100 }}
           </button>
           <button
             type="button"
             class="rounded-lg border bg-card py-2 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
-            @click="setExactRemaining"
+            @click="$emit('addCashTender', Math.max(0, remainingQ))"
           >
             Exato
           </button>
         </div>
 
+        <div class="flex shrink-0 items-baseline justify-between rounded-lg border bg-muted/40 px-3 py-2">
+          <span class="text-sm font-medium text-muted-foreground">Valor a registrar</span>
+          <strong class="text-2xl tabular-nums">{{ nextAmountDisplay }}</strong>
+        </div>
+
         <PosNumpad @digit="pushCashDigit" @backspace="cashBackspace" @clear="cashClear" />
 
         <p class="shrink-0 text-xs text-muted-foreground">
-          Defina o valor (ou deixe o restante) e toque a forma de pagamento:
+          Toque a forma (usa o restante) ou uma nota (dinheiro). Para um valor específico, digite e toque a forma.
         </p>
-        <div class="grid shrink-0 grid-cols-3 gap-2">
-          <UiButton
-            v-for="method in injectableMethods"
-            :key="method.ref"
-            variant="outline"
-            class="h-auto flex-col gap-1.5 py-3"
-            @click="$emit('addTender', method.ref)"
-          >
-            <Icon :name="paymentIcon(method.ref)" class="size-6" />
-            <span class="text-xs font-medium">{{ method.label }}</span>
-          </UiButton>
-        </div>
 
         <div v-if="deliveryCollections.length > 1" class="grid shrink-0 grid-cols-2 gap-2">
           <UiButton

@@ -20,7 +20,8 @@ export default defineNuxtConfig({
     'motion-v/nuxt',
     '@vueuse/nuxt',
     '@nuxt/icon',
-    '@nuxt/fonts'
+    '@nuxt/fonts',
+    "vue-sonner/nuxt"
   ],
 
   imports: {
@@ -31,6 +32,10 @@ export default defineNuxtConfig({
       from: 'tailwind-variants',
       name: 'VariantProps',
       type: true
+    }, {
+      from: "vue-sonner",
+      name: "toast",
+      as: "useSonner"
     }]
   },
 

@@ -222,6 +222,24 @@ function bump(sku: string, emitName: "increment" | "decrement") {
   }
   emit("increment", sku);
 }
+
+// Physical keyboard feeds the active line (Odoo-style): select/add a product,
+// then type a number to set its quantity. Ignored while typing in a field.
+function onWindowKeydown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  const editing = !!target
+    && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+  if (editing || !props.items.length || !activeSku.value) return;
+  if (event.key >= "0" && event.key <= "9") {
+    event.preventDefault();
+    onDigit(event.key);
+  } else if (event.key === "Backspace") {
+    event.preventDefault();
+    onBackspace();
+  }
+}
+onMounted(() => window.addEventListener("keydown", onWindowKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
 </script>
 
 <template>

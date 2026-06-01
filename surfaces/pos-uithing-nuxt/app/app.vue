@@ -31,6 +31,7 @@ import {
   tabRefMaxLength,
   tabRefPlaceholder,
 } from "~/utils/posTabLifecycle";
+import { toast } from "vue-sonner";
 
 type FulfillmentType = "pickup" | "delivery";
 type PaymentCollection = "terminal" | "on_delivery";
@@ -74,6 +75,13 @@ const cancelSaleReason = ref("");
 const saleCancelled = ref(false);
 const lookupBusy = ref(false);
 const serverError = ref("");
+// Errors surface as a dismissible floating toast (UI Thing Sonner), not an
+// inline banner. Clear the ref after showing so it doesn't linger.
+watch(serverError, (message) => {
+  if (!message) return;
+  toast.error(message);
+  serverError.value = "";
+});
 const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
 const checkoutMode = ref(false);
 // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
@@ -200,12 +208,18 @@ function addTender(method: string) {
   if (amountQ <= 0) return;
   cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
   cart.tenderedAmountInput = "";
-  review.value = null;
+}
+
+// A cash bill (R$20/50/100/Exato) is, by definition, a cash payment — add it
+// directly without making the operator also tap "Dinheiro".
+function addCashTender(amountQ: number) {
+  if (!amountQ || amountQ <= 0) return;
+  cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection });
+  cart.tenderedAmountInput = "";
 }
 
 function removeTender(index: number) {
   cart.paymentTenders.splice(index, 1);
-  review.value = null;
 }
 const tabDialogTitle = computed(() => {
   if (tabDialogReason.value === "save") return "Associar comanda";
@@ -277,9 +291,11 @@ watch(availablePaymentCollections, (collections) => {
   }
 }, { immediate: true });
 
+// Only invalidate the backend review when something that changes the TOTAL
+// changes (fulfillment/delivery fee, discount). Payment tenders, method,
+// fiscal/receipt and customer metadata do NOT change the total, so they must
+// not force a re-review (that was the spurious "Revisar venda" double-step).
 watch(() => [
-  cart.customerTaxId,
-  cart.customerEmail,
   cart.fulfillmentType,
   cart.deliveryAddress,
   cart.deliveryAddressStructured,
@@ -290,13 +306,6 @@ watch(() => [
   cart.deliveryDate,
   cart.deliveryTimeSlot,
   cart.deliveryFeeInput,
-  cart.orderNotes,
-  cart.paymentMethod,
-  cart.paymentCollection,
-  cart.tenderedAmountInput,
-  cart.issueFiscalDocument,
-  cart.receiptMode,
-  cart.receiptEmail,
   cart.discountType,
   cart.discountValue,
   cart.discountReason,
@@ -653,13 +662,20 @@ function buildCurrentIntent() {
   );
 }
 
-async function persistTab(quiet = false) {
-  const state = currentIntentState();
-  cart.clientRequestId = state.clientRequestId;
-  await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
-    body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
-  });
-  if (!quiet) await refresh();
+// Serialize all tab persistence so the debounced autosave can never race the
+// explicit save inside checkout/fire/move (concurrent save_tab → DB lock).
+let persistQueue: Promise<unknown> = Promise.resolve();
+function persistTab(quiet = false): Promise<void> {
+  const run = async () => {
+    const state = currentIntentState();
+    cart.clientRequestId = state.clientRequestId;
+    await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
+      body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
+    });
+    if (!quiet) await refresh();
+  };
+  persistQueue = persistQueue.then(run, run);
+  return persistQueue as Promise<void>;
 }
 
 // Debounced auto-persist: fires on cart/sale-data changes while a tab is open,
@@ -1147,12 +1163,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
     <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
-      <UiAlert v-if="serverError" variant="destructive">
-        <Icon name="lucide:circle-x" class="size-4" />
-        <UiAlertTitle>Ação recusada</UiAlertTitle>
-        <UiAlertDescription>{{ serverError }}</UiAlertDescription>
-      </UiAlert>
-
       <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
@@ -1261,6 +1271,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @review="reviewCheckout"
         @submit="submitSale"
         @add-tender="addTender"
+        @add-cash-tender="addCashTender"
         @remove-tender="removeTender"
         @lookup-customer="lookupCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
@@ -1513,5 +1524,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       :busy="busy"
       @submit="submitMove"
     />
+
+    <UiSonner />
   </main>
 </template>
