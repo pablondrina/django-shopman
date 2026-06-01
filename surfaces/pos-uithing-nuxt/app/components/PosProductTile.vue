@@ -74,7 +74,6 @@ const fallbackMonogram = computed(() => (props.product.name?.trim()?.[0] || "·"
     </div>
 
     <div class="grid gap-0.5 px-2.5 py-1.5">
-      <p class="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{{ product.sku }}</p>
       <p class="line-clamp-2 text-sm font-semibold leading-tight">{{ product.name }}</p>
       <strong class="text-base tabular-nums">{{ product.price_display }}</strong>
     </div>

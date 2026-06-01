@@ -408,43 +408,37 @@ function bump(sku: string, emitName: "increment" | "decrement") {
         <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
         <strong class="text-xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
-      <div class="grid grid-cols-2 gap-2">
-        <UiButton
-          variant="outline"
-          :disabled="!items.length || saving"
-          :loading="saving"
-          @click="$emit('save')"
-        >
-          Salvar
-        </UiButton>
-        <UiButton :disabled="!items.length || loading" :loading="loading" @click="$emit('prepare')">
-          Checkout
-        </UiButton>
-      </div>
-      <div v-if="hasOpenTab && items.length" class="flex flex-wrap items-center gap-1">
-        <UiButton
-          v-if="canFire"
-          variant="ghost"
-          size="sm"
-          class="gap-1.5"
-          :disabled="loading || saving || firing || !unfiredCount"
-          :loading="firing"
-          @click="$emit('fire')"
-        >
-          <Icon name="lucide:flame" class="size-4" />
-          {{ unfiredCount ? `Cozinha (${unfiredCount})` : "Tudo na cozinha" }}
-        </UiButton>
-        <UiButton
-          variant="ghost"
-          size="sm"
-          class="gap-1.5 text-muted-foreground"
-          :disabled="loading || saving"
-          @click="$emit('move')"
-        >
-          <Icon name="lucide:split" class="size-4" />
-          Mover
-        </UiButton>
-      </div>
+      <UiButton
+        v-if="canFire && hasOpenTab && items.length"
+        variant="outline"
+        class="w-full justify-center gap-2"
+        :disabled="loading || firing || !unfiredCount"
+        :loading="firing"
+        @click="$emit('fire')"
+      >
+        <Icon name="lucide:flame" class="size-4" />
+        {{ unfiredCount ? `Enviar para cozinha (${unfiredCount})` : "Tudo na cozinha" }}
+      </UiButton>
+      <UiButton
+        size="lg"
+        class="w-full"
+        :disabled="!items.length || loading"
+        :loading="loading"
+        @click="$emit('prepare')"
+      >
+        Pagamento
+      </UiButton>
+      <UiButton
+        v-if="hasOpenTab && items.length"
+        variant="ghost"
+        size="sm"
+        class="w-full justify-center gap-1.5 text-muted-foreground"
+        :disabled="loading"
+        @click="$emit('move')"
+      >
+        <Icon name="lucide:split" class="size-4" />
+        Mover itens
+      </UiButton>
     </div>
   </UiCard>
 

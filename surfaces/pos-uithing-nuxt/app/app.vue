@@ -64,6 +64,9 @@ const tabFilter = ref<"all" | "in_use">("all");
 const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
+// Auto-persist the comanda (Odoo-style): no manual "Salvar". tabLoading guards
+// against re-saving right after a programmatic load (setFromTabPayload).
+const tabLoading = ref(false);
 const firing = ref(false);
 const renamingTab = ref(false);
 const cancellingSale = ref(false);
@@ -411,6 +414,7 @@ function assignTabIdentityFromPayload(payload: POSTabPayload) {
 }
 
 function setFromTabPayload(payload: POSTabPayload) {
+  tabLoading.value = true;
   assignTabIdentityFromPayload(payload);
   cart.items = (payload.items || []).map((item) => ({ ...item }));
   cart.customerName = payload.customer_name || "";
@@ -446,6 +450,7 @@ function setFromTabPayload(payload: POSTabPayload) {
   customerLookup.value = null;
   checkoutMode.value = false;
   review.value = null;
+  void nextTick(() => { tabLoading.value = false; });
 }
 
 function requestTabAssociation(reason: "start" | "save" | "cart" = "start") {
@@ -648,14 +653,45 @@ function buildCurrentIntent() {
   );
 }
 
-async function persistTab() {
+async function persistTab(quiet = false) {
   const state = currentIntentState();
   cart.clientRequestId = state.clientRequestId;
   await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
     body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
   });
-  await refresh();
+  if (!quiet) await refresh();
 }
+
+// Debounced auto-persist: fires on cart/sale-data changes while a tab is open,
+// outside checkout. Quiet save (no projection refresh) to stay light.
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleAutosave() {
+  if (tabLoading.value || !hasOpenTab.value || checkoutMode.value) return;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    if (!hasOpenTab.value || checkoutMode.value || busy.value || saving.value) return;
+    persistTab(true).catch(() => {});
+  }, 1200);
+}
+watch(() => [
+  cart.items,
+  cart.customerName,
+  cart.customerRef,
+  cart.customerPhone,
+  cart.customerTaxId,
+  cart.customerEmail,
+  cart.fulfillmentType,
+  cart.deliveryAddress,
+  cart.deliveryStreetNumber,
+  cart.deliveryNeighborhood,
+  cart.deliveryComplement,
+  cart.deliveryInstructions,
+  cart.deliveryDate,
+  cart.deliveryTimeSlot,
+  cart.deliveryFeeInput,
+  cart.orderNotes,
+], () => scheduleAutosave(), { deep: true });
 
 async function saveTab() {
   if (tabRequiredForSave.value && !hasOpenTab.value) {
