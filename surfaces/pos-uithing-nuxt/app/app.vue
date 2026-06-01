@@ -1033,7 +1033,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
-  <main class="flex min-h-dvh flex-col bg-background text-foreground lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
+  <main class="flex min-h-dvh flex-col bg-background text-foreground md:h-[100dvh] md:min-h-0 md:overflow-hidden">
     <header class="shrink-0 border-b bg-background">
       <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
@@ -1109,7 +1109,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       @unlock="onUnlock"
     />
 
-    <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 lg:min-h-0 lg:overflow-hidden">
+    <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
       <UiAlert v-if="serverError" variant="destructive">
         <Icon name="lucide:circle-x" class="size-4" />
@@ -1152,7 +1152,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       </UiAlert>
       </div>
 
-      <div class="flex-1 lg:min-h-0 lg:overflow-hidden">
+      <div class="flex-1 md:min-h-0 md:overflow-hidden">
       <div v-if="error" class="grid h-full place-items-center p-4">
         <div class="grid max-w-sm gap-4 text-center">
           <div class="mx-auto grid size-14 place-items-center rounded-full border bg-muted">
@@ -1177,7 +1177,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </UiButton>
         </div>
       </div>
-      <div v-else-if="checkoutMode" class="h-full lg:overflow-y-auto">
+      <div v-else-if="checkoutMode" class="h-full md:overflow-y-auto">
       <PosCheckoutWorkspace
         :tab-display="cart.tabDisplay"
         :items="cart.items"
@@ -1302,7 +1302,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </p>
           <div
             v-else
-            class="max-h-[72vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1"
+            class="max-h-[72vh] overflow-y-auto pr-1 md:max-h-none md:min-h-0 md:flex-1"
             :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
           >
             <button
@@ -1343,13 +1343,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </section>
 
         <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
-        <div v-else class="grid h-full min-h-0 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside class="flex min-h-0 flex-col gap-3 lg:order-1">
+        <div v-else class="grid h-full min-h-0 gap-4 md:grid-cols-[340px_minmax(0,1fr)]">
+          <aside class="flex min-h-0 flex-col gap-3 md:order-1">
             <UiButton variant="outline" size="sm" class="w-fit shrink-0 gap-2" @click="goToTabs">
               <Icon name="lucide:arrow-left" class="size-4" />
               Comandas
             </UiButton>
-            <div class="min-h-0 lg:flex-1">
+            <div class="min-h-0 md:flex-1">
             <PosCartPanel
               :tab-display="cart.tabDisplay"
               :items="cart.items"
@@ -1388,7 +1388,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             </p>
           </aside>
 
-          <section class="flex min-h-0 flex-col gap-3 lg:order-2">
+          <section class="flex min-h-0 flex-col gap-3 md:order-2">
             <div class="relative shrink-0">
               <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
@@ -1415,7 +1415,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               </button>
             </div>
 
-            <div class="-mx-1 px-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <div class="-mx-1 px-1 md:min-h-0 md:flex-1 md:overflow-y-auto">
             <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
             </div>

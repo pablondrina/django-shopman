@@ -225,7 +225,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
 </script>
 
 <template>
-  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none lg:h-full lg:min-h-0">
+  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none md:h-full md:min-h-0">
     <div class="grid gap-3 text-center">
       <div class="mx-auto grid size-11 place-items-center rounded-lg border bg-muted">
         <Icon name="lucide:receipt-text" class="size-5 text-muted-foreground" />
@@ -242,7 +242,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
     </div>
   </UiCard>
 
-  <UiCard v-else class="gap-2.5 rounded-lg p-3 shadow-none lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+  <UiCard v-else class="gap-2.5 rounded-lg p-3 shadow-none md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden">
     <div class="flex shrink-0 items-center justify-between gap-2">
       <div class="min-w-0">
         <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comanda</p>
@@ -301,7 +301,7 @@ function bump(sku: string, emitName: "increment" | "decrement") {
 
     <UiSeparator class="shrink-0" />
 
-    <div class="min-h-24 max-h-[40vh] overflow-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
+    <div class="min-h-24 max-h-[40vh] overflow-auto pr-1 md:max-h-none md:min-h-0 md:flex-1">
       <p v-if="!items.length" class="grid h-full min-h-24 place-items-center rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
         Carrinho vazio
       </p>
