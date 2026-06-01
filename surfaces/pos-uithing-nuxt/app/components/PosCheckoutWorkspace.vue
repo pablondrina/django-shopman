@@ -131,6 +131,18 @@ const discountSummary = computed(() =>
 );
 const customerSet = computed(() => Boolean(props.customerName.trim() || props.customerPhone.trim()));
 
+// Kitchen clarity: tell the operator, unequivocally, what finalizing will do
+// vs what was already fired — so it's never a mystery whether food was sent.
+const firedCount = computed(() => props.items.filter((item) => item.fired).length);
+const kitchenNote = computed(() => {
+  const total = props.items.length;
+  if (!total) return "";
+  const fired = firedCount.value;
+  if (fired === 0) return `Ao finalizar, ${total === 1 ? "o item vai" : "os itens vão"} para a cozinha.`;
+  if (fired < total) return `${fired} ${fired === 1 ? "item já está" : "itens já estão"} na cozinha; o restante vai ao finalizar.`;
+  return total === 1 ? "O item já está na cozinha." : "Todos os itens já estão na cozinha.";
+});
+
 // Payment by injection: methods become "add a tender" buttons; the operator
 // covers the total in any combination of forms. No "mixed" selection.
 const injectableMethods = computed(() => props.paymentMethods.filter((method) => method.ref !== "mixed"));
@@ -353,8 +365,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </div>
     </div>
 
-    <!-- Footer: manager approval (when required) + final action -->
+    <!-- Footer: kitchen status + manager approval (when required) + final action -->
     <div class="grid shrink-0 gap-2">
+      <div v-if="items.length" class="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+        <Icon name="lucide:flame" class="size-4 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
+        <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
+      </div>
       <div
         v-if="review?.requires_manager_approval"
         class="grid gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
