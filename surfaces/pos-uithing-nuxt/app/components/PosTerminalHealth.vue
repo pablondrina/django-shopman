@@ -47,7 +47,7 @@ const rows = computed(() => [
 <template>
   <UiPopover>
     <UiPopoverTrigger as-child>
-      <UiButton variant="outline" size="sm" class="gap-2" :aria-label="`Saúde do terminal: ${overall.label}`">
+      <UiButton variant="ghost" size="sm" class="gap-2 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" :aria-label="`Saúde do terminal: ${overall.label}`">
         <span class="size-2 rounded-full" :class="overall.dot" />
         <span class="font-medium">{{ terminalLabel }}</span>
         <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />

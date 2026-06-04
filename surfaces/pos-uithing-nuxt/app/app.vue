@@ -192,34 +192,71 @@ const paymentRemainingQ = computed(() => paymentTotalQ.value - tenderSumQ.value)
 const paymentChangeQ = computed(() => Math.max(0, tenderSumQ.value - paymentTotalQ.value));
 const paymentCovered = computed(() => cart.paymentTenders.length > 0 && paymentRemainingQ.value <= 0);
 
+// Odoo-style payment: tapping a method adds a tender for the remaining due
+// (the first one = the total). The numpad then edits the SELECTED line.
+const selectedTenderIndex = ref(-1);
+const tenderFresh = ref(true);
+
 function addTender(method: string) {
-  const total = paymentTotalQ.value;
-  const remaining = Math.max(0, paymentRemainingQ.value);
-  const enteredQ = tenderedAmountQ.value;
-  let amountQ: number;
-  if (cart.paymentTenders.length === 0 && method === "cash") {
-    // Lone cash payment may overpay (change); default to the full total.
-    amountQ = enteredQ > 0 ? enteredQ : total;
-  } else {
-    // Split / electronic: clamp to the remaining so the lines sum to the total
-    // (the backend rejects overpay inside the tenders list).
-    amountQ = enteredQ > 0 ? Math.min(enteredQ, remaining) : remaining;
-  }
+  const amountQ = Math.max(0, paymentRemainingQ.value);
   if (amountQ <= 0) return;
   cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
-  cart.tenderedAmountInput = "";
+  selectedTenderIndex.value = cart.paymentTenders.length - 1;
+  tenderFresh.value = true;
 }
 
 // A cash bill (R$20/50/100/Exato) is, by definition, a cash payment — add it
-// directly without making the operator also tap "Dinheiro".
+// directly without making the operator also tap "Dinheiro". May overpay (change).
 function addCashTender(amountQ: number) {
   if (!amountQ || amountQ <= 0) return;
   cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection });
-  cart.tenderedAmountInput = "";
+  selectedTenderIndex.value = cart.paymentTenders.length - 1;
+  tenderFresh.value = true;
 }
 
 function removeTender(index: number) {
   cart.paymentTenders.splice(index, 1);
+  if (selectedTenderIndex.value >= cart.paymentTenders.length) {
+    selectedTenderIndex.value = cart.paymentTenders.length - 1;
+  }
+}
+
+function selectTender(index: number) {
+  selectedTenderIndex.value = index;
+  tenderFresh.value = true;
+}
+
+// Numpad edits the amount (cents) of the selected tender. First keystroke after
+// selecting/adding replaces; the rest append.
+function tenderDigit(digit: string) {
+  const tender = cart.paymentTenders[selectedTenderIndex.value];
+  if (!tender) return;
+  const base = tenderFresh.value ? 0 : tender.amount_q;
+  tenderFresh.value = false;
+  tender.amount_q = Math.min(99_999_999, base * 10 + (Number.parseInt(digit, 10) || 0));
+}
+function tenderBackspace() {
+  const tender = cart.paymentTenders[selectedTenderIndex.value];
+  if (!tender) return;
+  tenderFresh.value = false;
+  tender.amount_q = Math.floor(tender.amount_q / 10);
+}
+function tenderClear() {
+  const tender = cart.paymentTenders[selectedTenderIndex.value];
+  if (!tender) return;
+  tenderFresh.value = true;
+  tender.amount_q = 0;
+}
+// Quick-add (+R$10/50/100): add to the selected tender, or open a cash line.
+function tenderAdd(cents: number) {
+  if (!cents) return;
+  const tender = cart.paymentTenders[selectedTenderIndex.value];
+  if (tender) {
+    tenderFresh.value = false;
+    tender.amount_q = Math.min(99_999_999, tender.amount_q + cents);
+  } else {
+    addCashTender(cents);
+  }
 }
 const tabDialogTitle = computed(() => {
   if (tabDialogReason.value === "save") return "Associar comanda";
@@ -291,10 +328,21 @@ watch(availablePaymentCollections, (collections) => {
   }
 }, { immediate: true });
 
-// Only invalidate the backend review when something that changes the TOTAL
-// changes (fulfillment/delivery fee, discount). Payment tenders, method,
-// fiscal/receipt and customer metadata do NOT change the total, so they must
-// not force a re-review (that was the spurious "Revisar venda" double-step).
+// Odoo has no manual "review" step — the total is live. When something that
+// affects the TOTAL changes during checkout (discount/fulfillment/delivery
+// fee), auto re-review (debounced) so the total updates on its own. Finalize
+// stays disabled while the fresh total is in flight. Payment tenders, method,
+// fiscal/receipt and customer metadata do NOT change the total → no re-review.
+let autoReviewTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleAutoReview() {
+  if (!checkoutMode.value) return;
+  review.value = null;
+  if (autoReviewTimer) clearTimeout(autoReviewTimer);
+  autoReviewTimer = setTimeout(() => {
+    autoReviewTimer = null;
+    if (checkoutMode.value && cart.items.length) reviewCheckout();
+  }, 450);
+}
 watch(() => [
   cart.fulfillmentType,
   cart.deliveryAddress,
@@ -309,9 +357,7 @@ watch(() => [
   cart.discountType,
   cart.discountValue,
   cart.discountReason,
-], () => {
-  if (checkoutMode.value) review.value = null;
-});
+], () => scheduleAutoReview());
 
 function productQty(sku: string): number {
   return cart.items.find((item) => item.sku === sku)?.qty || 0;
@@ -384,6 +430,7 @@ function resetCart() {
   cart.orderNotes = "";
   cart.paymentCollection = "terminal";
   cart.paymentTenders = [];
+  selectedTenderIndex.value = -1;
   cart.tenderedAmountInput = "";
   cart.issueFiscalDocument = false;
   cart.receiptMode = "none";
@@ -446,6 +493,7 @@ function setFromTabPayload(payload: POSTabPayload) {
   cart.paymentCollection = payload.payment_collection === "on_delivery" ? "on_delivery" : "terminal";
   // Spec: do not replay saved/default tender lines as operator payment input.
   cart.paymentTenders = [];
+  selectedTenderIndex.value = -1;
   cart.tenderedAmountInput = payload.tendered_amount_q ? (Number(payload.tendered_amount_q) / 100).toFixed(2).replace(".", ",") : "";
   cart.issueFiscalDocument = !!payload.issue_fiscal_document;
   cart.receiptMode = payload.receipt_mode || "none";
@@ -906,6 +954,9 @@ async function fireTab() {
   serverError.value = "";
   firing.value = true;
   try {
+    // Persist on-screen items first so the server fires exactly what the
+    // operator sees (the local draft may not be autosaved yet).
+    await persistTab(true);
     const response = await action.call<{ tab: POSTabPayload | null }>(
       actionHref(actions.value, "fire_tab", "/api/v1/backstage/pos/tabs/fire/"),
       { body: { session_key: cart.tabSessionKey, client_request_id: newClientRequestId() } },
@@ -1086,11 +1137,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
 <template>
   <main class="flex min-h-dvh flex-col bg-background text-foreground md:h-[100dvh] md:min-h-0 md:overflow-hidden">
-    <header class="shrink-0 border-b bg-background">
-      <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div>
-          <p class="text-xs font-medium uppercase text-muted-foreground">Shopman</p>
-          <h1 class="text-xl font-semibold tracking-normal">POS</h1>
+    <header class="shrink-0 bg-primary text-primary-foreground shadow-sm">
+      <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3 px-4 py-2">
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-lg font-semibold tracking-tight">POS</span>
+          <span class="text-xs font-medium uppercase tracking-wide text-primary-foreground/70">Shopman</span>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <PosTerminalHealth
@@ -1104,10 +1155,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           />
           <UiButton
             v-if="pos"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            class="gap-2 tabular-nums"
-            :class="pos.has_open_cash_session ? '' : 'border-amber-500/50 text-amber-700 hover:text-amber-700'"
+            class="gap-2 tabular-nums text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+            :class="pos.has_open_cash_session ? '' : 'ring-1 ring-primary-foreground/40'"
             aria-label="Caixa"
             title="Caixa"
             @click="cashDialogOpen = true"
@@ -1116,14 +1167,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             <span v-if="pos.has_open_cash_session && shift">{{ shift.count }} hoje · {{ shift.total_display }}</span>
             <span v-else>Abrir caixa</span>
           </UiButton>
-          <UiBadge v-if="activeOperator" variant="default" class="gap-1">
+          <UiBadge v-if="activeOperator" class="gap-1 border-transparent bg-primary-foreground/20 text-primary-foreground">
             <Icon name="lucide:user" class="size-3.5" />
             {{ activeOperator.name }}
           </UiBadge>
           <UiButton
             v-if="activeOperator"
-            variant="outline"
+            variant="ghost"
             size="icon-sm"
+            class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
             aria-label="Travar caixa"
             title="Travar caixa"
             @click="lock()"
@@ -1132,8 +1184,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           </UiButton>
           <ClientOnly>
             <UiButton
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
+              class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
               :aria-label="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
               :title="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
               @click="toggleColorMode"
@@ -1141,12 +1194,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
             </UiButton>
             <template #fallback>
-              <UiButton variant="outline" size="icon-sm" aria-label="Tema" title="Tema">
+              <UiButton variant="ghost" size="icon-sm" class="text-primary-foreground hover:bg-primary-foreground/15" aria-label="Tema" title="Tema">
                 <Icon name="lucide:sun-moon" class="size-4" />
               </UiButton>
             </template>
           </ClientOnly>
-          <UiButton variant="outline" size="icon-sm" aria-label="Atualizar" title="Atualizar" :disabled="pending" @click="refresh()">
+          <UiButton variant="ghost" size="icon-sm" class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" aria-label="Atualizar" title="Atualizar" :disabled="pending" @click="refresh()">
             <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
           </UiButton>
         </div>
@@ -1246,6 +1299,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:payment-method="cart.paymentMethod"
         v-model:payment-collection="cart.paymentCollection"
         :payment-tenders="cart.paymentTenders"
+        :selected-tender-index="selectedTenderIndex"
         :payment-total-q="paymentTotalQ"
         v-model:customer-name="cart.customerName"
         v-model:customer-phone="cart.customerPhone"
@@ -1261,7 +1315,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:delivery-time-slot="cart.deliveryTimeSlot"
         v-model:delivery-fee-input="cart.deliveryFeeInput"
         v-model:order-notes="cart.orderNotes"
-        v-model:tendered-amount-input="cart.tenderedAmountInput"
         v-model:issue-fiscal-document="cart.issueFiscalDocument"
         v-model:receipt-mode="cart.receiptMode"
         v-model:receipt-email="cart.receiptEmail"
@@ -1273,6 +1326,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @add-tender="addTender"
         @add-cash-tender="addCashTender"
         @remove-tender="removeTender"
+        @select-tender="selectTender"
+        @tender-digit="tenderDigit"
+        @tender-backspace="tenderBackspace"
+        @tender-clear="tenderClear"
+        @tender-add="tenderAdd"
         @lookup-customer="lookupCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
         @repeat-customer-last-order="repeatCustomerLastOrder"
@@ -1444,7 +1502,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             <div class="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
               <button
                 type="button"
-                class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+                class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
                 :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
                 @click="activeCollection = ''"
               >
@@ -1454,7 +1512,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
                 v-for="collection in orderedCollections"
                 :key="collection.ref"
                 type="button"
-                class="shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition"
+                class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
                 :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
                 @click="activeCollection = collection.ref"
               >

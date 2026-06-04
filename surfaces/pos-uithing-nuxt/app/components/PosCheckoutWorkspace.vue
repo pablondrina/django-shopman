@@ -37,6 +37,7 @@ const props = defineProps<{
   paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
+  selectedTenderIndex: number;
   paymentTotalQ: number;
   customerName: string;
   customerPhone: string;
@@ -52,7 +53,6 @@ const props = defineProps<{
   deliveryTimeSlot: string;
   deliveryFeeInput: string;
   orderNotes: string;
-  tenderedAmountInput: string;
   issueFiscalDocument: boolean;
   receiptMode: string;
   receiptEmail: string;
@@ -72,6 +72,11 @@ const emit = defineEmits<{
   addTender: [string];
   addCashTender: [number];
   removeTender: [number];
+  selectTender: [number];
+  tenderDigit: [string];
+  tenderBackspace: [];
+  tenderClear: [];
+  tenderAdd: [number];
   "update:customerName": [string];
   "update:customerPhone": [string];
   "update:customerTaxId": [string];
@@ -86,7 +91,6 @@ const emit = defineEmits<{
   "update:deliveryTimeSlot": [string];
   "update:deliveryFeeInput": [string];
   "update:orderNotes": [string];
-  "update:tenderedAmountInput": [string];
   "update:issueFiscalDocument": [boolean];
   "update:receiptMode": [string];
   "update:receiptEmail": [string];
@@ -156,9 +160,6 @@ const tenderSumQ = computed(() => props.paymentTenders.reduce((sum, tender) => s
 const remainingQ = computed(() => props.paymentTotalQ - tenderSumQ.value);
 const changeQ = computed(() => Math.max(0, tenderSumQ.value - props.paymentTotalQ));
 const paymentCovered = computed(() => props.paymentTenders.length > 0 && remainingQ.value <= 0);
-const nextAmountDisplay = computed(() =>
-  props.tenderedAmountInput ? `R$ ${props.tenderedAmountInput}` : formatBRL(Math.max(0, remainingQ.value)),
-);
 
 const PAYMENT_ICONS: Record<string, string> = {
   cash: "lucide:banknote",
@@ -171,37 +172,8 @@ function paymentIcon(ref: string): string {
   return PAYMENT_ICONS[ref] || "lucide:wallet";
 }
 
-const cashDigits = ref("");
-function inputToCents(value: string): number {
-  const normalized = String(value || "").replace(/\./g, "").replace(",", ".");
-  return Math.round((Number.parseFloat(normalized) || 0) * 100);
-}
-watch(() => props.tenderedAmountInput, (value) => {
-  const cents = inputToCents(value);
-  if (cents !== Number.parseInt(cashDigits.value || "0", 10)) {
-    cashDigits.value = cents ? String(cents) : "";
-  }
-}, { immediate: true });
-function emitCash() {
-  const cents = Number.parseInt(cashDigits.value || "0", 10);
-  emit("update:tenderedAmountInput", cents ? (cents / 100).toFixed(2).replace(".", ",") : "");
-}
-function pushCashDigit(digit: string) {
-  cashDigits.value = `${cashDigits.value}${digit}`.replace(/^0+/, "").slice(0, 7);
-  emitCash();
-}
-function cashBackspace() {
-  cashDigits.value = cashDigits.value.slice(0, -1);
-  emitCash();
-}
-function cashClear() {
-  cashDigits.value = "";
-  emitCash();
-}
-
-// Cash quick-bills (restored): notes set the amount to register absolutely;
-// "Exato" sets the remaining due. The operator then taps a payment method.
-const cashPresets = [2000, 5000, 10000];
+// Quick-add amounts for the payment numpad (Odoo's +10/+20/+50, in cents).
+const quickAmounts = [1000, 5000, 10000] as const;
 
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
@@ -213,76 +185,58 @@ function onAddressSelected(address: StructuredAddressProjection) {
 
 <template>
   <section class="flex h-full min-h-0 flex-col gap-3">
-    <!-- Top bar: back + sale-data actions (each opens a sheet) -->
-    <div class="flex shrink-0 flex-wrap items-center gap-2">
+    <!-- Top bar: back + title -->
+    <div class="flex shrink-0 items-center gap-3">
       <UiButton variant="outline" size="sm" class="gap-2" @click="$emit('back')">
         <Icon name="lucide:arrow-left" class="size-4" />
         Voltar à comanda
       </UiButton>
-      <div class="ml-auto flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition hover:bg-accent"
-          :class="fulfillmentType === 'delivery' ? 'border-primary/60 bg-primary/5' : ''"
-          @click="fulfillmentSheetOpen = true"
-        >
-          <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
-          {{ fulfillmentLabel }}
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition hover:bg-accent"
-          :class="customerSet ? 'border-primary/60 bg-primary/5' : ''"
-          @click="customerSheetOpen = true"
-        >
-          <Icon name="lucide:user-round" class="size-4 text-muted-foreground" />
-          <span class="max-w-40 truncate">{{ customerName || "Cliente & fiscal" }}</span>
-        </button>
-        <button
-          v-if="discountTypes.length"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition hover:bg-accent"
-          :class="hasDiscount ? 'border-primary/60 bg-primary/5' : ''"
-          @click="discountSheetOpen = true"
-        >
-          <Icon name="lucide:tag" class="size-4 text-muted-foreground" />
-          {{ hasDiscount ? discountSummary : "Desconto" }}
-        </button>
-      </div>
+      <p class="text-base font-semibold">Pagamento</p>
+      <span v-if="hasOpenTab && tabDisplay" class="text-sm tabular-nums text-muted-foreground">#{{ tabDisplay }}</span>
     </div>
 
-    <!-- Main: order + totals (left) · payment controls (right) -->
-    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-      <!-- LEFT — total to pay, payment lines, remaining/change (Odoo: no item re-list) -->
-      <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4">
-        <div class="shrink-0">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Total a pagar{{ hasOpenTab && tabDisplay ? ` · #${tabDisplay}` : "" }}
-          </p>
-          <strong class="text-4xl tabular-nums text-primary">{{ review ? review.total_display : interimTotalDisplay }}</strong>
-          <div v-if="review" class="mt-2 grid gap-1 border-t pt-2 text-sm text-muted-foreground">
-            <div class="flex items-baseline justify-between"><span>Subtotal</span><span class="tabular-nums">{{ review.subtotal_display }}</span></div>
-            <div v-if="review.discount_q" class="flex items-baseline justify-between"><span>Desconto</span><span class="tabular-nums">-{{ review.discount_display }}</span></div>
-            <div v-if="review.delivery_fee_q" class="flex items-baseline justify-between"><span>Entrega</span><span class="tabular-nums">{{ review.delivery_fee_display }}</span></div>
-          </div>
-          <p v-else class="mt-1 text-xs text-muted-foreground">Revise a venda para confirmar o total final.</p>
-          <p v-for="warning in review?.warnings || []" :key="warning.code" class="mt-1 text-xs text-amber-700">{{ warning.message }}</p>
+    <!-- Main (Odoo payment screen): methods + summary + validate (left) ·
+         remaining/change + numpad (center) · sale-data actions (right) -->
+    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,0.8fr)]">
+
+      <!-- LEFT — payment methods, summary, manager approval, validate -->
+      <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-3">
+        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
+        <div class="grid shrink-0 gap-1">
+          <button
+            v-for="method in injectableMethods"
+            :key="method.ref"
+            type="button"
+            class="flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent"
+            @click="$emit('addTender', method.ref)"
+          >
+            <Icon :name="paymentIcon(method.ref)" class="size-5 text-muted-foreground" />
+            {{ method.label }}
+          </button>
         </div>
 
+        <UiSeparator class="shrink-0" />
+        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
         <div class="min-h-0 flex-1 overflow-auto">
-          <p class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-          <p v-if="!paymentTenders.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-            Nenhum pagamento ainda. Toque uma forma ou uma nota ao lado.
+          <p v-if="!paymentTenders.length" class="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+            Toque uma forma de pagamento.
           </p>
           <ul v-else class="grid gap-1">
-            <li v-for="(tender, idx) in paymentTenders" :key="idx" class="flex items-center justify-between rounded-lg border px-3 py-2">
-              <span class="flex items-center gap-2 text-sm font-medium">
-                <Icon :name="paymentIcon(tender.method)" class="size-4" />
-                {{ methodLabel(tender.method) }}
+            <li
+              v-for="(tender, idx) in paymentTenders"
+              :key="idx"
+              class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 transition"
+              :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+              :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+              @click="$emit('selectTender', idx)"
+            >
+              <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+                <Icon :name="paymentIcon(tender.method)" class="size-4 shrink-0" />
+                <span class="truncate">{{ methodLabel(tender.method) }}</span>
               </span>
-              <span class="flex items-center gap-2">
+              <span class="flex shrink-0 items-center gap-1">
                 <strong class="tabular-nums">{{ formatBRL(tender.amount_q) }}</strong>
-                <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click="$emit('removeTender', idx)">
+                <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
                   <Icon name="lucide:x" class="size-3.5 text-destructive" />
                 </UiButton>
               </span>
@@ -290,135 +244,128 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </ul>
         </div>
 
-        <div class="flex shrink-0 items-baseline justify-between rounded-lg px-3 py-3" :class="remainingQ > 0 ? 'bg-muted/50' : 'bg-primary/10'">
-          <span class="text-base font-medium">
-            <template v-if="remainingQ > 0">Resta a pagar</template>
-            <template v-else-if="changeQ > 0">Troco</template>
-            <template v-else>Pago</template>
-          </span>
-          <strong class="text-3xl tabular-nums" :class="remainingQ > 0 ? '' : 'text-primary'">
-            <template v-if="remainingQ > 0">{{ formatBRL(remainingQ) }}</template>
-            <template v-else-if="changeQ > 0">{{ formatBRL(changeQ) }}</template>
-            <template v-else>✓</template>
-          </strong>
-        </div>
-      </div>
-
-      <!-- RIGHT — payment controls: methods, cash bills, numpad -->
-      <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4">
-        <div class="grid shrink-0 grid-cols-3 gap-2">
-          <UiButton
-            v-for="method in injectableMethods"
-            :key="method.ref"
-            variant="outline"
-            class="h-auto flex-col gap-1.5 py-4"
-            @click="$emit('addTender', method.ref)"
-          >
-            <Icon :name="paymentIcon(method.ref)" class="size-6" />
-            <span class="text-xs font-medium">{{ method.label }}</span>
-          </UiButton>
-        </div>
-
-        <div class="grid shrink-0 grid-cols-4 gap-2">
-          <button
-            v-for="preset in cashPresets"
-            :key="preset"
-            type="button"
-            class="rounded-lg border bg-card py-2 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-            @click="$emit('addCashTender', preset)"
-          >
-            R$ {{ preset / 100 }}
-          </button>
-          <button
-            type="button"
-            class="rounded-lg border bg-card py-2 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
-            @click="$emit('addCashTender', Math.max(0, remainingQ))"
-          >
-            Exato
-          </button>
-        </div>
-
-        <div class="flex shrink-0 items-baseline justify-between rounded-lg border bg-muted/40 px-3 py-2">
-          <span class="text-sm font-medium text-muted-foreground">Valor a registrar</span>
-          <strong class="text-2xl tabular-nums">{{ nextAmountDisplay }}</strong>
-        </div>
-
-        <PosNumpad @digit="pushCashDigit" @backspace="cashBackspace" @clear="cashClear" />
-
-        <p class="shrink-0 text-xs text-muted-foreground">
-          Toque a forma (usa o restante) ou uma nota (dinheiro). Para um valor específico, digite e toque a forma.
-        </p>
-
-        <div v-if="deliveryCollections.length > 1" class="grid shrink-0 grid-cols-2 gap-2">
-          <UiButton
-            v-for="collection in deliveryCollections"
-            :key="collection.ref"
-            variant="outline"
-            size="sm"
-            class="h-auto justify-start whitespace-normal px-3 py-1.5 text-left"
-            :class="paymentCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-            @click="$emit('update:paymentCollection', collection.ref)"
-          >
-            <span class="text-xs font-medium">{{ collection.label }}</span>
-          </UiButton>
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer: kitchen status + manager approval (when required) + final action -->
-    <div class="grid shrink-0 gap-2">
-      <div v-if="items.length" class="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
-        <Icon name="lucide:flame" class="size-4 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
-        <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
-      </div>
-      <div
-        v-if="review?.requires_manager_approval"
-        class="grid gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
-      >
-        <div>
-          <p class="text-sm font-semibold text-amber-800">Aprovação gerencial necessária</p>
-          <p class="text-xs text-amber-700">O desconto excede o limite. Gerente deve aprovar com usuário e PIN.</p>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div
+          v-if="review?.requires_manager_approval"
+          class="grid shrink-0 gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2"
+        >
+          <p class="text-xs font-semibold text-amber-800">Aprovação do gerente</p>
           <UiInput
             :model-value="managerUsername"
-            placeholder="Gerente (usuário)"
+            placeholder="Gerente"
             autocomplete="off"
+            class="h-8"
             @update:model-value="$emit('update:managerUsername', String($event || ''))"
           />
           <UiInput
             :model-value="managerPin"
             type="password"
             inputmode="numeric"
-            placeholder="PIN do gerente"
+            placeholder="PIN"
             autocomplete="off"
+            class="h-8"
             @update:model-value="$emit('update:managerPin', String($event || ''))"
           />
         </div>
+
+        <UiButton
+          size="lg"
+          class="w-full shrink-0"
+          :disabled="!items.length || loading || needsReview || approvalBlocking || !paymentCovered"
+          :loading="loading || needsReview"
+          @click="$emit('submit')"
+        >
+          <template v-if="needsReview">Atualizando…</template>
+          <template v-else-if="!paymentCovered">Falta {{ formatBRL(remainingQ) }}</template>
+          <template v-else>Validar · {{ review?.total_display }}</template>
+        </UiButton>
       </div>
 
-      <UiButton
-        v-if="needsReview"
-        size="lg"
-        class="w-full"
-        :disabled="!items.length || loading"
-        :loading="loading"
-        @click="$emit('review')"
-      >
-        Revisar venda
-      </UiButton>
-      <UiButton
-        v-else
-        size="lg"
-        class="w-full"
-        :disabled="!items.length || loading || approvalBlocking || !paymentCovered"
-        :loading="loading"
-        @click="$emit('submit')"
-      >
-        <template v-if="!paymentCovered">Falta {{ formatBRL(remainingQ) }}</template>
-        <template v-else>Finalizar venda · {{ review?.total_display }}</template>
-      </UiButton>
+      <!-- CENTER — remaining/change/total + numpad (edits the selected tender) -->
+      <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-3">
+        <div class="flex shrink-0 items-start justify-between gap-3 border-b pb-3">
+          <div>
+            <p class="text-sm text-muted-foreground">Resta a pagar</p>
+            <strong class="text-3xl tabular-nums">{{ formatBRL(Math.max(0, remainingQ)) }}</strong>
+            <p class="mt-0.5 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-muted-foreground">Troco</p>
+            <strong class="text-3xl tabular-nums text-primary">{{ formatBRL(changeQ) }}</strong>
+          </div>
+        </div>
+
+        <div class="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-2 text-xl">
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '1')">1</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '2')">2</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '3')">3</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[0])">+{{ quickAmounts[0] / 100 }}</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '4')">4</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '5')">5</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '6')">6</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[1])">+{{ quickAmounts[1] / 100 }}</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '7')">7</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '8')">8</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '9')">9</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[2])">+{{ quickAmounts[2] / 100 }}</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card text-base font-medium transition hover:bg-accent active:translate-y-px" @click="$emit('tenderClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '0'); $emit('tenderDigit', '0')">00</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('tenderBackspace')"><Icon name="lucide:delete" class="size-5" /></button>
+        </div>
+      </div>
+
+      <!-- RIGHT — sale-data actions (open sheets) + collection + kitchen status -->
+      <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Dados da venda</p>
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
+          @click="fulfillmentSheetOpen = true"
+        >
+          <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1 truncate font-medium">{{ fulfillmentLabel }}</span>
+          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
+          @click="customerSheetOpen = true"
+        >
+          <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1 truncate" :class="customerSet ? 'font-medium' : 'text-muted-foreground'">{{ customerName || "Cliente & fiscal" }}</span>
+          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
+        </button>
+        <button
+          v-if="discountTypes.length"
+          type="button"
+          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
+          @click="discountSheetOpen = true"
+        >
+          <Icon name="lucide:tag" class="size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1 truncate" :class="hasDiscount ? 'font-medium' : 'text-muted-foreground'">{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
+          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
+        </button>
+
+        <div v-if="deliveryCollections.length > 1" class="grid gap-1">
+          <button
+            v-for="collection in deliveryCollections"
+            :key="collection.ref"
+            type="button"
+            class="rounded-lg border px-3 py-2 text-left text-xs font-medium transition hover:bg-accent"
+            :class="paymentCollection === collection.ref ? 'border-primary bg-primary/10' : 'bg-card'"
+            @click="$emit('update:paymentCollection', collection.ref)"
+          >
+            {{ collection.label }}
+          </button>
+        </div>
+
+        <div v-if="items.length" class="mt-auto flex items-start gap-2 rounded-lg bg-background/70 px-3 py-2 text-xs">
+          <Icon name="lucide:flame" class="mt-0.5 size-4 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
+          <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
+        </div>
+      </div>
     </div>
+
   </section>
 
   <!-- SHEET: Entrega / Retirada -->

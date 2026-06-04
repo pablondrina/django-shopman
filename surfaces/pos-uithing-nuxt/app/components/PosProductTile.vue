@@ -34,7 +34,7 @@ const fallbackMonogram = computed(() => (props.product.name?.trim()?.[0] || "·"
   <UiCard
     as="button"
     type="button"
-    class="group relative overflow-hidden rounded-xl p-0 text-left shadow-none transition hover:border-primary/40 hover:shadow-sm active:translate-y-px"
+    class="group relative overflow-hidden rounded-lg p-0 text-left shadow-none transition hover:border-primary/50 active:translate-y-px"
     :class="[
       qty > 0 ? 'border-primary/60 ring-1 ring-primary/30' : '',
       disabled ? 'cursor-not-allowed opacity-50 hover:border-border hover:shadow-none active:translate-y-0' : '',
@@ -48,7 +48,7 @@ const fallbackMonogram = computed(() => (props.product.name?.trim()?.[0] || "·"
         :src="product.image_url"
         :alt="product.name"
         loading="lazy"
-        class="size-full object-cover transition group-hover:scale-[1.03]"
+        class="size-full object-cover"
       />
       <div
         v-else

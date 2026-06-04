@@ -238,7 +238,6 @@ Fluxo canônico:
 ADMIN_PASSWORD=<senha-forte-temporaria> python manage.py seed --flush
 SHOPMAN_ADMIN_PASSWORD=<senha-forte-do-dono> python manage.py bootstrap_admin \
   --username pablo \
-  --email pablo@example.com \
   --deactivate-seed-admin
 ```
 
