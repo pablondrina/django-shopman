@@ -4,7 +4,6 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
-
 from shopman.orderman.models import Directive, Order
 
 pytestmark = pytest.mark.django_db

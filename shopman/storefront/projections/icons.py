@@ -8,8 +8,14 @@ Unknown refs fall back to ``restaurant_menu``.
 from __future__ import annotations
 
 COLLECTION_ICONS: dict[str, str] = {
+    "rusticos": "bakery_dining",
+    "macios": "breakfast_dining",
+    "folhados": "bakery_dining",
+    "doces": "cookie",
     "cafes": "local_cafe",
     "cafe": "local_cafe",
+    "quentes": "local_cafe",
+    "geladas": "local_drink",
     "bebidas": "local_drink",
     "drinks": "local_drink",
     "combos": "inventory_2",

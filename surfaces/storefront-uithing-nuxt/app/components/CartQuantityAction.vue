@@ -1,0 +1,60 @@
+<script setup lang="ts">
+import type { ProductMutationMeta } from '~/types/shopman'
+
+const props = withDefaults(defineProps<{
+  meta: ProductMutationMeta
+  qty: number
+  disabled?: boolean
+  maxQty?: number | null
+  compact?: boolean
+  addLabel?: string
+  addTargetQty?: number
+  tone?: 'default' | 'inverted'
+}>(), {
+  addLabel: 'Adicionar',
+  tone: 'default'
+})
+
+const emit = defineEmits<{
+  changed: [qty: number]
+}>()
+
+const { setSkuQty, isPending } = useCartState()
+const hydrated = ref(false)
+const pending = computed(() => isPending(props.meta.sku))
+
+onMounted(() => {
+  hydrated.value = true
+})
+
+async function addOne () {
+  if (!hydrated.value || props.disabled || pending.value) return
+  const nextQty = props.addTargetQty ?? 1
+  await setSkuQty(props.meta, nextQty)
+  emit('changed', nextQty)
+}
+</script>
+
+<template>
+  <QuantityControl
+    v-if="qty > 0"
+    :meta="meta"
+    :qty="qty"
+    :disabled="disabled"
+    :max-qty="maxQty"
+    :compact="compact"
+    :tone="tone"
+    @changed="emit('changed', $event)"
+  />
+  <UiButton
+    v-else
+    :variant="tone === 'inverted' ? 'secondary' : 'default'"
+    :size="compact ? 'sm' : 'default'"
+    icon="lucide:shopping-cart"
+    :disabled="!hydrated || disabled || pending"
+    :loading="pending"
+    @click="addOne"
+  >
+    {{ addLabel }}
+  </UiButton>
+</template>

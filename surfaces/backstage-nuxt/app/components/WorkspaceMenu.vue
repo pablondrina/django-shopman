@@ -5,7 +5,7 @@ defineProps<{ collapsed?: boolean }>()
 
 // Static for now — wire to a real shop list when multi-shop arrives.
 const shops = [
-  { ref: 'nelson', name: 'Nelson Boulangerie', icon: 'i-lucide-bread' }
+  { ref: 'nelson', name: 'Nelson Boulangerie', icon: 'i-lucide-croissant' }
 ]
 const active = ref(shops[0])
 

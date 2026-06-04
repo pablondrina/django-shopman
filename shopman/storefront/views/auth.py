@@ -37,6 +37,7 @@ def _auth_phone_rate_key(group, request) -> str:
     try:
         normalized = normalize_phone(raw_phone)
     except Exception:
+        logger.debug("auth._auth_phone_rate_key degraded; using fallback", exc_info=True)
         normalized = ""
     return normalized or raw_phone or request.META.get("REMOTE_ADDR", "")
 

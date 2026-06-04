@@ -342,7 +342,7 @@ Sinal `order_changed` (de orderman) → `dispatch(order, phase)` → resolve `Ch
 | **on_ready** | `fulfillment.create()` se `timing==post_commit` → notif |
 | **on_dispatched** / **on_delivered** | notif |
 | **on_completed** | `loyalty.earn()` → `fiscal.emit()` |
-| **on_cancelled** | `kds.cancel_tickets()` → `stock.release()` → `payment.refund()` → notif |
+| **on_cancelled** | `kds.cancel_tickets()` → `stock.release()` → `payment.cancel()` se não capturado → `payment.refund()` se houver saldo capturado → `fiscal.cancel()` → notif |
 | **on_returned** | `stock.revert()` → `payment.refund()` → `fiscal.cancel()` → notif |
 
 **Confirmação otimista**:

@@ -4,24 +4,28 @@ Consumes ``OrderTrackingProjection`` from the projection layer.
 """
 from __future__ import annotations
 
+import logging
+
 from django.http import Http404
 from django.utils import timezone
 from django_ratelimit.core import is_ratelimited
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.storefront.projections.order_tracking import build_order_tracking
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
+from shopman.storefront.projections.order_tracking import build_order_tracking
 from shopman.storefront.services import orders as order_service
 
-from .projections import projection_data
 from .actions import retry_after_action
+from .projections import projection_data
 from .serializers import DetailSerializer, OrderTrackingSerializer
+
+logger = logging.getLogger(__name__)
 
 
 TRACKING_RATE_LIMIT_RETRY_SECONDS = 30
@@ -32,6 +36,7 @@ def _copy_title(key: str, fallback: str) -> str:
         entry = resolve_copy(key, moment="*", audience="*")
         return entry.title or fallback
     except Exception:
+        logger.debug("tracking._copy_title degraded; using fallback", exc_info=True)
         return fallback
 
 
@@ -40,6 +45,7 @@ def _copy_message(key: str, fallback: str) -> str:
         entry = resolve_copy(key, moment="*", audience="*")
         return entry.message or fallback
     except Exception:
+        logger.debug("tracking._copy_message degraded; using fallback", exc_info=True)
         return fallback
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
@@ -11,6 +12,8 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 from shopman.orderman.models import IdempotencyKey
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ def idempotency_key_from_request(request: Any, *, fallback: str) -> str:
     try:
         header_key = str(request.headers.get("Idempotency-Key") or "").strip()
     except Exception:
+        logger.debug("remote_mutations.idempotency_key_from_request degraded; using fallback", exc_info=True)
         header_key = ""
 
     body_key = ""
@@ -40,6 +44,7 @@ def idempotency_key_from_request(request: Any, *, fallback: str) -> str:
         data = request.data if hasattr(request, "data") else {}
         body_key = str((data or {}).get("idempotency_key") or "").strip()
     except Exception:
+        logger.debug("remote_mutations.idempotency_key_from_request degraded; using fallback", exc_info=True)
         body_key = ""
 
     return _normalize_key(header_key or body_key or fallback)

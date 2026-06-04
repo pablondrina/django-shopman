@@ -133,14 +133,15 @@ def test_cancellation_while_preparing_cleans_kds_tickets(channel):
     order = Order.objects.create(
         ref="E2E-CANCEL-001",
         channel_ref=channel.ref,
+        session_key="sess-e2e-cancel-001",
         status=Order.Status.CONFIRMED,
         total_q=2000,
     )
     order.transition_status(Order.Status.PREPARING, actor="test")
 
     inst = KDSInstance.objects.create(ref="e2e-kds-1", name="E2E KDS", type="prep")
-    t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="pending")
-    t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="in_progress")
+    t1 = KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="pending")
+    t2 = KDSTicket.objects.create(session_key=order.session_key, kds_instance=inst, items=[], status="in_progress")
 
     from shopman.shop.services.kds import cancel_tickets
     count = cancel_tickets(order)
@@ -150,6 +151,8 @@ def test_cancellation_while_preparing_cleans_kds_tickets(channel):
     t2.refresh_from_db()
     assert t1.status == "cancelled"
     assert t2.status == "cancelled"
+    assert t1.cancelled_at is not None
+    assert t2.cancelled_at is not None
 
 
 # ── returned is terminal ─────────────────────────────────────────────────────

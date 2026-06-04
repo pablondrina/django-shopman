@@ -17,6 +17,7 @@ htmlcov/
 .venv/
 venv/
 .claude/
+.secrets/
 node_modules/
 shopman/static/storefront/css/output.css
 staticfiles/*

@@ -1281,70 +1281,77 @@ class Command(BaseCommand):
         ProductComponent.objects.create(parent=combo, component=products["MINI-BAGUETE"], qty=Decimal("1"))
 
         # Collections
-        col_paes, _ = Collection.objects.update_or_create(
-            ref="paes-artesanais",
-            defaults={"name": "Pães Artesanais", "is_active": True, "sort_order": 1},
+        legacy_collection_refs = [
+            "paes-artesanais",
+            "focaccias",
+            "brioches",
+            "croissants-folhados",
+            "paes-doces",
+            "lanches",
+            "cafes-bebidas",
+            "combos",
+        ]
+        new_collection_refs = [
+            "rusticos",
+            "macios",
+            "folhados",
+            "doces",
+            "salgados",
+            "bebidas-quentes",
+            "bebidas-geladas",
+        ]
+        CollectionItem.objects.filter(collection__ref__in=legacy_collection_refs + new_collection_refs).delete()
+        Collection.objects.filter(ref__in=legacy_collection_refs).update(is_active=False)
+
+        col_rusticos, _ = Collection.objects.update_or_create(
+            ref="rusticos",
+            defaults={"name": "Rústicos", "is_active": True, "sort_order": 1},
         )
-        col_focaccias, _ = Collection.objects.update_or_create(
-            ref="focaccias",
-            defaults={"name": "Focaccias", "is_active": True, "sort_order": 2},
-        )
-        col_brioches, _ = Collection.objects.update_or_create(
-            ref="brioches",
-            defaults={"name": "Brioches & Pães Especiais", "is_active": True, "sort_order": 3},
+        col_macios, _ = Collection.objects.update_or_create(
+            ref="macios",
+            defaults={"name": "Macios", "is_active": True, "sort_order": 2},
         )
         col_folhados, _ = Collection.objects.update_or_create(
-            ref="croissants-folhados",
-            defaults={"name": "Croissants & Folhados", "is_active": True, "sort_order": 4},
+            ref="folhados",
+            defaults={"name": "Folhados", "is_active": True, "sort_order": 3},
         )
         col_doces, _ = Collection.objects.update_or_create(
-            ref="paes-doces",
-            defaults={"name": "Pães Doces & Recheados", "is_active": True, "sort_order": 5},
+            ref="doces",
+            defaults={"name": "Doces", "is_active": True, "sort_order": 4},
         )
         col_salgados, _ = Collection.objects.update_or_create(
             ref="salgados",
-            defaults={"name": "Salgados", "is_active": True, "sort_order": 6},
+            defaults={"name": "Salgados", "is_active": True, "sort_order": 5},
         )
-        col_lanches, _ = Collection.objects.update_or_create(
-            ref="lanches",
-            defaults={"name": "Lanches & Tartines", "is_active": True, "sort_order": 7},
+        col_bebidas_quentes, _ = Collection.objects.update_or_create(
+            ref="bebidas-quentes",
+            defaults={"name": "Bebidas quentes", "is_active": True, "sort_order": 6},
         )
-        col_cafes, _ = Collection.objects.update_or_create(
-            ref="cafes-bebidas",
-            defaults={"name": "Cafés & Bebidas", "is_active": True, "sort_order": 8},
-        )
-        col_combos, _ = Collection.objects.update_or_create(
-            ref="combos",
-            defaults={"name": "Combos", "is_active": True, "sort_order": 9},
+        col_bebidas_geladas, _ = Collection.objects.update_or_create(
+            ref="bebidas-geladas",
+            defaults={"name": "Bebidas geladas", "is_active": True, "sort_order": 7},
         )
 
-        all_cols = [col_paes, col_focaccias, col_brioches, col_folhados, col_doces, col_salgados, col_lanches, col_cafes, col_combos]
-        CollectionItem.objects.filter(collection__in=all_cols).delete()
-
-        paes_skus = [
+        rusticos_skus = [
             "BAGUETE", "BAGUETE-CAMPAGNE", "BAGUETE-GERGELIM", "MINI-BAGUETE",
             "BATARD", "FENDU", "TABATIERE", "ITALIANO-RUSTICO",
             "CAMPAGNE-OVAL", "CAMPAGNE-REDONDO", "CAMPAGNE-PASSAS",
-            "CIABATTA", "PAO-FORMA", "CHALLAH", "PAO-HAMBURGER",
-        ]
-        for i, sku in enumerate(paes_skus):
-            CollectionItem.objects.create(
-                collection=col_paes, product=products[sku], sort_order=i, is_primary=True,
-            )
-
-        focaccias_skus = [
+            "CIABATTA", "PAO-HAMBURGER",
             "FOCACCIA-ALECRIM", "FOCACCIA-CEBOLA", "FOCACCIA-BACON",
             "MINI-FOCACCIA-ALECRIM", "MINI-FOCACCIA-CEBOLA", "MINI-FOCACCIA-BACON",
         ]
-        for i, sku in enumerate(focaccias_skus):
+        for i, sku in enumerate(rusticos_skus):
             CollectionItem.objects.create(
-                collection=col_focaccias, product=products[sku], sort_order=i, is_primary=True,
+                collection=col_rusticos, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        brioches_skus = ["BRIOCHE", "BRIOCHE-BURGER", "PAO-HOTDOG"]
-        for i, sku in enumerate(brioches_skus):
+        macios_skus = [
+            "PAO-FORMA", "CHALLAH",
+            "BRIOCHE", "BRIOCHE-BURGER", "PAO-HOTDOG",
+        ]
+        for i, sku in enumerate(macios_skus):
             CollectionItem.objects.create(
-                collection=col_brioches, product=products[sku], sort_order=i, is_primary=True,
+                collection=col_macios, product=products[sku], sort_order=i, is_primary=True,
             )
 
         folhados_skus = ["CROISSANT", "PAIN-CHOCOLAT", "MINI-CROISSANT", "CHAUSSON", "BICHON"]
@@ -1353,40 +1360,41 @@ class Command(BaseCommand):
                 collection=col_folhados, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        doces_skus = ["CORNET-CHOCOLATE", "CORNET", "MELON-PAN", "PAIN-RAISINS", "BRIOCHE-CHOCOLAT", "MADELEINE"]
+        doces_skus = [
+            "CORNET-CHOCOLATE", "CORNET", "MELON-PAN",
+            "PAIN-RAISINS", "BRIOCHE-CHOCOLAT", "MADELEINE",
+            "COMBO-PETIT-DEJ",
+        ]
         for i, sku in enumerate(doces_skus):
             CollectionItem.objects.create(
                 collection=col_doces, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        salgados_skus = ["DELI", "HOTDOG"]
+        salgados_skus = [
+            "DELI", "HOTDOG",
+            "CROQUE-MONSIEUR", "CROQUE-MADAME",
+            "QUICHE-LORRAINE", "QUICHE-LEGUMES",
+            "TARTINE-SAUMON", "TARTINE-TOMATE",
+        ]
         for i, sku in enumerate(salgados_skus):
             CollectionItem.objects.create(
                 collection=col_salgados, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        lanches_skus = [
-            "CROQUE-MONSIEUR", "CROQUE-MADAME",
-            "QUICHE-LORRAINE", "QUICHE-LEGUMES",
-            "TARTINE-SAUMON", "TARTINE-TOMATE",
-        ]
-        for i, sku in enumerate(lanches_skus):
-            CollectionItem.objects.create(
-                collection=col_lanches, product=products[sku], sort_order=i, is_primary=True,
-            )
-
-        cafes_skus = [
+        bebidas_quentes_skus = [
             "ESPRESSO", "ESPRESSO-DUPLO", "CAPPUCCINO", "LATTE",
-            "CHOCOLATE-QUENTE", "CHA-EARL-GREY", "SUCO-LARANJA",
+            "CHOCOLATE-QUENTE", "CHA-EARL-GREY",
         ]
-        for i, sku in enumerate(cafes_skus):
+        for i, sku in enumerate(bebidas_quentes_skus):
             CollectionItem.objects.create(
-                collection=col_cafes, product=products[sku], sort_order=i, is_primary=True,
+                collection=col_bebidas_quentes, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        CollectionItem.objects.create(
-            collection=col_combos, product=products["COMBO-PETIT-DEJ"], sort_order=0, is_primary=True,
-        )
+        bebidas_geladas_skus = ["SUCO-LARANJA"]
+        for i, sku in enumerate(bebidas_geladas_skus):
+            CollectionItem.objects.create(
+                collection=col_bebidas_geladas, product=products[sku], sort_order=i, is_primary=True,
+            )
 
         # Listings
         pdv, _ = Listing.objects.update_or_create(
@@ -1423,7 +1431,11 @@ class Command(BaseCommand):
                     is_sellable=product.is_sellable,
                 )
 
-        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), {len(all_cols)} colecoes, 4 listagens")
+        self.stdout.write(
+            f"  ✅ {len(products)} produtos "
+            f"({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), "
+            f"{len(new_collection_refs)} colecoes, 4 listagens"
+        )
         return products
 
     # ────────────────────────────────────────────────────────────────
@@ -3190,9 +3202,9 @@ class Command(BaseCommand):
             ("00001011", "1011"),
             ("00001012", "1012"),
         ]
-        for code, label in tabs:
+        for ref, label in tabs:
             POSTab.objects.update_or_create(
-                code=code,
+                ref=ref,
                 defaults={"label": label, "is_active": True},
             )
 
@@ -3230,14 +3242,14 @@ class Command(BaseCommand):
                 "edit_policy": cfg.editing.policy,
             }
             if channel_ref == "pdv":
-                tab_code = "00001007"
+                tab_ref = "00001007"
                 defaults["handle_type"] = "pos_tab"
-                defaults["handle_ref"] = tab_code
+                defaults["handle_ref"] = tab_ref
                 defaults["data"] = {
                     "origin_channel": "pos",
                     "fulfillment_type": "pickup",
-                    "tab_code": tab_code,
-                    "tab_display": tab_code.lstrip("0"),
+                    "tab_ref": tab_ref,
+                    "tab_display": tab_ref.lstrip("0"),
                     "pos_operator": "seed",
                     "last_touched_at": timezone.now().isoformat(),
                 }
@@ -3245,7 +3257,7 @@ class Command(BaseCommand):
                     channel_ref=ch.ref,
                     state="open",
                     handle_type="pos_tab",
-                    handle_ref=tab_code,
+                    handle_ref=tab_ref,
                     defaults=defaults,
                 )
             else:
@@ -3438,7 +3450,7 @@ class Command(BaseCommand):
 
         now = timezone.now()
 
-        # Promotion 1: Semana do Pão — 15% off pães artesanais
+        # Promotion 1: Semana do Pão — 15% off pães rústicos
         promo_paes, _ = Promotion.objects.update_or_create(
             name="Semana do Pão",
             defaults={
@@ -3446,7 +3458,7 @@ class Command(BaseCommand):
                 "value": 15,
                 "valid_from": now,
                 "valid_until": now + timedelta(days=7),
-                "collections": ["paes-artesanais"],
+                "collections": ["rusticos"],
                 "is_active": True,
             },
         )
@@ -3775,10 +3787,9 @@ class Command(BaseCommand):
         self.stdout.write("  🖥️  KDS...")
 
         # Get collections for KDS routing
-        col_lanches = Collection.objects.filter(ref="lanches").first()
         col_salgados = Collection.objects.filter(ref="salgados").first()
-        col_cafes = Collection.objects.filter(ref="cafes-bebidas").first()
-        col_combos = Collection.objects.filter(ref="combos").first()
+        col_bebidas_quentes = Collection.objects.filter(ref="bebidas-quentes").first()
+        col_bebidas_geladas = Collection.objects.filter(ref="bebidas-geladas").first()
 
         # Remove old KDS instances that no longer exist
         KDSInstance.objects.filter(ref__in=["paes", "folhados", "salgados"]).delete()
@@ -3795,7 +3806,7 @@ class Command(BaseCommand):
             },
         )
         kds_lanches.collections.clear()
-        for col in [col_lanches, col_salgados, col_combos]:
+        for col in [col_salgados]:
             if col:
                 kds_lanches.collections.add(col)
 
@@ -3811,8 +3822,9 @@ class Command(BaseCommand):
             },
         )
         kds_cafes.collections.clear()
-        if col_cafes:
-            kds_cafes.collections.add(col_cafes)
+        for col in [col_bebidas_quentes, col_bebidas_geladas]:
+            if col:
+                kds_cafes.collections.add(col)
 
         # KDS Encomendas — Picking: separação de pedidos de balcão e agendados
         KDSInstance.objects.update_or_create(

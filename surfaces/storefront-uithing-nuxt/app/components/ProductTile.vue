@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import type { CatalogItemProjection, ProductMutationMeta } from '~/types/shopman'
+
+const props = defineProps<{
+  item: CatalogItemProjection
+  sectionLabel?: string
+}>()
+
+const { qtyForSku } = useCartState()
+const meta = computed<ProductMutationMeta>(() => ({
+  sku: props.item.sku,
+  name: props.item.name,
+  price_q: props.item.base_price_q,
+  price_display: props.item.price_display,
+  image_url: props.item.image_url
+}))
+const currentQty = computed(() => qtyForSku(props.item.sku))
+
+function productRoute (sku: string) {
+  return `/product/${encodeURIComponent(sku)}`
+}
+</script>
+
+<template>
+  <UiCard class="gap-0 overflow-hidden py-0" data-product-tile>
+    <UiAspectRatio :ratio="4 / 3" class="overflow-hidden bg-muted">
+      <img
+        v-if="item.image_url"
+        :src="item.image_url"
+        :alt="item.name"
+        loading="lazy"
+        decoding="async"
+        class="size-full object-cover"
+      >
+      <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+        <Icon name="lucide:image" class="size-7" />
+      </div>
+      <UiButton
+        :to="productRoute(item.sku)"
+        variant="ghost"
+        class="absolute inset-0 z-10 size-full rounded-none bg-transparent p-0 hover:bg-black/5"
+        :aria-label="`Ver detalhes de ${item.name}`"
+      >
+        <span class="sr-only">Ver detalhes de {{ item.name }}</span>
+      </UiButton>
+      <div class="absolute left-3 top-3 z-20">
+        <UiPopover v-if="item.available_qty != null">
+          <UiPopoverTrigger as-child>
+            <UiBadge :variant="availabilityVariant(item.availability)" class="cursor-pointer shadow-sm">
+              {{ item.availability_label }}
+            </UiBadge>
+          </UiPopoverTrigger>
+          <UiPopoverContent class="w-64 border-foreground/15 bg-foreground text-background">
+            <p class="text-sm font-medium">{{ item.name }}</p>
+            <p class="mt-1 text-xs text-background/75">
+              {{ formatCount(item.available_qty, 'unidade disponível', 'unidades disponíveis') }} no momento
+            </p>
+          </UiPopoverContent>
+        </UiPopover>
+        <UiBadge v-else :variant="availabilityVariant(item.availability)" class="shadow-sm">
+          {{ item.availability_label }}
+        </UiBadge>
+      </div>
+    </UiAspectRatio>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+      <UiCardContent class="space-y-3 p-3 sm:p-4">
+        <div class="min-w-0">
+          <h3 class="line-clamp-2 text-sm font-semibold leading-5">{{ item.name }}</h3>
+          <p class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground sm:min-h-10">
+            {{ item.short_description || sectionLabel }}
+          </p>
+        </div>
+
+        <div class="hidden flex-wrap gap-1 sm:flex">
+          <UiBadge v-if="item.promotion_label" variant="default">{{ item.promotion_label }}</UiBadge>
+          <UiBadge v-if="item.is_new" variant="secondary">Novo</UiBadge>
+          <UiBadge v-if="item.is_featured" variant="secondary">Destaque</UiBadge>
+          <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline">{{ tag }}</UiBadge>
+        </div>
+
+        <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+          <div class="min-w-0 flex-1">
+            <p v-if="item.original_price_display" class="text-xs text-muted-foreground line-through">
+              {{ item.original_price_display }}
+            </p>
+            <p class="text-base font-semibold">{{ item.price_display }}</p>
+            <p v-if="item.unit_weight_label" class="text-xs leading-5 text-muted-foreground">
+              {{ compactUnitWeightLabel(item.unit_weight_label) }}
+            </p>
+          </div>
+
+          <div class="ml-auto shrink-0">
+            <CartQuantityAction
+              :meta="meta"
+              :qty="currentQty"
+              :disabled="!item.can_add_to_cart"
+              :max-qty="item.available_qty"
+              compact
+            />
+          </div>
+        </div>
+      </UiCardContent>
+    </div>
+  </UiCard>
+</template>

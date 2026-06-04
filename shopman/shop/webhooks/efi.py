@@ -72,6 +72,11 @@ class EfiPixWebhookView(APIView):
         if not self._check_auth(request):
             return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        if not request.data:
+            return Response({"status": "ok", "check": "accepted"}, status=status.HTTP_200_OK)
+        if request.data.get("evento") == "teste_webhook":
+            return Response({"status": "ok", "check": "accepted"}, status=status.HTTP_200_OK)
+
         pix_list = request.data.get("pix", [])
         if not pix_list or not isinstance(pix_list, list):
             return Response({"error": "No pix data in payload"}, status=status.HTTP_400_BAD_REQUEST)
@@ -113,6 +118,7 @@ class EfiPixWebhookView(APIView):
                 )
                 processed += 1
             except Exception as exc:
+                logger.debug("efi.post degraded; using fallback", exc_info=True)
                 webhook_idempotency.mark_failed(claim)
                 from shopman.shop.services import observability
 

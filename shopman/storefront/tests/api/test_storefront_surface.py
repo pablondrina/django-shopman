@@ -31,6 +31,10 @@ def test_api_storefront_menu_returns_projection_contract(client):
         "unavailable",
     }
     assert data["cart"]["is_empty"] is True
+    cart_checkout = next(action for action in data["cart"]["actions"] if action["ref"] == "checkout")
+    assert cart_checkout["kind"] == "link"
+    assert cart_checkout["enabled"] is False
+    assert cart_checkout["reason"] == "Carrinho vazio."
 
 
 def test_api_storefront_menu_sets_csrf_cookie(client):
@@ -60,6 +64,36 @@ def test_api_storefront_checkout_returns_projection_contract(client):
         slot = data["pickup_slots"][0]
         assert {"ref", "label", "starts_at", "enabled", "reason", "is_earliest"}.issubset(slot)
     assert "csrftoken" in resp.cookies
+
+
+def test_api_storefront_checkout_projection_requires_login_for_anonymous_cart(client):
+    product = _seed_surface(stock_qty=Decimal("10"))
+
+    add = client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 1}),
+        content_type="application/json",
+    )
+    assert add.status_code == 200
+
+    resp = client.get("/api/v1/storefront/checkout/")
+
+    assert resp.status_code == 200
+    checkout = resp.json()["checkout"]
+    action = next(candidate for candidate in checkout["actions"] if candidate["ref"] == "checkout")
+    assert checkout["is_authenticated"] is False
+    assert checkout["requires_authentication"] is True
+    assert checkout["auth_action"]["href"] == "/login?next=/checkout"
+    assert checkout["cart"]["items_count"] == 1
+    assert action["label"] == "Confirmar pedido"
+    assert action["enabled"] is False
+    assert action["reason"] == "Entre por telefone para continuar."
+    assert action["payload_schema"]["required"] == [
+        "name",
+        "phone",
+        "fulfillment_type",
+        "payment_method",
+    ]
 
 
 def test_api_cart_sku_qty_accepts_authenticated_session_with_csrf_header():
@@ -127,6 +161,15 @@ def test_api_cart_sku_qty_sets_absolute_qty_and_returns_cart_projection(client):
     assert add_data["summary"]["count"] == 2
     assert add_data["cart"]["items_count"] == 2
     assert add_data["cart"]["items"][0]["sku"] == product.sku
+    cart_checkout = next(action for action in add_data["cart"]["actions"] if action["ref"] == "checkout")
+    assert cart_checkout["label"] == "Finalizar pedido"
+    assert cart_checkout["href"] == "/checkout"
+    if add_data["cart"]["minimum_order_progress"]:
+        assert cart_checkout["enabled"] is False
+        assert cart_checkout["reason"].startswith("Faltam ")
+    else:
+        assert cart_checkout["enabled"] is True
+        assert cart_checkout["reason"] == ""
 
     remove = client.put(
         f"/api/v1/cart/skus/{product.sku}/",
@@ -163,6 +206,7 @@ def test_api_cart_sku_qty_stock_error_returns_rich_payload(client):
     assert response.status_code == 409
     data = response.json()
     assert data["title"] == "Revise este item"
+    assert data["detail"] == "Estoque disponível agora: 2 unidades disponíveis."
     assert data["name"] == product.name
     assert data["items"] == [
         {
@@ -170,9 +214,12 @@ def test_api_cart_sku_qty_stock_error_returns_rich_payload(client):
             "name": product.name,
             "requested_qty": 5,
             "available_qty": 2,
-            "reason": "Estoque disponível agora: 2 unidade(s).",
+            "reason": "Estoque disponível agora: 2 unidades disponíveis.",
         }
     ]
+    assert data["actions"][0]["ref"] == "set_available_qty"
+    assert data["actions"][0]["label"] == "Usar 2 unidades disponíveis"
+    assert data["actions"][0]["payload_schema"]["properties"]["qty"]["const"] == 2
     assert data["substitutes"][0]["name"] == "Pão alternativo"
 
 

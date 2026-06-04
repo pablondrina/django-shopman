@@ -12,7 +12,8 @@ def check_ticket_item(*, ticket_pk: int, index: int, actor: str):
     ticket = KDSTicket.objects.filter(pk=ticket_pk).first()
     if ticket is None:
         raise KDSError("Ticket não encontrado.")
-    kds_core.toggle_ticket_item(ticket, index=index, actor=actor)
+    if not kds_core.toggle_ticket_item(ticket, index=index, actor=actor):
+        raise KDSError("Ticket não está aberto.")
     return ticket
 
 
@@ -27,7 +28,8 @@ def set_ticket_item_checked(*, ticket_pk: int, index: int, checked: bool, actor:
 
     current = bool(ticket.items[index].get("checked", False))
     if current != checked:
-        kds_core.toggle_ticket_item(ticket, index=index, actor=actor)
+        if not kds_core.toggle_ticket_item(ticket, index=index, actor=actor):
+            raise KDSError("Ticket não está aberto.")
         ticket.refresh_from_db()
     return ticket
 
@@ -38,7 +40,8 @@ def mark_ticket_done(*, ticket_pk: int, actor: str):
     ticket = KDSTicket.objects.filter(pk=ticket_pk).first()
     if ticket is None:
         raise KDSError("Ticket não encontrado.")
-    kds_core.complete_ticket(ticket, actor=actor)
+    if not kds_core.complete_ticket(ticket, actor=actor):
+        raise KDSError("Ticket não está aberto.")
     return ticket
 
 

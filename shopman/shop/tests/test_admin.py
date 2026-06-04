@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from datetime import date, time
+
 import pytest
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import Client, RequestFactory
@@ -36,6 +40,44 @@ def shop(db):
         primary_color="#C5A55A",
         default_ddd="43",
     )
+
+
+def _shop_form_data(shop):
+    from shopman.shop.admin.shop import ShopForm
+
+    initial_form = ShopForm(instance=shop)
+    data = {}
+    json_list_fields = {"social_links"}
+    json_object_fields = {"tracking_copy", "integrations"}
+
+    for name, field in initial_form.fields.items():
+        if name == "logo":
+            data[name] = ""
+            continue
+        value = initial_form.initial.get(name)
+        if value is None:
+            value = field.initial
+        if value is None and hasattr(shop, name):
+            value = getattr(shop, name)
+        if name in json_list_fields:
+            data[name] = json.dumps(value or [])
+            continue
+        if name in json_object_fields:
+            data[name] = json.dumps(value or {})
+            continue
+        if isinstance(field, forms.MultipleChoiceField):
+            data[name] = list(value or [])
+        elif isinstance(value, time):
+            data[name] = value.strftime("%H:%M")
+        elif isinstance(value, date):
+            data[name] = value.isoformat()
+        elif isinstance(value, (dict, list)):
+            data[name] = json.dumps(value)
+        elif value is None:
+            data[name] = ""
+        else:
+            data[name] = value
+    return data
 
 
 # ── Registration tests ──────────────────────────────────────────────
@@ -78,6 +120,148 @@ class TestShopAdminStorefrontPreview:
         assert resp.status_code == 200
         assert b"storefront-preview-iframe" in resp.content
         assert b"Atualizar preview" in resp.content
+
+
+class TestShopAdminOpeningHours:
+    def test_change_page_uses_structured_opening_hour_fields(self, db, admin_user, shop):
+        client = Client()
+        client.force_login(admin_user)
+        url = reverse("admin:shop_shop_change", args=[shop.pk])
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert b'name="opening_hours_wednesday_status"' in resp.content
+        assert b'name="opening_hours_wednesday_open"' in resp.content
+        assert b'name="opening_hours_wednesday_close"' in resp.content
+        assert b'name="opening_hours"' not in resp.content
+
+    def test_form_saves_opening_hours_from_day_fields(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.opening_hours = {
+            "wednesday": {"open": "09:00", "close": "23:00"},
+        }
+        shop.save(update_fields=["opening_hours"])
+
+        data = _shop_form_data(shop)
+
+        for day in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday"):
+            data[f"opening_hours_{day}_status"] = "open"
+            data[f"opening_hours_{day}_open"] = "09:00"
+            data[f"opening_hours_{day}_close"] = "18:00"
+        data["opening_hours_sunday_status"] = "closed"
+        data["opening_hours_sunday_open"] = ""
+        data["opening_hours_sunday_close"] = ""
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.opening_hours["wednesday"] == {"open": "09:00", "close": "18:00"}
+        assert saved.opening_hours["saturday"] == {"open": "09:00", "close": "18:00"}
+        assert "sunday" not in saved.opening_hours
+
+
+class TestShopAdminDefaults:
+    def test_change_page_uses_structured_defaults_fields(self, db, admin_user, shop):
+        client = Client()
+        client.force_login(admin_user)
+        url = reverse("admin:shop_shop_change", args=[shop.pk])
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert b'name="defaults_dynamic_collection_1"' in resp.content
+        assert b'name="defaults_pickup_slot_1_ref"' in resp.content
+        assert b'name="defaults_closed_date_1_date"' in resp.content
+        assert b'name="defaults"' not in resp.content
+
+    def test_form_saves_defaults_from_structured_fields(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.defaults = {
+            "surface_policy": {"keep": True},
+            "menu": {"dynamic_collections": ["featured"]},
+            "notifications": {"backend": "console", "other": "kept"},
+            "pickup_slots": [
+                {"ref": "slot-legacy", "label": "Legado", "starts_at": "07:00"},
+                {"ref": "slot-extra-1", "label": "Extra 1", "starts_at": "19:00"},
+                {"ref": "slot-extra-2", "label": "Extra 2", "starts_at": "20:00"},
+                {"ref": "slot-extra-3", "label": "Extra 3", "starts_at": "21:00"},
+                {"ref": "slot-extra-4", "label": "Extra 4", "starts_at": "22:00"},
+                {"ref": "slot-preserved", "label": "Preservado", "starts_at": "23:00"},
+            ],
+            "pickup_slot_config": {"rounding_minutes": 15, "history_days": 10, "other": "kept"},
+            "closed_dates": [
+                {"date": "2026-12-25", "label": "Natal antigo"},
+                {"from": "2026-01-02", "to": "2026-01-05", "label": "Férias"},
+            ],
+            "seasons": {"hot": [12, 1], "mild": [4], "cold": [7]},
+            "high_demand_multiplier": "1.20",
+            "safety_stock_percent": "0.20",
+        }
+        shop.save(update_fields=["defaults"])
+
+        data = _shop_form_data(shop)
+        data["defaults_dynamic_collection_1"] = "featured"
+        data["defaults_dynamic_collection_2"] = "fresh_from_oven"
+        data["defaults_dynamic_collection_3"] = "new_arrivals"
+        data["defaults_dynamic_collection_4"] = ""
+        data["defaults_dynamic_collection_5"] = ""
+        data["defaults_notifications_backend"] = "manychat"
+        data["defaults_max_preorder_days"] = "21"
+        data["defaults_pickup_rounding_minutes"] = "30"
+        data["defaults_pickup_history_days"] = "45"
+        data["defaults_pickup_fallback_slot"] = "slot-09"
+        data["defaults_pickup_slot_1_ref"] = "slot-09"
+        data["defaults_pickup_slot_1_label"] = "A partir das 09h"
+        data["defaults_pickup_slot_1_starts_at"] = "09:00"
+        data["defaults_pickup_slot_2_ref"] = "slot-12"
+        data["defaults_pickup_slot_2_label"] = "A partir das 12h"
+        data["defaults_pickup_slot_2_starts_at"] = "12:00"
+        data["defaults_closed_date_1_date"] = "2026-12-25"
+        data["defaults_closed_date_1_label"] = "Natal"
+        data["defaults_season_hot_months"] = "10, 11, 12, 1, 2, 3"
+        data["defaults_season_mild_months"] = "4, 5, 9"
+        data["defaults_season_cold_months"] = "6, 7, 8"
+        data["defaults_high_demand_multiplier"] = "1.30"
+        data["defaults_safety_stock_percent"] = "0.15"
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.defaults["surface_policy"] == {"keep": True}
+        assert saved.defaults["menu"]["dynamic_collections"] == [
+            "featured",
+            "fresh_from_oven",
+            "new_arrivals",
+        ]
+        assert saved.defaults["notifications"] == {"backend": "manychat", "other": "kept"}
+        assert saved.defaults["max_preorder_days"] == 21
+        assert saved.defaults["pickup_slots"][:2] == [
+            {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
+            {"ref": "slot-12", "label": "A partir das 12h", "starts_at": "12:00"},
+        ]
+        assert saved.defaults["pickup_slots"][-1] == {
+            "ref": "slot-preserved",
+            "label": "Preservado",
+            "starts_at": "23:00",
+        }
+        assert saved.defaults["pickup_slot_config"] == {
+            "rounding_minutes": 30,
+            "history_days": 45,
+            "other": "kept",
+            "fallback_slot": "slot-09",
+        }
+        assert saved.defaults["closed_dates"] == [
+            {"date": "2026-12-25", "label": "Natal"},
+            {"from": "2026-01-02", "to": "2026-01-05", "label": "Férias"},
+        ]
+        assert saved.defaults["seasons"] == {
+            "hot": [10, 11, 12, 1, 2, 3],
+            "mild": [4, 5, 9],
+            "cold": [6, 7, 8],
+        }
+        assert saved.defaults["high_demand_multiplier"] == "1.30"
+        assert saved.defaults["safety_stock_percent"] == "0.15"
 
 
 class TestShopAdminSingleton:

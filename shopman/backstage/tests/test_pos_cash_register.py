@@ -24,56 +24,56 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    from shopman.backstage.models import CashShift
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
 
-class CashRegisterSessionModelTests(TestCase):
+class CashShiftModelTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         User = get_user_model()
         self.operator = User.objects.create_user(username="cashier", password="x", is_staff=True)
 
     def test_open_session_created(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
-        session = CashRegisterSession.objects.create(operator=self.operator, opening_amount_q=5000)
+        from shopman.backstage.models import CashShift
+        session = CashShift.objects.create(operator=self.operator, opening_amount_q=5000)
         self.assertEqual(session.status, "open")
         self.assertEqual(session.opening_amount_q, 5000)
 
     def test_get_open_for_operator(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
-        CashRegisterSession.objects.create(operator=self.operator, opening_amount_q=0)
-        found = CashRegisterSession.get_open_for_operator(self.operator)
+        from shopman.backstage.models import CashShift
+        CashShift.objects.create(operator=self.operator, opening_amount_q=0)
+        found = CashShift.get_open_for_operator(self.operator)
         self.assertIsNotNone(found)
 
     def test_no_open_session_returns_none(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
-        found = CashRegisterSession.get_open_for_operator(self.operator)
+        from shopman.backstage.models import CashShift
+        found = CashShift.get_open_for_operator(self.operator)
         self.assertIsNone(found)
 
     def test_close_session(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
-        session = CashRegisterSession.objects.create(operator=self.operator, opening_amount_q=10000)
-        session.close(closing_amount_q=10000)
+        from shopman.backstage.models import CashShift
+        session = CashShift.objects.create(operator=self.operator, opening_amount_q=10000)
+        session.close(blind_closing_amount_q=10000)
         self.assertEqual(session.status, "closed")
         self.assertIsNotNone(session.closed_at)
         self.assertIsNotNone(session.expected_amount_q)
         self.assertEqual(session.difference_q, 0)
 
     def test_close_with_difference(self) -> None:
-        from shopman.backstage.models import CashRegisterSession
-        session = CashRegisterSession.objects.create(operator=self.operator, opening_amount_q=10000)
+        from shopman.backstage.models import CashShift
+        session = CashShift.objects.create(operator=self.operator, opening_amount_q=10000)
         # Close with 200 less than expected (only opening, no sales)
-        session.close(closing_amount_q=9800)
+        session.close(blind_closing_amount_q=9800)
         self.assertEqual(session.difference_q, -200)
 
     def test_sangria_movement_created(self) -> None:
-        from shopman.backstage.models import CashMovement, CashRegisterSession
-        session = CashRegisterSession.objects.create(operator=self.operator, opening_amount_q=5000)
+        from shopman.backstage.models import CashMovement, CashShift
+        session = CashShift.objects.create(operator=self.operator, opening_amount_q=5000)
         CashMovement.objects.create(
-            session=session, movement_type="sangria", amount_q=2000, reason="retirada"
+            shift=session, movement_type="sangria", amount_q=2000, reason="retirada"
         )
         self.assertEqual(session.movements.count(), 1)
 
@@ -101,23 +101,23 @@ class CashRegisterViewTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertRedirects(resp, "/gestor/pos/")
 
-        from shopman.backstage.models import CashRegisterSession
-        session = CashRegisterSession.get_open_for_operator(self.staff)
+        from shopman.backstage.models import CashShift
+        session = CashShift.get_open_for_operator(self.staff)
         self.assertIsNotNone(session)
         self.assertEqual(session.opening_amount_q, 5000)
 
     def test_pos_with_open_register_shows_grid(self) -> None:
         """POS shows product grid when a register is open."""
-        from shopman.backstage.models import CashRegisterSession
-        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
+        from shopman.backstage.models import CashShift
+        CashShift.objects.create(operator=self.staff, opening_amount_q=0)
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "pos/index.html")
 
     def test_open_second_register_redirects(self) -> None:
         """Opening a register when one is already open redirects to POS."""
-        from shopman.backstage.models import CashRegisterSession
-        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
+        from shopman.backstage.models import CashShift
+        CashShift.objects.create(operator=self.staff, opening_amount_q=0)
         resp = self.client.post("/gestor/pos/caixa/abrir/", {"opening_amount": "0"})
         self.assertRedirects(resp, "/gestor/pos/")
 
@@ -128,18 +128,18 @@ class CashRegisterViewTests(TestCase):
 
     def test_sangria_with_open_register(self) -> None:
         """Sangria creates a CashMovement."""
-        from shopman.backstage.models import CashMovement, CashRegisterSession
-        session = CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=10000)
+        from shopman.backstage.models import CashMovement, CashShift
+        session = CashShift.objects.create(operator=self.staff, opening_amount_q=10000)
         resp = self.client.post("/gestor/pos/caixa/sangria/", {
             "movement_type": "sangria", "amount": "20.00", "reason": "retirada",
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(CashMovement.objects.filter(session=session).count(), 1)
+        self.assertEqual(CashMovement.objects.filter(shift=session).count(), 1)
 
     def test_close_register(self) -> None:
         """Closing register renders report template."""
-        from shopman.backstage.models import CashRegisterSession
-        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=5000)
+        from shopman.backstage.models import CashShift
+        CashShift.objects.create(operator=self.staff, opening_amount_q=5000)
         resp = self.client.post("/gestor/pos/caixa/fechar/", {
             "closing_amount": "50.00", "notes": "turno tranquilo",
         })

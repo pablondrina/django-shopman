@@ -11,14 +11,13 @@ from __future__ import annotations
 import json
 import logging
 from base64 import b64encode
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.utils import timezone
-
 from shopman.orderman.protocols import FiscalCancellationResult, FiscalDocumentResult
 
 logger = logging.getLogger(__name__)
@@ -77,7 +76,7 @@ class FocusNFeBackend:
                 payment=payment,
                 additional_info=additional_info,
             )
-            response = _request("POST", f"/v2/nfce?{urlencode({'ref': reference})}", payload, config)
+            response = _request("POST", _nfce_path(reference, config), payload, config)
         except FocusNFePayloadError as exc:
             return FiscalDocumentResult(
                 success=False,
@@ -109,7 +108,7 @@ class FocusNFeBackend:
                 error_message=f"Focus NFe sem configuração obrigatória: {', '.join(missing)}",
             )
         try:
-            response = _request("GET", f"/v2/nfce/{quote(reference, safe='')}", None, config)
+            response = _request("GET", _nfce_path(reference, config, consult=True), None, config)
         except (HTTPError, URLError, TimeoutError) as exc:
             return _document_error_result(exc)
         return _document_result(response, config)
@@ -158,8 +157,8 @@ def _missing_config(config: dict) -> list[str]:
     missing = []
     if not str(config.get("token") or "").strip():
         missing.append("FOCUS_NFE_TOKEN")
-    if not _digits(config.get("cnpj_emitente")):
-        missing.append("FOCUS_NFE_CNPJ_EMITENTE")
+    if not _focus_cnpj_emitente(config):
+        missing.append("FOCUS_NFE_CNPJ_EMITENTE_or_Shop.document")
     return missing
 
 
@@ -173,10 +172,23 @@ def _base_url(config: dict) -> str:
     return HOMOLOGATION_URL
 
 
+def _nfce_path(reference: str, config: dict, *, consult: bool = False) -> str:
+    params = {"completa": _nfce_completa(config)}
+    if consult:
+        return f"/v2/nfce/{quote(reference, safe='')}?{urlencode(params)}"
+    params = {"ref": reference, **params}
+    return f"/v2/nfce?{urlencode(params)}"
+
+
+def _nfce_completa(config: dict) -> str:
+    value = config.get("completa_nfce", "1")
+    return "0" if str(value).strip().lower() in {"0", "false", "no", "nao", "não"} else "1"
+
+
 def _request(method: str, path: str, payload: dict | None, config: dict) -> dict:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     token = str(config["token"]).strip()
-    auth = b64encode(f"{token}:".encode("utf-8")).decode("ascii")
+    auth = b64encode(f"{token}:".encode()).decode("ascii")
     request = Request(
         f"{_base_url(config)}{path}",
         data=data,
@@ -205,18 +217,28 @@ def _build_nfce_payload(
     if not items:
         raise FocusNFePayloadError("NFC-e exige ao menos um item.")
 
+    mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(items, start=1)]
+    product_total_q = _sum_focus_money_q(mapped_items, "valor_bruto")
+    payment_total_q = _payment_total_q(payment)
+    note_total_q = payment_total_q or product_total_q
+
     payload = {
-        "cnpj_emitente": _digits(config.get("cnpj_emitente")),
-        "natureza_operacao": config.get("natureza_operacao") or "Venda ao consumidor",
+        "cnpj_emitente": _focus_cnpj_emitente(config),
+        "natureza_operacao": config.get("natureza_operacao") or "VENDA AO CONSUMIDOR",
         "data_emissao": timezone.localtime().isoformat(),
         "tipo_documento": "1",
         "finalidade_emissao": "1",
         "consumidor_final": "1",
-        "presenca_comprador": "1",
-        "modalidade_frete": "9",
-        "items": [_map_item(idx, item, config) for idx, item in enumerate(items, start=1)],
+        "local_destino": str(config.get("local_destino_nfce") or "1"),
+        "presenca_comprador": str(config.get("presenca_comprador_nfce") or "1"),
+        "modalidade_frete": str(config.get("modalidade_frete_nfce") or "9"),
+        "valor_produtos": _money_q(product_total_q),
+        "valor_total": _money_q(note_total_q),
+        "items": mapped_items,
         "formas_pagamento": _payment_forms(payment),
     }
+    if product_total_q > note_total_q:
+        payload["valor_desconto"] = _money_q(product_total_q - note_total_q)
     if config.get("serie_nfce"):
         payload["serie"] = str(config["serie_nfce"])
     if additional_info:
@@ -303,6 +325,14 @@ def _payment_forms(payment: dict) -> list[dict]:
     }]
 
 
+def _payment_total_q(payment: dict) -> int:
+    payment = dict(payment or {})
+    tenders = payment.get("tenders") or []
+    if tenders:
+        return sum(max(0, int(tender.get("amount_q") or 0)) for tender in tenders if isinstance(tender, dict))
+    return max(0, int(payment.get("amount_q") or 0))
+
+
 def _payment_code(method: object) -> str:
     value = str(method or "cash").strip().lower()
     return PAYMENT_METHOD_CODES.get(value, "99")
@@ -316,6 +346,8 @@ def _customer_fields(customer: dict) -> dict:
         fields["cpf_destinatario"] = tax_id
     elif len(tax_id) == 14:
         fields["cnpj_destinatario"] = tax_id
+    if tax_id:
+        fields["indicador_inscricao_estadual_destinatario"] = "9"
     if tax_id and customer.get("name"):
         fields["nome_destinatario"] = str(customer["name"])[:60]
     if customer.get("email"):
@@ -324,6 +356,24 @@ def _customer_fields(customer: dict) -> dict:
     if phone:
         fields["telefone_destinatario"] = phone
     return fields
+
+
+def _focus_cnpj_emitente(config: dict) -> str:
+    configured = _digits(config.get("cnpj_emitente"))
+    if configured:
+        return configured
+    return _digits(_shop_document())
+
+
+def _shop_document() -> str:
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        return str(getattr(shop, "document", "") or "")
+    except Exception:
+        logger.debug("focus_nfe_shop_document_lookup_failed", exc_info=True)
+        return ""
 
 
 def _document_result(response: dict, config: dict | None = None) -> FiscalDocumentResult:
@@ -422,6 +472,13 @@ def _decimal(value: object, *, places: str) -> str:
 
 def _money_q(value: object) -> str:
     return _decimal(Decimal(int(value or 0)) / Decimal("100"), places="0.01")
+
+
+def _sum_focus_money_q(rows: list[dict], field: str) -> int:
+    total = Decimal("0")
+    for row in rows:
+        total += Decimal(str(row.get(field) or "0"))
+    return int((total * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _norm(value: object) -> str:

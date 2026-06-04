@@ -56,6 +56,10 @@ class AdminNavigationTests(TestCase):
             ["Painel", "Planejamento", "Produção", "Fichas técnicas", "Relatórios"],
         )
 
+        audit_group = next(group for group in groups if group["title"] == "Auditoria e acesso")
+        audit_items = [item["title"] for item in audit_group["items"] if item["has_permission"]]
+        self.assertIn("Pagamentos", audit_items)
+
     def test_sidebar_badges_count_operational_attention(self) -> None:
         Order.objects.create(
             ref="NAV-NEW",

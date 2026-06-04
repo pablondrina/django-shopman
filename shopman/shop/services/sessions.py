@@ -67,6 +67,26 @@ def modify_session(
     )
 
 
+def move_session_lines(
+    *,
+    from_session_key: str,
+    to_session_key: str,
+    channel_ref: str,
+    line_ids: list[str],
+) -> tuple[Session, Session]:
+    """Move lines verbatim between two open sessions (freezes price).
+
+    Thin facade over the kernel integrity op used for comanda
+    transfer/split/merge.
+    """
+    return ModifyService.move_lines(
+        from_session_key=from_session_key,
+        to_session_key=to_session_key,
+        channel_ref=channel_ref,
+        line_ids=line_ids,
+    )
+
+
 def commit_session(
     *,
     session_key: str,

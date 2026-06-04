@@ -37,8 +37,8 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    from shopman.backstage.models import CashShift
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
@@ -53,8 +53,8 @@ class ShiftSummaryViewTests(TestCase):
         _grant_pos_perm(self.staff)
         self.client.force_login(self.staff)
         # WP-R16: POS requires an open cash register session
-        from shopman.backstage.models import CashRegisterSession
-        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
+        from shopman.backstage.models import CashShift
+        CashShift.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_summary_zero_sales(self) -> None:
         """Shift summary with no orders shows 0 sales."""
@@ -128,10 +128,10 @@ class ShiftSummaryViewTests(TestCase):
         from shopman.backstage.models import POSTab
         from shopman.shop.services import pos as pos_service
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         opened = pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor=f"pos:{self.staff.username}",
             operator_username=self.staff.username,
         )
@@ -139,7 +139,7 @@ class ShiftSummaryViewTests(TestCase):
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
             "customer_name": "", "customer_phone": "", "payment_method": "cash",
             "manual_discount": None,
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         })
         resp = self.client.post("/gestor/pos/close/", {"payload": payload})

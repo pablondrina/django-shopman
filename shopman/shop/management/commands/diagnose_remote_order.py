@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter
 
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -14,6 +17,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from shopman.orderman.models import Directive, Order
+
         from shopman.shop.services import payment_status
         from shopman.shop.services.channel_policy import resolve_channel_policy
         from shopman.shop.services.conversation import build_order_conversation
@@ -84,6 +88,7 @@ class Command(BaseCommand):
                 f"action={action_ref} deadline_at={conversation.deadline_at or '-'}"
             )
         except Exception as exc:
+            logger.debug("diagnose_remote_order.handle degraded; using fallback", exc_info=True)
             self.stdout.write(f"result=WARN conversation error={str(exc)[:160]}")
 
         for recommendation in _recommendations(
@@ -105,6 +110,7 @@ def _hold_summary(hold_ids: list) -> dict[str, int | str]:
     try:
         from shopman.stockman.models import Hold
     except Exception:
+        logger.debug("diagnose_remote_order._hold_summary degraded; using fallback", exc_info=True)
         return {"result": "WARN", "total": len(hold_ids), "expired": 0, "missing": len(hold_ids)}
 
     holds = list(Hold.objects.filter(id__in=hold_ids))

@@ -44,19 +44,25 @@ class KDSInstance(models.Model):
 
 
 class KDSTicket(models.Model):
-    """Ticket despachado para uma estação KDS com items de um pedido."""
+    """Ticket despachado para uma estação KDS com items de uma venda.
+
+    Ancora em ``session_key`` (ref textual estável, não FK). A mesma chave
+    resolve para a Session aberta (comanda em andamento) antes do commit e
+    para o Order selado depois — ``Order.session_key`` é copiado verbatim no
+    commit. Isso unifica o KDS para qualquer canal e permite disparo
+    progressivo (prato-a-prato) a partir da comanda, sem re-apontar tickets.
+    """
 
     STATUS_CHOICES = [
         ("pending", "Pendente"),
         ("in_progress", "Em andamento"),
         ("done", "Concluído"),
+        ("cancelled", "Cancelado"),
     ]
 
-    order = models.ForeignKey(
-        "orderman.Order",
-        on_delete=models.CASCADE,
-        related_name="kds_tickets",
-        verbose_name="pedido",
+    session_key = models.CharField(
+        "chave da venda", max_length=64, db_index=True,
+        help_text="Resolve para a Session aberta (comanda) ou o Order selado.",
     )
     kds_instance = models.ForeignKey(
         KDSInstance,
@@ -73,6 +79,7 @@ class KDSTicket(models.Model):
     )
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     completed_at = models.DateTimeField("concluído em", null=True, blank=True)
+    cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
 
     class Meta:
         verbose_name = "ticket KDS"
@@ -81,4 +88,4 @@ class KDSTicket(models.Model):
         permissions = [("operate_kds", "Pode operar telas KDS (check, done, expedition)")]
 
     def __str__(self):
-        return f"KDS #{self.pk} — {self.order.ref} → {self.kds_instance.ref}"
+        return f"KDS #{self.pk} — {self.session_key} → {self.kds_instance.ref}"

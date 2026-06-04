@@ -10,10 +10,19 @@ class PaymentTransactionInline(admin.TabularInline):
 
 @admin.register(PaymentIntent)
 class PaymentIntentAdmin(admin.ModelAdmin):
-    list_display = ("ref", "order_ref", "method", "status", "amount_q", "currency", "created_at")
+    list_display = ("ref", "order_ref", "method", "status", "amount_q", "currency", "cancel_reason", "created_at")
     list_filter = ("status", "method", "currency")
     search_fields = ("ref", "order_ref", "gateway_id")
-    readonly_fields = ("created_at", "authorized_at", "captured_at", "cancelled_at")
+    readonly_fields = (
+        "created_at",
+        "authorized_at",
+        "captured_at",
+        "cancelled_at",
+        "cancel_reason",
+        "gateway_id",
+        "gateway_data",
+        "idempotency_key",
+    )
     inlines = [PaymentTransactionInline]
 
 

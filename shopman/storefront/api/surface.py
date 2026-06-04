@@ -7,12 +7,14 @@ rules.
 
 from __future__ import annotations
 
+import logging
+
 from django.utils.decorators import method_decorator
-from django_ratelimit.core import is_ratelimited
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django_ratelimit.core import is_ratelimited
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,13 +36,20 @@ from shopman.storefront.services.cart_mutations import (
     set_qty_by_sku,
 )
 
-from .projections import projection_data
 from .actions import action_payload, retry_after_action
+from .projections import projection_data
 from .serializers import DetailSerializer, SetSkuQtySerializer
+
+logger = logging.getLogger(__name__)
 
 
 CART_RATE_LIMIT_RETRY_SECONDS = 30
 REORDER_RATE_LIMIT_RETRY_SECONDS = 60
+
+
+def _unit_count_label(qty: int) -> str:
+    unit_word = "unidade disponível" if qty == 1 else "unidades disponíveis"
+    return f"{qty} {unit_word}"
 
 
 def _cart_payload(request) -> dict:
@@ -55,7 +64,7 @@ def _stock_reason(exc) -> str:
         return "Disponível por encomenda, com limite para esta data."
     available_qty = getattr(exc, "available_qty", None)
     if available_qty is not None and available_qty > 0:
-        return f"Estoque disponível agora: {available_qty} unidade(s)."
+        return f"Estoque disponível agora: {_unit_count_label(available_qty)}."
     return "Sem estoque disponível para a quantidade solicitada."
 
 
@@ -82,7 +91,7 @@ def _stock_error_payload(exc, *, product=None) -> dict:
         actions.insert(0, action_payload(
             ref="set_available_qty",
             kind="mutation",
-            label=f"Usar {exc.available_qty} disponível(is)",
+            label=f"Usar {_unit_count_label(exc.available_qty)}",
             priority="primary",
             href=f"/api/v1/cart/skus/{exc.sku}/",
             method="PUT",
@@ -95,7 +104,7 @@ def _stock_error_payload(exc, *, product=None) -> dict:
             },
         ))
     return {
-        "detail": "Insufficient stock.",
+        "detail": reason,
         "title": "Revise este item",
         "error_code": exc.error_code,
         "sku": exc.sku,
@@ -316,6 +325,7 @@ class OrderReorderView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Exception:
+            logger.debug("surface.post degraded; using fallback", exc_info=True)
             return Response({"detail": "Pedido não encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
         if order is None:
@@ -431,7 +441,7 @@ class CartCouponView(APIView):
             200: OpenApiResponse(description="Cart mutation response plus authoritative cart projection."),
             400: DetailSerializer,
             404: DetailSerializer,
-            409: OpenApiResponse(description="Insufficient stock."),
+            409: OpenApiResponse(description="Estoque insuficiente para a quantidade solicitada."),
         },
     ),
 )

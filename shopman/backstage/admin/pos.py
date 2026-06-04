@@ -13,16 +13,16 @@ from shopman.backstage.models import POSTab
 
 @admin.register(POSTab)
 class POSTabAdmin(ModelAdmin):
-    list_display = ("code", "display_code", "label", "state_display", "is_active_display")
+    list_display = ("ref", "display_ref", "label", "state_display", "is_active_display")
     list_filter = ("is_active",)
-    search_fields = ("code", "label")
-    ordering = ("code",)
+    search_fields = ("ref", "label")
+    ordering = ("ref",)
     compressed_fields = True
     list_fullwidth = True
 
     @display(description="atalho")
-    def display_code(self, obj):
-        return obj.display_code
+    def display_ref(self, obj):
+        return obj.display_ref
 
     @display(description="estado")
     def state_display(self, obj):
@@ -30,7 +30,7 @@ class POSTabAdmin(ModelAdmin):
             channel_ref="pdv",
             state="open",
             handle_type="pos_tab",
-            handle_ref=obj.code,
+            handle_ref=obj.ref,
         ).exists()
         return unfold_badge("em uso" if in_use else "vazia", "yellow" if in_use else "base")
 

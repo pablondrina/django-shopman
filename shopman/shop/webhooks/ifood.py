@@ -170,6 +170,7 @@ class IFoodWebhookView(APIView):
             )
             return Response(response_body, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
+            logger.debug("ifood.post degraded; using fallback", exc_info=True)
             webhook_idempotency.mark_failed(claim)
             from shopman.shop.services import observability
 

@@ -49,9 +49,9 @@ class CartExpiredRedirectTests(TestCase):
     def setUp(self):
         _make_shop()
         _make_channels()
-        from shopman.backstage.models import CashRegisterSession
+        from shopman.backstage.models import CashShift
         staff = _make_staff()
-        CashRegisterSession.objects.get_or_create(operator=staff, defaults={"opening_amount_q": 0})
+        CashShift.objects.get_or_create(operator=staff, defaults={"opening_amount_q": 0})
 
     def test_expired_cart_redirects_to_cart_with_message(self) -> None:
         """POST /checkout/ with expired session_key → redirect to /cart/ with message."""

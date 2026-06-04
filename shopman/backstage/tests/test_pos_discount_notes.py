@@ -53,8 +53,8 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    from shopman.backstage.models import CashShift
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
@@ -63,8 +63,8 @@ def _grant_adjust_cashshift_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    from shopman.backstage.models import CashShift
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="adjust_cashshift")
     user.user_permissions.add(perm)
 
@@ -125,12 +125,19 @@ class POSCloseWithDiscountTests(TestCase):
         User = get_user_model()
         self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)
         _grant_pos_perm(self.staff)
+        from shopman.backstage.models import CashShift, POSTerminal
+
+        CashShift.objects.create(
+            operator=self.staff,
+            terminal=POSTerminal.default(),
+            opening_amount_q=0,
+        )
 
     def _close_sale(self, items, manual_discount=None, manager_approval=None):
-        POSTab.objects.get_or_create(code="00001007", defaults={"label": "1007"})
+        POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
         opened = pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor=f"pos:{self.staff.username}",
             operator_username=self.staff.username,
         )
@@ -141,7 +148,7 @@ class POSCloseWithDiscountTests(TestCase):
             "payment_method": "cash",
             "manual_discount": manual_discount,
             "manager_approval": manager_approval,
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
         self.client.force_login(self.staff)
@@ -171,24 +178,45 @@ class POSCloseWithDiscountTests(TestCase):
             manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
         )
 
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 422)
         self.assertIn("aprovação gerencial", resp.content.decode().lower())
 
     @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
     def test_close_with_discount_accepts_manager_approval(self) -> None:
+        from shopman.doorman.models import PinCredential
+
         User = get_user_model()
         manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
         _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
 
         resp = self._close_sale(
             [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
             manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-            manager_approval={"username": "pos_manager", "password": "secret"},
+            manager_approval={"username": "pos_manager", "pin": "4321"},
         )
 
         self.assertEqual(resp.status_code, 200)
         order = Order.objects.latest("created_at")
         self.assertEqual(order.data["manual_discount"]["approved_by"], "pos_manager")
+
+    @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
+    def test_close_with_discount_rejects_wrong_manager_pin(self) -> None:
+        from shopman.doorman.models import PinCredential
+
+        User = get_user_model()
+        manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
+        _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, "4321")
+
+        resp = self._close_sale(
+            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
+            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
+            manager_approval={"username": "pos_manager", "pin": "0000"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        self.assertIn("aprovação gerencial", resp.content.decode().lower())
 
     def test_close_with_item_note(self) -> None:
         """Item notes are accepted in payload and stored in canonical meta."""

@@ -318,16 +318,23 @@ def _on_completed(order, config: ChannelConfig) -> None:
 
 
 def _on_cancelled(order, config: ChannelConfig) -> None:
-    """Order cancelled: cancel KDS tickets (if enabled) + release stock + refund + notify."""
+    """Order cancelled: cancel KDS tickets, release stock, settle payment, cancel fiscal + notify."""
     try:
         from shopman.shop.services import kds
         kds.cancel_tickets(order)
     except ImportError:
         pass
     stock.release(order)
-    payment.refund(order)
+    _settle_cancelled_payment(order)
     fiscal.cancel(order)
     notification.send(order, "order_cancelled")
+
+
+def _settle_cancelled_payment(order) -> None:
+    """Cancel unpaid intents and refund any captured balance for cancelled orders."""
+    reason = str((order.data or {}).get("cancellation_reason") or "order_cancelled")
+    payment.cancel(order, reason=reason)
+    payment.refund(order)
 
 
 def _on_returned(order, config: ChannelConfig) -> None:
@@ -499,8 +506,10 @@ def _dispatch_physical_work(order) -> bool:
     if tickets:
         return True
     try:
-        return bool(order.kds_tickets.exists())
+        from shopman.shop.adapters import kds as kds_adapter
+        return kds_adapter.ticket_exists_for_order(order)
     except Exception:
+        logger.debug("lifecycle._dispatch_physical_work degraded; using fallback", exc_info=True)
         return False
 
 

@@ -350,8 +350,9 @@ class TestStatusColours:
         assert expected_fragment in proj.status_color
 
     def test_ready_pickup_label(self, order):
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
         shop = Shop.load()
         shop.formatted_address = "Rua das Flores, 123 - Centro, Londrina - PR"
         shop.save(update_fields=["formatted_address"])
@@ -374,6 +375,7 @@ class TestStatusColours:
         assert "destination=Rua+das+Flores" in proj.pickup_info.directions_url
         assert proj.copy.page_kicker == "Acompanhamento"
         assert proj.copy.support_label == "Ajuda"
+        assert proj.copy.progress_heading == "Etapas do pedido"
         rows = [(row.label, row.value, row.url) for row in proj.promise_rows]
         assert ("Próximo passo", "Retire no estabelecimento quando puder.", None) in rows
         assert ("Sua ação", "Retirar pedido", None) in rows
@@ -381,8 +383,9 @@ class TestStatusColours:
         assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
     def test_pickup_info_uses_structured_shop_address_without_fulfillment(self, order):
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = ""
@@ -415,8 +418,9 @@ class TestStatusColours:
         from decimal import Decimal
 
         from shopman.orderman.models import Fulfillment
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = "Av. Madre Leônia Milito, 446 - Bela Suíça, Londrina - PR"
@@ -445,8 +449,9 @@ class TestStatusColours:
         from decimal import Decimal
 
         from shopman.orderman.models import Fulfillment
-        from shopman.shop.models import Shop
         from shopman.orderman.models import Order as _Order
+
+        from shopman.shop.models import Shop
 
         shop = Shop.load()
         shop.formatted_address = ""
@@ -661,6 +666,14 @@ class TestStatusColours:
         assert proj.confirmation_countdown is False
         assert proj.promise.requires_active_notification is True
         assert proj.promise.notification_topic == "payment_expired"
+        assert proj.promise.actions == ()
+        assert "repetir o pedido" in proj.promise.message
+        assert proj.promise.next_event == ""
+        assert proj.promise.recovery == ""
+        assert any(action.ref == "reorder" and action.label == "Repetir pedido" for action in proj.actions)
+        row_labels = [row.label for row in proj.promise_rows]
+        assert "Próximo passo" not in row_labels
+        assert "Se algo mudar" not in row_labels
 
     def test_confirmed_paid_order_keeps_payment_confirmation_visible(self, order_with_payment):
         from shopman.payman import PaymentService

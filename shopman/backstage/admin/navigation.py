@@ -100,6 +100,7 @@ def get_sidebar_navigation(request):
         ]),
         _group("Auditoria e acesso", "admin_panel_settings", [
             _item("Fechamentos", "event_available", _url("admin:backstage_dayclosing_changelist"), permission=_can_close_day),
+            _item("Pagamentos", "credit_card", _url("admin:payman_paymentintent_changelist"), permission=_can_manage_orders),
             _item("Turnos de Caixa", "payments", _url("admin:backstage_cashshift_changelist"), permission=_can_operate_pos),
             _item("Estações KDS", "settings_input_component", _url("admin:backstage_kdsinstance_changelist"), permission=_can_operate_kds),
             _item("Usuários", "person", _url("admin:auth_user_changelist"), permission=_is_superuser),

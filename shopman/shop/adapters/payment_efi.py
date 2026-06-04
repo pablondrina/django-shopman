@@ -186,6 +186,7 @@ def create_intent(
             },
         )
     except Exception:
+        logger.debug("payment_efi.create_intent degraded; using fallback", exc_info=True)
         try:
             PaymentService.fail(
                 db_intent.ref,
@@ -371,7 +372,7 @@ def cancel(intent_ref: str, **config) -> PaymentResult:
         _request("PATCH", f"/v2/cob/{txid}", payload)
 
         try:
-            PaymentService.cancel(intent_ref)
+            PaymentService.cancel(intent_ref, reason=str(config.get("reason") or ""))
         except PaymentError:
             pass
 

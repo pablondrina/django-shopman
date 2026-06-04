@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
+from django.utils import timezone
 from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.models import KDSInstance, KDSTicket
@@ -18,13 +19,14 @@ def kds_runtime_setup(db):
     order = Order.objects.create(
         ref="KDS-RUNTIME-1",
         channel_ref="web",
+        session_key="sk-kds-runtime-1",
         status=Order.Status.CONFIRMED,
         total_q=1500,
         data={"customer": {"name": "Ana"}, "fulfillment_type": "pickup"},
     )
     OrderItem.objects.create(order=order, line_id="1", sku="SKU", name="Produto", qty=1, unit_price_q=1500, line_total_q=1500)
     ticket = KDSTicket.objects.create(
-        order=order,
+        session_key=order.session_key,
         kds_instance=prep,
         items=[{"sku": "SKU", "name": "Produto", "qty": 1, "notes": "Sem sal", "checked": False}],
     )
@@ -68,6 +70,23 @@ def test_kds_runtime_station_routes_render_for_operator(client, kds_runtime_setu
     assert 'aria-live="polite"' in html
     assert "KDS-RUNTIME-1" in cards.content.decode()
     assert "KDS-READY-RUNTIME" in expedition_cards.content.decode()
+
+
+@pytest.mark.django_db
+def test_kds_runtime_station_shows_recent_cancellations(client, kds_runtime_setup):
+    _, _, ticket, _ = kds_runtime_setup
+    ticket.status = "cancelled"
+    ticket.cancelled_at = timezone.now()
+    ticket.save(update_fields=["status", "cancelled_at"])
+    client.force_login(_kds_operator())
+
+    response = client.get(reverse("backstage:kds_station_runtime_cards", args=[ticket.kds_instance.ref]))
+    html = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Cancelado" in html
+    assert "Interrompa este pedido" in html
+    assert "KDS-RUNTIME-1" in html
 
 
 @pytest.mark.django_db

@@ -16,7 +16,6 @@ from .actions import retry_after_action
 from .projections import projection_data
 from .serializers import DetailSerializer, RemoteConversationSerializer
 
-
 CONVERSATION_RATE_LIMIT_RETRY_SECONDS = 30
 
 

@@ -39,9 +39,13 @@ def _event_metadata_value(event, key: str) -> str:
     data = getattr(event, "data", None)
     obj = getattr(data, "object", None)
     metadata = getattr(obj, "metadata", None) or {}
-    if not hasattr(metadata, "get"):
-        return ""
-    value = metadata.get(key)
+    if isinstance(metadata, dict):
+        value = metadata.get(key)
+    else:
+        try:
+            value = metadata[key]
+        except (AttributeError, KeyError, TypeError):
+            value = getattr(metadata, key, "")
     return str(value or "")
 
 
@@ -104,6 +108,7 @@ class StripeWebhookView(APIView):
             if event_type in ("payment_intent.succeeded", "checkout.session.completed") and intent_ref:
                 self._trigger_order_hooks(intent_ref)
         except Exception as exc:
+            logger.debug("stripe.post degraded; using fallback", exc_info=True)
             webhook_idempotency.mark_failed(claim)
             from shopman.shop.services import observability
 
@@ -142,6 +147,7 @@ class StripeWebhookView(APIView):
         try:
             intent = PaymentService.get(intent_ref)
         except Exception:
+            logger.debug("stripe._trigger_order_hooks degraded; using fallback", exc_info=True)
             return
 
         order = (
@@ -163,6 +169,7 @@ class StripeWebhookView(APIView):
                 try:
                     intent = PaymentService.get(intent_ref)
                 except Exception:
+                    logger.debug("stripe._trigger_order_hooks degraded; using fallback", exc_info=True)
                     return
 
         if order and payment_service.has_sufficient_captured_payment(order) is True:

@@ -4,6 +4,7 @@ Django settings for the Shopman project.
 
 import os
 import sys
+from base64 import b64decode
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -33,11 +34,68 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.lower() in ("true", "1", "yes")
 
 
+def _materialized_secret_file(*, content: str, filename: str) -> str:
+    secret_dir = Path(os.environ.get("SHOPMAN_RUNTIME_SECRET_DIR", "/tmp/shopman-secrets"))
+    secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    secret_path = secret_dir / filename
+    if not secret_path.exists() or secret_path.read_text() != content:
+        secret_path.write_text(content)
+        secret_path.chmod(0o600)
+    return str(secret_path)
+
+
+def _efi_certificate_path() -> str:
+    configured_path = os.environ.get("EFI_CERTIFICATE_PATH", "").strip()
+    if configured_path:
+        return configured_path
+
+    encoded = (
+        os.environ.get("EFI_CERTIFICATE_PEM_BASE64", "").strip()
+        or os.environ.get("EFI_CERTIFICATE_BASE64", "").strip()
+    )
+    if encoded:
+        pem = b64decode(encoded).decode("utf-8")
+        return _materialized_secret_file(content=pem, filename="efi_certificate.pem")
+
+    pem = os.environ.get("EFI_CERTIFICATE_PEM", "").strip()
+    if pem:
+        return _materialized_secret_file(content=pem.replace("\\n", "\n"), filename="efi_certificate.pem")
+
+    return ""
+
+
 # ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
 # ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false (default já é false)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
+
+
+def _default_shopman_environment() -> str:
+    hints = " ".join(
+        os.environ.get(name, "")
+        for name in (
+            "SHOPMAN_DOMAIN",
+            "WHATSAPP_STOREFRONT_URL",
+            "DJANGO_ALLOWED_HOSTS",
+            "APP_DOMAIN",
+            "APP_URL",
+        )
+    ).lower()
+    if "staging" in hints:
+        return "staging"
+    return "development" if DEBUG else "production"
+
+
+SHOPMAN_ENVIRONMENT = os.environ.get(
+    "SHOPMAN_ENVIRONMENT",
+    _default_shopman_environment(),
+).strip().lower()
+
+SHOPMAN_EXPOSE_DEBUG_OTP = _env_bool(
+    "SHOPMAN_EXPOSE_DEBUG_OTP",
+    DEBUG or SHOPMAN_ENVIRONMENT == "staging",
+)
 
 # ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
@@ -78,6 +136,8 @@ if DEBUG:
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
     ]
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
@@ -376,7 +436,12 @@ SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
-if MANYCHAT_API_TOKEN:
+if SHOPMAN_EXPOSE_DEBUG_OTP and SHOPMAN_ENVIRONMENT == "staging":
+    DOORMAN.update({
+        "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
+        "DELIVERY_CHAIN": [],
+    })
+elif MANYCHAT_API_TOKEN:
     DOORMAN.update({
         "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
         "DELIVERY_SENDERS": {
@@ -638,6 +703,12 @@ SHOPMAN_FOCUS_NFE = {
     "token": os.environ.get("FOCUS_NFE_TOKEN", ""),
     "cnpj_emitente": os.environ.get("FOCUS_NFE_CNPJ_EMITENTE", ""),
     "serie_nfce": os.environ.get("FOCUS_NFE_NFCE_SERIE", ""),
+    "completa_nfce": os.environ.get("FOCUS_NFE_NFCE_COMPLETA", "1"),
+    "local_destino_nfce": os.environ.get("FOCUS_NFE_NFCE_LOCAL_DESTINO", "1"),
+    "presenca_comprador_nfce": os.environ.get("FOCUS_NFE_NFCE_PRESENCA_COMPRADOR", "1"),
+    "modalidade_frete_nfce": os.environ.get("FOCUS_NFE_NFCE_MODALIDADE_FRETE", "9"),
+    "natureza_operacao": os.environ.get("FOCUS_NFE_NATUREZA_OPERACAO", "VENDA AO CONSUMIDOR"),
+    "default_cfop_nfce": os.environ.get("FOCUS_NFE_NFCE_DEFAULT_CFOP", "5102"),
     "timeout": int(os.environ.get("FOCUS_NFE_TIMEOUT", "30")),
     "base_url": os.environ.get("FOCUS_NFE_BASE_URL", ""),
 }
@@ -672,7 +743,7 @@ SHOPMAN_EFI = {
     "sandbox": os.environ.get("EFI_SANDBOX", "true").lower() in ("true", "1", "yes"),
     "client_id": os.environ.get("EFI_CLIENT_ID", ""),
     "client_secret": os.environ.get("EFI_CLIENT_SECRET", ""),
-    "certificate_path": os.environ.get("EFI_CERTIFICATE_PATH", ""),
+    "certificate_path": _efi_certificate_path(),
     "pix_key": os.environ.get("EFI_PIX_KEY", ""),
 }
 

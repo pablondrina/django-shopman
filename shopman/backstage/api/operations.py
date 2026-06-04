@@ -19,6 +19,8 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/pos/cash/open/              -> open cash shift
   POST /api/v1/backstage/pos/cash/close/             -> close cash shift
   POST /api/v1/backstage/pos/cash/movement/          → register cash movement
+  POST /api/v1/backstage/pos/sale/review/            → validate POS checkout without commit
+  POST /api/v1/backstage/pos/sale/recent/cancel/     → cancel recent POS sale
 """
 
 from __future__ import annotations
@@ -29,12 +31,14 @@ from datetime import date
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.projections.order_queue import build_operator_order, build_two_zone_queue
 from shopman.backstage.projections.pos import (
     build_pos,
+    build_pos_customer_lookup,
     build_pos_shift_summary,
     build_pos_tabs,
 )
@@ -54,7 +58,7 @@ from shopman.backstage.services import (
 from shopman.backstage.services import (
     production as production_service,
 )
-from shopman.backstage.services.exceptions import OrderError, ProductionError
+from shopman.backstage.services.exceptions import OrderError, POSError, ProductionError
 from shopman.shop.services import pos as pos_tabs_service
 from shopman.shop.services.pos_intent import PosIntentError
 
@@ -79,6 +83,10 @@ def _actor(request) -> str:
 
 
 def _cash_shift_result(shift) -> dict:
+    # Blind close: the operator sees only what they counted, never the expected
+    # amount or variance. ``expected_amount_q``/``difference_q`` are still
+    # computed and stored on the shift; managers review them via Admin and the
+    # day-closing reconciliation, never at the cashier terminal.
     return {
         "id": shift.pk,
         "terminal_ref": shift.terminal.ref,
@@ -88,8 +96,71 @@ def _cash_shift_result(shift) -> dict:
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else "",
         "opening_amount_q": shift.opening_amount_q,
         "blind_closing_amount_q": shift.blind_closing_amount_q,
-        "expected_amount_q": shift.expected_amount_q,
-        "difference_q": shift.difference_q,
+    }
+
+
+def _pos_payload_with_runtime(request, body: dict) -> dict:
+    """Attach the active POS runtime context that browser surfaces should not invent."""
+    payload = dict(body or {})
+    cash_shift = _open_cash_shift_for_request(request)
+    if cash_shift:
+        payload.setdefault("cash_shift_id", cash_shift.pk)
+        payload.setdefault("pos_terminal_ref", cash_shift.terminal.ref)
+    return payload
+
+
+def _open_cash_shift_for_request(request):
+    try:
+        from shopman.backstage.models import CashShift
+
+        return CashShift.get_open_for_operator(request.user)
+    except Exception:
+        logger.debug("pos_runtime_payload_enrichment_failed user=%s", _actor(request), exc_info=True)
+        return None
+
+
+def _cash_shift_required_response() -> Response:
+    return Response(
+        {
+            "detail": "Abra o caixa antes de revisar ou finalizar uma venda.",
+            "error": {
+                "code": "cash_shift_required",
+                "message": "Abra o caixa antes de revisar ou finalizar uma venda.",
+                "field": "cash_shift_id",
+                "focus": "cash",
+                "recovery": "Abra um turno de caixa neste terminal e tente novamente.",
+            },
+        },
+        status=409,
+    )
+
+
+def _pos_sale_review_payload(review) -> dict:
+    return {
+        "intent_version": review.intent_version,
+        "tab_ref": review.tab_ref,
+        "subtotal_q": review.subtotal_q,
+        "subtotal_display": f"R$ {format_money(review.subtotal_q)}",
+        "discount_q": review.discount_q,
+        "discount_display": f"R$ {format_money(review.discount_q)}",
+        "delivery_fee_q": review.delivery_fee_q,
+        "delivery_fee_display": f"R$ {format_money(review.delivery_fee_q)}",
+        "total_q": review.total_q,
+        "total_display": f"R$ {format_money(review.total_q)}",
+        "payment_method": review.payment_method,
+        "payment_collection": review.payment_collection,
+        "tender_total_q": review.tender_total_q,
+        "tender_total_display": f"R$ {format_money(review.tender_total_q)}",
+        "tender_count": review.tender_count,
+        "tendered_amount_q": review.tendered_amount_q,
+        "tendered_amount_display": f"R$ {format_money(review.tendered_amount_q)}",
+        "change_q": review.change_q,
+        "change_display": f"R$ {format_money(review.change_q)}",
+        "requires_manager_approval": review.requires_manager_approval,
+        "manager_approval_threshold_q": review.manager_approval_threshold_q,
+        "receipt_mode": review.receipt_mode,
+        "issue_fiscal_document": review.issue_fiscal_document,
+        "warnings": list(review.warnings),
     }
 
 
@@ -108,7 +179,9 @@ class POSView(APIView):
     required_permission = "backstage.operate_pos"
 
     def get(self, request):
-        pos = build_pos()
+        from shopman.backstage.services.operator import active_operator
+
+        pos = build_pos(operator=request.user)
         shift = build_pos_shift_summary()
         query = request.query_params.get("q", "")
         tabs = build_pos_tabs(query=query)
@@ -116,7 +189,57 @@ class POSView(APIView):
             "pos": projection_data(pos),
             "shift": projection_data(shift),
             "tabs": projection_data(tabs),
+            "operator": active_operator(request),
         })
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="POS operator unlock (PIN)",
+        responses={200: OpenApiResponse(description="Active operator bound to the terminal session.")},
+    ),
+)
+class POSOperatorUnlockView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        from django.contrib.auth import get_user_model
+
+        from shopman.backstage.services import operator as operator_service
+
+        operator_id = str(request.data.get("operator_id", "")).strip()
+        pin = str(request.data.get("pin", ""))
+        operator = (
+            get_user_model().objects.filter(pk=operator_id, is_active=True).first()
+            if operator_id else None
+        )
+        if operator is None or not operator_service.verify_operator_pin(operator, pin):
+            return Response(
+                {"ok": False, "error": {"code": "operator_pin_invalid", "message": "PIN inválido."}},
+                status=403,
+            )
+        card = operator_service.set_active_operator(request, operator)
+        return Response({"ok": True, "operator": card})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="POS operator lock",
+        responses={200: OpenApiResponse(description="Terminal locked (active operator cleared).")},
+    ),
+)
+class POSOperatorLockView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        from shopman.backstage.services import operator as operator_service
+
+        operator_service.clear_active_operator(request)
+        return Response({"ok": True})
 
 
 @extend_schema_view(
@@ -441,6 +564,26 @@ class POSCashOpenView(APIView):
                 opening_amount_raw=str(amount),
                 terminal_ref=str(request.data.get("terminal_ref") or ""),
             )
+        except POSError as exc:
+            message = str(exc) or "Falha ao abrir caixa."
+            terminal_occupied = "Terminal POS" in message and "turno aberto" in message
+            return Response(
+                {
+                    "detail": message,
+                    "error": {
+                        "code": "cash_terminal_occupied" if terminal_occupied else "cash_shift_open_failed",
+                        "message": message,
+                        "field": "terminal_ref" if terminal_occupied else "opening_amount",
+                        "focus": "cash",
+                        "recovery": (
+                            "Use o operador correto, feche o turno atual no gestor ou selecione outro terminal antes de vender."
+                            if terminal_occupied
+                            else "Corrija os dados de abertura do caixa e tente novamente."
+                        ),
+                    },
+                },
+                status=409 if terminal_occupied else 400,
+            )
         except Exception as exc:
             logger.debug("pos_cash_shift_open_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao abrir caixa."}, status=400)
@@ -526,14 +669,14 @@ class POSTabCreateView(APIView):
     required_permission = "backstage.operate_pos"
 
     def post(self, request):
-        tab_code = (request.data.get("tab_code") or "").strip()
+        tab_ref = (request.data.get("tab_ref") or "").strip()
         label = (request.data.get("label") or "").strip()
-        if not tab_code:
-            return Response({"detail": "Código da comanda é obrigatório."}, status=400)
+        if not tab_ref:
+            return Response({"detail": "Referência da comanda é obrigatória."}, status=400)
         try:
-            tab = pos_tabs_service.register_pos_tab(tab_code=tab_code, label=label)
+            tab = pos_tabs_service.register_pos_tab(tab_ref=tab_ref, label=label)
         except Exception as exc:
-            logger.debug("pos_tab_create_failed tab_code=%s", tab_code, exc_info=True)
+            logger.debug("pos_tab_create_failed tab_ref=%s", tab_ref, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao criar comanda."}, status=400)
         return Response({"ok": True, "tab": tab})
 
@@ -542,23 +685,23 @@ class POSTabCreateView(APIView):
     post=extend_schema(
         tags=["backstage"],
         summary="Open or load a POS tab",
-        responses={200: OpenApiResponse(description="Tab payload (items + customer + tab_code).")},
+        responses={200: OpenApiResponse(description="Tab payload (items + customer + tab_ref).")},
     ),
 )
 class POSTabOpenView(APIView):
     permission_classes = [HasBackstagePermission]
     required_permission = "backstage.operate_pos"
 
-    def post(self, request, tab_code: str):
+    def post(self, request, tab_ref: str):
         try:
             payload = pos_tabs_service.open_pos_tab(
                 channel_ref=POS_CHANNEL_REF,
-                tab_code=tab_code,
+                tab_ref=tab_ref,
                 actor=_actor_pos(request),
                 operator_username=_username(request),
             )
         except Exception as exc:
-            logger.debug("pos_tab_open_failed tab_code=%s", tab_code, exc_info=True)
+            logger.debug("pos_tab_open_failed tab_ref=%s", tab_ref, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao abrir comanda."}, status=400)
         return Response(payload)
 
@@ -592,7 +735,7 @@ class POSTabSaveView(APIView):
             return Response({"detail": str(exc) or "Falha ao salvar comanda."}, status=400)
         return Response({
             "ok": True,
-            "tab_code": result.tab_code,
+            "tab_ref": result.tab_ref,
             "tab_display": result.tab_display,
             "session_key": result.session_key,
         })
@@ -625,6 +768,105 @@ class POSTabClearView(APIView):
 
 
 @extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Move lines between POS tabs (transfer/split/merge)",
+        responses={200: OpenApiResponse(description="Lines moved.")},
+    ),
+)
+class POSTabMoveLinesView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.move_pos_tab_lines(
+                channel_ref=POS_CHANNEL_REF,
+                from_session_key=str(body.get("from_session_key") or "").strip(),
+                to_session_key=str(body.get("to_session_key") or "").strip(),
+                to_tab_ref=str(body.get("to_tab_ref") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                close_source_when_empty=bool(body.get("close_source_when_empty")),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_move_lines_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao mover itens entre comandas."}, status=400)
+        return Response(result)
+
+
+class POSTabRenameView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.rename_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                new_tab_ref=str(body.get("new_tab_ref") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_rename_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao renomear comanda."}, status=400)
+        return Response(result)
+
+
+class POSTabFireView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.fire_pos_tab(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                client_request_id=str(body.get("client_request_id") or "").strip(),
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_fire_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao enviar à cozinha."}, status=400)
+        return Response(result)
+
+
+class POSTabUnfireView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        try:
+            result = pos_tabs_service.cancel_fired_pos_tab_lines(
+                channel_ref=POS_CHANNEL_REF,
+                session_key=str(body.get("session_key") or "").strip(),
+                line_ids=body.get("line_ids") or [],
+                actor=_actor_pos(request),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except Exception as exc:
+            logger.debug("pos_tab_unfire_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao cancelar envio à cozinha."}, status=400)
+        return Response(result)
+
+
+@extend_schema_view(
     get=extend_schema(
         tags=["backstage"],
         summary="Look up customer by phone",
@@ -639,18 +881,41 @@ class POSCustomerLookupView(APIView):
         phone = (request.query_params.get("phone") or "").strip()
         if not phone:
             return Response({"customer": None})
-        customer = pos_tabs_service.resolve_customer(phone)
+        customer = build_pos_customer_lookup(phone)
         if customer is None:
             return Response({"customer": None})
-        return Response({
-            "customer": {
-                "ref": getattr(customer, "ref", ""),
-                "name": getattr(customer, "name", "") or getattr(customer, "first_name", ""),
-                "phone": getattr(customer, "phone", "") or phone,
-                "loyalty_group": getattr(customer, "loyalty_group", "") or "",
-                "is_staff": bool(getattr(customer, "is_staff", False)),
-            }
-        })
+        return Response({"customer": projection_data(customer)})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Review POS sale intent without committing",
+        responses={200: OpenApiResponse(description="Checkout review and normalized totals.")},
+    ),
+)
+class POSReviewSaleView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data if hasattr(request, "data") else {}
+        if _open_cash_shift_for_request(request) is None:
+            return _cash_shift_required_response()
+        try:
+            review = pos_tabs_service.review_sale(
+                channel_ref=POS_CHANNEL_REF,
+                payload=_pos_payload_with_runtime(request, body),
+                operator_username=_username(request),
+            )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=422)
+        except Exception as exc:
+            logger.debug("pos_review_sale_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao revisar checkout."}, status=400)
+        return Response({"ok": True, "review": _pos_sale_review_payload(review)})
 
 
 @extend_schema_view(
@@ -666,10 +931,12 @@ class POSCloseSaleView(APIView):
 
     def post(self, request):
         body = request.data if hasattr(request, "data") else {}
+        if _open_cash_shift_for_request(request) is None:
+            return _cash_shift_required_response()
         try:
             result = pos_tabs_service.close_sale(
                 channel_ref=POS_CHANNEL_REF,
-                payload=body,
+                payload=_pos_payload_with_runtime(request, body),
                 actor=_actor_pos(request),
                 operator_username=_username(request),
             )
@@ -681,5 +948,43 @@ class POSCloseSaleView(APIView):
         return Response({
             "ok": True,
             "order_ref": getattr(result, "order_ref", None),
-            "tab_code": getattr(result, "tab_code", None),
+            "tab_ref": getattr(result, "tab_ref", None),
+            "payment": getattr(result, "payment", None) or {},
         })
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Cancel a recent POS sale",
+        responses={200: OpenApiResponse(description="Recent POS sale cancelled.")},
+    ),
+)
+class POSCancelRecentSaleView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        order_ref = (request.data.get("order_ref") or "").strip()
+        reason = (request.data.get("reason") or "").strip()
+        if not order_ref:
+            return Response({"detail": "Referência do pedido não informada."}, status=422)
+        try:
+            if reason:
+                pos_tabs_service.reopen_recent_order_for_correction(
+                    order_ref=order_ref,
+                    actor=_actor_pos(request),
+                    reason=reason,
+                )
+            else:
+                pos_tabs_service.cancel_recent_order(
+                    order_ref=order_ref,
+                    actor=_actor_pos(request),
+                )
+        except ValueError as exc:
+            status_code = 404 if "não encontrado" in str(exc) else 422
+            return Response({"detail": str(exc)}, status=status_code)
+        except Exception as exc:
+            logger.debug("pos_cancel_recent_sale_failed order=%s user=%s", order_ref, _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao cancelar venda."}, status=400)
+        return Response({"ok": True, "order_ref": order_ref})

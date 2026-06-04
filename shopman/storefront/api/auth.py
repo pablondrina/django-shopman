@@ -1,22 +1,25 @@
 """Storefront auth session API for API-first storefront clients."""
 from __future__ import annotations
 
-from django.contrib.auth import logout as django_logout
+import logging
+
 from django.conf import settings
+from django.contrib.auth import logout as django_logout
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import status
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.shop.services import auth as auth_service
 from shopman.storefront.constants import HAS_AUTH
-from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
 from shopman.storefront.intents._phone import normalize_phone_input
+from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
 from shopman.storefront.views.auth import get_authenticated_customer
+
+logger = logging.getLogger(__name__)
 
 
 SessionSerializer = inline_serializer(
@@ -120,6 +123,28 @@ def _delivery_response(delivery_method: str) -> dict:
     }
 
 
+def _debug_otp_allowed() -> bool:
+    if getattr(settings, "DEBUG", False):
+        return True
+    environment = str(getattr(settings, "SHOPMAN_ENVIRONMENT", "production")).strip().lower()
+    return bool(
+        getattr(settings, "SHOPMAN_EXPOSE_DEBUG_OTP", False)
+        and environment in {"development", "dev", "local", "staging"}
+    )
+
+
+def _debug_otp_response(auth_result=None) -> dict:
+    if not _debug_otp_allowed():
+        return {}
+    code = str(getattr(auth_result, "debug_code", "") or "")
+    if not code:
+        return {}
+    return {
+        "debug_otp_code": code,
+        "debug_otp_expires_at": getattr(auth_result, "expires_at", None) or "",
+    }
+
+
 @method_decorator(ratelimit(key="user_or_ip", rate="5/m", method="POST", block=False), name="dispatch")
 class RequestCodeView(APIView):
     """POST /api/v1/auth/request-code/ — request OTP as JSON."""
@@ -161,7 +186,13 @@ class RequestCodeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({"ok": True, "phone": phone, **_delivery_response(delivery_method)})
+        actual_method = getattr(auth_result, "delivery_method", None) or delivery_method
+        return Response({
+            "ok": True,
+            "phone": phone,
+            **_delivery_response(actual_method),
+            **_debug_otp_response(auth_result),
+        })
 
 
 @method_decorator(ratelimit(key="user_or_ip", rate="10/m", method="POST", block=False), name="dispatch")
@@ -245,6 +276,7 @@ class VerifyCodeView(APIView):
         try:
             customer = auth_service.customer_by_uuid(auth_result.customer.uuid)
         except Exception:
+            logger.debug("auth.post degraded; using fallback", exc_info=True)
             customer = None
 
         session = _session_payload(customer)

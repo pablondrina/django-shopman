@@ -6,27 +6,39 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-
-from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.guestman.models import Customer
 from shopman.orderman.models import Order
+
+from shopman.backstage.models import CashShift, POSTab, POSTerminal
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
-from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentError, parse_pos_sale_intent
+from shopman.shop.services.pos_intent import (
+    POS_SALE_INTENT_PAYLOAD_KEYS,
+    POS_SALE_INTENT_RECEIPT_MODES,
+    POS_SALE_INTENT_VERSION,
+    PosIntentError,
+    parse_pos_sale_intent,
+)
 
 
 def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
+    from shopman.backstage.models import CashShift
 
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
 
 class PosSaleIntentParserTests(TestCase):
+    def test_exposes_public_contract_constants_for_projections(self) -> None:
+        self.assertIn("customer_tax_id", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertIn("payment_tenders", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertIn("manager_approval", POS_SALE_INTENT_PAYLOAD_KEYS)
+        self.assertEqual(set(POS_SALE_INTENT_RECEIPT_MODES), {"none", "print", "email"})
+
     def test_rejects_unknown_intent_version(self) -> None:
         with self.assertRaises(PosIntentError) as ctx:
             parse_pos_sale_intent({"intent_version": "pos.sale-intent.v99", "items": []})
@@ -51,7 +63,7 @@ class PosSaleIntentParserTests(TestCase):
                 "intent_version": POS_SALE_INTENT_VERSION,
                 "items": [{"sku": "SKU", "qty": 1, "unit_price_q": 1000}],
                 "fulfillment_type": "delivery",
-                "tab_code": "00000001",
+                "tab_ref": "00000001",
             })
 
         self.assertEqual(ctx.exception.code, "delivery_address_required")
@@ -63,15 +75,46 @@ class PosSaleIntentParserTests(TestCase):
             "items": [{"sku": "SKU", "name": "Produto", "qty": "2", "unit_price_q": "500"}],
             "fulfillment_type": "delivery",
             "delivery_address": "Rua A, 10",
-            "delivery_address_structured": {"route": "Rua A", "street_number": "10", "ignored": "x"},
+            "delivery_address_structured": {
+                "formatted_address": "Rua A, 10 - Centro, Londrina - PR",
+                "route": "Rua A",
+                "street_number": "10",
+                "neighborhood": "Centro",
+                "city": "Londrina",
+                "state_code": "PR",
+                "postal_code": "86000-000",
+                "latitude": "-23.3",
+                "longitude": "-51.1",
+                "place_id": "ChIJ-pos-intent",
+                "delivery_instructions": "Portaria",
+                "is_verified": True,
+                "ignored": "x",
+            },
             "payment_method": "cash",
             "payment_collection": "on_delivery",
-            "tab_code": "00000001",
+            "tab_ref": "00000001",
         })
 
         self.assertEqual(intent.payload["items"][0]["qty"], 2)
-        self.assertEqual(intent.payload["delivery_address_structured"], {"route": "Rua A", "street_number": "10"})
+        structured = intent.payload["delivery_address_structured"]
+        self.assertEqual(structured["route"], "Rua A")
+        self.assertEqual(structured["place_id"], "ChIJ-pos-intent")
+        self.assertEqual(structured["latitude"], -23.3)
+        self.assertEqual(structured["longitude"], -51.1)
+        self.assertNotIn("ignored", structured)
         self.assertEqual(intent.payload["payment_collection"], "on_delivery")
+
+    def test_allows_direct_checkout_intent_without_tab(self) -> None:
+        intent = parse_pos_sale_intent({
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "items": [{"sku": "SKU", "name": "Produto", "qty": "1", "unit_price_q": "500"}],
+            "fulfillment_type": "pickup",
+            "payment_method": "cash",
+        })
+
+        self.assertEqual(intent.payload["tab_ref"], "")
+        self.assertEqual(intent.payload["tab_session_key"], "")
+        self.assertEqual(intent.payload["payment_method"], "cash")
 
 
 class PosIntentViewContractTests(TestCase):
@@ -88,7 +131,7 @@ class PosIntentViewContractTests(TestCase):
             is_published=True,
             is_sellable=True,
         )
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         User = get_user_model()
         self.operator = User.objects.create_user(username="intent-pos", password="x", is_staff=True)
         _grant_pos_perm(self.operator)
@@ -99,7 +142,7 @@ class PosIntentViewContractTests(TestCase):
     def _opened(self) -> dict:
         return pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor="pos:intent-pos",
             operator_username="intent-pos",
         )
@@ -109,7 +152,7 @@ class PosIntentViewContractTests(TestCase):
         payload = {
             "intent_version": "pos.sale-intent.v99",
             "items": [{"sku": "POS-INTENT-ITEM", "name": "Intent Item", "qty": 1, "unit_price_q": 1200}],
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
 
@@ -133,7 +176,7 @@ class PosIntentViewContractTests(TestCase):
             "delivery_fee_q": 300,
             "payment_method": "cash",
             "tendered_amount_q": 1500,
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
             "client_request_id": "pos:intent-contract-001",
         }

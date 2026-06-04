@@ -35,6 +35,9 @@ O arquivo `.do/app.yaml` define:
 - pagamentos em staging técnico via `payment_mock` para Pix e cartão, com
   `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true` e auto-confirmação de Pix, até
   existirem credenciais sandbox reais de EFI/Stripe;
+- OTP debug exposto somente em staging técnico via
+  `SHOPMAN_ENVIRONMENT=staging` e `SHOPMAN_EXPOSE_DEBUG_OTP=true`, para permitir
+  login web enquanto envio real por WhatsApp/SMS ainda não está operacional;
 - instância Nelson ativa via `SHOPMAN_INSTANCE_APPS`, `SHOPMAN_CUSTOMER_STRATEGY_MODULES`
   e `SHOPMAN_INSTANCE_MODIFIERS`;
 - health checks em `/ready/` e liveness em `/health/`.
@@ -51,6 +54,11 @@ compartilhado entre release job e web para CSS/admin/assets.
 
 ## Segredos Obrigatórios
 
+Use também o runbook de fechamento em
+[`docs/predeploy/release-secrets-runbook.md`](../predeploy/release-secrets-runbook.md),
+que lista os nomes exatos de variáveis, a configuração do WhatsApp público da
+loja e os comandos de validação.
+
 Antes do primeiro deploy com `DJANGO_DEBUG=false`, crie estas variáveis como
 encrypted runtime variables no nível do app:
 
@@ -62,12 +70,17 @@ IFOOD_WEBHOOK_TOKEN=<token webhook sandbox/produção>
 MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 ```
 
-O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSender`
-para permitir staging técnico sem token ManyChat real e falhar fechado no OTP por
-telefone. Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório: ele é diferente
-de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
-autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
-inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
+O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.LogSender`
+para permitir staging técnico sem envio real de OTP; o código é exposto na UI
+somente porque `SHOPMAN_EXPOSE_DEBUG_OTP=true` e `SHOPMAN_ENVIRONMENT=staging`.
+Se a spec ativa ainda não tiver essas variáveis, `config.settings` infere
+`staging` quando os domínios do ambiente contêm `staging`, mantendo produção
+fechada por padrão.
+Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório e esse modo debug deve
+ser removido: o token ManyChat é diferente de `MANYCHAT_WEBHOOK_SECRET` e de
+`DOORMAN_ACCESS_LINK_API_KEY`. O primeiro autentica chamadas outbound Shopman ->
+ManyChat; o segundo valida webhooks HMAC inbound; o terceiro autentica a criação
+servidor-servidor de AccessLinks.
 
 Em planos PostgreSQL pequenos, use pool antes de manter conexões Django
 persistentes. O staging usa o pool `shopman-staging-pool`:
@@ -115,6 +128,17 @@ O `manage.py check --deploy` emite `SHOPMAN_W006` nesse modo. Para habilitar
 gateway real, troque os adapters para `payment_efi`/`payment_stripe` somente
 depois de preencher as credenciais listadas acima; se faltar certificado EFI,
 segredo Stripe ou webhook secret, o release falha com `SHOPMAN_E009`.
+
+Enquanto o envio real de OTP não estiver funcional, staging técnico pode expor o
+código OTP no login da superfície web:
+
+```env
+SHOPMAN_ENVIRONMENT=staging
+SHOPMAN_EXPOSE_DEBUG_OTP=true
+```
+
+Esse modo emite `SHOPMAN_W007` em `check --deploy`. Em produção,
+`SHOPMAN_EXPOSE_DEBUG_OTP=true` falha com `SHOPMAN_E010`.
 
 ### ManyChat inbound e AccessLink
 
@@ -197,7 +221,9 @@ make smoke-gateways-sandbox json=1
 
 O primeiro comando ainda só fica verde para release real depois de anexarmos
 evidência manual/física de QA Omotenashi e pré-produção. O segundo só fica verde
-quando EFI, Stripe, iFood e ManyChat estiverem com sandbox/staging reais.
+quando Focus NFe homologação, Efí sandbox, Stripe test, iFood e ManyChat
+estiverem com sandbox/staging reais; Focus/Efí/Stripe em modo produção são
+bloqueio explícito fora de produção.
 
 ## Bootstrap de Dados e Admin
 
@@ -212,7 +238,6 @@ Fluxo canônico:
 ADMIN_PASSWORD=<senha-forte-temporaria> python manage.py seed --flush
 SHOPMAN_ADMIN_PASSWORD=<senha-forte-do-dono> python manage.py bootstrap_admin \
   --username pablo \
-  --email pablo@example.com \
   --deactivate-seed-admin
 ```
 

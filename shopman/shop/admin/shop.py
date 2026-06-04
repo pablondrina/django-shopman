@@ -3,20 +3,400 @@
 from __future__ import annotations
 
 import json
+import logging
+from datetime import date, time
+from decimal import Decimal
 
 from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
-from unfold.widgets import UnfoldAdminColorInputWidget
+from unfold.widgets import (
+    UnfoldAdminColorInputWidget,
+    UnfoldAdminDateWidget,
+    UnfoldAdminDecimalFieldWidget,
+    UnfoldAdminIntegerFieldWidget,
+    UnfoldAdminSelectWidget,
+    UnfoldAdminTextInputWidget,
+    UnfoldAdminTimeWidget,
+)
 
+from shopman.shop import dynamic_collections
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
 from shopman.shop.models import NotificationTemplate, Shop
 
+logger = logging.getLogger(__name__)
+
+OPENING_HOUR_DAYS = (
+    ("monday", "Segunda"),
+    ("tuesday", "Terça"),
+    ("wednesday", "Quarta"),
+    ("thursday", "Quinta"),
+    ("friday", "Sexta"),
+    ("saturday", "Sábado"),
+    ("sunday", "Domingo"),
+)
+
+OPENING_STATUS_CHOICES = (
+    ("open", "Aberto"),
+    ("closed", "Fechado"),
+)
+
+NOTIFICATION_BACKEND_CHOICES = (
+    ("console", "Console"),
+    ("manychat", "Manychat"),
+    ("email", "E-mail"),
+    ("sms", "SMS"),
+    ("webhook", "Webhook"),
+    ("none", "Nenhum"),
+)
+
+DEFAULTS_DYNAMIC_COLLECTION_ROWS = 5
+DEFAULTS_PICKUP_SLOT_ROWS = 5
+DEFAULTS_CLOSED_DATE_ROWS = 8
+
+
+def _opening_field(day: str, suffix: str) -> str:
+    return f"opening_hours_{day}_{suffix}"
+
+
+def _defaults_dynamic_collection_field(index: int) -> str:
+    return f"defaults_dynamic_collection_{index}"
+
+
+def _defaults_pickup_field(index: int, suffix: str) -> str:
+    return f"defaults_pickup_slot_{index}_{suffix}"
+
+
+def _defaults_closed_date_field(index: int, suffix: str) -> str:
+    return f"defaults_closed_date_{index}_{suffix}"
+
+
+def _dynamic_collection_choices() -> tuple[tuple[str, str], ...]:
+    choices = []
+    for ref in dynamic_collections.all_refs():
+        resolver = dynamic_collections.get(ref)
+        label = resolver.meta.label if resolver else ref
+        choices.append((ref, label))
+    return tuple(choices)
+
+
+def _format_admin_time(value) -> str:
+    if isinstance(value, time):
+        return value.strftime("%H:%M")
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    return raw[:5]
+
+
+def _format_admin_date(value) -> str:
+    if isinstance(value, date):
+        return value.isoformat()
+    raw = str(value or "").strip()
+    return raw[:10] if raw else ""
+
+
+def _shop_defaults(instance: Shop) -> dict:
+    defaults = getattr(instance, "defaults", None) or {}
+    return defaults if isinstance(defaults, dict) else {}
+
+
+def _defaults_form_fields() -> dict[str, forms.Field]:
+    fields: dict[str, forms.Field] = {
+        "defaults_notifications_backend": forms.ChoiceField(
+            label="Canal padrão de notificações",
+            required=False,
+            choices=NOTIFICATION_BACKEND_CHOICES,
+            widget=UnfoldAdminSelectWidget,
+        ),
+        "defaults_max_preorder_days": forms.IntegerField(
+            label="Máximo de dias para encomenda",
+            required=False,
+            min_value=0,
+            max_value=365,
+            widget=UnfoldAdminIntegerFieldWidget,
+        ),
+        "defaults_pickup_rounding_minutes": forms.IntegerField(
+            label="Arredondamento dos horários",
+            required=False,
+            min_value=1,
+            max_value=240,
+            widget=UnfoldAdminIntegerFieldWidget,
+            help_text="Em minutos. Ex.: 30 gera janelas arredondadas a cada meia hora.",
+        ),
+        "defaults_pickup_history_days": forms.IntegerField(
+            label="Histórico usado para sugestão",
+            required=False,
+            min_value=0,
+            max_value=365,
+            widget=UnfoldAdminIntegerFieldWidget,
+        ),
+        "defaults_pickup_fallback_slot": forms.CharField(
+            label="Slot fallback",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+            help_text="Ref de um dos slots abaixo. Ex.: slot-09.",
+        ),
+        "defaults_season_hot_months": forms.CharField(
+            label="Meses quentes",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+            help_text="Números de 1 a 12 separados por vírgula.",
+        ),
+        "defaults_season_mild_months": forms.CharField(
+            label="Meses amenos",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+            help_text="Números de 1 a 12 separados por vírgula.",
+        ),
+        "defaults_season_cold_months": forms.CharField(
+            label="Meses frios",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+            help_text="Números de 1 a 12 separados por vírgula.",
+        ),
+        "defaults_high_demand_multiplier": forms.DecimalField(
+            label="Multiplicador de alta demanda",
+            required=False,
+            min_value=Decimal("0"),
+            max_digits=5,
+            decimal_places=2,
+            widget=UnfoldAdminDecimalFieldWidget,
+        ),
+        "defaults_safety_stock_percent": forms.DecimalField(
+            label="Estoque de segurança",
+            required=False,
+            min_value=Decimal("0"),
+            max_value=Decimal("1"),
+            max_digits=4,
+            decimal_places=2,
+            widget=UnfoldAdminDecimalFieldWidget,
+            help_text="Percentual em decimal. Ex.: 0,20 para 20%.",
+        ),
+    }
+    for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1):
+        fields[_defaults_dynamic_collection_field(index)] = forms.ChoiceField(
+            label=f"Coleção dinâmica {index}",
+            required=False,
+            choices=(("", "—"),) + _dynamic_collection_choices(),
+            widget=UnfoldAdminSelectWidget,
+            help_text="A posição define a ordem no cardápio." if index == 1 else "",
+        )
+    for index in range(1, DEFAULTS_PICKUP_SLOT_ROWS + 1):
+        fields[_defaults_pickup_field(index, "ref")] = forms.CharField(
+            label=f"Slot {index} ref",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+        )
+        fields[_defaults_pickup_field(index, "label")] = forms.CharField(
+            label=f"Slot {index} rótulo",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+        )
+        fields[_defaults_pickup_field(index, "starts_at")] = forms.TimeField(
+            label=f"Slot {index} início",
+            required=False,
+            input_formats=["%H:%M"],
+            widget=UnfoldAdminTimeWidget(format="%H:%M"),
+        )
+    for index in range(1, DEFAULTS_CLOSED_DATE_ROWS + 1):
+        fields[_defaults_closed_date_field(index, "date")] = forms.DateField(
+            label=f"Feriado {index} data",
+            required=False,
+            input_formats=["%Y-%m-%d"],
+            widget=UnfoldAdminDateWidget(format="%Y-%m-%d"),
+        )
+        fields[_defaults_closed_date_field(index, "label")] = forms.CharField(
+            label=f"Feriado {index} rótulo",
+            required=False,
+            widget=UnfoldAdminTextInputWidget,
+        )
+    return fields
+
+
+def _parse_months(value: str, label: str) -> list[int]:
+    months: list[int] = []
+    for chunk in str(value or "").replace(";", ",").split(","):
+        raw = chunk.strip()
+        if not raw:
+            continue
+        try:
+            month = int(raw)
+        except ValueError as exc:
+            raise forms.ValidationError(f"{label}: use apenas números de 1 a 12.") from exc
+        if month < 1 or month > 12:
+            raise forms.ValidationError(f"{label}: {month} não é um mês válido.")
+        if month not in months:
+            months.append(month)
+    return months
+
+
+def _months_to_text(months) -> str:
+    if not isinstance(months, (list, tuple)):
+        return ""
+    return ", ".join(str(month) for month in months)
+
+
+def _defaults_dynamic_collection_admin_rows() -> tuple[tuple[str, ...], ...]:
+    return (
+        tuple(
+            _defaults_dynamic_collection_field(index)
+            for index in range(1, min(DEFAULTS_DYNAMIC_COLLECTION_ROWS, 3) + 1)
+        ),
+        tuple(
+            _defaults_dynamic_collection_field(index)
+            for index in range(4, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1)
+        ),
+    )
+
+
+def _defaults_pickup_admin_rows() -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        (
+            _defaults_pickup_field(index, "ref"),
+            _defaults_pickup_field(index, "label"),
+            _defaults_pickup_field(index, "starts_at"),
+        )
+        for index in range(1, DEFAULTS_PICKUP_SLOT_ROWS + 1)
+    )
+
+
+def _defaults_closed_date_admin_rows() -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (
+            _defaults_closed_date_field(index, "date"),
+            _defaults_closed_date_field(index, "label"),
+        )
+        for index in range(1, DEFAULTS_CLOSED_DATE_ROWS + 1)
+    )
+
 
 class ShopForm(forms.ModelForm):
+    opening_hours_monday_status = forms.ChoiceField(
+        label="Segunda",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_monday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_monday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_tuesday_status = forms.ChoiceField(
+        label="Terça",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_tuesday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_tuesday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_wednesday_status = forms.ChoiceField(
+        label="Quarta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_wednesday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_wednesday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_thursday_status = forms.ChoiceField(
+        label="Quinta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_thursday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_thursday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_friday_status = forms.ChoiceField(
+        label="Sexta",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_friday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_friday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_saturday_status = forms.ChoiceField(
+        label="Sábado",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_saturday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_saturday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_sunday_status = forms.ChoiceField(
+        label="Domingo",
+        choices=OPENING_STATUS_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+    )
+    opening_hours_sunday_open = forms.TimeField(
+        label="Abre",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+    opening_hours_sunday_close = forms.TimeField(
+        label="Fecha",
+        required=False,
+        input_formats=["%H:%M"],
+        widget=UnfoldAdminTimeWidget(format="%H:%M"),
+    )
+
+    locals().update(_defaults_form_fields())
+
     class Meta:
         model = Shop
         fields = "__all__"
@@ -29,6 +409,266 @@ class ShopForm(forms.ModelForm):
             "heading_font": FontPreviewWidget(sample_text="Aa Bb Cc \u2014 O sabor que encanta"),
             "body_font": FontPreviewWidget(sample_text="O p\u00e3o fresco de cada dia, feito com amor e tradi\u00e7\u00e3o."),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop("opening_hours", None)
+        self.fields.pop("defaults", None)
+
+        opening_hours = getattr(self.instance, "opening_hours", None) or {}
+        if not isinstance(opening_hours, dict):
+            opening_hours = {}
+
+        for day, _label in OPENING_HOUR_DAYS:
+            entry = opening_hours.get(day) if isinstance(opening_hours.get(day), dict) else {}
+            opens_at = _format_admin_time(entry.get("open"))
+            closes_at = _format_admin_time(entry.get("close"))
+            self.fields[_opening_field(day, "status")].initial = "open" if opens_at and closes_at else "closed"
+            self.fields[_opening_field(day, "open")].initial = opens_at
+            self.fields[_opening_field(day, "close")].initial = closes_at
+
+        self._set_defaults_initial(_shop_defaults(self.instance))
+
+    def _set_defaults_initial(self, defaults: dict) -> None:
+        menu = defaults.get("menu") if isinstance(defaults.get("menu"), dict) else {}
+        notifications = defaults.get("notifications") if isinstance(defaults.get("notifications"), dict) else {}
+        pickup_config = (
+            defaults.get("pickup_slot_config")
+            if isinstance(defaults.get("pickup_slot_config"), dict)
+            else {}
+        )
+        seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
+
+        dynamic_refs = list(menu.get("dynamic_collections") or [])
+        for index, ref in enumerate(dynamic_refs[:DEFAULTS_DYNAMIC_COLLECTION_ROWS], start=1):
+            self.fields[_defaults_dynamic_collection_field(index)].initial = ref
+        self.fields["defaults_notifications_backend"].initial = notifications.get("backend") or "console"
+        self.fields["defaults_max_preorder_days"].initial = defaults.get("max_preorder_days", 30)
+        self.fields["defaults_pickup_rounding_minutes"].initial = pickup_config.get("rounding_minutes", 30)
+        self.fields["defaults_pickup_history_days"].initial = pickup_config.get("history_days", 30)
+        self.fields["defaults_pickup_fallback_slot"].initial = pickup_config.get("fallback_slot", "")
+        self.fields["defaults_season_hot_months"].initial = _months_to_text(seasons.get("hot"))
+        self.fields["defaults_season_mild_months"].initial = _months_to_text(seasons.get("mild"))
+        self.fields["defaults_season_cold_months"].initial = _months_to_text(seasons.get("cold"))
+        self.fields["defaults_high_demand_multiplier"].initial = defaults.get("high_demand_multiplier")
+        self.fields["defaults_safety_stock_percent"].initial = defaults.get("safety_stock_percent")
+
+        pickup_slots = defaults.get("pickup_slots") if isinstance(defaults.get("pickup_slots"), list) else []
+        for index, slot in enumerate(pickup_slots[:DEFAULTS_PICKUP_SLOT_ROWS], start=1):
+            if not isinstance(slot, dict):
+                continue
+            self.fields[_defaults_pickup_field(index, "ref")].initial = slot.get("ref", "")
+            self.fields[_defaults_pickup_field(index, "label")].initial = slot.get("label", "")
+            self.fields[_defaults_pickup_field(index, "starts_at")].initial = _format_admin_time(slot.get("starts_at"))
+
+        closed_dates = defaults.get("closed_dates") if isinstance(defaults.get("closed_dates"), list) else []
+        dated_entries = [
+            entry
+            for entry in closed_dates
+            if isinstance(entry, dict) and entry.get("date")
+        ]
+        for index, closed_date in enumerate(dated_entries[:DEFAULTS_CLOSED_DATE_ROWS], start=1):
+            self.fields[_defaults_closed_date_field(index, "date")].initial = _format_admin_date(
+                closed_date.get("date")
+            )
+            self.fields[_defaults_closed_date_field(index, "label")].initial = closed_date.get("label", "")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for day, label in OPENING_HOUR_DAYS:
+            status = cleaned_data.get(_opening_field(day, "status"))
+            opens_at = cleaned_data.get(_opening_field(day, "open"))
+            closes_at = cleaned_data.get(_opening_field(day, "close"))
+            if status != "open":
+                continue
+            if not opens_at or not closes_at:
+                raise forms.ValidationError(f"Informe abertura e fechamento para {label}, ou marque como fechado.")
+            if opens_at >= closes_at:
+                raise forms.ValidationError(f"Em {label}, o horário de abertura precisa ser anterior ao fechamento.")
+        self._clean_defaults(cleaned_data)
+        return cleaned_data
+
+    def _clean_defaults(self, cleaned_data: dict) -> None:
+        dynamic_refs: set[str] = set()
+        for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1):
+            field = _defaults_dynamic_collection_field(index)
+            ref = cleaned_data.get(field)
+            if not ref:
+                continue
+            if ref in dynamic_refs:
+                self.add_error(field, "Esta coleção já foi usada em outra posição.")
+            dynamic_refs.add(ref)
+
+        slot_refs: set[str] = set()
+        for index in range(1, DEFAULTS_PICKUP_SLOT_ROWS + 1):
+            ref_field = _defaults_pickup_field(index, "ref")
+            label_field = _defaults_pickup_field(index, "label")
+            starts_at_field = _defaults_pickup_field(index, "starts_at")
+            ref = (cleaned_data.get(ref_field) or "").strip()
+            label = (cleaned_data.get(label_field) or "").strip()
+            starts_at = cleaned_data.get(starts_at_field)
+            has_any_value = bool(ref or label or starts_at)
+            if not has_any_value:
+                continue
+            if not ref:
+                self.add_error(ref_field, "Informe o ref do slot.")
+            elif ref in slot_refs:
+                self.add_error(ref_field, "Este ref já foi usado em outro slot.")
+            else:
+                slot_refs.add(ref)
+            if not label:
+                self.add_error(label_field, "Informe o rótulo do slot.")
+            if not starts_at:
+                self.add_error(starts_at_field, "Informe o horário inicial do slot.")
+
+        fallback_slot = (cleaned_data.get("defaults_pickup_fallback_slot") or "").strip()
+        if fallback_slot and fallback_slot not in slot_refs:
+            self.add_error("defaults_pickup_fallback_slot", "Use o ref de um dos slots configurados.")
+
+        for index in range(1, DEFAULTS_CLOSED_DATE_ROWS + 1):
+            date_field = _defaults_closed_date_field(index, "date")
+            label_field = _defaults_closed_date_field(index, "label")
+            closed_date = cleaned_data.get(date_field)
+            label = (cleaned_data.get(label_field) or "").strip()
+            if label and not closed_date:
+                self.add_error(date_field, "Informe a data deste feriado ou remova o rótulo.")
+
+        for key, label in (
+            ("hot", "Meses quentes"),
+            ("mild", "Meses amenos"),
+            ("cold", "Meses frios"),
+        ):
+            field = f"defaults_season_{key}_months"
+            try:
+                cleaned_data[field] = _parse_months(cleaned_data.get(field), label)
+            except forms.ValidationError as exc:
+                self.add_error(field, exc)
+
+    def _existing_extra_pickup_slots(self) -> list[dict]:
+        pickup_slots = _shop_defaults(self.instance).get("pickup_slots")
+        if not isinstance(pickup_slots, list):
+            return []
+        return [slot for slot in pickup_slots[DEFAULTS_PICKUP_SLOT_ROWS:] if isinstance(slot, dict)]
+
+    def _existing_extra_closed_dates(self) -> list[dict]:
+        closed_dates = _shop_defaults(self.instance).get("closed_dates")
+        if not isinstance(closed_dates, list):
+            return []
+        dated_entries_seen = 0
+        extra_entries = []
+        for entry in closed_dates:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("date"):
+                dated_entries_seen += 1
+                if dated_entries_seen <= DEFAULTS_CLOSED_DATE_ROWS:
+                    continue
+            extra_entries.append(entry)
+        return extra_entries
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.opening_hours = {
+            day: {
+                "open": _format_admin_time(self.cleaned_data.get(_opening_field(day, "open"))),
+                "close": _format_admin_time(self.cleaned_data.get(_opening_field(day, "close"))),
+            }
+            for day, _label in OPENING_HOUR_DAYS
+            if self.cleaned_data.get(_opening_field(day, "status")) == "open"
+        }
+        instance.defaults = self._build_defaults()
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
+    def _build_defaults(self) -> dict:
+        defaults = dict(_shop_defaults(self.instance))
+
+        menu = defaults.get("menu") if isinstance(defaults.get("menu"), dict) else {}
+        menu = dict(menu)
+        menu["dynamic_collections"] = [
+            ref
+            for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1)
+            if (ref := self.cleaned_data.get(_defaults_dynamic_collection_field(index)))
+        ]
+        defaults["menu"] = menu
+
+        notifications = (
+            defaults.get("notifications")
+            if isinstance(defaults.get("notifications"), dict)
+            else {}
+        )
+        notifications = dict(notifications)
+        backend = self.cleaned_data.get("defaults_notifications_backend") or "console"
+        notifications["backend"] = backend
+        defaults["notifications"] = notifications
+
+        pickup_slots = []
+        for index in range(1, DEFAULTS_PICKUP_SLOT_ROWS + 1):
+            ref = (self.cleaned_data.get(_defaults_pickup_field(index, "ref")) or "").strip()
+            label = (self.cleaned_data.get(_defaults_pickup_field(index, "label")) or "").strip()
+            starts_at = self.cleaned_data.get(_defaults_pickup_field(index, "starts_at"))
+            if not (ref and label and starts_at):
+                continue
+            pickup_slots.append({
+                "ref": ref,
+                "label": label,
+                "starts_at": _format_admin_time(starts_at),
+            })
+        pickup_slots.extend(self._existing_extra_pickup_slots())
+        defaults["pickup_slots"] = pickup_slots
+
+        pickup_config = (
+            defaults.get("pickup_slot_config")
+            if isinstance(defaults.get("pickup_slot_config"), dict)
+            else {}
+        )
+        pickup_config = dict(pickup_config)
+        pickup_config["rounding_minutes"] = self.cleaned_data.get("defaults_pickup_rounding_minutes") or 30
+        pickup_config["history_days"] = self.cleaned_data.get("defaults_pickup_history_days") or 30
+        fallback_slot = (self.cleaned_data.get("defaults_pickup_fallback_slot") or "").strip()
+        if fallback_slot:
+            pickup_config["fallback_slot"] = fallback_slot
+        else:
+            pickup_config.pop("fallback_slot", None)
+        defaults["pickup_slot_config"] = pickup_config
+
+        defaults["max_preorder_days"] = self.cleaned_data.get("defaults_max_preorder_days")
+        if defaults["max_preorder_days"] is None:
+            defaults["max_preorder_days"] = 30
+
+        closed_dates = []
+        for index in range(1, DEFAULTS_CLOSED_DATE_ROWS + 1):
+            closed_date = self.cleaned_data.get(_defaults_closed_date_field(index, "date"))
+            label = (self.cleaned_data.get(_defaults_closed_date_field(index, "label")) or "").strip()
+            if not closed_date:
+                continue
+            entry = {"date": _format_admin_date(closed_date)}
+            if label:
+                entry["label"] = label
+            closed_dates.append(entry)
+        closed_dates.extend(self._existing_extra_closed_dates())
+        defaults["closed_dates"] = closed_dates
+
+        seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
+        seasons = dict(seasons)
+        seasons["hot"] = self.cleaned_data.get("defaults_season_hot_months") or []
+        seasons["mild"] = self.cleaned_data.get("defaults_season_mild_months") or []
+        seasons["cold"] = self.cleaned_data.get("defaults_season_cold_months") or []
+        defaults["seasons"] = seasons
+
+        for field, key in (
+            ("defaults_high_demand_multiplier", "high_demand_multiplier"),
+            ("defaults_safety_stock_percent", "safety_stock_percent"),
+        ):
+            value = self.cleaned_data.get(field)
+            if value is None:
+                defaults.pop(key, None)
+            else:
+                defaults[key] = str(value)
+
+        return defaults
 
 
 def _oklch_raw_to_hex(raw: str) -> str:
@@ -75,7 +715,18 @@ class ShopAdmin(ModelAdmin):
             "fields": ("phone", "email", "default_ddd"),
         }),
         ("Operação", {
-            "fields": ("currency", "timezone", "opening_hours"),
+            "fields": (
+                "currency",
+                "timezone",
+                ("opening_hours_monday_status", "opening_hours_monday_open", "opening_hours_monday_close"),
+                ("opening_hours_tuesday_status", "opening_hours_tuesday_open", "opening_hours_tuesday_close"),
+                ("opening_hours_wednesday_status", "opening_hours_wednesday_open", "opening_hours_wednesday_close"),
+                ("opening_hours_thursday_status", "opening_hours_thursday_open", "opening_hours_thursday_close"),
+                ("opening_hours_friday_status", "opening_hours_friday_open", "opening_hours_friday_close"),
+                ("opening_hours_saturday_status", "opening_hours_saturday_open", "opening_hours_saturday_close"),
+                ("opening_hours_sunday_status", "opening_hours_sunday_open", "opening_hours_sunday_close"),
+            ),
+            "description": "Horários gravados em Shop.opening_hours, editados aqui como campos por dia.",
         }),
         ("Branding", {
             "fields": ("brand_name", "short_name", "tagline", "description", "logo"),
@@ -119,9 +770,36 @@ class ShopAdmin(ModelAdmin):
             "fields": ("social_links",),
             "description": "Cole as URLs completas das redes sociais. Ícones são detectados automaticamente.",
         }),
-        ("Defaults de Negócio", {
-            "fields": ("defaults",),
+        ("Defaults de negócio — cardápio e canais", {
+            "fields": (
+                "defaults_notifications_backend",
+            ) + _defaults_dynamic_collection_admin_rows(),
             "classes": ("collapse",),
+            "description": (
+                "Configurações gravadas em Shop.defaults, editadas como campos estruturados. "
+                "As coleções dinâmicas vêm do registry canônico do core; a posição define a ordem."
+            ),
+        }),
+        ("Defaults de negócio — retirada e encomendas", {
+            "fields": (
+                ("defaults_max_preorder_days", "defaults_pickup_rounding_minutes", "defaults_pickup_history_days"),
+                "defaults_pickup_fallback_slot",
+            ) + _defaults_pickup_admin_rows(),
+            "classes": ("collapse",),
+            "description": "Slots padrão de retirada e janela máxima para encomendas.",
+        }),
+        ("Defaults de negócio — feriados e fechamentos", {
+            "fields": _defaults_closed_date_admin_rows(),
+            "classes": ("collapse",),
+            "description": "Datas de fechamento usadas pelo calendário de negócio e checkout.",
+        }),
+        ("Defaults de negócio — produção", {
+            "fields": (
+                ("defaults_season_hot_months", "defaults_season_mild_months", "defaults_season_cold_months"),
+                ("defaults_high_demand_multiplier", "defaults_safety_stock_percent"),
+            ),
+            "classes": ("collapse",),
+            "description": "Parâmetros usados por sugestões operacionais e estoque de segurança.",
         }),
         ("Integrações", {
             "fields": ("integrations",),
@@ -209,6 +887,7 @@ class ShopAdmin(ModelAdmin):
         try:
             url = reverse("storefront:home")
         except Exception:
+            logger.debug("shop.storefront_preview degraded; using fallback", exc_info=True)
             url = "/"
 
         url_json = mark_safe(json.dumps(url))
@@ -262,5 +941,3 @@ class NotificationTemplateAdmin(ModelAdmin):
     list_editable = ("is_active",)
     fields = ("event", "subject", "body", "is_active")
     readonly_fields = ("event",)
-
-

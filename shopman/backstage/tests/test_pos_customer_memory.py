@@ -20,9 +20,9 @@ def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
 
-    from shopman.backstage.models import CashRegisterSession
+    from shopman.backstage.models import CashShift
 
-    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    ct = ContentType.objects.get_for_model(CashShift)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
 
@@ -32,7 +32,7 @@ class POSCustomerMemoryTests(TestCase):
         super().setUp()
         Shop.objects.create(name="Test Shop", brand_name="Test")
         Channel.objects.create(ref="pdv", name="Balcão", is_active=True)
-        POSTab.objects.create(code="00001007", label="1007")
+        POSTab.objects.create(ref="00001007", label="1007")
         from shopman.offerman.models import Product
 
         Product.objects.create(
@@ -46,7 +46,7 @@ class POSCustomerMemoryTests(TestCase):
     def _open_tab(self) -> dict:
         return pos_service.open_pos_tab(
             channel_ref="pdv",
-            tab_code="1007",
+            tab_ref="1007",
             actor="pos:ana",
             operator_username="ana",
         )
@@ -57,7 +57,7 @@ class POSCustomerMemoryTests(TestCase):
             "customer_name": "Ana Cliente",
             "customer_phone": "",
             "payment_method": "cash",
-            "tab_code": opened["tab_code"],
+            "tab_ref": opened["tab_ref"],
             "tab_session_key": opened["tab_session_key"],
         }
         payload.update(overrides)
@@ -111,7 +111,20 @@ class POSCustomerMemoryTests(TestCase):
                 receipt_mode="email",
                 receipt_email="ana@example.com",
                 fulfillment_type="delivery",
-                delivery_address="Rua das Flores, 100",
+                delivery_address="Rua das Flores, 100 - Centro, Londrina - PR",
+                delivery_address_structured={
+                    "formatted_address": "Rua das Flores, 100 - Centro, Londrina - PR",
+                    "route": "Rua das Flores",
+                    "street_number": "100",
+                    "neighborhood": "Centro",
+                    "city": "Londrina",
+                    "state_code": "PR",
+                    "postal_code": "86000-000",
+                    "latitude": -23.3,
+                    "longitude": -51.1,
+                    "place_id": "ChIJ-pos-merge-address",
+                    "delivery_instructions": "Portaria",
+                },
                 payment_collection="on_delivery",
             ),
             actor="pos:ana",
@@ -127,10 +140,16 @@ class POSCustomerMemoryTests(TestCase):
         self.assertTrue(
             CustomerAddress.objects.filter(
                 customer=customer,
-                formatted_address="Rua das Flores, 100",
+                formatted_address="Rua das Flores, 100 - Centro, Londrina - PR",
                 is_default=True,
             ).exists()
         )
+        address = CustomerAddress.objects.get(customer=customer)
+        self.assertEqual(address.route, "Rua das Flores")
+        self.assertEqual(address.street_number, "100")
+        self.assertEqual(address.neighborhood, "Centro")
+        self.assertEqual(address.place_id, "ChIJ-pos-merge-address")
+        self.assertEqual(float(address.latitude), -23.3)
         self.assertEqual(order.data["customer"]["email"], "ana@example.com")
 
     def test_pos_customer_lookup_exposes_consumption_memory_and_default_address(self) -> None:

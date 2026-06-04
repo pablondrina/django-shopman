@@ -148,17 +148,15 @@
           <form class="relative flex-1"
                 @submit.prevent.stop="openTabFromInput()">
             <span class="material-symbols-rounded icon-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">search</span>
-            <input id="pos-tab-code"
-                   x-ref="tabCode"
-                   name="tab_code"
+            <input id="pos-tab-ref"
+                   x-ref="tabRef"
+                   name="tab_ref"
                    type="text"
-                   inputmode="numeric"
-                   pattern="[0-9]*"
-                   maxlength="8"
+                   maxlength="64"
                    class="input-field pl-9"
                    autocomplete="off"
                    aria-label="Ler comanda"
-                   placeholder="Ler ou buscar comanda..."
+                   placeholder="Mesa, nome ou referência..."
                    @input="htmx.trigger($refs.tabGrid, 'tabFilter')"
                    @keydown.enter.prevent.stop="openTabFromInput()">
           </form>
@@ -173,7 +171,7 @@
              x-ref="tabGrid"
              hx-get="/gestor/pos/tabs/"
              hx-trigger="load, posTabOpened from:body, posTabSaved from:body, posOrderCreated from:body, tabFilter delay:250ms, tabGridRefresh"
-             hx-include="#pos-tab-code"
+             hx-include="#pos-tab-ref"
              hx-swap="innerHTML"
              @keydown="handleTabGridKey($event)"
              class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
@@ -217,11 +215,11 @@
         <button type="button"
              class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
              :class="{
-               'opacity-40 cursor-not-allowed grayscale': (!activeTabCode || isUnavailable('{{ p.sku }}')),
-               'cursor-pointer active:scale-95 hover:shadow-sm': (activeTabCode && !isUnavailable('{{ p.sku }}')),
+               'opacity-40 cursor-not-allowed grayscale': (!activeTabRef || isUnavailable('{{ p.sku }}')),
+               'cursor-pointer active:scale-95 hover:shadow-sm': (activeTabRef && !isUnavailable('{{ p.sku }}')),
                'ring-2 ring-primary/50 dark:ring-primary-dark/50': activeProductSku === '{{ p.sku }}'
              }"
-             :disabled="!activeTabCode || isUnavailable('{{ p.sku }}')"
+             :disabled="!activeTabRef || isUnavailable('{{ p.sku }}')"
              data-product-tile
              data-sku="{{ p.sku }}"
              data-name="{{ p.name }}"
@@ -232,7 +230,7 @@
              hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
              @focus="activeProductSku = '{{ p.sku }}'"
-             @click="if (!activeTabCode) { tabMessage='Leia uma comanda antes de inserir produtos.'; return; } if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
+             @click="if (!activeTabRef) { tabMessage='Leia uma comanda antes de inserir produtos.'; return; } if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
           <span class="absolute top-1.5 right-1.5 badge-warning leading-none">D-1</span>
           {% endif %}
@@ -700,7 +698,7 @@
           <div class="flex flex-col items-center justify-center py-8 px-4 text-center gap-2">
             <span class="material-symbols-rounded icon-display text-on-surface/30 dark:text-on-surface-dark/30 select-none" aria-hidden="true">add_shopping_cart</span>
             <p class="text-sm font-semibold text-on-surface/50 dark:text-on-surface-dark/50">Carrinho vazio</p>
-            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70" x-text="activeTabCode ? 'Toque em um produto ao lado para começar' : 'Leia uma comanda para começar'"></p>
+            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70" x-text="activeTabRef ? 'Toque em um produto ao lado para começar' : 'Leia uma comanda para começar'"></p>
           </div>
         </template>
         <template x-for="(item, idx) in cart" :key="item.sku + idx">
@@ -919,18 +917,16 @@
       <form hx-post="/gestor/pos/tab/create/"
             hx-target="#pos-tab-create-result"
             hx-swap="innerHTML"
-            x-on:htmx:after-request="if(event.detail.successful){ tabCreateCode=''; tabCreateLabel=''; showTabModal=false; htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
+            x-on:htmx:after-request="if(event.detail.successful){ tabCreateRef=''; tabCreateLabel=''; showTabModal=false; htmx.trigger($refs.tabGrid, 'tabGridRefresh'); }">
         <div class="flex flex-col gap-3">
           <input type="text"
-                 x-ref="tabCreateCodeInput"
-                 name="tab_code"
-                 inputmode="numeric"
-                 pattern="[0-9]*"
-                 maxlength="8"
+                 x-ref="tabCreateRefInput"
+                 name="tab_ref"
+                 maxlength="64"
                  required
-                 class="input-field tabular-nums"
-                 placeholder="Código da comanda"
-                 x-model="tabCreateCode">
+                 class="input-field"
+                 placeholder="Mesa, nome ou referência"
+                 x-model="tabCreateRef">
           <input type="text"
                  name="label"
                  class="input-field"
@@ -939,7 +935,7 @@
           <div id="pos-tab-create-result" x-ref="tabCreateResult" class="min-h-[1rem] text-xs"></div>
           <div class="flex gap-2 mt-1">
             <button type="button" class="btn-secondary flex-1" @click="showTabModal = false">Cancelar</button>
-            <button type="submit" class="btn-primary flex-1" :disabled="!tabCreateCode">Cadastrar</button>
+            <button type="submit" class="btn-primary flex-1" :disabled="!tabCreateRef">Cadastrar</button>
           </div>
         </div>
       </form>
@@ -962,7 +958,7 @@
         <div class="rounded-lg border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt px-3 py-2 text-sm">
           <div class="flex justify-between gap-3">
             <span class="text-on-surface/60 dark:text-on-surface-dark/60">Comanda</span>
-            <strong class="tabular-nums" x-text="activeTabDisplay || activeTabCode || '-'"></strong>
+            <strong class="tabular-nums" x-text="activeTabDisplay || activeTabRef || '-'"></strong>
           </div>
           <div class="flex justify-between gap-3">
             <span class="text-on-surface/60 dark:text-on-surface-dark/60">Itens</span>
@@ -1207,12 +1203,12 @@ document.addEventListener('alpine:init', function() {
     managerApprovalPassword: '',
     receiptMode: 'none',
     receiptEmail: '',
-    activeTabCode: '',
+    activeTabRef: '',
     activeTabDisplay: '',
     activeTabSessionKey: '',
     tabMessage: '',
     showTabModal: false,
-    tabCreateCode: '',
+    tabCreateRef: '',
     tabCreateLabel: '',
     lastOrderRef: '',
     lastOrderUrl: '',
@@ -1271,7 +1267,7 @@ document.addEventListener('alpine:init', function() {
     expandedNoteIdx: -1,
     selectedCartIdx: -1,
     activeProductSku: '',
-    activeTabTileCode: '',
+    activeTabTileRef: '',
 
     matchesTile: function(name, sku, col) {
       var s = this.parseProductCommand(this.search).term.toLowerCase();
@@ -1574,7 +1570,7 @@ document.addEventListener('alpine:init', function() {
     },
 
     addFirstMatchedProductFromSearch: function() {
-      if (!this.activeTabCode) {
+      if (!this.activeTabRef) {
         this.tabMessage = 'Leia uma comanda antes de inserir produtos.';
         return;
       }
@@ -1619,13 +1615,13 @@ document.addEventListener('alpine:init', function() {
     },
 
     openTabCreateModal: function() {
-      this.tabCreateCode = this.$refs.tabCode ? this.$refs.tabCode.value.trim() : '';
+      this.tabCreateRef = this.$refs.tabRef ? this.$refs.tabRef.value.trim() : '';
       this.tabCreateLabel = '';
       this.showTabModal = true;
       var self = this;
       this.$nextTick(function() {
         if (self.$refs.tabCreateResult) self.$refs.tabCreateResult.innerHTML = '';
-        if (self.$refs.tabCreateCodeInput) self.$refs.tabCreateCodeInput.focus();
+        if (self.$refs.tabCreateRefInput) self.$refs.tabCreateRefInput.focus();
       });
     },
 
@@ -1651,7 +1647,7 @@ document.addEventListener('alpine:init', function() {
     loadTabOpenResponse: function(d) {
       this.loadTab(d);
       if (window.htmx && this.$refs.tabGrid) htmx.trigger(this.$refs.tabGrid, 'tabGridRefresh');
-      if (this.$refs.tabCode) this.$refs.tabCode.value = '';
+      if (this.$refs.tabRef) this.$refs.tabRef.value = '';
       this.tabMessage = '';
       this.focusSmartSoon();
     },
@@ -1663,15 +1659,16 @@ document.addEventListener('alpine:init', function() {
     },
 
     openTabFromInput: function() {
-      var code = this.$refs.tabCode ? this.$refs.tabCode.value.trim() : '';
+      var code = this.$refs.tabRef ? this.$refs.tabRef.value.trim() : '';
       if (!code) return;
-      this.openTabByCode(code);
+      this.openTabByRef(code);
     },
 
-    openTabByCode: function(code) {
+    openTabByRef: function(code) {
       code = String(code || '').trim();
       if (!code) return;
-      this.tabMessage = 'Abrindo comanda ' + (code.replace(/^0+/, '') || '0') + '...';
+      var displayRef = /^[0-9]+$/.test(code) ? (code.replace(/^0+/, '') || '0') : code;
+      this.tabMessage = 'Abrindo comanda ' + displayRef + '...';
       var self = this;
       fetch('/gestor/pos/tab/open/', {
         method: 'POST',
@@ -1679,7 +1676,7 @@ document.addEventListener('alpine:init', function() {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-CSRFToken': '{{ csrf_token }}',
         },
-        body: new URLSearchParams({ tab_code: code }),
+        body: new URLSearchParams({ tab_ref: code }),
       }).then(function(response) {
         return response.text().then(function(text) {
           if (!response.ok) {
@@ -1695,7 +1692,7 @@ document.addEventListener('alpine:init', function() {
     },
 
     focusSmart: function() {
-      if (this.mode === 'tab_select' && this.$refs.tabCode) { this.$refs.tabCode.focus(); return; }
+      if (this.mode === 'tab_select' && this.$refs.tabRef) { this.$refs.tabRef.focus(); return; }
       if (this.mode === 'sale' && this.$refs.search) { this.$refs.search.focus(); return; }
       if (this.mode === 'checkout') {
         if (this.fulfillmentType === 'delivery' && !this.deliveryAddress.trim() && this.$refs.deliveryAddress) {
@@ -1740,7 +1737,7 @@ document.addEventListener('alpine:init', function() {
 
     syncCartBeforeCheckout: function(options) {
       options = options || {};
-      if (!this.activeTabCode || !this.activeTabSessionKey) return;
+      if (!this.activeTabRef || !this.activeTabSessionKey) return;
       var self = this;
       this.isPricingSyncing = true;
       this.tabMessage = 'Conferindo preços, promoções e regras...';
@@ -1761,7 +1758,7 @@ document.addEventListener('alpine:init', function() {
               'Content-Type': 'application/x-www-form-urlencoded',
               'X-CSRFToken': '{{ csrf_token }}',
             },
-            body: new URLSearchParams({ tab_code: self.activeTabCode }),
+            body: new URLSearchParams({ tab_ref: self.activeTabRef }),
           });
         });
       }).then(function(response) {
@@ -1860,11 +1857,11 @@ document.addEventListener('alpine:init', function() {
       this.expandedNoteIdx = -1;
       this.selectedCartIdx = -1;
       this.activeProductSku = '';
-      this.activeTabTileCode = '';
+      this.activeTabTileRef = '';
       this.isSubmitting = false;
       this.lastPricingSignature = '';
       this.clientRequestId = this.newClientRequestId();
-      this.activeTabCode = '';
+      this.activeTabRef = '';
       this.activeTabDisplay = '';
       this.activeTabSessionKey = '';
       this.tabMessage = '';
@@ -1917,7 +1914,7 @@ document.addEventListener('alpine:init', function() {
         receipt_mode: this.receiptMode,
         receipt_email: this.receiptEmail.trim(),
         client_request_id: this.clientRequestId,
-        tab_code: this.activeTabCode || null,
+        tab_ref: this.activeTabRef || null,
         tab_session_key: this.activeTabSessionKey || null,
         manual_discount: this.discountQ > 0 ? {
           type: this.discountType,
@@ -2067,7 +2064,7 @@ document.addEventListener('alpine:init', function() {
       if (!target) return;
       var refs = {
         search: this.$refs.search,
-        tab_code: this.$refs.tabCode,
+        tab_ref: this.$refs.tabRef,
         delivery_address: this.$refs.deliveryAddress,
         payment: this.$refs.paymentMethods,
         receipt_email: document.getElementById('pos-receipt-email'),
@@ -2123,7 +2120,7 @@ document.addEventListener('alpine:init', function() {
         if (self.$refs.result) {
           self.$refs.result.innerHTML = html;
           var el = self.$refs.result.querySelector('[data-order-ref]');
-          if (el) self.successMsg = 'Pedido ' + el.dataset.orderRef + ' — ' + el.dataset.totalDisplay;
+          if (el) self.successMsg = 'Pedido ' + el.dataset.orderRef + ' · ' + el.dataset.totalDisplay;
         }
         if (queue.length) self.flushOfflineQueue();
       }).catch(function(error) {
@@ -2201,8 +2198,8 @@ document.addEventListener('alpine:init', function() {
       this.issueFiscalDocument = !!d.issue_fiscal_document;
       this.receiptMode = d.receipt_mode || 'none';
       this.receiptEmail = d.receipt_email || d.customer_email || '';
-      this.activeTabCode = d.tab_code || '';
-      this.activeTabDisplay = d.tab_display || d.tab_code || '';
+      this.activeTabRef = d.tab_ref || '';
+      this.activeTabDisplay = d.tab_display || d.tab_ref || '';
       this.activeTabSessionKey = d.tab_session_key || d.session_key || '';
       this.clientRequestId = d.client_request_id || this.newClientRequestId();
       this.tabMessage = '';
@@ -2277,10 +2274,10 @@ document.addEventListener('alpine:init', function() {
       if (!tiles.length) return;
       var current = document.activeElement && document.activeElement.matches && document.activeElement.matches('[data-tab-tile]')
         ? tiles.indexOf(document.activeElement)
-        : tiles.findIndex((tile) => (tile.dataset.tabCode || '') === this.activeTabTileCode);
+        : tiles.findIndex((tile) => (tile.dataset.tabRef || '') === this.activeTabTileRef);
       if (current < 0) current = 0;
       else current = (current + delta + tiles.length) % tiles.length;
-      this.activeTabTileCode = tiles[current].dataset.tabCode || '';
+      this.activeTabTileRef = tiles[current].dataset.tabRef || '';
       tiles[current].focus();
     },
 
@@ -2356,7 +2353,7 @@ document.addEventListener('alpine:init', function() {
       if (e.key === 'F2') {
         e.preventDefault();
         if (this.mode !== 'tab_select') this.returnToTabs();
-        this.$nextTick(() => this.$refs.tabCode && this.$refs.tabCode.focus());
+        this.$nextTick(() => this.$refs.tabRef && this.$refs.tabRef.focus());
         return;
       }
       if (e.key === 'F3') {

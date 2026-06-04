@@ -46,7 +46,7 @@ class ChannelConfig:
     class Payment:
         method: str | list[str] = "cash"
         # str or list[str]:
-        # "cash"     — dinheiro / maquininha no ato
+        # "cash"     — dinheiro no ato
         # "pix"      — PIX com QR code
         # "card"     — cartão via Stripe
         # "external" — já pago (marketplace)

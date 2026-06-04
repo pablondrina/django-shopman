@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 import logging
 
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.contrib.auth import get_user_model
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import escape, format_html
-from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary, build_pos_tabs
+from shopman.backstage.services import operator as operator_service
 from shopman.backstage.services import pos as pos_cash_service
 from shopman.backstage.services.exceptions import POSError
 from shopman.shop.services import pos as pos_service
@@ -41,6 +43,20 @@ def _pos_error_response(exc: PosIntentError, *, fallback_status: int = 422) -> H
     )
 
 
+def _cash_shift_required_response() -> HttpResponse:
+    return HttpResponse(
+        '<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm" '
+        'data-error-code="cash_shift_required" '
+        'data-focus-target="cash" '
+        'data-error-field="cash_shift_id">'
+        '<span class="font-semibold">Abra o caixa antes de finalizar uma venda.</span>'
+        '<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">'
+        'Abra um turno de caixa neste terminal e tente novamente.'
+        '</span></div>',
+        status=409,
+    )
+
+
 def _perm_required(request):
     """Redirect to login if not staff; 403 if missing operate_pos perm."""
     if not request.user.is_authenticated or not request.user.is_staff:
@@ -64,12 +80,12 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     from shopman.shop.models import Shop
 
     shop = Shop.load()
-    cash_session = CashShift.get_open_for_operator(request.user)
+    cash_shift = CashShift.get_open_for_operator(request.user)
 
-    if not cash_session:
+    if not cash_shift:
         return render(request, "pos/cash_open.html", {"shop": shop})
 
-    pos = build_pos(terminal=cash_session.terminal)
+    pos = build_pos(terminal=cash_shift.terminal)
 
     return render(request, "pos/index.html", {
         "pos": pos,
@@ -77,7 +93,7 @@ def pos_view(request: HttpRequest) -> HttpResponse:
         "collections": pos.collections,
         "shop": shop,
         "payment_methods": pos.payment_methods,
-        "cash_session": cash_session,
+        "cash_shift": cash_shift,
         "terminal_profile": pos,
     })
 
@@ -175,13 +191,15 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             status=422,
         )
 
-    try:
-        from shopman.backstage.models import CashShift
+    from shopman.backstage.models import CashShift
 
-        cash_shift = CashShift.get_open_for_operator(request.user)
-        if cash_shift:
-            body["cash_shift_id"] = cash_shift.pk
-            body["pos_terminal_ref"] = cash_shift.terminal.ref
+    cash_shift = CashShift.get_open_for_operator(request.user)
+    if not cash_shift:
+        return _cash_shift_required_response()
+    body["cash_shift_id"] = cash_shift.pk
+    body["pos_terminal_ref"] = cash_shift.terminal.ref
+
+    try:
         result = pos_service.close_sale(
             channel_ref=POS_CHANNEL_REF,
             payload=body,
@@ -346,7 +364,7 @@ def pos_tab_save(request: HttpRequest) -> HttpResponse:
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
     response = HttpResponse(
-        f'<span data-tab-code="{result.tab_code}" class="text-xs text-success font-semibold">'
+        f'<span data-tab-ref="{result.tab_ref}" class="text-xs text-success font-semibold">'
         f'POS tab {result.tab_display} em uso</span>'
     )
     response["HX-Trigger"] = "posTabSaved"
@@ -360,7 +378,7 @@ def pos_tabs(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("", status=403)
 
-    query = (request.GET.get("q") or request.GET.get("tab_code") or "").strip()
+    query = (request.GET.get("q") or request.GET.get("tab_ref") or "").strip()
     tabs = build_pos_tabs(channel_ref=POS_CHANNEL_REF, query=query)
 
     return render(request, "pos/partials/tab_grid.html", {"tabs": tabs, "query": query})
@@ -375,7 +393,7 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
 
     try:
         tab = pos_service.register_pos_tab(
-            tab_code=request.POST.get("tab_code", ""),
+            tab_ref=request.POST.get("tab_ref", ""),
             label=request.POST.get("label", ""),
         )
     except Exception as e:
@@ -383,7 +401,7 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
     response = HttpResponse(
-        f'<span data-tab-code="{tab["tab_code"]}" class="text-xs text-success font-semibold">'
+        f'<span data-tab-ref="{tab["tab_ref"]}" class="text-xs text-success font-semibold">'
         f'POS tab {tab["tab_display"]} cadastrada</span>'
     )
     response["HX-Trigger"] = "posTabSaved"
@@ -391,17 +409,17 @@ def pos_tab_create(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-def pos_tab_open(request: HttpRequest, tab_code: str = "") -> HttpResponse:
+def pos_tab_open(request: HttpRequest, tab_ref: str = "") -> HttpResponse:
     """POST /gestor/pos/tab/open/ — open or load a POS tab as JSON."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse('{"error":"forbidden"}', content_type="application/json", status=403)
 
-    code = tab_code or request.POST.get("tab_code", "").strip()
+    ref = tab_ref or request.POST.get("tab_ref", "").strip()
     try:
         payload = pos_service.open_pos_tab(
             channel_ref=POS_CHANNEL_REF,
-            tab_code=code,
+            tab_ref=ref,
             actor=f"pos:{request.user.username}",
             operator_username=request.user.username,
         )
@@ -512,3 +530,39 @@ def pos_cash_close(request: HttpRequest) -> HttpResponse:
     logger.info("pos_cash_close operator=%s diff_q=%s", request.user.username, session.difference_q)
 
     return render(request, "pos/cash_close_report.html", {"session": session})
+
+
+# ── Operator identity (PIN lock screen) ─────────────────────────────
+
+
+@require_POST
+def pos_operator_unlock(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/operator/unlock/ — claim the terminal as an operator via PIN."""
+    denied = _perm_required(request)
+    if denied:
+        return JsonResponse({"ok": False, "error": {"code": "forbidden"}}, status=403)
+
+    operator_id = request.POST.get("operator_id", "").strip()
+    pin = request.POST.get("pin", "")
+
+    operator = get_user_model().objects.filter(pk=operator_id, is_active=True).first() if operator_id else None
+    if operator is None or not operator_service.verify_operator_pin(operator, pin):
+        logger.info("pos_operator_unlock rejected operator_id=%s", operator_id or "-")
+        return JsonResponse(
+            {"ok": False, "error": {"code": "operator_pin_invalid", "message": "PIN inválido."}},
+            status=403,
+        )
+
+    card = operator_service.set_active_operator(request, operator)
+    logger.info("pos_operator_unlock operator=%s", operator.get_username())
+    return JsonResponse({"ok": True, "operator": card})
+
+
+@require_POST
+def pos_operator_lock(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/operator/lock/ — lock the terminal (drop active operator)."""
+    denied = _perm_required(request)
+    if denied:
+        return JsonResponse({"ok": False, "error": {"code": "forbidden"}}, status=403)
+    operator_service.clear_active_operator(request)
+    return JsonResponse({"ok": True})

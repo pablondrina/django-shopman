@@ -100,6 +100,7 @@ from shopman.orderman.models import (
     OrderEvent,
     OrderItem,
     Session,
+    SessionEvent,
 )
 from shopman.orderman.services import CommitService, ResolveService
 from shopman.utils.monetary import format_money
@@ -186,6 +187,7 @@ class SessionAdmin(ModelAdmin):
         "committed_at",
         "rev",
         "items_display",
+        "audit_timeline",
         "data",
         "commit_token",
     )
@@ -212,6 +214,72 @@ class SessionAdmin(ModelAdmin):
         except Exception:
             logger.debug("JSON format failed for Session.items pk=%s", obj.pk, exc_info=True)
             return str(obj.items)
+
+    @display(description=_("trilha de auditoria"))
+    def audit_timeline(self, obj: Session) -> str:
+        """Linha do tempo unificada por ``session_key``: eventos da fase comanda
+        (``SessionEvent``) + da fase pedido (``OrderEvent`` do Order de mesmo
+        session_key). Append-only — conferência anti-fraude."""
+        if not obj:
+            return "-"
+        from django.utils.html import format_html_join
+        from shopman.orderman.models import Order, SessionEvent
+
+        rows = []
+        for ev in SessionEvent.objects.filter(session_key=obj.session_key).order_by("seq"):
+            rows.append((ev.created_at, _("comanda"), ev.type, ev.actor, ev.payload))
+        order = Order.objects.filter(session_key=obj.session_key).order_by("created_at").first()
+        if order is not None:
+            for ev in order.events.all().order_by("seq"):
+                rows.append((ev.created_at, _("pedido"), ev.type, ev.actor, ev.payload))
+        rows.sort(key=lambda row: (row[0] is None, row[0]))
+        if not rows:
+            return format_html('<p class="text-base-500 text-sm">{}</p>', _("Sem eventos registrados."))
+
+        body = format_html_join(
+            "",
+            '<li class="border-b border-base-200 dark:border-base-700 py-1.5 text-sm">'
+            '<span class="font-mono text-base-500">{}</span> '
+            '<span class="rounded-default bg-base-100 dark:bg-base-800 px-1.5 py-0.5 text-xs">{}</span> '
+            '<strong>{}</strong> '
+            '<span class="text-base-500">· {} · {}</span>'
+            "</li>",
+            (
+                (
+                    created_at.strftime("%d/%m %H:%M:%S") if created_at else "—",
+                    phase,
+                    event_type,
+                    actor or "—",
+                    self._audit_summary(payload),
+                )
+                for created_at, phase, event_type, actor, payload in rows
+            ),
+        )
+        return format_html('<ul class="divide-base-200 dark:divide-base-700 divide-y">{}</ul>', body)
+
+    @staticmethod
+    def _audit_summary(payload: dict) -> str:
+        """Compact human summary of an audit event payload."""
+        if not payload:
+            return ""
+        if isinstance(payload.get("items"), list):
+            base = f'{payload.get("item_count", len(payload["items"]))} itens'
+            return base + (" · estava na cozinha" if payload.get("was_fired") else "")
+        if isinstance(payload.get("lines"), list):
+            return ", ".join(f'{ln.get("name") or ln.get("sku")}×{ln.get("qty")}' for ln in payload["lines"][:4])
+        if "qty_before" in payload:
+            return f'{payload.get("name") or payload.get("sku")}: {payload["qty_before"]}→{payload["qty_after"]}'
+        if "sku" in payload:
+            name = payload.get("name") or payload.get("sku")
+            return f"{name}" + (f' ×{payload["qty"]}' if payload.get("qty") is not None else "")
+        if "order_ref" in payload:
+            total = f' · R$ {int(payload["total_q"]) / 100:.2f}' if payload.get("total_q") else ""
+            return f'pedido {payload["order_ref"]}{total}'
+        if "from_ref" in payload:
+            return f'{payload.get("from_ref")} → {payload.get("to_ref")}'
+        if "new_status" in payload:
+            return f'→ {payload["new_status"]}'
+        return ", ".join(f"{key}={value}" for key, value in list(payload.items())[:3])
 
     actions_detail = ["history_detail_action"]
     actions_submit_line = ["action_commit"]
@@ -674,6 +742,38 @@ class OrderEventInline(admin.TabularInline):
     ordering = ("-created_at", "-id")
 
     def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SessionEvent)
+class SessionEventAdmin(ModelAdmin):
+    """Read-only audit trail of session-phase actions (anti-fraud conference).
+
+    Append-only by design: creation happens only via ``Session.emit_event``;
+    add/change/delete are all disabled so the trail cannot be tampered with
+    through the Admin (same posture as ``OrderEvent``, taken to fully read-only
+    because this log defends against the operators who use the system)."""
+
+    list_display = ("created_at", "session_key", "seq", "type", "actor", "summary")
+    list_filter = ("type", "actor")
+    search_fields = ("session_key", "actor", "type")
+    ordering = ("-created_at", "-id")
+    date_hierarchy = "created_at"
+    list_filter_submit = True
+    list_fullwidth = True
+    readonly_fields = ("session_key", "seq", "type", "actor", "payload", "created_at")
+
+    @display(description=_("resumo"))
+    def summary(self, obj: SessionEvent) -> str:
+        return SessionAdmin._audit_summary(obj.payload or {})
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

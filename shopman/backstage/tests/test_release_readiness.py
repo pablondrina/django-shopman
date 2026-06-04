@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+from django.core.cache import cache
+
 from scripts import check_release_readiness as readiness
+from shopman.shop.models import Shop
+from shopman.shop.models.shop import SHOP_CACHE_KEY
 
 
 def test_readiness_report_allows_external_blockers_in_default_mode():
@@ -48,12 +53,43 @@ def test_readiness_report_blocks_external_in_strict_mode():
 
 def test_manual_qa_evidence_check_passes_when_file_exists(tmp_path):
     evidence = tmp_path / "manual-qa.md"
-    evidence.write_text("# QA\n", encoding="utf-8")
+    evidence.write_text("manual_qa_status: passed\n# QA\n", encoding="utf-8")
 
     check = readiness._manual_qa_check(str(evidence))
 
     assert check.status == "passed"
     assert check.details["evidence"] == str(evidence)
+
+
+def test_manual_qa_evidence_check_rejects_pending_report(tmp_path):
+    evidence = tmp_path / "manual-qa.md"
+    evidence.write_text("manual_qa_status: pending\n# QA\n", encoding="utf-8")
+
+    check = readiness._manual_qa_check(str(evidence))
+
+    assert check.status == "blocked_external"
+
+
+@pytest.mark.django_db
+def test_storefront_contact_check_requires_whatsapp_url():
+    cache.delete(SHOP_CACHE_KEY)
+    Shop.objects.create(name="Loja")
+
+    check = readiness._storefront_contact_check()
+
+    assert check.status == "blocked_external"
+    assert check.id == "storefront.contact"
+
+
+@pytest.mark.django_db
+def test_storefront_contact_check_passes_with_phone():
+    cache.delete(SHOP_CACHE_KEY)
+    Shop.objects.create(name="Loja", phone="554333231997")
+
+    check = readiness._storefront_contact_check()
+
+    assert check.status == "passed"
+    assert check.details["whatsapp_url"] == "https://wa.me/554333231997"
 
 
 def test_main_outputs_json_and_uses_blocking_exit(monkeypatch, capsys):

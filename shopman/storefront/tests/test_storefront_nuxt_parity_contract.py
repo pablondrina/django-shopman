@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NUXT_APP = REPO_ROOT / "surfaces" / "storefront-nuxt" / "app"
 PARITY_CONTRACT = REPO_ROOT / "docs" / "reference" / "storefront-surface-parity-contract.md"

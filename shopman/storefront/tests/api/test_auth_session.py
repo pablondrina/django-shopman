@@ -9,6 +9,11 @@ from shopman.guestman.models import Customer
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _disable_request_rate_limits(settings):
+    settings.RATELIMIT_ENABLE = False
+
+
 def _login_as_customer(client: Client, customer: Customer):
     from shopman.doorman.protocols.customer import AuthCustomerInfo
     from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
@@ -150,13 +155,13 @@ def test_auth_request_code_accepts_json_without_csrf(monkeypatch):
 
     response = client.post(
         "/api/v1/auth/request-code/",
-        data={"target": "43999998888", "delivery_method": "whatsapp"},
+        data={"target": "43999997777", "delivery_method": "whatsapp"},
         content_type="application/json",
     )
 
     assert response.status_code == 200
     assert response.json()["ok"] is True
-    assert sent["phone"] == "+5543999998888"
+    assert sent["phone"] == "+5543999997777"
     assert sent["delivery_method"] == "whatsapp"
 
 
@@ -205,6 +210,83 @@ def test_auth_request_code_preserves_international_phone(monkeypatch, client: Cl
     assert response.json()["phone"] == "+12025551234"
     assert sent["phone"] == "+12025551234"
     assert sent["delivery_method"] == "sms"
+
+
+def test_auth_request_code_reports_actual_delivery_method(monkeypatch, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    def fake_request_code(*, phone, delivery_method, ip_address):
+        return SimpleNamespace(success=True, delivery_method="sms")
+
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "request_code", fake_request_code)
+
+    response = client.post(
+        "/api/v1/auth/request-code/",
+        data={"target": "43999998888", "delivery_method": "whatsapp"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["delivery_method"] == "sms"
+    assert data["delivery_label"] == "SMS"
+
+
+def test_auth_request_code_exposes_debug_otp_in_staging_only_when_enabled(monkeypatch, settings, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    def fake_request_code(*, phone, delivery_method, ip_address):
+        return SimpleNamespace(
+            success=True,
+            delivery_method="whatsapp",
+            debug_code="123456",
+            expires_at="2026-05-18T13:00:00+00:00",
+        )
+
+    settings.DEBUG = False
+    settings.SHOPMAN_ENVIRONMENT = "staging"
+    settings.SHOPMAN_EXPOSE_DEBUG_OTP = True
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "request_code", fake_request_code)
+
+    response = client.post(
+        "/api/v1/auth/request-code/",
+        data={"target": "43999998888", "delivery_method": "whatsapp"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["debug_otp_code"] == "123456"
+    assert data["debug_otp_expires_at"] == "2026-05-18T13:00:00+00:00"
+
+
+def test_auth_request_code_never_exposes_debug_otp_in_production(monkeypatch, settings, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    def fake_request_code(*, phone, delivery_method, ip_address):
+        return SimpleNamespace(
+            success=True,
+            delivery_method="whatsapp",
+            debug_code="123456",
+            expires_at="2026-05-18T13:00:00+00:00",
+        )
+
+    settings.DEBUG = False
+    settings.SHOPMAN_ENVIRONMENT = "production"
+    settings.SHOPMAN_EXPOSE_DEBUG_OTP = True
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "request_code", fake_request_code)
+
+    response = client.post(
+        "/api/v1/auth/request-code/",
+        data={"target": "43999998888", "delivery_method": "whatsapp"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert "debug_otp_code" not in response.json()
 
 
 def test_auth_verify_code_accepts_json_and_creates_session_contract(monkeypatch):
@@ -272,6 +354,30 @@ def test_auth_device_check_trusted_cookie_creates_json_session(client: Client):
     assert data["customer_ref"] == customer.ref
     assert data["customer_name"] == customer.name
     assert client.session.get("_auth_user_id") is not None
+
+
+def test_auth_device_check_preserves_international_phone_region(monkeypatch, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    checked = {}
+
+    def fake_trusted_device_login(request, *, phone):
+        checked["phone"] = phone
+        return None
+
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "trusted_device_login", fake_trusted_device_login)
+
+    response = client.post(
+        "/api/v1/auth/device-check/",
+        data={"phone": "+1 202 555 1234", "phone_region": "INTL"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["trusted"] is False
+    assert response.json()["phone"] == "+12025551234"
+    assert checked["phone"] == "+12025551234"
 
 
 def test_auth_device_check_wrong_customer_does_not_skip_otp(client: Client):

@@ -17,11 +17,14 @@ Usage:
     python manage.py refresh_oven
 """
 
+import logging
 import random
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -113,6 +116,7 @@ class Command(BaseCommand):
                 for tkt_pk, tkt_time in kds_adapter.get_completed_ticket_timestamps(order):
                     kds_adapter.shift_ticket_completed_at(tkt_pk, tkt_time + delta)
             except Exception:
+                logger.debug("refresh_oven._refresh_live_orders degraded; using fallback", exc_info=True)
                 pass  # KDS adapter may not be available; non-critical for oven refresh
 
         self.stdout.write(f"  Pedidos: {len(live_orders)} orders atualizados.")

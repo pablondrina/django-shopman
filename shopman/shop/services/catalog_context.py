@@ -114,6 +114,7 @@ def keywords_by_sku(skus: list[str]) -> dict[str, list[str]]:
         try:
             result[product.sku] = [str(tag.name) for tag in product.keywords.all()]
         except Exception:
+            logger.debug("catalog_context.keywords_by_sku degraded; using fallback", exc_info=True)
             result[product.sku] = []
     return result
 
@@ -398,6 +399,7 @@ def product_tags(product) -> tuple[str, ...]:
     try:
         return tuple(tag.name for tag in product.keywords.all())
     except Exception:
+        logger.debug("catalog_context.product_tags degraded; using fallback", exc_info=True)
         return ()
 
 

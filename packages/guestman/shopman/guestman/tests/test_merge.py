@@ -261,6 +261,15 @@ class TestMergeExternalIdentities:
 class TestMergeOrders:
 
     def test_migrates_order_identity_to_target_customer(self, source, target, evidence):
+        from django.apps import apps
+
+        # Order migration is an optional merge integration; this test exercises
+        # the real path and needs the orderman app + tables. When guestman runs
+        # standalone (no orderman installed) the merge skips orders gracefully,
+        # so there is nothing to assert here.
+        if not apps.is_installed("shopman.orderman"):
+            pytest.skip("requires the orderman app (optional merge integration)")
+
         from shopman.orderman.models import Order
 
         order = Order.objects.create(

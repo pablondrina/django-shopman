@@ -102,6 +102,19 @@ def _create_card_intent(order: Order, stripe_pi_id: str = "pi_test_stripe_abc") 
     return intent
 
 
+class _StripeObjectMetadata:
+    """Minimal StripeObject-like metadata mapping without a .get() method."""
+
+    def __init__(self, **values: str) -> None:
+        self._values = values
+
+    def __getitem__(self, key: str) -> str:
+        return self._values[key]
+
+    def __bool__(self) -> bool:
+        return bool(self._values)
+
+
 # ══════════════════════════════════════════════════════════════
 # Fixtures / setUp helpers
 # ══════════════════════════════════════════════════════════════
@@ -202,7 +215,11 @@ class StripeWebhookTests(WebhookTestBase):
         """payment_intent.succeeded → PaymentIntent captured."""
         order = _create_order_with_payment("web", "card")
         intent = _create_card_intent(order)
-        event_dict = self._make_event("payment_intent.succeeded", intent.gateway_id, intent.ref)
+        event_dict = self._make_event(
+            "payment_intent.succeeded",
+            intent.gateway_id,
+            intent.ref,
+        )
 
         mock_event = self._mock_stripe_construct(event_dict)
         with patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe:
@@ -239,6 +256,58 @@ class StripeWebhookTests(WebhookTestBase):
         self.assertEqual(intent.status, "captured")
         order.refresh_from_db()
         self.assertNotIn("status", order.data.get("payment", {}))
+
+    def test_stripe_payment_succeeded_accepts_stripe_object_metadata(self) -> None:
+        """Stripe SDK metadata objects are accepted, not only dict metadata."""
+        order = _create_order_with_payment("web", "card")
+        intent = _create_card_intent(order)
+        event_dict = self._make_event("payment_intent.succeeded", intent.gateway_id, intent.ref)
+        mock_event = self._mock_stripe_construct(event_dict)
+        mock_event.data.object.metadata = _StripeObjectMetadata(
+            shopman_ref=intent.ref,
+            order_ref=order.ref,
+        )
+
+        with patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe:
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.return_value = mock_event
+            mock_get_stripe.return_value = mock_stripe
+
+            resp = self._post_webhook(event_dict)
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        intent.refresh_from_db()
+        self.assertEqual(intent.status, "captured")
+
+    def test_stripe_checkout_completed_accepts_stripe_object_metadata(self) -> None:
+        """checkout.session.completed accepts Stripe SDK metadata objects."""
+        order = _create_order_with_payment("web", "card")
+        intent = _create_card_intent(order, stripe_pi_id="cs_test_checkout")
+        event_dict = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"id": "cs_test_checkout", "object": "checkout.session"}},
+        }
+        mock_event = MagicMock()
+        mock_event.type = "checkout.session.completed"
+        mock_session = MagicMock()
+        mock_session.payment_intent = "pi_test_checkout_completed"
+        mock_session.metadata = _StripeObjectMetadata(
+            shopman_ref=intent.ref,
+            order_ref=order.ref,
+        )
+        mock_event.data.object = mock_session
+
+        with patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe:
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.return_value = mock_event
+            mock_get_stripe.return_value = mock_stripe
+
+            resp = self._post_webhook(event_dict)
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        intent.refresh_from_db()
+        self.assertEqual(intent.gateway_id, "pi_test_checkout_completed")
+        self.assertEqual(intent.status, "authorized")
 
     # ── Idempotency ───────────────────────────────────────────
 
@@ -586,6 +655,18 @@ class EfiPixWebhookTests(WebhookTestBase):
         self.assertEqual(resp.status_code, 200)
 
     # ── Missing pix data ──────────────────────────────────────
+
+    def test_efi_empty_payload_returns_200_for_registration_check(self) -> None:
+        """Authenticated empty POST is accepted for EFI webhook registration checks."""
+        resp = self._post({})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["check"], "accepted")
+
+    def test_efi_registration_test_event_returns_200(self) -> None:
+        """EFI sends evento=teste_webhook while registering the webhook URL."""
+        resp = self._post({"evento": "teste_webhook", "data_criacao": "2026-05-21T13:24:06.791Z"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["check"], "accepted")
 
     def test_efi_empty_pix_list_returns_400(self) -> None:
         """POST with empty pix list → 400."""

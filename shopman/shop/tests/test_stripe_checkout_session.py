@@ -159,6 +159,29 @@ class StripeCreateIntentTests(TestCase):
         # Hosted redirect ⇒ we never expose a client_secret.
         assert "client_secret" not in payment_data
 
+    def test_initiate_uses_configured_capture_method(self) -> None:
+        order = Order.objects.create(
+            ref="ORD-CARD-CAPTURE-001",
+            channel_ref="web",
+            status="new",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543000000002",
+            data={"payment": {"method": "card"}},
+        )
+        from shopman.shop.adapters import payment_stripe
+        from shopman.shop.services import payment as payment_svc
+
+        with patch.object(payment_stripe, "_get_stripe") as mock_get_stripe:
+            mock_stripe = MagicMock()
+            mock_stripe.checkout.Session.create.return_value = self._mock_session()
+            mock_get_stripe.return_value = mock_stripe
+
+            payment_svc.initiate(order)
+
+        kwargs = mock_stripe.checkout.Session.create.call_args.kwargs
+        assert kwargs["payment_intent_data"]["capture_method"] == "automatic"
+
 
 # ══════════════════════════════════════════════════════════════
 # Webhook — checkout.session.completed

@@ -35,6 +35,8 @@ class CodeRequestResult:
     success: bool
     code_id: str | None = None
     expires_at: str | None = None
+    delivery_method: str | None = None
+    debug_code: str | None = None
     error: str | None = None
     error_code: ErrorCode | None = None
 
@@ -218,6 +220,8 @@ class AuthService:
             success=True,
             code_id=str(code.id),
             expires_at=code.expires_at.isoformat(),
+            delivery_method=actual_method,
+            debug_code=raw_code,
         )
 
     # ===========================================

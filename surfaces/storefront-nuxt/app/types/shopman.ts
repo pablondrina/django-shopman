@@ -217,14 +217,13 @@ export interface OmotenashiProjection {
   customer_name: string | null
   is_birthday: boolean
   audience: 'anon' | 'new' | 'returning' | 'vip'
-  is_open: boolean
-  opens_at: string | null
-  closes_at: string | null
 }
 
 export interface ShopStatusProjection {
   is_open: boolean
   message: string | null
+  opens_at: string | null
+  closes_at: string | null
 }
 
 export interface CopyEntryProjection {
@@ -484,6 +483,8 @@ export interface CheckoutProjection {
   customer_phone: string
   customer_name: string
   is_authenticated: boolean
+  requires_authentication: boolean
+  auth_action: SurfaceActionProjection | null
   saved_addresses: SavedAddressProjection[]
   preselected_address_id: number | null
   payment_methods: PaymentMethodProjection[]

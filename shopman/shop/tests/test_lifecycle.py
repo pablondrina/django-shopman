@@ -661,14 +661,15 @@ class TestOnCancelled:
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.stock")
     @patch("shopman.shop.services.kds.cancel_tickets")
-    def test_cancels_kds_releases_stock_refunds_and_notifies(
+    def test_cancels_kds_releases_stock_settles_payment_and_notifies(
         self, mock_kds_cancel, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config()
-        order = _make_order()
+        order = _make_order(data={"cancellation_reason": "customer_requested"})
         dispatch(order, "on_cancelled")
         mock_kds_cancel.assert_called_once_with(order)
         mock_stock.release.assert_called_once_with(order)
+        mock_payment.cancel.assert_called_once_with(order, reason="customer_requested")
         mock_payment.refund.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_cancelled")
 
@@ -925,6 +926,10 @@ class TestChannelConfigIntegration:
         self, mock_stock, mock_customer, mock_loyalty,
     ):
         from shopman.shop.models import Shop
+        Shop.objects.get_or_create(
+            name="Test Shop",
+            defaults={"defaults": {"confirmation": {"mode": "manual"}}},
+        )
         shop = Shop.load()
         shop.defaults = {"confirmation": {"mode": "manual"}}
         shop.save()

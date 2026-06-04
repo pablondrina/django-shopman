@@ -13,6 +13,7 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E007  Database backend is SQLite in production
   SHOPMAN_E008  Doorman access-link API key is not configured
   SHOPMAN_E009  Real payment adapter is missing required credentials/files
+  SHOPMAN_E010  Debug OTP exposure enabled outside non-production
 
 Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite in local/debug mode
@@ -21,6 +22,7 @@ Warnings (non-blocking, logged at startup):
   SHOPMAN_W004  Listing.ref has no matching Channel.ref
   SHOPMAN_W005  OFFERMAN pricing backend not configured
   SHOPMAN_W006  Mock payment adapter explicitly allowed outside DEBUG
+  SHOPMAN_W007  Debug OTP exposure explicitly allowed in staging
 """
 
 from __future__ import annotations
@@ -281,6 +283,38 @@ def check_doorman_access_link_api_key(app_configs, **kwargs):
             )
         )
     return errors
+
+
+@register(deploy=True)
+def check_debug_otp_exposure(app_configs, **kwargs):
+    messages = []
+    if not getattr(settings, "SHOPMAN_EXPOSE_DEBUG_OTP", False):
+        return messages
+
+    environment = str(getattr(settings, "SHOPMAN_ENVIRONMENT", "production")).strip().lower()
+    if environment not in {"development", "dev", "local", "staging"}:
+        messages.append(
+            Error(
+                "SHOPMAN_EXPOSE_DEBUG_OTP está habilitado fora de ambiente não produtivo.",
+                hint=(
+                    "Desabilite SHOPMAN_EXPOSE_DEBUG_OTP antes de produção. "
+                    "O código OTP debug só pode aparecer em desenvolvimento ou staging técnico."
+                ),
+                id="SHOPMAN_E010",
+            )
+        )
+    elif not settings.DEBUG:
+        messages.append(
+            Warning(
+                "OTP debug está exposto em ambiente não-DEBUG.",
+                hint=(
+                    "Permitido apenas para staging técnico. Remova "
+                    "SHOPMAN_EXPOSE_DEBUG_OTP antes de go-live."
+                ),
+                id="SHOPMAN_W007",
+            )
+        )
+    return messages
 
 
 @register(deploy=True)

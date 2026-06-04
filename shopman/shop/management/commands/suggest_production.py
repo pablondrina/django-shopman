@@ -10,10 +10,13 @@ Usage:
     python manage.py suggest_production --skus PAO-FRANCES CROISSANT
 """
 
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -60,6 +63,7 @@ class Command(BaseCommand):
                 if hdm is not None:
                     high_demand_multiplier = D(str(hdm))
         except Exception:
+            logger.debug("suggest_production.handle degraded; using fallback", exc_info=True)
             self.stderr.write("Warning: could not load Shop defaults for production hints")
 
         self.stdout.write(f"\nSugestão de produção para {target_date}")

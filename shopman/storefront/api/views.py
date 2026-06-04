@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,8 +16,8 @@ from shopman.utils.phone import normalize_phone
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
 from shopman.storefront.cart import CHANNEL_REF, CartService
-from shopman.storefront.services import orders as order_service
 from shopman.storefront.services import catalog as catalog_service
+from shopman.storefront.services import orders as order_service
 from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
 from .serializers import (
@@ -27,8 +29,22 @@ from .serializers import (
     UpdateItemSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 
 CHECKOUT_RATE_LIMIT_RETRY_SECONDS = 60
+
+
+def _stock_unit_count_label(qty: int) -> str:
+    unit_word = "unidade disponível" if qty == 1 else "unidades disponíveis"
+    return f"{qty} {unit_word}"
+
+
+def _stock_error_detail(exc) -> str:
+    available_qty = getattr(exc, "available_qty", None)
+    if available_qty is not None and available_qty > 0:
+        return f"Estoque disponível agora: {_stock_unit_count_label(available_qty)}."
+    return "Sem estoque disponível para a quantidade solicitada."
 
 
 @extend_schema_view(
@@ -75,7 +91,7 @@ class CartAddItemView(APIView):
             201: CartSerializer,
             400: DetailSerializer,
             404: DetailSerializer,
-            409: OpenApiResponse(description="Insufficient stock."),
+            409: OpenApiResponse(description="Estoque insuficiente para a quantidade solicitada."),
         },
     )
     def post(self, request):
@@ -117,7 +133,7 @@ class CartAddItemView(APIView):
         except CartUnavailableError as exc:
             return Response(
                 {
-                    "detail": "Insufficient stock.",
+                    "detail": _stock_error_detail(exc),
                     "error_code": exc.error_code,
                     "sku": exc.sku,
                     "requested_qty": exc.requested_qty,
@@ -361,6 +377,7 @@ class CheckoutView(APIView):
                 if loyalty_balance_q > 0:
                     checkout_data["loyalty"] = {"redeem_points_q": loyalty_balance_q}
             except Exception:
+                logger.debug("views.post degraded; using fallback", exc_info=True)
                 pass
 
         try:
@@ -371,6 +388,7 @@ class CheckoutView(APIView):
                 idempotency_key=idempotency_key,
             )
         except Exception as exc:
+            logger.debug("views.post degraded; using fallback", exc_info=True)
             mapped = checkout_service.map_checkout_error(exc)
             if mapped:
                 field, message = next(iter(mapped.items()))

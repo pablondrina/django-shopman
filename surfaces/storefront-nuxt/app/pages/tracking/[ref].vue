@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
+import { operationalCopy, retryAfterDescription } from '~/utils/operationalCopy'
 
 type UiColor = 'neutral' | 'info' | 'success' | 'warning' | 'error'
 
@@ -131,9 +132,9 @@ function rateLimitFromFetchError (err: any): RateLimitRecovery | null {
   const action = Array.isArray(payload.actions) ? payload.actions[0] : null
   return {
     title: payload.title || trackingCopy.value?.rate_limit_title || '',
-    detail: payload.detail || '',
+    detail: payload.detail || operationalCopy.recovery.rateLimit,
     retryAfterSeconds: typeof payload.retry_after_seconds === 'number' ? payload.retry_after_seconds : null,
-    retryLabel: action?.label || trackingCopy.value?.retry_label || ''
+    retryLabel: action?.label || trackingCopy.value?.retry_label || operationalCopy.recovery.retry
   }
 }
 
@@ -407,7 +408,7 @@ useHead(() => ({
         variant="soft"
         icon="i-lucide-clock"
         :title="activeRateLimitRecovery.title"
-        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, '')"
+        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, operationalCopy.recovery.rateLimit)"
       />
       <div class="flex flex-wrap gap-2">
         <UButton :label="activeRateLimitRecovery.retryLabel" icon="i-lucide-refresh-cw" @click="refreshAfterRateLimit" />
@@ -458,7 +459,7 @@ useHead(() => ({
             />
             <UButton
               v-if="mockConfirmPaymentAction"
-              :label="mockConfirmPaymentAction.label"
+              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
               icon="i-lucide-credit-card"
               color="warning"
               variant="soft"
@@ -495,7 +496,7 @@ useHead(() => ({
         variant="soft"
         icon="i-lucide-clock"
         :title="activeRateLimitRecovery.title"
-        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, '')"
+        :description="retryAfterDescription(activeRateLimitRecovery.detail, activeRateLimitRecovery.retryAfterSeconds, operationalCopy.recovery.rateLimit)"
         class="mt-4"
       >
         <template #actions>
@@ -642,7 +643,7 @@ useHead(() => ({
             />
             <UButton
               v-if="mockConfirmPaymentAction"
-              :label="mockConfirmPaymentAction.label"
+              :label="mockConfirmPaymentAction.label || 'Capturar pagamento teste'"
               icon="i-lucide-credit-card"
               color="warning"
               variant="soft"

@@ -2,6 +2,8 @@
 import type { OrderQueueResponse, KDSIndexResponse, ProductionKDSResponse } from '~/types/backstage'
 
 const apiPath = useBackstageApiPath()
+const runtimeConfig = useRuntimeConfig()
+const posSurfaceUrl = computed(() => String(runtimeConfig.public.posSurfaceUrl || '/pos/'))
 
 const { data: ordersData } = await useFetch<OrderQueueResponse>(
   () => apiPath('/api/v1/backstage/orders/'),
@@ -60,7 +62,7 @@ useHead({ title: 'Início' })
             spotlight
           />
           <UPageCard
-            to="/pos"
+            :to="posSurfaceUrl"
             title="POS"
             description="Comandas, caixa e turno"
             icon="i-lucide-shopping-bag"

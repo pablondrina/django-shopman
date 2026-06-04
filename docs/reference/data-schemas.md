@@ -32,10 +32,11 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
 | `stock_check_unavailable` | `list[dict]` | `lifecycle._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
 | `manual_discount` | `dict` | POS `pos_close` view | `ModifyService` (via `set_data`) | Desconto manual do operador: `{type, value, discount_q, reason}`. `type`: `"percent"` ou `"fixed"` |
-| `tab_code` | `string` | POS tab service | POS tab service, projections | Código EAN-8 armazenado com 8 dígitos. Ex: `"00001007"` |
-| `tab_display` | `string` | POS tab service | POS UI, Order.data | Código curto para operador, sem zeros à esquerda. Ex: `"1007"` |
+| `tab_ref` | `string` | POS tab service | POS tab service, projections | Referência canônica da comanda. Aceita texto curto alfanumérico; referências numéricas de até 8 dígitos continuam normalizadas com zeros. Ex: `"00001007"`, `"MESA ANA"` |
+| `tab_display` | `string` | POS tab service | POS UI, Order.data | Rótulo curto para operador. Em numéricos, remove zeros à esquerda; em texto, preserva o rótulo informado. Ex: `"1007"`, `"mesa ana"` |
 | `pos_operator` | `string` | POS tab service | POS projections, Order.data | Username do operador que abriu/tocou o POS tab |
 | `last_touched_at` | `string` | POS tab service | POS projections | Timestamp ISO da última interação operacional |
+| `fired_lines` | `list[str]` | POS `fire_pos_tab` (`session.save`) | `_tab_payload` (flag `fired` por item) | Marker UI de quais `line_id` da comanda já foram disparados à cozinha (KDS). Mirror do ledger autoritativo (tickets KDS por `session_key`, que sobrevive ao commit); escrito direto, sem re-pricing. Disparo progressivo curso-a-curso. **Não propagado ao Order.data** — o ledger pós-commit são os próprios `KDSTicket` |
 | `fiscal` | `dict` | POS checkout | Order.data | Preferências fiscais capturadas no checkout: `{issue_document, tax_id}` |
 | `receipt` | `dict` | POS checkout | Order.data | Preferência de recibo: `{mode, email}` |
 
@@ -134,12 +135,22 @@ for key in (
 | `nfce_qrcode_url` | `string` | NFCeEmitHandler | — | URL do QR code |
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
+| `nfce_series` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Série do documento NFC-e emitido via FocusNFe |
+| `nfce_protocol` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Número do protocolo de autorização |
+| `nfce_xml_url` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | URL do XML autorizado |
+| `nfce_status` | `string` | `shop/handlers/fiscal.py` (FocusNFe) | — | Status da emissão (ex.: `autorizado`, `erro`) |
 | `availability_decision` | `dict` | `lifecycle.approve_with_adjustments()`, `lifecycle.approve_order()`, `lifecycle.reject_order()` | `lifecycle.has_availability_approval()`, `lifecycle.ensure_confirmable()`, `services/stock.py` | Decisão do operador sobre disponibilidade: `{approved: bool, decisions: [{sku, original_qty, approved_qty, action}], decided_at, decided_by}`. Guard para confirmação |
 | `cancelled_by` | `string` | `services/cancellation.py` | `hooks._on_cancelled` | Identificador de quem cancelou: `"customer"` ou `"operator:<username>"` |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
 | `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entry: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 | `awaiting_wo_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage pedidos/producao projections | Refs de WorkOrders que cobrem itens produzidos do pedido. Contextual, derivável e limpável em void. |
+| `pos_committed_at` | `string` | `shop/services/pos.py` (`_mark_tab_committed`) | — | Timestamp ISO de quando a comanda foi finalizada no POS |
+| `client_request_id` | `string` | `shop/services/pos.py` (`_mark_tab_committed`) | `_existing_sale_by_client_request_id` (dedupe) | Chave de idempotência do checkout direto POS. Espelhada em `pos.client_request_id` |
+| `pos` | `dict` | `shop/services/pos.py` (`_mark_tab_committed`) | POS projections, `CashShift.close()` | Contexto POS selado no Order: `{cash_shift_id, client_request_id, ...}`. `cash_shift_id` liga a venda ao turno de caixa para reconciliação |
+| `external_order_code` | `string` | `shop/services/ifood_ingest.py` | — | Código do pedido no marketplace iFood. Duplicado em `ifood.order_code` |
+| `merchant_id` | `string` | `shop/services/ifood_ingest.py` | — | ID do merchant na iFood. Duplicado em `ifood.merchant_id` |
+| `ifood` | `dict` | `shop/services/ifood_ingest.py` | — | Contexto da iFood (só em pedidos ingeridos via `ifood_ingest`): `{order_code, merchant_id, created_at}` |
 
 ### Chaves seed-only para QA adversarial
 

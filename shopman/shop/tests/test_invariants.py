@@ -500,7 +500,7 @@ class TestNoBareExceptPass:
 class TestNoDeprecatedDataKeys:
     """Deprecated Session/Order data key names must not appear in data access patterns.
 
-    POS uses tab/tab_code internally. Portuguese product copy stays in UI only.
+    POS uses tab/tab_ref internally. Portuguese product copy stays in UI only.
 
     Only checks patterns that access .data dict keys or set_data/get operations,
     not Portuguese prose in comments or docstrings.
@@ -512,8 +512,9 @@ class TestNoDeprecatedDataKeys:
         "comanda": "tab",
         "parked": "tab",
         "parked_by": "pos_operator",
-        "standby": "tab_code",
-        "standby_claim": "tab_code",
+        "standby": "tab_ref",
+        "standby_claim": "tab_ref",
+        "tab_code": "tab_ref",
     }
 
     # Patterns that indicate actual data key usage (not prose):

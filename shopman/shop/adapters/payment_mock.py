@@ -227,7 +227,7 @@ def cancel(intent_ref: str, **config) -> PaymentResult:
     from shopman.payman import PaymentError, PaymentService
 
     try:
-        PaymentService.cancel(intent_ref)
+        PaymentService.cancel(intent_ref, reason=str(config.get("reason") or ""))
         return PaymentResult(success=True)
     except PaymentError as e:
         return PaymentResult(

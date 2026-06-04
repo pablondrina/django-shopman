@@ -22,7 +22,7 @@
           {{ kds_instance.name }}
         {% endcomponent %}
         {% component "unfold/components/text.html" with class="text-base-500" %}
-          {{ kds_board.counts.total }} pendentes · {% if kds_is_readonly %}somente leitura{% else %}operacao liberada{% endif %}
+          {{ kds_board.counts.total }} ativos · {{ kds_board.counts.cancelled_recent }} cancelados recentes · {% if kds_is_readonly %}somente leitura{% else %}operacao liberada{% endif %}
         {% endcomponent %}
       </div>
       <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">

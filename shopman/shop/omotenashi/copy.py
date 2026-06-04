@@ -326,7 +326,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedido")},
     },
     "TRACKING_REORDER_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pedir novamente")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Repetir pedido")},
     },
     "TRACKING_MENU_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ver cardápio")},
@@ -344,7 +344,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Capturar pagamento teste")},
     },
     "TRACKING_PROGRESS_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Progresso")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Etapas do pedido")},
     },
     "TRACKING_LIVE_BADGE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ao vivo")},
@@ -527,7 +527,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="O prazo para pagamento expirou.",
-                message="O pedido foi automaticamente cancelado. Você pode refazer o pedido ou falar com o estabelecimento.",
+                message="O pedido foi automaticamente cancelado. Você pode repetir o pedido ou falar com o estabelecimento.",
             ),
         },
     },

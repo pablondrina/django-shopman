@@ -123,16 +123,20 @@ def test_verify_code_invalid_error_code(customer, verification_code):
 })
 def test_verify_account_not_found_error_code():
     """Unknown phone with auto-create disabled returns ACCOUNT_NOT_FOUND."""
+    # A valid, normalization-stable number with no Customer. The previous
+    # placeholder "+5500000000000" normalized to a shorter value than it was
+    # stored under, so the code lookup missed and wrongly returned CODE_EXPIRED.
+    unknown_phone = "+5543988887777"
     raw_code, hmac_digest = generate_raw_code()
     VerificationCode.objects.create(
         code_hash=hmac_digest,
-        target_value="+5500000000000",
+        target_value=unknown_phone,
         purpose=VerificationCode.Purpose.LOGIN,
         status=VerificationCode.Status.SENT,
     )
 
     result = AuthService.verify_for_login(
-        target_value="+5500000000000",
+        target_value=unknown_phone,
         code_input=raw_code,
     )
     assert not result.success

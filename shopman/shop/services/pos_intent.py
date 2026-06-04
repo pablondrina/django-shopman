@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 POS_SALE_INTENT_VERSION = "pos.sale-intent.v1"
 
 _ALLOWED_TOP_LEVEL_KEYS = {
@@ -36,7 +35,7 @@ _ALLOWED_TOP_LEVEL_KEYS = {
     "receipt_mode",
     "receipt_email",
     "client_request_id",
-    "tab_code",
+    "tab_ref",
     "tab_session_key",
     "manual_discount",
     "manager_approval",
@@ -46,6 +45,11 @@ _ALLOWED_TOP_LEVEL_KEYS = {
 _ALLOWED_PAYMENT_METHODS = {"cash", "pix", "card", "external", "mixed"}
 _ALLOWED_PAYMENT_COLLECTIONS = {"terminal", "on_delivery"}
 _ALLOWED_RECEIPT_MODES = {"none", "print", "email"}
+
+POS_SALE_INTENT_PAYLOAD_KEYS = tuple(sorted(_ALLOWED_TOP_LEVEL_KEYS))
+POS_SALE_INTENT_PAYMENT_METHODS = tuple(sorted(_ALLOWED_PAYMENT_METHODS))
+POS_SALE_INTENT_PAYMENT_COLLECTIONS = tuple(sorted(_ALLOWED_PAYMENT_COLLECTIONS))
+POS_SALE_INTENT_RECEIPT_MODES = tuple(sorted(_ALLOWED_RECEIPT_MODES))
 
 
 @dataclass(frozen=True)
@@ -185,16 +189,8 @@ def parse_pos_sale_intent(raw: dict, *, for_commit: bool = True) -> PosSaleInten
         )
 
     payload["client_request_id"] = _client_request_id(payload.get("client_request_id"))
-    payload["tab_code"] = _text(payload.get("tab_code"), limit=16)
+    payload["tab_ref"] = _text(payload.get("tab_ref"), limit=64)
     payload["tab_session_key"] = _text(payload.get("tab_session_key"), limit=120)
-    if for_commit and not payload["tab_session_key"] and not payload["tab_code"]:
-        raise PosIntentError(
-            code="tab_required",
-            message="Abra uma comanda antes de finalizar.",
-            field="tab_code",
-            focus="tab_code",
-            recovery="Leia ou selecione uma comanda.",
-        )
 
     payload["manual_discount"] = _manual_discount(payload.get("manual_discount"))
     payload["manager_approval"] = _manager_approval(payload.get("manager_approval"))
@@ -224,14 +220,37 @@ def _items(raw, *, for_commit: bool) -> list[dict]:
             raise PosIntentError("item_sku_required", "Item sem SKU no carrinho.", field=f"items.{idx}.sku", focus="search")
         qty = _positive_int(item.get("qty", 1), f"items.{idx}.qty")
         unit_price_q = _nonnegative_int(item.get("unit_price_q", item.get("price_q", 0)), f"items.{idx}.unit_price_q")
-        items.append({
+        entry = {
             "sku": sku,
             "name": _text(item.get("name"), limit=180),
             "qty": qty,
             "unit_price_q": unit_price_q,
             "notes": _text(item.get("notes"), limit=280),
-        })
+        }
+        if item.get("is_d1"):
+            entry["is_d1"] = True
+        line_discount = _line_discount(item.get("discount"))
+        if line_discount:
+            entry["discount"] = line_discount
+        items.append(entry)
     return items
+
+
+def _line_discount(raw) -> dict | None:
+    """Operator per-line manual discount (percent only), clamped to 0–100%."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        value = float(raw.get("value") or 0)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    return {
+        "type": "percent",
+        "value": min(100.0, value),
+        "reason": _text(raw.get("reason"), limit=120) or "cortesia",
+    }
 
 
 def _tenders(raw) -> list[dict] | None:
@@ -258,27 +277,53 @@ def _tenders(raw) -> list[dict] | None:
 def _structured_address(raw) -> dict:
     if not isinstance(raw, dict):
         return {}
-    allowed = {
-        "route", "street_number", "neighborhood", "city", "state",
-        "postal_code", "country", "complement", "reference",
+    text_limits = {
+        "formatted_address": 500,
+        "route": 200,
+        "street_number": 40,
+        "neighborhood": 120,
+        "city": 120,
+        "state": 80,
+        "state_code": 10,
+        "postal_code": 40,
+        "country": 120,
+        "country_code": 10,
+        "place_id": 255,
+        "complement": 160,
+        "delivery_instructions": 500,
+        "reference": 160,
     }
-    return {key: _text(value, limit=160) for key, value in raw.items() if key in allowed and _text(value, limit=160)}
+    cleaned: dict = {}
+    for key, value in raw.items():
+        if key in text_limits:
+            text = _text(value, limit=text_limits[key])
+            if text:
+                cleaned[key] = text
+        elif key in {"latitude", "longitude"}:
+            number = _optional_float(value)
+            if number is not None:
+                cleaned[key] = number
+        elif key == "is_verified":
+            cleaned[key] = bool(value)
+    return cleaned
 
 
 def _manual_discount(raw) -> dict | None:
     if not isinstance(raw, dict):
         return None
     discount_q = _optional_nonnegative_int(raw.get("discount_q"), "manual_discount.discount_q") or 0
-    if discount_q <= 0:
-        return None
     discount_type = str(raw.get("type") or "percent").strip().lower()
     if discount_type not in {"percent", "fixed"}:
-        discount_type = "fixed"
+        discount_type = "percent"
+    value = raw.get("value", "")
+    value_text = _text(value, limit=40)
+    if discount_q <= 0 and not value_text:
+        return None
     return {
         "type": discount_type,
-        "value": raw.get("value", 0),
+        "value": value_text,
         "discount_q": discount_q,
-        "reason": _text(raw.get("reason") or "outro", limit=120),
+        "reason": _text(raw.get("reason") or "cortesia", limit=120),
     }
 
 
@@ -286,10 +331,10 @@ def _manager_approval(raw) -> dict | None:
     if not isinstance(raw, dict):
         return None
     username = _text(raw.get("username"), limit=150)
-    password = str(raw.get("password") or "")
-    if not username and not password:
+    pin = str(raw.get("pin") or "")
+    if not username and not pin:
         return None
-    return {"username": username, "password": password}
+    return {"username": username, "pin": pin}
 
 
 def _fulfillment_type(value) -> str:
@@ -343,6 +388,15 @@ def _text(value, *, limit: int) -> str:
     return text
 
 
+def _optional_float(value) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _positive_int(value, field: str) -> int:
     try:
         parsed = int(value)
@@ -370,4 +424,13 @@ def _optional_nonnegative_int(value, field: str) -> int | None:
     return parsed
 
 
-__all__ = ["POS_SALE_INTENT_VERSION", "PosIntentError", "PosSaleIntent", "parse_pos_sale_intent"]
+__all__ = [
+    "POS_SALE_INTENT_PAYLOAD_KEYS",
+    "POS_SALE_INTENT_PAYMENT_COLLECTIONS",
+    "POS_SALE_INTENT_PAYMENT_METHODS",
+    "POS_SALE_INTENT_RECEIPT_MODES",
+    "POS_SALE_INTENT_VERSION",
+    "PosIntentError",
+    "PosSaleIntent",
+    "parse_pos_sale_intent",
+]

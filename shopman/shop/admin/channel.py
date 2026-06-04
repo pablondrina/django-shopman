@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django import forms
 from django.conf import settings
@@ -13,6 +14,8 @@ from unfold.admin import ModelAdmin
 
 from shopman.shop.config import ChannelConfig, deep_merge
 from shopman.shop.models import Channel
+
+logger = logging.getLogger(__name__)
 
 
 class ChannelForm(forms.ModelForm):
@@ -235,4 +238,5 @@ class ChannelAdmin(ModelAdmin):
             formatted = json.dumps(data, indent=2, ensure_ascii=False)
             return mark_safe(f"<pre>{formatted}</pre>")
         except Exception:
+            logger.debug("channel.resolved_config_display degraded; using fallback", exc_info=True)
             return "-"

@@ -696,7 +696,9 @@ def _adapter_config(order, *, method: str) -> dict:
                 10,
             )
     if method == "card":
-        config["capture_method"] = "manual"
+        stripe_config = getattr(settings, "SHOPMAN_STRIPE", {}) or {}
+        capture_method = str(stripe_config.get("capture_method") or "manual").strip().lower()
+        config["capture_method"] = capture_method if capture_method in {"automatic", "manual"} else "manual"
     return config
 
 

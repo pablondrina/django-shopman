@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from django.utils import timezone
 from shopman.orderman.models import Order
 
 from shopman.backstage.models import KDSInstance, KDSTicket
@@ -14,10 +15,10 @@ from shopman.backstage.services.exceptions import KDSError
 
 @pytest.fixture
 def ticket(db):
-    order = Order.objects.create(ref="KDS-SVC-1", channel_ref="web", total_q=1000)
+    order = Order.objects.create(ref="KDS-SVC-1", channel_ref="web", session_key="sk-kds-svc-1", total_q=1000)
     instance = KDSInstance.objects.create(ref="prep-svc", name="Preparo", type="prep")
     return KDSTicket.objects.create(
-        order=order,
+        session_key=order.session_key,
         kds_instance=instance,
         items=[{"sku": "A", "name": "Item", "qty": 1, "checked": False}],
     )
@@ -69,6 +70,16 @@ def test_set_ticket_item_checked_raises_for_missing_item(ticket):
 
 
 @pytest.mark.django_db
+def test_set_ticket_item_checked_raises_for_cancelled_ticket(ticket):
+    ticket.status = "cancelled"
+    ticket.cancelled_at = timezone.now()
+    ticket.save(update_fields=["status", "cancelled_at"])
+
+    with pytest.raises(KDSError):
+        kds.set_ticket_item_checked(ticket_pk=ticket.pk, index=0, checked=True, actor="kds:op")
+
+
+@pytest.mark.django_db
 def test_mark_ticket_done_delegates_to_core(ticket, monkeypatch):
     core = Mock()
     monkeypatch.setattr(kds.kds_core, "complete_ticket", core)
@@ -83,6 +94,16 @@ def test_mark_ticket_done_delegates_to_core(ticket, monkeypatch):
 def test_mark_ticket_done_raises_for_missing_ticket():
     with pytest.raises(KDSError):
         kds.mark_ticket_done(ticket_pk=999999, actor="kds:op")
+
+
+@pytest.mark.django_db
+def test_mark_ticket_done_raises_for_cancelled_ticket(ticket):
+    ticket.status = "cancelled"
+    ticket.cancelled_at = timezone.now()
+    ticket.save(update_fields=["status", "cancelled_at"])
+
+    with pytest.raises(KDSError):
+        kds.mark_ticket_done(ticket_pk=ticket.pk, actor="kds:op")
 
 
 def test_expedition_action_wraps_invalid_action(monkeypatch):

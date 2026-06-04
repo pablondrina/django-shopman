@@ -49,7 +49,7 @@ class TestOrderTrackingPage:
 
         assert response.status_code == 200
         body = response.content.decode()
-        assert "Pedir novamente" not in body
+        assert "Repetir pedido" not in body
         assert "Ver cardápio" not in body
         assert "Recebemos seu pedido." in body
 
@@ -67,7 +67,7 @@ class TestOrderTrackingPage:
 
         assert response.status_code == 200
         body = response.content.decode()
-        assert "Pedir novamente" in body
+        assert "Repetir pedido" in body
         assert "Ver cardápio" in body
 
     def test_confirmed_unpaid_pix_tracking_redirects_to_payment_gate(

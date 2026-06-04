@@ -553,3 +553,111 @@ class SessionWriteServiceTests(TestCase):
         self.session.refresh_from_db()
         self.assertEqual(len(self.session.data["issues"]), 1)
         self.assertEqual(self.session.data["issues"][0]["id"], "NEW")
+
+
+class ModifyServiceMoveLinesTests(ModifyServiceBaseTests):
+    """Tests for the move_lines session-integrity operation."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.source = Session.objects.create(
+            session_key="MOVE-SRC",
+            channel_ref=self.channel.ref,
+            state="open",
+            pricing_policy="external",
+            items=[
+                {"line_id": "L1", "sku": "COFFEE", "qty": 2, "unit_price_q": 500, "line_total_q": 1000, "meta": {}},
+                {"line_id": "L2", "sku": "CAKE", "qty": 1, "unit_price_q": 1500, "line_total_q": 1500, "meta": {"notes": "sem açúcar"}},
+            ],
+        )
+        self.target = Session.objects.create(
+            session_key="MOVE-DST",
+            channel_ref=self.channel.ref,
+            state="open",
+            pricing_policy="external",
+            items=[
+                {"line_id": "T1", "sku": "TEA", "qty": 1, "unit_price_q": 400, "line_total_q": 400, "meta": {}},
+            ],
+        )
+
+    def test_move_lines_transfers_a_line_and_freezes_price(self) -> None:
+        """Moving a line keeps unit_price_q/line_total_q/meta verbatim on the target."""
+        ModifyService.move_lines(
+            from_session_key="MOVE-SRC",
+            to_session_key="MOVE-DST",
+            channel_ref=self.channel.ref,
+            line_ids=["L2"],
+        )
+
+        self.source.refresh_from_db()
+        self.target.refresh_from_db()
+
+        # Source lost L2, kept L1.
+        self.assertEqual([i["sku"] for i in self.source.items], ["COFFEE"])
+        # Target gained the cake with its price frozen and a fresh line_id.
+        target_skus = {i["sku"]: i for i in self.target.items}
+        self.assertIn("CAKE", target_skus)
+        moved = target_skus["CAKE"]
+        self.assertEqual(moved["unit_price_q"], 1500)
+        self.assertEqual(moved["line_total_q"], 1500)
+        self.assertEqual(moved["meta"], {"notes": "sem açúcar"})
+        self.assertNotEqual(moved["line_id"], "L2")  # new identity
+
+    def test_move_lines_recomputes_structural_totals(self) -> None:
+        """Both sessions' pricing totals reflect the moved line totals."""
+        ModifyService.move_lines(
+            from_session_key="MOVE-SRC",
+            to_session_key="MOVE-DST",
+            channel_ref=self.channel.ref,
+            line_ids=["L2"],
+        )
+        self.source.refresh_from_db()
+        self.target.refresh_from_db()
+        self.assertEqual(self.source.pricing["total_q"], 1000)  # only COFFEE remains
+        self.assertEqual(self.target.pricing["total_q"], 1900)  # TEA 400 + CAKE 1500
+
+    def test_move_all_lines_empties_source_for_merge(self) -> None:
+        """Moving every line (merge) leaves the source empty."""
+        ModifyService.move_lines(
+            from_session_key="MOVE-SRC",
+            to_session_key="MOVE-DST",
+            channel_ref=self.channel.ref,
+            line_ids=["L1", "L2"],
+        )
+        self.source.refresh_from_db()
+        self.target.refresh_from_db()
+        self.assertEqual(self.source.items, [])
+        self.assertEqual(self.source.pricing["total_q"], 0)
+        self.assertEqual(len(self.target.items), 3)
+
+    def test_move_lines_rejects_unknown_line_id(self) -> None:
+        with self.assertRaises(ValidationError) as ctx:
+            ModifyService.move_lines(
+                from_session_key="MOVE-SRC",
+                to_session_key="MOVE-DST",
+                channel_ref=self.channel.ref,
+                line_ids=["NOPE"],
+            )
+        self.assertEqual(ctx.exception.code, "unknown_line_id")
+
+    def test_move_lines_rejects_same_session(self) -> None:
+        with self.assertRaises(ValidationError) as ctx:
+            ModifyService.move_lines(
+                from_session_key="MOVE-SRC",
+                to_session_key="MOVE-SRC",
+                channel_ref=self.channel.ref,
+                line_ids=["L1"],
+            )
+        self.assertEqual(ctx.exception.code, "same_session")
+
+    def test_move_lines_rejects_committed_target(self) -> None:
+        self.target.state = "committed"
+        self.target.save(update_fields=["state"])
+        with self.assertRaises(SessionError) as ctx:
+            ModifyService.move_lines(
+                from_session_key="MOVE-SRC",
+                to_session_key="MOVE-DST",
+                channel_ref=self.channel.ref,
+                line_ids=["L1"],
+            )
+        self.assertEqual(ctx.exception.code, "not_open")

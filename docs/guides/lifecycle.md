@@ -88,7 +88,7 @@ O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem cl
 | `on_dispatched` | Status → DISPATCHED | `notification.send` |
 | `on_delivered` | Status → DELIVERED | `notification.send` |
 | `on_completed` | Status → COMPLETED | `loyalty.earn()`, `fiscal.emit()` |
-| `on_cancelled` | Status → CANCELLED | `kds.cancel_tickets()`, `stock.release()`, `payment.refund()`, `notification.send` |
+| `on_cancelled` | Status → CANCELLED | `kds.cancel_tickets()`, `stock.release()`, `payment.cancel()` para intent não capturada, `payment.refund()` para saldo capturado, `fiscal.cancel()`, `notification.send` |
 | `on_returned` | Status → RETURNED | `stock.revert()`, `payment.refund()`, `fiscal.cancel()`, `notification.send` |
 
 ### Availability Approval (Guard de Confirmação)
@@ -137,7 +137,7 @@ Cada service encapsula uma preocupação de negócio. Services chamam Core servi
 | `checkout_defaults` | infer | PreferenceService | Sync |
 | `pricing` | resolve | CatalogService.price() + Rules | Sync |
 | `cancellation` | cancel | Order.transition_status() | Sync |
-| `kds` | dispatch, on_all_tickets_done | KDSInstance, KDSTicket models | Sync |
+| `kds` | dispatch, cancel_tickets, on_all_tickets_done | KDSInstance, KDSTicket models/projections | Sync; cancelamento marca tickets abertos como `cancelled`, emite atualização KDS e expõe aviso recente ao operador |
 | `fulfillment` | create, update | Fulfillment model | Sync |
 | `notification` | send | Directive (async) | Async |
 | `loyalty` | earn, redeem | Directive (async) | Async |

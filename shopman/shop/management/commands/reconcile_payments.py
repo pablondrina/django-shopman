@@ -120,6 +120,7 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        logger.debug("reconcile_payments.handle degraded; using fallback", exc_info=True)
                         failures += 1
                         from shopman.shop.services import observability
 
@@ -149,6 +150,7 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        logger.debug("reconcile_payments.handle degraded; using fallback", exc_info=True)
                         failures += 1
                         from shopman.shop.services import observability
 

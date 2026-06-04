@@ -271,6 +271,7 @@ def annotate_products(
                     from decimal import Decimal as _D
                     available_qty = int(_D(str(total)))
                 except Exception:
+                    logger.debug("product_cards.annotate_products degraded; using fallback", exc_info=True)
                     available_qty = None
 
         result.append({
