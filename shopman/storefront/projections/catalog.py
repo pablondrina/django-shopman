@@ -22,13 +22,13 @@ from django.urls import NoReverseMatch, reverse
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
+from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     HappyHourProjection,
 )
-from shopman.shop.services import catalog_context
 from shopman.shop.services.storefront_context import (
     happy_hour_state,
     popular_skus,

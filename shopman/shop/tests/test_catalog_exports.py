@@ -42,7 +42,7 @@ def test_build_catalog_export_returns_neutral_payload(monkeypatch):
     listing, product, _item = _listing_with_product()
 
     monkeypatch.setattr(
-        "shopman.shop.services.catalog_context.availability_for_sku",
+        "shopman.shop.projections.catalog_context.availability_for_sku",
         lambda sku, *, channel_ref: {
             "total_promisable": Decimal("3"),
             "availability_policy": "planned_ok",
@@ -83,7 +83,7 @@ def test_build_catalog_export_returns_neutral_payload(monkeypatch):
 def test_build_catalog_export_dict_is_serializable(monkeypatch):
     listing, _product, _item = _listing_with_product()
     monkeypatch.setattr(
-        "shopman.shop.services.catalog_context.availability_for_sku",
+        "shopman.shop.projections.catalog_context.availability_for_sku",
         lambda sku, *, channel_ref: None,
     )
 
@@ -97,7 +97,7 @@ def test_build_catalog_export_dict_is_serializable(monkeypatch):
 def test_inactive_items_are_omitted_by_default_and_available_when_requested(monkeypatch):
     listing, _product, _item = _listing_with_product(is_sellable=False)
     monkeypatch.setattr(
-        "shopman.shop.services.catalog_context.availability_for_sku",
+        "shopman.shop.projections.catalog_context.availability_for_sku",
         lambda sku, *, channel_ref: None,
     )
 

@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from shopman.shop.services import catalog_context
+from shopman.shop.projections import catalog_context
 
 
 @dataclass(frozen=True)

@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import Action, Availability
-from shopman.shop.services import catalog_context
 from shopman.shop.services.storefront_context import (
     minimum_order_progress,
     upsell_suggestion,

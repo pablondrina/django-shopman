@@ -9,11 +9,11 @@ from decimal import Decimal
 from django.http import Http404
 
 from shopman.shop.config import ChannelConfig
+from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
 )
-from shopman.shop.services import catalog_context
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ import logging
 from django.http import Http404
 from django.urls import reverse
 
-from shopman.shop.services import catalog_context
+from shopman.shop.projections import catalog_context
 
 logger = logging.getLogger(__name__)
 
