@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from django.http import HttpRequest
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections.cart import CartProjection, build_cart
 from shopman.storefront.projections.home import CopyEntryProjection
@@ -39,7 +39,7 @@ class ReorderConflictProjection:
     cart: CartProjection
     items: tuple[ReorderConflictItemProjection, ...]
     copy: ReorderConflictCopyProjection
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
 
 
 def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None = None) -> ReorderConflictProjection:
@@ -59,7 +59,7 @@ def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None
         items=_snapshot_items(order),
         copy=copy,
         actions=(
-            SurfaceActionProjection(
+            Action(
                 ref="reorder_append",
                 kind="mutation",
                 label=append_label.title or "Adicionar ao carrinho atual",
@@ -76,7 +76,7 @@ def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None
                 },
                 idempotency="required",
             ),
-            SurfaceActionProjection(
+            Action(
                 ref="reorder_replace",
                 kind="mutation",
                 label=replace_label.title or "Substituir carrinho",

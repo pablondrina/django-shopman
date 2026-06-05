@@ -47,7 +47,7 @@ def _bind_order_event_user(request: HttpRequest, order_ref: str) -> None:
     request.user = _OrderAccessEventUser(session_key=session_key, order_ref=order_ref)
 
 
-def _surface_action_map(projection) -> dict[str, object]:
+def _action_map(projection) -> dict[str, object]:
     return {
         action.ref: action
         for action in getattr(projection, "actions", ()) or ()
@@ -69,7 +69,7 @@ class OrderTrackingView(View):
         from shopman.storefront.projections import build_order_tracking
 
         proj = build_order_tracking(order)
-        ctx: dict = {"tracking": proj, "tracking_actions": _surface_action_map(proj)}
+        ctx: dict = {"tracking": proj, "tracking_actions": _action_map(proj)}
         if request.GET.get("refused"):
             ctx["cancel_refused"] = True
         return render(request, "storefront/order_tracking.html", ctx)

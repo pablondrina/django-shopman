@@ -11,7 +11,7 @@ from django.utils.dateparse import parse_datetime
 from shopman.utils.monetary import format_money
 
 from shopman.shop.omotenashi import resolve_copy
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.shop.services import payment as payment_service
 from shopman.shop.services.interaction_context import InteractionContext
 
@@ -31,7 +31,7 @@ class PaymentPromiseProjection:
     title: str
     message: str
     tone: str
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     deadline_at: str | None
     deadline_kind: str | None
     deadline_action: str
@@ -58,7 +58,7 @@ class PaymentProjection:
     checkout_url: str | None
     status_url: str
     server_now_iso: str
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     error_message: str | None
     is_debug: bool
 
@@ -243,8 +243,8 @@ def _action(
     payload_schema: dict | None = None,
     idempotency: str = "none",
     confirmation: dict | None = None,
-) -> SurfaceActionProjection:
-    return SurfaceActionProjection(
+) -> Action:
+    return Action(
         ref=ref,
         kind=kind,
         label=label,
@@ -272,7 +272,7 @@ def _can_mock_confirm_payment(order, *, is_debug: bool) -> bool:
     return status not in {"", "unknown", "captured", "paid", "refunded", "cancelled", "failed"}
 
 
-def _build_payment_actions(order, *, is_debug: bool) -> tuple[SurfaceActionProjection, ...]:
+def _build_payment_actions(order, *, is_debug: bool) -> tuple[Action, ...]:
     if not _can_mock_confirm_payment(order, is_debug=is_debug):
         return ()
     return (

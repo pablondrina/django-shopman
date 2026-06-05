@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CopyEntryProjection, HomeProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { CopyEntryProjection, HomeProjection, Action } from '~/types/shopman'
 
 interface HeroSlide {
   ref: string
@@ -11,22 +11,22 @@ interface HeroSlide {
   primaryLabel: string
   primaryIcon: string
   primaryTo?: string
-  primaryAction?: SurfaceActionProjection | null
+  primaryAction?: Action | null
   secondaryLabel?: string
   secondaryTo?: string
 }
 
 const props = defineProps<{
   home: HomeProjection
-  primaryAction: SurfaceActionProjection | null
-  reorderAction: SurfaceActionProjection | null
+  primaryAction: Action | null
+  reorderAction: Action | null
   reorderLoading?: boolean
   statusLabel: string
   statusOpen: boolean
 }>()
 
 const emit = defineEmits<{
-  reorder: [action: SurfaceActionProjection | null]
+  reorder: [action: Action | null]
 }>()
 
 const featured = computed(() => props.home.featured_items || [])

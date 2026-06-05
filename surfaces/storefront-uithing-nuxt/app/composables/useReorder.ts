@@ -1,4 +1,4 @@
-import type { CartProjection, ReorderConflictProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { CartProjection, ReorderConflictProjection, Action } from '~/types/shopman'
 
 export function useReorder () {
   const apiPath = useShopmanApiPath()
@@ -38,12 +38,12 @@ export function useReorder () {
     }
   }
 
-  function orderRefFromAction (action: SurfaceActionProjection): string {
+  function orderRefFromAction (action: Action): string {
     const match = action.href.match(/\/orders\/([^/]+)\/reorder\/?/)
     return match?.[1] || ''
   }
 
-  async function performAction (action: SurfaceActionProjection, mode: 'append' | 'replace' = 'append') {
+  async function performAction (action: Action, mode: 'append' | 'replace' = 'append') {
     const orderRef = orderRefFromAction(action)
     if (!orderRef) return null
     return submit(orderRef, mode)

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import Availability, SurfaceActionProjection
+from shopman.shop.projections.types import Action, Availability
 from shopman.shop.services import catalog_context
 from shopman.shop.services.storefront_context import (
     minimum_order_progress,
@@ -151,7 +151,7 @@ class CartProjection:
 
     # Canonical cart-level actions. Surfaces render these instead of deriving
     # checkout eligibility from local cart flags.
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -331,7 +331,7 @@ def _cart_actions(
     has_unavailable_items: bool,
     has_ready_for_confirmation_items: bool,
     minimum_order_progress: MinimumOrderProgressProjection | None,
-) -> tuple[SurfaceActionProjection, ...]:
+) -> tuple[Action, ...]:
     checkout_enabled = True
     checkout_reason = ""
     checkout_label = "Finalizar pedido"
@@ -349,7 +349,7 @@ def _cart_actions(
         checkout_label = "Confirmar agora"
 
     return (
-        SurfaceActionProjection(
+        Action(
             ref="checkout",
             kind="link",
             label=checkout_label,
@@ -358,7 +358,7 @@ def _cart_actions(
             reason=checkout_reason,
             href="/checkout",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="continue_shopping",
             kind="link",
             label="Continuar comprando",

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaymentResponse, PaymentStatusResponse, SurfaceActionProjection } from '~/types/shopman'
+import type { PaymentResponse, PaymentStatusResponse, Action } from '~/types/shopman'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -44,7 +44,7 @@ async function copyPix () {
   useSonner.success('Código PIX copiado.')
 }
 
-async function postAction (action: SurfaceActionProjection) {
+async function postAction (action: Action) {
   actionPending.value = { ...actionPending.value, [action.ref]: true }
   try {
     const headers = await csrfHeaders()

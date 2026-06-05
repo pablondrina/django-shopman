@@ -1066,7 +1066,7 @@ def test_tracking_surface_enforces_backend_payment_gate():
     assert "payment_gate_url" in api
     assert "requires_payment_gate" in serializer
     assert "payment_gate_url" in serializer
-    assert "actions = SurfaceActionSerializer(many=True" in serializer
+    assert "actions = ActionSerializer(many=True" in serializer
     assert "can_mock_confirm_payment" not in serializer
     assert "requires_payment_gate" in tracking
     assert "payment_gate_url" in tracking
@@ -1200,7 +1200,7 @@ def test_tracking_surface_supports_live_promise_details_and_rating():
 
     assert "OrderRateView" in api
     assert "OrderRateView" in urls
-    assert "actions = SurfaceActionSerializer" in serializer
+    assert "actions = ActionSerializer" in serializer
     assert "rate_order" in tracking
 
 

@@ -1,4 +1,4 @@
-import type { CartMutationResponse, CartProjection, ProductMutationMeta, SurfaceActionProjection } from '~/types/shopman'
+import type { CartMutationResponse, CartProjection, ProductMutationMeta, Action } from '~/types/shopman'
 
 interface CartIssue {
   title: string
@@ -11,7 +11,7 @@ interface CartIssue {
   is_paused: boolean
   is_planned: boolean
   substitutes: Array<{ sku?: string, name?: string, reason?: string, available_qty?: number, target_qty?: number, can_order?: boolean }>
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   items: Array<{
     sku: string
     name: string

@@ -340,7 +340,7 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('Enviar pedido')
     expect(checkout).not.toContain('Compra sem senha')
     expect(types).toContain('requires_authentication: boolean')
-    expect(types).toContain('auth_action: SurfaceActionProjection | null')
+    expect(types).toContain('auth_action: Action | null')
   })
 
   it('keeps checkout entry points visible before authentication', () => {
@@ -353,7 +353,7 @@ describe('surface UX guardrails', () => {
     const types = read('app/types/shopman.ts')
     const reorder = read('app/composables/useReorder.ts')
 
-    expect(types).toContain('actions: SurfaceActionProjection[]')
+    expect(types).toContain('actions: Action[]')
     expect(app).not.toContain('<CartDrawer')
     expect(cartState).not.toContain('drawerOpen')
     expect(cartState).toContain("await navigateTo('/cart')")

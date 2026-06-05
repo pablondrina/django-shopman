@@ -1,4 +1,4 @@
-import type { CartProjection, ReorderConflictProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { CartProjection, ReorderConflictProjection, Action } from '~/types/shopman'
 
 interface ReorderSkippedItem {
   sku?: string
@@ -62,7 +62,7 @@ export function useReorder () {
     orderRef: string,
     mode?: 'replace' | 'append',
     idempotencyKey = newRemoteMutationKey(`web-reorder-${orderRef}`),
-    action?: SurfaceActionProjection | null
+    action?: Action | null
   ): Promise<boolean> {
     pending.value = true
     rateLimitRecovery.value = null
@@ -147,7 +147,7 @@ export function useReorder () {
   }
 
   async function performReorderAction (
-    action: SurfaceActionProjection,
+    action: Action,
     orderRef: string,
     mode?: 'replace' | 'append'
   ): Promise<boolean> {

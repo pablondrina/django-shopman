@@ -16,10 +16,10 @@ from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
+    Action,
     FulfillmentProjection,
     OrderItemProjection,
     OrderProgressStepProjection,
-    SurfaceActionProjection,
     TimelineEventProjection,
 )
 from shopman.shop.services import payment_status
@@ -136,7 +136,7 @@ class OrderTrackingPromiseProjection:
     deadline_action: str
     requires_active_notification: bool
     notification_topic: str | None
-    actions: tuple[SurfaceActionProjection, ...] = ()
+    actions: tuple[Action, ...] = ()
     next_event: str = ""
     recovery: str = ""
     active_notification: str = ""
@@ -172,7 +172,7 @@ class OrderTrackingProjection:
     delivery_fulfillments: tuple[FulfillmentProjection, ...]
     pickup_fulfillments: tuple[FulfillmentProjection, ...]
     pickup_info: PickupInfoProjection | None
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     is_active: bool
     server_now_iso: str
     payment_pending: bool
@@ -440,8 +440,8 @@ def _action(
     payload_schema: dict | None = None,
     idempotency: str = "none",
     confirmation: dict | None = None,
-) -> SurfaceActionProjection:
-    return SurfaceActionProjection(
+) -> Action:
+    return Action(
         ref=ref,
         kind=kind,
         label=label,
@@ -456,7 +456,7 @@ def _action(
     )
 
 
-def _reorder_action(order, *, priority: str = "secondary") -> SurfaceActionProjection:
+def _reorder_action(order, *, priority: str = "secondary") -> Action:
     return _action(
         ref="reorder",
         kind="mutation",
@@ -481,8 +481,8 @@ def _build_order_actions(
     can_cancel: bool,
     can_rate: bool,
     can_mock_confirm_payment: bool,
-) -> tuple[SurfaceActionProjection, ...]:
-    actions: list[SurfaceActionProjection] = []
+) -> tuple[Action, ...]:
+    actions: list[Action] = []
     if can_cancel:
         actions.append(_action(
             ref="cancel_order",
@@ -562,7 +562,7 @@ def _build_order_actions(
     return tuple(actions)
 
 
-def _first_visible_action(actions: tuple[SurfaceActionProjection, ...]) -> SurfaceActionProjection | None:
+def _first_visible_action(actions: tuple[Action, ...]) -> Action | None:
     for action in actions:
         if action.enabled:
             return action

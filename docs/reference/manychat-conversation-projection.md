@@ -33,7 +33,7 @@ em `order_status`.
 - `source_projection`: `tracking` ou `payment`.
 - `state`, `title`, `message`, `tone`: texto e tom derivados da promise
   canonica.
-- `actions`: lista ordenada de `SurfaceActionProjection` que a superficie pode
+- `actions`: lista ordenada de `Action` que a superficie pode
   renderizar/executar. Lista vazia significa que nao ha acao acionavel agora.
 - `deadline_at`: prazo canonico quando existe timer de pagamento ou
   disponibilidade.

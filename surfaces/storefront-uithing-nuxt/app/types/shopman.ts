@@ -182,7 +182,7 @@ export interface CartProjection {
   has_ready_for_confirmation_items: boolean
   minimum_order_progress: MinimumOrderProgressProjection | null
   upsell: { sku: string, name: string, unit_price_q: number, price_display: string, image_url: string | null } | null
-  actions: SurfaceActionProjection[]
+  actions: Action[]
 }
 
 export interface SocialLinkProjection {
@@ -280,7 +280,7 @@ export interface HomeNoticeProjection {
   title: string
   message: string
   priority: 'global' | 'contextual' | string
-  actions: SurfaceActionProjection[]
+  actions: Action[]
 }
 
 export interface CopyEntryProjection {
@@ -377,7 +377,7 @@ export interface HomeProjection {
   opening_hours: OpeningHoursEntry[]
   last_order_ref: string | null
   last_order_items: LastOrderItemProjection[]
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   featured_items: CatalogItemProjection[]
   origin_channel: string | null
   public_config: PublicConfigProjection
@@ -436,7 +436,7 @@ export interface ReorderConflictProjection {
   cart: CartProjection
   items: ReorderConflictItemProjection[]
   copy: ReorderConflictCopyProjection
-  actions: SurfaceActionProjection[]
+  actions: Action[]
 }
 
 export interface CartMutationResponse {
@@ -522,7 +522,7 @@ export interface StructuredAddressProjection {
   place_id?: string | null
 }
 
-export interface SurfaceActionProjection {
+export interface Action {
   ref: string
   kind: 'mutation' | 'link' | 'external' | 'copy' | 'instruction' | string
   label: string
@@ -542,12 +542,12 @@ export interface CheckoutProjection {
   customer_name: string
   is_authenticated: boolean
   requires_authentication: boolean
-  auth_action: SurfaceActionProjection | null
+  auth_action: Action | null
   saved_addresses: SavedAddressProjection[]
   preselected_address_id: number | null
   payment_methods: PaymentMethodProjection[]
   default_payment_method: string
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   fulfillment_options: Array<'pickup' | 'delivery' | string>
   has_pickup: boolean
   has_delivery: boolean
@@ -590,7 +590,7 @@ export interface TrackingPromiseProjection {
   deadline_action: string
   requires_active_notification: boolean
   notification_topic: string | null
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   next_event: string
   recovery: string
   active_notification: string
@@ -687,7 +687,7 @@ export interface TrackingResponse {
   pickup_fulfillments: TrackingFulfillmentProjection[]
   fulfillments: TrackingFulfillmentProjection[]
   pickup_info: PickupInfoProjection | null
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   is_active: boolean
   server_now_iso: string
   payment_pending: boolean
@@ -716,7 +716,7 @@ export interface PaymentPromiseProjection {
   title: string
   message: string
   tone: 'success' | 'warning' | 'danger' | 'info' | string
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   deadline_at: string | null
   deadline_kind: string | null
   deadline_action: string
@@ -741,7 +741,7 @@ export interface PaymentProjection {
   status_url: string
   tracking_url: string
   server_now_iso: string
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   error_message: string | null
   is_debug: boolean
 }
@@ -773,7 +773,7 @@ export interface RemoteConversationProjection {
   title: string
   message: string
   tone: 'success' | 'warning' | 'danger' | 'info' | string
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   deadline_at: string | null
   next_event: string
   recovery: string

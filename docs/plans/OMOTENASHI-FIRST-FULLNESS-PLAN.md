@@ -137,7 +137,7 @@ Toda superficie critica deve renderizar um contrato explicito:
 class SurfacePromise:
     headline: str
     current_state: str
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     deadline_at: str | None
     deadline_kind: str | None     # availability | payment | pickup | delivery | retry
     next_event: str

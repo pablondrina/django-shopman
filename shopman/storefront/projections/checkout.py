@@ -20,10 +20,10 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
+    Action,
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
-    SurfaceActionProjection,
 )
 from shopman.shop.services import customer_context
 from shopman.shop.services.channel_policy import ChannelPolicyResolution, resolve_channel_policy
@@ -60,7 +60,7 @@ class CheckoutProjection:
     customer_name: str
     is_authenticated: bool
     requires_authentication: bool
-    auth_action: SurfaceActionProjection | None
+    auth_action: Action | None
 
     # Saved addresses
     saved_addresses: tuple[SavedAddressProjection, ...]
@@ -72,7 +72,7 @@ class CheckoutProjection:
     default_payment_method: str
 
     # Resolved options/actions for the surface
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     fulfillment_options: tuple[str, ...]
     has_pickup: bool
     has_delivery: bool
@@ -271,7 +271,7 @@ def _checkout_actions(
     cart: CartProjection,
     is_authenticated: bool,
     requires_authentication: bool,
-) -> tuple[SurfaceActionProjection, ...]:
+) -> tuple[Action, ...]:
     auth_blocked = requires_authentication and not is_authenticated
     enabled = policy.can_checkout and not cart.is_empty and not auth_blocked
     reason = ""
@@ -283,7 +283,7 @@ def _checkout_actions(
         reason = "Checkout indisponível para este canal."
 
     return (
-        SurfaceActionProjection(
+        Action(
             ref="checkout",
             kind="mutation",
             label="Confirmar pedido",
@@ -312,8 +312,8 @@ def _requires_authentication(channel_ref: str) -> bool:
     return channel_ref == _DEFAULT_CHANNEL_REF
 
 
-def _auth_action() -> SurfaceActionProjection:
-    return SurfaceActionProjection(
+def _auth_action() -> Action:
+    return Action(
         ref="checkout_login",
         kind="link",
         label="Entrar por telefone",

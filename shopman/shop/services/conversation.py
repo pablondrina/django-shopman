@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.shop.services import order_tracking, payment_status
 from shopman.shop.services.channel_policy import resolve_channel_policy
 from shopman.shop.services.interaction_context import InteractionContext
@@ -30,7 +30,7 @@ class RemoteConversationProjection:
     title: str
     message: str
     tone: str
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     deadline_at: str | None
     next_event: str
     recovery: str
@@ -65,7 +65,7 @@ def build_order_conversation(
     )
     tracking_url = f"/pedido/{order.ref}/"
     payment_url = _payment_url(order, payment)
-    tracking_actions = _surface_actions(getattr(tracking, "actions", ()))
+    tracking_actions = _actions(getattr(tracking, "actions", ()))
 
     return RemoteConversationProjection(
         order_ref=str(getattr(tracking, "order_ref", getattr(order, "ref", ""))),
@@ -121,21 +121,21 @@ def _payment_url(order: Any, payment: Any | None) -> str | None:
     return f"/pedido/{order.ref}/pagamento/"
 
 
-def _promise_actions(promise: Any) -> tuple[SurfaceActionProjection, ...]:
-    return _surface_actions(getattr(promise, "actions", ()))
+def _promise_actions(promise: Any) -> tuple[Action, ...]:
+    return _actions(getattr(promise, "actions", ()))
 
 
-def _surface_actions(actions: Any) -> tuple[SurfaceActionProjection, ...]:
-    return tuple(action for action in (actions or ()) if isinstance(action, SurfaceActionProjection))
+def _actions(actions: Any) -> tuple[Action, ...]:
+    return tuple(action for action in (actions or ()) if isinstance(action, Action))
 
 
 def _conversation_actions(
     promise: Any,
     *,
-    tracking_actions: tuple[SurfaceActionProjection, ...],
+    tracking_actions: tuple[Action, ...],
     channel_can_cancel: bool,
     channel_can_rate: bool,
-) -> tuple[SurfaceActionProjection, ...]:
+) -> tuple[Action, ...]:
     allowed_tracking_refs = set()
     if channel_can_cancel:
         allowed_tracking_refs.add("cancel_order")
@@ -155,9 +155,9 @@ def _conversation_actions(
     return _dedupe_actions(actions)
 
 
-def _dedupe_actions(actions: list[SurfaceActionProjection]) -> tuple[SurfaceActionProjection, ...]:
+def _dedupe_actions(actions: list[Action]) -> tuple[Action, ...]:
     seen: set[str] = set()
-    deduped: list[SurfaceActionProjection] = []
+    deduped: list[Action] = []
     for action in actions:
         if action.ref in seen:
             continue

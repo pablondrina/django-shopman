@@ -155,7 +155,7 @@ export interface POSCheckoutContractProjection {
   capabilities: Record<string, unknown>
 }
 
-export interface SurfaceActionProjection {
+export interface Action {
   ref: string
   kind: string
   label: string
@@ -199,7 +199,7 @@ export interface POSProjection {
   fulfillment_options: POSFulfillmentOptionProjection[]
   payment_collections: POSPaymentCollectionProjection[]
   checkout: POSCheckoutContractProjection
-  actions: SurfaceActionProjection[]
+  actions: Action[]
   has_open_cash_session: boolean
 }
 

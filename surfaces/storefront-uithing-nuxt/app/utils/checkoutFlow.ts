@@ -1,6 +1,6 @@
 import { compactText, formatCount } from './display'
 import type { CheckoutFormState, FulfillmentType } from './checkoutPayload'
-import type { CheckoutProjection, PickupSlotProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { CheckoutProjection, PickupSlotProjection, Action } from '~/types/shopman'
 
 export type CheckoutStep = 'fulfillment' | 'address' | 'when' | 'payment'
 export type CheckoutSectionState = 'done' | 'current' | 'upcoming' | 'blocked' | 'error'
@@ -26,7 +26,7 @@ export interface CheckoutStepStateInput {
   steps: CheckoutStep[]
   activeStep: CheckoutStep
   fieldErrors: Record<string, string>
-  action?: SurfaceActionProjection | null
+  action?: Action | null
 }
 
 export interface CheckoutStepSummaryInput {
@@ -40,7 +40,7 @@ export interface CheckoutStepSummaryInput {
   addressSummary: string
   whenSummary: string
   paymentMethodLabel: string
-  action?: SurfaceActionProjection | null
+  action?: Action | null
 }
 
 export const checkoutStepLabels: Record<CheckoutStep, string> = {

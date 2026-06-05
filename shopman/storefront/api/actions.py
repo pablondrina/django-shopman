@@ -1,10 +1,10 @@
-"""Small helpers for API-facing SurfaceAction payloads."""
+"""Small helpers for API-facing Action payloads."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 
 from .projections import projection_data
 
@@ -23,7 +23,7 @@ def action_payload(
     idempotency: str = "none",
     confirmation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return projection_data(SurfaceActionProjection(
+    return projection_data(Action(
         ref=ref,
         kind=kind,
         label=label,

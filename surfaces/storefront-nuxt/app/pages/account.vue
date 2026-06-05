@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CalendarDate, parseDate } from '@internationalized/date'
 import type { TabsItem } from '@nuxt/ui'
-import type { AuthSessionResponse, SavedAddressProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { AuthSessionResponse, SavedAddressProjection, Action } from '~/types/shopman'
 
 type UiColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 type OrderFilter = 'todos' | 'ativos' | 'anteriores'
@@ -44,7 +44,7 @@ interface OrderItem {
   item_count?: number
   created_at?: string
   created_at_display?: string
-  actions?: SurfaceActionProjection[]
+  actions?: Action[]
 }
 
 interface LoyaltyTransaction {
@@ -58,7 +58,7 @@ interface AccountSummary {
   customer_first_name: string
   recent_order_count: number
   active_order_count: number
-  last_order: { ref: string, created_at_display: string, total_display: string, status_label: string, item_count: number, actions?: SurfaceActionProjection[] } | null
+  last_order: { ref: string, created_at_display: string, total_display: string, status_label: string, item_count: number, actions?: Action[] } | null
   loyalty: {
     tier: string
     tier_display: string
@@ -215,7 +215,7 @@ async function reorderById (orderRef: string) {
   if (action) await performReorderAction(action, orderRef)
 }
 
-function reorderActionForOrder (order: OrderItem): SurfaceActionProjection | null {
+function reorderActionForOrder (order: OrderItem): Action | null {
   return order.actions?.find(action => action.ref === 'reorder' && action.enabled !== false) || null
 }
 

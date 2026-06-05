@@ -16,7 +16,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
 from shopman.storefront.intents.types import AddressIntent
@@ -86,7 +86,7 @@ def _serialize_address(addr) -> dict:
 
 
 def _reorder_action(order_ref: str) -> dict:
-    return projection_data(SurfaceActionProjection(
+    return projection_data(Action(
         ref="reorder",
         kind="mutation",
         label="Repetir pedido",

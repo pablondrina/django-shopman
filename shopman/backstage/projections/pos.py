@@ -25,9 +25,9 @@ from shopman.backstage.services.integration_readiness import (
 )
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
+    Action,
     AddressAutocompleteProjection,
     SavedAddressProjection,
-    SurfaceActionProjection,
 )
 from shopman.shop.services.channel_policy import resolve_channel_policy
 from shopman.shop.services.pos_intent import (
@@ -237,7 +237,7 @@ class POSProjection:
     fulfillment_options: tuple[POSFulfillmentOptionProjection, ...]
     payment_collections: tuple[POSPaymentCollectionProjection, ...]
     checkout: POSCheckoutContractProjection
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     has_open_cash_session: bool
     cash_runtime: POSCashRuntimeProjection
     terminal_ref: str
@@ -557,10 +557,10 @@ def _fulfillment_options(fulfillment_types: tuple[str, ...]) -> tuple[POSFulfill
     return tuple(options)
 
 
-def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
+def _pos_actions() -> tuple[Action, ...]:
     """Canonical POS mutations consumed by headless operator surfaces."""
     return (
-        SurfaceActionProjection(
+        Action(
             ref="create_tab",
             kind="mutation",
             label="Cadastrar comanda",
@@ -570,7 +570,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"required": ["tab_ref"], "optional": ["label"]},
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="open_tab",
             kind="mutation",
             label="Abrir comanda",
@@ -579,7 +579,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             href="/api/v1/backstage/pos/tabs/{tab_ref}/open/",
             payload_schema={"path": {"tab_ref": "string"}},
         ),
-        SurfaceActionProjection(
+        Action(
             ref="save_tab",
             kind="mutation",
             label="Salvar comanda",
@@ -591,7 +591,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
                 "optional": ["customer_name", "customer_phone", "fulfillment_type", "payment_method"],
             },
         ),
-        SurfaceActionProjection(
+        Action(
             ref="review_sale",
             kind="mutation",
             label="Revisar checkout",
@@ -604,7 +604,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="close_sale",
             kind="mutation",
             label="Finalizar venda",
@@ -639,7 +639,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             idempotency="required",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="cancel_recent_sale",
             kind="mutation",
             label="Cancelar venda recente",
@@ -652,7 +652,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             confirmation={"style": "destructive"},
         ),
-        SurfaceActionProjection(
+        Action(
             ref="open_cash_shift",
             kind="mutation",
             label="Abrir caixa",
@@ -662,7 +662,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"optional": ["opening_amount", "terminal_ref"]},
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="close_cash_shift",
             kind="mutation",
             label="Fechar caixa",
@@ -673,7 +673,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             confirmation={"style": "destructive"},
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="cash_movement",
             kind="mutation",
             label="Movimento de caixa",
@@ -683,7 +683,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"required": ["kind", "amount", "reason"]},
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="customer_lookup",
             kind="query",
             label="Buscar cliente",
@@ -693,7 +693,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"query": {"phone": "string"}},
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="reverse_geocode",
             kind="mutation",
             label="Resolver coordenadas",
@@ -706,7 +706,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             idempotency="none",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="clear_tab",
             kind="mutation",
             label="Liberar comanda",
@@ -716,7 +716,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             payload_schema={"path": {"session_key": "string"}},
             confirmation={"style": "destructive"},
         ),
-        SurfaceActionProjection(
+        Action(
             ref="rename_tab",
             kind="mutation",
             label="Renomear comanda",
@@ -725,7 +725,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             href="/api/v1/backstage/pos/tabs/rename/",
             payload_schema={"required": ["session_key", "new_tab_ref"]},
         ),
-        SurfaceActionProjection(
+        Action(
             ref="move_tab_lines",
             kind="mutation",
             label="Mover itens (transferir/dividir/juntar)",
@@ -737,7 +737,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
                 "optional": ["to_session_key", "to_tab_ref", "close_source_when_empty"],
             },
         ),
-        SurfaceActionProjection(
+        Action(
             ref="fire_tab",
             kind="mutation",
             label="Enviar para cozinha",
@@ -750,7 +750,7 @@ def _pos_actions() -> tuple[SurfaceActionProjection, ...]:
             },
             idempotency="client_request_id",
         ),
-        SurfaceActionProjection(
+        Action(
             ref="unfire_tab",
             kind="mutation",
             label="Cancelar envio à cozinha",

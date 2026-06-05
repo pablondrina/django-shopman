@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { HomeResponse, SurfaceActionProjection } from '~/types/shopman'
+import type { HomeResponse, Action } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
@@ -64,7 +64,7 @@ const storeSteps = computed(() => {
 const whatsappUrl = computed(() => home.value?.public_config.whatsapp_url || '')
 const whatsappImage = computed(() => featured.value[1]?.image_url || featured.value[0]?.image_url || null)
 
-async function handleReorder (action: SurfaceActionProjection | null) {
+async function handleReorder (action: Action | null) {
   if (!action) {
     await navigateTo('/account')
     return

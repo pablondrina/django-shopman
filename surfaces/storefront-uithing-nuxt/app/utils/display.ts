@@ -1,4 +1,4 @@
-import type { CatalogItemProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { CatalogItemProjection, Action } from '~/types/shopman'
 
 export function availabilityVariant (availability: CatalogItemProjection['availability'] | string | null | undefined) {
   if (availability === 'available') return 'secondary'
@@ -8,7 +8,7 @@ export function availabilityVariant (availability: CatalogItemProjection['availa
   return 'secondary'
 }
 
-export function actionVariant (action: SurfaceActionProjection | null | undefined) {
+export function actionVariant (action: Action | null | undefined) {
   if (!action) return 'secondary'
   if (action.priority === 'danger') return 'destructive'
   if (action.priority === 'primary') return 'default'

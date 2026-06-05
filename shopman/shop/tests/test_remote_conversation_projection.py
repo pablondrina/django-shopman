@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.shop.services import conversation
 
 
@@ -46,7 +46,7 @@ def test_conversation_uses_tracking_promise_without_creating_order_status(monkey
         promise=_promise(state="availability_check"),
         items=[SimpleNamespace(qty=2, name="Croissant")],
         total_display="R$ 20,00",
-        actions=(SurfaceActionProjection(
+        actions=(Action(
             ref="cancel_order",
             kind="mutation",
             label="Cancelar pedido",
@@ -81,7 +81,7 @@ def test_conversation_prefers_payment_promise_when_customer_payment_action_exist
         order_ref=order.ref,
         promise=_promise(
             state="payment_requested",
-            actions=(SurfaceActionProjection(
+            actions=(Action(
                 ref="pay_now",
                 kind="link",
                 label="Pagar agora",
@@ -91,7 +91,7 @@ def test_conversation_prefers_payment_promise_when_customer_payment_action_exist
         ),
         items=[],
         total_display="R$ 45,00",
-        actions=(SurfaceActionProjection(
+        actions=(Action(
             ref="cancel_order",
             kind="mutation",
             label="Cancelar pedido",
@@ -104,7 +104,7 @@ def test_conversation_prefers_payment_promise_when_customer_payment_action_exist
         promise=_promise(
             state="pix_payment_after_confirmation",
             title="Pagamento Pix",
-            actions=(SurfaceActionProjection(
+            actions=(Action(
                 ref="copy_pix",
                 kind="copy",
                 label="Pagar com Pix",
@@ -141,7 +141,7 @@ def test_conversation_respects_channel_policy_cancel_gate(monkeypatch):
         promise=_promise(state="preparing"),
         items=[],
         total_display="R$ 10,00",
-        actions=(SurfaceActionProjection(
+        actions=(Action(
             ref="cancel_order",
             kind="mutation",
             label="Cancelar pedido",

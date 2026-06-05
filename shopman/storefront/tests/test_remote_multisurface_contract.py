@@ -244,7 +244,7 @@ def test_nuxt_and_ionic_surface_contracts_use_canonical_projection_types():
     reorder = _read(NUXT_APP / "composables" / "useReorder.ts")
 
     for interface in [
-        "SurfaceActionProjection",
+        "Action",
         "CheckoutProjection",
         "TrackingPromiseProjection",
         "TrackingResponse",
@@ -256,7 +256,7 @@ def test_nuxt_and_ionic_surface_contracts_use_canonical_projection_types():
         assert f"export interface {interface}" in types
 
     for field in [
-        "actions: SurfaceActionProjection[]",
+        "actions: Action[]",
         "fulfillment_options: Array<'pickup' | 'delivery' | string>",
         "promise: TrackingPromiseProjection",
         "delivery_fulfillments: TrackingFulfillmentProjection[]",

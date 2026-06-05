@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
+import type { Action, TrackingResponse } from '~/types/shopman'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -95,7 +95,7 @@ onBeforeUnmount(() => {
   if (poll) clearInterval(poll)
 })
 
-async function postAction (action: SurfaceActionProjection, body: Record<string, unknown> = {}) {
+async function postAction (action: Action, body: Record<string, unknown> = {}) {
   actionPending.value = { ...actionPending.value, [action.ref]: true }
   try {
     const headers = await csrfHeaders()
@@ -119,21 +119,21 @@ async function postAction (action: SurfaceActionProjection, body: Record<string,
   }
 }
 
-function actionRoute (action: SurfaceActionProjection) {
+function actionRoute (action: Action) {
   return localRouteFromBackend(action.href || null)
 }
 
-function actionIcon (action: SurfaceActionProjection) {
+function actionIcon (action: Action) {
   if (action.ref === 'reorder') return 'lucide:rotate-ccw'
   if (action.ref === 'pay_now' || action.ref.includes('payment')) return 'lucide:credit-card'
   return 'lucide:arrow-right'
 }
 
-function canRunInlineAction (action: SurfaceActionProjection) {
+function canRunInlineAction (action: Action) {
   return action.kind === 'mutation'
 }
 
-async function handleStatusPanelAction (action: SurfaceActionProjection) {
+async function handleStatusPanelAction (action: Action) {
   if (action.ref === 'reorder') {
     await performReorderSafely(action)
     return
@@ -143,7 +143,7 @@ async function handleStatusPanelAction (action: SurfaceActionProjection) {
   }
 }
 
-async function performReorderSafely (action: SurfaceActionProjection | null | undefined) {
+async function performReorderSafely (action: Action | null | undefined) {
   if (!action) return
   await performReorderAction(action).catch(() => null)
 }

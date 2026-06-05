@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SurfaceActionProjection, TrackingResponse } from '~/types/shopman'
+import type { Action, TrackingResponse } from '~/types/shopman'
 import { operationalCopy, retryAfterDescription } from '~/utils/operationalCopy'
 
 type UiColor = 'neutral' | 'info' | 'success' | 'warning' | 'error'
@@ -117,11 +117,11 @@ const ratingError = ref('')
 const ratingRequestId = ref<string | null>(null)
 const rateLimitRecovery = ref<RateLimitRecovery | null>(null)
 
-function findTrackingAction (ref: string): SurfaceActionProjection | null {
+function findTrackingAction (ref: string): Action | null {
   return trackingActions.value.find(action => action.ref === ref && action.enabled !== false) || null
 }
 
-function mutationUrl (action: SurfaceActionProjection | null, fallback: string): string {
+function mutationUrl (action: Action | null, fallback: string): string {
   return apiPath(action?.href || fallback)
 }
 

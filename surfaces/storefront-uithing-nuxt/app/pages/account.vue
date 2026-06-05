@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AuthSessionResponse, SavedAddressProjection, SurfaceActionProjection } from '~/types/shopman'
+import type { AuthSessionResponse, SavedAddressProjection, Action } from '~/types/shopman'
 
 type OrderFilter = 'todos' | 'ativos' | 'anteriores'
 type AddressMode = 'create' | 'edit'
@@ -14,7 +14,7 @@ interface AccountSummary {
     total_display: string
     status_label: string
     item_count: number
-    actions?: SurfaceActionProjection[]
+    actions?: Action[]
   } | null
   loyalty: {
     tier_display: string
@@ -35,7 +35,7 @@ interface OrderItem {
   total_display: string
   item_count?: number
   created_at_display?: string
-  actions?: SurfaceActionProjection[]
+  actions?: Action[]
 }
 
 interface AccountDeviceProjection {

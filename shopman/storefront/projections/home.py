@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from django.http import HttpRequest
 
-from shopman.shop.projections.types import SurfaceActionProjection
+from shopman.shop.projections.types import Action
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections.catalog import CatalogItemProjection, build_catalog
 from shopman.storefront.projections.shop import ShopProjection, build_shop_projection
@@ -54,7 +54,7 @@ class HomeNoticeProjection:
     title: str
     message: str
     priority: str
-    actions: tuple[SurfaceActionProjection, ...] = ()
+    actions: tuple[Action, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -153,7 +153,7 @@ class HomeProjection:
     opening_hours: tuple[OpeningHoursEntry, ...]
     last_order_ref: str | None
     last_order_items: tuple[LastOrderItemProjection, ...]
-    actions: tuple[SurfaceActionProjection, ...]
+    actions: tuple[Action, ...]
     featured_items: tuple[CatalogItemProjection, ...]
     origin_channel: str | None
     public_config: PublicConfigProjection
@@ -259,7 +259,7 @@ def _home_notices(
             title = "Status da loja"
 
         actions = [
-            SurfaceActionProjection(
+            Action(
                 ref="view_menu",
                 kind="link",
                 label="Ver cardápio",
@@ -268,7 +268,7 @@ def _home_notices(
             )
         ]
         if whatsapp_url:
-            actions.append(SurfaceActionProjection(
+            actions.append(Action(
                 ref="contact_whatsapp",
                 kind="external",
                 label="Falar no WhatsApp",
@@ -293,7 +293,7 @@ def _home_notices(
             message="Seu pedido pode continuar por aqui, com carrinho e acompanhamento atualizados.",
             priority="contextual",
             actions=(
-                SurfaceActionProjection(
+                Action(
                     ref="continue_checkout",
                     kind="link",
                     label="Continuar pedido",
@@ -306,11 +306,11 @@ def _home_notices(
     return tuple(notices)
 
 
-def _home_actions(last_order_ref: str | None) -> tuple[SurfaceActionProjection, ...]:
+def _home_actions(last_order_ref: str | None) -> tuple[Action, ...]:
     if not last_order_ref:
         return ()
     return (
-        SurfaceActionProjection(
+        Action(
             ref="reorder",
             kind="mutation",
             label="Repetir pedido",

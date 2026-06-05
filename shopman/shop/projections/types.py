@@ -120,7 +120,7 @@ FOOD_PREFERENCE_OPTIONS: tuple[tuple[str, str], ...] = (
 
 
 @dataclass(frozen=True)
-class SurfaceActionProjection:
+class Action:
     """Canonical action offered by a Shopman projection to any surface."""
 
     ref: str

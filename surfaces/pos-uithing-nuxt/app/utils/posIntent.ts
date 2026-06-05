@@ -1,4 +1,4 @@
-import type { POSCartItem, POSIntentCartState, POSPaymentTenderDraft, SurfaceActionProjection } from "~/types/pos";
+import type { POSCartItem, POSIntentCartState, POSPaymentTenderDraft, Action } from "~/types/pos";
 
 export const POS_SALE_INTENT_VERSION = "pos.sale-intent.v1";
 
@@ -55,7 +55,7 @@ export function resolvePayment(tenders: POSPaymentTenderDraft[], totalQ: number)
 }
 
 export function actionHref(
-  actions: SurfaceActionProjection[] | undefined,
+  actions: Action[] | undefined,
   ref: string,
   fallback: string,
 ): string {
@@ -63,7 +63,7 @@ export function actionHref(
 }
 
 export function concreteActionHref(
-  actions: SurfaceActionProjection[] | undefined,
+  actions: Action[] | undefined,
   ref: string,
   fallback: string,
   params: Record<string, string>,

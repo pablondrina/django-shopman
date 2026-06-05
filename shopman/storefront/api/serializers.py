@@ -152,7 +152,7 @@ class FulfillmentSerializer(serializers.Serializer):
     delivered_at = serializers.CharField(allow_null=True, allow_blank=True)
 
 
-class SurfaceActionSerializer(serializers.Serializer):
+class ActionSerializer(serializers.Serializer):
     ref = serializers.CharField()
     kind = serializers.CharField()
     label = serializers.CharField()
@@ -177,7 +177,7 @@ class OrderTrackingPromiseSerializer(serializers.Serializer):
     deadline_action = serializers.CharField()
     requires_active_notification = serializers.BooleanField()
     notification_topic = serializers.CharField(allow_null=True, required=False)
-    actions = SurfaceActionSerializer(many=True, required=False)
+    actions = ActionSerializer(many=True, required=False)
     next_event = serializers.CharField(allow_blank=True, required=False)
     recovery = serializers.CharField(allow_blank=True, required=False)
     active_notification = serializers.CharField(allow_blank=True, required=False)
@@ -255,7 +255,7 @@ class OrderTrackingSerializer(serializers.Serializer):
     pickup_fulfillments = FulfillmentSerializer(many=True, required=False)
     fulfillments = FulfillmentSerializer(many=True)
     pickup_info = PickupInfoSerializer(allow_null=True, required=False)
-    actions = SurfaceActionSerializer(many=True, required=False)
+    actions = ActionSerializer(many=True, required=False)
     is_active = serializers.BooleanField()
     server_now_iso = serializers.CharField()
     payment_pending = serializers.BooleanField()
@@ -320,7 +320,7 @@ class OrderHistoryItemSerializer(serializers.Serializer):
     status_label = serializers.CharField()
     status_color = serializers.CharField(required=False)
     item_count = serializers.IntegerField(required=False)
-    actions = SurfaceActionSerializer(many=True, required=False)
+    actions = ActionSerializer(many=True, required=False)
 
 
 class RemoteConversationSerializer(serializers.Serializer):
@@ -332,7 +332,7 @@ class RemoteConversationSerializer(serializers.Serializer):
     title = serializers.CharField()
     message = serializers.CharField()
     tone = serializers.CharField()
-    actions = SurfaceActionSerializer(many=True)
+    actions = ActionSerializer(many=True)
     deadline_at = serializers.CharField(allow_null=True, required=False)
     next_event = serializers.CharField(allow_blank=True, required=False)
     recovery = serializers.CharField(allow_blank=True, required=False)

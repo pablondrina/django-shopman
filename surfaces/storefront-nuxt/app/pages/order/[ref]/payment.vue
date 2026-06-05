@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaymentPromiseProjection, PaymentResponse, PaymentStatusResponse, SurfaceActionProjection } from '~/types/shopman'
+import type { PaymentPromiseProjection, PaymentResponse, PaymentStatusResponse, Action } from '~/types/shopman'
 
 interface PaymentErrorPayload {
   detail?: string
@@ -39,12 +39,12 @@ const payment = computed(() => data.value?.payment || null)
 const promise = computed(() => paymentStatus.value?.promise || payment.value?.promise || null)
 const trackingUrl = computed(() => payment.value?.tracking_url || (orderRef.value ? `/tracking/${orderRef.value}` : null))
 const pixQrCodeSource = computed(() => payment.value?.pix_qr_code || '')
-const paymentSurfaceActions = computed(() => payment.value?.actions || [])
+const paymentActions = computed(() => payment.value?.actions || [])
 const mockConfirmPaymentAction = computed(() =>
-  paymentSurfaceActions.value.find(action => action.ref === 'mock_confirm_payment' && action.enabled !== false) || null
+  paymentActions.value.find(action => action.ref === 'mock_confirm_payment' && action.enabled !== false) || null
 )
 
-function actionablePaymentActions (paymentPromise?: PaymentPromiseProjection | null): SurfaceActionProjection[] {
+function actionablePaymentActions (paymentPromise?: PaymentPromiseProjection | null): Action[] {
   return (paymentPromise?.actions || []).filter(action =>
     action.enabled !== false
     && action.ref !== 'track_order'
@@ -106,7 +106,7 @@ function statusCodeFromError (err: any): number | null {
   return err?.response?.status || err?.statusCode || err?.status || null
 }
 
-function mutationUrl (action: SurfaceActionProjection, fallback: string): string {
+function mutationUrl (action: Action, fallback: string): string {
   return apiPath(action.href || fallback)
 }
 
