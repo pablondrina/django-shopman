@@ -124,7 +124,7 @@ def test_holds_materialized_honours_enabled_email_channel():
     )
 
     with patch(
-        "shopman.shop.services.customer_context.enabled_notification_channels",
+        "shopman.shop.projections.customer_context.enabled_notification_channels",
         return_value=frozenset({"email"}),
     ), patch("shopman.shop.notifications.notify") as notify:
         on_holds_materialized(

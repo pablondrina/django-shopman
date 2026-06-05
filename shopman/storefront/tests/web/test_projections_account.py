@@ -119,7 +119,7 @@ class TestCustomerProfileLoyalty:
     def test_loyalty_transaction_failure_keeps_account(self, customer, monkeypatch):
         from shopman.guestman.contrib.loyalty import LoyaltyService
 
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         LoyaltyService.enroll(customer.ref)
         debug_calls = []
@@ -169,7 +169,7 @@ class TestCustomerProfileAddresses:
     def test_address_failure_degrades_to_empty(self, customer, monkeypatch):
         from shopman.guestman.services import address as address_service
 
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         debug_calls = []
 

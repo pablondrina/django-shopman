@@ -544,7 +544,7 @@ def _session_can_access_order(request, order_ref: str) -> bool:
 def _customer_identity_from_info(customer_info) -> tuple[str | None, str | None]:
     customer_ref = None
     try:
-        from shopman.shop.services.customer_context import customer_ref_by_uuid
+        from shopman.shop.projections.customer_context import customer_ref_by_uuid
 
         customer_ref = customer_ref_by_uuid(customer_info.uuid)
     except Exception:

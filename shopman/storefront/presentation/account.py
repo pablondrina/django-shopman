@@ -6,7 +6,7 @@ the API-ready order-history dicts the account REST surface serializes. Money is
 formatted here, status labels/colours resolved here, dates formatted here —
 **no policy**. The order list arrives sealed from the data Projection
 (``shop.projections.customer``); customer context (loyalty/addresses/consent)
-arrives from ``shop.services.customer_context`` (clean read helpers).
+arrives from ``shop.projections.customer_context`` (clean read helpers).
 
 Never imports from ``shopman.storefront.views.*``.
 """
@@ -20,6 +20,7 @@ from typing import Protocol
 from django.utils import timezone
 
 from shopman.shop.projections import customer as customer_projection
+from shopman.shop.projections import customer_context
 from shopman.shop.projections.types import (
     FOOD_PREFERENCE_OPTIONS,
     NOTIFICATION_CHANNELS,
@@ -28,7 +29,6 @@ from shopman.shop.projections.types import (
     OrderSummaryProjection,
     SavedAddressProjection,
 )
-from shopman.shop.services import customer_context
 from shopman.storefront.presentation.order_history import present_summary
 
 logger = logging.getLogger(__name__)

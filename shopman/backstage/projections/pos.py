@@ -458,7 +458,7 @@ def build_pos_tabs(
 
 def build_pos_customer_lookup(phone: str) -> POSCustomerLookupProjection | None:
     """Resolve POS customer lookup as a headless projection."""
-    from shopman.shop.services import customer_context
+    from shopman.shop.projections import customer_context
     from shopman.shop.services import pos as pos_service
 
     customer = pos_service.resolve_customer(phone)

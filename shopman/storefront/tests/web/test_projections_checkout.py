@@ -134,7 +134,7 @@ class TestCheckoutProjectionShape:
     ):
         from shopman.guestman.contrib.loyalty import LoyaltyService
 
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         debug_calls = []
 
@@ -167,7 +167,7 @@ class TestCheckoutProjectionShape:
     def test_address_failure_degrades_to_empty(self, cart_session, customer, monkeypatch):
         from shopman.guestman.services import address as address_service
 
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         debug_calls = []
 

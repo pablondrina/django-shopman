@@ -243,7 +243,7 @@ def _resolve_session_customer(session):
 
 def _notification_backend(customer) -> str | None:
     try:
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         enabled = customer_context.enabled_notification_channels(
             customer.ref,

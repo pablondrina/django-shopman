@@ -388,7 +388,7 @@ def _customer_ref(order) -> str:
     customer_uuid = customer_data.get("uuid")
     if customer_uuid:
         try:
-            from shopman.shop.services import customer_context
+            from shopman.shop.projections import customer_context
 
             resolved = customer_context.customer_ref_by_uuid(customer_uuid)
             if resolved:
@@ -414,7 +414,7 @@ def _enabled_notification_channels(customer_ref: str, channels: tuple[str, ...])
     if not channels:
         return frozenset()
     try:
-        from shopman.shop.services import customer_context
+        from shopman.shop.projections import customer_context
 
         return customer_context.enabled_notification_channels(customer_ref, channels)
     except Exception:
