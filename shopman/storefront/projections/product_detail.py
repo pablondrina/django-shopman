@@ -1,9 +1,10 @@
 """ProductDetailProjection — immutable UI projection for the storefront PDP.
 
 Phase 1 / step 2 of the PROJECTION-UI-PLAN. Mirrors the discipline of
-``build_catalog``: the builder orchestrates shop services for pricing, bundle
-expansion, availability, and session pricing, then emits a frozen, immutable
-shape the PDP template consumes without ever touching Django model instances.
+``build_catalog``: the builder reads the orchestrator's read-side
+(``shop.projections``) for pricing, bundle expansion, availability, and
+session pricing, then emits a frozen, immutable shape the PDP template
+consumes without ever touching Django model instances.
 
 Substitutos NÃO pertencem à PDP (AVAILABILITY-PLAN §5) — só aparecem no
 modal de erro de estoque. Por isso este projection não os carrega.
@@ -22,13 +23,13 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.projections import catalog_context
+from shopman.shop.projections.storefront_context import session_pricing_hints
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     ComponentProjection,
 )
-from shopman.shop.projections.storefront_context import session_pricing_hints
 
 from .catalog import (
     _cart_qty_by_sku,
@@ -231,7 +232,7 @@ def build_product_detail(
     raw_avail = _availability(product.sku, channel_ref)
     session_key = _session_key(request)
     own_hold = int(
-        _own_holds_service().own_holds_by_sku(session_key, [product.sku]).get(product.sku, 0)
+        catalog_context.own_holds_by_sku(session_key, [product.sku]).get(product.sku, 0)
     ) if session_key else 0
     raw_avail_session = catalog_context.availability_with_own_hold(raw_avail, own_hold)
     availability = _resolve_availability(
@@ -332,13 +333,6 @@ def _session_key(request) -> str:
     except Exception:
         logger.debug("product_detail_projection_session_key_failed", exc_info=True)
         return ""
-
-
-def _own_holds_service():
-    """Lazy import of the availability service to avoid circular deps."""
-    from shopman.shop.services import availability
-
-    return availability
 
 
 def _components(product: Any) -> tuple[ComponentProjection, ...]:

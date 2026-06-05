@@ -325,6 +325,19 @@ def availability_with_own_hold(raw_avail: dict | None, own_hold: int) -> dict | 
     return adjusted
 
 
+def own_holds_by_sku(session_key: str, skus: list[str]) -> dict[str, Decimal]:
+    """This session's active hold quantity per SKU (read facade).
+
+    Lets the storefront read paths (cart, PDP) tell "unavailable to the
+    public" apart from "this session already holds all of it" without
+    reaching into the write-side; delegates to the canonical availability
+    read helper.
+    """
+    from shopman.shop.services import availability
+
+    return availability.own_holds_by_sku(session_key, skus)
+
+
 def basic_availability(
     raw_avail: dict | None,
     *,

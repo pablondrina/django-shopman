@@ -18,12 +18,12 @@ def _shop_status() -> dict:
 
     Returns dict: {is_open, opens_at, closes_at, message}
     """
-    from shopman.shop.services.business_calendar import current_business_state, format_next_opening
+    from shopman.shop.projections.shop_status import business_state, next_opening_phrase
 
-    state = current_business_state()
+    state = business_state()
     message = state.message or ""
     if state.is_closed and state.next_open_at:
-        next_opening = format_next_opening(state.next_open_at, now=state.resolved_at)
+        next_opening = next_opening_phrase(state.next_open_at, now=state.resolved_at)
         if next_opening and "abrimos" not in message.lower():
             message = f"{message}. Abrimos {next_opening}." if message else f"Abrimos {next_opening}."
     return {

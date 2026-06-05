@@ -1,4 +1,9 @@
-"""Canonical projection service for customer order confirmation pages."""
+"""Order confirmation read-side projection — semantic data, surface-agnostic.
+
+Drained out of ``services/order_confirmation`` (which mixed ``format_money``
+and share copy into the orchestrator). The data carries cents and a raw ETA
+timestamp; the storefront presentation formats ``R$`` and the share text.
+"""
 
 from __future__ import annotations
 
@@ -7,46 +12,50 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from django.utils import timezone
-from shopman.utils.monetary import format_money
-
-from shopman.shop.projections.types import OrderItemProjection
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class ConfirmationItemProjection:
+    """One ordered line on the confirmation page — cents only."""
+
+    sku: str
+    name: str
+    qty: int
+    unit_price_q: int
+    line_total_q: int
+
+
+@dataclass(frozen=True)
 class OrderConfirmationProjection:
-    """Canonical confirmation projection independent from storefront templates."""
+    """Confirmation data for a just-placed order — cents + raw ETA, no copy."""
 
     order_ref: str
-    items: tuple[OrderItemProjection, ...]
-    total_display: str
-    share_text: str
+    items: tuple[ConfirmationItemProjection, ...]
+    total_q: int
     eta: datetime | None
+    shop_name: str
 
 
-def build_confirmation(order, *, share_url: str) -> OrderConfirmationProjection:
+def build_confirmation(order) -> OrderConfirmationProjection:
     """Build confirmation data for a just-placed order."""
     items = tuple(
-        OrderItemProjection(
+        ConfirmationItemProjection(
             sku=item.sku,
             name=item.name or item.sku,
             qty=int(item.qty),
-            unit_price_display=f"R$ {format_money(item.unit_price_q)}",
-            total_display=f"R$ {format_money(item.line_total_q)}",
+            unit_price_q=int(item.unit_price_q),
+            line_total_q=int(item.line_total_q),
         )
         for item in order.items.all()
     )
-
-    eta = _eta(order)
-    shop_name = _shop_name()
-
     return OrderConfirmationProjection(
         order_ref=order.ref,
         items=items,
-        total_display=f"R$ {format_money(order.total_q)}",
-        share_text=f"Fiz um pedido em {shop_name}! Acompanhe: {share_url}",
-        eta=eta,
+        total_q=int(order.total_q),
+        eta=_eta(order),
+        shop_name=_shop_name(),
     )
 
 
@@ -73,4 +82,8 @@ def _shop_name() -> str:
         return "nossa loja"
 
 
-__all__ = ["OrderConfirmationProjection", "build_confirmation"]
+__all__ = [
+    "ConfirmationItemProjection",
+    "OrderConfirmationProjection",
+    "build_confirmation",
+]
