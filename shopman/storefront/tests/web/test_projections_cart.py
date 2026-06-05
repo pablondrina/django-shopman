@@ -124,16 +124,18 @@ class TestPopulatedCart:
     def test_upsell_includes_unit_price_for_surface_mutation(
         self, cart_session, croissant, monkeypatch,
     ):
+        from shopman.shop.projections.cart import UpsellSuggestionProjection
+
         def fake_upsell(cart_skus, *, channel_ref):
-            return {
-                "product": croissant,
-                "sku": croissant.sku,
-                "price_q": 800,
-                "price_display": "R$ 8,00",
-            }
+            return UpsellSuggestionProjection(
+                sku=croissant.sku,
+                name=croissant.name,
+                unit_price_q=800,
+                image_url=None,
+            )
 
         monkeypatch.setattr(
-            "shopman.storefront.projections.cart.upsell_suggestion",
+            "shopman.shop.projections.cart.build_upsell_suggestion",
             fake_upsell,
         )
 

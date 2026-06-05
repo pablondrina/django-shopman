@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from django.http import HttpRequest
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections.cart import build_minimum_order_progress
 from shopman.shop.services.cart import CartUnavailableError
-from shopman.shop.services.storefront_context import minimum_order_progress
 from shopman.storefront.cart import CartService
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.intents.cart import interpret_set_qty
 from shopman.storefront.intents.types import SetQtyIntent
+from shopman.storefront.projections.cart import present_minimum_order
 
 MAX_CART_LINE_QTY = 99
 
@@ -116,9 +117,8 @@ def set_qty_by_sku(
 def cart_mutation_payload(intent: SetQtyIntent, cart: dict[str, Any]) -> dict[str, Any]:
     """Compact mutation response for immediate UI reconciliation."""
     subtotal_q = int(cart.get("subtotal_q", 0) or 0)
-    min_order = minimum_order_progress(
-        subtotal_q,
-        channel_ref=STOREFRONT_CHANNEL_REF,
+    min_order = present_minimum_order(
+        build_minimum_order_progress(subtotal_q, channel_ref=STOREFRONT_CHANNEL_REF)
     )
     line = cart_line_payload(intent, cart)
     return {
@@ -132,7 +132,7 @@ def cart_mutation_payload(intent: SetQtyIntent, cart: dict[str, Any]) -> dict[st
             "subtotal_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
             "grand_total_q": subtotal_q,
             "grand_total_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
-            "minimum_order_progress": min_order,
+            "minimum_order_progress": asdict(min_order) if min_order else None,
             "checkout_enabled": bool(cart.get("count", 0) and min_order is None),
         },
     }

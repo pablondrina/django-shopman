@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from shopman.shop.services import cart_context
+from shopman.shop.projections import cart_context
 
 from .types import CartIntentResult, SetQtyIntent
 

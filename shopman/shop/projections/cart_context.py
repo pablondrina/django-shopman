@@ -1,4 +1,10 @@
-"""Cart product context resolved through orchestrator services."""
+"""Cart product context — read-side facade for the cart mutation path.
+
+Resolves a product's listed price and D-1 flag for an add-to-cart intent.
+A clean read facade (policy/data, no presentation), so it lives in the
+orchestrator read-side (``shop/projections/``); the storefront cart intent
+consumes it without ever reaching into the Core directly.
+"""
 
 from __future__ import annotations
 

@@ -7,12 +7,13 @@ read paths (v1 views and projection builders):
 - ``happy_hour_state`` — current happy-hour window + discount percent.
 - ``session_pricing_hints`` — fulfillment type + subtotal from the active
   cart session, matching what DiscountModifier sees at checkout.
-- ``minimum_order_progress`` — progress bar data for minimum-order rule.
-- ``upsell_suggestion`` — one popular SKU not yet in the cart.
 
 These live under ``shopman.shop.services`` so both web views and the
 projection layer consume them through a stable import path — no web-only
 module reaches into another layer's private helpers.
+
+The minimum-order progress and upsell read-models drained to
+``shop/projections/cart.py`` (data) + ``storefront/presentation`` (display).
 """
 
 from __future__ import annotations
@@ -23,13 +24,10 @@ from datetime import time, timedelta
 from django.conf import settings
 from django.utils import timezone
 from shopman.guestman.contrib.insights import InsightService
-from shopman.offerman.models import ListingItem, Product
-from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_STOREFRONT_CHANNEL_REF = "web"
-_MINIMUM_ORDER_Q_DEFAULT = 1000  # R$ 10,00 fallback when the rule is active
 _FRESH_WINDOW_MINUTES_DEFAULT = 60  # "fresh from the oven" lookback fallback
 
 
@@ -178,97 +176,6 @@ def happy_hour_state() -> dict:
     except Exception as e:
         logger.warning("happy_hour_check_failed: %s", e, exc_info=True)
         return _HAPPY_HOUR_INACTIVE
-
-
-def minimum_order_progress(
-    subtotal_q: int, channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
-) -> dict | None:
-    """Progress toward the minimum order amount configured for ``channel_ref``.
-
-    Returns a dict with ``minimum_q``, ``remaining_q``, ``percent``,
-    ``remaining_display`` and ``minimum_display``. Returns ``None`` when:
-
-    - the channel does not activate the ``shop.minimum_order`` validator, OR
-    - the current subtotal already meets the minimum.
-
-    Keeps the rule lookup out of the view layer so both v1 helpers and the
-    CartProjection builder can consume identical guidance.
-    """
-    minimum_q = 0
-    try:
-        from shopman.shop.config import ChannelConfig
-        from shopman.shop.models import Channel, Shop
-
-        channel = Channel.objects.filter(ref=channel_ref).first()
-        if channel:
-            rules = ChannelConfig.for_channel(channel).rules
-            if rules.validators is None or "shop.minimum_order" in rules.validators:
-                shop = Shop.load()
-                raw = (
-                    shop.defaults.get("rules", {}).get("minimum_order_q")
-                    if shop and shop.defaults
-                    else None
-                )
-                minimum_q = int(raw) if raw else _MINIMUM_ORDER_Q_DEFAULT
-    except Exception as e:
-        logger.warning("min_order_progress_failed: %s", e, exc_info=True)
-
-    if not minimum_q or subtotal_q >= minimum_q:
-        return None
-
-    remaining_q = minimum_q - subtotal_q
-    percent = int(min(subtotal_q * 100 / minimum_q, 100)) if minimum_q else 0
-    return {
-        "minimum_q": minimum_q,
-        "remaining_q": remaining_q,
-        "percent": percent,
-        "remaining_display": f"R$ {format_money(remaining_q)}",
-        "minimum_display": f"R$ {format_money(minimum_q)}",
-    }
-
-
-def upsell_suggestion(
-    cart_skus: set[str],
-    *,
-    channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
-) -> dict | None:
-    """Return one popular SKU not already in ``cart_skus`` (or ``None``).
-
-    Resolves the listed price for the picked product via ``ListingItem`` so
-    the suggestion renders with the same price the checkout would charge.
-    Shape matches what ``cart_drawer.html`` expects today: a dict with
-    ``product`` (the Django instance, for icon/name lookup), ``sku`` and
-    ``price_display``.
-    """
-    popular = popular_skus(limit=10)
-    candidates = [sku for sku in popular if sku not in cart_skus]
-    if not candidates:
-        return None
-
-    for sku in candidates:
-        product = Product.objects.filter(
-            sku=sku, is_published=True, is_sellable=True,
-        ).first()
-        if product is None:
-            continue
-        item = (
-            ListingItem.objects.filter(
-                listing__ref=channel_ref,
-                listing__is_active=True,
-                product=product,
-                is_published=True,
-            )
-            .order_by("-min_qty")
-            .first()
-        )
-        price_q = item.price_q if item else product.base_price_q
-        return {
-            "product": product,
-            "sku": product.sku,
-            "price_q": price_q,
-            "price_display": f"R$ {format_money(price_q)}" if price_q else None,
-        }
-    return None
 
 
 def session_pricing_hints(request) -> tuple[str, int]:

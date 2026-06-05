@@ -114,12 +114,15 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     # ── Step 6: Check minimum order (delivery only) ───────────────────────
     cart = CartService.get_cart(request)
     if fulfillment_type == "delivery":
-        from shopman.shop.services.storefront_context import minimum_order_progress
-        warning = minimum_order_progress(cart["subtotal_q"])
+        from shopman.utils.monetary import format_money
+
+        from shopman.shop.projections.cart import build_minimum_order_progress
+
+        warning = build_minimum_order_progress(cart["subtotal_q"])
         if warning:
             errors["minimum_order"] = (
-                f"Faltam {warning['remaining_display']} para atingir o pedido mínimo de "
-                f"{warning['minimum_display']}."
+                f"Faltam R$ {format_money(warning.remaining_q)} para atingir o pedido "
+                f"mínimo de R$ {format_money(warning.minimum_q)}."
             )
 
     # ── Step 7: Validate address/form ─────────────────────────────────────

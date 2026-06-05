@@ -409,7 +409,7 @@ def test_storefront_cart_intent_delegates_product_resolution():
             "Storefront cart intent imported catalog/stock modules directly:\n"
             f"{_format_violations(violations)}\n\n"
             "Keep cart intent parsing in storefront and route product price/D-1 "
-            "resolution through shopman.shop.services.cart_context."
+            "resolution through shopman.shop.projections.cart_context."
         )
 
 

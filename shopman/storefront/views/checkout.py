@@ -11,11 +11,12 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 
+from shopman.shop.projections.cart import build_minimum_order_progress
 from shopman.shop.services import checkout as checkout_service
-from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
+from ..projections.cart import present_minimum_order
 from ..services import orders as order_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
@@ -182,7 +183,11 @@ class CheckoutOrderSummaryView(View):
             "storefront/partials/checkout_order_summary.html",
             {
                 "cart": cart,
-                "minimum_order_warning": minimum_order_progress(cart.get("original_subtotal_q") or cart["subtotal_q"]),
+                "minimum_order_warning": present_minimum_order(
+                    build_minimum_order_progress(
+                        cart.get("original_subtotal_q") or cart["subtotal_q"],
+                    )
+                ),
             },
         )
 

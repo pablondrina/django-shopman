@@ -22,12 +22,9 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections import cart as cart_data
 from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import Action, Availability
-from shopman.shop.services.storefront_context import (
-    minimum_order_progress,
-    upsell_suggestion,
-)
 from shopman.storefront.cart import CartService
 
 if TYPE_CHECKING:
@@ -196,29 +193,16 @@ def build_cart(
     min_order = None
     upsell = None
     if items:
-        min_order_raw = minimum_order_progress(original_subtotal_q, channel_ref=channel_ref)
-        if min_order_raw:
-            min_order = MinimumOrderProgressProjection(
-                minimum_q=int(min_order_raw["minimum_q"]),
-                remaining_q=int(min_order_raw["remaining_q"]),
-                percent=int(min_order_raw["percent"]),
-                minimum_display=str(min_order_raw["minimum_display"]),
-                remaining_display=str(min_order_raw["remaining_display"]),
+        min_order = present_minimum_order(
+            cart_data.build_minimum_order_progress(
+                original_subtotal_q, channel_ref=channel_ref,
             )
+        )
 
         cart_skus = {item.sku for item in items}
-        upsell_raw = upsell_suggestion(cart_skus, channel_ref=channel_ref)
-        if upsell_raw:
-            product = upsell_raw.get("product")
-            upsell = UpsellSuggestionProjection(
-                sku=str(upsell_raw.get("sku") or ""),
-                name=str(getattr(product, "name", "") or ""),
-                unit_price_q=int(upsell_raw.get("price_q") or 0),
-                price_display=str(upsell_raw.get("price_display") or ""),
-                image_url=(
-                    getattr(product, "image_url", None) or None
-                ),
-            )
+        upsell = present_upsell(
+            cart_data.build_upsell_suggestion(cart_skus, channel_ref=channel_ref)
+        )
 
     actions = _cart_actions(
         is_empty=not items,
@@ -311,6 +295,40 @@ def _build_item(raw: dict, image_by_sku: dict[str, str | None]) -> CartItemProje
         is_ready_for_confirmation=bool(raw.get("is_ready_for_confirmation", False)),
         confirmation_deadline_iso=raw.get("confirmation_deadline_iso"),
         confirmation_deadline_display=raw.get("confirmation_deadline_display"),
+    )
+
+
+def present_minimum_order(
+    data: cart_data.MinimumOrderProgressProjection | None,
+) -> MinimumOrderProgressProjection | None:
+    """Format the minimum-order progress data into the cart presentation DTO.
+
+    Shared by the cart and the checkout order-summary partial so the ``R$``
+    strings come from one place.
+    """
+    if data is None:
+        return None
+    return MinimumOrderProgressProjection(
+        minimum_q=data.minimum_q,
+        remaining_q=data.remaining_q,
+        percent=data.percent,
+        minimum_display=_money(data.minimum_q),
+        remaining_display=_money(data.remaining_q),
+    )
+
+
+def present_upsell(
+    data: cart_data.UpsellSuggestionProjection | None,
+) -> UpsellSuggestionProjection | None:
+    """Format the upsell suggestion data into the cart presentation DTO."""
+    if data is None:
+        return None
+    return UpsellSuggestionProjection(
+        sku=data.sku,
+        name=data.name,
+        unit_price_q=data.unit_price_q,
+        price_display=_money(data.unit_price_q) if data.unit_price_q else "",
+        image_url=data.image_url,
     )
 
 
