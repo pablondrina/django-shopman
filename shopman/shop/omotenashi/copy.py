@@ -52,6 +52,16 @@ class CopyEntry:
 # Use WILDCARD ("*") for the moment/audience axis when tone doesn't shift.
 
 OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
+    # ── Storefront merchandising ──────────────────────────────────
+    # Freshness badge for "fresh from the oven" items. ``{minutes}`` is the
+    # display-bucketed age (rounded up to 15 min) the Presentation passes in.
+    "STOREFRONT_FRESHNESS_RECENT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="há {minutes} min")},
+    },
+    "STOREFRONT_FRESHNESS_HOUR": {
+        WILDCARD: {WILDCARD: CopyEntry(message="há 1h")},
+    },
+
     # ── Menu ──────────────────────────────────────────────────────
     "MENU_SUBTITLE": {
         MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="Abrimos em breve. Pode escolher com calma.")},

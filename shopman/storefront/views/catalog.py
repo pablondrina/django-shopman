@@ -12,6 +12,7 @@ from shopman.shop.services.storefront_context import (
     fresh_from_oven_skus,
     popular_skus,
 )
+from shopman.storefront.presentation.merchandising import freshness_label
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.product_cards import (
     annotate_products,
@@ -57,7 +58,7 @@ class MenuView(View):
 
         if fresh:
             fresh_skus = [f["sku"] for f in fresh]
-            freshness_map = {f["sku"]: f["freshness_label"] for f in fresh}
+            freshness_map = {f["sku"]: freshness_label(f["minutes_ago"]) for f in fresh}
             qs = catalog_service.published_products(listing_ref)
             products_by_sku = {p.sku: p for p in qs.filter(sku__in=fresh_skus)}
             products = [products_by_sku[s] for s in fresh_skus if s in products_by_sku]
