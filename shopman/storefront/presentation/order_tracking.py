@@ -26,7 +26,6 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.copy import CopyCatalog, build_copy
 from shopman.shop.projections.order_tracking import (
-    CARRIER_TRACKING_URLS,  # noqa: F401 — re-exported for back-compat consumers
     TrackingData,
     TrackingFulfillmentData,
     TrackingPickupData,
