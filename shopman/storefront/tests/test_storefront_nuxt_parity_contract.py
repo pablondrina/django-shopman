@@ -55,35 +55,35 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "components/CartLineItem.vue": {
         "tokens": ["line.availability_warning", "line.available_qty"],
-        "sources": ["shopman/storefront/projections/cart.py"],
+        "sources": ["shopman/storefront/presentation/cart.py"],
     },
     "components/CartIssueModal.vue": {
         "tokens": ["stockIssue", "rateLimitRecovery", "retryLastCartMutation"],
-        "sources": ["shopman/storefront/api/surface.py", "shopman/storefront/projections/cart.py"],
+        "sources": ["shopman/storefront/api/surface.py", "shopman/storefront/presentation/cart.py"],
     },
     "components/ContextualBanners.vue": {
         "tokens": ["home.omotenashi", "home.last_order_ref", "closingHint"],
-        "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
+        "sources": ["shopman/storefront/presentation/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "components/HeroCarousel.vue": {
         "tokens": ["props.home.hero_copy", "props.home.last_order_ref", "omo."],
-        "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
+        "sources": ["shopman/storefront/presentation/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "components/HotFromOven.vue": {
         "tokens": ["CatalogItemProjection", "props.copy.availability_heading"],
-        "sources": ["shopman/storefront/projections/home.py", "shopman/storefront/projections/catalog.py"],
+        "sources": ["shopman/storefront/presentation/home.py", "shopman/storefront/presentation/catalog.py"],
     },
     "components/HowItWorks.vue": {
         "tokens": ["openingHours", "OpeningHoursEntry", "copy.how_it_works_heading"],
-        "sources": ["shopman/storefront/projections/home.py", "shopman/storefront/projections/shop_status.py"],
+        "sources": ["shopman/storefront/presentation/home.py", "shopman/storefront/presentation/shop_status.py"],
     },
     "components/PlannedHoldBadge.vue": {
         "tokens": ["confirmation_deadline_iso", "confirmation_deadline_display"],
-        "sources": ["shopman/storefront/projections/cart.py"],
+        "sources": ["shopman/storefront/presentation/cart.py"],
     },
     "components/ProductStepper.vue": {
         "tokens": ["props.unavailableLabel", "props.canAdd"],
-        "sources": ["shopman/storefront/projections/catalog.py", "shopman/storefront/projections/product_detail.py"],
+        "sources": ["shopman/storefront/presentation/catalog.py", "shopman/storefront/presentation/product_detail.py"],
     },
     "components/ReorderRecoveryModal.vue": {
         "tokens": ["skippedItems", "rateLimitRecovery", "retryRateLimitedReorder"],
@@ -91,11 +91,11 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "components/TomorrowHook.vue": {
         "tokens": ["props.omotenashi.moment", "props.copy.tomorrow_hook"],
-        "sources": ["shopman/storefront/projections/home.py", "shopman/shop/omotenashi/copy.py"],
+        "sources": ["shopman/storefront/presentation/home.py", "shopman/shop/omotenashi/copy.py"],
     },
     "composables/useCartState.ts": {
         "tokens": ["data.available_qty", "status === 409", "setFromServer"],
-        "sources": ["shopman/storefront/api/views.py", "shopman/storefront/projections/cart.py"],
+        "sources": ["shopman/storefront/api/views.py", "shopman/storefront/presentation/cart.py"],
     },
     "composables/useReorder.ts": {
         "tokens": ["skipped_items", "rateLimitRecovery", "/api/v1/orders/"],
@@ -107,7 +107,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/cart.vue": {
         "tokens": ["cart.minimum_order_progress", "cart.has_unavailable_items", "releaseCandidate"],
-        "sources": ["shopman/storefront/projections/cart.py", "shopman/storefront/api/views.py"],
+        "sources": ["shopman/storefront/presentation/cart.py", "shopman/storefront/api/views.py"],
     },
     "pages/checkout.vue": {
         "tokens": [
@@ -117,11 +117,11 @@ OPERATIONAL_COPY_SOURCE_MAP = {
             "checkout.max_preorder_days",
             "paymentOptions",
         ],
-        "sources": ["shopman/storefront/projections/checkout.py", "shopman/storefront/api/views.py"],
+        "sources": ["shopman/storefront/presentation/checkout.py", "shopman/storefront/api/views.py"],
     },
     "pages/how-it-works.vue": {
         "tokens": ["/api/v1/storefront/home/", "openingHours"],
-        "sources": ["shopman/storefront/projections/home.py"],
+        "sources": ["shopman/storefront/presentation/home.py"],
     },
     "pages/login.vue": {
         "tokens": ["/api/auth/request-code/", "/api/auth/verify-code/", "response.phone"],
@@ -129,7 +129,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/menu.vue": {
         "tokens": ["/api/v1/storefront/menu/", "availability_label", "available_qty"],
-        "sources": ["shopman/storefront/projections/catalog.py"],
+        "sources": ["shopman/storefront/presentation/catalog.py"],
     },
     "pages/offline.vue": {
         "tokens": ["Offline", "Páginas já abertas"],
@@ -137,7 +137,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/order/[ref]/confirmation.vue": {
         "tokens": ["/api/v1/tracking/", "data.promise", "payment_gate_url"],
-        "sources": ["shopman/storefront/projections/order_confirmation.py", "shopman/storefront/api/tracking.py"],
+        "sources": ["shopman/storefront/presentation/order_confirmation.py", "shopman/storefront/api/tracking.py"],
     },
     "pages/order/[ref]/payment.vue": {
         "tokens": ["/api/v1/payment/", "promise", "payment"],
@@ -145,7 +145,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/product/[sku].vue": {
         "tokens": ["/api/v1/storefront/products/", "product.availability_label", "product.available_qty"],
-        "sources": ["shopman/storefront/projections/product_detail.py"],
+        "sources": ["shopman/storefront/presentation/product_detail.py"],
     },
     "pages/tracking/[ref].vue": {
         "tokens": ["/api/v1/tracking/", "promiseRows", "fulfillment?.tracking_url"],
@@ -433,7 +433,7 @@ def test_login_preserves_backend_phone_identity_contract():
 
 def test_login_ports_penguin_phone_input_and_backend_copy():
     login = _nuxt_file("pages/login.vue")
-    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "home.py")
 
     for token in [
         "loginHome.value?.home.auth_copy",
@@ -691,8 +691,8 @@ def test_nuxt_sensitive_account_actions_require_confirmation():
 
 def test_category_urls_are_canonical_menu_anchors_without_nuxt_adapter():
     menu_category_page = NUXT_APP / "pages" / "menu" / "[category].vue"
-    catalog = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "catalog.py")
-    product_detail = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "product_detail.py")
+    catalog = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "catalog.py")
+    product_detail = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "product_detail.py")
 
     assert not menu_category_page.exists()
     assert "/menu#" in catalog
@@ -705,7 +705,7 @@ def test_reorder_requires_explicit_mode_before_replacing_cart():
     reorder = _nuxt_file("composables/useReorder.ts")
     modal = _nuxt_file("components/ReorderConflictModal.vue")
     api = _read(REPO_ROOT / "shopman" / "storefront" / "api" / "surface.py")
-    projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "reorder.py")
+    projection = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "reorder.py")
 
     assert "mode?: 'replace' | 'append'" in reorder
     assert "body: mode ? { mode, idempotency_key: idempotencyKey } : { idempotency_key: idempotencyKey }" in reorder
@@ -803,7 +803,7 @@ def test_nuxt_mobile_shell_has_stable_spacing_and_no_competing_cart_bar():
 
 def test_nuxt_home_hero_uses_backend_copy_and_fullwidth_shell():
     hero = _nuxt_file("components/HeroCarousel.vue")
-    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "home.py")
 
     assert "const copy = props.home.hero_copy" in hero
     assert "props.home.shop_status.message" not in hero
@@ -852,7 +852,7 @@ def test_nuxt_home_sections_use_backend_copy_projection():
     how = _nuxt_file("components/HowItWorks.vue")
     tomorrow = _nuxt_file("components/TomorrowHook.vue")
     whatsapp = _nuxt_file("components/WhatsappCta.vue")
-    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "projections" / "home.py")
+    home_projection = _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "home.py")
 
     for token in [
         ':copy="home.sections_copy"',

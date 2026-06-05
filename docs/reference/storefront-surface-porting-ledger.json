@@ -13,7 +13,7 @@
         "shopman/storefront/templates/storefront/partials/quick_reorder.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/home.py",
+        "shopman/storefront/presentation/home.py",
         "shopman/storefront/api/surface.py"
       ],
       "candidate_sources": [
@@ -34,7 +34,7 @@
         "shopman/storefront/templates/storefront/partials/availability_preview.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/catalog.py",
+        "shopman/storefront/presentation/catalog.py",
         "shopman/storefront/api/surface.py",
         "shopman/storefront/tests/api/test_storefront_surface.py"
     ],
@@ -54,7 +54,7 @@
         "shopman/storefront/templates/storefront/partials/stock_error_modal.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/product_detail.py",
+        "shopman/storefront/presentation/product_detail.py",
         "shopman/storefront/api/surface.py"
       ],
       "candidate_sources": [
@@ -73,7 +73,7 @@
         "shopman/storefront/templates/storefront/partials/cart_drawer.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/cart.py",
+        "shopman/storefront/presentation/cart.py",
         "shopman/storefront/api/views.py",
         "shopman/storefront/tests/test_stock_error_ux.py"
       ],
@@ -93,7 +93,7 @@
         "shopman/storefront/templates/storefront/checkout.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/checkout.py",
+        "shopman/storefront/presentation/checkout.py",
         "shopman/storefront/api/views.py",
         "shopman/storefront/tests/web/test_web_checkout.py"
       ],
@@ -265,7 +265,7 @@
         "shopman/storefront/templates/storefront/home.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/home.py",
+        "shopman/storefront/presentation/home.py",
         "shopman/storefront/api/auth.py"
       ],
       "candidate_sources": [
@@ -331,7 +331,7 @@
       "backend_contracts": [
         "shopman/storefront/api/serializers.py",
         "shopman/storefront/api/views.py",
-        "shopman/storefront/projections/checkout.py",
+        "shopman/storefront/presentation/checkout.py",
         "shopman/shop/services/checkout.py"
       ],
       "candidate_sources": [
@@ -428,7 +428,7 @@
         "shopman/storefront/templates/storefront"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections",
+        "shopman/storefront/presentation",
         "shopman/storefront/api"
       ],
       "candidate_sources": [
@@ -449,7 +449,7 @@
         "shopman/storefront/templates/storefront"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections"
+        "shopman/storefront/presentation"
       ],
       "candidate_sources": [
         "surfaces/storefront-nuxt/app/utils/operationalCopy.ts",

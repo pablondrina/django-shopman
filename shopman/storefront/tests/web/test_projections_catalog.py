@@ -16,8 +16,8 @@ from shopman.offerman.models import CollectionItem, ListingItem, Product
 
 from shopman.shop.projections.types import Availability
 from shopman.storefront.models import Promotion
-from shopman.storefront.projections import build_catalog
-from shopman.storefront.projections.catalog import (
+from shopman.storefront.presentation import build_catalog
+from shopman.storefront.presentation.catalog import (
     CatalogItemProjection,
     CatalogProjection,
 )

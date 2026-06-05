@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from shopman.offerman.models import ListingItem, Product
 
-from shopman.storefront.projections.product_detail import (
+from shopman.storefront.presentation.product_detail import (
     NutritionFactsProjection,
     build_product_detail,
 )

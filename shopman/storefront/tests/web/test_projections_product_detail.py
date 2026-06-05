@@ -15,8 +15,8 @@ from shopman.offerman.models import ListingItem, Product
 
 from shopman.shop.projections.types import Availability
 from shopman.storefront.models import Promotion
-from shopman.storefront.projections import build_product_detail
-from shopman.storefront.projections.product_detail import (
+from shopman.storefront.presentation import build_product_detail
+from shopman.storefront.presentation.product_detail import (
     AllergenInfoProjection,
     ConservationInfoProjection,
     ProductDetailProjection,

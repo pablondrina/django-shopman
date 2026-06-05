@@ -8,8 +8,8 @@ from django.http import HttpRequest
 
 from shopman.shop.projections.types import Action
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections.cart import CartProjection, build_cart
-from shopman.storefront.projections.home import CopyEntryProjection
+from shopman.storefront.presentation.cart import CartProjection, build_cart
+from shopman.storefront.presentation.home import CopyEntryProjection
 
 
 @dataclass(frozen=True)

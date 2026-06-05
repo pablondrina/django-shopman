@@ -21,7 +21,7 @@ from shopman.stockman.models import Hold
 
 from shopman.shop.projections.types import Availability
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections import build_cart, build_catalog
+from shopman.storefront.presentation import build_cart, build_catalog
 
 pytestmark = pytest.mark.django_db
 

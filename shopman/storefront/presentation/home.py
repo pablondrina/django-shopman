@@ -14,9 +14,9 @@ from django.http import HttpRequest
 
 from shopman.shop.projections.types import Action
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections.catalog import CatalogItemProjection, build_catalog
-from shopman.storefront.projections.shop import ShopProjection, build_shop_projection
-from shopman.storefront.projections.shop_status import _format_opening_hours, _shop_status
+from shopman.storefront.presentation.catalog import CatalogItemProjection, build_catalog
+from shopman.storefront.presentation.shop import ShopProjection, build_shop_projection
+from shopman.storefront.presentation.shop_status import _format_opening_hours, _shop_status
 
 logger = logging.getLogger(__name__)
 

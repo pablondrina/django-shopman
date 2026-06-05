@@ -16,7 +16,7 @@ class TestShopStatusVsBusinessHoursRule:
     """Sem horários no Shop, vitrine e validador não devem divergir (sempre "aberto")."""
 
     def test_shop_status_open_without_hours(self):
-        from shopman.storefront.projections.shop_status import _shop_status
+        from shopman.storefront.presentation.shop_status import _shop_status
 
         shop = MagicMock()
         shop.opening_hours = None
@@ -33,7 +33,7 @@ class TestShopStatusVsBusinessHoursRule:
             assert rule._check_outside_hours() is False
 
     def test_shop_status_does_not_duplicate_next_opening_copy(self):
-        from shopman.storefront.projections.shop_status import _shop_status
+        from shopman.storefront.presentation.shop_status import _shop_status
 
         state = SimpleNamespace(
             is_open=False,
@@ -55,7 +55,7 @@ class TestShopStatusVsBusinessHoursRule:
         assert st["label"] == "Fechado agora"
 
     def test_opening_hours_format_uses_plain_preposition(self):
-        from shopman.storefront.projections.shop_status import _format_opening_hours
+        from shopman.storefront.presentation.shop_status import _format_opening_hours
 
         shop = MagicMock()
         shop.opening_hours = {

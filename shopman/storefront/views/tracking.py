@@ -15,7 +15,7 @@ from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 
 from ..cart import CartService
-from ..projections import build_reorder_conflict
+from ..presentation import build_reorder_conflict
 from ..services import orders as order_service
 
 logger = logging.getLogger(__name__)
@@ -294,7 +294,7 @@ class OrderConfirmationView(View):
         if order_service.should_skip_confirmation(order):
             return redirect("storefront:order_tracking", ref=ref)
 
-        from shopman.storefront.projections import build_order_confirmation
+        from shopman.storefront.presentation import build_order_confirmation
 
         tracking_path = f"/pedido/{order.ref}/"
         share_url = self._share_url(request, order, tracking_path)

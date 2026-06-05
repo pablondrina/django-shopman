@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 
 from shopman.shop.services import remote_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections import (
+from shopman.storefront.presentation import (
     build_cart,
     build_catalog,
     build_checkout,

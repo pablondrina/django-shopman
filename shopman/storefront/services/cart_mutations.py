@@ -15,7 +15,7 @@ from shopman.storefront.cart import CartService
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.intents.cart import interpret_set_qty
 from shopman.storefront.intents.types import SetQtyIntent
-from shopman.storefront.projections.cart import present_minimum_order
+from shopman.storefront.presentation.cart import present_minimum_order
 
 MAX_CART_LINE_QTY = 99
 

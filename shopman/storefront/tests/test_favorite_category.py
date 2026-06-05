@@ -169,7 +169,7 @@ class TestCatalogProjectionFavorite:
 
         from shopman.offerman.models import Listing, ListingItem
 
-        from shopman.storefront.projections.catalog import build_catalog
+        from shopman.storefront.presentation.catalog import build_catalog
 
         # Seed a listing so the product appears
         listing = Listing.objects.create(ref="nelson", name="Nelson", is_active=True)
@@ -193,7 +193,7 @@ class TestCatalogProjectionFavorite:
         """Without customer orders, favorite_category_ref is None."""
         from shopman.offerman.models import Listing, ListingItem
 
-        from shopman.storefront.projections.catalog import build_catalog
+        from shopman.storefront.presentation.catalog import build_catalog
 
         listing = Listing.objects.create(ref="nelson2", name="Nelson2", is_active=True)
         ListingItem.objects.create(

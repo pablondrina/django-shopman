@@ -23,18 +23,18 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.projections import catalog_context
+from shopman.shop.projections.storefront_context import (
+    happy_hour_state,
+    popular_skus,
+    session_pricing_hints,
+)
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     HappyHourProjection,
 )
-from shopman.shop.projections.storefront_context import (
-    happy_hour_state,
-    popular_skus,
-    session_pricing_hints,
-)
-from shopman.storefront.projections.icons import collection_icon
+from shopman.storefront.presentation.icons import collection_icon
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401

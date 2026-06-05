@@ -39,7 +39,7 @@ def shop(request: HttpRequest) -> dict:
         }
 
     try:
-        from shopman.storefront.projections.shop_status import _format_opening_hours, _shop_status
+        from shopman.storefront.presentation.shop_status import _format_opening_hours, _shop_status
 
         shop_status = _shop_status()
         opening_hours_display = _format_opening_hours()
@@ -63,7 +63,7 @@ def shop(request: HttpRequest) -> dict:
         handle_label = "Identificador"
         handle_placeholder = ""
 
-    from shopman.storefront.projections.shop import build_shop_projection
+    from shopman.storefront.presentation.shop import build_shop_projection
 
     return {
         "storefront": build_shop_projection(shop_instance),

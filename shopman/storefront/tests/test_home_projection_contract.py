@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 def test_home_projection_keeps_operational_status_single_sourced(rf):
     from shopman.shop.models import Shop
     from shopman.storefront.api.projections import projection_data
-    from shopman.storefront.projections.home import build_home
+    from shopman.storefront.presentation.home import build_home
 
     shop = Shop.load() or Shop.objects.create(name="Test Padaria")
     shop.opening_hours = {
@@ -37,7 +37,7 @@ def test_home_projection_keeps_operational_status_single_sourced(rf):
 def test_home_projection_promotes_whatsapp_origin_as_contract_notice(rf):
     from shopman.shop.models import Shop
     from shopman.storefront.api.projections import projection_data
-    from shopman.storefront.projections.home import build_home
+    from shopman.storefront.presentation.home import build_home
 
     Shop.load() or Shop.objects.create(name="Test Padaria")
 

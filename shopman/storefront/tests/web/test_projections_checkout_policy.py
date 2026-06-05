@@ -5,7 +5,7 @@ from django.test import RequestFactory
 
 from shopman.storefront.api.projections import projection_data
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections.checkout import build_checkout
+from shopman.storefront.presentation.checkout import build_checkout
 
 pytestmark = pytest.mark.django_db
 

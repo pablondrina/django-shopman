@@ -33,7 +33,7 @@ class MenuView(View):
             return self._availability_preview(request, listing_ref)
 
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-        from shopman.storefront.projections import build_catalog
+        from shopman.storefront.presentation import build_catalog
 
         if collection is not None:
             catalog_service.ensure_active_collection(collection)
@@ -96,7 +96,7 @@ class ProductDetailView(View):
         from django.http import Http404
 
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-        from shopman.storefront.projections import build_product_detail
+        from shopman.storefront.presentation import build_product_detail
 
         projection = build_product_detail(
             sku=sku,

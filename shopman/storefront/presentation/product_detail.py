@@ -568,7 +568,7 @@ def _shelf_life_label(shelf_life_days: int | None) -> str | None:
 
 
 def _breadcrumb_category(product: Any) -> CategoryProjection | None:
-    from shopman.storefront.projections.icons import collection_icon
+    from shopman.storefront.presentation.icons import collection_icon
 
     col = catalog_context.breadcrumb_collection(product)
     if col is None:

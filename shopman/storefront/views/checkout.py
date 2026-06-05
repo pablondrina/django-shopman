@@ -16,7 +16,7 @@ from shopman.shop.services import checkout as checkout_service
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
-from ..projections.cart import present_minimum_order
+from ..presentation.cart import present_minimum_order
 from ..services import orders as order_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
@@ -40,7 +40,7 @@ class CheckoutView(View):
         if not customer_info.phone:
             return redirect("/login/?next=/checkout/")
 
-        from shopman.storefront.projections import build_checkout
+        from shopman.storefront.presentation import build_checkout
         checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
         return render(request, "storefront/checkout.html", {
             "checkout": checkout,
@@ -127,7 +127,7 @@ class CheckoutView(View):
         form_data: dict,
         repricing_warnings: list | None = None,
     ) -> HttpResponse:
-        from shopman.storefront.projections import build_checkout
+        from shopman.storefront.presentation import build_checkout
         checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
         return render(request, "storefront/checkout.html", {
             "checkout": checkout,

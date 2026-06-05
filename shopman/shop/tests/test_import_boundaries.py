@@ -174,7 +174,7 @@ def test_surfaces_do_not_import_orderman_write_primitives():
     )
     violations = []
     for root in (STOREFRONT_ROOT, BACKSTAGE_ROOT):
-        for path in _py_files(root, skip_parts={"tests", "projections"}):
+        for path in _py_files(root, skip_parts={"tests", "presentation"}):
             for line, module in _imports(path):
                 if _matches_prefix(module, forbidden):
                     violations.append((path, line, module))
@@ -301,7 +301,7 @@ def test_storefront_surface_reads_delegate_kernel_domains():
     )
     roots = (
         STOREFRONT_ROOT / "services",
-        STOREFRONT_ROOT / "projections",
+        STOREFRONT_ROOT / "presentation",
         STOREFRONT_ROOT / "intents",
     )
     violations = []

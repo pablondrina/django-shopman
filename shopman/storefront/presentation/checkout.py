@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections import customer_context
+from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
+from shopman.shop.projections.interaction_context import InteractionContext
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     Action,
@@ -26,8 +28,6 @@ from shopman.shop.projections.types import (
     PickupSlotProjection,
     SavedAddressProjection,
 )
-from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
-from shopman.shop.projections.interaction_context import InteractionContext
 
 from .cart import CartProjection, build_cart
 

@@ -14,7 +14,7 @@ from django.test import RequestFactory
 
 from shopman.shop.projections.types import PaymentMethodOptionProjection, PickupSlotProjection
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-from shopman.storefront.projections.checkout import CheckoutProjection, build_checkout
+from shopman.storefront.presentation.checkout import CheckoutProjection, build_checkout
 
 pytestmark = pytest.mark.django_db
 
@@ -54,7 +54,7 @@ class TestCheckoutProjectionShape:
             proj.customer_phone = "999"  # type: ignore[misc]
 
     def test_cart_embedded(self, cart_session, product):
-        from shopman.storefront.projections.cart import CartProjection
+        from shopman.storefront.presentation.cart import CartProjection
 
         request = _request_with_cart_session(cart_session)
         proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
