@@ -1,11 +1,5 @@
 """Storefront projections for customer-facing surfaces."""
 
-from .account import (
-    CustomerProfileProjection,
-    LoyaltyProjection,
-    LoyaltyTransactionProjection,
-    build_account,
-)
 from .cart import (
     CartItemProjection,
     CartProjection,
@@ -35,7 +29,6 @@ from .home import (
     build_home,
 )
 from .order_confirmation import OrderConfirmationProjection, build_order_confirmation
-from .order_history import OrderHistoryProjection, build_order_history
 from .product_detail import (
     AllergenInfoProjection,
     ConservationInfoProjection,
@@ -61,19 +54,15 @@ __all__ = [
     "CheckoutProjection",
     "ConservationInfoProjection",
     "CopyEntryProjection",
-    "CustomerProfileProjection",
     "DiscountLineProjection",
     "HomeHeroCopyProjection",
     "HomeProjection",
     "HomeSectionsCopyProjection",
     "LastOrderItemProjection",
-    "LoyaltyProjection",
-    "LoyaltyTransactionProjection",
     "MinimumOrderProgressProjection",
     "OmotenashiProjection",
     "OpeningHoursEntry",
     "OrderConfirmationProjection",
-    "OrderHistoryProjection",
     "ProductDetailProjection",
     "ReorderConflictCopyProjection",
     "ReorderConflictItemProjection",
@@ -82,14 +71,12 @@ __all__ = [
     "ShopStatusProjection",
     "SocialLinkProjection",
     "UpsellSuggestionProjection",
-    "build_account",
     "build_cart",
     "build_catalog",
     "build_catalog_items_for_skus",
     "build_checkout",
     "build_home",
     "build_order_confirmation",
-    "build_order_history",
     "build_product_detail",
     "build_reorder_conflict",
     "build_shop_projection",

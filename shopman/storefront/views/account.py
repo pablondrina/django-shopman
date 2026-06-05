@@ -10,7 +10,7 @@ from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from shopman.shop.services import account as account_service
-from shopman.storefront.projections.account import build_account
+from shopman.storefront.presentation.account import build_account
 from shopman.storefront.services.address_picker import address_picker_context
 
 from .auth import get_authenticated_customer

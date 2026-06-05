@@ -1,9 +1,10 @@
-"""OrderHistoryProjection — immutable UI projection for the order history page (Fase 3).
+"""Order history — storefront Presentation.
 
-Translates a customer's order list into an immutable projection consumed
-by the ``storefront/order_history.html`` template.
-
-``build_order_history``  → full history page projection.
+Consumes the data Projection (``shop.projections.customer``) and produces the
+display shape the ``storefront/order_history.html`` template consumes: money
+formatted ``R$``, status label + colour token, formatted timestamps. **No
+policy** — the order list, identity resolution and status keys already arrived
+sealed in the data projection.
 
 Never imports from ``shopman.storefront.views.*``.
 """
@@ -16,10 +17,16 @@ from dataclasses import dataclass
 from django.utils import timezone
 from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import OrderSummaryProjection
-from shopman.shop.services import customer_orders
+from shopman.shop.projections import customer as customer_projection
+from shopman.shop.projections.types import (
+    ORDER_STATUS_COLORS,
+    ORDER_STATUS_LABELS_PT,
+    OrderSummaryProjection,
+)
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_STATUS_COLOR = "bg-surface-alt text-on-surface/60 border border-outline"
 
 FILTER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("todos", "Todos"),
@@ -73,29 +80,31 @@ def build_order_history(
 # ──────────────────────────────────────────────────────────────────────
 
 
+def present_summary(summary) -> OrderSummaryProjection:
+    """Render one data order summary into the display projection."""
+    return OrderSummaryProjection(
+        ref=summary.ref,
+        created_at_display=_fmt_datetime(summary.created_at),
+        total_q=summary.total_q,
+        total_display=f"R$ {format_money(summary.total_q)}",
+        status=summary.status,
+        status_label=ORDER_STATUS_LABELS_PT.get(summary.status, summary.status),
+        status_color=ORDER_STATUS_COLORS.get(summary.status, _DEFAULT_STATUS_COLOR),
+        item_count=summary.item_count,
+    )
+
+
 def _fetch_orders(
     customer,
     filter_param: str,
 ) -> tuple[OrderSummaryProjection, ...]:
-    summaries = customer_orders.history_summaries_for_customer(
+    summaries = customer_projection.history_summaries_for_customer(
         customer_ref=customer.ref,
         phone=customer.phone,
         filter_param=filter_param,
         limit=50,
     )
-    return tuple(
-        OrderSummaryProjection(
-            ref=order.ref,
-            created_at_display=_fmt_datetime(order.created_at),
-            total_q=order.total_q,
-            total_display=f"R$ {format_money(order.total_q)}",
-            status=order.status,
-            status_label=order.status_label,
-            status_color=order.status_color,
-            item_count=order.item_count,
-        )
-        for order in summaries
-    )
+    return tuple(present_summary(summary) for summary in summaries)
 
 
 def _fmt_datetime(dt) -> str:
@@ -112,4 +121,5 @@ __all__ = [
     "FILTER_OPTIONS",
     "OrderHistoryProjection",
     "build_order_history",
+    "present_summary",
 ]

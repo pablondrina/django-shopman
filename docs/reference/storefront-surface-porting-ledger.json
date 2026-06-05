@@ -141,7 +141,7 @@
         "shopman/storefront/templates/storefront/partials/device_list.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/account.py",
+        "shopman/storefront/presentation/account.py",
         "shopman/storefront/api/account.py",
         "shopman/storefront/tests/api/test_account_summary.py"
       ],
@@ -184,7 +184,7 @@
       ],
       "backend_contracts": [
         "shopman/storefront/presentation/order_tracking.py",
-        "shopman/storefront/projections/order_history.py",
+        "shopman/storefront/presentation/order_history.py",
         "shopman/storefront/api/tracking.py",
         "shopman/storefront/api/surface.py"
       ],
@@ -356,7 +356,7 @@
       "backend_contracts": [
         "shopman/storefront/api/surface.py",
         "shopman/storefront/services/orders.py",
-        "shopman/storefront/projections/order_history.py"
+        "shopman/storefront/presentation/order_history.py"
       ],
       "candidate_sources": [
         "surfaces/storefront-nuxt/app/components/ReorderConflictModal.vue",

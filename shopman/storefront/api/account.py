@@ -20,7 +20,7 @@ from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
 from shopman.storefront.intents.types import AddressIntent
-from shopman.storefront.projections.account import build_account
+from shopman.storefront.presentation.account import build_account
 from shopman.storefront.services import orders as order_service
 from shopman.storefront.views.auth import get_authenticated_customer
 

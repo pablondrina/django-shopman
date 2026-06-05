@@ -33,7 +33,9 @@ def active_order_count_for_customer(
 
 
 def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
-    return customer_orders.order_history_for_phone(phone, limit=limit)
+    from shopman.storefront.presentation import account as account_presentation
+
+    return account_presentation.order_history_for_phone(phone, limit=limit)
 
 
 def order_history_for_customer(
@@ -43,7 +45,9 @@ def order_history_for_customer(
     filter_param: str = "todos",
     limit: int = 20,
 ) -> list[dict]:
-    return customer_orders.order_history_for_customer(
+    from shopman.storefront.presentation import account as account_presentation
+
+    return account_presentation.order_history_for_customer(
         customer_ref=customer_ref,
         phone=phone,
         filter_param=filter_param,

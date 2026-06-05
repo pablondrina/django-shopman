@@ -103,7 +103,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/account.vue": {
         "tokens": ["accountSummary", "loyalty", "/api/v1/account/summary/"],
-        "sources": ["shopman/storefront/projections/account.py", "shopman/storefront/api/account.py"],
+        "sources": ["shopman/storefront/presentation/account.py", "shopman/storefront/api/account.py"],
     },
     "pages/cart.vue": {
         "tokens": ["cart.minimum_order_progress", "cart.has_unavailable_items", "releaseCandidate"],

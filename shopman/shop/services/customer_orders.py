@@ -7,9 +7,7 @@ Orderman, Guestman, or Offerman models directly.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
 
 from django.db import transaction
 from django.db.models import Q
@@ -18,31 +16,15 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
-from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import ORDER_STATUS_COLORS, ORDER_STATUS_LABELS_PT
 from shopman.shop.services import payment as payment_service
 
 logger = logging.getLogger(__name__)
 
 ACTIVE_STATUSES = frozenset({"new", "confirmed", "preparing", "ready", "dispatched"})
-CANCELLABLE_STATUSES = frozenset({"new", "confirmed"})
 DEFAULT_CHANNEL_REF = "web"
 ORDER_ACCESS_SESSION_KEY = "shopman_order_access_refs"
 MAX_SESSION_ORDER_ACCESS_REFS = 20
-
-
-@dataclass(frozen=True)
-class OrderHistorySummary:
-    """Canonical compact order summary consumed by customer projections."""
-
-    ref: str
-    created_at: Any
-    total_q: int
-    status: str
-    status_label: str
-    status_color: str
-    item_count: int
 
 
 def get_order(ref: str):
@@ -151,7 +133,7 @@ def active_order_count_for_customer(
     """Count active orders for the authenticated customer identity."""
     from shopman.orderman.models import Order
 
-    identity = _customer_identity_filter(customer_ref=customer_ref, phone=phone)
+    identity = customer_identity_filter(customer_ref=customer_ref, phone=phone)
     if identity is None:
         return 0
     return Order.objects.filter(identity, status__in=ACTIVE_STATUSES).distinct().count()
@@ -160,105 +142,6 @@ def active_order_count_for_customer(
 def active_order_count_for_phone(phone: str) -> int:
     """Count active orders for the customer phone used by account badges."""
     return active_order_count_for_customer(phone=phone)
-
-
-def history_summaries_for_customer(
-    *,
-    customer_ref: str | None = None,
-    phone: str | None = None,
-    filter_param: str = "todos",
-    limit: int = 50,
-) -> tuple[OrderHistorySummary, ...]:
-    """Return order summaries for one authenticated customer identity.
-
-    ``customer_ref`` is the canonical sealed link. ``phone`` is accepted as the
-    external handle for orders that entered through phone-based surfaces, so
-    history, account, badges, loyalty and quick reorder do not contradict each
-    other when the same customer is resolved from different entry points.
-    """
-    try:
-        from shopman.orderman.models import Order
-
-        identity = _customer_identity_filter(customer_ref=customer_ref, phone=phone)
-        if identity is None:
-            return ()
-
-        qs = Order.objects.filter(identity).distinct().order_by("-created_at")
-        qs = _apply_history_filter(qs, filter_param)
-        return _summaries_from_orders(qs[:limit])
-    except Exception:
-        logger.warning(
-            "customer_order_history_failed customer_ref=%s phone=%s",
-            customer_ref,
-            phone,
-            exc_info=True,
-        )
-        return ()
-
-
-def history_summaries_for_phone(
-    phone: str,
-    *,
-    filter_param: str = "todos",
-    limit: int = 50,
-) -> tuple[OrderHistorySummary, ...]:
-    """Return canonical order summaries for a phone, degrading to an empty tuple."""
-    return history_summaries_for_customer(
-        phone=phone,
-        filter_param=filter_param,
-        limit=limit,
-    )
-
-
-def history_summaries_for_customer_ref(
-    customer_ref: str,
-    *,
-    limit: int = 10,
-) -> tuple[OrderHistorySummary, ...]:
-    """Return canonical order summaries for a customer ref."""
-    return history_summaries_for_customer(customer_ref=customer_ref, limit=limit)
-
-
-def order_history_for_customer(
-    *,
-    customer_ref: str | None = None,
-    phone: str | None = None,
-    filter_param: str = "todos",
-    limit: int = 20,
-) -> list[dict]:
-    """Return API-ready customer order history for account surfaces."""
-    return [
-        {
-            "ref": order.ref,
-            "created_at": order.created_at,
-            "created_at_display": timezone.localtime(order.created_at).strftime("%d/%m/%Y às %H:%M"),
-            "total_display": f"R$ {format_money(order.total_q)}",
-            "status": order.status,
-            "status_label": order.status_label,
-            "status_color": order.status_color,
-            "item_count": order.item_count,
-        }
-        for order in history_summaries_for_customer(
-            customer_ref=customer_ref,
-            phone=phone,
-            filter_param=filter_param,
-            limit=limit,
-        )
-    ]
-
-
-def order_history_for_phone(
-    phone: str,
-    *,
-    filter_param: str = "todos",
-    limit: int = 20,
-) -> list[dict]:
-    """Return API-ready customer order history for the authenticated account API."""
-    return order_history_for_customer(
-        phone=phone,
-        filter_param=filter_param,
-        limit=limit,
-    )
 
 
 def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, list[dict]]:
@@ -278,7 +161,7 @@ def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, l
     try:
         from shopman.orderman.models import Order
 
-        identity = _customer_identity_filter(customer_ref=customer.ref, phone=customer.phone)
+        identity = customer_identity_filter(customer_ref=customer.ref, phone=customer.phone)
         if identity is None:
             return None, []
 
@@ -704,7 +587,7 @@ def _same_phone(left: str, right: str) -> bool:
         return str(left).strip() == str(right).strip()
 
 
-def _customer_identity_filter(
+def customer_identity_filter(
     *,
     customer_ref: str | None = None,
     phone: str | None = None,
@@ -715,32 +598,6 @@ def _customer_identity_filter(
     if phone:
         query |= Q(handle_type="phone", handle_ref=phone)
     return query if query.children else None
-
-
-def _apply_history_filter(qs, filter_param: str):
-    if filter_param == "ativos":
-        return qs.filter(status__in=ACTIVE_STATUSES)
-    if filter_param == "anteriores":
-        return qs.exclude(status__in=ACTIVE_STATUSES)
-    return qs
-
-
-def _summaries_from_orders(orders) -> tuple[OrderHistorySummary, ...]:
-    return tuple(
-        OrderHistorySummary(
-            ref=order.ref,
-            created_at=order.created_at,
-            total_q=order.total_q,
-            status=order.status,
-            status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-            status_color=ORDER_STATUS_COLORS.get(
-                order.status,
-                "bg-surface-alt text-on-surface/60 border border-outline",
-            ),
-            item_count=order.items.count(),
-        )
-        for order in orders
-    )
 
 
 def _price_q(product, *, channel_ref: str) -> int:
@@ -764,27 +621,23 @@ def _price_q(product, *, channel_ref: str) -> int:
 __all__ = [
     "ACTIVE_STATUSES",
     "ORDER_ACCESS_SESSION_KEY",
-    "OrderHistorySummary",
     "active_order_count_for_customer",
     "active_order_count_for_phone",
     "add_reorder_items",
     "can_cancel",
     "cancel",
     "customer_can_access_order",
+    "customer_identity_filter",
     "ensure_payment_intent",
     "get_accessible_order",
     "find_order",
     "get_order",
     "get_payment_status",
     "grant_order_access",
-    "history_summaries_for_customer",
-    "history_summaries_for_phone",
-    "history_summaries_for_customer_ref",
     "is_cancelled",
     "last_reorder_context",
     "mock_confirm_payment",
     "order_matches_customer_identity",
-    "order_history_for_phone",
     "resolve_confirmation_timeout_if_due",
     "resolve_payment_timeout_if_due",
     "requires_payment_gate",

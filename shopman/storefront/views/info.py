@@ -4,7 +4,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 
-from shopman.storefront.projections.order_history import build_order_history
+from shopman.storefront.presentation.order_history import build_order_history
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services import orders as order_service
 

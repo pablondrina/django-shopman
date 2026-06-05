@@ -1,4 +1,4 @@
-"""Unit tests for shopman.shop.projections.order_history.
+"""Unit tests for the storefront order-history Presentation.
 
 Uses customer/order fixtures from conftest.py. Verifies OrderHistoryProjection
 shape, filter behaviour, status colour/label mapping, and graceful degradation.
@@ -10,7 +10,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from shopman.shop.projections.types import ORDER_STATUS_COLORS, OrderSummaryProjection
-from shopman.storefront.projections.order_history import (
+from shopman.storefront.presentation.order_history import (
     FILTER_OPTIONS,
     OrderHistoryProjection,
     build_order_history,

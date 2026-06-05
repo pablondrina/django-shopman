@@ -3,7 +3,8 @@ from __future__ import annotations
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
-from shopman.shop.projections import payment_status as payment_projection
+from shopman.shop.projections import customer as customer_projection
+from shopman.shop.projections import payment_status as payment_data
 from shopman.shop.services import customer_orders, payment_status
 
 
@@ -37,13 +38,13 @@ def test_customer_order_history_summaries_filter_and_label(customer):
         data={},
     )
 
-    summaries = customer_orders.history_summaries_for_phone(
+    summaries = customer_projection.history_summaries_for_phone(
         customer.phone,
         filter_param="anteriores",
     )
 
     assert [summary.ref for summary in summaries] == ["ORD-HIST-DONE"]
-    assert summaries[0].status_label == "Concluído"
+    assert summaries[0].status == "completed"
     assert summaries[0].total_q == 2400
 
 
@@ -67,7 +68,7 @@ def test_customer_order_history_uses_same_identity_contract_for_ref_and_phone(cu
         data={},
     )
 
-    summaries = customer_orders.history_summaries_for_customer(
+    summaries = customer_projection.history_summaries_for_customer(
         customer_ref=customer.ref,
         phone=customer.phone,
     )
@@ -98,7 +99,7 @@ def test_payment_status_invalid_expiry_degrades_to_pending(order_with_payment):
     order_with_payment.data["payment"]["expires_at"] = "not-a-datetime"
     order_with_payment.save(update_fields=["data"])
 
-    projection = payment_projection.build_payment_status(order_with_payment)
+    projection = payment_data.build_payment_status(order_with_payment)
 
     assert projection.is_expired is False
     assert projection.is_terminal is False
@@ -110,7 +111,7 @@ def test_payment_status_expired_pix_is_terminal(order_with_payment):
     ).isoformat()
     order_with_payment.save(update_fields=["data"])
 
-    projection = payment_projection.build_payment_status(order_with_payment)
+    projection = payment_data.build_payment_status(order_with_payment)
 
     assert projection.is_expired is True
     assert projection.is_terminal is True

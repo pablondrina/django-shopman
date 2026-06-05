@@ -1,4 +1,4 @@
-"""Unit tests for shopman.shop.projections.account.
+"""Unit tests for the storefront account Presentation.
 
 Uses customer fixtures from conftest.py. Verifies CustomerProfileProjection
 shape, loyalty embedding, address projection, notification prefs, food prefs,
@@ -16,7 +16,7 @@ from shopman.shop.projections.types import (
     OrderSummaryProjection,
     SavedAddressProjection,
 )
-from shopman.storefront.projections.account import (
+from shopman.storefront.presentation.account import (
     CustomerProfileProjection,
     LoyaltyProjection,
     build_account,

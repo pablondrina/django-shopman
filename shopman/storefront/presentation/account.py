@@ -1,10 +1,12 @@
-"""CustomerProfileProjection — immutable UI projection for the account page (Fase 3).
+"""Account — storefront Presentation.
 
-Translates a Customer + loyalty account + addresses + order history into
-one immutable projection consumed by the ``storefront/account.html``
-template.
-
-``build_account``  → full account page projection.
+Translates a Customer + loyalty account + addresses + order history into one
+immutable projection consumed by the ``storefront/account.html`` template, plus
+the API-ready order-history dicts the account REST surface serializes. Money is
+formatted here, status labels/colours resolved here, dates formatted here —
+**no policy**. The order list arrives sealed from the data Projection
+(``shop.projections.customer``); customer context (loyalty/addresses/consent)
+arrives from ``shop.services.customer_context`` (clean read helpers).
 
 Never imports from ``shopman.storefront.views.*``.
 """
@@ -16,8 +18,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from django.utils import timezone
-from shopman.utils.monetary import format_money
 
+from shopman.shop.projections import customer as customer_projection
 from shopman.shop.projections.types import (
     FOOD_PREFERENCE_OPTIONS,
     NOTIFICATION_CHANNELS,
@@ -26,7 +28,8 @@ from shopman.shop.projections.types import (
     OrderSummaryProjection,
     SavedAddressProjection,
 )
-from shopman.shop.services import customer_context, customer_orders
+from shopman.shop.services import customer_context
+from shopman.storefront.presentation.order_history import present_summary
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +103,57 @@ class CustomerProfileProjection:
     food_pref_options: tuple[FoodPrefProjection, ...]
 
     tab_options: tuple[tuple[str, str], ...]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# API-ready order history (account REST surface)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def order_history_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    """Return API-ready customer order history for account surfaces."""
+    summaries = customer_projection.history_summaries_for_customer(
+        customer_ref=customer_ref,
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
+    rows: list[dict] = []
+    for summary in summaries:
+        rendered = present_summary(summary)
+        rows.append(
+            {
+                "ref": rendered.ref,
+                "created_at": summary.created_at,
+                "created_at_display": rendered.created_at_display,
+                "total_display": rendered.total_display,
+                "status": rendered.status,
+                "status_label": rendered.status_label,
+                "status_color": rendered.status_color,
+                "item_count": rendered.item_count,
+            }
+        )
+    return rows
+
+
+def order_history_for_phone(
+    phone: str,
+    *,
+    filter_param: str = "todos",
+    limit: int = 20,
+) -> list[dict]:
+    """Return API-ready customer order history for the authenticated account API."""
+    return order_history_for_customer(
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -223,24 +277,12 @@ def _build_recent_orders(
     customer: AccountCustomer,
 ) -> tuple[OrderSummaryProjection, ...]:
     try:
-        records = customer_orders.history_summaries_for_customer(
+        records = customer_projection.history_summaries_for_customer(
             customer_ref=customer.ref,
             phone=customer.phone,
             limit=10,
         )
-        return tuple(
-            OrderSummaryProjection(
-                ref=r.ref,
-                created_at_display=_fmt_datetime(r.created_at),
-                total_q=r.total_q,
-                total_display=f"R$ {format_money(r.total_q)}",
-                status=r.status,
-                status_label=r.status_label,
-                status_color=r.status_color,
-                item_count=getattr(r, "item_count", getattr(r, "items_count", 0)),
-            )
-            for r in records
-        )
+        return tuple(present_summary(r) for r in records)
     except Exception:
         logger.debug("account_projection_orders_failed customer=%s", customer.ref, exc_info=True)
         return ()
@@ -310,4 +352,6 @@ __all__ = [
     "LoyaltyProjection",
     "LoyaltyTransactionProjection",
     "build_account",
+    "order_history_for_customer",
+    "order_history_for_phone",
 ]
