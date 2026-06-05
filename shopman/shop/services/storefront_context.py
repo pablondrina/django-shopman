@@ -126,8 +126,12 @@ def happy_hour_state() -> dict:
 
     Only returns ``active=True`` when the instance has registered a modifier
     with code ``shop.happy_hour`` — the badge is never shown unless the
-    discount will actually be applied at checkout. Settings-driven for now;
-    a future iteration can move this to ``ChannelConfig``.
+    discount will actually be applied at checkout.
+
+    Reads window/percent from ``RuleConfig "happy_hour"`` — the **same source**
+    the ``HappyHourModifier`` reads for the actual discount — so the badge and
+    the applied discount can never diverge. Falls back to ``SHOPMAN_HAPPY_HOUR_*``
+    settings, then to defaults, mirroring the modifier's resolution chain.
     """
     from shopman.orderman.registry import get_modifiers
 
@@ -135,9 +139,15 @@ def happy_hour_state() -> dict:
         return _HAPPY_HOUR_INACTIVE
 
     try:
-        raw_start = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
-        raw_end = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
-        discount_percent = getattr(settings, "SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", 10)
+        from shopman.shop.rules.engine import get_rule_params
+
+        params = get_rule_params("happy_hour")
+        raw_start = params.get("start") or getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
+        raw_end = params.get("end") or getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
+        discount_percent = params.get(
+            "discount_percent",
+            getattr(settings, "SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", 10),
+        )
 
         sh, sm = map(int, raw_start.split(":"))
         eh, em = map(int, raw_end.split(":"))
