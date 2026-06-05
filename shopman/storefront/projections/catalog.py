@@ -29,7 +29,7 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     HappyHourProjection,
 )
-from shopman.shop.services.storefront_context import (
+from shopman.shop.projections.storefront_context import (
     happy_hour_state,
     popular_skus,
     session_pricing_hints,

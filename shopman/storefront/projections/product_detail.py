@@ -28,7 +28,7 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     ComponentProjection,
 )
-from shopman.shop.services.storefront_context import session_pricing_hints
+from shopman.shop.projections.storefront_context import session_pricing_hints
 
 from .catalog import (
     _cart_qty_by_sku,

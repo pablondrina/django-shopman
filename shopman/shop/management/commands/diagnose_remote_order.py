@@ -19,7 +19,7 @@ class Command(BaseCommand):
         from shopman.orderman.models import Directive, Order
 
         from shopman.shop.services import payment_status
-        from shopman.shop.services.channel_policy import resolve_channel_policy
+        from shopman.shop.projections.channel_policy import resolve_channel_policy
         from shopman.shop.services.conversation import build_order_conversation
 
         ref = str(options["ref"]).strip()

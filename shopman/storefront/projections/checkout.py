@@ -26,8 +26,8 @@ from shopman.shop.projections.types import (
     PickupSlotProjection,
     SavedAddressProjection,
 )
-from shopman.shop.services.channel_policy import ChannelPolicyResolution, resolve_channel_policy
-from shopman.shop.services.interaction_context import InteractionContext
+from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
+from shopman.shop.projections.interaction_context import InteractionContext
 
 from .cart import CartProjection, build_cart
 

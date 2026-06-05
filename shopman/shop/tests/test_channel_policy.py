@@ -4,7 +4,7 @@ import pytest
 from django.core.cache import cache
 
 from shopman.shop.models import Channel
-from shopman.shop.services.channel_policy import (
+from shopman.shop.projections.channel_policy import (
     ChannelPolicyResolution,
     resolve_channel_policy,
 )

@@ -8,7 +8,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from shopman.shop.services.storefront_context import (
+from shopman.shop.projections.storefront_context import (
     fresh_from_oven_skus,
     popular_skus,
 )

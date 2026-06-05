@@ -104,7 +104,7 @@ def build_upsell_suggestion(
     """
     from shopman.offerman.models import ListingItem, Product
 
-    from shopman.shop.services.storefront_context import popular_skus
+    from shopman.shop.projections.storefront_context import popular_skus
 
     popular = popular_skus(limit=10)
     candidates = [sku for sku in popular if sku not in cart_skus]

@@ -10,7 +10,7 @@ from django.utils import timezone
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections import catalog_context
-from shopman.shop.services.storefront_context import session_pricing_hints
+from shopman.shop.projections.storefront_context import session_pricing_hints
 
 from ..constants import STOREFRONT_CHANNEL_REF
 

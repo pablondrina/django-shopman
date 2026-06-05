@@ -1,16 +1,15 @@
-"""Storefront context services.
+"""Storefront context — read-side facades for storefront-facing read paths.
 
-Small, pure queries that collect contextual state used by storefront-facing
-read paths (v1 views and projection builders):
+Small, pure queries that collect contextual state (v1 views and presentation
+builders consume them through this stable import path):
 
 - ``popular_skus`` — most-favourited SKUs across customer insights.
 - ``happy_hour_state`` — current happy-hour window + discount percent.
 - ``session_pricing_hints`` — fulfillment type + subtotal from the active
   cart session, matching what DiscountModifier sees at checkout.
 
-These live under ``shopman.shop.services`` so both web views and the
-projection layer consume them through a stable import path — no web-only
-module reaches into another layer's private helpers.
+A clean read facade (policy/data, no presentation), so it lives in the
+orchestrator read-side (``shop/projections/``).
 
 The minimum-order progress and upsell read-models drained to
 ``shop/projections/cart.py`` (data) + ``storefront/presentation`` (display).

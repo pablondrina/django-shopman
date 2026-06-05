@@ -29,7 +29,7 @@ from shopman.shop.projections.types import (
     AddressAutocompleteProjection,
     SavedAddressProjection,
 )
-from shopman.shop.services.channel_policy import resolve_channel_policy
+from shopman.shop.projections.channel_policy import resolve_channel_policy
 from shopman.shop.services.pos_intent import (
     POS_SALE_INTENT_PAYLOAD_KEYS,
     POS_SALE_INTENT_RECEIPT_MODES,

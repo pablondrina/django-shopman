@@ -34,7 +34,7 @@ from shopman.shop.services.business_calendar import (
     current_business_state,
     format_next_opening,
 )
-from shopman.shop.services.interaction_context import InteractionContext
+from shopman.shop.projections.interaction_context import InteractionContext
 
 logger = logging.getLogger(__name__)
 
