@@ -141,7 +141,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/order/[ref]/payment.vue": {
         "tokens": ["/api/v1/payment/", "promise", "payment"],
-        "sources": ["shopman/storefront/projections/payment.py", "shopman/storefront/api/payment.py"],
+        "sources": ["shopman/storefront/presentation/payment.py", "shopman/storefront/api/payment.py"],
     },
     "pages/product/[sku].vue": {
         "tokens": ["/api/v1/storefront/products/", "product.availability_label", "product.available_qty"],

@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 from shopman.shop.services import remote_mutations
 from shopman.storefront.api.actions import retry_after_action
 from shopman.storefront.api.projections import projection_data
-from shopman.storefront.projections import build_payment, build_payment_status
+from shopman.storefront.presentation import build_payment, build_payment_status
 from shopman.storefront.services import orders as order_service
 
 

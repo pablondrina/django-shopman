@@ -10,9 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from shopman.shop.projections import order_tracking
+from shopman.shop.projections import order_tracking, payment_status
 from shopman.shop.projections.types import Action
-from shopman.shop.services import payment_status
 from shopman.shop.services.channel_policy import resolve_channel_policy
 from shopman.shop.services.interaction_context import InteractionContext
 

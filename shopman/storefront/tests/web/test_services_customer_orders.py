@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
+from shopman.shop.projections import payment_status as payment_projection
 from shopman.shop.services import customer_orders, payment_status
 
 
@@ -97,7 +98,7 @@ def test_payment_status_invalid_expiry_degrades_to_pending(order_with_payment):
     order_with_payment.data["payment"]["expires_at"] = "not-a-datetime"
     order_with_payment.save(update_fields=["data"])
 
-    projection = payment_status.build_payment_status(order_with_payment)
+    projection = payment_projection.build_payment_status(order_with_payment)
 
     assert projection.is_expired is False
     assert projection.is_terminal is False
@@ -109,7 +110,7 @@ def test_payment_status_expired_pix_is_terminal(order_with_payment):
     ).isoformat()
     order_with_payment.save(update_fields=["data"])
 
-    projection = payment_status.build_payment_status(order_with_payment)
+    projection = payment_projection.build_payment_status(order_with_payment)
 
     assert projection.is_expired is True
     assert projection.is_terminal is True

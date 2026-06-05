@@ -162,7 +162,7 @@
         "shopman/storefront/templates/storefront/partials/payment_status.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/payment.py",
+        "shopman/storefront/presentation/payment.py",
         "shopman/storefront/api/payment.py",
         "shopman/storefront/tests/web/test_projections_payment.py"
       ],

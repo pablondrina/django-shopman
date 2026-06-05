@@ -183,7 +183,12 @@ def test_core_status_and_projection_contracts_cover_remote_intermediate_states()
         _read(REPO_ROOT / "shopman" / "shop" / "projections" / "order_tracking.py")
         + _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "order_tracking.py")
     )
-    payment_projection = _read(REPO_ROOT / "shopman" / "shop" / "services" / "payment_status.py")
+    # Same cut for payment: deadline fields + actions in the data Projection;
+    # next_event/recovery/active_notification in the storefront Presentation.
+    payment_projection = (
+        _read(REPO_ROOT / "shopman" / "shop" / "projections" / "payment_status.py")
+        + _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "payment.py")
+    )
 
     for status in ORDER_STATUSES:
         assert f'"{status}"' in order_model

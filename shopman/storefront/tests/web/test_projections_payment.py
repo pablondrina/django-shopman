@@ -1,4 +1,4 @@
-"""Unit tests for shopman.shop.projections.payment.
+"""Unit tests for the storefront payment Presentation.
 
 Uses order fixtures from conftest.py. Verifies PaymentProjection and
 PaymentStatusProjection shape, PIX/card field population, expiry logic,
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from shopman.storefront.projections.payment import (
+from shopman.storefront.presentation.payment import (
     PaymentProjection,
     PaymentPromiseProjection,
     PaymentStatusProjection,
