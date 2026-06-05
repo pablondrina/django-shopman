@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
-from shopman.storefront.projections.order_tracking import build_order_tracking
+from shopman.storefront.presentation.order_tracking import build_order_tracking
 from shopman.storefront.services import orders as order_service
 
 from .actions import retry_after_action

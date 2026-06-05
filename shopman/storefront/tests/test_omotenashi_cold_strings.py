@@ -189,9 +189,13 @@ def test_kintsugi_cancel_refused_copy_defined():
 def test_order_live_payment_flow_copy_is_omotenashi_driven():
     """Payment/tracking promise copy must be editable through Omotenashi Admin."""
     content = _read("partials/order_live.html")
+    # Tracking copy keys are split across the data Projection (action labels) and
+    # the storefront Presentation (promise/step copy) after the data/presentation cut.
+    root = Path(__file__).resolve().parents[2]
     service_content = (
-        Path(__file__).resolve().parents[2] / "shop" / "services" / "order_tracking.py"
-    ).read_text(encoding="utf-8")
+        (root / "shop" / "projections" / "order_tracking.py").read_text(encoding="utf-8")
+        + (root / "storefront" / "presentation" / "order_tracking.py").read_text(encoding="utf-8")
+    )
     for key in (
         "TRACKING_PAYMENT_PENDING",
         "TRACKING_PAYMENT_REQUESTED",

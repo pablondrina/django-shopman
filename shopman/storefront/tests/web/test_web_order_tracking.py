@@ -167,7 +167,7 @@ class TestOrderTrackingPage:
         from django.template.loader import render_to_string
         from shopman.orderman.models import Order
 
-        from shopman.storefront.projections import build_order_tracking
+        from shopman.storefront.presentation import build_order_tracking
 
         order_with_payment.data["payment"]["expires_at"] = (
             timezone.now() + timezone.timedelta(minutes=10)
@@ -211,7 +211,7 @@ class TestOrderTrackingPage:
     def test_ready_delivery_live_area_explains_waiting_courier(self, order) -> None:
         from django.template.loader import render_to_string
 
-        from shopman.storefront.projections import build_order_tracking
+        from shopman.storefront.presentation import build_order_tracking
 
         order.data = {"fulfillment_type": "delivery"}
         order.save(update_fields=["data"])

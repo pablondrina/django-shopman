@@ -15,7 +15,7 @@ from shopman.shop.projections.types import (
     OrderProgressStepProjection,
     TimelineEventProjection,
 )
-from shopman.storefront.projections.order_tracking import (
+from shopman.storefront.presentation.order_tracking import (
     OrderTrackingProjection,
     OrderTrackingPromiseProjection,
     OrderTrackingStatusProjection,

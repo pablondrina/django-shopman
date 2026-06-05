@@ -36,15 +36,6 @@ from .home import (
 )
 from .order_confirmation import OrderConfirmationProjection, build_order_confirmation
 from .order_history import OrderHistoryProjection, build_order_history
-from .order_tracking import (
-    OrderTrackingProjection,
-    OrderTrackingPromiseProjection,
-    OrderTrackingPromiseRowProjection,
-    OrderTrackingStatusProjection,
-    PickupInfoProjection,
-    build_order_tracking,
-    build_order_tracking_status,
-)
 from .payment import (
     PaymentProjection,
     PaymentStatusProjection,
@@ -89,13 +80,8 @@ __all__ = [
     "OpeningHoursEntry",
     "OrderConfirmationProjection",
     "OrderHistoryProjection",
-    "OrderTrackingProjection",
-    "OrderTrackingPromiseProjection",
-    "OrderTrackingPromiseRowProjection",
-    "OrderTrackingStatusProjection",
     "PaymentProjection",
     "PaymentStatusProjection",
-    "PickupInfoProjection",
     "ProductDetailProjection",
     "ReorderConflictCopyProjection",
     "ReorderConflictItemProjection",
@@ -112,8 +98,6 @@ __all__ = [
     "build_home",
     "build_order_confirmation",
     "build_order_history",
-    "build_order_tracking",
-    "build_order_tracking_status",
     "build_payment",
     "build_payment_status",
     "build_product_detail",

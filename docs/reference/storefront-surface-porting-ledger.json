@@ -183,7 +183,7 @@
         "shopman/storefront/templates/storefront/partials/reorder_conflict_modal.html"
       ],
       "backend_contracts": [
-        "shopman/storefront/projections/order_tracking.py",
+        "shopman/storefront/presentation/order_tracking.py",
         "shopman/storefront/projections/order_history.py",
         "shopman/storefront/api/tracking.py",
         "shopman/storefront/api/surface.py"

@@ -149,7 +149,7 @@ OPERATIONAL_COPY_SOURCE_MAP = {
     },
     "pages/tracking/[ref].vue": {
         "tokens": ["/api/v1/tracking/", "promiseRows", "fulfillment?.tracking_url"],
-        "sources": ["shopman/storefront/projections/order_tracking.py", "shopman/storefront/api/tracking.py"],
+        "sources": ["shopman/storefront/presentation/order_tracking.py", "shopman/storefront/api/tracking.py"],
     },
     "utils/operationalCopy.ts": {
         "tokens": ["OPERATIONAL_COPY_SOURCE", "COPY-SOURCE-001", "retryAfterDescription", "supportUrlWithMessage"],

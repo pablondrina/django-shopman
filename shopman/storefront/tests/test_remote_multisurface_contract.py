@@ -176,7 +176,13 @@ def test_manychat_contract_allows_rendering_shopman_data_but_not_authoritative_r
 def test_core_status_and_projection_contracts_cover_remote_intermediate_states():
     order_model = _read(REPO_ROOT / "packages" / "orderman" / "shopman" / "orderman" / "models" / "order.py")
     payment_model = _read(REPO_ROOT / "packages" / "payman" / "shopman" / "payman" / "models" / "intent.py")
-    tracking = _read(REPO_ROOT / "shopman" / "shop" / "services" / "order_tracking.py")
+    # Post data/presentation cut: derived states + deadline fields live in the
+    # data Projection; next_event/recovery/active_notification in the storefront
+    # Presentation. The contract spans both.
+    tracking = (
+        _read(REPO_ROOT / "shopman" / "shop" / "projections" / "order_tracking.py")
+        + _read(REPO_ROOT / "shopman" / "storefront" / "presentation" / "order_tracking.py")
+    )
     payment_projection = _read(REPO_ROOT / "shopman" / "shop" / "services" / "payment_status.py")
 
     for status in ORDER_STATUSES:

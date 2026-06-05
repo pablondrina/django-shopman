@@ -66,7 +66,7 @@ class OrderTrackingView(View):
         if order_service.requires_payment_gate(order):
             return redirect("storefront:order_payment", ref=ref)
 
-        from shopman.storefront.projections import build_order_tracking
+        from shopman.storefront.presentation import build_order_tracking
 
         proj = build_order_tracking(order)
         ctx: dict = {"tracking": proj, "tracking_actions": _action_map(proj)}
@@ -166,7 +166,7 @@ class OrderStatusPartialView(View):
             response["HX-Redirect"] = reverse("storefront:order_payment", kwargs={"ref": ref})
             return response
 
-        from shopman.storefront.projections import build_order_tracking
+        from shopman.storefront.presentation import build_order_tracking
 
         proj = build_order_tracking(order)
         response = render(
@@ -212,7 +212,7 @@ class OrderCancelView(View):
         logger.info("customer_self_cancel order=%s", order.ref)
 
         if request.headers.get("HX-Request"):
-            from shopman.storefront.projections import build_order_tracking_status
+            from shopman.storefront.presentation import build_order_tracking_status
 
             proj = build_order_tracking_status(order)
             return render(

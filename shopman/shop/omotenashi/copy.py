@@ -460,6 +460,15 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_STATUS_WAITING_STORE_CONFIRMATION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Aguardando confirmação")},
     },
+    "TRACKING_STATUS_CARD_AUTHORIZED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pagamento autorizado")},
+    },
+    "TRACKING_STATUS_READY_DELIVERY": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Aguardando entregador")},
+    },
+    "TRACKING_STATUS_READY_PICKUP": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
+    },
     "TRACKING_STEP_RECEIVED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Recebemos seu pedido.")},
     },
