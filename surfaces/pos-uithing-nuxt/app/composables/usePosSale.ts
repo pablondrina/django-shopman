@@ -27,6 +27,14 @@ import {
 } from "~/utils/posIntent";
 import { sanitizeTabRef as sanitizeTabRefShape, sortTabs } from "~/presentation/tabBoard";
 import {
+  isPaymentCovered,
+  paymentChangeQ as computeChangeQ,
+  type PaymentProofView,
+  paymentProofView,
+  paymentRemainingQ as computeRemainingQ,
+  tenderSumQ as computeTenderSum,
+} from "~/presentation/payment";
+import {
   draftAssociationTargetStates,
   requiresOpenTabForCart,
   requiresTabBeforeSave,
@@ -91,7 +99,7 @@ export function usePosSale(deps: PosSaleDeps) {
     toast.error(message);
     serverError.value = "";
   });
-  const result = ref<{ orderRef: string; nextUrl: string } | null>(null);
+  const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null } | null>(null);
   const checkoutMode = ref(false);
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
@@ -175,10 +183,10 @@ export function usePosSale(deps: PosSaleDeps) {
   // Payment by injection (Odoo-style): the operator adds tender lines in any form;
   // the method is derived (no "mixed" selection). Finalize is gated until covered.
   const paymentTotalQ = computed(() => review.value?.total_q || cartTotalQ(cart.items));
-  const tenderSumQ = computed(() => cart.paymentTenders.reduce((sum, tender) => sum + (tender.amount_q || 0), 0));
-  const paymentRemainingQ = computed(() => paymentTotalQ.value - tenderSumQ.value);
-  const paymentChangeQ = computed(() => Math.max(0, tenderSumQ.value - paymentTotalQ.value));
-  const paymentCovered = computed(() => cart.paymentTenders.length > 0 && paymentRemainingQ.value <= 0);
+  const tenderSumQ = computed(() => computeTenderSum(cart.paymentTenders));
+  const paymentRemainingQ = computed(() => computeRemainingQ(cart.paymentTenders, paymentTotalQ.value));
+  const paymentChangeQ = computed(() => computeChangeQ(cart.paymentTenders, paymentTotalQ.value));
+  const paymentCovered = computed(() => isPaymentCovered(cart.paymentTenders, paymentTotalQ.value));
 
   // Odoo-style payment: tapping a method adds a tender for the remaining due
   // (the first one = the total). The numpad then edits the SELECTED line.
@@ -807,6 +815,7 @@ export function usePosSale(deps: PosSaleDeps) {
         result.value = {
           orderRef,
           nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
+          payment: paymentProofView(response.payment),
         };
         resetCart();
         await refresh();

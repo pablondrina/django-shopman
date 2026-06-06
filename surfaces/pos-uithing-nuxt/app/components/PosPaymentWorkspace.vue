@@ -1,4 +1,14 @@
 <script setup lang="ts">
+// Payment screen (spec §2.4, Odoo-fidelity). A dedicated screen, not a drawer:
+// LEFT  — payment methods (tap = inject a tender), the tender list, manager
+//         approval (only when the review demands it), and the Validate button.
+// CENTER — remaining / change / total + the value numpad (edits the selected
+//         tender). RIGHT — sale-data as on-demand actions (fulfillment / customer
+//         / discount sheets), collection, and the kitchen-handoff status.
+//
+// Zero arithmetic of policy: the total/remaining/change/coverage all come from
+// the composable (which derives them from the authoritative review via the
+// `presentation/payment` module). This screen renders; it does not compute.
 import type {
   POSAddressAutocompleteProjection,
   POSCartItem,
@@ -14,6 +24,13 @@ import type {
   StructuredAddressProjection,
 } from "~/types/pos";
 import { cartTotalQ, formatBRL } from "~/utils/posIntent";
+import {
+  cashDeltaPresets,
+  collectionsForFulfillment,
+  injectableMethods as toInjectableMethods,
+  paymentIcon,
+  tenderLineView,
+} from "~/presentation/payment";
 
 const props = defineProps<{
   tabDisplay: string;
@@ -34,11 +51,12 @@ const props = defineProps<{
   managerUsername: string;
   managerPin: string;
   fulfillmentType: "pickup" | "delivery";
-  paymentMethod: string;
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
   selectedTenderIndex: number;
-  paymentTotalQ: number;
+  paymentRemainingQ: number;
+  paymentChangeQ: number;
+  paymentCovered: boolean;
   customerName: string;
   customerPhone: string;
   customerTaxId: string;
@@ -67,16 +85,15 @@ const emit = defineEmits<{
   "update:managerUsername": [string];
   "update:managerPin": [string];
   "update:fulfillmentType": ["pickup" | "delivery"];
-  "update:paymentMethod": [string];
   "update:paymentCollection": ["terminal" | "on_delivery"];
   addTender: [string];
-  addCashTender: [number];
   removeTender: [number];
   selectTender: [number];
   tenderDigit: [string];
   tenderBackspace: [];
   tenderClear: [];
   tenderAdd: [number];
+  tenderExact: [];
   "update:customerName": [string];
   "update:customerPhone": [string];
   "update:customerTaxId": [string];
@@ -95,7 +112,6 @@ const emit = defineEmits<{
   "update:receiptMode": [string];
   "update:receiptEmail": [string];
   back: [];
-  review: [];
   submit: [];
   lookupCustomer: [];
   applyCustomerFavorite: [];
@@ -116,6 +132,7 @@ const approvalBlocking = computed(() =>
   !!props.review?.requires_manager_approval
   && (!props.managerUsername.trim() || !props.managerPin.trim()),
 );
+const managerThresholdQ = computed(() => props.review?.manager_approval_threshold_q || 0);
 
 // On-demand sale-data drawers (Odoo-style: customer/fulfillment/discount are
 // actions that open a sheet, not a wall of fields next to the payment).
@@ -149,31 +166,10 @@ const kitchenNote = computed(() => {
 
 // Payment by injection: methods become "add a tender" buttons; the operator
 // covers the total in any combination of forms. No "mixed" selection.
-const injectableMethods = computed(() => props.paymentMethods.filter((method) => method.ref !== "mixed"));
-function methodLabel(ref: string): string {
-  return props.paymentMethods.find((method) => method.ref === ref)?.label || ref;
-}
-const deliveryCollections = computed(() =>
-  props.paymentCollections.filter((collection) => collection.fulfillment_types.includes(props.fulfillmentType)),
-);
-const tenderSumQ = computed(() => props.paymentTenders.reduce((sum, tender) => sum + (tender.amount_q || 0), 0));
-const remainingQ = computed(() => props.paymentTotalQ - tenderSumQ.value);
-const changeQ = computed(() => Math.max(0, tenderSumQ.value - props.paymentTotalQ));
-const paymentCovered = computed(() => props.paymentTenders.length > 0 && remainingQ.value <= 0);
-
-const PAYMENT_ICONS: Record<string, string> = {
-  cash: "lucide:banknote",
-  pix: "lucide:qr-code",
-  card: "lucide:credit-card",
-  mixed: "lucide:layers",
-  external: "lucide:ellipsis",
-};
-function paymentIcon(ref: string): string {
-  return PAYMENT_ICONS[ref] || "lucide:wallet";
-}
-
-// Quick-add amounts for the payment numpad (Odoo's +10/+20/+50, in cents).
-const quickAmounts = [1000, 5000, 10000] as const;
+const injectableMethods = computed(() => toInjectableMethods(props.paymentMethods));
+const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLineView(tender, props.paymentMethods)));
+const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
+const cashPresets = computed(() => cashDeltaPresets(props.checkoutContract));
 
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
@@ -199,7 +195,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
          remaining/change + numpad (center) · sale-data actions (right) -->
     <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,0.8fr)]">
 
-      <!-- LEFT — payment methods, summary, manager approval, validate -->
+      <!-- LEFT — payment methods, tenders, manager approval, validate -->
       <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-3">
         <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
         <div class="grid shrink-0 gap-1">
@@ -218,12 +214,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
         <UiSeparator class="shrink-0" />
         <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
         <div class="min-h-0 flex-1 overflow-auto">
-          <p v-if="!paymentTenders.length" class="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+          <p v-if="!tenderLines.length" class="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
             Toque uma forma de pagamento.
           </p>
           <ul v-else class="grid gap-1">
             <li
-              v-for="(tender, idx) in paymentTenders"
+              v-for="(tender, idx) in tenderLines"
               :key="idx"
               class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 transition"
               :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
@@ -231,11 +227,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
               @click="$emit('selectTender', idx)"
             >
               <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-                <Icon :name="paymentIcon(tender.method)" class="size-4 shrink-0" />
-                <span class="truncate">{{ methodLabel(tender.method) }}</span>
+                <Icon :name="tender.icon" class="size-4 shrink-0" />
+                <span class="truncate">{{ tender.label }}</span>
               </span>
               <span class="flex shrink-0 items-center gap-1">
-                <strong class="tabular-nums">{{ formatBRL(tender.amount_q) }}</strong>
+                <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
                 <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
                   <Icon name="lucide:x" class="size-3.5 text-destructive" />
                 </UiButton>
@@ -244,28 +240,14 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </ul>
         </div>
 
-        <div
+        <PosManagerApproval
           v-if="review?.requires_manager_approval"
-          class="grid shrink-0 gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2"
-        >
-          <p class="text-xs font-semibold text-amber-800">Aprovação do gerente</p>
-          <UiInput
-            :model-value="managerUsername"
-            placeholder="Gerente"
-            autocomplete="off"
-            class="h-8"
-            @update:model-value="$emit('update:managerUsername', String($event || ''))"
-          />
-          <UiInput
-            :model-value="managerPin"
-            type="password"
-            inputmode="numeric"
-            placeholder="PIN"
-            autocomplete="off"
-            class="h-8"
-            @update:model-value="$emit('update:managerPin', String($event || ''))"
-          />
-        </div>
+          :manager-username="managerUsername"
+          :manager-pin="managerPin"
+          :threshold-q="managerThresholdQ"
+          @update:manager-username="$emit('update:managerUsername', $event)"
+          @update:manager-pin="$emit('update:managerPin', $event)"
+        />
 
         <UiButton
           size="lg"
@@ -275,7 +257,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           @click="$emit('submit')"
         >
           <template v-if="needsReview">Atualizando…</template>
-          <template v-else-if="!paymentCovered">Falta {{ formatBRL(remainingQ) }}</template>
+          <template v-else-if="!paymentCovered">Falta {{ formatBRL(paymentRemainingQ) }}</template>
           <template v-else>Validar · {{ review?.total_display }}</template>
         </UiButton>
       </div>
@@ -285,33 +267,24 @@ function onAddressSelected(address: StructuredAddressProjection) {
         <div class="flex shrink-0 items-start justify-between gap-3 border-b pb-3">
           <div>
             <p class="text-sm text-muted-foreground">Resta a pagar</p>
-            <strong class="text-3xl tabular-nums">{{ formatBRL(Math.max(0, remainingQ)) }}</strong>
+            <strong class="text-3xl tabular-nums">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</strong>
             <p class="mt-0.5 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
           </div>
           <div class="text-right">
             <p class="text-sm text-muted-foreground">Troco</p>
-            <strong class="text-3xl tabular-nums text-primary">{{ formatBRL(changeQ) }}</strong>
+            <strong class="text-3xl tabular-nums text-primary">{{ formatBRL(paymentChangeQ) }}</strong>
           </div>
         </div>
 
-        <div class="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-2 text-xl">
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '1')">1</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '2')">2</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '3')">3</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[0])">+{{ quickAmounts[0] / 100 }}</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '4')">4</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '5')">5</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '6')">6</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[1])">+{{ quickAmounts[1] / 100 }}</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '7')">7</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '8')">8</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '9')">9</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-muted/60 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderAdd', quickAmounts[2])">+{{ quickAmounts[2] / 100 }}</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card text-base font-medium transition hover:bg-accent active:translate-y-px" @click="$emit('tenderClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '0')">0</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" @click="$emit('tenderDigit', '0'); $emit('tenderDigit', '0')">00</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('tenderBackspace')"><Icon name="lucide:delete" class="size-5" /></button>
-        </div>
+        <PosPaymentNumpad
+          class="min-h-0 flex-1"
+          :presets="cashPresets"
+          @digit="$emit('tenderDigit', $event)"
+          @backspace="$emit('tenderBackspace')"
+          @clear="$emit('tenderClear')"
+          @add="$emit('tenderAdd', $event)"
+          @exact="$emit('tenderExact')"
+        />
       </div>
 
       <!-- RIGHT — sale-data actions (open sheets) + collection + kitchen status -->

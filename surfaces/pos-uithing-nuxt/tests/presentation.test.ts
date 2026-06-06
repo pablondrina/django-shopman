@@ -11,6 +11,41 @@ import {
 } from "../app/presentation/catalog";
 import { countOpenTabs, filterTabs, sanitizeTabRef, sortTabs, tabCardView } from "../app/presentation/tabBoard";
 import { clampPercent, clampQty, popDigit, pushDigit } from "../app/presentation/numpad";
+import {
+  cashDeltaPresets,
+  collectionsForFulfillment,
+  injectableMethods,
+  isPaymentCovered,
+  methodLabel,
+  paymentChangeQ,
+  paymentIcon,
+  paymentProofView,
+  paymentRemainingQ,
+  qrCodeSrc,
+  tenderLineView,
+  tenderSumQ,
+} from "../app/presentation/payment";
+import { formatOpenedAt, isTerminalOccupied, movementLabel } from "../app/presentation/cash";
+import { formatBRL } from "../app/utils/posIntent";
+import type {
+  POSCashRuntimeProjection,
+  POSCheckoutContractProjection,
+  POSPaymentCollectionProjection,
+  POSPaymentMethodProjection,
+  POSPaymentResultProjection,
+  POSPaymentTenderDraft,
+} from "../app/types/pos";
+
+function tender(method: string, amountQ: number): POSPaymentTenderDraft {
+  return { method, amount_q: amountQ, collection: "terminal" };
+}
+
+const METHODS: POSPaymentMethodProjection[] = [
+  { ref: "cash", label: "Dinheiro" },
+  { ref: "pix", label: "PIX" },
+  { ref: "card", label: "Cartão" },
+  { ref: "mixed", label: "Misto" },
+];
 
 function action(overrides: Partial<Action> & { ref: string }): Action {
   return {
@@ -199,5 +234,127 @@ describe("presentation/numpad — quantity/discount buffer", () => {
     expect(clampQty("", 999)).toBe(0);
     expect(clampPercent("40")).toBe(40);
     expect(clampPercent("150")).toBe(100);
+  });
+});
+
+describe("presentation/payment — tender math & method affordance", () => {
+  it("drops the derived 'mixed' pseudo-method from the injectable buttons", () => {
+    expect(injectableMethods(METHODS).map((method) => method.ref)).toEqual(["cash", "pix", "card"]);
+  });
+
+  it("resolves the method label and icon, with fallbacks", () => {
+    expect(methodLabel("pix", METHODS)).toBe("PIX");
+    expect(methodLabel("unknown", METHODS)).toBe("unknown");
+    expect(paymentIcon("cash")).toBe("lucide:banknote");
+    expect(paymentIcon("weird")).toBe("lucide:wallet");
+  });
+
+  it("sums tenders and derives remaining/change/covered against the authoritative total", () => {
+    const tenders = [tender("cash", 3000), tender("pix", 1000)];
+    expect(tenderSumQ(tenders)).toBe(4000);
+    expect(paymentRemainingQ(tenders, 5000)).toBe(1000);
+    expect(paymentRemainingQ(tenders, 3500)).toBe(-500);
+    expect(paymentChangeQ(tenders, 3500)).toBe(500);
+    expect(paymentChangeQ(tenders, 5000)).toBe(0);
+    expect(isPaymentCovered(tenders, 4000)).toBe(true);
+    expect(isPaymentCovered(tenders, 5000)).toBe(false);
+    expect(isPaymentCovered([], 0)).toBe(false);
+  });
+
+  it("shapes a tender line view", () => {
+    expect(tenderLineView(tender("pix", 2599), METHODS)).toEqual({
+      method: "pix",
+      label: "PIX",
+      icon: "lucide:qr-code",
+      amountQ: 2599,
+      amountDisplay: formatBRL(2599),
+    });
+  });
+
+  it("sources cash quick-add presets from the contract, falling back when absent", () => {
+    const contract = { cash_tender_delta_presets_q: [0, 1000, 5000] } as POSCheckoutContractProjection;
+    expect(cashDeltaPresets(contract)).toEqual([0, 1000, 5000]);
+    expect(cashDeltaPresets(null)).toEqual([1000, 5000, 10000]);
+    expect(cashDeltaPresets({ cash_tender_delta_presets_q: [] } as unknown as POSCheckoutContractProjection)).toEqual([1000, 5000, 10000]);
+  });
+
+  it("filters payment collections by fulfillment type", () => {
+    const collections: POSPaymentCollectionProjection[] = [
+      { ref: "terminal", label: "No balcão", description: "", fulfillment_types: ["pickup", "delivery"], payment_method_refs: [] },
+      { ref: "on_delivery", label: "Na entrega", description: "", fulfillment_types: ["delivery"], payment_method_refs: [] },
+    ];
+    expect(collectionsForFulfillment(collections, "pickup").map((c) => c.ref)).toEqual(["terminal"]);
+    expect(collectionsForFulfillment(collections, "delivery").map((c) => c.ref)).toEqual(["terminal", "on_delivery"]);
+  });
+});
+
+describe("presentation/payment — digital proof (PCI SAQ A)", () => {
+  it("returns null for cash or empty results", () => {
+    expect(paymentProofView(null)).toBeNull();
+    expect(paymentProofView(undefined)).toBeNull();
+    expect(paymentProofView({ method: "cash" } as POSPaymentResultProjection)).toBeNull();
+  });
+
+  it("shapes a PIX proof with a render-ready QR src and copy-paste", () => {
+    const proof = paymentProofView({
+      method: "pix",
+      amount_q: 5000,
+      amount_display: "R$ 50,00",
+      status: "pending",
+      message: "Aguarde confirmação.",
+      qr_code: "iVBORw0KGgo=",
+      copy_paste: "00020126BR.GOV.BCB.PIX",
+    } as POSPaymentResultProjection);
+    expect(proof).not.toBeNull();
+    expect(proof!.isPix).toBe(true);
+    expect(proof!.tone).toBe("info");
+    expect(proof!.qrCodeSrc).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(proof!.copyPaste).toBe("00020126BR.GOV.BCB.PIX");
+    expect(proof!.hasProof).toBe(true);
+  });
+
+  it("shapes a card proof with a checkout link and never invents proof", () => {
+    const proof = paymentProofView({
+      method: "card",
+      amount_q: 9900,
+      amount_display: "R$ 99,00",
+      status: "error",
+      checkout_url: "https://checkout.stripe.com/x",
+    } as POSPaymentResultProjection);
+    expect(proof!.isCard).toBe(true);
+    expect(proof!.tone).toBe("danger");
+    expect(proof!.checkoutUrl).toBe("https://checkout.stripe.com/x");
+    expect(proof!.qrCodeSrc).toBe("");
+    expect(proof!.hasProof).toBe(true);
+  });
+
+  it("passes through data/http QR URIs and wraps bare base64", () => {
+    expect(qrCodeSrc("")).toBe("");
+    expect(qrCodeSrc("data:image/png;base64,abc")).toBe("data:image/png;base64,abc");
+    expect(qrCodeSrc("https://x/qr.png")).toBe("https://x/qr.png");
+    expect(qrCodeSrc("abc123")).toBe("data:image/png;base64,abc123");
+  });
+});
+
+describe("presentation/cash — blind drawer shaping", () => {
+  it("labels movement kinds with a fallback", () => {
+    expect(movementLabel("sangria")).toBe("Sangria");
+    expect(movementLabel("suprimento")).toBe("Suprimento");
+    expect(movementLabel("custom")).toBe("custom");
+  });
+
+  it("formats the opening timestamp, falling back gracefully", () => {
+    expect(formatOpenedAt(null)).toBe("—");
+    expect(formatOpenedAt("")).toBe("—");
+    expect(formatOpenedAt("not-a-date")).toBe("not-a-date");
+    expect(formatOpenedAt("2026-06-06T13:05:00")).toMatch(/06\/06/);
+  });
+
+  it("detects a terminal held by another operator's open shift", () => {
+    const base = { has_open_shift: false, shift_id: null, terminal_ref: "t1", terminal_label: "T1", operator_username: "", opened_at: "" } as POSCashRuntimeProjection;
+    expect(isTerminalOccupied({ ...base, status: "terminal_occupied" }, false)).toBe(true);
+    expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, false)).toBe(true);
+    expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, true)).toBe(false);
+    expect(isTerminalOccupied(base, false)).toBe(false);
   });
 });

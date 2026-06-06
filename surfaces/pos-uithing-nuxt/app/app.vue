@@ -88,7 +88,6 @@ const {
   inSaleView,
   hasDraftWithoutTab,
   canUseCart,
-  paymentTotalQ,
   paymentRemainingQ,
   paymentChangeQ,
   paymentCovered,
@@ -99,7 +98,6 @@ const {
   suggestedSplitRef,
   goToTabs,
   addTender,
-  addCashTender,
   removeTender,
   selectTender,
   tenderDigit,
@@ -276,6 +274,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
+            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" />
             <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
             <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
               <UiInput
@@ -332,7 +331,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </div>
       </div>
       <div v-else-if="checkoutMode" class="h-full md:overflow-y-auto">
-      <PosCheckoutWorkspace
+      <PosPaymentWorkspace
         :tab-display="cart.tabDisplay"
         :items="cart.items"
         :has-open-tab="hasOpenTab"
@@ -351,11 +350,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:manager-username="cart.managerUsername"
         v-model:manager-pin="cart.managerPin"
         v-model:fulfillment-type="cart.fulfillmentType"
-        v-model:payment-method="cart.paymentMethod"
         v-model:payment-collection="cart.paymentCollection"
         :payment-tenders="cart.paymentTenders"
         :selected-tender-index="selectedTenderIndex"
-        :payment-total-q="paymentTotalQ"
+        :payment-remaining-q="paymentRemainingQ"
+        :payment-change-q="paymentChangeQ"
+        :payment-covered="paymentCovered"
         v-model:customer-name="cart.customerName"
         v-model:customer-phone="cart.customerPhone"
         v-model:customer-tax-id="cart.customerTaxId"
@@ -376,16 +376,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         :loading="busy"
         :lookup-busy="lookupBusy"
         @back="checkoutMode = false"
-        @review="reviewCheckout"
         @submit="submitSale"
         @add-tender="addTender"
-        @add-cash-tender="addCashTender"
         @remove-tender="removeTender"
         @select-tender="selectTender"
         @tender-digit="tenderDigit"
         @tender-backspace="tenderBackspace"
         @tender-clear="tenderClear"
         @tender-add="tenderAdd"
+        @tender-exact="addTender('cash')"
         @lookup-customer="lookupCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
         @repeat-customer-last-order="repeatCustomerLastOrder"
