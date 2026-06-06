@@ -1,23 +1,20 @@
 """CartProjection — immutable UI projection for the storefront cart (drawer + page).
 
-Phase 1 / step 3 of the PROJECTION-UI-PLAN. The builder leans on the
-existing ``CartService.get_cart`` dict (which already resolves the
-Orderman session, availability, discounts and coupon) and re-shapes it
-into an immutable frozen dataclass the template consumes without ever
-touching mutable dicts or Django model instances.
+Pure presentation: consumes the cart data projection
+(``shop.projections.cart.build_cart`` — lines with own-hold-aware
+availability, planned-hold state, discount transparency, coupon, totals,
+minimum-order progress, upsell and the checkout-eligibility decision) and
+shapes it into the frozen dataclass the template renders. Formats ``R$``,
+composes "Cupom X"/"Faltam X" copy and the cart actions; resolves nothing
+itself.
 
-Higher-order context — minimum order progress and the upsell suggestion
-— comes from ``shop.projections.cart`` (data) and is formatted here.
-
-Never imports from ``shopman.storefront.views.*``. Imports ``CartService``
-from ``shopman.storefront.cart`` — a service with no view dependencies.
+Never imports from ``shopman.storefront.views.*`` or ``shop.services``.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
@@ -25,7 +22,6 @@ from shopman.utils.monetary import format_money
 from shopman.shop.projections import cart as cart_data
 from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import Action, Availability
-from shopman.storefront.cart import CartService
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401
@@ -167,82 +163,43 @@ def build_cart(
     ``CartProjection(items=(), is_empty=True, ...)``. Never raises for
     business conditions; stock shortfalls surface as per-line warnings.
     """
-    raw = CartService.get_cart(request)
-    raw_items = raw.get("items") or []
+    session_key = request.session.get("cart_session_key")
+    data = cart_data.build_cart(session_key, channel_ref)
 
-    image_by_sku = _image_by_sku(item["sku"] for item in raw_items if item.get("sku"))
+    image_by_sku = _image_by_sku(line.sku for line in data.lines)
+    items = tuple(_present_line(line, image_by_sku) for line in data.lines)
 
-    items = tuple(_build_item(item, image_by_sku) for item in raw_items)
-    items_count = sum(int(item.qty) for item in items)
-    has_unavailable_items = any(not item.is_available for item in items)
-    has_awaiting_confirmation_items = any(item.is_awaiting_confirmation for item in items)
-    has_ready_for_confirmation_items = any(item.is_ready_for_confirmation for item in items)
-
-    subtotal_q = int(raw.get("subtotal_q", 0) or 0)
-    original_subtotal_q = int(raw.get("original_subtotal_q", subtotal_q) or subtotal_q)
-    discount_total_q = int(raw.get("total_discount_q", 0) or 0)
-    delivery_fee_q = raw.get("delivery_fee_q")
-    grand_total_q = int(raw.get("grand_total_q", subtotal_q) or subtotal_q)
-
-    coupon = raw.get("coupon") or {}
-    coupon_code = coupon.get("code")
-    coupon_discount_q = (
-        int(coupon.get("discount_q") or 0) if coupon else None
-    )
-
-    min_order = None
-    upsell = None
-    if items:
-        min_order = present_minimum_order(
-            cart_data.build_minimum_order_progress(
-                original_subtotal_q, channel_ref=channel_ref,
-            )
-        )
-
-        cart_skus = {item.sku for item in items}
-        upsell = present_upsell(
-            cart_data.build_upsell_suggestion(cart_skus, channel_ref=channel_ref)
-        )
-
-    actions = _cart_actions(
-        is_empty=not items,
-        has_unavailable_items=has_unavailable_items,
-        has_ready_for_confirmation_items=has_ready_for_confirmation_items,
-        minimum_order_progress=min_order,
-    )
+    min_order = present_minimum_order(data.minimum_order)
+    upsell = present_upsell(data.upsell)
+    actions = _cart_actions(data, min_order)
 
     return CartProjection(
         items=items,
-        items_count=items_count,
-        is_empty=not items,
-        subtotal_q=subtotal_q,
-        subtotal_display=_money(subtotal_q),
-        original_subtotal_q=original_subtotal_q,
-        original_subtotal_display=_money(original_subtotal_q),
-        discount_total_q=discount_total_q,
-        discount_total_display=_money(discount_total_q),
-        has_discount=discount_total_q > 0,
-        discount_lines=tuple(
-            DiscountLineProjection(
-                label=str(row.get("label") or ""),
-                amount_q=int(row.get("amount_q") or 0),
-                amount_display=str(row.get("amount_display") or _money(row.get("amount_q") or 0)),
-            )
-            for row in (raw.get("discount_lines") or [])
-        ),
-        delivery_fee_q=(int(delivery_fee_q) if delivery_fee_q is not None else None),
-        delivery_fee_display=raw.get("delivery_fee_display"),
-        delivery_is_free=(delivery_fee_q is not None and int(delivery_fee_q) == 0),
-        grand_total_q=grand_total_q,
-        grand_total_display=_money(grand_total_q),
-        coupon_code=coupon_code,
-        coupon_discount_q=coupon_discount_q,
+        items_count=data.count,
+        is_empty=data.is_empty,
+        subtotal_q=data.subtotal_q,
+        subtotal_display=_money(data.subtotal_q),
+        original_subtotal_q=data.original_subtotal_q,
+        original_subtotal_display=_money(data.original_subtotal_q),
+        discount_total_q=data.discount_total_q,
+        discount_total_display=_money(data.discount_total_q),
+        has_discount=data.discount_total_q > 0,
+        discount_lines=tuple(_present_discount_line(dl) for dl in data.discount_lines),
+        delivery_fee_q=data.delivery_fee_q,
+        delivery_fee_display=_delivery_fee_display(data),
+        delivery_is_free=data.delivery_is_free,
+        grand_total_q=data.grand_total_q,
+        grand_total_display=_money(data.grand_total_q),
+        coupon_code=data.coupon.code if data.coupon else None,
+        coupon_discount_q=data.coupon.discount_q if data.coupon else None,
         coupon_discount_display=(
-            _money(coupon_discount_q) if coupon_discount_q else None
+            _money(data.coupon.discount_q)
+            if data.coupon and data.coupon.discount_q
+            else None
         ),
-        has_unavailable_items=has_unavailable_items,
-        has_awaiting_confirmation_items=has_awaiting_confirmation_items,
-        has_ready_for_confirmation_items=has_ready_for_confirmation_items,
+        has_unavailable_items=data.has_unavailable,
+        has_awaiting_confirmation_items=data.has_awaiting_confirmation,
+        has_ready_for_confirmation_items=data.has_ready_for_confirmation,
         minimum_order_progress=min_order,
         upsell=upsell,
         actions=actions,
@@ -254,48 +211,76 @@ def build_cart(
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _build_item(raw: dict, image_by_sku: dict[str, str | None]) -> CartItemProjection:
-    sku = str(raw.get("sku") or "")
-    qty = int(Decimal(str(raw.get("qty", 0) or 0)))
-    unit_price_q = int(raw.get("unit_price_q") or 0)
-    total_price_q = int(raw.get("line_total_q") or 0)
-
-    is_unavailable = bool(raw.get("is_unavailable", False))
-    available_qty = raw.get("available_qty")
-    if available_qty is not None:
-        available_qty = int(available_qty)
-
-    # ``is_unavailable`` already reflects the own-hold correction (see
-    # CartService.get_cart). When true, the stock really fell behind what
-    # this session reserved — surface the exact delta.
+def _present_line(
+    line: cart_data.CartLineProjection, image_by_sku: dict[str, str | None],
+) -> CartItemProjection:
+    # ``is_available`` already reflects the own-hold correction. When false,
+    # the stock really fell behind what this session reserved — surface the
+    # exact delta.
     warning: str | None = None
-    if is_unavailable:
-        if available_qty is not None and available_qty > 0:
-            unit_word = "unidade disponível" if available_qty == 1 else "unidades disponíveis"
-            warning = f"Apenas {available_qty} {unit_word}"
+    if not line.is_available:
+        if line.available_qty is not None and line.available_qty > 0:
+            unit_word = "unidade disponível" if line.available_qty == 1 else "unidades disponíveis"
+            warning = f"Apenas {line.available_qty} {unit_word}"
         else:
             warning = "Indisponível"
 
+    discount_label: str | None = None
+    if line.discount_name:
+        discount_label = (
+            f"Cupom {line.discount_name}" if line.discount_is_coupon else line.discount_name
+        )
+
     return CartItemProjection(
-        line_id=str(raw.get("line_id") or ""),
-        sku=sku,
-        name=str(raw.get("name") or sku),
-        qty=qty,
-        unit_price_q=unit_price_q,
-        total_price_q=total_price_q,
-        price_display=str(raw.get("price_display") or _money(unit_price_q)),
-        total_display=str(raw.get("total_display") or _money(total_price_q)),
-        image_url=image_by_sku.get(sku),
-        original_price_display=raw.get("original_price_display"),
-        discount_label=raw.get("discount_label"),
-        is_available=not is_unavailable,
+        line_id=line.line_id,
+        sku=line.sku,
+        name=line.name,
+        qty=line.qty,
+        unit_price_q=line.unit_price_q,
+        total_price_q=line.line_total_q,
+        price_display=_money(line.unit_price_q),
+        total_display=_money(line.line_total_q),
+        image_url=image_by_sku.get(line.sku),
+        original_price_display=(
+            _money(line.original_price_q) if line.original_price_q is not None else None
+        ),
+        discount_label=discount_label,
+        is_available=line.is_available,
         availability_warning=warning,
-        available_qty=available_qty,
-        is_awaiting_confirmation=bool(raw.get("is_awaiting_confirmation", False)),
-        is_ready_for_confirmation=bool(raw.get("is_ready_for_confirmation", False)),
-        confirmation_deadline_iso=raw.get("confirmation_deadline_iso"),
-        confirmation_deadline_display=raw.get("confirmation_deadline_display"),
+        available_qty=line.available_qty,
+        is_awaiting_confirmation=line.is_awaiting_confirmation,
+        is_ready_for_confirmation=line.is_ready_for_confirmation,
+        confirmation_deadline_iso=line.confirmation_deadline_iso,
+        confirmation_deadline_display=_deadline_display(line.confirmation_deadline_iso),
     )
+
+
+def _present_discount_line(dl: cart_data.CartDiscountLineProjection) -> DiscountLineProjection:
+    return DiscountLineProjection(
+        label=f"Cupom {dl.name}" if dl.is_coupon else dl.name,
+        amount_q=dl.amount_q,
+        amount_display=_money(dl.amount_q),
+    )
+
+
+def _delivery_fee_display(data: cart_data.CartProjection) -> str | None:
+    if data.delivery_fee_q is None:
+        return None
+    return "Grátis" if data.delivery_is_free else _money(data.delivery_fee_q)
+
+
+def _deadline_display(deadline_iso: str | None) -> str | None:
+    if not deadline_iso:
+        return None
+    try:
+        from datetime import datetime
+
+        from django.utils import timezone as _tz
+
+        return _tz.localtime(datetime.fromisoformat(deadline_iso)).strftime("%H:%M")
+    except Exception:
+        logger.debug("cart._deadline_display degraded", exc_info=True)
+        return None
 
 
 def present_minimum_order(
@@ -344,26 +329,29 @@ def _money(value_q: int | None) -> str:
 
 
 def _cart_actions(
-    *,
-    is_empty: bool,
-    has_unavailable_items: bool,
-    has_ready_for_confirmation_items: bool,
+    data: cart_data.CartProjection,
     minimum_order_progress: MinimumOrderProgressProjection | None,
 ) -> tuple[Action, ...]:
-    checkout_enabled = True
+    """Map the data projection's checkout-eligibility decision to actions.
+
+    The orchestrator decided ``can_checkout`` + ``checkout_block_reason``; the
+    presentation only renders the matching label/reason copy.
+    """
+    checkout_enabled = data.can_checkout
     checkout_reason = ""
     checkout_label = "Finalizar pedido"
 
-    if is_empty:
-        checkout_enabled = False
+    if data.checkout_block_reason == "empty":
         checkout_reason = "Carrinho vazio."
-    elif has_unavailable_items:
-        checkout_enabled = False
+    elif data.checkout_block_reason == "unavailable":
         checkout_reason = "Revise itens indisponíveis antes de finalizar."
-    elif minimum_order_progress is not None:
-        checkout_enabled = False
-        checkout_reason = f"Faltam {minimum_order_progress.remaining_display} para o pedido mínimo."
-    elif has_ready_for_confirmation_items:
+    elif data.checkout_block_reason == "below_minimum":
+        checkout_reason = (
+            f"Faltam {minimum_order_progress.remaining_display} para o pedido mínimo."
+            if minimum_order_progress is not None
+            else "Pedido mínimo não atingido."
+        )
+    elif data.has_ready_for_confirmation:
         checkout_label = "Confirmar agora"
 
     return (

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from decimal import Decimal
 
 from django.http import HttpRequest
 from shopman.orderman.models import Session
 from shopman.utils.monetary import format_money
 
-from shopman.shop.models import Channel
-from shopman.shop.services import availability
 from shopman.shop.services import cart as cart_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
@@ -17,7 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 class CartService:
-    """Manages Orderman sessions linked to Django visitor sessions."""
+    """Adapter between the Django visitor session and the Orderman cart session.
+
+    Holds the session-key↔Orderman wiring (create, add, update, remove, coupon,
+    clear) plus cheap summaries. Cart *data resolution* — availability,
+    planned holds, discount transparency, totals — lives in the orchestrator
+    read-side ``shop.projections.cart``; ``get_cart`` is the legacy-dict view
+    over that projection, kept for the REST serializer / checkout / catalog
+    until they consume the projection directly (WP6/D).
+    """
 
     @staticmethod
     def _empty_cart(*, include_items: bool = True) -> dict:
@@ -42,10 +47,6 @@ class CartService:
             "count": count,
             "discount_lines": [],
         }
-
-    @staticmethod
-    def _get_channel() -> Channel:
-        return Channel.objects.get(ref=CHANNEL_REF)
 
     @staticmethod
     def _get_session_key(request: HttpRequest) -> str | None:
@@ -183,8 +184,8 @@ class CartService:
         """Return a cheap cart summary without stock/catalog enrichment.
 
         Used by global context and badge endpoints. Availability, planned holds,
-        images, discounts transparency and upsells belong to ``get_cart()`` /
-        ``CartProjection`` and should not be paid by every page render.
+        images, discounts transparency and upsells belong to the cart projection
+        and should not be paid by every page render.
         """
         session_key = CartService._get_session_key(request)
         if not session_key:
@@ -202,218 +203,24 @@ class CartService:
 
     @staticmethod
     def get_cart(request: HttpRequest) -> dict:
-        """Return cart data: items, subtotal, count (total units)."""
+        """Return the legacy cart dict, built from the cart data projection.
+
+        Data resolution (availability, planned holds, discounts, totals) lives
+        in ``shop.projections.cart.build_cart`` — the single source. This
+        adapter formats that data into the dict shape the remaining
+        non-presentation consumers (REST serializer, checkout, catalog) read;
+        they migrate to the projection / presentation in later WP6/D steps,
+        after which this method is retired.
+        """
+        from shopman.shop.projections.cart import build_cart
+
         session_key = CartService._get_session_key(request)
-        if not session_key:
+        data = build_cart(session_key, CHANNEL_REF)
+        if data.is_empty:
+            if session_key and not _session_exists(session_key):
+                request.session.pop("cart_session_key", None)
             return CartService._empty_cart()
-
-        channel = CartService._get_channel()
-        try:
-            session = Session.objects.get(
-                session_key=session_key,
-                channel_ref=channel.ref,
-                state="open",
-            )
-        except Session.DoesNotExist:
-            request.session.pop("cart_session_key", None)
-            return CartService._empty_cart()
-
-        items = [dict(item) for item in (session.items or [])]
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
-        count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
-
-        # Enrich items with product name and display info
-        from shopman.offerman.models import Product
-
-        skus = [item.get("sku", "") for item in items]
-        products_by_sku = {
-            p.sku: p
-            for p in Product.objects.filter(sku__in=skus).only("sku", "name")
-        }
-
-        # Batch availability check to flag unavailable items.
-        #
-        # The cart must answer: "given this session's own holds, can we still
-        # honour the line qty?" — not "is the product free for anyone now?".
-        # ``total_promisable`` excludes ALL holds (including this session's),
-        # so naively comparing it with ``line.qty`` flags a line as
-        # unavailable even when the shortage is caused entirely by the
-        # customer's own reservation. The fix: read the real ``held_ready``
-        # total plus this session's own hold for the SKU, and compute
-        # ``max_orderable_by_me = ready_physical - (held_ready - own_hold) - margin``.
-        avail_map: dict[str, dict | None] = {}
-        own_holds_by_sku: dict[str, Decimal] = {}
-        try:
-            from shopman.storefront.constants import HAS_STOCKMAN
-            if HAS_STOCKMAN:
-                from shopman.stockman.services.availability import availability_for_skus
-
-                from shopman.shop.adapters import stock as stock_adapter
-
-                scope = stock_adapter.get_channel_scope(CHANNEL_REF)
-                avail_map = availability_for_skus(
-                    skus,
-                    safety_margin=scope["safety_margin"],
-                    allowed_positions=scope["allowed_positions"],
-                    excluded_positions=scope.get("excluded_positions"),
-                )
-                own_holds_by_sku = availability.own_holds_by_sku(session_key, skus)
-        except Exception:
-            import logging
-            logging.getLogger(__name__).warning(
-                "cart.get_cart: availability check failed for skus=%s", skus, exc_info=True
-            )
-
-        for item in items:
-            product = products_by_sku.get(item.get("sku", ""))
-            if product and not item.get("name"):
-                item["name"] = product.name
-            item["price_display"] = f"R$ {format_money(item.get('unit_price_q', 0))}"
-            item["total_display"] = f"R$ {format_money(item.get('line_total_q', 0))}"
-
-            sku = item.get("sku", "")
-
-            # Planned-hold classification (AVAILABILITY-PLAN §8): populated
-            # for every line so templates can branch on awaiting / ready
-            # independently of the availability map outcome.
-            planned = availability.classify_planned_hold_for_session_sku(session_key, sku)
-            item["is_awaiting_confirmation"] = planned["is_awaiting_confirmation"]
-            item["is_ready_for_confirmation"] = planned["is_ready_for_confirmation"]
-            deadline = planned.get("deadline")
-            if deadline is not None:
-                item["confirmation_deadline_iso"] = deadline.isoformat()
-                try:
-                    from django.utils import timezone as _tz
-
-                    local_dl = _tz.localtime(deadline)
-                    item["confirmation_deadline_display"] = local_dl.strftime("%H:%M")
-                except Exception:
-                    logger.debug("cart.get_cart degraded; using fallback", exc_info=True)
-                    item["confirmation_deadline_display"] = deadline.strftime("%H:%M")
-            else:
-                item["confirmation_deadline_iso"] = None
-                item["confirmation_deadline_display"] = None
-
-            avail = avail_map.get(sku)
-            own_qty = int(Decimal(str(item.get("qty", 0))))
-            if avail is None:
-                item["is_unavailable"] = False
-                item["available_qty"] = None
-                continue
-            if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
-                item["is_unavailable"] = False
-                item["available_qty"] = None
-                continue
-
-            own_hold = int(own_holds_by_sku.get(sku, Decimal("0")))
-            ready_physical = int(avail.get("ready_physical", 0) or 0)
-            held_ready = int(avail.get("held_ready", 0) or 0)
-            margin = int(avail.get("safety_margin", 0) or 0)
-            other_holds = max(0, held_ready - own_hold)
-            max_orderable = max(0, ready_physical - other_holds - margin)
-
-            item["available_qty"] = max_orderable
-            item["is_unavailable"] = max_orderable < own_qty
-
-        # Read discount info from session.pricing (persisted by DiscountModifier)
-        pricing = session.pricing or {}
-        discount_data = pricing.get("discount", {})
-        total_discount_q = discount_data.get("total_discount_q", 0)
-        discount_items = {d["sku"]: d for d in discount_data.get("items", [])}
-
-        # Enrich items with discount transparency
-        for item in items:
-            sku = item.get("sku", "")
-            disc = discount_items.get(sku)
-            if disc:
-                item["original_price_display"] = f"R$ {format_money(disc['original_price_q'])}"
-                rn = disc.get("name", "") or ""
-                if disc.get("type") == "coupon" and rn:
-                    item["discount_label"] = f"Cupom {rn}"
-                else:
-                    item["discount_label"] = rn
-
-        # Coupon info
-        coupon_info = None
-        coupon_data = pricing.get("coupon")
-        data = session.data or {}
-        coupon_code = data.get("coupon_code")
-
-        if coupon_code and coupon_data:
-            coupon_discount_q = coupon_data.get("discount_q", 0)
-            coupon_info = {
-                "code": coupon_code,
-                "discount_q": coupon_discount_q,
-                "discount_display": f"R$ {format_money(coupon_discount_q)}",
-            }
-
-        # Aggregate discounts from session.pricing: DiscountModifier + D-1/employee/happy_hour
-        _PRICING_MODIFIER_KEYS = ("d1_discount", "employee_discount", "happy_hour", "loyalty_redeem", "manual_discount")
-        modifier_total_q = sum(
-            int((pricing.get(key) or {}).get("total_discount_q", 0))
-            for key in _PRICING_MODIFIER_KEYS
-        )
-        total_discount_q += modifier_total_q
-
-        # Compute original subtotal (before any discounts)
-        original_subtotal_q = subtotal_q + total_discount_q
-
-        # Uma linha por origem para transparência no carrinho
-        discount_lines: list[dict] = []
-        agg: dict[str, int] = defaultdict(int)
-        raw_items = discount_data.get("items") or []
-        for d in raw_items:
-            amt = int(d.get("discount_q", 0)) * int(d.get("qty", 0))
-            if amt <= 0:
-                continue
-            raw_name = (d.get("name") or "").strip() or "Promoção"
-            if d.get("type") == "coupon":
-                label = f"Cupom {raw_name}"
-            else:
-                label = raw_name
-            agg[label] += amt
-        for key in _PRICING_MODIFIER_KEYS:
-            mod_data = pricing.get(key) or {}
-            amt = int(mod_data.get("total_discount_q", 0))
-            if amt > 0:
-                agg[mod_data.get("label", key)] += amt
-        if agg:
-            discount_lines = [
-                {
-                    "label": lab,
-                    "amount_q": q,
-                    "amount_display": f"R$ {format_money(q)}",
-                }
-                for lab, q in sorted(agg.items(), key=lambda x: -x[1])
-            ]
-
-        # Delivery fee (set by DeliveryFeeModifier when fulfillment_type == "delivery")
-        delivery_fee_q = data.get("delivery_fee_q")
-        delivery_fee_display = None
-        if delivery_fee_q is not None:
-            delivery_fee_display = "Grátis" if delivery_fee_q == 0 else f"R$ {format_money(delivery_fee_q)}"
-
-        # Grand total (subtotal + delivery fee)
-        grand_total_q = subtotal_q + (delivery_fee_q or 0)
-
-        return {
-            "items": items,
-            "subtotal_q": subtotal_q,
-            "subtotal_display": f"R$ {format_money(subtotal_q)}",
-            "count": count,
-            "session_key": session_key,
-            "coupon": coupon_info,
-            "has_discount": total_discount_q > 0,
-            "total_discount_q": total_discount_q,
-            "total_discount_display": f"R$ {format_money(total_discount_q)}",
-            "original_subtotal_q": original_subtotal_q,
-            "original_subtotal_display": f"R$ {format_money(original_subtotal_q)}",
-            "discount_lines": discount_lines,
-            "delivery_fee_q": delivery_fee_q,
-            "delivery_fee_display": delivery_fee_display,
-            "grand_total_q": grand_total_q,
-            "grand_total_display": f"R$ {format_money(grand_total_q)}",
-        }
+        return _cart_dict(data)
 
     @staticmethod
     def apply_coupon(request: HttpRequest, code: str) -> dict:
@@ -476,3 +283,99 @@ class CartService:
 
         cart_mutations.clear_session(session_key=session_key, channel_ref=CHANNEL_REF)
         request.session.pop("cart_session_key", None)
+
+
+def _session_exists(session_key: str) -> bool:
+    return Session.objects.filter(
+        session_key=session_key, channel_ref=CHANNEL_REF, state="open",
+    ).exists()
+
+
+def _money(value_q: int | None) -> str:
+    return f"R$ {format_money(int(value_q or 0))}"
+
+
+def _cart_dict(data) -> dict:
+    """Format the cart data projection into the legacy dict shape.
+
+    ``data`` is a ``shop.projections.cart.CartProjection``. This is the only
+    place the dict view is assembled; it mirrors the fields the REST serializer,
+    checkout and discount-transparency callers read.
+    """
+    items = []
+    for line in data.lines:
+        item = {
+            "line_id": line.line_id,
+            "sku": line.sku,
+            "name": line.name,
+            "qty": line.qty,
+            "unit_price_q": line.unit_price_q,
+            "line_total_q": line.line_total_q,
+            "price_display": _money(line.unit_price_q),
+            "total_display": _money(line.line_total_q),
+            "is_unavailable": not line.is_available,
+            "available_qty": line.available_qty,
+            "is_awaiting_confirmation": line.is_awaiting_confirmation,
+            "is_ready_for_confirmation": line.is_ready_for_confirmation,
+            "confirmation_deadline_iso": line.confirmation_deadline_iso,
+            "confirmation_deadline_display": _deadline_display(line.confirmation_deadline_iso),
+        }
+        if line.original_price_q is not None:
+            item["original_price_display"] = _money(line.original_price_q)
+        if line.discount_name:
+            item["discount_label"] = (
+                f"Cupom {line.discount_name}" if line.discount_is_coupon else line.discount_name
+            )
+        items.append(item)
+
+    coupon = None
+    if data.coupon is not None:
+        coupon = {
+            "code": data.coupon.code,
+            "discount_q": data.coupon.discount_q,
+            "discount_display": _money(data.coupon.discount_q),
+        }
+
+    delivery_fee_display = None
+    if data.delivery_fee_q is not None:
+        delivery_fee_display = "Grátis" if data.delivery_is_free else _money(data.delivery_fee_q)
+
+    return {
+        "items": items,
+        "subtotal_q": data.subtotal_q,
+        "subtotal_display": _money(data.subtotal_q),
+        "count": data.count,
+        "session_key": data.session_key,
+        "coupon": coupon,
+        "has_discount": data.discount_total_q > 0,
+        "total_discount_q": data.discount_total_q,
+        "total_discount_display": _money(data.discount_total_q),
+        "original_subtotal_q": data.original_subtotal_q,
+        "original_subtotal_display": _money(data.original_subtotal_q),
+        "discount_lines": [
+            {
+                "label": f"Cupom {dl.name}" if dl.is_coupon else dl.name,
+                "amount_q": dl.amount_q,
+                "amount_display": _money(dl.amount_q),
+            }
+            for dl in data.discount_lines
+        ],
+        "delivery_fee_q": data.delivery_fee_q,
+        "delivery_fee_display": delivery_fee_display,
+        "grand_total_q": data.grand_total_q,
+        "grand_total_display": _money(data.grand_total_q),
+    }
+
+
+def _deadline_display(deadline_iso: str | None) -> str | None:
+    if not deadline_iso:
+        return None
+    try:
+        from datetime import datetime
+
+        from django.utils import timezone as _tz
+
+        return _tz.localtime(datetime.fromisoformat(deadline_iso)).strftime("%H:%M")
+    except Exception:
+        logger.debug("cart._deadline_display degraded", exc_info=True)
+        return None
