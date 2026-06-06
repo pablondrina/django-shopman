@@ -22,6 +22,7 @@ import {
   moneyInputToQ,
   resolvePayment,
 } from "~/utils/posIntent";
+import { sanitizeTabRef as sanitizeTabRefShape, sortTabs } from "~/presentation/tabBoard";
 import {
   draftAssociationTargetStates,
   requiresOpenTabForCart,
@@ -76,8 +77,6 @@ async function onUnlock(operatorId: number, pin: string) {
 const search = ref("");
 const activeCollection = ref("");
 const tabInput = ref("");
-const tabFilter = ref<"all" | "in_use">("all");
-const tabView = ref<"grid" | "list">("grid");
 const busy = ref(false);
 const saving = ref(false);
 // Auto-persist the comanda (Odoo-style): no manual "Salvar". tabLoading guards
@@ -282,22 +281,11 @@ const filteredProducts = computed<POSProductProjection[]>(() => {
   });
 });
 
-const sortedTabs = computed(() => [...tabs.value].sort((a, b) => {
-  const aOpen = a.state === "in_use" ? 0 : 1;
-  const bOpen = b.state === "in_use" ? 0 : 1;
-  return aOpen - bOpen || a.display_ref.localeCompare(b.display_ref, "pt-BR", { numeric: true });
-}));
-
-const openTabsCount = computed(() => tabs.value.filter((tab) => tab.state === "in_use").length);
+const sortedTabs = computed(() => sortTabs(tabs.value));
 const otherOpenTabs = computed(() =>
   sortedTabs.value.filter((tab) => tab.state === "in_use" && tab.session_key && tab.ref !== cart.tabRef),
 );
 const suggestedSplitRef = computed(() => (cart.tabDisplay ? `${cart.tabDisplay}-2` : ""));
-const visibleTabs = computed(() =>
-  tabFilter.value === "in_use"
-    ? sortedTabs.value.filter((tab) => tab.state === "in_use")
-    : sortedTabs.value,
-);
 
 const availablePaymentCollections = computed(() =>
   (pos.value?.payment_collections || []).filter((collection) =>
@@ -442,18 +430,10 @@ function resetCart() {
 }
 
 function sanitizeTabRef(value: string): string {
-  const disallowed = new Set(tabDisallowedChars.value);
-  return String(value || "")
-    .replace(/[\r\n\t]/g, "")
-    .split("")
-    .filter((char) => !disallowed.has(char))
-    .join("")
-    .replace(/\s+/g, " ")
-    .slice(0, tabMaxLength.value);
-}
-
-function updateTabInput(value: unknown) {
-  tabInput.value = sanitizeTabRef(String(value || ""));
+  return sanitizeTabRefShape(value, {
+    maxLength: tabMaxLength.value,
+    disallowedChars: tabDisallowedChars.value,
+  });
 }
 
 function assignTabIdentityFromPayload(payload: POSTabPayload) {
@@ -1071,7 +1051,7 @@ async function registerCashMovement(payload: { kind: string; amount: string; rea
 
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
-const tabInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
+const tabBoardRef = ref<{ focus: () => void } | null>(null);
 const searchInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
 
 function focusUiInput(component: { inputRef?: HTMLInputElement } | null) {
@@ -1081,7 +1061,7 @@ function focusUiInput(component: { inputRef?: HTMLInputElement } | null) {
 async function gotoTabInput() {
   checkoutMode.value = false;
   await nextTick();
-  focusUiInput(tabInputRef.value);
+  tabBoardRef.value?.focus();
 }
 
 async function gotoProductSearch() {
@@ -1334,112 +1314,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
       <div v-else class="h-full min-h-0">
         <!-- TABS VIEW — a tela de Comandas/Tabs é a PRIMEIRA (benchmark Odoo: tabs/mesas antes do pedido) -->
-        <section v-if="!inSaleView" class="flex h-full min-h-0 flex-col gap-3">
-          <div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <h2 class="text-lg font-semibold">Comandas</h2>
-            <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="openTab(tabInput)">
-              <UiInput
-                ref="tabInputRef"
-                :model-value="tabInput"
-                class="max-w-44"
-                :maxlength="tabMaxLength"
-                :placeholder="tabPlaceholder"
-                @update:model-value="updateTabInput"
-              />
-              <UiButton type="submit" :disabled="busy || !tabInput.trim()">Abrir / nova</UiButton>
-            </form>
-          </div>
-          <div v-if="tabs.length" class="flex shrink-0 flex-wrap items-center gap-2">
-            <div class="flex gap-1">
-              <UiButton
-                size="sm"
-                variant="outline"
-                :class="tabFilter === 'all' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                @click="tabFilter = 'all'"
-              >
-                Todas {{ tabs.length }}
-              </UiButton>
-              <UiButton
-                size="sm"
-                variant="outline"
-                :class="tabFilter === 'in_use' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                @click="tabFilter = 'in_use'"
-              >
-                Em uso {{ openTabsCount }}
-              </UiButton>
-            </div>
-            <div class="ml-auto flex gap-1">
-              <UiButton
-                size="icon-sm"
-                variant="outline"
-                aria-label="Ver em grade"
-                title="Grade"
-                :class="tabView === 'grid' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                @click="tabView = 'grid'"
-              >
-                <Icon name="lucide:layout-grid" class="size-4" />
-              </UiButton>
-              <UiButton
-                size="icon-sm"
-                variant="outline"
-                aria-label="Ver em lista"
-                title="Lista"
-                :class="tabView === 'list' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                @click="tabView = 'list'"
-              >
-                <Icon name="lucide:list" class="size-4" />
-              </UiButton>
-            </div>
-          </div>
-
-          <p v-if="!tabs.length" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Nenhuma comanda ainda. Digite uma referência acima para abrir a primeira.
-          </p>
-          <p v-else-if="!visibleTabs.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-            Nenhuma comanda em uso agora.
-            <button type="button" class="font-medium underline underline-offset-4" @click="tabFilter = 'all'">Ver todas</button>
-          </p>
-          <div
-            v-else
-            class="max-h-[72vh] overflow-y-auto pr-1 md:max-h-none md:min-h-0 md:flex-1"
-            :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
-          >
-            <button
-              v-for="tab in visibleTabs"
-              :key="tab.ref"
-              type="button"
-              class="flex h-[5.5rem] flex-col gap-0.5 overflow-hidden rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
-              :class="[
-                cart.tabRef === tab.ref ? 'border-primary bg-primary/5' : '',
-                tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''
-              ]"
-              @click="hasDraftWithoutTab ? requestTabAssociation('start') : openTab(tab)"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="truncate font-semibold tabular-nums">#{{ tab.display_ref }}</span>
-                <span
-                  v-if="tab.fired"
-                  class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-                  title="Disparado para a cozinha e ainda não pago"
-                >
-                  <Icon name="lucide:flame" class="size-3" />
-                  não pago
-                </span>
-                <span v-else class="shrink-0 text-xs text-muted-foreground">{{ tab.status_label }}</span>
-              </div>
-              <span class="truncate text-xs font-medium">{{ tab.customer_name || tab.items_preview || "—" }}</span>
-              <span
-                class="mt-auto truncate text-xs tabular-nums"
-                :class="tab.item_count ? 'font-semibold' : 'text-muted-foreground'"
-              >
-                <template v-if="tab.item_count">
-                  {{ tab.item_count }} {{ tab.item_count === 1 ? "item" : "itens" }} · {{ tab.total_display }}
-                </template>
-                <template v-else>Comanda livre</template>
-              </span>
-            </button>
-          </div>
-        </section>
+        <PosTabBoard
+          v-if="!inSaleView"
+          ref="tabBoardRef"
+          v-model="tabInput"
+          :tabs="tabs"
+          :selected-tab-ref="cart.tabRef"
+          :has-draft="hasDraftWithoutTab"
+          :busy="busy"
+          :max-length="tabMaxLength"
+          :placeholder="tabPlaceholder"
+          :disallowed-chars="tabDisallowedChars"
+          @open="openTab"
+          @request-association="requestTabAssociation('start')"
+        />
 
         <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
         <div v-else class="grid h-full min-h-0 gap-4 md:grid-cols-[340px_minmax(0,1fr)]">

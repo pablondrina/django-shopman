@@ -9,7 +9,7 @@ import {
   productFallbackStyle,
   productMonogram,
 } from "../app/presentation/catalog";
-import { countOpenTabs, filterTabs, sortTabs, tabCardView } from "../app/presentation/tabBoard";
+import { countOpenTabs, filterTabs, sanitizeTabRef, sortTabs, tabCardView } from "../app/presentation/tabBoard";
 import { clampPercent, clampQty, popDigit, pushDigit } from "../app/presentation/numpad";
 
 function action(overrides: Partial<Action> & { ref: string }): Action {
@@ -167,6 +167,16 @@ describe("presentation/tabBoard — board shaping", () => {
 
     const fired = tabCardView(tabs[2]!);
     expect(fired).toMatchObject({ isUnpaid: true, summary: "1 item · R$ 8,00" });
+  });
+
+  it("sanitizes a tab ref to the channel's allowed shape", () => {
+    const opts = { maxLength: 8, disallowedChars: ["/", "#"] };
+    // Collapses runs of whitespace to one space (does not trim — faithful to the
+    // original) and clamps to maxLength.
+    expect(sanitizeTabRef("Mesa  12", opts)).toBe("Mesa 12");
+    expect(sanitizeTabRef("a/b#c", opts)).toBe("abc");
+    expect(sanitizeTabRef("123456789", opts)).toBe("12345678");
+    expect(sanitizeTabRef("li\tn\ne", opts)).toBe("line");
   });
 });
 

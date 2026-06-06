@@ -42,6 +42,26 @@ export interface TabCardView {
   selected: boolean;
 }
 
+/**
+ * Shape a free-text tab reference for input: strip control chars and the
+ * channel's disallowed characters, collapse whitespace, and clamp to the
+ * channel's max length. The allowed set comes from the tab-lifecycle capability
+ * (Projection-driven) — this only enforces the shape, never the policy.
+ */
+export function sanitizeTabRef(
+  value: string,
+  options: { maxLength: number; disallowedChars: string[] },
+): string {
+  const disallowed = new Set(options.disallowedChars);
+  return String(value || "")
+    .replace(/[\r\n\t]/g, "")
+    .split("")
+    .filter((char) => !disallowed.has(char))
+    .join("")
+    .replace(/\s+/g, " ")
+    .slice(0, options.maxLength);
+}
+
 export function tabCardView(tab: POSTabProjection, selectedRef = ""): TabCardView {
   const isInUse = tab.state === "in_use";
   const hasItems = tab.item_count > 0;
