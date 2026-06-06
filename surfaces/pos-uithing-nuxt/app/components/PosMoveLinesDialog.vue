@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import type { POSCartItem, POSTabProjection } from "~/types/pos";
-import { formatBRL } from "~/utils/posIntent";
-
-type MoveMode = "split" | "transfer" | "merge";
+import {
+  availableMoveModes,
+  buildMovePayload,
+  canSubmitMove,
+  defaultMoveTarget,
+  freezesPriceOnMove,
+  type MoveMode,
+  type MovePayload,
+  moveLineId,
+  moveLineView,
+  modeNeedsSelection,
+  moveTargetOptions,
+  selectedLineIds,
+} from "~/presentation/moveLines";
 
 const props = defineProps<{
   open: boolean;
@@ -10,67 +21,62 @@ const props = defineProps<{
   items: POSCartItem[];
   suggestedSplitRef: string;
   otherTabs: POSTabProjection[];
+  /** `tab_manipulation` capability — drives the offered modes + price note. */
+  capability: unknown;
   busy: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:open": [boolean];
-  submit: [{ mode: MoveMode; lineIds: string[]; toTabRef?: string; toSessionKey?: string; closeSource?: boolean }];
+  submit: [MovePayload];
 }>();
+
+const modes = computed(() => availableMoveModes(props.capability));
+const showPriceNote = computed(() => freezesPriceOnMove(props.capability));
+const targetOptions = computed(() => moveTargetOptions(props.otherTabs));
+const lineViews = computed(() => props.items.map(moveLineView));
 
 const mode = ref<MoveMode>("split");
 const selected = ref<Set<string>>(new Set());
 const splitRef = ref("");
 const targetSessionKey = ref("");
 
-const lineId = (item: POSCartItem) => item.line_id || item.sku;
-
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return;
-  mode.value = "split";
-  selected.value = new Set(props.items.map(lineId));
+  mode.value = modes.value[0]?.ref ?? "split";
+  selected.value = new Set(props.items.map(moveLineId));
   splitRef.value = props.suggestedSplitRef;
-  targetSessionKey.value = props.otherTabs[0]?.session_key || "";
+  targetSessionKey.value = defaultMoveTarget(props.otherTabs);
 });
 
-function toggle(item: POSCartItem) {
-  const id = lineId(item);
+function toggle(id: string) {
   const next = new Set(selected.value);
   if (next.has(id)) next.delete(id);
   else next.add(id);
   selected.value = next;
 }
 
-const selectedIds = computed(() => props.items.map(lineId).filter((id) => selected.value.has(id)));
-const needsSelection = computed(() => mode.value !== "merge");
-const canSubmit = computed(() => {
-  if (props.busy) return false;
-  if (mode.value === "split") return selectedIds.value.length > 0 && !!splitRef.value.trim();
-  if (mode.value === "transfer") return selectedIds.value.length > 0 && !!targetSessionKey.value;
-  return !!targetSessionKey.value && props.items.length > 0; // merge
-});
+const selectedIds = computed(() => selectedLineIds(props.items, selected.value));
+const needsSelection = computed(() => modeNeedsSelection(mode.value));
+const canSubmit = computed(() => canSubmitMove({
+  mode: mode.value,
+  selectedIds: selectedIds.value,
+  splitRef: splitRef.value,
+  targetSessionKey: targetSessionKey.value,
+  itemCount: props.items.length,
+  busy: props.busy,
+}));
 
 function submit() {
-  if (!canSubmit.value) return;
-  if (mode.value === "split") {
-    emit("submit", { mode: "split", lineIds: selectedIds.value, toTabRef: splitRef.value.trim() });
-  } else if (mode.value === "transfer") {
-    emit("submit", { mode: "transfer", lineIds: selectedIds.value, toSessionKey: targetSessionKey.value });
-  } else {
-    emit("submit", {
-      mode: "merge",
-      lineIds: props.items.map(lineId),
-      toSessionKey: targetSessionKey.value,
-      closeSource: true,
-    });
-  }
+  const payload = buildMovePayload({
+    mode: mode.value,
+    items: props.items,
+    selectedIds: selectedIds.value,
+    splitRef: splitRef.value,
+    targetSessionKey: targetSessionKey.value,
+  });
+  if (payload) emit("submit", payload);
 }
-
-const MODES: Array<{ ref: MoveMode; label: string }> = [
-  { ref: "split", label: "Dividir" },
-  { ref: "transfer", label: "Transferir" },
-  { ref: "merge", label: "Juntar" },
-];
 </script>
 
 <template>
@@ -78,14 +84,14 @@ const MODES: Array<{ ref: MoveMode; label: string }> = [
     <UiDialogContent class="sm:max-w-md">
       <UiDialogHeader>
         <UiDialogTitle>Mover itens · #{{ tabDisplay || "comanda" }}</UiDialogTitle>
-        <UiDialogDescription>
+        <UiDialogDescription v-if="showPriceNote">
           O preço de cada item é mantido como foi cobrado nesta comanda.
         </UiDialogDescription>
       </UiDialogHeader>
 
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid gap-2" :style="{ gridTemplateColumns: `repeat(${modes.length}, minmax(0, 1fr))` }">
         <UiButton
-          v-for="option in MODES"
+          v-for="option in modes"
           :key="option.ref"
           variant="outline"
           size="sm"
@@ -102,19 +108,19 @@ const MODES: Array<{ ref: MoveMode; label: string }> = [
 
       <div v-if="needsSelection" class="grid max-h-56 gap-1 overflow-y-auto">
         <label
-          v-for="item in items"
-          :key="lineId(item)"
+          v-for="line in lineViews"
+          :key="line.id"
           class="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5"
-          :class="selected.has(lineId(item)) ? 'border-primary bg-primary/5' : ''"
+          :class="selected.has(line.id) ? 'border-primary bg-primary/5' : ''"
         >
           <input
             type="checkbox"
             class="size-4 accent-primary"
-            :checked="selected.has(lineId(item))"
-            @change="toggle(item)"
+            :checked="selected.has(line.id)"
+            @change="toggle(line.id)"
           />
-          <span class="min-w-0 flex-1 truncate text-sm">{{ item.qty }}x {{ item.name }}</span>
-          <span class="text-xs tabular-nums text-muted-foreground">{{ formatBRL(item.price_q * item.qty) }}</span>
+          <span class="min-w-0 flex-1 truncate text-sm">{{ line.label }}</span>
+          <span class="text-xs tabular-nums text-muted-foreground">{{ line.amountDisplay }}</span>
         </label>
       </div>
 
@@ -129,9 +135,9 @@ const MODES: Array<{ ref: MoveMode; label: string }> = [
           v-model="targetSessionKey"
           class="h-9 rounded-md border bg-transparent px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          <option v-if="!otherTabs.length" value="" disabled>Nenhuma outra comanda aberta</option>
-          <option v-for="tab in otherTabs" :key="tab.session_key" :value="tab.session_key">
-            #{{ tab.display_ref }}<template v-if="tab.customer_name"> · {{ tab.customer_name }}</template>
+          <option v-if="!targetOptions.length" value="" disabled>Nenhuma outra comanda aberta</option>
+          <option v-for="option in targetOptions" :key="option.sessionKey" :value="option.sessionKey">
+            {{ option.label }}
           </option>
         </select>
       </label>

@@ -1062,6 +1062,7 @@ export function usePosSale(deps: PosSaleDeps) {
     checkoutContract,
     canFireTab,
     canRenameTab,
+    tabManipulation,
     canCancelRecentSale,
     movementKinds,
     tabMaxLength,

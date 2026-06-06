@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { resolveAffordance } from "~/presentation/actions";
 // POS shell — wires the read-side (usePosTerminal) and write-side (usePosSale)
 // composables to the operator lock and the three core screens. It holds only
 // the Nuxt-bound primitives (apiPath/action/colorMode/runtimeConfig) and the
@@ -71,8 +72,8 @@ const {
   selectedTenderIndex,
   tenderFresh,
   checkoutContract,
-  canFireTab,
   canRenameTab,
+  tabManipulation,
   canCancelRecentSale,
   movementKinds,
   tabMaxLength,
@@ -131,6 +132,11 @@ const {
   closeCashShift,
   registerCashMovement,
 } = usePosSale({ pos, tabs, actions, refresh, action, apiPath, requestHeaders, djangoOrigin });
+
+// Kitchen handoff affordances (spec §2.5): the fire/unfire CTAs come from the
+// Projection's Actions (label + enabled), never invented in the screen.
+const fireAction = computed(() => resolveAffordance(actions.value, "fire_tab"));
+const unfireAction = computed(() => resolveAffordance(actions.value, "unfire_tab"));
 
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
@@ -428,7 +434,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               :loading="busy"
               :saving="saving"
               :lookup-busy="lookupBusy"
-              :can-fire="canFireTab"
+              :fire-action="fireAction"
+              :unfire-action="unfireAction"
               :firing="firing"
               :can-rename="canRenameTab"
               :discount-reasons="checkoutContract?.discount_reasons || []"
@@ -505,6 +512,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       :items="cart.items"
       :suggested-split-ref="suggestedSplitRef"
       :other-tabs="otherOpenTabs"
+      :capability="tabManipulation"
       :busy="busy"
       @submit="submitMove"
     />

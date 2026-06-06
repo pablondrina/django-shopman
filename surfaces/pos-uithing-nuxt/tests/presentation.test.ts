@@ -26,8 +26,29 @@ import {
   tenderSumQ,
 } from "../app/presentation/payment";
 import { formatOpenedAt, isTerminalOccupied, movementLabel } from "../app/presentation/cash";
+import {
+  availableMoveModes,
+  buildMovePayload,
+  canSubmitMove,
+  defaultMoveTarget,
+  freezesPriceOnMove,
+  moveLineId,
+  moveLineView,
+  modeNeedsSelection,
+  moveTargetOptions,
+  selectedLineIds,
+} from "../app/presentation/moveLines";
+import {
+  allLinesFired,
+  fireBarView,
+  firedCount,
+  kitchenLineState,
+  unfiredCount,
+} from "../app/presentation/kitchen";
+import type { ActionAffordance } from "../app/presentation/actions";
 import { formatBRL } from "../app/utils/posIntent";
 import type {
+  POSCartItem,
   POSCashRuntimeProjection,
   POSCheckoutContractProjection,
   POSPaymentCollectionProjection,
@@ -35,6 +56,33 @@ import type {
   POSPaymentResultProjection,
   POSPaymentTenderDraft,
 } from "../app/types/pos";
+
+function cartItem(overrides: Partial<POSCartItem> & { sku: string }): POSCartItem {
+  return {
+    name: overrides.sku,
+    price_q: 0,
+    qty: 1,
+    notes: "",
+    is_d1: false,
+    ...overrides,
+  };
+}
+
+function affordance(overrides: Partial<ActionAffordance> = {}): ActionAffordance {
+  return {
+    ref: "fire_tab",
+    present: true,
+    label: "Enviar para cozinha",
+    priority: "normal",
+    enabled: true,
+    reason: "",
+    href: "",
+    method: "POST",
+    idempotency: "none",
+    confirmation: {},
+    ...overrides,
+  };
+}
 
 function tender(method: string, amountQ: number): POSPaymentTenderDraft {
   return { method, amount_q: amountQ, collection: "terminal" };
@@ -356,5 +404,126 @@ describe("presentation/cash — blind drawer shaping", () => {
     expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, false)).toBe(true);
     expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, true)).toBe(false);
     expect(isTerminalOccupied(base, false)).toBe(false);
+  });
+});
+
+describe("presentation/moveLines — move modes, gate & payload", () => {
+  it("offers modes driven by the tab_manipulation capability", () => {
+    expect(availableMoveModes({ allows_split: true, allows_transfer: true, allows_merge: true }).map((m) => m.ref))
+      .toEqual(["split", "transfer", "merge"]);
+    expect(availableMoveModes({ allows_split: true, allows_transfer: false, allows_merge: true }).map((m) => m.ref))
+      .toEqual(["split", "merge"]);
+    // Absent capability is defensive: offer all three so the dialog still works.
+    expect(availableMoveModes(null).map((m) => m.ref)).toEqual(["split", "transfer", "merge"]);
+  });
+
+  it("flags price-freezing from the capability, defaulting to true", () => {
+    expect(freezesPriceOnMove({ freezes_price_on_move: true })).toBe(true);
+    expect(freezesPriceOnMove({ freezes_price_on_move: false })).toBe(false);
+    expect(freezesPriceOnMove({})).toBe(true);
+    expect(freezesPriceOnMove(null)).toBe(true);
+  });
+
+  it("addresses a line by server line_id, falling back to sku", () => {
+    expect(moveLineId(cartItem({ sku: "CR", line_id: "L1" }))).toBe("L1");
+    expect(moveLineId(cartItem({ sku: "CR" }))).toBe("CR");
+  });
+
+  it("needs line selection for split/transfer but not merge", () => {
+    expect(modeNeedsSelection("split")).toBe(true);
+    expect(modeNeedsSelection("transfer")).toBe(true);
+    expect(modeNeedsSelection("merge")).toBe(false);
+  });
+
+  it("shapes a line view and selects ids in tab order", () => {
+    const items = [
+      cartItem({ sku: "CR", name: "Croissant", price_q: 800, qty: 2, line_id: "L1" }),
+      cartItem({ sku: "PC", name: "Pão", price_q: 500, qty: 1, line_id: "L2" }),
+    ];
+    expect(moveLineView(items[0]!)).toEqual({ id: "L1", label: "2x Croissant", amountDisplay: formatBRL(1600) });
+    expect(selectedLineIds(items, new Set(["L2"]))).toEqual(["L2"]);
+    expect(selectedLineIds(items, new Set(["L2", "L1"]))).toEqual(["L1", "L2"]);
+  });
+
+  it("gates submit per mode", () => {
+    const base = { selectedIds: ["L1"], splitRef: "1007/2", targetSessionKey: "s1", itemCount: 2, busy: false };
+    expect(canSubmitMove({ ...base, mode: "split" })).toBe(true);
+    expect(canSubmitMove({ ...base, mode: "split", splitRef: " " })).toBe(false);
+    expect(canSubmitMove({ ...base, mode: "split", selectedIds: [] })).toBe(false);
+    expect(canSubmitMove({ ...base, mode: "transfer" })).toBe(true);
+    expect(canSubmitMove({ ...base, mode: "transfer", targetSessionKey: "" })).toBe(false);
+    expect(canSubmitMove({ ...base, mode: "merge", selectedIds: [] })).toBe(true);
+    expect(canSubmitMove({ ...base, mode: "merge", itemCount: 0 })).toBe(false);
+    expect(canSubmitMove({ ...base, mode: "split", busy: true })).toBe(false);
+  });
+
+  it("builds the move payload per mode, or null when invalid", () => {
+    const items = [cartItem({ sku: "CR", line_id: "L1" }), cartItem({ sku: "PC", line_id: "L2" })];
+    expect(buildMovePayload({ mode: "split", items, selectedIds: ["L1"], splitRef: " 1007/2 ", targetSessionKey: "" }))
+      .toEqual({ mode: "split", lineIds: ["L1"], toTabRef: "1007/2" });
+    expect(buildMovePayload({ mode: "transfer", items, selectedIds: ["L1"], splitRef: "", targetSessionKey: "s1" }))
+      .toEqual({ mode: "transfer", lineIds: ["L1"], toSessionKey: "s1" });
+    expect(buildMovePayload({ mode: "merge", items, selectedIds: [], splitRef: "", targetSessionKey: "s1" }))
+      .toEqual({ mode: "merge", lineIds: ["L1", "L2"], toSessionKey: "s1", closeSource: true });
+    expect(buildMovePayload({ mode: "split", items, selectedIds: [], splitRef: "x", targetSessionKey: "" })).toBeNull();
+    expect(buildMovePayload({ mode: "merge", items: [], selectedIds: [], splitRef: "", targetSessionKey: "s1" })).toBeNull();
+  });
+
+  it("lists destination tabs with a session, labelling by customer when present", () => {
+    const tabs = [
+      tab({ ref: "1007", display_ref: "1007", session_key: "s1", customer_name: "Maria" }),
+      tab({ ref: "1011", display_ref: "1011", session_key: "s2" }),
+      tab({ ref: "1099", display_ref: "1099", session_key: "" }),
+    ];
+    expect(moveTargetOptions(tabs)).toEqual([
+      { sessionKey: "s1", label: "#1007 · Maria" },
+      { sessionKey: "s2", label: "#1011" },
+    ]);
+    expect(defaultMoveTarget(tabs)).toBe("s1");
+    expect(defaultMoveTarget([])).toBe("");
+  });
+});
+
+describe("presentation/kitchen — fire-to-kitchen shaping", () => {
+  it("counts fired vs unfired lines", () => {
+    const items = [cartItem({ sku: "A", fired: true }), cartItem({ sku: "B" }), cartItem({ sku: "C" })];
+    expect(firedCount(items)).toBe(1);
+    expect(unfiredCount(items)).toBe(2);
+    expect(allLinesFired(items)).toBe(false);
+    expect(allLinesFired([cartItem({ sku: "A", fired: true })])).toBe(true);
+    expect(allLinesFired([])).toBe(false);
+  });
+
+  it("derives per-line kitchen state", () => {
+    expect(kitchenLineState(cartItem({ sku: "A" }), { canUnfire: true })).toBe("unfired");
+    expect(kitchenLineState(cartItem({ sku: "A", fired: true, line_id: "L1" }), { canUnfire: true })).toBe("fired_cancellable");
+    // Fired but no unfire affordance, or no line_id to target → non-interactive.
+    expect(kitchenLineState(cartItem({ sku: "A", fired: true, line_id: "L1" }), { canUnfire: false })).toBe("fired");
+    expect(kitchenLineState(cartItem({ sku: "A", fired: true }), { canUnfire: true })).toBe("fired");
+  });
+
+  it("shapes the fire bar: Action label + delta, all-fired state, disabled logic", () => {
+    const items = [cartItem({ sku: "A", fired: true }), cartItem({ sku: "B" })];
+    const bar = fireBarView({ items, affordance: affordance(), hasOpenTab: true, busy: false });
+    expect(bar.visible).toBe(true);
+    expect(bar.label).toBe("Enviar para cozinha (1)");
+    expect(bar.unfired).toBe(1);
+    expect(bar.disabled).toBe(false);
+
+    const allFired = fireBarView({
+      items: [cartItem({ sku: "A", fired: true })],
+      affordance: affordance(),
+      hasOpenTab: true,
+      busy: false,
+    });
+    expect(allFired.label).toBe("Tudo na cozinha");
+    expect(allFired.allFired).toBe(true);
+    expect(allFired.disabled).toBe(true); // nothing left to fire
+
+    expect(fireBarView({ items, affordance: affordance({ present: false }), hasOpenTab: true, busy: false }).visible).toBe(false);
+    expect(fireBarView({ items, affordance: affordance(), hasOpenTab: false, busy: false }).visible).toBe(false);
+    expect(fireBarView({ items: [], affordance: affordance(), hasOpenTab: true, busy: false }).visible).toBe(false);
+    expect(fireBarView({ items, affordance: affordance(), hasOpenTab: true, busy: true }).disabled).toBe(true);
+    expect(fireBarView({ items, affordance: affordance({ enabled: false }), hasOpenTab: true, busy: false }).disabled).toBe(true);
   });
 });

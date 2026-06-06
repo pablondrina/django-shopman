@@ -3,8 +3,10 @@ import type {
   POSCartItem,
   POSCustomerLookupProjection,
 } from "~/types/pos";
+import type { ActionAffordance } from "~/presentation/actions";
 import { formatBRL } from "~/utils/posIntent";
 import { clampPercent, clampQty, popDigit, pushDigit } from "~/presentation/numpad";
+import { fireBarView, kitchenLineState } from "~/presentation/kitchen";
 
 const props = defineProps<{
   tabDisplay: string;
@@ -17,7 +19,9 @@ const props = defineProps<{
   loading: boolean;
   saving: boolean;
   lookupBusy: boolean;
-  canFire: boolean;
+  /** Kitchen handoff affordances (Projection `Action`s) — labels, not invented. */
+  fireAction: ActionAffordance;
+  unfireAction: ActionAffordance;
   firing: boolean;
   canRename: boolean;
   discountReasons?: Array<{ ref: string; label?: string } | string>;
@@ -44,7 +48,17 @@ const emit = defineEmits<{
   repeatCustomerLastOrder: [];
 }>();
 
-const unfiredCount = computed(() => props.items.filter((item) => !item.fired).length);
+// Kitchen handoff (spec §2.5): the fire bar and per-line state are shaped from
+// the Projection's Actions + per-line `fired`, never decided here.
+const fireBar = computed(() => fireBarView({
+  items: props.items,
+  affordance: props.fireAction,
+  hasOpenTab: props.hasOpenTab,
+  busy: props.loading || props.firing,
+}));
+function lineKitchenState(item: POSCartItem) {
+  return kitchenLineState(item, { canUnfire: props.unfireAction.present });
+}
 
 const customerSheetOpen = ref(false);
 
@@ -347,11 +361,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
               −{{ item.discount.value }}% · {{ item.discount.reason }}
             </span>
             <button
-              v-if="item.fired && canFire && item.line_id"
+              v-if="lineKitchenState(item) === 'fired_cancellable'"
               type="button"
               class="group mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               :disabled="firing"
-              :aria-label="`Cancelar envio de ${item.name}`"
+              :aria-label="`${unfireAction.label}: ${item.name}`"
               @click.stop="$emit('unfire', item.line_id || '')"
             >
               <Icon name="lucide:flame" class="size-3 group-hover:hidden" />
@@ -359,7 +373,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
               Na cozinha
             </button>
             <span
-              v-else-if="item.fired"
+              v-else-if="lineKitchenState(item) === 'fired'"
               class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
             >
               <Icon name="lucide:flame" class="size-3" />
@@ -428,15 +442,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <strong class="text-xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
       <UiButton
-        v-if="canFire && hasOpenTab && items.length"
+        v-if="fireBar.visible"
         variant="outline"
         class="w-full justify-center gap-2"
-        :disabled="loading || firing || !unfiredCount"
+        :disabled="fireBar.disabled"
         :loading="firing"
         @click="$emit('fire')"
       >
         <Icon name="lucide:flame" class="size-4" />
-        {{ unfiredCount ? `Enviar para cozinha (${unfiredCount})` : "Tudo na cozinha" }}
+        {{ fireBar.label }}
       </UiButton>
       <UiButton
         size="lg"
