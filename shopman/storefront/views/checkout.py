@@ -11,12 +11,10 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 
-from shopman.shop.projections.cart import build_minimum_order_progress
 from shopman.shop.services import checkout as checkout_service
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
-from ..presentation.cart import present_minimum_order
 from ..services import orders as order_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
@@ -30,8 +28,7 @@ class CheckoutView(View):
     """Checkout: review order and submit."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        cart = CartService.get_cart(request)
-        if not cart["items"]:
+        if not CartService.has_items(request):
             return redirect("storefront:cart")
 
         customer_info = getattr(request, "customer", None)
@@ -61,8 +58,7 @@ class CheckoutView(View):
             return render(request, "storefront/partials/rate_limited.html", status=429)
 
         pre_cart_key = request.session.get("cart_session_key")
-        cart = CartService.get_cart(request)
-        if not cart["items"]:
+        if not CartService.has_items(request):
             if pre_cart_key and not request.session.get("cart_session_key"):
                 from django.contrib import messages
                 messages.warning(request, "Seu carrinho expirou. Adicione os itens novamente.")
@@ -72,7 +68,7 @@ class CheckoutView(View):
         result = interpret_checkout(request, channel_ref=CHANNEL_REF)
         if result.errors:
             return self._render_with_errors(
-                request, cart, result.errors, result.form_data, result.repricing_warnings
+                request, result.errors, result.form_data, result.repricing_warnings
             )
 
         # ── Process ───────────────────────────────────────────────────────
@@ -90,7 +86,7 @@ class CheckoutView(View):
             errors = checkout_service.map_checkout_error(exc)
             if errors:
                 return self._render_with_errors(
-                    request, cart, errors, result.form_data, result.repricing_warnings
+                    request, errors, result.form_data, result.repricing_warnings
                 )
             raise
 
@@ -122,7 +118,6 @@ class CheckoutView(View):
     def _render_with_errors(
         self,
         request: HttpRequest,
-        cart: dict,
         errors: dict,
         form_data: dict,
         repricing_warnings: list | None = None,
@@ -175,19 +170,17 @@ class CheckoutOrderSummaryView(View):
     """HTMX: coluna resumo + totais (atualiza após cupom no checkout)."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        cart = CartService.get_cart(request)
-        if not cart.get("items"):
+        from shopman.storefront.presentation import build_cart
+
+        cart = build_cart(request=request, channel_ref=CHANNEL_REF)
+        if cart.is_empty:
             return HttpResponse("")
         return render(
             request,
             "storefront/partials/checkout_order_summary.html",
             {
                 "cart": cart,
-                "minimum_order_warning": present_minimum_order(
-                    build_minimum_order_progress(
-                        cart.get("original_subtotal_q") or cart["subtotal_q"],
-                    )
-                ),
+                "minimum_order_warning": cart.minimum_order_progress,
             },
         )
 

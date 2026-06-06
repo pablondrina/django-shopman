@@ -81,34 +81,20 @@ class CartExpiredRedirectTests(TestCase):
 
     def test_expired_cart_redirects_to_cart_with_message(self) -> None:
         """POST /checkout/ with expired session_key → redirect to /cart/ with message."""
-        # Simulate: session_key exists in browser cookie but ordering session is gone
+        # Browser cookie still holds a cart_session_key, but no open ordering
+        # session exists for it — CartService.has_items detects this, pops the
+        # stale key and returns False, so checkout redirects with the flash.
         self.client.get("/")  # warm up session
         session = self.client.session
         session["cart_session_key"] = "EXPIRED-KEY-9999"
         session.save()
 
-        # Patch get_cart to return empty (simulates expired session cleanup)
-        with patch("shopman.storefront.views.checkout.CartService.get_cart") as mock_cart:
-            mock_cart.return_value = {
-                "items": [],
-                "subtotal_q": 0,
-                "subtotal_display": "R$ 0,00",
-                "count": 0,
-                "discount_lines": [],
-                "session_key": None,
-            }
-            # Also simulate that get_cart popped the cart_session_key
-            def side_effect(req):
-                req.session.pop("cart_session_key", None)
-                return mock_cart.return_value
-            mock_cart.side_effect = side_effect
-
-            resp = self.client.post("/checkout/", {
-                "name": "Test",
-                "phone": "5543999001122",
-                "fulfillment_type": "pickup",
-                "payment_method": "cash",
-            })
+        resp = self.client.post("/checkout/", {
+            "name": "Test",
+            "phone": "5543999001122",
+            "fulfillment_type": "pickup",
+            "payment_method": "cash",
+        })
 
         self.assertEqual(resp.status_code, 302)
         # Flash message was set
