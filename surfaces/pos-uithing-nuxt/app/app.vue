@@ -6,7 +6,6 @@ import type {
   POSCustomerLookupProjection,
   POSCustomerLookupResponse,
   POSProductProjection,
-  POSResponse,
   POSSaleReviewProjection,
   POSSaleReviewResponse,
   POSTabPayload,
@@ -53,10 +52,26 @@ const loginUrl = computed(() => {
 });
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
-const { data, pending, error, refresh } = await useFetch<POSResponse>(
-  () => apiPath("/api/v1/backstage/pos/"),
-  { credentials: "include", headers: requestHeaders },
-);
+const { data, pos, shift, tabs, operators, actions, pending, error, refresh } = await usePosTerminal();
+
+// Operator identity / lock screen (PIN attribution). Instantiated here in the
+// shell's <script setup> so its lifecycle hooks (auto-lock idle timer) survive
+// the await above — Vue/Nuxt only preserve setup context across awaits inside
+// `<script setup>`, not inside a plain composable module.
+const {
+  activeOperator,
+  locked,
+  busy: lockBusy,
+  error: lockError,
+  unlock,
+  lock,
+} = useOperatorLock({
+  initialOperator: data.value?.operator ?? null,
+  autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
+});
+async function onUnlock(operatorId: number, pin: string) {
+  if (await unlock(operatorId, pin)) await refresh();
+}
 
 const search = ref("");
 const activeCollection = ref("");
@@ -131,27 +146,6 @@ const cart = reactive({
   clientRequestId: "",
 });
 
-const pos = computed(() => data.value?.pos || null);
-const tabs = computed(() => data.value?.tabs || []);
-const shift = computed(() => data.value?.shift || null);
-const actions = computed(() => pos.value?.actions || []);
-
-// Operator identity / lock screen (Phase 1: PIN attribution).
-const operators = computed(() => pos.value?.operators || []);
-const {
-  activeOperator,
-  locked,
-  busy: lockBusy,
-  error: lockError,
-  unlock,
-  lock,
-} = useOperatorLock({
-  initialOperator: data.value?.operator ?? null,
-  autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
-});
-async function onUnlock(operatorId: number, pin: string) {
-  if (await unlock(operatorId, pin)) await refresh();
-}
 const checkoutContract = computed(() => pos.value?.checkout || null);
 const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
 const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
