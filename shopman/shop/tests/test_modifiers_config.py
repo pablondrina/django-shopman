@@ -148,8 +148,8 @@ class TestTimeWindowDiscountModifier:
     """Rule-driven time-window discount.
 
     Parity: the cents asserted here (20% → 800, 15% → 850) pin the discount math.
-    The "skip web" behaviour is expressed as the rule simply not being enabled on
-    a channel (``get_channel_rule_params`` returns ``None``).
+    A channel where the rule is not enabled gets no discount
+    (``get_channel_rule_params`` returns ``None``).
     """
 
     @pytest.fixture
@@ -213,7 +213,7 @@ class TestTimeWindowDiscountModifier:
         assert session.items[0]["unit_price_q"] == 1000  # not touched
 
     def test_skips_when_rule_not_enabled_for_channel(self, modifier):
-        # The "skip web" case: no enabled rule for this channel → None → skip.
+        # No enabled rule for this channel → None → no discount.
         session = _make_session()
         channel = _make_channel()
         with self._gate(None), patch("django.utils.timezone.localtime", self._at(12)):
