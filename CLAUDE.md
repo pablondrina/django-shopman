@@ -60,13 +60,18 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
     ├── templates/      kds/, pedidos/, pos/, gestao/ (19 templates)
     └── tests/          POS, KDS, operator tests
 
-config/                 Django project wrapper (settings.py, urls.py, wsgi.py, asgi.py)
+config/                 Django project wrapper + deployment app
+├── settings.py, urls.py, wsgi.py, asgi.py
+└── management/commands/ seed.py — bootstrap de dados do deployment (Nelson)
 manage.py               Django management entrypoint (repo root)
 pyproject.toml          Build + test config (repo root)
-
-instances/              Instâncias Django (não são pip packages)
-└── nelson/             Nelson Boulangerie (futuro repo shopman-nelson)
 ```
+
+> **Tenant = config + dados + marca, zero código.** Não há pacote Python de
+> instância. "Nelson" é o `Shop` singleton + dados no DB (`Channel`/`RuleConfig`/
+> `OmotenashiCopy`/catálogo via `seed`) + marca (assets do storefront) + settings
+> do deployment. O `seed` vive no app `config`; pricing (D-1/Happy Hour) e a
+> estratégia de balcão são genéricos no orquestrador, dirigidos por `RuleConfig`.
 
 ### Regra de Dependência (3 apps)
 

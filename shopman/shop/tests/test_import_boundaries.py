@@ -31,7 +31,6 @@ SURFACE_ROOTS = (SHOP_ROOT, STOREFRONT_ROOT, BACKSTAGE_ROOT)
 
 HOST_PREFIXES = (
     "config",
-    "instances",
     "shopman.shop",
     "shopman.storefront",
     "shopman.backstage",

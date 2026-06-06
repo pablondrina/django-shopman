@@ -3,20 +3,12 @@ Django settings for the Shopman project.
 """
 
 import os
-import sys
 from base64 import b64decode
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# Make instances/ importable (e.g. nelson.customer_strategies). The instances
-# directory lives at the repo root alongside config/ and shopman/, so it's
-# BASE_DIR / "instances" — no .parent.
-_instances_dir = str(Path(BASE_DIR) / "instances")
-if _instances_dir not in sys.path:
-    sys.path.insert(0, _instances_dir)
 
 load_dotenv(Path(BASE_DIR) / ".env")
 
