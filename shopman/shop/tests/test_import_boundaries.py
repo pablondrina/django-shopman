@@ -14,6 +14,7 @@ both ``import x.y`` and ``from x.y import z`` are covered.
 from __future__ import annotations
 
 import ast
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -28,6 +29,14 @@ STOREFRONT_ROOT = FRAMEWORK_ROOT / "storefront"
 BACKSTAGE_ROOT = FRAMEWORK_ROOT / "backstage"
 
 SURFACE_ROOTS = (SHOP_ROOT, STOREFRONT_ROOT, BACKSTAGE_ROOT)
+
+# Data read-side (Projection) and the surface Presentation layers — targets of
+# the ADR-014 §4.2 semantic cut (rules R-A/R-B/R-C/R-D).
+PROJECTIONS_ROOT = SHOP_ROOT / "projections"
+PRESENTATION_ROOTS = (
+    STOREFRONT_ROOT / "presentation",
+    BACKSTAGE_ROOT / "presentation",
+)
 
 HOST_PREFIXES = (
     "config",
@@ -474,4 +483,141 @@ def test_backstage_pos_delegates_write_mutations():
             f"{_format_violations(violations)}\n\n"
             "Keep POS views focused on permissions, parsing, and rendering; route "
             "order/session writes through shopman.shop.services.pos."
+        )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# ADR-014 §4.2 — the data/presentation cut (R-A · R-B · R-C · R-D)
+#
+# These codify the semantic boundary: data Projections (shop/projections/) carry
+# only meaning; each surface's Presentation places appearance. See
+# docs/decisions/adr-014-surface-data-presentation-cut.md and
+# docs/redesign/04-architecture.md §4.2.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _string_constants(tree: ast.AST) -> Iterable[tuple[int, str]]:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            yield node.lineno, node.value
+
+
+def test_presentation_reads_only_the_read_side():
+    """R-A · ``<surface>/presentation/`` may read ``shop.projections`` but never
+    ``shop.services`` (write-side). Mutation stays in views/intents."""
+    violations: list[tuple[Path, int, str]] = []
+    for root in PRESENTATION_ROOTS:
+        if not root.exists():
+            continue
+        for path in _py_files(root, skip_parts={"tests"}):
+            for line, module in _imports(path):
+                if _matches_prefix(module, ("shopman.shop.services",)):
+                    violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Presentation imported the write-side (shop.services):\n"
+            f"{_format_violations(violations)}\n\n"
+            "Presentation consumes only shop.projections (Projection + Action). "
+            "Route mutations through views/intents calling shop.services."
+        )
+
+
+# Tailwind colour/tone design-token classes — appearance, owned by each
+# surface's Presentation (rule R-B keeps them out of the data read-side).
+_TONE_CLASS_RE = re.compile(
+    r"\b(?:bg|text|border)-(?:info|warning|success|danger|muted|surface-alt)\b"
+    r"|text-on-surface"
+)
+# Money/locale formatting and template/HTML helpers are appearance, not data.
+_BANNED_PROJECTION_IMPORTS = (
+    "shopman.utils.monetary",  # format_money — presentation
+    "django.template",
+    "django.utils.html",
+)
+
+
+def test_data_projections_carry_no_appearance():
+    """R-B · ``shop/projections/`` does not import money/locale/template/HTML
+    helpers, nor embed Tailwind colour-token classes (appearance lives in the
+    surface Presentation).
+
+    NOTE: the broader "no PT-BR UX copy literal" half of R-B is *not* enforced
+    yet — Action labels and confirmation copy still live in
+    catalog_context/cart/checkout/payment_status/storefront_context/
+    order_tracking. Draining those into OmotenashiCopy is the remaining S7 work
+    (see project_wp7_pos_status / docs/redesign/04-architecture.md §S7).
+    """
+    violations: list[tuple[Path, int, str]] = []
+    for path in _py_files(PROJECTIONS_ROOT, skip_parts={"tests"}):
+        for line, module in _imports(path):
+            if _matches_prefix(module, _BANNED_PROJECTION_IMPORTS):
+                violations.append((path, line, f"import {module}"))
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for line, value in _string_constants(tree):
+            if _TONE_CLASS_RE.search(value):
+                violations.append((path, line, f"tailwind colour class: {value!r}"))
+
+    if violations:
+        pytest.fail(
+            "Data Projections carried appearance (rule R-B):\n"
+            f"{_format_violations(violations)}\n\n"
+            "Keep shop/projections semantic: emit a Tone enum (mapped to classes "
+            "by each surface) and format money/copy in the Presentation."
+        )
+
+
+def test_data_projections_are_frozen_and_channel_agnostic():
+    """R-C · ``shop/projections/`` dataclasses are ``frozen=True`` and the
+    read-side ignores the HTTP/render channel (no ``django.http``)."""
+    violations: list[tuple[Path, int, str]] = []
+    for path in _py_files(PROJECTIONS_ROOT, skip_parts={"tests"}):
+        for line, module in _imports(path):
+            if _matches_prefix(module, ("django.http",)):
+                violations.append((path, line, f"import {module}"))
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for deco in node.decorator_list:
+                target = deco.func if isinstance(deco, ast.Call) else deco
+                if not (isinstance(target, ast.Name) and target.id == "dataclass"):
+                    continue
+                frozen = isinstance(deco, ast.Call) and any(
+                    kw.arg == "frozen"
+                    and isinstance(kw.value, ast.Constant)
+                    and kw.value.value is True
+                    for kw in deco.keywords
+                )
+                if not frozen:
+                    violations.append((path, node.lineno, f"non-frozen dataclass {node.name}"))
+
+    if violations:
+        pytest.fail(
+            "Data Projections were mutable or channel-aware (rule R-C):\n"
+            f"{_format_violations(violations)}\n\n"
+            "Mark every shop/projections dataclass frozen=True and keep "
+            "django.http out of the read-side."
+        )
+
+
+def test_no_second_card_shape_returns():
+    """R-D · the retired second card shape and its parallel template stay gone."""
+    forbidden = (
+        FRAMEWORK_ROOT / "storefront" / "presentation" / "product_cards.py",
+        FRAMEWORK_ROOT / "storefront" / "projections" / "product_cards.py",
+        STOREFRONT_ROOT / "templates" / "storefront" / "components" / "availability_preview.html",
+    )
+    existing = [p for p in forbidden if p.exists()]
+    # Belt-and-suspenders: also catch a relocated product_cards.py anywhere.
+    existing += [
+        p for p in FRAMEWORK_ROOT.rglob("product_cards.py") if "__pycache__" not in p.parts
+    ]
+    if existing:
+        listed = "\n".join(f"  {p.relative_to(REPO_ROOT)}" for p in sorted(set(existing)))
+        pytest.fail(
+            "A retired second card shape/template reappeared (rule R-D):\n"
+            f"{listed}\n\n"
+            "There is one card shape; do not reintroduce product_cards.py or "
+            "availability_preview.html."
         )
