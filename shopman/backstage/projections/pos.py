@@ -740,7 +740,7 @@ def _pos_actions() -> tuple[Action, ...]:
         Action(
             ref="fire_tab",
             kind="mutation",
-            label="Enviar para cozinha",
+            label="Enviar itens",
             priority="normal",
             method="POST",
             href="/api/v1/backstage/pos/tabs/fire/",

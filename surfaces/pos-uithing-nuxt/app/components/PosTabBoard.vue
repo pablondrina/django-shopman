@@ -60,20 +60,20 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
 
 <template>
   <section class="flex h-full min-h-0 flex-col gap-3">
-    <div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
-      <h2 class="text-lg font-semibold">Comandas</h2>
-      <form class="flex min-w-0 flex-1 justify-end gap-2 sm:flex-none" @submit.prevent="submitInput">
-        <UiInput
-          ref="inputRef"
-          :model-value="modelValue"
-          class="max-w-44"
-          :maxlength="maxLength"
-          :placeholder="placeholder"
-          @update:model-value="updateInput"
-        />
-        <UiButton type="submit" :disabled="busy || !modelValue.trim()">Abrir / nova</UiButton>
-      </form>
-    </div>
+    <form class="flex shrink-0 gap-2" @submit.prevent="submitInput">
+      <UiInput
+        ref="inputRef"
+        :model-value="modelValue"
+        class="h-11 max-w-xs flex-1 text-base"
+        :maxlength="maxLength"
+        :placeholder="placeholder"
+        @update:model-value="updateInput"
+      />
+      <UiButton type="submit" size="lg" class="h-11 shrink-0 gap-2" :disabled="busy || !modelValue.trim()">
+        <Icon name="lucide:plus" class="size-5" />
+        Abrir / nova
+      </UiButton>
+    </form>
     <div v-if="tabs.length" class="flex shrink-0 flex-wrap items-center gap-2">
       <div class="flex gap-1">
         <UiButton

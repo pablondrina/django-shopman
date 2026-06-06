@@ -1,51 +1,34 @@
 <script setup lang="ts">
-import type {
-  POSCartItem,
-  POSCustomerLookupProjection,
-} from "~/types/pos";
+import type { POSCartItem } from "~/types/pos";
 import type { ActionAffordance } from "~/presentation/actions";
 import { formatBRL } from "~/utils/posIntent";
 import { clampPercent, clampQty, popDigit, pushDigit } from "~/presentation/numpad";
 import { fireBarView, kitchenLineState } from "~/presentation/kitchen";
 
 const props = defineProps<{
-  tabDisplay: string;
   items: POSCartItem[];
-  customerLookup: POSCustomerLookupProjection | null;
   requiresTab: boolean;
   hasOpenTab: boolean;
-  customerName: string;
-  customerPhone: string;
   loading: boolean;
   saving: boolean;
-  lookupBusy: boolean;
   /** Kitchen handoff affordances (Projection `Action`s) — labels, not invented. */
   fireAction: ActionAffordance;
   unfireAction: ActionAffordance;
   firing: boolean;
-  canRename: boolean;
   discountReasons?: Array<{ ref: string; label?: string } | string>;
 }>();
 
 const emit = defineEmits<{
-  "update:customerName": [string];
-  "update:customerPhone": [string];
   increment: [string];
   decrement: [string];
   remove: [string];
   setQty: [string, number];
   setDiscount: [string, number, string];
-  save: [];
   prepare: [];
   move: [];
   fire: [];
   unfire: [string];
-  rename: [string];
-  clear: [];
   requestTab: [];
-  lookupCustomer: [];
-  applyCustomerFavorite: [];
-  repeatCustomerLastOrder: [];
 }>();
 
 // Kitchen handoff (spec §2.5): the fire bar and per-line state are shaped from
@@ -60,24 +43,6 @@ function lineKitchenState(item: POSCartItem) {
   return kitchenLineState(item, { canUnfire: props.unfireAction.present });
 }
 
-const customerSheetOpen = ref(false);
-
-const renaming = ref(false);
-const renameValue = ref("");
-
-function startRename() {
-  renameValue.value = props.tabDisplay || "";
-  renaming.value = true;
-}
-function confirmRename() {
-  const next = renameValue.value.trim();
-  renaming.value = false;
-  if (next && next !== (props.tabDisplay || "")) emit("rename", next);
-}
-function cancelRename() {
-  renaming.value = false;
-}
-
 // Interim local total — reflects per-line manual discount as an estimate so the
 // operator sees the discount land. Backend review remains the authoritative total.
 const totalDisplay = computed(() => formatBRL(props.items.reduce((sum, item) => {
@@ -85,8 +50,6 @@ const totalDisplay = computed(() => formatBRL(props.items.reduce((sum, item) => 
   const perUnit = item.discount?.value ? Math.min(item.price_q, Math.round(item.price_q * item.discount.value / 100)) : 0;
   return sum + Math.max(0, gross - perUnit * item.qty);
 }, 0)));
-const customerMemory = computed(() => props.customerLookup?.memory || null);
-
 // Numpad targets the selected line: select a line, type a quantity (first
 // digit replaces, the rest append). Stepper buttons stay for touch and re-arm
 // the numpad on the line they touch. Price/discount-per-line modes are out of
@@ -150,14 +113,11 @@ function setMode(mode: "qty" | "disc") {
   numpadMode.value = mode;
 }
 
-// Destructive actions require a confirmation modal naming the irreversible effect.
-const confirmAction = ref<{ kind: "remove" | "clear"; sku?: string; name?: string } | null>(null);
+// Removing a line requires a confirmation modal naming the irreversible effect.
+const confirmAction = ref<{ sku: string; name: string } | null>(null);
 function askRemove(sku: string) {
   const item = props.items.find((entry) => entry.sku === sku);
-  confirmAction.value = { kind: "remove", sku, name: item?.name || "item" };
-}
-function askClear() {
-  confirmAction.value = { kind: "clear" };
+  confirmAction.value = { sku, name: item?.name || "item" };
 }
 function cancelConfirm() {
   confirmAction.value = null;
@@ -166,12 +126,8 @@ function runConfirm() {
   const action = confirmAction.value;
   confirmAction.value = null;
   if (!action) return;
-  if (action.kind === "remove" && action.sku) {
-    if (selectedSku.value === action.sku) selectedSku.value = "";
-    emit("remove", action.sku);
-  } else if (action.kind === "clear") {
-    emit("clear");
-  }
+  if (selectedSku.value === action.sku) selectedSku.value = "";
+  emit("remove", action.sku);
 }
 
 function commitQty() {
@@ -276,65 +232,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
   </UiCard>
 
   <UiCard v-else class="gap-2.5 rounded-lg p-3 shadow-none md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden">
-    <div class="flex shrink-0 items-center justify-between gap-2">
-      <div class="min-w-0">
-        <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comanda</p>
-        <div v-if="renaming" class="mt-0.5 flex items-center gap-1">
-          <UiInput
-            v-model="renameValue"
-            class="h-8 w-40 text-lg font-semibold"
-            placeholder="Mesa, nome…"
-            autofocus
-            @keydown.enter.prevent="confirmRename"
-            @keydown.esc.prevent="cancelRename"
-          />
-          <UiButton variant="ghost" size="icon-sm" aria-label="Confirmar nome" @click="confirmRename">
-            <Icon name="lucide:check" class="size-4" />
-          </UiButton>
-          <UiButton variant="ghost" size="icon-sm" aria-label="Cancelar" @click="cancelRename">
-            <Icon name="lucide:x" class="size-4" />
-          </UiButton>
-        </div>
-        <button
-          v-else-if="hasOpenTab && canRename"
-          type="button"
-          class="group mt-0.5 flex items-center gap-1.5"
-          aria-label="Renomear comanda"
-          @click="startRename"
-        >
-          <span class="text-xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</span>
-          <Icon name="lucide:pencil" class="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-        </button>
-        <p v-else-if="hasOpenTab" class="text-xl font-semibold tabular-nums">#{{ tabDisplay || "..." }}</p>
-        <p v-else class="text-lg font-semibold">Venda rápida</p>
-      </div>
-      <UiButton
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Liberar comanda"
-        title="Liberar comanda"
-        @click="askClear()"
-      >
-        <Icon name="lucide:x" class="size-4" />
-      </UiButton>
-    </div>
-
-    <button
-      type="button"
-      class="flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition hover:bg-accent"
-      aria-haspopup="dialog"
-      @click="customerSheetOpen = true"
-    >
-      <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
-      <span v-if="customerName" class="min-w-0 flex-1 truncate font-medium">{{ customerName }}</span>
-      <span v-else class="min-w-0 flex-1 truncate text-muted-foreground">Adicionar cliente</span>
-      <span v-if="customerPhone" class="shrink-0 text-xs text-muted-foreground tabular-nums">{{ customerPhone }}</span>
-      <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
-    </button>
-
-    <UiSeparator class="shrink-0" />
-
-    <div class="min-h-24 max-h-[40vh] overflow-auto pr-1 md:max-h-none md:min-h-0 md:flex-1">
+    <div class="min-h-24 overflow-auto pr-1 md:min-h-0 md:flex-1">
       <p v-if="!items.length" class="grid h-full min-h-24 place-items-center rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
         Carrinho vazio
       </p>
@@ -441,136 +339,68 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <span class="text-sm font-medium text-muted-foreground">Total parcial</span>
         <strong class="text-xl tabular-nums">{{ totalDisplay }}</strong>
       </div>
+      <!-- Secondary actions stack on the left; Pagamento is the highlight column
+           spanning their full height — saves a vertical row. -->
+      <div v-if="fireBar.visible || (hasOpenTab && items.length)" class="grid grid-cols-2 gap-2">
+        <div class="flex flex-col gap-2">
+          <UiButton
+            v-if="fireBar.visible"
+            variant="outline"
+            class="justify-center gap-2"
+            :disabled="fireBar.disabled"
+            :loading="firing"
+            @click="$emit('fire')"
+          >
+            <Icon name="lucide:utensils" class="size-4" />
+            {{ fireBar.label }}
+          </UiButton>
+          <UiButton
+            v-if="hasOpenTab && items.length"
+            variant="outline"
+            class="justify-center gap-1.5"
+            :disabled="loading"
+            @click="$emit('move')"
+          >
+            <Icon name="lucide:split" class="size-4" />
+            Mover itens
+          </UiButton>
+        </div>
+        <UiButton
+          size="lg"
+          class="h-full flex-col gap-1 text-base"
+          :disabled="!items.length || loading"
+          :loading="loading"
+          @click="$emit('prepare')"
+        >
+          <Icon name="lucide:credit-card" class="size-6" />
+          Pagamento
+        </UiButton>
+      </div>
       <UiButton
-        v-if="fireBar.visible"
-        variant="outline"
-        class="w-full justify-center gap-2"
-        :disabled="fireBar.disabled"
-        :loading="firing"
-        @click="$emit('fire')"
-      >
-        <Icon name="lucide:flame" class="size-4" />
-        {{ fireBar.label }}
-      </UiButton>
-      <UiButton
+        v-else
         size="lg"
-        class="w-full"
+        class="w-full gap-2"
         :disabled="!items.length || loading"
         :loading="loading"
         @click="$emit('prepare')"
       >
+        <Icon name="lucide:credit-card" class="size-5" />
         Pagamento
-      </UiButton>
-      <UiButton
-        v-if="hasOpenTab && items.length"
-        variant="ghost"
-        size="sm"
-        class="w-full justify-center gap-1.5 text-muted-foreground"
-        :disabled="loading"
-        @click="$emit('move')"
-      >
-        <Icon name="lucide:split" class="size-4" />
-        Mover itens
       </UiButton>
     </div>
   </UiCard>
 
-  <UiSheet v-model:open="customerSheetOpen">
-    <UiSheetContent side="right" title="Cliente" description="Identifique o cliente desta comanda. Tudo opcional.">
-      <template #content>
-        <div class="grid gap-4 overflow-y-auto px-4 pb-6">
-          <label class="grid gap-1.5 text-sm">
-            <span class="font-medium text-muted-foreground">Nome</span>
-            <UiInput
-              :model-value="customerName"
-              placeholder="Nome no balcão"
-              @update:model-value="$emit('update:customerName', String($event || ''))"
-            />
-          </label>
-          <label class="grid gap-1.5 text-sm">
-            <span class="font-medium text-muted-foreground">WhatsApp</span>
-            <div class="flex gap-2">
-              <UiInput
-                :model-value="customerPhone"
-                inputmode="tel"
-                placeholder="(43) 99999-0000"
-                @update:model-value="$emit('update:customerPhone', String($event || ''))"
-                @keydown.enter.prevent="$emit('lookupCustomer')"
-              />
-              <UiButton
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Buscar cliente"
-                title="Buscar cliente"
-                :disabled="lookupBusy || !customerPhone.trim()"
-                @click="$emit('lookupCustomer')"
-              >
-                <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
-              </UiButton>
-            </div>
-          </label>
-
-          <div
-            v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length)"
-            class="grid gap-2 rounded-lg border bg-muted/30 p-3"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
-              <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">
-                {{ customerMemory.total_orders }} pedidos
-              </span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <UiButton
-                v-if="customerMemory?.favorite_item?.sku"
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="$emit('applyCustomerFavorite')"
-              >
-                <Icon name="lucide:heart" class="size-4" />
-                Favorito
-              </UiButton>
-              <UiButton
-                v-if="customerMemory?.last_order_items?.length"
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="$emit('repeatCustomerLastOrder')"
-              >
-                <Icon name="lucide:rotate-ccw" class="size-4" />
-                Último pedido
-              </UiButton>
-            </div>
-          </div>
-
-          <UiButton class="mt-2" @click="customerSheetOpen = false">Concluir</UiButton>
-        </div>
-      </template>
-    </UiSheetContent>
-  </UiSheet>
-
   <UiDialog :open="!!confirmAction" @update:open="(value) => { if (!value) cancelConfirm(); }">
     <UiDialogContent class="sm:max-w-sm">
       <UiDialogHeader>
-        <UiDialogTitle>
-          {{ confirmAction?.kind === "clear" ? "Liberar comanda?" : "Remover item?" }}
-        </UiDialogTitle>
+        <UiDialogTitle>Remover item?</UiDialogTitle>
         <UiDialogDescription>
-          <template v-if="confirmAction?.kind === 'clear'">
-            Isso descarta este atendimento e libera a comanda. A ação não pode ser desfeita.
-          </template>
-          <template v-else>
-            Remover <strong>{{ confirmAction?.name }}</strong> do pedido? A ação não pode ser desfeita.
-          </template>
+          Remover <strong>{{ confirmAction?.name }}</strong> do pedido? A ação não pode ser desfeita.
         </UiDialogDescription>
       </UiDialogHeader>
       <UiDialogFooter class="gap-2">
         <UiButton variant="outline" @click="cancelConfirm">Cancelar</UiButton>
-        <UiButton variant="destructive" @click="runConfirm">
-          {{ confirmAction?.kind === "clear" ? "Liberar comanda" : "Remover item" }}
-        </UiButton>
+        <UiButton variant="destructive" @click="runConfirm">Remover item</UiButton>
       </UiDialogFooter>
     </UiDialogContent>
   </UiDialog>

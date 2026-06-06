@@ -72,7 +72,7 @@ function affordance(overrides: Partial<ActionAffordance> = {}): ActionAffordance
   return {
     ref: "fire_tab",
     present: true,
-    label: "Enviar para cozinha",
+    label: "Enviar itens",
     priority: "normal",
     enabled: true,
     reason: "",
@@ -506,7 +506,7 @@ describe("presentation/kitchen — fire-to-kitchen shaping", () => {
     const items = [cartItem({ sku: "A", fired: true }), cartItem({ sku: "B" })];
     const bar = fireBarView({ items, affordance: affordance(), hasOpenTab: true, busy: false });
     expect(bar.visible).toBe(true);
-    expect(bar.label).toBe("Enviar para cozinha (1)");
+    expect(bar.label).toBe("Enviar itens (1)");
     expect(bar.unfired).toBe(1);
     expect(bar.disabled).toBe(false);
 

@@ -8,6 +8,8 @@ const props = defineProps<{
   fiscalStatus: string;
   fiscalLabel: string;
   fiscalMessage: string;
+  /** Rail mode: render a dot-only vertical trigger instead of the header pill. */
+  compact?: boolean;
 }>();
 
 type StatusMeta = {
@@ -47,13 +49,25 @@ const rows = computed(() => [
 <template>
   <UiPopover>
     <UiPopoverTrigger as-child>
-      <UiButton variant="ghost" size="sm" class="gap-2 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" :aria-label="`Saúde do terminal: ${overall.label}`">
+      <button
+        v-if="compact"
+        type="button"
+        class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
+        :aria-label="`Saúde do terminal: ${overall.label}`"
+        :title="`${terminalLabel}: ${overall.label}`"
+      >
+        <span class="relative grid size-5 place-items-center">
+          <Icon name="lucide:monitor" class="size-5" />
+          <span class="absolute -bottom-0.5 -right-1 size-2 rounded-full ring-2 ring-primary" :class="overall.dot" />
+        </span>
+      </button>
+      <UiButton v-else variant="ghost" size="sm" class="gap-2 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" :aria-label="`Saúde do terminal: ${overall.label}`">
         <span class="size-2 rounded-full" :class="overall.dot" />
         <span class="font-medium">{{ terminalLabel }}</span>
         <Icon name="lucide:chevron-down" class="size-3.5 opacity-60" />
       </UiButton>
     </UiPopoverTrigger>
-    <UiPopoverContent align="end" class="w-72 p-0">
+    <UiPopoverContent :align="compact ? 'start' : 'end'" :side="compact ? 'right' : 'bottom'" class="w-72 p-0">
       <div class="border-b p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="text-sm font-semibold">Saúde do terminal</span>

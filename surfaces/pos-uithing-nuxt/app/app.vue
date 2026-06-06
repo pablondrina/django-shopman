@@ -138,6 +138,14 @@ const {
 const fireAction = computed(() => resolveAffordance(actions.value, "fire_tab"));
 const unfireAction = computed(() => resolveAffordance(actions.value, "unfire_tab"));
 
+// Top context bar title (unified layout language, Arc 5): one band names the
+// current work-area screen across Board / Sale / Payment.
+const screenTitle = computed(() => {
+  if (checkoutMode.value) return "Pagamento";
+  if (inSaleView.value) return cart.tabDisplay || "Venda";
+  return "Comandas";
+});
+
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
 const tabBoardRef = ref<{ focus: () => void } | null>(null);
@@ -195,85 +203,65 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
-  <main class="flex min-h-dvh flex-col bg-background text-foreground md:h-[100dvh] md:min-h-0 md:overflow-hidden">
-    <header class="shrink-0 bg-primary text-primary-foreground shadow-sm">
-      <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3 px-4 py-2">
-        <div class="flex items-baseline gap-1.5">
-          <span class="text-lg font-semibold tracking-tight">POS</span>
-          <span class="text-xs font-medium uppercase tracking-wide text-primary-foreground/70">Shopman</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <PosTerminalHealth
-            v-if="pos"
-            :terminal-label="pos.terminal_label"
-            :health-status="pos.terminal_health_status"
-            :components="pos.terminal_components"
-            :fiscal-status="pos.fiscal_status"
-            :fiscal-label="pos.fiscal_label"
-            :fiscal-message="pos.fiscal_message"
-          />
-          <UiButton
-            v-if="pos"
-            variant="ghost"
-            size="sm"
-            class="gap-2 tabular-nums text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-            :class="pos.has_open_cash_session ? '' : 'ring-1 ring-primary-foreground/40'"
-            aria-label="Caixa"
-            title="Caixa"
-            @click="cashDialogOpen = true"
-          >
-            <Icon name="lucide:wallet" class="size-4" />
-            <span v-if="pos.has_open_cash_session && shift">{{ shift.count }} hoje · {{ shift.total_display }}</span>
-            <span v-else>Abrir caixa</span>
-          </UiButton>
-          <UiBadge v-if="activeOperator" class="gap-1 border-transparent bg-primary-foreground/20 text-primary-foreground">
-            <Icon name="lucide:user" class="size-3.5" />
-            {{ activeOperator.name }}
-          </UiBadge>
-          <UiButton
-            v-if="activeOperator"
-            variant="ghost"
-            size="icon-sm"
-            class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-            aria-label="Travar caixa"
-            title="Travar caixa"
-            @click="lock()"
-          >
-            <Icon name="lucide:lock" class="size-4" />
-          </UiButton>
-          <ClientOnly>
-            <UiButton
-              variant="ghost"
-              size="icon-sm"
-              class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-              :aria-label="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
-              :title="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'"
-              @click="toggleColorMode"
-            >
-              <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
-            </UiButton>
-            <template #fallback>
-              <UiButton variant="ghost" size="icon-sm" class="text-primary-foreground hover:bg-primary-foreground/15" aria-label="Tema" title="Tema">
-                <Icon name="lucide:sun-moon" class="size-4" />
-              </UiButton>
-            </template>
-          </ClientOnly>
-          <UiButton variant="ghost" size="icon-sm" class="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" aria-label="Atualizar" title="Atualizar" :disabled="pending" @click="refresh()">
-            <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
-          </UiButton>
-        </div>
-      </div>
-    </header>
-
-    <PosLockScreen
-      v-if="locked && !!pos"
-      :operators="operators"
-      :busy="lockBusy"
-      :error="lockError"
-      @unlock="onUnlock"
+  <main class="flex flex-wrap content-start min-h-dvh bg-background text-foreground md:h-[100dvh] md:min-h-0 md:flex-nowrap md:overflow-hidden">
+    <PosFunctionRail
+      v-if="pos && !error"
+      :pos="pos"
+      :shift="shift"
+      :has-open-cash-session="pos.has_open_cash_session"
+      :operator-name="activeOperator?.name || ''"
+      :color-mode-value="colorMode.value"
+      :pending="pending"
+      :view="checkoutMode ? 'checkout' : (inSaleView ? 'sale' : 'board')"
+      @board="goToTabs"
+      @cash="cashDialogOpen = true"
+      @lock="lock()"
+      @refresh="refresh()"
+      @toggle-theme="toggleColorMode"
     />
 
-    <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
+    <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
+      <PosLockScreen
+        v-if="locked && !!pos"
+        :operators="operators"
+        :busy="lockBusy"
+        :error="lockError"
+        @unlock="onUnlock"
+      />
+
+      <header v-if="pos && !error" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
+        <UiButton
+          v-if="inSaleView && !checkoutMode"
+          variant="ghost"
+          size="icon-sm"
+          class="-ml-1 shrink-0"
+          aria-label="Voltar para comandas"
+          title="Comandas"
+          @click="goToTabs"
+        >
+          <Icon name="lucide:arrow-left" class="size-5" />
+        </UiButton>
+        <PosComandaHeader
+          v-if="inSaleView && !checkoutMode"
+          class="min-w-0 flex-1"
+          :tab-display="cart.tabDisplay"
+          :has-open-tab="hasOpenTab"
+          :can-rename="canRenameTab"
+          v-model:customer-name="cart.customerName"
+          v-model:customer-phone="cart.customerPhone"
+          :customer-lookup="customerLookup"
+          :lookup-busy="lookupBusy"
+          :loading="busy"
+          @rename="renameTab"
+          @clear="clearCurrentTab"
+          @lookup-customer="lookupCustomer"
+          @apply-customer-favorite="applyCustomerFavorite"
+          @repeat-customer-last-order="repeatCustomerLastOrder"
+        />
+        <h1 v-else class="min-w-0 truncate text-lg font-semibold leading-tight tracking-tight">{{ screenTitle }}</h1>
+      </header>
+
+      <div class="flex min-h-0 w-full flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
       <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
         <Icon name="lucide:circle-check" class="size-4" />
@@ -415,66 +403,53 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @request-association="requestTabAssociation('start')"
         />
 
-        <!-- SALE VIEW — ticket à esquerda + produtos à direita (registradora Odoo) -->
-        <div v-else class="grid h-full min-h-0 gap-4 md:grid-cols-[340px_minmax(0,1fr)]">
-          <aside class="flex min-h-0 flex-col gap-3 md:order-1">
-            <UiButton variant="outline" size="sm" class="w-fit shrink-0 gap-2" @click="goToTabs">
-              <Icon name="lucide:arrow-left" class="size-4" />
-              Comandas
-            </UiButton>
-            <div class="min-h-0 md:flex-1">
-            <PosCartPanel
-              :tab-display="cart.tabDisplay"
-              :items="cart.items"
-              :customer-lookup="customerLookup"
-              :requires-tab="tabRequiredForCart"
-              :has-open-tab="hasOpenTab"
-              v-model:customer-name="cart.customerName"
-              v-model:customer-phone="cart.customerPhone"
-              :loading="busy"
-              :saving="saving"
-              :lookup-busy="lookupBusy"
-              :fire-action="fireAction"
-              :unfire-action="unfireAction"
-              :firing="firing"
-              :can-rename="canRenameTab"
-              :discount-reasons="checkoutContract?.discount_reasons || []"
-              @increment="(sku) => setQty(sku, productQty(sku) + 1)"
-              @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
-              @remove="(sku) => setQty(sku, 0)"
-              @set-qty="(sku, qty) => setQty(sku, qty)"
-              @set-discount="setLineDiscount"
-              @save="saveTab"
-              @prepare="prepareCheckout"
-              @move="openMoveDialog"
-              @fire="fireTab"
-              @unfire="unfireTab"
-              @rename="renameTab"
-              @clear="clearCurrentTab"
-              @request-tab="requestTabAssociation('start')"
-              @lookup-customer="lookupCustomer"
-              @apply-customer-favorite="applyCustomerFavorite"
-              @repeat-customer-last-order="repeatCustomerLastOrder"
-            />
-            </div>
-            <p class="shrink-0 text-xs text-muted-foreground">
-              {{ itemCount }} item(ns) · {{ totalDisplay }}. O backend confirma disponibilidade, total final, status e gravação do pedido.
-            </p>
-          </aside>
-
-          <PosProductGrid
-            ref="productGridRef"
-            :products="pos?.products || []"
-            :collections="pos?.collections || []"
-            :favorite-refs="pos?.favorite_collection_refs || []"
-            :cart-items="cart.items"
-            :pending="pending"
-            @add="addProduct"
-          />
-        </div>
+        <!-- SALE VIEW · product grid (the ticket/comanda is a full-height sibling
+             of the work column, so it reaches the top edge like the rail) -->
+        <PosProductGrid
+          v-else
+          ref="productGridRef"
+          :products="pos?.products || []"
+          :collections="pos?.collections || []"
+          :favorite-refs="pos?.favorite_collection_refs || []"
+          :cart-items="cart.items"
+          :pending="pending"
+          @add="addProduct"
+        />
+      </div>
       </div>
       </div>
     </div>
+
+    <!-- TICKET / COMANDA — full-height right flank (cart-direita, reaches the top
+         edge alongside the rail; on mobile it wraps below the product grid). -->
+    <aside
+      v-if="pos && !error && inSaleView && !checkoutMode"
+      class="flex w-full shrink-0 flex-col border-t border-border bg-card md:order-none md:h-full md:w-[360px] md:border-l md:border-t-0"
+    >
+        <div class="min-h-0 flex-1 md:overflow-hidden">
+          <PosCartPanel
+            :items="cart.items"
+            :requires-tab="tabRequiredForCart"
+            :has-open-tab="hasOpenTab"
+            :loading="busy"
+            :saving="saving"
+            :fire-action="fireAction"
+            :unfire-action="unfireAction"
+            :firing="firing"
+            :discount-reasons="checkoutContract?.discount_reasons || []"
+            @increment="(sku) => setQty(sku, productQty(sku) + 1)"
+            @decrement="(sku) => setQty(sku, productQty(sku) - 1)"
+            @remove="(sku) => setQty(sku, 0)"
+            @set-qty="(sku, qty) => setQty(sku, qty)"
+            @set-discount="setLineDiscount"
+            @prepare="prepareCheckout"
+            @move="openMoveDialog"
+            @fire="fireTab"
+            @unfire="unfireTab"
+            @request-tab="requestTabAssociation('start')"
+          />
+        </div>
+    </aside>
 
     <PosTabPickerDialog
       v-model:open="tabDialogOpen"
