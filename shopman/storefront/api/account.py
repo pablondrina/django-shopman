@@ -20,7 +20,13 @@ from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
 from shopman.storefront.intents.types import AddressIntent
-from shopman.storefront.presentation.account import build_account
+from shopman.storefront.presentation.account import (
+    FOOD_PREFERENCE_OPTIONS,
+    NOTIFICATION_CHANNELS,
+    build_account,
+    present_food_prefs,
+    present_notification_prefs,
+)
 from shopman.storefront.services import orders as order_service
 from shopman.storefront.views.auth import get_authenticated_customer
 
@@ -518,11 +524,11 @@ class FoodPreferenceToggleView(APIView):
         if not customer:
             return Response({"detail": "Authentication required."}, status=401)
         key = str((request.data if hasattr(request, "data") else {}).get("key") or "").strip()
-        valid_keys = {option_key for option_key, _label in account_service.FOOD_PREFERENCE_OPTIONS}
+        valid_keys = {option_key for option_key, _label in FOOD_PREFERENCE_OPTIONS}
         if key not in valid_keys:
             return Response({"detail": "Preferência inválida."}, status=400)
 
-        prefs = account_service.toggle_food_preference(customer.ref, key)
+        prefs = present_food_prefs(account_service.toggle_food_preference(customer.ref, key))
         return Response({
             "food_preferences": [
                 {"key": pref.key, "label": pref.label, "is_active": pref.is_active}
@@ -542,14 +548,16 @@ class NotificationPreferenceToggleView(APIView):
         if not customer:
             return Response({"detail": "Authentication required."}, status=401)
         channel = str((request.data if hasattr(request, "data") else {}).get("channel") or "").strip()
-        valid_channels = {key for key, _label, _description in account_service.NOTIFICATION_CHANNELS}
+        valid_channels = {key for key, _label, _description in NOTIFICATION_CHANNELS}
         if channel not in valid_channels:
             return Response({"detail": "Canal inválido."}, status=400)
 
-        prefs = account_service.toggle_notification_consent(
-            customer.ref,
-            channel,
-            ip_address=_client_ip(request),
+        prefs = present_notification_prefs(
+            account_service.toggle_notification_consent(
+                customer.ref,
+                channel,
+                ip_address=_client_ip(request),
+            )
         )
         return Response({
             "notification_preferences": [

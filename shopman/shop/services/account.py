@@ -9,14 +9,11 @@ from __future__ import annotations
 import hashlib
 import logging
 
-from shopman.shop.projections.types import (
-    FOOD_PREFERENCE_OPTIONS,
-    NOTIFICATION_CHANNELS,
-    FoodPrefProjection,
-    NotificationPrefProjection,
-)
-
 logger = logging.getLogger(__name__)
+
+# Domain registry of consent channels this shop tracks. Display copy (labels,
+# descriptions) is a storefront concern and lives in storefront.presentation.account.
+NOTIFICATION_CONSENT_CHANNELS: tuple[str, ...] = ("whatsapp", "email", "sms", "push")
 
 
 def get_authenticated_customer(request):
@@ -178,7 +175,8 @@ def active_food_keys(customer_ref: str) -> set[str]:
     return {pref.key for pref in preferences(customer_ref, "alimentar")}
 
 
-def toggle_food_preference(customer_ref: str, key: str) -> tuple[FoodPrefProjection, ...]:
+def toggle_food_preference(customer_ref: str, key: str) -> set[str]:
+    """Toggle one dietary preference; return the active preference keys."""
     from shopman.guestman import PreferenceService
 
     existing = PreferenceService.get_preference(customer_ref, "alimentar", key)
@@ -194,11 +192,14 @@ def toggle_food_preference(customer_ref: str, key: str) -> tuple[FoodPrefProject
             source="storefront_settings",
         )
 
-    active_keys = active_food_keys(customer_ref)
-    return tuple(
-        FoodPrefProjection(key=option_key, label=label, is_active=option_key in active_keys)
-        for option_key, label in FOOD_PREFERENCE_OPTIONS
-    )
+    return active_food_keys(customer_ref)
+
+
+def enabled_notification_channels(customer_ref: str) -> set[str]:
+    """Return the consent channels the customer has currently granted."""
+    from shopman.guestman import ConsentService
+
+    return {channel for channel in NOTIFICATION_CONSENT_CHANNELS if ConsentService.has_consent(customer_ref, channel)}
 
 
 def toggle_notification_consent(
@@ -206,7 +207,8 @@ def toggle_notification_consent(
     channel: str,
     *,
     ip_address: str = "",
-) -> tuple[NotificationPrefProjection, ...]:
+) -> set[str]:
+    """Toggle one channel's consent; return the enabled consent channels."""
     from shopman.guestman import ConsentService
 
     if ConsentService.has_consent(customer_ref, channel):
@@ -220,21 +222,7 @@ def toggle_notification_consent(
             ip_address=ip_address,
         )
 
-    return notification_preferences(customer_ref)
-
-
-def notification_preferences(customer_ref: str) -> tuple[NotificationPrefProjection, ...]:
-    from shopman.guestman import ConsentService
-
-    return tuple(
-        NotificationPrefProjection(
-            key=key,
-            label=label,
-            description=description,
-            enabled=ConsentService.has_consent(customer_ref, key),
-        )
-        for key, label, description in NOTIFICATION_CHANNELS
-    )
+    return enabled_notification_channels(customer_ref)
 
 
 def export_customer_data(customer) -> dict:
@@ -336,7 +324,7 @@ def anonymize_customer(customer) -> tuple[str, str]:
     from shopman.guestman import ConsentService
     from shopman.guestman.services import address as address_service
 
-    for channel in ("whatsapp", "email", "sms", "push"):
+    for channel in NOTIFICATION_CONSENT_CHANNELS:
         try:
             ConsentService.revoke_consent(original_ref, channel)
         except Exception:

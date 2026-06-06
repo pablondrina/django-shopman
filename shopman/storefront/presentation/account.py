@@ -21,15 +21,13 @@ from django.utils import timezone
 
 from shopman.shop.projections import customer as customer_projection
 from shopman.shop.projections import customer_context
-from shopman.shop.projections.types import (
-    FOOD_PREFERENCE_OPTIONS,
-    NOTIFICATION_CHANNELS,
+from shopman.shop.projections.types import SavedAddressProjection
+from shopman.storefront.presentation.order_history import present_summary
+from shopman.storefront.presentation.types import (
     FoodPrefProjection,
     NotificationPrefProjection,
-    SavedAddressProjection,
+    OrderSummaryProjection,
 )
-from shopman.storefront.presentation.order_history import present_summary
-from shopman.storefront.presentation.types import OrderSummaryProjection
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +39,45 @@ TAB_OPTIONS: tuple[tuple[str, str], ...] = (
     ("fidelidade", "Fidelidade"),
     ("config", "Configurações"),
 )
+
+# Display catalogs (key → pt-BR label/description). The set of consent channels
+# is the domain registry NOTIFICATION_CONSENT_CHANNELS in shop.services.account;
+# here we add the customer-facing copy for each.
+NOTIFICATION_CHANNELS: tuple[tuple[str, str, str], ...] = (
+    ("whatsapp", "WhatsApp", "Receber atualizações de pedidos via WhatsApp"),
+    ("email", "Email", "Receber novidades e promoções por email"),
+    ("sms", "SMS", "Receber notificações por SMS"),
+    ("push", "Push", "Notificações push no navegador"),
+)
+
+FOOD_PREFERENCE_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("sem_gluten", "Sem Glúten"),
+    ("sem_lactose", "Sem Lactose"),
+    ("vegano", "Vegano"),
+    ("vegetariano", "Vegetariano"),
+    ("sem_acucar", "Sem Açúcar"),
+    ("sem_nozes", "Sem Nozes"),
+    ("organico", "Orgânico"),
+    ("integral", "Integral"),
+)
+
+
+def present_notification_prefs(enabled_channels) -> tuple[NotificationPrefProjection, ...]:
+    """Map the enabled-channel set onto the display catalog."""
+    enabled = set(enabled_channels)
+    return tuple(
+        NotificationPrefProjection(key=key, label=label, description=description, enabled=key in enabled)
+        for key, label, description in NOTIFICATION_CHANNELS
+    )
+
+
+def present_food_prefs(active_keys) -> tuple[FoodPrefProjection, ...]:
+    """Map the active-preference set onto the display catalog."""
+    active = set(active_keys)
+    return tuple(
+        FoodPrefProjection(key=key, label=label, is_active=key in active)
+        for key, label in FOOD_PREFERENCE_OPTIONS
+    )
 
 
 class AccountCustomer(Protocol):
@@ -294,44 +331,27 @@ def _build_notification_prefs(
     try:
         channels = tuple(key for key, _label, _description in NOTIFICATION_CHANNELS)
         enabled_channels = customer_context.enabled_notification_channels(customer.ref, channels)
-        return tuple(
-            NotificationPrefProjection(
-                key=key,
-                label=label,
-                description=description,
-                enabled=key in enabled_channels,
-            )
-            for key, label, description in NOTIFICATION_CHANNELS
-        )
+        return present_notification_prefs(enabled_channels)
     except Exception:
         logger.debug(
             "account_projection_notif_prefs_failed customer=%s",
             customer.ref,
             exc_info=True,
         )
-        return tuple(
-            NotificationPrefProjection(key=key, label=label, description=desc, enabled=False)
-            for key, label, desc in NOTIFICATION_CHANNELS
-        )
+        return present_notification_prefs(())
 
 
 def _build_food_prefs(customer: AccountCustomer) -> tuple[FoodPrefProjection, ...]:
     try:
         active_keys = customer_context.active_preference_keys(customer.ref, "alimentar")
-        return tuple(
-            FoodPrefProjection(key=key, label=label, is_active=key in active_keys)
-            for key, label in FOOD_PREFERENCE_OPTIONS
-        )
+        return present_food_prefs(active_keys)
     except Exception:
         logger.debug(
             "account_projection_food_prefs_failed customer=%s",
             customer.ref,
             exc_info=True,
         )
-        return tuple(
-            FoodPrefProjection(key=key, label=label, is_active=False)
-            for key, label in FOOD_PREFERENCE_OPTIONS
-        )
+        return present_food_prefs(())
 
 
 def _fmt_datetime(dt) -> str:

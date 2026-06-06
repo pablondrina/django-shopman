@@ -10,7 +10,11 @@ from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from shopman.shop.services import account as account_service
-from shopman.storefront.presentation.account import build_account
+from shopman.storefront.presentation.account import (
+    build_account,
+    present_food_prefs,
+    present_notification_prefs,
+)
 from shopman.storefront.services.address_picker import address_picker_context
 
 from .auth import get_authenticated_customer
@@ -248,10 +252,12 @@ class NotificationPrefsToggleView(View):
         if not channel:
             return HttpResponse("", status=400)
 
-        notification_prefs = account_service.toggle_notification_consent(
-            customer.ref,
-            channel,
-            ip_address=request.META.get("REMOTE_ADDR", ""),
+        notification_prefs = present_notification_prefs(
+            account_service.toggle_notification_consent(
+                customer.ref,
+                channel,
+                ip_address=request.META.get("REMOTE_ADDR", ""),
+            )
         )
         tmpl = "storefront/partials/notification_prefs.html"
         return render(request, tmpl, {"notification_prefs": notification_prefs})
@@ -269,7 +275,7 @@ class FoodPreferenceToggleView(View):
         if not key:
             return HttpResponse("", status=400)
 
-        food_pref_options = account_service.toggle_food_preference(customer.ref, key)
+        food_pref_options = present_food_prefs(account_service.toggle_food_preference(customer.ref, key))
         tmpl = "storefront/partials/food_prefs.html"
         return render(request, tmpl, {"food_pref_options": food_pref_options})
 
