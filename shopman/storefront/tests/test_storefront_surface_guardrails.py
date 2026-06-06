@@ -20,14 +20,10 @@ def test_cart_actions_helper_is_loaded_before_alpine():
 
 def test_catalog_cards_use_canonical_cart_line_factory():
     grid = _read_template("partials/_catalog_item_grid.html")
-    availability = _read_template("partials/availability_preview.html")
 
     assert "window.ShopmanCart.line" in grid
-    assert "window.ShopmanCart.line" in availability
     assert "X-Shopman-Error-UI" not in grid
     assert "stock-error-modal" not in grid
-    assert "X-Shopman-Error-UI" not in availability
-    assert "stock-error-modal" not in availability
 
 
 def test_menu_search_is_accent_insensitive_and_observable():
@@ -352,7 +348,6 @@ def test_badges_use_canonical_surface_contract():
     css = CSS_SOURCE.read_text(encoding="utf-8")
     availability = _read_template("components/availability_badge.html")
     grid = _read_template("partials/_catalog_item_grid.html")
-    preview = _read_template("partials/availability_preview.html")
     pdp = _read_template("product_detail.html")
     drawer = _read_template("partials/cart_drawer.html")
 
@@ -363,7 +358,7 @@ def test_badges_use_canonical_surface_contract():
     assert "badge-info" in availability
     assert "badge-neutral" in availability
     assert "badge-warning commerce-promo-badge w-fit" in grid
-    assert "badge-neutral w-fit" in preview
+    assert "badge-neutral w-fit" in grid
     assert "badge-neutral mt-3 w-fit" in pdp
     assert "badge-info self-start" in drawer
 
@@ -382,7 +377,7 @@ def test_storefront_visible_copy_avoids_micro_type_and_loose_dashes():
         "payment.html",
         "product_detail.html",
         "partials/_catalog_item_grid.html",
-        "partials/availability_preview.html",
+        "partials/home_availability.html",
         "partials/profile_display.html",
     ]
 
@@ -430,7 +425,7 @@ def test_storefront_contrast_uses_accessible_penguin_tokens():
         "partials/_bottom_nav.html",
         "partials/_cart_page_content.html",
         "partials/_catalog_item_grid.html",
-        "partials/availability_preview.html",
+        "partials/home_availability.html",
         "partials/cart_drawer.html",
         "partials/checkout_order_summary.html",
     ]

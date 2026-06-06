@@ -269,7 +269,7 @@
   <p class="text-on-surface/85 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">{{ home_availability.message }}</p>
 
   <div id="home-availability"
-       hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
+       hx-get="{% url 'storefront:menu' %}?partial=home_availability"
        hx-trigger="load, every 60s"
        hx-swap="innerHTML"
        class="max-w-2xl mx-auto">

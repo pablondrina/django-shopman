@@ -15,7 +15,6 @@ from shopman.shop.projections.storefront_context import (
 from shopman.storefront.presentation import get_channel_listing_ref
 from shopman.storefront.presentation.merchandising import freshness_label
 from shopman.storefront.services import catalog as catalog_service
-from shopman.storefront.services.product_cards import annotate_products
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +26,8 @@ class MenuView(View):
     def get(self, request: HttpRequest, collection: str | None = None) -> HttpResponse:
         listing_ref = get_channel_listing_ref()
 
-        if request.GET.get("partial") == "availability_preview":
-            return self._availability_preview(request, listing_ref)
+        if request.GET.get("partial") == "home_availability":
+            return self._home_availability(request, listing_ref)
 
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
         from shopman.storefront.presentation import build_catalog
@@ -45,45 +44,41 @@ class MenuView(View):
             "catalog_search_index_json": catalog_service.search_index(catalog),
         })
 
-    def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
+    def _home_availability(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
         """HTMX partial for home: produtos com disponibilidade + preço/promo.
 
         Prioritises "fresh from the oven" (recent production moves) and falls
-        back to popular SKUs when nothing was produced in the last hour.
+        back to popular SKUs when nothing was produced in the last hour. Renders
+        the canonical catalog card (CatalogItemProjection) — one card shape.
         """
+        from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.presentation import build_catalog_items_for_skus
+
         fresh = fresh_from_oven_skus(limit=6)
-        freshness_map: dict[str, str] = {}
+        freshness_by_sku: dict[str, str] = {}
 
         if fresh:
-            fresh_skus = [f["sku"] for f in fresh]
-            freshness_map = {f["sku"]: freshness_label(f["minutes_ago"]) for f in fresh}
-            qs = catalog_service.published_products(listing_ref)
-            products_by_sku = {p.sku: p for p in qs.filter(sku__in=fresh_skus)}
-            products = [products_by_sku[s] for s in fresh_skus if s in products_by_sku]
+            skus = [f["sku"] for f in fresh]
+            freshness_by_sku = {f["sku"]: freshness_label(f["minutes_ago"]) for f in fresh}
         else:
-            products = []
-
-        if not products:
             popular = popular_skus(limit=6)
-            qs = catalog_service.published_products(listing_ref)
             if popular:
-                products = list(qs.filter(sku__in=popular).distinct()[:6])
+                skus = list(popular)[:6]
             else:
-                products = list(qs.order_by("name")[:6])
+                qs = catalog_service.published_products(listing_ref).order_by("name")
+                skus = [p.sku for p in qs[:6]]
 
-        items = annotate_products(
-            products, listing_ref=listing_ref,
-            popular_skus=popular_skus(limit=6) if not fresh else set(),
+        items = build_catalog_items_for_skus(
+            skus,
+            channel_ref=STOREFRONT_CHANNEL_REF,
             request=request,
+            freshness_by_sku=freshness_by_sku,
         )
-
-        for item in items:
-            item["freshness_label"] = freshness_map.get(item["product"].sku, "")
 
         return render(
             request,
-            "storefront/partials/availability_preview.html",
-            {"items": items, "has_fresh": bool(freshness_map)},
+            "storefront/partials/home_availability.html",
+            {"items": items},
         )
 
 

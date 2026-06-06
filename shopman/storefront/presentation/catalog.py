@@ -102,6 +102,11 @@ class CatalogItemProjection:
     # Allergens from product.metadata["allergens"] — search/index data only.
     allergens: tuple[str, ...] = field(default_factory=tuple)
 
+    # Merchandising badge ("Saiu do forno há 10 min") — set only when the
+    # builder receives a freshness map (home "Direto do Forno" rail). Empty
+    # on the menu grid, where the short description takes its place.
+    freshness_label: str = ""
+
     @property
     def detail_url(self) -> str:
         """Convenience for templates — build the PDP URL."""
@@ -282,13 +287,17 @@ def build_catalog_items_for_skus(
     *,
     channel_ref: str,
     request: HttpRequest | None = None,
+    freshness_by_sku: dict[str, str] | None = None,
 ) -> tuple[CatalogItemProjection, ...]:
     """Build ``CatalogItemProjection``s for an ad-hoc list of SKUs.
 
-    Consumed by sibling projections (PDP substitutes / cross-sell cards)
-    that need the same card shape as the menu but for an explicit SKU set
-    rather than a collection section. Preserves the caller's SKU order,
-    silently drops SKUs whose ``Product`` is missing or unpublished.
+    Consumed by sibling surfaces (PDP substitutes / cross-sell cards, the home
+    "Direto do Forno" rail) that need the same card shape as the menu but for an
+    explicit SKU set rather than a collection section. Preserves the caller's
+    SKU order, silently drops SKUs whose ``Product`` is missing or unpublished.
+
+    ``freshness_by_sku`` maps SKU → a ready-to-render freshness label; when
+    provided, each matching item carries it as ``freshness_label``.
     """
     if not skus:
         return ()
@@ -313,6 +322,7 @@ def build_catalog_items_for_skus(
             fulfillment_type=ft_hint,
             low_stock_threshold=low_stock_threshold,
             qty_in_cart_by_sku=qty_in_cart_by_sku,
+            freshness_by_sku=freshness_by_sku,
         )
     )
 
@@ -326,8 +336,10 @@ def _build_items(
     fulfillment_type: str,
     low_stock_threshold: Decimal,
     qty_in_cart_by_sku: dict[str, int] | None = None,
+    freshness_by_sku: dict[str, str] | None = None,
 ) -> list[CatalogItemProjection]:
     qty_in_cart_by_sku = qty_in_cart_by_sku or {}
+    freshness_by_sku = freshness_by_sku or {}
     skus = [p.sku for p in products]
 
     # Batch: collections per SKU (used as `category` and for pricing context).
@@ -429,6 +441,7 @@ def _build_items(
                 is_featured=p.sku in popular,
                 qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
                 allergens=allergens,
+                freshness_label=freshness_by_sku.get(p.sku, ""),
             ),
         )
     return result

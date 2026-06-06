@@ -585,7 +585,6 @@ class TestNoGetElementByIdInTemplates:
         "menu.html",
         # HTMX oob-swap sink pattern
         "stock_error_modal.html",
-        "availability_preview.html",
         "_catalog_item_grid.html",
         "product_detail.html",
         # Cross-fragment cart badge update
