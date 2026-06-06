@@ -277,3 +277,28 @@ class TestAllergenAndConservation:
         proj = build_product_detail(sku=product.sku, channel_ref="web")
         assert proj is not None
         assert proj.conservation is None
+
+
+class TestCrossSell:
+    """"Talvez você também goste" — lateral discovery via shared keywords,
+    rendered with the canonical catalog card (one card shape)."""
+
+    def test_cross_sell_surfaces_keyword_relatives(self, listing, product, croissant):
+        _publish_on_listing(listing, product)
+        _publish_on_listing(listing, croissant)
+        product.keywords.add("fermentação natural")
+        croissant.keywords.add("fermentação natural")
+
+        proj = build_product_detail(sku=product.sku, channel_ref="web")
+        assert proj is not None
+        cross_sell_skus = {item.sku for item in proj.cross_sell}
+        assert croissant.sku in cross_sell_skus
+        assert product.sku not in cross_sell_skus  # never recommends itself
+
+    def test_cross_sell_empty_without_shared_keywords(self, listing, product, croissant):
+        _publish_on_listing(listing, product)
+        _publish_on_listing(listing, croissant)
+        # No keywords → nothing to relate on.
+        proj = build_product_detail(sku=product.sku, channel_ref="web")
+        assert proj is not None
+        assert proj.cross_sell == ()

@@ -32,8 +32,10 @@ from shopman.shop.projections.types import (
 )
 
 from .catalog import (
+    CatalogItemProjection,
     _cart_qty_by_sku,
     _resolve_availability,
+    build_catalog_items_for_skus,
 )
 
 if TYPE_CHECKING:
@@ -163,6 +165,11 @@ class ProductDetailProjection:
     # Breadcrumb
     breadcrumb_category: CategoryProjection | None
 
+    # Cross-sell ("Talvez você também goste") — lateral discovery via shared
+    # keywords, rendered with the canonical catalog card. Distinct from
+    # substitutes (which stay in the stock-error modal, AVAILABILITY-PLAN §5).
+    cross_sell: tuple[CatalogItemProjection, ...] = ()
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Builder
@@ -267,6 +274,12 @@ def build_product_detail(
 
     qty_in_cart = int(_cart_qty_by_sku(request).get(product.sku, 0))
 
+    cross_sell = build_catalog_items_for_skus(
+        catalog_context.related_skus(product.sku, limit=6),
+        channel_ref=channel_ref,
+        request=request,
+    )
+
     return ProductDetailProjection(
         sku=product.sku,
         slug=product.sku,
@@ -298,6 +311,7 @@ def build_product_detail(
         seo_description=seo_description,
         seo_keywords=seo_keywords,
         breadcrumb_category=breadcrumb_category,
+        cross_sell=cross_sell,
     )
 
 

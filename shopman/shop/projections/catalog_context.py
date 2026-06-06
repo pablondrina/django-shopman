@@ -119,6 +119,36 @@ def keywords_by_sku(skus: list[str]) -> dict[str, list[str]]:
     return result
 
 
+def related_skus(sku: str, *, limit: int = 6) -> list[str]:
+    """SKUs for lateral discovery ("Talvez você também goste"), keyword-scored.
+
+    This is **cross-sell**, NOT substitution: it does not restrict to the same
+    collection (lateral = across categories) and is shown regardless of the
+    reference's availability. Ranking = number of shared keywords (descending);
+    ties keep the catalog's natural order. Returns ``[]`` when the product has
+    no keywords to relate on.
+    """
+    from shopman.offerman.service import CatalogService
+
+    product = CatalogService.get(sku)
+    if product is None:
+        return []
+    own_keywords = {str(name) for name in product.keywords.names()}
+    if not own_keywords:
+        return []
+
+    candidates = CatalogService.search(keywords=list(own_keywords), limit=limit * 4)
+    scored: list[tuple[int, str]] = []
+    for candidate in candidates:
+        if candidate.sku == sku:
+            continue
+        shared = len(own_keywords & {str(name) for name in candidate.keywords.names()})
+        if shared:
+            scored.append((shared, candidate.sku))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [candidate_sku for _, candidate_sku in scored[:limit]]
+
+
 def image_urls_by_sku(skus) -> dict[str, str | None]:
     sku_list = [sku for sku in skus if sku]
     if not sku_list:

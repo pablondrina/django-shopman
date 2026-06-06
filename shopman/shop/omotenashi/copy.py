@@ -250,6 +250,14 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "HOME_HOW_IT_WORKS_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Como Funciona")},
     },
+    "PDP_CROSS_SELL_HEADING": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                title="Talvez você também goste",
+                message="Descubra outras delícias da casa",
+            ),
+        },
+    },
     "HOME_HOW_ONLINE_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedido Online")},
     },

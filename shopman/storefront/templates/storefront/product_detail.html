@@ -402,6 +402,16 @@
   </div>
 </div>
 
+{% comment %}── Cross-sell: "Talvez você também goste" (descoberta lateral, ≠ substituição) ──{% endcomment %}
+{% if product.cross_sell %}
+<section class="mt-10 md:mt-16 border-t border-outline dark:border-outline-dark pt-8" aria-labelledby="cross-sell-heading">
+  {% omotenashi 'PDP_CROSS_SELL_HEADING' as cross_sell_copy %}
+  <h2 id="cross-sell-heading" class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1 tracking-tight">{{ cross_sell_copy.title }}</h2>
+  {% if cross_sell_copy.message %}<p class="text-on-surface/85 dark:text-on-surface-dark/60 text-sm mb-6">{{ cross_sell_copy.message }}</p>{% endif %}
+  {% include "storefront/partials/_catalog_item_grid.html" with items=product.cross_sell %}
+</section>
+{% endif %}
+
 {% comment %}
 Substitutos são exibidos apenas no modal de erro de estoque
 (AVAILABILITY-PLAN §5). A PDP não lista substitutos.
