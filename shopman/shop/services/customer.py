@@ -20,6 +20,8 @@ import logging
 import uuid
 from collections.abc import Callable
 
+from django.conf import settings
+
 from shopman.shop.adapters import get_adapter
 
 logger = logging.getLogger(__name__)
@@ -144,6 +146,62 @@ def _handle_ifood(order):
     return customer
 
 
+def _handle_counter(order):
+    """Resolve the customer for an in-person counter (balcão) order.
+
+    Resolution order, all via the customer adapter (the orchestrator's seam to
+    Guestman):
+      1. Phone present → look up / create by phone.
+      2. Otherwise tax id (CPF) present → look up / create by document number.
+      3. Neither → anonymous walk-in (skip).
+    """
+    adapter = get_adapter("customer")
+    customer_data = _get_customer_data(order)
+    phone_raw = customer_data.get("phone", "")
+    tax_id = customer_data.get("tax_id") or customer_data.get("document") or customer_data.get("cpf", "")
+    name = customer_data.get("name", "")
+
+    if phone_raw:
+        phone = _normalize_phone_safe(phone_raw)
+        if not phone:
+            raise SkipAnonymous()
+
+        customer = adapter.get_customer_by_phone(phone)
+        if customer:
+            _maybe_update_name(adapter, customer, name)
+            return customer
+
+        first_name, last_name = _split_name(name)
+        ref = f"CLI-{uuid.uuid4().hex[:8].upper()}"
+        return adapter.create_customer(
+            ref=ref, first_name=first_name, last_name=last_name,
+            phone=phone, customer_type="individual", source_system="pdv",
+        )
+
+    if tax_id:
+        document = "".join(filter(str.isdigit, tax_id))
+        if not document:
+            raise SkipAnonymous()
+
+        customer = adapter.get_customer_by_identifier("cpf", document)
+        if customer:
+            _maybe_update_name(adapter, customer, name)
+            return customer
+
+        first_name, last_name = _split_name(name)
+        ref = f"CLI-{uuid.uuid4().hex[:8].upper()}"
+        customer = adapter.create_customer(
+            ref=ref,
+            first_name=first_name or "Cliente",
+            last_name=last_name or f"Doc {document[-4:]}",
+            phone="", customer_type="individual", source_system="pdv",
+        )
+        adapter.create_identifier(customer["ref"], "cpf", document, is_primary=True)
+        return customer
+
+    raise SkipAnonymous()
+
+
 def _handle_phone(order):
     adapter = get_adapter("customer")
     customer_data = _get_customer_data(order)
@@ -171,9 +229,11 @@ def _handle_phone(order):
     return customer
 
 
-# Register generic strategies at module load
+# Register generic strategies at module load. The counter strategy is keyed by
+# the configured POS channel ref (default "pdv") since that ref is deployment-set.
 register_strategy("manychat", _handle_manychat)
 register_strategy("ifood", _handle_ifood)
+register_strategy(getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "pdv"), _handle_counter)
 
 
 # ── helpers ──
