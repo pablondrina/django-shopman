@@ -1,5 +1,12 @@
 <script setup lang="ts">
+// Cash drawer (spec §2.6, blind count). Open / close / sangria / suprimento.
+// BLIND: the panel never shows the expected drawer (cash/digital totals) — the
+// operator counts without a target, so a skim can't be matched to expectation.
+// The reconciliation report (expected vs counted, variance) lives in the
+// backoffice (Unfold), NOT here. Only non-revealing operational info is shown
+// (when the shift opened, how many sales). The shaping is pure (presentation/cash).
 import type { POSCashRuntimeProjection, POSShiftSummaryProjection } from "~/types/pos";
+import { formatOpenedAt, isTerminalOccupied, movementLabel } from "~/presentation/cash";
 
 const props = defineProps<{
   open: boolean;
@@ -26,28 +33,9 @@ const movementAmount = ref("");
 const movementReason = ref("");
 const confirmingClose = ref(false);
 
-const occupied = computed(() =>
-  props.cashRuntime.status === "terminal_occupied"
-  || (!props.hasOpenShift && !!props.cashRuntime.blocking_operator_username),
-);
-
-const MOVEMENT_LABELS: Record<string, string> = {
-  sangria: "Sangria",
-  suprimento: "Suprimento",
-  ajuste: "Ajuste",
-};
-function movementLabel(kind: string) {
-  return MOVEMENT_LABELS[kind] || kind;
-}
-
-const openedAtDisplay = computed(() => {
-  const raw = props.cashRuntime.opened_at;
-  if (!raw) return "";
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime())
-    ? raw
-    : date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-});
+const occupied = computed(() => isTerminalOccupied(props.cashRuntime, props.hasOpenShift));
+const openedAtDisplay = computed(() => formatOpenedAt(props.cashRuntime.opened_at));
+const salesCount = computed(() => props.shift?.count ?? 0);
 
 watch(() => props.open, (isOpen) => {
   if (!isOpen) confirmingClose.value = false;
@@ -111,24 +99,16 @@ function confirmClose() {
         </UiButton>
       </div>
 
-      <!-- Open: summary, movements, close -->
+      <!-- Open: operational status (blind), movements, blind close -->
       <div v-else class="grid gap-4">
         <div class="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
           <div class="flex flex-col">
             <span class="text-xs text-muted-foreground">Aberto em</span>
-            <span class="font-medium tabular-nums">{{ openedAtDisplay || "—" }}</span>
+            <span class="font-medium tabular-nums">{{ openedAtDisplay }}</span>
           </div>
           <div class="flex flex-col">
             <span class="text-xs text-muted-foreground">Vendas hoje</span>
-            <span class="font-medium tabular-nums">{{ shift?.count ?? 0 }} · {{ shift?.total_display ?? "R$ 0,00" }}</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-xs text-muted-foreground">Dinheiro</span>
-            <span class="font-medium tabular-nums">{{ shift?.cash_total_display ?? "R$ 0,00" }}</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-xs text-muted-foreground">Digital</span>
-            <span class="font-medium tabular-nums">{{ shift?.digital_total_display ?? "R$ 0,00" }}</span>
+            <span class="font-medium tabular-nums">{{ salesCount }}</span>
           </div>
         </div>
 
@@ -164,6 +144,10 @@ function confirmClose() {
 
         <div class="grid gap-2">
           <p class="text-sm font-medium text-muted-foreground">Fechar caixa</p>
+          <div class="flex items-start gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <Icon name="lucide:eye-off" class="mt-0.5 size-4 shrink-0" />
+            <span>Contagem cega: conte o dinheiro do caixa e informe o valor. A conferência fica no gestor.</span>
+          </div>
           <label class="grid gap-1 text-sm">
             <span class="font-medium text-muted-foreground">Valor contado</span>
             <UiInput v-model="closingAmount" inputmode="decimal" placeholder="0,00" />
