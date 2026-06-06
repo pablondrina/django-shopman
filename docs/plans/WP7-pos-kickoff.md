@@ -80,8 +80,11 @@ serializada. A **mesma** `Projection` que storefront/admin/agentic consomem.
   (gerar tipos TS a partir de uma fonte única). **E3/E4 entram aqui** (labels→OmotenashiCopy, cores→tone
   no serializer, contrato Nuxt byte-compatível). **Este é o começo inequívoco — ver "Começar por".**
 - **Arc 2 — Presentation TS + telas núcleo.** Nasce `surfaces/pos-uithing-nuxt/.../presentation/`;
-  reconstruir Operator Access / Command Board / Sale Workspace consumindo a `Projection`+`Action`
-  serializadas (sem reimplementar política no cliente). Reusar proxy + contrato.
+  reconstruir Operator Lock (§2.1) / Sale Workspace (§2.2) / Tab Board (§2.3) consumindo a
+  `Projection`+`Action` serializadas (sem reimplementar política no cliente). Reusar proxy + contrato.
+  > Nomenclatura: **Tab = comanda** (pt-br). O termo canônico no código é `POSTab`/`pos_tab` (Python +
+  > Nuxt). NÃO usar "Command/Command Board" — é tradução errada de "comanda". A tela do mapa de comandas
+  > abertas é o **Tab Board** (spec §2.3 "Comanda / mesas").
 - **Arc 3 — Checkout/pagamento + manager-PIN por-permissão + caixa cego.** Tela de pagamento dedicada
   estilo Odoo (não-formulário, ver `project_pos_visual_fidelity_deep_dive`); `requires_manager_approval`
   por flag (D1); caixa cego.
