@@ -4,6 +4,7 @@ import type {
   POSCustomerLookupProjection,
 } from "~/types/pos";
 import { formatBRL } from "~/utils/posIntent";
+import { clampPercent, clampQty, popDigit, pushDigit } from "~/presentation/numpad";
 
 const props = defineProps<{
   tabDisplay: string;
@@ -162,7 +163,7 @@ function runConfirm() {
 function commitQty() {
   const sku = activeSku.value;
   if (!sku) return;
-  const next = Math.min(MAX_QTY, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
+  const next = clampQty(numpadBuffer.value, MAX_QTY);
   if (next <= 0) {
     askRemove(sku);
     return;
@@ -173,13 +174,13 @@ function commitQty() {
 function commitDiscount() {
   const sku = activeSku.value;
   if (!sku) return;
-  const value = Math.min(100, Number.parseInt(numpadBuffer.value || "0", 10) || 0);
+  const value = clampPercent(numpadBuffer.value);
   emit("setDiscount", sku, value, discountReason.value || "cortesia");
 }
 
 function onDigit(digit: string) {
   if (!activeSku.value) return;
-  numpadBuffer.value = numpadFresh.value ? digit : `${numpadBuffer.value}${digit}`.slice(0, 3);
+  numpadBuffer.value = pushDigit(numpadBuffer.value, digit, { fresh: numpadFresh.value, maxLength: 3 });
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
   else commitDiscount();
@@ -187,7 +188,7 @@ function onDigit(digit: string) {
 
 function onBackspace() {
   if (!activeSku.value) return;
-  numpadBuffer.value = numpadBuffer.value.slice(0, -1);
+  numpadBuffer.value = popDigit(numpadBuffer.value);
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
   else commitDiscount();

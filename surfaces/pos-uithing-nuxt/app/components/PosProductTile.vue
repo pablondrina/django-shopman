@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { POSProductProjection } from "~/types/pos";
+import { productFallbackStyle, productMonogram } from "~/presentation/catalog";
 
 const props = defineProps<{
   product: POSProductProjection;
@@ -13,21 +14,10 @@ defineEmits<{
 
 const hasImage = computed(() => Boolean(props.product.image_url?.trim()));
 
-// Deterministic, calm color fallback for products without a photo: hue derived
-// from the collection ref so a whole collection shares a family tint (Odoo-style
-// color coding), kept low-saturation so the grid stays calm, not marketing.
-const fallbackHue = computed(() => {
-  const seed = props.product.collection_ref || props.product.sku || props.product.name;
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % 360;
-  }
-  return hash;
-});
-const fallbackStyle = computed(() => ({
-  background: `linear-gradient(135deg, hsl(${fallbackHue.value} 42% 92%), hsl(${(fallbackHue.value + 24) % 360} 38% 85%))`,
-}));
-const fallbackMonogram = computed(() => (props.product.name?.trim()?.[0] || "·").toUpperCase());
+// Calm, deterministic fallback for products without a photo — derived from the
+// collection ref so a whole collection shares a family tint (presentation/catalog).
+const fallbackStyle = computed(() => productFallbackStyle(props.product));
+const fallbackMonogram = computed(() => productMonogram(props.product));
 </script>
 
 <template>

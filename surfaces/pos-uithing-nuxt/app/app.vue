@@ -74,8 +74,6 @@ async function onUnlock(operatorId: number, pin: string) {
   if (await unlock(operatorId, pin)) await refresh();
 }
 
-const search = ref("");
-const activeCollection = ref("");
 const tabInput = ref("");
 const busy = ref(false);
 const saving = ref(false);
@@ -260,25 +258,6 @@ const tabDialogDescription = computed(() => {
     return "Escolha uma comanda livre ou digite uma nova referência para salvar este atendimento sem perder recuperação no caixa.";
   }
   return "Digite uma referência de comanda ou busque uma comanda salva para iniciar o atendimento.";
-});
-
-const favoriteCollections = computed(() => new Set(pos.value?.favorite_collection_refs || []));
-const orderedCollections = computed(() => {
-  const collections = pos.value?.collections || [];
-  return [...collections].sort((a, b) => {
-    const aFavorite = favoriteCollections.value.has(a.ref) ? 0 : 1;
-    const bFavorite = favoriteCollections.value.has(b.ref) ? 0 : 1;
-    return aFavorite - bFavorite || a.name.localeCompare(b.name, "pt-BR");
-  });
-});
-
-const filteredProducts = computed<POSProductProjection[]>(() => {
-  const normalized = search.value.trim().toLowerCase();
-  return (pos.value?.products || []).filter((product) => {
-    if (activeCollection.value && product.collection_ref !== activeCollection.value) return false;
-    if (!normalized) return true;
-    return product.name.toLowerCase().includes(normalized) || product.sku.toLowerCase().includes(normalized);
-  });
 });
 
 const sortedTabs = computed(() => sortTabs(tabs.value));
@@ -1052,11 +1031,7 @@ async function registerCashMovement(payload: { kind: string; amount: string; rea
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
 const tabBoardRef = ref<{ focus: () => void } | null>(null);
-const searchInputRef = ref<{ inputRef?: HTMLInputElement } | null>(null);
-
-function focusUiInput(component: { inputRef?: HTMLInputElement } | null) {
-  component?.inputRef?.focus();
-}
+const productGridRef = ref<{ focusSearch: () => void } | null>(null);
 
 async function gotoTabInput() {
   checkoutMode.value = false;
@@ -1068,7 +1043,7 @@ async function gotoProductSearch() {
   if (!canUseCart.value) return;
   checkoutMode.value = false;
   await nextTick();
-  focusUiInput(searchInputRef.value);
+  productGridRef.value?.focusSearch();
 }
 
 function onGlobalKeydown(event: KeyboardEvent) {
@@ -1375,51 +1350,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             </p>
           </aside>
 
-          <section class="flex min-h-0 flex-col gap-3 md:order-2">
-            <div class="relative shrink-0">
-              <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <UiInput ref="searchInputRef" v-model="search" class="h-11 pl-9 text-base" type="search" placeholder="Buscar produto por nome ou SKU" autofocus />
-            </div>
-
-            <div class="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
-              <button
-                type="button"
-                class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
-                :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
-                @click="activeCollection = ''"
-              >
-                Tudo
-              </button>
-              <button
-                v-for="collection in orderedCollections"
-                :key="collection.ref"
-                type="button"
-                class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
-                :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
-                @click="activeCollection = collection.ref"
-              >
-                {{ collection.name }}
-              </button>
-            </div>
-
-            <div class="-mx-1 px-1 md:min-h-0 md:flex-1 md:overflow-y-auto">
-            <div v-if="pending" class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
-            </div>
-            <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-              Nenhum produto encontrado.
-            </div>
-            <div v-else class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              <PosProductTile
-                v-for="product in filteredProducts"
-                :key="product.sku"
-                :product="product"
-                :qty="productQty(product.sku)"
-                @add="addProduct"
-              />
-            </div>
-            </div>
-          </section>
+          <PosProductGrid
+            ref="productGridRef"
+            :products="pos?.products || []"
+            :collections="pos?.collections || []"
+            :favorite-refs="pos?.favorite_collection_refs || []"
+            :cart-items="cart.items"
+            :pending="pending"
+            @add="addProduct"
+          />
         </div>
       </div>
       </div>

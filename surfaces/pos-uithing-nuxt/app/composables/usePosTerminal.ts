@@ -15,12 +15,9 @@ export async function usePosTerminal() {
   const apiPath = usePosApiPath();
   const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
-  const { data, pending, error, refresh } = await useAsyncData<POSResponse>(
-    "pos-terminal",
-    () => $fetch<POSResponse>(apiPath("/api/v1/backstage/pos/"), {
-      credentials: "include",
-      headers: requestHeaders,
-    }),
+  const { data, pending, error, refresh } = await useFetch<POSResponse>(
+    () => apiPath("/api/v1/backstage/pos/"),
+    { credentials: "include", headers: requestHeaders },
   );
 
   const pos = computed<POSProjection | null>(() => data.value?.pos ?? null);
