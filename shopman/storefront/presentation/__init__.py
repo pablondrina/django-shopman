@@ -27,6 +27,7 @@ from .catalog import (
     CatalogSectionProjection,
     build_catalog,
     build_catalog_items_for_skus,
+    get_channel_listing_ref,
 )
 from .checkout import CheckoutProjection, build_checkout
 from .home import (
@@ -127,6 +128,7 @@ __all__ = [
     "build_cart",
     "build_catalog",
     "build_catalog_items_for_skus",
+    "get_channel_listing_ref",
     "build_checkout",
     "build_home",
     "build_order_confirmation",

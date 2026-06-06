@@ -7,11 +7,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.storefront.presentation import get_channel_listing_ref
 from shopman.storefront.services import catalog as catalog_service
-from shopman.storefront.services.product_cards import (
-    annotate_products,
-    get_channel_listing_ref,
-)
+from shopman.storefront.services.product_cards import annotate_products
 
 from .serializers import CollectionSerializer, ProductListItemSerializer
 

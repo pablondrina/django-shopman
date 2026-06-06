@@ -229,6 +229,20 @@ def listing_price_for_product(product, listing_ref: str) -> int | None:
     return listing_price_map([product.sku], listing_ref, only_published=True, only_sellable=False).get(product.sku)
 
 
+def price_q_for_product(product, *, listing_ref: str | None) -> int | None:
+    """List price (``_q`` cents) for a product on a channel listing.
+
+    Surface-agnostic read facade: the caller supplies ``listing_ref`` (the
+    storefront passes its channel ref). Falls back to ``base_price_q`` when the
+    listing has no entry — keeps callers from re-implementing the fallback.
+    """
+    if listing_ref:
+        price_q = listing_price_for_product(product, listing_ref)
+        if price_q is not None:
+            return price_q
+    return product.base_price_q
+
+
 def listed_in_channel(product, channel_ref: str, *, fallback_when_listing_missing: bool = True) -> bool:
     """Return whether a product is publishable/sellable in a channel listing."""
     from shopman.offerman.models import ListingItem
@@ -292,6 +306,23 @@ def availability_for_sku(
     except Exception as exc:
         logger.warning("availability_lookup_failed sku=%s channel=%s: %s", sku, channel_ref, exc, exc_info=True)
         return None
+
+
+def is_d1_only(sku: str, *, channel_ref: str) -> bool:
+    """True when a SKU's only promisable stock is D-1 (next-day) in its scope.
+
+    Surface-agnostic read facade over ``availability_for_sku``: ready and
+    in-production are both zero while D-1 is positive. Callers pass the channel
+    whose scope defines "available now" (storefront/POS differ on D-1 access).
+    """
+    avail = availability_for_sku(sku, channel_ref=channel_ref)
+    if not avail:
+        return False
+    breakdown = avail.get("breakdown", {})
+    ready = breakdown.get("ready", Decimal("0"))
+    in_prod = breakdown.get("in_production", Decimal("0"))
+    d1 = breakdown.get("d1", Decimal("0"))
+    return d1 > 0 and ready == 0 and in_prod == 0
 
 
 def availability_for_skus(skus: list[str], *, channel_ref: str) -> dict[str, dict | None]:

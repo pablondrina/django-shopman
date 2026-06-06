@@ -42,6 +42,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def get_channel_listing_ref() -> str | None:
+    """Ref of the storefront channel's listing — by convention, the channel ref.
+
+    Storefront-bound resolver: callers feed the result to the surface-agnostic
+    ``catalog_context`` facades (``price_q_for_product``, listing filters).
+    """
+    from shopman.shop.models import Channel
+
+    from ..constants import STOREFRONT_CHANNEL_REF
+
+    try:
+        channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
+        return channel.ref if channel else None
+    except Exception as exc:
+        logger.warning("channel_listing_ref_failed: %s", exc, exc_info=True)
+        return None
+
+
 @dataclass(frozen=True)
 class CatalogItemProjection:
     """A single catalog line as rendered by the storefront."""

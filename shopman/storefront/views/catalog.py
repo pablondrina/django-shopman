@@ -12,12 +12,10 @@ from shopman.shop.projections.storefront_context import (
     fresh_from_oven_skus,
     popular_skus,
 )
+from shopman.storefront.presentation import get_channel_listing_ref
 from shopman.storefront.presentation.merchandising import freshness_label
 from shopman.storefront.services import catalog as catalog_service
-from shopman.storefront.services.product_cards import (
-    annotate_products,
-    get_channel_listing_ref,
-)
+from shopman.storefront.services.product_cards import annotate_products
 
 logger = logging.getLogger(__name__)
 

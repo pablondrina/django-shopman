@@ -13,12 +13,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.utils.phone import normalize_phone
 
+from shopman.shop.projections import catalog_context
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
 from shopman.storefront.cart import CHANNEL_REF, CartService
+from shopman.storefront.presentation import get_channel_listing_ref
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services import orders as order_service
-from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
 from .serializers import (
     AddItemSerializer,
@@ -124,7 +125,7 @@ class CartAddItemView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        price_q = get_price_q(product)
+        price_q = catalog_context.price_q_for_product(product, listing_ref=get_channel_listing_ref())
         if price_q is None:
             return Response(
                 {"detail": "No price available for this product."},
@@ -139,7 +140,7 @@ class CartAddItemView(APIView):
                 sku,
                 qty,
                 price_q,
-                is_d1=line_item_is_d1(product),
+                is_d1=catalog_context.is_d1_only(product.sku, channel_ref=CHANNEL_REF),
             )
         except CartUnavailableError as exc:
             return Response(

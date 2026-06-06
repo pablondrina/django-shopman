@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
-from decimal import Decimal
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils import timezone
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections import catalog_context
@@ -15,57 +12,6 @@ from shopman.shop.projections.storefront_context import session_pricing_hints
 from ..constants import STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
-
-
-def get_channel_listing_ref() -> str | None:
-    """Ref da Listagem do canal web — por convenção, igual ao ref do canal."""
-    try:
-        from shopman.shop.models import Channel
-
-        channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
-        return channel.ref if channel else None
-    except Exception as e:
-        logger.warning("channel_listing_ref_failed: %s", e, exc_info=True)
-        return None
-
-
-def get_price_q(product: Any, listing_ref: str | None = None) -> int | None:
-    """Get price from channel listing, falling back to base_price_q."""
-    if listing_ref is None:
-        listing_ref = get_channel_listing_ref()
-    if listing_ref:
-        price_q = catalog_context.listing_price_for_product(product, listing_ref)
-        if price_q is not None:
-            return price_q
-    return product.base_price_q
-
-
-def get_availability(sku: str, *, target_date: date | None = None) -> dict | None:
-    """Breakdown de estoque para o canal storefront.
-
-    **Listagem** (Listing / ListingItem + ``_published_products``): define o catálogo
-    e o preço — se o SKU não está na listagem do canal, não entra no cardápio.
-
-    **Disponibilidade** (aqui): quanto existe nas posições que esse canal pode usar,
-    mesma regra do checkout — não substitui a listagem, só responde “tem físico?”
-    """
-    return catalog_context.availability_for_sku(
-        sku,
-        channel_ref=STOREFRONT_CHANNEL_REF,
-        target_date=target_date,
-    )
-
-
-def line_item_is_d1(product: Any, *, listing_ref: str | None = None) -> bool:
-    """True if SKU has only D-1 stock in its availability scope. POS internal use only."""
-    avail = get_availability(product.sku)
-    if not avail:
-        return False
-    breakdown = avail.get("breakdown", {})
-    ready = breakdown.get("ready", Decimal("0"))
-    in_prod = breakdown.get("in_production", Decimal("0"))
-    d1 = breakdown.get("d1", Decimal("0"))
-    return d1 > 0 and ready == 0 and in_prod == 0
 
 
 def _to_storefront_avail(raw_avail: dict | None, product: Any) -> dict | None:
@@ -117,69 +63,6 @@ def _availability_badge(avail: dict | None, product: Any) -> dict:
     return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
 
-def _promo_matches_for_vitrine(promo, sku: str, ctx: dict) -> bool:
-    """Igual DiscountModifier._matches, mas se não há fulfillment na sessão e a promo exige tipo,
-    testa cada tipo permitido para ainda exibir preço/badge no cardápio."""
-    from shopman.shop.modifiers import DiscountModifier
-
-    if not promo.fulfillment_types:
-        return DiscountModifier._matches(promo, sku, ctx)
-    ft = (ctx.get("fulfillment_type") or "").strip()
-    if ft:
-        return DiscountModifier._matches(promo, sku, ctx)
-    for try_ft in promo.fulfillment_types:
-        c = {**ctx, "fulfillment_type": try_ft}
-        if DiscountModifier._matches(promo, sku, c):
-            return True
-    return False
-
-
-
-def _best_auto_promotion_discount_q(
-    sku: str,
-    price_q: int,
-    sku_collections: list[str],
-    *,
-    session_total_q: int = 0,
-    fulfillment_type: str = "",
-):
-    """Maior desconto entre promoções automáticas (igual DiscountModifier), para o vitrine.
-
-    Passe ``fulfillment_type`` e ``session_total_q`` da sessão do carrinho
-    (``services.storefront_context.session_pricing_hints``) para coincidir
-    com o que o modificador aplica no checkout.
-    """
-    from shopman.shop.modifiers import DiscountModifier
-    from shopman.storefront.models import Promotion
-
-    now = timezone.now()
-    promotions = list(
-        Promotion.objects.filter(
-            is_active=True,
-            valid_from__lte=now,
-            valid_until__gte=now,
-        ).exclude(coupons__isnull=False)
-    )
-    ctx = {
-        "fulfillment_type": fulfillment_type or "",
-        "sku_collections": {sku: sku_collections},
-        "customer_segment": "",
-        "customer_group": "",
-    }
-    best_discount_q = 0
-    best_promo = None
-    for promo in promotions:
-        if promo.min_order_q and session_total_q < promo.min_order_q:
-            continue
-        if not _promo_matches_for_vitrine(promo, sku, ctx):
-            continue
-        discount_q = DiscountModifier._calc_discount(promo, price_q)
-        if discount_q > best_discount_q:
-            best_discount_q = discount_q
-            best_promo = promo
-    return best_discount_q, best_promo
-
-
 def annotate_products(
     products: list[Any],
     listing_ref: str | None = None,
@@ -190,9 +73,6 @@ def annotate_products(
     request: HttpRequest | None = None,
 ) -> list[dict]:
     """Build template-ready list with canonical price quote and availability."""
-    if listing_ref is None:
-        listing_ref = get_channel_listing_ref()
-
     if request is not None and (session_total_q is None or fulfillment_type is None):
         ft_hint, sub_hint = session_pricing_hints(request)
         if fulfillment_type is None:
