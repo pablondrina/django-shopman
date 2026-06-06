@@ -1282,16 +1282,21 @@ class Command(BaseCommand):
         ProductComponent.objects.create(parent=combo, component=products["MINI-BAGUETE"], qty=Decimal("1"))
 
         # Collections
-        legacy_collection_refs = [
-            "paes-artesanais",
-            "focaccias",
-            "brioches",
-            "croissants-folhados",
-            "paes-doces",
-            "lanches",
-            "cafes-bebidas",
-            "combos",
+        #
+        # Legacy/SEO taxonomy kept inactive (não exibida, mas preserva refs
+        # históricas). Antes vinha de uma migration da instância; é dado de
+        # bootstrap do deployment, então mora aqui no seed.
+        legacy_collections = [
+            {"ref": "paes-artesanais", "name": "Pães Artesanais", "sort_order": 1},
+            {"ref": "focaccias", "name": "Focaccias", "sort_order": 2},
+            {"ref": "brioches", "name": "Brioches & Pães Especiais", "sort_order": 3},
+            {"ref": "croissants-folhados", "name": "Croissants & Folhados", "sort_order": 4},
+            {"ref": "paes-doces", "name": "Pães Doces & Recheados", "sort_order": 5},
+            {"ref": "lanches", "name": "Lanches & Tartines", "sort_order": 7},
+            {"ref": "cafes-bebidas", "name": "Cafés & Bebidas", "sort_order": 8},
+            {"ref": "combos", "name": "Combos", "sort_order": 9},
         ]
+        legacy_collection_refs = [c["ref"] for c in legacy_collections]
         new_collection_refs = [
             "rusticos",
             "macios",
@@ -1302,7 +1307,11 @@ class Command(BaseCommand):
             "bebidas-geladas",
         ]
         CollectionItem.objects.filter(collection__ref__in=legacy_collection_refs + new_collection_refs).delete()
-        Collection.objects.filter(ref__in=legacy_collection_refs).update(is_active=False)
+        for c in legacy_collections:
+            Collection.objects.update_or_create(
+                ref=c["ref"],
+                defaults={"name": c["name"], "sort_order": c["sort_order"], "is_active": False},
+            )
 
         col_rusticos, _ = Collection.objects.update_or_create(
             ref="rusticos",
