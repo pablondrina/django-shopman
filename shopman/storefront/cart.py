@@ -206,11 +206,11 @@ class CartService:
         """Return the legacy cart dict, built from the cart data projection.
 
         Data resolution (availability, planned holds, discounts, totals) lives
-        in ``shop.projections.cart.build_cart`` — the single source. This
-        adapter formats that data into the dict shape the remaining
-        non-presentation consumers (REST serializer, checkout, catalog) read;
-        they migrate to the projection / presentation in later WP6/D steps,
-        after which this method is retired.
+        in ``shop.projections.cart.build_cart`` — the single source. The REST
+        serializer, catalog and discount tests now consume the projection
+        directly; this adapter survives only for the **checkout** path
+        (``views/intents.checkout``), whose ``checkout_context`` helpers still
+        take the dict. It is retired when that drains in WP6/D4.
         """
         from shopman.shop.projections.cart import build_cart
 

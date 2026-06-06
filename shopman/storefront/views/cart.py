@@ -235,9 +235,11 @@ class ApplyCouponView(View):
 
         result = CartService.apply_coupon(request, code)
         if result["ok"]:
-            cart = CartService.get_cart(request)
-            coupon_info = cart.get("coupon")
-            if coupon_info and coupon_info.get("discount_q", 0) == 0:
+            from shopman.shop.projections.cart import build_cart
+            from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+
+            cart = build_cart(request.session.get("cart_session_key"), STOREFRONT_CHANNEL_REF)
+            if cart.coupon and cart.coupon.discount_q == 0:
                 CartService.remove_coupon(request)
                 return self._notify(
                     "Você já tem um desconto melhor aplicado automaticamente.", "info"

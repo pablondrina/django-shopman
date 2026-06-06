@@ -35,6 +35,17 @@ logger = logging.getLogger(__name__)
 CHECKOUT_RATE_LIMIT_RETRY_SECONDS = 60
 
 
+def _cart_data(request):
+    """Resolve the cart DATA projection for the current visitor.
+
+    The REST surface serializes this directly (``CartSerializer``) — the
+    headless contract reads the orchestrator read-side, not the legacy dict.
+    """
+    from shopman.shop.projections.cart import build_cart
+
+    return build_cart(request.session.get("cart_session_key"), CHANNEL_REF)
+
+
 def _stock_unit_count_label(qty: int) -> str:
     unit_word = "unidade disponível" if qty == 1 else "unidades disponíveis"
     return f"{qty} {unit_word}"
@@ -66,7 +77,7 @@ class CartView(APIView):
     serializer_class = CartSerializer
 
     def get(self, request):
-        cart = CartService.get_cart(request)
+        cart = _cart_data(request)
         data = CartSerializer(cart).data
         return Response(data)
 
@@ -144,7 +155,7 @@ class CartAddItemView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        cart = CartService.get_cart(request)
+        cart = _cart_data(request)
         data = CartSerializer(cart).data
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -186,7 +197,7 @@ class CartItemView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        cart = CartService.get_cart(request)
+        cart = _cart_data(request)
         data = CartSerializer(cart).data
         return Response(data)
 
@@ -209,7 +220,7 @@ class CartItemView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        cart = CartService.get_cart(request)
+        cart = _cart_data(request)
         data = CartSerializer(cart).data
         return Response(data)
 
@@ -252,14 +263,14 @@ class CheckoutView(APIView):
         serializer.is_valid(raise_exception=True)
 
         # Check cart has items
-        cart = CartService.get_cart(request)
-        if not cart.get("items"):
+        cart = _cart_data(request)
+        if cart.is_empty:
             return Response(
                 {"detail": "Cart is empty."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        session_key = cart["session_key"]
+        session_key = cart.session_key
         name = serializer.validated_data["name"]
         phone_raw = serializer.validated_data["phone"]
         notes = serializer.validated_data.get("notes", "")

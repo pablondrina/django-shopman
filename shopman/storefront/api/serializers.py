@@ -14,7 +14,10 @@ class CartItemSerializer(serializers.Serializer):
 
 
 class CartSerializer(serializers.Serializer):
-    items = CartItemSerializer(many=True, read_only=True)
+    # ``source="lines"`` so the serializer reads the cart DATA projection
+    # (``shop.projections.cart.CartProjection``) directly — the headless REST
+    # contract serves the orchestrator read-side, not the legacy dict.
+    items = CartItemSerializer(many=True, read_only=True, source="lines")
     subtotal_q = serializers.IntegerField(read_only=True)
     count = serializers.IntegerField(read_only=True)
     session_key = serializers.CharField(read_only=True, required=False)

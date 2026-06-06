@@ -566,7 +566,9 @@ def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:
     except ImportError:
         return {}
     try:
-        cart = CartService.get_cart(request)
+        # Only sku→qty is needed here; the cheap summary avoids paying for
+        # full availability/discount resolution on every menu render.
+        cart = CartService.get_cart_summary(request, include_items=True)
     except Exception:
         logger.warning("cart_qty_lookup_failed", exc_info=True)
         return {}
