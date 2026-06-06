@@ -13,7 +13,6 @@ import pytest
 from shopman.shop.projections.types import (
     FoodPrefProjection,
     NotificationPrefProjection,
-    OrderSummaryProjection,
     SavedAddressProjection,
 )
 from shopman.storefront.presentation.account import (
@@ -21,6 +20,7 @@ from shopman.storefront.presentation.account import (
     LoyaltyProjection,
     build_account,
 )
+from shopman.storefront.presentation.types import OrderSummaryProjection
 
 pytestmark = pytest.mark.django_db
 

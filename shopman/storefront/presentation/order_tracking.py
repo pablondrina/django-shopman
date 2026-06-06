@@ -38,10 +38,12 @@ from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     Action,
-    FulfillmentProjection,
     OrderItemProjection,
-    OrderProgressStepProjection,
     TimelineEventProjection,
+)
+from shopman.storefront.presentation.types import (
+    FulfillmentProjection,
+    OrderProgressStepProjection,
 )
 
 logger = logging.getLogger(__name__)

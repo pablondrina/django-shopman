@@ -28,8 +28,8 @@ from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
-    ComponentProjection,
 )
+from shopman.storefront.presentation.types import ComponentProjection
 
 from .catalog import (
     CatalogItemProjection,

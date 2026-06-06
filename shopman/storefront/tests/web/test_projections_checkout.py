@@ -12,9 +12,10 @@ from types import SimpleNamespace
 import pytest
 from django.test import RequestFactory
 
-from shopman.shop.projections.types import PaymentMethodOptionProjection, PickupSlotProjection
+from shopman.shop.projections.types import PickupSlotProjection
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.presentation.checkout import CheckoutProjection, build_checkout
+from shopman.storefront.presentation.types import PaymentMethodOptionProjection
 
 pytestmark = pytest.mark.django_db
 

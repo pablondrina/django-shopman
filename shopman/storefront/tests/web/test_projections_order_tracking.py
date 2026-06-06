@@ -12,7 +12,6 @@ import pytest
 
 from shopman.shop.projections.types import (
     OrderItemProjection,
-    OrderProgressStepProjection,
     TimelineEventProjection,
 )
 from shopman.storefront.presentation.order_tracking import (
@@ -22,6 +21,7 @@ from shopman.storefront.presentation.order_tracking import (
     build_order_tracking,
     build_order_tracking_status,
 )
+from shopman.storefront.presentation.types import OrderProgressStepProjection
 
 pytestmark = pytest.mark.django_db
 

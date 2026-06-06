@@ -25,10 +25,10 @@ from shopman.shop.projections.interaction_context import InteractionContext
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     Action,
-    PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
 )
+from shopman.storefront.presentation.types import PaymentMethodOptionProjection
 
 from .cart import CartProjection, build_cart
 

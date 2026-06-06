@@ -26,10 +26,10 @@ from shopman.shop.projections.types import (
     NOTIFICATION_CHANNELS,
     FoodPrefProjection,
     NotificationPrefProjection,
-    OrderSummaryProjection,
     SavedAddressProjection,
 )
 from shopman.storefront.presentation.order_history import present_summary
+from shopman.storefront.presentation.types import OrderSummaryProjection
 
 logger = logging.getLogger(__name__)
 

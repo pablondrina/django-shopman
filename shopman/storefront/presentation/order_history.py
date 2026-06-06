@@ -21,8 +21,8 @@ from shopman.shop.projections import customer as customer_projection
 from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
-    OrderSummaryProjection,
 )
+from shopman.storefront.presentation.types import OrderSummaryProjection
 
 logger = logging.getLogger(__name__)
 
