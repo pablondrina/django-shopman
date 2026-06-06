@@ -135,7 +135,17 @@ de payload-de-UI). **Sinalizar cada mudança ao Pablo.**
 > matar a dupla manutenção posIntent.ts↔build_session_ops). Layout (D2) e impressão (D3) na fase de
 > shell. Comanda/move_lines/fire-kitchen/manager-PIN/caixa-cego preservados.
 
-## WP8 — Backoffice consolidado (per 07-spec)
+**Pendência herdada do WP8 (E3/E4) — fazer aqui, no passe do contrato REST/Nuxt:**
+> Os campos `status_label`/`status_color`/`availability_label` são hoje `CharField` serializados em
+> `storefront/api/serializers.py` e consumidos crus pelo Nuxt. O WP8 Arc E deixou-os de propósito
+> (purgar presentation da projection-payload é trabalho deste WP). Ao retrabalhar o schema/contrato:
+> **E3** — labels PT (`ORDER_STATUS_LABELS_PT`/`PAYMENT_METHOD_LABELS_PT`/`AVAILABILITY_LABELS_PT`) →
+> `OmotenashiCopy` (seed de copy + lookup DB em runtime); **E4** — cores (`ORDER_STATUS_COLORS`) →
+> enum `tone` semântico (dado), cada superfície mapeia tone→classe (incl. mapa no serializer p/ manter
+> o Nuxt byte-compatível). Decisão Pablo (2026-06-06): adiar do WP8 p/ cá, coordenado. ~15 sites
+> storefront+backstage.
+
+## WP8 — Backoffice consolidado (per 07-spec) — ✅ A–F + E1/E2 feitos; E3/E4 → WP7
 **Depende de:** WP1, WP4.
 **Prompt autocontido:**
 > Leia `07-spec-backoffice.md` + `01-surface-audit.md`. Consolide: Unfold canônico (gold standard
