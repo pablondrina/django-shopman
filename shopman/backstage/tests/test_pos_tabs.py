@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from shopman.orderman.models import Order, Session
 
 from shopman.backstage.models import POSTab
@@ -46,7 +46,6 @@ def _payload(
     }
 
 
-@override_settings(SHOPMAN_HAPPY_HOUR_START="00:00", SHOPMAN_HAPPY_HOUR_END="00:00")
 class POSTabSessionTests(TestCase):
     def setUp(self) -> None:
         super().setUp()

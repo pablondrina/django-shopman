@@ -187,6 +187,9 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_DISCOUNT_LABEL_AVAILABILITY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Liquidação")},
     },
+    "CART_DISCOUNT_LABEL_TIME_WINDOW": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Happy Hour")},
+    },
     "CART_UNAVAILABLE_BANNER": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estoque de alguns itens mudou. Veja as opções em cada item abaixo.")},
     },

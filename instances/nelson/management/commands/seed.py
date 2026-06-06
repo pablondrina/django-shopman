@@ -2238,7 +2238,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  ✅ Dados remotos PDP: {products.count()} produtos completos")
 
     def _assert_storefront_products_orderable(self):
-        from shopman.shop.services import catalog_context
+        from shopman.shop.projections import catalog_context
 
         blocked = []
         web_skus = ListingItem.objects.filter(
@@ -3947,8 +3947,9 @@ class Command(BaseCommand):
         ]
 
         count = 0
+        rules_by_code = {}
         for rc in RULE_CONFIGS:
-            _, created = RuleConfig.objects.update_or_create(
+            obj, created = RuleConfig.objects.update_or_create(
                 code=rc["code"],
                 defaults={
                     "rule_path": rc["rule_path"],
@@ -3958,8 +3959,17 @@ class Command(BaseCommand):
                     "enabled": True,
                 },
             )
+            rules_by_code[rc["code"]] = obj
             if created:
                 count += 1
+
+        # Happy Hour ("Hora da Xepa") is an in-store, end-of-day clearance —
+        # it must NOT touch the online storefront (where listed prices would
+        # diverge from the cart). Scope the rule to every non-web channel; an
+        # empty channel set would mean "all channels", including web.
+        happy_hour = rules_by_code.get("happy_hour")
+        if happy_hour is not None:
+            happy_hour.channels.set(Channel.objects.exclude(ref="web"))
 
         self.stdout.write(f"  ✅ {len(RULE_CONFIGS)} rule configs ({count} novos)")
 
@@ -3973,6 +3983,7 @@ class Command(BaseCommand):
 
         COPY_OVERRIDES = [
             {"key": "CART_DISCOUNT_LABEL_AVAILABILITY", "title": "D-1"},
+            {"key": "CART_DISCOUNT_LABEL_TIME_WINDOW", "title": "Hora da Xepa"},
         ]
 
         count = 0

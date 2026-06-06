@@ -2,109 +2,68 @@
 Tests for Happy Hour Badge.
 
 Covers:
-- happy_hour_state() returns active=True during happy hour window
-- happy_hour_state() returns active=False outside window
-- happy_hour_state() returns inactive when no modifier registered
+- happy_hour_state() returns active=True during the window (rule enabled)
+- happy_hour_state() returns active=False outside the window
+- happy_hour_state() returns inactive when the happy_hour rule is absent/disabled
 - MenuView passes happy_hour_info to context
 - Template shows banner when active, hides when inactive
+
+The badge is gated on the enabled ``happy_hour`` RuleConfig — the same source
+the TimeWindowDiscountModifier reads — so badge and discount cannot diverge.
 """
 
 from __future__ import annotations
 
 from datetime import time
-from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 from shopman.shop.models import Channel
 
-
-def _fake_modifiers_with_happy_hour():
-    """Return a modifier list that includes a happy hour modifier."""
-    return [SimpleNamespace(code="shop.happy_hour", order=65)]
+_HH_PARAMS = {"discount_percent": 25, "start": "16:00", "end": "18:00"}
 
 
-def _fake_modifiers_empty():
-    return []
+def _rule_params(params):
+    return patch("shopman.shop.rules.engine.get_rule_params", return_value=params)
 
 
 class HappyHourStateTests(TestCase):
-    def test_active_during_window(self) -> None:
-        """Returns active=True when current time is within the happy hour window."""
+    def _state_at(self, hour, minute=0, params=_HH_PARAMS):
         from shopman.shop.projections.storefront_context import happy_hour_state
 
-        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
-                    result = happy_hour_state()
+        with _rule_params(params):
+            with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
+                mock_tz.localtime.return_value.time.return_value = time(hour, minute)
+                return happy_hour_state()
 
+    def test_active_during_window(self) -> None:
+        """Returns active=True when current time is within the happy hour window."""
+        result = self._state_at(17)
         self.assertTrue(result["active"])
         self.assertEqual(result["end"], "18:00")
 
     def test_inactive_before_window(self) -> None:
         """Returns active=False before happy hour starts."""
-        from shopman.shop.projections.storefront_context import happy_hour_state
-
-        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(15, 59)
-                    result = happy_hour_state()
-
-        self.assertFalse(result["active"])
+        self.assertFalse(self._state_at(15, 59)["active"])
 
     def test_inactive_after_window(self) -> None:
         """Returns active=False after happy hour ends."""
-        from shopman.shop.projections.storefront_context import happy_hour_state
-
-        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(18, 0)
-                    result = happy_hour_state()
-
-        self.assertFalse(result["active"])
+        self.assertFalse(self._state_at(18, 1)["active"])
 
     def test_inactive_at_exact_end(self) -> None:
         """End hour is exclusive (18:00 → not active)."""
-        from shopman.shop.projections.storefront_context import happy_hour_state
-
-        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(18, 0)
-                    result = happy_hour_state()
-
-        self.assertFalse(result["active"])
+        self.assertFalse(self._state_at(18, 0)["active"])
 
     def test_returns_discount_percent(self) -> None:
-        """discount_percent comes from settings."""
-        from shopman.shop.projections.storefront_context import happy_hour_state
-
-        with override_settings(
-            SHOPMAN_HAPPY_HOUR_START="16:00",
-            SHOPMAN_HAPPY_HOUR_END="18:00",
-            SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT=15,
-        ):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
-                    result = happy_hour_state()
-
+        """discount_percent comes from the rule params."""
+        params = {"discount_percent": 15, "start": "16:00", "end": "18:00"}
+        result = self._state_at(17, params=params)
         self.assertEqual(result["discount_percent"], 15)
 
-    def test_inactive_when_no_modifier_registered(self) -> None:
-        """Returns inactive when no happy hour modifier is in the registry."""
-        from shopman.shop.projections.storefront_context import happy_hour_state
-
-        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_empty):
-                with patch("shopman.shop.projections.storefront_context.timezone") as mock_tz:
-                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
-                    result = happy_hour_state()
-
+    def test_inactive_when_rule_absent_or_disabled(self) -> None:
+        """Returns inactive when the happy_hour rule is absent/disabled (empty params)."""
+        result = self._state_at(17, params={})
         self.assertFalse(result["active"])
         self.assertEqual(result["discount_percent"], 0)
 

@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 from datetime import time, timedelta
 
-from django.conf import settings
 from django.utils import timezone
 from shopman.guestman.contrib.insights import InsightService
 
@@ -135,30 +134,21 @@ def fresh_from_oven_skus(limit: int = 6) -> list[dict]:
 def happy_hour_state() -> dict:
     """Return the current happy-hour state.
 
-    Only returns ``active=True`` when the instance has registered a modifier
-    with code ``shop.happy_hour`` — the badge is never shown unless the
-    discount will actually be applied at checkout.
-
-    Reads window/percent from ``RuleConfig "happy_hour"`` — the **same source**
-    the ``HappyHourModifier`` reads for the actual discount — so the badge and
-    the applied discount can never diverge. Falls back to ``SHOPMAN_HAPPY_HOUR_*``
-    settings, then to defaults, mirroring the modifier's resolution chain.
+    Gated on the enabled ``happy_hour`` RuleConfig — the **same source** the
+    ``TimeWindowDiscountModifier`` reads for window/percent — so the badge and
+    the applied discount can never diverge. Returns inactive when the rule is
+    absent or disabled.
     """
-    from shopman.orderman.registry import get_modifiers
-
-    if not any(getattr(m, "code", None) == "shop.happy_hour" for m in get_modifiers()):
-        return _HAPPY_HOUR_INACTIVE
-
     try:
         from shopman.shop.rules.engine import get_rule_params
 
         params = get_rule_params("happy_hour")
-        raw_start = params.get("start") or getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
-        raw_end = params.get("end") or getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
-        discount_percent = params.get(
-            "discount_percent",
-            getattr(settings, "SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", 10),
-        )
+        if not params:
+            return _HAPPY_HOUR_INACTIVE
+
+        raw_start = params.get("start", "17:30")
+        raw_end = params.get("end", "18:00")
+        discount_percent = params.get("discount_percent", 25)
 
         sh, sm = map(int, raw_start.split(":"))
         eh, em = map(int, raw_end.split(":"))

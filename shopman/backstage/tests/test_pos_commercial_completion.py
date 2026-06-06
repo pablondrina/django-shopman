@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from shopman.orderman.models import Order
 
 from shopman.backstage.models import CashShift, POSTab, POSTerminal
@@ -10,7 +10,6 @@ from shopman.shop.services import operator_orders
 from shopman.shop.services import pos as pos_service
 
 
-@override_settings(SHOPMAN_HAPPY_HOUR_START="00:00", SHOPMAN_HAPPY_HOUR_END="00:00")
 class POSCommercialCompletionTests(TestCase):
     def setUp(self) -> None:
         super().setUp()

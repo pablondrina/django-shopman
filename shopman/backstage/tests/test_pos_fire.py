@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from shopman.orderman.models import Session
 
 from shopman.backstage.models import KDSInstance, KDSTicket, POSTab
@@ -10,7 +10,6 @@ from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 
 
-@override_settings(SHOPMAN_HAPPY_HOUR_START="00:00", SHOPMAN_HAPPY_HOUR_END="00:00")
 class POSFireTabTests(TestCase):
     def setUp(self) -> None:
         super().setUp()

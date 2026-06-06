@@ -1,12 +1,14 @@
-"""Pricing rules — wrappers around existing modifiers for admin visibility.
+"""Pricing rules — the operator-facing definition of each pricing modifier.
 
-Each rule class wraps an existing modifier from shop.modifiers. For R5, these
-rules exist so the operator can view/edit/disable them via admin. The actual
-execution continues via the modifiers registered in channels.setup.
+Each rule class declares a modifier's identity (``code``), its admin label and
+``default_params``. Its ``RuleConfig`` row is the single source of truth for
+that modifier's runtime behaviour: enabled state, params and channel scope.
 
-When the operator disables a rule in admin, the engine filters it out —
-but the underlying modifier still runs (channels.setup registers it
-unconditionally). Full migration to rule-driven execution happens in R8.
+Execution is rule-driven. The modifiers in ``shop.modifiers`` that read their
+params through ``get_channel_rule_params`` (``AvailabilityDiscountModifier``,
+``TimeWindowDiscountModifier``) skip entirely when their ``RuleConfig`` is
+disabled or not scoped to the channel being priced — so disabling a rule in the
+admin truly disables the discount.
 """
 
 from __future__ import annotations

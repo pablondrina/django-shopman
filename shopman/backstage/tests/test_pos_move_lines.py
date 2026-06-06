@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from shopman.orderman.models import Session
 
 from shopman.backstage.models import POSTab
@@ -21,7 +21,6 @@ def _payload(*, sku: str, qty: int, tab_ref: str, tab_session_key: str) -> dict:
     }
 
 
-@override_settings(SHOPMAN_HAPPY_HOUR_START="00:00", SHOPMAN_HAPPY_HOUR_END="00:00")
 class POSMoveTabLinesTests(TestCase):
     def setUp(self) -> None:
         super().setUp()

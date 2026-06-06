@@ -142,60 +142,66 @@ class TestPricingNoopModifiers:
         assert "manual_discount" not in session.pricing
 
 
-# ─── HappyHourModifier ──────────────────────────────────────────────────────
+# ─── TimeWindowDiscountModifier (generic Happy Hour) ─────────────────────────
 
 
-class TestHappyHourModifierRuleConfig:
+class TestTimeWindowDiscountModifier:
+    """Rule-driven time-window discount.
+
+    Parity note: the cents asserted here (20% → 800, 15% → 850) match exactly
+    the values the former instance ``HappyHourModifier`` produced. The "skip web"
+    behaviour is now expressed as the rule simply not being enabled on the web
+    channel (``get_channel_rule_params`` returns ``None``).
+    """
+
     @pytest.fixture
     def modifier(self):
-        from instances.nelson.modifiers import HappyHourModifier
-        # Constructor: 10% discount, open all day (for override testing)
-        return HappyHourModifier(
-            discount_percent=10,
-            start=time(0, 0),
-            end=time(23, 59),
-        )
+        from shopman.shop.modifiers import TimeWindowDiscountModifier
+        return TimeWindowDiscountModifier()
 
     def _at(self, h, m=0):
         mock = MagicMock()
         mock.return_value.time.return_value = time(h, m)
         return mock
 
+    def _gate(self, params):
+        return patch(
+            "shopman.shop.rules.engine.get_channel_rule_params",
+            return_value=params,
+        )
+
     def test_reads_percent_from_ruleconfig(self, modifier):
         session = _make_session()
         channel = _make_channel()
         rc = {"discount_percent": 20, "start": "00:00", "end": "23:59"}
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value=rc):
-            with patch("django.utils.timezone.localtime", self._at(12)):
-                modifier.apply(channel=channel, session=session, ctx={})
+        with self._gate(rc), patch("django.utils.timezone.localtime", self._at(12)):
+            modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 800  # 1000 - 20%
 
-    def test_reads_time_window_from_ruleconfig(self, modifier):
+    def test_outside_window_no_discount(self, modifier):
         session = _make_session()
         channel = _make_channel()
         # RuleConfig says 14:00-15:00; check at 13:00 → outside window → no discount
         rc = {"discount_percent": 15, "start": "14:00", "end": "15:00"}
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value=rc):
-            with patch("django.utils.timezone.localtime", self._at(13)):
-                modifier.apply(channel=channel, session=session, ctx={})
+        with self._gate(rc), patch("django.utils.timezone.localtime", self._at(13)):
+            modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 1000  # outside window, no discount
 
-    def test_ruleconfig_window_inside_applies(self, modifier):
+    def test_inside_window_applies(self, modifier):
         session = _make_session()
         channel = _make_channel()
         rc = {"discount_percent": 15, "start": "14:00", "end": "15:00"}
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value=rc):
-            with patch("django.utils.timezone.localtime", self._at(14, 30)):
-                modifier.apply(channel=channel, session=session, ctx={})
+        with self._gate(rc), patch("django.utils.timezone.localtime", self._at(14, 30)):
+            modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 850  # 1000 - 15%
 
-    def test_falls_back_to_constructor_when_no_ruleconfig(self, modifier):
+    def test_falls_back_to_default_percent_when_params_empty(self, modifier):
         session = _make_session()
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={}):
-            with patch("django.utils.timezone.localtime", self._at(12)):
-                modifier.apply(channel=channel, session=session, ctx={})
-        assert session.items[0]["unit_price_q"] == 900  # 1000 - 10% (constructor)
+        # Empty params dict = rule enabled, default window 17:30-18:00, 25%.
+        with self._gate({}), patch("django.utils.timezone.localtime", self._at(17, 45)):
+            modifier.apply(channel=channel, session=session, ctx={})
+        assert session.items[0]["unit_price_q"] == 750  # 1000 - 25% (module default)
 
     def test_skips_employee_discount_items(self, modifier):
         session = _make_session(items=[{
@@ -204,19 +210,17 @@ class TestHappyHourModifierRuleConfig:
         }])
         channel = _make_channel()
         rc = {"discount_percent": 20, "start": "00:00", "end": "23:59"}
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value=rc):
-            with patch("django.utils.timezone.localtime", self._at(12)):
-                modifier.apply(channel=channel, session=session, ctx={})
+        with self._gate(rc), patch("django.utils.timezone.localtime", self._at(12)):
+            modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 1000  # not touched
 
-    def test_web_channel_skipped(self, modifier):
-        session = _make_session(data={"origin_channel": "web"})
+    def test_skips_when_rule_not_enabled_for_channel(self, modifier):
+        # The "skip web" case: no enabled rule for this channel → None → skip.
+        session = _make_session()
         channel = _make_channel()
-        rc = {"discount_percent": 20, "start": "00:00", "end": "23:59"}
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value=rc):
-            with patch("django.utils.timezone.localtime", self._at(12)):
-                modifier.apply(channel=channel, session=session, ctx={})
-        assert session.items[0]["unit_price_q"] == 1000  # web origin skipped
+        with self._gate(None), patch("django.utils.timezone.localtime", self._at(12)):
+            modifier.apply(channel=channel, session=session, ctx={})
+        assert session.items[0]["unit_price_q"] == 1000  # channel-scoped out
 
 
 # ─── EmployeeDiscountModifier ───────────────────────────────────────────────

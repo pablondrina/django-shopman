@@ -27,6 +27,7 @@ Discount policy — "maior desconto ganha":
 from __future__ import annotations
 
 import logging
+from datetime import time
 from typing import Any
 
 from django.utils import timezone
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 # ── Configurable defaults ──────────────────────────────────────────
 DEFAULT_EMPLOYEE_DISCOUNT_PERCENT = 20
 DEFAULT_AVAILABILITY_DISCOUNT_PERCENT = 50
+DEFAULT_TIME_WINDOW_DISCOUNT_PERCENT = 25
+DEFAULT_TIME_WINDOW_START = "17:30"
+DEFAULT_TIME_WINDOW_END = "18:00"
 
 
 def _is_non_merchandise_line(item: dict) -> bool:
@@ -55,6 +59,17 @@ def _discount_label(copy_key: str, fallback: str) -> str:
 
     entry = resolve_copy(copy_key, moment=WILDCARD, audience=WILDCARD)
     return entry.title or entry.message or fallback
+
+
+def _parse_time(raw: str | None, fallback: str) -> time:
+    """Parse a ``"HH:MM"`` string into a ``time``, falling back on bad input."""
+    value = raw or fallback
+    try:
+        h, m = map(int, value.split(":"))
+        return time(h, m)
+    except (ValueError, AttributeError):
+        h, m = map(int, fallback.split(":"))
+        return time(h, m)
 
 
 class AvailabilityDiscountModifier:
@@ -123,6 +138,74 @@ class AvailabilityDiscountModifier:
                 }
             else:
                 pricing.pop("d1_discount", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
+
+
+class TimeWindowDiscountModifier:
+    """Discount applied during a configured time window (e.g. end-of-day clearance).
+
+    Generic form of the "happy hour" discount: within ``[start, end)`` every
+    eligible line gets a percentage off. Rule-driven — params, the window and
+    channel scope come from the ``happy_hour`` RuleConfig. Restricting the rule
+    to specific channels is how a deployment keeps the discount off a surface
+    (e.g. the online storefront, where listed prices would otherwise diverge).
+
+    Does not stack on lines that already carry an employee discount.
+    """
+
+    code = "shop.happy_hour"
+    order = 65
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        from shopman.shop.rules.engine import get_channel_rule_params
+
+        params = get_channel_rule_params("happy_hour", getattr(channel, "ref", None))
+        if params is None:
+            return
+
+        discount_percent = params.get("discount_percent", DEFAULT_TIME_WINDOW_DISCOUNT_PERCENT)
+        start = _parse_time(params.get("start"), DEFAULT_TIME_WINDOW_START)
+        end = _parse_time(params.get("end"), DEFAULT_TIME_WINDOW_END)
+
+        now = timezone.localtime().time()
+        if not (start <= now < end):
+            return
+
+        items = session.items or []
+        modified = False
+        for item in items:
+            if _is_non_merchandise_line(item):
+                continue
+            applied = item.get("modifiers_applied", [])
+            if any(m.get("type") == "employee_discount" for m in applied):
+                continue
+
+            original_q = item.get("unit_price_q", 0)
+            discount_q = monetary_div(original_q * discount_percent, 100)
+            item["unit_price_q"] = original_q - discount_q
+            item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
+            item.setdefault("modifiers_applied", []).append(
+                {"type": "happy_hour", "discount_percent": discount_percent}
+            )
+            modified = True
+
+        if modified:
+            session.update_items(items)
+            total_discount_q = sum(
+                monetary_div(item.get("unit_price_q", 0) * discount_percent, 100 - discount_percent)
+                * int(item.get("qty", 1))
+                for item in items
+                if any(m.get("type") == "happy_hour" for m in item.get("modifiers_applied", []))
+            )
+            pricing = session.pricing or {}
+            if total_discount_q > 0:
+                pricing["happy_hour"] = {
+                    "total_discount_q": total_discount_q,
+                    "label": _discount_label("CART_DISCOUNT_LABEL_TIME_WINDOW", "Happy Hour"),
+                }
+            else:
+                pricing.pop("happy_hour", None)
             session.pricing = pricing
             session.save(update_fields=["pricing"])
 

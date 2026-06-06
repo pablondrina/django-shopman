@@ -60,7 +60,7 @@ ALL_HANDLERS = [
     "shopman.shop.modifiers.EmployeeDiscountModifier",
     "shopman.shop.modifiers.LoyaltyRedeemModifier",
     "shopman.shop.modifiers.ManualDiscountModifier",
-    # Instance-specific modifiers loaded via SHOPMAN_INSTANCE_MODIFIERS
+    "shopman.shop.modifiers.TimeWindowDiscountModifier",
 ]
 
 
@@ -202,6 +202,7 @@ def _register_pricing_modifiers() -> None:
         EmployeeDiscountModifier,
         LoyaltyRedeemModifier,
         ManualDiscountModifier,
+        TimeWindowDiscountModifier,
     )
 
     backend = OffermanPricingBackend()
@@ -214,26 +215,9 @@ def _register_pricing_modifiers() -> None:
         DeliveryFeeModifier(),
         LoyaltyRedeemModifier(),
         ManualDiscountModifier(),
+        TimeWindowDiscountModifier(),
     ]:
         registry.register_modifier(modifier)
-
-    # Instance-specific modifiers (D-1, Happy Hour, etc.)
-    _register_instance_modifiers()
-
-
-def _register_instance_modifiers() -> None:
-    """Load instance-specific modifiers from SHOPMAN_INSTANCE_MODIFIERS setting.
-
-    Each entry is a dotted path to a modifier class. If the setting is present,
-    a broken path is fatal (configured-but-wrong).
-    """
-    modifier_paths = getattr(settings, "SHOPMAN_INSTANCE_MODIFIERS", [])
-    for path in modifier_paths:
-        module_path, class_name = path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        modifier_class = getattr(module, class_name)
-        registry.register_modifier(modifier_class())
-        logger.info("shopman.handlers: loaded instance modifier %s", path)
 
 
 def _register_validators() -> None:

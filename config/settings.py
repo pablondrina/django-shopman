@@ -781,19 +781,6 @@ SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 # Ref of the Channel used for POS/counter orders.
 SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 
-# ── Instance-specific modifiers ──────────────────────────────────────
-# Dotted paths to modifier classes registered at boot.
-# Example: ["instance.modifiers.D1DiscountModifier", "instance.modifiers.HappyHourModifier"]
-SHOPMAN_INSTANCE_MODIFIERS = _csv_env_list("SHOPMAN_INSTANCE_MODIFIERS")
-
-# ── Instance-specific settings (override via env or instance settings) ─
-# Happy Hour — only active if the instance registers HappyHourModifier
-SHOPMAN_HAPPY_HOUR_START = os.environ.get("SHOPMAN_HAPPY_HOUR_START", "17:30")
-SHOPMAN_HAPPY_HOUR_END = os.environ.get("SHOPMAN_HAPPY_HOUR_END", "18:00")
-SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT = int(
-    os.environ.get("SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", "25")
-)
-
 # Employee discount — configurable percentage
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
