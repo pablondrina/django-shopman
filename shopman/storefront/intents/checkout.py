@@ -13,7 +13,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from shopman.shop.services import checkout_context
+from shopman.shop.projections import checkout_context
 from shopman.shop.services import sessions as session_service
 
 from ._phone import normalize_phone_input as _try_normalize_phone
@@ -41,8 +41,6 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     13. Resolve loyalty
     14. Generate idempotency key
     """
-    from ..cart import CartService
-
     session_key = request.session.get("cart_session_key", "")
     post = request.POST
 
@@ -112,13 +110,15 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         errors["payment_method"] = "Método de pagamento indisponível. Selecione outro."
 
     # ── Step 6: Check minimum order (delivery only) ───────────────────────
-    cart = CartService.get_cart(request)
+    from shopman.shop.projections.cart import build_cart as build_cart_data
+
+    cart = build_cart_data(session_key, channel_ref)
     if fulfillment_type == "delivery":
         from shopman.utils.monetary import format_money
 
         from shopman.shop.projections.cart import build_minimum_order_progress
 
-        warning = build_minimum_order_progress(cart["subtotal_q"])
+        warning = build_minimum_order_progress(cart.subtotal_q, channel_ref)
         if warning:
             errors["minimum_order"] = (
                 f"Faltam R$ {format_money(warning.remaining_q)} para atingir o pedido "
@@ -135,17 +135,26 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     errors.update(address_errors)
 
     # ── Step 8: Check repricing (non-blocking) ────────────────────────────
-    repricing_warnings = checkout_context.repricing_warnings(cart)
+    from shopman.shop.projections.checkout import repricing_changes
+    from shopman.storefront.presentation.checkout import (
+        present_repricing_warnings,
+        present_stock_errors,
+    )
+
+    repricing_warnings = present_repricing_warnings(repricing_changes(cart.lines))
 
     # ── Step 9: Check stock ───────────────────────────────────────────────
+    from shopman.shop.projections.checkout import cart_stock_shortfalls
     from shopman.shop.services.order_helpers import parse_commitment_date
+
     commitment_date = parse_commitment_date(delivery_date)
-    stock_errors, stock_check_unavailable = checkout_context.cart_stock_errors(
+    shortfalls, stock_check_unavailable = cart_stock_shortfalls(
         session_key=session_key,
-        cart=cart,
+        cart_lines=cart.lines,
         channel_ref=channel_ref,
         target_date=commitment_date,
     )
+    stock_errors = present_stock_errors(shortfalls)
     if stock_errors:
         errors["stock"] = stock_errors[0]["message"]
 
@@ -163,7 +172,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         errors.update(preorder_errors)
 
     # ── Step 11: Validate slot ────────────────────────────────────────────
-    cart_skus = [str(item.get("sku") or "") for item in cart.get("items", []) if item.get("sku")]
+    cart_skus = [line.sku for line in cart.lines if line.sku]
     slot_errors = _validate_slot(
         delivery_time_slot,
         fulfillment_type,

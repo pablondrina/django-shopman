@@ -20,6 +20,7 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.projections import customer_context
 from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
+from shopman.shop.projections.copy import build_copy
 from shopman.shop.projections.interaction_context import InteractionContext
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
@@ -380,4 +381,64 @@ def _shop_config() -> tuple[int, list, str]:
     return 30, [], ""
 
 
-__all__ = ["CheckoutProjection", "build_checkout"]
+# ──────────────────────────────────────────────────────────────────────
+# Validation message builders — render the checkout DATA projections
+# (shop.projections.checkout) as the dicts the form/JS consume.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def present_repricing_warnings(changes) -> list[dict]:
+    """Render repricing-change data as the warning dicts the checkout shows."""
+    if not changes:
+        return []
+    copy = build_copy("CHECKOUT")
+    warnings = []
+    for ch in changes:
+        current_display = f"R$ {format_money(ch.current_price_q)}"
+        message = copy.message(
+            "CHECKOUT_REPRICING_MESSAGE",
+            "O preço de {name} mudou para {price}. Deseja continuar?",
+        ).format(name=ch.name, price=current_display)
+        warnings.append({
+            "sku": ch.sku,
+            "name": ch.name,
+            "cart_price_display": f"R$ {format_money(ch.cart_price_q)}",
+            "current_price_display": current_display,
+            "message": message,
+        })
+    return warnings
+
+
+def present_stock_errors(shortfalls) -> list[dict]:
+    """Render stock-shortfall data as the error dicts the checkout shows."""
+    if not shortfalls:
+        return []
+    copy = build_copy("CHECKOUT")
+    errors = []
+    for sf in shortfalls:
+        if sf.available_qty > 0:
+            message = copy.message(
+                "CHECKOUT_STOCK_LIMITED",
+                "{name}: disponível {qty} unidade(s) no momento.",
+            ).format(name=sf.name, qty=sf.available_qty)
+        else:
+            message = copy.message(
+                "CHECKOUT_STOCK_SOLD_OUT",
+                "{name} está esgotado no momento.",
+            ).format(name=sf.name)
+        errors.append({
+            "line_id": sf.line_id,
+            "sku": sf.sku,
+            "requested_qty": sf.requested_qty,
+            "available_qty": sf.available_qty,
+            "message": message,
+        })
+    return errors
+
+
+__all__ = [
+    "CheckoutProjection",
+    "build_checkout",
+    "present_repricing_warnings",
+    "present_stock_errors",
+]

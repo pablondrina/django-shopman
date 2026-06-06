@@ -387,7 +387,7 @@ def test_storefront_checkout_intent_delegates_domain_resolution():
             f"{_format_violations(violations)}\n\n"
             "Keep request/form interpretation in storefront and route customer, "
             "catalog, stock, and loyalty resolution through "
-            "shopman.shop.services.checkout_context."
+            "shopman.shop.projections.checkout_context."
         )
 
 

@@ -43,6 +43,32 @@ def _make_staff():
     return user
 
 
+def repricing_warnings(cart: dict) -> list[dict]:
+    """Run the drained repricing path (data → presentation) over a cart-items dict.
+
+    The repricing read-model split into ``shop.projections.checkout.
+    repricing_changes`` (data, threshold) + ``storefront.presentation.checkout.
+    present_repricing_warnings`` (copy/format). This shim feeds the items dict
+    these tests build through both, yielding the same warning dicts.
+    """
+    from shopman.shop.projections.cart import CartLineProjection
+    from shopman.shop.projections.checkout import repricing_changes
+    from shopman.storefront.presentation.checkout import present_repricing_warnings
+
+    lines = tuple(
+        CartLineProjection(
+            line_id="", sku=i["sku"], name=i.get("name", ""), qty=i.get("qty", 1),
+            unit_price_q=i["unit_price_q"], line_total_q=i["unit_price_q"] * i.get("qty", 1),
+            is_available=True, available_qty=None,
+            is_awaiting_confirmation=False, is_ready_for_confirmation=False,
+            confirmation_deadline_iso=None,
+            original_price_q=None, discount_name=None, discount_is_coupon=False,
+        )
+        for i in cart.get("items", [])
+    )
+    return present_repricing_warnings(repricing_changes(lines))
+
+
 class CartExpiredRedirectTests(TestCase):
     """Expired cart session → redirect with flash message."""
 
@@ -99,7 +125,7 @@ class PaymentMethodUnavailableTests(TestCase):
 
     def test_payment_method_available_cash(self) -> None:
         """cash is available when channel returns only cash."""
-        with patch("shopman.shop.services.checkout_context.payment_methods", return_value=["cash"]) as mock:
+        with patch("shopman.shop.projections.checkout_context.payment_methods", return_value=["cash"]) as mock:
             methods = mock("web")
             self.assertIn("cash", methods)
             self.assertNotIn("pix", methods)
@@ -132,7 +158,6 @@ class RepricingWarningTests(TestCase):
 
     def test_repricing_detected_over_5_percent(self) -> None:
         """Item added at R$ 8,00 but catalog is R$ 10,00 (25% increase) → warning."""
-        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
@@ -146,7 +171,6 @@ class RepricingWarningTests(TestCase):
 
     def test_no_repricing_within_5_percent(self) -> None:
         """Item added at R$ 9,60 with catalog R$ 10,00 (4% diff) → no warning."""
-        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
@@ -158,7 +182,6 @@ class RepricingWarningTests(TestCase):
 
     def test_repricing_exact_match_no_warning(self) -> None:
         """Exact price match → no warning."""
-        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
@@ -170,13 +193,11 @@ class RepricingWarningTests(TestCase):
 
     def test_empty_cart_no_repricing(self) -> None:
         """Empty cart → no warnings."""
-        from shopman.shop.services.checkout_context import repricing_warnings
         warnings = repricing_warnings({"items": []})
         self.assertEqual(len(warnings), 0)
 
     def test_unknown_sku_skipped(self) -> None:
         """SKU not in catalog → silently skipped (no crash)."""
-        from shopman.shop.services.checkout_context import repricing_warnings
         cart = {
             "items": [
                 {"sku": "NONEXISTENT-SKU", "qty": 1, "unit_price_q": 500, "name": "Ghost"},
@@ -203,7 +224,6 @@ class RepricingWarningStructureTests(TestCase):
 
     def test_repricing_warning_has_required_keys(self) -> None:
         """Warning dict has sku, name, message, and price display fields."""
-        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {"items": [{"sku": "STRUCT-SKU-001", "qty": 1, "unit_price_q": 500, "name": "Struct Product"}]}
         warnings = repricing_warnings(cart)
@@ -218,7 +238,6 @@ class RepricingWarningStructureTests(TestCase):
 
     def test_repricing_warning_message_includes_product_name(self) -> None:
         """Warning message identifies the product by name."""
-        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {"items": [{"sku": "STRUCT-SKU-001", "qty": 1, "unit_price_q": 100, "name": "Struct Product"}]}
         warnings = repricing_warnings(cart)

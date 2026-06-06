@@ -251,7 +251,7 @@ class TestCheckoutPost:
         _login_as_customer(cart_session, customer)
 
         with patch(
-            "shopman.shop.services.checkout_context._availability_for_sku",
+            "shopman.shop.projections.checkout_context._availability_for_sku",
             return_value={
                 "breakdown": {"ready": 0, "in_production": 1, "d1": 0},
                 "availability_policy": "demand_ok",

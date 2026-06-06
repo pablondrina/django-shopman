@@ -207,10 +207,11 @@ class CartService:
 
         Data resolution (availability, planned holds, discounts, totals) lives
         in ``shop.projections.cart.build_cart`` — the single source. The REST
-        serializer, catalog and discount tests now consume the projection
-        directly; this adapter survives only for the **checkout** path
-        (``views/intents.checkout``), whose ``checkout_context`` helpers still
-        take the dict. It is retired when that drains in WP6/D4.
+        serializer, catalog, discount tests and the checkout *intent* now
+        consume the projection directly; this adapter survives only for the
+        checkout **views / order-summary template**, which still read the dict.
+        It is retired when those templates move to the projection in WP6/D4
+        (the visual checkout rebuild).
         """
         from shopman.shop.projections.cart import build_cart
 

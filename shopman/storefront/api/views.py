@@ -379,7 +379,7 @@ class CheckoutView(APIView):
             checkout_data["payment"] = {"method": payment_method}
         if use_loyalty:
             try:
-                from shopman.shop.services import checkout_context
+                from shopman.shop.projections import checkout_context
 
                 customer_info = getattr(request, "customer", None)
                 loyalty_balance_q = checkout_context.loyalty_balance(

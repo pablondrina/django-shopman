@@ -377,7 +377,7 @@ class PaymentInitiateFailureTests(TestCase):
 
 
 class StockCheckDegradationTests(TestCase):
-    """cart_stock_errors returns ([], True) when stock service is down."""
+    """cart_stock_shortfalls returns ((), True) when stock service is down."""
 
     def setUp(self):
         _make_shop()
@@ -406,35 +406,42 @@ class StockCheckDegradationTests(TestCase):
         return request
 
     def _make_cart(self, skus=("SKU-A", "SKU-B")):
-        return {
-            "items": [
-                {"sku": sku, "qty": 1, "name": sku, "line_id": f"L-{sku}"}
-                for sku in skus
-            ]
-        }
+        from shopman.shop.projections.cart import CartLineProjection
+
+        return tuple(
+            CartLineProjection(
+                line_id=f"L-{sku}", sku=sku, name=sku, qty=1,
+                unit_price_q=100, line_total_q=100,
+                is_available=True, available_qty=None,
+                is_awaiting_confirmation=False, is_ready_for_confirmation=False,
+                confirmation_deadline_iso=None,
+                original_price_q=None, discount_name=None, discount_is_coupon=False,
+            )
+            for sku in skus
+        )
 
     def test_all_unavailable_returns_service_down_flag(self) -> None:
         """When every _get_availability returns None → service_unavailable=True."""
-        from shopman.shop.services.checkout_context import cart_stock_errors
+        from shopman.shop.projections.checkout import cart_stock_shortfalls
 
         cart = self._make_cart()
         request = self._make_request()
 
-        with patch("shopman.shop.services.checkout_context._availability_for_sku", return_value=None):
-            errors, service_unavailable = cart_stock_errors(
+        with patch("shopman.shop.projections.checkout_context._availability_for_sku", return_value=None):
+            shortfalls, service_unavailable = cart_stock_shortfalls(
                 session_key=request.session.get("cart_session_key", ""),
-                cart=cart,
+                cart_lines=cart,
                 channel_ref="web",
             )
 
         self.assertTrue(service_unavailable)
-        self.assertEqual(errors, [])
+        self.assertEqual(shortfalls, ())
 
     def test_partial_unavailable_not_flagged_as_service_down(self) -> None:
         """When only some items fail → service_unavailable=False (partial degradation)."""
         from decimal import Decimal
 
-        from shopman.shop.services.checkout_context import cart_stock_errors
+        from shopman.shop.projections.checkout import cart_stock_shortfalls
 
         cart = self._make_cart(skus=("SKU-A", "SKU-B"))
         request = self._make_request()
@@ -444,10 +451,10 @@ class StockCheckDegradationTests(TestCase):
         def _avail(sku, **kwargs):
             return avail_ok if sku == "SKU-A" else None
 
-        with patch("shopman.shop.services.checkout_context._availability_for_sku", side_effect=_avail):
-            errors, service_unavailable = cart_stock_errors(
+        with patch("shopman.shop.projections.checkout_context._availability_for_sku", side_effect=_avail):
+            shortfalls, service_unavailable = cart_stock_shortfalls(
                 session_key=request.session.get("cart_session_key", ""),
-                cart=cart,
+                cart_lines=cart,
                 channel_ref="web",
             )
 
@@ -455,33 +462,33 @@ class StockCheckDegradationTests(TestCase):
 
     def test_empty_cart_returns_no_service_down(self) -> None:
         """Empty cart → ([], False)."""
-        from shopman.shop.services.checkout_context import cart_stock_errors
+        from shopman.shop.projections.checkout import cart_stock_shortfalls
 
         request = self._make_request()
-        errors, service_unavailable = cart_stock_errors(
+        shortfalls, service_unavailable = cart_stock_shortfalls(
             session_key=request.session.get("cart_session_key", ""),
-            cart={"items": []},
+            cart_lines=(),
             channel_ref="web",
         )
         self.assertFalse(service_unavailable)
-        self.assertEqual(errors, [])
+        self.assertEqual(shortfalls, ())
 
     def test_stock_available_no_errors_no_flag(self) -> None:
         """Normal stock → ([], False)."""
         from decimal import Decimal
 
-        from shopman.shop.services.checkout_context import cart_stock_errors
+        from shopman.shop.projections.checkout import cart_stock_shortfalls
 
         cart = self._make_cart(skus=("SKU-C",))
         request = self._make_request()
         avail = {"total_promisable": Decimal("5"), "breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
-        with patch("shopman.shop.services.checkout_context._availability_for_sku", return_value=avail):
-            errors, service_unavailable = cart_stock_errors(
+        with patch("shopman.shop.projections.checkout_context._availability_for_sku", return_value=avail):
+            shortfalls, service_unavailable = cart_stock_shortfalls(
                 session_key=request.session.get("cart_session_key", ""),
-                cart=cart,
+                cart_lines=cart,
                 channel_ref="web",
             )
 
         self.assertFalse(service_unavailable)
-        self.assertEqual(errors, [])
+        self.assertEqual(shortfalls, ())
