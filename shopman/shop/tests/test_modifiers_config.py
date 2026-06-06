@@ -1,8 +1,9 @@
-"""Tests: modifier RuleConfig integration (WP-GAP-10 Fase 2).
+"""Tests: modifier RuleConfig integration.
 
-Verifies that D1, HappyHour, and Employee modifiers read params from
-RuleConfig when available, with correct fallback to channel.config and
-constructor defaults. RuleConfig DB is mocked via get_rule_params.
+Verifies that the rule-driven discount modifiers (availability / time-window)
+and the Employee modifier read params from RuleConfig, are gated by the
+rule's enabled+channel state, and fall back to generic defaults. The rule
+lookup is mocked (``get_channel_rule_params`` / ``get_rule_params``).
 """
 from __future__ import annotations
 
@@ -32,14 +33,21 @@ def _make_channel(rules=None):
     return ch
 
 
-# ─── D1DiscountModifier ─────────────────────────────────────────────────────
+# ─── AvailabilityDiscountModifier (generic D-1) ──────────────────────────────
 
 
-class TestD1ModifierRuleConfig:
+class TestAvailabilityDiscountModifier:
+    """Rule-driven clearance discount on limited-availability lines.
+
+    Parity note: the cents asserted here (50% → 500, 30% → 700) match exactly
+    the values the former instance ``D1DiscountModifier`` produced — the move to
+    the generic, rule-driven modifier is price-neutral.
+    """
+
     @pytest.fixture
     def modifier(self):
-        from instances.nelson.modifiers import D1DiscountModifier
-        return D1DiscountModifier()
+        from shopman.shop.modifiers import AvailabilityDiscountModifier
+        return AvailabilityDiscountModifier()
 
     def _d1_item(self, price_q=1000):
         return {"sku": "P001", "unit_price_q": price_q, "qty": 1, "is_d1": True}
@@ -47,36 +55,46 @@ class TestD1ModifierRuleConfig:
     def test_reads_percent_from_ruleconfig(self, modifier):
         session = _make_session(items=[self._d1_item()])
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 30}):
+        with patch(
+            "shopman.shop.rules.engine.get_channel_rule_params",
+            return_value={"discount_percent": 30},
+        ):
             modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 700  # 1000 - 30%
 
-    def test_channel_config_overrides_ruleconfig(self, modifier):
-        session = _make_session(items=[self._d1_item()])
-        channel = _make_channel(rules={"d1_discount_percent": 40})
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 30}):
-            modifier.apply(channel=channel, session=session, ctx={})
-        assert session.items[0]["unit_price_q"] == 600  # 1000 - 40%
-
-    def test_falls_back_to_default_when_no_ruleconfig(self, modifier):
+    def test_falls_back_to_default_when_params_empty(self, modifier):
         session = _make_session(items=[self._d1_item()])
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={}):
+        with patch("shopman.shop.rules.engine.get_channel_rule_params", return_value={}):
             modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 500  # 1000 - 50% (module default)
+
+    def test_skips_when_rule_disabled_or_other_channel(self, modifier):
+        session = _make_session(items=[self._d1_item()])
+        channel = _make_channel()
+        # None = no enabled rule for this channel → modifier must not touch prices.
+        with patch("shopman.shop.rules.engine.get_channel_rule_params", return_value=None):
+            modifier.apply(channel=channel, session=session, ctx={})
+        assert session.items[0]["unit_price_q"] == 1000
 
     def test_non_d1_item_unaffected(self, modifier):
         session = _make_session(items=[{"sku": "P001", "unit_price_q": 1000, "qty": 1}])
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 30}) as mock_params:
+        with patch(
+            "shopman.shop.rules.engine.get_channel_rule_params",
+            return_value={"discount_percent": 30},
+        ) as mock_params:
             modifier.apply(channel=channel, session=session, ctx={})
         assert session.items[0]["unit_price_q"] == 1000  # not d1, not touched
-        mock_params.assert_not_called()
+        mock_params.assert_not_called()  # short-circuits before the rule lookup
 
     def test_modifier_records_type_in_applied(self, modifier):
         session = _make_session(items=[self._d1_item()])
         channel = _make_channel()
-        with patch("shopman.shop.rules.engine.get_rule_params", return_value={"discount_percent": 50}):
+        with patch(
+            "shopman.shop.rules.engine.get_channel_rule_params",
+            return_value={"discount_percent": 50},
+        ):
             modifier.apply(channel=channel, session=session, ctx={})
         types = [m["type"] for m in session.items[0].get("modifiers_applied", [])]
         assert "d1_discount" in types

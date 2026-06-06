@@ -124,6 +124,7 @@ class Command(BaseCommand):
         self._seed_loyalty(customers)
         self._seed_notification_templates()
         self._seed_rule_configs()
+        self._seed_omotenashi_copy()
         self._seed_day_closing()
         self._seed_cash_register()
         self._seed_operation_checklists()
@@ -3961,6 +3962,35 @@ class Command(BaseCommand):
                 count += 1
 
         self.stdout.write(f"  ✅ {len(RULE_CONFIGS)} rule configs ({count} novos)")
+
+    def _seed_omotenashi_copy(self):
+        """Brand overrides for generic interface copy.
+
+        The pricing modifiers carry generic discount labels; Nelson overrides
+        them with its own wording (e.g. "D-1") via OmotenashiCopy rows.
+        """
+        self.stdout.write("  💬 Omotenashi copy (overrides de marca)...")
+
+        COPY_OVERRIDES = [
+            {"key": "CART_DISCOUNT_LABEL_AVAILABILITY", "title": "D-1"},
+        ]
+
+        count = 0
+        for entry in COPY_OVERRIDES:
+            _, created = OmotenashiCopy.objects.update_or_create(
+                key=entry["key"],
+                moment="*",
+                audience="*",
+                defaults={
+                    "title": entry.get("title", ""),
+                    "message": entry.get("message", ""),
+                    "active": True,
+                },
+            )
+            if created:
+                count += 1
+
+        self.stdout.write(f"  ✅ {len(COPY_OVERRIDES)} cópias omotenashi ({count} novas)")
 
     # ────────────────────────────────────────────────────────────────
     # DayClosing (fechamento do dia)

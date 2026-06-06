@@ -1,12 +1,10 @@
 """
 Nelson Boulangerie — modifiers específicos da instância.
 
-D-1 Discount: desconto em itens do dia anterior (perecíveis).
 Happy Hour: desconto por horário ("Hora da Xepa").
 
 Para ativar, adicione ao SHOPMAN_INSTANCE_MODIFIERS em settings:
     SHOPMAN_INSTANCE_MODIFIERS = [
-        "nelson.modifiers.D1DiscountModifier",
         "nelson.modifiers.HappyHourModifier",
     ]
 """
@@ -24,7 +22,6 @@ from shopman.utils.monetary import monetary_div
 logger = logging.getLogger(__name__)
 
 # ── Configurable defaults ──────────────────────────────────────────
-D1_DISCOUNT_PERCENT = 50
 HAPPY_HOUR_DISCOUNT_PERCENT = 25
 HAPPY_HOUR_START = time(17, 30)
 HAPPY_HOUR_END = time(18, 0)
@@ -33,78 +30,6 @@ HAPPY_HOUR_END = time(18, 0)
 def _is_non_merchandise_line(item: dict) -> bool:
     meta = item.get("meta") or {}
     return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
-
-
-class D1DiscountModifier:
-    """
-    Desconto D-1 — aplica desconto em itens com estoque apenas D-1
-    (sobras do dia anterior).
-
-    Configurável via channel config: rules.d1_discount_percent (default 50).
-    Requer que o item tenha {"is_d1": true} em session.data["availability"]
-    ou em item["is_d1"].
-    """
-
-    code = "shop.d1_discount"
-    order = 15
-
-    def __init__(self, *, discount_percent: int = D1_DISCOUNT_PERCENT):
-        self.discount_percent = discount_percent
-
-    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        availability = (session.data or {}).get("availability", {})
-        items = session.items or []
-        if not any(
-            item.get("is_d1", False)
-            or availability.get(item.get("sku", ""), {}).get("is_d1", False)
-            for item in items
-        ):
-            return
-
-        config = getattr(channel, "config", None) or {}
-        channel_rules = config.get("rules", {})
-        if "d1_discount_percent" in channel_rules:
-            percent = channel_rules["d1_discount_percent"]
-        else:
-            from shopman.shop.rules.engine import get_rule_params
-            percent = get_rule_params("d1_discount").get("discount_percent", self.discount_percent)
-
-        modified = False
-        for item in items:
-            if _is_non_merchandise_line(item):
-                continue
-            sku = item.get("sku", "")
-            is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
-            if not is_d1:
-                continue
-
-            original_q = item.get("unit_price_q", 0)
-            if not original_q:
-                continue
-
-            discount_q = monetary_div(original_q * percent, 100)
-            item["unit_price_q"] = original_q - discount_q
-            item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
-            item.setdefault("modifiers_applied", []).append(
-                {"type": "d1_discount", "discount_percent": percent, "original_price_q": original_q}
-            )
-            modified = True
-
-        if modified:
-            session.update_items(items)
-            total_discount_q = sum(
-                (m["original_price_q"] - item.get("unit_price_q", 0)) * int(item.get("qty", 1))
-                for item in items
-                for m in item.get("modifiers_applied", [])
-                if m.get("type") == "d1_discount"
-            )
-            pricing = session.pricing or {}
-            if total_discount_q > 0:
-                pricing["d1_discount"] = {"total_discount_q": total_discount_q, "label": "D-1"}
-            else:
-                pricing.pop("d1_discount", None)
-            session.pricing = pricing
-            session.save(update_fields=["pricing"])
 
 
 class HappyHourModifier:

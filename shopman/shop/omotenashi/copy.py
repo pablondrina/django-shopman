@@ -181,6 +181,12 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_PAGE_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Seu carrinho")},
     },
+    # Discount-line labels for the rule-driven pricing modifiers. Generic by
+    # function; a deployment overrides with its brand wording (e.g. "D-1",
+    # "Hora da Xepa") via an OmotenashiCopy row.
+    "CART_DISCOUNT_LABEL_AVAILABILITY": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Liquidação")},
+    },
     "CART_UNAVAILABLE_BANNER": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estoque de alguns itens mudou. Veja as opções em cada item abaixo.")},
     },

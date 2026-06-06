@@ -15,8 +15,10 @@ Execution order:
   80  shop.loyalty_redeem   — loyalty points redemption (post-pricing)
   85  shop.manual_discount  — desconto manual (POS)
 
-Instance-specific modifiers (D-1, Happy Hour, etc.) are registered via
-SHOPMAN_INSTANCE_MODIFIERS in settings and live in their respective instance.
+Rule-driven discount modifiers (availability / time-window) are generic and
+configured per deployment through ``RuleConfig`` rows — enabled state, params and
+channel scope all live in the DB. They are registered unconditionally; execution
+is gated by ``get_channel_rule_params`` so a disabled rule means no discount.
 
 Discount policy — "maior desconto ganha":
   Per item, only ONE discount applies (the best one).
@@ -34,11 +36,95 @@ logger = logging.getLogger(__name__)
 
 # ── Configurable defaults ──────────────────────────────────────────
 DEFAULT_EMPLOYEE_DISCOUNT_PERCENT = 20
+DEFAULT_AVAILABILITY_DISCOUNT_PERCENT = 50
 
 
 def _is_non_merchandise_line(item: dict) -> bool:
     meta = item.get("meta") or {}
     return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
+
+
+def _discount_label(copy_key: str, fallback: str) -> str:
+    """Resolve a customer-facing discount label from OmotenashiCopy.
+
+    The label is moment/audience-agnostic, so the wildcard cascade resolves the
+    deployment override (if any) or the generic code default. ``fallback`` is the
+    last resort if the key is unknown.
+    """
+    from shopman.shop.omotenashi.copy import WILDCARD, resolve_copy
+
+    entry = resolve_copy(copy_key, moment=WILDCARD, audience=WILDCARD)
+    return entry.title or entry.message or fallback
+
+
+class AvailabilityDiscountModifier:
+    """Discount applied to lines flagged as limited-availability stock.
+
+    Generic form of the "day-old / last-units" clearance discount: when a line
+    is flagged ``is_d1`` (either on the item or in ``session.data["availability"]``)
+    it receives a percentage off. Rule-driven — params and channel scope come
+    from the ``d1_discount`` RuleConfig; a disabled rule means no discount.
+    """
+
+    code = "shop.d1_discount"
+    order = 15
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        from shopman.shop.rules.engine import get_channel_rule_params
+
+        availability = (session.data or {}).get("availability", {})
+        items = session.items or []
+        if not any(
+            item.get("is_d1", False)
+            or availability.get(item.get("sku", ""), {}).get("is_d1", False)
+            for item in items
+        ):
+            return
+
+        params = get_channel_rule_params("d1_discount", getattr(channel, "ref", None))
+        if params is None:
+            return
+        percent = params.get("discount_percent", DEFAULT_AVAILABILITY_DISCOUNT_PERCENT)
+
+        modified = False
+        for item in items:
+            if _is_non_merchandise_line(item):
+                continue
+            sku = item.get("sku", "")
+            is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
+            if not is_d1:
+                continue
+
+            original_q = item.get("unit_price_q", 0)
+            if not original_q:
+                continue
+
+            discount_q = monetary_div(original_q * percent, 100)
+            item["unit_price_q"] = original_q - discount_q
+            item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
+            item.setdefault("modifiers_applied", []).append(
+                {"type": "d1_discount", "discount_percent": percent, "original_price_q": original_q}
+            )
+            modified = True
+
+        if modified:
+            session.update_items(items)
+            total_discount_q = sum(
+                (m["original_price_q"] - item.get("unit_price_q", 0)) * int(item.get("qty", 1))
+                for item in items
+                for m in item.get("modifiers_applied", [])
+                if m.get("type") == "d1_discount"
+            )
+            pricing = session.pricing or {}
+            if total_discount_q > 0:
+                pricing["d1_discount"] = {
+                    "total_discount_q": total_discount_q,
+                    "label": _discount_label("CART_DISCOUNT_LABEL_AVAILABILITY", "Liquidação"),
+                }
+            else:
+                pricing.pop("d1_discount", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
 
 
 class DiscountModifier:

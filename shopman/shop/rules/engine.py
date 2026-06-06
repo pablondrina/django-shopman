@@ -86,6 +86,36 @@ def get_rule_params(code: str) -> dict:
     return {}
 
 
+def get_channel_rule_params(code: str, channel_ref: str | None) -> dict | None:
+    """Return params for an *enabled* RuleConfig ``code`` applicable to ``channel_ref``.
+
+    This is the rule-driven execution gate for pricing modifiers: a modifier
+    calls it with its own ``code`` and the channel being priced. The return
+    distinguishes three cases:
+
+    - ``dict`` — the rule is enabled and applies here; use these params.
+    - ``None`` — no enabled rule for this channel; the modifier must **skip**.
+
+    A rule with no ``channels`` applies everywhere; otherwise it applies only to
+    the listed channels (matched by ``Channel.ref``). The channels are prefetched
+    by ``get_active_rules()`` so this adds no per-call query. Returns ``None`` on
+    any DB error (fail-closed: no rule, no discount).
+    """
+    try:
+        for rc in get_active_rules():
+            if rc.code != code:
+                continue
+            channels = list(rc.channels.all())
+            if not channels:
+                return rc.params or {}
+            if channel_ref and any(c.ref == channel_ref for c in channels):
+                return rc.params or {}
+            return None
+    except Exception:
+        logger.debug("rules.engine: channel rule lookup failed for rule=%s", code, exc_info=True)
+    return None
+
+
 def load_rule(rule_config):
     """Import and instantiate a rule class from rule_config.rule_path.
 
