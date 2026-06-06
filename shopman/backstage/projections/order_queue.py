@@ -18,10 +18,12 @@ from django.utils import timezone
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
+from shopman.backstage.presentation.status import (
+    order_status_label,
+    payment_method_label,
+    status_color,
+)
 from shopman.shop.projections.types import (
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
-    PAYMENT_METHOD_LABELS_PT,
     OrderItemProjection,
     TimelineEventProjection,
 )
@@ -228,8 +230,8 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
     return OperatorOrderProjection(
         ref=order.ref,
         status=order.status,
-        status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-        status_color=ORDER_STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
+        status_label=order_status_label(order.status),
+        status_color=status_color(order.status),
         customer_name=customer_name,
         channel_ref=order.channel_ref or "",
         channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
@@ -333,8 +335,8 @@ def _build_card(order: Order) -> OrderCardProjection:
     return OrderCardProjection(
         ref=order.ref,
         status=order.status,
-        status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-        status_color=ORDER_STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
+        status_label=order_status_label(order.status),
+        status_color=status_color(order.status),
         channel_ref=order.channel_ref or "",
         channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
         customer_name=customer_name,
@@ -415,7 +417,7 @@ def _payment_status(order: Order) -> str:
 
 
 def _payment_method_label(method: str, payment_data: dict) -> str:
-    label = PAYMENT_METHOD_LABELS_PT.get(method, method)
+    label = payment_method_label(method)
     if payment_data.get("collection") == "on_delivery":
         if payment_data.get("cod_settled_at"):
             return f"{label} entregue no caixa"
@@ -555,7 +557,7 @@ def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
         payload = event.payload or {}
         new_status = payload.get("new_status", "")
         if event.type == "status_changed" and new_status:
-            label = ORDER_STATUS_LABELS_PT.get(new_status, new_status)
+            label = order_status_label(new_status)
         else:
             label = event.type.replace("_", " ").title()
 
@@ -577,8 +579,8 @@ def _event_detail(payload: dict) -> str:
     old_status = payload.get("old_status")
     new_status = payload.get("new_status")
     if old_status or new_status:
-        old_label = ORDER_STATUS_LABELS_PT.get(old_status, old_status or "-")
-        new_label = ORDER_STATUS_LABELS_PT.get(new_status, new_status or "-")
+        old_label = order_status_label(old_status, old_status or "-")
+        new_label = order_status_label(new_status, new_status or "-")
         return f"{old_label} -> {new_label}"
     for key in ("reason", "note", "error"):
         value = payload.get(key)

@@ -22,12 +22,20 @@ class Availability(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
-AVAILABILITY_LABELS_PT: dict[Availability, str] = {
-    Availability.AVAILABLE: "Disponível",
-    Availability.LOW_STOCK: "Últimas unidades",
-    Availability.PLANNED_OK: "Lista de espera",
-    Availability.UNAVAILABLE: "Indisponível",
-}
+class Tone(StrEnum):
+    """Semantic status tone — pure meaning, surface-agnostic.
+
+    The data read-side carries only *which* tone a status conveys; mapping a
+    tone to concrete design-token classes (Tailwind colours) is Presentation,
+    owned by each surface. This keeps ``shop/projections/`` free of rendered
+    appearance (rule R-B).
+    """
+
+    INFO = "info"
+    WARNING = "warning"
+    SUCCESS = "success"
+    DANGER = "danger"
+    NEUTRAL = "neutral"
 
 
 @dataclass(frozen=True)
@@ -54,38 +62,18 @@ class HappyHourProjection:
 # Fase 2 — Checkout, Payment, Tracking
 # ──────────────────────────────────────────────────────────────────────
 
-PAYMENT_METHOD_LABELS_PT: dict[str, str] = {
-    "pix": "PIX",
-    "card": "Cartão",
-    "cash": "Dinheiro",
-    "mixed": "Pagamento misto",
-
-    "external": "Pago online",
+ORDER_STATUS_TONES: dict[str, Tone] = {
+    "new": Tone.INFO,
+    "confirmed": Tone.INFO,
+    "preparing": Tone.WARNING,
+    "ready": Tone.SUCCESS,
+    "dispatched": Tone.INFO,
+    "delivered": Tone.SUCCESS,
+    "completed": Tone.SUCCESS,
+    "cancelled": Tone.DANGER,
+    "returned": Tone.NEUTRAL,
 }
 
-ORDER_STATUS_LABELS_PT: dict[str, str] = {
-    "new": "Recebido",
-    "confirmed": "Confirmado",
-    "preparing": "Em Preparo",
-    "ready": "Pronto",
-    "dispatched": "Saiu para entrega",
-    "delivered": "Entregue",
-    "completed": "Concluído",
-    "cancelled": "Cancelado",
-    "returned": "Devolvido",
-}
-
-ORDER_STATUS_COLORS: dict[str, str] = {
-    "new": "bg-info/10 text-info border border-info/20",
-    "confirmed": "bg-info/10 text-info border border-info/20",
-    "preparing": "bg-warning/10 text-warning border border-warning/20",
-    "ready": "bg-success/10 text-success border border-success/20",
-    "dispatched": "bg-info/10 text-info border border-info/20",
-    "delivered": "bg-success/10 text-success border border-success/20",
-    "completed": "bg-success/10 text-success border border-success/20",
-    "cancelled": "bg-danger/10 text-danger border border-danger/20",
-    "returned": "bg-surface-alt text-on-surface/60 border border-outline",
-}
 
 @dataclass(frozen=True)
 class Action:

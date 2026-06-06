@@ -10,10 +10,7 @@ from django.http import Http404
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.projections import catalog_context
-from shopman.shop.projections.types import (
-    AVAILABILITY_LABELS_PT,
-    Availability,
-)
+from shopman.shop.projections.types import Availability
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +21,6 @@ class SkuState:
     availability: Availability
     available_qty: int | None
     can_add_to_cart: bool
-
-    @property
-    def label(self) -> str:
-        return AVAILABILITY_LABELS_PT[self.availability]
 
 
 def resolve(*, sku: str, channel_ref: str) -> SkuState:

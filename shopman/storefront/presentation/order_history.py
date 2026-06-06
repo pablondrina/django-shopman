@@ -18,15 +18,10 @@ from django.utils import timezone
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections import customer as customer_projection
-from shopman.shop.projections.types import (
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
-)
+from shopman.storefront.presentation.status import order_status_label, status_color
 from shopman.storefront.presentation.types import OrderSummaryProjection
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_STATUS_COLOR = "bg-surface-alt text-on-surface/60 border border-outline"
 
 FILTER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("todos", "Todos"),
@@ -88,8 +83,8 @@ def present_summary(summary) -> OrderSummaryProjection:
         total_q=summary.total_q,
         total_display=f"R$ {format_money(summary.total_q)}",
         status=summary.status,
-        status_label=ORDER_STATUS_LABELS_PT.get(summary.status, summary.status),
-        status_color=ORDER_STATUS_COLORS.get(summary.status, _DEFAULT_STATUS_COLOR),
+        status_label=order_status_label(summary.status),
+        status_color=status_color(summary.status),
         item_count=summary.item_count,
     )
 

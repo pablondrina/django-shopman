@@ -1356,6 +1356,32 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "REORDER_CONFLICT_CANCEL_LABEL": {
         WILDCARD: {WILDCARD: CopyEntry(title="Manter meu carrinho")},
     },
+
+    # ── Order status labels (shared: storefront tracking + operator queue) ─
+    # One key per Order status; tone/colour is carried separately as semantic
+    # data (``ORDER_STATUS_TONES``) and mapped to classes by each surface.
+    "ORDER_STATUS_NEW": {WILDCARD: {WILDCARD: CopyEntry(title="Recebido")}},
+    "ORDER_STATUS_CONFIRMED": {WILDCARD: {WILDCARD: CopyEntry(title="Confirmado")}},
+    "ORDER_STATUS_PREPARING": {WILDCARD: {WILDCARD: CopyEntry(title="Em Preparo")}},
+    "ORDER_STATUS_READY": {WILDCARD: {WILDCARD: CopyEntry(title="Pronto")}},
+    "ORDER_STATUS_DISPATCHED": {WILDCARD: {WILDCARD: CopyEntry(title="Saiu para entrega")}},
+    "ORDER_STATUS_DELIVERED": {WILDCARD: {WILDCARD: CopyEntry(title="Entregue")}},
+    "ORDER_STATUS_COMPLETED": {WILDCARD: {WILDCARD: CopyEntry(title="Concluído")}},
+    "ORDER_STATUS_CANCELLED": {WILDCARD: {WILDCARD: CopyEntry(title="Cancelado")}},
+    "ORDER_STATUS_RETURNED": {WILDCARD: {WILDCARD: CopyEntry(title="Devolvido")}},
+
+    # ── Payment method labels (checkout, POS, operator queue) ─────────────
+    "PAYMENT_METHOD_PIX": {WILDCARD: {WILDCARD: CopyEntry(title="PIX")}},
+    "PAYMENT_METHOD_CARD": {WILDCARD: {WILDCARD: CopyEntry(title="Cartão")}},
+    "PAYMENT_METHOD_CASH": {WILDCARD: {WILDCARD: CopyEntry(title="Dinheiro")}},
+    "PAYMENT_METHOD_MIXED": {WILDCARD: {WILDCARD: CopyEntry(title="Pagamento misto")}},
+    "PAYMENT_METHOD_EXTERNAL": {WILDCARD: {WILDCARD: CopyEntry(title="Pago online")}},
+
+    # ── Availability labels (storefront catalog + product detail) ─────────
+    "AVAILABILITY_AVAILABLE": {WILDCARD: {WILDCARD: CopyEntry(title="Disponível")}},
+    "AVAILABILITY_LOW_STOCK": {WILDCARD: {WILDCARD: CopyEntry(title="Últimas unidades")}},
+    "AVAILABILITY_PLANNED_OK": {WILDCARD: {WILDCARD: CopyEntry(title="Lista de espera")}},
+    "AVAILABILITY_UNAVAILABLE": {WILDCARD: {WILDCARD: CopyEntry(title="Indisponível")}},
 }
 
 

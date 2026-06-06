@@ -9,12 +9,12 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from shopman.shop.projections.types import ORDER_STATUS_COLORS
 from shopman.storefront.presentation.order_history import (
     FILTER_OPTIONS,
     OrderHistoryProjection,
     build_order_history,
 )
+from shopman.storefront.presentation.status import status_color
 from shopman.storefront.presentation.types import OrderSummaryProjection
 
 pytestmark = pytest.mark.django_db
@@ -117,10 +117,10 @@ class TestOrderHistoryOrders:
         proj = build_order_history(customer)
         assert proj.orders[0].status_label == "Concluído"
 
-    def test_status_color_from_types(self, customer):
+    def test_status_color_from_tone(self, customer):
         self._make_order(customer, status="completed")
         proj = build_order_history(customer)
-        assert proj.orders[0].status_color == ORDER_STATUS_COLORS["completed"]
+        assert proj.orders[0].status_color == status_color("completed")
 
     def test_created_at_display_formatted(self, customer):
         self._make_order(customer)

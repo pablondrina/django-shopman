@@ -23,11 +23,11 @@ from shopman.shop.projections.channel_policy import ChannelPolicyResolution, res
 from shopman.shop.projections.copy import build_copy
 from shopman.shop.projections.interaction_context import InteractionContext
 from shopman.shop.projections.types import (
-    PAYMENT_METHOD_LABELS_PT,
     Action,
     PickupSlotProjection,
     SavedAddressProjection,
 )
+from shopman.storefront.presentation.status import payment_method_label
 from shopman.storefront.presentation.types import PaymentMethodOptionProjection
 
 from .cart import CartProjection, build_cart
@@ -259,7 +259,7 @@ def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, .
     return tuple(
         PaymentMethodOptionProjection(
             ref=m,
-            label=PAYMENT_METHOD_LABELS_PT.get(m, m),
+            label=payment_method_label(m),
             is_default=(i == 0),
         )
         for i, m in enumerate(methods)

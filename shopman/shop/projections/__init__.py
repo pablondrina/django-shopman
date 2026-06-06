@@ -5,9 +5,7 @@ Surface-specific projections live in storefront/ and backstage/.
 """
 
 from .types import (  # noqa: F401
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
-    PAYMENT_METHOD_LABELS_PT,
+    ORDER_STATUS_TONES,
     AddressAutocompleteProjection,
     Availability,
     CategoryProjection,
@@ -16,4 +14,5 @@ from .types import (  # noqa: F401
     PickupSlotProjection,
     SavedAddressProjection,
     TimelineEventProjection,
+    Tone,
 )

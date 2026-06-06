@@ -35,20 +35,17 @@ from shopman.shop.projections.order_tracking import (
     build_tracking_status,
 )
 from shopman.shop.projections.types import (
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
     Action,
     OrderItemProjection,
     TimelineEventProjection,
 )
+from shopman.storefront.presentation.status import order_status_label, status_color
 from shopman.storefront.presentation.types import (
     FulfillmentProjection,
     OrderProgressStepProjection,
 )
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_STATUS_COLOR = "bg-surface-alt text-on-surface/60 border border-outline"
 
 # Surface display labels for timeline events that are not status changes.
 EVENT_LABELS: dict[str, str | None] = {
@@ -275,7 +272,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         order_ref=data.order_ref,
         status=data.status,
         status_label=_status_label(data.display_status_key, data.status, copy),
-        status_color=ORDER_STATUS_COLORS.get(data.status, DEFAULT_STATUS_COLOR),
+        status_color=status_color(data.status),
         copy=_tracking_copy(copy),
         promise=promise,
         promise_rows=_build_promise_rows(promise, last_updated_display=last_updated_display, copy=copy),
@@ -317,7 +314,7 @@ def present_tracking_status(data: TrackingStatusData) -> OrderTrackingStatusProj
         order_ref=data.order_ref,
         status=data.status,
         status_label=_status_label(data.display_status_key, data.status, copy),
-        status_color=ORDER_STATUS_COLORS.get(data.status, DEFAULT_STATUS_COLOR),
+        status_color=status_color(data.status),
         progress_steps=_present_progress_steps_from(data.progress_steps, is_pickup=False, copy=copy),
         timeline=_present_timeline(data),
         is_terminal=data.is_terminal,
@@ -333,7 +330,7 @@ def _status_label(display_status_key: str, status: str, copy: CopyCatalog) -> st
     spec = STATUS_LABEL_COPY.get(display_status_key)
     if spec:
         return copy.title(spec[0], spec[1])
-    return ORDER_STATUS_LABELS_PT.get(display_status_key, ORDER_STATUS_LABELS_PT.get(status, status))
+    return order_status_label(display_status_key, "") or order_status_label(status, "") or status
 
 
 def _payment_status_label(payment_status_key: str | None) -> str | None:
@@ -691,7 +688,7 @@ def _present_items(data: TrackingData) -> tuple[OrderItemProjection, ...]:
 
 def _timeline_label(event_type: str, label_key: str) -> str:
     if event_type == "status_changed" and label_key:
-        return ORDER_STATUS_LABELS_PT.get(label_key, label_key)
+        return order_status_label(label_key)
     if label_key == "shipment_dispatched":
         return "Enviado"
     if label_key == "shipment_delivered":

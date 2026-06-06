@@ -19,10 +19,15 @@ from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 from shopman.stockman import Position
 
+from shopman.backstage.presentation.status import order_status_label
+
 logger = logging.getLogger(__name__)
 
 
 # ── Status labels & colors ─────────────────────────────────────────────
+# ``WO_STATUS_*`` are WorkOrder states — surface-local presentation, owned by
+# the production board. (Order status labels come from the copy registry via
+# ``order_status_label``.)
 
 WO_STATUS_LABELS: dict[str, str] = {
     "planned": "Planejado",
@@ -867,8 +872,6 @@ def _order_commitments_for_work_order(wo: WorkOrder) -> tuple[OrderCommitmentPro
 
     try:
         from shopman.orderman.models import Order
-
-        from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
     except Exception:
         logger.debug("production.order_ref_import_failed wo=%s", wo.ref, exc_info=True)
         return ()
@@ -888,7 +891,7 @@ def _order_commitments_for_work_order(wo: WorkOrder) -> tuple[OrderCommitmentPro
             OrderCommitmentProjection(
                 ref=order.ref,
                 status=order.status,
-                status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
+                status_label=order_status_label(order.status),
                 qty_required=_qty(_qty_required_for_order(order, wo.output_sku)),
             )
         )

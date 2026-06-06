@@ -15,6 +15,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
 
+from shopman.storefront.presentation.status import availability_label
 from shopman.storefront.services import sku_state as sku_state_service
 
 
@@ -49,7 +50,7 @@ class SkuStateView(View):
                     "availability": sku_state.availability.value,
                     "available_qty": sku_state.available_qty,
                     "can_add_to_cart": sku_state.can_add_to_cart,
-                    "label": sku_state.label,
+                    "label": availability_label(sku_state.availability),
                 }
             }
         )

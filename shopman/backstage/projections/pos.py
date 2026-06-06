@@ -19,13 +19,13 @@ from shopman.orderman.models import Session
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
+from shopman.backstage.presentation.status import payment_method_label
 from shopman.backstage.services.integration_readiness import (
     build_provider_readiness,
     focus_nfe_readiness,
 )
 from shopman.shop.projections.channel_policy import resolve_channel_policy
 from shopman.shop.projections.types import (
-    PAYMENT_METHOD_LABELS_PT,
     Action,
     AddressAutocompleteProjection,
     SavedAddressProjection,
@@ -530,7 +530,7 @@ def _payment_methods() -> tuple[POSPaymentMethodProjection, ...]:
     return tuple(
         POSPaymentMethodProjection(
             ref=ref,
-            label=PAYMENT_METHOD_LABELS_PT.get(ref, ref),
+            label=payment_method_label(ref),
         )
         for ref in _POS_PAYMENT_METHOD_REFS
     )
@@ -778,7 +778,7 @@ def _checkout_contract(
         POSCheckoutOptionProjection(ref="email", label="Enviar por e-mail"),
     )
     tender_methods = tuple(
-        POSCheckoutOptionProjection(ref=ref, label=PAYMENT_METHOD_LABELS_PT.get(ref, ref))
+        POSCheckoutOptionProjection(ref=ref, label=payment_method_label(ref))
         for ref in _POS_TENDER_METHOD_REFS
     )
     fields = (
@@ -903,7 +903,7 @@ def _checkout_contract(
             input_type="segmented",
             required=True,
             options=tuple(
-                POSCheckoutOptionProjection(ref=ref, label=PAYMENT_METHOD_LABELS_PT.get(ref, ref))
+                POSCheckoutOptionProjection(ref=ref, label=payment_method_label(ref))
                 for ref in _POS_PAYMENT_METHOD_REFS
             ),
         ),

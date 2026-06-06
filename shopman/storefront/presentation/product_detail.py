@@ -25,10 +25,10 @@ from shopman.shop.config import ChannelConfig
 from shopman.shop.projections import catalog_context
 from shopman.shop.projections.storefront_context import session_pricing_hints
 from shopman.shop.projections.types import (
-    AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
 )
+from shopman.storefront.presentation.status import availability_label as resolve_availability_label
 from shopman.storefront.presentation.types import ComponentProjection
 
 from .catalog import (
@@ -247,7 +247,7 @@ def build_product_detail(
         is_sellable=product.is_sellable,
         low_stock_threshold=low_stock_threshold,
     )
-    availability_label = AVAILABILITY_LABELS_PT[availability]
+    availability_label = resolve_availability_label(availability)
     can_add_to_cart = availability in (
         Availability.AVAILABLE,
         Availability.LOW_STOCK,

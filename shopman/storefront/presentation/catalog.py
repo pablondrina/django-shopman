@@ -29,12 +29,12 @@ from shopman.shop.projections.storefront_context import (
     session_pricing_hints,
 )
 from shopman.shop.projections.types import (
-    AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     HappyHourProjection,
 )
 from shopman.storefront.presentation.icons import collection_icon
+from shopman.storefront.presentation.status import availability_label
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401
@@ -386,7 +386,7 @@ def _build_items(
             is_sellable=p.is_sellable,
             low_stock_threshold=low_stock_threshold,
         )
-        avail_label = AVAILABILITY_LABELS_PT[availability]
+        avail_label = availability_label(availability)
         can_add = availability in (
             Availability.AVAILABLE,
             Availability.LOW_STOCK,
