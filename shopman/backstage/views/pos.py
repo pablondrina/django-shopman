@@ -23,6 +23,7 @@ from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
 from shopman.backstage.services import operator as operator_service
 from shopman.backstage.services import pos as pos_cash_service
 from shopman.backstage.services.exceptions import POSError
+from shopman.shop.projections import pos as pos_projection
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import PosIntentError
 
@@ -105,7 +106,7 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
     try:
         customer = pos_service.resolve_customer(phone)
         if customer:
-            summary = pos_service.customer_history_summary(customer.ref)
+            summary = pos_projection.customer_history_summary(customer.ref)
             return _fragment(
                 pos_fragments.customer_found(
                     customer,

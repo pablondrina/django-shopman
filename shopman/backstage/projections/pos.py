@@ -459,6 +459,7 @@ def build_pos_tabs(
 def build_pos_customer_lookup(phone: str) -> POSCustomerLookupProjection | None:
     """Resolve POS customer lookup as a headless projection."""
     from shopman.shop.projections import customer_context
+    from shopman.shop.projections import pos as pos_projection
     from shopman.shop.services import pos as pos_service
 
     customer = pos_service.resolve_customer(phone)
@@ -467,7 +468,7 @@ def build_pos_customer_lookup(phone: str) -> POSCustomerLookupProjection | None:
 
     name = getattr(customer, "name", "") or f"{getattr(customer, 'first_name', '')} {getattr(customer, 'last_name', '')}".strip()
     group_ref = customer.group.ref if getattr(customer, "group_id", None) else ""
-    summary = pos_service.customer_history_summary(customer.ref)
+    summary = pos_projection.customer_history_summary(customer.ref)
     addresses = customer_context.saved_addresses(customer.ref)
     default_address = next((addr for addr in addresses if addr.is_default), addresses[0] if addresses else None)
     saved_addresses = tuple(_saved_address_projection(addr) for addr in addresses)
