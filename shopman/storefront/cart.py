@@ -76,7 +76,7 @@ class CartService:
         """Add item to cart. Merges with existing line if same SKU.
 
         ``is_d1`` deve refletir a mesma regra da vitrine (estoque só D-1): assim o
-        D1DiscountModifier aplica e o DiscountModifier não empilha promoção automática.
+        AvailabilityDiscountModifier aplica e o DiscountModifier não empilha promoção automática.
 
         Delegates reservation and session mutation to the shop cart mutation
         facade. On shortage, raises CartUnavailableError with substitutes

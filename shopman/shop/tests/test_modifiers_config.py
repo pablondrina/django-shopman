@@ -39,9 +39,8 @@ def _make_channel(rules=None):
 class TestAvailabilityDiscountModifier:
     """Rule-driven clearance discount on limited-availability lines.
 
-    Parity note: the cents asserted here (50% → 500, 30% → 700) match exactly
-    the values the former instance ``D1DiscountModifier`` produced — the move to
-    the generic, rule-driven modifier is price-neutral.
+    Parity: the cents asserted here (50% → 500, 30% → 700) pin the discount math
+    so the rule-driven modifier stays price-neutral.
     """
 
     @pytest.fixture
@@ -148,10 +147,9 @@ class TestPricingNoopModifiers:
 class TestTimeWindowDiscountModifier:
     """Rule-driven time-window discount.
 
-    Parity note: the cents asserted here (20% → 800, 15% → 850) match exactly
-    the values the former instance ``HappyHourModifier`` produced. The "skip web"
-    behaviour is now expressed as the rule simply not being enabled on the web
-    channel (``get_channel_rule_params`` returns ``None``).
+    Parity: the cents asserted here (20% → 800, 15% → 850) pin the discount math.
+    The "skip web" behaviour is expressed as the rule simply not being enabled on
+    a channel (``get_channel_rule_params`` returns ``None``).
     """
 
     @pytest.fixture

@@ -1,9 +1,8 @@
 """Tests for built-in customer resolution strategies.
 
-Focus on the generic counter (balcão) strategy that replaced the former
-instance-specific ``nelson_handle_pdv``: phone-first → tax id → anonymous, all
-through the customer adapter. The strategy is registered under the configured
-POS channel ref.
+Focus on the generic counter (balcão) strategy: phone-first → tax id →
+anonymous, all through the customer adapter. The strategy is registered under
+the configured POS channel ref.
 """
 from __future__ import annotations
 
