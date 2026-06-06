@@ -183,14 +183,6 @@ def _coerce_iso_date(raw: str, *, fallback: date) -> date:
         return fallback
 
 
-def _can_view_reports(user) -> bool:
-    return (
-        getattr(user, "is_superuser", False)
-        or user.has_perm("backstage.view_production_reports")
-        or user.has_perm("shop.manage_production")
-    )
-
-
 def _check_late_started_orders(*, selected_date: date) -> None:
     try:
         from shopman.shop.handlers.production_alerts import check_late_started_orders

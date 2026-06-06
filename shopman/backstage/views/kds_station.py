@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from shopman.backstage import permissions
 from shopman.backstage.models import KDSInstance
 from shopman.backstage.projections.kds import build_kds_board
 from shopman.backstage.services import kds as kds_service
@@ -14,7 +15,6 @@ from shopman.backstage.services.exceptions import KDSError
 
 INDEX_TEMPLATE = "runtime/kds_station/index.html"
 CARDS_TEMPLATE = "runtime/kds_station/partials/cards.html"
-PERM = "backstage.operate_kds"
 
 
 @require_GET
@@ -108,13 +108,9 @@ def _operator_required(request: HttpRequest) -> HttpResponse | None:
     user = request.user
     if not user.is_authenticated or not user.is_staff:
         return redirect(f"/admin/login/?next={request.path}")
-    if not _can_operate_kds(user):
+    if not permissions.can_operate_kds(user):
         return HttpResponseForbidden("Voce nao tem permissao para operar o KDS.")
     return None
-
-
-def _can_operate_kds(user) -> bool:
-    return bool(getattr(user, "is_superuser", False) or user.has_perm(PERM))
 
 
 def _truthy(value: str | None) -> bool:

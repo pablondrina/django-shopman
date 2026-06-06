@@ -20,6 +20,7 @@ from shopman.utils.monetary import format_money
 from unfold.views import UnfoldModelAdminViewMixin
 from unfold.widgets import UnfoldAdminTextareaWidget
 
+from shopman.backstage import permissions
 from shopman.backstage.projections.order_queue import (
     OrderCardProjection,
     build_operator_order,
@@ -36,7 +37,6 @@ DETAIL_TEMPLATE = "admin_console/orders/detail.html"
 REJECT_TEMPLATE = "admin_console/orders/reject.html"
 ACTION_CELL_TEMPLATE = "admin_console/orders/cells/actions.html"
 ORDER_REF_CELL_TEMPLATE = "admin_console/orders/cells/order_ref.html"
-PERM = "shop.manage_orders"
 logger = logging.getLogger(__name__)
 
 
@@ -70,12 +70,12 @@ class OrdersConsoleView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if not _can_manage_orders(request.user):
+        if not permissions.can_manage_orders(request.user):
             return HttpResponseForbidden("Voce nao tem permissao para acessar pedidos.")
         return super().dispatch(request, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_manage_orders(self.request.user)
+        return permissions.can_manage_orders(self.request.user)
 
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
@@ -91,12 +91,12 @@ class OrdersConsoleListPartialView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if not _can_manage_orders(request.user):
+        if not permissions.can_manage_orders(request.user):
             return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
         return super().dispatch(request, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_manage_orders(self.request.user)
+        return permissions.can_manage_orders(self.request.user)
 
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
@@ -112,13 +112,13 @@ class OrderDetailView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, ref: str, *args, **kwargs) -> HttpResponse:
-        if not _can_manage_orders(request.user):
+        if not permissions.can_manage_orders(request.user):
             return HttpResponseForbidden("Voce nao tem permissao para acessar pedidos.")
         self.order = _order_or_404(ref)
         return super().dispatch(request, ref, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_manage_orders(self.request.user)
+        return permissions.can_manage_orders(self.request.user)
 
     def post(self, request: HttpRequest, ref: str, *args, **kwargs) -> HttpResponse:
         form = OrderNotesForm(request.POST)
@@ -156,13 +156,13 @@ class OrderRejectView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, ref: str, *args, **kwargs) -> HttpResponse:
-        if not _can_manage_orders(request.user):
+        if not permissions.can_manage_orders(request.user):
             return HttpResponseForbidden("Voce nao tem permissao para rejeitar pedidos.")
         self.order = _order_or_404(ref)
         return super().dispatch(request, ref, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_manage_orders(self.request.user)
+        return permissions.can_manage_orders(self.request.user)
 
     def post(self, request: HttpRequest, ref: str, *args, **kwargs) -> HttpResponse:
         form = OrderRejectForm(request.POST)
@@ -235,7 +235,7 @@ def order_reject_view(request: HttpRequest, *args, **kwargs) -> HttpResponse:
 
 @require_POST
 def order_confirm_view(request: HttpRequest, ref: str) -> HttpResponse:
-    if not _can_manage_orders(request.user):
+    if not permissions.can_manage_orders(request.user):
         return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
     order = _order_or_404(ref)
     try:
@@ -249,7 +249,7 @@ def order_confirm_view(request: HttpRequest, ref: str) -> HttpResponse:
 
 @require_POST
 def order_advance_view(request: HttpRequest, ref: str) -> HttpResponse:
-    if not _can_manage_orders(request.user):
+    if not permissions.can_manage_orders(request.user):
         return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
     order = _order_or_404(ref)
     try:
@@ -263,7 +263,7 @@ def order_advance_view(request: HttpRequest, ref: str) -> HttpResponse:
 
 @require_POST
 def order_settle_delivery_cash_view(request: HttpRequest, ref: str) -> HttpResponse:
-    if not _can_manage_orders(request.user):
+    if not permissions.can_manage_orders(request.user):
         return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
     order = _order_or_404(ref)
     try:
@@ -281,7 +281,7 @@ def order_settle_delivery_cash_view(request: HttpRequest, ref: str) -> HttpRespo
 
 @require_POST
 def order_requeue_fiscal_view(request: HttpRequest, ref: str) -> HttpResponse:
-    if not _can_manage_orders(request.user):
+    if not permissions.can_manage_orders(request.user):
         return HttpResponseForbidden("Voce nao tem permissao para esta acao.")
     order = _order_or_404(ref)
     try:
@@ -466,13 +466,6 @@ def _order_or_404(ref: str) -> Order:
 
 def _orders_redirect() -> HttpResponseRedirect:
     return HttpResponseRedirect(reverse("admin_console_orders"))
-
-
-def _can_manage_orders(user) -> bool:
-    return bool(
-        getattr(user, "is_superuser", False)
-        or user.has_perm(PERM)
-    )
 
 
 def _elapsed_label(seconds: int) -> str:

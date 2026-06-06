@@ -31,6 +31,7 @@ from unfold.widgets import (
     UnfoldAdminTextInputWidget,
 )
 
+from shopman.backstage import permissions
 from shopman.backstage.projections.production import (
     build_production_dashboard,
     build_production_reports,
@@ -39,7 +40,6 @@ from shopman.backstage.projections.production import (
 )
 from shopman.backstage.services import production as production_service
 from shopman.backstage.views.production import (
-    _can_view_reports,
     _report_filters,
     handle_production_post,
     render_production_surface,
@@ -424,13 +424,13 @@ class ProductionReportsView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if not _can_view_reports(request.user):
+        if not permissions.can_view_production_reports(request.user):
             messages.error(request, "Sem permissão para acessar relatórios de produção.")
             return HttpResponseRedirect(reverse("admin:index"))
         return super().dispatch(request, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_view_reports(self.request.user)
+        return permissions.can_view_production_reports(self.request.user)
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         filters = _report_filters(request)

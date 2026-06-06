@@ -12,6 +12,8 @@ from datetime import date
 
 from django.urls import NoReverseMatch, reverse
 
+from shopman.backstage import permissions
+
 logger = logging.getLogger(__name__)
 
 
@@ -170,54 +172,39 @@ def _url(name: str) -> str:
         return "#"
 
 
+# Request-oriented adapters over the canonical predicates. The sidebar speaks
+# ``request``; the rules live once in shopman.backstage.permissions.
 def _is_staff(request) -> bool:
-    return bool(getattr(request.user, "is_staff", False))
+    return permissions.is_staff(request.user)
 
 
 def _is_superuser(request) -> bool:
-    return bool(getattr(request.user, "is_superuser", False))
+    return permissions.is_superuser(request.user)
 
 
 def _can_manage_orders(request) -> bool:
-    return _is_superuser(request) or request.user.has_perm("shop.manage_orders")
+    return permissions.can_manage_orders(request.user)
 
 
 def _can_access_production(request) -> bool:
-    if _is_superuser(request) or request.user.has_perm("shop.manage_production"):
-        return True
-    try:
-        from shopman.backstage.projections.production import resolve_production_access
-
-        return resolve_production_access(request.user).can_access_board
-    except Exception:
-        logger.warning("admin_navigation_production_access_failed", exc_info=True)
-        return False
+    return permissions.can_access_production(request.user)
 
 
 def _can_view_production_reports(request) -> bool:
-    return (
-        _can_access_production(request)
-        or request.user.has_perm("backstage.view_production_reports")
-    )
+    return permissions.can_view_production_reports(request.user)
 
 
 def _can_close_day(request) -> bool:
-    return _is_superuser(request) or request.user.has_perm("backstage.perform_closing")
+    return permissions.can_close_day(request.user)
 
 
 def _can_operate_pos(request) -> bool:
-    return _is_superuser(request) or request.user.has_perm("backstage.operate_pos")
+    return permissions.can_operate_pos(request.user)
 
 
 def _can_operate_kds(request) -> bool:
-    return _is_superuser(request) or request.user.has_perm("backstage.operate_kds")
+    return permissions.can_operate_kds(request.user)
 
 
 def _can_view_operator_alerts(request) -> bool:
-    return _is_staff(request) and (
-        _is_superuser(request)
-        or _can_manage_orders(request)
-        or _can_access_production(request)
-        or _can_operate_pos(request)
-        or _can_operate_kds(request)
-    )
+    return permissions.can_view_operator_alerts(request.user)

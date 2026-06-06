@@ -11,12 +11,12 @@ from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 from unfold.widgets import UnfoldAdminIntegerFieldWidget
 
+from shopman.backstage import permissions
 from shopman.backstage.models import DayClosing
 from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.services.closing import perform_day_closing
 
 TEMPLATE = "admin_console/closing/index.html"
-PERMISSION = "backstage.perform_closing"
 
 
 class DayClosingForm(forms.Form):
@@ -42,12 +42,12 @@ class DayClosingConsoleView(UnfoldModelAdminViewMixin, TemplateView):
     permission_required: tuple[str, ...] = ()
 
     def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if not _can_close_day(request.user):
+        if not permissions.can_close_day(request.user):
             return HttpResponseForbidden("Voce nao tem permissao para fechamento do dia.")
         return super().dispatch(request, *args, **kwargs)
 
     def has_permission(self) -> bool:
-        return _can_close_day(self.request.user)
+        return permissions.can_close_day(self.request.user)
 
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         closing = build_day_closing()
@@ -143,7 +143,3 @@ def _reports_url(closing) -> str:
         f"{reverse('admin_console_production_reports')}"
         f"?date_from={closing.today}&date_to={closing.today}&report_kind=history&format=csv"
     )
-
-
-def _can_close_day(user) -> bool:
-    return bool(getattr(user, "is_superuser", False) or user.has_perm(PERMISSION))
