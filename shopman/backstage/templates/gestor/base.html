@@ -98,7 +98,7 @@
           {% endif %}
         </a>
 
-        {% url 'admin_console_kds' as url_kds %}
+        {% url 'backstage:kds_station_picker' as url_kds %}
         <a href="{{ url_kds }}"
            class="btn-icon {% block nav_active_kds %}{% endblock %}"
            title="KDS · Cozinha"

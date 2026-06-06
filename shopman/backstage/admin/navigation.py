@@ -52,7 +52,7 @@ def get_sidebar_navigation(request):
             _item(
                 "KDS",
                 "tv",
-                _url("admin_console_kds"),
+                _url("backstage:kds_station_picker"),
                 permission=_can_operate_kds,
             ),
             _item(

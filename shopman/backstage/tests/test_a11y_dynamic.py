@@ -149,27 +149,27 @@ def test_a11y_pos_surface(client, superuser):
 
 
 @pytest.mark.django_db
-def test_a11y_kds_index(client, superuser):
+def test_a11y_kds_picker(client, superuser, kds_station):
     client.force_login(superuser)
-    response = client.get(reverse("admin_console_kds"))
+    response = client.get(reverse("backstage:kds_station_picker"))
     assert response.status_code == 200
     html = response.content.decode("utf-8")
 
-    _has_main_landmark(html, "KDS index")
-    _buttons_have_accessible_name(html, "KDS index")
+    _has_main_landmark(html, "KDS picker")
+    _buttons_have_accessible_name(html, "KDS picker")
 
 
 @pytest.mark.django_db
-def test_a11y_kds_display(client, superuser, kds_station):
+def test_a11y_kds_station(client, superuser, kds_station):
     client.force_login(superuser)
-    response = client.get(reverse("admin_console_kds_display", args=[kds_station.ref]))
+    response = client.get(reverse("backstage:kds_station_runtime", args=[kds_station.ref]))
     assert response.status_code == 200
     html = response.content.decode("utf-8")
 
-    _has_main_landmark(html, "KDS display")
-    _buttons_have_accessible_name(html, "KDS display")
+    _has_main_landmark(html, "KDS station")
+    _buttons_have_accessible_name(html, "KDS station")
     # Live region for screen readers
-    assert 'aria-live="polite"' in html, "KDS display must announce new tickets via aria-live"
+    assert 'aria-live="polite"' in html, "KDS station must announce new tickets via aria-live"
 
 
 @pytest.mark.django_db

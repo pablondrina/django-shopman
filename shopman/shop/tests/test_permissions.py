@@ -78,23 +78,23 @@ class TestOperateKdsPerm(TestCase):
         self.perm = _get_perm("backstage", "kdsticket", "operate_kds")
         _create_shop()
 
-    def test_staff_without_perm_can_view_readonly(self):
+    def test_staff_without_perm_gets_403(self):
         u = _staff("kds_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/kds/")
-        # KDS index allows staff to view (readonly); only actions require operate_kds perm.
-        self.assertEqual(resp.status_code, 200)
+        resp = self.client.get("/operacao/kds/")
+        # KDS is operational like POS: the dedicated station requires operate_kds.
+        self.assertEqual(resp.status_code, 403)
 
-    def test_staff_with_perm_passes_check(self):
+    def test_staff_with_perm_gets_200(self):
         u = _staff("kds_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/kds/")
-        self.assertNotEqual(resp.status_code, 403)
+        resp = self.client.get("/operacao/kds/")
+        self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super_kds", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/kds/")
+        resp = self.client.get("/operacao/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
 
@@ -144,11 +144,11 @@ class TestCashierGroup(TestCase):
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_cashier_can_view_kds_readonly(self):
+    def test_cashier_cannot_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/kds/")
-        # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
-        self.assertEqual(resp.status_code, 200)
+        resp = self.client.get("/operacao/kds/")
+        # Cashier lacks operate_kds; the KDS station is operator-only (like POS for kitchen).
+        self.assertEqual(resp.status_code, 403)
 
 
 class TestKitchenGroup(TestCase):
@@ -164,7 +164,7 @@ class TestKitchenGroup(TestCase):
 
     def test_kitchen_can_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/kds/")
+        resp = self.client.get("/operacao/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
     def test_kitchen_cannot_access_pos(self):
@@ -199,11 +199,11 @@ class TestManagerGroup(TestCase):
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_manager_can_view_kds_readonly(self):
+    def test_manager_cannot_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/kds/")
-        # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
-        self.assertEqual(resp.status_code, 200)
+        resp = self.client.get("/operacao/kds/")
+        # Manager lacks operate_kds; the KDS station is operator-only (passive viewing via customer board).
+        self.assertEqual(resp.status_code, 403)
 
 
 class TestDefaultGroupsExist(TestCase):

@@ -135,8 +135,8 @@ class TestHappyPaths:
         page.locator("input[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # Visit KDS index
-        page.goto(f"{base_url}/admin/operacao/kds/")
+        # Visit KDS station picker
+        page.goto(f"{base_url}/operacao/kds/")
         page.wait_for_load_state("networkidle")
 
         # Page should load with KDS stations listed
@@ -265,7 +265,7 @@ class TestNavigation:
 
     @pytest.mark.parametrize("path", [
         "/admin/operacao/pedidos/",
-        "/admin/operacao/kds/",
+        "/operacao/kds/",
         "/gestor/pos/",
     ])
     def test_operator_pages_require_auth(self, page, base_url, path):

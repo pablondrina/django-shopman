@@ -51,8 +51,8 @@ class TestHomeViewXFrame:
     def test_admin_console_orders(self, db):
         assert reverse("admin_console_orders") == "/admin/operacao/pedidos/"
 
-    def test_kds_index(self, db):
-        assert reverse("admin_console_kds") == "/admin/operacao/kds/"
+    def test_kds_station_picker(self, db):
+        assert reverse("backstage:kds_station_picker") == "/operacao/kds/"
 
     def test_pos(self, db):
         assert reverse("backstage:pos") == "/gestor/pos/"

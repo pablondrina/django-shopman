@@ -53,7 +53,7 @@ def test_skip_link_present_in_shell(client, superuser):
 def test_no_positive_tabindex_anywhere(client, superuser):
     surfaces = [
         ("backstage:pos", []),
-        ("admin_console_kds", []),
+        ("backstage:kds_station_picker", []),
         ("admin_console_orders", []),
         ("admin_console_production", []),
         ("admin_console_production_dashboard", []),

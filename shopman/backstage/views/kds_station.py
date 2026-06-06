@@ -9,12 +9,29 @@ from django.views.decorators.http import require_GET, require_POST
 
 from shopman.backstage import permissions
 from shopman.backstage.models import KDSInstance
-from shopman.backstage.projections.kds import build_kds_board
+from shopman.backstage.projections.kds import build_kds_board, build_kds_index
 from shopman.backstage.services import kds as kds_service
 from shopman.backstage.services.exceptions import KDSError
 
+PICKER_TEMPLATE = "runtime/kds_station/picker.html"
 INDEX_TEMPLATE = "runtime/kds_station/index.html"
 CARDS_TEMPLATE = "runtime/kds_station/partials/cards.html"
+
+
+@require_GET
+def kds_station_picker_view(request: HttpRequest) -> HttpResponse:
+    """Render the dedicated KDS station selector."""
+    denied = _operator_required(request)
+    if denied:
+        return denied
+    return render(
+        request,
+        PICKER_TEMPLATE,
+        {
+            "kds_stations": build_kds_index(),
+            "kds_customer_board_url": reverse("backstage:kds_customer_board"),
+        },
+    )
 
 
 @require_GET
@@ -94,7 +111,7 @@ def _station_context(ref: str) -> dict:
         "kds_station": station,
         "kds_board": board,
         "kds_cards_url": reverse("backstage:kds_station_runtime_cards", args=[station.ref]),
-        "kds_admin_url": reverse("admin_console_kds_display", args=[station.ref]),
+        "kds_picker_url": reverse("backstage:kds_station_picker"),
         "kds_customer_board_url": reverse("backstage:kds_customer_board"),
     }
 

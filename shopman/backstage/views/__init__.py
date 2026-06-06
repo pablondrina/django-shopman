@@ -3,6 +3,7 @@
 from .alerts import alert_ack, alerts_badge, alerts_panel
 from .kds_customer import kds_customer_board_orders_view, kds_customer_board_view
 from .kds_station import (
+    kds_station_picker_view,
     kds_station_runtime_cards_view,
     kds_station_runtime_check_view,
     kds_station_runtime_done_view,
@@ -39,6 +40,7 @@ __all__ = [
     "alerts_panel",
     "kds_customer_board_orders_view",
     "kds_customer_board_view",
+    "kds_station_picker_view",
     "kds_station_runtime_cards_view",
     "kds_station_runtime_check_view",
     "kds_station_runtime_done_view",

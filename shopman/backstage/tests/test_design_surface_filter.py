@@ -89,9 +89,7 @@ def test_backstage_pos_uses_composition_components_instead_of_local_one_offs():
 def test_backstage_empty_states_and_icons_use_canonical_scale():
     sources = _template_sources()
 
-    assert 'component "unfold/components/table.html"' in sources["admin_console/kds/partials/tickets.html"]
     assert 'component "unfold/components/table.html"' in sources["admin_console/closing/index.html"]
-    assert 'component "unfold/components/table.html"' in sources["admin_console/kds/index.html"]
     assert "icon-display" in sources["pos/index.html"]
     assert "icon-md" in sources["gestor/base.html"]
 

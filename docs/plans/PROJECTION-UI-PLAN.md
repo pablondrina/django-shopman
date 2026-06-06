@@ -72,8 +72,8 @@ Os builders ficam no mesmo módulo. Views chamam o builder, passam o resultado a
 |------|-----|----------------|------------|
 | Fila de Pedidos | `/admin/operacao/pedidos/` | `admin_console/orders/index.html` | `OrderQueueProjection` |
 | Detalhe Pedido | `/admin/operacao/pedidos/<ref>/` | `admin_console/orders/detail.html` | `OperatorOrderProjection` |
-| KDS Picking | `/admin/operacao/kds/<ref>/` | `admin_console/kds/display.html` | `KDSBoardProjection` |
-| KDS Expedição | `/admin/operacao/kds/<ref>/` | `admin_console/kds/display.html` | `KDSExpeditionProjection` |
+| Seletor de Estações KDS | `/operacao/kds/` | `runtime/kds_station/picker.html` | `KDSInstanceSummaryProjection` |
+| Estação KDS (preparo/separação/expedição) | `/operacao/kds/estacao/<ref>/` | `runtime/kds_station/index.html` | `KDSBoardProjection` |
 | POS | `/gestor/pos/` | `pos/index.html` | `POSProjection` |
 | Produção | `/admin/operacao/producao/` | `admin_console/production/index.html` | `ProductionBoardProjection` |
 | Fechamento | `/admin/operacao/fechamento/` | `admin_console/closing/index.html` | `DayClosingProjection` |

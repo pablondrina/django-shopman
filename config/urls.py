@@ -9,14 +9,6 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from shopman.backstage.admin_console.closing import day_closing_console_view
-from shopman.backstage.admin_console.kds import (
-    kds_console_display_view,
-    kds_console_index_view,
-    kds_console_ticket_list_view,
-    kds_expedition_action_view,
-    kds_ticket_check_view,
-    kds_ticket_done_view,
-)
 from shopman.backstage.admin_console.orders import (
     order_advance_view,
     order_confirm_view,
@@ -132,39 +124,9 @@ urlpatterns = [
         name="admin_console_production_work_order_commitments",
     ),
     path(
-        "admin/operacao/kds/",
-        admin.site.admin_view(kds_console_index_view),
-        name="admin_console_kds",
-    ),
-    path(
         "admin/operacao/fechamento/",
         admin.site.admin_view(day_closing_console_view),
         name="admin_console_day_closing",
-    ),
-    path(
-        "admin/operacao/kds/<slug:ref>/",
-        admin.site.admin_view(kds_console_display_view),
-        name="admin_console_kds_display",
-    ),
-    path(
-        "admin/operacao/kds/<slug:ref>/tickets/",
-        admin.site.admin_view(kds_console_ticket_list_view),
-        name="admin_console_kds_tickets",
-    ),
-    path(
-        "admin/operacao/kds/ticket/<int:pk>/conferir/",
-        admin.site.admin_view(kds_ticket_check_view),
-        name="admin_console_kds_ticket_check",
-    ),
-    path(
-        "admin/operacao/kds/ticket/<int:pk>/pronto/",
-        admin.site.admin_view(kds_ticket_done_view),
-        name="admin_console_kds_ticket_done",
-    ),
-    path(
-        "admin/operacao/kds/expedicao/<int:pk>/acao/",
-        admin.site.admin_view(kds_expedition_action_view),
-        name="admin_console_kds_expedition_action",
     ),
     path("admin/", admin.site.urls),
     # OpenAPI

@@ -1,3 +1,4 @@
+<div class="contents" x-init="$store.kdsSound.observe({{ kds_board.counts.total }})">
 {% if kds_board.is_expedition %}
 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
   {% for card in kds_board.tickets %}
@@ -165,3 +166,4 @@
   {% endfor %}
 </div>
 {% endif %}
+</div>

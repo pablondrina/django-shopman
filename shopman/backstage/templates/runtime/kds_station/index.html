@@ -5,8 +5,15 @@
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block navbar_actions %}
-<a href="{{ kds_admin_url }}" class="btn-icon" title="Abrir supervisão no Admin" aria-label="Abrir supervisão no Admin">
-  <span class="material-symbols-rounded icon-md" aria-hidden="true">admin_panel_settings</span>
+<button type="button" class="btn-icon"
+        @click="$store.kdsSound.toggle()"
+        :title="$store.kdsSound.on ? 'Som ativo' : 'Som desativado'"
+        :aria-label="$store.kdsSound.on ? 'Som ativo' : 'Som desativado'">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true"
+        x-text="$store.kdsSound.on ? 'volume_up' : 'volume_off'">volume_up</span>
+</button>
+<a href="{{ kds_picker_url }}" class="btn-icon" title="Trocar de estação" aria-label="Trocar de estação">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">grid_view</span>
 </a>
 <a href="{{ kds_customer_board_url }}" class="btn-icon" title="Tela do cliente" aria-label="Tela do cliente">
   <span class="material-symbols-rounded icon-md" aria-hidden="true">display_settings</span>
@@ -14,7 +21,52 @@
 {% endblock %}
 
 {% block content %}
+{% comment %} Real-time audio cue: a new ticket arriving on this station beeps via Web Audio.
+   Sound preference is per-station and persisted; Alt+S toggles it (and previews the beep). {% endcomment %}
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.store("kdsSound", {
+      ref: "",
+      count: 0,
+      on: true,
+      init(ref, count) {
+        this.ref = ref;
+        this.count = count;
+        this.on = localStorage.getItem("kds_sound_" + ref) !== "off";
+      },
+      toggle() {
+        this.on = !this.on;
+        localStorage.setItem("kds_sound_" + this.ref, this.on ? "on" : "off");
+        this.beep();
+      },
+      observe(count) {
+        if (count > this.count) this.beep();
+        this.count = count;
+      },
+      beep() {
+        if (!this.on) return;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      },
+    });
+  });
+</script>
 <div class="h-full min-h-0 flex flex-col"
+     x-data
+     x-init="$store.kdsSound.init('{{ kds_station.ref }}', {{ kds_board.counts.total }})"
+     @keydown.window.alt.s.prevent="$store.kdsSound.toggle()"
      hx-ext="sse"
      sse-connect="{% url 'backstage:events_scoped' kind='kds' scope=kds_station.ref %}">
   <header class="shrink-0 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt px-4 py-3">

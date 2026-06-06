@@ -251,27 +251,27 @@ class KDSUser(HttpUser):
         )
 
     @task(3)
-    def kds_index(self):
-        """GET /admin/operacao/kds/ — KDS station list."""
-        self.client.get("/admin/operacao/kds/", name="/admin/operacao/kds/")
+    def kds_picker(self):
+        """GET /operacao/kds/ — KDS station selector."""
+        self.client.get("/operacao/kds/", name="/operacao/kds/")
 
     @task(5)
-    def kds_display(self):
-        """GET /admin/operacao/kds/<ref>/ — KDS station display."""
+    def kds_station(self):
+        """GET /operacao/kds/estacao/<ref>/ — KDS station runtime."""
         ref = random.choice(["paes", "picking", "confeitaria"])
         self.client.get(
-            f"/admin/operacao/kds/{ref}/",
-            name="/admin/operacao/kds/[ref]/",
+            f"/operacao/kds/estacao/{ref}/",
+            name="/operacao/kds/estacao/[ref]/",
             catch_response=True,
         )
 
     @task(3)
-    def kds_ticket_list(self):
-        """GET /admin/operacao/kds/<ref>/tickets/ — HTMX ticket list polling."""
+    def kds_station_cards(self):
+        """GET /operacao/kds/estacao/<ref>/cards/ — HTMX/SSE card polling."""
         ref = random.choice(["paes", "picking"])
         self.client.get(
-            f"/admin/operacao/kds/{ref}/tickets/",
+            f"/operacao/kds/estacao/{ref}/cards/",
             headers={"HX-Request": "true"},
-            name="/admin/operacao/kds/[ref]/tickets/ (HTMX)",
+            name="/operacao/kds/estacao/[ref]/cards/ (HTMX)",
             catch_response=True,
         )

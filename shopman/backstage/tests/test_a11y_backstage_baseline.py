@@ -6,7 +6,7 @@ def _read(path: str) -> str:
 
 
 def test_kds_realtime_region_has_aria_live_and_audio_labels():
-    html = _read("shopman/backstage/templates/admin_console/kds/display.html")
+    html = _read("shopman/backstage/templates/runtime/kds_station/index.html")
 
     assert 'aria-live="polite"' in html
     assert "aria-relevant" in html

@@ -27,6 +27,7 @@ urlpatterns = [
     path("gestor/alertas/painel/", views.alerts_panel, name="alerts_panel"),
     path("gestor/alertas/<int:pk>/ack/", views.alert_ack, name="alert_ack"),
     # KDS runtime stations
+    path("operacao/kds/", views.kds_station_picker_view, name="kds_station_picker"),
     path("operacao/kds/estacao/<slug:ref>/", views.kds_station_runtime_view, name="kds_station_runtime"),
     path("operacao/kds/estacao/<slug:ref>/cards/", views.kds_station_runtime_cards_view, name="kds_station_runtime_cards"),
     path("operacao/kds/item/<int:pk>/check/", views.kds_station_runtime_check_view, name="kds_station_runtime_check"),

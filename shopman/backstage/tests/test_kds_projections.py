@@ -90,7 +90,7 @@ def test_build_expedition_board_uses_ready_orders(kds_setup):
 
 
 @pytest.mark.django_db
-def test_kds_views_render_index_display_and_partial(client, kds_setup):
+def test_kds_views_render_picker_station_and_cards(client, kds_setup):
     prep, expedition, _, _ = kds_setup
     user = User.objects.create_user("kds-view", password="pw", is_staff=True)
     permission = Permission.objects.get(
@@ -100,27 +100,33 @@ def test_kds_views_render_index_display_and_partial(client, kds_setup):
     user.user_permissions.add(permission)
     client.force_login(user)
 
-    assert client.get(reverse("admin_console_kds")).status_code == 200
-    index_response = client.get(reverse("admin_console_kds"))
-    assert reverse("backstage:kds_station_runtime", args=[prep.ref]) in index_response.content.decode()
-    assert client.get(reverse("admin_console_kds_display", args=[prep.ref])).status_code == 200
-    expedition_response = client.get(reverse("admin_console_kds_display", args=[expedition.ref]))
-    assert expedition_response.status_code == 200
-    assert b"2 un." in expedition_response.content
-    assert b"1 item" not in expedition_response.content
-    partial = client.get(reverse("admin_console_kds_tickets", args=[prep.ref]))
-    assert partial.status_code == 200
-    assert b"KDS-PROJ-1" in partial.content
+    picker = client.get(reverse("backstage:kds_station_picker"))
+    assert picker.status_code == 200
+    assert reverse("backstage:kds_station_runtime", args=[prep.ref]) in picker.content.decode()
+    assert reverse("backstage:kds_station_runtime", args=[expedition.ref]) in picker.content.decode()
+
+    prep_station = client.get(reverse("backstage:kds_station_runtime", args=[prep.ref]))
+    assert prep_station.status_code == 200
+    assert b"KDS-PROJ-1" in prep_station.content
+
+    expedition_station = client.get(reverse("backstage:kds_station_runtime", args=[expedition.ref]))
+    assert expedition_station.status_code == 200
+    assert b"KDS-READY" in expedition_station.content
+    assert "Delivery".encode() in expedition_station.content
+
+    cards = client.get(reverse("backstage:kds_station_runtime_cards", args=[prep.ref]))
+    assert cards.status_code == 200
+    assert b"KDS-PROJ-1" in cards.content
 
 
-def test_old_kds_route_names_are_not_registered():
+def test_old_admin_console_kds_routes_are_not_registered():
     for name in (
-        "backstage:kds_index",
-        "backstage:kds_display",
-        "backstage:kds_ticket_list",
-        "backstage:kds_ticket_check",
-        "backstage:kds_ticket_done",
-        "backstage:kds_expedition_action",
+        "admin_console_kds",
+        "admin_console_kds_display",
+        "admin_console_kds_tickets",
+        "admin_console_kds_ticket_check",
+        "admin_console_kds_ticket_done",
+        "admin_console_kds_expedition_action",
     ):
         with pytest.raises(NoReverseMatch):
-            reverse(name, args=["prep"] if name in {"backstage:kds_display", "backstage:kds_ticket_list"} else [1] if name != "backstage:kds_index" else [])
+            reverse(name, args=["prep"] if "display" in name or "tickets" in name else [1] if name != "admin_console_kds" else [])
