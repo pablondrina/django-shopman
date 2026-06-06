@@ -10,6 +10,7 @@ from shopman.guestman.models import Customer
 from shopman.orderman.models import Order
 
 from shopman.backstage.models import CashShift, POSTab, POSTerminal
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import (
@@ -140,12 +141,12 @@ class PosIntentViewContractTests(TestCase):
         self.shift = CashShift.objects.create(operator=self.operator, terminal=self.terminal, opening_amount_q=0)
 
     def _opened(self) -> dict:
-        return pos_service.open_pos_tab(
+        return build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:intent-pos",
             operator_username="intent-pos",
-        )
+        ))
 
     def test_close_rejects_unknown_intent_version_with_stable_error_code(self) -> None:
         opened = self._opened()

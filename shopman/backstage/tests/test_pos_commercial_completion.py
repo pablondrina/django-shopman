@@ -5,6 +5,7 @@ from django.test import TestCase
 from shopman.orderman.models import Order
 
 from shopman.backstage.models import CashShift, POSTab, POSTerminal
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import operator_orders
 from shopman.shop.services import pos as pos_service
@@ -30,12 +31,12 @@ class POSCommercialCompletionTests(TestCase):
         self.terminal = POSTerminal.default()
 
     def _open_tab(self) -> dict:
-        return pos_service.open_pos_tab(
+        return build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:commercial-pos",
             operator_username="commercial-pos",
-        )
+        ))
 
     def _payload(self, opened: dict, **overrides) -> dict:
         payload = {

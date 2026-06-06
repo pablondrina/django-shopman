@@ -11,6 +11,7 @@ from shopman.orderman.models import Order, Session
 from shopman.orderman.services.modify import ModifyService
 
 from shopman.backstage.models import POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel
 from shopman.shop.services import pos as pos_service
 
@@ -135,12 +136,12 @@ class POSCloseWithDiscountTests(TestCase):
 
     def _close_sale(self, items, manual_discount=None, manager_approval=None):
         POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor=f"pos:{self.staff.username}",
             operator_username=self.staff.username,
-        )
+        ))
         payload = {
             "items": items,
             "customer_name": "",

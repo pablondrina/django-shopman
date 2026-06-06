@@ -6,6 +6,7 @@ from django.test import TestCase
 from shopman.orderman.models import Session
 
 from shopman.backstage.models import POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import PosIntentError
@@ -34,9 +35,9 @@ class POSMoveTabLinesTests(TestCase):
         Product.objects.create(sku="POS-B", name="B", base_price_q=1000, is_published=True, is_sellable=True)
 
     def _open_with_item(self, tab_ref: str, *, sku: str, qty: int) -> Session:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv", tab_ref=tab_ref, actor="pos:alice", operator_username="alice",
-        )
+        ))
         pos_service.save_pos_tab(
             channel_ref="pdv",
             payload=_payload(sku=sku, qty=qty, tab_ref=opened["tab_ref"], tab_session_key=opened["tab_session_key"]),
@@ -57,8 +58,8 @@ class POSMoveTabLinesTests(TestCase):
             actor="pos:alice", operator_username="alice",
         )
 
-        self.assertTrue(result["ok"])
-        self.assertFalse(result["source_closed"])
+        self.assertIsNotNone(result.target)
+        self.assertFalse(result.source_closed)
         source.refresh_from_db()
         target.refresh_from_db()
         self.assertEqual(source.items, [])
@@ -78,7 +79,7 @@ class POSMoveTabLinesTests(TestCase):
             actor="pos:alice", operator_username="alice",
         )
 
-        self.assertTrue(result["ok"])
+        self.assertIsNotNone(result.target)
         source.refresh_from_db()
         self.assertEqual(source.items, [])
         target = Session.objects.get(
@@ -101,8 +102,8 @@ class POSMoveTabLinesTests(TestCase):
             actor="pos:alice", operator_username="alice",
         )
 
-        self.assertTrue(result["source_closed"])
-        self.assertIsNone(result["source"])
+        self.assertTrue(result.source_closed)
+        self.assertIsNone(result.source)
         source.refresh_from_db()
         self.assertEqual(source.state, "abandoned")
         target.refresh_from_db()

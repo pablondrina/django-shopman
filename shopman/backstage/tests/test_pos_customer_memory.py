@@ -10,6 +10,7 @@ from shopman.guestman.models import Customer, CustomerAddress
 from shopman.orderman.models import Fulfillment, Order
 
 from shopman.backstage.models import POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import customer as customer_service
 from shopman.shop.services import operator_orders
@@ -44,12 +45,12 @@ class POSCustomerMemoryTests(TestCase):
         )
 
     def _open_tab(self) -> dict:
-        return pos_service.open_pos_tab(
+        return build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:ana",
             operator_username="ana",
-        )
+        ))
 
     def _payload(self, opened: dict, **overrides) -> dict:
         payload = {

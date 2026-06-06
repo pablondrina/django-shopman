@@ -19,11 +19,11 @@ from django.views.decorators.http import require_GET, require_POST
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.presentation import pos as pos_fragments
+from shopman.backstage.projections import pos as pos_projection
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary, build_pos_tabs
 from shopman.backstage.services import operator as operator_service
 from shopman.backstage.services import pos as pos_cash_service
 from shopman.backstage.services.exceptions import POSError
-from shopman.shop.projections import pos as pos_projection
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import PosIntentError
 
@@ -323,7 +323,7 @@ def pos_tab_open(request: HttpRequest, tab_ref: str = "") -> HttpResponse:
 
     ref = tab_ref or request.POST.get("tab_ref", "").strip()
     try:
-        payload = pos_service.open_pos_tab(
+        session = pos_service.open_pos_tab(
             channel_ref=POS_CHANNEL_REF,
             tab_ref=ref,
             actor=f"pos:{request.user.username}",
@@ -333,7 +333,7 @@ def pos_tab_open(request: HttpRequest, tab_ref: str = "") -> HttpResponse:
         logger.exception("pos_tab_open failed")
         return HttpResponse(json.dumps({"error": str(e)}), content_type="application/json", status=422)
 
-    response = HttpResponse(json.dumps(payload), content_type="application/json")
+    response = HttpResponse(json.dumps(pos_projection.build_open_tab(session)), content_type="application/json")
     response["HX-Trigger"] = "posTabOpened"
     return response
 

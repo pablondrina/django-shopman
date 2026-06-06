@@ -37,6 +37,7 @@ from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.projections.order_queue import build_operator_order, build_two_zone_queue
 from shopman.backstage.projections.pos import (
+    build_open_tab,
     build_pos,
     build_pos_customer_lookup,
     build_pos_shift_summary,
@@ -694,7 +695,7 @@ class POSTabOpenView(APIView):
 
     def post(self, request, tab_ref: str):
         try:
-            payload = pos_tabs_service.open_pos_tab(
+            session = pos_tabs_service.open_pos_tab(
                 channel_ref=POS_CHANNEL_REF,
                 tab_ref=tab_ref,
                 actor=_actor_pos(request),
@@ -703,7 +704,7 @@ class POSTabOpenView(APIView):
         except Exception as exc:
             logger.debug("pos_tab_open_failed tab_ref=%s", tab_ref, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao abrir comanda."}, status=400)
-        return Response(payload)
+        return Response(build_open_tab(session))
 
 
 @extend_schema_view(
@@ -796,7 +797,12 @@ class POSTabMoveLinesView(APIView):
         except Exception as exc:
             logger.debug("pos_tab_move_lines_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao mover itens entre comandas."}, status=400)
-        return Response(result)
+        return Response({
+            "ok": True,
+            "source_closed": result.source_closed,
+            "source": None if result.source is None else build_open_tab(result.source),
+            "target": build_open_tab(result.target),
+        })
 
 
 class POSTabRenameView(APIView):
@@ -806,7 +812,7 @@ class POSTabRenameView(APIView):
     def post(self, request):
         body = request.data if hasattr(request, "data") else {}
         try:
-            result = pos_tabs_service.rename_pos_tab(
+            session = pos_tabs_service.rename_pos_tab(
                 channel_ref=POS_CHANNEL_REF,
                 session_key=str(body.get("session_key") or "").strip(),
                 new_tab_ref=str(body.get("new_tab_ref") or "").strip(),
@@ -818,7 +824,7 @@ class POSTabRenameView(APIView):
         except Exception as exc:
             logger.debug("pos_tab_rename_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao renomear comanda."}, status=400)
-        return Response(result)
+        return Response({"ok": True, "tab": build_open_tab(session)})
 
 
 class POSTabFireView(APIView):
@@ -841,7 +847,12 @@ class POSTabFireView(APIView):
         except Exception as exc:
             logger.debug("pos_tab_fire_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao enviar à cozinha."}, status=400)
-        return Response(result)
+        return Response({
+            "ok": True,
+            "fired_count": result.fired_count,
+            "fired_lines": list(result.fired_lines),
+            "tab": build_open_tab(result.session),
+        })
 
 
 class POSTabUnfireView(APIView):
@@ -863,7 +874,13 @@ class POSTabUnfireView(APIView):
         except Exception as exc:
             logger.debug("pos_tab_unfire_failed user=%s", _actor(request), exc_info=True)
             return Response({"detail": str(exc) or "Falha ao cancelar envio à cozinha."}, status=400)
-        return Response(result)
+        return Response({
+            "ok": True,
+            "cancelled": result.cancelled,
+            "trimmed": result.trimmed,
+            "fired_lines": list(result.fired_lines),
+            "tab": build_open_tab(result.session),
+        })
 
 
 @extend_schema_view(

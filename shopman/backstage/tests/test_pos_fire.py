@@ -6,6 +6,7 @@ from django.test import TestCase
 from shopman.orderman.models import Session
 
 from shopman.backstage.models import KDSInstance, KDSTicket, POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 
@@ -27,10 +28,10 @@ class POSFireTabTests(TestCase):
             )
 
     def _open_tab_with_two_items(self) -> Session:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv", tab_ref="2001",
             actor="pos:alice", operator_username="alice",
-        )
+        ))
         skey = opened["tab_session_key"]
         pos_service.save_pos_tab(
             channel_ref="pdv",
@@ -58,17 +59,16 @@ class POSFireTabTests(TestCase):
             actor="pos:alice", operator_username="alice",
         )
 
-        self.assertTrue(result["ok"])
         # Both lines route to the one picking station → a single ticket.
-        self.assertEqual(result["fired_count"], 1)
-        self.assertEqual(set(result["fired_lines"]), line_ids)
+        self.assertEqual(result.fired_count, 1)
+        self.assertEqual(set(result.fired_lines), line_ids)
         tickets = KDSTicket.objects.filter(session_key=session.session_key)
         self.assertEqual(tickets.count(), 1)
         self.assertEqual({it["line_id"] for it in tickets.first().items}, line_ids)
         # Comanda marker persisted and the cart payload annotates each line fired.
         session.refresh_from_db()
         self.assertEqual(set(session.data["fired_lines"]), line_ids)
-        self.assertTrue(all(it["fired"] for it in result["tab"]["items"]))
+        self.assertTrue(all(it["fired"] for it in build_open_tab(result.session)["items"]))
 
     def test_progressive_fire_sends_only_the_delta(self) -> None:
         session = self._open_tab_with_two_items()
@@ -80,16 +80,16 @@ class POSFireTabTests(TestCase):
             channel_ref="pdv", session_key=session.session_key,
             line_ids=[first_line], actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(first["fired_count"], 1)
-        self.assertEqual(first["fired_lines"], [first_line])
+        self.assertEqual(first.fired_count, 1)
+        self.assertEqual(list(first.fired_lines), [first_line])
 
         # Fire the whole tab → only the still-unfired course 2 is dispatched.
         second = pos_service.fire_pos_tab(
             channel_ref="pdv", session_key=session.session_key,
             actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(second["fired_count"], 1)
-        self.assertEqual(second["fired_lines"], line_ids)
+        self.assertEqual(second.fired_count, 1)
+        self.assertEqual(list(second.fired_lines), line_ids)
         ticket_lines = set()
         for ticket in KDSTicket.objects.filter(session_key=session.session_key):
             ticket_lines.update(it["line_id"] for it in ticket.items)
@@ -100,7 +100,7 @@ class POSFireTabTests(TestCase):
             channel_ref="pdv", session_key=session.session_key,
             actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(third["fired_count"], 0)
+        self.assertEqual(third.fired_count, 0)
         self.assertEqual(KDSTicket.objects.filter(session_key=session.session_key).count(), 2)
 
     def test_tab_board_flags_fired_unpaid_tab(self) -> None:
@@ -145,14 +145,14 @@ class POSFireTabTests(TestCase):
             channel_ref="pdv", session_key=session.session_key,
             line_ids=[first_line], actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(trim["trimmed"], 1)
-        self.assertEqual(trim["cancelled"], 0)
-        self.assertEqual(trim["fired_lines"], [second_line])
+        self.assertEqual(trim.trimmed, 1)
+        self.assertEqual(trim.cancelled, 0)
+        self.assertEqual(list(trim.fired_lines), [second_line])
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, "pending")
         self.assertEqual({it["line_id"] for it in ticket.items}, {second_line})
         # The cart shows the cancelled line as fireable again.
-        fired_flags = {it["line_id"]: it["fired"] for it in trim["tab"]["items"]}
+        fired_flags = {it["line_id"]: it["fired"] for it in build_open_tab(trim.session)["items"]}
         self.assertFalse(fired_flags[first_line])
         self.assertTrue(fired_flags[second_line])
 
@@ -161,19 +161,19 @@ class POSFireTabTests(TestCase):
             channel_ref="pdv", session_key=session.session_key,
             line_ids=[first_line], actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(refire["fired_count"], 1)
-        self.assertEqual(set(refire["fired_lines"]), {first_line, second_line})
+        self.assertEqual(refire.fired_count, 1)
+        self.assertEqual(set(refire.fired_lines), {first_line, second_line})
 
         # Cancel the last line on the original ticket → it empties → cancelled.
         cancel = pos_service.cancel_fired_pos_tab_lines(
             channel_ref="pdv", session_key=session.session_key,
             line_ids=[second_line], actor="pos:alice", operator_username="alice",
         )
-        self.assertEqual(cancel["cancelled"], 1)
+        self.assertEqual(cancel.cancelled, 1)
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, "cancelled")
         self.assertIsNotNone(ticket.cancelled_at)
-        self.assertEqual(cancel["fired_lines"], [first_line])
+        self.assertEqual(list(cancel.fired_lines), [first_line])
 
     def test_unfire_only_touches_targeted_progressive_ticket(self) -> None:
         session = self._open_tab_with_two_items()

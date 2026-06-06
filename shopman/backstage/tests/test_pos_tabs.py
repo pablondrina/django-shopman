@@ -9,7 +9,7 @@ from django.test import TestCase
 from shopman.orderman.models import Order, Session
 
 from shopman.backstage.models import POSTab
-from shopman.backstage.projections.pos import build_pos_tabs
+from shopman.backstage.projections.pos import build_open_tab, build_pos_tabs
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 
@@ -71,12 +71,12 @@ class POSTabSessionTests(TestCase):
         )
 
     def test_opening_empty_tab_creates_open_session(self) -> None:
-        payload = pos_service.open_pos_tab(
+        payload = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
 
         self.assertEqual(payload["tab_ref"], "00001007")
         self.assertEqual(payload["tab_display"], "1007")
@@ -87,12 +87,12 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(session.data["tab_ref"], "00001007")
 
     def test_saving_tab_keeps_single_in_use_session(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="00001007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
 
         saved = pos_service.save_pos_tab(
             channel_ref="pdv",
@@ -107,12 +107,12 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(int(session.items[0]["qty"]), 2)
 
     def test_reopening_in_use_tab_loads_existing_cart(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         pos_service.save_pos_tab(
             channel_ref="pdv",
             payload=_payload(qty=3, tab_session_key=opened["tab_session_key"]),
@@ -120,23 +120,23 @@ class POSTabSessionTests(TestCase):
             operator_username="alice",
         )
 
-        loaded = pos_service.open_pos_tab(
+        loaded = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="00001007",
             actor="pos:bob",
             operator_username="bob",
-        )
+        ))
 
         self.assertEqual(loaded["tab_session_key"], opened["tab_session_key"])
         self.assertEqual(loaded["items"][0]["qty"], 3)
 
     def test_reopening_saved_tab_does_not_replay_generated_payment_tender(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         pos_service.save_pos_tab(
             channel_ref="pdv",
             payload=_payload(qty=1, tab_session_key=opened["tab_session_key"]),
@@ -146,23 +146,23 @@ class POSTabSessionTests(TestCase):
         session = Session.objects.get(session_key=opened["tab_session_key"])
         self.assertEqual(session.data["payment"]["tenders"][0]["amount_q"], 1000)
 
-        loaded = pos_service.open_pos_tab(
+        loaded = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:bob",
             operator_username="bob",
-        )
+        ))
 
         self.assertEqual(loaded["payment_tenders"], [])
         self.assertEqual(loaded["tendered_amount_q"], "")
 
     def test_saving_tab_allows_incomplete_mixed_payment_draft(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         payload = _payload(qty=2, tab_session_key=opened["tab_session_key"])
         payload.update({
             "payment_method": "mixed",
@@ -183,12 +183,12 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(session.data["payment"]["tenders"][0]["amount_q"], 1000)
 
     def test_closing_tab_consumes_original_session_and_frees_tab(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         result = pos_service.close_sale(
             channel_ref="pdv",
             payload=_payload(qty=2, tab_session_key=opened["tab_session_key"]),
@@ -205,12 +205,12 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(order.data["tab_ref"], "00001007")
 
     def test_closing_tab_persists_checkout_fields(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         payload = _payload(tab_session_key=opened["tab_session_key"], customer_phone="43999990000")
         payload.update({
             "customer_tax_id": "12345678901",
@@ -235,12 +235,12 @@ class POSTabSessionTests(TestCase):
         self.assertEqual(order.data["receipt"], {"mode": "email", "email": "ana@example.com"})
 
     def test_closing_tab_can_create_delivery_with_payment_on_delivery(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         payload = _payload(tab_session_key=opened["tab_session_key"], customer_phone="43999990000")
         payload.update({
             "fulfillment_type": "delivery",
@@ -268,12 +268,12 @@ class POSTabSessionTests(TestCase):
         self.assertNotIn("cash_received_q", order.data["payment"])
 
     def test_tab_projection_shows_empty_and_in_use_tabs(self) -> None:
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor="pos:alice",
             operator_username="alice",
-        )
+        ))
         pos_service.save_pos_tab(
             channel_ref="pdv",
             payload=_payload(customer_name="Ana Mesa", customer_phone="43999990000", tab_session_key=opened["tab_session_key"]),

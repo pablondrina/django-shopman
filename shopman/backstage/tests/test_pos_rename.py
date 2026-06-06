@@ -6,6 +6,7 @@ import pytest
 from shopman.orderman.models import Session
 
 from shopman.backstage.models import POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel, Shop
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import PosIntentError
@@ -19,10 +20,10 @@ def pos_env(db):
 
 
 def _open_tab(tab_ref: str) -> Session:
-    opened = pos_service.open_pos_tab(
+    opened = build_open_tab(pos_service.open_pos_tab(
         channel_ref="pdv", tab_ref=tab_ref,
         actor="pos:alice", operator_username="alice",
-    )
+    ))
     return Session.objects.get(session_key=opened["tab_session_key"])
 
 
@@ -35,13 +36,12 @@ def test_rename_updates_handle_and_markers(pos_env):
         new_tab_ref="João Mesa", actor="pos:alice", operator_username="alice",
     )
 
-    assert result["ok"]
     session.refresh_from_db()
     assert session.handle_ref == "JOÃO MESA"
     assert session.data["tab_ref"] == "JOÃO MESA"
     assert session.data["tab_display"] == "João Mesa"
-    assert result["tab"]["tab_ref"] == "JOÃO MESA"
-    assert result["tab"]["tab_display"] == "João Mesa"
+    assert build_open_tab(result)["tab_ref"] == "JOÃO MESA"
+    assert build_open_tab(result)["tab_display"] == "João Mesa"
 
 
 @pytest.mark.django_db
@@ -82,5 +82,4 @@ def test_rename_to_same_ref_is_noop(pos_env):
         channel_ref="pdv", session_key=session.session_key,
         new_tab_ref="3001", actor="pos:alice", operator_username="alice",
     )
-    assert result["ok"]
-    assert result["tab"]["tab_ref"] == "00003001"
+    assert build_open_tab(result)["tab_ref"] == "00003001"

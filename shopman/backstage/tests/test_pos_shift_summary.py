@@ -126,15 +126,16 @@ class ShiftSummaryViewTests(TestCase):
         from shopman.offerman.models import Product
 
         from shopman.backstage.models import POSTab
+        from shopman.backstage.projections.pos import build_open_tab
         from shopman.shop.services import pos as pos_service
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
         POSTab.objects.create(ref="00001007", label="1007")
-        opened = pos_service.open_pos_tab(
+        opened = build_open_tab(pos_service.open_pos_tab(
             channel_ref="pdv",
             tab_ref="1007",
             actor=f"pos:{self.staff.username}",
             operator_username=self.staff.username,
-        )
+        ))
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
             "customer_name": "", "customer_phone": "", "payment_method": "cash",

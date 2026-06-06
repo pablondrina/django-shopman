@@ -22,7 +22,6 @@ from shopman.utils.monetary import format_money
 from shopman.shop.adapters import pos as pos_adapter
 from shopman.shop.config import ChannelConfig
 from shopman.shop.models import Channel
-from shopman.shop.projections import pos as pos_projection
 from shopman.shop.services import payment as payment_service
 from shopman.shop.services import sessions as session_service
 from shopman.shop.services.cancellation import cancel
@@ -68,6 +67,38 @@ class PosTabResult:
     tab_ref: str
     tab_display: str
     session_key: str
+
+
+@dataclass(frozen=True)
+class PosMoveResult:
+    """Outcome of a move-lines command (transfer/split/merge).
+
+    Carries the mutated sessions; the surface reads each comanda's payload via
+    the projection. ``source`` is ``None`` when the emptied source was closed.
+    """
+
+    target: Session
+    source: Session | None
+    source_closed: bool
+
+
+@dataclass(frozen=True)
+class PosFireResult:
+    """Outcome of a fire-to-kitchen command: the mutated session + effects."""
+
+    session: Session
+    fired_count: int
+    fired_lines: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PosUnfireResult:
+    """Outcome of a cancel-fire command: the mutated session + effects."""
+
+    session: Session
+    cancelled: int
+    trimmed: int
+    fired_lines: tuple[str, ...]
 
 
 def normalize_tab_ref(value: str) -> str:
@@ -358,8 +389,8 @@ def open_pos_tab(
     tab_ref: str,
     actor: str,
     operator_username: str,
-) -> dict:
-    """Open or load the current order for a POS tab."""
+) -> Session:
+    """Open or load the current order for a POS tab (returns the open session)."""
     channel, config = _channel_and_config(channel_ref)
     ref = normalize_tab_ref(tab_ref)
     tab_display = _ensure_pos_tab(ref, display=_tab_label_from_input(tab_ref, ref))
@@ -400,7 +431,7 @@ def open_pos_tab(
         session.refresh_from_db()
 
     logger.info("pos_open_tab tab=%s session=%s operator=%s", ref, session.session_key, operator_username)
-    return pos_projection.build_open_tab(session)
+    return session
 
 
 def save_pos_tab(
@@ -482,7 +513,7 @@ def rename_pos_tab(
     new_tab_ref: str,
     actor: str,
     operator_username: str,
-) -> dict:
+) -> Session:
     """Rename an open comanda's handle (e.g. ``Mesa 5`` → ``João``).
 
     Respects the open-session handle uniqueness constraint
@@ -512,7 +543,7 @@ def rename_pos_tab(
         ) from exc
 
     if ref == _session_tab_ref(session):
-        return {"ok": True, "tab": pos_projection.build_open_tab(session)}
+        return session
 
     existing = _get_open_pos_tab_session(channel_ref=channel.ref, tab_ref=ref)
     if existing is not None and existing.session_key != session.session_key:
@@ -541,7 +572,7 @@ def rename_pos_tab(
         "pos_rename_tab session=%s new_ref=%s operator=%s",
         session.session_key, ref, operator_username,
     )
-    return {"ok": True, "tab": pos_projection.build_open_tab(session)}
+    return session
 
 
 def move_pos_tab_lines(
@@ -554,7 +585,7 @@ def move_pos_tab_lines(
     close_source_when_empty: bool = False,
     actor: str,
     operator_username: str,
-) -> dict:
+) -> PosMoveResult:
     """Move lines between POS comandas (transfer / split / merge), freezing price.
 
     - transfer: ``to_session_key`` points at an existing open comanda.
@@ -678,12 +709,11 @@ def move_pos_tab_lines(
         source_closed,
         operator_username,
     )
-    return {
-        "ok": True,
-        "source_closed": bool(source_closed),
-        "source": None if source_closed else pos_projection.build_open_tab(source),
-        "target": pos_projection.build_open_tab(target),
-    }
+    return PosMoveResult(
+        target=target,
+        source=None if source_closed else source,
+        source_closed=bool(source_closed),
+    )
 
 
 def _session_to_fire_lines(session: Session) -> list[dict]:
@@ -710,7 +740,7 @@ def fire_pos_tab(
     client_request_id: str = "",
     actor: str,
     operator_username: str,
-) -> dict:
+) -> PosFireResult:
     """Send an open comanda's not-yet-fired courses to the kitchen (KDS).
 
     Progressive (course-by-course): only the unfired delta is dispatched.
@@ -766,12 +796,7 @@ def fire_pos_tab(
         _session_tab_ref(session), session.session_key, len(tickets), len(fired),
         operator_username, client_request_id or "-",
     )
-    return {
-        "ok": True,
-        "fired_count": len(tickets),
-        "fired_lines": fired,
-        "tab": pos_projection.build_open_tab(session),
-    }
+    return PosFireResult(session=session, fired_count=len(tickets), fired_lines=tuple(fired))
 
 
 def cancel_fired_pos_tab_lines(
@@ -781,7 +806,7 @@ def cancel_fired_pos_tab_lines(
     line_ids: list[str],
     actor: str,
     operator_username: str,
-) -> dict:
+) -> PosUnfireResult:
     """Cancel the kitchen fire for specific comanda lines (course returned/wrong).
 
     The targeted lines leave their live KDS tickets (a ticket is cancelled when
@@ -829,13 +854,12 @@ def cancel_fired_pos_tab_lines(
         _session_tab_ref(session), session.session_key,
         result["cancelled"], result["trimmed"], len(fired), operator_username,
     )
-    return {
-        "ok": True,
-        "cancelled": result["cancelled"],
-        "trimmed": result["trimmed"],
-        "fired_lines": fired,
-        "tab": pos_projection.build_open_tab(session),
-    }
+    return PosUnfireResult(
+        session=session,
+        cancelled=result["cancelled"],
+        trimmed=result["trimmed"],
+        fired_lines=tuple(fired),
+    )
 
 
 def cancel_recent_order(

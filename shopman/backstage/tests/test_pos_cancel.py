@@ -24,6 +24,7 @@ from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 
 from shopman.backstage.models import POSTab
+from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel
 from shopman.shop.services import pos as pos_service
 
@@ -179,12 +180,12 @@ class PosCloseGranularErrorTests(TestCase):
         tab = {"tab_ref": "00001007", "tab_session_key": None}
         if open_tab:
             POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
-            tab = pos_service.open_pos_tab(
+            tab = build_open_tab(pos_service.open_pos_tab(
                 channel_ref="pdv",
                 tab_ref="1007",
                 actor=f"pos:{self.staff.username}",
                 operator_username=self.staff.username,
-            )
+            ))
         return {
             "payload": json.dumps({
                 "items": items,

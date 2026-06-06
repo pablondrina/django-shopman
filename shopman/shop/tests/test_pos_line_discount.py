@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+from shopman.backstage.projections import pos as pos_projection
 from shopman.shop.modifiers import DiscountModifier
-from shopman.shop.projections import pos as pos_projection
 from shopman.shop.services import pos as pos_service
 from shopman.shop.services.pos_intent import (
     PosIntentError,
