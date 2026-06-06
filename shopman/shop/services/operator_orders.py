@@ -87,13 +87,26 @@ def next_status_for(order: Order) -> str:
     return _NEXT_STATUS_MAP.get(order.status, "")
 
 
+def advance_block_reason(order: Order) -> str:
+    """Why advancing is blocked right now, or '' if ``advance_order`` would run.
+
+    Single source for the operator-advance gate: ``advance_order`` raises with
+    this reason, and the operator queue reads it to decide whether to offer the
+    advance action — so the prediction always matches the enforcement.
+    """
+    if not next_status_for(order):
+        return "Pedido não possui próxima etapa"
+    if order.status == Order.Status.CONFIRMED and _requires_captured_payment_for_work(order):
+        return "Pagamento ainda não foi confirmado. Aguarde antes de iniciar o preparo."
+    return ""
+
+
 def advance_order(order: Order, *, actor: str) -> str:
     """Advance an order through the operator lifecycle."""
+    blocked = advance_block_reason(order)
+    if blocked:
+        raise ValueError(blocked)
     next_status = next_status_for(order)
-    if not next_status:
-        raise ValueError("Pedido não possui próxima etapa")
-    if order.status == Order.Status.CONFIRMED and _requires_captured_payment_for_work(order):
-        raise ValueError("Pagamento ainda não foi confirmado. Aguarde antes de iniciar o preparo.")
     _sync_delivery_fulfillment(order, next_status)
     order.transition_status(next_status, actor=actor)
     return next_status

@@ -25,6 +25,7 @@ from shopman.shop.projections.types import (
     OrderItemProjection,
     TimelineEventProjection,
 )
+from shopman.shop.services import operator_orders
 from shopman.shop.services import payment as payment_svc
 from shopman.shop.services.order_helpers import get_fulfillment_type
 
@@ -48,14 +49,6 @@ CHANNEL_ICONS: dict[str, str] = {
     "pos": "storefront",
 }
 _DEFAULT_CHANNEL_ICON = "shopping_bag"
-
-NEXT_STATUS_MAP: dict[str, str] = {
-    "confirmed": "preparing",
-    "preparing": "ready",
-    "ready": "completed",
-    "dispatched": "delivered",
-    "delivered": "completed",
-}
 
 NEXT_ACTION_LABELS: dict[str, str] = {
     "confirmed": "Iniciar preparo",
@@ -324,7 +317,11 @@ def _build_card(order: Order) -> OrderCardProjection:
         or ""
     )
 
-    next_status = _next_status(order)
+    next_status = (
+        operator_orders.next_status_for(order)
+        if not operator_orders.advance_block_reason(order)
+        else ""
+    )
     next_label = _next_label(order)
 
     payment_data = order.data.get("payment", {})
@@ -534,18 +531,6 @@ def _timer_class(status: str, elapsed: float) -> str:
 
 def _is_delivery(order: Order) -> bool:
     return get_fulfillment_type(order) == "delivery"
-
-
-def _next_status(order: Order) -> str:
-    payment_data = (order.data or {}).get("payment") or {}
-    method = str(payment_data.get("method") or "").lower()
-    if order.status == "confirmed" and method not in _OFFLINE_METHODS:
-        status = (_payment_status(order) or "").lower()
-        if status not in _PAYMENT_COMPLETE:
-            return ""
-    if order.status == "ready" and _is_delivery(order):
-        return "dispatched"
-    return NEXT_STATUS_MAP.get(order.status, "")
 
 
 def _next_label(order: Order) -> str:
