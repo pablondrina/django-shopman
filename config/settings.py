@@ -201,6 +201,8 @@ INSTALLED_APPS = [
     # Shopman surfaces
     "shopman.storefront",
     "shopman.backstage",
+    # Deployment app — deployment-level tooling (the `seed` command). No models.
+    "config",
     # Optional instance/distribution apps
     *SHOPMAN_INSTANCE_APPS,
 ]
