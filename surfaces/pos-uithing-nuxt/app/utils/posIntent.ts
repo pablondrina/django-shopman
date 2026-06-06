@@ -1,6 +1,7 @@
 import type { POSCartItem, POSIntentCartState, POSPaymentTenderDraft, Action } from "~/types/pos";
+import { POS_SALE_INTENT_VERSION } from "~/generated/posContract";
 
-export const POS_SALE_INTENT_VERSION = "pos.sale-intent.v1";
+export { POS_SALE_INTENT_VERSION };
 
 export function formatBRL(amountQ: number): string {
   return new Intl.NumberFormat("pt-BR", {

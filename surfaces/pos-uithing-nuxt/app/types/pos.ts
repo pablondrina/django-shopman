@@ -1,3 +1,5 @@
+import type { PosPaymentCollection, PosPaymentMethod } from "~/generated/posContract";
+
 export interface Action {
   ref: string;
   kind: string;
@@ -28,7 +30,7 @@ export interface POSCollectionProjection {
 }
 
 export interface POSPaymentMethodProjection {
-  ref: "cash" | "pix" | "card" | "external" | "mixed" | string;
+  ref: PosPaymentMethod | string;
   label: string;
 }
 
@@ -40,7 +42,7 @@ export interface POSFulfillmentOptionProjection {
 }
 
 export interface POSPaymentCollectionProjection {
-  ref: "terminal" | "on_delivery";
+  ref: PosPaymentCollection;
   label: string;
   description: string;
   fulfillment_types: Array<"pickup" | "delivery">;
@@ -263,7 +265,7 @@ export interface POSCartItem {
 export interface POSPaymentTenderDraft {
   method: string;
   amount_q: number;
-  collection: "terminal" | "on_delivery";
+  collection: PosPaymentCollection;
   reference?: string;
 }
 
@@ -287,7 +289,7 @@ export interface POSTabPayload {
   delivery_fee_q: number;
   order_notes: string;
   payment_method: string;
-  payment_collection: "terminal" | "on_delivery";
+  payment_collection: PosPaymentCollection;
   payment_tenders: POSIntentCartState["paymentTenders"];
   tendered_amount_q: number | string;
   issue_fiscal_document: boolean;
@@ -339,7 +341,7 @@ export interface POSIntentCartState {
   deliveryFeeQ: number;
   orderNotes: string;
   paymentMethod: string;
-  paymentCollection: "terminal" | "on_delivery";
+  paymentCollection: PosPaymentCollection;
   paymentTenders: POSPaymentTenderDraft[];
   tenderedAmountQ: number | null;
   issueFiscalDocument: boolean;
