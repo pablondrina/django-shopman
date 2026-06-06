@@ -7,9 +7,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.storefront.presentation import get_channel_listing_ref
+from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+from shopman.storefront.presentation import build_catalog_items_for_skus, get_channel_listing_ref
 from shopman.storefront.services import catalog as catalog_service
-from shopman.storefront.services.product_cards import annotate_products
 
 from .serializers import CollectionSerializer, ProductListItemSerializer
 
@@ -17,27 +17,6 @@ from .serializers import CollectionSerializer, ProductListItemSerializer
 class ProductCursorPagination(CursorPagination):
     page_size = 20
     ordering = "name"
-
-
-def _serialize_annotated(items: list[dict]) -> list[dict]:
-    """Convert annotate_products() output to serializer-ready dicts."""
-    result = []
-    for item in items:
-        p = item["product"]
-        result.append({
-            "sku": p.sku,
-            "name": p.name,
-            "description": getattr(p, "description", None) or "",
-            "unit": getattr(p, "unit", None) or "",
-            "price_q": item["price_q"],
-            "price_display": item["price_display"],
-            "is_d1": item["is_d1"],
-            "d1_price_display": item["d1_price_display"],
-            "original_price_display": item["original_price_display"],
-            "badge": item["badge"],
-            "promo_badge": item.get("promo_badge"),
-        })
-    return result
 
 
 @extend_schema_view(
@@ -85,14 +64,17 @@ class ProductListView(APIView):
         if request.query_params.get("available") in ("true", "1"):
             qs = qs.filter(is_sellable=True)
 
-        # Paginate before annotating (annotate is expensive per-product)
+        # Paginate before building cards (card build is expensive per-product)
         paginator = ProductCursorPagination()
         page = paginator.paginate_queryset(qs, request)
         products = list(page) if page is not None else list(qs[:20])
 
-        annotated = annotate_products(products, listing_ref=listing_ref)
-        data = _serialize_annotated(annotated)
-        serializer = ProductListItemSerializer(data, many=True)
+        items = build_catalog_items_for_skus(
+            [p.sku for p in products],
+            channel_ref=STOREFRONT_CHANNEL_REF,
+            request=request,
+        )
+        serializer = ProductListItemSerializer(items, many=True)
 
         if page is not None:
             return paginator.get_paginated_response(serializer.data)
@@ -122,14 +104,17 @@ class ProductDetailView(APIView):
     serializer_class = ProductListItemSerializer
 
     def get(self, request, sku: str):
-        product = catalog_service.get_published_product(sku)
-        if product is None:
+        if catalog_service.get_published_product(sku) is None:
             return Response({"detail": "Product not found."}, status=404)
 
-        listing_ref = get_channel_listing_ref()
-        annotated = annotate_products([product], listing_ref=listing_ref)
-        data = _serialize_annotated(annotated)[0]
-        return Response(data)
+        items = build_catalog_items_for_skus(
+            [sku],
+            channel_ref=STOREFRONT_CHANNEL_REF,
+            request=request,
+        )
+        if not items:
+            return Response({"detail": "Product not found."}, status=404)
+        return Response(ProductListItemSerializer(items[0]).data)
 
 
 @extend_schema_view(

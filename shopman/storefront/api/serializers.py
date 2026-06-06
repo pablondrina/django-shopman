@@ -70,24 +70,29 @@ class DetailSerializer(serializers.Serializer):
 # ── Catalog ──────────────────────────────────────────────────────────
 
 
-class AvailabilityBadgeSerializer(serializers.Serializer):
-    label = serializers.CharField()
-    css_class = serializers.CharField()
-    can_add_to_cart = serializers.BooleanField()
-
-
 class ProductListItemSerializer(serializers.Serializer):
+    """Public product card — serializes a ``CatalogItemProjection`` directly.
+
+    The headless catalog contract serves the same canonical card shape as the
+    web menu (one card everywhere). D-1 staff pricing is deliberately absent
+    from this public endpoint.
+    """
+
     sku = serializers.CharField()
     name = serializers.CharField()
-    description = serializers.CharField(allow_null=True, required=False)
-    unit = serializers.CharField(allow_null=True, required=False)
-    price_q = serializers.IntegerField(allow_null=True)
-    price_display = serializers.CharField(allow_null=True)
-    is_d1 = serializers.BooleanField()
-    d1_price_display = serializers.CharField(allow_null=True)
-    original_price_display = serializers.CharField(allow_null=True)
-    badge = AvailabilityBadgeSerializer()
-    promo_badge = serializers.DictField(allow_null=True, required=False)
+    short_description = serializers.CharField(allow_blank=True)
+    image_url = serializers.CharField(allow_null=True, required=False)
+    price_q = serializers.IntegerField(source="base_price_q", allow_null=True)
+    price_display = serializers.CharField(allow_blank=True)
+    has_promotion = serializers.BooleanField()
+    original_price_display = serializers.CharField(allow_null=True, required=False)
+    promotion_label = serializers.CharField(allow_null=True, required=False)
+    unit_weight_label = serializers.CharField(allow_null=True, required=False)
+    availability = serializers.CharField(source="availability.value")
+    availability_label = serializers.CharField()
+    can_add_to_cart = serializers.BooleanField()
+    available_qty = serializers.IntegerField(allow_null=True, required=False)
+    is_featured = serializers.BooleanField()
 
 
 @extend_schema_serializer(component_name="StorefrontCollection")

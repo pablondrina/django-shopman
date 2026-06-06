@@ -297,6 +297,46 @@ class TestPromotions:
         assert item.promotion_label  # label comes from modifier metadata
 
 
+class TestVitrineCartPriceParity:
+    """The menu card and the cart must price a SKU identically — both resolve
+    through the same ``contextual_price`` path. Guards against the
+    ``product_cards`` divergence (promo via private Core methods) returning.
+    """
+
+    def test_promo_price_matches_between_vitrine_and_cart(
+        self, client, channel, listing, collection, collection_item, product,
+    ):
+        from shopman.shop.projections.cart import build_cart as build_cart_data
+        from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.presentation import build_catalog_items_for_skus
+
+        _publish_on_listing(listing, product)
+        now = timezone.now()
+        Promotion.objects.create(
+            name="Parity 25% OFF",
+            type="percent",
+            value=25,
+            skus=[product.sku],
+            is_active=True,
+            valid_from=now - timedelta(hours=1),
+            valid_until=now + timedelta(hours=1),
+        )
+
+        # Add the promo SKU to a real cart and resolve both reads.
+        client.post("/cart/set-qty/", {"sku": product.sku, "qty": 1})
+        cart = build_cart_data(client.session.get("cart_session_key"), STOREFRONT_CHANNEL_REF)
+        cart_line = next(line for line in cart.lines if line.sku == product.sku)
+
+        vitrine = build_catalog_items_for_skus(
+            [product.sku], channel_ref=STOREFRONT_CHANNEL_REF,
+        )[0]
+
+        # 80 - 25% = 60, identical on both surfaces.
+        assert vitrine.has_promotion is True
+        assert vitrine.base_price_q == 60
+        assert cart_line.unit_price_q == vitrine.base_price_q
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Multiple items
 # ──────────────────────────────────────────────────────────────────────
