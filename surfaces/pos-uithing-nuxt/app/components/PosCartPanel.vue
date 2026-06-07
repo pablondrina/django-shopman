@@ -4,6 +4,7 @@ import type { ActionAffordance } from "~/presentation/actions";
 import { formatBRL } from "~/utils/posIntent";
 import { clampPercent, clampQty, popDigit, pushDigit } from "~/presentation/numpad";
 import { fireBarView, kitchenLineState } from "~/presentation/kitchen";
+import { pruneSelection, selectionView, toggleSelected } from "~/presentation/selection";
 
 const props = defineProps<{
   items: POSCartItem[];
@@ -28,8 +29,45 @@ const emit = defineEmits<{
   move: [];
   fire: [];
   unfire: [string];
+  /** Multi-select batch (spec §2.2): fire/unfire exactly these cart skus. The
+   *  shell resolves their fresh server line_ids (regenerated on save). */
+  fireLines: [string[]];
+  unfireLines: [string[]];
   requestTab: [];
 }>();
+
+// Multi-select (spec §2.2): selection is screen state (a set of cart skus); the
+// batch toolbar is shaped purely (presentation/selection). Tapping a line's
+// checkbox toggles it without arming the numpad; the toolbar acts on all chosen.
+const selected = ref<Set<string>>(new Set());
+const selection = computed(() => selectionView(props.items, selected.value));
+const selectMode = computed(() => selection.value.count > 0);
+function isSelected(sku: string) {
+  return selected.value.has(sku);
+}
+function toggleSelect(sku: string) {
+  selected.value = toggleSelected(selected.value, sku);
+}
+function clearSelection() {
+  selected.value = new Set();
+}
+// Keep the selection consistent when the cart changes (removed lines drop out).
+watch(
+  () => props.items.map((item) => item.sku).join("|"),
+  () => { selected.value = pruneSelection(selected.value, props.items); },
+);
+function batchFire() {
+  if (selection.value.canFire) emit("fireLines", selection.value.skus);
+  clearSelection();
+}
+function batchUnfire() {
+  if (selection.value.canUnfire) emit("unfireLines", selection.value.skus);
+  clearSelection();
+}
+function batchRemove() {
+  selection.value.skus.forEach((sku) => emit("remove", sku));
+  clearSelection();
+}
 
 // Kitchen handoff (spec §2.5): the fire bar and per-line state are shaped from
 // the Projection's Actions + per-line `fired`, never decided here.
@@ -141,15 +179,21 @@ function commitQty() {
   emit("setQty", sku, next);
 }
 
+// Discount targets: the whole selection in multi-select, else the active line.
+const discountTargets = computed(() => (selectMode.value ? selection.value.skus : (activeSku.value ? [activeSku.value] : [])));
+
 function commitDiscount() {
-  const sku = activeSku.value;
-  if (!sku) return;
+  const targets = discountTargets.value;
+  if (!targets.length) return;
   const value = clampPercent(numpadBuffer.value);
-  emit("setDiscount", sku, value, discountReason.value || "cortesia");
+  targets.forEach((sku) => emit("setDiscount", sku, value, discountReason.value || "cortesia"));
 }
 
+// In multi-select the numpad is discount-only (batch quantity is meaningless).
+const numpadCanType = computed(() => (numpadMode.value === "qty" ? !!activeSku.value : discountTargets.value.length > 0));
+
 function onDigit(digit: string) {
-  if (!activeSku.value) return;
+  if (!numpadCanType.value) return;
   numpadBuffer.value = pushDigit(numpadBuffer.value, digit, { fresh: numpadFresh.value, maxLength: 3 });
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
@@ -157,7 +201,7 @@ function onDigit(digit: string) {
 }
 
 function onBackspace() {
-  if (!activeSku.value) return;
+  if (!numpadCanType.value) return;
   numpadBuffer.value = popDigit(numpadBuffer.value);
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
@@ -165,21 +209,29 @@ function onBackspace() {
 }
 
 function onClear() {
-  const sku = activeSku.value;
-  if (!sku) return;
   if (numpadMode.value === "qty") {
-    askRemove(sku);
-  } else {
-    numpadBuffer.value = "";
-    numpadFresh.value = true;
-    emit("setDiscount", sku, 0, discountReason.value || "cortesia");
+    if (activeSku.value) askRemove(activeSku.value);
+    return;
   }
+  const targets = discountTargets.value;
+  if (!targets.length) return;
+  numpadBuffer.value = "";
+  numpadFresh.value = true;
+  targets.forEach((sku) => emit("setDiscount", sku, 0, discountReason.value || "cortesia"));
 }
 
 function pickReason(reason: string) {
   discountReason.value = reason;
-  if (activeSku.value && numpadMode.value === "disc") commitDiscount();
+  if (numpadMode.value === "disc" && discountTargets.value.length) commitDiscount();
 }
+
+// Entering multi-select switches the numpad to its discount (batch) mode, since
+// batch quantity has no meaning; leaving it restores quantity entry.
+watch(selectMode, (on) => {
+  numpadMode.value = on ? "disc" : "qty";
+  numpadBuffer.value = "";
+  numpadFresh.value = true;
+});
 
 function bump(sku: string, emitName: "increment" | "decrement") {
   selectedSku.value = sku;
@@ -240,11 +292,21 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <li
           v-for="item in items"
           :key="item.sku"
-          class="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-2 rounded-lg px-2 py-1 transition"
-          :class="activeSku === item.sku ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+          class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg px-2 py-1 transition"
+          :class="isSelected(item.sku) ? 'bg-primary/10 ring-1 ring-primary/40' : (activeSku === item.sku ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-accent/60')"
           :aria-current="activeSku === item.sku ? 'true' : undefined"
           @click="selectLine(item.sku)"
         >
+          <button
+            type="button"
+            class="grid size-6 shrink-0 place-items-center rounded-md border transition"
+            :class="isSelected(item.sku) ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent hover:border-primary/60'"
+            :aria-label="`Selecionar ${item.name}`"
+            :aria-pressed="isSelected(item.sku)"
+            @click.stop="toggleSelect(item.sku)"
+          >
+            <Icon name="lucide:check" class="size-4" />
+          </button>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium leading-tight">{{ item.name }}</p>
             <p class="text-xs text-muted-foreground tabular-nums">
@@ -295,7 +357,27 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
     </div>
 
     <div v-if="items.length" class="grid shrink-0 gap-1.5">
-      <div class="flex gap-1">
+      <!-- Batch toolbar (multi-select §2.2): acts on every checked line via Actions. -->
+      <div v-if="selectMode" class="flex flex-wrap items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 p-1.5">
+        <span class="px-1 text-xs font-semibold tabular-nums">{{ selection.count }} selec.</span>
+        <UiButton v-if="selection.canFire" size="xs" variant="outline" class="gap-1" :disabled="firing" @click="batchFire">
+          <Icon name="lucide:utensils" class="size-3.5" />
+          {{ fireAction.label || "Enviar" }}
+        </UiButton>
+        <UiButton v-if="selection.canUnfire" size="xs" variant="outline" class="gap-1" :disabled="firing" @click="batchUnfire">
+          <Icon name="lucide:x" class="size-3.5" />
+          {{ unfireAction.label || "Cancelar envio" }}
+        </UiButton>
+        <UiButton size="xs" variant="outline" class="gap-1 text-destructive" :disabled="loading" @click="batchRemove">
+          <Icon name="lucide:trash-2" class="size-3.5" />
+          Remover
+        </UiButton>
+        <UiButton size="xs" variant="ghost" class="ml-auto" aria-label="Limpar seleção" title="Limpar seleção" @click="clearSelection">
+          <Icon name="lucide:x" class="size-4" />
+        </UiButton>
+      </div>
+
+      <div v-if="!selectMode" class="flex gap-1">
         <button
           type="button"
           class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
@@ -313,7 +395,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
           Desc %
         </button>
       </div>
-      <div v-if="numpadMode === 'disc' && activeSku" class="flex flex-wrap gap-1">
+      <p v-else class="px-1 text-xs font-medium text-muted-foreground">
+        Desconto em {{ selection.count }} {{ selection.count === 1 ? "item selecionado" : "itens selecionados" }} — digite o %
+      </p>
+      <div v-if="numpadMode === 'disc' && discountTargets.length" class="flex flex-wrap gap-1">
         <button
           v-for="reason in reasonOptions"
           :key="reason.ref"

@@ -126,6 +126,7 @@ const {
   submitMove,
   fireTab,
   unfireTab,
+  unfireSelected,
   renameTab,
   cancelRecentSale,
   openCashShift,
@@ -446,6 +447,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             @move="openMoveDialog"
             @fire="fireTab"
             @unfire="unfireTab"
+            @fire-lines="fireTab"
+            @unfire-lines="unfireSelected"
             @request-tab="requestTabAssociation('start')"
           />
         </div>

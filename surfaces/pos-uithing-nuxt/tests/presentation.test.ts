@@ -45,6 +45,7 @@ import {
   kitchenLineState,
   unfiredCount,
 } from "../app/presentation/kitchen";
+import { pruneSelection, selectionView, toggleSelected } from "../app/presentation/selection";
 import type { ActionAffordance } from "../app/presentation/actions";
 import { formatBRL } from "../app/utils/posIntent";
 import type {
@@ -525,5 +526,47 @@ describe("presentation/kitchen — fire-to-kitchen shaping", () => {
     expect(fireBarView({ items: [], affordance: affordance(), hasOpenTab: true, busy: false }).visible).toBe(false);
     expect(fireBarView({ items, affordance: affordance(), hasOpenTab: true, busy: true }).disabled).toBe(true);
     expect(fireBarView({ items, affordance: affordance({ enabled: false }), hasOpenTab: true, busy: false }).disabled).toBe(true);
+  });
+});
+
+describe("presentation/selection — multi-select batch shaping", () => {
+  const items = [
+    cartItem({ sku: "A", line_id: "L1" }),
+    cartItem({ sku: "B", line_id: "L2", fired: true }),
+    cartItem({ sku: "C" }), // no line_id yet (unsaved)
+  ];
+
+  it("toggles a sku immutably", () => {
+    const a = toggleSelected(new Set<string>(), "A");
+    expect([...a]).toEqual(["A"]);
+    const b = toggleSelected(a, "B");
+    expect([...b].sort()).toEqual(["A", "B"]);
+    expect([...toggleSelected(b, "A")].sort()).toEqual(["B"]);
+    // original set is untouched (new Set each time)
+    expect([...a]).toEqual(["A"]);
+  });
+
+  it("shapes the batch toolbar: counts, firable vs unfirable line_ids", () => {
+    const view = selectionView(items, new Set(["A", "B", "C"]));
+    expect(view.count).toBe(3);
+    expect(view.skus.sort()).toEqual(["A", "B", "C"]);
+    // A is unfired with a line_id → firable; C has no line_id → excluded.
+    expect(view.firableLineIds).toEqual(["L1"]);
+    expect(view.canFire).toBe(true);
+    // B is fired with a line_id → unfirable.
+    expect(view.unfirableLineIds).toEqual(["L2"]);
+    expect(view.canUnfire).toBe(true);
+  });
+
+  it("empty selection has no batch affordances", () => {
+    const view = selectionView(items, new Set());
+    expect(view.count).toBe(0);
+    expect(view.canFire).toBe(false);
+    expect(view.canUnfire).toBe(false);
+  });
+
+  it("prunes selected skus no longer in the cart", () => {
+    const pruned = pruneSelection(new Set(["A", "Z"]), items);
+    expect([...pruned]).toEqual(["A"]);
   });
 });

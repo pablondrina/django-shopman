@@ -908,17 +908,39 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
-  async function fireTab() {
+  // Resolve the live server line_ids for a set of cart skus after persisting:
+  // save_tab regenerates line_ids, so we persist + reload (same pattern as the
+  // move dialog) and read the fresh ids the kitchen endpoints expect.
+  async function freshLineIdsForSkus(skus: string[], firedState: "fired" | "unfired"): Promise<string[]> {
+    await persistTab(true);
+    await reloadCurrentTab();
+    const wantFired = firedState === "fired";
+    return cart.items
+      .filter((item) => skus.includes(item.sku) && item.line_id && Boolean(item.fired) === wantFired)
+      .map((item) => item.line_id as string);
+  }
+
+  async function fireTab(selectedSkus?: string[]) {
     if (!cart.tabSessionKey) return;
     serverError.value = "";
     firing.value = true;
     try {
-      // Persist on-screen items first so the server fires exactly what the
-      // operator sees (the local draft may not be autosaved yet).
-      await persistTab(true);
+      const body: Record<string, unknown> = { client_request_id: newClientRequestId() };
+      if (selectedSkus && selectedSkus.length) {
+        // Multi-select (spec §2.2): fire exactly the chosen lines. Resolve their
+        // fresh line_ids (persist regenerates them) before targeting.
+        const lineIds = await freshLineIdsForSkus(selectedSkus, "unfired");
+        if (!lineIds.length) return;
+        body.line_ids = lineIds;
+      } else {
+        // Delta fire: persist on-screen items so the server fires exactly what the
+        // operator sees, then fire all unfired lines (no line_ids = the delta).
+        await persistTab(true);
+      }
+      body.session_key = cart.tabSessionKey;
       const response = await action.call<{ tab: POSTabPayload | null }>(
         actionHref(actions.value, "fire_tab", "/api/v1/backstage/pos/tabs/fire/"),
-        { body: { session_key: cart.tabSessionKey, client_request_id: newClientRequestId() } },
+        { body },
       );
       if (response.tab) setFromTabPayload(response.tab);
       await refresh();
@@ -929,17 +951,39 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  async function unfireLineIds(ids: string[]) {
+    if (!cart.tabSessionKey || !ids.length) return;
+    const response = await action.call<{ tab: POSTabPayload | null }>(
+      actionHref(actions.value, "unfire_tab", "/api/v1/backstage/pos/tabs/unfire/"),
+      { body: { session_key: cart.tabSessionKey, line_ids: ids } },
+    );
+    if (response.tab) setFromTabPayload(response.tab);
+    await refresh();
+  }
+
   async function unfireTab(lineId: string) {
     if (!cart.tabSessionKey || !lineId) return;
     serverError.value = "";
     firing.value = true;
     try {
-      const response = await action.call<{ tab: POSTabPayload | null }>(
-        actionHref(actions.value, "unfire_tab", "/api/v1/backstage/pos/tabs/unfire/"),
-        { body: { session_key: cart.tabSessionKey, line_ids: [lineId] } },
-      );
-      if (response.tab) setFromTabPayload(response.tab);
-      await refresh();
+      await unfireLineIds([lineId]);
+    } catch (err: any) {
+      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
+    } finally {
+      firing.value = false;
+    }
+  }
+
+  // Multi-select unfire (spec §2.2): resolve the chosen lines' fresh, fired
+  // line_ids, then cancel their kitchen handoff in one call.
+  async function unfireSelected(selectedSkus: string[]) {
+    if (!cart.tabSessionKey || !selectedSkus.length) return;
+    serverError.value = "";
+    firing.value = true;
+    try {
+      const ids = await freshLineIdsForSkus(selectedSkus, "fired");
+      if (!ids.length) return;
+      await unfireLineIds(ids);
     } catch (err: any) {
       serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
     } finally {
@@ -1118,6 +1162,7 @@ export function usePosSale(deps: PosSaleDeps) {
     submitMove,
     fireTab,
     unfireTab,
+    unfireSelected,
     renameTab,
     cancelRecentSale,
     openCashShift,
