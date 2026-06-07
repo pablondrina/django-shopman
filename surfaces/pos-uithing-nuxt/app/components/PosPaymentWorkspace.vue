@@ -140,6 +140,16 @@ const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
 const discountSheetOpen = ref(false);
 
+// Minimalist flow (calm by subtraction): the total is the hero; the cash
+// entry (quick bills) appears only when a cash tender exists, and the full
+// numpad stays hidden behind "Outro valor" — most counter sales finish in a
+// tap (PIX/card cover exactly; cash via "Exato" or a bill).
+const showNumpad = ref(false);
+const hasCashTender = computed(() => props.paymentTenders.some((tender) => tender.method === "cash"));
+const cashDeltas = computed(() => cashPresets.value.filter((preset) => preset > 0));
+const cashHasExact = computed(() => cashPresets.value.includes(0));
+watch(hasCashTender, (has) => { if (!has) showNumpad.value = false; });
+
 const fulfillmentLabel = computed(
   () => props.fulfillmentOptions.find((option) => option.ref === props.fulfillmentType)?.label || props.fulfillmentType,
 );
@@ -180,150 +190,154 @@ function onAddressSelected(address: StructuredAddressProjection) {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col gap-3">
-    <!-- Payment screen (single continuous flow, Shopify-informed): the total is
-         the anchor, method tiles are large, the numpad is contextual (edits the
-         selected tender) and sized proportionally — not a permanent center block.
-         Sale-data are on-demand sheets in the right sidebar; Finalizar is a
-         full-width CTA in the footer. Title + back live in the shell context bar. -->
-    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_21rem]">
+  <section class="flex h-full min-h-0 flex-col gap-4">
+    <!-- Payment screen (minimalist, "calm by subtraction" — Loyverse/Toast). The
+         total is the hero; sale-data are quiet chips; methods are big; the cash
+         entry (quick bills) + numpad appear only when needed. Most counter sales
+         finish in one tap (PIX/card cover exactly). Title/back: shell context bar. -->
 
-      <!-- LEFT region — the payment work -->
-      <div class="flex min-h-0 flex-col gap-4 rounded-lg border bg-card p-4">
-        <!-- total anchor -->
-        <div class="grid shrink-0 grid-cols-2 gap-3 rounded-xl bg-muted/50 p-4">
-          <div>
-            <p class="text-sm text-muted-foreground">Resta a pagar</p>
-            <strong class="text-4xl font-semibold tabular-nums">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</strong>
-            <p class="mt-1 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm text-muted-foreground">Troco</p>
-            <strong class="text-4xl font-semibold tabular-nums" :class="paymentChangeQ > 0 ? 'text-primary' : 'text-muted-foreground/60'">{{ formatBRL(paymentChangeQ) }}</strong>
-          </div>
+    <!-- sale-data: quiet chips (secondary, on-demand sheets) -->
+    <div class="flex shrink-0 flex-wrap items-center justify-center gap-2">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
+        @click="fulfillmentSheetOpen = true"
+      >
+        <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
+        <span class="font-medium">{{ fulfillmentLabel }}</span>
+      </button>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
+        @click="customerSheetOpen = true"
+      >
+        <Icon name="lucide:user-round" class="size-4 text-muted-foreground" />
+        <span :class="customerSet ? 'font-medium' : 'text-muted-foreground'">{{ customerName || "Cliente" }}</span>
+      </button>
+      <button
+        v-if="discountTypes.length"
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition hover:bg-accent"
+        :class="hasDiscount ? 'border-primary/40 bg-primary/5 font-medium' : 'border-border text-muted-foreground'"
+        @click="discountSheetOpen = true"
+      >
+        <Icon name="lucide:tag" class="size-4" />
+        <span>{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
+      </button>
+      <button
+        v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
+        :key="collection.ref"
+        type="button"
+        class="inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition hover:bg-accent"
+        :class="paymentCollection === collection.ref ? 'border-primary bg-primary/10 font-medium' : 'border-border text-muted-foreground'"
+        @click="$emit('update:paymentCollection', collection.ref)"
+      >
+        {{ collection.label }}
+      </button>
+    </div>
+
+    <!-- HERO: total + methods + (cash) entry, centered and calm -->
+    <div class="grid min-h-0 flex-1 place-items-center overflow-auto">
+      <div class="flex w-full max-w-md flex-col items-stretch gap-6 py-2">
+        <!-- total hero -->
+        <div class="text-center">
+          <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            {{ paymentCovered ? "Pronto para finalizar" : "Resta a pagar" }}
+          </p>
+          <p class="mt-1 text-6xl font-bold tabular-nums tracking-tight">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
+          <p class="mt-2 text-sm tabular-nums text-muted-foreground">
+            Total {{ review ? review.total_display : interimTotalDisplay }}
+            <span v-if="paymentChangeQ > 0" class="font-semibold text-primary"> · Troco {{ formatBRL(paymentChangeQ) }}</span>
+          </p>
         </div>
 
-        <!-- methods + tenders (left) · contextual numpad (right) -->
-        <div class="grid min-h-0 flex-1 gap-4 sm:grid-cols-[minmax(0,1fr)_17rem]">
-          <div class="flex min-h-0 flex-col gap-3">
-            <div class="shrink-0">
-              <p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  v-for="method in injectableMethods"
-                  :key="method.ref"
-                  type="button"
-                  class="flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-card px-2 py-4 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
-                  @click="$emit('addTender', method.ref)"
-                >
-                  <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
-                  {{ method.label }}
-                </button>
-              </div>
-            </div>
+        <!-- method tiles (big) -->
+        <div class="grid grid-cols-3 gap-3">
+          <button
+            v-for="method in injectableMethods"
+            :key="method.ref"
+            type="button"
+            class="flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card px-2 py-5 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            @click="$emit('addTender', method.ref)"
+          >
+            <Icon :name="paymentIcon(method.ref)" class="size-8 text-muted-foreground" />
+            {{ method.label }}
+          </button>
+        </div>
 
-            <div class="flex min-h-0 flex-1 flex-col gap-1.5">
-              <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-              <div class="min-h-0 flex-1 overflow-auto">
-                <p v-if="!tenderLines.length" class="grid h-full min-h-16 place-items-center rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                  Toque uma forma de pagamento.
-                </p>
-                <ul v-else class="grid gap-1">
-                  <li
-                    v-for="(tender, idx) in tenderLines"
-                    :key="idx"
-                    class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition"
-                    :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-                    :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
-                    @click="$emit('selectTender', idx)"
-                  >
-                    <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-                      <Icon :name="tender.icon" class="size-4 shrink-0" />
-                      <span class="truncate">{{ tender.label }}</span>
-                    </span>
-                    <span class="flex shrink-0 items-center gap-1">
-                      <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
-                      <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
-                        <Icon name="lucide:x" class="size-3.5 text-destructive" />
-                      </UiButton>
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+        <!-- tenders added (compact, only when present) -->
+        <div v-if="tenderLines.length" class="flex flex-col gap-1.5">
+          <button
+            v-for="(tender, idx) in tenderLines"
+            :key="idx"
+            type="button"
+            class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition"
+            :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+            :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+            @click="$emit('selectTender', idx)"
+          >
+            <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+              <Icon :name="tender.icon" class="size-4 shrink-0" />
+              <span class="truncate">{{ tender.label }}</span>
+            </span>
+            <span class="flex shrink-0 items-center gap-1">
+              <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
+              <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
+                <Icon name="lucide:x" class="size-3.5 text-destructive" />
+              </UiButton>
+            </span>
+          </button>
+        </div>
+
+        <!-- cash entry: quick bills + "outro valor" reveals the numpad -->
+        <div v-if="hasCashTender" class="flex flex-col gap-2">
+          <div class="grid grid-flow-col auto-cols-fr gap-2">
+            <button
+              v-if="cashHasExact"
+              type="button"
+              class="rounded-lg border bg-muted/60 py-3 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
+              @click="$emit('tenderExact')"
+            >
+              Exato
+            </button>
+            <button
+              v-for="delta in cashDeltas"
+              :key="delta"
+              type="button"
+              class="rounded-lg border bg-muted/60 py-3 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+              :aria-label="`Recebido ${formatBRL(delta)}`"
+              @click="$emit('tenderAdd', delta)"
+            >
+              +{{ delta / 100 }}
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border py-3 text-sm font-semibold transition active:translate-y-px"
+              :class="showNumpad ? 'border-primary bg-primary/10' : 'bg-muted/60 hover:bg-accent'"
+              @click="showNumpad = !showNumpad"
+            >
+              Outro valor
+            </button>
           </div>
-
-          <!-- contextual numpad: edits the selected tender's amount -->
           <PosPaymentNumpad
-            v-if="tenderLines.length"
-            class="min-h-0 flex-1"
-            :presets="cashPresets"
+            v-if="showNumpad"
+            :presets="[]"
             @digit="$emit('tenderDigit', $event)"
             @backspace="$emit('tenderBackspace')"
             @clear="$emit('tenderClear')"
             @add="$emit('tenderAdd', $event)"
             @exact="$emit('tenderExact')"
           />
-          <div v-else class="grid place-items-center rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-            Toque uma forma de pagamento para inserir um valor.
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT sidebar — sale-data actions (open sheets) + collection + kitchen status -->
-      <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-muted/40 p-3">
-        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Dados da venda</p>
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
-          @click="fulfillmentSheetOpen = true"
-        >
-          <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 shrink-0 text-muted-foreground" />
-          <span class="min-w-0 flex-1 truncate font-medium">{{ fulfillmentLabel }}</span>
-          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
-        </button>
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
-          @click="customerSheetOpen = true"
-        >
-          <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
-          <span class="min-w-0 flex-1 truncate" :class="customerSet ? 'font-medium' : 'text-muted-foreground'">{{ customerName || "Cliente & fiscal" }}</span>
-          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
-        </button>
-        <button
-          v-if="discountTypes.length"
-          type="button"
-          class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition hover:bg-accent"
-          @click="discountSheetOpen = true"
-        >
-          <Icon name="lucide:tag" class="size-4 shrink-0 text-muted-foreground" />
-          <span class="min-w-0 flex-1 truncate" :class="hasDiscount ? 'font-medium' : 'text-muted-foreground'">{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
-          <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
-        </button>
-
-        <div v-if="deliveryCollections.length > 1" class="grid gap-1">
-          <button
-            v-for="collection in deliveryCollections"
-            :key="collection.ref"
-            type="button"
-            class="rounded-lg border px-3 py-2 text-left text-xs font-medium transition hover:bg-accent"
-            :class="paymentCollection === collection.ref ? 'border-primary bg-primary/10' : 'bg-card'"
-            @click="$emit('update:paymentCollection', collection.ref)"
-          >
-            {{ collection.label }}
-          </button>
-        </div>
-
-        <div v-if="items.length" class="mt-auto flex items-start gap-2 rounded-lg bg-background/70 px-3 py-2 text-xs">
-          <Icon name="lucide:flame" class="mt-0.5 size-4 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
-          <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
         </div>
       </div>
     </div>
 
-    <!-- FOOTER — manager approval (when required) + full-width Finalizar CTA -->
+    <!-- FOOTER — kitchen note + manager approval (when required) + Finalizar CTA -->
     <div class="grid shrink-0 gap-2">
+      <div v-if="items.length" class="flex items-center justify-center gap-2 text-xs">
+        <Icon name="lucide:flame" class="size-3.5 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
+        <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
+      </div>
       <PosManagerApproval
         v-if="review?.requires_manager_approval"
         :manager-username="managerUsername"
@@ -334,7 +348,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
       />
       <UiButton
         size="lg"
-        class="h-12 w-full text-base"
+        class="h-14 w-full text-base"
         :disabled="!items.length || loading || needsReview || approvalBlocking || !paymentCovered"
         :loading="loading || needsReview"
         @click="$emit('submit')"
