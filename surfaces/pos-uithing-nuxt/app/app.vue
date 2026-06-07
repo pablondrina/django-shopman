@@ -147,6 +147,12 @@ const screenTitle = computed(() => {
   return "Comandas";
 });
 
+// D3 receipt print (kiosk window.print): the receipt is already in the DOM
+// (#pos-print-area) when a sale finalizes; @media print shows only it.
+function printReceipt() {
+  if (import.meta.client) window.print();
+}
+
 // Keyboard and scanner (spec: F2 tab board, F3 product search, F4 checkout/review,
 // Escape backs out of checkout, "/" focuses product search when not editing).
 const tabBoardRef = ref<{ focus: () => void } | null>(null);
@@ -270,7 +276,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
             <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" />
-            <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
+            <div class="flex flex-wrap items-center gap-2">
+              <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
+                <Icon name="lucide:printer" class="size-4" />
+                Imprimir recibo
+              </UiButton>
+              <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
+            </div>
             <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
               <UiInput
                 v-model="cancelSaleReason"
@@ -494,6 +506,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       :busy="busy"
       @submit="submitMove"
     />
+
+    <!-- D3 print surface: hidden on screen, the only thing visible in @media print. -->
+    <div v-if="result" id="pos-print-area">
+      <PosReceipt
+        :receipt="result.receipt"
+        :terminal-label="pos?.terminal_label || 'Ponto de venda'"
+        :payment-methods="pos?.payment_methods || []"
+      />
+    </div>
 
     <UiSonner />
   </main>

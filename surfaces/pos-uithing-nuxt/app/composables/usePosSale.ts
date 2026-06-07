@@ -42,6 +42,7 @@ import {
   tabRefMaxLength,
   tabRefPlaceholder,
 } from "~/utils/posTabLifecycle";
+import type { PosReceiptSnapshot } from "~/presentation/receipt";
 import { toast } from "vue-sonner";
 
 type FulfillmentType = "pickup" | "delivery";
@@ -99,7 +100,7 @@ export function usePosSale(deps: PosSaleDeps) {
     toast.error(message);
     serverError.value = "";
   });
-  const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null } | null>(null);
+  const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot } | null>(null);
   const checkoutMode = ref(false);
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
@@ -812,10 +813,28 @@ export function usePosSale(deps: PosSaleDeps) {
       );
       if (response.ok && response.order_ref) {
         const orderRef = response.order_ref;
+        // Freeze a receipt snapshot before the cart resets (spec §D3): the
+        // printed receipt is a record of what was sold, not live state.
+        const receipt: PosReceiptSnapshot = {
+          orderRef,
+          tabDisplay: cart.tabDisplay,
+          customerName: cart.customerName,
+          items: cart.items.map((item) => ({
+            name: item.name,
+            qty: item.qty,
+            price_q: item.price_q,
+            discountPct: item.discount?.value || 0,
+          })),
+          totalDisplay: review.value?.total_display || "",
+          payments: cart.paymentTenders.map((tender) => ({ method: tender.method, amount_q: tender.amount_q })),
+          fulfillmentLabel: pos.value?.fulfillment_options.find((option) => option.ref === cart.fulfillmentType)?.label || cart.fulfillmentType,
+          printedAtMs: Date.now(),
+        };
         result.value = {
           orderRef,
           nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
           payment: paymentProofView(response.payment),
+          receipt,
         };
         resetCart();
         await refresh();

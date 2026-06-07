@@ -46,6 +46,7 @@ import {
   unfiredCount,
 } from "../app/presentation/kitchen";
 import { pruneSelection, selectionView, toggleSelected } from "../app/presentation/selection";
+import { receiptLineTotalQ, receiptLines, receiptPayments, type PosReceiptSnapshot } from "../app/presentation/receipt";
 import type { ActionAffordance } from "../app/presentation/actions";
 import { formatBRL } from "../app/utils/posIntent";
 import type {
@@ -568,5 +569,37 @@ describe("presentation/selection — multi-select batch shaping", () => {
   it("prunes selected skus no longer in the cart", () => {
     const pruned = pruneSelection(new Set(["A", "Z"]), items);
     expect([...pruned]).toEqual(["A"]);
+  });
+});
+
+describe("presentation/receipt — print shaping (D3)", () => {
+  const snap: PosReceiptSnapshot = {
+    orderRef: "PED-1",
+    tabDisplay: "1007",
+    customerName: "João",
+    items: [
+      { name: "Croissant", qty: 2, price_q: 1300, discountPct: 0 },
+      { name: "Café", qty: 1, price_q: 1000, discountPct: 10 },
+    ],
+    totalDisplay: "R$ 35,00",
+    payments: [{ method: "cash", amount_q: 3500 }],
+    fulfillmentLabel: "Retirada",
+    printedAtMs: 0,
+  };
+
+  it("applies per-line discount to the net line total", () => {
+    expect(receiptLineTotalQ(snap.items[0]!)).toBe(2600); // no discount
+    expect(receiptLineTotalQ(snap.items[1]!)).toBe(900); // 10% off 1000
+  });
+
+  it("shapes receipt lines with unit and net total displays", () => {
+    const lines = receiptLines(snap);
+    expect(lines[0]).toMatchObject({ name: "Croissant", qty: 2, totalDisplay: formatBRL(2600), discountPct: 0 });
+    expect(lines[1]).toMatchObject({ name: "Café", totalDisplay: formatBRL(900), discountPct: 10 });
+  });
+
+  it("labels payments from the method projection", () => {
+    const methods = [{ ref: "cash", label: "Dinheiro", icon: "", requires_change: true }] as any;
+    expect(receiptPayments(snap, methods)).toEqual([{ label: "Dinheiro", amountDisplay: formatBRL(3500) }]);
   });
 });

@@ -240,3 +240,27 @@
     display: none;
   }
 }
+
+/* POS receipt print (spec §D3 — kiosk window.print). On screen the print area is
+   hidden; in @media print everything else is hidden and only the receipt shows.
+   `visibility` (not display) so the nested receipt inherits visibility back on. */
+#pos-print-area {
+  display: none;
+}
+
+@media print {
+  body {
+    visibility: hidden;
+  }
+  #pos-print-area {
+    display: block;
+    visibility: visible;
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    background: white;
+  }
+  @page {
+    margin: 6mm;
+  }
+}
