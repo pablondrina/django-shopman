@@ -49,7 +49,10 @@ function submit() {
   >
     <div class="w-full max-w-md px-6 py-8">
       <div class="mb-6 text-center">
-        <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">Shopman POS</p>
+        <div class="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+          <Icon name="lucide:store" class="size-6" />
+        </div>
+        <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">Ponto de venda</p>
         <h1 class="mt-1 text-3xl font-semibold">Quem está no caixa?</h1>
         <p class="mt-2 text-base text-muted-foreground">Selecione seu nome e digite seu PIN.</p>
       </div>

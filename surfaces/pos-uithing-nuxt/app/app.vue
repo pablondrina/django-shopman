@@ -141,7 +141,7 @@ const unfireAction = computed(() => resolveAffordance(actions.value, "unfire_tab
 // Top context bar title (unified layout language, Arc 5): one band names the
 // current work-area screen across Board / Sale / Payment.
 const screenTitle = computed(() => {
-  if (checkoutMode.value) return "Pagamento";
+  if (checkoutMode.value) return cart.tabDisplay ? `Pagamento · #${cart.tabDisplay}` : "Pagamento";
   if (inSaleView.value) return cart.tabDisplay || "Venda";
   return "Comandas";
 });
@@ -231,13 +231,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
       <header v-if="pos && !error" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
         <UiButton
-          v-if="inSaleView && !checkoutMode"
+          v-if="inSaleView"
           variant="ghost"
           size="icon-sm"
           class="-ml-1 shrink-0"
-          aria-label="Voltar para comandas"
-          title="Comandas"
-          @click="goToTabs"
+          :aria-label="checkoutMode ? 'Voltar à comanda' : 'Voltar para comandas'"
+          :title="checkoutMode ? 'Voltar à comanda' : 'Comandas'"
+          @click="checkoutMode ? (checkoutMode = false) : goToTabs()"
         >
           <Icon name="lucide:arrow-left" class="size-5" />
         </UiButton>

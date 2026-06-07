@@ -181,113 +181,96 @@ function onAddressSelected(address: StructuredAddressProjection) {
 
 <template>
   <section class="flex h-full min-h-0 flex-col gap-3">
-    <!-- Top bar: back + title -->
-    <div class="flex shrink-0 items-center gap-3">
-      <UiButton variant="outline" size="sm" class="gap-2" @click="$emit('back')">
-        <Icon name="lucide:arrow-left" class="size-4" />
-        Voltar à comanda
-      </UiButton>
-      <p class="text-base font-semibold">Pagamento</p>
-      <span v-if="hasOpenTab && tabDisplay" class="text-sm tabular-nums text-muted-foreground">#{{ tabDisplay }}</span>
-    </div>
+    <!-- Payment screen (single continuous flow, Shopify-informed): the total is
+         the anchor, method tiles are large, the numpad is contextual (edits the
+         selected tender) and sized proportionally — not a permanent center block.
+         Sale-data are on-demand sheets in the right sidebar; Finalizar is a
+         full-width CTA in the footer. Title + back live in the shell context bar. -->
+    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_21rem]">
 
-    <!-- Main (Odoo payment screen): methods + summary + validate (left) ·
-         remaining/change + numpad (center) · sale-data actions (right) -->
-    <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,0.8fr)]">
-
-      <!-- LEFT — payment methods, tenders, manager approval, validate -->
-      <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-3">
-        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
-        <div class="grid shrink-0 gap-1">
-          <button
-            v-for="method in injectableMethods"
-            :key="method.ref"
-            type="button"
-            class="flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent"
-            @click="$emit('addTender', method.ref)"
-          >
-            <Icon :name="paymentIcon(method.ref)" class="size-5 text-muted-foreground" />
-            {{ method.label }}
-          </button>
-        </div>
-
-        <UiSeparator class="shrink-0" />
-        <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-        <div class="min-h-0 flex-1 overflow-auto">
-          <p v-if="!tenderLines.length" class="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-            Toque uma forma de pagamento.
-          </p>
-          <ul v-else class="grid gap-1">
-            <li
-              v-for="(tender, idx) in tenderLines"
-              :key="idx"
-              class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 transition"
-              :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-              :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
-              @click="$emit('selectTender', idx)"
-            >
-              <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-                <Icon :name="tender.icon" class="size-4 shrink-0" />
-                <span class="truncate">{{ tender.label }}</span>
-              </span>
-              <span class="flex shrink-0 items-center gap-1">
-                <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
-                <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
-                  <Icon name="lucide:x" class="size-3.5 text-destructive" />
-                </UiButton>
-              </span>
-            </li>
-          </ul>
-        </div>
-
-        <PosManagerApproval
-          v-if="review?.requires_manager_approval"
-          :manager-username="managerUsername"
-          :manager-pin="managerPin"
-          :threshold-q="managerThresholdQ"
-          @update:manager-username="$emit('update:managerUsername', $event)"
-          @update:manager-pin="$emit('update:managerPin', $event)"
-        />
-
-        <UiButton
-          size="lg"
-          class="w-full shrink-0"
-          :disabled="!items.length || loading || needsReview || approvalBlocking || !paymentCovered"
-          :loading="loading || needsReview"
-          @click="$emit('submit')"
-        >
-          <template v-if="needsReview">Atualizando…</template>
-          <template v-else-if="!paymentCovered">Falta {{ formatBRL(paymentRemainingQ) }}</template>
-          <template v-else>Validar · {{ review?.total_display }}</template>
-        </UiButton>
-      </div>
-
-      <!-- CENTER — remaining/change/total + numpad (edits the selected tender) -->
-      <div class="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-3">
-        <div class="flex shrink-0 items-start justify-between gap-3 border-b pb-3">
+      <!-- LEFT region — the payment work -->
+      <div class="flex min-h-0 flex-col gap-4 rounded-lg border bg-card p-4">
+        <!-- total anchor -->
+        <div class="grid shrink-0 grid-cols-2 gap-3 rounded-xl bg-muted/50 p-4">
           <div>
             <p class="text-sm text-muted-foreground">Resta a pagar</p>
-            <strong class="text-3xl tabular-nums">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</strong>
-            <p class="mt-0.5 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
+            <strong class="text-4xl font-semibold tabular-nums">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</strong>
+            <p class="mt-1 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
           </div>
           <div class="text-right">
             <p class="text-sm text-muted-foreground">Troco</p>
-            <strong class="text-3xl tabular-nums text-primary">{{ formatBRL(paymentChangeQ) }}</strong>
+            <strong class="text-4xl font-semibold tabular-nums" :class="paymentChangeQ > 0 ? 'text-primary' : 'text-muted-foreground/60'">{{ formatBRL(paymentChangeQ) }}</strong>
           </div>
         </div>
 
-        <PosPaymentNumpad
-          class="min-h-0 flex-1"
-          :presets="cashPresets"
-          @digit="$emit('tenderDigit', $event)"
-          @backspace="$emit('tenderBackspace')"
-          @clear="$emit('tenderClear')"
-          @add="$emit('tenderAdd', $event)"
-          @exact="$emit('tenderExact')"
-        />
+        <!-- methods + tenders (left) · contextual numpad (right) -->
+        <div class="grid min-h-0 flex-1 gap-4 sm:grid-cols-[minmax(0,1fr)_17rem]">
+          <div class="flex min-h-0 flex-col gap-3">
+            <div class="shrink-0">
+              <p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="method in injectableMethods"
+                  :key="method.ref"
+                  type="button"
+                  class="flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-card px-2 py-4 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+                  @click="$emit('addTender', method.ref)"
+                >
+                  <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
+                  {{ method.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex min-h-0 flex-1 flex-col gap-1.5">
+              <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</p>
+              <div class="min-h-0 flex-1 overflow-auto">
+                <p v-if="!tenderLines.length" class="grid h-full min-h-16 place-items-center rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                  Toque uma forma de pagamento.
+                </p>
+                <ul v-else class="grid gap-1">
+                  <li
+                    v-for="(tender, idx) in tenderLines"
+                    :key="idx"
+                    class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition"
+                    :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+                    :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+                    @click="$emit('selectTender', idx)"
+                  >
+                    <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+                      <Icon :name="tender.icon" class="size-4 shrink-0" />
+                      <span class="truncate">{{ tender.label }}</span>
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1">
+                      <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
+                      <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
+                        <Icon name="lucide:x" class="size-3.5 text-destructive" />
+                      </UiButton>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- contextual numpad: edits the selected tender's amount -->
+          <PosPaymentNumpad
+            v-if="tenderLines.length"
+            class="min-h-0 flex-1"
+            :presets="cashPresets"
+            @digit="$emit('tenderDigit', $event)"
+            @backspace="$emit('tenderBackspace')"
+            @clear="$emit('tenderClear')"
+            @add="$emit('tenderAdd', $event)"
+            @exact="$emit('tenderExact')"
+          />
+          <div v-else class="grid place-items-center rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+            Toque uma forma de pagamento para inserir um valor.
+          </div>
+        </div>
       </div>
 
-      <!-- RIGHT — sale-data actions (open sheets) + collection + kitchen status -->
+      <!-- RIGHT sidebar — sale-data actions (open sheets) + collection + kitchen status -->
       <div class="flex min-h-0 flex-col gap-2 rounded-lg border bg-muted/40 p-3">
         <p class="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">Dados da venda</p>
         <button
@@ -337,6 +320,29 @@ function onAddressSelected(address: StructuredAddressProjection) {
           <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
         </div>
       </div>
+    </div>
+
+    <!-- FOOTER — manager approval (when required) + full-width Finalizar CTA -->
+    <div class="grid shrink-0 gap-2">
+      <PosManagerApproval
+        v-if="review?.requires_manager_approval"
+        :manager-username="managerUsername"
+        :manager-pin="managerPin"
+        :threshold-q="managerThresholdQ"
+        @update:manager-username="$emit('update:managerUsername', $event)"
+        @update:manager-pin="$emit('update:managerPin', $event)"
+      />
+      <UiButton
+        size="lg"
+        class="h-12 w-full text-base"
+        :disabled="!items.length || loading || needsReview || approvalBlocking || !paymentCovered"
+        :loading="loading || needsReview"
+        @click="$emit('submit')"
+      >
+        <template v-if="needsReview">Atualizando…</template>
+        <template v-else-if="!paymentCovered">Falta {{ formatBRL(paymentRemainingQ) }}</template>
+        <template v-else>Finalizar · {{ review?.total_display }}</template>
+      </UiButton>
     </div>
 
   </section>
