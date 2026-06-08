@@ -175,6 +175,18 @@ export interface POSCustomerLookupResponse {
   customer: POSCustomerLookupProjection | null;
 }
 
+export interface POSCustomerSearchResult {
+  ref: string;
+  name: string;
+  phone: string;
+  document: string;
+  email: string;
+}
+
+export interface POSCustomerSearchResponse {
+  results: POSCustomerSearchResult[];
+}
+
 export interface POSTerminalComponentProjection {
   key: string;
   label: string;

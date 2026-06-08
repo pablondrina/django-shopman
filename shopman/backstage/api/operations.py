@@ -40,6 +40,7 @@ from shopman.backstage.projections.pos import (
     build_open_tab,
     build_pos,
     build_pos_customer_lookup,
+    build_pos_customer_search,
     build_pos_shift_summary,
     build_pos_tabs,
 )
@@ -902,6 +903,23 @@ class POSCustomerLookupView(APIView):
         if customer is None:
             return Response({"customer": None})
         return Response({"customer": projection_data(customer)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Search customers by any unique key (name/phone/CPF/email)",
+        responses={200: OpenApiResponse(description="List of matching customers.")},
+    ),
+)
+class POSCustomerSearchView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def get(self, request):
+        query = (request.query_params.get("q") or "").strip()
+        results = build_pos_customer_search(query)
+        return Response({"results": [projection_data(result) for result in results]})
 
 
 @extend_schema_view(

@@ -4,7 +4,7 @@
 // vertical room for line items + numpad. Owns the renameable comanda number, the
 // customer chip + sheet, and "liberar comanda" (with confirmation). It renders
 // what the read-side hands it and emits intent; the shell resolves the commands.
-import type { POSCustomerLookupProjection } from "~/types/pos";
+import type { POSCustomerLookupProjection, POSCustomerSearchResult } from "~/types/pos";
 
 const props = defineProps<{
   tabDisplay: string;
@@ -14,6 +14,8 @@ const props = defineProps<{
   customerPhone: string;
   customerLookup: POSCustomerLookupProjection | null;
   lookupBusy: boolean;
+  searchResults: POSCustomerSearchResult[];
+  searchBusy: boolean;
   loading: boolean;
 }>();
 
@@ -23,6 +25,8 @@ const emit = defineEmits<{
   rename: [string];
   clear: [];
   lookupCustomer: [];
+  search: [string];
+  selectResult: [POSCustomerSearchResult];
   applyCustomerFavorite: [];
   repeatCustomerLastOrder: [];
 }>();
@@ -54,25 +58,23 @@ function onRenameKeydown(event: KeyboardEvent) {
 const customerSheetOpen = ref(false);
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 
-// Look the customer up at the moment they're informed — not via a manual button.
-// Debounced once the phone looks complete; de-duped so the same number isn't
-// re-fetched (the lookup also normalizes + writes the phone back). The commit
-// still get-or-creates by phone/CPF, so this only surfaces the existing record.
-let lookupTimer: ReturnType<typeof setTimeout> | null = null;
-const lastLookupDigits = ref("");
-watch(
-  () => props.customerPhone,
-  (phone) => {
-    const digits = String(phone || "").replace(/\D/g, "");
-    if (lookupTimer) clearTimeout(lookupTimer);
-    if (digits.length < 10 || digits === lastLookupDigits.value) return;
-    lookupTimer = setTimeout(() => {
-      lastLookupDigits.value = digits;
-      emit("lookupCustomer");
-    }, 600);
-  },
-);
-onBeforeUnmount(() => { if (lookupTimer) clearTimeout(lookupTimer); });
+// Search the customer at the moment of entry (no manual button): one field
+// matches any unique key (name/phone/CPF/email), debounced, returning a list to
+// pick from. Picking fills the cart + runs the full lookup. The commit still
+// get-or-creates by phone/CPF, so a fresh name+phone just creates on finalize.
+const searchQuery = ref("");
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, (q) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => emit("search", q), 350);
+});
+function pickResult(result: POSCustomerSearchResult) {
+  emit("selectResult", result);
+  searchQuery.value = "";
+}
+// Reset the search when the modal closes so it opens fresh next time.
+watch(customerSheetOpen, (open) => { if (!open) { searchQuery.value = ""; emit("search", ""); } });
+onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer); });
 
 const confirmClear = ref(false);
 function runClear() {
@@ -141,27 +143,42 @@ function runClear() {
       <UiDialogContent class="sm:max-w-md">
         <UiDialogHeader>
           <UiDialogTitle>Cliente</UiDialogTitle>
-          <UiDialogDescription>Digite o WhatsApp — buscamos o cadastro automaticamente.</UiDialogDescription>
+          <UiDialogDescription>Busque por nome, telefone, CPF ou e-mail — ou preencha para um novo.</UiDialogDescription>
         </UiDialogHeader>
         <div class="grid gap-4">
-          <!-- search in evidence: typing the phone auto-looks-up (no button) -->
-          <label class="grid gap-1.5 text-sm">
-            <span class="font-medium text-muted-foreground">WhatsApp</span>
-            <div class="relative">
-              <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <UiInput
-                :model-value="customerPhone"
-                inputmode="tel"
-                class="h-12 pl-10 text-base"
-                placeholder="(43) 99999-0000"
-                autofocus
-                @update:model-value="$emit('update:customerPhone', String($event || ''))"
-              />
-              <Icon v-if="lookupBusy" name="lucide:loader-circle" class="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            </div>
-          </label>
+          <!-- multi-key search in evidence -->
+          <div class="relative">
+            <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <UiInput
+              v-model="searchQuery"
+              class="h-12 pl-10 text-base"
+              placeholder="Nome, telefone, CPF ou e-mail"
+              autofocus
+            />
+            <Icon v-if="searchBusy" name="lucide:loader-circle" class="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          </div>
 
-          <!-- found customer surfaced for review -->
+          <!-- results list -->
+          <div v-if="searchResults.length" class="grid max-h-56 gap-0.5 overflow-auto rounded-xl border p-1">
+            <button
+              v-for="result in searchResults"
+              :key="result.ref"
+              type="button"
+              class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-accent"
+              @click="pickResult(result)"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-medium">{{ result.name || "Sem nome" }}</span>
+                <span class="block truncate text-xs text-muted-foreground tabular-nums">{{ [result.phone, result.document, result.email].filter(Boolean).join(" · ") }}</span>
+              </span>
+              <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          </div>
+          <p v-else-if="searchQuery.trim().length >= 2 && !searchBusy" class="text-center text-xs text-muted-foreground">
+            Nenhum cadastro encontrado — preencha abaixo para criar um novo.
+          </p>
+
+          <!-- selected customer surfaced for review -->
           <div v-if="customerLookup" class="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
             <div class="flex items-center justify-between gap-2">
               <span class="flex items-center gap-1.5 text-sm font-semibold">
@@ -180,14 +197,17 @@ function runClear() {
             </div>
           </div>
 
-          <label class="grid gap-1.5 text-sm">
-            <span class="font-medium text-muted-foreground">Nome</span>
-            <UiInput
-              :model-value="customerName"
-              placeholder="Nome no balcão"
-              @update:model-value="$emit('update:customerName', String($event || ''))"
-            />
-          </label>
+          <!-- editable fields (review / new) -->
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="grid gap-1.5 text-sm">
+              <span class="font-medium text-muted-foreground">Nome</span>
+              <UiInput :model-value="customerName" placeholder="Nome no balcão" @update:model-value="$emit('update:customerName', String($event || ''))" />
+            </label>
+            <label class="grid gap-1.5 text-sm">
+              <span class="font-medium text-muted-foreground">WhatsApp</span>
+              <UiInput :model-value="customerPhone" inputmode="tel" placeholder="(43) 99999-0000" @update:model-value="$emit('update:customerPhone', String($event || ''))" />
+            </label>
+          </div>
         </div>
         <UiDialogFooter>
           <UiButton class="w-full" @click="customerSheetOpen = false">Concluir</UiButton>

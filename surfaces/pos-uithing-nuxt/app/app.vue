@@ -121,6 +121,10 @@ const {
   openTabFromDialog,
   applySavedAddress,
   lookupCustomer,
+  customerSearchResults,
+  customerSearchBusy,
+  searchCustomers,
+  selectCustomerResult,
   applyCustomerFavorite,
   repeatCustomerLastOrder,
   saveTab,
@@ -264,10 +268,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           v-model:customer-phone="cart.customerPhone"
           :customer-lookup="customerLookup"
           :lookup-busy="lookupBusy"
+          :search-results="customerSearchResults"
+          :search-busy="customerSearchBusy"
           :loading="busy"
           @rename="renameTab"
           @clear="clearCurrentTab"
           @lookup-customer="lookupCustomer"
+          @search="searchCustomers"
+          @select-result="selectCustomerResult"
           @apply-customer-favorite="applyCustomerFavorite"
           @repeat-customer-last-order="repeatCustomerLastOrder"
         />

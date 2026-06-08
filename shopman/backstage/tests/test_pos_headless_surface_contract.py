@@ -564,6 +564,28 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(lookup["memory"]["total_orders"], 1)
         self.assertEqual(lookup["memory"]["favorite_item"]["sku"], "POS-HEADLESS-ITEM")
 
+    def test_api_customer_search_matches_any_unique_key(self) -> None:
+        Customer.objects.create(
+            ref="CUST-SEARCH-1",
+            first_name="Bruno",
+            last_name="Souza",
+            phone="+5543988887777",
+            email="bruno@example.com",
+            document="11122233344",
+        )
+
+        def refs(query: str) -> list[str]:
+            response = self.client.get(f"/api/v1/backstage/pos/customer/search/?q={query}")
+            self.assertEqual(response.status_code, 200)
+            return [row["ref"] for row in response.json()["results"]]
+
+        self.assertIn("CUST-SEARCH-1", refs("Bruno"))       # by name
+        self.assertIn("CUST-SEARCH-1", refs("98888"))       # by phone fragment
+        self.assertIn("CUST-SEARCH-1", refs("bruno@example"))  # by email
+        self.assertIn("CUST-SEARCH-1", refs("11122233"))    # by document (CPF)
+        # too short → no results (avoid scanning on a single character)
+        self.assertEqual(self.client.get("/api/v1/backstage/pos/customer/search/?q=b").json()["results"], [])
+
     def test_api_headless_pos_can_cancel_recent_sale_through_pos_contract(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
         self.assertEqual(opened.status_code, 200)

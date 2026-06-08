@@ -189,6 +189,17 @@ class POSCustomerLookupProjection:
 
 
 @dataclass(frozen=True)
+class POSCustomerSearchResult:
+    """A single match for the POS customer search (any unique key)."""
+
+    ref: str
+    name: str
+    phone: str
+    document: str
+    email: str
+
+
+@dataclass(frozen=True)
 class POSShiftSummaryProjection:
     """Today's shift totals for the POS."""
 
@@ -491,6 +502,28 @@ def build_pos_customer_lookup(phone: str) -> POSCustomerLookupProjection | None:
     )
 
 
+def build_pos_customer_search(query: str, limit: int = 8) -> tuple[POSCustomerSearchResult, ...]:
+    """Search customers by any unique key (name/phone/CPF/email) for the POS
+    customer modal. Light projection (identity only) — the full lookup loads
+    memory/addresses once a result is chosen."""
+    query = (query or "").strip()
+    if len(query) < 2:
+        return ()
+    from shopman.guestman.services import customer as customer_service
+
+    results: list[POSCustomerSearchResult] = []
+    for customer in customer_service.search(query, limit=limit):
+        name = getattr(customer, "name", "") or f"{getattr(customer, 'first_name', '')} {getattr(customer, 'last_name', '')}".strip()
+        results.append(POSCustomerSearchResult(
+            ref=getattr(customer, "ref", ""),
+            name=name,
+            phone=getattr(customer, "phone", "") or "",
+            document=getattr(customer, "document", "") or "",
+            email=getattr(customer, "email", "") or "",
+        ))
+    return tuple(results)
+
+
 # ── Internals ──────────────────────────────────────────────────────────
 
 
@@ -691,6 +724,16 @@ def _pos_actions() -> tuple[Action, ...]:
             method="GET",
             href="/api/v1/backstage/pos/customer/lookup/?phone={phone}",
             payload_schema={"query": {"phone": "string"}},
+            idempotency="none",
+        ),
+        Action(
+            ref="customer_search",
+            kind="query",
+            label="Buscar cliente",
+            priority="quiet",
+            method="GET",
+            href="/api/v1/backstage/pos/customer/search/?q={query}",
+            payload_schema={"query": {"q": "string"}},
             idempotency="none",
         ),
         Action(

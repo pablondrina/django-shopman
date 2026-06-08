@@ -7,6 +7,8 @@ import type {
   POSCloseSaleResponse,
   POSCustomerLookupProjection,
   POSCustomerLookupResponse,
+  POSCustomerSearchResponse,
+  POSCustomerSearchResult,
   POSProductProjection,
   POSProjection,
   POSSaleReviewProjection,
@@ -689,6 +691,45 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  // Multi-key customer search (name/phone/CPF/email): the customer modal's search
+  // field hits this; results are a list to pick from. Picking one fills the cart
+  // and runs the full lookup (memory + saved address).
+  const customerSearchResults = ref<POSCustomerSearchResult[]>([]);
+  const customerSearchBusy = ref(false);
+  async function searchCustomers(query: string) {
+    const q = (query || "").trim();
+    if (q.length < 2) { customerSearchResults.value = []; return; }
+    customerSearchBusy.value = true;
+    try {
+      const path = concreteActionHref(
+        actions.value,
+        "customer_search",
+        "/api/v1/backstage/pos/customer/search/?q={query}",
+        { query: q },
+      );
+      const response = await $fetch<POSCustomerSearchResponse>(apiPath(path), {
+        method: "GET",
+        credentials: "include",
+        headers: requestHeaders,
+      });
+      customerSearchResults.value = response.results || [];
+    } catch {
+      customerSearchResults.value = [];
+    } finally {
+      customerSearchBusy.value = false;
+    }
+  }
+  async function selectCustomerResult(result: POSCustomerSearchResult) {
+    cart.customerRef = result.ref;
+    cart.customerName = result.name;
+    cart.customerPhone = result.phone || cart.customerPhone;
+    cart.customerEmail = result.email || cart.customerEmail;
+    cart.customerTaxId = result.document || cart.customerTaxId;
+    customerSearchResults.value = [];
+    // Load memory + saved address for the chosen customer.
+    if (cart.customerPhone.trim()) await lookupCustomer();
+  }
+
   function productFromMemoryItem(item: Record<string, unknown>): POSProductProjection | null {
     const sku = String(item.sku || "");
     return pos.value?.products.find((product) => product.sku === sku) || null;
@@ -1232,6 +1273,10 @@ export function usePosSale(deps: PosSaleDeps) {
     openTabFromDialog,
     applySavedAddress,
     lookupCustomer,
+    customerSearchResults,
+    customerSearchBusy,
+    searchCustomers,
+    selectCustomerResult,
     applyCustomerFavorite,
     repeatCustomerLastOrder,
     saveTab,

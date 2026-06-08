@@ -26,6 +26,7 @@ from .operations import (
     POSCashOpenView,
     POSCloseSaleView,
     POSCustomerLookupView,
+    POSCustomerSearchView,
     POSOperatorLockView,
     POSOperatorUnlockView,
     POSReviewSaleView,
@@ -88,4 +89,5 @@ urlpatterns = [
     path("pos/sale/close/", POSCloseSaleView.as_view(), name="api-backstage-pos-close-sale"),
     path("pos/sale/recent/cancel/", POSCancelRecentSaleView.as_view(), name="api-backstage-pos-cancel-recent-sale"),
     path("pos/customer/lookup/", POSCustomerLookupView.as_view(), name="api-backstage-pos-customer-lookup"),
+    path("pos/customer/search/", POSCustomerSearchView.as_view(), name="api-backstage-pos-customer-search"),
 ]
