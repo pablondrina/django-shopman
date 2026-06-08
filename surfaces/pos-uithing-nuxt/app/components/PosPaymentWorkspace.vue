@@ -196,13 +196,14 @@ function onAddressSelected(address: StructuredAddressProjection) {
 
 <template>
   <section class="flex h-full min-h-0 flex-col gap-4">
-    <!-- Payment screen (minimalist, "calm by subtraction" — Loyverse/Toast). The
-         total is the hero; sale-data are quiet chips; methods are big; the cash
-         entry (quick bills) + numpad appear only when needed. Most counter sales
-         finish in one tap (PIX/card cover exactly). Title/back: shell context bar. -->
+    <!-- Payment screen (desktop-first — the POS is a counter workstation, not a
+         phone). A confident, centered two-column register: total as the hero +
+         methods on the left, the cash numpad on the right; constrained to a
+         comfortable width so it never stretches edge-to-edge. Tablet/mobile fall
+         back to a single column. Title/back: shell context bar. -->
 
     <!-- sale-data: quiet chips (secondary, on-demand sheets) -->
-    <div class="flex shrink-0 flex-wrap items-center justify-center gap-2">
+    <div class="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center justify-center gap-2">
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
@@ -241,16 +242,17 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- MAIN: total hero + cover methods (left) · fixed cash numpad (right) -->
-    <div class="grid min-h-0 flex-1 gap-4 overflow-auto lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <!-- MAIN: total hero + cover methods (left) · cash numpad (right). Always two
+         columns on desktop; centered + width-capped so it stays a balanced panel. -->
+    <div class="mx-auto grid min-h-0 w-full max-w-4xl flex-1 gap-6 sm:grid-cols-[minmax(0,1fr)_22rem]">
 
       <!-- LEFT — the total is the hero; PIX/card settle in one tap; tenders listed -->
-      <div class="flex min-h-0 flex-col justify-center gap-5">
+      <div class="flex min-h-0 flex-col justify-center gap-6">
         <div class="text-center">
           <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             {{ paymentCovered ? "Pronto para finalizar" : "Resta a pagar" }}
           </p>
-          <p class="mt-1 text-6xl font-bold tabular-nums tracking-tight">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
+          <p class="mt-1 text-6xl font-bold tabular-nums tracking-tight lg:text-7xl">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
           <p class="mt-2 text-sm tabular-nums text-muted-foreground">
             Total {{ review ? review.total_display : interimTotalDisplay }}
             <span v-if="paymentChangeQ > 0" class="font-semibold text-primary"> · Troco {{ formatBRL(paymentChangeQ) }}</span>
@@ -262,7 +264,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
             v-for="method in coverMethods"
             :key="method.ref"
             type="button"
-            class="flex items-center justify-center gap-2.5 rounded-2xl border bg-card px-3 py-5 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex items-center justify-center gap-2.5 rounded-2xl border bg-card px-3 py-6 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             @click="$emit('addTender', method.ref)"
           >
             <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
@@ -270,7 +272,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
         </div>
 
-        <div v-if="tenderLines.length" class="mx-auto flex w-full max-w-md flex-col gap-1.5">
+        <div v-if="tenderLines.length" class="flex w-full flex-col gap-1.5">
           <button
             v-for="(tender, idx) in tenderLines"
             :key="idx"
@@ -335,14 +337,14 @@ function onAddressSelected(address: StructuredAddressProjection) {
             v-for="digit in digitKeys"
             :key="digit"
             type="button"
-            class="grid place-items-center rounded-lg border bg-card text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            class="grid place-items-center rounded-lg border bg-card text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
             :aria-label="`Dígito ${digit}`"
             @click="$emit('cashDigit', digit)"
           >
             {{ digit }}
           </button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card text-sm font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card text-base font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
           <button type="button" class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('cashBackspace')">
             <Icon name="lucide:delete" class="size-5" />
           </button>
@@ -351,7 +353,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
     </div>
 
     <!-- FOOTER — kitchen note + manager approval (when required) + Finalizar CTA -->
-    <div class="grid shrink-0 gap-2">
+    <div class="mx-auto grid w-full max-w-4xl shrink-0 gap-2">
       <div v-if="items.length" class="flex items-center justify-center gap-2 text-xs">
         <Icon name="lucide:flame" class="size-3.5 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
         <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
