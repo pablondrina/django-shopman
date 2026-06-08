@@ -41,6 +41,15 @@ function confirmRename() {
 function cancelRename() {
   renaming.value = false;
 }
+function onRenameKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    confirmRename();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    cancelRename();
+  }
+}
 
 const customerSheetOpen = ref(false);
 const customerMemory = computed(() => props.customerLookup?.memory || null);
@@ -61,8 +70,7 @@ function runClear() {
         class="h-8 w-40 text-lg font-semibold"
         placeholder="Mesa, nome…"
         autofocus
-        @keydown.enter.prevent="confirmRename"
-        @keydown.esc.prevent="cancelRename"
+        @keydown="onRenameKeydown"
       />
       <UiButton variant="ghost" size="icon-sm" aria-label="Confirmar nome" @click="confirmRename">
         <Icon name="lucide:check" class="size-4" />

@@ -89,9 +89,11 @@ const {
   inSaleView,
   hasDraftWithoutTab,
   canUseCart,
+  paymentTotalQ,
   paymentRemainingQ,
   paymentChangeQ,
   paymentCovered,
+  cashReceivedQ,
   tabDialogTitle,
   tabDialogDescription,
   sortedTabs,
@@ -105,6 +107,11 @@ const {
   tenderBackspace,
   tenderClear,
   tenderAdd,
+  setCashReceived,
+  payCashExact,
+  cashDigit,
+  cashBackspace,
+  cashClear,
   productQty,
   addProduct,
   setQty,
@@ -360,6 +367,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:payment-collection="cart.paymentCollection"
         :payment-tenders="cart.paymentTenders"
         :selected-tender-index="selectedTenderIndex"
+        :total-q="paymentTotalQ"
+        :cash-received-q="cashReceivedQ"
         :payment-remaining-q="paymentRemainingQ"
         :payment-change-q="paymentChangeQ"
         :payment-covered="paymentCovered"
@@ -392,6 +401,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @tender-clear="tenderClear"
         @tender-add="tenderAdd"
         @tender-exact="addTender('cash')"
+        @set-cash-received="setCashReceived"
+        @cash-exact="payCashExact"
+        @cash-digit="cashDigit"
+        @cash-backspace="cashBackspace"
+        @cash-clear="cashClear"
         @lookup-customer="lookupCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
         @repeat-customer-last-order="repeatCustomerLastOrder"

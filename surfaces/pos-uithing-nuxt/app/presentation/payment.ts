@@ -94,6 +94,21 @@ export function cashDeltaPresets(contract: POSCheckoutContractProjection | null)
   return Array.isArray(presets) && presets.length ? presets : [1000, 5000, 10000];
 }
 
+// Brazilian cash notes, in cents — currency presentation, the same category as
+// formatBRL (the surface formats BRL throughout). The "smart" subset is the notes
+// that cover the amount due — what a customer is likely to hand over for THIS
+// total, so the operator taps the bill received instead of doing mental math.
+// (A per-deployment denomination set in the channel contract is the eventual
+// config-driven home, mirroring cash_tender_delta_presets_q.)
+const BRL_CASH_NOTES_Q = [200, 500, 1000, 2000, 5000, 10000, 20000];
+
+export function smartCashDenominationsQ(dueQ: number, max = 4): number[] {
+  if (dueQ <= 0) return [];
+  const covering = BRL_CASH_NOTES_Q.filter((note) => note >= dueQ);
+  if (!covering.length) return [BRL_CASH_NOTES_Q[BRL_CASH_NOTES_Q.length - 1]!];
+  return covering.slice(0, max);
+}
+
 /** Collections offered for the current fulfillment type (e.g. on-delivery vs terminal). */
 export function collectionsForFulfillment(
   collections: POSPaymentCollectionProjection[],

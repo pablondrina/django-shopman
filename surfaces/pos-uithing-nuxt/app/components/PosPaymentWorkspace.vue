@@ -25,10 +25,10 @@ import type {
 } from "~/types/pos";
 import { cartTotalQ, formatBRL } from "~/utils/posIntent";
 import {
-  cashDeltaPresets,
   collectionsForFulfillment,
   injectableMethods as toInjectableMethods,
   paymentIcon,
+  smartCashDenominationsQ,
   tenderLineView,
 } from "~/presentation/payment";
 
@@ -54,6 +54,8 @@ const props = defineProps<{
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
   selectedTenderIndex: number;
+  totalQ: number;
+  cashReceivedQ: number;
   paymentRemainingQ: number;
   paymentChangeQ: number;
   paymentCovered: boolean;
@@ -94,6 +96,12 @@ const emit = defineEmits<{
   tenderClear: [];
   tenderAdd: [number];
   tenderExact: [];
+  /** Cash received (operator mindset): bills set absolute, numpad edits. */
+  setCashReceived: [number];
+  cashExact: [];
+  cashDigit: [string];
+  cashBackspace: [];
+  cashClear: [];
   "update:customerName": [string];
   "update:customerPhone": [string];
   "update:customerTaxId": [string];
@@ -140,15 +148,15 @@ const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
 const discountSheetOpen = ref(false);
 
-// Minimalist flow (calm by subtraction): the total is the hero; the cash
-// entry (quick bills) appears only when a cash tender exists, and the full
-// numpad stays hidden behind "Outro valor" — most counter sales finish in a
-// tap (PIX/card cover exactly; cash via "Exato" or a bill).
-const showNumpad = ref(false);
-const hasCashTender = computed(() => props.paymentTenders.some((tender) => tender.method === "cash"));
-const cashDeltas = computed(() => cashPresets.value.filter((preset) => preset > 0));
-const cashHasExact = computed(() => cashPresets.value.includes(0));
-watch(hasCashTender, (has) => { if (!has) showNumpad.value = false; });
+// Cash is operator-first: a fixed numpad with the bills (cédulas) that cover
+// this total. Tapping a bill SETS the received amount (a R$50 note → received
+// 50), the numpad edits it, and change follows — no need to tap "Dinheiro"
+// first. PIX/card stay one-tap covers. The bills are the BR notes ≥ the total.
+const cashDenominations = computed(() => smartCashDenominationsQ(props.totalQ));
+const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+// Cash is the fixed numpad on the right; the cover tiles are the other methods
+// (PIX/card) that settle the total in one tap.
+const coverMethods = computed(() => injectableMethods.value.filter((method) => method.ref !== "cash"));
 
 const fulfillmentLabel = computed(
   () => props.fulfillmentOptions.find((option) => option.ref === props.fulfillmentType)?.label || props.fulfillmentType,
@@ -179,7 +187,6 @@ const kitchenNote = computed(() => {
 const injectableMethods = computed(() => toInjectableMethods(props.paymentMethods));
 const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLineView(tender, props.paymentMethods)));
 const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
-const cashPresets = computed(() => cashDeltaPresets(props.checkoutContract));
 
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
@@ -236,10 +243,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- HERO: total + methods + (cash) entry, centered and calm -->
-    <div class="grid min-h-0 flex-1 place-items-center overflow-auto">
-      <div class="flex w-full max-w-md flex-col items-stretch gap-6 py-2">
-        <!-- total hero -->
+    <!-- MAIN: total hero + cover methods (left) · fixed cash numpad (right) -->
+    <div class="grid min-h-0 flex-1 gap-4 overflow-auto lg:grid-cols-[minmax(0,1fr)_19rem]">
+
+      <!-- LEFT — the total is the hero; PIX/card settle in one tap; tenders listed -->
+      <div class="flex min-h-0 flex-col justify-center gap-5">
         <div class="text-center">
           <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             {{ paymentCovered ? "Pronto para finalizar" : "Resta a pagar" }}
@@ -251,22 +259,20 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </p>
         </div>
 
-        <!-- method tiles (big) -->
-        <div class="grid grid-cols-3 gap-3">
+        <div v-if="coverMethods.length" class="grid gap-3" :class="coverMethods.length > 1 ? 'grid-cols-2' : 'grid-cols-1'">
           <button
-            v-for="method in injectableMethods"
+            v-for="method in coverMethods"
             :key="method.ref"
             type="button"
-            class="flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card px-2 py-5 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex items-center justify-center gap-2.5 rounded-2xl border bg-card px-3 py-5 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             @click="$emit('addTender', method.ref)"
           >
-            <Icon :name="paymentIcon(method.ref)" class="size-8 text-muted-foreground" />
+            <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
             {{ method.label }}
           </button>
         </div>
 
-        <!-- tenders added (compact, only when present) -->
-        <div v-if="tenderLines.length" class="flex flex-col gap-1.5">
+        <div v-if="tenderLines.length" class="mx-auto flex w-full max-w-md flex-col gap-1.5">
           <button
             v-for="(tender, idx) in tenderLines"
             :key="idx"
@@ -288,46 +294,58 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </span>
           </button>
         </div>
+      </div>
 
-        <!-- cash entry: quick bills + "outro valor" reveals the numpad -->
-        <div v-if="hasCashTender" class="flex flex-col gap-2">
-          <div class="grid grid-flow-col auto-cols-fr gap-2">
-            <button
-              v-if="cashHasExact"
-              type="button"
-              class="rounded-lg border bg-muted/60 py-3 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
-              @click="$emit('tenderExact')"
-            >
-              Exato
-            </button>
-            <button
-              v-for="delta in cashDeltas"
-              :key="delta"
-              type="button"
-              class="rounded-lg border bg-muted/60 py-3 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-              :aria-label="`Recebido ${formatBRL(delta)}`"
-              @click="$emit('tenderAdd', delta)"
-            >
-              +{{ delta / 100 }}
-            </button>
-            <button
-              type="button"
-              class="rounded-lg border py-3 text-sm font-semibold transition active:translate-y-px"
-              :class="showNumpad ? 'border-primary bg-primary/10' : 'bg-muted/60 hover:bg-accent'"
-              @click="showNumpad = !showNumpad"
-            >
-              Outro valor
-            </button>
-          </div>
-          <PosPaymentNumpad
-            v-if="showNumpad"
-            :presets="[]"
-            @digit="$emit('tenderDigit', $event)"
-            @backspace="$emit('tenderBackspace')"
-            @clear="$emit('tenderClear')"
-            @add="$emit('tenderAdd', $event)"
-            @exact="$emit('tenderExact')"
-          />
+      <!-- RIGHT — fixed cash numpad: bills SET the received amount; numpad edits -->
+      <div class="flex min-h-0 flex-col gap-2 rounded-2xl border bg-card p-3">
+        <div class="flex shrink-0 items-baseline justify-between gap-2">
+          <span class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <Icon name="lucide:banknote" class="size-4" /> Dinheiro
+          </span>
+          <span class="text-right tabular-nums">
+            <span class="block text-[11px] text-muted-foreground">Recebido</span>
+            <strong class="text-lg">{{ formatBRL(cashReceivedQ) }}</strong>
+          </span>
+        </div>
+
+        <!-- cédulas: Exato + the BR notes that cover this total -->
+        <div class="grid shrink-0 grid-flow-col auto-cols-fr gap-1.5">
+          <button
+            type="button"
+            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
+            @click="$emit('cashExact')"
+          >
+            Exato
+          </button>
+          <button
+            v-for="note in cashDenominations"
+            :key="note"
+            type="button"
+            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            :aria-label="`Recebi ${formatBRL(note)}`"
+            @click="$emit('setCashReceived', note)"
+          >
+            {{ note / 100 }}
+          </button>
+        </div>
+
+        <!-- fixed digit pad -->
+        <div class="grid min-h-0 flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor recebido">
+          <button
+            v-for="digit in digitKeys"
+            :key="digit"
+            type="button"
+            class="grid place-items-center rounded-lg border bg-card text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            :aria-label="`Dígito ${digit}`"
+            @click="$emit('cashDigit', digit)"
+          >
+            {{ digit }}
+          </button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card text-sm font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('cashBackspace')">
+            <Icon name="lucide:delete" class="size-5" />
+          </button>
         </div>
       </div>
     </div>

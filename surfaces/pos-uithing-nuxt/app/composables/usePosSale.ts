@@ -255,6 +255,53 @@ export function usePosSale(deps: PosSaleDeps) {
       addCashTender(cents);
     }
   }
+
+  // Cash received as a first-class value (operator mindset): the "valor recebido"
+  // is a single cash tender the bills/numpad SET directly — no need to tap
+  // "Dinheiro" first (it would pre-fill the exact amount). Bills set absolute
+  // amounts (a R$50 note → received 50), the numpad edits, change follows.
+  function ensureCashIndex(): number {
+    let idx = cart.paymentTenders.findIndex((tender) => tender.method === "cash");
+    if (idx < 0) {
+      cart.paymentTenders.push({ method: "cash", amount_q: 0, collection: cart.paymentCollection });
+      idx = cart.paymentTenders.length - 1;
+    }
+    selectedTenderIndex.value = idx;
+    return idx;
+  }
+  function setCashReceived(amountQ: number) {
+    const tender = cart.paymentTenders[ensureCashIndex()];
+    if (tender) tender.amount_q = Math.max(0, Math.min(99_999_999, Math.round(amountQ)));
+    tenderFresh.value = true;
+  }
+  // Exact cash = whatever cash still owes after the non-cash tenders.
+  function payCashExact() {
+    const nonCash = cart.paymentTenders
+      .filter((tender) => tender.method !== "cash")
+      .reduce((sum, tender) => sum + tender.amount_q, 0);
+    setCashReceived(Math.max(0, paymentTotalQ.value - nonCash));
+  }
+  function cashDigit(digit: string) {
+    const tender = cart.paymentTenders[ensureCashIndex()];
+    if (!tender) return;
+    const base = tenderFresh.value ? 0 : tender.amount_q;
+    tenderFresh.value = false;
+    tender.amount_q = Math.min(99_999_999, base * 10 + (Number.parseInt(digit, 10) || 0));
+  }
+  function cashBackspace() {
+    const idx = cart.paymentTenders.findIndex((tender) => tender.method === "cash");
+    if (idx < 0) return;
+    tenderFresh.value = false;
+    cart.paymentTenders[idx]!.amount_q = Math.floor(cart.paymentTenders[idx]!.amount_q / 10);
+  }
+  function cashClear() {
+    const idx = cart.paymentTenders.findIndex((tender) => tender.method === "cash");
+    if (idx < 0) return;
+    tenderFresh.value = true;
+    cart.paymentTenders[idx]!.amount_q = 0;
+  }
+  // The current cash received (for the "Recebido" display); 0 when no cash line.
+  const cashReceivedQ = computed(() => cart.paymentTenders.find((tender) => tender.method === "cash")?.amount_q || 0);
   const tabDialogTitle = computed(() => {
     if (tabDialogReason.value === "save") return "Associar comanda";
     return "Abrir comanda";
@@ -1145,6 +1192,7 @@ export function usePosSale(deps: PosSaleDeps) {
     paymentRemainingQ,
     paymentChangeQ,
     paymentCovered,
+    cashReceivedQ,
     tabDialogTitle,
     tabDialogDescription,
     sortedTabs,
@@ -1160,6 +1208,11 @@ export function usePosSale(deps: PosSaleDeps) {
     tenderBackspace,
     tenderClear,
     tenderAdd,
+    setCashReceived,
+    payCashExact,
+    cashDigit,
+    cashBackspace,
+    cashClear,
     productQty,
     addProduct,
     setQty,
