@@ -97,7 +97,10 @@
 ---
 
 ## 5. Pendências de exploração (deep-dive depois — Pablo: "consolidar já, deep-dive depois")
-- **Odoo POS** (demo web) — preenche o buraco de PDV-frontend ao vivo. **Maior prioridade do que falta.**
+- ~~**Odoo POS** (demo web) — preenche o buraco de PDV-frontend ao vivo. **Maior prioridade do que falta.**~~
+  ✅ **FEITO 2026-06-08** — deep-dive ao vivo da tela de pagamento em [odoo.md](odoo.md). Validou a
+  direção "Conta + Instrumento" (herói = total estável + numpad universal + linhas de tender). Resta
+  só a tela de **fechamento de caixa** (densidade de turno) pra um deep-dive de Caixa futuro.
 - **Screenshots de iPad** (Shopify/STORES PDV nativo em ação) — Pablo manda quando puder.
 - **Shopify deep backoffice** — descontos, Settings›Users (PIN/permissões), entrega, analytics.
 - **STORES** — popular itens + ver mobile order/KDS config (fricção JP).

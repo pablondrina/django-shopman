@@ -22,7 +22,7 @@ Benchmarks **commerce-first** passaram na frente do Odoo (desktop-first/ERP). O 
 | 1 | **Shopify POS** | Estado-da-arte de fluidez (redesign v11.0): checkout contínuo, Smart Grid, customer display | [shopify.md](shopify.md) |
 | 2 | **STORES レジ** | Ecossistema unificado (POS+loja+reserva+cliente+pagamento); handy + KDS + conta por mesa ≈ nosso domínio | [stores.md](stores.md) |
 | 3 | **Take.app** | WhatsApp-first em tudo; loja online simples; **backoffice é o forte** | [take-app.md](take-app.md) |
-| 4 | **Odoo POS** | Densidade/ergonomia de balcão, gestão de caixa/turno. Open source total | _pendente_ |
+| 4 | **Odoo POS** | Densidade/ergonomia de balcão, gestão de caixa/turno. Open source total | [odoo.md](odoo.md) |
 
 Inspiração interna (não benchmark externo): POS nativo Django (HTMX) em
 `shopman/backstage/` — como o domínio já resolveu comandas/intent/pagamento/fiscal.
