@@ -147,14 +147,25 @@ const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
 const discountSheetOpen = ref(false);
 
-// Cash is operator-first: a fixed numpad with the BR notes. Tapping a note ADDS
-// it to the received amount (Odoo +10/+20/+50 — two R$50 = two taps); "Limpar"
-// resets; the numpad types an exact amount. No need to tap "Dinheiro" first.
+// Step-by-step (Pablo): the value dominates; THEN the method is chosen; the cash
+// nuance (received/notes/numpad/change) appears ONLY when Dinheiro is the chosen
+// method. PIX/card settle the total in one tap (no numpad). Notes ADD (Odoo
+// +10/+20/+50 — two R$50 = two taps); "Limpar" resets.
 const cashNotes = cashNotesQ();
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-// Cash is the fixed numpad on the right; the cover tiles are the other methods
-// (PIX/card) that settle the total in one tap.
-const coverMethods = computed(() => injectableMethods.value.filter((method) => method.ref !== "cash"));
+const cashActive = ref(false);
+// Show the cash panel once a cash tender exists (e.g. reopening the screen).
+watch(() => props.paymentTenders.some((tender) => tender.method === "cash"), (has) => {
+  if (has) cashActive.value = true;
+}, { immediate: true });
+function chooseMethod(method: { ref: string }) {
+  if (method.ref === "cash") {
+    cashActive.value = true;
+  } else {
+    emit("addTender", method.ref);
+    cashActive.value = false;
+  }
+}
 
 const fulfillmentLabel = computed(
   () => props.fulfillmentOptions.find((option) => option.ref === props.fulfillmentType)?.label || props.fulfillmentType,
@@ -242,81 +253,53 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- MAIN: total hero + cover methods (left) · cash numpad (right). Always two
-         columns on desktop; centered + width-capped so it stays a balanced panel. -->
-    <div class="mx-auto grid min-h-0 w-full max-w-4xl flex-1 gap-6 sm:grid-cols-[minmax(0,1fr)_22rem]">
+    <!-- MAIN (desktop-first, value-dominant, step-by-step): the value+change band
+         dominates; THEN the method; the cash nuance appears only when Dinheiro is
+         chosen. Centered + width-capped — a focused register, not stretched. -->
+    <div class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-5 overflow-auto">
 
-      <!-- LEFT — the total is the hero; PIX/card settle in one tap; tenders listed -->
-      <div class="flex min-h-0 flex-col justify-center gap-6">
-        <div class="text-center">
-          <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <!-- VALUE band — dominant: amount due + change, very visible -->
+      <div class="grid shrink-0 grid-cols-2 items-center gap-4 rounded-2xl border bg-card px-6 py-5">
+        <div>
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {{ paymentCovered ? "Pronto para finalizar" : "Resta a pagar" }}
           </p>
-          <p class="mt-1 text-6xl font-bold tabular-nums tracking-tight lg:text-7xl">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
-          <p class="mt-2 text-sm tabular-nums text-muted-foreground">
-            Total {{ review ? review.total_display : interimTotalDisplay }}
-            <span v-if="paymentChangeQ > 0" class="font-semibold text-primary"> · Troco {{ formatBRL(paymentChangeQ) }}</span>
-          </p>
+          <p class="text-5xl font-bold tabular-nums tracking-tight lg:text-6xl">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
+          <p class="mt-1 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
         </div>
+        <div class="text-right">
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Troco</p>
+          <p class="text-5xl font-bold tabular-nums lg:text-6xl" :class="paymentChangeQ > 0 ? 'text-primary' : 'text-muted-foreground/40'">{{ formatBRL(paymentChangeQ) }}</p>
+        </div>
+      </div>
 
-        <div v-if="coverMethods.length" class="grid gap-3" :class="coverMethods.length > 1 ? 'grid-cols-2' : 'grid-cols-1'">
+      <!-- forma de pagamento -->
+      <div class="shrink-0">
+        <p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
+        <div class="grid grid-cols-3 gap-3">
           <button
-            v-for="method in coverMethods"
+            v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex items-center justify-center gap-2.5 rounded-2xl border bg-card px-3 py-6 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
-            @click="$emit('addTender', method.ref)"
+            class="flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card px-2 py-5 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            :class="method.ref === 'cash' && cashActive ? 'border-primary bg-primary/5' : ''"
+            @click="chooseMethod(method)"
           >
             <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
             {{ method.label }}
           </button>
         </div>
-
-        <div v-if="tenderLines.length" class="flex w-full flex-col gap-1.5">
-          <button
-            v-for="(tender, idx) in tenderLines"
-            :key="idx"
-            type="button"
-            class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition"
-            :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-            :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
-            @click="$emit('selectTender', idx)"
-          >
-            <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-              <Icon :name="tender.icon" class="size-4 shrink-0" />
-              <span class="truncate">{{ tender.label }}</span>
-            </span>
-            <span class="flex shrink-0 items-center gap-1">
-              <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
-              <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
-                <Icon name="lucide:x" class="size-3.5 text-destructive" />
-              </UiButton>
-            </span>
-          </button>
-        </div>
       </div>
 
-      <!-- RIGHT — fixed cash numpad: bills SET the received amount; numpad edits -->
-      <div class="flex min-h-0 flex-col gap-2 rounded-2xl border bg-card p-3">
-        <div class="flex shrink-0 items-baseline justify-between gap-2">
-          <span class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-            <Icon name="lucide:banknote" class="size-4" /> Dinheiro
-          </span>
-          <span class="text-right tabular-nums">
-            <span class="block text-[11px] text-muted-foreground">Recebido</span>
-            <strong class="text-lg">{{ formatBRL(cashReceivedQ) }}</strong>
-          </span>
-        </div>
-
-        <!-- cédulas: Exato (sets exact) + the BR notes (each tap ADDS the bill) -->
-        <div class="grid shrink-0 gap-1.5">
-          <button
-            type="button"
-            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
-            @click="$emit('cashExact')"
-          >
-            Exato
-          </button>
+      <!-- cash nuance — only when Dinheiro is chosen -->
+      <div v-if="cashActive" class="grid shrink-0 gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
+        <!-- recebido + cédulas -->
+        <div class="flex flex-col gap-2">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"><Icon name="lucide:banknote" class="size-4" /> Recebido</span>
+            <strong class="text-2xl tabular-nums">{{ formatBRL(cashReceivedQ) }}</strong>
+          </div>
+          <button type="button" class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px" @click="$emit('cashExact')">Exato</button>
           <div class="grid grid-cols-3 gap-1.5">
             <button
               v-for="note in cashNotes"
@@ -330,25 +313,48 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </button>
           </div>
         </div>
-
-        <!-- fixed digit pad -->
-        <div class="grid min-h-0 flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor recebido">
+        <!-- numpad -->
+        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor recebido">
           <button
             v-for="digit in digitKeys"
             :key="digit"
             type="button"
-            class="grid place-items-center rounded-lg border bg-card text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            class="grid place-items-center rounded-lg border bg-card py-3 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
             :aria-label="`Dígito ${digit}`"
             @click="$emit('cashDigit', digit)"
           >
             {{ digit }}
           </button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card text-base font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('cashBackspace')">
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 text-base font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('cashBackspace')">
             <Icon name="lucide:delete" class="size-5" />
           </button>
         </div>
+      </div>
+
+      <!-- pagamentos adicionados -->
+      <div v-if="tenderLines.length" class="flex shrink-0 flex-col gap-1.5">
+        <button
+          v-for="(tender, idx) in tenderLines"
+          :key="idx"
+          type="button"
+          class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition"
+          :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+          :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+          @click="$emit('selectTender', idx)"
+        >
+          <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+            <Icon :name="tender.icon" class="size-4 shrink-0" />
+            <span class="truncate">{{ tender.label }}</span>
+          </span>
+          <span class="flex shrink-0 items-center gap-1">
+            <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
+            <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
+              <Icon name="lucide:x" class="size-3.5 text-destructive" />
+            </UiButton>
+          </span>
+        </button>
       </div>
     </div>
 
