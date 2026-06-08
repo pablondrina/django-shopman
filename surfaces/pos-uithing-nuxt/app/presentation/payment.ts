@@ -94,19 +94,16 @@ export function cashDeltaPresets(contract: POSCheckoutContractProjection | null)
   return Array.isArray(presets) && presets.length ? presets : [1000, 5000, 10000];
 }
 
-// Brazilian cash notes, in cents — currency presentation, the same category as
-// formatBRL (the surface formats BRL throughout). The "smart" subset is the notes
-// that cover the amount due — what a customer is likely to hand over for THIS
-// total, so the operator taps the bill received instead of doing mental math.
-// (A per-deployment denomination set in the channel contract is the eventual
+// The Brazilian cash notes, in cents — currency presentation, the same category
+// as formatBRL (the surface formats BRL throughout). These are the bills the
+// customer hands over: tapping a note ADDS it to the received amount (Odoo's
+// +10/+20/+50 pattern), so two R$50 notes = two taps; "Limpar" resets. (A
+// per-deployment denomination set in the channel contract is the eventual
 // config-driven home, mirroring cash_tender_delta_presets_q.)
-const BRL_CASH_NOTES_Q = [200, 500, 1000, 2000, 5000, 10000, 20000];
+const BRL_CASH_NOTES_Q = [200, 500, 1000, 2000, 5000, 10000];
 
-export function smartCashDenominationsQ(dueQ: number, max = 4): number[] {
-  if (dueQ <= 0) return [];
-  const covering = BRL_CASH_NOTES_Q.filter((note) => note >= dueQ);
-  if (!covering.length) return [BRL_CASH_NOTES_Q[BRL_CASH_NOTES_Q.length - 1]!];
-  return covering.slice(0, max);
+export function cashNotesQ(): number[] {
+  return BRL_CASH_NOTES_Q;
 }
 
 /** Collections offered for the current fulfillment type (e.g. on-delivery vs terminal). */

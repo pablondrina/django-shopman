@@ -25,10 +25,10 @@ import type {
 } from "~/types/pos";
 import { cartTotalQ, formatBRL } from "~/utils/posIntent";
 import {
+  cashNotesQ,
   collectionsForFulfillment,
   injectableMethods as toInjectableMethods,
   paymentIcon,
-  smartCashDenominationsQ,
   tenderLineView,
 } from "~/presentation/payment";
 
@@ -54,7 +54,6 @@ const props = defineProps<{
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
   selectedTenderIndex: number;
-  totalQ: number;
   cashReceivedQ: number;
   paymentRemainingQ: number;
   paymentChangeQ: number;
@@ -96,8 +95,8 @@ const emit = defineEmits<{
   tenderClear: [];
   tenderAdd: [number];
   tenderExact: [];
-  /** Cash received (operator mindset): bills set absolute, numpad edits. */
-  setCashReceived: [number];
+  /** Cash received (operator mindset): a note ADDS, the numpad types, C resets. */
+  addCashNote: [number];
   cashExact: [];
   cashDigit: [string];
   cashBackspace: [];
@@ -148,11 +147,10 @@ const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
 const discountSheetOpen = ref(false);
 
-// Cash is operator-first: a fixed numpad with the bills (cédulas) that cover
-// this total. Tapping a bill SETS the received amount (a R$50 note → received
-// 50), the numpad edits it, and change follows — no need to tap "Dinheiro"
-// first. PIX/card stay one-tap covers. The bills are the BR notes ≥ the total.
-const cashDenominations = computed(() => smartCashDenominationsQ(props.totalQ));
+// Cash is operator-first: a fixed numpad with the BR notes. Tapping a note ADDS
+// it to the received amount (Odoo +10/+20/+50 — two R$50 = two taps); "Limpar"
+// resets; the numpad types an exact amount. No need to tap "Dinheiro" first.
+const cashNotes = cashNotesQ();
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 // Cash is the fixed numpad on the right; the cover tiles are the other methods
 // (PIX/card) that settle the total in one tap.
@@ -308,8 +306,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </span>
         </div>
 
-        <!-- cédulas: Exato + the BR notes that cover this total -->
-        <div class="grid shrink-0 grid-flow-col auto-cols-fr gap-1.5">
+        <!-- cédulas: Exato (sets exact) + the BR notes (each tap ADDS the bill) -->
+        <div class="grid shrink-0 gap-1.5">
           <button
             type="button"
             class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px"
@@ -317,16 +315,18 @@ function onAddressSelected(address: StructuredAddressProjection) {
           >
             Exato
           </button>
-          <button
-            v-for="note in cashDenominations"
-            :key="note"
-            type="button"
-            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-            :aria-label="`Recebi ${formatBRL(note)}`"
-            @click="$emit('setCashReceived', note)"
-          >
-            {{ note / 100 }}
-          </button>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button
+              v-for="note in cashNotes"
+              :key="note"
+              type="button"
+              class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+              :aria-label="`Recebi nota de ${formatBRL(note)}`"
+              @click="$emit('addCashNote', note)"
+            >
+              {{ note / 100 }}
+            </button>
+          </div>
         </div>
 
         <!-- fixed digit pad -->

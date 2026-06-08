@@ -13,6 +13,7 @@ import { countOpenTabs, filterTabs, sanitizeTabRef, sortTabs, tabCardView } from
 import { clampPercent, clampQty, popDigit, pushDigit } from "../app/presentation/numpad";
 import {
   cashDeltaPresets,
+  cashNotesQ,
   collectionsForFulfillment,
   injectableMethods,
   isPaymentCovered,
@@ -22,7 +23,6 @@ import {
   paymentProofView,
   paymentRemainingQ,
   qrCodeSrc,
-  smartCashDenominationsQ,
   tenderLineView,
   tenderSumQ,
 } from "../app/presentation/payment";
@@ -329,15 +329,8 @@ describe("presentation/payment — tender math & method affordance", () => {
     expect(cashDeltaPresets({ cash_tender_delta_presets_q: [] } as unknown as POSCheckoutContractProjection)).toEqual([1000, 5000, 10000]);
   });
 
-  it("suggests the cash notes (cédulas) that cover the total", () => {
-    // R$ 11,05 → notes ≥ due: R$20, R$50, R$100, R$200
-    expect(smartCashDenominationsQ(1105)).toEqual([2000, 5000, 10000, 20000]);
-    // R$ 0,50 → R$2, R$5, R$10, R$20
-    expect(smartCashDenominationsQ(50)).toEqual([200, 500, 1000, 2000]);
-    // Nothing due → no suggestions.
-    expect(smartCashDenominationsQ(0)).toEqual([]);
-    // Total above the largest note → fall back to the largest (partial).
-    expect(smartCashDenominationsQ(50000)).toEqual([20000]);
+  it("offers the main BR cash notes (R$2..R$100) for accumulation", () => {
+    expect(cashNotesQ()).toEqual([200, 500, 1000, 2000, 5000, 10000]);
   });
 
   it("filters payment collections by fulfillment type", () => {

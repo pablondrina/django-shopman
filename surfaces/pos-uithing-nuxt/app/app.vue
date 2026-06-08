@@ -89,7 +89,6 @@ const {
   inSaleView,
   hasDraftWithoutTab,
   canUseCart,
-  paymentTotalQ,
   paymentRemainingQ,
   paymentChangeQ,
   paymentCovered,
@@ -107,7 +106,7 @@ const {
   tenderBackspace,
   tenderClear,
   tenderAdd,
-  setCashReceived,
+  addCashNote,
   payCashExact,
   cashDigit,
   cashBackspace,
@@ -367,7 +366,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:payment-collection="cart.paymentCollection"
         :payment-tenders="cart.paymentTenders"
         :selected-tender-index="selectedTenderIndex"
-        :total-q="paymentTotalQ"
         :cash-received-q="cashReceivedQ"
         :payment-remaining-q="paymentRemainingQ"
         :payment-change-q="paymentChangeQ"
@@ -401,7 +399,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @tender-clear="tenderClear"
         @tender-add="tenderAdd"
         @tender-exact="addTender('cash')"
-        @set-cash-received="setCashReceived"
+        @add-cash-note="addCashNote"
         @cash-exact="payCashExact"
         @cash-digit="cashDigit"
         @cash-backspace="cashBackspace"

@@ -274,6 +274,15 @@ export function usePosSale(deps: PosSaleDeps) {
     if (tender) tender.amount_q = Math.max(0, Math.min(99_999_999, Math.round(amountQ)));
     tenderFresh.value = true;
   }
+  // A cash note tap ADDS the bill to the received amount (Odoo +10/+20/+50): the
+  // customer's notes accumulate; "Limpar" (cashClear) resets. Next digit starts
+  // fresh (tenderFresh) so the numpad can still type an exact amount over it.
+  function addCashNote(cents: number) {
+    if (!cents) return;
+    const tender = cart.paymentTenders[ensureCashIndex()];
+    if (tender) tender.amount_q = Math.min(99_999_999, tender.amount_q + cents);
+    tenderFresh.value = true;
+  }
   // Exact cash = whatever cash still owes after the non-cash tenders.
   function payCashExact() {
     const nonCash = cart.paymentTenders
@@ -1208,7 +1217,7 @@ export function usePosSale(deps: PosSaleDeps) {
     tenderBackspace,
     tenderClear,
     tenderAdd,
-    setCashReceived,
+    addCashNote,
     payCashExact,
     cashDigit,
     cashBackspace,
