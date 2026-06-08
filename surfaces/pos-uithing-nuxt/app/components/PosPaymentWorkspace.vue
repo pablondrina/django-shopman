@@ -1,14 +1,18 @@
 <script setup lang="ts">
-// Payment screen (spec §2.4, Odoo-fidelity). A dedicated screen, not a drawer:
-// LEFT  — payment methods (tap = inject a tender), the tender list, manager
-//         approval (only when the review demands it), and the Validate button.
-// CENTER — remaining / change / total + the value numpad (edits the selected
-//         tender). RIGHT — sale-data as on-demand actions (fulfillment / customer
-//         / discount sheets), collection, and the kitchen-handoff status.
+// Payment screen (spec §2.4) — "Conta + Instrumento". Two stable zones, no modes
+// that pop in and out:
+//   LEFT  (a Conta)       — the charge: the sale total as a stable hero (never
+//                           collapses to zero) + one adaptive live readout
+//                           (Faltam → Troco → Pronto) + the tender lines, which
+//                           accumulate and are editable. Split lives here.
+//   RIGHT (o Instrumento) — always present: the method tiles (tap = lança o que
+//                           falta na forma) + a persistent numpad that edits the
+//                           SELECTED tender + cash cédulas as the cash nuance.
 //
-// Zero arithmetic of policy: the total/remaining/change/coverage all come from
-// the composable (which derives them from the authoritative review via the
-// `presentation/payment` module). This screen renders; it does not compute.
+// The numpad is universal (every tender, not just cash) — which is exactly what
+// split payment needs. Zero arithmetic of policy: total/remaining/change/coverage
+// come from the composable (authoritative review via `presentation/payment`).
+// This screen renders intent; it does not compute.
 import type {
   POSAddressAutocompleteProjection,
   POSCartItem,
@@ -54,7 +58,7 @@ const props = defineProps<{
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
   selectedTenderIndex: number;
-  cashReceivedQ: number;
+  selectedTenderMethod: string;
   paymentRemainingQ: number;
   paymentChangeQ: number;
   paymentCovered: boolean;
@@ -90,17 +94,12 @@ const emit = defineEmits<{
   addTender: [string];
   removeTender: [number];
   selectTender: [number];
+  /** Numpad edits the SELECTED tender (cents); cédulas/Exato are presets for it. */
   tenderDigit: [string];
   tenderBackspace: [];
   tenderClear: [];
   tenderAdd: [number];
   tenderExact: [];
-  /** Cash received (operator mindset): a note ADDS, the numpad types, C resets. */
-  addCashNote: [number];
-  cashExact: [];
-  cashDigit: [string];
-  cashBackspace: [];
-  cashClear: [];
   "update:customerName": [string];
   "update:customerPhone": [string];
   "update:customerTaxId": [string];
@@ -147,25 +146,23 @@ const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
 const discountSheetOpen = ref(false);
 
-// Step-by-step (Pablo): the value dominates; THEN the method is chosen; the cash
-// nuance (received/notes/numpad/change) appears ONLY when Dinheiro is the chosen
-// method. PIX/card settle the total in one tap (no numpad). Notes ADD (Odoo
-// +10/+20/+50 — two R$50 = two taps); "Limpar" resets.
+// The instrument (right zone): the numpad edits the SELECTED tender, so it lights
+// up once a tender exists; cédulas are the cash nuance, offered only when the
+// selected tender is cash. BR notes (2/5/10/20/50/100) — the first tap after
+// selecting a tender SETS (the customer handed R$50), then accumulates.
 const cashNotes = cashNotesQ();
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-const cashActive = ref(false);
-// Show the cash panel once a cash tender exists (e.g. reopening the screen).
-watch(() => props.paymentTenders.some((tender) => tender.method === "cash"), (has) => {
-  if (has) cashActive.value = true;
-}, { immediate: true });
-function chooseMethod(method: { ref: string }) {
-  if (method.ref === "cash") {
-    cashActive.value = true;
-  } else {
-    emit("addTender", method.ref);
-    cashActive.value = false;
-  }
-}
+const numpadActive = computed(() => props.selectedTenderIndex >= 0 && props.selectedTenderIndex < props.paymentTenders.length);
+const cashSelected = computed(() => props.selectedTenderMethod === "cash");
+
+// The adaptive live readout under the hero — one line that carries the state the
+// operator needs right now, so the big number stays the (stable) sale total.
+const payState = computed<"idle" | "short" | "change" | "ready">(() => {
+  if (props.paymentChangeQ > 0) return "change";
+  if (props.paymentCovered) return "ready";
+  if (props.paymentTenders.length) return "short";
+  return "idle";
+});
 
 const fulfillmentLabel = computed(
   () => props.fulfillmentOptions.find((option) => option.ref === props.fulfillmentType)?.label || props.fulfillmentType,
@@ -195,6 +192,7 @@ const kitchenNote = computed(() => {
 // covers the total in any combination of forms. No "mixed" selection.
 const injectableMethods = computed(() => toInjectableMethods(props.paymentMethods));
 const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLineView(tender, props.paymentMethods)));
+const activeTender = computed(() => (numpadActive.value ? tenderLines.value[props.selectedTenderIndex] || null : null));
 const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
 
 function onAddressSelected(address: StructuredAddressProjection) {
@@ -253,108 +251,137 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- MAIN (desktop-first, value-dominant, step-by-step): the value+change band
-         dominates; THEN the method; the cash nuance appears only when Dinheiro is
-         chosen. Centered + width-capped — a focused register, not stretched. -->
-    <div class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-5 overflow-auto">
+    <!-- MAIN — "Conta + Instrumento": two stable zones (desktop-first). LEFT is
+         the account (stable total hero + adaptive readout + tender lines); RIGHT
+         is the always-present instrument (method tiles + numpad + cash cédulas).
+         On narrow screens they stack. Centered + width-capped. -->
+    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 overflow-hidden lg:flex-row">
 
-      <!-- VALUE band — dominant: amount due + change, very visible -->
-      <div class="grid shrink-0 grid-cols-2 items-center gap-4 rounded-2xl border bg-card px-6 py-5">
-        <div>
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {{ paymentCovered ? "Pronto para finalizar" : "Resta a pagar" }}
-          </p>
-          <p class="text-5xl font-bold tabular-nums tracking-tight lg:text-6xl">{{ formatBRL(Math.max(0, paymentRemainingQ)) }}</p>
-          <p class="mt-1 text-xs tabular-nums text-muted-foreground">Total {{ review ? review.total_display : interimTotalDisplay }}</p>
+      <!-- LEFT · A CONTA -->
+      <div class="flex min-h-0 flex-1 flex-col gap-3">
+        <!-- hero: total a cobrar (stable) + one adaptive live readout -->
+        <div class="shrink-0 rounded-2xl border bg-card px-6 py-5">
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
+          <p class="text-5xl font-bold tabular-nums tracking-tight lg:text-6xl">{{ review ? review.total_display : interimTotalDisplay }}</p>
+          <div class="mt-3 flex items-baseline gap-2">
+            <template v-if="payState === 'change'">
+              <Icon name="lucide:coins" class="size-5 shrink-0 self-center text-primary" />
+              <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Troco</span>
+              <strong class="text-3xl font-bold tabular-nums text-primary lg:text-4xl">{{ formatBRL(paymentChangeQ) }}</strong>
+            </template>
+            <template v-else-if="payState === 'ready'">
+              <Icon name="lucide:check-circle-2" class="size-5 shrink-0 self-center text-primary" />
+              <span class="text-lg font-semibold text-primary">Pronto para finalizar</span>
+            </template>
+            <template v-else-if="payState === 'short'">
+              <Icon name="lucide:hourglass" class="size-5 shrink-0 self-center text-muted-foreground" />
+              <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Faltam</span>
+              <strong class="text-3xl font-bold tabular-nums lg:text-4xl">{{ formatBRL(paymentRemainingQ) }}</strong>
+            </template>
+            <template v-else>
+              <Icon name="lucide:arrow-right" class="size-4 shrink-0 self-center text-muted-foreground" />
+              <span class="text-sm text-muted-foreground">Escolha a forma de pagamento</span>
+            </template>
+          </div>
         </div>
-        <div class="text-right">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Troco</p>
-          <p class="text-5xl font-bold tabular-nums lg:text-6xl" :class="paymentChangeQ > 0 ? 'text-primary' : 'text-muted-foreground/40'">{{ formatBRL(paymentChangeQ) }}</p>
+
+        <!-- tender lines (accumulate; each editable, the active one highlighted) -->
+        <div class="min-h-0 flex-1 overflow-auto">
+          <div
+            v-if="!tenderLines.length"
+            class="flex h-full min-h-24 items-center justify-center rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground"
+          >
+            <p>Toque uma forma ao lado.<br />Cada toque lança o valor que falta — divida em quantas formas precisar.</p>
+          </div>
+          <ul v-else class="flex flex-col gap-1.5">
+            <li v-for="(tender, idx) in tenderLines" :key="idx">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left transition"
+                :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+                :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+                @click="$emit('selectTender', idx)"
+              >
+                <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+                  <Icon :name="tender.icon" class="size-4 shrink-0" />
+                  <span class="truncate">{{ tender.label }}</span>
+                </span>
+                <span class="flex shrink-0 items-center gap-1">
+                  <strong class="text-lg tabular-nums">{{ tender.amountDisplay }}</strong>
+                  <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
+                    <Icon name="lucide:x" class="size-3.5 text-destructive" />
+                  </UiButton>
+                </span>
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
 
-      <!-- forma de pagamento -->
-      <div class="shrink-0">
-        <p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pagamento</p>
-        <div class="grid grid-cols-3 gap-3">
+      <!-- RIGHT · O INSTRUMENTO (always present) -->
+      <div class="flex w-full shrink-0 flex-col gap-2.5 lg:w-80">
+        <!-- method tiles — tap lança o que falta na forma -->
+        <div class="grid grid-cols-3 gap-2">
           <button
             v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card px-2 py-5 text-base font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
-            :class="method.ref === 'cash' && cashActive ? 'border-primary bg-primary/5' : ''"
-            @click="chooseMethod(method)"
+            class="flex flex-col items-center justify-center gap-1.5 rounded-2xl border bg-card px-2 py-4 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            :class="method.ref === selectedTenderMethod ? 'border-primary bg-primary/5' : ''"
+            @click="$emit('addTender', method.ref)"
           >
-            <Icon :name="paymentIcon(method.ref)" class="size-7 text-muted-foreground" />
+            <Icon :name="paymentIcon(method.ref)" class="size-6 text-muted-foreground" />
             {{ method.label }}
           </button>
         </div>
-      </div>
 
-      <!-- cash nuance — only when Dinheiro is chosen -->
-      <div v-if="cashActive" class="grid shrink-0 gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
-        <!-- recebido + cédulas -->
-        <div class="flex flex-col gap-2">
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"><Icon name="lucide:banknote" class="size-4" /> Recebido</span>
-            <strong class="text-2xl tabular-nums">{{ formatBRL(cashReceivedQ) }}</strong>
-          </div>
-          <button type="button" class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px" @click="$emit('cashExact')">Exato</button>
-          <div class="grid grid-cols-3 gap-1.5">
-            <button
-              v-for="note in cashNotes"
-              :key="note"
-              type="button"
-              class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-              :aria-label="`Recebi nota de ${formatBRL(note)}`"
-              @click="$emit('addCashNote', note)"
-            >
-              {{ note / 100 }}
-            </button>
-          </div>
+        <!-- what the numpad is editing -->
+        <p class="px-1 text-xs text-muted-foreground" aria-live="polite">
+          <template v-if="activeTender">Editando <span class="font-medium text-foreground">{{ activeTender.label }}</span> · <span class="tabular-nums">{{ activeTender.amountDisplay }}</span></template>
+          <template v-else>Escolha uma forma para usar o teclado</template>
+        </p>
+
+        <!-- presets: Exato (any tender) + cédulas (cash only) -->
+        <div class="grid grid-cols-3 gap-1.5">
+          <button
+            type="button"
+            class="col-span-3 rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+            :disabled="!numpadActive"
+            @click="$emit('tenderExact')"
+          >
+            Exato
+          </button>
+          <button
+            v-for="note in (cashSelected ? cashNotes : [])"
+            :key="note"
+            type="button"
+            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            :aria-label="`Recebi nota de ${formatBRL(note)}`"
+            @click="$emit('tenderAdd', note)"
+          >
+            R$ {{ note / 100 }}
+          </button>
         </div>
-        <!-- numpad -->
-        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor recebido">
+
+        <!-- numpad — edits the selected tender (cents) -->
+        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
           <button
             v-for="digit in digitKeys"
             :key="digit"
             type="button"
-            class="grid place-items-center rounded-lg border bg-card py-3 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+            class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+            :disabled="!numpadActive"
             :aria-label="`Dígito ${digit}`"
-            @click="$emit('cashDigit', digit)"
+            @click="$emit('tenderDigit', digit)"
           >
             {{ digit }}
           </button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 text-base font-semibold transition hover:bg-accent active:translate-y-px" aria-label="Limpar" @click="$emit('cashClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px" aria-label="Dígito 0" @click="$emit('cashDigit', '0')">0</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3 transition hover:bg-accent active:translate-y-px" aria-label="Apagar" @click="$emit('cashBackspace')">
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
             <Icon name="lucide:delete" class="size-5" />
           </button>
         </div>
-      </div>
-
-      <!-- pagamentos adicionados -->
-      <div v-if="tenderLines.length" class="flex shrink-0 flex-col gap-1.5">
-        <button
-          v-for="(tender, idx) in tenderLines"
-          :key="idx"
-          type="button"
-          class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition"
-          :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-          :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
-          @click="$emit('selectTender', idx)"
-        >
-          <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-            <Icon :name="tender.icon" class="size-4 shrink-0" />
-            <span class="truncate">{{ tender.label }}</span>
-          </span>
-          <span class="flex shrink-0 items-center gap-1">
-            <strong class="tabular-nums">{{ tender.amountDisplay }}</strong>
-            <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
-              <Icon name="lucide:x" class="size-3.5 text-destructive" />
-            </UiButton>
-          </span>
-        </button>
       </div>
     </div>
 
