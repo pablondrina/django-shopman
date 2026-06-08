@@ -137,81 +137,63 @@ function runClear() {
       <Icon name="lucide:x" class="size-4" />
     </UiButton>
 
-    <UiSheet v-model:open="customerSheetOpen">
-      <UiSheetContent side="right" title="Cliente" description="Identifique o cliente desta comanda. Tudo opcional.">
-        <template #content>
-          <div class="grid gap-4 overflow-y-auto px-4 pb-6">
-            <label class="grid gap-1.5 text-sm">
-              <span class="font-medium text-muted-foreground">Nome</span>
+    <UiDialog v-model:open="customerSheetOpen">
+      <UiDialogContent class="sm:max-w-md">
+        <UiDialogHeader>
+          <UiDialogTitle>Cliente</UiDialogTitle>
+          <UiDialogDescription>Digite o WhatsApp — buscamos o cadastro automaticamente.</UiDialogDescription>
+        </UiDialogHeader>
+        <div class="grid gap-4">
+          <!-- search in evidence: typing the phone auto-looks-up (no button) -->
+          <label class="grid gap-1.5 text-sm">
+            <span class="font-medium text-muted-foreground">WhatsApp</span>
+            <div class="relative">
+              <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <UiInput
-                :model-value="customerName"
-                placeholder="Nome no balcão"
-                @update:model-value="$emit('update:customerName', String($event || ''))"
+                :model-value="customerPhone"
+                inputmode="tel"
+                class="h-12 pl-10 text-base"
+                placeholder="(43) 99999-0000"
+                autofocus
+                @update:model-value="$emit('update:customerPhone', String($event || ''))"
               />
-            </label>
-            <label class="grid gap-1.5 text-sm">
-              <span class="font-medium text-muted-foreground">WhatsApp</span>
-              <div class="flex gap-2">
-                <UiInput
-                  :model-value="customerPhone"
-                  inputmode="tel"
-                  placeholder="(43) 99999-0000"
-                  @update:model-value="$emit('update:customerPhone', String($event || ''))"
-                  @keydown.enter.prevent="$emit('lookupCustomer')"
-                />
-                <UiButton
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Buscar cliente"
-                  title="Buscar cliente"
-                  :disabled="lookupBusy || !customerPhone.trim()"
-                  @click="$emit('lookupCustomer')"
-                >
-                  <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
-                </UiButton>
-              </div>
-            </label>
-
-            <div
-              v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length)"
-              class="grid gap-2 rounded-lg border bg-muted/30 p-3"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
-                <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">
-                  {{ customerMemory.total_orders }} pedidos
-                </span>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <UiButton
-                  v-if="customerMemory?.favorite_item?.sku"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  @click="$emit('applyCustomerFavorite')"
-                >
-                  <Icon name="lucide:heart" class="size-4" />
-                  Favorito
-                </UiButton>
-                <UiButton
-                  v-if="customerMemory?.last_order_items?.length"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  @click="$emit('repeatCustomerLastOrder')"
-                >
-                  <Icon name="lucide:rotate-ccw" class="size-4" />
-                  Último pedido
-                </UiButton>
-              </div>
+              <Icon v-if="lookupBusy" name="lucide:loader-circle" class="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             </div>
+          </label>
 
-            <UiButton class="mt-2" @click="customerSheetOpen = false">Concluir</UiButton>
+          <!-- found customer surfaced for review -->
+          <div v-if="customerLookup" class="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="flex items-center gap-1.5 text-sm font-semibold">
+                <Icon name="lucide:user-check" class="size-4 text-primary" />
+                {{ customerLookup.name }}
+              </span>
+              <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">{{ customerMemory.total_orders }} pedidos</span>
+            </div>
+            <div v-if="customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length" class="flex flex-wrap gap-2">
+              <UiButton v-if="customerMemory?.favorite_item?.sku" type="button" variant="outline" size="sm" @click="$emit('applyCustomerFavorite')">
+                <Icon name="lucide:heart" class="size-4" /> Favorito
+              </UiButton>
+              <UiButton v-if="customerMemory?.last_order_items?.length" type="button" variant="outline" size="sm" @click="$emit('repeatCustomerLastOrder')">
+                <Icon name="lucide:rotate-ccw" class="size-4" /> Último pedido
+              </UiButton>
+            </div>
           </div>
-        </template>
-      </UiSheetContent>
-    </UiSheet>
+
+          <label class="grid gap-1.5 text-sm">
+            <span class="font-medium text-muted-foreground">Nome</span>
+            <UiInput
+              :model-value="customerName"
+              placeholder="Nome no balcão"
+              @update:model-value="$emit('update:customerName', String($event || ''))"
+            />
+          </label>
+        </div>
+        <UiDialogFooter>
+          <UiButton class="w-full" @click="customerSheetOpen = false">Concluir</UiButton>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 
     <UiDialog :open="confirmClear" @update:open="(value) => { if (!value) confirmClear = false; }">
       <UiDialogContent class="sm:max-w-sm">

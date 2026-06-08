@@ -379,12 +379,15 @@ function onAddressSelected(address: StructuredAddressProjection) {
 
   </section>
 
-  <!-- SHEET: Entrega / Retirada -->
-  <UiSheet v-model:open="fulfillmentSheetOpen">
-    <UiSheetContent side="right" title="Entrega" description="Como o cliente recebe o pedido.">
-      <template #content>
-        <div class="grid gap-4 overflow-y-auto px-4 pb-6">
-          <div class="grid grid-cols-2 gap-2">
+  <!-- MODAL: Entrega / Retirada -->
+  <UiDialog v-model:open="fulfillmentSheetOpen">
+    <UiDialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <UiDialogHeader>
+        <UiDialogTitle>Entrega</UiDialogTitle>
+        <UiDialogDescription>Como o cliente recebe o pedido.</UiDialogDescription>
+      </UiDialogHeader>
+      <div class="grid gap-4">
+        <div class="grid grid-cols-2 gap-2">
             <UiButton
               v-for="option in fulfillmentOptions"
               :key="option.ref"
@@ -463,17 +466,21 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </label>
           </div>
 
-          <UiButton class="mt-2" @click="fulfillmentSheetOpen = false">Concluir</UiButton>
         </div>
-      </template>
-    </UiSheetContent>
-  </UiSheet>
+      <UiDialogFooter>
+        <UiButton class="w-full" @click="fulfillmentSheetOpen = false">Concluir</UiButton>
+      </UiDialogFooter>
+    </UiDialogContent>
+  </UiDialog>
 
-  <!-- SHEET: Cliente & fiscal -->
-  <UiSheet v-model:open="customerSheetOpen">
-    <UiSheetContent side="right" title="Cliente & fiscal" description="Identificação e comprovante. Tudo opcional.">
-      <template #content>
-        <div class="grid gap-4 overflow-y-auto px-4 pb-6">
+  <!-- MODAL: Cliente & fiscal -->
+  <UiDialog v-model:open="customerSheetOpen">
+    <UiDialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <UiDialogHeader>
+        <UiDialogTitle>Cliente &amp; fiscal</UiDialogTitle>
+        <UiDialogDescription>Digite o WhatsApp — buscamos o cadastro. Identificação e comprovante.</UiDialogDescription>
+      </UiDialogHeader>
+      <div class="grid gap-4">
           <div class="grid gap-2 sm:grid-cols-2">
             <label class="grid gap-1 text-sm">
               <span class="font-medium text-muted-foreground">Cliente</span>
@@ -560,18 +567,22 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </label>
           </div>
 
-          <UiButton class="mt-2" @click="customerSheetOpen = false">Concluir</UiButton>
         </div>
-      </template>
-    </UiSheetContent>
-  </UiSheet>
+        <UiDialogFooter>
+          <UiButton class="w-full" @click="customerSheetOpen = false">Concluir</UiButton>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 
-  <!-- SHEET: Desconto -->
-  <UiSheet v-model:open="discountSheetOpen">
-    <UiSheetContent side="right" title="Desconto" description="Tipo, valor e motivo. O backend revisa e aplica.">
-      <template #content>
-        <div class="grid gap-4 overflow-y-auto px-4 pb-6">
-          <div class="grid grid-cols-2 gap-2">
+  <!-- MODAL: Desconto -->
+  <UiDialog v-model:open="discountSheetOpen">
+    <UiDialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-md">
+      <UiDialogHeader>
+        <UiDialogTitle>Desconto</UiDialogTitle>
+        <UiDialogDescription>Tipo, valor e motivo. O backend revisa e aplica.</UiDialogDescription>
+      </UiDialogHeader>
+      <div class="grid gap-4">
+        <div class="grid grid-cols-2 gap-2">
             <UiButton
               v-for="option in discountTypes"
               :key="option.ref"
@@ -598,9 +609,10 @@ function onAddressSelected(address: StructuredAddressProjection) {
               {{ reason.label }}
             </UiButton>
           </div>
-          <UiButton class="mt-2" @click="discountSheetOpen = false">Concluir</UiButton>
         </div>
-      </template>
-    </UiSheetContent>
-  </UiSheet>
+        <UiDialogFooter>
+          <UiButton class="w-full" @click="discountSheetOpen = false">Concluir</UiButton>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 </template>
