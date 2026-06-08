@@ -54,6 +54,26 @@ function onRenameKeydown(event: KeyboardEvent) {
 const customerSheetOpen = ref(false);
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 
+// Look the customer up at the moment they're informed — not via a manual button.
+// Debounced once the phone looks complete; de-duped so the same number isn't
+// re-fetched (the lookup also normalizes + writes the phone back). The commit
+// still get-or-creates by phone/CPF, so this only surfaces the existing record.
+let lookupTimer: ReturnType<typeof setTimeout> | null = null;
+const lastLookupDigits = ref("");
+watch(
+  () => props.customerPhone,
+  (phone) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (lookupTimer) clearTimeout(lookupTimer);
+    if (digits.length < 10 || digits === lastLookupDigits.value) return;
+    lookupTimer = setTimeout(() => {
+      lastLookupDigits.value = digits;
+      emit("lookupCustomer");
+    }, 600);
+  },
+);
+onBeforeUnmount(() => { if (lookupTimer) clearTimeout(lookupTimer); });
+
 const confirmClear = ref(false);
 function runClear() {
   confirmClear.value = false;
