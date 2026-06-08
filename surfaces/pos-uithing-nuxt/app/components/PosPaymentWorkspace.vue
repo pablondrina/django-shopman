@@ -195,6 +195,30 @@ const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLi
 const activeTender = computed(() => (numpadActive.value ? tenderLines.value[props.selectedTenderIndex] || null : null));
 const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
 
+// Contextual CTA (Odoo-style, refined): with nothing tendered the footer is a
+// one-tap "receive it all in the default method"; once covered it becomes
+// Finalizar; while short it shows what's missing (disabled).
+const defaultMethod = computed(() => injectableMethods.value[0] || null);
+const ctaLabel = computed(() => {
+  if (needsReview.value) return "Atualizando…";
+  if (payState.value === "idle") return defaultMethod.value ? `Receber tudo · ${defaultMethod.value.label}` : "Receber pagamento";
+  if (payState.value === "short") return `Falta ${formatBRL(props.paymentRemainingQ)}`;
+  return `Finalizar · ${props.review?.total_display || ""}`;
+});
+const ctaDisabled = computed(() => {
+  if (!props.items.length || props.loading || needsReview.value) return true;
+  if (payState.value === "short") return true;
+  if ((payState.value === "ready" || payState.value === "change") && approvalBlocking.value) return true;
+  return false;
+});
+function onCta() {
+  if (payState.value === "idle") {
+    if (defaultMethod.value) emit("addTender", defaultMethod.value.ref);
+  } else {
+    emit("submit");
+  }
+}
+
 function onAddressSelected(address: StructuredAddressProjection) {
   emit("update:deliveryAddressStructured", address);
   if (address.route) emit("update:deliveryAddress", address.route);
@@ -251,49 +275,44 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- MAIN — "Conta + Instrumento": two stable zones (desktop-first). LEFT is
-         the account (stable total hero + adaptive readout + tender lines); RIGHT
-         is the always-present instrument (method tiles + numpad + cash cédulas).
-         On narrow screens they stack. Centered + width-capped. -->
-    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 overflow-hidden lg:flex-row">
+    <!-- MAIN — "Conta + Instrumento" (refinado pós-Odoo, mantendo minimalismo +
+         hyper-focus + omotenashi). LEFT = a Conta: o VALOR domina (herói sem
+         moldura, respiro generoso) + leitura adaptativa + linhas de tender.
+         RIGHT = o Instrumento compacto: métodos em lista slim + teclado único com
+         as cédulas fundidas como trilho. Empilha em telas estreitas. -->
+    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-8">
 
-      <!-- LEFT · A CONTA -->
-      <div class="flex min-h-0 flex-1 flex-col gap-3">
-        <!-- hero: total a cobrar (stable) + one adaptive live readout -->
-        <div class="shrink-0 rounded-2xl border bg-card px-6 py-5">
+      <!-- LEFT · A CONTA — o valor é o foco (centrado vertical p/ hyper-focus) -->
+      <div class="flex min-h-0 flex-1 flex-col justify-center gap-4">
+        <!-- hero: total a cobrar (estável, sem moldura) + leitura adaptativa -->
+        <div class="shrink-0 px-1">
           <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
-          <p class="text-5xl font-bold tabular-nums tracking-tight lg:text-6xl">{{ review ? review.total_display : interimTotalDisplay }}</p>
+          <p class="text-6xl font-bold tabular-nums tracking-tight xl:text-7xl">{{ review ? review.total_display : interimTotalDisplay }}</p>
           <div class="mt-3 flex items-baseline gap-2">
             <template v-if="payState === 'change'">
-              <Icon name="lucide:coins" class="size-5 shrink-0 self-center text-primary" />
+              <Icon name="lucide:coins" class="size-6 shrink-0 self-center text-primary" />
               <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Troco</span>
-              <strong class="text-3xl font-bold tabular-nums text-primary lg:text-4xl">{{ formatBRL(paymentChangeQ) }}</strong>
+              <strong class="text-4xl font-bold tabular-nums text-primary xl:text-5xl">{{ formatBRL(paymentChangeQ) }}</strong>
             </template>
             <template v-else-if="payState === 'ready'">
-              <Icon name="lucide:check-circle-2" class="size-5 shrink-0 self-center text-primary" />
-              <span class="text-lg font-semibold text-primary">Pronto para finalizar</span>
+              <Icon name="lucide:check-circle-2" class="size-6 shrink-0 self-center text-primary" />
+              <span class="text-xl font-semibold text-primary">Pronto para finalizar</span>
             </template>
             <template v-else-if="payState === 'short'">
               <Icon name="lucide:hourglass" class="size-5 shrink-0 self-center text-muted-foreground" />
               <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Faltam</span>
-              <strong class="text-3xl font-bold tabular-nums lg:text-4xl">{{ formatBRL(paymentRemainingQ) }}</strong>
+              <strong class="text-4xl font-bold tabular-nums xl:text-5xl">{{ formatBRL(paymentRemainingQ) }}</strong>
             </template>
             <template v-else>
               <Icon name="lucide:arrow-right" class="size-4 shrink-0 self-center text-muted-foreground" />
-              <span class="text-sm text-muted-foreground">Escolha a forma de pagamento</span>
+              <span class="text-sm text-muted-foreground">Escolha como o cliente vai pagar</span>
             </template>
           </div>
         </div>
 
         <!-- tender lines (accumulate; each editable, the active one highlighted) -->
-        <div class="min-h-0 flex-1 overflow-auto">
-          <div
-            v-if="!tenderLines.length"
-            class="flex h-full min-h-24 items-center justify-center rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground"
-          >
-            <p>Toque uma forma ao lado.<br />Cada toque lança o valor que falta — divida em quantas formas precisar.</p>
-          </div>
-          <ul v-else class="flex flex-col gap-1.5">
+        <div v-if="tenderLines.length" class="max-h-72 shrink-0 overflow-auto">
+          <ul class="flex flex-col gap-1.5">
             <li v-for="(tender, idx) in tenderLines" :key="idx">
               <button
                 type="button"
@@ -318,69 +337,74 @@ function onAddressSelected(address: StructuredAddressProjection) {
         </div>
       </div>
 
-      <!-- RIGHT · O INSTRUMENTO (always present) -->
-      <div class="flex w-full shrink-0 flex-col gap-2.5 lg:w-80">
-        <!-- method tiles — tap lança o que falta na forma -->
-        <div class="grid grid-cols-3 gap-2">
+      <!-- RIGHT · O INSTRUMENTO — métodos slim + teclado único (centrado vertical) -->
+      <div class="flex w-full shrink-0 flex-col gap-3 lg:w-80 lg:justify-center">
+        <!-- methods as a slim list (scales; tap lança o que falta na forma) -->
+        <div class="flex flex-col gap-1.5">
           <button
             v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex flex-col items-center justify-center gap-1.5 rounded-2xl border bg-card px-2 py-4 text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex items-center gap-3 rounded-xl border bg-card px-3.5 py-2.5 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             :class="method.ref === selectedTenderMethod ? 'border-primary bg-primary/5' : ''"
             @click="$emit('addTender', method.ref)"
           >
-            <Icon :name="paymentIcon(method.ref)" class="size-6 text-muted-foreground" />
-            {{ method.label }}
+            <Icon :name="paymentIcon(method.ref)" class="size-5 shrink-0 text-muted-foreground" />
+            <span class="flex-1">{{ method.label }}</span>
+            <Icon name="lucide:plus" class="size-4 shrink-0 text-muted-foreground" />
           </button>
         </div>
 
-        <!-- what the numpad is editing -->
-        <p class="px-1 text-xs text-muted-foreground" aria-live="polite">
-          <template v-if="activeTender">Editando <span class="font-medium text-foreground">{{ activeTender.label }}</span> · <span class="tabular-nums">{{ activeTender.amountDisplay }}</span></template>
-          <template v-else>Escolha uma forma para usar o teclado</template>
-        </p>
-
-        <!-- presets: Exato (any tender) + cédulas (cash only) -->
-        <div class="grid grid-cols-3 gap-1.5">
+        <!-- editing context + Exato (universal preset for the active tender) -->
+        <div class="flex items-center justify-between gap-2 px-1 text-xs" aria-live="polite">
+          <span class="min-w-0 truncate text-muted-foreground">
+            <template v-if="activeTender">Editando <span class="font-medium text-foreground">{{ activeTender.label }}</span> · <span class="tabular-nums">{{ activeTender.amountDisplay }}</span></template>
+            <template v-else>Escolha uma forma para usar o teclado</template>
+          </span>
           <button
             type="button"
-            class="col-span-3 rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+            class="shrink-0 font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-40"
             :disabled="!numpadActive"
             @click="$emit('tenderExact')"
           >
             Exato
           </button>
-          <button
-            v-for="note in (cashSelected ? cashNotes : [])"
-            :key="note"
-            type="button"
-            class="rounded-lg border bg-muted/60 py-2.5 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-            :aria-label="`Recebi nota de ${formatBRL(note)}`"
-            @click="$emit('tenderAdd', note)"
-          >
-            R$ {{ note / 100 }}
-          </button>
         </div>
 
-        <!-- numpad — edits the selected tender (cents) -->
-        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
-          <button
-            v-for="digit in digitKeys"
-            :key="digit"
-            type="button"
-            class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
-            :disabled="!numpadActive"
-            :aria-label="`Dígito ${digit}`"
-            @click="$emit('tenderDigit', digit)"
-          >
-            {{ digit }}
-          </button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
-            <Icon name="lucide:delete" class="size-5" />
-          </button>
+        <!-- single keypad: digits + cash cédulas fused as a right rail (Odoo's
+             +10/+20/+50, but the full BR notes), shown only when paying in cash -->
+        <div class="flex gap-1.5">
+          <div class="grid flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
+            <button
+              v-for="digit in digitKeys"
+              :key="digit"
+              type="button"
+              class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+              :disabled="!numpadActive"
+              :aria-label="`Dígito ${digit}`"
+              @click="$emit('tenderDigit', digit)"
+            >
+              {{ digit }}
+            </button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
+              <Icon name="lucide:delete" class="size-5" />
+            </button>
+          </div>
+          <!-- cédula rail — what the customer hands over; each tap accumulates -->
+          <div v-if="cashSelected" class="grid w-16 grid-rows-6 gap-1.5" role="group" aria-label="Cédulas recebidas">
+            <button
+              v-for="note in cashNotes"
+              :key="note"
+              type="button"
+              class="grid place-items-center rounded-lg border bg-muted/50 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
+              :aria-label="`Recebi nota de ${formatBRL(note)}`"
+              @click="$emit('tenderAdd', note)"
+            >
+              {{ note / 100 }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -402,13 +426,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
       <UiButton
         size="lg"
         class="h-14 w-full text-base"
-        :disabled="!items.length || loading || needsReview || approvalBlocking || !paymentCovered"
+        :variant="payState === 'idle' ? 'outline' : 'default'"
+        :disabled="ctaDisabled"
         :loading="loading || needsReview"
-        @click="$emit('submit')"
+        @click="onCta"
       >
-        <template v-if="needsReview">Atualizando…</template>
-        <template v-else-if="!paymentCovered">Falta {{ formatBRL(paymentRemainingQ) }}</template>
-        <template v-else>Finalizar · {{ review?.total_display }}</template>
+        {{ ctaLabel }}
       </UiButton>
     </div>
 
