@@ -125,6 +125,60 @@ class TestManagerApprovalGate:
         pos_service.validate_manager_approval(payload, operator_username="op")
 
 
+class TestPriceOverrideIntentAndOps:
+    """Operator unit-price override (numpad "Preço"): flag survives parsing, is
+    stamped into line meta (so the modifier freezes it), and gates manager PIN."""
+
+    def test_flag_survives_parsing(self) -> None:
+        intent = parse_pos_sale_intent(
+            {"items": [{"sku": "X", "qty": 1, "unit_price_q": 500, "price_overridden": True}]},
+            for_commit=True,
+        )
+        assert intent.payload["items"][0]["price_overridden"] is True
+
+    def test_absent_flag_not_added(self) -> None:
+        intent = parse_pos_sale_intent(
+            {"items": [{"sku": "X", "qty": 1, "unit_price_q": 1300}]},
+            for_commit=True,
+        )
+        assert "price_overridden" not in intent.payload["items"][0]
+
+    def test_payload_helper_detects_override(self) -> None:
+        payload = {"items": [{"sku": "X", "qty": 1, "unit_price_q": 500, "price_overridden": True}]}
+        assert pos_service._payload_has_price_override(payload) is True
+        plain = {"items": [{"sku": "X", "qty": 1, "unit_price_q": 1300}]}
+        assert pos_service._payload_has_price_override(plain) is False
+
+    @pytest.mark.django_db
+    def test_build_session_ops_stamps_override_meta(self) -> None:
+        payload = {
+            "items": [{"sku": "X", "name": "Item", "qty": 1, "unit_price_q": 500,
+                       "price_overridden": True}],
+            "manager_approval": {"username": "gerente", "pin": "1234"},
+        }
+        ops = pos_service.build_session_ops(payload, operator_username="op")
+        add_line = next(op for op in ops if op["op"] == "add_line" and op["sku"] == "X")
+        assert add_line["unit_price_q"] == 500
+        assert add_line["meta"]["price_overridden"] is True
+        assert add_line["meta"]["price_approved_by"] == "gerente"
+
+    @pytest.mark.django_db
+    def test_override_requires_manager_pin(self) -> None:
+        payload = {"items": [{"sku": "X", "qty": 1, "unit_price_q": 500, "price_overridden": True}]}
+        with pytest.raises(PosIntentError) as exc:
+            pos_service.validate_manager_approval(payload, operator_username="op")
+        assert exc.value.code == "manager_approval_required"
+
+    @pytest.mark.django_db
+    def test_override_passes_with_valid_manager_pin(self, monkeypatch) -> None:
+        monkeypatch.setattr(pos_service, "_verify_manager_pin", lambda u, p: object())
+        payload = {
+            "items": [{"sku": "X", "qty": 1, "unit_price_q": 500, "price_overridden": True}],
+            "manager_approval": {"username": "gerente", "pin": "1234"},
+        }
+        pos_service.validate_manager_approval(payload, operator_username="op")  # must not raise
+
+
 class TestTabPayloadRestore:
     def test_line_discount_surfaced_for_restore(self) -> None:
         item = {"sku": "X", "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}}}

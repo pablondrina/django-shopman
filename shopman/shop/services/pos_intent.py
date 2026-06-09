@@ -229,6 +229,10 @@ def _items(raw, *, for_commit: bool) -> list[dict]:
         }
         if item.get("is_d1"):
             entry["is_d1"] = True
+        if item.get("price_overridden"):
+            # Operator fixed this line's unit price (numpad "Preço"): the kernel
+            # freezes it (modifier skips re-pricing) and it needs manager approval.
+            entry["price_overridden"] = True
         line_discount = _line_discount(item.get("discount"))
         if line_discount:
             entry["discount"] = line_discount

@@ -48,6 +48,12 @@ def _is_non_merchandise_line(item: dict) -> bool:
     return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") in {"delivery_fee"}
 
 
+def _price_is_frozen(item: dict) -> bool:
+    """Operator fixed this line's unit price (numpad "Preço", manager-approved):
+    the price is FINAL — no auto discount (D-1, happy-hour, promo) applies on top."""
+    return bool((item.get("meta") or {}).get("price_overridden"))
+
+
 def _discount_label(copy_key: str, fallback: str) -> str:
     """Resolve a customer-facing discount label from OmotenashiCopy.
 
@@ -103,7 +109,7 @@ class AvailabilityDiscountModifier:
 
         modified = False
         for item in items:
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             sku = item.get("sku", "")
             is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
@@ -175,7 +181,7 @@ class TimeWindowDiscountModifier:
         items = session.items or []
         modified = False
         for item in items:
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             applied = item.get("modifiers_applied", [])
             if any(m.get("type") == "employee_discount" for m in applied):
@@ -298,7 +304,7 @@ class DiscountModifier:
         discounts_applied = []  # Persisted in session.pricing
 
         for item in items:
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             sku = item.get("sku", "")
             price_q = item.get("unit_price_q", 0)
@@ -475,7 +481,7 @@ class EmployeeDiscountModifier:
         items = session.items or []
         modified = False
         for item in items:
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             original_q = item.get("unit_price_q", 0)
             discount_q = monetary_div(original_q * percent, 100)
@@ -587,7 +593,11 @@ class LoyaltyRedeemModifier:
             return
 
         items = session.items or []
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items if not _is_non_merchandise_line(item))
+        subtotal_q = sum(
+            item.get("line_total_q", 0)
+            for item in items
+            if not _is_non_merchandise_line(item) and not _price_is_frozen(item)
+        )
 
         # Clamp: never redeem more than the order total
         redeem_q = min(redeem_q, subtotal_q)
@@ -598,7 +608,7 @@ class LoyaltyRedeemModifier:
         remaining = redeem_q
         modified = False
         for i, item in enumerate(items):
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             line_total = item.get("line_total_q", 0)
             if line_total <= 0:
@@ -659,7 +669,11 @@ class ManualDiscountModifier:
             return
 
         items = session.items or []
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items if not _is_non_merchandise_line(item))
+        subtotal_q = sum(
+            item.get("line_total_q", 0)
+            for item in items
+            if not _is_non_merchandise_line(item) and not _price_is_frozen(item)
+        )
         discount_q = min(discount_q, subtotal_q)
         if discount_q <= 0:
             return
@@ -667,7 +681,7 @@ class ManualDiscountModifier:
         remaining = discount_q
         modified = False
         for i, item in enumerate(items):
-            if _is_non_merchandise_line(item):
+            if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
             line_total = item.get("line_total_q", 0)
             if line_total <= 0:

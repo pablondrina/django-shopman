@@ -375,6 +375,7 @@ def review_sale(
         requires_manager_approval=(
             (threshold_q > 0 and discount_q > threshold_q)
             or _payload_has_d1_line_discount(payload)
+            or _payload_has_price_override(payload)
         ),
         manager_approval_threshold_q=threshold_q,
         receipt_mode=str(payload.get("receipt_mode") or "none").strip() or "none",
@@ -930,6 +931,12 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
         notes = str(item.get("notes", "") or "").strip()
         if notes:
             meta["notes"] = notes
+        if item.get("price_overridden"):
+            # Freeze the operator's unit price: the pricing modifier honors this
+            # flag and skips re-pricing. Stamp who approved (manager PIN gate).
+            meta["price_overridden"] = True
+            if approved_by:
+                meta["price_approved_by"] = approved_by
         line_discount = _normalize_line_discount(item.get("discount"))
         if line_discount:
             if approved_by:
@@ -1088,8 +1095,9 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     threshold_q = _discount_approval_threshold_q()
     discount_q = _payload_discount_q(payload)
     d1_forces_approval = _payload_has_d1_line_discount(payload)
+    price_override = _payload_has_price_override(payload)
     over_threshold = threshold_q > 0 and discount_q > threshold_q
-    if not d1_forces_approval and not over_threshold:
+    if not d1_forces_approval and not over_threshold and not price_override:
         return
 
     approval = payload.get("manager_approval") or {}
@@ -1098,10 +1106,10 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     if not username or not pin:
         raise PosIntentError(
             code="manager_approval_required",
-            message="Desconto exige aprovação gerencial.",
+            message="Esta venda exige aprovação gerencial.",
             field="manager_approval",
             focus="approval",
-            recovery="Peça a um gerente autorizado para aprovar o desconto com o PIN antes de finalizar.",
+            recovery="Peça a um gerente autorizado para aprovar com o PIN antes de finalizar.",
         )
 
     if _verify_manager_pin(username, pin) is None:
@@ -1110,13 +1118,14 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
             message="Aprovação gerencial inválida.",
             field="manager_approval",
             focus="approval",
-            recovery="Revise o gerente e o PIN ou reduza o desconto.",
+            recovery="Revise o gerente e o PIN, ou reduza o desconto / ajuste o preço.",
         )
     logger.info(
-        "pos_manager_approval operator=%s approved_by=%s discount_q=%s",
+        "pos_manager_approval operator=%s approved_by=%s discount_q=%s price_override=%s",
         operator_username,
         username,
         discount_q,
+        price_override,
     )
 
 
@@ -1216,6 +1225,15 @@ def _payload_has_d1_line_discount(payload: dict) -> bool:
         item.get("is_d1") and _normalize_line_discount(item.get("discount"))
         for item in payload.get("items", [])
     )
+
+
+def _payload_has_price_override(payload: dict) -> bool:
+    """True if any line carries an operator unit-price override (numpad "Preço").
+
+    Flag-driven (the client knows when the operator overrode), not a price
+    comparison — robust against D-1/Happy-Hour and listing-vs-base differences.
+    Always requires manager approval."""
+    return any(item.get("price_overridden") for item in payload.get("items", []))
 
 
 def _payload_manual_discount(payload: dict) -> dict:

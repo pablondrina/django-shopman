@@ -268,3 +268,56 @@ class TestEmployeeModifierRuleConfig:
             modifier.apply(channel=channel, session=session, ctx={})
         types = [m["type"] for m in session.items[0].get("modifiers_applied", [])]
         assert "employee_discount" in types
+
+
+# ─── ItemPricingModifier: operator price override (frozen price) ──────────────
+
+
+class TestItemPricingModifierHonorsOverride:
+    """A line flagged ``meta.price_overridden`` keeps its quoted unit_price_q —
+    the modifier skips backend re-pricing, the same way move_lines freezes."""
+
+    def _modifier(self, catalog_q):
+        from shopman.shop.handlers.pricing import ItemPricingModifier
+        backend = MagicMock()
+        backend.get_price = MagicMock(return_value=catalog_q)
+        return ItemPricingModifier(backend)
+
+    def test_overridden_line_skips_repricing(self):
+        modifier = self._modifier(catalog_q=1300)
+        session = _make_session(items=[
+            {"sku": "P001", "line_id": "L1", "qty": 1, "unit_price_q": 500,
+             "meta": {"price_overridden": True}},
+        ])
+        session.pricing_policy = "internal"
+        modifier.apply(channel=_make_channel(), session=session, ctx={})
+        assert session.items[0]["unit_price_q"] == 500  # not re-priced to 1300
+        assert session.items[0]["line_total_q"] == 500
+
+    def test_non_overridden_line_is_repriced(self):
+        modifier = self._modifier(catalog_q=1300)
+        session = _make_session(items=[
+            {"sku": "P001", "line_id": "L1", "qty": 1, "unit_price_q": 500},
+        ])
+        session.pricing_policy = "internal"
+        modifier.apply(channel=_make_channel(), session=session, ctx={})
+        assert session.items[0]["unit_price_q"] == 1300  # re-priced from backend
+
+
+class TestDiscountModifiersSkipFrozenLine:
+    """Auto discounts (D-1 clearance) do NOT apply on top of an operator-frozen
+    price — the override is the final price."""
+
+    def test_d1_clearance_skips_overridden_line(self):
+        from shopman.shop.modifiers import AvailabilityDiscountModifier
+        modifier = AvailabilityDiscountModifier()
+        session = _make_session(items=[
+            {"sku": "P001", "line_id": "L1", "qty": 1, "unit_price_q": 500, "is_d1": True,
+             "meta": {"price_overridden": True}},
+        ])
+        channel = _make_channel({"availability_discount": {"enabled": True, "discount_percent": 50}})
+        with patch("shopman.shop.rules.engine.get_channel_rule_params", return_value={"discount_percent": 50}):
+            modifier.apply(channel=channel, session=session, ctx={})
+        # Frozen line keeps R$5,00 — no clearance discount applied.
+        assert session.items[0]["unit_price_q"] == 500
+        assert not session.items[0].get("modifiers_applied")

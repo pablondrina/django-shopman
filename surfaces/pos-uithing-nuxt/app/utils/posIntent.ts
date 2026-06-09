@@ -91,6 +91,7 @@ export function buildPosSaleIntent(
       unit_price_q: item.price_q,
       notes: item.notes,
       is_d1: item.is_d1,
+      ...(item.price_overridden ? { price_overridden: true } : {}),
       ...(item.discount && item.discount.value > 0
         ? { discount: { type: "percent", value: item.discount.value, reason: item.discount.reason } }
         : {}),

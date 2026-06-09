@@ -25,6 +25,8 @@ const emit = defineEmits<{
   remove: [string];
   setQty: [string, number];
   setDiscount: [string, number, string];
+  /** Operator unit-price override (numpad "Preço"); gated by manager approval. */
+  setPrice: [string, number];
   prepare: [];
   move: [];
   fire: [];
@@ -88,15 +90,14 @@ const totalDisplay = computed(() => formatBRL(props.items.reduce((sum, item) => 
   const perUnit = item.discount?.value ? Math.min(item.price_q, Math.round(item.price_q * item.discount.value / 100)) : 0;
   return sum + Math.max(0, gross - perUnit * item.qty);
 }, 0)));
-// Numpad targets the selected line: select a line, type a quantity (first
-// digit replaces, the rest append). Stepper buttons stay for touch and re-arm
-// the numpad on the line they touch. Price/discount-per-line modes are out of
-// scope until the intent contract supports them.
+// Numpad targets the selected line. Three modes (Odoo's Qty/%/Price): "qty"
+// (integer, first digit replaces), "disc" (percent), "price" (unit-price override
+// — decimal entry, reais first, comma → centavos; flips manager approval on).
 const MAX_QTY = 999;
 const selectedSku = ref("");
 const numpadBuffer = ref("");
 const numpadFresh = ref(true);
-const numpadMode = ref<"qty" | "disc">("qty");
+const numpadMode = ref<"qty" | "disc" | "price">("qty");
 
 const defaultReasons = [
   { ref: "cortesia", label: "Cortesia" },
@@ -132,6 +133,9 @@ function syncBufferToMode() {
   numpadFresh.value = true;
   if (numpadMode.value === "qty") {
     numpadBuffer.value = String(qtyOf(activeSku.value));
+  } else if (numpadMode.value === "price") {
+    const item = activeItem.value;
+    numpadBuffer.value = item ? (item.price_q / 100).toFixed(2).replace(".", ",") : "";
   } else {
     const item = activeItem.value;
     numpadBuffer.value = item?.discount?.value ? String(item.discount.value) : "";
@@ -147,7 +151,7 @@ function selectLine(sku: string) {
   syncBufferToMode();
 }
 
-function setMode(mode: "qty" | "disc") {
+function setMode(mode: "qty" | "disc" | "price") {
   numpadMode.value = mode;
 }
 
@@ -190,18 +194,55 @@ function commitDiscount() {
 }
 
 // In multi-select the numpad is discount-only (batch quantity is meaningless).
-const numpadCanType = computed(() => (numpadMode.value === "qty" ? !!activeSku.value : discountTargets.value.length > 0));
+const numpadCanType = computed(() => (numpadMode.value === "disc" ? discountTargets.value.length > 0 : !!activeSku.value));
+
+// Price mode = decimal money entry (reais first, comma → centavos, ≤2 places).
+function priceEntryToQ(entry: string): number {
+  const n = Number.parseFloat((entry || "0").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? Math.min(99_999_999, Math.round(n * 100)) : 0;
+}
+function commitPrice() {
+  if (activeSku.value) emit("setPrice", activeSku.value, priceEntryToQ(numpadBuffer.value));
+}
 
 function onDigit(digit: string) {
   if (!numpadCanType.value) return;
+  if (numpadMode.value === "price") {
+    let entry = numpadFresh.value ? "" : numpadBuffer.value;
+    if (entry.includes(",")) {
+      if ((entry.split(",")[1] ?? "").length >= 2) return;
+    } else if (entry.replace(/^0+/, "").length >= 6) {
+      return;
+    }
+    numpadBuffer.value = entry + digit;
+    numpadFresh.value = false;
+    commitPrice();
+    return;
+  }
   numpadBuffer.value = pushDigit(numpadBuffer.value, digit, { fresh: numpadFresh.value, maxLength: 3 });
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
   else commitDiscount();
 }
 
+// The comma key (price mode only): switch to centavos.
+function onComma() {
+  if (numpadMode.value !== "price" || !numpadCanType.value) return;
+  let entry = numpadFresh.value ? "0" : (numpadBuffer.value || "0");
+  if (!entry.includes(",")) entry += ",";
+  numpadBuffer.value = entry;
+  numpadFresh.value = false;
+  commitPrice();
+}
+
 function onBackspace() {
   if (!numpadCanType.value) return;
+  if (numpadMode.value === "price") {
+    numpadBuffer.value = (numpadFresh.value ? "" : numpadBuffer.value).slice(0, -1);
+    numpadFresh.value = false;
+    commitPrice();
+    return;
+  }
   numpadBuffer.value = popDigit(numpadBuffer.value);
   numpadFresh.value = false;
   if (numpadMode.value === "qty") commitQty();
@@ -211,6 +252,12 @@ function onBackspace() {
 function onClear() {
   if (numpadMode.value === "qty") {
     if (activeSku.value) askRemove(activeSku.value);
+    return;
+  }
+  if (numpadMode.value === "price") {
+    numpadBuffer.value = "";
+    numpadFresh.value = true;
+    commitPrice();
     return;
   }
   const targets = discountTargets.value;
@@ -309,8 +356,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
           </button>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium leading-tight">{{ item.name }}</p>
-            <p class="text-xs text-muted-foreground tabular-nums">
-              {{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
+            <p class="text-xs tabular-nums" :class="item.price_overridden ? 'text-primary' : 'text-muted-foreground'">
+              <Icon v-if="item.price_overridden" name="lucide:pencil" class="mr-0.5 inline size-3 align-[-1px]" />{{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
             </p>
             <span
               v-if="item.discount && item.discount.value > 0"
@@ -394,6 +441,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         >
           Desc %
         </button>
+        <button
+          type="button"
+          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
+          :class="numpadMode === 'price' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          @click="setMode('price')"
+        >
+          Preço
+        </button>
       </div>
       <p v-else class="px-1 text-xs font-medium text-muted-foreground">
         Desconto em {{ selection.count }} {{ selection.count === 1 ? "item selecionado" : "itens selecionados" }} — digite o %
@@ -408,6 +463,19 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
           @click="pickReason(reason.ref)"
         >
           {{ reason.label }}
+        </button>
+      </div>
+      <!-- price mode: a comma key for centavos (the shared numpad is integer-only) -->
+      <div v-if="numpadMode === 'price' && !selectMode" class="flex items-center gap-1">
+        <span class="flex-1 px-1 text-xs text-muted-foreground">Preço unitário — vírgula p/ centavos · gerente aprova</span>
+        <button
+          type="button"
+          class="rounded-lg border bg-card px-4 py-0.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+          :disabled="!numpadCanType"
+          aria-label="Vírgula (centavos)"
+          @click="onComma"
+        >
+          ,
         </button>
       </div>
       <PosNumpad

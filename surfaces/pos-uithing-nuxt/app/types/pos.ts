@@ -272,6 +272,9 @@ export interface POSCartItem {
   line_id?: string;
   fired?: boolean;
   discount?: { value: number; reason: string };
+  /** Operator overrode the unit price (numpad "Preço"): the kernel freezes it and
+   *  the server review requires manager approval. Survives persist→reload. */
+  price_overridden?: boolean;
 }
 
 export interface POSPaymentTenderDraft {

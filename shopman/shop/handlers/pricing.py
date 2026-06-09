@@ -77,7 +77,13 @@ class ItemPricingModifier:
             if item.pop("modifiers_applied", None):
                 modified = True
 
-            if session.pricing_policy == "internal":
+            # Operator price override (numpad "Preço", manager-approved): honor the
+            # quoted unit_price_q verbatim — skip backend re-pricing, the same way
+            # move_lines freezes a moved line's price. The line_total is still
+            # recomputed below from the frozen unit price.
+            if (item.get("meta") or {}).get("price_overridden"):
+                pass
+            elif session.pricing_policy == "internal":
                 # Always re-resolve price from backend
                 qty_val = int(item.get("qty", 1))
                 kwargs = {"qty": qty_val}

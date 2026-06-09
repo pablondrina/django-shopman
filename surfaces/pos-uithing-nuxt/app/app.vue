@@ -112,6 +112,7 @@ const {
   addProduct,
   setQty,
   setLineDiscount,
+  setLinePrice,
   sanitizeTabRef,
   requestTabAssociation,
   openTab,
@@ -489,6 +490,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             @remove="(sku) => setQty(sku, 0)"
             @set-qty="(sku, qty) => setQty(sku, qty)"
             @set-discount="setLineDiscount"
+            @set-price="setLinePrice"
             @prepare="prepareCheckout"
             @move="openMoveDialog"
             @fire="fireTab"

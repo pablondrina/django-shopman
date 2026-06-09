@@ -448,6 +448,21 @@ export function usePosSale(deps: PosSaleDeps) {
     else delete item.discount;
   }
 
+  // Operator unit-price override (numpad "Preço"): set the line's price and flag
+  // it when it differs from the catalog — the kernel then freezes it (the pricing
+  // modifier skips re-pricing) and the server review requires manager approval.
+  // Typing the catalog price back clears the override.
+  function setLinePrice(sku: string, priceQ: number) {
+    const item = cart.items.find((entry) => entry.sku === sku);
+    if (!item) return;
+    review.value = null;
+    checkoutMode.value = false;
+    const catalogQ = pos.value?.products.find((product) => product.sku === sku)?.price_q ?? item.price_q;
+    const next = Math.max(0, Math.min(99_999_999, Math.round(priceQ)));
+    item.price_q = next;
+    item.price_overridden = next !== catalogQ;
+  }
+
   function resetCart() {
     cart.tabRef = "";
     cart.tabDisplay = "";
@@ -1279,6 +1294,7 @@ export function usePosSale(deps: PosSaleDeps) {
     addProduct,
     setQty,
     setLineDiscount,
+    setLinePrice,
     sanitizeTabRef,
     requestTabAssociation,
     openTab,

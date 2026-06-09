@@ -1538,6 +1538,7 @@ def build_open_tab(session: Session) -> dict:
             "is_d1": bool(item.get("is_d1")),
             "fired": item.get("line_id", "") in fired_lines,
             "discount": _tab_payload_line_discount(item),
+            "price_overridden": bool((item.get("meta") or {}).get("price_overridden")),
         }
         for item in (session.items or [])
         if not _is_delivery_fee_item(item)
