@@ -19,6 +19,7 @@ import type {
   POSCheckoutContractProjection,
   POSCheckoutOptionProjection,
   POSCustomerLookupProjection,
+  POSCustomerSearchResult,
   POSFulfillmentOptionProjection,
   POSPaymentCollectionProjection,
   POSPaymentMethodProjection,
@@ -45,6 +46,8 @@ const props = defineProps<{
   checkoutContract: POSCheckoutContractProjection | null;
   addressAutocomplete: POSAddressAutocompleteProjection | null;
   customerLookup: POSCustomerLookupProjection | null;
+  searchResults: POSCustomerSearchResult[];
+  searchBusy: boolean;
   review: POSSaleReviewProjection | null;
   discountTypes: POSCheckoutOptionProjection[];
   discountReasons: POSCheckoutOptionProjection[];
@@ -120,6 +123,8 @@ const emit = defineEmits<{
   back: [];
   submit: [];
   lookupCustomer: [];
+  search: [string];
+  selectResult: [POSCustomerSearchResult];
   applyCustomerFavorite: [];
   repeatCustomerLastOrder: [];
   pickSavedAddress: [SavedAddressProjection];
@@ -144,6 +149,11 @@ const managerThresholdQ = computed(() => props.review?.manager_approval_threshol
 // actions that open a sheet, not a wall of fields next to the payment).
 const fulfillmentSheetOpen = ref(false);
 const customerSheetOpen = ref(false);
+function onSelectResult(result: POSCustomerSearchResult) {
+  emit("selectResult", result);
+}
+// Reset the shared search when the customer modal reopens fresh.
+watch(customerSheetOpen, (open) => { if (!open) emit("search", ""); });
 const discountSheetOpen = ref(false);
 
 // The instrument (right zone): the numpad edits the SELECTED tender, so it lights
@@ -512,9 +522,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
     <UiDialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
       <UiDialogHeader>
         <UiDialogTitle>Cliente &amp; fiscal</UiDialogTitle>
-        <UiDialogDescription>Digite o WhatsApp — buscamos o cadastro. Identificação e comprovante.</UiDialogDescription>
+        <UiDialogDescription>Busque por nome, telefone, CPF ou e-mail — ou preencha para um novo. Identificação e comprovante.</UiDialogDescription>
       </UiDialogHeader>
       <div class="grid gap-4">
+          <PosCustomerSearch :results="searchResults" :busy="searchBusy" @search="$emit('search', $event)" @select="onSelectResult" />
+
           <div class="grid gap-2 sm:grid-cols-2">
             <label class="grid gap-1 text-sm">
               <span class="font-medium text-muted-foreground">Cliente</span>
@@ -522,25 +534,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </label>
             <label class="grid gap-1 text-sm">
               <span class="font-medium text-muted-foreground">WhatsApp</span>
-              <div class="flex gap-2">
-                <UiInput
-                  :model-value="customerPhone"
-                  inputmode="tel"
-                  placeholder="(43) 99999-0000"
-                  @update:model-value="$emit('update:customerPhone', String($event || ''))"
-                  @keydown.enter.prevent="$emit('lookupCustomer')"
-                />
-                <UiButton
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Buscar cliente"
-                  :disabled="lookupBusy || !customerPhone.trim()"
-                  @click="$emit('lookupCustomer')"
-                >
-                  <Icon name="lucide:user-search" class="size-4" :class="lookupBusy ? 'animate-pulse' : ''" />
-                </UiButton>
-              </div>
+              <UiInput
+                :model-value="customerPhone"
+                inputmode="tel"
+                placeholder="(43) 99999-0000"
+                @update:model-value="$emit('update:customerPhone', String($event || ''))"
+              />
             </label>
             <label class="grid gap-1 text-sm">
               <span class="font-medium text-muted-foreground">CPF/CNPJ</span>

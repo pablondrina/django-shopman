@@ -58,23 +58,13 @@ function onRenameKeydown(event: KeyboardEvent) {
 const customerSheetOpen = ref(false);
 const customerMemory = computed(() => props.customerLookup?.memory || null);
 
-// Search the customer at the moment of entry (no manual button): one field
-// matches any unique key (name/phone/CPF/email), debounced, returning a list to
-// pick from. Picking fills the cart + runs the full lookup. The commit still
-// get-or-creates by phone/CPF, so a fresh name+phone just creates on finalize.
-const searchQuery = ref("");
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-watch(searchQuery, (q) => {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => emit("search", q), 350);
-});
-function pickResult(result: POSCustomerSearchResult) {
+// Customer search (shared PosCustomerSearch): pick a result → fills the cart +
+// runs the full lookup. The commit get-or-creates by phone/CPF, so a fresh
+// name+phone just creates on finalize. Reset the field when the modal reopens.
+function onSelectResult(result: POSCustomerSearchResult) {
   emit("selectResult", result);
-  searchQuery.value = "";
 }
-// Reset the search when the modal closes so it opens fresh next time.
-watch(customerSheetOpen, (open) => { if (!open) { searchQuery.value = ""; emit("search", ""); } });
-onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer); });
+watch(customerSheetOpen, (open) => { if (!open) emit("search", ""); });
 
 const confirmClear = ref(false);
 function runClear() {
@@ -146,37 +136,7 @@ function runClear() {
           <UiDialogDescription>Busque por nome, telefone, CPF ou e-mail — ou preencha para um novo.</UiDialogDescription>
         </UiDialogHeader>
         <div class="grid gap-4">
-          <!-- multi-key search in evidence -->
-          <div class="relative">
-            <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <UiInput
-              v-model="searchQuery"
-              class="h-12 pl-10 text-base"
-              placeholder="Nome, telefone, CPF ou e-mail"
-              autofocus
-            />
-            <Icon v-if="searchBusy" name="lucide:loader-circle" class="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-          </div>
-
-          <!-- results list -->
-          <div v-if="searchResults.length" class="grid max-h-56 gap-0.5 overflow-auto rounded-xl border p-1">
-            <button
-              v-for="result in searchResults"
-              :key="result.ref"
-              type="button"
-              class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-accent"
-              @click="pickResult(result)"
-            >
-              <span class="min-w-0">
-                <span class="block truncate text-sm font-medium">{{ result.name || "Sem nome" }}</span>
-                <span class="block truncate text-xs text-muted-foreground tabular-nums">{{ [result.phone, result.document, result.email].filter(Boolean).join(" · ") }}</span>
-              </span>
-              <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          </div>
-          <p v-else-if="searchQuery.trim().length >= 2 && !searchBusy" class="text-center text-xs text-muted-foreground">
-            Nenhum cadastro encontrado — preencha abaixo para criar um novo.
-          </p>
+          <PosCustomerSearch :results="searchResults" :busy="searchBusy" @search="$emit('search', $event)" @select="onSelectResult" />
 
           <!-- selected customer surfaced for review -->
           <div v-if="customerLookup" class="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
