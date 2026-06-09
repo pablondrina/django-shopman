@@ -206,11 +206,18 @@ export function usePosSale(deps: PosSaleDeps) {
     if (!Number.isFinite(n) || n < 0) return 0;
     return Math.min(99_999_999, Math.round(n * 100));
   }
-  // After auto-fill / +N / select, the amount isn't entry-driven: clear the buffer
-  // so the next keystroke starts a fresh number.
-  function resetTenderEntry() {
+  // The amount is a VIRGIN system value (auto-fill from "the remaining", or Exato):
+  // untouched by the operator. The first cédula tap REPLACES it (the operator is
+  // counting what the customer handed over); the first digit replaces too.
+  function markSystemValue() {
     tenderEntry.value = null;
     tenderFresh.value = true;
+  }
+  // The amount is operator-established (a typed/added value, or a re-selected line):
+  // further cédulas ACCUMULATE onto it, a digit replaces.
+  function markOperatorValue() {
+    tenderEntry.value = null;
+    tenderFresh.value = false;
   }
 
   function addTender(method: string) {
@@ -218,16 +225,16 @@ export function usePosSale(deps: PosSaleDeps) {
     if (amountQ <= 0) return;
     cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    resetTenderEntry();
+    markSystemValue();
   }
 
-  // A cash bill (R$20/50/100/Exato) is, by definition, a cash payment — add it
-  // directly without making the operator also tap "Dinheiro". May overpay (change).
+  // A cash bill with no tender yet opens a cash line at that bill's value — the
+  // operator already started counting, so the next bill accumulates.
   function addCashTender(amountQ: number) {
     if (!amountQ || amountQ <= 0) return;
     cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    resetTenderEntry();
+    markOperatorValue();
   }
 
   function removeTender(index: number) {
@@ -235,12 +242,12 @@ export function usePosSale(deps: PosSaleDeps) {
     if (selectedTenderIndex.value >= cart.paymentTenders.length) {
       selectedTenderIndex.value = cart.paymentTenders.length - 1;
     }
-    resetTenderEntry();
+    markOperatorValue();
   }
 
   function selectTender(index: number) {
     selectedTenderIndex.value = index;
-    resetTenderEntry();
+    markOperatorValue();
   }
 
   // A digit grows the decimal entry (reais first; ≤2 places after the comma).
@@ -285,11 +292,12 @@ export function usePosSale(deps: PosSaleDeps) {
     tenderFresh.value = false;
     tender.amount_q = 0;
   }
-  // Quick-add a preset (+R$10/20/50/100) to the SELECTED tender — pure add, like
-  // Odoo's +10/+20/+50: it ADDS to the current line amount (so over a line
-  // pre-filled to the remaining it overpays → change). Typing a digit replaces
-  // (tenderDigit is fresh-aware); the +N buttons accumulate. No tender yet → opens
-  // a cash line.
+  // A cédula tap (+R$10/20/50/100) reflects a note the customer handed over. If the
+  // amount is still the VIRGIN system value (untouched auto-fill), the first tap
+  // REPLACES it — the operator starts counting the cash handed (so total R$66,30,
+  // first +50 → R$50,00, restante; +50 → R$100,00, troco R$33,70). Once the value
+  // is operator-established, further taps ACCUMULATE. No tender yet → opens a cash
+  // line at that note's value.
   function tenderAdd(cents: number) {
     if (!cents) return;
     const tender = cart.paymentTenders[selectedTenderIndex.value];
@@ -297,8 +305,9 @@ export function usePosSale(deps: PosSaleDeps) {
       addCashTender(cents);
       return;
     }
-    tender.amount_q = Math.min(99_999_999, tender.amount_q + cents);
-    resetTenderEntry();
+    const base = tenderFresh.value ? 0 : tender.amount_q;
+    tender.amount_q = Math.min(99_999_999, base + cents);
+    markOperatorValue();
   }
 
   // "Exato": set the selected tender to settle exactly what the OTHER tenders
@@ -312,7 +321,7 @@ export function usePosSale(deps: PosSaleDeps) {
       0,
     );
     tender.amount_q = Math.max(0, paymentTotalQ.value - others);
-    resetTenderEntry();
+    markSystemValue();
   }
 
   // The method of the line the instrument (numpad/cédulas) is editing, or "" when
