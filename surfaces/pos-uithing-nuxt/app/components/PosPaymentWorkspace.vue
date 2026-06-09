@@ -93,8 +93,9 @@ const emit = defineEmits<{
   addTender: [string];
   removeTender: [number];
   selectTender: [number];
-  /** Numpad edits the SELECTED tender (cents); cédulas/Exato are presets for it. */
+  /** Numpad edits the SELECTED tender; decimal entry (reais first, comma → centavos). */
   tenderDigit: [string];
+  tenderComma: [];
   tenderBackspace: [];
   tenderClear: [];
   tenderAdd: [number];
@@ -150,9 +151,9 @@ const discountSheetOpen = ref(false);
 // selected tender is cash. BR notes (2/5/10/20/50/100) — the first tap after
 // selecting a tender SETS (the customer handed R$50), then accumulates.
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-// Green quick-add column (Odoo's +10/+20/+50, plus +100 for BR): each ADDS to the
-// selected tender. Always visible — the numpad is a fixed 4×4 like Odoo's.
-const quickAddsQ = [1000, 2000, 5000, 10000];
+// Quick-add column (Odoo's +10/+20/+50): each ADDS to the selected tender. Fixed
+// 4×4 numpad like Odoo — last row is C · 0 · comma · backspace.
+const quickAddsQ = [1000, 2000, 5000];
 const numpadActive = computed(() => props.selectedTenderIndex >= 0 && props.selectedTenderIndex < props.paymentTenders.length);
 
 // The adaptive live readout under the hero — one line that carries the state the
@@ -202,7 +203,7 @@ const ctaLabel = computed(() => {
   if (needsReview.value) return "Atualizando…";
   if (payState.value === "idle") return defaultMethod.value ? `Receber tudo · ${defaultMethod.value.label}` : "Receber pagamento";
   if (payState.value === "short") return `Falta ${formatBRL(props.paymentRemainingQ)}`;
-  return `Finalizar · ${props.review?.total_display || ""}`;
+  return "Validar";
 });
 const ctaDisabled = computed(() => {
   if (!props.items.length || props.loading || needsReview.value) return true;
@@ -229,43 +230,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
 <template>
   <section class="flex h-full min-h-0 flex-col gap-3">
     <!-- Payment screen — clone fiel do Odoo POS (desktop-first). INSTRUMENTO à
-         ESQUERDA (lista de métodos + Cliente/Nota + numpad 4×4 com coluna de +N +
-         Voltar/Finalizar no rodapé da coluna); VALOR gigante à DIREITA (total
-         estável, centrado) + linhas de pagamento + troco/restante. As decisões de
-         entrega/desconto ficam num topo discreto (não existem na tela do Odoo,
-         mas o nosso domínio precisa). Iteramos em cima deste clone. -->
-
-    <!-- topo discreto: entrega + desconto + recebimento (extensão nossa) -->
-    <div class="mx-auto flex w-full max-w-5xl shrink-0 flex-wrap items-center gap-2">
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
-        @click="fulfillmentSheetOpen = true"
-      >
-        <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
-        <span class="font-medium">{{ fulfillmentLabel }}</span>
-      </button>
-      <button
-        v-if="discountTypes.length"
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition hover:bg-accent"
-        :class="hasDiscount ? 'border-primary/40 bg-primary/5 font-medium' : 'border-border text-muted-foreground'"
-        @click="discountSheetOpen = true"
-      >
-        <Icon name="lucide:tag" class="size-4" />
-        <span>{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
-      </button>
-      <button
-        v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
-        :key="collection.ref"
-        type="button"
-        class="inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition hover:bg-accent"
-        :class="paymentCollection === collection.ref ? 'border-primary bg-primary/10 font-medium' : 'border-border text-muted-foreground'"
-        @click="$emit('update:paymentCollection', collection.ref)"
-      >
-        {{ collection.label }}
-      </button>
-    </div>
+         ESQUERDA (lista de métodos + botões de função empilhados acima do numpad +
+         numpad 4×4 com coluna de +N + Voltar/Validar no rodapé da coluna); VALOR
+         gigante à DIREITA (total estável, centrado) + linhas de pagamento +
+         troco/restante. Os botões de função (Cliente/Retirada/Desconto/Nota) ficam
+         logo acima do numpad, como o Odoo empilha conforme as opções ativas. -->
 
     <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita -->
     <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 gap-5 overflow-hidden">
@@ -287,7 +256,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
         </div>
 
-        <!-- Cliente + Nota fiscal (como o Customer + Invoice do Odoo) -->
+        <!-- função: empilhados acima do numpad (Odoo reflui conforme as opções).
+             Cliente + Retirada/Entrega + Desconto + Nota fiscal. -->
         <div class="grid grid-cols-2 gap-1.5">
           <button
             type="button"
@@ -301,15 +271,45 @@ function onAddressSelected(address: StructuredAddressProjection) {
           <button
             type="button"
             class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            @click="fulfillmentSheetOpen = true"
+          >
+            <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
+            <span class="min-w-0 truncate">{{ fulfillmentLabel }}</span>
+          </button>
+          <button
+            v-if="discountTypes.length"
+            type="button"
+            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="hasDiscount ? 'border-primary/40 bg-primary/5 text-primary' : ''"
+            @click="discountSheetOpen = true"
+          >
+            <Icon name="lucide:tag" class="size-4" :class="hasDiscount ? '' : 'text-muted-foreground'" />
+            <span class="min-w-0 truncate">{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
+          </button>
+          <button
+            type="button"
+            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             :class="issueFiscalDocument ? 'border-primary bg-primary/5 text-primary' : ''"
             @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
           >
-            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" />
+            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" :class="issueFiscalDocument ? '' : 'text-muted-foreground'" />
             <span>Nota fiscal</span>
+          </button>
+          <button
+            v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
+            :key="collection.ref"
+            type="button"
+            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="paymentCollection === collection.ref ? 'border-primary bg-primary/5 text-primary' : ''"
+            @click="$emit('update:paymentCollection', collection.ref)"
+          >
+            <span class="min-w-0 truncate">{{ collection.label }}</span>
           </button>
         </div>
 
-        <!-- numpad 4×4 (Odoo): dígitos em 3 colunas + coluna de +N à direita -->
+        <!-- numpad 4×4 (Odoo): dígitos em 3 colunas + coluna de +N à direita; a
+             última linha é C · 0 · vírgula · apagar. Entrada decimal: inteiro
+             primeiro, vírgula entra nos centavos (digitar 25 → R$ 25,00). -->
         <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="Teclado de valor">
           <template v-for="(digit, i) in digitKeys" :key="digit">
             <button
@@ -321,7 +321,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
             >
               {{ digit }}
             </button>
-            <!-- after every 3rd digit, the green +N key for that row -->
+            <!-- after every 3rd digit, the +N key for that row (Odoo +10/+20/+50) -->
             <button
               v-if="(i + 1) % 3 === 0"
               type="button"
@@ -333,20 +333,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
               +{{ (quickAddsQ[(i + 1) / 3 - 1] || 0) / 100 }}
             </button>
           </template>
-          <!-- last row: C · 0 · backspace · +100 -->
+          <!-- last row: C · 0 · vírgula · apagar -->
           <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
           <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
           <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
             <Icon name="lucide:delete" class="size-5" />
-          </button>
-          <button
-            type="button"
-            class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-3.5 text-base font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
-            :disabled="!numpadActive"
-            :aria-label="`Adicionar ${formatBRL(quickAddsQ[3] || 0)}`"
-            @click="$emit('tenderAdd', quickAddsQ[3] || 0)"
-          >
-            +{{ (quickAddsQ[3] || 0) / 100 }}
           </button>
         </div>
 
@@ -360,11 +352,11 @@ function onAddressSelected(address: StructuredAddressProjection) {
           @update:manager-pin="$emit('update:managerPin', $event)"
         />
 
-        <!-- Voltar + Finalizar (rodapé da coluna, como Back + Validate do Odoo) -->
-        <div class="mt-auto grid grid-cols-[auto_1fr] gap-1.5 pt-1">
-          <UiButton variant="outline" size="lg" class="h-14 px-5" @click="$emit('back')">
+        <!-- Voltar + Validar (rodapé da coluna, copiando o Back + Validate do Odoo) -->
+        <div class="mt-auto grid grid-cols-2 gap-1.5 pt-1">
+          <UiButton variant="outline" size="lg" class="h-14 text-base" @click="$emit('back')">
             <Icon name="lucide:arrow-left" class="size-5" />
-            <span class="sr-only">Voltar à comanda</span>
+            Voltar
           </UiButton>
           <UiButton
             size="lg"

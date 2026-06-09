@@ -103,6 +103,7 @@ const {
   removeTender,
   selectTender,
   tenderDigit,
+  tenderComma,
   tenderBackspace,
   tenderClear,
   tenderAdd,
@@ -399,6 +400,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @remove-tender="removeTender"
         @select-tender="selectTender"
         @tender-digit="tenderDigit"
+        @tender-comma="tenderComma"
         @tender-backspace="tenderBackspace"
         @tender-clear="tenderClear"
         @tender-add="tenderAdd"

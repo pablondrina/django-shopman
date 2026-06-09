@@ -195,13 +195,30 @@ export function usePosSale(deps: PosSaleDeps) {
   // (the first one = the total). The numpad then edits the SELECTED line.
   const selectedTenderIndex = ref(-1);
   const tenderFresh = ref(true);
+  // In-progress decimal entry (Odoo): digits build the integer REAIS first, the
+  // comma switches to centavos (max 2 places). So "2","5" → R$25,00 and only
+  // "2","5",",","5" → R$25,50 — far less error-prone than cents-first (where 25
+  // would mean R$0,25). null = no keyed entry yet (the shown amount is the
+  // auto-fill or a +N result); the first digit/comma starts a fresh entry.
+  const tenderEntry = ref<string | null>(null);
+  function entryToQ(entry: string): number {
+    const n = Number.parseFloat((entry || "0").replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(99_999_999, Math.round(n * 100));
+  }
+  // After auto-fill / +N / select, the amount isn't entry-driven: clear the buffer
+  // so the next keystroke starts a fresh number.
+  function resetTenderEntry() {
+    tenderEntry.value = null;
+    tenderFresh.value = true;
+  }
 
   function addTender(method: string) {
     const amountQ = Math.max(0, paymentRemainingQ.value);
     if (amountQ <= 0) return;
     cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    tenderFresh.value = true;
+    resetTenderEntry();
   }
 
   // A cash bill (R$20/50/100/Exato) is, by definition, a cash payment — add it
@@ -210,7 +227,7 @@ export function usePosSale(deps: PosSaleDeps) {
     if (!amountQ || amountQ <= 0) return;
     cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    tenderFresh.value = true;
+    resetTenderEntry();
   }
 
   function removeTender(index: number) {
@@ -218,32 +235,54 @@ export function usePosSale(deps: PosSaleDeps) {
     if (selectedTenderIndex.value >= cart.paymentTenders.length) {
       selectedTenderIndex.value = cart.paymentTenders.length - 1;
     }
+    resetTenderEntry();
   }
 
   function selectTender(index: number) {
     selectedTenderIndex.value = index;
-    tenderFresh.value = true;
+    resetTenderEntry();
   }
 
-  // Numpad edits the amount (cents) of the selected tender. First keystroke after
-  // selecting/adding replaces; the rest append.
+  // A digit grows the decimal entry (reais first; ≤2 places after the comma).
   function tenderDigit(digit: string) {
     const tender = cart.paymentTenders[selectedTenderIndex.value];
     if (!tender) return;
-    const base = tenderFresh.value ? 0 : tender.amount_q;
+    let entry = tenderEntry.value ?? "";
+    if (entry.includes(",")) {
+      if ((entry.split(",")[1] ?? "").length >= 2) return; // centavos full
+    } else if (entry.replace(/^0+/, "").length >= 7) {
+      return; // keep the integer part sane
+    }
+    entry += digit;
+    tenderEntry.value = entry;
     tenderFresh.value = false;
-    tender.amount_q = Math.min(99_999_999, base * 10 + (Number.parseInt(digit, 10) || 0));
+    tender.amount_q = entryToQ(entry);
+  }
+  // The comma key (USD would be a dot): switch to centavos.
+  function tenderComma() {
+    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    if (!tender) return;
+    let entry = tenderEntry.value ?? "";
+    if (entry === "") entry = "0";
+    if (!entry.includes(",")) entry += ",";
+    tenderEntry.value = entry;
+    tenderFresh.value = false;
+    tender.amount_q = entryToQ(entry);
   }
   function tenderBackspace() {
     const tender = cart.paymentTenders[selectedTenderIndex.value];
     if (!tender) return;
+    // First backspace over an auto/+N amount clears it (Odoo), then trims the entry.
+    const entry = (tenderEntry.value ?? "").slice(0, -1);
+    tenderEntry.value = entry;
     tenderFresh.value = false;
-    tender.amount_q = Math.floor(tender.amount_q / 10);
+    tender.amount_q = entryToQ(entry);
   }
   function tenderClear() {
     const tender = cart.paymentTenders[selectedTenderIndex.value];
     if (!tender) return;
-    tenderFresh.value = true;
+    tenderEntry.value = "";
+    tenderFresh.value = false;
     tender.amount_q = 0;
   }
   // Quick-add a preset (+R$10/20/50/100) to the SELECTED tender — pure add, like
@@ -258,8 +297,8 @@ export function usePosSale(deps: PosSaleDeps) {
       addCashTender(cents);
       return;
     }
-    tenderFresh.value = false;
     tender.amount_q = Math.min(99_999_999, tender.amount_q + cents);
+    resetTenderEntry();
   }
 
   // "Exato": set the selected tender to settle exactly what the OTHER tenders
@@ -273,7 +312,7 @@ export function usePosSale(deps: PosSaleDeps) {
       0,
     );
     tender.amount_q = Math.max(0, paymentTotalQ.value - others);
-    tenderFresh.value = true;
+    resetTenderEntry();
   }
 
   // The method of the line the instrument (numpad/cédulas) is editing, or "" when
@@ -1222,6 +1261,7 @@ export function usePosSale(deps: PosSaleDeps) {
     removeTender,
     selectTender,
     tenderDigit,
+    tenderComma,
     tenderBackspace,
     tenderClear,
     tenderAdd,
