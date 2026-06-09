@@ -195,28 +195,18 @@ const injectableMethods = computed(() => toInjectableMethods(props.paymentMethod
 const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLineView(tender, props.paymentMethods)));
 const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
 
-// Contextual CTA (Odoo-style, refined): with nothing tendered the footer is a
-// one-tap "receive it all in the default method"; once covered it becomes
-// Finalizar; while short it shows what's missing (disabled).
-const defaultMethod = computed(() => injectableMethods.value[0] || null);
-const ctaLabel = computed(() => {
-  if (needsReview.value) return "Atualizando…";
-  if (payState.value === "idle") return defaultMethod.value ? `Receber tudo · ${defaultMethod.value.label}` : "Receber pagamento";
-  if (payState.value === "short") return `Falta ${formatBRL(props.paymentRemainingQ)}`;
-  return "Validar";
-});
+// Validar (Odoo's Validate): NO "pay it all" shortcut — the button stays disabled
+// until a payment form is consciously chosen and covers the total. This prevents
+// the impulse to finalize a sale without paying attention to the method.
+const ctaLabel = computed(() => (needsReview.value ? "Atualizando…" : "Validar"));
 const ctaDisabled = computed(() => {
   if (!props.items.length || props.loading || needsReview.value) return true;
-  if (payState.value === "short") return true;
-  if ((payState.value === "ready" || payState.value === "change") && approvalBlocking.value) return true;
+  if (!props.paymentCovered) return true; // só habilita quando uma forma cobre o total
+  if (approvalBlocking.value) return true;
   return false;
 });
 function onCta() {
-  if (payState.value === "idle") {
-    if (defaultMethod.value) emit("addTender", defaultMethod.value.ref);
-  } else {
-    emit("submit");
-  }
+  emit("submit");
 }
 
 function onAddressSelected(address: StructuredAddressProjection) {
@@ -361,7 +351,6 @@ function onAddressSelected(address: StructuredAddressProjection) {
           <UiButton
             size="lg"
             class="h-14 text-base"
-            :variant="payState === 'idle' ? 'secondary' : 'default'"
             :disabled="ctaDisabled"
             :loading="loading || needsReview"
             @click="onCta"
