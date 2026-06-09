@@ -925,6 +925,46 @@ class POSCustomerSearchView(APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
+        summary="Resolve or create a customer just-in-time (get-or-create)",
+        responses={200: OpenApiResponse(description="The resolved/created customer lookup.")},
+    ),
+)
+class POSCustomerResolveView(APIView):
+    """Just-in-time get-or-create: when the operator defines a customer on the
+    counter, resolve them (phone/CPF/email) or create the record NOW, returning
+    the same lookup projection as customer_lookup (ref + memory + addresses)."""
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        body = request.data or {}
+        try:
+            customer = pos_tabs_service.resolve_or_create_customer(
+                name=str(body.get("customer_name") or "").strip(),
+                phone=str(body.get("customer_phone") or "").strip(),
+                tax_id=str(body.get("customer_tax_id") or "").strip(),
+                email=str(body.get("customer_email") or "").strip(),
+                operator_username=_username(request),
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc) or "Cadastro conflitante.", "error": {"code": "customer_conflict"}},
+                status=422,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("pos_customer_resolve_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao resolver o cliente."}, status=400)
+        if not customer:
+            return Response({"customer": None})
+        phone = customer.get("phone") or ""
+        lookup = build_pos_customer_lookup(phone) if phone else None
+        return Response({"customer": projection_data(lookup) if lookup else None})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
         summary="Review POS sale intent without committing",
         responses={200: OpenApiResponse(description="Checkout review and normalized totals.")},
     ),

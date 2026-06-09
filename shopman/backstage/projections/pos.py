@@ -737,6 +737,16 @@ def _pos_actions() -> tuple[Action, ...]:
             idempotency="none",
         ),
         Action(
+            ref="customer_resolve",
+            kind="mutation",
+            label="Salvar cliente",
+            priority="secondary",
+            method="POST",
+            href="/api/v1/backstage/pos/customer/resolve/",
+            payload_schema={"optional": ["customer_name", "customer_phone", "customer_tax_id", "customer_email"]},
+            idempotency="required",
+        ),
+        Action(
             ref="reverse_geocode",
             kind="mutation",
             label="Resolver coordenadas",

@@ -586,6 +586,37 @@ class POSHeadlessSurfaceContractTests(TestCase):
         # too short → no results (avoid scanning on a single character)
         self.assertEqual(self.client.get("/api/v1/backstage/pos/customer/search/?q=b").json()["results"], [])
 
+    def test_api_customer_resolve_creates_just_in_time_and_is_idempotent(self) -> None:
+        before = Customer.objects.count()
+        # A fresh name+phone → created NOW (not deferred to order commit).
+        created = self.client.post(
+            "/api/v1/backstage/pos/customer/resolve/",
+            {"customer_name": "Cliente JIT", "customer_phone": "43966665555"},
+            content_type="application/json",
+        )
+        self.assertEqual(created.status_code, 200)
+        customer = created.json()["customer"]
+        self.assertIsNotNone(customer)
+        self.assertEqual(customer["name"], "Cliente JIT")
+        self.assertEqual(Customer.objects.count(), before + 1)
+        ref = customer["ref"]
+        # Resolving the same identifiers again returns the same customer (no dup).
+        again = self.client.post(
+            "/api/v1/backstage/pos/customer/resolve/",
+            {"customer_name": "Cliente JIT", "customer_phone": "43966665555"},
+            content_type="application/json",
+        )
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.json()["customer"]["ref"], ref)
+        self.assertEqual(Customer.objects.count(), before + 1)
+
+    def test_api_customer_resolve_empty_returns_null(self) -> None:
+        response = self.client.post(
+            "/api/v1/backstage/pos/customer/resolve/", {}, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["customer"])
+
     def test_api_headless_pos_can_cancel_recent_sale_through_pos_contract(self) -> None:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
         self.assertEqual(opened.status_code, 200)

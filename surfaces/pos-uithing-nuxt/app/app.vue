@@ -119,6 +119,7 @@ const {
   openTabFromDialog,
   applySavedAddress,
   lookupCustomer,
+  resolveCustomer,
   customerSearchResults,
   customerSearchBusy,
   searchCustomers,
@@ -293,6 +294,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           @rename="renameTab"
           @clear="clearCurrentTab"
           @lookup-customer="lookupCustomer"
+          @resolve-customer="resolveCustomer"
           @search="searchCustomers"
           @select-result="selectCustomerResult"
           @apply-customer-favorite="applyCustomerFavorite"
@@ -430,6 +432,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @tender-add="tenderAdd"
         @tender-exact="tenderExact"
         @lookup-customer="lookupCustomer"
+        @resolve-customer="resolveCustomer"
         @search="searchCustomers"
         @select-result="selectCustomerResult"
         @apply-customer-favorite="applyCustomerFavorite"

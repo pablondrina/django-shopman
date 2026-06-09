@@ -123,6 +123,7 @@ const emit = defineEmits<{
   back: [];
   submit: [];
   lookupCustomer: [];
+  resolveCustomer: [];
   search: [string];
   selectResult: [POSCustomerSearchResult];
   applyCustomerFavorite: [];
@@ -161,9 +162,11 @@ const discountSheetOpen = ref(false);
 // selected tender is cash. BR notes (2/5/10/20/50/100) — the first tap after
 // selecting a tender SETS (the customer handed R$50), then accumulates.
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-// Quick-add column (Odoo's +10/+20/+50): each ADDS to the selected tender. Fixed
-// 4×4 numpad like Odoo — last row is C · 0 · comma · backspace.
-const quickAddsQ = [1000, 2000, 5000];
+// Full BR cédulas (2/5/10/20/50/100) — the bills the customer hands over; each tap
+// ADDS to the selected cash tender (first tap after a fresh/auto value replaces,
+// then accumulates). Shown only when paying in cash.
+const cashNotesQ = [200, 500, 1000, 2000, 5000, 10000];
+const cashSelected = computed(() => props.selectedTenderMethod === "cash");
 const numpadActive = computed(() => props.selectedTenderIndex >= 0 && props.selectedTenderIndex < props.paymentTenders.length);
 
 // The adaptive live readout under the hero — one line that carries the state the
@@ -307,36 +310,37 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
         </div>
 
-        <!-- numpad 4×4 (Odoo): dígitos em 3 colunas + coluna de +N à direita; a
-             última linha é C · 0 · vírgula · apagar. Entrada decimal: inteiro
-             primeiro, vírgula entra nos centavos (digitar 25 → R$ 25,00). -->
-        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="Teclado de valor">
-          <template v-for="(digit, i) in digitKeys" :key="digit">
-            <button
-              type="button"
-              class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
-              :disabled="!numpadActive"
-              :aria-label="`Dígito ${digit}`"
-              @click="$emit('tenderDigit', digit)"
-            >
-              {{ digit }}
-            </button>
-            <!-- after every 3rd digit, the +N key for that row (Odoo +10/+20/+50) -->
-            <button
-              v-if="(i + 1) % 3 === 0"
-              type="button"
-              class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-3.5 text-base font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
-              :disabled="!numpadActive"
-              :aria-label="`Adicionar ${formatBRL(quickAddsQ[(i + 1) / 3 - 1] || 0)}`"
-              @click="$emit('tenderAdd', quickAddsQ[(i + 1) / 3 - 1] || 0)"
-            >
-              +{{ (quickAddsQ[(i + 1) / 3 - 1] || 0) / 100 }}
-            </button>
-          </template>
-          <!-- last row: C · 0 · vírgula · apagar -->
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+        <!-- cédulas (só dinheiro): as 6 notas BR que o cliente entrega -->
+        <div v-if="cashSelected" class="grid grid-cols-3 gap-1.5" role="group" aria-label="Cédulas recebidas">
+          <button
+            v-for="note in cashNotesQ"
+            :key="note"
+            type="button"
+            class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-2.5 text-sm font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
+            :disabled="!numpadActive"
+            :aria-label="`Recebi nota de ${formatBRL(note)}`"
+            @click="$emit('tenderAdd', note)"
+          >
+            R$ {{ note / 100 }}
+          </button>
+        </div>
+
+        <!-- numpad: dígitos (entrada decimal — inteiro primeiro, vírgula nos
+             centavos: digitar 25 → R$ 25,00) + vírgula · 0 · apagar -->
+        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
+          <button
+            v-for="digit in digitKeys"
+            :key="digit"
+            type="button"
+            class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+            :disabled="!numpadActive"
+            :aria-label="`Dígito ${digit}`"
+            @click="$emit('tenderDigit', digit)"
+          >
+            {{ digit }}
+          </button>
           <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
           <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
             <Icon name="lucide:delete" class="size-5" />
           </button>
@@ -602,7 +606,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
 
         </div>
         <UiDialogFooter>
-          <UiButton class="w-full" @click="customerSheetOpen = false">Concluir</UiButton>
+          <UiButton class="w-full" @click="$emit('resolveCustomer'); customerSheetOpen = false">Concluir</UiButton>
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>

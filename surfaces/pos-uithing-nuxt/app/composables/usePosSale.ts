@@ -722,6 +722,40 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  // Just-in-time get-or-create: when the operator finishes defining a customer
+  // (picks a result, or types a new name+phone and concludes), resolve OR create
+  // the record NOW — not deferred to order commit — so the customer (ref, memory,
+  // address) exists and attaches to the cart/tab immediately. Idempotent: an
+  // existing customer is found, a fresh one is created once.
+  async function resolveCustomer() {
+    const name = cart.customerName.trim();
+    const phone = cart.customerPhone.trim();
+    const taxId = cart.customerTaxId.trim();
+    const email = cart.customerEmail.trim();
+    if (!name && !phone && !taxId && !email) return;
+    lookupBusy.value = true;
+    serverError.value = "";
+    try {
+      const path = actionHref(actions.value, "customer_resolve", "/api/v1/backstage/pos/customer/resolve/");
+      const response = await action.call<POSCustomerLookupResponse>(path, {
+        body: { customer_name: name, customer_phone: phone, customer_tax_id: taxId, customer_email: email },
+      });
+      if (!response.customer) return;
+      customerLookup.value = response.customer;
+      cart.customerRef = response.customer.ref;
+      cart.customerName = response.customer.name || cart.customerName;
+      cart.customerPhone = response.customer.phone || cart.customerPhone;
+      cart.customerEmail = response.customer.email || cart.customerEmail;
+      if (cart.fulfillmentType === "delivery" && response.customer.default_address && !cart.deliveryAddress.trim()) {
+        applySavedAddress(response.customer.default_address);
+      }
+    } catch (err: any) {
+      serverError.value = err?.data?.detail || err?.message || "Falha ao salvar o cliente.";
+    } finally {
+      lookupBusy.value = false;
+    }
+  }
+
   // Multi-key customer search (name/phone/CPF/email): the customer modal's search
   // field hits this; results are a list to pick from. Picking one fills the cart
   // and runs the full lookup (memory + saved address).
@@ -1301,6 +1335,7 @@ export function usePosSale(deps: PosSaleDeps) {
     openTabFromDialog,
     applySavedAddress,
     lookupCustomer,
+    resolveCustomer,
     customerSearchResults,
     customerSearchBusy,
     searchCustomers,

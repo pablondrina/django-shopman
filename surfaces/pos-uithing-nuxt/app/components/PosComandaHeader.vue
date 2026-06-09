@@ -25,6 +25,7 @@ const emit = defineEmits<{
   rename: [string];
   clear: [];
   lookupCustomer: [];
+  resolveCustomer: [];
   search: [string];
   selectResult: [POSCustomerSearchResult];
   applyCustomerFavorite: [];
@@ -170,7 +171,7 @@ function runClear() {
           </div>
         </div>
         <UiDialogFooter>
-          <UiButton class="w-full" @click="customerSheetOpen = false">Concluir</UiButton>
+          <UiButton class="w-full" @click="$emit('resolveCustomer'); customerSheetOpen = false">Concluir</UiButton>
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>

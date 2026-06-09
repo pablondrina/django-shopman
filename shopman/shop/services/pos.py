@@ -1738,6 +1738,25 @@ def _sale_fiscal_hint(order: Order | None) -> str:
     return ""
 
 
+def resolve_or_create_customer(
+    *, name: str = "", phone: str = "", tax_id: str = "", email: str = "", operator_username: str,
+) -> dict:
+    """Get-or-create a POS customer JUST-IN-TIME — when the operator defines them
+    on the counter, not deferred to order commit. Resolves by phone/CPF/email or
+    creates a fresh record, and returns the customer dict (ref/name/phone/tax_id/
+    email/group). Idempotent (same identifiers → same customer). Reuses the exact
+    commit-time logic so the just-in-time customer is identical to the final one."""
+    return _persist_customer_from_payload(
+        {
+            "customer_name": name,
+            "customer_phone": phone,
+            "customer_tax_id": tax_id,
+            "customer_email": email,
+        },
+        operator_username=operator_username,
+    )
+
+
 def _persist_customer_from_payload(payload: dict, *, operator_username: str) -> dict:
     """Resolve/create/update a Guestman customer from any POS customer data."""
     name = str(payload.get("customer_name") or "").strip()
