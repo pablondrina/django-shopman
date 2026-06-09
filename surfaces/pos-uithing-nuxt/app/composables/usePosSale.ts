@@ -246,11 +246,11 @@ export function usePosSale(deps: PosSaleDeps) {
     tenderFresh.value = true;
     tender.amount_q = 0;
   }
-  // Quick-add a bill/preset to the SELECTED tender. The first tap after
-  // selecting/adding starts fresh — a R$50 note over a cash line pre-filled to
-  // the remaining means "the customer handed R$50" (change follows), NOT
-  // "remaining + 50"; subsequent taps accumulate. With no tender yet, it opens a
-  // cash line. This is the universal cédula/received behaviour (any tender).
+  // Quick-add a preset (+R$10/20/50/100) to the SELECTED tender — pure add, like
+  // Odoo's +10/+20/+50: it ADDS to the current line amount (so over a line
+  // pre-filled to the remaining it overpays → change). Typing a digit replaces
+  // (tenderDigit is fresh-aware); the +N buttons accumulate. No tender yet → opens
+  // a cash line.
   function tenderAdd(cents: number) {
     if (!cents) return;
     const tender = cart.paymentTenders[selectedTenderIndex.value];
@@ -258,9 +258,8 @@ export function usePosSale(deps: PosSaleDeps) {
       addCashTender(cents);
       return;
     }
-    const base = tenderFresh.value ? 0 : tender.amount_q;
     tenderFresh.value = false;
-    tender.amount_q = Math.min(99_999_999, base + cents);
+    tender.amount_q = Math.min(99_999_999, tender.amount_q + cents);
   }
 
   // "Exato": set the selected tender to settle exactly what the OTHER tenders

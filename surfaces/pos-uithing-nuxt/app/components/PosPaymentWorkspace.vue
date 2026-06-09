@@ -29,7 +29,6 @@ import type {
 } from "~/types/pos";
 import { cartTotalQ, formatBRL } from "~/utils/posIntent";
 import {
-  cashNotesQ,
   collectionsForFulfillment,
   injectableMethods as toInjectableMethods,
   paymentIcon,
@@ -150,10 +149,11 @@ const discountSheetOpen = ref(false);
 // up once a tender exists; cédulas are the cash nuance, offered only when the
 // selected tender is cash. BR notes (2/5/10/20/50/100) — the first tap after
 // selecting a tender SETS (the customer handed R$50), then accumulates.
-const cashNotes = cashNotesQ();
 const digitKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+// Green quick-add column (Odoo's +10/+20/+50, plus +100 for BR): each ADDS to the
+// selected tender. Always visible — the numpad is a fixed 4×4 like Odoo's.
+const quickAddsQ = [1000, 2000, 5000, 10000];
 const numpadActive = computed(() => props.selectedTenderIndex >= 0 && props.selectedTenderIndex < props.paymentTenders.length);
-const cashSelected = computed(() => props.selectedTenderMethod === "cash");
 
 // The adaptive live readout under the hero — one line that carries the state the
 // operator needs right now, so the big number stays the (stable) sale total.
@@ -192,7 +192,6 @@ const kitchenNote = computed(() => {
 // covers the total in any combination of forms. No "mixed" selection.
 const injectableMethods = computed(() => toInjectableMethods(props.paymentMethods));
 const tenderLines = computed(() => props.paymentTenders.map((tender) => tenderLineView(tender, props.paymentMethods)));
-const activeTender = computed(() => (numpadActive.value ? tenderLines.value[props.selectedTenderIndex] || null : null));
 const deliveryCollections = computed(() => collectionsForFulfillment(props.paymentCollections, props.fulfillmentType));
 
 // Contextual CTA (Odoo-style, refined): with nothing tendered the footer is a
@@ -228,15 +227,16 @@ function onAddressSelected(address: StructuredAddressProjection) {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col gap-4">
-    <!-- Payment screen (desktop-first — the POS is a counter workstation, not a
-         phone). A confident, centered two-column register: total as the hero +
-         methods on the left, the cash numpad on the right; constrained to a
-         comfortable width so it never stretches edge-to-edge. Tablet/mobile fall
-         back to a single column. Title/back: shell context bar. -->
+  <section class="flex h-full min-h-0 flex-col gap-3">
+    <!-- Payment screen — clone fiel do Odoo POS (desktop-first). INSTRUMENTO à
+         ESQUERDA (lista de métodos + Cliente/Nota + numpad 4×4 com coluna de +N +
+         Voltar/Finalizar no rodapé da coluna); VALOR gigante à DIREITA (total
+         estável, centrado) + linhas de pagamento + troco/restante. As decisões de
+         entrega/desconto ficam num topo discreto (não existem na tela do Odoo,
+         mas o nosso domínio precisa). Iteramos em cima deste clone. -->
 
-    <!-- sale-data: quiet chips (secondary, on-demand sheets) -->
-    <div class="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center justify-center gap-2">
+    <!-- topo discreto: entrega + desconto + recebimento (extensão nossa) -->
+    <div class="mx-auto flex w-full max-w-5xl shrink-0 flex-wrap items-center gap-2">
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
@@ -244,14 +244,6 @@ function onAddressSelected(address: StructuredAddressProjection) {
       >
         <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
         <span class="font-medium">{{ fulfillmentLabel }}</span>
-      </button>
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-accent"
-        @click="customerSheetOpen = true"
-      >
-        <Icon name="lucide:user-round" class="size-4 text-muted-foreground" />
-        <span :class="customerSet ? 'font-medium' : 'text-muted-foreground'">{{ customerName || "Cliente" }}</span>
       </button>
       <button
         v-if="discountTypes.length"
@@ -275,109 +267,52 @@ function onAddressSelected(address: StructuredAddressProjection) {
       </button>
     </div>
 
-    <!-- MAIN — "Conta + Instrumento" (refinado pós-Odoo, mantendo minimalismo +
-         hyper-focus + omotenashi). LEFT = a Conta: o VALOR domina (herói sem
-         moldura, respiro generoso) + leitura adaptativa + linhas de tender.
-         RIGHT = o Instrumento compacto: métodos em lista slim + teclado único com
-         as cédulas fundidas como trilho. Empilha em telas estreitas. -->
-    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-8">
+    <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita -->
+    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 gap-5 overflow-hidden">
 
-      <!-- LEFT · A CONTA — o valor é o foco (centrado vertical p/ hyper-focus) -->
-      <div class="flex min-h-0 flex-1 flex-col justify-center gap-4">
-        <!-- hero: total a cobrar (estável, sem moldura) + leitura adaptativa -->
-        <div class="shrink-0 px-1">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
-          <p class="text-6xl font-bold tabular-nums tracking-tight xl:text-7xl">{{ review ? review.total_display : interimTotalDisplay }}</p>
-          <div class="mt-3 flex items-baseline gap-2">
-            <template v-if="payState === 'change'">
-              <Icon name="lucide:coins" class="size-6 shrink-0 self-center text-primary" />
-              <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Troco</span>
-              <strong class="text-4xl font-bold tabular-nums text-primary xl:text-5xl">{{ formatBRL(paymentChangeQ) }}</strong>
-            </template>
-            <template v-else-if="payState === 'ready'">
-              <Icon name="lucide:check-circle-2" class="size-6 shrink-0 self-center text-primary" />
-              <span class="text-xl font-semibold text-primary">Pronto para finalizar</span>
-            </template>
-            <template v-else-if="payState === 'short'">
-              <Icon name="lucide:hourglass" class="size-5 shrink-0 self-center text-muted-foreground" />
-              <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Faltam</span>
-              <strong class="text-4xl font-bold tabular-nums xl:text-5xl">{{ formatBRL(paymentRemainingQ) }}</strong>
-            </template>
-            <template v-else>
-              <Icon name="lucide:arrow-right" class="size-4 shrink-0 self-center text-muted-foreground" />
-              <span class="text-sm text-muted-foreground">Escolha como o cliente vai pagar</span>
-            </template>
-          </div>
-        </div>
-
-        <!-- tender lines (accumulate; each editable, the active one highlighted) -->
-        <div v-if="tenderLines.length" class="max-h-72 shrink-0 overflow-auto">
-          <ul class="flex flex-col gap-1.5">
-            <li v-for="(tender, idx) in tenderLines" :key="idx">
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left transition"
-                :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
-                :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
-                @click="$emit('selectTender', idx)"
-              >
-                <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
-                  <Icon :name="tender.icon" class="size-4 shrink-0" />
-                  <span class="truncate">{{ tender.label }}</span>
-                </span>
-                <span class="flex shrink-0 items-center gap-1">
-                  <strong class="text-lg tabular-nums">{{ tender.amountDisplay }}</strong>
-                  <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
-                    <Icon name="lucide:x" class="size-3.5 text-destructive" />
-                  </UiButton>
-                </span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- RIGHT · O INSTRUMENTO — métodos slim + teclado único (centrado vertical) -->
-      <div class="flex w-full shrink-0 flex-col gap-3 lg:w-80 lg:justify-center">
-        <!-- methods as a slim list (scales; tap lança o que falta na forma) -->
+      <!-- LEFT · INSTRUMENTO -->
+      <div class="flex w-full max-w-[22rem] shrink-0 flex-col gap-2">
+        <!-- payment methods (tap = lança o que falta na forma) -->
         <div class="flex flex-col gap-1.5">
           <button
             v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex items-center gap-3 rounded-xl border bg-card px-3.5 py-2.5 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex items-center gap-3 rounded-lg border bg-card px-3.5 py-3 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             :class="method.ref === selectedTenderMethod ? 'border-primary bg-primary/5' : ''"
             @click="$emit('addTender', method.ref)"
           >
             <Icon :name="paymentIcon(method.ref)" class="size-5 shrink-0 text-muted-foreground" />
             <span class="flex-1">{{ method.label }}</span>
-            <Icon name="lucide:plus" class="size-4 shrink-0 text-muted-foreground" />
           </button>
         </div>
 
-        <!-- editing context + Exato (universal preset for the active tender) -->
-        <div class="flex items-center justify-between gap-2 px-1 text-xs" aria-live="polite">
-          <span class="min-w-0 truncate text-muted-foreground">
-            <template v-if="activeTender">Editando <span class="font-medium text-foreground">{{ activeTender.label }}</span> · <span class="tabular-nums">{{ activeTender.amountDisplay }}</span></template>
-            <template v-else>Escolha uma forma para usar o teclado</template>
-          </span>
+        <!-- Cliente + Nota fiscal (como o Customer + Invoice do Odoo) -->
+        <div class="grid grid-cols-2 gap-1.5">
           <button
             type="button"
-            class="shrink-0 font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-40"
-            :disabled="!numpadActive"
-            @click="$emit('tenderExact')"
+            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="customerSet ? 'border-primary/40' : ''"
+            @click="customerSheetOpen = true"
           >
-            Exato
+            <Icon name="lucide:user-round" class="size-4 text-muted-foreground" />
+            <span class="min-w-0 truncate">{{ customerName || "Cliente" }}</span>
+          </button>
+          <button
+            type="button"
+            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="issueFiscalDocument ? 'border-primary bg-primary/5 text-primary' : ''"
+            @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
+          >
+            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" />
+            <span>Nota fiscal</span>
           </button>
         </div>
 
-        <!-- single keypad: digits + cash cédulas fused as a right rail (Odoo's
-             +10/+20/+50, but the full BR notes), shown only when paying in cash -->
-        <div class="flex gap-1.5">
-          <div class="grid flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
+        <!-- numpad 4×4 (Odoo): dígitos em 3 colunas + coluna de +N à direita -->
+        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="Teclado de valor">
+          <template v-for="(digit, i) in digitKeys" :key="digit">
             <button
-              v-for="digit in digitKeys"
-              :key="digit"
               type="button"
               class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
@@ -386,53 +321,113 @@ function onAddressSelected(address: StructuredAddressProjection) {
             >
               {{ digit }}
             </button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
-              <Icon name="lucide:delete" class="size-5" />
-            </button>
-          </div>
-          <!-- cédula rail — what the customer hands over; each tap accumulates -->
-          <div v-if="cashSelected" class="grid w-16 grid-rows-6 gap-1.5" role="group" aria-label="Cédulas recebidas">
+            <!-- after every 3rd digit, the green +N key for that row -->
             <button
-              v-for="note in cashNotes"
-              :key="note"
+              v-if="(i + 1) % 3 === 0"
               type="button"
-              class="grid place-items-center rounded-lg border bg-muted/50 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px"
-              :aria-label="`Recebi nota de ${formatBRL(note)}`"
-              @click="$emit('tenderAdd', note)"
+              class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-3.5 text-base font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
+              :disabled="!numpadActive"
+              :aria-label="`Adicionar ${formatBRL(quickAddsQ[(i + 1) / 3 - 1] || 0)}`"
+              @click="$emit('tenderAdd', quickAddsQ[(i + 1) / 3 - 1] || 0)"
             >
-              {{ note / 100 }}
+              +{{ (quickAddsQ[(i + 1) / 3 - 1] || 0) / 100 }}
             </button>
+          </template>
+          <!-- last row: C · 0 · backspace · +100 -->
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Limpar" @click="$emit('tenderClear')">C</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
+            <Icon name="lucide:delete" class="size-5" />
+          </button>
+          <button
+            type="button"
+            class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-3.5 text-base font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
+            :disabled="!numpadActive"
+            :aria-label="`Adicionar ${formatBRL(quickAddsQ[3] || 0)}`"
+            @click="$emit('tenderAdd', quickAddsQ[3] || 0)"
+          >
+            +{{ (quickAddsQ[3] || 0) / 100 }}
+          </button>
+        </div>
+
+        <!-- manager approval (quando o review exige) -->
+        <PosManagerApproval
+          v-if="review?.requires_manager_approval"
+          :manager-username="managerUsername"
+          :manager-pin="managerPin"
+          :threshold-q="managerThresholdQ"
+          @update:manager-username="$emit('update:managerUsername', $event)"
+          @update:manager-pin="$emit('update:managerPin', $event)"
+        />
+
+        <!-- Voltar + Finalizar (rodapé da coluna, como Back + Validate do Odoo) -->
+        <div class="mt-auto grid grid-cols-[auto_1fr] gap-1.5 pt-1">
+          <UiButton variant="outline" size="lg" class="h-14 px-5" @click="$emit('back')">
+            <Icon name="lucide:arrow-left" class="size-5" />
+            <span class="sr-only">Voltar à comanda</span>
+          </UiButton>
+          <UiButton
+            size="lg"
+            class="h-14 text-base"
+            :variant="payState === 'idle' ? 'secondary' : 'default'"
+            :disabled="ctaDisabled"
+            :loading="loading || needsReview"
+            @click="onCta"
+          >
+            {{ ctaLabel }}
+          </UiButton>
+        </div>
+      </div>
+
+      <!-- RIGHT · VALOR -->
+      <div class="flex min-h-0 flex-1 flex-col gap-3 py-1">
+        <!-- valor gigante (estável = total a cobrar), centrado -->
+        <div class="flex flex-1 flex-col items-center justify-center text-center">
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
+          <p class="text-7xl font-bold tabular-nums tracking-tight xl:text-8xl">{{ review ? review.total_display : interimTotalDisplay }}</p>
+          <p v-if="items.length" class="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Icon name="lucide:flame" class="size-3.5 shrink-0" :class="firedCount ? 'text-primary' : ''" />
+            {{ kitchenNote }}
+          </p>
+        </div>
+
+        <!-- linhas de pagamento + troco/restante -->
+        <div v-if="tenderLines.length" class="shrink-0 border-t pt-3">
+          <ul class="flex flex-col gap-1.5">
+            <li v-for="(tender, idx) in tenderLines" :key="idx">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition"
+                :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+                :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
+                @click="$emit('selectTender', idx)"
+              >
+                <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
+                  <Icon :name="tender.icon" class="size-4 shrink-0" />
+                  <span class="truncate">{{ tender.label }}</span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2">
+                  <strong class="text-lg tabular-nums">{{ tender.amountDisplay }}</strong>
+                  <UiButton variant="ghost" size="icon-xs" aria-label="Remover pagamento" @click.stop="$emit('removeTender', idx)">
+                    <Icon name="lucide:x" class="size-3.5 text-destructive" />
+                  </UiButton>
+                </span>
+              </button>
+            </li>
+          </ul>
+          <div class="mt-2 flex items-center justify-between gap-2 px-1">
+            <span class="text-sm font-medium uppercase tracking-wide" :class="payState === 'change' ? 'text-primary' : 'text-muted-foreground'">
+              {{ payState === "change" ? "Troco" : payState === "ready" ? "Pago" : "Restante" }}
+            </span>
+            <strong
+              class="text-3xl font-bold tabular-nums"
+              :class="payState === 'change' ? 'text-primary' : payState === 'ready' ? 'text-muted-foreground' : ''"
+            >
+              {{ payState === "change" ? formatBRL(paymentChangeQ) : payState === "ready" ? formatBRL(0) : formatBRL(paymentRemainingQ) }}
+            </strong>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- FOOTER — kitchen note + manager approval (when required) + Finalizar CTA -->
-    <div class="mx-auto grid w-full max-w-4xl shrink-0 gap-2">
-      <div v-if="items.length" class="flex items-center justify-center gap-2 text-xs">
-        <Icon name="lucide:flame" class="size-3.5 shrink-0" :class="firedCount ? 'text-amber-600' : 'text-muted-foreground'" />
-        <span :class="firedCount ? 'font-medium' : 'text-muted-foreground'">{{ kitchenNote }}</span>
-      </div>
-      <PosManagerApproval
-        v-if="review?.requires_manager_approval"
-        :manager-username="managerUsername"
-        :manager-pin="managerPin"
-        :threshold-q="managerThresholdQ"
-        @update:manager-username="$emit('update:managerUsername', $event)"
-        @update:manager-pin="$emit('update:managerPin', $event)"
-      />
-      <UiButton
-        size="lg"
-        class="h-14 w-full text-base"
-        :variant="payState === 'idle' ? 'outline' : 'default'"
-        :disabled="ctaDisabled"
-        :loading="loading || needsReview"
-        @click="onCta"
-      >
-        {{ ctaLabel }}
-      </UiButton>
     </div>
 
   </section>
