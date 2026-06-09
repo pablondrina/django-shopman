@@ -184,6 +184,27 @@ function onGlobalKeydown(event: KeyboardEvent) {
   const isEditing = !!target
     && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
 
+  // On the payment screen, the physical keyboard drives the value numpad of the
+  // SELECTED tender (like the order screen's numpad): digits type, comma/period
+  // enters centavos, Backspace trims. Requires a form already chosen.
+  if (checkoutMode.value && !isEditing && !event.metaKey && !event.ctrlKey && !event.altKey && selectedTenderIndex.value >= 0) {
+    if (event.key >= "0" && event.key <= "9") {
+      event.preventDefault();
+      tenderDigit(event.key);
+      return;
+    }
+    if (event.key === "," || event.key === "." || event.key === "Decimal") {
+      event.preventDefault();
+      tenderComma();
+      return;
+    }
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      tenderBackspace();
+      return;
+    }
+  }
+
   switch (event.key) {
     case "Escape":
       if (checkoutMode.value) {
