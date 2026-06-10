@@ -253,20 +253,21 @@ function onAddressSelected(address: StructuredAddressProjection) {
          troco/restante. Os botões de função (Cliente/Retirada/Desconto/Nota) ficam
          logo acima do numpad, como o Odoo empilha conforme as opções ativas. -->
 
-    <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita. Full-width,
-         alinhado à esquerda como as demais telas (instrumento na borda, valor
-         preenche). -->
-    <div class="flex min-h-0 w-full flex-1 gap-6 overflow-hidden">
+    <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita. Colunas
+         RESPONSIVAS (B.1): teto 1+2 (instrumento:valor) → 1+1 → empilha (valor no
+         topo). Grid com nº de colunas por breakpoint; instrumento ocupa sempre 1,
+         valor ocupa o restante. (Sem 1+3 no xl — esparramava o valor.) -->
+    <div class="grid min-h-0 w-full flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-2 lg:grid-cols-3">
 
-      <!-- LEFT · INSTRUMENTO -->
-      <div class="flex w-full max-w-[22rem] shrink-0 flex-col gap-2">
+      <!-- LEFT · INSTRUMENTO (empilhado: vai abaixo do valor) -->
+      <div class="order-2 flex min-h-0 flex-col gap-2 md:order-none">
         <!-- payment methods (tap = lança o que falta na forma) -->
         <div class="flex flex-col gap-1.5">
           <button
             v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex items-center gap-3 rounded-lg border bg-card px-3.5 py-3 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center gap-3 rounded-lg border bg-card px-3 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             :class="method.ref === selectedTenderMethod ? 'border-primary bg-primary/5' : ''"
             @click="$emit('addTender', method.ref)"
           >
@@ -280,8 +281,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
         <div class="grid grid-cols-2 gap-1.5">
           <button
             type="button"
-            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
-            :class="customerSet ? 'border-primary/40' : ''"
+            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="customerSet ? 'border-primary bg-primary/5' : ''"
             @click="customerSheetOpen = true"
           >
             <Icon name="lucide:user-round" class="size-4 text-muted-foreground" />
@@ -289,7 +290,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
           <button
             type="button"
-            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             @click="fulfillmentSheetOpen = true"
           >
             <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
@@ -298,28 +299,28 @@ function onAddressSelected(address: StructuredAddressProjection) {
           <button
             v-if="discountTypes.length"
             type="button"
-            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
-            :class="hasDiscount ? 'border-primary/40 bg-primary/5 text-primary' : ''"
+            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="hasDiscount ? 'border-primary bg-primary/5' : ''"
             @click="discountSheetOpen = true"
           >
-            <Icon name="lucide:tag" class="size-4" :class="hasDiscount ? '' : 'text-muted-foreground'" />
+            <Icon name="lucide:tag" class="size-4" :class="hasDiscount ? 'text-foreground' : 'text-muted-foreground'" />
             <span class="min-w-0 truncate">{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
           </button>
           <button
             type="button"
-            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
-            :class="issueFiscalDocument ? 'border-primary bg-primary/5 text-primary' : ''"
+            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="issueFiscalDocument ? 'border-primary bg-primary/5' : ''"
             @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
           >
-            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" :class="issueFiscalDocument ? '' : 'text-muted-foreground'" />
+            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" :class="issueFiscalDocument ? 'text-foreground' : 'text-muted-foreground'" />
             <span>Nota fiscal</span>
           </button>
           <button
             v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
             :key="collection.ref"
             type="button"
-            class="flex items-center justify-center gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px"
-            :class="paymentCollection === collection.ref ? 'border-primary bg-primary/5 text-primary' : ''"
+            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            :class="paymentCollection === collection.ref ? 'border-primary bg-primary/5' : ''"
             @click="$emit('update:paymentCollection', collection.ref)"
           >
             <span class="min-w-0 truncate">{{ collection.label }}</span>
@@ -334,16 +335,16 @@ function onAddressSelected(address: StructuredAddressProjection) {
               v-for="digit in digitKeys"
               :key="digit"
               type="button"
-              class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+              class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
               :aria-label="`Dígito ${digit}`"
               @click="$emit('tenderDigit', digit)"
             >
               {{ digit }}
             </button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
-            <button type="button" class="grid place-items-center rounded-lg border border-destructive/25 bg-destructive/5 py-3.5 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
+            <button type="button" class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+            <button type="button" class="grid place-items-center rounded-lg border border-destructive/25 bg-destructive/5 h-14 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
               <Icon name="lucide:delete" class="size-5" />
             </button>
           </div>
@@ -390,8 +391,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
         </div>
       </div>
 
-      <!-- RIGHT · VALOR -->
-      <div class="flex min-h-0 flex-1 flex-col gap-3 py-1">
+      <!-- RIGHT · VALOR (empilhado: no topo; cresce 1→2 conforme o breakpoint, teto 1+2) -->
+      <div class="order-1 flex min-h-0 flex-col gap-3 py-1 md:order-none lg:col-span-2">
         <!-- valor gigante (estável = total a cobrar), centrado -->
         <div class="flex flex-1 flex-col items-center justify-center text-center">
           <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
@@ -408,8 +409,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
             <li v-for="(tender, idx) in tenderLines" :key="idx">
               <button
                 type="button"
-                class="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition"
-                :class="idx === selectedTenderIndex ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/60'"
+                class="flex h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 text-left transition"
+                :class="idx === selectedTenderIndex ? 'border-primary bg-primary/5' : 'hover:bg-accent/60'"
                 :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
                 @click="$emit('selectTender', idx)"
               >
@@ -457,7 +458,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               :key="option.ref"
               variant="outline"
               class="h-auto justify-start whitespace-normal px-3 py-2 text-left"
-              :class="fulfillmentType === option.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              :class="fulfillmentType === option.ref ? 'border-primary bg-primary/5' : ''"
               @click="$emit('update:fulfillmentType', option.ref)"
             >
               <span>
@@ -595,7 +596,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               type="button"
               variant="outline"
               class="justify-between"
-              :class="issueFiscalDocument ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              :class="issueFiscalDocument ? 'border-primary bg-primary/5' : ''"
               @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
             >
               <span>Emitir fiscal</span>
@@ -608,7 +609,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
                 type="button"
                 variant="outline"
                 class="h-auto justify-center whitespace-normal px-2 py-2 text-xs"
-                :class="receiptMode === mode.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                :class="receiptMode === mode.ref ? 'border-primary bg-primary/5' : ''"
                 @click="$emit('update:receiptMode', mode.ref)"
               >
                 {{ mode.label }}
@@ -643,7 +644,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               v-for="option in discountTypes"
               :key="option.ref"
               variant="outline"
-              :class="discountType === option.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              :class="discountType === option.ref ? 'border-primary bg-primary/5' : ''"
               @click="$emit('update:discountType', option.ref === 'fixed' ? 'fixed' : 'percent')"
             >
               {{ option.label }}
@@ -659,7 +660,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               :key="reason.ref"
               variant="outline"
               size="sm"
-              :class="discountReason === reason.ref ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              :class="discountReason === reason.ref ? 'border-primary bg-primary/5' : ''"
               @click="$emit('update:discountReason', reason.ref)"
             >
               {{ reason.label }}
