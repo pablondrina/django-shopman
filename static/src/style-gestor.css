@@ -20,8 +20,11 @@
     --color-on-surface-strong: var(--color-stone-900);
     --color-primary: var(--color-stone-900);
     --color-on-primary: var(--color-stone-50);
-    --color-secondary: var(--color-yellow-700);
-    --color-on-secondary: var(--color-stone-50);
+    /* Operador = NEUTRO: secondary deixa de ser a cor de marca (era yellow-700).
+       btn-secondary nem usa este token (é surface+outline); neutralizado p/ não
+       deixar marca latente. Cor só nas semânticas (info/success/warning/danger). */
+    --color-secondary: var(--color-stone-200);
+    --color-on-secondary: var(--color-stone-900);
     --color-outline: var(--color-stone-200);
     --color-outline-strong: var(--color-stone-600);
 
@@ -30,8 +33,11 @@
     --color-surface-dark-alt: var(--color-stone-900);
     --color-on-surface-dark: var(--color-stone-300);
     --color-on-surface-dark-strong: var(--color-white);
-    --color-primary-dark: var(--color-amber-400);
-    --color-on-primary-dark: var(--color-black);
+    /* Operador = NEUTRO no dark: primary deixa de ser o âmbar de marca. Vira um
+       stone claro (inverso neutro do primary light = stone-900), igual ao Nuxt POS
+       (dark --primary ≈ oklch 0.92). Remove a marca de labels/btn-primary/seleção. */
+    --color-primary-dark: var(--color-stone-200);
+    --color-on-primary-dark: var(--color-stone-900);
     --color-secondary-dark: var(--color-stone-700);
     --color-on-secondary-dark: var(--color-white);
     --color-outline-dark: var(--color-stone-700);
