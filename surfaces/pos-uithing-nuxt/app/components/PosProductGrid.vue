@@ -93,8 +93,8 @@ defineExpose({ focusSearch: () => searchInputRef.value?.inputRef?.focus() });
     <div class="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
       <button
         type="button"
-        class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
-        :class="activeCollection === '' ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
+        class="flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition"
+        :class="activeCollection === '' ? 'border-primary bg-primary/5' : 'hover:border-primary/50 hover:bg-accent'"
         @click="activeCollection = ''"
       >
         Tudo
@@ -103,8 +103,8 @@ defineExpose({ focusSearch: () => searchInputRef.value?.inputRef?.focus() });
         v-for="collection in orderedCollections"
         :key="collection.ref"
         type="button"
-        class="shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition"
-        :class="activeCollection === collection.ref ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-accent'"
+        class="flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition"
+        :class="activeCollection === collection.ref ? 'border-primary bg-primary/5' : 'hover:border-primary/50 hover:bg-accent'"
         @click="activeCollection = collection.ref"
       >
         {{ collection.name }}
@@ -113,7 +113,7 @@ defineExpose({ focusSearch: () => searchInputRef.value?.inputRef?.focus() });
 
     <div class="-mx-1 px-1 md:min-h-0 md:flex-1 md:overflow-y-auto">
       <div v-if="pending" class="grid gap-2.5" :class="densityCols">
-        <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-xl border bg-muted" />
+        <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-lg border bg-muted" />
       </div>
       <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
         Nenhum produto encontrado.

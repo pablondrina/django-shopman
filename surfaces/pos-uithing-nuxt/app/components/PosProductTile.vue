@@ -26,7 +26,7 @@ const fallbackMonogram = computed(() => productMonogram(props.product));
     type="button"
     class="group relative overflow-hidden rounded-lg p-0 text-left shadow-none transition hover:border-primary/50 active:translate-y-px"
     :class="[
-      qty > 0 ? 'border-primary/60 ring-1 ring-primary/30' : '',
+      qty > 0 ? 'border-primary' : '',
       disabled ? 'cursor-not-allowed opacity-50 hover:border-border hover:shadow-none active:translate-y-0' : '',
     ]"
     :disabled="disabled"

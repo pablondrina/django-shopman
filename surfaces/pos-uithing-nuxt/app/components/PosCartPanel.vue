@@ -339,8 +339,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <li
           v-for="item in items"
           :key="item.sku"
-          class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg px-2 py-1 transition"
-          :class="isSelected(item.sku) ? 'bg-primary/10 ring-1 ring-primary/40' : (activeSku === item.sku ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-accent/60')"
+          class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-transparent px-2 py-1 transition"
+          :class="isSelected(item.sku) ? 'border-primary bg-primary/10' : (activeSku === item.sku ? 'border-primary bg-primary/5' : 'hover:bg-accent/60')"
           :aria-current="activeSku === item.sku ? 'true' : undefined"
           @click="selectLine(item.sku)"
         >
@@ -427,24 +427,24 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
       <div v-if="!selectMode" class="flex gap-1">
         <button
           type="button"
-          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
-          :class="numpadMode === 'qty' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          :class="numpadMode === 'qty' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('qty')"
         >
           Qtd
         </button>
         <button
           type="button"
-          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
-          :class="numpadMode === 'disc' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          :class="numpadMode === 'disc' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('disc')"
         >
           Desc %
         </button>
         <button
           type="button"
-          class="flex-1 rounded-lg border py-0.5 text-sm font-medium transition"
-          :class="numpadMode === 'price' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          :class="numpadMode === 'price' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('price')"
         >
           Preço
@@ -459,7 +459,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
           :key="reason.ref"
           type="button"
           class="rounded-full border px-2.5 py-0.5 text-xs transition"
-          :class="discountReason === reason.ref ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-accent'"
+          :class="discountReason === reason.ref ? 'border-primary bg-primary/5 font-medium' : 'hover:bg-accent'"
           @click="pickReason(reason.ref)"
         >
           {{ reason.label }}
@@ -470,7 +470,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <span class="flex-1 px-1 text-xs text-muted-foreground">Preço unitário — vírgula p/ centavos · gerente aprova</span>
         <button
           type="button"
-          class="rounded-lg border bg-card px-4 py-0.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+          class="rounded-lg border bg-card px-4 py-1.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
           :disabled="!numpadCanType"
           aria-label="Vírgula (centavos)"
           @click="onComma"

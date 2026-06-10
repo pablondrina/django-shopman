@@ -80,7 +80,7 @@ function runClear() {
     <div v-if="renaming" class="flex items-center gap-1">
       <UiInput
         v-model="renameValue"
-        class="h-8 w-40 text-lg font-semibold"
+        class="h-9 w-40 text-lg font-semibold"
         placeholder="Mesa, nome…"
         autofocus
         @keydown="onRenameKeydown"
@@ -108,7 +108,7 @@ function runClear() {
     <!-- customer chip -->
     <button
       type="button"
-      class="flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-sm transition hover:bg-accent"
+      class="flex h-9 min-w-0 shrink items-center gap-1.5 rounded-full border border-border px-3 text-sm transition hover:bg-accent"
       aria-haspopup="dialog"
       @click="customerSheetOpen = true"
     >
@@ -140,7 +140,7 @@ function runClear() {
           <PosCustomerSearch :results="searchResults" :busy="searchBusy" @search="$emit('search', $event)" @select="onSelectResult" />
 
           <!-- selected customer surfaced for review -->
-          <div v-if="customerLookup" class="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <div v-if="customerLookup" class="grid gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
             <div class="flex items-center justify-between gap-2">
               <span class="flex items-center gap-1.5 text-sm font-semibold">
                 <Icon name="lucide:user-check" class="size-4 text-primary" />
