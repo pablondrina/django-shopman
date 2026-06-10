@@ -50,7 +50,14 @@ export function resolvePayment(tenders: POSPaymentTenderDraft[], totalQ: number)
     return { paymentMethod: only.method, paymentTenders: [], tenderedAmountQ: null };
   }
   if (tenders.length >= 2) {
-    return { paymentMethod: "mixed", paymentTenders: tenders, tenderedAmountQ: null };
+    // Strip internal fields (e.g. `_virgin`) — the intent carries only the contract shape.
+    const clean = tenders.map((t) => ({
+      method: t.method,
+      amount_q: t.amount_q,
+      collection: t.collection,
+      ...(t.reference ? { reference: t.reference } : {}),
+    }));
+    return { paymentMethod: "mixed", paymentTenders: clean, tenderedAmountQ: null };
   }
   return { paymentMethod: "", paymentTenders: [], tenderedAmountQ: null };
 }

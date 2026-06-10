@@ -138,7 +138,7 @@ export function usePosSale(deps: PosSaleDeps) {
     orderNotes: "",
     paymentMethod: "",
     paymentCollection: "terminal" as PaymentCollection,
-    paymentTenders: [] as Array<{ method: string; amount_q: number; collection: PaymentCollection; reference?: string }>,
+    paymentTenders: [] as Array<{ method: string; amount_q: number; collection: PaymentCollection; reference?: string; _virgin?: boolean }>,
     tenderedAmountInput: "",
     issueFiscalDocument: false,
     receiptMode: "none",
@@ -194,47 +194,40 @@ export function usePosSale(deps: PosSaleDeps) {
   // Odoo-style payment: tapping a method adds a tender for the remaining due
   // (the first one = the total). The numpad then edits the SELECTED line.
   const selectedTenderIndex = ref(-1);
-  const tenderFresh = ref(true);
   // In-progress decimal entry (Odoo): digits build the integer REAIS first, the
   // comma switches to centavos (max 2 places). So "2","5" → R$25,00 and only
   // "2","5",",","5" → R$25,50 — far less error-prone than cents-first (where 25
-  // would mean R$0,25). null = no keyed entry yet (the shown amount is the
-  // auto-fill or a +N result); the first digit/comma starts a fresh entry.
+  // would mean R$0,25). null = no keyed entry yet; the first digit/comma starts a
+  // fresh entry (so it replaces the shown amount, then appends).
   const tenderEntry = ref<string | null>(null);
   function entryToQ(entry: string): number {
     const n = Number.parseFloat((entry || "0").replace(",", "."));
     if (!Number.isFinite(n) || n < 0) return 0;
     return Math.min(99_999_999, Math.round(n * 100));
   }
-  // The amount is a VIRGIN system value (auto-fill from "the remaining", or Exato):
-  // untouched by the operator. The first cédula tap REPLACES it (the operator is
-  // counting what the customer handed over); the first digit replaces too.
-  function markSystemValue() {
-    tenderEntry.value = null;
-    tenderFresh.value = true;
-  }
-  // The amount is operator-established (a typed/added value, or a re-selected line):
-  // further cédulas ACCUMULATE onto it, a digit replaces.
-  function markOperatorValue() {
-    tenderEntry.value = null;
-    tenderFresh.value = false;
-  }
+  // Virginity is PER-TENDER (the `_virgin` flag on the tender), NOT global: a
+  // tender is virgin while its amount is still the untouched system auto-fill.
+  // The first cédula on a virgin tender REPLACES it (the operator starts counting
+  // the cash handed over); thereafter cédulas ACCUMULATE. Crucially, just
+  // SELECTING a tender (tapping its line) must NOT change its virginity — only
+  // editing the amount does. (`_virgin` is internal; stripped before the intent.)
+  const selectedTender = () => cart.paymentTenders[selectedTenderIndex.value];
 
   function addTender(method: string) {
     const amountQ = Math.max(0, paymentRemainingQ.value);
     if (amountQ <= 0) return;
-    cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection });
+    cart.paymentTenders.push({ method, amount_q: amountQ, collection: cart.paymentCollection, _virgin: true });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    markSystemValue();
+    tenderEntry.value = null;
   }
 
   // A cash bill with no tender yet opens a cash line at that bill's value — the
-  // operator already started counting, so the next bill accumulates.
+  // operator already started counting, so it's NOT virgin (next bill accumulates).
   function addCashTender(amountQ: number) {
     if (!amountQ || amountQ <= 0) return;
-    cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection });
+    cart.paymentTenders.push({ method: "cash", amount_q: amountQ, collection: cart.paymentCollection, _virgin: false });
     selectedTenderIndex.value = cart.paymentTenders.length - 1;
-    markOperatorValue();
+    tenderEntry.value = null;
   }
 
   function removeTender(index: number) {
@@ -242,17 +235,17 @@ export function usePosSale(deps: PosSaleDeps) {
     if (selectedTenderIndex.value >= cart.paymentTenders.length) {
       selectedTenderIndex.value = cart.paymentTenders.length - 1;
     }
-    markOperatorValue();
+    tenderEntry.value = null;
   }
 
   function selectTender(index: number) {
     selectedTenderIndex.value = index;
-    markOperatorValue();
+    tenderEntry.value = null; // typing on it starts fresh; its _virgin is untouched
   }
 
   // A digit grows the decimal entry (reais first; ≤2 places after the comma).
   function tenderDigit(digit: string) {
-    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    const tender = selectedTender();
     if (!tender) return;
     let entry = tenderEntry.value ?? "";
     if (entry.includes(",")) {
@@ -262,52 +255,51 @@ export function usePosSale(deps: PosSaleDeps) {
     }
     entry += digit;
     tenderEntry.value = entry;
-    tenderFresh.value = false;
+    tender._virgin = false;
     tender.amount_q = entryToQ(entry);
   }
   // The comma key (USD would be a dot): switch to centavos.
   function tenderComma() {
-    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    const tender = selectedTender();
     if (!tender) return;
     let entry = tenderEntry.value ?? "";
     if (entry === "") entry = "0";
     if (!entry.includes(",")) entry += ",";
     tenderEntry.value = entry;
-    tenderFresh.value = false;
+    tender._virgin = false;
     tender.amount_q = entryToQ(entry);
   }
   function tenderBackspace() {
-    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    const tender = selectedTender();
     if (!tender) return;
-    // First backspace over an auto/+N amount clears it (Odoo), then trims the entry.
+    // First backspace over an auto amount clears it (Odoo), then trims the entry.
     const entry = (tenderEntry.value ?? "").slice(0, -1);
     tenderEntry.value = entry;
-    tenderFresh.value = false;
+    tender._virgin = false;
     tender.amount_q = entryToQ(entry);
   }
   function tenderClear() {
-    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    const tender = selectedTender();
     if (!tender) return;
     tenderEntry.value = "";
-    tenderFresh.value = false;
+    tender._virgin = false;
     tender.amount_q = 0;
   }
-  // A cédula tap (+R$10/20/50/100) reflects a note the customer handed over. If the
-  // amount is still the VIRGIN system value (untouched auto-fill), the first tap
-  // REPLACES it — the operator starts counting the cash handed (so total R$66,30,
-  // first +50 → R$50,00, restante; +50 → R$100,00, troco R$33,70). Once the value
-  // is operator-established, further taps ACCUMULATE. No tender yet → opens a cash
-  // line at that note's value.
+  // A cédula tap reflects a note the customer handed over. On a VIRGIN tender the
+  // first tap REPLACES the auto value (start counting the cash handed: total
+  // R$66,30 → +R$50 = R$50,00, restante; +R$50 = R$100,00, troco R$33,70).
+  // Thereafter it ACCUMULATES. No tender yet → opens a cash line at that note.
   function tenderAdd(cents: number) {
     if (!cents) return;
-    const tender = cart.paymentTenders[selectedTenderIndex.value];
+    const tender = selectedTender();
     if (!tender) {
       addCashTender(cents);
       return;
     }
-    const base = tenderFresh.value ? 0 : tender.amount_q;
+    const base = tender._virgin ? 0 : tender.amount_q;
     tender.amount_q = Math.min(99_999_999, base + cents);
-    markOperatorValue();
+    tender._virgin = false;
+    tenderEntry.value = null;
   }
 
   // "Exato": set the selected tender to settle exactly what the OTHER tenders
@@ -321,7 +313,8 @@ export function usePosSale(deps: PosSaleDeps) {
       0,
     );
     tender.amount_q = Math.max(0, paymentTotalQ.value - others);
-    markSystemValue();
+    tender._virgin = true; // a system value again: a following cédula replaces it
+    tenderEntry.value = null;
   }
 
   // The method of the line the instrument (numpad/cédulas) is editing, or "" when
@@ -1282,7 +1275,6 @@ export function usePosSale(deps: PosSaleDeps) {
     tabDialogOpen,
     tabDialogReason,
     selectedTenderIndex,
-    tenderFresh,
     // derived
     checkoutContract,
     canFireTab,

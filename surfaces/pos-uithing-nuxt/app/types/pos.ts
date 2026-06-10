@@ -282,6 +282,9 @@ export interface POSPaymentTenderDraft {
   amount_q: number;
   collection: PosPaymentCollection;
   reference?: string;
+  /** Internal: amount is still the untouched system auto-fill (first cédula
+   *  replaces it). Stripped before the intent — never sent to the server. */
+  _virgin?: boolean;
 }
 
 export interface POSTabPayload {

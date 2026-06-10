@@ -70,7 +70,6 @@ const {
   tabDialogOpen,
   tabDialogReason,
   selectedTenderIndex,
-  tenderFresh,
   checkoutContract,
   canRenameTab,
   tabManipulation,
