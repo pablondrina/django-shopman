@@ -313,7 +313,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
         <!-- numpad (dígitos: entrada decimal, vírgula nos centavos) + trilho de
              cédulas à direita (só dinheiro: as 6 notas BR que o cliente entrega) -->
         <div class="flex gap-1.5">
-          <div class="grid flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
+          <div class="grid grid-cols-3 gap-1.5" :class="cashSelected ? 'flex-[3] basis-0' : 'flex-1'" role="group" aria-label="Teclado de valor">
             <button
               v-for="digit in digitKeys"
               :key="digit"
@@ -331,17 +331,19 @@ function onAddressSelected(address: StructuredAddressProjection) {
               <Icon name="lucide:delete" class="size-5" />
             </button>
           </div>
-          <!-- cédula rail -->
-          <div v-if="cashSelected" class="grid w-16 grid-rows-6 gap-1.5" role="group" aria-label="Cédulas recebidas">
+          <!-- cédula rail — 4ª coluna (mesma largura das colunas do teclado);
+               verde dinheiro + ícone de nota -->
+          <div v-if="cashSelected" class="grid flex-1 basis-0 grid-rows-6 gap-1.5" role="group" aria-label="Cédulas recebidas">
             <button
               v-for="note in cashNotesQ"
               :key="note"
               type="button"
-              class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 text-sm font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
+              class="flex items-center justify-center gap-1 rounded-lg border border-green-500/30 bg-green-500/10 text-sm font-semibold tabular-nums text-green-800 transition hover:bg-green-500/20 active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
               :aria-label="`Recebi nota de ${formatBRL(note)}`"
               @click="$emit('tenderAdd', note)"
             >
+              <Icon name="lucide:banknote" class="size-3.5 shrink-0 opacity-70" />
               {{ note / 100 }}
             </button>
           </div>
