@@ -243,16 +243,17 @@ describe("presentation/tabBoard — board shaping", () => {
       isInUse: true,
       isFree: false,
       isUnpaid: false,
+      pendingKitchen: true,
       identity: "Ana",
       summary: "2 itens · R$ 24,00",
       selected: true,
     });
 
     const free = tabCardView(tabs[0]!);
-    expect(free).toMatchObject({ isFree: true, summary: "Comanda livre", identity: "—", selected: false });
+    expect(free).toMatchObject({ isFree: true, pendingKitchen: false, summary: "Comanda livre", identity: "—", selected: false });
 
     const fired = tabCardView(tabs[2]!);
-    expect(fired).toMatchObject({ isUnpaid: true, summary: "1 item · R$ 8,00" });
+    expect(fired).toMatchObject({ isUnpaid: true, pendingKitchen: false, summary: "1 item · R$ 8,00" });
   });
 
   it("sanitizes a tab ref to the channel's allowed shape", () => {

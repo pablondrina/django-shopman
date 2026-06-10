@@ -128,10 +128,10 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
       </div>
     </div>
 
-    <p v-if="!tabs.length" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+    <p v-if="!tabs.length" class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
       Nenhuma comanda ainda. Digite uma referência acima para abrir a primeira.
     </p>
-    <p v-else-if="!cards.length" class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+    <p v-else-if="!cards.length" class="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
       Nenhuma comanda em uso agora.
       <button type="button" class="font-medium underline underline-offset-4" @click="tabFilter = 'all'">Ver todas</button>
     </p>
@@ -144,7 +144,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
         v-for="{ tab, view } in cards"
         :key="view.ref"
         type="button"
-        class="flex h-[5.5rem] flex-col gap-0.5 overflow-hidden rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
+        class="flex h-[5.5rem] flex-col gap-0.5 overflow-hidden rounded-md border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
         :class="cardTone(view)"
         @click="activateTab(tab)"
       >
@@ -157,6 +157,14 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           >
             <Icon name="lucide:flame" class="size-3" />
             não pago
+          </span>
+          <span
+            v-else-if="view.pendingKitchen"
+            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title="Tem itens ainda não enviados à cozinha"
+          >
+            <Icon name="lucide:utensils" class="size-3" />
+            a enviar
           </span>
           <span v-else class="shrink-0 text-xs text-muted-foreground">{{ view.statusLabel }}</span>
         </div>

@@ -34,6 +34,8 @@ export interface TabCardView {
   isFree: boolean;
   /** Fired to the kitchen and not yet paid — the loud state of the board. */
   isUnpaid: boolean;
+  /** Has items but nothing sent to the kitchen yet — a quiet "a enviar" cue. */
+  pendingKitchen: boolean;
   statusLabel: string;
   /** Customer name, falling back to an items preview, then an em dash. */
   identity: string;
@@ -71,6 +73,7 @@ export function tabCardView(tab: POSTabProjection, selectedRef = ""): TabCardVie
     isInUse,
     isFree: !hasItems,
     isUnpaid: Boolean(tab.fired),
+    pendingKitchen: hasItems && !tab.fired,
     statusLabel: tab.status_label,
     identity: tab.customer_name || tab.items_preview || "—",
     summary: hasItems
