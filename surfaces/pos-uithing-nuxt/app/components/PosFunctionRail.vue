@@ -35,7 +35,7 @@ const emit = defineEmits<{
     <!-- brand glyph -->
     <UiTooltip>
       <UiTooltipTrigger as-child>
-        <span class="mb-1 grid size-10 cursor-default place-items-center rounded-xl bg-primary-foreground/15" aria-label="Ponto de venda">
+        <span class="mb-1 grid size-10 cursor-default place-items-center rounded-lg bg-primary-foreground/15" aria-label="Ponto de venda">
           <Icon name="lucide:store" class="size-5" />
         </span>
       </UiTooltipTrigger>
@@ -47,7 +47,7 @@ const emit = defineEmits<{
       <UiTooltipTrigger as-child>
         <button
           type="button"
-          class="grid size-10 place-items-center rounded-xl transition hover:bg-primary-foreground/10"
+          class="grid size-10 place-items-center rounded-lg transition hover:bg-primary-foreground/10"
           :class="view === 'board' ? 'bg-primary-foreground/15 text-primary-foreground' : 'text-primary-foreground/80 hover:text-primary-foreground'"
           aria-label="Comandas"
           :aria-current="view === 'board' ? 'page' : undefined"
@@ -63,7 +63,7 @@ const emit = defineEmits<{
       <UiTooltipTrigger as-child>
         <button
           type="button"
-          class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
+          class="grid size-10 place-items-center rounded-lg text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
           aria-label="Caixa"
           @click="emit('cash')"
         >
@@ -93,7 +93,7 @@ const emit = defineEmits<{
           <UiTooltipTrigger as-child>
             <button
               type="button"
-              class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              class="grid size-10 place-items-center rounded-lg text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
               :aria-label="colorModeValue === 'dark' ? 'Tema claro' : 'Tema escuro'"
               @click="emit('toggleTheme')"
             >
@@ -103,7 +103,7 @@ const emit = defineEmits<{
           <UiTooltipContent side="right">{{ colorModeValue === "dark" ? "Tema claro" : "Tema escuro" }}</UiTooltipContent>
         </UiTooltip>
         <template #fallback>
-          <span class="grid size-10 place-items-center rounded-xl text-primary-foreground/80">
+          <span class="grid size-10 place-items-center rounded-lg text-primary-foreground/80">
             <Icon name="lucide:sun-moon" class="size-5" />
           </span>
         </template>
@@ -113,7 +113,7 @@ const emit = defineEmits<{
         <UiTooltipTrigger as-child>
           <button
             type="button"
-            class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground disabled:opacity-50"
+            class="grid size-10 place-items-center rounded-lg text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground disabled:opacity-50"
             aria-label="Atualizar"
             :disabled="pending"
             @click="emit('refresh')"
@@ -128,7 +128,7 @@ const emit = defineEmits<{
         <UiTooltipTrigger as-child>
           <button
             type="button"
-            class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            class="grid size-10 place-items-center rounded-lg text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
             aria-label="Travar caixa"
             @click="emit('lock')"
           >

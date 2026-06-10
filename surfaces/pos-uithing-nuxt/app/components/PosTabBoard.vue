@@ -5,7 +5,7 @@
 // and emits intent; it owns no orchestration. `move_lines` is Arc 4 — here the
 // board only lists, selects and opens.
 import type { POSTabProjection } from "~/types/pos";
-import { countOpenTabs, filterTabs, sanitizeTabRef, sortTabs, tabCardView, type TabFilter } from "~/presentation/tabBoard";
+import { countOpenTabs, filterTabs, sanitizeTabRef, sortTabs, tabCardView, type TabCardView, type TabFilter } from "~/presentation/tabBoard";
 
 const props = defineProps<{
   tabs: POSTabProjection[];
@@ -35,6 +35,17 @@ const openCount = computed(() => countOpenTabs(props.tabs));
 const cards = computed(() =>
   filterTabs(ordered.value, tabFilter.value).map((tab) => ({ tab, view: tabCardView(tab, props.selectedTabRef) })),
 );
+
+// Board color = a traffic-light semantic (Pablo, 2026-06-10): cor só onde tem
+// significado. Selecionada vence (a venda ativa); depois "não pago" (âmbar =
+// atenção real, disparado e não quitado); depois "livre" (verde = disponível,
+// pode receber); "em uso" recede em neutro (ocupada, em andamento, sem ação).
+function cardTone(view: TabCardView): string {
+  if (view.selected) return "border-primary bg-primary/5";
+  if (view.isUnpaid) return "border-amber-500/40 bg-amber-500/10";
+  if (view.isFree) return "border-green-500/45 bg-green-500/5";
+  return "";
+}
 
 function updateInput(value: unknown) {
   emit("update:modelValue", sanitizeTabRef(String(value || ""), {
@@ -79,7 +90,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
         <UiButton
           size="sm"
           variant="outline"
-          :class="tabFilter === 'all' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+          :class="tabFilter === 'all' ? 'border-primary bg-primary/5' : ''"
           @click="tabFilter = 'all'"
         >
           Todas {{ tabs.length }}
@@ -87,7 +98,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
         <UiButton
           size="sm"
           variant="outline"
-          :class="tabFilter === 'in_use' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+          :class="tabFilter === 'in_use' ? 'border-primary bg-primary/5' : ''"
           @click="tabFilter = 'in_use'"
         >
           Em uso {{ openCount }}
@@ -99,7 +110,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           variant="outline"
           aria-label="Ver em grade"
           title="Grade"
-          :class="tabView === 'grid' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+          :class="tabView === 'grid' ? 'border-primary bg-primary/5' : ''"
           @click="tabView = 'grid'"
         >
           <Icon name="lucide:layout-grid" class="size-4" />
@@ -109,7 +120,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           variant="outline"
           aria-label="Ver em lista"
           title="Lista"
-          :class="tabView === 'list' ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+          :class="tabView === 'list' ? 'border-primary bg-primary/5' : ''"
           @click="tabView = 'list'"
         >
           <Icon name="lucide:list" class="size-4" />
@@ -126,7 +137,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
     </p>
     <div
       v-else
-      class="max-h-[72vh] overflow-y-auto pr-1 md:max-h-none md:min-h-0 md:flex-1"
+      class="max-h-[72vh] content-start overflow-y-auto pr-1 md:max-h-none md:min-h-0 md:flex-1"
       :class="tabView === 'grid' ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' : 'grid gap-2'"
     >
       <button
@@ -134,10 +145,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
         :key="view.ref"
         type="button"
         class="flex h-[5.5rem] flex-col gap-0.5 overflow-hidden rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent"
-        :class="[
-          view.selected ? 'border-primary bg-primary/5' : '',
-          view.isInUse ? 'border-amber-500/40 bg-amber-500/10' : ''
-        ]"
+        :class="cardTone(view)"
         @click="activateTab(tab)"
       >
         <div class="flex items-center justify-between gap-2">
