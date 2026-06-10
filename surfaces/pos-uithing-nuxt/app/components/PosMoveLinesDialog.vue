@@ -102,7 +102,7 @@ function submit() {
         </UiButton>
       </div>
 
-      <p v-if="mode === 'merge'" class="rounded-lg border bg-muted/40 p-2 text-xs text-muted-foreground">
+      <p v-if="mode === 'merge'" class="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
         Move todos os itens desta comanda para a comanda escolhida e libera esta.
       </p>
 

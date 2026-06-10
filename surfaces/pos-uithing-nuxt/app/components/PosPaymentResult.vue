@@ -28,7 +28,7 @@ async function copyCode() {
 </script>
 
 <template>
-  <div class="grid gap-3 rounded-lg border p-3" :class="TONE_CLASS[proof.tone]">
+  <div class="grid gap-3 rounded-md border p-3" :class="TONE_CLASS[proof.tone]">
     <div class="flex items-center gap-2">
       <Icon :name="proof.icon" class="size-5" />
       <div class="min-w-0 flex-1">
@@ -43,7 +43,7 @@ async function copyCode() {
         v-if="proof.qrCodeSrc"
         :src="proof.qrCodeSrc"
         alt="QR Code PIX"
-        class="mx-auto size-44 rounded-lg border bg-white p-2"
+        class="mx-auto size-44 rounded-md border bg-white p-2"
       >
       <div v-if="proof.copyPaste" class="grid gap-1.5">
         <p class="break-all rounded-md border bg-background/70 px-2.5 py-2 font-mono text-xs">{{ proof.copyPaste }}</p>

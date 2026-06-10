@@ -106,7 +106,7 @@ function confirmTyped() {
             v-for="tab in filteredTabs"
             :key="tab.ref"
             type="button"
-            class="grid gap-1 rounded-lg border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border disabled:hover:bg-transparent"
+            class="grid gap-1 rounded-md border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border disabled:hover:bg-transparent"
             :class="tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''"
             :disabled="busy || !canAssociate(tab)"
             @click="selectTab(tab)"
@@ -121,7 +121,7 @@ function confirmTyped() {
             </span>
           </button>
         </div>
-        <p v-else class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+        <p v-else class="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
           Nenhuma comanda encontrada. Digite uma referência para abrir uma nova.
         </p>
       </div>

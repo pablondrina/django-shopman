@@ -24,8 +24,8 @@ const hasExact = computed(() => props.presets.includes(0));
 const deltas = computed(() => props.presets.filter((preset) => preset > 0));
 
 const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-const cell = "grid place-items-center rounded-lg border bg-card py-3 text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
-const cellMuted = "grid place-items-center rounded-lg border bg-muted/60 py-3 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
+const cell = "grid place-items-center rounded-md border bg-card py-3 text-lg font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
+const cellMuted = "grid place-items-center rounded-md border bg-muted/60 py-3 text-sm font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
 </script>
 
 <template>

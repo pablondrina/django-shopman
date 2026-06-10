@@ -63,7 +63,7 @@
       },
       variant: {
         default: "",
-        floating: "rounded-lg border",
+        floating: "rounded-md border",
       },
       translucent: {
         true: getTranslucentFloatingPanelClasses("background"),
@@ -108,7 +108,7 @@
         fullscreen: true,
         variant: "floating",
         class:
-          "inset-4 h-[calc(100%-2rem)] max-h-none w-[calc(100%-2rem)] max-w-full rounded-xl border sm:max-h-none sm:max-w-full",
+          "inset-4 h-[calc(100%-2rem)] max-h-none w-[calc(100%-2rem)] max-w-full rounded-md border sm:max-h-none sm:max-w-full",
       },
       {
         fullscreen: true,

@@ -11,9 +11,9 @@ const emit = defineEmits<{
 }>();
 
 const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-const cellBase = "rounded-lg border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
+const cellBase = "rounded-md border bg-card font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40";
 const cell = computed(() => (props.compact ? `${cellBase} py-1.5 text-base` : `${cellBase} py-2.5 text-lg`));
-const cellSm = computed(() => (props.compact ? "rounded-lg border bg-card py-1.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40" : "rounded-lg border bg-card py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"));
+const cellSm = computed(() => (props.compact ? "rounded-md border bg-card py-1.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40" : "rounded-md border bg-card py-2.5 text-sm font-medium transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"));
 </script>
 
 <template>
@@ -49,7 +49,7 @@ const cellSm = computed(() => (props.compact ? "rounded-lg border bg-card py-1.5
     </button>
     <button
       type="button"
-      class="grid place-items-center rounded-lg border border-destructive/25 bg-destructive/5 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      class="grid place-items-center rounded-md border border-destructive/25 bg-destructive/5 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
       :class="compact ? 'py-1.5' : 'py-2.5'"
       :disabled="disabled"
       aria-label="Apagar último dígito"

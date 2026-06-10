@@ -63,7 +63,7 @@
 
   export const alertStyles = tv({
     slots: {
-      base: "relative flex w-full gap-3 rounded-lg border p-4",
+      base: "relative flex w-full gap-3 rounded-md border p-4",
       icon: "size-4 shrink-0",
       content: "grow",
     },

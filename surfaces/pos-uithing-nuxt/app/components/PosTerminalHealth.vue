@@ -52,7 +52,7 @@ const rows = computed(() => [
       <button
         v-if="compact"
         type="button"
-        class="grid size-10 place-items-center rounded-xl text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
+        class="grid size-10 place-items-center rounded-md text-primary-foreground/80 transition hover:bg-primary-foreground/10 hover:text-primary-foreground"
         :aria-label="`Saúde do terminal: ${overall.label}`"
         :title="`${terminalLabel}: ${overall.label}`"
       >

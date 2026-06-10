@@ -113,9 +113,9 @@ defineExpose({ focusSearch: () => searchInputRef.value?.inputRef?.focus() });
 
     <div class="-mx-1 px-1 md:min-h-0 md:flex-1 md:overflow-y-auto">
       <div v-if="pending" class="grid gap-2.5" :class="densityCols">
-        <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-lg border bg-muted" />
+        <div v-for="idx in 12" :key="idx" class="aspect-[4/3] animate-pulse rounded-md border bg-muted" />
       </div>
-      <div v-else-if="!filteredProducts.length" class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+      <div v-else-if="!filteredProducts.length" class="rounded-md border border-dashed p-8 text-center text-muted-foreground">
         Nenhum produto encontrado.
       </div>
       <div v-else class="grid gap-2.5" :class="densityCols">

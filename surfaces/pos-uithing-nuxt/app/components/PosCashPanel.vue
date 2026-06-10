@@ -70,7 +70,7 @@ function confirmClose() {
       </UiDialogHeader>
 
       <!-- Occupied: terminal has an open shift under another operator -->
-      <div v-if="occupied" class="grid gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+      <div v-if="occupied" class="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-4">
         <div class="flex items-center gap-2">
           <Icon name="lucide:lock" class="size-4 text-amber-700" />
           <p class="text-sm font-semibold text-amber-800">Terminal ocupado</p>
@@ -101,7 +101,7 @@ function confirmClose() {
 
       <!-- Open: operational status (blind), movements, blind close -->
       <div v-else class="grid gap-4">
-        <div class="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+        <div class="grid grid-cols-2 gap-2 rounded-md border bg-muted/40 p-3 text-sm">
           <div class="flex flex-col">
             <span class="text-xs text-muted-foreground">Aberto em</span>
             <span class="font-medium tabular-nums">{{ openedAtDisplay }}</span>
@@ -120,7 +120,7 @@ function confirmClose() {
               :key="kind"
               variant="outline"
               size="sm"
-              :class="movementKind === kind ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+              :class="movementKind === kind ? 'border-primary bg-primary/5' : ''"
               @click="movementKind = kind"
             >
               {{ movementLabel(kind) }}
@@ -144,7 +144,7 @@ function confirmClose() {
 
         <div class="grid gap-2">
           <p class="text-sm font-medium text-muted-foreground">Fechar caixa</p>
-          <div class="flex items-start gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <div class="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             <Icon name="lucide:eye-off" class="mt-0.5 size-4 shrink-0" />
             <span>Contagem cega: conte o dinheiro do caixa e informe o valor. A conferência fica no gestor.</span>
           </div>
@@ -161,7 +161,7 @@ function confirmClose() {
               Fechar caixa
             </UiButton>
           </div>
-          <div v-else class="grid gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+          <div v-else class="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
             <p class="text-sm font-medium">Confirmar fechamento do caixa? Esta ação encerra o turno.</p>
             <div class="grid grid-cols-2 gap-2">
               <UiButton variant="outline" :disabled="busy" @click="confirmingClose = false">Cancelar</UiButton>

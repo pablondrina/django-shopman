@@ -313,9 +313,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
 </script>
 
 <template>
-  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-lg p-4 shadow-none md:h-full md:min-h-0">
+  <UiCard v-if="requiresTab && !hasOpenTab" class="gap-4 rounded-md p-4 shadow-none md:h-full md:min-h-0">
     <div class="grid gap-3 text-center">
-      <div class="mx-auto grid size-11 place-items-center rounded-lg border bg-muted">
+      <div class="mx-auto grid size-11 place-items-center rounded-md border bg-muted">
         <Icon name="lucide:receipt-text" class="size-5 text-muted-foreground" />
       </div>
       <div class="grid gap-1">
@@ -330,16 +330,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
     </div>
   </UiCard>
 
-  <UiCard v-else class="gap-2.5 rounded-lg p-3 shadow-none md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden">
+  <UiCard v-else class="gap-2.5 rounded-md p-3 shadow-none md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden">
     <div class="min-h-24 overflow-auto pr-1 md:min-h-0 md:flex-1">
-      <p v-if="!items.length" class="grid h-full min-h-24 place-items-center rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+      <p v-if="!items.length" class="grid h-full min-h-24 place-items-center rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
         Carrinho vazio
       </p>
       <ul v-else class="grid gap-0.5">
         <li
           v-for="item in items"
           :key="item.sku"
-          class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-transparent px-2 py-1 transition"
+          class="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-transparent px-2 py-1 transition"
           :class="isSelected(item.sku) ? 'border-primary bg-primary/10' : (activeSku === item.sku ? 'border-primary bg-primary/5' : 'hover:bg-accent/60')"
           :aria-current="activeSku === item.sku ? 'true' : undefined"
           @click="selectLine(item.sku)"
@@ -405,7 +405,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
 
     <div v-if="items.length" class="grid shrink-0 gap-1.5">
       <!-- Batch toolbar (multi-select §2.2): acts on every checked line via Actions. -->
-      <div v-if="selectMode" class="flex flex-wrap items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 p-1.5">
+      <div v-if="selectMode" class="flex flex-wrap items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 p-1.5">
         <span class="px-1 text-xs font-semibold tabular-nums">{{ selection.count }} selec.</span>
         <UiButton v-if="selection.canFire" size="xs" variant="outline" class="gap-1" :disabled="firing" @click="batchFire">
           <Icon name="lucide:utensils" class="size-3.5" />
@@ -427,7 +427,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
       <div v-if="!selectMode" class="flex gap-1">
         <button
           type="button"
-          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          class="flex-1 rounded-md border py-1.5 text-sm font-medium transition"
           :class="numpadMode === 'qty' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('qty')"
         >
@@ -435,7 +435,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         </button>
         <button
           type="button"
-          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          class="flex-1 rounded-md border py-1.5 text-sm font-medium transition"
           :class="numpadMode === 'disc' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('disc')"
         >
@@ -443,7 +443,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         </button>
         <button
           type="button"
-          class="flex-1 rounded-lg border py-1.5 text-sm font-medium transition"
+          class="flex-1 rounded-md border py-1.5 text-sm font-medium transition"
           :class="numpadMode === 'price' ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
           @click="setMode('price')"
         >
@@ -470,7 +470,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
         <span class="flex-1 px-1 text-xs text-muted-foreground">Preço unitário — vírgula p/ centavos · gerente aprova</span>
         <button
           type="button"
-          class="rounded-lg border bg-card px-4 py-1.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+          class="rounded-md border bg-card px-4 py-1.5 text-base font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40"
           :disabled="!numpadCanType"
           aria-label="Vírgula (centavos)"
           @click="onComma"
