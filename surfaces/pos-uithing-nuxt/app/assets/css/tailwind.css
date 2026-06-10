@@ -197,6 +197,46 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   ESCALA DE DESIGN — superfícies de operador (POS/Gestor/KDS)
+   Fonte única da padronização fina (Pablo, 2026-06-10). Aplicar estas receitas
+   em TODAS as telas de operador; não introduzir tamanhos/cores/raios avulsos.
+
+   TIPOGRAFIA (6 níveis nomeados)
+     display  total-herói do pagamento      text-7xl/8xl font-bold tabular-nums
+     figure   troco / valor de tender        text-3xl/4xl font-bold tabular-nums
+     title    título de tela/seção           text-lg  font-semibold
+     body     conteúdo / label de botão      text-sm  font-medium   (workhorse)
+     label    rótulo de campo                text-xs  font-medium text-muted-foreground
+     micro    dica / meta                    text-xs  text-muted-foreground
+
+   ESCALA DE CINZA (mapeada aos tokens — não inventar cinzas)
+     forte=text-foreground · médio=text-muted-foreground · borda=border-border
+     superfície=bg-background/bg-card · superfície-2=bg-muted/bg-secondary
+
+   ALTURAS DE CONTROLE (ladder confortável — 3 degraus, alvo de toque ≥44 no md+)
+     sm  h-9  (36px)  chip / botão inline / pílula de filtro
+     md  h-11 (44px)  campo, botão padrão, linha de tender, tile de método
+     lg  h-14 (56px)  CTA primário, tecla de numpad, tile de produto/ação
+
+   ESPAÇAMENTO
+     gap-1.5  dentro de grupo (numpad, cluster de chips)
+     gap-2    entre irmãos (default)
+     gap-3    entre seções
+     gap-4/6  entre regiões maiores
+     padding de controle md = px-3 ; inset de card = p-3 ; dialog = p-4
+
+   BORDAS — uma só: 1px border-border. border-destructive só em controle
+     destrutivo. Não usar border-muted-foreground.
+
+   SELEÇÃO / ATIVO — padrão ÚNICO: border-primary + bg-primary/5 (contorno fino +
+     tint levíssimo). NÃO usar ring nem fill-sólido para indicar seleção. (ring é
+     reservado a foco de teclado; o token outline-ring já cobre.)
+
+   CANTOS — rounded-lg padrão (botões/cards/inputs/tiles); rounded-full só em
+     pílulas/avatars/badges. Sem rounded-md/xl/2xl avulsos.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
