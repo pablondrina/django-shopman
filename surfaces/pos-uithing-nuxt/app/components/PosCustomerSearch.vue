@@ -40,19 +40,19 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer); });
       <Icon name="lucide:search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <UiInput
         v-model="query"
-        class="h-12 pl-10 text-base"
+        class="h-11 pl-10 text-base"
         placeholder="Buscar por nome, telefone, CPF ou e-mail"
         autofocus
       />
       <Icon v-if="busy" name="lucide:loader-circle" class="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
     </div>
 
-    <div v-if="results.length" class="grid max-h-56 gap-0.5 overflow-auto rounded-xl border p-1">
+    <div v-if="results.length" class="grid max-h-56 gap-0.5 overflow-auto rounded-md border p-1">
       <button
         v-for="result in results"
         :key="result.ref"
         type="button"
-        class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-accent"
+        class="flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left transition hover:bg-accent"
         @click="pick(result)"
       >
         <span class="min-w-0">

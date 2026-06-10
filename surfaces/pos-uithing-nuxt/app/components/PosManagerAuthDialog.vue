@@ -39,7 +39,7 @@ function confirm() {
   <UiDialog :open="open" @update:open="(value) => emit('update:open', value)">
     <UiDialogContent class="sm:max-w-sm">
       <UiDialogHeader class="items-center text-center">
-        <div class="mx-auto grid size-12 place-items-center rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-600">
+        <div class="mx-auto grid size-12 place-items-center rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-600">
           <Icon name="lucide:shield-check" class="size-6" />
         </div>
         <UiDialogTitle class="text-lg">Autorização do gerente</UiDialogTitle>

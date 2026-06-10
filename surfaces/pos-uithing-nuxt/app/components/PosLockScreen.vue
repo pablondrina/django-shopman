@@ -49,7 +49,7 @@ function submit() {
   >
     <div class="w-full max-w-md px-6 py-8">
       <div class="mb-6 text-center">
-        <div class="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+        <div class="mx-auto mb-3 grid size-12 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
           <Icon name="lucide:store" class="size-6" />
         </div>
         <p class="text-sm font-medium uppercase tracking-wide text-muted-foreground">Ponto de venda</p>
@@ -62,8 +62,9 @@ function submit() {
         <UiButton
           v-for="op in operators"
           :key="op.id"
-          :variant="selectedId === op.id ? 'default' : 'outline'"
+          variant="outline"
           class="h-11"
+          :class="selectedId === op.id ? 'border-primary bg-primary/5' : ''"
           @click="selectOperator(op.id)"
         >
           {{ op.name }}
