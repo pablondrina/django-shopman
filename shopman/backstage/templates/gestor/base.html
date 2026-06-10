@@ -70,17 +70,17 @@
 
     {% comment %}Sidebar — icon-only, 56px wide{% endcomment %}
     <aside :class="drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-           class="fixed md:relative md:translate-x-0 z-50 inset-y-0 left-0
-                  w-14 flex flex-col shrink-0 h-full
-                  bg-surface-alt dark:bg-surface-dark-alt
-                  border-r border-outline dark:border-outline-dark
+           class="rail-spine fixed md:relative md:translate-x-0 z-50 inset-y-0 left-0
+                  w-14 flex flex-col shrink-0 h-full border-r
                   transition-transform duration-200"
            role="navigation"
            aria-label="Navegação operador">
 
       {% comment %}Brand icon{% endcomment %}
-      <div class="h-14 flex items-center justify-center border-b border-outline dark:border-outline-dark shrink-0">
-        <span class="material-symbols-rounded text-2xl text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">store</span>
+      <div class="h-14 flex items-center justify-center border-b border-stone-800 shrink-0">
+        <span class="grid size-9 place-items-center rounded-md bg-white/10" aria-hidden="true">
+          <span class="material-symbols-rounded text-xl text-white/80">store</span>
+        </span>
       </div>
 
       {% comment %}Nav links{% endcomment %}
@@ -88,7 +88,7 @@
 
         {% url 'admin_console_orders' as url_pedidos %}
         <a href="{{ url_pedidos }}"
-           class="btn-icon relative {% block nav_active_pedidos %}{% endblock %}"
+           class="rail-link relative {% block nav_active_pedidos %}{% endblock %}"
            title="Pedidos"
            aria-label="Pedidos">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">receipt_long</span>
@@ -102,7 +102,7 @@
 
         {% url 'backstage:kds_station_picker' as url_kds %}
         <a href="{{ url_kds }}"
-           class="btn-icon {% block nav_active_kds %}{% endblock %}"
+           class="rail-link {% block nav_active_kds %}{% endblock %}"
            title="KDS · Cozinha"
            aria-label="KDS">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">kitchen</span>
@@ -110,7 +110,7 @@
 
         {% url 'backstage:pos' as url_pos %}
         <a href="{{ url_pos }}"
-           class="btn-icon {% block nav_active_pos %}{% endblock %}"
+           class="rail-link {% block nav_active_pos %}{% endblock %}"
            title="Ponto de Venda"
            aria-label="Ponto de Venda">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">point_of_sale</span>
@@ -118,7 +118,7 @@
 
         {% url 'admin_console_production' as url_producao %}
         <a href="{{ url_producao|default:'/admin/' }}"
-           class="btn-icon {% block nav_active_producao %}{% endblock %}"
+           class="rail-link {% block nav_active_producao %}{% endblock %}"
            title="Produção"
            aria-label="Produção">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">factory</span>
@@ -126,14 +126,14 @@
 
         {% url 'admin_console_day_closing' as url_fechamento %}
         <a href="{{ url_fechamento }}"
-           class="btn-icon {% block nav_active_fechamento %}{% endblock %}"
+           class="rail-link {% block nav_active_fechamento %}{% endblock %}"
            title="Fechamento do Dia"
            aria-label="Fechamento">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">lock_clock</span>
         </a>
 
         <a href="/admin/"
-           class="btn-icon"
+           class="rail-link"
            title="Dashboard · Admin"
            aria-label="Dashboard">
           <span class="material-symbols-rounded icon-md" aria-hidden="true">dashboard</span>
@@ -142,10 +142,10 @@
       </nav>
 
       {% comment %}Theme toggle at bottom{% endcomment %}
-      <div class="h-14 flex items-center justify-center border-t border-outline dark:border-outline-dark shrink-0">
+      <div class="h-14 flex items-center justify-center border-t border-stone-800 shrink-0">
         <button type="button"
                 @click="toggleTheme()"
-                class="btn-icon"
+                class="rail-link"
                 :title="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'"
                 :aria-label="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'">
           <span class="material-symbols-rounded icon-md"
