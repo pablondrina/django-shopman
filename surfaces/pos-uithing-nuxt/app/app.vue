@@ -123,6 +123,7 @@ const {
   customerSearchBusy,
   searchCustomers,
   selectCustomerResult,
+  clearCustomer,
   applyCustomerFavorite,
   repeatCustomerLastOrder,
   saveTab,
@@ -285,6 +286,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           :can-rename="canRenameTab"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"
+          v-model:customer-tax-id="cart.customerTaxId"
+          v-model:customer-email="cart.customerEmail"
           :customer-lookup="customerLookup"
           :lookup-busy="lookupBusy"
           :search-results="customerSearchResults"
@@ -292,6 +295,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
           :loading="busy"
           @rename="renameTab"
           @clear="clearCurrentTab"
+          @clear-customer="clearCustomer"
           @lookup-customer="lookupCustomer"
           @resolve-customer="resolveCustomer"
           @search="searchCustomers"
@@ -434,6 +438,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @resolve-customer="resolveCustomer"
         @search="searchCustomers"
         @select-result="selectCustomerResult"
+        @clear-customer="clearCustomer"
         @apply-customer-favorite="applyCustomerFavorite"
         @repeat-customer-last-order="repeatCustomerLastOrder"
         @pick-saved-address="applySavedAddress"

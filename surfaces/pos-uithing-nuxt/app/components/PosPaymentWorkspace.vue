@@ -124,6 +124,7 @@ const emit = defineEmits<{
   submit: [];
   lookupCustomer: [];
   resolveCustomer: [];
+  clearCustomer: [];
   search: [string];
   selectResult: [POSCustomerSearchResult];
   applyCustomerFavorite: [];
@@ -137,7 +138,6 @@ const receiptModes = computed(() => props.checkoutContract?.receipt_modes || [
   { ref: "print", label: "Imprimir", description: "" },
   { ref: "email", label: "E-mail", description: "" },
 ]);
-const customerMemory = computed(() => props.customerLookup?.memory || null);
 const savedAddresses = computed(() => props.customerLookup?.saved_addresses || []);
 const needsReview = computed(() => !props.review);
 const approvalBlocking = computed(() =>
@@ -267,7 +267,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
             v-for="method in injectableMethods"
             :key="method.ref"
             type="button"
-            class="flex h-11 items-center gap-3 rounded-lg border bg-card px-3 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center gap-3 rounded-md border bg-card px-3 text-left text-sm font-medium transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
             :class="method.ref === selectedTenderMethod ? 'border-primary bg-primary/5' : ''"
             @click="$emit('addTender', method.ref)"
           >
@@ -281,7 +281,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
         <div class="grid grid-cols-2 gap-1.5">
           <button
             type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             :class="customerSet ? 'border-primary bg-primary/5' : ''"
             @click="customerSheetOpen = true"
           >
@@ -290,7 +290,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
           <button
             type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             @click="fulfillmentSheetOpen = true"
           >
             <Icon :name="fulfillmentType === 'delivery' ? 'lucide:bike' : 'lucide:store'" class="size-4 text-muted-foreground" />
@@ -299,7 +299,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           <button
             v-if="discountTypes.length"
             type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             :class="hasDiscount ? 'border-primary bg-primary/5' : ''"
             @click="discountSheetOpen = true"
           >
@@ -308,7 +308,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
           <button
             type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             :class="issueFiscalDocument ? 'border-primary bg-primary/5' : ''"
             @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
           >
@@ -319,7 +319,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
             v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
             :key="collection.ref"
             type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
+            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
             :class="paymentCollection === collection.ref ? 'border-primary bg-primary/5' : ''"
             @click="$emit('update:paymentCollection', collection.ref)"
           >
@@ -335,16 +335,16 @@ function onAddressSelected(address: StructuredAddressProjection) {
               v-for="digit in digitKeys"
               :key="digit"
               type="button"
-              class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+              class="grid place-items-center rounded-md border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
               :aria-label="`Dígito ${digit}`"
               @click="$emit('tenderDigit', digit)"
             >
               {{ digit }}
             </button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
-            <button type="button" class="grid place-items-center rounded-lg border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
-            <button type="button" class="grid place-items-center rounded-lg border border-destructive/25 bg-destructive/5 h-14 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
+            <button type="button" class="grid place-items-center rounded-md border bg-card h-14 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
+            <button type="button" class="grid place-items-center rounded-md border bg-card h-14 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+            <button type="button" class="grid place-items-center rounded-md border border-destructive/25 bg-destructive/5 h-14 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
               <Icon name="lucide:delete" class="size-5" />
             </button>
           </div>
@@ -355,7 +355,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               v-for="note in cashNotesQ"
               :key="note"
               type="button"
-              class="flex items-center justify-center gap-1 rounded-lg border border-green-500/30 bg-green-500/10 text-sm font-semibold tabular-nums text-green-800 transition hover:bg-green-500/20 active:translate-y-px disabled:opacity-40"
+              class="flex items-center justify-center gap-1 rounded-md border border-green-500/30 bg-green-500/10 text-sm font-semibold tabular-nums text-green-800 transition hover:bg-green-500/20 active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
               :aria-label="`Recebi nota de ${formatBRL(note)}`"
               @click="$emit('tenderAdd', note)"
@@ -409,7 +409,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
             <li v-for="(tender, idx) in tenderLines" :key="idx">
               <button
                 type="button"
-                class="flex h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 text-left transition"
+                class="flex h-11 w-full items-center justify-between gap-2 rounded-md border px-3 text-left transition"
                 :class="idx === selectedTenderIndex ? 'border-primary bg-primary/5' : 'hover:bg-accent/60'"
                 :aria-current="idx === selectedTenderIndex ? 'true' : undefined"
                 @click="$emit('selectTender', idx)"
@@ -538,98 +538,36 @@ function onAddressSelected(address: StructuredAddressProjection) {
     </UiDialogContent>
   </UiDialog>
 
-  <!-- MODAL: Cliente & fiscal -->
-  <UiDialog v-model:open="customerSheetOpen">
-    <UiDialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-      <UiDialogHeader>
-        <UiDialogTitle>Cliente &amp; fiscal</UiDialogTitle>
-        <UiDialogDescription>Busque por nome, telefone, CPF ou e-mail — ou preencha para um novo. Identificação e comprovante.</UiDialogDescription>
-      </UiDialogHeader>
-      <div class="grid gap-4">
-          <PosCustomerSearch :results="searchResults" :busy="searchBusy" @search="$emit('search', $event)" @select="onSelectResult" />
-
-          <div class="grid gap-2 sm:grid-cols-2">
-            <label class="grid gap-1 text-sm">
-              <span class="font-medium text-muted-foreground">Cliente</span>
-              <UiInput :model-value="customerName" placeholder="Nome no balcão" @update:model-value="$emit('update:customerName', String($event || ''))" />
-            </label>
-            <label class="grid gap-1 text-sm">
-              <span class="font-medium text-muted-foreground">WhatsApp</span>
-              <UiInput
-                :model-value="customerPhone"
-                inputmode="tel"
-                placeholder="(43) 99999-0000"
-                @update:model-value="$emit('update:customerPhone', String($event || ''))"
-              />
-            </label>
-            <label class="grid gap-1 text-sm">
-              <span class="font-medium text-muted-foreground">CPF/CNPJ</span>
-              <UiInput :model-value="customerTaxId" inputmode="numeric" placeholder="Para fiscal" @update:model-value="$emit('update:customerTaxId', String($event || ''))" />
-            </label>
-            <label class="grid gap-1 text-sm">
-              <span class="font-medium text-muted-foreground">E-mail</span>
-              <UiInput :model-value="customerEmail" type="email" placeholder="cliente@email.com" @update:model-value="$emit('update:customerEmail', String($event || ''))" />
-            </label>
-          </div>
-
-          <div
-            v-if="customerLookup && (customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length)"
-            class="grid gap-2 rounded-lg border bg-muted/30 p-3"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-sm font-semibold">{{ customerLookup.name }}</span>
-              <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">{{ customerMemory.total_orders }} pedidos</span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <UiButton v-if="customerMemory?.favorite_item?.sku" type="button" variant="outline" size="sm" @click="$emit('applyCustomerFavorite')">
-                <Icon name="lucide:heart" class="size-4" /> Favorito
-              </UiButton>
-              <UiButton v-if="customerMemory?.last_order_items?.length" type="button" variant="outline" size="sm" @click="$emit('repeatCustomerLastOrder')">
-                <Icon name="lucide:rotate-ccw" class="size-4" /> Último pedido
-              </UiButton>
-            </div>
-          </div>
-
-          <div class="grid gap-2">
-            <p class="text-sm font-medium text-muted-foreground">Fiscal e comprovante</p>
-            <UiButton
-              type="button"
-              variant="outline"
-              class="justify-between"
-              :class="issueFiscalDocument ? 'border-primary bg-primary/5' : ''"
-              @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
-            >
-              <span>Emitir fiscal</span>
-              <Icon :name="issueFiscalDocument ? 'lucide:check' : 'lucide:minus'" class="size-4" />
-            </UiButton>
-            <div class="grid grid-cols-3 gap-2">
-              <UiButton
-                v-for="mode in receiptModes"
-                :key="mode.ref"
-                type="button"
-                variant="outline"
-                class="h-auto justify-center whitespace-normal px-2 py-2 text-xs"
-                :class="receiptMode === mode.ref ? 'border-primary bg-primary/5' : ''"
-                @click="$emit('update:receiptMode', mode.ref)"
-              >
-                {{ mode.label }}
-              </UiButton>
-            </div>
-            <label v-if="receiptMode === 'email'" class="grid gap-1 text-sm">
-              <span class="font-medium text-muted-foreground">E-mail do comprovante</span>
-              <UiInput :model-value="receiptEmail" type="email" :placeholder="customerEmail || 'cliente@email.com'" @update:model-value="$emit('update:receiptEmail', String($event || ''))" />
-              <span v-if="!receiptEmail.trim() && customerEmail.trim()" class="text-xs text-muted-foreground">
-                Sem preencher, enviamos para o e-mail do cliente: <span class="font-medium text-foreground">{{ customerEmail }}</span>
-              </span>
-            </label>
-          </div>
-
-        </div>
-        <UiDialogFooter>
-          <UiButton class="w-full" @click="$emit('resolveCustomer'); customerSheetOpen = false">Concluir</UiButton>
-        </UiDialogFooter>
-      </UiDialogContent>
-    </UiDialog>
+  <!-- Cliente & fiscal — shared full-screen picker (showFiscal rides the receipt) -->
+  <PosCustomerModal
+    v-model:open="customerSheetOpen"
+    show-fiscal
+    :customer-name="customerName"
+    :customer-phone="customerPhone"
+    :customer-tax-id="customerTaxId"
+    :customer-email="customerEmail"
+    :customer-lookup="customerLookup"
+    :search-results="searchResults"
+    :search-busy="searchBusy"
+    :lookup-busy="lookupBusy"
+    :issue-fiscal-document="issueFiscalDocument"
+    :receipt-mode="receiptMode"
+    :receipt-modes="receiptModes"
+    :receipt-email="receiptEmail"
+    @update:customer-name="$emit('update:customerName', $event)"
+    @update:customer-phone="$emit('update:customerPhone', $event)"
+    @update:customer-tax-id="$emit('update:customerTaxId', $event)"
+    @update:customer-email="$emit('update:customerEmail', $event)"
+    @update:issue-fiscal-document="$emit('update:issueFiscalDocument', $event)"
+    @update:receipt-mode="$emit('update:receiptMode', $event)"
+    @update:receipt-email="$emit('update:receiptEmail', $event)"
+    @search="$emit('search', $event)"
+    @select-result="onSelectResult"
+    @clear="$emit('clearCustomer')"
+    @resolve-customer="$emit('resolveCustomer')"
+    @apply-customer-favorite="$emit('applyCustomerFavorite')"
+    @repeat-customer-last-order="$emit('repeatCustomerLastOrder')"
+  />
 
   <!-- MODAL: Desconto -->
   <UiDialog v-model:open="discountSheetOpen">

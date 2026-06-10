@@ -788,6 +788,20 @@ export function usePosSale(deps: PosSaleDeps) {
     if (cart.customerPhone.trim()) await lookupCustomer();
   }
 
+  // Disassociate the customer from the tab (Odoo's UNSELECT): drop every customer
+  // field + the loaded lookup so nothing lingers (clearing only the name would
+  // leave customerRef attached). The debounced autosave then persists the removal.
+  function clearCustomer() {
+    cart.customerRef = "";
+    cart.customerName = "";
+    cart.customerPhone = "";
+    cart.customerEmail = "";
+    cart.customerTaxId = "";
+    cart.customerMemoryAction = "";
+    customerLookup.value = null;
+    customerSearchResults.value = [];
+  }
+
   function productFromMemoryItem(item: Record<string, unknown>): POSProductProjection | null {
     const sku = String(item.sku || "");
     return pos.value?.products.find((product) => product.sku === sku) || null;
@@ -1332,6 +1346,7 @@ export function usePosSale(deps: PosSaleDeps) {
     customerSearchBusy,
     searchCustomers,
     selectCustomerResult,
+    clearCustomer,
     applyCustomerFavorite,
     repeatCustomerLastOrder,
     saveTab,

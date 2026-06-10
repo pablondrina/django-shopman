@@ -12,6 +12,8 @@ const props = defineProps<{
   canRename: boolean;
   customerName: string;
   customerPhone: string;
+  customerTaxId: string;
+  customerEmail: string;
   customerLookup: POSCustomerLookupProjection | null;
   lookupBusy: boolean;
   searchResults: POSCustomerSearchResult[];
@@ -22,8 +24,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:customerName": [string];
   "update:customerPhone": [string];
+  "update:customerTaxId": [string];
+  "update:customerEmail": [string];
   rename: [string];
   clear: [];
+  clearCustomer: [];
   lookupCustomer: [];
   resolveCustomer: [];
   search: [string];
@@ -56,16 +61,8 @@ function onRenameKeydown(event: KeyboardEvent) {
   }
 }
 
+// The customer picker is the shared PosCustomerModal (full-screen, picker-first).
 const customerSheetOpen = ref(false);
-const customerMemory = computed(() => props.customerLookup?.memory || null);
-
-// Customer search (shared PosCustomerSearch): pick a result → fills the cart +
-// runs the full lookup. The commit get-or-creates by phone/CPF, so a fresh
-// name+phone just creates on finalize. Reset the field when the modal reopens.
-function onSelectResult(result: POSCustomerSearchResult) {
-  emit("selectResult", result);
-}
-watch(customerSheetOpen, (open) => { if (!open) emit("search", ""); });
 
 const confirmClear = ref(false);
 function runClear() {
@@ -130,51 +127,27 @@ function runClear() {
       <Icon name="lucide:x" class="size-4" />
     </UiButton>
 
-    <UiDialog v-model:open="customerSheetOpen">
-      <UiDialogContent class="sm:max-w-md">
-        <UiDialogHeader>
-          <UiDialogTitle>Cliente</UiDialogTitle>
-          <UiDialogDescription>Busque por nome, telefone, CPF ou e-mail — ou preencha para um novo.</UiDialogDescription>
-        </UiDialogHeader>
-        <div class="grid gap-4">
-          <PosCustomerSearch :results="searchResults" :busy="searchBusy" @search="$emit('search', $event)" @select="onSelectResult" />
-
-          <!-- selected customer surfaced for review -->
-          <div v-if="customerLookup" class="grid gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="flex items-center gap-1.5 text-sm font-semibold">
-                <Icon name="lucide:user-check" class="size-4 text-primary" />
-                {{ customerLookup.name }}
-              </span>
-              <span v-if="customerMemory?.total_orders" class="text-xs text-muted-foreground">{{ customerMemory.total_orders }} pedidos</span>
-            </div>
-            <div v-if="customerMemory?.favorite_item?.sku || customerMemory?.last_order_items?.length" class="flex flex-wrap gap-2">
-              <UiButton v-if="customerMemory?.favorite_item?.sku" type="button" variant="outline" size="sm" @click="$emit('applyCustomerFavorite')">
-                <Icon name="lucide:heart" class="size-4" /> Favorito
-              </UiButton>
-              <UiButton v-if="customerMemory?.last_order_items?.length" type="button" variant="outline" size="sm" @click="$emit('repeatCustomerLastOrder')">
-                <Icon name="lucide:rotate-ccw" class="size-4" /> Último pedido
-              </UiButton>
-            </div>
-          </div>
-
-          <!-- editable fields (review / new) -->
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="grid gap-1.5 text-sm">
-              <span class="font-medium text-muted-foreground">Nome</span>
-              <UiInput :model-value="customerName" placeholder="Nome no balcão" @update:model-value="$emit('update:customerName', String($event || ''))" />
-            </label>
-            <label class="grid gap-1.5 text-sm">
-              <span class="font-medium text-muted-foreground">WhatsApp</span>
-              <UiInput :model-value="customerPhone" inputmode="tel" placeholder="(43) 99999-0000" @update:model-value="$emit('update:customerPhone', String($event || ''))" />
-            </label>
-          </div>
-        </div>
-        <UiDialogFooter>
-          <UiButton class="w-full" @click="$emit('resolveCustomer'); customerSheetOpen = false">Concluir</UiButton>
-        </UiDialogFooter>
-      </UiDialogContent>
-    </UiDialog>
+    <PosCustomerModal
+      v-model:open="customerSheetOpen"
+      :customer-name="customerName"
+      :customer-phone="customerPhone"
+      :customer-tax-id="customerTaxId"
+      :customer-email="customerEmail"
+      :customer-lookup="customerLookup"
+      :search-results="searchResults"
+      :search-busy="searchBusy"
+      :lookup-busy="lookupBusy"
+      @update:customer-name="$emit('update:customerName', $event)"
+      @update:customer-phone="$emit('update:customerPhone', $event)"
+      @update:customer-tax-id="$emit('update:customerTaxId', $event)"
+      @update:customer-email="$emit('update:customerEmail', $event)"
+      @search="$emit('search', $event)"
+      @select-result="$emit('selectResult', $event)"
+      @clear="$emit('clearCustomer')"
+      @resolve-customer="$emit('resolveCustomer')"
+      @apply-customer-favorite="$emit('applyCustomerFavorite')"
+      @repeat-customer-last-order="$emit('repeatCustomerLastOrder')"
+    />
 
     <UiDialog :open="confirmClear" @update:open="(value) => { if (!value) confirmClear = false; }">
       <UiDialogContent class="sm:max-w-sm">
