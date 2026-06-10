@@ -111,8 +111,8 @@ reconstrução `90cb8dc7` por evidência (não só por dedução).
   ruído de timing no live; o comportamento-alvo é claro e já é o nosso (`tenderFresh`).
 - Tela de **fechamento de caixa / sessão** (densidade de gestão de turno) — Odoo é referência aqui,
   fica pra um deep-dive de Caixa quando tocarmos nessa tela.
-- **Customer selection** no pagamento (busca de cliente) — não aprofundado; nosso fluxo multi-chave
-  já está adiante do que o demo mostra.
+- **Customer selection** — agora **aprofundado em [odoo-customer.md](odoo-customer.md)**
+  (deep-dive do "Choose Customer" + Edit Partner + UNSELECT, 2026-06-10).
 
 Ver também [[synthesis.md]] (decisões cruzadas) e a memória `project_wp7_pos_status.md` (entrada do
 commit `90cb8dc7` "Conta + Instrumento").
