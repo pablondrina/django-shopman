@@ -49,7 +49,7 @@ const cellSm = computed(() => (props.compact ? "rounded-lg border bg-card py-1.5
     </button>
     <button
       type="button"
-      class="grid place-items-center rounded-lg border bg-card transition hover:bg-accent active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+      class="grid place-items-center rounded-lg border border-destructive/25 bg-destructive/5 text-destructive transition hover:bg-destructive/10 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
       :class="compact ? 'py-1.5' : 'py-2.5'"
       :disabled="disabled"
       aria-label="Apagar último dígito"
