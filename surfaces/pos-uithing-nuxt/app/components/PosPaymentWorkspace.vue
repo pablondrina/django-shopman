@@ -211,14 +211,28 @@ const deliveryCollections = computed(() => collectionsForFulfillment(props.payme
 // Validar (Odoo's Validate): NO "pay it all" shortcut — the button stays disabled
 // until a payment form is consciously chosen and covers the total. This prevents
 // the impulse to finalize a sale without paying attention to the method.
-const ctaLabel = computed(() => (needsReview.value ? "Atualizando…" : "Validar"));
+// Validar: enabled once a form covers the total. When the review demands manager
+// approval and it isn't given yet, the click opens the authorization dialog
+// (instead of disabling the button with a cramped inline field).
+const needsAuth = computed(() => approvalBlocking.value);
+const managerAuthOpen = ref(false);
+const ctaLabel = computed(() => {
+  if (needsReview.value) return "Atualizando…";
+  return needsAuth.value ? "Autorizar e validar" : "Validar";
+});
 const ctaDisabled = computed(() => {
   if (!props.items.length || props.loading || needsReview.value) return true;
   if (!props.paymentCovered) return true; // só habilita quando uma forma cobre o total
-  if (approvalBlocking.value) return true;
   return false;
 });
 function onCta() {
+  if (needsAuth.value) { managerAuthOpen.value = true; return; }
+  emit("submit");
+}
+function onManagerAuthorize(username: string, pin: string) {
+  emit("update:managerUsername", username);
+  emit("update:managerPin", pin);
+  managerAuthOpen.value = false;
   emit("submit");
 }
 
@@ -239,8 +253,10 @@ function onAddressSelected(address: StructuredAddressProjection) {
          troco/restante. Os botões de função (Cliente/Retirada/Desconto/Nota) ficam
          logo acima do numpad, como o Odoo empilha conforme as opções ativas. -->
 
-    <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita -->
-    <div class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 gap-5 overflow-hidden">
+    <!-- MAIN — clone Odoo: INSTRUMENTO esquerda, VALOR direita. Full-width,
+         alinhado à esquerda como as demais telas (instrumento na borda, valor
+         preenche). -->
+    <div class="flex min-h-0 w-full flex-1 gap-6 overflow-hidden">
 
       <!-- LEFT · INSTRUMENTO -->
       <div class="flex w-full max-w-[22rem] shrink-0 flex-col gap-2">
@@ -349,15 +365,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </div>
         </div>
 
-        <!-- manager approval (quando o review exige) -->
-        <PosManagerApproval
-          v-if="review?.requires_manager_approval"
-          :manager-username="managerUsername"
-          :manager-pin="managerPin"
-          :threshold-q="managerThresholdQ"
-          @update:manager-username="$emit('update:managerUsername', $event)"
-          @update:manager-pin="$emit('update:managerPin', $event)"
-        />
+        <!-- manager approval: when the review demands it, "Autorizar e validar"
+             opens a dedicated PIN authorization screen (PosManagerAuthDialog) -->
+        <p v-if="needsAuth" class="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+          <Icon name="lucide:shield-check" class="size-3.5 shrink-0 text-amber-600" />
+          Requer autorização do gerente para finalizar.
+        </p>
 
         <!-- Voltar + Validar (rodapé da coluna, copiando o Back + Validate do Odoo) -->
         <div class="mt-auto grid grid-cols-2 gap-1.5 pt-1">
@@ -658,4 +671,12 @@ function onAddressSelected(address: StructuredAddressProjection) {
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>
+
+  <!-- AUTORIZAÇÃO DO GERENTE -->
+  <PosManagerAuthDialog
+    v-model:open="managerAuthOpen"
+    :threshold-q="managerThresholdQ"
+    :busy="loading"
+    @authorize="onManagerAuthorize"
+  />
 </template>
