@@ -111,13 +111,13 @@
     .card {
         @apply bg-surface-alt dark:bg-surface-dark-alt
                border border-outline dark:border-outline-dark
-               rounded-lg p-4;
+               rounded-md p-4;
     }
 
     .surface-modal {
         @apply bg-surface-alt dark:bg-surface-dark-alt
                border border-outline dark:border-outline-dark
-               rounded-lg p-5 w-full shadow-xl;
+               rounded-md p-5 w-full shadow-xl;
     }
 
     .empty-state {
@@ -145,7 +145,7 @@
     .btn-primary {
         @apply bg-primary dark:bg-primary-dark
                text-on-primary dark:text-on-primary-dark
-               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               px-4 py-3 rounded-md font-semibold text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:opacity-90 active:opacity-80 transition-opacity
                disabled:opacity-40 disabled:cursor-not-allowed;
@@ -154,28 +154,28 @@
         @apply bg-surface-alt dark:bg-surface-dark-alt
                text-on-surface dark:text-on-surface-dark
                border border-outline dark:border-outline-dark
-               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               px-4 py-3 rounded-md font-semibold text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:opacity-80 transition-opacity
                disabled:opacity-40 disabled:cursor-not-allowed;
     }
     .btn-danger {
         @apply bg-danger text-on-danger
-               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               px-4 py-3 rounded-md font-semibold text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:opacity-90 transition-opacity
                disabled:opacity-40 disabled:cursor-not-allowed;
     }
     .btn-success {
         @apply bg-success text-on-success
-               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               px-4 py-3 rounded-md font-semibold text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:opacity-90 transition-opacity
                disabled:opacity-40 disabled:cursor-not-allowed;
     }
     .btn-ghost {
         @apply text-on-surface dark:text-on-surface-dark
-               px-3 py-2 rounded-lg font-medium text-sm touch-target
+               px-3 py-2 rounded-md font-medium text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:bg-outline/30 dark:hover:bg-outline-dark/30
                transition-colors
@@ -186,7 +186,7 @@
         @apply bg-surface-alt dark:bg-surface-dark-alt
                text-on-surface dark:text-on-surface-dark
                border border-outline dark:border-outline-dark
-               px-3 py-2 rounded-lg font-medium text-sm touch-target
+               px-3 py-2 rounded-md font-medium text-sm touch-target
                inline-flex items-center justify-center gap-2
                hover:bg-outline/30 dark:hover:bg-outline-dark/30
                transition-colors
@@ -195,7 +195,7 @@
 
     /* Icon button */
     .btn-icon {
-        @apply w-10 h-10 flex items-center justify-center rounded-lg
+        @apply w-10 h-10 flex items-center justify-center rounded-md
                text-on-surface/60 dark:text-on-surface-dark/60
                hover:bg-outline/40 dark:hover:bg-outline-dark/40
                hover:text-on-surface-strong dark:hover:text-on-surface-dark-strong
@@ -203,7 +203,7 @@
     }
 
     .btn-icon-sm {
-        @apply w-8 h-8 flex items-center justify-center rounded-lg
+        @apply w-8 h-8 flex items-center justify-center rounded-md
                text-on-surface/70 dark:text-on-surface-dark/70
                hover:bg-outline/40 dark:hover:bg-outline-dark/40
                hover:text-on-surface-strong dark:hover:text-on-surface-dark-strong
@@ -215,7 +215,7 @@
         @apply w-full
                bg-surface dark:bg-surface-dark
                border border-outline dark:border-outline-dark
-               rounded-lg px-4 py-3
+               rounded-md px-4 py-3
                text-on-surface dark:text-on-surface-dark
                text-sm touch-target
                placeholder:text-on-surface/70 dark:placeholder:text-on-surface-dark/70
@@ -225,7 +225,7 @@
         @apply w-full
                bg-surface dark:bg-surface-dark
                border border-outline dark:border-outline-dark
-               rounded-lg px-3 py-2
+               rounded-md px-3 py-2
                text-on-surface dark:text-on-surface-dark
                text-sm resize-y
                placeholder:text-on-surface/70 dark:placeholder:text-on-surface-dark/70
@@ -235,7 +235,7 @@
         @apply w-full
                bg-surface dark:bg-surface-dark
                border border-outline dark:border-outline-dark
-               rounded-lg px-3 py-2
+               rounded-md px-3 py-2
                text-on-surface dark:text-on-surface-dark
                text-sm touch-target
                focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
@@ -287,7 +287,7 @@
     }
 
     .segmented-action {
-        @apply flex-1 rounded-lg border border-outline dark:border-outline-dark
+        @apply flex-1 rounded-md border border-outline dark:border-outline-dark
                px-3 py-2 text-sm font-medium transition-colors
                text-on-surface dark:text-on-surface-dark
                hover:bg-outline/30 dark:hover:bg-outline-dark/30;

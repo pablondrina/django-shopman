@@ -32,7 +32,7 @@
     </div>
 
     {% if card.current_step_name %}
-    <div class="rounded-lg border border-outline p-2 dark:border-outline-dark">
+    <div class="rounded-md border border-outline p-2 dark:border-outline-dark">
       <div class="mb-1 flex items-center justify-between gap-2 text-sm">
         <span class="font-semibold">Passo {{ card.current_step_index }}/{{ card.total_steps }}: {{ card.current_step_name }}</span>
         <span class="tabular-nums text-on-surface/60 dark:text-on-surface-dark/60">{{ card.step_progress_pct }}%</span>

@@ -119,7 +119,7 @@
       {% for item in ticket.items %}
       <form method="post"
             action="{% url 'backstage:kds_station_runtime_check' ticket.pk %}"
-            class="rounded-lg border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-3"
+            class="rounded-md border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-3"
             hx-post="{% url 'backstage:kds_station_runtime_check' ticket.pk %}"
             hx-target="#kds-station-cards"
             hx-swap="innerHTML">

@@ -30,13 +30,15 @@
 
   {% block extra_head %}{% endblock %}
 
-  {% comment %}Dark-first: apply .dark before paint to prevent FOUC.{% endcomment %}
+  {% comment %}Light-first (alinhado ao PDV): aplica o tema antes do paint p/ evitar
+     FOUC. Dark só quando o operador escolhe (a cozinha pode preferir — o toggle
+     persiste). Antes era dark-first.{% endcomment %}
   <script>
   (function() {
     var stored = localStorage.getItem('gestor_theme');
     var h = document.documentElement;
-    if (stored === 'light') { h.classList.remove('dark'); }
-    else { h.classList.add('dark'); }
+    if (stored === 'dark') { h.classList.add('dark'); }
+    else { h.classList.remove('dark'); }
   })();
   </script>
 </head>
@@ -198,7 +200,7 @@
                x-cloak
                x-transition
                @click.outside="alertsOpen = false"
-               class="absolute right-0 z-[70] mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-outline bg-surface-alt shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
+               class="absolute right-0 z-[70] mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-outline bg-surface-alt shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
             <div class="flex items-center justify-between gap-2 border-b border-outline px-3 py-2 dark:border-outline-dark">
               <span class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Alertas</span>
               <button type="button" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" @click="alertsOpen = false" title="Fechar" aria-label="Fechar alertas">
@@ -243,7 +245,7 @@
       {% if messages %}
       <div class="px-4 pt-3 flex flex-col gap-2 shrink-0">
         {% for message in messages %}
-        <div class="px-3 py-2 rounded-lg text-sm font-medium
+        <div class="px-3 py-2 rounded-md text-sm font-medium
                     {% if 'error' in message.tags %}bg-danger/10 text-danger border border-danger/30
                     {% elif 'success' in message.tags %}bg-success/10 text-success border border-success/30
                     {% elif 'warning' in message.tags %}bg-warning/10 text-warning border border-warning/30
