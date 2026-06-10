@@ -310,40 +310,41 @@ function onAddressSelected(address: StructuredAddressProjection) {
           </button>
         </div>
 
-        <!-- cédulas (só dinheiro): as 6 notas BR que o cliente entrega -->
-        <div v-if="cashSelected" class="grid grid-cols-3 gap-1.5" role="group" aria-label="Cédulas recebidas">
-          <button
-            v-for="note in cashNotesQ"
-            :key="note"
-            type="button"
-            class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 py-2.5 text-sm font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
-            :disabled="!numpadActive"
-            :aria-label="`Recebi nota de ${formatBRL(note)}`"
-            @click="$emit('tenderAdd', note)"
-          >
-            R$ {{ note / 100 }}
-          </button>
-        </div>
-
-        <!-- numpad: dígitos (entrada decimal — inteiro primeiro, vírgula nos
-             centavos: digitar 25 → R$ 25,00) + vírgula · 0 · apagar -->
-        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
-          <button
-            v-for="digit in digitKeys"
-            :key="digit"
-            type="button"
-            class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
-            :disabled="!numpadActive"
-            :aria-label="`Dígito ${digit}`"
-            @click="$emit('tenderDigit', digit)"
-          >
-            {{ digit }}
-          </button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
-          <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
-            <Icon name="lucide:delete" class="size-5" />
-          </button>
+        <!-- numpad (dígitos: entrada decimal, vírgula nos centavos) + trilho de
+             cédulas à direita (só dinheiro: as 6 notas BR que o cliente entrega) -->
+        <div class="flex gap-1.5">
+          <div class="grid flex-1 grid-cols-3 gap-1.5" role="group" aria-label="Teclado de valor">
+            <button
+              v-for="digit in digitKeys"
+              :key="digit"
+              type="button"
+              class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40"
+              :disabled="!numpadActive"
+              :aria-label="`Dígito ${digit}`"
+              @click="$emit('tenderDigit', digit)"
+            >
+              {{ digit }}
+            </button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Vírgula (centavos)" @click="$emit('tenderComma')">,</button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 text-xl font-semibold tabular-nums transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Dígito 0" @click="$emit('tenderDigit', '0')">0</button>
+            <button type="button" class="grid place-items-center rounded-lg border bg-card py-3.5 transition hover:bg-accent active:translate-y-px disabled:opacity-40" :disabled="!numpadActive" aria-label="Apagar" @click="$emit('tenderBackspace')">
+              <Icon name="lucide:delete" class="size-5" />
+            </button>
+          </div>
+          <!-- cédula rail -->
+          <div v-if="cashSelected" class="grid w-16 grid-rows-6 gap-1.5" role="group" aria-label="Cédulas recebidas">
+            <button
+              v-for="note in cashNotesQ"
+              :key="note"
+              type="button"
+              class="grid place-items-center rounded-lg border border-primary/30 bg-primary/5 text-sm font-semibold tabular-nums text-primary transition hover:bg-primary/10 active:translate-y-px disabled:opacity-40"
+              :disabled="!numpadActive"
+              :aria-label="`Recebi nota de ${formatBRL(note)}`"
+              @click="$emit('tenderAdd', note)"
+            >
+              {{ note / 100 }}
+            </button>
+          </div>
         </div>
 
         <!-- manager approval (quando o review exige) -->
@@ -600,7 +601,10 @@ function onAddressSelected(address: StructuredAddressProjection) {
             </div>
             <label v-if="receiptMode === 'email'" class="grid gap-1 text-sm">
               <span class="font-medium text-muted-foreground">E-mail do comprovante</span>
-              <UiInput :model-value="receiptEmail" type="email" placeholder="cliente@email.com" @update:model-value="$emit('update:receiptEmail', String($event || ''))" />
+              <UiInput :model-value="receiptEmail" type="email" :placeholder="customerEmail || 'cliente@email.com'" @update:model-value="$emit('update:receiptEmail', String($event || ''))" />
+              <span v-if="!receiptEmail.trim() && customerEmail.trim()" class="text-xs text-muted-foreground">
+                Sem preencher, enviamos para o e-mail do cliente: <span class="font-medium text-foreground">{{ customerEmail }}</span>
+              </span>
             </label>
           </div>
 
