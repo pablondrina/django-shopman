@@ -1,65 +1,63 @@
 <script setup lang="ts">
-// An expedition (dispatch) board card — KDS-refined to match the ticket grammar
-// (distance-reading ref, density-aware, functional color on dark). Delivery vs
-// counter is the functional accent (cyan vs green); the action is dispatch/complete.
+// An expedition (dispatch) board card — alinhado à gramática do card de preparo:
+// código herói, superfície neutra (cor só onde tem significado; aqui não há SLA, e
+// despacho/balcão é distinguido pelo ÍCONE, não por cor), meta enxuta e a ação
+// principal em neutro INVERTIDO (despachar/entregar). Densidade-aware.
 import type { KDSExpeditionCardProjection } from "~/types/kds";
 import type { KDSDensity } from "~/components/KdsTicketCard.vue";
-import { splitRef } from "~/presentation/board";
+import { lucideIcon, splitRef } from "~/presentation/board";
 
 const props = withDefaults(
-  defineProps<{ card: KDSExpeditionCardProjection; busy?: boolean; density?: KDSDensity }>(),
+  defineProps<{ card: KDSExpeditionCardProjection; density?: KDSDensity }>(),
   { density: "cozy" },
 );
 defineEmits<{ action: [action: "dispatch" | "complete"] }>();
 
 const ref_ = computed(() => splitRef(props.card.ref));
-
-const accent = computed(() => (props.card.is_delivery ? "border-l-cyan-500" : "border-l-green-500"));
-const badge = computed(() =>
-  props.card.is_delivery
-    ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-300"
-    : "border-green-500/40 bg-green-500/15 text-green-300",
+const d = computed(
+  () =>
+    ({
+      compact: { code: "text-2xl", inset: "px-3", padT: "pt-3", padB: "pb-3", fin: "h-10" },
+      cozy: { code: "text-3xl", inset: "px-4", padT: "pt-4", padB: "pb-4", fin: "h-11" },
+      roomy: { code: "text-4xl", inset: "px-5", padT: "pt-5", padB: "pb-5", fin: "h-12" },
+    })[props.density],
 );
-const refSize = computed(() => ({ compact: "text-xl", cozy: "text-2xl", roomy: "text-3xl" }[props.density]));
-const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.density]));
 </script>
 
 <template>
-  <article class="flex flex-col overflow-hidden rounded-md border border-l-4 bg-card" :class="accent">
-    <div class="flex items-start justify-between gap-3 border-b" :class="pad">
+  <article class="flex flex-col gap-3 overflow-hidden rounded-md border bg-card shadow-sm" :class="[d.inset, d.padT, d.padB]">
+    <!-- identidade: código herói + badge neutro de despacho/balcão -->
+    <div class="flex items-start justify-between gap-2.5">
       <div class="min-w-0">
-        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon v-if="card.channel_icon" :name="`lucide:${card.channel_icon}`" class="size-3.5" />
-          <span class="truncate">{{ ref_.prefix }}{{ card.fulfillment_label }}</span>
+        <div class="flex items-center gap-1.5 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+          <Icon v-if="card.channel_icon" :name="`lucide:${lucideIcon(card.channel_icon)}`" class="size-3.5 shrink-0" />
+          <span class="truncate">{{ card.fulfillment_label }}</span>
         </div>
-        <h3 class="break-words font-bold tabular-nums leading-none" :class="refSize">{{ ref_.code }}</h3>
-        <p v-if="card.customer_name" class="mt-1 truncate text-sm font-medium text-muted-foreground">{{ card.customer_name }}</p>
+        <p class="whitespace-nowrap font-extrabold tracking-tight tabular-nums leading-none" :class="d.code">{{ ref_.code }}</p>
+        <p v-if="card.customer_name" class="mt-1.5 truncate text-sm font-medium text-foreground/80">{{ card.customer_name }}</p>
       </div>
-      <span class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-bold" :class="badge">
-        <Icon :name="`lucide:${card.fulfillment_icon}`" class="size-4" />
+      <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-semibold">
+        <Icon :name="`lucide:${lucideIcon(card.fulfillment_icon)}`" class="size-4 shrink-0" />
         {{ card.is_delivery ? "Despacho" : "Balcão" }}
       </span>
     </div>
 
-    <div class="grid gap-3" :class="pad">
-      <div class="grid grid-cols-3 gap-2">
-        <div>
-          <div class="text-xs uppercase tracking-wide text-muted-foreground">Cliente</div>
-          <div class="truncate font-semibold">{{ card.customer_name || "—" }}</div>
-        </div>
-        <div>
-          <div class="text-xs uppercase tracking-wide text-muted-foreground">Unidades</div>
-          <div class="text-lg font-bold tabular-nums">{{ card.units_count }}</div>
-        </div>
-        <div>
-          <div class="text-xs uppercase tracking-wide text-muted-foreground">Linhas</div>
-          <div class="text-lg font-bold tabular-nums">{{ card.line_count }}</div>
-        </div>
-      </div>
-      <UiButton class="w-full justify-center" :class="density === 'roomy' ? 'h-14 text-base' : ''" :disabled="busy" @click="$emit('action', card.is_delivery ? 'dispatch' : 'complete')">
-        <Icon :name="`lucide:${card.fulfillment_icon}`" class="size-5" />
-        {{ card.is_delivery ? "Despachar pedido" : "Entregar pedido" }}
-      </UiButton>
+    <!-- meta: unidades · linhas · total -->
+    <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+      <span><strong class="tabular-nums">{{ card.units_count }}</strong> <span class="text-muted-foreground">{{ card.units_count === "1" ? "unidade" : "unidades" }}</span></span>
+      <span><strong class="tabular-nums">{{ card.line_count }}</strong> <span class="text-muted-foreground">{{ card.line_count === 1 ? "linha" : "linhas" }}</span></span>
+      <span class="ml-auto font-bold tabular-nums">{{ card.total_display }}</span>
     </div>
+
+    <!-- ação principal: neutro invertido -->
+    <button
+      type="button"
+      class="mt-auto flex w-full items-center justify-center gap-2 rounded-md bg-foreground font-semibold text-background transition hover:bg-foreground/90 active:scale-[0.99]"
+      :class="d.fin"
+      @click="$emit('action', card.is_delivery ? 'dispatch' : 'complete')"
+    >
+      <Icon :name="`lucide:${lucideIcon(card.fulfillment_icon)}`" class="size-4 shrink-0" />
+      {{ card.is_delivery ? "Despachar pedido" : "Entregar pedido" }}
+    </button>
   </article>
 </template>

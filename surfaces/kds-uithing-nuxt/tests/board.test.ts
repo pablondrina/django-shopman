@@ -6,10 +6,15 @@ import {
   elapsedLabel,
   isExpeditionCard,
   itemProgress,
+  lucideIcon,
+  slaPercent,
   sortByUrgency,
   splitRef,
+  targetLabel,
   ticketTone,
-  toneAccent,
+  toneBar,
+  toneNextSurface,
+  toneTimer,
 } from "../app/presentation/board";
 import type { KDSBoardProjection, KDSExpeditionCardProjection, KDSTicketProjection } from "../app/types/kds";
 
@@ -46,13 +51,10 @@ const expedition = (): KDSExpeditionCardProjection => ({
 });
 
 describe("kds board presentation", () => {
-  it("maps timer class to a functional tone + accent", () => {
+  it("maps timer class to a functional tone", () => {
     expect(ticketTone("timer-late")).toBe("late");
     expect(ticketTone("timer-warning")).toBe("warning");
     expect(ticketTone("timer-ok")).toBe("ok");
-    expect(toneAccent("late")).toContain("red");
-    expect(toneAccent("warning")).toContain("amber");
-    expect(toneAccent("ok")).toContain("green");
   });
 
   it("guards expedition cards from prep tickets", () => {
@@ -77,13 +79,50 @@ describe("kds board presentation", () => {
     expect(view.total).toBe(2);
   });
 
-  it("formats elapsed seconds compactly (s / m / h)", () => {
+  it("formats elapsed compactly — seconds only in the first minute, then whole minutes", () => {
     expect(elapsedLabel(45)).toBe("45s");
-    expect(elapsedLabel(90)).toBe("1m 30s");
+    expect(elapsedLabel(90)).toBe("1m"); // sem tique-taque depois do 1º minuto
     expect(elapsedLabel(120)).toBe("2m");
     expect(elapsedLabel(3600)).toBe("1h");
     expect(elapsedLabel(7200)).toBe("2h");
     expect(elapsedLabel(9000)).toBe("2h 30m");
+  });
+
+  it("maps Material-Symbol icon names onto lucide, with a safe fallback", () => {
+    expect(lucideIcon("local_shipping")).toBe("bike");
+    expect(lucideIcon("storefront")).toBe("store");
+    expect(lucideIcon("fastfood")).toBe("utensils-crossed");
+    expect(lucideIcon("store")).toBe("store"); // already lucide → passthrough
+    expect(lucideIcon("")).toBe("circle"); // empty → fallback
+  });
+
+  it("labels the target SLA compactly", () => {
+    expect(targetLabel(600)).toBe("10m");
+    expect(targetLabel(720)).toBe("12m");
+    expect(targetLabel(5400)).toBe("1h 30m");
+    expect(targetLabel(3600)).toBe("1h");
+  });
+
+  it("fills the time-to-SLA bar (elapsed vs target, clamped 0–100)", () => {
+    expect(slaPercent(0, 600)).toBe(0);
+    expect(slaPercent(300, 600)).toBe(50);
+    expect(slaPercent(600, 600)).toBe(100);
+    expect(slaPercent(1200, 600)).toBe(100); // overdue pins full; tone escalates
+    expect(slaPercent(60, 0)).toBe(0); // no target → no bar
+  });
+
+  it("maps tone to a solid bar fill and a tonal timer chip", () => {
+    expect(toneBar("late")).toContain("red");
+    expect(toneBar("warning")).toContain("amber");
+    expect(toneBar("ok")).not.toMatch(/red|amber|green/); // no prazo = cinza calmo
+    expect(toneTimer("late")).toContain("red");
+    expect(toneTimer("ok")).toContain("muted-foreground");
+  });
+
+  it("paints the next-card surface ton sur ton (neutral when on-time)", () => {
+    expect(toneNextSurface("late")).toContain("red");
+    expect(toneNextSurface("warning")).toContain("amber");
+    expect(toneNextSurface("ok")).not.toMatch(/red|amber|green/);
   });
 
   it("auto-sorts prep tickets by urgency (late first, then oldest)", () => {

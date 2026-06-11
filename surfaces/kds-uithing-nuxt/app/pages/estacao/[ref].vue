@@ -11,16 +11,62 @@ import type { KDSDensity } from "~/components/KdsTicketCard.vue";
 const route = useRoute();
 const stationRef = computed(() => String(route.params.ref || ""));
 
-const { view, pending, error, refresh, soundOn, toggleSound } = useKdsBoard(stationRef.value);
+// Write-side é otimista (toque instantâneo) e mora no composable, junto do estado.
+const { view, pending, error, soundOn, toggleSound, checkItem, finalize, expedite } = useKdsBoard(stationRef.value);
 
-// Density (adjustable text/ticket size — KDS best practice). Persisted per terminal.
-const DENSITIES: { key: KDSDensity; label: string; icon: string; cols: string }[] = [
-  { key: "compact", label: "Compacta", icon: "lucide:grid-3x3", cols: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" },
-  { key: "cozy", label: "Padrão", icon: "lucide:layout-grid", cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" },
-  { key: "roomy", label: "Ampla", icon: "lucide:square", cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3" },
+// Tema: dark-first (cozinha, pouca luz), mas claro disponível pelo toggle.
+const colorMode = useColorMode();
+function toggleTheme() {
+  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
+}
+
+// Relógio em tempo real (client-only; new Date() no SSR causaria mismatch).
+const now = ref<Date | null>(null);
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+const clockTime = computed(() => (now.value ? now.value.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""));
+const clockSec = computed(() => (now.value ? String(now.value.getSeconds()).padStart(2, "0") : ""));
+const clockDate = computed(() =>
+  now.value ? now.value.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).replace(".", "") : "",
+);
+onMounted(() => {
+  now.value = new Date();
+  clockTimer = setInterval(() => (now.value = new Date()), 1000);
+});
+onBeforeUnmount(() => {
+  if (clockTimer) clearInterval(clockTimer);
+});
+
+// Density (adjustable ticket size — KDS best practice). Persisted per terminal.
+// A grade é auto-fill por largura MÍNIMA: os cards mantêm proporção RETRATO (colunas
+// estreitas que empilham os itens em linhas) e enchem a tela em quantas colunas couber,
+// sem depender de breakpoints. Densidade = quão estreito o card pode ser.
+// `min` é a largura MÍNIMA que faz o REF + minutagem caberem com folga numa linha
+// (nunca truncam). A grade preenche em quantas colunas couber a partir daí.
+const DENSITIES: { key: KDSDensity; label: string; icon: string; min: number }[] = [
+  { key: "compact", label: "Compacta", icon: "lucide:grid-3x3", min: 260 },
+  { key: "cozy", label: "Padrão", icon: "lucide:layout-grid", min: 320 },
+  { key: "roomy", label: "Ampla", icon: "lucide:square", min: 390 },
 ];
 const density = ref<KDSDensity>("cozy");
-const densityCols = computed(() => DENSITIES.find((d) => d.key === density.value)?.cols ?? DENSITIES[1]!.cols);
+const gridStyle = computed(() => {
+  const min = DENSITIES.find((d) => d.key === density.value)?.min ?? 300;
+  return { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${min}px), 1fr))` };
+});
+
+// Busca: filtra os cards por código, cliente ou item (útil pra consulta e na
+// expedição; no preparo você faz o próximo). Contadores/all-day seguem o total da
+// estação — a busca só filtra a grade.
+const query = ref("");
+function matchesQuery(card: KDSTicketProjection | KDSExpeditionCardProjection, q: string): boolean {
+  const ref_ = "order_ref" in card ? card.order_ref : card.ref;
+  const hay = [ref_, card.customer_name, ...("items" in card ? card.items.map((i) => i.name) : [])].join(" ").toLowerCase();
+  return hay.includes(q);
+}
+const filteredCards = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q || !view.value) return view.value?.cards ?? [];
+  return view.value.cards.filter((c) => matchesQuery(c, q));
+});
 function cycleDensity() {
   const i = DENSITIES.findIndex((d) => d.key === density.value);
   density.value = DENSITIES[(i + 1) % DENSITIES.length]!.key;
@@ -30,28 +76,6 @@ onMounted(() => {
   const stored = localStorage.getItem("kds.density");
   if (stored === "compact" || stored === "cozy" || stored === "roomy") density.value = stored;
 });
-
-const busy = ref(false);
-async function write(path: string, body?: Record<string, unknown>) {
-  if (busy.value) return;
-  busy.value = true;
-  try {
-    await $fetch(path, { method: "POST", body: body ?? {} });
-    await refresh();
-  } catch (err: any) {
-    // Surface the failure — a silent KDS write is dangerous (the operator thinks
-    // it landed). The board refresh still reconciles to the true server state.
-    useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
-    await refresh();
-  } finally {
-    busy.value = false;
-  }
-}
-const checkItem = (pk: number, index: number, checked: boolean) =>
-  write(`/api/v1/backstage/kds/tickets/${pk}/items/`, { index, checked });
-const finalize = (pk: number) => write(`/api/v1/backstage/kds/tickets/${pk}/done/`);
-const expedite = (pk: number, action: "dispatch" | "complete") =>
-  write(`/api/v1/backstage/kds/expedition/${pk}/action/`, { action });
 
 // Detail modal: the prep card is glanceable; tapping opens the work (items +
 // finalize). The open ticket tracks live data (re-derived from the refreshed view).
@@ -65,8 +89,8 @@ const openTicket = computed<KDSTicketProjection | null>(() => {
 function setModalOpen(value: boolean) {
   if (!value) openTicketPk.value = null;
 }
-async function finalizeFromModal(pk: number) {
-  await finalize(pk);
+function finalizeFromModal(pk: number) {
+  finalize(pk); // otimista — fecha o modal na hora
   openTicketPk.value = null;
 }
 
@@ -78,48 +102,87 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
 <template>
   <main class="flex min-h-screen flex-col">
     <!-- context bar -->
-    <header class="flex shrink-0 flex-wrap items-center gap-3 border-b bg-card px-4 py-3">
-      <NuxtLink to="/" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" aria-label="Trocar de estação">
-        <Icon name="lucide:grid-2x2" class="size-4" />
+    <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5">
+      <!-- identidade -->
+      <NuxtLink to="/" class="grid size-9 shrink-0 place-items-center rounded-md border bg-card text-foreground transition hover:bg-accent" aria-label="Início — trocar de estação" title="KDS — trocar de estação">
+        <Icon name="lucide:utensils" class="size-4" />
       </NuxtLink>
-      <div class="min-w-0">
-        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div class="mr-auto min-w-0">
+        <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
           {{ view?.isExpedition ? "Expedição" : "Estação KDS" }}
         </p>
-        <h1 class="truncate text-xl font-semibold leading-tight">{{ view?.instanceName || stationRef }}</h1>
+        <h1 class="truncate text-lg font-bold leading-tight">{{ view?.instanceName || stationRef }}</h1>
       </div>
-      <div class="ml-auto flex items-center gap-2">
-        <span v-if="view" class="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
-          {{ view.total }} ativos
-        </span>
-        <span v-if="view?.counts.pending" class="rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400">
-          {{ view.counts.pending }} pendentes
-        </span>
-        <span v-if="view?.counts.in_progress" class="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-          {{ view.counts.in_progress }} em preparo
-        </span>
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" :aria-label="`Densidade: ${density}`" title="Densidade da grade" @click="cycleDensity">
+
+      <!-- relógio em tempo real -->
+      <ClientOnly>
+        <div v-if="now" class="flex flex-col items-end leading-none">
+          <span class="text-lg font-bold tabular-nums">{{ clockTime }}<span class="text-sm font-medium text-muted-foreground">:{{ clockSec }}</span></span>
+          <span class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">{{ clockDate }}</span>
+        </div>
+      </ClientOnly>
+
+      <!-- contadores: neutros e padronizados (cor reservada à urgência dos cards) -->
+      <div v-if="view" class="flex items-baseline gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-sm">
+        <span class="font-bold tabular-nums">{{ view.total }}</span>
+        <span class="text-xs text-muted-foreground">ativos</span>
+        <template v-if="view.counts.in_progress">
+          <span class="text-muted-foreground/40">·</span>
+          <span class="font-bold tabular-nums">{{ view.counts.in_progress }}</span>
+          <span class="text-xs text-muted-foreground">em preparo</span>
+        </template>
+      </div>
+
+      <!-- controles -->
+      <div class="flex items-center gap-1.5">
+        <div class="relative">
+          <Icon name="lucide:search" class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            v-model="query"
+            type="search"
+            inputmode="search"
+            placeholder="Buscar pedido…"
+            class="h-9 w-36 rounded-md border bg-background pl-8 pr-7 text-sm outline-none transition focus:w-48 focus:ring-1 focus:ring-ring sm:w-44"
+            aria-label="Buscar pedido por código, cliente ou item"
+          />
+          <button v-if="query" type="button" class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:text-foreground" aria-label="Limpar busca" @click="query = ''">
+            <Icon name="lucide:x" class="size-3.5" />
+          </button>
+        </div>
+        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="`Densidade: ${density}`" title="Densidade da grade" @click="cycleDensity">
           <Icon :name="DENSITIES.find((d) => d.key === density)?.icon || 'lucide:layout-grid'" class="size-4" />
         </button>
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" :aria-label="soundOn ? 'Som ativo' : 'Som desativado'" @click="toggleSound">
+        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="soundOn ? 'Som ativo' : 'Som desativado'" title="Som" @click="toggleSound">
           <Icon :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
         </button>
-        <NuxtLink to="/cliente" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" aria-label="Tela do cliente">
+        <ClientOnly>
+          <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="colorMode.value === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'" title="Tema" @click="toggleTheme">
+            <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
+          </button>
+          <template #fallback>
+            <span class="grid size-9 place-items-center rounded-md border text-muted-foreground"><Icon name="lucide:sun" class="size-4" /></span>
+          </template>
+        </ClientOnly>
+        <NuxtLink to="/cliente" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Tela do cliente" title="Tela do cliente">
           <Icon name="lucide:monitor" class="size-4" />
         </NuxtLink>
       </div>
     </header>
 
-    <!-- all-day: o que falta fazer somando os pedidos (mise en place / prep em lote) -->
-    <div v-if="view && !view.isExpedition && view.allDay.length" class="flex shrink-0 items-center gap-2 overflow-x-auto border-b bg-card/60 px-4 py-2 no-scrollbar">
-      <span class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">A fazer</span>
+    <!-- all-day: o que falta fazer somando os pedidos (mise en place / prep em lote).
+         Bem legível — é uma das infos mais úteis da estação. -->
+    <div v-if="view && !view.isExpedition && view.allDay.length" class="flex shrink-0 items-center gap-2.5 overflow-x-auto border-b bg-muted/40 px-4 py-2.5 no-scrollbar">
+      <span class="flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <Icon name="lucide:clipboard-list" class="size-4" />
+        A fazer
+      </span>
       <span
         v-for="entry in view.allDay"
         :key="entry.name"
-        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-sm"
+        class="inline-flex shrink-0 items-center gap-2 rounded-md border bg-background px-3 py-1.5"
       >
-        <strong class="tabular-nums">{{ entry.qty }}×</strong>
-        <span class="text-muted-foreground">{{ entry.name }}</span>
+        <span class="text-base font-bold tabular-nums">{{ entry.qty }}×</span>
+        <span class="text-sm font-medium">{{ entry.name }}</span>
       </span>
     </div>
 
@@ -141,31 +204,52 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
           </article>
         </div>
 
-        <!-- empty -->
-        <div v-if="!view.cards.length" class="grid place-items-center rounded-md border border-dashed py-16 text-center">
-          <Icon name="lucide:check-check" class="mb-3 size-10 text-muted-foreground" />
-          <p class="text-base font-semibold">Nenhum pedido ativo nesta estação.</p>
+        <!-- empty — estação zerada: estado calmo/acolhedor (omotenashi) -->
+        <div v-if="!view.cards.length" class="grid place-items-center gap-3 rounded-md border border-dashed py-20 text-center">
+          <div class="grid size-16 place-items-center rounded-full bg-green-500/10 text-green-400">
+            <Icon name="lucide:coffee" class="size-8" />
+          </div>
+          <p class="text-2xl font-bold">Tudo em dia</p>
+          <p class="max-w-sm text-base text-muted-foreground">
+            Nenhum pedido na fila agora. Aproveite para respirar — a gente avisa quando o próximo chegar.
+          </p>
         </div>
 
-        <!-- cards (auto-sorted by urgency; density-adaptive grid) -->
-        <div v-else class="grid items-start gap-3" :class="densityCols">
-          <template v-for="card in view.cards" :key="card.pk">
-            <KdsExpeditionCard
-              v-if="isExpeditionCard(card)"
-              :card="asExpedition(card)"
-              :busy="busy"
-              :density="density"
-              @action="(action) => expedite(card.pk, action)"
-            />
-            <KdsTicketCard
-              v-else
-              :ticket="asTicket(card)"
-              :busy="busy"
-              :density="density"
-              @open="openTicketPk = card.pk"
-            />
-          </template>
+        <!-- busca sem resultado -->
+        <div v-else-if="!filteredCards.length" class="grid place-items-center gap-2 rounded-md border border-dashed py-16 text-center">
+          <Icon name="lucide:search-x" class="size-10 text-muted-foreground" />
+          <p class="text-base font-semibold">Nenhum pedido para “{{ query.trim() }}”.</p>
+          <button type="button" class="text-sm font-medium text-muted-foreground underline-offset-2 hover:underline" @click="query = ''">Limpar busca</button>
         </div>
+
+        <!-- grade uniforme, auto-ordenada por urgência. O 1º card de preparo é o
+             "próximo" — pintado ton sur ton (sem posição/tamanho especial). A ordem
+             é indicada aqui na seção, não dentro do card. -->
+        <template v-else>
+          <p v-if="!view.isExpedition && !query" class="mb-2.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <Icon name="lucide:arrow-down-wide-narrow" class="size-3.5" />
+            Mais urgente primeiro — o destacado é o próximo
+          </p>
+          <TransitionGroup tag="div" name="kds-card" class="grid items-start gap-3" :style="gridStyle">
+            <div v-for="(card, idx) in filteredCards" :key="card.pk">
+              <KdsExpeditionCard
+                v-if="isExpeditionCard(card)"
+                :card="asExpedition(card)"
+                :density="density"
+                @action="(action) => expedite(card.pk, action)"
+              />
+              <KdsTicketCard
+                v-else
+                :ticket="asTicket(card)"
+                :density="density"
+                :next="!query && !view.isExpedition && idx === 0"
+                @open="openTicketPk = card.pk"
+                @check="(i, checked) => checkItem(card.pk, i, checked)"
+                @done="finalize(card.pk)"
+              />
+            </div>
+          </TransitionGroup>
+        </template>
       </template>
     </section>
 
@@ -173,10 +257,35 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
     <KdsTicketModal
       :open="openTicket != null"
       :ticket="openTicket"
-      :busy="busy"
       @update:open="setModalOpen"
       @check-item="(idx, checked) => openTicket && checkItem(openTicket.pk, idx, checked)"
       @done="openTicket && finalizeFromModal(openTicket.pk)"
     />
   </main>
 </template>
+
+<style scoped>
+/* Transição da grade: ao finalizar, o card sai com um respiro (bump) e a fila desliza
+   pra cima (FLIP) — o próximo "assume o foco" e sua cor pinta suave (via .transition do
+   card). Novos pedidos entram com o mesmo respiro. */
+.kds-card-move {
+  transition: transform 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.kds-card-enter-active,
+.kds-card-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.kds-card-enter-from,
+.kds-card-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kds-card-move,
+  .kds-card-enter-active,
+  .kds-card-leave-active {
+    transition: none;
+  }
+}
+</style>

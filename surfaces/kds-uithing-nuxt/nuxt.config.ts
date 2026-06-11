@@ -70,7 +70,7 @@ export default defineNuxtConfig({
       title: "Shopman KDS",
       meta: [
         { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-        { name: "theme-color", content: "#fafafa" },
+        { name: "theme-color", content: "#0a0a0a" },
         { name: "robots", content: "noindex, nofollow" },
       ],
     },

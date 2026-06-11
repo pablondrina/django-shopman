@@ -4,7 +4,7 @@
 //   - SSE realtime: EventSource on the Django events channel → refresh on push,
 //     and a beep when the active-ticket count rises (new order arrived).
 // SSE/poll/beep are client-only (EventSource + Web Audio are browser APIs).
-import type { KDSBoardProjection, KDSBoardResponse } from "~/types/kds";
+import type { KDSBoardProjection, KDSBoardResponse, KDSTicketProjection } from "~/types/kds";
 import { boardView, type KDSBoardView } from "~/presentation/board";
 
 export function useKdsBoard(stationRef: string) {
@@ -83,10 +83,65 @@ export function useKdsBoard(stationRef: string) {
     connectSse();
   });
 
+  // ---- write-side: otimista + fila serial + reconciliação ----
+  // Toque instantâneo: a UI muda na hora, o POST vai em segundo plano e a fila serial
+  // preserva a ordem; uma reconciliação (refresh) ~500ms depois confere com a verdade
+  // do servidor. Em falha, reverte o estado local + avisa. Sem `busy` bloqueando —
+  // numa cozinha em ritmo, toques em sequência não podem ser descartados.
+  let chain: Promise<unknown> = Promise.resolve();
+  let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleReconcile() {
+    if (reconcileTimer) clearTimeout(reconcileTimer);
+    reconcileTimer = setTimeout(() => refresh(), 500);
+  }
+
+  function enqueue(path: string, body?: Record<string, unknown>) {
+    const run = chain.then(() => $fetch(path, { method: "POST", body: body ?? {} }));
+    chain = run.then(() => undefined, () => undefined); // mantém a fila viva após erro
+    return run;
+  }
+
+  function checkItem(pk: number, index: number, checked: boolean) {
+    const t = data.value?.board?.tickets?.find((x) => x.pk === pk && "items" in x) as KDSTicketProjection | undefined;
+    const item = t?.items?.[index];
+    if (!t || !item) return;
+    const prev = item.checked;
+    item.checked = checked; // otimista
+    t.all_checked = t.items.every((i) => i.checked);
+    enqueue(`/api/v1/backstage/kds/tickets/${pk}/items/`, { index, checked })
+      .then(() => scheduleReconcile())
+      .catch((err: any) => {
+        item.checked = prev; // reverte
+        t.all_checked = t.items.every((i) => i.checked);
+        useSonner.error(err?.data?.detail || "Falha ao marcar item.");
+        refresh();
+      });
+  }
+
+  function removeAndPost(pk: number, path: string, body?: Record<string, unknown>) {
+    const list = data.value?.board?.tickets;
+    const idx = list?.findIndex((x) => x.pk === pk) ?? -1;
+    if (!list || idx < 0) return;
+    const [removed] = list.splice(idx, 1); // bump otimista — o card some na hora
+    enqueue(path, body)
+      .then(() => scheduleReconcile())
+      .catch((err: any) => {
+        data.value?.board?.tickets?.splice(idx, 0, removed); // recoloca em caso de falha
+        useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+        refresh();
+      });
+  }
+
+  const finalize = (pk: number) => removeAndPost(pk, `/api/v1/backstage/kds/tickets/${pk}/done/`);
+  const expedite = (pk: number, action: "dispatch" | "complete") =>
+    removeAndPost(pk, `/api/v1/backstage/kds/expedition/${pk}/action/`, { action });
+
   onBeforeUnmount(() => {
     if (pollTimer) clearInterval(pollTimer);
+    if (reconcileTimer) clearTimeout(reconcileTimer);
     if (source) { source.close(); source = null; }
   });
 
-  return { board, view, pending, error, refresh, soundOn, toggleSound };
+  return { board, view, pending, error, refresh, soundOn, toggleSound, checkItem, finalize, expedite };
 }
