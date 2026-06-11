@@ -10,5 +10,6 @@ useHead({ title: "Shopman KDS" });
   <div class="min-h-screen bg-background text-foreground">
     <NuxtRouteAnnouncer />
     <NuxtPage />
+    <UiSonner />
   </div>
 </template>

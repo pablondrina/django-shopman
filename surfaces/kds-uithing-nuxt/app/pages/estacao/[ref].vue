@@ -19,8 +19,11 @@ async function write(path: string, body?: Record<string, unknown>) {
   try {
     await $fetch(path, { method: "POST", body: body ?? {} });
     await refresh();
-  } catch {
-    /* surface lightly; the board refresh reconciles on next poll/SSE */
+  } catch (err: any) {
+    // Surface the failure — a silent KDS write is dangerous (the operator thinks
+    // it landed). The board refresh still reconciles to the true server state.
+    useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+    await refresh();
   } finally {
     busy.value = false;
   }
