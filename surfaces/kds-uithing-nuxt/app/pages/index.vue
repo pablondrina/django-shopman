@@ -8,8 +8,8 @@ const instances = computed(() => data.value?.instances ?? []);
 
 function typeIcon(type: string): string {
   if (type === "expedition") return "lucide:package-check";
-  if (type === "separation") return "lucide:layers";
-  return "lucide:cooking-pot";
+  if (type === "picking") return "lucide:layers";
+  return "lucide:cooking-pot"; // prep
 }
 </script>
 
@@ -45,9 +45,10 @@ function typeIcon(type: string): string {
           </span>
           <span
             v-if="inst.pending_count"
-            class="shrink-0 rounded-full border border-cyan-500/40 bg-cyan-500/15 px-3 py-1 text-sm font-bold tabular-nums text-cyan-300"
+            class="inline-flex shrink-0 items-baseline gap-1 rounded-full bg-muted px-3 py-1 text-sm font-bold tabular-nums"
           >
             {{ inst.pending_count }}
+            <span class="text-xs font-medium text-muted-foreground">na fila</span>
           </span>
           <Icon name="lucide:chevron-right" class="size-5 shrink-0 text-muted-foreground" />
         </NuxtLink>
