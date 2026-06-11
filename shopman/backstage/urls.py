@@ -36,23 +36,8 @@ urlpatterns = [
     # Customer pickup board
     path("operacao/kds/cliente/", views.kds_customer_board_view, name="kds_customer_board"),
     path("operacao/kds/cliente/pedidos/", views.kds_customer_board_orders_view, name="kds_customer_board_orders"),
-    # POS (Balcão)
-    path("gestor/pos/", views.pos_view, name="pos"),
-    path("gestor/pos/customer-lookup/", views.pos_customer_lookup, name="pos_customer_lookup"),
-    path("gestor/pos/close/", views.pos_close, name="pos_close"),
-    path("gestor/pos/cancel-last/", views.pos_cancel_last, name="pos_cancel_last"),
-    path("gestor/pos/shift-summary/", views.pos_shift_summary, name="pos_shift_summary"),
-    path("gestor/pos/tabs/", views.pos_tabs, name="pos_tabs"),
-    path("gestor/pos/tab/open/", views.pos_tab_open, name="pos_tab_open"),
-    path("gestor/pos/tab/<str:tab_ref>/open/", views.pos_tab_open, name="pos_tab_open_code"),
-    path("gestor/pos/tab/create/", views.pos_tab_create, name="pos_tab_create"),
-    path("gestor/pos/tab/save/", views.pos_tab_save, name="pos_tab_save"),
-    path("gestor/pos/tab/<str:session_key>/clear/", views.pos_tab_clear, name="pos_tab_clear"),
-    path("gestor/pos/caixa/abrir/", views.pos_cash_open, name="pos_cash_open"),
-    path("gestor/pos/caixa/sangria/", views.pos_cash_sangria, name="pos_cash_sangria"),
-    path("gestor/pos/caixa/fechar/", views.pos_cash_close, name="pos_cash_close"),
-    path("gestor/pos/operator/unlock/", views.pos_operator_unlock, name="pos_operator_unlock"),
-    path("gestor/pos/operator/lock/", views.pos_operator_lock, name="pos_operator_lock"),
+    # POS migrou para Nuxt (surfaces/pos-uithing-nuxt via api/v1/backstage/pos/*);
+    # a camada de view POS-HTMX foi removida (SURFACE-CONVERGENCE-PLAN WP1).
     # Production
     path("gestor/producao/kds/", views.production_kds_view, name="production_kds"),
     path("gestor/producao/kds/cards/", views.production_kds_cards_view, name="production_kds_cards"),

@@ -207,8 +207,9 @@ class POSShiftSummaryProjection:
     total_display: str
     pickup_count: int
     delivery_count: int
-    cash_total_display: str
-    digital_total_display: str
+    # Caixa cego (§2.6): o breakdown esperado (cash/digital) NÃO viaja no payload —
+    # a contagem é cega e a conferência (esperado×contado) vive no gestor/Unfold.
+    # (Removido com a morte do POS-HTMX legado que o consumia — WP1.)
     last_ref: str
     last_total_display: str
     cod_pending_count: int
@@ -378,8 +379,6 @@ def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSu
     shift_total_q = qs.aggregate(t=Sum("total_q"))["t"] or 0
     pickup_count = 0
     delivery_count = 0
-    cash_total_q = 0
-    digital_total_q = 0
     cod_pending_count = 0
     cod_pending_q = 0
     for order in qs:
@@ -392,13 +391,6 @@ def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSu
         if payment.get("collection") == "on_delivery" and not payment.get("cod_settled_at"):
             cod_pending_count += 1
             cod_pending_q += int(order.total_q or 0)
-            continue
-        if payment.get("cash_received_q") is not None:
-            cash_total_q += int(payment.get("cash_received_q") or 0)
-        elif payment.get("method") == "cash" and payment.get("collection", "terminal") != "on_delivery":
-            cash_total_q += int(payment.get("cash_received_q") or order.total_q or 0)
-        else:
-            digital_total_q += int(order.total_q or 0)
 
     last_order = qs.order_by("-created_at").first()
 
@@ -407,8 +399,6 @@ def build_pos_shift_summary(*, channel_ref: str = POS_CHANNEL_REF) -> POSShiftSu
         total_display=format_money(shift_total_q),
         pickup_count=pickup_count,
         delivery_count=delivery_count,
-        cash_total_display=format_money(cash_total_q),
-        digital_total_display=format_money(digital_total_q),
         last_ref=last_order.ref if last_order else "",
         last_total_display=format_money(last_order.total_q) if last_order else "",
         cod_pending_count=cod_pending_count,

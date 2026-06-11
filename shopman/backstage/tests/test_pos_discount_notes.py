@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import json
-
-from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from shopman.orderman.ids import generate_session_key
-from shopman.orderman.models import Order, Session
+from shopman.orderman.models import Session
 from shopman.orderman.services.modify import ModifyService
 
-from shopman.backstage.models import POSTab
-from shopman.backstage.projections.pos import build_open_tab
 from shopman.shop.models import Channel
-from shopman.shop.services import pos as pos_service
 
 
 def _make_channel():
@@ -113,115 +107,3 @@ class ManualDiscountModifierTests(TestCase):
 
         pricing = session.pricing or {}
         self.assertLessEqual(pricing["manual_discount"]["total_discount_q"], 500)
-
-
-class POSCloseWithDiscountTests(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        from shopman.shop.models import Shop
-        Shop.objects.create(name="Test Shop", brand_name="Test")
-        _make_channel()
-        from shopman.offerman.models import Product
-        Product.objects.create(sku="POS-ITEM-1", name="Item 1", base_price_q=1000, is_published=True, is_sellable=True)
-        User = get_user_model()
-        self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)
-        _grant_pos_perm(self.staff)
-        from shopman.backstage.models import CashShift, POSTerminal
-
-        CashShift.objects.create(
-            operator=self.staff,
-            terminal=POSTerminal.default(),
-            opening_amount_q=0,
-        )
-
-    def _close_sale(self, items, manual_discount=None, manager_approval=None):
-        POSTab.objects.get_or_create(ref="00001007", defaults={"label": "1007"})
-        opened = build_open_tab(pos_service.open_pos_tab(
-            channel_ref="pdv",
-            tab_ref="1007",
-            actor=f"pos:{self.staff.username}",
-            operator_username=self.staff.username,
-        ))
-        payload = {
-            "items": items,
-            "customer_name": "",
-            "customer_phone": "",
-            "payment_method": "cash",
-            "manual_discount": manual_discount,
-            "manager_approval": manager_approval,
-            "tab_ref": opened["tab_ref"],
-            "tab_session_key": opened["tab_session_key"],
-        }
-        self.client.force_login(self.staff)
-        return self.client.post(
-            "/gestor/pos/close/",
-            {"payload": json.dumps(payload)},
-        )
-
-    def test_close_without_discount(self) -> None:
-        """POS close works without manual discount."""
-        resp = self._close_sale([{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}])
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "data-order-ref")
-
-    def test_close_with_discount_payload_accepted(self) -> None:
-        """POS close accepts manual_discount in payload."""
-        resp = self._close_sale(
-            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "notes": "sem açúcar"}],
-            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-        )
-        self.assertEqual(resp.status_code, 200)
-
-    @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
-    def test_close_with_discount_requires_manager_approval_when_configured(self) -> None:
-        resp = self._close_sale(
-            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
-            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-        )
-
-        self.assertEqual(resp.status_code, 422)
-        self.assertIn("aprovação gerencial", resp.content.decode().lower())
-
-    @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
-    def test_close_with_discount_accepts_manager_approval(self) -> None:
-        from shopman.doorman.models import PinCredential
-
-        User = get_user_model()
-        manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
-        _grant_adjust_cashshift_perm(manager)
-        PinCredential.set_for(manager, "4321")
-
-        resp = self._close_sale(
-            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
-            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-            manager_approval={"username": "pos_manager", "pin": "4321"},
-        )
-
-        self.assertEqual(resp.status_code, 200)
-        order = Order.objects.latest("created_at")
-        self.assertEqual(order.data["manual_discount"]["approved_by"], "pos_manager")
-
-    @override_settings(SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q=50)
-    def test_close_with_discount_rejects_wrong_manager_pin(self) -> None:
-        from shopman.doorman.models import PinCredential
-
-        User = get_user_model()
-        manager = User.objects.create_user(username="pos_manager", password="secret", is_staff=True)
-        _grant_adjust_cashshift_perm(manager)
-        PinCredential.set_for(manager, "4321")
-
-        resp = self._close_sale(
-            [{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}],
-            manual_discount={"type": "percent", "value": 10, "discount_q": 100, "reason": "cortesia"},
-            manager_approval={"username": "pos_manager", "pin": "0000"},
-        )
-
-        self.assertEqual(resp.status_code, 422)
-        self.assertIn("aprovação gerencial", resp.content.decode().lower())
-
-    def test_close_with_item_note(self) -> None:
-        """Item notes are accepted in payload and stored in canonical meta."""
-        resp = self._close_sale([{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000, "notes": "extra picante"}])
-        self.assertEqual(resp.status_code, 200)
-        order = Order.objects.latest("created_at")
-        self.assertEqual(order.items.get().meta, {"notes": "extra picante"})

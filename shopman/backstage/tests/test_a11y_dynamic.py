@@ -136,19 +136,6 @@ def _has_main_landmark(html: str, surface: str) -> None:
 
 
 @pytest.mark.django_db
-def test_a11y_pos_surface(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:pos"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "POS")
-    _assert_no_heading_level_jump(html, "POS")
-    _buttons_have_accessible_name(html, "POS")
-    _dialogs_are_well_formed(html, "POS")
-
-
-@pytest.mark.django_db
 def test_a11y_kds_picker(client, superuser, kds_station):
     client.force_login(superuser)
     response = client.get(reverse("backstage:kds_station_picker"))
@@ -256,12 +243,12 @@ def test_a11y_pedidos_detail_partial_has_progressbar_when_awaiting(client, super
 
 
 @pytest.mark.django_db
-def test_a11y_alerts_panel_announces_via_live_region(client, superuser):
+def test_a11y_alerts_panel_announces_via_live_region(client, superuser, kds_station):
     """The shell wrapper #operator-alerts-panel must declare a live region so
     new alerts are announced by screen readers."""
     client.force_login(superuser)
-    # Render a full surface (not the partial) so the shell with the live region is included
-    response = client.get(reverse("backstage:pos"))
+    # Render a full operator surface (not the partial) so the shell with the live region is included
+    response = client.get(reverse("backstage:kds_station_runtime", args=[kds_station.ref]))
     assert response.status_code == 200
     html = response.content.decode("utf-8")
     panel_pos = html.find('id="operator-alerts-panel"')

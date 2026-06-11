@@ -455,35 +455,9 @@ def test_storefront_cart_delegates_write_mutations():
         )
 
 
-def test_backstage_pos_delegates_write_mutations():
-    """Backstage POS views must route order/session mutations through shop POS services."""
-    path = BACKSTAGE_ROOT / "views" / "pos.py"
-    violations: list[tuple[Path, int, str]] = []
-
-    forbidden_imports = (
-        "shopman.orderman",
-        "shopman.guestman",
-        "shopman.shop.services.sessions",
-        "shopman.shop.services.cancellation",
-    )
-    for line, module in _imports(path):
-        if _matches_prefix(module, forbidden_imports):
-            violations.append((path, line, module))
-
-    tree = ast.parse(path.read_text(), filename=str(path))
-    forbidden_calls = {"modify_session", "commit_session", "create_session", "assign_handle"}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            if node.func.attr in forbidden_calls or node.func.attr == "transition_status":
-                violations.append((path, node.lineno, node.func.attr))
-
-    if violations:
-        pytest.fail(
-            "Backstage POS performed order/session mutations directly:\n"
-            f"{_format_violations(violations)}\n\n"
-            "Keep POS views focused on permissions, parsing, and rendering; route "
-            "order/session writes through shopman.shop.services.pos."
-        )
+# O boundary "POS views delegam writes aos services" saiu com a view POS-HTMX
+# (SURFACE-CONVERGENCE-PLAN WP1). O POS agora é o Nuxt sobre api/v1/backstage/pos/*,
+# cuja camada de write são os próprios services (contrato headless adr-012/014).
 
 
 # ──────────────────────────────────────────────────────────────────────

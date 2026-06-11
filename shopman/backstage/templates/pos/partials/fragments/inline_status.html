@@ -1,2 +1,0 @@
-{% comment %}Small inline status span for POS tab save/create/clear flows.{% endcomment %}
-<span class="text-xs {% if frag.tone == "muted" %}text-on-surface/50 dark:text-on-surface-dark/50{% else %}text-{{ frag.tone }}{% endif %}{% if frag.bold %} font-semibold{% endif %}"{% if frag.tab_ref %} data-tab-ref="{{ frag.tab_ref }}"{% endif %}{% if frag.code %} data-error-code="{{ frag.code }}"{% endif %}{% if frag.focus %} data-focus-target="{{ frag.focus }}"{% endif %}>{{ frag.text }}</span>

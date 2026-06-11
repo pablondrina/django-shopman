@@ -107,19 +107,19 @@ class TestOperatePosPerm(TestCase):
     def test_staff_without_perm_gets_403(self):
         u = _staff("pos_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
         u = _staff("pos_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super_pos", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 200)
 
 
@@ -141,7 +141,7 @@ class TestCashierGroup(TestCase):
 
     def test_cashier_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_cashier_cannot_access_kds(self):
@@ -169,7 +169,7 @@ class TestKitchenGroup(TestCase):
 
     def test_kitchen_cannot_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_kitchen_cannot_access_orders(self):
@@ -196,7 +196,7 @@ class TestManagerGroup(TestCase):
 
     def test_manager_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pos/")
+        resp = self.client.get("/api/v1/backstage/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_manager_cannot_access_kds(self):

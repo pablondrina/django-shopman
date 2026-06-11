@@ -42,7 +42,7 @@ def _no_positive_tabindex(html: str, surface: str) -> None:
 def test_skip_link_present_in_shell(client, superuser):
     """Pressing Tab once after page load must reveal a skip link to main content."""
     client.force_login(superuser)
-    response = client.get(reverse("backstage:pos"))
+    response = client.get(reverse("backstage:kds_station_picker"))
     html = response.content.decode("utf-8")
     assert 'href="#backstage-main"' in html, "skip link to main missing"
     assert "Pular para o conteúdo principal" in html
@@ -52,7 +52,6 @@ def test_skip_link_present_in_shell(client, superuser):
 @pytest.mark.django_db
 def test_no_positive_tabindex_anywhere(client, superuser):
     surfaces = [
-        ("backstage:pos", []),
         ("backstage:kds_station_picker", []),
         ("admin_console_orders", []),
         ("admin_console_production", []),
@@ -89,16 +88,6 @@ def test_dialogs_in_templates_contain_focusable_elements():
 
 
 @pytest.mark.django_db
-def test_csrf_form_buttons_have_accessible_names_in_pos(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:pos"))
-    html = response.content.decode("utf-8")
-    # Each <form> with method=post should have a <button type="submit"> reachable
-    submit_count = html.count('type="submit"')
-    assert submit_count >= 1, "POS surface should expose at least one submit button"
-
-
-@pytest.mark.django_db
 def test_modals_use_aria_modal_when_role_dialog(client, superuser):
     """Whenever role=dialog is rendered server-side, aria-modal must be set."""
     client.force_login(superuser)
@@ -111,7 +100,7 @@ def test_modals_use_aria_modal_when_role_dialog(client, superuser):
 @pytest.mark.django_db
 def test_navigation_landmark_labelled(client, superuser):
     client.force_login(superuser)
-    response = client.get(reverse("backstage:pos"))
+    response = client.get(reverse("backstage:kds_station_picker"))
     html = response.content.decode("utf-8")
     nav_match = re.search(r"<(?:nav|aside)[^>]*role=\"navigation\"[^>]*>", html)
     if not nav_match:

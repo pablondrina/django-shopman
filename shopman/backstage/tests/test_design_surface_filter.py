@@ -75,22 +75,14 @@ def test_backstage_templates_avoid_micro_type_and_loose_dashes():
         assert " — " not in source, name
 
 
-def test_backstage_pos_uses_composition_components_instead_of_local_one_offs():
-    pos = (TEMPLATES / "pos" / "index.html").read_text(encoding="utf-8")
-
-    assert "segmented-action" in pos
-    assert "segmented-action--active" in pos
-    assert "btn-quiet flex-1" in pos
-    assert "surface-modal max-w-sm" in pos
-    assert "badge-warning leading-none" in pos
-    assert "rounded-2xl" not in pos
+# O POS-HTMX (templates/pos/) saiu (SURFACE-CONVERGENCE-PLAN WP1); o POS é o Nuxt
+# (surfaces/pos-uithing-nuxt), com componentes/escala próprios testados lá (vitest).
 
 
 def test_backstage_empty_states_and_icons_use_canonical_scale():
     sources = _template_sources()
 
     assert 'component "unfold/components/table.html"' in sources["admin_console/closing/index.html"]
-    assert "icon-display" in sources["pos/index.html"]
     assert "icon-md" in sources["gestor/base.html"]
 
 

@@ -230,8 +230,6 @@ export interface POSShiftSummaryProjection {
   total_display: string;
   pickup_count: number;
   delivery_count: number;
-  cash_total_display: string;
-  digital_total_display: string;
   last_ref: string;
   last_total_display: string;
   cod_pending_count: number;

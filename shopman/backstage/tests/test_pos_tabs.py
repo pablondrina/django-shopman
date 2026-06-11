@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from shopman.orderman.models import Order, Session
 
@@ -287,78 +284,3 @@ class POSTabSessionTests(TestCase):
         self.assertEqual([tab.ref for tab in build_pos_tabs(channel_ref="pdv", query="ana")], ["00001007"])
         self.assertEqual([tab.ref for tab in build_pos_tabs(channel_ref="pdv", query="1008")], ["00001008"])
 
-    def test_pos_tabs_partial_renders_registered_tabs(self) -> None:
-        User = get_user_model()
-        staff = User.objects.create_user(username="tab_staff", password="x", is_staff=True)
-        _grant_pos_perm(staff)
-        self.client.force_login(staff)
-
-        response = self.client.get("/gestor/pos/tabs/", {"tab_ref": "1007"})
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn("1007", content)
-        self.assertNotIn("1008", content)
-
-    def test_pos_tab_open_accepts_short_display_ref(self) -> None:
-        User = get_user_model()
-        staff = User.objects.create_user(username="tab_open_staff", password="x", is_staff=True)
-        _grant_pos_perm(staff)
-        self.client.force_login(staff)
-
-        response = self.client.post("/gestor/pos/tab/open/", {"tab_ref": "1007"})
-
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertEqual(data["tab_ref"], "00001007")
-        self.assertEqual(data["tab_display"], "1007")
-
-    def test_pos_tab_open_accepts_alphanumeric_ref(self) -> None:
-        User = get_user_model()
-        staff = User.objects.create_user(username="tab_open_alpha_staff", password="x", is_staff=True)
-        _grant_pos_perm(staff)
-        self.client.force_login(staff)
-
-        response = self.client.post("/gestor/pos/tab/open/", {"tab_ref": "mesa ana janela"})
-
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertEqual(data["tab_ref"], "MESA ANA JANELA")
-        self.assertEqual(data["tab_display"], "mesa ana janela")
-        self.assertTrue(POSTab.objects.filter(ref="MESA ANA JANELA", label="mesa ana janela").exists())
-
-    def test_pos_tab_create_registers_short_display_ref(self) -> None:
-        User = get_user_model()
-        staff = User.objects.create_user(username="tab_create_staff", password="x", is_staff=True)
-        _grant_pos_perm(staff)
-        self.client.force_login(staff)
-
-        response = self.client.post("/gestor/pos/tab/create/", {"tab_ref": "1009", "label": "1009"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["HX-Trigger"], "posTabSaved")
-        self.assertTrue(POSTab.objects.filter(ref="00001009", label="1009", is_active=True).exists())
-
-    def test_pos_page_starts_on_tab_selection_mode(self) -> None:
-        from shopman.backstage.models import CashShift
-
-        User = get_user_model()
-        staff = User.objects.create_user(username="tab_page_staff", password="x", is_staff=True)
-        _grant_pos_perm(staff)
-        CashShift.objects.create(operator=staff, opening_amount_q=0)
-        self.client.force_login(staff)
-
-        response = self.client.get("/gestor/pos/")
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn("mode: 'tab_select'", content)
-        self.assertIn("mode === 'checkout'", content)
-        self.assertIn('id="pos-tab-grid"', content)
-        self.assertIn("/gestor/pos/tab/create/", content)
-        self.assertIn("openTabFromInput()", content)
-        self.assertIn("CPF/CNPJ na nota", content)
-        self.assertIn("addTenderedQ(5000)", content)
-        self.assertIn("Pagamento misto", content)
-        self.assertIn("client_request_id", content)
-        self.assertIn("data-product-tile", content)
