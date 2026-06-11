@@ -53,6 +53,23 @@ const finalize = (pk: number) => write(`/api/v1/backstage/kds/tickets/${pk}/done
 const expedite = (pk: number, action: "dispatch" | "complete") =>
   write(`/api/v1/backstage/kds/expedition/${pk}/action/`, { action });
 
+// Detail modal: the prep card is glanceable; tapping opens the work (items +
+// finalize). The open ticket tracks live data (re-derived from the refreshed view).
+const openTicketPk = ref<number | null>(null);
+const openTicket = computed<KDSTicketProjection | null>(() => {
+  const pk = openTicketPk.value;
+  if (pk == null || !view.value) return null;
+  const card = view.value.cards.find((c) => !isExpeditionCard(c) && c.pk === pk);
+  return (card as KDSTicketProjection) ?? null;
+});
+function setModalOpen(value: boolean) {
+  if (!value) openTicketPk.value = null;
+}
+async function finalizeFromModal(pk: number) {
+  await finalize(pk);
+  openTicketPk.value = null;
+}
+
 // Narrow the union for the template.
 const asTicket = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c as KDSTicketProjection;
 const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c as KDSExpeditionCardProjection;
@@ -145,12 +162,21 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
               :ticket="asTicket(card)"
               :busy="busy"
               :density="density"
-              @check-item="(idx, checked) => checkItem(card.pk, idx, checked)"
-              @done="finalize(card.pk)"
+              @open="openTicketPk = card.pk"
             />
           </template>
         </div>
       </template>
     </section>
+
+    <!-- detail modal (opened from a card) -->
+    <KdsTicketModal
+      :open="openTicket != null"
+      :ticket="openTicket"
+      :busy="busy"
+      @update:open="setModalOpen"
+      @check-item="(idx, checked) => openTicket && checkItem(openTicket.pk, idx, checked)"
+      @done="openTicket && finalizeFromModal(openTicket.pk)"
+    />
   </main>
 </template>

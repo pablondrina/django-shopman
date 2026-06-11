@@ -96,6 +96,20 @@ export function boardView(board: KDSBoardProjection): KDSBoardView {
   };
 }
 
+/** Split an order ref into the repetitive {channel-date-} prefix and the short
+ *  CODE the kitchen actually calls (the suffix after the last hyphen). The code
+ *  gets the visual weight; the prefix recedes. */
+export function splitRef(ref: string): { prefix: string; code: string } {
+  const i = ref.lastIndexOf("-");
+  if (i < 0) return { prefix: "", code: ref };
+  return { prefix: ref.slice(0, i + 1), code: ref.slice(i + 1) };
+}
+
+/** Total unchecked vs total item lines — for the minimal card's progress hint. */
+export function itemProgress(items: { checked: boolean }[]): { done: number; total: number } {
+  return { done: items.filter((i) => i.checked).length, total: items.length };
+}
+
 /** Elapsed seconds → compact "Ns" / "Nm" / "Nh Mm" label for the timer chip. */
 export function elapsedLabel(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));

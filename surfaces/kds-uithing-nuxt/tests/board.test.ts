@@ -5,7 +5,9 @@ import {
   boardView,
   elapsedLabel,
   isExpeditionCard,
+  itemProgress,
   sortByUrgency,
+  splitRef,
   ticketTone,
   toneAccent,
 } from "../app/presentation/board";
@@ -91,6 +93,16 @@ describe("kds board presentation", () => {
     const warn = ticket({ pk: 4, timer_class: "timer-warning", elapsed_seconds: 50 });
     const sorted = sortByUrgency([ok, lateNew, warn, lateOld]);
     expect(sorted.map((c) => (c as KDSTicketProjection).pk)).toEqual([3, 2, 4, 1]);
+  });
+
+  it("splits the ref into a recessive prefix + the hero code", () => {
+    expect(splitRef("IFOOD-260606-2L8Y")).toEqual({ prefix: "IFOOD-260606-", code: "2L8Y" });
+    expect(splitRef("PDV-260606-NMEQ")).toEqual({ prefix: "PDV-260606-", code: "NMEQ" });
+    expect(splitRef("SEMTRACO")).toEqual({ prefix: "", code: "SEMTRACO" });
+  });
+
+  it("reports item progress (done/total)", () => {
+    expect(itemProgress([{ checked: true }, { checked: false }, { checked: false }])).toEqual({ done: 1, total: 3 });
   });
 
   it("aggregates all-day counts of unchecked items", () => {

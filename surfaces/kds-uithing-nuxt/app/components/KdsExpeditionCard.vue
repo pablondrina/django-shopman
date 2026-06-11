@@ -4,12 +4,15 @@
 // counter is the functional accent (cyan vs green); the action is dispatch/complete.
 import type { KDSExpeditionCardProjection } from "~/types/kds";
 import type { KDSDensity } from "~/components/KdsTicketCard.vue";
+import { splitRef } from "~/presentation/board";
 
 const props = withDefaults(
   defineProps<{ card: KDSExpeditionCardProjection; busy?: boolean; density?: KDSDensity }>(),
   { density: "cozy" },
 );
 defineEmits<{ action: [action: "dispatch" | "complete"] }>();
+
+const ref_ = computed(() => splitRef(props.card.ref));
 
 const accent = computed(() => (props.card.is_delivery ? "border-l-cyan-500" : "border-l-green-500"));
 const badge = computed(() =>
@@ -27,9 +30,9 @@ const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.
       <div class="min-w-0">
         <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon v-if="card.channel_icon" :name="`lucide:${card.channel_icon}`" class="size-3.5" />
-          <span>{{ card.fulfillment_label }}</span>
+          <span class="truncate">{{ ref_.prefix }}{{ card.fulfillment_label }}</span>
         </div>
-        <h3 class="break-words font-bold tabular-nums leading-tight" :class="refSize">{{ card.ref }}</h3>
+        <h3 class="break-words font-bold tabular-nums leading-none" :class="refSize">{{ ref_.code }}</h3>
         <p v-if="card.customer_name" class="mt-1 truncate text-sm font-medium text-muted-foreground">{{ card.customer_name }}</p>
       </div>
       <span class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-bold" :class="badge">
