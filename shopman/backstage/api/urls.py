@@ -9,8 +9,10 @@ from .kds import (
     KDSCustomerStatusView,
     KDSExpeditionActionView,
     KDSIndexView,
+    KDSTicketAcknowledgeView,
     KDSTicketDoneView,
     KDSTicketItemView,
+    KDSTicketRecallView,
 )
 from .operations import (
     DayClosingView,
@@ -54,6 +56,8 @@ urlpatterns = [
     path("kds/<slug:ref>/", KDSBoardView.as_view(), name="api-backstage-kds-board"),
     path("kds/tickets/<int:ticket_pk>/items/", KDSTicketItemView.as_view(), name="api-backstage-kds-ticket-item"),
     path("kds/tickets/<int:ticket_pk>/done/", KDSTicketDoneView.as_view(), name="api-backstage-kds-ticket-done"),
+    path("kds/tickets/<int:ticket_pk>/recall/", KDSTicketRecallView.as_view(), name="api-backstage-kds-ticket-recall"),
+    path("kds/tickets/<int:ticket_pk>/acknowledge/", KDSTicketAcknowledgeView.as_view(), name="api-backstage-kds-ticket-acknowledge"),
     path("kds/expedition/<int:order_pk>/action/", KDSExpeditionActionView.as_view(), name="api-backstage-kds-expedition"),
     # Operations — read views
     path("pos/", POSView.as_view(), name="api-backstage-pos"),

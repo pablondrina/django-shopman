@@ -119,23 +119,32 @@ export function useKdsBoard(stationRef: string) {
       });
   }
 
-  function removeAndPost(pk: number, path: string, body?: Record<string, unknown>) {
-    const list = data.value?.board?.tickets;
+  // Remove um card de uma lista do board (tickets / cancelled / recent_done) na hora
+  // e dispara o POST; recoloca + avisa em falha; reconcilia ~500ms depois.
+  function removeFrom(getList: () => any[] | undefined, pk: number, path: string, body?: Record<string, unknown>) {
+    const list = getList();
     const idx = list?.findIndex((x) => x.pk === pk) ?? -1;
     if (!list || idx < 0) return;
-    const [removed] = list.splice(idx, 1); // bump otimista — o card some na hora
+    const [removed] = list.splice(idx, 1);
     enqueue(path, body)
       .then(() => scheduleReconcile())
       .catch((err: any) => {
-        data.value?.board?.tickets?.splice(idx, 0, removed); // recoloca em caso de falha
+        getList()?.splice(idx, 0, removed);
         useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
         refresh();
       });
   }
 
-  const finalize = (pk: number) => removeAndPost(pk, `/api/v1/backstage/kds/tickets/${pk}/done/`);
+  const finalize = (pk: number) =>
+    removeFrom(() => data.value?.board?.tickets, pk, `/api/v1/backstage/kds/tickets/${pk}/done/`);
   const expedite = (pk: number, action: "dispatch" | "complete") =>
-    removeAndPost(pk, `/api/v1/backstage/kds/expedition/${pk}/action/`, { action });
+    removeFrom(() => data.value?.board?.tickets, pk, `/api/v1/backstage/kds/expedition/${pk}/action/`, { action });
+  // Recall: o concluído sai da lista de recentes; a reconciliação o traz de volta ao board ativo.
+  const recall = (pk: number) =>
+    removeFrom(() => data.value?.board?.recent_done, pk, `/api/v1/backstage/kds/tickets/${pk}/recall/`);
+  // Reconhecer cancelado: some do board.
+  const acknowledge = (pk: number) =>
+    removeFrom(() => data.value?.board?.cancelled_tickets, pk, `/api/v1/backstage/kds/tickets/${pk}/acknowledge/`);
 
   onBeforeUnmount(() => {
     if (pollTimer) clearInterval(pollTimer);
@@ -143,5 +152,5 @@ export function useKdsBoard(stationRef: string) {
     if (source) { source.close(); source = null; }
   });
 
-  return { board, view, pending, error, refresh, soundOn, toggleSound, checkItem, finalize, expedite };
+  return { board, view, pending, error, refresh, soundOn, toggleSound, checkItem, finalize, expedite, recall, acknowledge };
 }

@@ -377,6 +377,46 @@ def complete_ticket(ticket, *, actor: str) -> bool:
     return on_all_tickets_done(order, actor=actor)
 
 
+def reopen_ticket(ticket, *, actor: str) -> bool:
+    """Recall a done ticket back to work (operator un-bump / desfazer finalização).
+
+    Reverses ``complete_ticket``: ``done`` → ``in_progress``. If the order had
+    advanced to READY because this was its last open ticket, it is pulled back to
+    PREPARING (it is no longer ready). Best-effort on the order side — the recall
+    of the ticket always lands; the order back-transition only if the lifecycle
+    allows it. Returns False if the ticket was not ``done``.
+    """
+    if ticket.status != "done":
+        return False
+    ticket.status = "in_progress"
+    ticket.completed_at = None
+    ticket.save(update_fields=["status", "completed_at"])
+
+    order = _ticket_order(ticket)
+    if (
+        order is not None
+        and order.status == Order.Status.READY
+        and order.can_transition_to(Order.Status.PREPARING)
+    ):
+        order.transition_status(Order.Status.PREPARING, actor=actor)
+    logger.info("kds_recall ticket=%d session=%s", ticket.pk, ticket.session_key)
+    return True
+
+
+def acknowledge_ticket(ticket, *, actor: str) -> bool:
+    """Operador dá baixa num ticket cancelado — ele sai do board (read-side).
+
+    Não toca no Order (já cancelado); só marca ``acknowledged_at`` para o board
+    parar de mostrar. Idempotente. Retorna False se não estiver cancelado.
+    """
+    if ticket.status != "cancelled" or ticket.acknowledged_at is not None:
+        return False
+    ticket.acknowledged_at = timezone.now()
+    ticket.save(update_fields=["acknowledged_at"])
+    logger.info("kds_ack ticket=%d session=%s actor=%s", ticket.pk, ticket.session_key, actor)
+    return True
+
+
 def expedition_action(order, *, action: str, actor: str) -> str:
     """Apply an expedition action and return the new order status."""
     is_delivery = get_fulfillment_type(order) == "delivery"

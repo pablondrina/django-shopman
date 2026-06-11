@@ -5,14 +5,17 @@
 // the django proxy (CSRF handled there) and refresh. Status color is functional;
 // chrome neutral.
 import type { KDSExpeditionCardProjection, KDSTicketProjection } from "~/types/kds";
-import { isExpeditionCard } from "~/presentation/board";
+import { isExpeditionCard, splitRef } from "~/presentation/board";
 import type { KDSDensity } from "~/components/KdsTicketCard.vue";
 
 const route = useRoute();
 const stationRef = computed(() => String(route.params.ref || ""));
 
 // Write-side é otimista (toque instantâneo) e mora no composable, junto do estado.
-const { view, pending, error, soundOn, toggleSound, checkItem, finalize, expedite } = useKdsBoard(stationRef.value);
+const { view, pending, error, soundOn, toggleSound, checkItem, finalize, expedite, recall, acknowledge } = useKdsBoard(stationRef.value);
+
+// Recall: painel de concluídos recentes (desfazer finalização).
+const recallOpen = ref(false);
 
 // Tema: dark-first (cozinha, pouca luz), mas claro disponível pelo toggle.
 const colorMode = useColorMode();
@@ -155,6 +158,10 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="soundOn ? 'Som ativo' : 'Som desativado'" title="Som" @click="toggleSound">
           <Icon :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
         </button>
+        <button v-if="view && !view.isExpedition && view.recentDone.length" type="button" class="relative grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Concluídos recentes — reabrir" title="Concluídos recentes" @click="recallOpen = true">
+          <Icon name="lucide:rotate-ccw" class="size-4" />
+          <span class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-[0.6rem] font-bold tabular-nums text-background">{{ view.recentDone.length }}</span>
+        </button>
         <ClientOnly>
           <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="colorMode.value === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'" title="Tema" @click="toggleTheme">
             <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
@@ -192,15 +199,26 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         Falha ao carregar o board. Reconectando…
       </p>
       <template v-else-if="view">
-        <!-- cancelled (loud) -->
+        <!-- cancelled (loud — único lugar onde o vermelho é alerta de verdade) -->
         <div v-if="view.cancelled.length" class="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4">
-            <div class="flex items-center gap-2 text-sm font-semibold text-red-400">
-              <Icon name="lucide:ban" class="size-4" />
-              Cancelado{{ t.cancelled_at_display ? ` às ${t.cancelled_at_display}` : "" }}
+          <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 text-sm font-semibold text-red-400">
+                <Icon name="lucide:ban" class="size-4 shrink-0" />
+                Cancelado{{ t.cancelled_at_display ? ` às ${t.cancelled_at_display}` : "" }}
+              </div>
+              <div class="mt-1 break-words text-xl font-bold tabular-nums">{{ t.order_ref }}</div>
+              <p v-if="t.customer_name" class="truncate text-sm text-muted-foreground">{{ t.customer_name }}</p>
             </div>
-            <div class="mt-1 break-words text-xl font-bold tabular-nums">{{ t.order_ref }}</div>
-            <p v-if="t.customer_name" class="truncate text-sm text-muted-foreground">{{ t.customer_name }}</p>
+            <button
+              type="button"
+              class="flex shrink-0 items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 active:scale-[0.98]"
+              aria-label="Dar baixa no cancelado"
+              @click="acknowledge(t.pk)"
+            >
+              <Icon name="lucide:check" class="size-4" />
+              Ciente
+            </button>
           </article>
         </div>
 
@@ -261,6 +279,35 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
       @check-item="(idx, checked) => openTicket && checkItem(openTicket.pk, idx, checked)"
       @done="openTicket && finalizeFromModal(openTicket.pk)"
     />
+
+    <!-- recall: concluídos recentes (desfazer finalização) -->
+    <UiDialog :open="recallOpen" @update:open="recallOpen = Boolean($event)">
+      <UiDialogContent class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+        <UiDialogTitle class="border-b px-5 py-4 text-lg font-bold">Concluídos recentes</UiDialogTitle>
+        <UiDialogDescription class="sr-only">Reabra um pedido finalizado por engano (últimos 30 minutos).</UiDialogDescription>
+        <div class="min-h-0 flex-1 overflow-y-auto p-3">
+          <p v-if="!view || !view.recentDone.length" class="p-6 text-center text-sm text-muted-foreground">Nada concluído nos últimos 30 minutos.</p>
+          <ul v-else class="flex flex-col gap-1.5">
+            <li v-for="t in view.recentDone" :key="t.pk" class="flex items-center justify-between gap-3 rounded-md border p-3">
+              <div class="min-w-0">
+                <p class="truncate text-lg font-bold tabular-nums leading-tight">{{ splitRef(t.order_ref).code }}</p>
+                <p class="truncate text-sm text-muted-foreground">
+                  {{ t.customer_name || t.order_ref }}<template v-if="t.completed_at_display"> · {{ t.completed_at_display }}</template>
+                </p>
+              </div>
+              <button
+                type="button"
+                class="flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold transition hover:bg-accent active:scale-[0.98]"
+                @click="recall(t.pk)"
+              >
+                <Icon name="lucide:rotate-ccw" class="size-4" />
+                Reabrir
+              </button>
+            </li>
+          </ul>
+        </div>
+      </UiDialogContent>
+    </UiDialog>
   </main>
 </template>
 

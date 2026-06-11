@@ -80,6 +80,10 @@ class KDSTicket(models.Model):
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     completed_at = models.DateTimeField("concluído em", null=True, blank=True)
     cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
+    acknowledged_at = models.DateTimeField(
+        "ciente em", null=True, blank=True,
+        help_text="Operador deu baixa no card cancelado — sai do board.",
+    )
 
     class Meta:
         verbose_name = "ticket KDS"

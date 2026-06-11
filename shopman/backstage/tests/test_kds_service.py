@@ -106,6 +106,41 @@ def test_mark_ticket_done_raises_for_cancelled_ticket(ticket):
         kds.mark_ticket_done(ticket_pk=ticket.pk, actor="kds:op")
 
 
+@pytest.mark.django_db
+def test_recall_ticket_reopens_done(ticket):
+    ticket.status = "done"
+    ticket.completed_at = timezone.now()
+    ticket.save(update_fields=["status", "completed_at"])
+
+    result = kds.recall_ticket(ticket_pk=ticket.pk, actor="kds:op")
+
+    assert result.status == "in_progress"
+    assert result.completed_at is None
+
+
+@pytest.mark.django_db
+def test_recall_ticket_raises_when_not_done(ticket):
+    with pytest.raises(KDSError):
+        kds.recall_ticket(ticket_pk=ticket.pk, actor="kds:op")
+
+
+@pytest.mark.django_db
+def test_acknowledge_ticket_marks_cancelled(ticket):
+    ticket.status = "cancelled"
+    ticket.cancelled_at = timezone.now()
+    ticket.save(update_fields=["status", "cancelled_at"])
+
+    result = kds.acknowledge_ticket(ticket_pk=ticket.pk, actor="kds:op")
+
+    assert result.acknowledged_at is not None
+
+
+@pytest.mark.django_db
+def test_acknowledge_ticket_raises_when_not_cancelled(ticket):
+    with pytest.raises(KDSError):
+        kds.acknowledge_ticket(ticket_pk=ticket.pk, actor="kds:op")
+
+
 def test_expedition_action_wraps_invalid_action(monkeypatch):
     def fail(*args, **kwargs):
         raise ValueError("bad")

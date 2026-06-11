@@ -30,6 +30,7 @@ export interface KDSTicketProjection {
   status_label: string;
   is_cancelled: boolean;
   cancelled_at_display: string;
+  completed_at_display: string;
 }
 
 export interface KDSExpeditionCardProjection {
@@ -62,6 +63,7 @@ export interface KDSBoardProjection {
   tickets: (KDSTicketProjection | KDSExpeditionCardProjection)[];
   counts: Record<string, number>; // "pending" | "in_progress" | "total" | ...
   cancelled_tickets: KDSTicketProjection[];
+  recent_done: KDSTicketProjection[]; // para recall (desfazer finalização)
 }
 
 export interface KDSCustomerOrderProjection {

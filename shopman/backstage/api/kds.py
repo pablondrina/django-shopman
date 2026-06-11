@@ -121,6 +121,46 @@ class KDSTicketDoneView(APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
+        summary="Recall (reopen) a done KDS ticket",
+        responses={200: OpenApiResponse(description="Ticket reopened.")},
+    ),
+)
+class KDSTicketRecallView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_kds"
+
+    def post(self, request, ticket_pk: int):
+        try:
+            kds_service.recall_ticket(ticket_pk=ticket_pk, actor=_actor(request))
+        except Exception as exc:
+            logger.debug("kds_ticket_recall_failed ticket_pk=%s", ticket_pk, exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao reabrir."}, status=400)
+        return Response({"ok": True, "ticket_pk": ticket_pk})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Acknowledge a cancelled KDS ticket (dismiss from board)",
+        responses={200: OpenApiResponse(description="Ticket acknowledged.")},
+    ),
+)
+class KDSTicketAcknowledgeView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_kds"
+
+    def post(self, request, ticket_pk: int):
+        try:
+            kds_service.acknowledge_ticket(ticket_pk=ticket_pk, actor=_actor(request))
+        except Exception as exc:
+            logger.debug("kds_ticket_ack_failed ticket_pk=%s", ticket_pk, exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao dar baixa."}, status=400)
+        return Response({"ok": True, "ticket_pk": ticket_pk})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
         summary="Expedition action (dispatch/complete)",
         responses={200: OpenApiResponse(description="Action result.")},
     ),

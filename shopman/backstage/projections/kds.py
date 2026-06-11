@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 ACTIVE_TICKET_STATUSES = ("pending", "in_progress")
 RECENT_CANCELLED_WINDOW = timedelta(minutes=10)
 RECENT_CANCELLED_LIMIT = 8
+RECENT_DONE_WINDOW = timedelta(minutes=30)
+RECENT_DONE_LIMIT = 12
 
 
 # ── Projections ────────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ class KDSTicketProjection:
     status_label: str = ""
     is_cancelled: bool = False
     cancelled_at_display: str = ""
+    completed_at_display: str = ""
 
 
 @dataclass(frozen=True)
@@ -105,6 +108,7 @@ class KDSBoardProjection:
     tickets: tuple[KDSTicketProjection | KDSExpeditionCardProjection, ...]
     counts: dict[str, int]  # "pending", "in_progress", "total"
     cancelled_tickets: tuple[KDSTicketProjection, ...] = ()
+    recent_done: tuple[KDSTicketProjection, ...] = ()  # para recall (desfazer finalização)
 
 
 @dataclass(frozen=True)
@@ -174,17 +178,28 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
         )
                 .order_by("created_at")
     )
+    now = timezone.now()
     cancelled_qs = (
         KDSTicket.objects.filter(
             kds_instance=instance,
             status="cancelled",
-            cancelled_at__gte=timezone.now() - RECENT_CANCELLED_WINDOW,
+            acknowledged_at__isnull=True,
+            cancelled_at__gte=now - RECENT_CANCELLED_WINDOW,
         )
                 .order_by("-cancelled_at", "-created_at")[:RECENT_CANCELLED_LIMIT]
+    )
+    done_qs = (
+        KDSTicket.objects.filter(
+            kds_instance=instance,
+            status="done",
+            completed_at__gte=now - RECENT_DONE_WINDOW,
+        )
+                .order_by("-completed_at")[:RECENT_DONE_LIMIT]
     )
 
     tickets = tuple(_build_ticket(t, instance) for t in active_qs)
     cancelled_tickets = tuple(_build_ticket(t, instance) for t in cancelled_qs)
+    recent_done = tuple(_build_ticket(t, instance) for t in done_qs)
     pending = sum(1 for t in tickets if t.status == "pending")
     in_progress = sum(1 for t in tickets if t.status == "in_progress")
 
@@ -199,8 +214,10 @@ def build_kds_board(instance_ref: str) -> KDSBoardProjection:
             "in_progress": in_progress,
             "total": len(tickets),
             "cancelled_recent": len(cancelled_tickets),
+            "done_recent": len(recent_done),
         },
         cancelled_tickets=cancelled_tickets,
+        recent_done=recent_done,
     )
 
 
@@ -357,6 +374,7 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
         status_label=_ticket_status_label(ticket.status),
         is_cancelled=is_cancelled,
         cancelled_at_display=_format_time(ticket.cancelled_at),
+        completed_at_display=_format_time(ticket.completed_at),
     )
 
 

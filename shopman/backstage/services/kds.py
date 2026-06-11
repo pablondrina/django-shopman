@@ -45,6 +45,28 @@ def mark_ticket_done(*, ticket_pk: int, actor: str):
     return ticket
 
 
+def recall_ticket(*, ticket_pk: int, actor: str):
+    from shopman.backstage.models import KDSTicket
+
+    ticket = KDSTicket.objects.filter(pk=ticket_pk).first()
+    if ticket is None:
+        raise KDSError("Ticket não encontrado.")
+    if not kds_core.reopen_ticket(ticket, actor=actor):
+        raise KDSError("Ticket não está concluído.")
+    return ticket
+
+
+def acknowledge_ticket(*, ticket_pk: int, actor: str):
+    from shopman.backstage.models import KDSTicket
+
+    ticket = KDSTicket.objects.filter(pk=ticket_pk).first()
+    if ticket is None:
+        raise KDSError("Ticket não encontrado.")
+    if not kds_core.acknowledge_ticket(ticket, actor=actor):
+        raise KDSError("Ticket não está cancelado.")
+    return ticket
+
+
 def expedition_action(*, order_id: int, action: str, actor: str):
     try:
         return kds_core.expedition_action_by_order_id(order_id, action=action, actor=actor)

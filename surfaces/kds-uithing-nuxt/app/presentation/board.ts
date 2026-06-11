@@ -98,6 +98,8 @@ export interface KDSBoardView {
   /** Active cards, auto-sorted by urgency (prep) / projection order (expedition). */
   cards: (KDSTicketProjection | KDSExpeditionCardProjection)[];
   cancelled: KDSTicketProjection[];
+  /** Concluídos recentes (≤30min) — para recall (desfazer finalização). */
+  recentDone: KDSTicketProjection[];
   allDay: KDSAllDayCount[];
   counts: Record<string, number>;
   total: number;
@@ -111,6 +113,7 @@ export function boardView(board: KDSBoardProjection): KDSBoardView {
     isExpedition: board.is_expedition,
     cards,
     cancelled: [...board.cancelled_tickets],
+    recentDone: [...(board.recent_done ?? [])],
     allDay: allDayCounts(cards),
     counts: board.counts || {},
     total: board.counts?.total ?? board.tickets.length,

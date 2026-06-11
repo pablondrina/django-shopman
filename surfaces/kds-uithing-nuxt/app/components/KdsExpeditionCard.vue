@@ -42,11 +42,16 @@ const d = computed(
       </span>
     </div>
 
-    <!-- meta: unidades · linhas · total -->
-    <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-      <span><strong class="tabular-nums">{{ card.units_count }}</strong> <span class="text-muted-foreground">{{ card.units_count === "1" ? "unidade" : "unidades" }}</span></span>
-      <span><strong class="tabular-nums">{{ card.line_count }}</strong> <span class="text-muted-foreground">{{ card.line_count === 1 ? "linha" : "linhas" }}</span></span>
-      <span class="ml-auto font-bold tabular-nums">{{ card.total_display }}</span>
+    <!-- meta: VOLUMES em destaque (o que conferir/entregar) + linhas · total -->
+    <div class="flex items-end justify-between gap-3">
+      <div class="flex items-baseline gap-1.5">
+        <span class="text-3xl font-extrabold tabular-nums leading-none">{{ card.units_count }}</span>
+        <span class="text-sm font-medium text-muted-foreground">{{ card.units_count === "1" ? "volume" : "volumes" }}</span>
+      </div>
+      <div class="text-right text-sm leading-tight">
+        <div class="text-muted-foreground">{{ card.line_count }} {{ card.line_count === 1 ? "linha" : "linhas" }}</div>
+        <div class="font-bold tabular-nums">{{ card.total_display }}</div>
+      </div>
     </div>
 
     <!-- ação principal: neutro invertido -->
