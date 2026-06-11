@@ -1,5 +1,33 @@
 # KDS → Nuxt/UI-Thing — Kickoff (migração de superfície)
 
+> ## ✅ CONCLUÍDO (2026-06-11)
+>
+> Superfície KDS migrada e redesenhada por inteiro em `surfaces/kds-uithing-nuxt`:
+> **estação (operador) + picker + expedição + board do cliente**. Arcos 1–5 entregues,
+> mais um ciclo de redesign first-shelf e ações de operador. Commits:
+> - `539b861a` — redesign: card vertical altura-uniforme, paleta neutra (cor só na
+>   urgência: tint ton-sur-ton do "próximo" + barra time-to-SLA), toque otimista
+>   (fila serial + reconciliação), busca, grade auto-fill retrato, relógio, tira
+>   "A fazer", tema, ícone garfo-e-faca, Material→lucide.
+> - `dcab30fc` — ações do operador: **recall** (desfazer finalização; core
+>   `reopen_ticket` + projection `recent_done` + painel "Concluídos") e **reconhecer
+>   cancelado** (`KDSTicket.acknowledged_at`, migration 0012, botão "Ciente");
+>   **volumes** em destaque na expedição.
+> - `fee1a7fb` — polish: tela do cliente (painel de chegadas, código grande, "ao
+>   vivo", transições) + picker (badge neutro, ícone de picking correto).
+>
+> Verificado: vitest 13, 349 testes backstage + 918 shop verdes, `nuxt build` limpo,
+> ao vivo (dark/light) console limpo. Realtime: SSE same-origin (prod) + poll 15s (dev).
+>
+> **Decisões do kickoff (§6) resolvidas:** (b) copiar/adaptar a base do PDV; **endpoints
+> fixos** no write-side (+ `recall`/`acknowledge`); porta dev :3003.
+>
+> **Pendente (escopo do Pablo, tocam lifecycle Core):** ações de operador 86/marcar
+> indisponível, priorizar/rush, quantidade parcial. Descomissionar o KDS-HTMX (§5).
+> Deploy staging.
+>
+> ---
+
 > Plano de arcos da migração do **KDS** (Kitchen Display) da geração HTMX/gestor para
 > Nuxt/UI-Thing, ratificada pelo Pablo em 2026-06-11 (WP3 do
 > [SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md)). Espelha o processo que
