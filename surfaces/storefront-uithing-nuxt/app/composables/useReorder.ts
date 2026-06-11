@@ -4,8 +4,8 @@ export function useReorder () {
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
   const { setFromServer } = useCartState()
-  const pending = useState<Record<string, boolean>>('shopman-thing-reorder-pending', () => ({}))
-  const conflict = useState<ReorderConflictProjection | null>('shopman-thing-reorder-conflict', () => null)
+  const pending = useState<Record<string, boolean>>('storefront-reorder-pending', () => ({}))
+  const conflict = useState<ReorderConflictProjection | null>('storefront-reorder-conflict', () => null)
 
   async function submit (orderRef: string, mode: 'append' | 'replace' = 'append') {
     pending.value = { ...pending.value, [orderRef]: true }

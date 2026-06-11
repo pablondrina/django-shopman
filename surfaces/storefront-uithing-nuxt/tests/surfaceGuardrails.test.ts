@@ -361,7 +361,7 @@ describe('surface UX guardrails', () => {
     expect(reorder).toContain("await navigateTo('/cart')")
     expect(bottomNav).not.toContain("label: 'Finalizar'")
     expect(bottomNav).not.toContain("to: '/checkout'")
-    expect(bottomNav).toContain('to="/cart"')
+    expect(bottomNav).toContain("to: '/cart'")
     expect(bottomNav).not.toContain('drawerOpen')
     expect(bottomNav).toContain('cartPulse')
     expect(bottomNav).toContain('scale-125 ring-2 ring-primary/25')
@@ -373,11 +373,12 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('class="hidden md:inline-flex"')
     expect(header).toContain('<header class="sticky top-0 z-40 border-b bg-background">')
     expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
-    expect(header).toContain('mobileMenuOpen')
-    expect(header).toContain('icon="lucide:menu"')
-    expect(header).toContain('aria-label="Abrir menu"')
-    expect(header).toContain('<UiSheetContent side="bottom" variant="floating"')
-    expect(header).toContain(':href="whatsappUrl"')
+    // Mobile: a bottom-nav é a navegação primária; o header não duplica menu.
+    expect(header).not.toContain('mobileMenuOpen')
+    expect(header).not.toContain('UiSheet')
+    expect(header).not.toContain('icon="lucide:menu"')
+    expect(bottomNav).toContain("to: '/menu'")
+    expect(bottomNav).toContain("to: '/account'")
     expect(header).not.toContain('shopping-basket')
     expect(header).not.toContain('bg-primary text-primary-foreground')
     expect(header).not.toContain('session.shop.value?.tagline')
@@ -715,8 +716,8 @@ describe('surface UX guardrails', () => {
   it('submits coupon payload using the backend contract key', () => {
     const cartState = read('app/composables/useCartState.ts')
 
-    expect(cartState).toContain('body: { code: coupon_code }')
-    expect(cartState).not.toContain('body: { coupon_code }')
+    expect(cartState).toContain('{ code: coupon_code }')
+    expect(cartState).not.toContain('{ coupon_code }')
   })
 
   it('keeps the UI Thing theme surface-owned with stone primary and doubled radius', () => {
@@ -792,12 +793,12 @@ describe('surface UX guardrails', () => {
     expect(action).toContain(':disabled="!hydrated || disabled || pending"')
   })
 
-  it('serves the Thing surface locally under the same prefix used in staging', () => {
+  it('serves the storefront locally on its reserved dev port at the root path', () => {
     const pkg = JSON.parse(read('package.json'))
     const smoke = read('scripts/ux-smoke.mjs')
 
-    expect(pkg.scripts.dev).toContain('NUXT_APP_BASE_URL=/thing/')
-    expect(smoke).toContain('http://127.0.0.1:3003/thing')
+    expect(pkg.scripts.dev).toContain('--port 3000')
+    expect(smoke).toContain('http://127.0.0.1:3000')
   })
 
   it('formats simple Portuguese counts without placeholder copy', () => {

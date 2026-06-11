@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || (process.env.NODE_ENV === 'production' ? '/thing/' : '/'),
+    baseURL: process.env.NUXT_APP_BASE_URL || '/',
     head: {
       htmlAttrs: { lang: 'pt-BR' },
       titleTemplate: title => title ? `${title} | Shopman` : 'Shopman',

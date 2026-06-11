@@ -3,7 +3,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const baseUrl = (process.env.SHOPMAN_THING_URL || 'http://127.0.0.1:3003/thing').replace(/\/$/, '')
+const baseUrl = (process.env.SHOPMAN_STOREFRONT_URL || 'http://127.0.0.1:3000').replace(/\/$/, '')
 const port = Number(process.env.SHOPMAN_CHROME_PORT || 9243)
 const cdpTimeoutMs = Number(process.env.SHOPMAN_CDP_TIMEOUT_MS || 15000)
 const traceUx = process.env.SHOPMAN_UX_TRACE === '1'
@@ -69,7 +69,7 @@ function findChrome () {
 
 async function launchChrome () {
   const chrome = findChrome()
-  const profile = await mkdtemp(join(tmpdir(), 'shopman-thing-ux-'))
+  const profile = await mkdtemp(join(tmpdir(), 'storefront-ux-'))
   const child = spawn(chrome, [
     '--headless=new',
     `--remote-debugging-port=${port}`,
@@ -414,9 +414,9 @@ async function run () {
     const checkoutState = await waitForProbe(
       checkout,
       'checkout login gate',
-      state => state.url.includes('/thing/login?next=/checkout') && state.h1.some(title => title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('telefone') || title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('codigo'))
+      state => state.url.includes('/login?next=/checkout') && state.h1.some(title => title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('telefone') || title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('codigo'))
     )
-    assert(checkoutState.url.includes('/thing/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
+    assert(checkoutState.url.includes('/login?next=/checkout'), `anonymous checkout should follow projected auth action, got ${checkoutState.url}`)
     assert(checkoutState.h1.some(title => title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('telefone') || title.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes('codigo')), 'login gate should expose a visible h1')
     assert(checkoutState.buttons.some(label => label.includes('WhatsApp')), 'login gate should expose WhatsApp recovery/send action')
     checkout.close()

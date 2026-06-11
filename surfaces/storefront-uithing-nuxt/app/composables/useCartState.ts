@@ -1,3 +1,4 @@
+import { applySkuQty } from '~/presentation/cart'
 import type { CartMutationResponse, CartProjection, ProductMutationMeta, Action } from '~/types/shopman'
 
 interface CartIssue {
@@ -131,23 +132,53 @@ function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
   }
 }
 
+// Fila serial de mutações compartilhada por toda a superfície: toques em rajada
+// não se perdem nem chegam fora de ordem no servidor; a fila sobrevive a erros.
+let mutationChain: Promise<unknown> = Promise.resolve()
+let queueDepth = 0
+
+function enqueueMutation<T> (run: () => Promise<T>): Promise<T> {
+  const result = mutationChain.then(run)
+  mutationChain = result.then(() => undefined, () => undefined)
+  return result
+}
+
 export function useCartState () {
-  const cart = useState<CartProjection>('shopman-thing-cart', emptyCart)
-  const pendingBySku = useState<Record<string, boolean>>('shopman-thing-cart-pending', () => ({}))
-  const lastError = useState<string | null>('shopman-thing-cart-error', () => null)
-  const cartIssue = useState<CartIssue | null>('shopman-thing-cart-issue', () => null)
-  const rateLimitRecovery = useState<RateLimitRecovery | null>('shopman-thing-cart-rate-limit', () => null)
-  const lastMutation = useState<CartMutationSnapshot | null>('shopman-thing-cart-last-mutation', () => null)
+  const cart = useState<CartProjection>('storefront-cart', emptyCart)
+  const pendingCountBySku = useState<Record<string, number>>('storefront-cart-pending', () => ({}))
+  const lastError = useState<string | null>('storefront-cart-error', () => null)
+  const cartIssue = useState<CartIssue | null>('storefront-cart-issue', () => null)
+  const rateLimitRecovery = useState<RateLimitRecovery | null>('storefront-cart-rate-limit', () => null)
+  const lastMutation = useState<CartMutationSnapshot | null>('storefront-cart-last-mutation', () => null)
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
 
-  const hasPendingMutations = computed(() => Object.values(pendingBySku.value).some(Boolean))
+  const hasPendingMutations = computed(() => Object.values(pendingCountBySku.value).some(count => count > 0))
 
-  function setFromServer (next?: CartProjection | null) {
-    if (!next) return
+  function bumpPending (sku: string) {
+    pendingCountBySku.value = { ...pendingCountBySku.value, [sku]: (pendingCountBySku.value[sku] || 0) + 1 }
+  }
+
+  function dropPending (sku: string) {
+    const next = { ...pendingCountBySku.value }
+    const count = (next[sku] || 0) - 1
+    if (count > 0) next[sku] = count
+    else delete next[sku]
+    pendingCountBySku.value = next
+  }
+
+  function applyServerCart (next: CartProjection) {
     cart.value = { ...next, summary_pending: false }
     cartIssue.value = null
     rateLimitRecovery.value = null
+  }
+
+  function setFromServer (next?: CartProjection | null) {
+    if (!next) return
+    // Snapshots passivos (shell, projeções de página) não podem atropelar o
+    // estado otimista enquanto há mutações em voo; a verdade chega no drain da fila.
+    if (queueDepth > 0) return
+    applyServerCart(next)
   }
 
   function clearCart () {
@@ -162,14 +193,14 @@ export function useCartState () {
   }
 
   function isPending (sku: string): boolean {
-    return !!pendingBySku.value[sku]
+    return (pendingCountBySku.value[sku] || 0) > 0
   }
 
   async function refreshCart () {
     const response = await $fetch<{ cart: CartProjection }>(apiPath('/api/v1/storefront/cart/'), {
       credentials: 'include'
     })
-    setFromServer(response.cart)
+    applyServerCart(response.cart)
     return response.cart
   }
 
@@ -178,24 +209,31 @@ export function useCartState () {
     cartIssue.value = null
     rateLimitRecovery.value = null
     lastMutation.value = { meta: { ...meta }, qty }
-    pendingBySku.value = { ...pendingBySku.value, [meta.sku]: true }
-    cart.value = { ...cart.value, summary_pending: true }
+
+    // Otimista: a linha muda na hora; o resumo fica pendente até a verdade do servidor.
+    cart.value = applySkuQty(cart.value, meta, qty)
+    bumpPending(meta.sku)
+    queueDepth += 1
 
     try {
-      const response = await $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
+      const response = await enqueueMutation(async () => $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         headers: await csrfHeaders(),
         body: { qty },
         credentials: 'include'
-      })
-      setFromServer(response.cart)
-      lastMutation.value = null
-      if (import.meta.client) {
-        useSonner(qty > 0 ? `${meta.name} atualizado no carrinho.` : `${meta.name} removido do carrinho.`)
+      }))
+      queueDepth -= 1
+      dropPending(meta.sku)
+      if (queueDepth === 0) {
+        // Drain da fila: a última resposta é a verdade mais recente.
+        applyServerCart(response.cart)
+        lastMutation.value = null
       }
       return response
     } catch (error: any) {
-      await refreshCart().catch(() => null)
+      queueDepth -= 1
+      dropPending(meta.sku)
+      if (queueDepth === 0) await refreshCart().catch(() => null)
       const status = error?.response?.status
       const data = error?.data
       if (status === 409 && data) {
@@ -214,34 +252,37 @@ export function useCartState () {
       }
       if (import.meta.client) useSonner.error(lastError.value)
       throw error
-    } finally {
-      const next = { ...pendingBySku.value }
-      delete next[meta.sku]
-      pendingBySku.value = next
+    }
+  }
+
+  async function mutateCoupon (method: 'POST' | 'DELETE', body?: Record<string, unknown>) {
+    queueDepth += 1
+    try {
+      const response = await enqueueMutation(async () => $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
+        method,
+        headers: await csrfHeaders(),
+        body,
+        credentials: 'include'
+      }))
+      queueDepth -= 1
+      if (queueDepth === 0) applyServerCart(response.cart)
+      return response.cart
+    } catch (error) {
+      queueDepth -= 1
+      throw error
     }
   }
 
   async function applyCoupon (coupon_code: string) {
-    const response = await $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
-      method: 'POST',
-      headers: await csrfHeaders(),
-      body: { code: coupon_code },
-      credentials: 'include'
-    })
-    setFromServer(response.cart)
+    const nextCart = await mutateCoupon('POST', { code: coupon_code })
     if (import.meta.client) useSonner.success('Cupom aplicado.')
-    return response.cart
+    return nextCart
   }
 
   async function removeCoupon () {
-    const response = await $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
-      method: 'DELETE',
-      headers: await csrfHeaders(),
-      credentials: 'include'
-    })
-    setFromServer(response.cart)
+    const nextCart = await mutateCoupon('DELETE')
     if (import.meta.client) useSonner('Cupom removido.')
-    return response.cart
+    return nextCart
   }
 
   async function retryLastMutation () {
@@ -260,7 +301,7 @@ export function useCartState () {
   return {
     cart,
     hasPendingMutations,
-    pendingBySku,
+    pendingCountBySku,
     lastError,
     cartIssue,
     rateLimitRecovery,

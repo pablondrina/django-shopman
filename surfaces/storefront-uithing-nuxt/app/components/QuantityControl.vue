@@ -15,14 +15,12 @@ const emit = defineEmits<{
   changed: [qty: number]
 }>()
 
-const { setSkuQty, isPending } = useCartState()
+const { setSkuQty } = useCartState()
 const localQty = ref(props.qty)
 
 watch(() => props.qty, value => {
   localQty.value = value
 })
-
-const pending = computed(() => isPending(props.meta.sku))
 
 async function commit (value: number) {
   const next = clampQuantity(value, props.maxQty, props.minQty ?? 0)
@@ -34,14 +32,11 @@ async function commit (value: number) {
 function handleModelValue (value: unknown) {
   const next = quantityFromModelValue(value, props.minQty ?? 0)
   if (next === null) return
-  if (pending.value) {
-    localQty.value = props.qty
-    return
-  }
   if (next === props.qty) {
     localQty.value = next
     return
   }
+  // Rajadas entram na fila serial do carrinho; o estado otimista mantém a UI viva.
   void commit(next).catch(() => {
     localQty.value = props.qty
   })
@@ -58,7 +53,7 @@ const controlClass = computed(() => [
     v-model="localQty"
     :min="minQty ?? 0"
     :max="maxQty ?? undefined"
-    :disabled="disabled || pending"
+    :disabled="disabled"
     :class="controlClass"
     aria-label="Quantidade"
     @update:model-value="handleModelValue"

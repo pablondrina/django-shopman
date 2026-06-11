@@ -37,7 +37,7 @@ const debugOtpExpiresAt = ref('')
 const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include',
   headers: requestHeaders,
-  key: 'shopman-thing-login-home'
+  key: 'storefront-login-home'
 })
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
