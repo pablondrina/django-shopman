@@ -40,6 +40,10 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
+    // Light-first like the POS + the aligned gestor (operator surfaces are light;
+    // the customer pickup board forces its own dark for distance reading).
+    preference: 'light',
+    fallback: 'light',
     storageKey: 'kds-uithing-nuxt-color-mode',
     classSuffix: ''
   },
