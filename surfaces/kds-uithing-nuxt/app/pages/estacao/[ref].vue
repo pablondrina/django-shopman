@@ -137,6 +137,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
               v-if="isExpeditionCard(card)"
               :card="asExpedition(card)"
               :busy="busy"
+              :density="density"
               @action="(action) => expedite(card.pk, action)"
             />
             <KdsTicketCard
