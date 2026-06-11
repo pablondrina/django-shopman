@@ -96,10 +96,12 @@ export function boardView(board: KDSBoardProjection): KDSBoardView {
   };
 }
 
-/** Elapsed seconds → "Ns" / "Nm" compact label for the timer chip. */
+/** Elapsed seconds → compact "Ns" / "Nm" / "Nh Mm" label for the timer chip. */
 export function elapsedLabel(seconds: number): string {
-  if (seconds < 60) return `${Math.max(0, Math.round(seconds))}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return s ? `${m}m ${s}s` : `${m}m`;
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return s % 60 ? `${m}m ${s % 60}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
 }

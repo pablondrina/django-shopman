@@ -17,7 +17,7 @@ const badge = computed(() =>
     ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-300"
     : "border-green-500/40 bg-green-500/15 text-green-300",
 );
-const refSize = computed(() => ({ compact: "text-2xl", cozy: "text-3xl", roomy: "text-4xl" }[props.density]));
+const refSize = computed(() => ({ compact: "text-xl", cozy: "text-2xl", roomy: "text-3xl" }[props.density]));
 const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.density]));
 </script>
 
@@ -29,7 +29,7 @@ const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.
           <Icon v-if="card.channel_icon" :name="`lucide:${card.channel_icon}`" class="size-3.5" />
           <span>{{ card.fulfillment_label }}</span>
         </div>
-        <h3 class="truncate font-bold tabular-nums leading-none" :class="refSize">{{ card.ref }}</h3>
+        <h3 class="break-words font-bold tabular-nums leading-tight" :class="refSize">{{ card.ref }}</h3>
         <p v-if="card.customer_name" class="mt-1 truncate text-sm font-medium text-muted-foreground">{{ card.customer_name }}</p>
       </div>
       <span class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-bold" :class="badge">

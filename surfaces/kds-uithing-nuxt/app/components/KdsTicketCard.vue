@@ -24,7 +24,9 @@ const timerClasses = computed(() => {
 });
 
 // Density → distance-reading type scale (the adjustable-text-size best practice).
-const refSize = computed(() => ({ compact: "text-2xl", cozy: "text-3xl", roomy: "text-4xl" }[props.density]));
+// Tuned so common order refs fit on one line; longer refs wrap (never truncate —
+// the kitchen MUST read the whole order id).
+const refSize = computed(() => ({ compact: "text-xl", cozy: "text-2xl", roomy: "text-3xl" }[props.density]));
 const itemSize = computed(() => ({ compact: "text-base", cozy: "text-lg", roomy: "text-xl" }[props.density]));
 const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.density]));
 </script>
@@ -39,7 +41,7 @@ const pad = computed(() => ({ compact: "p-3", cozy: "p-4", roomy: "p-5" }[props.
           <Icon v-if="ticket.fulfillment_icon" :name="`lucide:${ticket.fulfillment_icon}`" class="size-3.5" />
           <span class="tabular-nums">{{ ticket.created_at_display }}</span>
         </div>
-        <h3 class="truncate font-bold tabular-nums leading-none" :class="refSize">{{ ticket.order_ref }}</h3>
+        <h3 class="break-words font-bold tabular-nums leading-tight" :class="refSize">{{ ticket.order_ref }}</h3>
         <p v-if="ticket.customer_name" class="mt-1 truncate text-sm font-medium text-muted-foreground">
           {{ ticket.customer_name }}
         </p>

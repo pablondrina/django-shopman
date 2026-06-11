@@ -75,10 +75,13 @@ describe("kds board presentation", () => {
     expect(view.total).toBe(2);
   });
 
-  it("formats elapsed seconds compactly", () => {
+  it("formats elapsed seconds compactly (s / m / h)", () => {
     expect(elapsedLabel(45)).toBe("45s");
     expect(elapsedLabel(90)).toBe("1m 30s");
     expect(elapsedLabel(120)).toBe("2m");
+    expect(elapsedLabel(3600)).toBe("1h");
+    expect(elapsedLabel(7200)).toBe("2h");
+    expect(elapsedLabel(9000)).toBe("2h 30m");
   });
 
   it("auto-sorts prep tickets by urgency (late first, then oldest)", () => {

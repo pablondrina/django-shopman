@@ -114,12 +114,12 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
       <template v-else-if="view">
         <!-- cancelled (loud) -->
         <div v-if="view.cancelled.length" class="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="rounded-md border border-l-4 border-l-red-500 bg-red-500/5 p-4">
-            <div class="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400">
+          <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-red-400">
               <Icon name="lucide:ban" class="size-4" />
               Cancelado{{ t.cancelled_at_display ? ` às ${t.cancelled_at_display}` : "" }}
             </div>
-            <div class="mt-1 truncate text-xl font-bold tabular-nums">{{ t.order_ref }}</div>
+            <div class="mt-1 break-words text-xl font-bold tabular-nums">{{ t.order_ref }}</div>
             <p v-if="t.customer_name" class="truncate text-sm text-muted-foreground">{{ t.customer_name }}</p>
           </article>
         </div>
