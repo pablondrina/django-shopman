@@ -6,11 +6,30 @@
 // chrome neutral.
 import type { KDSExpeditionCardProjection, KDSTicketProjection } from "~/types/kds";
 import { isExpeditionCard } from "~/presentation/board";
+import type { KDSDensity } from "~/components/KdsTicketCard.vue";
 
 const route = useRoute();
 const stationRef = computed(() => String(route.params.ref || ""));
 
 const { view, pending, error, refresh, soundOn, toggleSound } = useKdsBoard(stationRef.value);
+
+// Density (adjustable text/ticket size — KDS best practice). Persisted per terminal.
+const DENSITIES: { key: KDSDensity; label: string; icon: string; cols: string }[] = [
+  { key: "compact", label: "Compacta", icon: "lucide:grid-3x3", cols: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" },
+  { key: "cozy", label: "Padrão", icon: "lucide:layout-grid", cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" },
+  { key: "roomy", label: "Ampla", icon: "lucide:square", cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3" },
+];
+const density = ref<KDSDensity>("cozy");
+const densityCols = computed(() => DENSITIES.find((d) => d.key === density.value)?.cols ?? DENSITIES[1]!.cols);
+function cycleDensity() {
+  const i = DENSITIES.findIndex((d) => d.key === density.value);
+  density.value = DENSITIES[(i + 1) % DENSITIES.length]!.key;
+  if (import.meta.client) localStorage.setItem("kds.density", density.value);
+}
+onMounted(() => {
+  const stored = localStorage.getItem("kds.density");
+  if (stored === "compact" || stored === "cozy" || stored === "roomy") density.value = stored;
+});
 
 const busy = ref(false);
 async function write(path: string, body?: Record<string, unknown>) {
@@ -62,6 +81,9 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         <span v-if="view?.counts.in_progress" class="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
           {{ view.counts.in_progress }} em preparo
         </span>
+        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" :aria-label="`Densidade: ${density}`" title="Densidade da grade" @click="cycleDensity">
+          <Icon :name="DENSITIES.find((d) => d.key === density)?.icon || 'lucide:layout-grid'" class="size-4" />
+        </button>
         <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent" :aria-label="soundOn ? 'Som ativo' : 'Som desativado'" @click="toggleSound">
           <Icon :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
         </button>
@@ -70,6 +92,19 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         </NuxtLink>
       </div>
     </header>
+
+    <!-- all-day: o que falta fazer somando os pedidos (mise en place / prep em lote) -->
+    <div v-if="view && !view.isExpedition && view.allDay.length" class="flex shrink-0 items-center gap-2 overflow-x-auto border-b bg-card/60 px-4 py-2 no-scrollbar">
+      <span class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">A fazer</span>
+      <span
+        v-for="entry in view.allDay"
+        :key="entry.name"
+        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-sm"
+      >
+        <strong class="tabular-nums">{{ entry.qty }}×</strong>
+        <span class="text-muted-foreground">{{ entry.name }}</span>
+      </span>
+    </div>
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <p v-if="pending && !view" class="text-sm text-muted-foreground">Carregando…</p>
@@ -95,8 +130,8 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
           <p class="text-base font-semibold">Nenhum pedido ativo nesta estação.</p>
         </div>
 
-        <!-- cards -->
-        <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <!-- cards (auto-sorted by urgency; density-adaptive grid) -->
+        <div v-else class="grid items-start gap-3" :class="densityCols">
           <template v-for="card in view.cards" :key="card.pk">
             <KdsExpeditionCard
               v-if="isExpeditionCard(card)"
@@ -108,6 +143,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
               v-else
               :ticket="asTicket(card)"
               :busy="busy"
+              :density="density"
               @check-item="(idx, checked) => checkItem(card.pk, idx, checked)"
               @done="finalize(card.pk)"
             />

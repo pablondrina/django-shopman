@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allDayCounts,
   boardView,
   elapsedLabel,
   isExpeditionCard,
+  sortByUrgency,
   ticketTone,
   toneAccent,
 } from "../app/presentation/board";
@@ -77,5 +79,30 @@ describe("kds board presentation", () => {
     expect(elapsedLabel(45)).toBe("45s");
     expect(elapsedLabel(90)).toBe("1m 30s");
     expect(elapsedLabel(120)).toBe("2m");
+  });
+
+  it("auto-sorts prep tickets by urgency (late first, then oldest)", () => {
+    const ok = ticket({ pk: 1, timer_class: "timer-ok", elapsed_seconds: 10 });
+    const lateNew = ticket({ pk: 2, timer_class: "timer-late", elapsed_seconds: 100 });
+    const lateOld = ticket({ pk: 3, timer_class: "timer-late", elapsed_seconds: 500 });
+    const warn = ticket({ pk: 4, timer_class: "timer-warning", elapsed_seconds: 50 });
+    const sorted = sortByUrgency([ok, lateNew, warn, lateOld]);
+    expect(sorted.map((c) => (c as KDSTicketProjection).pk)).toEqual([3, 2, 4, 1]);
+  });
+
+  it("aggregates all-day counts of unchecked items", () => {
+    const t1 = ticket({
+      pk: 1,
+      items: [
+        { sku: "a", name: "Baguete", qty: 2, notes: "", checked: false, stock_warning: "" },
+        { sku: "b", name: "Café", qty: 1, notes: "", checked: true, stock_warning: "" },
+      ],
+    });
+    const t2 = ticket({
+      pk: 2,
+      items: [{ sku: "a", name: "Baguete", qty: 3, notes: "", checked: false, stock_warning: "" }],
+    });
+    const allDay = allDayCounts([t1, t2]);
+    expect(allDay).toEqual([{ name: "Baguete", qty: 5 }]); // café excluded (checked)
   });
 });

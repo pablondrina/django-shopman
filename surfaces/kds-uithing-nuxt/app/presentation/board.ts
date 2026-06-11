@@ -34,24 +34,63 @@ export function isExpeditionCard(
   return "fulfillment_label" in card && !("items" in card);
 }
 
+const TONE_RANK: Record<KDSTone, number> = { late: 0, warning: 1, ok: 2 };
+
+/** Auto-sort prep tickets by urgency (KDS best practice — work on what's due
+ *  first): late before warning before ok, then oldest first within a tone.
+ *  Expedition boards keep projection order. */
+export function sortByUrgency(
+  cards: (KDSTicketProjection | KDSExpeditionCardProjection)[],
+): (KDSTicketProjection | KDSExpeditionCardProjection)[] {
+  if (cards.some(isExpeditionCard)) return [...cards];
+  return [...(cards as KDSTicketProjection[])].sort((a, b) => {
+    const ra = TONE_RANK[ticketTone(a.timer_class)];
+    const rb = TONE_RANK[ticketTone(b.timer_class)];
+    return ra !== rb ? ra - rb : b.elapsed_seconds - a.elapsed_seconds;
+  });
+}
+
+export interface KDSAllDayCount { name: string; qty: number }
+
+/** "All-day" aggregate (KDS best practice — mise en place / batch prep): how many
+ *  of each item are still to make across all active prep tickets (unchecked only). */
+export function allDayCounts(
+  cards: (KDSTicketProjection | KDSExpeditionCardProjection)[],
+): KDSAllDayCount[] {
+  const counts = new Map<string, number>();
+  for (const card of cards) {
+    if (isExpeditionCard(card)) continue;
+    for (const item of card.items) {
+      if (item.checked) continue;
+      counts.set(item.name, (counts.get(item.name) || 0) + item.qty);
+    }
+  }
+  return [...counts.entries()]
+    .map(([name, qty]) => ({ name, qty }))
+    .sort((a, b) => b.qty - a.qty);
+}
+
 export interface KDSBoardView {
   instanceRef: string;
   instanceName: string;
   isExpedition: boolean;
-  /** Active cards in projection order (prep tickets or expedition cards). */
+  /** Active cards, auto-sorted by urgency (prep) / projection order (expedition). */
   cards: (KDSTicketProjection | KDSExpeditionCardProjection)[];
   cancelled: KDSTicketProjection[];
+  allDay: KDSAllDayCount[];
   counts: Record<string, number>;
   total: number;
 }
 
 export function boardView(board: KDSBoardProjection): KDSBoardView {
+  const cards = sortByUrgency(board.tickets);
   return {
     instanceRef: board.instance_ref,
     instanceName: board.instance_name,
     isExpedition: board.is_expedition,
-    cards: [...board.tickets],
+    cards,
     cancelled: [...board.cancelled_tickets],
+    allDay: allDayCounts(cards),
     counts: board.counts || {},
     total: board.counts?.total ?? board.tickets.length,
   };

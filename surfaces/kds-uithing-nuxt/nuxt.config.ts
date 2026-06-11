@@ -40,10 +40,11 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
-    // Light-first like the POS + the aligned gestor (operator surfaces are light;
-    // the customer pickup board forces its own dark for distance reading).
-    preference: 'light',
-    fallback: 'light',
+    // DARK-first — KDS best practice (back-of-house: low light, less eye strain,
+    // the time semaphore pops on dark). Diverges from the POS (light, counter-
+    // facing) on purpose; light stays available via the toggle.
+    preference: 'dark',
+    fallback: 'dark',
     storageKey: 'kds-uithing-nuxt-color-mode',
     classSuffix: ''
   },
