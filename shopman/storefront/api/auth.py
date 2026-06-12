@@ -190,6 +190,8 @@ class RequestCodeView(APIView):
         return Response({
             "ok": True,
             "phone": phone,
+            # Timeout transparente: a validade do código é pública (o código não).
+            "code_expires_at": getattr(auth_result, "expires_at", None) or "",
             **_delivery_response(actual_method),
             **_debug_otp_response(auth_result),
         })

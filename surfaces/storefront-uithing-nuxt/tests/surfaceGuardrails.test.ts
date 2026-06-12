@@ -486,6 +486,20 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('data-login-resend')
     expect(login).toContain('Reenviar código')
     expect(login).toContain('Trocar telefone')
+    // Polish pass aprovado (2026-06-12): máscara BR no input, telefone legível,
+    // TTL do código visível, foco segue o passo, momentos de feedback antes do
+    // redirect (copy do servidor), tela sem breadcrumb (foco vence).
+    expect(login).toContain('maskPhoneInput')
+    expect(login).toContain('requestedPhoneDisplay')
+    expect(login).toContain('code_expires_at')
+    expect(login).toContain('Vale até')
+    expect(login).toContain("watch(step, async next => {")
+    expect(login).toContain('data-login-moment')
+    expect(login).toContain('device_trust_redirecting')
+    expect(login).toContain('device_trust_saved')
+    expect(login).toContain('O código não chegou?')
+    expect(login).toContain('Falar com a loja')
+    expect(login).not.toContain('<UiBreadcrumbs')
     // Welcome gate omotenashi: nome via PATCH profile, com saída discreta.
     expect(login).toContain('requires_welcome')
     expect(login).toContain('welcome_suggested_name')

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { authErrorView, authStep, otpValidUntilDisplay, resendCooldown, welcomeNameValue, type AuthErrorView } from '~/presentation/auth'
-import { authPhonePayload, type AuthDeliveryMethod, type AuthPhoneRegion } from '~/utils/authPhone'
+import { authPhonePayload, maskPhoneInput, phoneDisplay, type AuthDeliveryMethod, type AuthPhoneRegion } from '~/utils/authPhone'
 import type { AuthSessionResponse, CopyEntryProjection, HomeResponse } from '~/types/shopman'
 
 interface RequestCodeResponse {
@@ -9,6 +9,7 @@ interface RequestCodeResponse {
   delivery_method: string
   delivery_label: string
   dev_console_hint: boolean
+  code_expires_at?: string
   debug_otp_code?: string
   debug_otp_expires_at?: string
 }
@@ -39,8 +40,15 @@ const welcomeNeeded = ref(false)
 const welcomeName = ref('')
 const lastSentAtMs = ref<number | null>(null)
 const lastDeliveryMethod = ref<AuthDeliveryMethod>('whatsapp')
+const codeExpiresAt = ref('')
+// Momento de feedback antes do redirect: aparelho reconhecido ou código confirmado.
+const moment = ref<'none' | 'recognized' | 'confirmed'>('none')
+const trustSaved = ref(false)
 const nowMs = ref(0)
 let clockTimer: ReturnType<typeof setInterval> | null = null
+const phoneForm = ref<HTMLFormElement | null>(null)
+const codeForm = ref<HTMLFormElement | null>(null)
+const welcomeForm = ref<HTMLFormElement | null>(null)
 
 const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include',
@@ -78,7 +86,18 @@ const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'nu
 const regionToggleLabel = computed(() => phoneRegion.value === 'INTL' ? 'Usar número do Brasil' : 'Usar número internacional')
 const resendState = computed(() => resendCooldown(lastSentAtMs.value, nowMs.value))
 const debugOtpValidUntil = computed(() => otpValidUntilDisplay(debugOtpExpiresAt.value))
+const codeValidUntil = computed(() => otpValidUntilDisplay(codeExpiresAt.value))
+const requestedPhoneDisplay = computed(() => phoneDisplay(requestedPhone.value))
 const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
+const momentTitle = computed(() => copyTitle(authCopy.value?.auth_confirmed, 'Pronto'))
+const momentMessage = computed(() => moment.value === 'recognized'
+  ? copyMessage(authCopy.value?.device_trust_redirecting, 'Dispositivo reconhecido. Entrando automaticamente…')
+  : copyMessage(authCopy.value?.auth_confirmed, 'Identidade confirmada')
+)
+const momentSavedNote = computed(() => moment.value === 'confirmed' && trustSaved.value
+  ? copyMessage(authCopy.value?.device_trust_saved, 'Dispositivo salvo por 30 dias.')
+  : ''
+)
 
 onMounted(() => {
   nowMs.value = Date.now()
@@ -92,6 +111,14 @@ onBeforeUnmount(() => {
 // Confirmação automática ao completar os 6 dígitos (o copy do servidor promete).
 watch(code, value => {
   if (value.length === 6 && step.value === 'code' && !pending.value) verifyCode()
+})
+
+// A cada troca de passo, o foco segue para o primeiro campo do passo novo
+// (leitor de tela anuncia o contexto certo; teclado já abre no lugar certo).
+watch(step, async next => {
+  await nextTick()
+  const container = next === 'code' ? codeForm.value : next === 'welcome' ? welcomeForm.value : phoneForm.value
+  container?.querySelector('input')?.focus()
 })
 
 function copyTitle (entry: CopyEntryProjection | null | undefined, fallback: string) {
@@ -115,7 +142,10 @@ function withWhatsAppText (href: string, text: string) {
 
 function syncPhoneFromInput (event: Event) {
   const input = event.target as HTMLInputElement | null
-  if (input) phone.value = input.value
+  if (!input) return
+  const masked = maskPhoneInput(input.value, phoneRegion.value)
+  phone.value = masked
+  if (input.value !== masked) input.value = masked
 }
 
 function phoneValueFromEvent (event?: Event) {
@@ -151,10 +181,17 @@ function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryM
   requestedPhone.value = response.phone
   deliveryLabel.value = response.delivery_label
   devConsoleHint.value = !!response.dev_console_hint
+  codeExpiresAt.value = response.code_expires_at || ''
   debugOtpCode.value = response.debug_otp_code || ''
   debugOtpExpiresAt.value = response.debug_otp_expires_at || ''
   lastDeliveryMethod.value = method
   lastSentAtMs.value = Date.now()
+}
+
+async function celebrateAndGo (kind: 'recognized' | 'confirmed') {
+  moment.value = kind
+  await new Promise(resolve => setTimeout(resolve, 1400))
+  await navigateTo(nextUrl.value)
 }
 
 function enterWelcomeGate (sessionResponse: AuthSessionResponse) {
@@ -186,7 +223,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
         enterWelcomeGate(trusted)
         return
       }
-      await navigateTo(nextUrl.value)
+      await celebrateAndGo('recognized')
       return
     }
 
@@ -242,12 +279,13 @@ async function verifyCode () {
     })
     session.setFromAuthSession(response)
     if (trustedDevice.value) {
-      await $fetch(apiPath('/api/auth/trust-device/'), {
+      const trustResponse = await $fetch<{ trusted?: boolean }>(apiPath('/api/auth/trust-device/'), {
         method: 'POST',
         headers: await csrfHeaders(),
         credentials: 'include',
         body: { trust: true }
       }).catch(() => null)
+      trustSaved.value = !!trustResponse?.trusted
     }
     devConsoleHint.value = false
     debugOtpCode.value = ''
@@ -257,7 +295,7 @@ async function verifyCode () {
       enterWelcomeGate(response)
       return
     }
-    await navigateTo(nextUrl.value)
+    await celebrateAndGo('confirmed')
   } catch (e: any) {
     error.value = fetchErrorView(e, 'Código inválido ou expirado.', 'code')
   } finally {
@@ -295,6 +333,7 @@ function returnToPhoneStep () {
   codeDigits.value = []
   error.value = null
   devConsoleHint.value = false
+  codeExpiresAt.value = ''
   debugOtpCode.value = ''
   debugOtpExpiresAt.value = ''
 }
@@ -308,13 +347,16 @@ useSeoMeta({
   <main class="shop-section">
     <div class="shop-container">
       <div class="mx-auto max-w-md space-y-5">
-        <UiBreadcrumbs
-          :items="[
-            { label: 'Início', link: '/' },
-            { label: 'Entrar' }
-          ]"
-        />
+        <div v-if="moment !== 'none'" class="py-10 text-center" data-login-moment>
+          <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-foreground text-background">
+            <Icon name="lucide:check" class="size-6" />
+          </div>
+          <h1 class="mt-4 text-3xl font-semibold">{{ momentTitle }}</h1>
+          <p class="mt-2 text-sm leading-6 text-muted-foreground" aria-live="polite">{{ momentMessage }}</p>
+          <p v-if="momentSavedNote" class="mt-1 text-xs text-muted-foreground">{{ momentSavedNote }}</p>
+        </div>
 
+        <template v-else>
         <header>
           <h1 class="text-3xl font-semibold leading-tight">{{ stepTitle }}</h1>
           <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ stepDescription }}</p>
@@ -333,7 +375,7 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <form v-if="step === 'phone'" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
+        <form v-if="step === 'phone'" ref="phoneForm" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
           <UiField>
             <div class="flex items-center justify-between gap-3">
               <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
@@ -379,10 +421,10 @@ useSeoMeta({
           </div>
         </form>
 
-        <form v-else-if="step === 'code'" class="space-y-5" @submit.prevent="verifyCode">
+        <form v-else-if="step === 'code'" ref="codeForm" class="space-y-5" @submit.prevent="verifyCode">
           <p class="text-sm leading-6">
             Código enviado por {{ deliveryLabel }} para
-            <span class="font-semibold tabular-nums">{{ requestedPhone }}</span>.
+            <span class="font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
 
           <UiAlert v-if="debugOtpCode" variant="warning" data-testid="debug-otp-alert">
@@ -417,7 +459,9 @@ useSeoMeta({
               :aria-invalid="!!error"
               class="justify-between sm:justify-start"
             />
-            <UiFieldDescription>Use o código recebido por {{ deliveryLabel }}.</UiFieldDescription>
+            <UiFieldDescription>
+              Use o código recebido por {{ deliveryLabel }}.<template v-if="codeValidUntil"> Vale até {{ codeValidUntil }}.</template>
+            </UiFieldDescription>
           </UiField>
 
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2" data-login-resend>
@@ -458,7 +502,7 @@ useSeoMeta({
           </UiButton>
         </form>
 
-        <form v-else class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
+        <form v-else ref="welcomeForm" class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
           <UiField>
             <UiFieldLabel for="welcome-name">Nome</UiFieldLabel>
             <UiInput
@@ -485,8 +529,8 @@ useSeoMeta({
         </p>
 
         <div v-if="supportUrl" class="-mx-4 border-t px-4 pt-4 sm:mx-0 sm:px-0" data-login-support>
-          <p class="text-base font-semibold">Ajuda pelo WhatsApp</p>
-          <p class="mt-1 text-sm leading-6 text-muted-foreground">Fale com a loja se o código não chegar.</p>
+          <p class="text-base font-semibold">O código não chegou?</p>
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">Fale com a loja e resolvemos juntos.</p>
           <UiButton
             :href="supportUrl"
             target="_blank"
@@ -496,9 +540,10 @@ useSeoMeta({
             icon="lucide:message-circle"
             class="mt-3"
           >
-            Abrir WhatsApp da loja
+            Falar com a loja
           </UiButton>
         </div>
+        </template>
       </div>
     </div>
   </main>

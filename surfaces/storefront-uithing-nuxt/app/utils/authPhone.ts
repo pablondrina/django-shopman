@@ -39,6 +39,35 @@ export function normalizeAuthPhone (value: string, region: AuthPhoneRegion): str
   return digits ? `+55${digits}` : ''
 }
 
+// Máscara progressiva BR enquanto digita: "(43) 99876-1043". Tolera colar
+// com +55; internacional fica livre (formatos demais para mascarar bem).
+export function maskPhoneInput (value: string, region: AuthPhoneRegion): string {
+  if (region === 'INTL') return value
+  let digits = digitsOnly(value)
+  if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2)
+  digits = digits.slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  const ddd = digits.slice(0, 2)
+  const rest = digits.slice(2)
+  if (rest.length <= 4) return `(${ddd}) ${rest}`
+  const split = rest.length <= 8 ? 4 : 5
+  return `(${ddd}) ${rest.slice(0, split)}-${rest.slice(split)}`
+}
+
+// Telefone para leitura humana: E.164 BR vira "(43) 99876-1043";
+// internacional volta como veio.
+export function phoneDisplay (value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('+55')) {
+    const digits = digitsOnly(trimmed).slice(2)
+    if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+    if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  }
+  return trimmed
+}
+
 export function authPhonePayload (
   value: string,
   region: AuthPhoneRegion,

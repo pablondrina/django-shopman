@@ -126,6 +126,8 @@ class AuthCopyProjection:
     device_trust_prompt: CopyEntryProjection
     device_trust_cta: CopyEntryProjection
     device_trust_skip_cta: CopyEntryProjection
+    device_trust_redirecting: CopyEntryProjection
+    device_trust_saved: CopyEntryProjection
 
 
 @dataclass(frozen=True)
@@ -394,6 +396,8 @@ def _auth_copy(omotenashi: OmotenashiProjection) -> AuthCopyProjection:
         device_trust_prompt=_copy_entry("DEVICE_TRUST_PROMPT", omotenashi=omotenashi),
         device_trust_cta=_copy_entry("DEVICE_TRUST_CTA", omotenashi=omotenashi),
         device_trust_skip_cta=_copy_entry("DEVICE_TRUST_SKIP_CTA", omotenashi=omotenashi),
+        device_trust_redirecting=_copy_entry("DEVICE_TRUST_REDIRECTING", omotenashi=omotenashi),
+        device_trust_saved=_copy_entry("DEVICE_TRUST_SAVED", omotenashi=omotenashi),
     )
 
 

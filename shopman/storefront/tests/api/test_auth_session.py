@@ -286,7 +286,10 @@ def test_auth_request_code_never_exposes_debug_otp_in_production(monkeypatch, se
     )
 
     assert response.status_code == 200
-    assert "debug_otp_code" not in response.json()
+    data = response.json()
+    assert "debug_otp_code" not in data
+    # A validade do código é pública (timeout transparente); o código não.
+    assert data["code_expires_at"] == "2026-05-18T13:00:00+00:00"
 
 
 def test_auth_verify_code_accepts_json_and_creates_session_contract(monkeypatch):

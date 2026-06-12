@@ -349,6 +349,8 @@ export interface AuthCopyProjection {
   device_trust_prompt: CopyEntryProjection
   device_trust_cta: CopyEntryProjection
   device_trust_skip_cta: CopyEntryProjection
+  device_trust_redirecting: CopyEntryProjection
+  device_trust_saved: CopyEntryProjection
 }
 
 export interface OpeningHoursEntry {
