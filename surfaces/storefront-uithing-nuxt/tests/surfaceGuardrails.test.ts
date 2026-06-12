@@ -387,7 +387,7 @@ describe('surface UX guardrails', () => {
     expect(home).not.toContain('@click="drawerOpen = true"')
     expect(cartPage).toContain("action.ref === 'checkout'")
     expect(cartPage).toContain("checkoutAction?.label || 'Finalizar pedido'")
-    expect(cartPage).toContain('<CartSummaryBreakdown :cart="cart" />')
+    expect(cartPage).toContain('<CartSummaryBreakdown :cart="cart" flat />')
     expect(cartPage).toContain('sticky bottom-20')
     expect(cartPage).toContain('cartIssue')
     expect(cartPage).toContain('rateLimitRecovery')
@@ -526,17 +526,23 @@ describe('surface UX guardrails', () => {
     expect(quantity).toContain('minQty')
     expect(cartPage).toContain(':min-qty="1"')
     expect(cartPage).toContain('removeLine(line)')
-    expect(cartPage).toContain('data-cart-items-card')
+    // Carrinho editorial: linhas com hairline direto no background, sem cards.
     expect(cartPage).toContain('data-cart-line-item')
-    expect(cartPage).toContain('grid grid-cols-[5rem_minmax(0,1fr)] items-stretch gap-3 rounded-none border-0 border-b bg-card p-3 last:border-b-0 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4')
-    expect(cartPage).toContain('<UiItemMedia v-if="line.image_url" variant="image"')
-    expect(cartPage).toContain('<UiItemContent class="min-w-0 self-stretch">')
+    expect(cartPage).not.toContain('<UiCard')
     expect(cartPage).toContain('icon="lucide:trash-2"')
     expect(cartPage).toContain(':aria-label="`Remover ${line.name}`"')
-    expect(cartPage).toContain('<div class="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">')
+    // Lixeira sempre viva: mutações otimistas não bloqueiam remoção.
+    expect(cartPage).not.toContain(':disabled="cart.summary_pending"')
     expect(cartPage).toContain('{{ line.qty }} × {{ line.price_display }} cada')
     expect(cartPage).toContain('{{ line.total_display }}')
     expect(cartPage).toContain('<CartUpsellRail v-if="cart.upsell"')
+    // Planned-hold transparente: badges por linha + banner com countdown.
+    expect(cartPage).toContain('data-cart-line-awaiting')
+    expect(cartPage).toContain('data-cart-line-ready')
+    expect(cartPage).toContain('data-cart-hold-banner')
+    expect(cartPage).toContain('Aguardando confirmação')
+    expect(cartPage).toContain('Tudo pronto! Confirme')
+    expect(cartPage).toContain('Tempo restante:')
   })
 
   it('shows coupon savings as signed discounts without losing the original subtotal', () => {
@@ -550,9 +556,11 @@ describe('surface UX guardrails', () => {
     expect(summary).toContain('discountDisplay(discount.amount_display)')
     expect(summary).toContain("return value.startsWith('-') ? value : `- ${value}`")
     expect(cartPage).not.toContain('{{ cart.subtotal_display }}</span>')
-    expect(cartPage).toContain('<UiCardTitle>Cupom</UiCardTitle>')
-    expect(cartPage).toContain('<UiItem v-if="cart.coupon_code" variant="outline" size="sm" class="bg-card">')
-    expect(cartPage).toContain('<Icon name="lucide:ticket-percent" />')
+    // Cupom discreto: linha "Tem um cupom?" expande; aplicado vira linha com ×.
+    expect(cartPage).toContain('Tem um cupom?')
+    expect(cartPage).toContain('data-cart-coupon')
+    expect(cartPage).toContain('Cupom {{ cart.coupon_code }}')
+    expect(cartPage).toContain('aria-label="Remover cupom"')
   })
 
   it('uses Field for account preference switches and Item for trusted devices', () => {

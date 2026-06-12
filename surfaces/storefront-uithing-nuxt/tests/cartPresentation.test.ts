@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartItemsCount, formatCentavos, isOptimisticLine } from '~/presentation/cart'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdCountdown, isOptimisticLine, lineHoldState } from '~/presentation/cart'
 import type { CartItemProjection, CartProjection, ProductMutationMeta } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
@@ -116,5 +116,40 @@ describe('cart presentation — applySkuQty', () => {
     expect(previous.items[0]!.qty).toBe(2)
     expect(previous.items_count).toBe(2)
     expect(previous.summary_pending).toBe(false)
+  })
+})
+
+describe('cart presentation — planned hold', () => {
+  const deadline = '2026-06-12T15:30:00+00:00'
+
+  it('maps line flags to a hold state, ready taking precedence', () => {
+    expect(lineHoldState(line())).toBeNull()
+    expect(lineHoldState(line({ is_awaiting_confirmation: true })))
+      .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null })
+    expect(lineHoldState(line({ is_ready_for_confirmation: true, confirmation_deadline_iso: deadline, confirmation_deadline_display: '12:30' })))
+      .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30' })
+  })
+
+  it('counts down to the deadline and clamps at zero', () => {
+    const now = Date.parse(deadline) - (55 * 60 + 7) * 1000
+    expect(holdCountdown(deadline, now)).toEqual({ totalSeconds: 3307, display: '55:07' })
+    const farNow = Date.parse(deadline) - (2 * 3600 + 5 * 60 + 3) * 1000
+    expect(holdCountdown(deadline, farNow)?.display).toBe('2:05:03')
+    expect(holdCountdown(deadline, Date.parse(deadline) + 5000)).toEqual({ totalSeconds: 0, display: '00:00' })
+    expect(holdCountdown(null, 0)).toBeNull()
+    expect(holdCountdown('garbage', 0)).toBeNull()
+  })
+
+  it('builds the banner from cart flags with the soonest ready deadline', () => {
+    const readyLater = line({ sku: 'B', is_ready_for_confirmation: true, confirmation_deadline_iso: '2026-06-12T16:00:00+00:00', confirmation_deadline_display: '13:00' })
+    const readySoon = line({ sku: 'A', is_ready_for_confirmation: true, confirmation_deadline_iso: deadline, confirmation_deadline_display: '12:30' })
+    const base = cart([readyLater, readySoon])
+    const banner = cartHoldBanner({ ...base, has_ready_for_confirmation_items: true, has_awaiting_confirmation_items: false })
+    expect(banner).toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30' })
+
+    const awaiting = cartHoldBanner({ ...cart([line({ is_awaiting_confirmation: true })]), has_awaiting_confirmation_items: true, has_ready_for_confirmation_items: false })
+    expect(awaiting).toEqual({ kind: 'awaiting' })
+
+    expect(cartHoldBanner(cart([line()]))).toBeNull()
   })
 })

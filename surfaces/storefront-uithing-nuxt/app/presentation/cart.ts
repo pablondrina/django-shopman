@@ -51,6 +51,58 @@ export function cartItemsCount (items: CartItemProjection[]): number {
   return items.reduce((total, line) => total + line.qty, 0)
 }
 
+// Planned-hold (AVAILABILITY-PLAN §8): a linha ou aguarda confirmação da
+// produção planejada ('awaiting') ou o estoque materializou e o cliente
+// precisa confirmar antes do TTL ('ready'). Timeouts são transparentes:
+// deadline explícito + countdown vivo.
+
+export type CartLineHold = {
+  kind: 'awaiting' | 'ready'
+  deadlineIso: string | null
+  deadlineDisplay: string | null
+}
+
+type HoldFields = Pick<CartItemProjection, 'is_awaiting_confirmation' | 'is_ready_for_confirmation' | 'confirmation_deadline_iso' | 'confirmation_deadline_display'>
+
+export function lineHoldState (line: HoldFields): CartLineHold | null {
+  if (line.is_ready_for_confirmation) {
+    return { kind: 'ready', deadlineIso: line.confirmation_deadline_iso, deadlineDisplay: line.confirmation_deadline_display }
+  }
+  if (line.is_awaiting_confirmation) return { kind: 'awaiting', deadlineIso: null, deadlineDisplay: null }
+  return null
+}
+
+export function holdCountdown (deadlineIso: string | null | undefined, nowMs: number): { totalSeconds: number, display: string } | null {
+  if (!deadlineIso) return null
+  const deadline = Date.parse(deadlineIso)
+  if (Number.isNaN(deadline)) return null
+  const totalSeconds = Math.max(0, Math.floor((deadline - nowMs) / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return {
+    totalSeconds,
+    display: hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`
+  }
+}
+
+export type CartHoldBanner =
+  | { kind: 'ready', deadlineIso: string | null, deadlineDisplay: string | null }
+  | { kind: 'awaiting' }
+
+export function cartHoldBanner (cart: Pick<CartProjection, 'has_ready_for_confirmation_items' | 'has_awaiting_confirmation_items' | 'items'>): CartHoldBanner | null {
+  if (cart.has_ready_for_confirmation_items) {
+    const ready = cart.items
+      .filter(line => line.is_ready_for_confirmation && line.confirmation_deadline_iso)
+      .sort((a, b) => Date.parse(a.confirmation_deadline_iso!) - Date.parse(b.confirmation_deadline_iso!))
+    const first = ready[0] || cart.items.find(line => line.is_ready_for_confirmation)
+    return { kind: 'ready', deadlineIso: first?.confirmation_deadline_iso || null, deadlineDisplay: first?.confirmation_deadline_display || null }
+  }
+  if (cart.has_awaiting_confirmation_items) return { kind: 'awaiting' }
+  return null
+}
+
 export function applySkuQty (cart: CartProjection, meta: ProductMutationMeta, qty: number): CartProjection {
   const hasLine = cart.items.some(line => line.sku === meta.sku)
   let items: CartItemProjection[]

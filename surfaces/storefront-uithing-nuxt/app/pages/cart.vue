@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cartHoldBanner, holdCountdown, lineHoldState } from '~/presentation/cart'
 import type { CartItemProjection, CartResponse, ProductMutationMeta } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
@@ -6,8 +7,10 @@ const {
   cart,
   cartIssue,
   rateLimitRecovery,
+  hasPendingMutations,
   setFromServer,
   setSkuQty,
+  refreshCart,
   applyCoupon,
   removeCoupon,
   acceptAvailableQty,
@@ -22,6 +25,7 @@ watch(() => data.value?.cart, cart => {
 }, { immediate: true })
 
 const coupon = ref('')
+const couponOpen = ref(false)
 const couponPending = ref(false)
 const checkoutAction = computed(() => cart.value.actions.find(action => action.ref === 'checkout') || null)
 const continueAction = computed(() => cart.value.actions.find(action => action.ref === 'continue_shopping') || null)
@@ -35,6 +39,31 @@ const cartIssueQtyLabel = computed(() => {
   return qty != null ? `Usar ${formatCount(qty, 'unidade disponível', 'unidades disponíveis')}` : ''
 })
 
+// Timeout transparente: deadline explícito + countdown vivo enquanto há
+// itens planejados; o estado é re-sincronizado a cada 30s (materialização
+// chega pelo servidor).
+const holdBanner = computed(() => cartHoldBanner(cart.value))
+const nowMs = ref(0)
+let clockTimer: ReturnType<typeof setInterval> | null = null
+let holdPollTimer: ReturnType<typeof setInterval> | null = null
+const bannerCountdown = computed(() => holdBanner.value?.kind === 'ready'
+  ? holdCountdown(holdBanner.value.deadlineIso, nowMs.value)
+  : null)
+
+onMounted(() => {
+  nowMs.value = Date.now()
+  clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
+  holdPollTimer = setInterval(() => {
+    const hasHolds = cart.value.has_awaiting_confirmation_items || cart.value.has_ready_for_confirmation_items
+    if (hasHolds && !hasPendingMutations.value) refreshCart().catch(() => null)
+  }, 30_000)
+})
+
+onBeforeUnmount(() => {
+  if (clockTimer) clearInterval(clockTimer)
+  if (holdPollTimer) clearInterval(holdPollTimer)
+})
+
 function metaForLine (line: CartItemProjection): ProductMutationMeta {
   return {
     sku: line.sku,
@@ -43,6 +72,10 @@ function metaForLine (line: CartItemProjection): ProductMutationMeta {
     price_display: line.price_display,
     image_url: line.image_url
   }
+}
+
+function holdFor (line: CartItemProjection) {
+  return lineHoldState(line)
 }
 
 async function removeLine (line: CartItemProjection) {
@@ -55,6 +88,7 @@ async function submitCoupon () {
   try {
     await applyCoupon(coupon.value.trim())
     coupon.value = ''
+    couponOpen.value = false
   } finally {
     couponPending.value = false
   }
@@ -76,14 +110,22 @@ useSeoMeta({
       />
 
       <div>
-        <p class="shop-kicker">Carrinho</p>
-        <h1 class="mt-1 text-3xl font-semibold">Seu carrinho</h1>
-        <p class="mt-2 shop-muted">
+        <h1 class="text-3xl font-semibold">Seu carrinho</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
           {{ cart.is_empty ? 'Escolha itens no cardápio para montar o pedido.' : `${formatCount(cart.items_count, 'item', 'itens')} · ${cart.grand_total_display}` }}
         </p>
       </div>
 
-      <UiSkeleton v-if="pending" class="h-72 rounded-lg" />
+      <div v-if="pending" class="space-y-3">
+        <div v-for="n in 3" :key="n" class="flex gap-3 border-b py-3">
+          <UiSkeleton class="size-20 shrink-0 rounded-lg" />
+          <div class="min-w-0 flex-1 space-y-2 self-center">
+            <UiSkeleton class="h-4 w-2/3" />
+            <UiSkeleton class="h-3 w-1/3" />
+            <UiSkeleton class="h-8 w-1/2" />
+          </div>
+        </div>
+      </div>
 
       <UiAlert v-else-if="error" variant="destructive">
         <UiAlertTitle>Não foi possível carregar o carrinho</UiAlertTitle>
@@ -98,7 +140,7 @@ useSeoMeta({
           <UiAlertDescription>
             <p>{{ cartIssue.detail }}</p>
             <div v-if="cartIssue.substitutes.length" class="mt-3 space-y-2">
-              <p class="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Alternativas disponíveis</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alternativas disponíveis</p>
               <UiItemGroup class="gap-2">
                 <UiItem v-for="substitute in cartIssue.substitutes.slice(0, 3)" :key="substitute.sku || substitute.name" variant="outline" size="sm">
                   <UiItemContent>
@@ -125,6 +167,24 @@ useSeoMeta({
           <UiAlertDescription>{{ rateLimitRecovery.detail }}</UiAlertDescription>
         </UiAlert>
 
+        <UiAlert v-if="holdBanner?.kind === 'ready'" icon="lucide:party-popper" data-cart-hold-banner>
+          <UiAlertTitle>
+            Tudo pronto! Confirme{{ holdBanner.deadlineDisplay ? ` até ${holdBanner.deadlineDisplay}` : '' }}
+          </UiAlertTitle>
+          <UiAlertDescription>
+            <p v-if="bannerCountdown" class="tabular-nums" aria-live="polite">Tempo restante: {{ bannerCountdown.display }}</p>
+            <UiButton
+              :to="checkoutTarget"
+              size="sm"
+              class="mt-2"
+              icon="lucide:clipboard-check"
+              :disabled="checkoutDisabled"
+            >
+              {{ checkoutAction?.label || 'Finalizar pedido' }}
+            </UiButton>
+          </UiAlertDescription>
+        </UiAlert>
+
         <UiEmpty v-if="cart.is_empty" class="border">
           <UiEmptyMedia variant="icon">
             <Icon name="lucide:shopping-bag" />
@@ -137,73 +197,73 @@ useSeoMeta({
             <UiButton :to="localRouteFromBackend(continueAction?.href || '/menu')" icon="lucide:utensils">
               {{ continueAction?.label || 'Ver cardápio' }}
             </UiButton>
-            <UiButton
-              :to="checkoutTarget"
-              variant="outline"
-              icon="lucide:clipboard-check"
-              :disabled="checkoutDisabled"
-            >
-              {{ checkoutAction?.label || 'Finalizar pedido' }}
-            </UiButton>
-            <p v-if="checkoutDisabled && checkoutReason" class="max-w-sm text-center text-xs text-muted-foreground">
-              {{ checkoutReason }}
-            </p>
           </UiEmptyContent>
         </UiEmpty>
 
-        <div v-else class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <section class="space-y-4">
-            <UiAlert v-if="checkoutDisabled && checkoutReason" variant="warning">
+        <div v-else class="grid grid-cols-1 gap-x-10 gap-y-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section class="min-w-0">
+            <UiAlert v-if="checkoutDisabled && checkoutReason" variant="warning" class="mb-4">
               <UiAlertTitle>Antes de finalizar</UiAlertTitle>
               <UiAlertDescription>{{ checkoutReason }}</UiAlertDescription>
             </UiAlert>
 
-            <UiCard class="gap-0 overflow-hidden py-0" data-cart-items-card>
-              <UiItem
+            <div class="border-t">
+              <div
                 v-for="line in cart.items"
                 :key="line.line_id"
-                class="grid grid-cols-[5rem_minmax(0,1fr)] items-stretch gap-3 rounded-none border-0 border-b bg-card p-3 last:border-b-0 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4"
+                class="flex gap-3 border-b py-3"
                 data-cart-line-item
               >
-                <UiItemMedia v-if="line.image_url" variant="image" class="size-20 rounded-lg sm:size-24">
+                <div class="size-20 shrink-0 overflow-hidden rounded-lg bg-muted" :class="!line.is_available && !holdFor(line) ? 'opacity-60 grayscale' : ''">
                   <img
+                    v-if="line.image_url"
                     :src="line.image_url"
                     :alt="line.name"
                     loading="lazy"
                     decoding="async"
+                    class="size-full object-cover"
                   >
-                </UiItemMedia>
-                <UiItemMedia v-else variant="icon" class="size-20 rounded-lg sm:size-24">
-                  <Icon name="lucide:image" />
-                </UiItemMedia>
+                  <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+                    <Icon name="lucide:croissant" class="size-5" />
+                  </div>
+                </div>
 
-                <UiItemContent class="min-w-0 self-stretch">
-                  <div class="flex min-w-0 items-start gap-3">
-                    <div class="min-w-0 flex-1">
-                      <UiItemTitle class="line-clamp-2 leading-tight">{{ line.name }}</UiItemTitle>
-                      <UiItemDescription class="mt-1 space-y-0.5">
-                        <span v-if="line.original_price_display" class="block text-xs">
-                          <span class="line-through">{{ line.original_price_display }}</span>
-                          <span class="ml-1 font-medium text-foreground">{{ line.qty }} × {{ line.price_display }} cada</span>
-                        </span>
-                        <span v-else class="block text-xs">{{ line.qty }} × {{ line.price_display }} cada</span>
-                        <span v-if="line.discount_label" class="block text-xs font-medium text-primary">{{ line.discount_label }}</span>
-                        <span v-if="line.availability_warning" class="block text-xs text-destructive">{{ line.availability_warning }}</span>
-                      </UiItemDescription>
-                    </div>
-
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-start gap-2">
+                    <h3 class="line-clamp-2 min-w-0 flex-1 text-base leading-5">{{ line.name }}</h3>
                     <UiButton
                       variant="ghost"
                       size="icon-sm"
                       icon="lucide:trash-2"
                       class="-mr-1 -mt-1 shrink-0 text-muted-foreground hover:text-destructive"
                       :aria-label="`Remover ${line.name}`"
-                      :disabled="cart.summary_pending"
                       @click="removeLine(line)"
                     />
                   </div>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    <span v-if="line.original_price_display" class="line-through">{{ line.original_price_display }}</span>
+                    {{ line.qty }} × {{ line.price_display }} cada
+                  </p>
+                  <p v-if="line.discount_label" class="mt-0.5 text-xs font-semibold text-primary">{{ line.discount_label }}</p>
+                  <p v-if="line.availability_warning && !holdFor(line)" class="mt-0.5 text-xs text-destructive">{{ line.availability_warning }}</p>
 
-                  <div class="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
+                  <template v-if="holdFor(line)">
+                    <div v-if="holdFor(line)!.kind === 'awaiting'" class="mt-1.5" data-cart-line-awaiting>
+                      <UiBadge variant="outline">
+                        <Icon name="lucide:clock" class="mr-1 size-3.5" />
+                        Aguardando confirmação
+                      </UiBadge>
+                      <p class="mt-1 text-xs text-muted-foreground">Avisamos quando ficar pronto.</p>
+                    </div>
+                    <div v-else class="mt-1.5" data-cart-line-ready>
+                      <UiBadge variant="default">
+                        <Icon name="lucide:party-popper" class="mr-1 size-3.5" />
+                        Confirme{{ holdFor(line)!.deadlineDisplay ? ` até ${holdFor(line)!.deadlineDisplay}` : '' }}
+                      </UiBadge>
+                    </div>
+                  </template>
+
+                  <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
                     <QuantityControl
                       :meta="metaForLine(line)"
                       :qty="line.qty"
@@ -212,106 +272,104 @@ useSeoMeta({
                       :min-qty="1"
                       compact
                     />
-                    <p class="ml-auto text-base font-semibold text-foreground tabular-nums">{{ line.total_display }}</p>
+                    <p class="ml-auto text-sm font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-60' : ''">{{ line.total_display }}</p>
                   </div>
-                </UiItemContent>
-              </UiItem>
-            </UiCard>
+                </div>
+              </div>
+            </div>
 
-            <CartUpsellRail v-if="cart.upsell" :upsell="cart.upsell" heading="Mais um item?" />
+            <CartUpsellRail v-if="cart.upsell" :upsell="cart.upsell" heading="Mais um item?" class="mt-4" />
 
-            <div v-if="cart.minimum_order_progress" class="rounded-lg border p-4">
+            <div v-if="cart.minimum_order_progress" class="mt-4 border-b pb-4">
               <div class="mb-2 flex justify-between gap-3 text-sm">
                 <span>Pedido mínimo</span>
-                <span>{{ cart.minimum_order_progress.remaining_display }}</span>
+                <span class="tabular-nums">{{ cart.minimum_order_progress.remaining_display }}</span>
               </div>
               <UiProgress :model-value="cart.minimum_order_progress.percent" />
             </div>
 
-            <UiCard>
-              <UiCardHeader>
-                <UiCardTitle>Cupom</UiCardTitle>
-                <UiCardDescription>Adicione um código antes de finalizar.</UiCardDescription>
-              </UiCardHeader>
-              <UiCardContent class="space-y-3">
-                <form class="flex gap-2" @submit.prevent="submitCoupon">
-                  <UiInput v-model="coupon" placeholder="Cupom" autocomplete="off" />
-                  <UiButton type="submit" variant="outline" :loading="couponPending">Aplicar</UiButton>
-                </form>
-                <UiItem v-if="cart.coupon_code" variant="outline" size="sm" class="bg-card">
-                  <UiItemMedia variant="icon" class="size-8 rounded-md">
-                    <Icon name="lucide:ticket-percent" />
-                  </UiItemMedia>
-                  <UiItemContent>
-                    <UiItemTitle>Cupom {{ cart.coupon_code }}</UiItemTitle>
-                    <UiItemDescription>Desconto aplicado no resumo.</UiItemDescription>
-                  </UiItemContent>
-                  <UiItemActions>
-                    <UiButton size="sm" variant="ghost" icon="lucide:x" @click="removeCoupon">
-                      Remover
-                    </UiButton>
-                  </UiItemActions>
-                </UiItem>
-              </UiCardContent>
-            </UiCard>
+            <div class="mt-4" data-cart-coupon>
+              <div v-if="cart.coupon_code" class="flex items-center gap-3 text-sm">
+                <Icon name="lucide:ticket-percent" class="size-4 shrink-0 text-muted-foreground" />
+                <span class="min-w-0 flex-1 truncate">Cupom {{ cart.coupon_code }}</span>
+                <span v-if="cart.coupon_discount_display" class="font-semibold tabular-nums text-primary">- {{ cart.coupon_discount_display }}</span>
+                <UiButton
+                  size="icon-sm"
+                  variant="ghost"
+                  icon="lucide:x"
+                  aria-label="Remover cupom"
+                  @click="removeCoupon"
+                />
+              </div>
+              <form v-else-if="couponOpen" class="flex items-center gap-2" @submit.prevent="submitCoupon">
+                <UiInput v-model="coupon" placeholder="Código do cupom" autocomplete="off" autofocus class="max-w-56" />
+                <UiButton type="submit" variant="outline" :loading="couponPending">Aplicar</UiButton>
+                <UiButton variant="ghost" size="icon-sm" icon="lucide:x" aria-label="Fechar cupom" @click="couponOpen = false" />
+              </form>
+              <UiButton
+                v-else
+                variant="ghost"
+                size="sm"
+                icon="lucide:ticket-percent"
+                class="-ml-2 text-muted-foreground hover:text-foreground"
+                @click="couponOpen = true"
+              >
+                Tem um cupom?
+              </UiButton>
+            </div>
           </section>
 
-          <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            <UiCard>
-              <UiCardHeader>
-                <UiCardTitle>Resumo</UiCardTitle>
-                <UiCardDescription>{{ formatCount(cart.items_count, 'item', 'itens') }}</UiCardDescription>
-              </UiCardHeader>
-              <UiCardContent>
-                <CartSummaryBreakdown :cart="cart" />
-              </UiCardContent>
-              <UiCardFooter class="hidden flex-col gap-2 md:flex">
-                <UiButton
-                  :to="checkoutTarget"
-                  class="w-full"
-                  size="lg"
-                  icon="lucide:clipboard-check"
-                  :disabled="checkoutDisabled"
-                >
-                  {{ checkoutAction?.label || 'Finalizar pedido' }}
-                </UiButton>
-                <p v-if="checkoutDisabled && checkoutReason" class="text-center text-xs text-muted-foreground">
-                  {{ checkoutReason }}
-                </p>
-                <UiButton
-                  v-if="continueAction"
-                  :to="localRouteFromBackend(continueAction.href)"
-                  variant="outline"
-                  class="w-full"
-                >
-                  {{ continueAction.label }}
-                </UiButton>
-              </UiCardFooter>
-            </UiCard>
+          <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            <h2 class="text-base font-semibold">Resumo</h2>
+            <div class="mt-2" :class="cart.summary_pending ? 'opacity-60 transition-opacity' : 'transition-opacity'">
+              <CartSummaryBreakdown :cart="cart" flat />
+            </div>
+            <div class="mt-4 hidden flex-col gap-2 md:flex">
+              <UiButton
+                :to="checkoutTarget"
+                class="w-full"
+                size="lg"
+                icon="lucide:clipboard-check"
+                :disabled="checkoutDisabled"
+              >
+                {{ checkoutAction?.label || 'Finalizar pedido' }}
+              </UiButton>
+              <p v-if="checkoutDisabled && checkoutReason" class="text-center text-xs text-muted-foreground">
+                {{ checkoutReason }}
+              </p>
+              <UiButton
+                v-if="continueAction"
+                :to="localRouteFromBackend(continueAction.href)"
+                variant="outline"
+                class="w-full"
+              >
+                {{ continueAction.label }}
+              </UiButton>
+            </div>
           </aside>
         </div>
       </template>
 
       <div
         v-if="!cart.is_empty"
-        class="sticky bottom-20 z-30 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur md:hidden"
+        class="sticky bottom-20 z-30 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
       >
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
-            <p class="text-xl font-semibold tabular-nums">{{ cart.grand_total_display }}</p>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs uppercase tracking-wide text-background/70">Total do pedido</p>
+            <p class="text-xl font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
           </div>
           <UiButton
             :to="checkoutTarget"
             size="lg"
+            variant="secondary"
             icon="lucide:clipboard-check"
-            class="w-full sm:w-auto"
             :disabled="checkoutDisabled"
           >
             {{ checkoutAction?.label || 'Finalizar pedido' }}
           </UiButton>
         </div>
-        <p v-if="checkoutDisabled && checkoutReason" class="mt-2 text-center text-xs text-muted-foreground">
+        <p v-if="checkoutDisabled && checkoutReason" class="mt-2 text-center text-xs text-background/70">
           {{ checkoutReason }}
         </p>
       </div>
