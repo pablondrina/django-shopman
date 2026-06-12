@@ -935,7 +935,7 @@ useSeoMeta({
                 <UiFieldLabel for="account-address-default">Usar como padrão</UiFieldLabel>
                 <UiFieldDescription>Este endereço aparece primeiro na próxima compra.</UiFieldDescription>
               </UiFieldContent>
-              <UiSwitch id="account-address-default" v-model:checked="addressForm.is_default" />
+              <UiSwitch id="account-address-default" v-model="addressForm.is_default" />
             </UiField>
 
             <UiSheetFooter class="px-0">
@@ -986,7 +986,7 @@ useSeoMeta({
               <UiFieldLabel for="delete-account-ack">Entendi o efeito desta ação</UiFieldLabel>
               <UiFieldDescription>Histórico operacional de pedidos pode permanecer anonimizado para auditoria.</UiFieldDescription>
             </UiFieldContent>
-            <UiCheckbox id="delete-account-ack" v-model:checked="deleteAccountAcknowledged" />
+            <UiCheckbox id="delete-account-ack" v-model="deleteAccountAcknowledged" />
           </UiField>
           <UiAlertDialogFooter>
             <UiAlertDialogCancel :disabled="deleteAccountPending">Voltar</UiAlertDialogCancel>

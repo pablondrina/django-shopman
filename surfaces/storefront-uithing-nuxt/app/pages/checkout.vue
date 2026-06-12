@@ -754,7 +754,7 @@ useSeoMeta({
                     <UiFieldTitle>Usar fidelidade</UiFieldTitle>
                     <UiFieldDescription>{{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
-                  <UiSwitch id="checkout-loyalty" v-model:checked="useLoyalty" />
+                  <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
               </UiFieldLabel>
 
