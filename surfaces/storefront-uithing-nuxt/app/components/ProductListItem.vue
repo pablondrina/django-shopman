@@ -27,8 +27,8 @@ const badge = computed(() => tileBadge(props.item))
     />
 
     <div class="min-w-0 flex-1 self-center">
-      <h3 class="line-clamp-2 text-sm font-medium leading-5">{{ item.name }}</h3>
-      <p v-if="item.short_description" class="mt-0.5 line-clamp-2 text-xs leading-[14px] text-muted-foreground">
+      <h3 class="line-clamp-2 text-base leading-5">{{ item.name }}</h3>
+      <p v-if="item.short_description" class="mt-1.5 line-clamp-2 text-xs leading-[14px] text-muted-foreground">
         {{ item.short_description }}
       </p>
       <UiBadge v-if="badge" :variant="badge.variant" class="mt-1.5">{{ badge.label }}</UiBadge>

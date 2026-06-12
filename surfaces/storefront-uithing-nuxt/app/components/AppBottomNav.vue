@@ -26,7 +26,7 @@ function active (to: string) {
         v-for="item in items"
         :key="item.to"
         :to="item.to"
-        class="relative flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[11px] font-medium"
+        class="relative flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-xs"
         :class="[active(item.to) ? 'text-primary' : 'text-muted-foreground', item.showsCartBadge && cartPulse ? 'scale-105 text-primary' : '']"
         :aria-current="active(item.to) ? 'page' : undefined"
       >
@@ -40,7 +40,7 @@ function active (to: string) {
           v-if="item.showsCartBadge && !cart.is_empty"
           variant="default"
           size="sm"
-          class="absolute right-2 top-1 size-5 min-w-5 rounded-full p-0 text-[11px] font-semibold tabular-nums transition-transform"
+          class="absolute right-2 top-1 size-5 min-w-5 rounded-full p-0 text-xs font-semibold tabular-nums transition-transform"
           :class="cartPulse ? 'scale-125 ring-2 ring-primary/25' : ''"
         >
           {{ cart.items_count }}

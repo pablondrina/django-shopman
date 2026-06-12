@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { tileBadge } from '~/presentation/menu'
+import { crossSellItems, detailDescription, nutritionTable } from '~/presentation/product'
 import type { ProductMutationMeta, ProductResponse } from '~/types/shopman'
 
 const route = useRoute()
@@ -16,7 +18,6 @@ watch(() => data.value?.cart, cart => {
 }, { immediate: true })
 
 const product = computed(() => data.value?.product || null)
-const mobileCtaTouched = ref(false)
 const meta = computed<ProductMutationMeta | null>(() => product.value
   ? {
       sku: product.value.sku,
@@ -27,20 +28,10 @@ const meta = computed<ProductMutationMeta | null>(() => product.value
     }
   : null)
 const currentQty = computed(() => product.value ? qtyForSku(product.value.sku) : 0)
-const mobileCtaQty = computed(() => mobileCtaTouched.value ? currentQty.value : 0)
-const mobileCtaAddTarget = computed(() => Math.max(currentQty.value, 1))
-const relatedSuggestion = computed(() => {
-  const upsell = data.value?.cart.upsell || null
-  return upsell && upsell.sku !== sku.value ? upsell : null
-})
-const detailDescription = computed(() => {
-  if (!product.value?.long_description) return ''
-  return product.value.long_description === product.value.short_description ? '' : product.value.long_description
-})
-
-watch(() => sku.value, () => {
-  mobileCtaTouched.value = false
-})
+const badge = computed(() => product.value ? tileBadge(product.value) : null)
+const longDescription = computed(() => product.value ? detailDescription(product.value) : '')
+const nutrition = computed(() => nutritionTable(product.value?.nutrition || null))
+const crossSell = computed(() => product.value ? crossSellItems(product.value) : [])
 
 useSeoMeta({
   title: () => product.value?.name || 'Produto',
@@ -49,23 +40,16 @@ useSeoMeta({
 </script>
 
 <template>
-  <main class="shop-section">
+  <main class="pb-6 pt-0 lg:py-8">
     <div class="shop-container">
-      <UiBreadcrumbs
-        class="mb-4"
-        :items="[
-          { label: 'Início', link: '/' },
-          { label: 'Cardápio', link: '/menu' },
-          { label: product?.name || 'Produto' }
-        ]"
-      />
-
-      <div v-if="pending" class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <UiSkeleton class="h-96 rounded-lg" />
-        <UiSkeleton class="h-96 rounded-lg" />
+      <div v-if="pending" class="space-y-4">
+        <UiSkeleton class="-mx-4 aspect-[4/3] rounded-none sm:-mx-6 lg:mx-0 lg:h-96 lg:w-1/2 lg:rounded-lg" />
+        <UiSkeleton class="h-8 w-2/3" />
+        <UiSkeleton class="h-4 w-full" />
+        <UiSkeleton class="h-10 w-1/3" />
       </div>
 
-      <UiAlert v-else-if="error" variant="destructive">
+      <UiAlert v-else-if="error" variant="destructive" class="mt-4">
         <UiAlertTitle>Produto indisponível</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -75,68 +59,74 @@ useSeoMeta({
         </UiAlertDescription>
       </UiAlert>
 
-      <article v-else-if="product && meta" class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <section class="min-w-0 space-y-4">
-          <div class="shop-panel overflow-hidden">
+      <template v-else-if="product && meta">
+        <article class="lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start lg:gap-8">
+          <section class="min-w-0">
             <img
               v-if="product.image_url"
               :src="product.image_url"
               :alt="product.name"
-              class="aspect-[4/3] w-full object-cover"
+              class="-mx-4 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg"
               fetchpriority="high"
             >
-            <div v-else class="flex aspect-[4/3] items-center justify-center bg-muted text-muted-foreground">
-              <Icon name="lucide:image" class="size-10" />
+            <div v-else class="-mx-4 flex aspect-[4/3] w-[calc(100%+2rem)] items-center justify-center bg-muted text-muted-foreground sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg">
+              <Icon name="lucide:croissant" class="size-10" />
             </div>
-          </div>
 
-          <div v-if="product.gallery.length" class="grid grid-cols-3 gap-3">
-            <img
-              v-for="image in product.gallery.slice(0, 3)"
-              :key="image"
-              :src="image"
-              :alt="product.name"
-              class="aspect-square rounded-lg border object-cover"
-              loading="lazy"
-            >
-          </div>
-        </section>
+            <div v-if="product.gallery.length" class="mt-3 grid grid-cols-3 gap-3">
+              <img
+                v-for="image in product.gallery.slice(0, 3)"
+                :key="image"
+                :src="image"
+                :alt="product.name"
+                class="aspect-square rounded-lg border object-cover"
+                loading="lazy"
+              >
+            </div>
+          </section>
 
-        <aside class="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <UiCard class="pb-0">
-            <UiCardHeader>
-              <div class="mb-2 flex flex-wrap gap-2">
-                <UiBadge :variant="availabilityVariant(product.availability)">{{ product.availability_label }}</UiBadge>
-                <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
-              </div>
-              <UiCardTitle as="h1" class="text-3xl leading-tight">{{ product.name }}</UiCardTitle>
-              <UiCardDescription>{{ product.short_description }}</UiCardDescription>
-            </UiCardHeader>
-            <UiCardContent class="space-y-5">
-              <p v-if="detailDescription" class="text-sm leading-6 text-muted-foreground">{{ detailDescription }}</p>
-              <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p v-if="product.original_price_display" class="text-sm text-muted-foreground line-through">
-                    {{ product.original_price_display }}
+          <div class="mt-4 min-w-0 lg:sticky lg:top-24 lg:mt-0 lg:self-start">
+            <UiBreadcrumbs
+              class="mb-3"
+              :items="[
+                { label: 'Início', link: '/' },
+                { label: 'Cardápio', link: '/menu' },
+                { label: product.name }
+              ]"
+            />
+
+            <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
+              <UiBadge v-if="badge" :variant="badge.variant">{{ badge.label }}</UiBadge>
+              <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
+            </div>
+
+            <h1 class="line-clamp-2 text-3xl font-semibold leading-tight">{{ product.name }}</h1>
+            <p class="mt-2 line-clamp-2 text-sm leading-4 text-muted-foreground">{{ product.short_description }}</p>
+            <p v-if="longDescription" class="mt-2 text-sm leading-6 text-muted-foreground">{{ longDescription }}</p>
+
+            <div class="mt-2 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p v-if="product.original_price_display" class="text-sm text-muted-foreground line-through">
+                  {{ product.original_price_display }}
+                </p>
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p class="text-xl font-semibold tabular-nums">{{ product.price_display }}</p>
+                  <p v-if="product.unit_weight_label" class="text-xs text-muted-foreground">
+                    {{ product.unit_weight_label }}
                   </p>
-                  <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <p class="text-2xl font-semibold">{{ product.price_display }}</p>
-                    <p v-if="product.unit_weight_label" class="text-sm text-muted-foreground">
-                      {{ product.unit_weight_label }}
-                    </p>
-                  </div>
-                </div>
-                <div class="hidden md:block">
-                  <CartQuantityAction
-                    :meta="meta"
-                    :qty="currentQty"
-                    :disabled="!product.can_add_to_cart"
-                    :max-qty="product.available_qty ?? product.max_qty"
-                  />
                 </div>
               </div>
-            </UiCardContent>
-            <UiAccordion type="multiple" class="w-full border-t">
+              <div class="hidden md:block">
+                <CartQuantityAction
+                  :meta="meta"
+                  :qty="currentQty"
+                  :disabled="!product.can_add_to_cart"
+                  :max-qty="product.available_qty ?? product.max_qty"
+                />
+              </div>
+            </div>
+
+            <UiAccordion type="multiple" class="-mx-4 mt-6 border-t sm:-mx-6 lg:mx-0 [&_[data-slot=accordion-trigger]]:font-semibold sm:[&_[data-slot=accordion-trigger]]:px-6 lg:[&_[data-slot=accordion-trigger]]:px-0 [&_[data-slot=accordion-content]>div]:px-8 sm:[&_[data-slot=accordion-content]>div]:px-10 lg:[&_[data-slot=accordion-content]>div]:px-4">
               <UiAccordionItem v-if="product.components.length" value="components">
                 <UiAccordionTrigger>Itens do combo</UiAccordionTrigger>
                 <UiAccordionContent>
@@ -157,19 +147,23 @@ useSeoMeta({
                   </div>
                 </UiAccordionContent>
               </UiAccordionItem>
-              <UiAccordionItem v-if="product.nutrition?.has_any" value="nutrition">
+              <UiAccordionItem v-if="nutrition" value="nutrition">
                 <UiAccordionTrigger>Nutricional</UiAccordionTrigger>
                 <UiAccordionContent>
-                  <UiDescriptionList>
-                    <template v-if="product.nutrition?.serving_size_display">
-                      <UiDescriptionListTerm>Porção</UiDescriptionListTerm>
-                      <UiDescriptionListDetails>{{ product.nutrition.serving_size_display }}</UiDescriptionListDetails>
-                    </template>
-                    <template v-for="row in product.nutrition?.rows || []" :key="row.field">
-                      <UiDescriptionListTerm>{{ row.label }}</UiDescriptionListTerm>
-                      <UiDescriptionListDetails class="font-medium">{{ row.value_display }}</UiDescriptionListDetails>
-                    </template>
-                  </UiDescriptionList>
+                  <div class="space-y-1 text-sm">
+                    <p v-if="nutrition.serving" class="pb-1 text-xs text-muted-foreground">Porção: {{ nutrition.serving }}</p>
+                    <div
+                      v-for="row in nutrition.rows"
+                      :key="row.label"
+                      class="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0"
+                    >
+                      <span class="text-muted-foreground">{{ row.label }}</span>
+                      <span class="text-right">
+                        <span class="font-semibold tabular-nums">{{ row.value }}</span>
+                        <span v-if="row.pdv != null" class="ml-2 text-xs tabular-nums text-muted-foreground">{{ row.pdv }}% VD</span>
+                      </span>
+                    </div>
+                  </div>
                 </UiAccordionContent>
               </UiAccordionItem>
               <UiAccordionItem v-if="product.conservation?.has_any || product.unit_weight_label || product.approx_dimensions_label" value="care">
@@ -184,40 +178,42 @@ useSeoMeta({
                 </UiAccordionContent>
               </UiAccordionItem>
             </UiAccordion>
-          </UiCard>
-        </aside>
-      </article>
-
-      <CartUpsellRail
-        v-if="relatedSuggestion"
-        :upsell="relatedSuggestion"
-        heading="Veja também"
-        class="mt-6"
-      />
-
-      <div
-        v-if="product && meta"
-        class="sticky bottom-20 z-30 mt-5 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
-      >
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-medium">{{ product.name }}</p>
-            <p class="text-lg font-semibold text-background">{{ product.price_display }}</p>
-            <p v-if="product.unit_weight_label" class="text-xs text-background/70">
-              {{ compactUnitWeightLabel(product.unit_weight_label) }}
-            </p>
           </div>
-          <CartQuantityAction
-            :meta="meta"
-            :qty="mobileCtaQty"
-            :disabled="!product.can_add_to_cart"
-            :max-qty="product.available_qty ?? product.max_qty"
-            :add-target-qty="mobileCtaAddTarget"
-            tone="inverted"
-            @changed="mobileCtaTouched = true"
-          />
+        </article>
+
+        <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
+          <h2 class="text-base font-semibold">Você também pode gostar</h2>
+          <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
+            <ProductListItem
+              v-for="item in crossSell"
+              :key="item.sku"
+              :item="item"
+              class="border-b last:border-b-0 md:[&:nth-last-child(2)]:border-b-0"
+            />
+          </div>
+        </section>
+
+        <div
+          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-sm">{{ product.name }}</p>
+              <p class="text-xl font-semibold tabular-nums text-background">{{ product.price_display }}</p>
+              <p v-if="product.unit_weight_label" class="text-xs text-background/70">
+                {{ compactUnitWeightLabel(product.unit_weight_label) }}
+              </p>
+            </div>
+            <CartQuantityAction
+              :meta="meta"
+              :qty="currentQty"
+              :disabled="!product.can_add_to_cart"
+              :max-qty="product.available_qty ?? product.max_qty"
+              tone="inverted"
+            />
+          </div>
         </div>
-      </div>
+      </template>
     </div>
   </main>
 </template>

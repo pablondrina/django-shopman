@@ -410,13 +410,11 @@ describe('surface UX guardrails', () => {
     // Pílula opaca (padrão iFood): nunca campo de form transparente sobre foto/CTA.
     expect(quantity).toContain('rounded-full border bg-background text-foreground shadow-sm')
     expect(quantity).not.toContain('<UiNumberField')
-    expect(productRoute).toContain('const mobileCtaTouched = ref(false)')
-    expect(productRoute).toContain('const mobileCtaQty = computed(() => mobileCtaTouched.value ? currentQty.value : 0)')
-    expect(productRoute).toContain('class="sticky bottom-20 z-30 mt-5 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"')
-    expect(productRoute).toContain(':qty="mobileCtaQty"')
-    expect(productRoute).toContain(':add-target-qty="mobileCtaAddTarget"')
+    // CTA sticky honesto: pílula com a qty real do carrinho, sem estado fantasma.
+    expect(productRoute).not.toContain('mobileCtaTouched')
+    expect(productRoute).toContain('sticky bottom-20 z-30 mt-5 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden')
+    expect(productRoute).toContain(':qty="currentQty"')
     expect(productRoute).toContain('tone="inverted"')
-    expect(productRoute).toContain('@changed="mobileCtaTouched = true"')
     expect(cartState).not.toContain('drawerOpen')
     expect(smoke).toContain('cart page entry point should remain visible after add')
   })
@@ -433,8 +431,12 @@ describe('surface UX guardrails', () => {
     expect(footer).toContain('session.shop.value')
     expect(footer).toContain('session.openingHours.value')
     expect(footer).not.toContain('openingHours.slice')
-    expect(footer).toContain('<footer class="border-t bg-background">')
+    // Rodapé em tom médio-escuro neutro; texto secundário via opacity.
+    // O safe-padding do bottom-nav vive NO footer (faixa fica escura, não clara).
+    expect(footer).toContain('<footer class="shop-footer shop-bottom-safe">')
+    expect(read('app/app.vue')).not.toContain('shop-bottom-safe')
     expect(footer).not.toContain('bg-muted/40')
+    expect(footer).not.toContain('text-muted-foreground')
     expect(footer).toContain('Falar no WhatsApp')
     expect(session).toContain('openingHours')
   })
@@ -495,12 +497,15 @@ describe('surface UX guardrails', () => {
     expect(login).not.toContain('id="login-code" v-model="code"')
     expect(cartPage).toContain('<UiEmpty')
     expect(menu).toContain('<UiEmpty')
-    expect(productRoute).toContain('<UiDescriptionList')
-    expect(productRoute).toContain('<UiCard class="pb-0">')
-    expect(productRoute).toContain('<UiCardContent class="space-y-5">')
-    expect(productRoute).toContain('<UiAccordion type="multiple" class="w-full border-t">')
-    expect(productRoute).not.toContain('<UiAccordion type="multiple" class="mt-2 border-t">')
-    expect(productRoute).not.toContain('<UiAccordion type="multiple" class="rounded-lg border bg-card">')
+    // PDP editorial: informação direto no background, sem card branco.
+    expect(productRoute).not.toContain('<UiCard')
+    // Acordeão full-width no mobile: hairlines ponta a ponta; trigger alinhado
+    // ao título e interior aberto com recuo extra (+16px sobre o trigger).
+    expect(productRoute).toContain('class="-mx-4 mt-6 border-t sm:-mx-6 lg:mx-0 [&_[data-slot=accordion-trigger]]:font-semibold sm:[&_[data-slot=accordion-trigger]]:px-6 lg:[&_[data-slot=accordion-trigger]]:px-0 [&_[data-slot=accordion-content]>div]:px-8 sm:[&_[data-slot=accordion-content]>div]:px-10 lg:[&_[data-slot=accordion-content]>div]:px-4"')
+    expect(productRoute).toContain('data-product-cross-sell')
+    expect(productRoute).toContain('Você também pode gostar')
+    expect(productRoute).toContain('<ProductListItem')
+    expect(productRoute).toContain('% VD')
     expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-44 items-stretch gap-3 bg-card p-3">')
     expect(upsellRail).toContain('<UiItemHeader>')
     expect(upsellRail).toContain('function productRoute (sku: string)')

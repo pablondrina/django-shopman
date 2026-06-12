@@ -36,3 +36,21 @@ export function formatCount (value: number | null | undefined, singular: string,
 export function compactUnitWeightLabel (value: string | null | undefined): string {
   return (value || '').replace(/\s+a unidade$/i, '/un.')
 }
+
+// Quebra um endereço "Rua, nº - Bairro, Cidade - UF, CEP" em linhas legíveis.
+// Formato inesperado cai no fallback de linha única.
+export function addressLines (full: string | null | undefined): string[] {
+  const value = (full || '').trim()
+  if (!value) return []
+  const segments = value.split(' - ').map(part => part.trim())
+  if (segments.length === 3 && segments[1]!.includes(', ')) {
+    const [street, middle, tail] = segments as [string, string, string]
+    const middleParts = middle.split(', ')
+    const neighborhood = middleParts.slice(0, -1).join(', ')
+    const city = middleParts[middleParts.length - 1]!
+    const [state, cep] = tail.split(', ').map(part => part.trim())
+    if (state && cep) return [street, neighborhood, `${city} - ${state}`, `CEP ${cep}`]
+    return [street, neighborhood, `${city} - ${tail}`]
+  }
+  return [value]
+}

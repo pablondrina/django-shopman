@@ -36,7 +36,8 @@ export type TileBadge = {
 export const FILTERED_SECTION_VALUE = 'filtered'
 
 // Badge só quando informa: disponível é o estado default e não ganha selo.
-export function tileBadge (item: CatalogItemProjection): TileBadge | null {
+// Aceita qualquer projeção com estado de disponibilidade (item de catálogo, PDP).
+export function tileBadge (item: Pick<CatalogItemProjection, 'availability' | 'availability_label'>): TileBadge | null {
   if (item.availability === 'low_stock') return { label: item.availability_label, variant: 'warning' }
   if (item.availability === 'planned_ok') return { label: item.availability_label, variant: 'outline' }
   if (item.availability === 'unavailable') return { label: item.availability_label, variant: 'destructive' }

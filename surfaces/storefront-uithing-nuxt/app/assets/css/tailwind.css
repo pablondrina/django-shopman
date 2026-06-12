@@ -246,6 +246,16 @@
     overflow-x: clip;
   }
 
+  /*
+   * Escala tipográfica da superfície (mínima variação, níveis claros):
+   *   30/3xl·600  título de página (h1)
+   *   20/xl·600   preço em destaque (PDP, CTA sticky)
+   *   16/base·600 título de seção (h2) | 16/base·400 título de item (cards)
+   *   14/sm·400   corpo, controles, footer | 14/sm·600 preços de card, valores
+   *   12/xs·400   metadados (descrições muted, pesos) | 12/xs·600 kickers uppercase
+   * Pesos: somente 400 e 600 (500 é reservado ao chrome dos componentes Ui).
+   * No mesmo tamanho, o nível muda por peso OU cor — nunca por tamanhos vizinhos.
+   */
   .shop-container {
     @apply mx-auto w-full max-w-6xl min-w-0 px-4 sm:px-6 lg:px-8;
     box-sizing: border-box;
@@ -253,6 +263,17 @@
 
   .shop-panel {
     @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+  }
+
+  /* Rodapé em tom médio-escuro neutro (não preto); theming calibra depois. */
+  .shop-footer {
+    background-color: oklch(0.32 0.008 60);
+    color: oklch(0.94 0.003 60);
+  }
+
+  .dark .shop-footer {
+    background-color: oklch(0.23 0.006 60);
+    color: oklch(0.92 0.003 60);
   }
 
   .shop-section {

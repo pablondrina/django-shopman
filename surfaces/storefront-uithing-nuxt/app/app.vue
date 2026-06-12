@@ -25,7 +25,7 @@ const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim()
 </script>
 
 <template>
-  <div class="shop-shell shop-bottom-safe flex min-h-dvh flex-col" :style="shellStyle">
+  <div class="shop-shell flex min-h-dvh flex-col" :style="shellStyle">
     <NuxtRouteAnnouncer />
     <a
       href="#main-content"

@@ -419,7 +419,7 @@ useSeoMeta({
           </UiInputGroup>
 
           <div v-if="activeFilterChips.length && !normalizedQuery" class="mt-3" data-menu-active-filters>
-            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtros ativos</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtros ativos</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <UiButton
                 v-for="chip in activeFilterChips"
@@ -437,7 +437,7 @@ useSeoMeta({
           </div>
 
           <div v-if="searchPanel.collections.length" class="mt-3" data-menu-collection-list>
-            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Coleções</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coleções</p>
             <div class="mt-1">
               <UiButton
                 v-for="option in searchPanel.collections"
@@ -447,14 +447,14 @@ useSeoMeta({
                 @click="goToSectionFromSearch(option.value)"
               >
                 <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />
-                <span class="min-w-0 flex-1 truncate text-left text-sm font-medium">{{ option.label }}</span>
+                <span class="min-w-0 flex-1 truncate text-left text-sm">{{ option.label }}</span>
                 <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ option.count }}</span>
               </UiButton>
             </div>
           </div>
 
           <div v-if="searchPanel.chips.length" class="mt-3" data-menu-filter-chips>
-            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtre por</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtre por</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <UiButton
                 v-for="chip in searchPanel.chips"
@@ -473,7 +473,7 @@ useSeoMeta({
           </div>
 
           <div v-if="searchPanel.products.length" class="mt-4" data-menu-product-results>
-            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vá direto</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vá direto</p>
             <div class="mt-1">
               <NuxtLink
                 v-for="option in searchPanel.products"
@@ -487,7 +487,7 @@ useSeoMeta({
                     <Icon name="lucide:croissant" class="size-4" />
                   </div>
                 </div>
-                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ option.label }}</span>
+                <span class="min-w-0 flex-1 truncate text-sm">{{ option.label }}</span>
                 <span class="shrink-0 text-sm font-semibold tabular-nums">{{ option.meta }}</span>
               </NuxtLink>
             </div>
