@@ -412,10 +412,10 @@ useSeoMeta({
           </UiField>
 
           <div class="grid gap-3">
-            <UiButton type="submit" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
+            <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
               {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
             </UiButton>
-            <UiButton type="button" variant="outline" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
+            <UiButton type="button" size="lg" variant="outline" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
               {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
             </UiButton>
           </div>
@@ -424,7 +424,7 @@ useSeoMeta({
         <form v-else-if="step === 'code'" ref="codeForm" class="space-y-5" @submit.prevent="verifyCode">
           <p class="text-sm leading-6">
             Código enviado por {{ deliveryLabel }} para
-            <span class="font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
+            <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
 
           <UiAlert v-if="debugOtpCode" variant="warning" data-testid="debug-otp-alert">
@@ -455,7 +455,6 @@ useSeoMeta({
               :input-count="6"
               type="number"
               otp
-              placeholder="0"
               :aria-invalid="!!error"
               class="justify-between sm:justify-start"
             />
@@ -488,16 +487,16 @@ useSeoMeta({
           </div>
 
           <UiFieldLabel for="trusted-device" class="w-full">
-            <UiField orientation="horizontal">
-              <UiFieldContent>
-                <UiFieldTitle>{{ copyTitle(authCopy?.device_trust_prompt, 'Salvar este aparelho?') }}</UiFieldTitle>
-                <UiFieldDescription>{{ copyMessage(authCopy?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.') }}</UiFieldDescription>
-              </UiFieldContent>
-              <UiCheckbox id="trusted-device" v-model="trustedDevice" />
-            </UiField>
+            <div class="-mx-4 flex w-full items-center gap-4 border-y px-4 py-3 sm:mx-0 sm:px-0" data-login-trust>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold">{{ copyTitle(authCopy?.device_trust_prompt, 'Salvar este aparelho?') }}</p>
+                <p class="mt-0.5 text-xs font-normal leading-5 text-muted-foreground">{{ copyMessage(authCopy?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.') }}</p>
+              </div>
+              <UiSwitch id="trusted-device" v-model="trustedDevice" />
+            </div>
           </UiFieldLabel>
 
-          <UiButton type="submit" :loading="pending" :disabled="!canVerifyCode" icon="lucide:check" class="w-full justify-center">
+          <UiButton type="submit" size="lg" :loading="pending" :disabled="!canVerifyCode" icon="lucide:check" class="w-full justify-center">
             Entrar
           </UiButton>
         </form>
@@ -515,7 +514,7 @@ useSeoMeta({
           </UiField>
 
           <div class="grid gap-3">
-            <UiButton type="submit" :loading="pending" :disabled="!canContinueWelcome" icon="lucide:check" class="w-full justify-center">
+            <UiButton type="submit" size="lg" :loading="pending" :disabled="!canContinueWelcome" icon="lucide:check" class="w-full justify-center">
               {{ copyTitle(authCopy?.name_cta, 'Continuar') }}
             </UiButton>
             <UiButton type="button" variant="ghost" class="w-full justify-center" @click="skipWelcome">
@@ -536,7 +535,6 @@ useSeoMeta({
             target="_blank"
             rel="noopener"
             variant="outline"
-            size="sm"
             icon="lucide:message-circle"
             class="mt-3"
           >

@@ -500,6 +500,15 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('O código não chegou?')
     expect(login).toContain('Falar com a loja')
     expect(login).not.toContain('<UiBreadcrumbs')
+    // Visual aprovado (2026-06-12): PIN sem placeholder "0" fantasma; telefone
+    // não quebra no meio; CTAs principais ≥40px; confiar-no-aparelho é linha
+    // editorial (hairlines) com switch, não caixa com checkbox.
+    expect(login).not.toContain('placeholder="0"')
+    expect(login).toContain('whitespace-nowrap font-semibold tabular-nums')
+    expect(login).toContain('size="lg"')
+    expect(login).toContain('data-login-trust')
+    expect(login).toContain('<UiSwitch id="trusted-device"')
+    expect(login).not.toContain('<UiCheckbox')
     // Welcome gate omotenashi: nome via PATCH profile, com saída discreta.
     expect(login).toContain('requires_welcome')
     expect(login).toContain('welcome_suggested_name')
