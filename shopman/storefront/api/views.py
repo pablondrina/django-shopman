@@ -310,11 +310,7 @@ class CheckoutView(APIView):
             slot_error = validate_pickup_slot_selection(
                 delivery_time_slot,
                 delivery_date=delivery_date,
-                cart_skus=[
-                    str(item.get("sku") or "")
-                    for item in cart.get("items", [])
-                    if item.get("sku")
-                ],
+                cart_skus=[str(line.sku) for line in cart.lines if line.sku],
                 now=now_local,
             )
             if slot_error:

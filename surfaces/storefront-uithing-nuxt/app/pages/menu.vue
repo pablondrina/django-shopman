@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import {
   FILTERED_SECTION_VALUE,
-  appliedFilterChips,
   buildSectionsBySku,
   filteredSections,
-  primarySectionBySku,
-  searchPanelView,
   uniqueItemsBySku
 } from '~/presentation/menu'
 import type { MenuResponse } from '~/types/shopman'
@@ -20,9 +17,8 @@ watch(() => data.value?.cart, cart => {
   setFromServer(cart)
 }, { immediate: true })
 
-const query = ref('')
+const route = useRoute()
 const activeSection = ref('all')
-const searchPanelOpen = ref(false)
 const pillRailTailWidth = ref(160)
 const appliedFilterKeys = ref<string[]>([])
 
@@ -31,22 +27,21 @@ const sections = computed(() => catalog.value?.sections || [])
 const allItems = computed(() => catalog.value?.items || [])
 const uniqueItems = computed(() => uniqueItemsBySku(allItems.value))
 const favoriteRef = computed(() => catalog.value?.favorite_category_ref || '')
-const normalizedQuery = computed(() => normalizeSearchText(query.value))
-const appliedFilterKeySet = computed(() => new Set(appliedFilterKeys.value))
 const hasAppliedFilters = computed(() => appliedFilterKeys.value.length > 0)
 const sectionsBySku = computed(() => buildSectionsBySku(sections.value))
-const sectionBySku = computed(() => primarySectionBySku(sectionsBySku.value))
-const searchOrFilterMode = computed(() => Boolean(normalizedQuery.value || hasAppliedFilters.value))
 const activeSections = computed(() => filteredSections(
   sections.value,
-  normalizedQuery.value,
+  '',
   appliedFilterKeys.value,
   sectionsBySku.value
 ))
+const buscaTarget = computed(() => appliedFilterKeys.value.length
+  ? `/busca?filtro=${encodeURIComponent(appliedFilterKeys.value.join(','))}`
+  : '/busca')
 
 const filteredCount = computed(() => uniqueItemsBySku(activeSections.value.flatMap(section => [...section.items])).length)
 const sectionOptions = computed(() => {
-  const source = searchOrFilterMode.value ? activeSections.value : sections.value
+  const source = hasAppliedFilters.value ? activeSections.value : sections.value
   return source.map(section => ({
     ref: section.ref,
     label: section.label,
@@ -63,44 +58,13 @@ const activeSectionCount = computed(() => {
   if (activeSection.value === 'all' || activeSection.value === FILTERED_SECTION_VALUE) return filteredCount.value
   return sectionOptions.value.find(section => section.ref === activeSection.value)?.count || 0
 })
-const activeFilterChips = computed(() => appliedFilterChips(appliedFilterKeys.value, sections.value))
-const searchPanel = computed(() => searchPanelView({
-  sections: sections.value,
-  items: uniqueItems.value,
-  search: normalizedQuery.value,
-  favoriteRef: favoriteRef.value,
-  sectionBySku: sectionBySku.value,
-  sectionsBySku: sectionsBySku.value
-}))
 const menuFocusLabel = computed(() => {
   if (pending.value) return 'Carregando o cardápio.'
   const count = formatCount(activeSectionCount.value, 'item encontrado', 'itens encontrados')
-  const section = activeSectionLabel.value
-  const term = query.value.trim()
-  if (term && activeSection.value !== 'all') return `${count} em ${section} para "${term}".`
-  if (term) return `${count} para "${term}".`
-  if (activeSection.value !== 'all') return `${count} em ${section}.`
+  if (hasAppliedFilters.value) return `${count} no filtro ativo.`
+  if (activeSection.value !== 'all') return `${count} em ${activeSectionLabel.value}.`
   return `${formatCount(filteredCount.value, 'item disponível', 'itens disponíveis')}.`
 })
-
-function productRoute (sku: string) {
-  return `/product/${encodeURIComponent(sku)}`
-}
-
-function focusSearchInput () {
-  if (!import.meta.client) return
-  document.getElementById('menu-search')?.focus()
-}
-
-function openSearchPanel () {
-  searchPanelOpen.value = true
-  void nextTick(focusSearchInput)
-}
-
-function closeSearchPanel () {
-  searchPanelOpen.value = false
-  query.value = ''
-}
 
 function sectionDomId (ref: string) {
   return `menu-section-${ref.replace(/[^a-zA-Z0-9_-]/g, '-')}`
@@ -163,7 +127,6 @@ function scrollToSection (ref: string) {
 
 function selectSection (value: string | number | undefined) {
   const ref = String(value || 'all')
-  if (searchPanelOpen.value) closeSearchPanel()
   if (ref === 'clear-filter') {
     clearMenuFilters()
     return
@@ -183,42 +146,13 @@ function selectSection (value: string | number | undefined) {
       if (programmaticScrollRef !== ref) return
       activeSection.value = ref
       centerSectionPill(ref)
+      // Re-ancora depois do layout assentar (imagens/medidas tardias).
+      scrollToSection(ref)
       programmaticScrollRef = ''
       programmaticScrollUntil = 0
       queueActiveSectionSync()
     }, 900)
   })
-}
-
-async function goToSectionFromSearch (ref: string) {
-  closeSearchPanel()
-  await nextTick()
-  selectSection(ref)
-}
-
-function isFilterApplied (key: string) {
-  return appliedFilterKeySet.value.has(key)
-}
-
-// Aplicar um chip fecha a busca e leva direto ao resultado filtrado —
-// o efeito do toque precisa ser visível na hora. Remover um chip mantém
-// o painel como está (o usuário está compondo/desempilhando).
-function toggleMenuFilter (key: string) {
-  const next = new Set(appliedFilterKeys.value)
-  const isAdding = !next.has(key)
-  if (isAdding) next.add(key)
-  else next.delete(key)
-  appliedFilterKeys.value = Array.from(next)
-  activeSection.value = appliedFilterKeys.value.length ? FILTERED_SECTION_VALUE : 'all'
-  if (isAdding) {
-    closeSearchPanel()
-    void nextTick(() => {
-      scrollToSection(FILTERED_SECTION_VALUE)
-      queueActiveSectionSync()
-    })
-    return
-  }
-  void nextTick(queueActiveSectionSync)
 }
 
 function clearMenuFilters () {
@@ -302,6 +236,14 @@ watch(sectionOptions, options => {
 })
 
 onMounted(() => {
+  // A /busca aplica filtros e aponta seções por query param.
+  const filtro = String(route.query.filtro || '').split(',').map(part => part.trim()).filter(Boolean)
+  if (filtro.length) {
+    appliedFilterKeys.value = filtro
+    activeSection.value = FILTERED_SECTION_VALUE
+  }
+  const secao = String(route.query.secao || '')
+  if (secao) void nextTick(() => selectSection(secao))
   updatePillRailTailWidth()
   window.addEventListener('scroll', queueActiveSectionSync, { passive: true })
   window.addEventListener('resize', updatePillRailTailWidth, { passive: true })
@@ -335,7 +277,7 @@ useSeoMeta({
             icon="lucide:search"
             aria-label="Buscar no cardápio"
             class="shrink-0 rounded-full"
-            @click="searchPanelOpen ? closeSearchPanel() : openSearchPanel()"
+            :to="buscaTarget"
           />
           <UiTabs v-model="activeSection" class="min-w-0 flex-1" @update:model-value="selectSection">
             <div data-menu-pillrail class="no-scrollbar overflow-x-auto scroll-smooth motion-reduce:scroll-auto">
@@ -369,7 +311,7 @@ useSeoMeta({
                   class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
                 >
                   Tudo
-                  <span v-if="searchOrFilterMode" class="ml-1 text-xs tabular-nums opacity-70">{{ filteredCount }}</span>
+                  <span v-if="hasAppliedFilters" class="ml-1 text-xs tabular-nums opacity-70">{{ filteredCount }}</span>
                 </UiTabsTrigger>
                 <UiTabsTrigger
                   v-for="section in sectionOptions"
@@ -381,7 +323,7 @@ useSeoMeta({
                 >
                   <Icon v-if="section.isFavorite" name="lucide:heart" class="mr-1 size-3.5" />
                   {{ section.label }}
-                  <span v-if="searchOrFilterMode" class="ml-1 text-xs tabular-nums opacity-70">{{ section.count }}</span>
+                  <span v-if="hasAppliedFilters" class="ml-1 text-xs tabular-nums opacity-70">{{ section.count }}</span>
                 </UiTabsTrigger>
                 <span
                   aria-hidden="true"
@@ -392,116 +334,6 @@ useSeoMeta({
               </UiTabsList>
             </div>
           </UiTabs>
-        </div>
-
-        <div v-if="catalog && searchPanelOpen" class="pt-2" data-menu-search-panel>
-          <UiLabel for="menu-search" class="sr-only">Buscar no cardápio</UiLabel>
-          <UiInputGroup class="min-w-0">
-            <UiInputGroupAddon>
-              <Icon name="lucide:search" class="size-4" />
-            </UiInputGroupAddon>
-            <UiInput
-              id="menu-search"
-              v-model="query"
-              type="search"
-              placeholder="Buscar no cardápio"
-              autocomplete="off"
-              class="flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-            />
-            <UiInputGroupAddon align="inline-end">
-              <UiInputGroupButton
-                size="icon-xs"
-                icon="lucide:x"
-                aria-label="Fechar busca"
-                @click="closeSearchPanel"
-              />
-            </UiInputGroupAddon>
-          </UiInputGroup>
-
-          <div v-if="activeFilterChips.length && !normalizedQuery" class="mt-3" data-menu-active-filters>
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtros ativos</p>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              <UiButton
-                v-for="chip in activeFilterChips"
-                :key="chip.key"
-                variant="default"
-                size="sm"
-                class="h-8 rounded-full px-3"
-                :aria-label="`Remover filtro ${chip.label}`"
-                @click="toggleMenuFilter(chip.key)"
-              >
-                {{ chip.label }}
-                <Icon name="lucide:x" class="ml-1 size-3.5" />
-              </UiButton>
-            </div>
-          </div>
-
-          <div v-if="searchPanel.collections.length" class="mt-3" data-menu-collection-list>
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coleções</p>
-            <div class="mt-1">
-              <UiButton
-                v-for="option in searchPanel.collections"
-                :key="option.key"
-                variant="ghost"
-                class="h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-2.5 font-normal last:border-b-0"
-                @click="goToSectionFromSearch(option.value)"
-              >
-                <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />
-                <span class="min-w-0 flex-1 truncate text-left text-sm">{{ option.label }}</span>
-                <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ option.count }}</span>
-              </UiButton>
-            </div>
-          </div>
-
-          <div v-if="searchPanel.chips.length" class="mt-3" data-menu-filter-chips>
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtre por</p>
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              <UiButton
-                v-for="chip in searchPanel.chips"
-                :key="chip.key"
-                :variant="isFilterApplied(chip.key) ? 'default' : 'outline'"
-                size="sm"
-                class="h-8 rounded-full px-3"
-                :aria-pressed="isFilterApplied(chip.key)"
-                @click="toggleMenuFilter(chip.key)"
-              >
-                <Icon v-if="chip.icon === 'lucide:heart'" name="lucide:heart" class="mr-1 size-3.5" />
-                {{ chip.label }}
-                <span v-if="chip.count != null" class="ml-1 text-xs tabular-nums opacity-60">{{ chip.count }}</span>
-              </UiButton>
-            </div>
-          </div>
-
-          <div v-if="searchPanel.products.length" class="mt-4" data-menu-product-results>
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vá direto</p>
-            <div class="mt-1">
-              <NuxtLink
-                v-for="option in searchPanel.products"
-                :key="option.key"
-                :to="productRoute(option.value)"
-                class="flex items-center gap-3 border-b py-2 last:border-b-0"
-              >
-                <div class="size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  <img v-if="option.imageUrl" :src="option.imageUrl" :alt="option.label" loading="lazy" class="size-full object-cover">
-                  <div v-else class="flex size-full items-center justify-center text-muted-foreground">
-                    <Icon name="lucide:croissant" class="size-4" />
-                  </div>
-                </div>
-                <span class="min-w-0 flex-1 truncate text-sm">{{ option.label }}</span>
-                <span class="shrink-0 text-sm font-semibold tabular-nums">{{ option.meta }}</span>
-              </NuxtLink>
-            </div>
-          </div>
-
-          <UiItem v-if="normalizedQuery && !searchPanel.chips.length && !searchPanel.products.length" size="sm" class="mt-3 border-0">
-            <UiItemMedia variant="icon">
-              <Icon name="lucide:search-x" />
-            </UiItemMedia>
-            <UiItemContent>
-              <UiItemTitle>Nada encontrado</UiItemTitle>
-              <UiItemDescription>Apague a busca ou escolha uma coleção.</UiItemDescription>
-            </UiItemContent>
-          </UiItem>
         </div>
 
         <p class="sr-only" aria-live="polite">{{ menuFocusLabel }}</p>

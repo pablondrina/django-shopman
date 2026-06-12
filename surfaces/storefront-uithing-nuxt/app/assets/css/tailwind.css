@@ -293,6 +293,43 @@
     padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
   }
 
+  /* Crossfade lento do hero (imagem) e fade suave do texto entre slides. */
+  .hero-fade-enter-active,
+  .hero-fade-leave-active {
+    transition: opacity 900ms ease;
+  }
+
+  .hero-fade-enter-from,
+  .hero-fade-leave-to {
+    opacity: 0;
+  }
+
+  .hero-text-enter-active {
+    transition: opacity 500ms ease, transform 500ms ease;
+  }
+
+  .hero-text-leave-active {
+    transition: opacity 250ms ease;
+  }
+
+  .hero-text-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .hero-text-leave-to {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-fade-enter-active,
+    .hero-fade-leave-active,
+    .hero-text-enter-active,
+    .hero-text-leave-active {
+      transition: none;
+    }
+  }
+
   @media (min-width: 768px) {
     .shop-bottom-safe {
       padding-bottom: 0;

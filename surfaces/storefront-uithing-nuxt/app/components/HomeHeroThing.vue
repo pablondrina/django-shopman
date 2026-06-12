@@ -21,8 +21,8 @@ const props = defineProps<{
   primaryAction: Action | null
   reorderAction: Action | null
   reorderLoading?: boolean
-  statusLabel: string
   statusOpen: boolean
+  closedCtaLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +31,6 @@ const emit = defineEmits<{
 
 const featured = computed(() => props.home.featured_items || [])
 const menuTo = computed(() => localRouteFromBackend(props.primaryAction?.href || '/menu'))
-const statusVariant = computed(() => props.statusOpen ? 'secondary' : 'warning')
 const activeIndex = ref(0)
 const paused = ref(false)
 const touchStartX = ref(0)
@@ -97,7 +96,7 @@ const slides = computed<HeroSlide[]>(() => {
   const omo = props.home.omotenashi
   const customerName = omo.customer_name?.trim()
   const description = shopDescription()
-  const menuLabel = titleOf(copy.menu_cta, 'Ver cardápio')
+  const menuLabel = (!props.statusOpen && props.closedCtaLabel) || titleOf(copy.menu_cta, 'Ver cardápio')
   const handmadeTitle = `${titleOf(copy.handmade_title_prefix, 'Feito à mão,')} ${titleOf(copy.handmade_title_suffix, 'todo dia')}`
   const greetingTitle = sentence(omo.greeting_with_name || handmadeTitle)
   const list: HeroSlide[] = []
@@ -134,7 +133,7 @@ const slides = computed<HeroSlide[]>(() => {
     description: messageOf(copy.order_subtitle, description),
     imageUrl: imageAt(1),
     imageAlt: imageAltAt(1, shop.brand_name),
-    primaryLabel: props.primaryAction?.label || menuLabel,
+    primaryLabel: (!props.statusOpen && props.closedCtaLabel) || props.primaryAction?.label || menuLabel,
     primaryIcon: 'lucide:utensils',
     primaryTo: menuTo.value
   })
@@ -195,14 +194,14 @@ watch(paused, value => {
     clearInterval(autoplayTimer)
     autoplayTimer = null
   } else if (!value && !autoplayTimer && slides.value.length > 1) {
-    autoplayTimer = setInterval(activateNextSlide, 6000)
+    autoplayTimer = setInterval(activateNextSlide, 8000)
   }
 })
 
 onMounted(() => {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (!reduceMotion && slides.value.length > 1) {
-    autoplayTimer = setInterval(activateNextSlide, 6000)
+    autoplayTimer = setInterval(activateNextSlide, 8000)
   }
 })
 
@@ -225,27 +224,24 @@ onBeforeUnmount(() => {
     @touchstart.passive="touchStartX = $event.changedTouches[0]?.screenX || 0"
     @touchend.passive="handleTouchEnd"
   >
-    <div class="relative min-h-[calc(100svh-4rem)] select-none sm:min-h-[440px] lg:min-h-[480px]">
-      <img
-        v-if="activeSlide.imageUrl"
-        :key="activeSlide.ref"
-        :src="activeSlide.imageUrl"
-        :alt="activeSlide.imageAlt"
-        fetchpriority="high"
-        decoding="async"
-        class="absolute inset-0 size-full object-cover"
-      >
-      <div v-else class="absolute inset-0 bg-muted" />
+    <div class="relative min-h-[calc(100svh-14.25rem)] select-none sm:min-h-[440px] lg:min-h-[480px]">
+      <Transition name="hero-fade">
+        <img
+          v-if="activeSlide.imageUrl"
+          :key="activeSlide.ref"
+          :src="activeSlide.imageUrl"
+          :alt="activeSlide.imageAlt"
+          fetchpriority="high"
+          decoding="async"
+          class="absolute inset-0 size-full object-cover"
+        >
+        <div v-else class="absolute inset-0 bg-muted" />
+      </Transition>
       <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,.74),rgba(0,0,0,.34),rgba(0,0,0,.18))]" />
 
-      <div class="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 sm:p-5">
-        <UiBadge v-if="statusLabel" :variant="statusVariant" class="shadow-sm">
-          {{ statusLabel }}
-        </UiBadge>
-      </div>
-
-      <div class="relative z-10 flex min-h-[calc(100svh-4rem)] items-center justify-center px-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] pt-16 text-center text-white sm:min-h-[440px] sm:px-7 sm:py-20 lg:min-h-[480px] lg:px-9">
-        <div class="mx-auto flex max-w-3xl flex-col items-center">
+      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] items-center justify-center px-5 pb-12 pt-12 text-center text-white sm:min-h-[440px] sm:px-7 sm:py-20 lg:min-h-[480px] lg:px-9">
+        <Transition name="hero-text" mode="out-in">
+          <div :key="activeSlide.ref" class="mx-auto flex max-w-3xl flex-col items-center">
           <p v-if="activeSlide.eyebrow" class="text-sm font-medium text-white/80">{{ activeSlide.eyebrow }}</p>
           <h1 class="mt-2 text-4xl font-semibold leading-tight sm:text-5xl" :aria-label="heroTitleLabel">
             <span v-for="line in activeSlide.titleLines" :key="line" class="block" aria-hidden="true">
@@ -282,8 +278,9 @@ onBeforeUnmount(() => {
             >
               {{ activeSlide.secondaryLabel }}
             </UiButton>
+            </div>
           </div>
-        </div>
+        </Transition>
       </div>
 
       <template v-if="slides.length > 1">
@@ -303,7 +300,7 @@ onBeforeUnmount(() => {
           aria-label="Próximo slide"
           @click="activateNextSlide"
         />
-        <div class="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
+        <div class="absolute inset-x-0 bottom-3 z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
           <UiButton
             v-for="(slide, index) in slides"
             :key="slide.ref"

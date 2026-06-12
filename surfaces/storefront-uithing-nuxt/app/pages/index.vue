@@ -33,36 +33,30 @@ const quickReorderTitle = computed(() => {
   const name = home.value?.omotenashi.customer_name
   return `Quer repetir seu último pedido${name ? `, ${name}` : ''}?`
 })
-const featuredPreview = computed(() => featured.value.slice(0, 3))
+const featuredPreview = computed(() => featured.value.slice(0, 6))
 const quickReorderImageItem = computed(() => {
   const reorderSkus = new Set(quickReorderItems.value.map(item => item.sku))
   return featured.value.find(item => reorderSkus.has(item.sku) && item.image_url) || featured.value.find(item => item.image_url) || null
 })
-const openingHoursInline = computed(() => {
-  const entries = home.value?.opening_hours || []
-  if (!entries.length) return sectionsCopy.value?.how_hours_empty.message || 'Consulte nossos horários'
-  return entries.slice(0, 3).map(entry => `${entry.label}: ${entry.hours}`).join(' · ')
-})
-const howOnlineSteps = computed(() => {
-  const copy = sectionsCopy.value
-  if (!copy) return []
-  return [
-    { icon: 'lucide:shopping-basket', title: copy.how_step_choose.title, description: copy.how_online_choose_message.message },
-    { icon: 'lucide:badge-dollar-sign', title: copy.how_step_pay.title, description: copy.how_online_pay_message.message },
-    { icon: 'lucide:route', title: copy.how_step_fulfill.title, description: copy.how_online_track_message.message }
-  ]
-})
-const storeSteps = computed(() => {
-  const copy = sectionsCopy.value
-  if (!copy) return []
-  return [
-    { icon: 'lucide:store', title: copy.how_self_service_label.title, description: copy.how_store_self_service_message.message },
-    { icon: 'lucide:coffee', title: copy.how_counter_label.title, description: copy.how_store_counter_message.message },
-    { icon: 'lucide:clock', title: copy.how_hours_label.title, description: openingHoursInline.value }
-  ]
-})
+const visitAddressLines = computed(() => addressLines(home.value?.shop.full_address))
 const whatsappUrl = computed(() => home.value?.public_config.whatsapp_url || '')
 const whatsappImage = computed(() => featured.value[1]?.image_url || featured.value[0]?.image_url || null)
+
+// A home mais útil para quem voltou com pedido em andamento é o próprio
+// pedido: banner com prioridade sobre o hero (silencioso para anônimos).
+const activeOrder = ref<{ ref: string, status_label: string } | null>(null)
+onMounted(async () => {
+  try {
+    const active = await $fetch<{ count: number }>(apiPath('/api/v1/account/orders/active/'), { credentials: 'include' })
+    if (!active?.count) return
+    const response = await $fetch<unknown>(apiPath('/api/v1/account/orders/?filter=ativos'), { credentials: 'include' })
+    const orders = Array.isArray(response) ? response : (response as { orders?: unknown[] })?.orders
+    const first = Array.isArray(orders) ? orders[0] as { ref?: string, status_label?: string } : null
+    if (first?.ref) activeOrder.value = { ref: first.ref, status_label: first.status_label || 'Pedido em andamento' }
+  } catch {
+    // Sessão anônima ou indisponível: a home segue sem o banner.
+  }
+})
 
 async function handleReorder (action: Action | null) {
   if (!action) {
@@ -91,10 +85,10 @@ useSeoMeta({
 
 <template>
   <main class="bg-muted">
-    <section class="bg-muted pb-6 pt-0 sm:py-8 lg:py-10">
+    <section class="bg-muted pb-5 pt-0 sm:py-8 lg:py-10">
       <div class="shop-container">
         <div v-if="pending" class="space-y-5">
-          <UiSkeleton class="-mx-4 h-[calc(100svh-4rem)] rounded-none sm:mx-0 sm:h-[440px] sm:rounded-lg" />
+          <UiSkeleton class="-mx-4 h-[calc(100svh-12.5rem)] rounded-none sm:mx-0 sm:h-[440px] sm:rounded-lg" />
           <UiSkeleton class="h-72 rounded-lg" />
         </div>
 
@@ -109,15 +103,46 @@ useSeoMeta({
         </UiAlert>
 
         <div v-else-if="home" class="space-y-5">
-          <HomeHeroThing
-            :home="home"
-            :primary-action="primaryAction"
-            :reorder-action="reorderAction"
-            :reorder-loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
-            :status-label="operationalStatus.label"
-            :status-open="operationalStatus.isOpen"
-            @reorder="handleReorder"
-          />
+          <div>
+            <NuxtLink
+              v-if="activeOrder"
+              :to="`/tracking/${encodeURIComponent(activeOrder.ref)}`"
+              class="-mx-4 block bg-primary p-4 text-primary-foreground sm:mx-0 sm:mb-3 sm:rounded-lg sm:shadow-sm"
+              data-home-active-order
+            >
+              <div class="flex items-center gap-3">
+                <Icon name="lucide:chef-hat" class="size-5 shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold">{{ activeOrder.status_label }}</p>
+                  <p class="text-xs opacity-80">Pedido {{ activeOrder.ref }}</p>
+                </div>
+                <span class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold">
+                  Acompanhar
+                  <Icon name="lucide:chevron-right" class="size-4" />
+                </span>
+              </div>
+            </NuxtLink>
+
+            <HomeHeroThing
+              :home="home"
+              :primary-action="primaryAction"
+              :reorder-action="reorderAction"
+              :reorder-loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
+              :status-open="operationalStatus.isOpen"
+              closed-cta-label="Monte seu pedido para amanhã"
+              @reorder="handleReorder"
+            />
+
+            <UiButton
+              variant="outline"
+              to="/busca"
+              class="mt-3 h-11 w-full justify-start gap-2 rounded-full bg-background font-normal text-muted-foreground shadow-sm"
+              data-home-search-shortcut
+            >
+              <Icon name="lucide:search" class="size-4" />
+              Buscar no cardápio
+            </UiButton>
+          </div>
 
           <UiAlert v-for="notice in contextualNotices" :key="notice.ref" :variant="noticeVariant(notice.tone)">
             <UiAlertTitle>{{ notice.title }}</UiAlertTitle>
@@ -163,10 +188,10 @@ useSeoMeta({
                   <Icon name="lucide:rotate-ccw" />
                 </UiItemMedia>
                 <div class="space-y-2">
-                  <h2 class="text-2xl font-semibold leading-tight">{{ quickReorderTitle }}</h2>
+                  <h2 class="text-xl font-semibold leading-tight">{{ quickReorderTitle }}</h2>
                   <ul v-if="quickReorderItems.length" class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground" aria-label="Itens do último pedido">
                     <li v-for="item in quickReorderItems" :key="item.sku" class="inline-flex items-center gap-1">
-                      <span class="font-medium text-foreground">{{ item.qty }}×</span>
+                      <span class="font-semibold text-foreground">{{ item.qty }}×</span>
                       <span>{{ item.name }}</span>
                     </li>
                   </ul>
@@ -187,14 +212,19 @@ useSeoMeta({
       </div>
     </section>
 
-    <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-10 md:pt-12">
+    <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-8 md:pt-10">
       <div class="shop-container space-y-6">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="text-2xl font-semibold">{{ sectionsCopy.availability_heading.title }}</h2>
+          <h2 class="text-xl font-semibold">{{ sectionsCopy.availability_heading.title }}</h2>
           <p class="mt-2 text-sm text-muted-foreground">{{ sectionsCopy.availability_heading.message }}</p>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ProductTile v-for="item in featuredPreview" :key="item.sku" :item="item" />
+        <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
+          <ProductTile
+            v-for="item in featuredPreview"
+            :key="item.sku"
+            :item="item"
+            class="w-[72%] shrink-0 snap-start sm:w-auto"
+          />
         </div>
         <div class="text-center">
           <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">
@@ -207,52 +237,56 @@ useSeoMeta({
     <section v-if="home && sectionsCopy" class="shop-section bg-muted">
       <div class="shop-container space-y-8">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="text-2xl font-semibold">{{ sectionsCopy.how_it_works_heading.title }}</h2>
+          <h2 class="text-xl font-semibold">{{ sectionsCopy.how_it_works_heading.title }}</h2>
           <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 text-sm text-muted-foreground">
             {{ sectionsCopy.how_it_works_intro.message }}
           </p>
         </div>
 
-        <div class="mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
-          <section class="space-y-4">
-            <h3 class="flex items-center gap-2 text-lg font-semibold">
-              <UiItemMedia variant="icon" class="size-8 rounded-full">
-                <Icon name="lucide:shopping-bag" />
-              </UiItemMedia>
-              {{ sectionsCopy.how_online_heading.title }}
-            </h3>
-            <UiItemGroup class="gap-3">
-              <UiItem v-for="(step, index) in howOnlineSteps" :key="step.title" size="sm" class="items-start bg-transparent p-0">
-                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full text-xs">
-                  <span class="font-semibold tabular-nums">{{ index + 1 }}</span>
-                </UiItemMedia>
-                <UiItemContent>
-                  <UiItemTitle>{{ step.title }}</UiItemTitle>
-                  <UiItemDescription>{{ step.description }}</UiItemDescription>
-                </UiItemContent>
-              </UiItem>
-            </UiItemGroup>
-          </section>
+        <div class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-3 rounded-lg border bg-background p-5" data-home-path-online>
+            <UiItemMedia variant="icon" class="size-10 rounded-full">
+              <Icon name="lucide:shopping-bag" />
+            </UiItemMedia>
+            <h3 class="text-base font-semibold">Peça online</h3>
+            <p class="text-sm text-muted-foreground">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+            <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
+              {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
+            </UiButton>
+          </div>
 
-          <section class="space-y-4">
-            <h3 class="flex items-center gap-2 text-lg font-semibold">
-              <UiItemMedia variant="icon" class="size-8 rounded-full">
-                <Icon name="lucide:store" />
-              </UiItemMedia>
-              {{ sectionsCopy.how_store_heading.title }}
-            </h3>
-            <UiItemGroup class="gap-3">
-              <UiItem v-for="step in storeSteps" :key="step.title" size="sm" class="items-start bg-transparent p-0">
-                <UiItemMedia variant="icon" class="mt-0.5 size-7 rounded-full">
-                  <Icon :name="step.icon" class="size-4" />
-                </UiItemMedia>
-                <UiItemContent>
-                  <UiItemTitle>{{ step.title }}</UiItemTitle>
-                  <UiItemDescription>{{ step.description }}</UiItemDescription>
-                </UiItemContent>
-              </UiItem>
-            </UiItemGroup>
-          </section>
+          <div class="flex flex-col gap-3 rounded-lg border bg-background p-5" data-home-path-visit>
+            <UiItemMedia variant="icon" class="size-10 rounded-full">
+              <Icon name="lucide:store" />
+            </UiItemMedia>
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base font-semibold">Visite a loja</h3>
+              <UiBadge v-if="operationalStatus.label" variant="secondary">{{ operationalStatus.label }}</UiBadge>
+            </div>
+            <p v-if="visitAddressLines.length" class="text-sm text-muted-foreground">
+              <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
+            </p>
+            <div class="mt-auto flex flex-wrap gap-2">
+              <UiButton
+                v-if="home.shop.maps_url"
+                :href="home.shop.maps_url"
+                target="_blank"
+                rel="noopener"
+                variant="outline"
+                icon="lucide:map-pin"
+              >
+                Como chegar
+              </UiButton>
+              <UiButton
+                v-if="operationalStatus.isOpen && home.shop.phone_url"
+                :href="home.shop.phone_url"
+                variant="ghost"
+                icon="lucide:phone"
+              >
+                Ligar
+              </UiButton>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -269,7 +303,7 @@ useSeoMeta({
             class="absolute inset-0 size-full object-cover opacity-35"
           >
           <div class="relative mx-auto max-w-2xl px-6 py-14 text-center md:py-16">
-            <h2 class="text-2xl font-semibold md:text-3xl">{{ sectionsCopy.whatsapp_cta.title }}</h2>
+            <h2 class="text-xl font-semibold md:text-2xl">{{ sectionsCopy.whatsapp_cta.title }}</h2>
             <p class="mt-3 text-sm leading-6 text-background/80 md:text-base">
               {{ sectionsCopy.whatsapp_cta.message }}
             </p>
