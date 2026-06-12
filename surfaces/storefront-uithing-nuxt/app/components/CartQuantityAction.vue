@@ -9,6 +9,7 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   addLabel?: string
   addTargetQty?: number
+  addIconOnly?: boolean
   tone?: 'default' | 'inverted'
 }>(), {
   addLabel: 'Adicionar',
@@ -45,6 +46,16 @@ async function addOne () {
     :compact="compact"
     :tone="tone"
     @changed="emit('changed', $event)"
+  />
+  <UiButton
+    v-else-if="addIconOnly"
+    :variant="tone === 'inverted' ? 'secondary' : 'default'"
+    size="icon"
+    icon="lucide:plus"
+    class="size-10 rounded-full shadow-sm"
+    :aria-label="`Adicionar ${meta.name}`"
+    :disabled="!hydrated || disabled || pending"
+    @click="addOne"
   />
   <UiButton
     v-else

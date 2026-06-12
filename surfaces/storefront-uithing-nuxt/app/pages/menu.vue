@@ -1,27 +1,14 @@
 <script setup lang="ts">
-import type { CatalogItemProjection, CatalogSectionProjection, MenuResponse } from '~/types/shopman'
-
-type SearchFilterKind = 'collection' | 'product' | 'keyword'
-
-type SearchListOption = {
-  key: string
-  kind: SearchFilterKind
-  value: string
-  label: string
-  meta: string
-  icon: string
-  imageUrl?: string
-  item?: CatalogItemProjection
-  section?: CatalogSectionProjection
-}
-
-type SearchResultGroup = {
-  ref: string
-  label: string
-  options: SearchListOption[]
-}
-
-const FILTERED_SECTION_VALUE = 'filtered'
+import {
+  FILTERED_SECTION_VALUE,
+  appliedFilterChips,
+  buildSectionsBySku,
+  filteredSections,
+  primarySectionBySku,
+  searchPanelView,
+  uniqueItemsBySku
+} from '~/presentation/menu'
+import type { MenuResponse } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const { setFromServer } = useCartState()
@@ -37,7 +24,6 @@ const query = ref('')
 const activeSection = ref('all')
 const searchPanelOpen = ref(false)
 const pillRailTailWidth = ref(160)
-const selectedFilterKeys = ref<string[]>([])
 const appliedFilterKeys = ref<string[]>([])
 
 const catalog = computed(() => data.value?.catalog || null)
@@ -46,79 +32,27 @@ const allItems = computed(() => catalog.value?.items || [])
 const uniqueItems = computed(() => uniqueItemsBySku(allItems.value))
 const favoriteRef = computed(() => catalog.value?.favorite_category_ref || '')
 const normalizedQuery = computed(() => normalizeSearchText(query.value))
-const selectedFilterKeySet = computed(() => new Set(selectedFilterKeys.value))
 const appliedFilterKeySet = computed(() => new Set(appliedFilterKeys.value))
 const hasAppliedFilters = computed(() => appliedFilterKeys.value.length > 0)
-const hasPendingFilterSelection = computed(() => {
-  if (!selectedFilterKeys.value.length) return false
-  if (selectedFilterKeys.value.length !== appliedFilterKeys.value.length) return true
-  return selectedFilterKeys.value.some(key => !appliedFilterKeySet.value.has(key))
-})
-const sectionsBySku = computed(() => {
-  const map = new Map<string, CatalogSectionProjection[]>()
-  for (const section of sections.value) {
-    for (const item of section.items) {
-      const memberships = map.get(item.sku) || []
-      memberships.push(section)
-      map.set(item.sku, memberships)
-    }
-  }
-  return map
-})
-const sectionBySku = computed(() => {
-  const map = new Map<string, CatalogSectionProjection>()
-  for (const [sku, memberships] of sectionsBySku.value.entries()) {
-    const firstStaticSection = memberships.find(section => !section.is_dynamic)
-    map.set(sku, firstStaticSection || memberships[0])
-  }
-  return map
-})
+const sectionsBySku = computed(() => buildSectionsBySku(sections.value))
+const sectionBySku = computed(() => primarySectionBySku(sectionsBySku.value))
 const searchOrFilterMode = computed(() => Boolean(normalizedQuery.value || hasAppliedFilters.value))
-const resultSections = computed(() => {
-  if (!searchOrFilterMode.value) return sections.value
-  const staticSections = sections.value.filter(section => !section.is_dynamic)
-  const dynamicSections = sections.value.filter(section => section.is_dynamic)
-  return [...staticSections, ...dynamicSections]
-})
-const activeSections = computed(() => {
-  const q = normalizedQuery.value
-  const seenSkus = new Set<string>()
-  return resultSections.value
-    .map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        if (!itemPassesMenuFilters(item, section, q)) return false
-        if (!searchOrFilterMode.value) return true
-        if (seenSkus.has(item.sku)) return false
-        seenSkus.add(item.sku)
-        return true
-      })
-    }))
-    .filter(section => section.items.length)
-})
+const activeSections = computed(() => filteredSections(
+  sections.value,
+  normalizedQuery.value,
+  appliedFilterKeys.value,
+  sectionsBySku.value
+))
 
 const filteredCount = computed(() => uniqueItemsBySku(activeSections.value.flatMap(section => [...section.items])).length)
-const allFilteredCount = computed(() => {
-  return filteredCount.value
-})
-const activeSectionCounts = computed(() => {
-  return new Map(activeSections.value.map(section => [
-    section.ref,
-    uniqueItemsBySku([...section.items]).length
-  ]))
-})
 const sectionOptions = computed(() => {
-  const visibleSections = searchOrFilterMode.value ? resultSections.value : sections.value
-  return visibleSections
-    .map(section => ({
-      ref: section.ref,
-      label: section.label,
-      count: searchOrFilterMode.value
-        ? activeSectionCounts.value.get(section.ref) || 0
-        : uniqueItemsBySku([...section.items]).length,
-      isFavorite: !!favoriteRef.value && [section.ref, section.category?.ref, section.dynamic_ref].includes(favoriteRef.value)
-    }))
-    .filter(section => !searchOrFilterMode.value || section.count > 0)
+  const source = searchOrFilterMode.value ? activeSections.value : sections.value
+  return source.map(section => ({
+    ref: section.ref,
+    label: section.label,
+    count: uniqueItemsBySku([...section.items]).length,
+    isFavorite: !!favoriteRef.value && [section.ref, section.category?.ref, section.dynamic_ref].includes(favoriteRef.value)
+  }))
 })
 const activeSectionLabel = computed(() => {
   if (activeSection.value === 'all') return 'Tudo'
@@ -126,118 +60,18 @@ const activeSectionLabel = computed(() => {
   return sections.value.find(section => section.ref === activeSection.value)?.label || 'Seção'
 })
 const activeSectionCount = computed(() => {
-  if (activeSection.value === 'all') return filteredCount.value
-  if (activeSection.value === FILTERED_SECTION_VALUE) return filteredCount.value
+  if (activeSection.value === 'all' || activeSection.value === FILTERED_SECTION_VALUE) return filteredCount.value
   return sectionOptions.value.find(section => section.ref === activeSection.value)?.count || 0
 })
-const collectionSearchOptions = computed<SearchListOption[]>(() => {
-  const q = normalizedQuery.value
-  if (!q) return []
-  return sections.value
-    .map(section => ({
-      section,
-      score: collectionSearchScore(section, q)
-    }))
-    .filter(result => result.score < Number.POSITIVE_INFINITY)
-    .sort((a, b) => a.score - b.score || a.section.label.localeCompare(b.section.label))
-    .map(result => ({
-      key: filterKey('collection', result.section.ref),
-      kind: 'collection',
-      value: result.section.ref,
-      label: result.section.label,
-      meta: formatCount(uniqueItemsBySku([...result.section.items]).length, 'item', 'itens'),
-      icon: 'lucide:rows-3',
-      section: result.section
-    }))
-    .slice(0, 12)
-})
-const productSearchOptions = computed<SearchListOption[]>(() => {
-  const q = normalizedQuery.value
-  if (!q) return []
-  return uniqueItems.value
-    .map(item => ({
-      item,
-      section: sectionBySku.value.get(item.sku),
-      score: productSearchScore(item, q)
-    }))
-    .filter(result => result.score < Number.POSITIVE_INFINITY)
-    .sort((a, b) => a.score - b.score || a.item.name.localeCompare(b.item.name))
-    .map(result => ({
-      key: filterKey('product', result.item.sku),
-      kind: 'product',
-      value: result.item.sku,
-      label: result.item.name,
-      meta: result.item.price_display,
-      icon: 'lucide:utensils',
-      imageUrl: result.item.image_url,
-      item: result.item,
-      section: result.section
-    }))
-    .slice(0, 12)
-})
-const keywordSearchOptions = computed<SearchListOption[]>(() => {
-  const q = normalizedQuery.value
-  if (!q) return []
-  const options = new Map<string, SearchListOption & { skus: Set<string> }>()
-  for (const item of uniqueItems.value) {
-    const section = sectionBySku.value.get(item.sku)
-    for (const keyword of keywordLabelsForItem(item)) {
-      const normalized = normalizeSearchText(keyword)
-      if (!normalized || !normalized.includes(q)) continue
-      const key = filterKey('keyword', keyword)
-      if (!options.has(key)) {
-        options.set(key, {
-          key,
-          kind: 'keyword',
-          value: keyword,
-          label: keyword,
-          meta: '0 itens',
-          icon: 'lucide:tag',
-          section,
-          skus: new Set()
-        })
-      }
-      options.get(key)?.skus.add(item.sku)
-    }
-  }
-  return Array.from(options.values())
-    .map(option => {
-      const count = uniqueItems.value.filter(item => {
-        return matchesProductAcrossCatalog(item, normalizeSearchText(option.value))
-      }).length
-      return {
-        ...option,
-        count,
-        meta: formatCount(count, 'item', 'itens')
-      }
-    })
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-    .map(({ count: _count, skus: _skus, ...option }) => option)
-    .slice(0, 8)
-})
-const searchResultGroups = computed<SearchResultGroup[]>(() => {
-  if (!normalizedQuery.value) {
-    return [{
-      ref: 'collections',
-      label: 'Coleções',
-      options: sections.value.map(section => ({
-        key: filterKey('collection', section.ref),
-        kind: 'collection',
-        value: section.ref,
-        label: section.label,
-        meta: formatCount(uniqueItemsBySku([...section.items]).length, 'item', 'itens'),
-        icon: !!favoriteRef.value && [section.ref, section.category?.ref, section.dynamic_ref].includes(favoriteRef.value) ? 'lucide:heart' : 'lucide:rows-3',
-        section
-      }))
-    }]
-  }
-
-  return [
-    { ref: 'collections', label: 'Coleções', options: collectionSearchOptions.value },
-    { ref: 'keywords', label: 'Palavras-chave', options: keywordSearchOptions.value },
-    { ref: 'products', label: 'Produtos', options: productSearchOptions.value }
-  ].filter(group => group.options.length)
-})
+const activeFilterChips = computed(() => appliedFilterChips(appliedFilterKeys.value, sections.value))
+const searchPanel = computed(() => searchPanelView({
+  sections: sections.value,
+  items: uniqueItems.value,
+  search: normalizedQuery.value,
+  favoriteRef: favoriteRef.value,
+  sectionBySku: sectionBySku.value,
+  sectionsBySku: sectionsBySku.value
+}))
 const menuFocusLabel = computed(() => {
   if (pending.value) return 'Carregando o cardápio.'
   const count = formatCount(activeSectionCount.value, 'item encontrado', 'itens encontrados')
@@ -249,111 +83,6 @@ const menuFocusLabel = computed(() => {
   return `${formatCount(filteredCount.value, 'item disponível', 'itens disponíveis')}.`
 })
 
-function matches (item: CatalogItemProjection, section: CatalogSectionProjection | undefined, search: string) {
-  return normalizeSearchText([
-    item.name,
-    item.short_description,
-    item.category,
-    section?.label,
-    (item.tags || []).join(' '),
-    (item.search_terms || []).join(' '),
-    (item.allergens || []).join(' '),
-    (item.dietary_info || []).join(' ')
-  ].join(' ')).includes(search)
-}
-
-function matchesProductAcrossCatalog (item: CatalogItemProjection, search: string) {
-  return normalizeSearchText([
-    item.name,
-    item.short_description,
-    item.category,
-    ...((sectionsBySku.value.get(item.sku) || []).flatMap(section => [section.label, section.description, section.ref])),
-    (item.tags || []).join(' '),
-    (item.search_terms || []).join(' '),
-    (item.allergens || []).join(' '),
-    (item.dietary_info || []).join(' ')
-  ].join(' ')).includes(search)
-}
-
-function collectionSearchScore (section: CatalogSectionProjection, search: string) {
-  const label = normalizeSearchText(section.label)
-  const haystack = normalizeSearchText([section.label, section.description, section.ref].join(' '))
-  if (label === search) return 0
-  if (label.startsWith(search)) return 1
-  if (label.includes(search)) return 2
-  if (haystack.includes(search)) return 3
-  return Number.POSITIVE_INFINITY
-}
-
-function productSearchScore (item: CatalogItemProjection, search: string) {
-  const name = normalizeSearchText(item.name)
-  const directTerms = normalizeSearchText([
-    item.name,
-    (item.tags || []).join(' '),
-    (item.search_terms || []).join(' ')
-  ].join(' '))
-  if (name === search) return 0
-  if (name.startsWith(search)) return 1
-  if (name.includes(search)) return 2
-  if (directTerms.includes(search)) return 3
-  if (matchesProductAcrossCatalog(item, search)) return 4
-  return Number.POSITIVE_INFINITY
-}
-
-function uniqueItemsBySku (items: ReadonlyArray<CatalogItemProjection>) {
-  const seen = new Set<string>()
-  return items.filter(item => {
-    if (seen.has(item.sku)) return false
-    seen.add(item.sku)
-    return true
-  })
-}
-
-function itemPassesMenuFilters (item: CatalogItemProjection, section: CatalogSectionProjection | undefined, search: string) {
-  if (search && !matches(item, section, search)) return false
-  if (appliedFilterKeySet.value.size && !itemMatchesAnyFilter(item, section, appliedFilterKeys.value)) return false
-  return true
-}
-
-function keywordLabelsForItem (item: CatalogItemProjection) {
-  const itemName = normalizeSearchText(item.name)
-  const itemCategory = normalizeSearchText(item.category || '')
-  return Array.from(new Set([
-    ...(item.tags || []),
-    ...(item.search_terms || []),
-    ...(item.allergens || []),
-    ...(item.dietary_info || [])
-  ].map(term => term.trim()).filter(term => {
-    const normalized = normalizeSearchText(term)
-    if (!normalized || normalized === itemName || normalized === itemCategory) return false
-    if (term.length > 32 || /[,.]/.test(term)) return false
-    return term.split(/\s+/).length <= 3
-  })))
-}
-
-function filterKey (kind: SearchFilterKind, value: string) {
-  return `${kind}:${value}`
-}
-
-function parseFilterKey (key: string): { kind: SearchFilterKind, value: string } | null {
-  const [kind, ...rest] = key.split(':')
-  if (!['collection', 'product', 'keyword'].includes(kind) || !rest.length) return null
-  return { kind: kind as SearchFilterKind, value: rest.join(':') }
-}
-
-function itemMatchesFilter (item: CatalogItemProjection, section: CatalogSectionProjection | undefined, key: string) {
-  const parsed = parseFilterKey(key)
-  if (!parsed) return false
-  if (parsed.kind === 'product') return item.sku === parsed.value
-  if (parsed.kind === 'collection') return section?.ref === parsed.value
-  return matchesProductAcrossCatalog(item, normalizeSearchText(parsed.value))
-}
-
-function itemMatchesAnyFilter (item: CatalogItemProjection, section: CatalogSectionProjection | undefined, keys: string[]) {
-  if (!keys.length) return true
-  return keys.some(key => itemMatchesFilter(item, section, key))
-}
-
 function productRoute (sku: string) {
   return `/product/${encodeURIComponent(sku)}`
 }
@@ -364,7 +93,6 @@ function focusSearchInput () {
 }
 
 function openSearchPanel () {
-  selectedFilterKeys.value = [...appliedFilterKeys.value]
   searchPanelOpen.value = true
   void nextTick(focusSearchInput)
 }
@@ -372,7 +100,6 @@ function openSearchPanel () {
 function closeSearchPanel () {
   searchPanelOpen.value = false
   query.value = ''
-  selectedFilterKeys.value = [...appliedFilterKeys.value]
 }
 
 function sectionDomId (ref: string) {
@@ -463,72 +190,38 @@ function selectSection (value: string | number | undefined) {
   })
 }
 
-async function chooseSectionFromSearch (ref: string) {
-  searchPanelOpen.value = false
-  query.value = ''
-  selectedFilterKeys.value = [...appliedFilterKeys.value]
+async function goToSectionFromSearch (ref: string) {
+  closeSearchPanel()
   await nextTick()
   selectSection(ref)
 }
 
-function chooseSearchResult (sku: string) {
-  searchPanelOpen.value = false
-  query.value = ''
-  selectedFilterKeys.value = [...appliedFilterKeys.value]
-  return navigateTo(productRoute(sku))
+function isFilterApplied (key: string) {
+  return appliedFilterKeySet.value.has(key)
 }
 
-function updateSearchListboxModel (value: string | string[] | undefined) {
-  if (searchPanelOpen.value) {
-    selectedFilterKeys.value = Array.isArray(value) ? value.map(String) : []
+// Aplicar um chip fecha a busca e leva direto ao resultado filtrado —
+// o efeito do toque precisa ser visível na hora. Remover um chip mantém
+// o painel como está (o usuário está compondo/desempilhando).
+function toggleMenuFilter (key: string) {
+  const next = new Set(appliedFilterKeys.value)
+  const isAdding = !next.has(key)
+  if (isAdding) next.add(key)
+  else next.delete(key)
+  appliedFilterKeys.value = Array.from(next)
+  activeSection.value = appliedFilterKeys.value.length ? FILTERED_SECTION_VALUE : 'all'
+  if (isAdding) {
+    closeSearchPanel()
+    void nextTick(() => {
+      scrollToSection(FILTERED_SECTION_VALUE)
+      queueActiveSectionSync()
+    })
     return
   }
-  if (value != null && !Array.isArray(value)) activeSection.value = String(value)
-}
-
-function chooseSearchOption (event: Event, option: SearchListOption) {
-  event.preventDefault()
-  if (option.kind === 'collection') {
-    void chooseSectionFromSearch(option.value)
-    return
-  }
-  if (option.kind === 'product') {
-    void chooseSearchResult(option.value)
-    return
-  }
-  applySingleFilter(option.key)
-}
-
-function isFilterKeySelected (key: string) {
-  return selectedFilterKeySet.value.has(key)
-}
-
-function toggleFilterKey (key: string) {
-  const next = new Set(selectedFilterKeys.value)
-  if (next.has(key)) next.delete(key)
-  else next.add(key)
-  selectedFilterKeys.value = Array.from(next)
-}
-
-function applySelectedMenuFilters () {
-  if (!selectedFilterKeys.value.length) return
-  appliedFilterKeys.value = [...selectedFilterKeys.value]
-  activeSection.value = FILTERED_SECTION_VALUE
-  searchPanelOpen.value = false
-  query.value = ''
-  void nextTick(() => {
-    scrollToSection(FILTERED_SECTION_VALUE)
-    queueActiveSectionSync()
-  })
-}
-
-function applySingleFilter (key: string) {
-  selectedFilterKeys.value = [key]
-  applySelectedMenuFilters()
+  void nextTick(queueActiveSectionSync)
 }
 
 function clearMenuFilters () {
-  selectedFilterKeys.value = []
   appliedFilterKeys.value = []
   activeSection.value = 'all'
   void nextTick(() => {
@@ -633,7 +326,7 @@ useSeoMeta({
   <main class="min-w-0">
     <h1 class="sr-only">Cardápio</h1>
 
-    <section data-menu-filterbar class="sticky top-16 z-30 border-y bg-background shadow-sm">
+    <section data-menu-filterbar class="sticky top-14 z-30 border-y bg-background shadow-sm md:top-16">
       <div class="shop-container py-2">
         <div v-if="catalog" class="flex items-center gap-2">
           <UiButton
@@ -676,7 +369,7 @@ useSeoMeta({
                   class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
                 >
                   Tudo
-                  <span class="ml-1 text-xs tabular-nums opacity-70">{{ allFilteredCount }}</span>
+                  <span v-if="searchOrFilterMode" class="ml-1 text-xs tabular-nums opacity-70">{{ filteredCount }}</span>
                 </UiTabsTrigger>
                 <UiTabsTrigger
                   v-for="section in sectionOptions"
@@ -688,7 +381,7 @@ useSeoMeta({
                 >
                   <Icon v-if="section.isFavorite" name="lucide:heart" class="mr-1 size-3.5" />
                   {{ section.label }}
-                  <span class="ml-1 text-xs tabular-nums opacity-70">{{ section.count }}</span>
+                  <span v-if="searchOrFilterMode" class="ml-1 text-xs tabular-nums opacity-70">{{ section.count }}</span>
                 </UiTabsTrigger>
                 <span
                   aria-hidden="true"
@@ -701,101 +394,114 @@ useSeoMeta({
           </UiTabs>
         </div>
 
-        <div v-if="catalog && searchPanelOpen" class="pt-2">
+        <div v-if="catalog && searchPanelOpen" class="pt-2" data-menu-search-panel>
           <UiLabel for="menu-search" class="sr-only">Buscar no cardápio</UiLabel>
-          <UiListbox
-            :model-value="selectedFilterKeys"
-            multiple
-            highlight-on-hover
-            class="border-0 bg-transparent p-0 shadow-none"
-            data-menu-search-listbox
-            @update:model-value="updateSearchListboxModel"
-          >
-            <div class="flex items-center gap-2">
-              <UiInputGroup class="min-w-0 flex-1">
-                <UiInputGroupAddon>
-                  <Icon name="lucide:search" class="size-4" />
-                </UiInputGroupAddon>
-                <UiListboxFilter v-model="query" as-child auto-focus>
-                  <UiInput
-                    id="menu-search"
-                    type="search"
-                    placeholder="Buscar no cardápio"
-                    autocomplete="off"
-                    class="flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-                  />
-                </UiListboxFilter>
-                <UiInputGroupAddon align="inline-end">
-                  <UiInputGroupButton
-                    size="icon-xs"
-                    icon="lucide:x"
-                    aria-label="Fechar busca"
-                    @click="closeSearchPanel"
-                  />
-                </UiInputGroupAddon>
-              </UiInputGroup>
+          <UiInputGroup class="min-w-0">
+            <UiInputGroupAddon>
+              <Icon name="lucide:search" class="size-4" />
+            </UiInputGroupAddon>
+            <UiInput
+              id="menu-search"
+              v-model="query"
+              type="search"
+              placeholder="Buscar no cardápio"
+              autocomplete="off"
+              class="flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
+            <UiInputGroupAddon align="inline-end">
+              <UiInputGroupButton
+                size="icon-xs"
+                icon="lucide:x"
+                aria-label="Fechar busca"
+                @click="closeSearchPanel"
+              />
+            </UiInputGroupAddon>
+          </UiInputGroup>
+
+          <div v-if="activeFilterChips.length && !normalizedQuery" class="mt-3" data-menu-active-filters>
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtros ativos</p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
               <UiButton
-                v-if="hasPendingFilterSelection"
+                v-for="chip in activeFilterChips"
+                :key="chip.key"
+                variant="default"
                 size="sm"
-                icon="lucide:funnel"
-                class="shrink-0"
-                @click="applySelectedMenuFilters"
+                class="h-8 rounded-full px-3"
+                :aria-label="`Remover filtro ${chip.label}`"
+                @click="toggleMenuFilter(chip.key)"
               >
-                Aplicar filtro
+                {{ chip.label }}
+                <Icon name="lucide:x" class="ml-1 size-3.5" />
               </UiButton>
             </div>
+          </div>
 
-            <UiListboxContent
-              class="mt-2 rounded-lg border bg-background p-1"
-              :data-menu-filter-result-list="normalizedQuery ? '' : undefined"
-              :data-menu-collection-list="normalizedQuery ? undefined : ''"
-            >
-              <template v-if="searchResultGroups.length">
-                <UiListboxGroup
-                  v-for="group in searchResultGroups"
-                  :key="group.ref"
-                >
-                  <UiListboxGroupLabel>{{ group.label }}</UiListboxGroupLabel>
-                  <UiListboxItem
-                    v-for="option in group.options"
-                    :key="option.key"
-                    :value="option.key"
-                    class="px-2 py-2"
-                    @select="chooseSearchOption($event, option)"
-                  >
-                    <UiItemMedia v-if="option.imageUrl" variant="image">
-                      <img :src="option.imageUrl" :alt="option.label" loading="lazy">
-                    </UiItemMedia>
-                    <UiItemMedia v-else variant="icon">
-                      <Icon :name="option.icon" />
-                    </UiItemMedia>
-                    <div class="min-w-0 flex-1">
-                      <p class="truncate font-medium">{{ option.label }}</p>
-                      <p class="truncate text-xs text-muted-foreground">{{ option.meta }}</p>
-                    </div>
-                    <UiButton
-                      :variant="isFilterKeySelected(option.key) ? 'default' : 'outline'"
-                      size="icon-sm"
-                      icon="lucide:funnel"
-                      :aria-label="isFilterKeySelected(option.key) ? `Remover ${option.label} do filtro` : `Filtrar por ${option.label}`"
-                      :aria-pressed="isFilterKeySelected(option.key)"
-                      class="ml-1 shrink-0 rounded-full"
-                      @click.stop.prevent="toggleFilterKey(option.key)"
-                    />
-                  </UiListboxItem>
-                </UiListboxGroup>
-              </template>
-              <UiItem v-else size="sm" class="border-0">
-                <UiItemMedia variant="icon">
-                  <Icon name="lucide:search-x" />
-                </UiItemMedia>
-                <UiItemContent>
-                  <UiItemTitle>Nada encontrado</UiItemTitle>
-                  <UiItemDescription>Apague a busca ou escolha uma coleção.</UiItemDescription>
-                </UiItemContent>
-              </UiItem>
-            </UiListboxContent>
-          </UiListbox>
+          <div v-if="searchPanel.collections.length" class="mt-3" data-menu-collection-list>
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Coleções</p>
+            <div class="mt-1">
+              <UiButton
+                v-for="option in searchPanel.collections"
+                :key="option.key"
+                variant="ghost"
+                class="h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-2.5 font-normal last:border-b-0"
+                @click="goToSectionFromSearch(option.value)"
+              >
+                <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />
+                <span class="min-w-0 flex-1 truncate text-left text-sm font-medium">{{ option.label }}</span>
+                <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ option.count }}</span>
+              </UiButton>
+            </div>
+          </div>
+
+          <div v-if="searchPanel.chips.length" class="mt-3" data-menu-filter-chips>
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filtre por</p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <UiButton
+                v-for="chip in searchPanel.chips"
+                :key="chip.key"
+                :variant="isFilterApplied(chip.key) ? 'default' : 'outline'"
+                size="sm"
+                class="h-8 rounded-full px-3"
+                :aria-pressed="isFilterApplied(chip.key)"
+                @click="toggleMenuFilter(chip.key)"
+              >
+                <Icon v-if="chip.icon === 'lucide:heart'" name="lucide:heart" class="mr-1 size-3.5" />
+                {{ chip.label }}
+                <span v-if="chip.count != null" class="ml-1 text-xs tabular-nums opacity-60">{{ chip.count }}</span>
+              </UiButton>
+            </div>
+          </div>
+
+          <div v-if="searchPanel.products.length" class="mt-4" data-menu-product-results>
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vá direto</p>
+            <div class="mt-1">
+              <NuxtLink
+                v-for="option in searchPanel.products"
+                :key="option.key"
+                :to="productRoute(option.value)"
+                class="flex items-center gap-3 border-b py-2 last:border-b-0"
+              >
+                <div class="size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <img v-if="option.imageUrl" :src="option.imageUrl" :alt="option.label" loading="lazy" class="size-full object-cover">
+                  <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+                    <Icon name="lucide:croissant" class="size-4" />
+                  </div>
+                </div>
+                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ option.label }}</span>
+                <span class="shrink-0 text-sm font-semibold tabular-nums">{{ option.meta }}</span>
+              </NuxtLink>
+            </div>
+          </div>
+
+          <UiItem v-if="normalizedQuery && !searchPanel.chips.length && !searchPanel.products.length" size="sm" class="mt-3 border-0">
+            <UiItemMedia variant="icon">
+              <Icon name="lucide:search-x" />
+            </UiItemMedia>
+            <UiItemContent>
+              <UiItemTitle>Nada encontrado</UiItemTitle>
+              <UiItemDescription>Apague a busca ou escolha uma coleção.</UiItemDescription>
+            </UiItemContent>
+          </UiItem>
         </div>
 
         <p class="sr-only" aria-live="polite">{{ menuFocusLabel }}</p>
@@ -811,8 +517,15 @@ useSeoMeta({
           ]"
         />
 
-        <div v-if="pending" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <UiSkeleton v-for="n in 6" :key="n" class="h-72 rounded-lg" />
+        <div v-if="pending" class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
+          <div v-for="n in 6" :key="n" class="flex gap-3 border-b py-3">
+            <div class="min-w-0 flex-1 space-y-2 self-center">
+              <UiSkeleton class="h-4 w-3/4" />
+              <UiSkeleton class="h-3 w-full" />
+              <UiSkeleton class="h-4 w-1/4" />
+            </div>
+            <UiSkeleton class="size-28 shrink-0 rounded-lg" />
+          </div>
         </div>
 
         <UiAlert v-else-if="error" variant="destructive">
@@ -832,20 +545,25 @@ useSeoMeta({
           </UiAlert>
 
           <section data-menu-results class="min-w-0 scroll-mt-40 space-y-4">
-            <div v-if="activeSections.length" class="space-y-6">
+            <div v-if="activeSections.length" class="space-y-7">
               <div
                 v-for="section in activeSections"
                 :id="sectionDomId(section.ref)"
                 :key="section.ref"
                 :data-menu-section-ref="section.ref"
-                class="scroll-mt-40 space-y-3"
+                class="scroll-mt-40 space-y-1"
               >
                 <div class="space-y-0.5">
                   <h2 class="text-base font-semibold">{{ section.label }}</h2>
                   <p v-if="section.description" class="text-sm text-muted-foreground">{{ section.description }}</p>
                 </div>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <ProductTile v-for="item in section.items" :key="`${section.ref}-${item.sku}`" :item="item" :section-label="section.label" />
+                <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
+                  <ProductListItem
+                    v-for="item in section.items"
+                    :key="`${section.ref}-${item.sku}`"
+                    :item="item"
+                    class="border-b"
+                  />
                 </div>
               </div>
             </div>

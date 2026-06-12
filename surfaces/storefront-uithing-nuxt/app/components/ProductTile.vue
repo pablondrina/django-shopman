@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { tileBadge } from '~/presentation/menu'
 import type { CatalogItemProjection, ProductMutationMeta } from '~/types/shopman'
 
 const props = defineProps<{
   item: CatalogItemProjection
   sectionLabel?: string
 }>()
+
+const badge = computed(() => tileBadge(props.item))
 
 const { qtyForSku } = useCartState()
 const meta = computed<ProductMutationMeta>(() => ({
@@ -43,23 +46,8 @@ function productRoute (sku: string) {
       >
         <span class="sr-only">Ver detalhes de {{ item.name }}</span>
       </UiButton>
-      <div class="absolute left-3 top-3 z-20">
-        <UiPopover v-if="item.available_qty != null">
-          <UiPopoverTrigger as-child>
-            <UiBadge :variant="availabilityVariant(item.availability)" class="cursor-pointer shadow-sm">
-              {{ item.availability_label }}
-            </UiBadge>
-          </UiPopoverTrigger>
-          <UiPopoverContent class="w-64 border-foreground/15 bg-foreground text-background">
-            <p class="text-sm font-medium">{{ item.name }}</p>
-            <p class="mt-1 text-xs text-background/75">
-              {{ formatCount(item.available_qty, 'unidade disponível', 'unidades disponíveis') }} no momento
-            </p>
-          </UiPopoverContent>
-        </UiPopover>
-        <UiBadge v-else :variant="availabilityVariant(item.availability)" class="shadow-sm">
-          {{ item.availability_label }}
-        </UiBadge>
+      <div v-if="badge" class="absolute left-3 top-3 z-20">
+        <UiBadge :variant="badge.variant" class="shadow-sm">{{ badge.label }}</UiBadge>
       </div>
     </UiAspectRatio>
 

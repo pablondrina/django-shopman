@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ProductMutationMeta } from '~/types/shopman'
 
+// Pílula de quantidade (padrão iFood): opaca, mesma geometria do botão "+"
+// que a origina. Não é campo de formulário — toques entram na fila otimista.
 const props = defineProps<{
   meta: ProductMutationMeta
   qty: number
@@ -16,46 +18,45 @@ const emit = defineEmits<{
 }>()
 
 const { setSkuQty } = useCartState()
-const localQty = ref(props.qty)
 
-watch(() => props.qty, value => {
-  localQty.value = value
-})
+const floorQty = computed(() => props.minQty ?? 0)
+const atMax = computed(() => props.maxQty != null && props.qty >= props.maxQty)
+const atMin = computed(() => props.qty <= floorQty.value)
+const removesOnDecrement = computed(() => floorQty.value === 0 && props.qty === 1)
 
-async function commit (value: number) {
-  const next = clampQuantity(value, props.maxQty, props.minQty ?? 0)
-  localQty.value = next
-  await setSkuQty(props.meta, next)
-  emit('changed', next)
-}
-
-function handleModelValue (value: unknown) {
-  const next = quantityFromModelValue(value, props.minQty ?? 0)
-  if (next === null) return
-  if (next === props.qty) {
-    localQty.value = next
-    return
-  }
+function commit (value: number) {
+  const next = clampQuantity(value, props.maxQty, floorQty.value)
+  if (next === props.qty) return
   // Rajadas entram na fila serial do carrinho; o estado otimista mantém a UI viva.
-  void commit(next).catch(() => {
-    localQty.value = props.qty
-  })
+  void setSkuQty(props.meta, next).then(() => emit('changed', next)).catch(() => {})
 }
-
-const controlClass = computed(() => [
-  props.compact ? 'w-28' : 'w-36',
-  props.tone === 'inverted' ? 'border-background/30 bg-background text-foreground' : ''
-])
 </script>
 
 <template>
-  <UiNumberField
-    v-model="localQty"
-    :min="minQty ?? 0"
-    :max="maxQty ?? undefined"
-    :disabled="disabled"
-    :class="controlClass"
-    aria-label="Quantidade"
-    @update:model-value="handleModelValue"
-  />
+  <div
+    role="group"
+    :aria-label="`Quantidade de ${meta.name}`"
+    class="inline-flex h-10 items-center rounded-full border bg-background text-foreground shadow-sm"
+    :class="compact ? '' : 'px-1'"
+  >
+    <UiButton
+      variant="ghost"
+      size="icon-sm"
+      class="size-10 rounded-full text-foreground"
+      :icon="removesOnDecrement ? 'lucide:trash-2' : 'lucide:minus'"
+      :aria-label="removesOnDecrement ? `Remover ${meta.name}` : `Diminuir ${meta.name}`"
+      :disabled="disabled || atMin"
+      @click="commit(qty - 1)"
+    />
+    <span class="min-w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">{{ qty }}</span>
+    <UiButton
+      variant="ghost"
+      size="icon-sm"
+      class="size-10 rounded-full text-foreground"
+      icon="lucide:plus"
+      :aria-label="`Aumentar ${meta.name}`"
+      :disabled="disabled || atMax"
+      @click="commit(qty + 1)"
+    />
+  </div>
 </template>
