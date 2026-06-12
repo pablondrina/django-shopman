@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { authErrorView, authStep, resendCooldown, welcomeNameValue, type AuthErrorView } from '~/presentation/auth'
 import { authPhonePayload, type AuthDeliveryMethod, type AuthPhoneRegion } from '~/utils/authPhone'
 import type { AuthSessionResponse, CopyEntryProjection, HomeResponse } from '~/types/shopman'
 
@@ -28,11 +29,18 @@ const requestedPhone = ref('')
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
-const error = ref('')
+const error = ref<AuthErrorView | null>(null)
 const trustedDevice = ref(false)
 const devConsoleHint = ref(false)
 const debugOtpCode = ref('')
 const debugOtpExpiresAt = ref('')
+const verified = ref(false)
+const welcomeNeeded = ref(false)
+const welcomeName = ref('')
+const lastSentAtMs = ref<number | null>(null)
+const lastDeliveryMethod = ref<AuthDeliveryMethod>('whatsapp')
+const nowMs = ref(0)
+let clockTimer: ReturnType<typeof setInterval> | null = null
 
 const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include',
@@ -41,20 +49,25 @@ const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
 })
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
-const step = computed(() => requestedPhone.value ? 'code' : 'phone')
+const step = computed(() => authStep({
+  requestedPhone: requestedPhone.value,
+  verified: verified.value,
+  requiresWelcome: welcomeNeeded.value
+}))
 const code = computed(() => codeDigits.value.join('').slice(0, 6))
 const canVerifyCode = computed(() => code.value.length === 6 && !pending.value)
 const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
-const shopName = computed(() => loginHome.value?.home.shop.brand_name || 'Shopman')
 const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
-const stepTitle = computed(() => step.value === 'phone'
-  ? copyTitle(authCopy.value?.phone_heading, 'Entrar por telefone')
-  : copyTitle(authCopy.value?.code_heading, 'Informe o código')
-)
-const stepDescription = computed(() => step.value === 'phone'
-  ? copyMessage(authCopy.value?.phone_subtitle, 'Enviamos um código para confirmar que o telefone e seu.')
-  : copyMessage(authCopy.value?.code_help, 'Digite o código recebido para confirmar seu telefone.')
-)
+const stepTitle = computed(() => {
+  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
+  if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
+  return copyTitle(authCopy.value?.name_heading, 'Como podemos te chamar?')
+})
+const stepDescription = computed(() => {
+  if (step.value === 'phone') return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')
+  if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
+  return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
+})
 const supportUrl = computed(() => withWhatsAppText(
   loginHome.value?.home.public_config.whatsapp_url || '',
   nextUrl.value.includes('checkout') ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
@@ -63,6 +76,22 @@ const phonePlaceholder = computed(() => phoneRegion.value === 'INTL' ? '+1 202 5
 const phoneAutocomplete = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'tel-national')
 const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'numeric')
 const regionToggleLabel = computed(() => phoneRegion.value === 'INTL' ? 'Usar número do Brasil' : 'Usar número internacional')
+const resendState = computed(() => resendCooldown(lastSentAtMs.value, nowMs.value))
+const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
+
+onMounted(() => {
+  nowMs.value = Date.now()
+  clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (clockTimer) clearInterval(clockTimer)
+})
+
+// Confirmação automática ao completar os 6 dígitos (o copy do servidor promete).
+watch(code, value => {
+  if (value.length === 6 && step.value === 'code' && !pending.value) verifyCode()
+})
 
 function copyTitle (entry: CopyEntryProjection | null | undefined, fallback: string) {
   return entry?.title?.trim() || fallback
@@ -106,13 +135,36 @@ function syncPhoneFromEvent (event?: Event) {
 function togglePhoneRegion () {
   phoneRegion.value = phoneRegion.value === 'INTL' ? 'BR' : 'INTL'
   phone.value = ''
-  error.value = ''
+  error.value = null
+}
+
+function fetchErrorView (e: any, fallback: string, fallbackField?: string): AuthErrorView {
+  return authErrorView({
+    status: e?.status ?? e?.response?.status,
+    detail: e?.data?.detail,
+    field: e?.data?.field || fallbackField
+  }, fallback)
+}
+
+function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryMethod) {
+  requestedPhone.value = response.phone
+  deliveryLabel.value = response.delivery_label
+  devConsoleHint.value = !!response.dev_console_hint
+  debugOtpCode.value = response.debug_otp_code || ''
+  debugOtpExpiresAt.value = response.debug_otp_expires_at || ''
+  lastDeliveryMethod.value = method
+  lastSentAtMs.value = Date.now()
+}
+
+function enterWelcomeGate (sessionResponse: AuthSessionResponse) {
+  welcomeNeeded.value = true
+  welcomeName.value = sessionResponse.welcome_suggested_name?.trim() || ''
 }
 
 async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Event) {
   syncPhoneFromEvent(event)
   pending.value = true
-  error.value = ''
+  error.value = null
   codeDigits.value = []
   devConsoleHint.value = false
   debugOtpCode.value = ''
@@ -127,6 +179,12 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
     }).catch(() => null)
     if (trusted?.trusted) {
       session.setFromAuthSession(trusted)
+      requestedPhone.value = trusted.phone
+      verified.value = true
+      if (trusted.requires_welcome) {
+        enterWelcomeGate(trusted)
+        return
+      }
       await navigateTo(nextUrl.value)
       return
     }
@@ -138,13 +196,30 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
       credentials: 'include',
       body: requestPayload
     })
-    requestedPhone.value = response.phone
-    deliveryLabel.value = response.delivery_label
-    devConsoleHint.value = !!response.dev_console_hint
-    debugOtpCode.value = response.debug_otp_code || ''
-    debugOtpExpiresAt.value = response.debug_otp_expires_at || ''
+    applyCodeDelivery(response, method)
   } catch (e: any) {
-    error.value = e?.data?.detail || 'Não foi possível enviar o código.'
+    error.value = fetchErrorView(e, 'Não foi possível enviar o código.')
+  } finally {
+    pending.value = false
+  }
+}
+
+async function resendCode () {
+  if (!resendState.value.ready || pending.value) return
+  pending.value = true
+  error.value = null
+  codeDigits.value = []
+  try {
+    const payload = authPhonePayload(requestedPhone.value, phoneRegion.value, lastDeliveryMethod.value)
+    const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: payload
+    })
+    applyCodeDelivery(response, lastDeliveryMethod.value)
+  } catch (e: any) {
+    error.value = fetchErrorView(e, 'Não foi possível reenviar o código.')
   } finally {
     pending.value = false
   }
@@ -152,11 +227,11 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
 
 async function verifyCode () {
   if (code.value.length !== 6) {
-    error.value = 'Informe os 6 dígitos do código.'
+    error.value = authErrorView({ field: 'code' }, 'Informe os 6 dígitos do código.')
     return
   }
   pending.value = true
-  error.value = ''
+  error.value = null
   try {
     const response = await $fetch<VerifyResponse>(apiPath('/api/auth/verify-code/'), {
       method: 'POST',
@@ -176,18 +251,48 @@ async function verifyCode () {
     devConsoleHint.value = false
     debugOtpCode.value = ''
     debugOtpExpiresAt.value = ''
+    verified.value = true
+    if (response.requires_welcome) {
+      enterWelcomeGate(response)
+      return
+    }
     await navigateTo(nextUrl.value)
   } catch (e: any) {
-    error.value = e?.data?.detail || 'Código invalido.'
+    error.value = fetchErrorView(e, 'Código inválido ou expirado.', 'code')
   } finally {
     pending.value = false
   }
 }
 
+async function submitWelcome () {
+  const name = welcomeNameValue(welcomeName.value)
+  if (!name || pending.value) return
+  pending.value = true
+  error.value = null
+  try {
+    await $fetch(apiPath('/api/v1/account/profile/'), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: { first_name: name }
+    })
+    session.setIdentity({ name })
+    await navigateTo(nextUrl.value)
+  } catch (e: any) {
+    error.value = fetchErrorView(e, 'Não foi possível salvar seu nome.')
+  } finally {
+    pending.value = false
+  }
+}
+
+async function skipWelcome () {
+  await navigateTo(nextUrl.value)
+}
+
 function returnToPhoneStep () {
   requestedPhone.value = ''
   codeDigits.value = []
-  error.value = ''
+  error.value = null
   devConsoleHint.value = false
   debugOtpCode.value = ''
   debugOtpExpiresAt.value = ''
@@ -200,190 +305,199 @@ useSeoMeta({
 
 <template>
   <main class="shop-section">
-    <div class="shop-container space-y-5">
-      <UiBreadcrumbs
-        :items="[
-          { label: 'Início', link: '/' },
-          { label: 'Entrar' }
-        ]"
-      />
+    <div class="shop-container">
+      <div class="mx-auto max-w-md space-y-5">
+        <UiBreadcrumbs
+          :items="[
+            { label: 'Início', link: '/' },
+            { label: 'Entrar' }
+          ]"
+        />
 
-      <div class="mx-auto grid max-w-5xl grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <UiCard class="overflow-hidden">
-          <UiCardHeader class="space-y-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <UiBadge variant="secondary">{{ deliveryLabel }}</UiBadge>
-              <UiBadge v-if="isCheckoutReturn" variant="outline">Checkout</UiBadge>
-            </div>
-            <div>
-              <UiCardTitle as="h1" class="text-3xl leading-tight">{{ stepTitle }}</UiCardTitle>
-              <UiCardDescription class="mt-2 text-base leading-7">{{ stepDescription }}</UiCardDescription>
-            </div>
-          </UiCardHeader>
+        <header>
+          <h1 class="text-3xl font-semibold leading-tight">{{ stepTitle }}</h1>
+          <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ stepDescription }}</p>
+          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
+            Seu carrinho continua reservado durante a entrada.
+          </p>
+        </header>
 
-          <UiCardContent class="space-y-5">
-            <UiAlert v-if="error" variant="destructive">
-              <UiAlertTitle>Revise os dados</UiAlertTitle>
-              <UiAlertDescription>
-                <div class="space-y-3">
-                  <p>{{ error }}</p>
-                  <UiButton
-                    v-if="supportUrl"
-                    :href="supportUrl"
-                    target="_blank"
-                    rel="noopener"
-                    variant="outline"
-                    size="sm"
-                    icon="lucide:message-circle"
-                  >
-                    Abrir WhatsApp da loja
-                  </UiButton>
-                </div>
-              </UiAlertDescription>
-            </UiAlert>
+        <UiAlert v-if="error && error.kind === 'rate_limit'" icon="lucide:clock">
+          <UiAlertTitle>{{ error.title }}</UiAlertTitle>
+          <UiAlertDescription>{{ error.message }}</UiAlertDescription>
+        </UiAlert>
+        <UiAlert v-else-if="error" variant="destructive">
+          <UiAlertTitle>{{ error.title }}</UiAlertTitle>
+          <UiAlertDescription>{{ error.message }}</UiAlertDescription>
+        </UiAlert>
 
-            <form v-if="step === 'phone'" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
-              <UiField>
-                <div class="flex items-center justify-between gap-3">
-                  <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
-                  <UiButton
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    class="h-auto px-0 text-xs"
-                    @click="togglePhoneRegion"
-                  >
-                    {{ regionToggleLabel }}
-                  </UiButton>
-                </div>
-                <UiInputGroup>
-                  <UiInputGroupAddon align="inline-start">
-                    <span v-if="phoneRegion === 'BR'" class="font-medium">+55</span>
-                    <Icon v-else name="lucide:globe-2" />
-                  </UiInputGroupAddon>
-                  <UiInputGroupInput
-                    id="login-phone"
-                    v-model="phone"
-                    name="phone"
-                    type="tel"
-                    :inputmode="phoneInputMode"
-                    :autocomplete="phoneAutocomplete"
-                    :placeholder="phonePlaceholder"
-                    :maxlength="phoneRegion === 'INTL' ? 24 : 16"
-                    @input="syncPhoneFromInput"
-                  />
-                </UiInputGroup>
-                <UiFieldDescription>
-                  {{ copyMessage(authCopy?.no_password_note, 'Use o código enviado para entrar.') }}
-                </UiFieldDescription>
-              </UiField>
-
-              <div class="grid gap-3">
-                <UiButton type="submit" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
-                  {{ copyTitle(authCopy?.phone_cta_wa, 'Receber por WhatsApp') }}
-                </UiButton>
-                <UiButton type="button" variant="outline" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
-                  {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
-                </UiButton>
-              </div>
-            </form>
-
-            <form v-else class="space-y-5" @submit.prevent="verifyCode">
-              <UiAlert variant="info">
-                <UiAlertTitle>Código enviado por {{ deliveryLabel }}</UiAlertTitle>
-                <UiAlertDescription>Verificando {{ requestedPhone }}.</UiAlertDescription>
-              </UiAlert>
-
-              <UiAlert v-if="debugOtpCode" variant="warning" data-testid="debug-otp-alert">
-                <UiAlertTitle>Código de teste</UiAlertTitle>
-                <UiAlertDescription>
-                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p>
-                      Use <UiBadge variant="secondary" class="font-mono text-sm tabular-nums">{{ debugOtpCode }}</UiBadge>
-                      para entrar neste ambiente.
-                    </p>
-                    <UiButton type="button" size="sm" variant="ghost" icon="lucide:x" @click="debugOtpCode = ''">
-                      Ocultar
-                    </UiButton>
-                  </div>
-                  <p v-if="debugOtpExpiresAt" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpExpiresAt }}.</p>
-                </UiAlertDescription>
-              </UiAlert>
-
-              <UiAlert v-else-if="devConsoleHint" variant="warning">
-                <UiAlertTitle>Código no terminal local</UiAlertTitle>
-                <UiAlertDescription>Leia o código no terminal onde o projeto está rodando.</UiAlertDescription>
-              </UiAlert>
-
-              <UiField>
-                <UiFieldLabel>Código de 6 dígitos</UiFieldLabel>
-                <UiPinInput
-                  v-model="codeDigits"
-                  :input-count="6"
-                  type="number"
-                  otp
-                  placeholder="0"
-                  :aria-invalid="!!error"
-                  class="justify-between sm:justify-start"
-                />
-                <UiFieldDescription>Use o código recebido por {{ deliveryLabel }}.</UiFieldDescription>
-              </UiField>
-
-              <UiFieldLabel for="trusted-device" class="w-full">
-                <UiField orientation="horizontal">
-                  <UiFieldContent>
-                    <UiFieldTitle>Confiar neste aparelho</UiFieldTitle>
-                    <UiFieldDescription>Evita código nas próximas compras quando o cookie for válido.</UiFieldDescription>
-                  </UiFieldContent>
-                  <UiCheckbox id="trusted-device" v-model:checked="trustedDevice" />
-                </UiField>
-              </UiFieldLabel>
-
-              <div class="grid gap-3">
-                <UiButton type="submit" :loading="pending" :disabled="!canVerifyCode" icon="lucide:check" class="w-full justify-center">Entrar</UiButton>
-                <UiButton type="button" variant="ghost" class="w-full justify-center" @click="returnToPhoneStep">Trocar telefone</UiButton>
-              </div>
-            </form>
-
-            <p class="text-xs leading-5 text-muted-foreground">
-              {{ copyMessage(authCopy?.terms_note, 'Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.') }}
-            </p>
-          </UiCardContent>
-        </UiCard>
-
-        <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <UiItem variant="muted">
-            <UiItemMedia variant="icon">
-              <Icon name="lucide:message-circle" />
-            </UiItemMedia>
-            <UiItemContent>
-              <UiItemTitle>{{ shopName }}</UiItemTitle>
-              <UiItemDescription>{{ isCheckoutReturn ? 'Seu carrinho continua reservado durante a entrada.' : 'Entre para acompanhar pedidos e recomprar mais rápido.' }}</UiItemDescription>
-            </UiItemContent>
-          </UiItem>
-
-          <UiItem v-if="supportUrl" variant="outline">
-            <UiItemMedia variant="icon">
-              <Icon name="lucide:headphones" />
-            </UiItemMedia>
-            <UiItemContent>
-              <UiItemTitle>Ajuda pelo WhatsApp</UiItemTitle>
-              <UiItemDescription>Fale com a loja se o código não chegar.</UiItemDescription>
-            </UiItemContent>
-            <UiItemActions>
+        <form v-if="step === 'phone'" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
+          <UiField>
+            <div class="flex items-center justify-between gap-3">
+              <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
               <UiButton
-                :href="supportUrl"
-                target="_blank"
-                rel="noopener"
-                variant="ghost"
+                type="button"
+                variant="link"
                 size="sm"
-                icon="lucide:message-circle"
+                class="h-auto px-0 text-xs"
+                @click="togglePhoneRegion"
               >
-                Abrir
+                {{ regionToggleLabel }}
               </UiButton>
-            </UiItemActions>
-          </UiItem>
-        </aside>
+            </div>
+            <UiInputGroup>
+              <UiInputGroupAddon align="inline-start">
+                <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
+                <Icon v-else name="lucide:globe-2" />
+              </UiInputGroupAddon>
+              <UiInputGroupInput
+                id="login-phone"
+                v-model="phone"
+                name="phone"
+                type="tel"
+                :inputmode="phoneInputMode"
+                :autocomplete="phoneAutocomplete"
+                :placeholder="phonePlaceholder"
+                :maxlength="phoneRegion === 'INTL' ? 24 : 16"
+                @input="syncPhoneFromInput"
+              />
+            </UiInputGroup>
+            <UiFieldDescription>
+              {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}
+            </UiFieldDescription>
+          </UiField>
+
+          <div class="grid gap-3">
+            <UiButton type="submit" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
+              {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
+            </UiButton>
+            <UiButton type="button" variant="outline" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
+              {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
+            </UiButton>
+          </div>
+        </form>
+
+        <form v-else-if="step === 'code'" class="space-y-5" @submit.prevent="verifyCode">
+          <p class="text-sm leading-6">
+            Código enviado por {{ deliveryLabel }} para
+            <span class="font-semibold tabular-nums">{{ requestedPhone }}</span>.
+          </p>
+
+          <UiAlert v-if="debugOtpCode" variant="warning" data-testid="debug-otp-alert">
+            <UiAlertTitle>Código de teste</UiAlertTitle>
+            <UiAlertDescription>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Use <UiBadge variant="secondary" class="font-mono text-sm tabular-nums">{{ debugOtpCode }}</UiBadge>
+                  para entrar neste ambiente.
+                </p>
+                <UiButton type="button" size="sm" variant="ghost" icon="lucide:x" @click="debugOtpCode = ''">
+                  Ocultar
+                </UiButton>
+              </div>
+              <p v-if="debugOtpExpiresAt" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpExpiresAt }}.</p>
+            </UiAlertDescription>
+          </UiAlert>
+
+          <UiAlert v-else-if="devConsoleHint" variant="warning">
+            <UiAlertTitle>Código no terminal local</UiAlertTitle>
+            <UiAlertDescription>Leia o código no terminal onde o projeto está rodando.</UiAlertDescription>
+          </UiAlert>
+
+          <UiField>
+            <UiFieldLabel>Código de 6 dígitos</UiFieldLabel>
+            <UiPinInput
+              v-model="codeDigits"
+              :input-count="6"
+              type="number"
+              otp
+              placeholder="0"
+              :aria-invalid="!!error"
+              class="justify-between sm:justify-start"
+            />
+            <UiFieldDescription>Use o código recebido por {{ deliveryLabel }}.</UiFieldDescription>
+          </UiField>
+
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2" data-login-resend>
+            <UiButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="-ml-2 text-muted-foreground hover:text-foreground"
+              icon="lucide:rotate-cw"
+              :disabled="!resendState.ready || pending"
+              @click="resendCode"
+            >
+              {{ resendState.ready ? 'Reenviar código' : `Reenviar em ${resendState.remainingSeconds}s` }}
+            </UiButton>
+            <UiButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="text-muted-foreground hover:text-foreground"
+              @click="returnToPhoneStep"
+            >
+              Trocar telefone
+            </UiButton>
+          </div>
+
+          <UiFieldLabel for="trusted-device" class="w-full">
+            <UiField orientation="horizontal">
+              <UiFieldContent>
+                <UiFieldTitle>{{ copyTitle(authCopy?.device_trust_prompt, 'Salvar este aparelho?') }}</UiFieldTitle>
+                <UiFieldDescription>{{ copyMessage(authCopy?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.') }}</UiFieldDescription>
+              </UiFieldContent>
+              <UiCheckbox id="trusted-device" v-model="trustedDevice" />
+            </UiField>
+          </UiFieldLabel>
+
+          <UiButton type="submit" :loading="pending" :disabled="!canVerifyCode" icon="lucide:check" class="w-full justify-center">
+            Entrar
+          </UiButton>
+        </form>
+
+        <form v-else class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
+          <UiField>
+            <UiFieldLabel for="welcome-name">Nome</UiFieldLabel>
+            <UiInput
+              id="welcome-name"
+              v-model="welcomeName"
+              name="welcome-name"
+              autocomplete="given-name"
+              placeholder="Como prefere ser chamado"
+            />
+          </UiField>
+
+          <div class="grid gap-3">
+            <UiButton type="submit" :loading="pending" :disabled="!canContinueWelcome" icon="lucide:check" class="w-full justify-center">
+              {{ copyTitle(authCopy?.name_cta, 'Continuar') }}
+            </UiButton>
+            <UiButton type="button" variant="ghost" class="w-full justify-center" @click="skipWelcome">
+              Deixar para depois
+            </UiButton>
+          </div>
+        </form>
+
+        <p v-if="step !== 'welcome'" class="text-xs leading-5 text-muted-foreground">
+          {{ copyMessage(authCopy?.terms_note, 'Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.') }}
+        </p>
+
+        <div v-if="supportUrl" class="-mx-4 border-t px-4 pt-4 sm:mx-0 sm:px-0" data-login-support>
+          <p class="text-base font-semibold">Ajuda pelo WhatsApp</p>
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">Fale com a loja se o código não chegar.</p>
+          <UiButton
+            :href="supportUrl"
+            target="_blank"
+            rel="noopener"
+            variant="outline"
+            size="sm"
+            icon="lucide:message-circle"
+            class="mt-3"
+          >
+            Abrir WhatsApp da loja
+          </UiButton>
+        </div>
       </div>
     </div>
   </main>

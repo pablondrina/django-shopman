@@ -442,6 +442,7 @@ describe('surface UX guardrails', () => {
   it('keeps login copy and recovery actions projection-driven', () => {
     const login = read('app/pages/login.vue')
     const authPhone = read('app/utils/authPhone.ts')
+    const authPresentation = read('app/presentation/auth.ts')
 
     expect(login).toContain("apiPath('/api/v1/storefront/home/')")
     expect(login).toContain('home.auth_copy')
@@ -462,7 +463,6 @@ describe('surface UX guardrails', () => {
     expect(login).toContain("requestCode('whatsapp', $event)")
     expect(login).toContain("requestCode('sms', $event)")
     expect(login).toContain('class="w-full justify-center"')
-    expect(login).toContain('<UiItem v-if="supportUrl" variant="outline">')
     expect(login).toContain('<UiFieldLabel for="trusted-device" class="w-full">')
     expect(login).not.toContain('<UiButtonGroup')
     expect(login).not.toContain('max-w-xl')
@@ -472,7 +472,29 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('data-testid="debug-otp-alert"')
     expect(login).toContain('debugOtpCode = ref')
     expect(login).toContain('Código no terminal local')
-    expect(login).toContain('as="h1"')
+    // Login editorial: passos direto no background (sem card), h1 semântico,
+    // máquina de passos/erros em presentation/auth.ts.
+    expect(login).not.toContain('<UiCard')
+    expect(login).toContain('<h1 class="text-3xl font-semibold')
+    expect(login).toContain("from '~/presentation/auth'")
+    expect(authPresentation).toContain('export function authStep')
+    expect(authPresentation).toContain('export function authErrorView')
+    expect(authPresentation).toContain('export function resendCooldown')
+    expect(authPresentation).toContain('export function welcomeNameValue')
+    // Rate limit é recuperação calma (sem banner vermelho); reenviar tem cooldown.
+    expect(login).toContain("error.kind === 'rate_limit'")
+    expect(login).toContain('data-login-resend')
+    expect(login).toContain('Reenviar código')
+    expect(login).toContain('Trocar telefone')
+    // Welcome gate omotenashi: nome via PATCH profile, com saída discreta.
+    expect(login).toContain('requires_welcome')
+    expect(login).toContain('welcome_suggested_name')
+    expect(login).toContain("apiPath('/api/v1/account/profile/')")
+    expect(login).toContain('data-login-welcome')
+    expect(login).toContain('Deixar para depois')
+    // Device trust e ajuda continuam server-driven/editorial.
+    expect(login).toContain('device_trust_prompt')
+    expect(login).toContain('data-login-support')
   })
 
   it('uses scaffolded UI Thing components for OTP, empty states and structured fields', () => {
