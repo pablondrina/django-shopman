@@ -3,6 +3,7 @@ import {
   RESEND_COOLDOWN_MS,
   authErrorView,
   authStep,
+  otpValidUntilDisplay,
   resendCooldown,
   welcomeNameValue
 } from '../app/presentation/auth'
@@ -61,6 +62,18 @@ describe('resendCooldown', () => {
   it('releases exactly after the cooldown window', () => {
     const sentAt = 10_000
     expect(resendCooldown(sentAt, sentAt + RESEND_COOLDOWN_MS)).toEqual({ ready: true, remainingSeconds: 0 })
+  })
+})
+
+describe('otpValidUntilDisplay', () => {
+  it('formats the expiry as local HH:mm', () => {
+    expect(otpValidUntilDisplay('2026-06-12T21:49:58.528337+00:00')).toMatch(/^\d{2}:\d{2}$/)
+  })
+
+  it('returns empty for blank or invalid input', () => {
+    expect(otpValidUntilDisplay('')).toBe('')
+    expect(otpValidUntilDisplay(null)).toBe('')
+    expect(otpValidUntilDisplay('não-é-data')).toBe('')
   })
 })
 

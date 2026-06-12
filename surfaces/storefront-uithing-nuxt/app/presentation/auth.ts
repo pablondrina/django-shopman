@@ -62,3 +62,10 @@ export function resendCooldown (lastSentAtMs: number | null, nowMs: number): Res
 export function welcomeNameValue (raw: string): string {
   return raw.replace(/\s+/g, ' ').trim()
 }
+
+export function otpValidUntilDisplay (expiresAtIso: string | null | undefined): string {
+  if (!expiresAtIso?.trim()) return ''
+  const parsed = Date.parse(expiresAtIso)
+  if (Number.isNaN(parsed)) return ''
+  return new Date(parsed).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}

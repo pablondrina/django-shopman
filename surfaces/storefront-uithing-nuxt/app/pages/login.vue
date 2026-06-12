@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { authErrorView, authStep, resendCooldown, welcomeNameValue, type AuthErrorView } from '~/presentation/auth'
+import { authErrorView, authStep, otpValidUntilDisplay, resendCooldown, welcomeNameValue, type AuthErrorView } from '~/presentation/auth'
 import { authPhonePayload, type AuthDeliveryMethod, type AuthPhoneRegion } from '~/utils/authPhone'
 import type { AuthSessionResponse, CopyEntryProjection, HomeResponse } from '~/types/shopman'
 
@@ -77,6 +77,7 @@ const phoneAutocomplete = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 
 const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'numeric')
 const regionToggleLabel = computed(() => phoneRegion.value === 'INTL' ? 'Usar número do Brasil' : 'Usar número internacional')
 const resendState = computed(() => resendCooldown(lastSentAtMs.value, nowMs.value))
+const debugOtpValidUntil = computed(() => otpValidUntilDisplay(debugOtpExpiresAt.value))
 const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
 
 onMounted(() => {
@@ -396,7 +397,7 @@ useSeoMeta({
                   Ocultar
                 </UiButton>
               </div>
-              <p v-if="debugOtpExpiresAt" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpExpiresAt }}.</p>
+              <p v-if="debugOtpValidUntil" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
             </UiAlertDescription>
           </UiAlert>
 
