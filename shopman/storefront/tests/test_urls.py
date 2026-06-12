@@ -54,9 +54,6 @@ class TestHomeViewXFrame:
     def test_kds_station_picker(self, db):
         assert reverse("backstage:kds_station_picker") == "/operacao/kds/"
 
-    def test_pos(self, db):
-        assert reverse("backstage:pos") == "/gestor/pos/"
-
 
 class TestViewImports:
     """Views are correctly importable from storefront."""

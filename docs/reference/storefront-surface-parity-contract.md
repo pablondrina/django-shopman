@@ -1,7 +1,15 @@
 # Storefront Surface Parity Contract
 
-Status: contrato executavel de porte de superficie
+Status: registro historico do porte WP2 (pins de markup aposentados em 2026-06-12)
 Data-base: 2026-05-15
+
+> **Aposentadoria (2026-06-12, decisao do Pablo):** os pins executaveis de markup
+> (`test_storefront_nuxt_parity_contract.py`) foram removidos junto com a superficie
+> `surfaces/storefront-nuxt`. A funcao de pinar a superficie viva
+> (`surfaces/storefront-uithing-nuxt`) e de `tests/surfaceGuardrails.test.ts` e dos
+> testes vitest de `app/presentation/`. Os contratos cross-superficie que continuam
+> executaveis vivem em `test_remote_multisurface_contract.py`. As declaracoes de
+> canon deste documento permanecem validas e pinadas por esses testes.
 Superficies: storefront Django/Penguin, storefront Nuxt v4, Ionic e futuras superficies mobile-first.
 
 Este documento existe para impedir que um porte de superficie preserve apenas layout e payloads, mas perca comportamento operacional.

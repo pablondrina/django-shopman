@@ -12,8 +12,8 @@ HEADLESS_ADR = REPO_ROOT / "docs" / "decisions" / "adr-012-headless-surface-cont
 HEADLESS_CONTRACT = REPO_ROOT / "docs" / "reference" / "headless-surface-contract.md"
 REMOTE_MUTATION_CONTRACT = REPO_ROOT / "docs" / "reference" / "remote-mutation-contract.md"
 REMOTE_RUNBOOK = REPO_ROOT / "docs" / "runbooks" / "pedido-remoto-preso.md"
-NUXT_TYPES = REPO_ROOT / "surfaces" / "storefront-nuxt" / "app" / "types" / "shopman.ts"
-NUXT_APP = REPO_ROOT / "surfaces" / "storefront-nuxt" / "app"
+NUXT_TYPES = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "types" / "shopman.ts"
+NUXT_TRACKING_PAGE = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "pages" / "tracking" / "[ref].vue"
 
 ORDER_STATUSES = {
     "new",
@@ -223,11 +223,15 @@ def test_core_status_and_projection_contracts_cover_remote_intermediate_states()
 
 
 def test_nuxt_tracking_contract_consumes_status_as_backend_string_not_surface_union():
+    """A superfície consome o status do backend como string e nunca inventa
+    uma união própria de estados — labels/promise vêm da projection."""
     types = _read(NUXT_TYPES)
-    tracking_page = _read(NUXT_APP / "pages" / "tracking" / "[ref].vue")
+    tracking_page = _read(NUXT_TRACKING_PAGE)
 
     assert "export interface TrackingResponse" in types
-    assert "status: string" in types
+    tracking_response = types[types.index("export interface TrackingResponse"):]
+    tracking_response = tracking_response[:tracking_response.index("\n}", 1)]
+    assert "status: string" in tracking_response
 
     forbidden_surface_statuses = {
         "awaiting_payment",
@@ -236,86 +240,9 @@ def test_nuxt_tracking_contract_consumes_status_as_backend_string_not_surface_un
         "fulfilled",
         "payment_pending_status",
     }
-    tracking_response = types[types.index("export interface TrackingResponse"):]
-    tracking_response = tracking_response[:tracking_response.index("export interface PaymentPromiseProjection")]
     source = tracking_response + "\n" + tracking_page
     for forbidden in forbidden_surface_statuses:
         assert forbidden not in source
-
-    for status in ORDER_STATUSES:
-        assert status in tracking_page or status in types
-
-
-def test_nuxt_and_ionic_surface_contracts_use_canonical_projection_types():
-    types = _read(NUXT_TYPES)
-    contract = _read(PARITY_CONTRACT)
-    checkout_page = _read(NUXT_APP / "pages" / "checkout.vue")
-    tracking_page = _read(NUXT_APP / "pages" / "tracking" / "[ref].vue")
-    payment_page = _read(NUXT_APP / "pages" / "order" / "[ref]" / "payment.vue")
-    reorder = _read(NUXT_APP / "composables" / "useReorder.ts")
-
-    for interface in [
-        "Action",
-        "CheckoutProjection",
-        "TrackingPromiseProjection",
-        "TrackingResponse",
-        "PaymentPromiseProjection",
-        "PaymentProjection",
-        "PaymentStatusResponse",
-        "RemoteConversationProjection",
-    ]:
-        assert f"export interface {interface}" in types
-
-    for field in [
-        "actions: Action[]",
-        "fulfillment_options: Array<'pickup' | 'delivery' | string>",
-        "promise: TrackingPromiseProjection",
-        "delivery_fulfillments: TrackingFulfillmentProjection[]",
-        "pickup_fulfillments: TrackingFulfillmentProjection[]",
-        "source_projection: 'tracking' | 'payment' | string",
-        "supports_access_link: boolean",
-        "requires_payment_gate: boolean",
-    ]:
-        assert field in types
-
-    assert "Nuxt e Ionic devem consumir os mesmos endpoints/projections backend" in contract
-    assert "Ionic nao" in contract
-    assert "backend BFF separado" in contract
-    assert "`RemoteConversationProjection`" in contract
-
-    assert "checkoutAction" in checkout_page
-    assert "checkout.value?.fulfillment_options" in checkout_page
-    assert "checkout.value?.payment_methods" in checkout_page
-    assert "checkout.value?.capabilities" not in checkout_page
-    assert "'Idempotency-Key': requestId" in checkout_page
-    assert "checkout.value?.has_pickup" not in checkout_page
-    assert "checkout.value?.has_delivery" not in checkout_page
-
-    assert "data.value?.promise" in tracking_page
-    assert "promiseActionLink" in tracking_page
-    assert "delivery_fulfillments" in tracking_page
-    assert "pickup_fulfillments" in tracking_page
-    assert "'Idempotency-Key': requestId" in tracking_page
-    assert "cancelOrderAction" in tracking_page
-    assert "rateOrderAction" in tracking_page
-    assert "reorderAction" in tracking_page
-
-    assert "payment.value.status_url" in payment_page
-    assert "payment.tracking_url" in payment_page
-    assert "redirectAction?.href || payment.checkout_url" in payment_page
-    assert "mockConfirmPaymentAction" in payment_page
-    assert "can_mock_confirm" not in payment_page
-
-    assert "'Idempotency-Key': idempotencyKey" in reorder
-    assert "idempotency_key: idempotencyKey" in reorder
-
-    tracking_contract = types[types.index("export interface TrackingResponse"):]
-    tracking_contract = tracking_contract[:tracking_contract.index("export interface PaymentPromiseProjection")]
-    conversation_contract = types[types.index("export interface RemoteConversationProjection"):]
-    assert "can_cancel:" not in tracking_contract
-    assert "can_rate:" not in tracking_contract
-    assert "rating_url:" not in tracking_contract
-    assert "can_cancel:" not in conversation_contract
 
 
 def test_manychat_conversation_api_is_thin_projection_adapter():
@@ -368,39 +295,6 @@ def test_headless_surface_contract_crystallizes_projection_actions_vocabulary():
 
     assert "adr-012-headless-surface-contract.md" in docs_index
     assert "headless-surface-contract.md" in docs_index
-
-
-def test_nuxt_catalog_surfaces_render_offer_availability_from_projections():
-    menu_page = _read(NUXT_APP / "pages" / "menu.vue")
-    product_page = _read(NUXT_APP / "pages" / "product" / "[sku].vue")
-    product_card = _read(NUXT_APP / "components" / "ProductCard.vue")
-    home_page = _read(NUXT_APP / "pages" / "index.vue")
-    contextual_banners = _read(NUXT_APP / "components" / "ContextualBanners.vue")
-
-    for source in [menu_page, product_page, product_card]:
-        for projection_field in [
-            "availability_label",
-            "can_add_to_cart",
-            "available_qty",
-            "promotion_label",
-            "price_display",
-        ]:
-            assert projection_field in source
-
-    for projection_field in [
-        "catalog.value?.sections",
-        "catalog.value?.featured",
-        "catalog.value?.happy_hour",
-        "catalog.value?.favorite_category_ref",
-        "item.search_terms",
-    ]:
-        assert projection_field in menu_page
-
-    assert "HomeResponse" in home_page
-    assert "home.featured_items" in home_page
-    assert "home.omotenashi" in contextual_banners
-    assert "home.last_order_ref" in contextual_banners
-    assert "home.origin_channel" in contextual_banners
 
 
 def test_remote_mutation_contract_requires_idempotent_sensitive_mutations():

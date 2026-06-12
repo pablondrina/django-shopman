@@ -5,7 +5,6 @@ ROOT = Path(__file__).parents[3]
 
 def test_sse_triggers_use_safe_sku_parser():
     template_paths = [
-        ROOT / "shopman/backstage/templates/pos/index.html",
         ROOT / "shopman/storefront/templates/storefront/product_detail.html",
     ]
 
