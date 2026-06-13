@@ -120,12 +120,18 @@ const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.v
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
 // Nome só vira input com ação deliberada (ou quando ainda não há nome).
 const showNameInput = computed(() => nameEditing.value || !state.name.trim())
+const nameBeforeEdit = ref('')
 async function startEditName () {
+  nameBeforeEdit.value = state.name
   nameEditing.value = true
   await nextTick()
   const el = nameInput.value?.$el
   if (el?.tagName === 'INPUT') el.focus()
   else el?.querySelector?.('input')?.focus?.()
+}
+function cancelEditName () {
+  state.name = nameBeforeEdit.value
+  nameEditing.value = false
 }
 const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.value))
 // No card colapsado, nome e telefone em linhas próprias (telefone na 3ª linha
@@ -139,13 +145,25 @@ const checkoutMaxDate = computed(() => dateBounds.value.maxDate)
 const closedDateEntries = computed(() => parseClosedDateEntries(checkout.value?.closed_dates_json))
 const closedWeekdays = computed(() => checkout.value?.closed_weekdays || [])
 const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value, closedWeekdays.value))
-// Opções de data vêm do backend (datas em que a loja REALMENTE opera —
-// nunca um dia fechado). Fallback ao cálculo local (Hoje/Amanhã) só se a
-// projection não trouxer nada.
+// Opções de data: "Hoje" (se aberto) + "Próxima fornada" (a próxima data em
+// que a loja opera) + "Outra data" (calendário). Vêm do backend, que nunca
+// devolve dia fechado. Fallback local só se a projection não trouxer nada.
 const quickDateOptions = computed(() => {
   const available = checkout.value?.available_dates || []
-  if (available.length) return available.map(value => ({ value, label: displayCheckoutDate(value), disabled: false }))
-  return quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value)
+  if (!available.length) {
+    return quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value)
+      .map(option => ({ value: option.value, title: option.label, disabled: option.disabled }))
+  }
+  const today = dateBounds.value.todayValue
+  const out: Array<{ value: string, title: string, disabled: boolean }> = []
+  if (available[0] === today) {
+    out.push({ value: available[0], title: 'Hoje', disabled: false })
+    if (available[1]) out.push({ value: available[1], title: 'Próxima fornada', disabled: false })
+  } else {
+    // Hoje está fechado → a opção mais próxima JÁ é a próxima fornada.
+    out.push({ value: available[0], title: 'Próxima fornada', disabled: false })
+  }
+  return out
 })
 const isCustomDate = computed(() => isCustomCheckoutDate(state.delivery_date, quickDateOptions.value))
 const contactState = computed<CheckoutSectionState>(() => {
@@ -569,10 +587,9 @@ useSeoMeta({
         />
 
         <div>
-          <p class="shop-kicker">Finalizar pedido</p>
-          <h1 class="mt-1 text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
+          <h1 class="text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
           <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Complete uma etapa por vez. A confirmação final aparece antes do envio.
+            Uma etapa por vez. Você confere tudo antes de enviar.
           </p>
         </div>
 
@@ -620,20 +637,31 @@ useSeoMeta({
               data-checkout-contact-card
               @edit="contactEditing = true"
             >
-              <div class="space-y-4">
+              <!-- Card branco, padronizado com endereço; edição deliberada. -->
+              <div class="space-y-3 rounded-lg border bg-card p-4">
                 <div v-if="showNameInput" class="space-y-2">
-                  <UiLabel for="checkout-name">Nome</UiLabel>
+                  <div class="flex items-center justify-between gap-2">
+                    <UiLabel for="checkout-name">Nome</UiLabel>
+                    <UiButton
+                      v-if="nameEditing"
+                      variant="ghost"
+                      size="sm"
+                      icon="lucide:x"
+                      class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+                      aria-label="Cancelar edição do nome"
+                      @click="cancelEditName"
+                    />
+                  </div>
                   <UiInput id="checkout-name" ref="nameInput" v-model="state.name" autocomplete="name" />
                   <UiFieldError v-if="fieldErrors.name" :errors="fieldErrors.name" />
                 </div>
-                <!-- Nome e telefone como linhas de leitura; edição deliberada. -->
-                <div class="-mx-4 divide-y border-y sm:mx-0">
-                  <div v-if="!showNameInput" class="flex items-center gap-3 px-4 py-3 sm:px-0">
+                <div class="divide-y">
+                  <div v-if="!showNameInput" class="flex items-center gap-3 py-3 first:pt-0">
                     <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
                     <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ state.name }}</p>
                     <UiButton variant="link" size="sm" class="h-auto p-0" @click="startEditName">Editar</UiButton>
                   </div>
-                  <div class="flex items-center gap-3 px-4 py-3 sm:px-0">
+                  <div class="flex items-center gap-3 py-3 first:pt-0">
                     <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
                     <div class="min-w-0 flex-1">
                       <p class="text-sm font-semibold tabular-nums">
@@ -758,7 +786,7 @@ useSeoMeta({
                     @update:model-value="pickDeliveryDate(String($event))"
                   >
                     <UiFieldLabel
-                      v-for="(option, index) in quickDateOptions"
+                      v-for="option in quickDateOptions"
                       :key="option.value"
                       :for="`checkout-date-${option.value}`"
                       class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
@@ -767,10 +795,7 @@ useSeoMeta({
                       <UiField orientation="horizontal" :data-disabled="option.disabled || undefined">
                         <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
                         <UiFieldContent class="gap-0.5">
-                          <UiFieldTitle>
-                            {{ option.label }}
-                            <UiBadge v-if="index === 0 && option.value !== dateBounds.todayValue" variant="secondary">Próxima fornada</UiBadge>
-                          </UiFieldTitle>
+                          <UiFieldTitle>{{ option.title }}</UiFieldTitle>
                           <UiFieldDescription>{{ weekdayDateLabel(option.value) }}</UiFieldDescription>
                         </UiFieldContent>
                       </UiField>
@@ -874,9 +899,9 @@ useSeoMeta({
               </UiRadioGroup>
               <UiFieldError v-if="fieldErrors.payment_method" :errors="fieldErrors.payment_method" />
 
-              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty">
+              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card">
                 <UiField orientation="horizontal">
-                  <UiFieldContent>
+                  <UiFieldContent class="gap-0.5">
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
                     <UiFieldDescription>Economize até {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
@@ -884,19 +909,21 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <div class="space-y-2">
+              <!-- Observação: caixinha como as demais; abre o campo ao tocar. -->
+              <div class="overflow-hidden rounded-md border bg-card" data-checkout-notes-box>
                 <UiButton
                   variant="ghost"
-                  size="sm"
-                  icon="lucide:sticky-note"
-                  class="-ml-3"
+                  class="h-auto w-full justify-between gap-3 rounded-none p-4 font-normal"
                   @click="notesOpen = !notesOpen"
                 >
-                  {{ state.notes ? 'Editar observação' : 'Adicionar observação' }}
+                  <span class="flex items-center gap-2 text-sm font-medium">
+                    <Icon name="lucide:sticky-note" class="size-4 text-muted-foreground" />
+                    {{ state.notes ? 'Observação adicionada' : 'Adicionar observação' }}
+                  </span>
+                  <Icon :name="notesOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-4 shrink-0 text-muted-foreground" />
                 </UiButton>
-                <div v-if="notesOpen || state.notes" class="space-y-2">
-                  <UiLabel for="checkout-notes">Observações</UiLabel>
-                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" />
+                <div v-if="notesOpen" class="space-y-2 border-t p-4 pt-3">
+                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: ponto de referência, tocar o interfone…" />
                 </div>
               </div>
 

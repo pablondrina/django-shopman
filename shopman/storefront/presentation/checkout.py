@@ -212,7 +212,8 @@ def _availability_dates(max_preorder_days: int) -> tuple[tuple[str, ...], tuple[
     try:
         from shopman.shop.services import business_calendar
 
-        dates = business_calendar.available_dates(max_count=3, horizon_days=max_preorder_days)
+        # Duas é o bastante: a UI mostra "Hoje" (se aberto) + a próxima fornada.
+        dates = business_calendar.available_dates(max_count=2, horizon_days=max_preorder_days)
         return (
             tuple(d.isoformat() for d in dates),
             tuple(business_calendar.closed_weekdays()),

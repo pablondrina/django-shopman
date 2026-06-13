@@ -345,7 +345,7 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('<UiFieldLabel v-if="availableFulfillment.includes(\'pickup\')" for="checkout-fulfillment-pickup" class="bg-card')
     expect(checkout).toContain('<UiFieldLabel v-for="method in paymentMethods"')
     expect(checkout).toContain('<UiField orientation="horizontal">')
-    expect(checkout).toContain('<UiFieldContent>')
+    expect(checkout).toContain('<UiFieldContent class="gap-0.5">')
     expect(checkout).toContain('paymentIcon(method.ref)')
     expect(checkout).toContain('{{ method.label }}')
     expect(checkout).not.toContain('class="flex gap-3 rounded-lg border p-4"')

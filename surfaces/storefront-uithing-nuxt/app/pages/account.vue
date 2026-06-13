@@ -423,8 +423,7 @@ useSeoMeta({
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p class="shop-kicker">Conta</p>
-          <h1 class="mt-1 text-3xl font-semibold">Histórico, endereços e recompra</h1>
+          <h1 class="text-3xl font-semibold">Sua conta</h1>
         </div>
         <UiButton variant="outline" icon="lucide:log-out" @click="logout">Sair</UiButton>
       </div>
