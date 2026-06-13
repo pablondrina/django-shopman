@@ -281,6 +281,39 @@ def set_delivery_draft(
     )
 
 
+def set_loyalty_redeem(
+    *,
+    session_key: str,
+    channel_ref: str,
+    redeem_q: int,
+) -> Session | None:
+    """Apply (``redeem_q > 0``) or clear loyalty redemption on the session and
+    re-run modifiers.
+
+    The session is the single source of truth for loyalty redemption: both the
+    cart and the checkout read ``session.data["loyalty"]`` (via the
+    ``loyalty_redeem`` pricing key). Toggling here keeps them in sync instead of
+    a UI-only flag that diverges from the discount actually applied.
+    """
+    session = get_open_session(session_key=session_key, channel_ref=channel_ref)
+    if session is None:
+        return None
+
+    data = dict(session.data or {})
+    if redeem_q > 0:
+        data["loyalty"] = {"redeem_points_q": int(redeem_q)}
+    else:
+        data.pop("loyalty", None)
+    session.data = data
+    session.save(update_fields=["data"])
+
+    return session_service.modify_session(
+        session_key=session_key,
+        channel_ref=channel_ref,
+        ops=[],
+    )
+
+
 def clear_session(*, session_key: str, channel_ref: str) -> None:
     """Abandon the cart session."""
     session_service.abandon_session(session_key=session_key, channel_ref=channel_ref)

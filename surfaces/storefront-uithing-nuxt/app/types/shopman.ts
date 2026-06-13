@@ -176,6 +176,7 @@ export interface CartProjection {
   delivery_zone_error: boolean
   grand_total_q: number
   grand_total_display: string
+  loyalty_applied: boolean
   coupon_code: string | null
   coupon_discount_q: number | null
   coupon_discount_display: string | null

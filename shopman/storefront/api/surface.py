@@ -497,6 +497,52 @@ class CheckoutDraftView(APIView):
 
 
 @extend_schema_view(
+    patch=extend_schema(
+        tags=["checkout"],
+        summary="Toggle loyalty points redemption on the session",
+        responses={200: OpenApiResponse(description="Cart projection reflecting the loyalty discount.")},
+    ),
+)
+class CheckoutLoyaltyView(APIView):
+    """PATCH /api/v1/checkout/loyalty/
+
+    Liga/desliga o resgate de pontos NA SESSÃO (fonte única) e re-resolve o
+    cart. Carrinho e checkout passam a refletir o mesmo estado — em vez de um
+    flag de UI que diverge do desconto realmente aplicado. Ao ligar, o saldo é
+    resolvido no servidor (não confia em valor do cliente).
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    def patch(self, request):
+        from shopman.shop.projections import checkout_context
+        from shopman.shop.services import cart as cart_service
+
+        data = request.data or {}
+        enabled = bool(data.get("enabled"))
+
+        redeem_q = 0
+        if enabled:
+            customer_info = getattr(request, "customer", None)
+            if customer_info is not None:
+                try:
+                    redeem_q = checkout_context.loyalty_balance(customer_info.uuid)
+                except Exception:
+                    logger.debug("loyalty balance lookup degraded", exc_info=True)
+                    redeem_q = 0
+
+        session_key = request.session.get("cart_session_key")
+        if session_key:
+            cart_service.set_loyalty_redeem(
+                session_key=session_key,
+                channel_ref=STOREFRONT_CHANNEL_REF,
+                redeem_q=redeem_q,
+            )
+        return Response({"cart": _cart_payload(request)})
+
+
+@extend_schema_view(
     put=extend_schema(
         tags=["cart"],
         summary="Set absolute cart quantity by SKU",

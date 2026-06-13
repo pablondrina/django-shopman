@@ -29,6 +29,7 @@ from .surface import (
     CartCouponView,
     CartSkuQtyView,
     CheckoutDraftView,
+    CheckoutLoyaltyView,
     OrderReorderView,
     StorefrontCartView,
     StorefrontCheckoutView,
@@ -62,6 +63,7 @@ urlpatterns = [
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="api-checkout"),
     path("checkout/draft/", CheckoutDraftView.as_view(), name="api-checkout-draft"),
+    path("checkout/loyalty/", CheckoutLoyaltyView.as_view(), name="api-checkout-loyalty"),
     # Availability
     path("availability/<str:sku>/", AvailabilityView.as_view(), name="api-availability"),
     # Catalog

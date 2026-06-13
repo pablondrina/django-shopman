@@ -127,6 +127,8 @@ class CartProjection:
     delivery_zone_error: bool
     grand_total_q: int
 
+    loyalty_applied: bool
+
     has_unavailable: bool
     has_awaiting_confirmation: bool
     has_ready_for_confirmation: bool
@@ -153,6 +155,7 @@ def _empty_cart(session_key: str = "") -> CartProjection:
         delivery_is_free=False,
         delivery_zone_error=False,
         grand_total_q=0,
+        loyalty_applied=False,
         has_unavailable=False,
         has_awaiting_confirmation=False,
         has_ready_for_confirmation=False,
@@ -246,6 +249,7 @@ def build_cart(
         delivery_is_free=(delivery_fee_q is not None and delivery_fee_q == 0),
         delivery_zone_error=delivery_zone_error,
         grand_total_q=grand_total_q,
+        loyalty_applied="loyalty_redeem" in pricing,
         has_unavailable=has_unavailable,
         has_awaiting_confirmation=has_awaiting,
         has_ready_for_confirmation=has_ready,
