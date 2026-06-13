@@ -39,56 +39,39 @@ const stateLabel = computed(() => {
   return 'Depois'
 })
 
-const cardClass = computed(() => {
-  if (props.state === 'current') return 'border-primary/60 shadow-sm'
-  if (props.state === 'error') return 'border-destructive/60 shadow-sm'
-  if (props.state === 'blocked') return 'border-warning/60 shadow-sm'
-  if (props.state === 'upcoming') return 'opacity-70'
-  return ''
-})
-
 const mediaClass = computed(() => {
   if (props.state === 'done') return 'bg-primary text-primary-foreground'
   if (props.state === 'current') return 'bg-primary text-primary-foreground'
   if (props.state === 'error') return 'bg-destructive text-destructive-foreground'
   if (props.state === 'blocked') return 'bg-warning text-warning-foreground'
-  return ''
+  return 'border border-border text-muted-foreground'
 })
 
-const badgeVariant = computed(() => {
-  if (props.state === 'error') return 'destructive'
-  if (props.state === 'blocked') return 'warning'
-  if (props.state === 'done') return 'secondary'
-  if (props.state === 'current') return 'default'
-  return 'outline'
-})
+const titleClass = computed(() => props.state === 'upcoming' ? 'text-muted-foreground' : 'text-foreground')
 </script>
 
 <template>
-  <UiCard
-    class="gap-0 overflow-hidden py-0 transition-colors"
-    :class="cardClass"
+  <!-- Editorial: seções separadas por hairline ponta-a-ponta no fundo da
+       página (sem card branco/sombra), conteúdo alinhado sob o título. O
+       hyper-focus continua: só a etapa atual expande; as outras viram resumo. -->
+  <section
+    class="-mx-4 border-t px-4 py-4 first:border-t-0 sm:mx-0 sm:px-0"
     data-checkout-section
     :data-checkout-section-state="state"
   >
     <div
-      class="flex items-start gap-3 p-4 sm:p-5"
+      class="flex items-start gap-3"
       :aria-current="state === 'current' ? 'step' : undefined"
     >
-      <UiItemMedia
-        variant="icon"
-        class="size-8 rounded-full"
+      <span
+        class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full transition-colors"
         :class="mediaClass"
       >
-        <Icon :name="stateIcon" />
-      </UiItemMedia>
+        <Icon :name="stateIcon" class="size-4" />
+        <span class="sr-only">{{ stateLabel }}</span>
+      </span>
       <div class="min-w-0 flex-1">
-        <div class="flex min-w-0 items-center gap-2">
-          <p class="truncate text-sm font-semibold">{{ title }}</p>
-          <UiBadge class="hidden sm:inline-flex" :variant="badgeVariant">
-            {{ stateLabel }}
-          </UiBadge>
-        </div>
+        <p class="text-sm font-semibold" :class="titleClass">{{ title }}</p>
         <p class="mt-0.5 line-clamp-3 whitespace-pre-line text-sm text-muted-foreground">
           {{ summary || 'Complete esta etapa para continuar' }}
         </p>
@@ -98,7 +81,7 @@ const badgeVariant = computed(() => {
         size="sm"
         variant="ghost"
         icon="lucide:pencil"
-        class="min-h-10"
+        class="-mr-2 min-h-10 shrink-0 text-muted-foreground hover:text-foreground"
         @click="$emit('edit')"
       >
         Editar
@@ -106,11 +89,10 @@ const badgeVariant = computed(() => {
     </div>
 
     <template v-if="isExpanded">
-      <UiSeparator />
-      <div class="p-4 sm:p-5" :class="bodyClass">
+      <div class="mt-4 sm:pl-10" :class="bodyClass">
         <slot />
       </div>
       <slot name="footer" />
     </template>
-  </UiCard>
+  </section>
 </template>

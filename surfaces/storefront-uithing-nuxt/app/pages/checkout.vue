@@ -25,10 +25,13 @@ import {
   fulfillmentSummary as buildFulfillmentSummary,
   isCheckoutDateUnavailable,
   localDateValue,
-  otherCheckoutDateLabel,
+  deliveryCoverageLabel,
+  isCustomCheckoutDate,
   parseClosedDateEntries,
   parseLocalDate,
   paymentIcon as resolvePaymentIcon,
+  paymentMethodHint,
+  weekdayDateLabel,
   paymentMethodLabel as resolvePaymentMethodLabel,
   quickCheckoutDateOptions,
   reconciledPickupSlotRef,
@@ -64,6 +67,8 @@ const state = reactive<CheckoutFormState>({
 const chosenDate = ref<Date | null>(null)
 const activeStep = ref<Step>('fulfillment')
 const contactEditing = ref(false)
+const nameEditing = ref(false)
+const nameInput = ref<any>(null)
 const useLoyalty = ref(false)
 const submitting = ref(false)
 const serverError = ref('')
@@ -71,6 +76,9 @@ const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
+const deliveryQuote = ref<{ covered: boolean, fee_display: string | null } | null>(null)
+const quotingZone = ref(false)
+const changePhoneOpen = ref(false)
 const addressLabelOpen = ref(false)
 const savedAddressIdForLabel = ref<number | null>(null)
 const pendingTrackingUrl = ref('')
@@ -110,6 +118,21 @@ const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLab
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
 const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
+// Nome só vira input com ação deliberada (ou quando ainda não há nome).
+const showNameInput = computed(() => nameEditing.value || !state.name.trim())
+const nameBeforeEdit = ref('')
+async function startEditName () {
+  nameBeforeEdit.value = state.name
+  nameEditing.value = true
+  await nextTick()
+  const el = nameInput.value?.$el
+  if (el?.tagName === 'INPUT') el.focus()
+  else el?.querySelector?.('input')?.focus?.()
+}
+function cancelEditName () {
+  state.name = nameBeforeEdit.value
+  nameEditing.value = false
+}
 const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.value))
 // No card colapsado, nome e telefone em linhas próprias (telefone na 3ª linha
 // por padrão) — fica legível sem depender de caber tudo numa linha só.
@@ -120,16 +143,36 @@ const dateBounds = computed(() => checkoutDateBounds(checkout.value))
 const checkoutMinDate = computed(() => dateBounds.value.minDate)
 const checkoutMaxDate = computed(() => dateBounds.value.maxDate)
 const closedDateEntries = computed(() => parseClosedDateEntries(checkout.value?.closed_dates_json))
-const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value))
-const quickDateOptions = computed(() => quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value))
-const otherDateLabel = computed(() => otherCheckoutDateLabel(state.delivery_date, quickDateOptions.value))
+const closedWeekdays = computed(() => checkout.value?.closed_weekdays || [])
+const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value, closedWeekdays.value))
+// Opções de data: "Hoje" (se aberto) + "Próxima fornada" (a próxima data em
+// que a loja opera) + "Outra data" (calendário). Vêm do backend, que nunca
+// devolve dia fechado. Fallback local só se a projection não trouxer nada.
+const quickDateOptions = computed(() => {
+  const available = checkout.value?.available_dates || []
+  if (!available.length) {
+    return quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value)
+      .map(option => ({ value: option.value, title: option.label, disabled: option.disabled }))
+  }
+  const today = dateBounds.value.todayValue
+  const out: Array<{ value: string, title: string, disabled: boolean }> = []
+  if (available[0] === today) {
+    out.push({ value: available[0], title: 'Hoje', disabled: false })
+    if (available[1]) out.push({ value: available[1], title: 'Próxima fornada', disabled: false })
+  } else {
+    // Hoje está fechado → a opção mais próxima JÁ é a próxima fornada.
+    out.push({ value: available[0], title: 'Próxima fornada', disabled: false })
+  }
+  return out
+})
+const isCustomDate = computed(() => isCustomCheckoutDate(state.delivery_date, quickDateOptions.value))
 const contactState = computed<CheckoutSectionState>(() => {
   if (fieldErrors.value.name || fieldErrors.value.phone) return 'error'
   if (contactEditing.value || !contactComplete.value) return 'current'
   return 'done'
 })
 const canContinueWhen = computed(() => {
-  return canContinueCheckoutWhen(state, slots.value, selectedSlot.value, dateBounds.value, closedDateEntries.value)
+  return canContinueCheckoutWhen(state, slots.value, selectedSlot.value, dateBounds.value, closedDateEntries.value, closedWeekdays.value)
 })
 
 const steps = computed<Step[]>(() => checkoutSteps(state.fulfillment_type))
@@ -137,7 +180,7 @@ const stepLabels = checkoutStepLabels
 const stepIcons = checkoutStepIcons
 
 function pickDeliveryDate (value: string) {
-  if (isCheckoutDateUnavailable(value, dateBounds.value, closedDateEntries.value)) return
+  if (isCheckoutDateUnavailable(value, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) return
   const date = parseLocalDate(value)
   if (!date) return
   chosenDate.value = date
@@ -177,10 +220,14 @@ watch(() => checkout.value, value => {
 // e a query do checkout mudava, re-disparando o fetch (skeleton) em plena
 // hidratação. Em onMounted a mudança é pós-paint e o re-render é limpo.
 onMounted(() => {
-  if (chosenDate.value || !(checkout.value?.pickup_slots?.length)) return
-  const today = new Date()
-  chosenDate.value = today
-  state.delivery_date = localDateValue(today)
+  if (chosenDate.value) return
+  // Default = primeira data REALMENTE disponível (não "hoje", que pode estar
+  // fechado: domingo, feriado, férias). Fallback p/ hoje só sem projection.
+  const value = checkout.value?.available_dates?.[0] || localDateValue(new Date())
+  const parsed = parseLocalDate(value)
+  if (!parsed) return
+  chosenDate.value = parsed
+  state.delivery_date = value
 })
 
 // O AddressPicker é o dono do passo de endereço: a seleção dele (salvo ou
@@ -198,9 +245,43 @@ watch(addressSelection, selection => {
     delete errors.delivery_address
     fieldErrors.value = errors
   }
-  // Endereço novo escolhido → a oferta de retirada anterior não vale mais.
-  if (selection) pickupSwapOffer.value = false
+  // Antecipação de zona: assim que há um endereço de entrega estruturado,
+  // checa a cobertura (não espera o commit final). A oferta de retirada some
+  // até a checagem responder.
+  deliveryQuote.value = null
+  pickupSwapOffer.value = false
+  if (state.fulfillment_type === 'delivery' && selection?.structured?.route) {
+    void checkDeliveryZone(selection.structured)
+  }
 }, { flush: 'sync' })
+
+// Pergunta ao servidor se a loja entrega no endereço (e qual a taxa) no
+// instante em que ele é confirmado — omotenashi/antecipação. A DeliveryZoneRule
+// segue como gate autoritativo no commit; aqui é só aviso antecipado.
+async function checkDeliveryZone (structured: { postal_code?: string, neighborhood?: string }) {
+  quotingZone.value = true
+  try {
+    const quote = await $fetch<{ covered: boolean, fee_display: string | null }>(apiPath('/api/v1/delivery/quote/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: { postal_code: structured.postal_code || '', neighborhood: structured.neighborhood || '' }
+    })
+    deliveryQuote.value = quote
+    if (quote.covered) {
+      serverError.value = ''
+      pickupSwapOffer.value = false
+    } else {
+      pickupSwapOffer.value = availableFulfillment.value.includes('pickup')
+    }
+  } catch {
+    // Falha na checagem antecipada não bloqueia — o commit ainda valida a zona.
+    deliveryQuote.value = null
+    pickupSwapOffer.value = false
+  } finally {
+    quotingZone.value = false
+  }
+}
 
 watch(chosenDate, value => {
   if (!value) {
@@ -208,7 +289,7 @@ watch(chosenDate, value => {
     return
   }
   const nextValue = localDateValue(value)
-  if (isCheckoutDateUnavailable(nextValue, dateBounds.value, closedDateEntries.value)) return
+  if (isCheckoutDateUnavailable(nextValue, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) return
   state.delivery_date = nextValue
   datePopoverOpen.value = false
 })
@@ -311,7 +392,7 @@ function validateWhenStep (): boolean {
   delete errors.delivery_date
   delete errors.delivery_time_slot
   if (!state.delivery_date) errors.delivery_date = 'Escolha a data.'
-  if (state.delivery_date && isCheckoutDateUnavailable(state.delivery_date, dateBounds.value, closedDateEntries.value)) errors.delivery_date = 'Escolha uma data disponível.'
+  if (state.delivery_date && isCheckoutDateUnavailable(state.delivery_date, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) errors.delivery_date = 'Escolha uma data disponível.'
   if (state.fulfillment_type === 'pickup' && slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horário.'
   if (state.fulfillment_type === 'pickup' && state.delivery_time_slot && !selectedSlot.value?.enabled) {
     errors.delivery_time_slot = selectedSlot.value?.reason || 'Escolha um horário disponível.'
@@ -337,7 +418,7 @@ function validatePaymentStep (): boolean {
 }
 
 function saveContact () {
-  validateContact()
+  if (validateContact()) nameEditing.value = false
 }
 
 function continueFromFulfillment () {
@@ -506,10 +587,9 @@ useSeoMeta({
         />
 
         <div>
-          <p class="shop-kicker">Finalizar pedido</p>
-          <h1 class="mt-1 text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
+          <h1 class="text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
           <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Complete uma etapa por vez. A confirmação final aparece antes do envio.
+            Uma etapa por vez. Você confere tudo antes de enviar.
           </p>
         </div>
 
@@ -548,36 +628,55 @@ useSeoMeta({
             <UiAlertDescription>{{ serverError }}</UiAlertDescription>
           </UiAlert>
 
-          <div class="space-y-3" data-checkout-progress-stack>
+          <div data-checkout-progress-stack>
             <CheckoutProgressSection
               title="Contato"
               :state="contactState"
               icon="lucide:user-round"
-              :summary="contactComplete && !contactEditing ? contactCardSummary : 'Nome no pedido e telefone confirmado'"
+              :summary="contactComplete && !contactEditing ? contactCardSummary : 'Nome e telefone'"
               data-checkout-contact-card
               @edit="contactEditing = true"
             >
-              <div class="space-y-4">
-                <div class="space-y-2">
-                  <UiLabel for="checkout-name">Nome</UiLabel>
-                  <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
+              <!-- Card branco, padronizado com endereço; edição deliberada. -->
+              <div class="space-y-3 rounded-lg border bg-card p-4">
+                <div v-if="showNameInput" class="space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <UiLabel for="checkout-name">Nome</UiLabel>
+                    <UiButton
+                      v-if="nameEditing"
+                      variant="ghost"
+                      size="sm"
+                      icon="lucide:x"
+                      class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+                      aria-label="Cancelar edição do nome"
+                      @click="cancelEditName"
+                    />
+                  </div>
+                  <UiInput id="checkout-name" ref="nameInput" v-model="state.name" autocomplete="name" />
                   <UiFieldError v-if="fieldErrors.name" :errors="fieldErrors.name" />
                 </div>
-                <div class="-mx-4 flex items-center gap-3 border-y px-4 py-3 sm:mx-0 sm:px-0">
-                  <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
-                  <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold tabular-nums">
-                      {{ phoneDisplay || 'Entre por telefone para continuar' }}
-                    </p>
-                    <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
+                <div class="divide-y">
+                  <div v-if="!showNameInput" class="flex items-center gap-3 py-3 first:pt-0">
+                    <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
+                    <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ state.name }}</p>
+                    <UiButton variant="link" size="sm" class="h-auto p-0" @click="startEditName">Editar</UiButton>
                   </div>
-                  <UiButton :to="authRoute" variant="link" size="sm" class="h-auto p-0">
-                    Trocar
-                  </UiButton>
+                  <div class="flex items-center gap-3 py-3 first:pt-0">
+                    <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold tabular-nums">
+                        {{ phoneDisplay || 'Entre por telefone para continuar' }}
+                      </p>
+                      <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
+                    </div>
+                    <UiButton variant="link" size="sm" class="h-auto p-0" @click="changePhoneOpen = true">
+                      Trocar
+                    </UiButton>
+                  </div>
                 </div>
               </div>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" @click="saveContact">Salvar contato</UiButton>
                 </div>
               </template>
@@ -593,25 +692,25 @@ useSeoMeta({
               @edit="goToStep('fulfillment')"
             >
               <UiRadioGroup v-model="state.fulfillment_type" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup">
+                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon name="lucide:store" class="size-4" />
-                        Retirar na loja
+                        Retirada
                       </UiFieldTitle>
                       <UiFieldDescription>{{ checkout.pickup_hint }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
-                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery">
+                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon name="lucide:truck" class="size-4" />
-                        Receber em endereço
+                        Entrega
                       </UiFieldTitle>
                       <UiFieldDescription>{{ checkout.delivery_hint || 'Taxa conforme a região' }}</UiFieldDescription>
                     </UiFieldContent>
@@ -623,7 +722,7 @@ useSeoMeta({
                 Esta é a opção disponível para este pedido.
               </p>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
@@ -647,10 +746,18 @@ useSeoMeta({
                 :saved-addresses="savedAddresses"
                 :preselected-id="checkout.preselected_address_id"
                 @confirmed="continueFromAddress"
+                @addresses-changed="refresh"
               />
               <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
-              <template v-if="addressSelection" #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+              <p v-if="quotingZone" class="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="lucide:loader-circle" class="size-4 animate-spin" /> Verificando se entregamos aqui…
+              </p>
+              <p v-else-if="deliveryQuote?.covered" class="mt-3 flex items-center gap-2 text-sm font-medium" data-checkout-zone-ok>
+                <Icon name="lucide:circle-check" class="size-4 shrink-0" />
+                {{ deliveryCoverageLabel(deliveryQuote.fee_display) }}
+              </p>
+              <template v-if="addressSelection && !pickupSwapOffer" #footer>
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
                   </UiButton>
@@ -670,26 +777,42 @@ useSeoMeta({
               <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <div class="space-y-3">
                   <UiLabel>Data</UiLabel>
-                  <div class="flex flex-wrap gap-2">
-                    <UiButton
+                  <!-- Datas padronizadas como as demais escolhas: caixas verticais
+                       com dia da semana + data explícita. "Outra data" abre o
+                       calendário e mostra a data escolhida quando ativa. -->
+                  <UiRadioGroup
+                    :model-value="state.delivery_date"
+                    class="grid gap-2"
+                    @update:model-value="pickDeliveryDate(String($event))"
+                  >
+                    <UiFieldLabel
                       v-for="option in quickDateOptions"
                       :key="option.value"
-                      size="sm"
-                      :variant="state.delivery_date === option.value ? 'default' : 'outline'"
-                      :disabled="option.disabled"
-                      @click="pickDeliveryDate(option.value)"
+                      :for="`checkout-date-${option.value}`"
+                      class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
+                      :class="option.disabled ? 'opacity-60' : ''"
                     >
-                      {{ option.label }}
-                    </UiButton>
+                      <UiField orientation="horizontal" :data-disabled="option.disabled || undefined">
+                        <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
+                        <UiFieldContent class="gap-0.5">
+                          <UiFieldTitle>{{ option.title }}</UiFieldTitle>
+                          <UiFieldDescription>{{ weekdayDateLabel(option.value) }}</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
 
                     <UiPopover v-model:open="datePopoverOpen">
                       <UiPopoverTrigger as-child>
                         <UiButton
-                          size="sm"
-                          icon="lucide:calendar-days"
-                          :variant="state.delivery_date && !quickDateOptions.some(option => option.value === state.delivery_date) ? 'default' : 'outline'"
+                          variant="outline"
+                          class="h-auto w-full justify-start gap-3 bg-card p-4"
+                          :class="isCustomDate ? 'border-primary ring-1 ring-primary' : ''"
                         >
-                          {{ otherDateLabel }}
+                          <Icon name="lucide:calendar-days" class="size-4 shrink-0" />
+                          <span class="flex flex-1 flex-col items-start gap-0.5 text-left">
+                            <span class="text-sm font-medium">Outra data</span>
+                            <span class="text-sm font-normal text-muted-foreground">{{ isCustomDate ? selectedDateLabel : 'Escolher no calendário' }}</span>
+                          </span>
                         </UiButton>
                       </UiPopoverTrigger>
                       <UiPopoverContent align="start" class="w-auto p-0">
@@ -702,13 +825,7 @@ useSeoMeta({
                         />
                       </UiPopoverContent>
                     </UiPopover>
-                  </div>
-                  <p
-                    v-if="selectedDateLabel && !quickDateOptions.some(option => option.value === state.delivery_date)"
-                    class="text-sm text-muted-foreground"
-                  >
-                    Data escolhida: <span class="font-medium text-foreground">{{ selectedDateLabel }}</span>
-                  </p>
+                  </UiRadioGroup>
                   <UiFieldError v-if="fieldErrors.delivery_date" :errors="fieldErrors.delivery_date" />
                 </div>
 
@@ -719,20 +836,21 @@ useSeoMeta({
                       v-for="slot in slots"
                       :key="slot.ref"
                       :for="`checkout-slot-${slot.ref}`"
-                      :class="!slot.enabled ? 'opacity-60' : ''"
+                      class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
+                      :class="!slot.enabled ? 'opacity-50' : ''"
                     >
                       <UiField orientation="horizontal" :data-disabled="!slot.enabled || undefined">
                         <UiRadioGroupItem
                           :id="`checkout-slot-${slot.ref}`"
                           :value="slot.ref"
                           :disabled="!slot.enabled"
+                          :aria-label="slot.enabled ? slot.label : `${slot.label} — ${slot.reason}`"
                         />
-                        <UiFieldContent>
+                        <UiFieldContent class="gap-0.5">
                           <UiFieldTitle>
-                            {{ slot.label }}
+                            <span :class="!slot.enabled ? 'line-through' : ''">{{ slot.label }}</span>
                             <UiBadge v-if="slot.is_earliest && slot.enabled" variant="secondary">Mais cedo</UiBadge>
                           </UiFieldTitle>
-                          <UiFieldDescription v-if="slot.reason">{{ slot.reason }}</UiFieldDescription>
                         </UiFieldContent>
                       </UiField>
                     </UiFieldLabel>
@@ -741,7 +859,7 @@ useSeoMeta({
                 </div>
               </div>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton
                     class="w-full"
                     size="lg"
@@ -766,49 +884,51 @@ useSeoMeta({
               @edit="goToStep('payment')"
             >
               <UiRadioGroup v-model="state.payment_method" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`">
+                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon :name="paymentIcon(method.ref)" class="size-4" />
                         {{ method.label }}
                       </UiFieldTitle>
-                      <UiFieldDescription v-if="method.is_default">Padrão da loja</UiFieldDescription>
+                      <UiFieldDescription v-if="paymentMethodHint(method.ref, checkout.card_provider)">{{ paymentMethodHint(method.ref, checkout.card_provider) }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
               </UiRadioGroup>
               <UiFieldError v-if="fieldErrors.payment_method" :errors="fieldErrors.payment_method" />
 
-              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty">
+              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card">
                 <UiField orientation="horizontal">
-                  <UiFieldContent>
+                  <UiFieldContent class="gap-0.5">
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
-                    <UiFieldDescription>Abater {{ checkout.loyalty_value_display }} do total</UiFieldDescription>
+                    <UiFieldDescription>Economize até {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
               </UiFieldLabel>
 
-              <div class="space-y-2">
+              <!-- Observação: caixinha como as demais; abre o campo ao tocar. -->
+              <div class="overflow-hidden rounded-md border bg-card" data-checkout-notes-box>
                 <UiButton
                   variant="ghost"
-                  size="sm"
-                  icon="lucide:sticky-note"
-                  class="-ml-3"
+                  class="h-auto w-full justify-between gap-3 rounded-none p-4 font-normal"
                   @click="notesOpen = !notesOpen"
                 >
-                  {{ state.notes ? 'Editar observação' : 'Adicionar observação' }}
+                  <span class="flex items-center gap-2 text-sm font-medium">
+                    <Icon name="lucide:sticky-note" class="size-4 text-muted-foreground" />
+                    {{ state.notes ? 'Observação adicionada' : 'Adicionar observação' }}
+                  </span>
+                  <Icon :name="notesOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-4 shrink-0 text-muted-foreground" />
                 </UiButton>
-                <div v-if="notesOpen || state.notes" class="space-y-2">
-                  <UiLabel for="checkout-notes">Observações</UiLabel>
-                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" />
+                <div v-if="notesOpen" class="space-y-2 border-t p-4 pt-3">
+                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: ponto de referência, tocar o interfone…" />
                 </div>
               </div>
 
               <template #footer>
-                <div class="space-y-3 border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4 space-y-3">
                   <div class="flex items-end justify-between gap-3">
                     <div class="min-w-0">
                       <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
@@ -826,7 +946,7 @@ useSeoMeta({
                   >
                     Revisar pedido
                   </UiButton>
-                  <p v-if="submitDisabled && action?.reason" class="text-sm text-muted-foreground">
+                  <p v-if="submitDisabled && action?.reason" class="text-center text-sm text-muted-foreground">
                     {{ action.reason }}
                   </p>
                 </div>
@@ -926,6 +1046,22 @@ useSeoMeta({
             :address-id="savedAddressIdForLabel"
             @resolved="finishAfterCheckout"
           />
+
+          <!-- Trocar telefone = entrar com outra conta: confirmação obrigatória. -->
+          <UiAlertDialog v-model:open="changePhoneOpen">
+            <UiAlertDialogContent>
+              <UiAlertDialogHeader>
+                <UiAlertDialogTitle>Entrar com outro número?</UiAlertDialogTitle>
+                <UiAlertDialogDescription>
+                  Você troca de conta. Seu carrinho continua guardado.
+                </UiAlertDialogDescription>
+              </UiAlertDialogHeader>
+              <UiAlertDialogFooter>
+                <UiAlertDialogCancel>Cancelar</UiAlertDialogCancel>
+                <UiAlertDialogAction @click="navigateTo(authRoute)">Trocar número</UiAlertDialogAction>
+              </UiAlertDialogFooter>
+            </UiAlertDialogContent>
+          </UiAlertDialog>
         </template>
       </section>
 

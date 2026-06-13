@@ -5,6 +5,7 @@
 // e etiqueta perguntada DEPOIS de salvar. Lógica pura em presentation/address.
 import {
   ADDRESS_LABEL_OPTIONS,
+  BR_STATES,
   addressDraftErrors,
   composedAddressLine,
   draftFromGooglePlace,
@@ -56,6 +57,8 @@ const emit = defineEmits<{
   confirmed: []
   // Conta: criação/edição concluída — o pai fecha o sheet e atualiza a lista.
   done: []
+  // Checkout: um endereço salvo foi editado in-loco — o pai re-busca a lista.
+  'addresses-changed': []
 }>()
 
 const apiPath = useShopmanApiPath()
@@ -65,6 +68,9 @@ const maps = useGoogleMaps()
 type PickerMode = 'saved' | 'search' | 'form'
 
 const isEditing = computed(() => !!props.editingAddress)
+// Edição in-loco de um salvo no checkout (corrigir número/complemento sem sair).
+const editingSavedId = ref<number | null>(null)
+const isEditingForm = computed(() => isEditing.value || editingSavedId.value != null)
 const mode = ref<PickerMode>(initialMode())
 const draft = reactive<AddressDraft>(initialDraft())
 const fieldErrors = ref<Record<string, string>>({})
@@ -96,6 +102,7 @@ const mapEl = ref<HTMLElement | null>(null)
 let mapInstance: any = null
 let mapMarker: any = null
 
+const routeInput = ref<any>(null)
 const numberInput = ref<any>(null)
 const complementInput = ref<any>(null)
 const searchInput = ref<any>(null)
@@ -105,6 +112,7 @@ let searchSeq = 0
 let placesSessionToken: any = null
 
 const labelOptions = ADDRESS_LABEL_OPTIONS
+const brStates = BR_STATES
 const hasSaved = computed(() => props.context === 'checkout' && props.savedAddresses.length > 0)
 const canAdjustOnMap = computed(() => maps.enabled.value && draft.latitude != null && draft.longitude != null)
 const draftLine = computed(() => draftSummaryLine(draft as AddressDraft))
@@ -150,6 +158,33 @@ function backToSaved () {
   mode.value = 'saved'
   const preselected = resolvePreselectedAddress(props.savedAddresses, selectedSavedId.value ?? props.preselectedId)
   if (preselected) pickSaved(preselected.id)
+}
+
+// Editar um endereço salvo sem sair do checkout (corrigir número/complemento).
+function startEditSaved (address: SavedAddressProjection) {
+  editingSavedId.value = address.id
+  Object.assign(draft, draftFromSavedAddress(address))
+  accountLabel.value = (address.label_key as AddressLabelKey) || 'home'
+  accountLabelCustom.value = address.label_custom || ''
+  isDefault.value = !!address.is_default
+  acceptedLine.value = address.formatted_address || ''
+  fieldErrors.value = {}
+  saveIssue.value = ''
+  mode.value = 'form'
+}
+
+function cancelEdit () {
+  editingSavedId.value = null
+  backToSaved()
+}
+
+// X de dismiss do form: conta fecha o sheet; edição de salvo cancela; novo
+// endereço do checkout volta aos salvos (ou à busca, se não houver salvos).
+function dismissForm () {
+  if (props.context === 'account') { emit('done'); return }
+  if (editingSavedId.value) { cancelEdit(); return }
+  if (hasSaved.value) backToSaved()
+  else backToSearch()
 }
 
 function resetDraft () {
@@ -304,9 +339,11 @@ async function focusGuided () {
   focusUiInput(target)
 }
 
-function startManualEntry () {
+async function startManualEntry () {
   resetDraft()
   mode.value = 'form'
+  await nextTick()
+  focusUiInput(routeInput.value)
 }
 
 function backToSearch () {
@@ -459,12 +496,45 @@ async function confirmDraft () {
     await saveAccountAddress()
     return
   }
+  if (editingSavedId.value) {
+    await saveCheckoutEdit()
+    return
+  }
   // Checkout: NÃO grava no perfil aqui — só carrega o endereço no pedido. O
   // perfil é gravado pelo checkout APÓS o pedido confirmar (a etiqueta vem
   // nesse momento), para endereços fora de zona/abandonados nunca virarem
   // lixo no perfil do cliente.
   emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, null))
   emit('confirmed')
+}
+
+// PATCH de um salvo editado no checkout: persiste, re-seleciona com os dados
+// novos (selection imediata) e pede ao pai pra re-buscar a lista de salvos.
+async function saveCheckoutEdit () {
+  const id = editingSavedId.value
+  if (!id) return
+  saving.value = true
+  try {
+    await $fetch(apiPath(`/api/v1/account/addresses/${encodeURIComponent(id)}/`), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: {
+        ...addressApiPayload(),
+        ...labelPatchPayload(accountLabel.value, accountLabelCustom.value),
+        is_default: isDefault.value
+      }
+    })
+    selectedSavedId.value = id
+    emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, id))
+    emit('addresses-changed')
+    editingSavedId.value = null
+    mode.value = 'saved'
+  } catch (e: any) {
+    saveIssue.value = e?.data?.detail || 'Não foi possível salvar o endereço agora.'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveAccountAddress () {
@@ -522,7 +592,7 @@ function onLabelResolved () {
         data-address-saved-list
         @update:model-value="pickSaved(Number($event))"
       >
-        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`">
+        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
           <UiField orientation="horizontal">
             <UiRadioGroupItem :id="`address-saved-${address.id}`" :value="address.id" />
             <UiFieldContent>
@@ -535,6 +605,15 @@ function onLabelResolved () {
                 {{ address.formatted_address }}<template v-if="address.complement"> · {{ address.complement }}</template>
               </UiFieldDescription>
             </UiFieldContent>
+            <UiButton
+              variant="ghost"
+              size="sm"
+              icon="lucide:pencil"
+              class="-my-1 shrink-0 self-start text-muted-foreground hover:text-foreground"
+              aria-label="Editar este endereço"
+              data-address-edit-saved
+              @click.stop.prevent="startEditSaved(address)"
+            />
           </UiField>
         </UiFieldLabel>
       </UiRadioGroup>
@@ -543,43 +622,39 @@ function onLabelResolved () {
       </UiButton>
     </template>
 
-    <!-- ── Busca unificada ─────────────────────────────────────────── -->
+    <!-- ── Busca unificada (card dedicado, ações fullwidth) ──────────── -->
     <template v-else-if="mode === 'search'">
-      <div class="space-y-2">
-        <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
-        <div class="flex items-start gap-2">
-          <div class="min-w-0 flex-1">
-            <UiInputGroup class="h-10">
-              <UiInputGroupAddon align="inline-start">
-                <Icon v-if="!searching" name="lucide:search" />
-                <Icon v-else name="lucide:loader-circle" class="animate-spin" />
-              </UiInputGroupAddon>
-              <UiInputGroupInput
-                id="address-search"
-                ref="searchInput"
-                v-model="query"
-                type="text"
-                autocomplete="off"
-                placeholder="Rua, número ou CEP"
-                data-address-search
-                @input="onQueryInput"
-              />
-            </UiInputGroup>
-          </div>
+      <div class="space-y-3 rounded-lg border bg-card p-4" data-address-search-card>
+        <div class="flex items-center justify-between gap-2">
+          <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
           <UiButton
-            variant="outline"
-            size="lg"
-            class="shrink-0"
-            :loading="locating"
-            icon="lucide:locate-fixed"
-            data-address-locate
-            @click="locateMe"
-          >
-            Perto de mim
-          </UiButton>
+            v-if="hasSaved"
+            variant="ghost"
+            size="sm"
+            icon="lucide:x"
+            class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+            aria-label="Fechar e voltar aos endereços salvos"
+            data-address-dismiss
+            @click="backToSaved"
+          />
         </div>
-        <!-- Sugestões inline (fluxo de bloco): não dependem de overlay
-             absoluto, que era cortado pelo overflow-hidden do card da etapa. -->
+        <UiInputGroup class="h-11">
+          <UiInputGroupAddon align="inline-start">
+            <Icon v-if="!searching" name="lucide:search" />
+            <Icon v-else name="lucide:loader-circle" class="animate-spin" />
+          </UiInputGroupAddon>
+          <UiInputGroupInput
+            id="address-search"
+            ref="searchInput"
+            v-model="query"
+            type="text"
+            autocomplete="off"
+            placeholder="Rua, número ou CEP"
+            data-address-search
+            @input="onQueryInput"
+          />
+        </UiInputGroup>
+        <!-- Sugestões inline (fluxo de bloco) — sem overlay/clipping. -->
         <ul
           v-if="searchOpen"
           class="divide-y overflow-hidden rounded-md border bg-background"
@@ -597,45 +672,55 @@ function onLabelResolved () {
           </li>
         </ul>
         <p v-if="geoIssue" class="text-sm text-destructive">{{ geoIssue }}</p>
-      </div>
 
-      <!-- Candidato da localização: confirmação explícita, nunca preenchimento silencioso. -->
-      <div
-        v-if="geoCandidate"
-        class="-mx-4 space-y-3 border-y px-4 py-3 sm:mx-0 sm:rounded-md sm:border sm:px-3"
-        data-address-geo-candidate
-      >
-        <div class="flex items-start gap-2">
-          <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <div class="min-w-0">
-            <p class="text-sm font-semibold">Você está aqui?</p>
-            <p class="mt-0.5 text-sm text-muted-foreground">{{ draftSummaryLine(geoCandidate) }}</p>
+        <UiButton
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
+          :loading="locating"
+          icon="lucide:locate-fixed"
+          data-address-locate
+          @click="locateMe"
+        >
+          Usar minha localização
+        </UiButton>
+
+        <!-- Candidato da localização: confirmação explícita, nunca silencioso. -->
+        <div v-if="geoCandidate" class="space-y-3 rounded-md border bg-background p-3" data-address-geo-candidate>
+          <div class="flex items-start gap-2">
+            <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <div class="min-w-0">
+              <p class="text-sm font-semibold">Você está aqui?</p>
+              <p class="mt-0.5 text-sm text-muted-foreground">{{ draftSummaryLine(geoCandidate) }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UiButton size="sm" class="min-h-10" @click="useGeoCandidate">Usar este endereço</UiButton>
+            <UiButton size="sm" variant="ghost" class="min-h-10" @click="geoCandidate = null">Agora não</UiButton>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <UiButton size="sm" class="min-h-10" @click="useGeoCandidate">Usar este endereço</UiButton>
-          <UiButton size="sm" variant="ghost" class="min-h-10" @click="geoCandidate = null">Agora não</UiButton>
-        </div>
-      </div>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <UiButton variant="ghost" size="sm" class="-ml-2 text-muted-foreground hover:text-foreground" data-address-manual @click="startManualEntry">
+        <UiButton variant="ghost" size="lg" class="w-full justify-center" data-address-manual @click="startManualEntry">
           Preencher manualmente
-        </UiButton>
-        <UiButton
-          v-if="hasSaved"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
-          @click="backToSaved"
-        >
-          Voltar aos salvos
         </UiButton>
       </div>
     </template>
 
     <!-- ── Campos estruturados ─────────────────────────────────────── -->
     <template v-else>
+      <div class="space-y-4 rounded-lg border bg-card p-4" data-address-form-card>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-semibold">{{ isEditingForm ? 'Editar endereço' : 'Novo endereço' }}</p>
+        <UiButton
+          variant="ghost"
+          size="sm"
+          icon="lucide:x"
+          class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+          aria-label="Fechar"
+          data-address-form-dismiss
+          @click="dismissForm"
+        />
+      </div>
       <div v-if="acceptedLine" class="space-y-1" data-address-accepted>
         <div class="flex items-start gap-2">
           <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -662,7 +747,7 @@ function onLabelResolved () {
       <div class="grid grid-cols-1 gap-4">
         <div class="space-y-2">
           <UiLabel for="address-route">Rua</UiLabel>
-          <UiInput id="address-route" v-model="draft.route" autocomplete="address-line1" />
+          <UiInput id="address-route" ref="routeInput" v-model="draft.route" autocomplete="address-line1" />
           <UiFieldError v-if="fieldErrors.route" :errors="fieldErrors.route" />
         </div>
         <div class="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
@@ -676,12 +761,19 @@ function onLabelResolved () {
             <UiInput id="address-complement" ref="complementInput" v-model="draft.complement" placeholder="Apto, bloco, referência" />
           </div>
         </div>
-        <div class="space-y-2">
-          <UiLabel for="address-neighborhood">Bairro</UiLabel>
-          <UiInput id="address-neighborhood" v-model="draft.neighborhood" autocomplete="address-level3" />
-          <UiFieldError v-if="fieldErrors.neighborhood" :errors="fieldErrors.neighborhood" />
+        <div class="grid grid-cols-[minmax(0,1fr)_8rem] gap-4">
+          <div class="space-y-2">
+            <UiLabel for="address-neighborhood">Bairro</UiLabel>
+            <UiInput id="address-neighborhood" v-model="draft.neighborhood" autocomplete="address-level3" />
+            <UiFieldError v-if="fieldErrors.neighborhood" :errors="fieldErrors.neighborhood" />
+          </div>
+          <div class="space-y-2">
+            <UiLabel for="address-cep">CEP</UiLabel>
+            <UiInput id="address-cep" v-model="draft.postal_code" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
+            <UiFieldError v-if="fieldErrors.postal_code" :errors="fieldErrors.postal_code" />
+          </div>
         </div>
-        <div class="grid grid-cols-[minmax(0,1fr)_4.5rem_7rem] gap-4">
+        <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-4">
           <div class="space-y-2">
             <UiLabel for="address-city">Cidade</UiLabel>
             <UiInput id="address-city" v-model="draft.city" autocomplete="address-level2" />
@@ -689,13 +781,13 @@ function onLabelResolved () {
           </div>
           <div class="space-y-2">
             <UiLabel for="address-state">UF</UiLabel>
-            <UiInput id="address-state" v-model="draft.state_code" :maxlength="2" class="uppercase" autocomplete="address-level1" />
+            <UiSelect v-model="draft.state_code">
+              <UiSelectTrigger id="address-state" class="w-full" />
+              <UiSelectContent>
+                <UiSelectItem v-for="uf in brStates" :key="uf" :value="uf">{{ uf }}</UiSelectItem>
+              </UiSelectContent>
+            </UiSelect>
             <UiFieldError v-if="fieldErrors.state_code" :errors="fieldErrors.state_code" />
-          </div>
-          <div class="space-y-2">
-            <UiLabel for="address-cep">CEP</UiLabel>
-            <UiInput id="address-cep" v-model="draft.postal_code" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
-            <UiFieldError v-if="fieldErrors.postal_code" :errors="fieldErrors.postal_code" />
           </div>
         </div>
         <div class="space-y-2">
@@ -704,8 +796,8 @@ function onLabelResolved () {
         </div>
       </div>
 
-      <!-- Conta: etiqueta editável inline só na edição (já foi salva antes). -->
-      <template v-if="context === 'account' && isEditing">
+      <!-- Etiqueta editável inline na edição (conta ou salvo do checkout). -->
+      <template v-if="isEditingForm">
         <div class="space-y-2">
           <UiLabel>Etiqueta</UiLabel>
           <div class="flex flex-wrap gap-2">
@@ -730,7 +822,7 @@ function onLabelResolved () {
         </div>
       </template>
 
-      <UiFieldLabel v-if="context === 'account'" for="address-default" class="w-full">
+      <UiFieldLabel v-if="context === 'account' || editingSavedId" for="address-default" class="w-full">
         <div class="-mx-4 flex w-full items-center gap-4 border-y px-4 py-3 sm:mx-0 sm:px-0">
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold">Usar como padrão</p>
@@ -740,19 +832,29 @@ function onLabelResolved () {
         </div>
       </UiFieldLabel>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <UiButton size="lg" :loading="saving" icon="lucide:check" data-address-confirm @click="confirmDraft">
-          {{ context === 'account' ? (isEditing ? 'Salvar alterações' : 'Salvar endereço') : 'Usar este endereço' }}
+      <div class="space-y-2">
+        <UiButton size="lg" class="w-full justify-center" :loading="saving" icon="lucide:check" data-address-confirm @click="confirmDraft">
+          {{ isEditingForm ? 'Salvar alterações' : (context === 'account' ? 'Salvar endereço' : 'Usar este endereço') }}
         </UiButton>
         <UiButton
-          v-if="!isEditing"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
+          v-if="editingSavedId"
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
+          @click="cancelEdit"
+        >
+          Cancelar
+        </UiButton>
+        <UiButton
+          v-else-if="!isEditing"
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
           @click="backToSearch"
         >
           Buscar outro endereço
         </UiButton>
+      </div>
       </div>
     </template>
 

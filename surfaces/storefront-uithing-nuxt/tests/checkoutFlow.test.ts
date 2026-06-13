@@ -7,8 +7,14 @@ import {
   isCheckoutDateUnavailable,
   parseClosedDateEntries,
   quickCheckoutDateOptions,
+  deliveryCoverageLabel,
+  isCheckoutDateUnavailable,
+  isClosedWeekday,
+  isCustomCheckoutDate,
+  paymentMethodHint,
   reconciledPickupSlotRef,
-  shouldOfferPickupSwap
+  shouldOfferPickupSwap,
+  weekdayDateLabel
 } from '../app/utils/checkoutFlow'
 import type { PickupSlotProjection } from '../app/types/shopman'
 
@@ -76,6 +82,59 @@ describe('checkout flow view model', () => {
     expect(reconciledPickupSlotRef('pickup', 'slot-early', slots, null)).toBe('slot-late')
     expect(reconciledPickupSlotRef('pickup', '', slots, 'slot-late')).toBe('slot-late')
     expect(reconciledPickupSlotRef('delivery', 'slot-early', slots, null)).toBe('slot-early')
+  })
+})
+
+describe('isClosedWeekday', () => {
+  // closed_weekdays usa índice Python: 6 = domingo.
+  it('rejeita dia da semana sem expediente (domingo) e aceita os abertos', () => {
+    expect(isClosedWeekday('2026-06-14', [6])).toBe(true) // 2026-06-14 = domingo
+    expect(isClosedWeekday('2026-06-15', [6])).toBe(false) // segunda
+    expect(isClosedWeekday('2026-06-14', [])).toBe(false)
+  })
+})
+
+describe('isCheckoutDateUnavailable com closed_weekdays', () => {
+  const bounds = { todayValue: '2026-06-13', maxDateValue: '2026-07-13' }
+  it('marca indisponível um domingo fechado dentro do range', () => {
+    expect(isCheckoutDateUnavailable('2026-06-14', bounds, [], [6])).toBe(true)
+    expect(isCheckoutDateUnavailable('2026-06-15', bounds, [], [6])).toBe(false)
+  })
+})
+
+describe('weekdayDateLabel', () => {
+  it('formata dia da semana + data capitalizado', () => {
+    expect(weekdayDateLabel('2026-06-13')).toMatch(/, 13\/06$/)
+    expect(weekdayDateLabel('2026-06-13')[0]).toMatch(/[A-Z]/)
+    expect(weekdayDateLabel('')).toBe('')
+  })
+})
+
+describe('isCustomCheckoutDate', () => {
+  const quick = [{ label: 'Hoje', value: '2026-06-13', disabled: false }, { label: 'Amanhã', value: '2026-06-14', disabled: false }]
+  it('detecta data fora dos atalhos', () => {
+    expect(isCustomCheckoutDate('2026-06-18', quick)).toBe(true)
+    expect(isCustomCheckoutDate('2026-06-13', quick)).toBe(false)
+    expect(isCustomCheckoutDate('', quick)).toBe(false)
+  })
+})
+
+describe('paymentMethodHint', () => {
+  it('descreve cada método pelo que o cliente espera', () => {
+    expect(paymentMethodHint('pix')).toBe('Aprovação na hora')
+    expect(paymentMethodHint('card')).toBe('Pagamento em ambiente seguro')
+    expect(paymentMethodHint('card', 'Stripe')).toBe('Pagamento seguro via Stripe')
+    expect(paymentMethodHint('cartao', 'Efí')).toBe('Pagamento seguro via Efí')
+    expect(paymentMethodHint('cash')).toBe('Pague na entrega')
+    expect(paymentMethodHint('boleto')).toBe('')
+  })
+})
+
+describe('deliveryCoverageLabel', () => {
+  it('confirma cobertura com a taxa (ou grátis)', () => {
+    expect(deliveryCoverageLabel('R$ 6,00')).toBe('Entrega disponível · taxa R$ 6,00')
+    expect(deliveryCoverageLabel('Grátis')).toBe('Entrega disponível · grátis')
+    expect(deliveryCoverageLabel(null)).toBe('Entrega disponível')
   })
 })
 

@@ -333,8 +333,8 @@ def validate_pickup_slot_selection(
         if not _slot_is_at_or_after(slots, delivery_time_slot, earliest_ref):
             label = _slot_label(slots, earliest_ref)
             if label:
-                return f"Este horário não cobre o preparo dos itens do carrinho. Escolha {label} ou mais tarde."
-            return "Este horário não cobre o preparo dos itens do carrinho."
+                return f"Sem tempo de preparo. Escolha {label} ou mais tarde."
+            return "Sem tempo de preparo para este horário."
 
     return None
 
@@ -365,9 +365,9 @@ def annotate_slots_for_checkout(cart_skus: list[str], *, delivery_date: str = ""
         enabled = _slot_is_at_or_after(slots, slot_ref, effective_earliest_ref)
         reason = ""
         if not _slot_is_at_or_after(slots, slot_ref, cart_earliest_ref):
-            reason = f"Para este carrinho, escolha {effective_earliest_label} ou mais tarde."
+            reason = "Sem tempo de preparo"
         elif not enabled:
-            reason = f"Para esta data, escolha {effective_earliest_label} ou mais tarde."
+            reason = "Horário já passou"
         annotated_slots.append(
             {
                 **slot,

@@ -96,9 +96,19 @@ class CheckoutProjection:
     # Recovery/contact target sourced from Shop configuration
     support_whatsapp_url: str
 
+    # Disponibilidade robusta de datas (nunca oferecer dia fechado):
+    # próximas datas em que a loja opera + dias da semana sem expediente.
+    available_dates: tuple[str, ...] = ()
+    closed_weekdays: tuple[int, ...] = ()
+
     # Fulfillment contextual hints shown below the pickup/delivery chips
     pickup_hint: str = ""
     delivery_hint: str = ""
+
+    # Provedor de cartão (Stripe/Efí) p/ o storefront dar previsibilidade no
+    # checkout ("pagamento seguro via X"). Vazio quando não há provedor real
+    # configurado (ex.: mock no dev). Tenant-safe: vem do adapter, não hardcoded.
+    card_provider: str = ""
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -152,6 +162,7 @@ def build_checkout(
         delivery_date=_delivery_date_from_context(request, delivery_date),
     )
     max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
+    available_dates, closed_weekdays = _availability_dates(max_preorder_days)
 
     is_authenticated = customer_info is not None
     requires_authentication = _requires_authentication(channel_ref)
@@ -182,11 +193,50 @@ def build_checkout(
         loyalty_value_display=loyalty_value_display,
         max_preorder_days=max_preorder_days,
         closed_dates_json=json.dumps(closed_dates),
+        available_dates=available_dates,
+        closed_weekdays=closed_weekdays,
         is_debug=settings.DEBUG,
         support_whatsapp_url=support_whatsapp_url,
         pickup_hint="Gratuita",
         delivery_hint="",
+        card_provider=_card_provider(),
     )
+
+
+def _availability_dates(max_preorder_days: int) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    """Próximas datas em que a loja opera + dias da semana fechados.
+
+    Fonte da verdade: ``business_calendar`` (horário semanal + feriados/férias).
+    Degrada para vazio se algo falhar — a UI cai no fallback de datas.
+    """
+    try:
+        from shopman.shop.services import business_calendar
+
+        # Duas é o bastante: a UI mostra "Hoje" (se aberto) + a próxima fornada.
+        dates = business_calendar.available_dates(max_count=2, horizon_days=max_preorder_days)
+        return (
+            tuple(d.isoformat() for d in dates),
+            tuple(business_calendar.closed_weekdays()),
+        )
+    except Exception:
+        logger.debug("checkout_projection_availability_dates_failed", exc_info=True)
+        return (), ()
+
+
+def _card_provider() -> str:
+    """Nome amigável do provedor de cartão configurado (Stripe/Efí).
+
+    Derivado do adapter em ``SHOPMAN_PAYMENT_ADAPTERS["card"]`` — tenant-safe,
+    nada hardcoded. Mock/sem provedor real → string vazia.
+    """
+    from django.conf import settings
+
+    path = (getattr(settings, "SHOPMAN_PAYMENT_ADAPTERS", {}) or {}).get("card") or ""
+    if "stripe" in path:
+        return "Stripe"
+    if "efi" in path:
+        return "Efí"
+    return ""
 
 
 # ──────────────────────────────────────────────────────────────────────

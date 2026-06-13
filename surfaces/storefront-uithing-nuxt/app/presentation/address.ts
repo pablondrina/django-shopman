@@ -267,6 +267,12 @@ export function resolvePreselectedAddress (
 
 // ── Etiqueta DEPOIS de salvar ──────────────────────────────────────────
 
+// UFs brasileiras para o dropdown de estado (mais seguro/rápido que texto livre).
+export const BR_STATES: readonly string[] = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+]
+
 export type AddressLabelKey = 'home' | 'work' | 'other'
 
 export const ADDRESS_LABEL_OPTIONS: Array<{ key: AddressLabelKey, label: string, icon: string }> = [

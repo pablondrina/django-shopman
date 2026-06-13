@@ -111,8 +111,11 @@ export function parseClosedDateEntries (closedDatesJson: string | null | undefin
   }
 }
 
-export function datepickerDisabledDates (entries: ClosedDateEntry[]): DatepickerDisabledDate[] {
-  return entries
+export function datepickerDisabledDates (
+  entries: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
+): Array<DatepickerDisabledDate | { repeat: { weekdays: number[] } }> {
+  const out: Array<DatepickerDisabledDate | { repeat: { weekdays: number[] } }> = entries
     .map(entry => {
       if (typeof entry === 'string') return parseLocalDate(entry)
       if (entry.date) return parseLocalDate(entry.date)
@@ -125,6 +128,11 @@ export function datepickerDisabledDates (entries: ClosedDateEntry[]): Datepicker
       return null
     })
     .filter((entry): entry is DatepickerDisabledDate => !!entry)
+  // v-calendar usa 1=domingo…7=sábado; converte do índice Python (0=seg…6=dom).
+  if (closedWeekdays.length) {
+    out.push({ repeat: { weekdays: closedWeekdays.map(index => (index + 1) % 7 + 1) } })
+  }
+  return out
 }
 
 export function isDateWithinPreorderRange (value: string, bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>): boolean {
@@ -142,12 +150,25 @@ export function isClosedDateValue (value: string, entries: ClosedDateEntry[]): b
   })
 }
 
+// Dias da semana sem expediente (closed_weekdays do backend, 0=segunda…6=domingo,
+// padrão Python weekday()). Converte do getDay() do JS (0=domingo…6=sábado).
+export function isClosedWeekday (value: string, closedWeekdays: number[] | readonly number[] = []): boolean {
+  if (!closedWeekdays.length) return false
+  const date = parseLocalDate(value)
+  if (!date) return false
+  const pythonWeekday = (date.getDay() + 6) % 7
+  return closedWeekdays.includes(pythonWeekday)
+}
+
 export function isCheckoutDateUnavailable (
   value: string,
   bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>,
-  entries: ClosedDateEntry[]
+  entries: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
 ): boolean {
-  return !isDateWithinPreorderRange(value, bounds) || isClosedDateValue(value, entries)
+  return !isDateWithinPreorderRange(value, bounds)
+    || isClosedDateValue(value, entries)
+    || isClosedWeekday(value, closedWeekdays)
 }
 
 export function quickCheckoutDateOptions (
@@ -181,6 +202,20 @@ export function displayCheckoutDate (value: string, now = new Date()): string {
 export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: CheckoutQuickDateOption[], now = new Date()): string {
   if (!deliveryDate || quickOptions.some(option => option.value === deliveryDate)) return 'Outra data'
   return displayCheckoutDate(deliveryDate, now)
+}
+
+// Descrição complementar do dia (dia da semana + data explícita), p/ as
+// opções de data ficarem padronizadas como as demais escolhas (título + sub).
+export function weekdayDateLabel (value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const date = new Date(year, month - 1, day)
+  const label = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(date)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+export function isCustomCheckoutDate (deliveryDate: string, quickOptions: CheckoutQuickDateOption[]): boolean {
+  return !!deliveryDate && !quickOptions.some(option => option.value === deliveryDate)
 }
 
 export function availableFulfillmentOptions (checkout: CheckoutProjection | null | undefined): FulfillmentType[] {
@@ -276,10 +311,10 @@ export function activeCheckoutStepSummary ({
   paymentMethodLabel,
   action
 }: CheckoutStepSummaryInput): string {
-  if (step === 'fulfillment') return availableFulfillment.length > 1 ? 'Escolha retirada ou entrega' : fulfillmentLabel
-  if (step === 'address') return savedAddressesCount ? 'Escolha um endereço salvo ou informe outro' : 'Informe onde deseja receber'
-  if (step === 'when') return form.fulfillment_type === 'delivery' ? 'Escolha a data prometida' : 'Escolha a data e o horário'
-  return action?.reason && !action.enabled ? action.reason : paymentMethodLabel || 'Forma de pagamento e observações finais'
+  if (step === 'fulfillment') return availableFulfillment.length > 1 ? 'Retirada ou entrega' : fulfillmentLabel
+  if (step === 'address') return savedAddressesCount ? 'Escolha ou informe o endereço' : 'Informe o endereço'
+  if (step === 'when') return form.fulfillment_type === 'delivery' ? 'Escolha a data' : 'Escolha data e horário'
+  return action?.reason && !action.enabled ? action.reason : paymentMethodLabel || 'Forma de pagamento'
 }
 
 export function checkoutStepHeaderSummary (input: CheckoutStepSummaryInput): string {
@@ -306,6 +341,29 @@ export interface PickupSwapOfferInput {
 
 export function shouldOfferPickupSwap ({ field, fulfillmentType, hasPickup, hasAddress }: PickupSwapOfferInput): boolean {
   return field === 'delivery_address' && fulfillmentType === 'delivery' && hasPickup && hasAddress
+}
+
+// Subtítulo do método de pagamento — diz ao cliente o que esperar (omotenashi),
+// no lugar do antigo "Padrão da loja" (que não significava nada pra ele).
+export function paymentMethodHint (ref: string, cardProvider = ''): string {
+  const value = ref.toLowerCase()
+  if (value.includes('pix')) return 'Aprovação na hora'
+  if (value.includes('card') || value.includes('cart') || value.includes('credito') || value.includes('debito')) {
+    // Nomear o provedor reconhecido (Stripe/Efí) dá previsibilidade e
+    // confiança — reduz a hesitação de digitar cartão. Provedor vem do
+    // backend (config); sem ele, mensagem genérica de segurança.
+    return cardProvider ? `Pagamento seguro via ${cardProvider}` : 'Pagamento em ambiente seguro'
+  }
+  if (value.includes('cash') || value.includes('dinheiro')) return 'Pague na entrega'
+  return ''
+}
+
+// Confirmação positiva de cobertura no passo de endereço (com a taxa, que
+// antes só aparecia no fim). feeDisplay vem do servidor ("Grátis" | "R$ 6,00").
+export function deliveryCoverageLabel (feeDisplay: string | null | undefined): string {
+  if (!feeDisplay) return 'Entrega disponível'
+  if (feeDisplay.trim().toLowerCase() === 'grátis') return 'Entrega disponível · grátis'
+  return `Entrega disponível · taxa ${feeDisplay}`
 }
 
 export function paymentIcon (ref: string): string {
@@ -365,9 +423,10 @@ export function canContinueCheckoutWhen (
   slots: PickupSlotProjection[],
   selectedSlot: PickupSlotProjection | null,
   bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>,
-  closedDates: ClosedDateEntry[]
+  closedDates: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
 ): boolean {
-  if (!form.delivery_date || isCheckoutDateUnavailable(form.delivery_date, bounds, closedDates)) return false
+  if (!form.delivery_date || isCheckoutDateUnavailable(form.delivery_date, bounds, closedDates, closedWeekdays)) return false
   if (form.fulfillment_type !== 'pickup' || !slots.length) return true
   return !!selectedSlot?.enabled
 }
