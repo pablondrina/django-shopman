@@ -98,6 +98,7 @@ const badgeVariant = computed(() => {
         size="sm"
         variant="ghost"
         icon="lucide:pencil"
+        class="min-h-10"
         @click="$emit('edit')"
       >
         Editar

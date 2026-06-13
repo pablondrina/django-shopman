@@ -324,6 +324,11 @@ async function locateMe () {
   locating.value = true
   geoIssue.value = ''
   geoCandidate.value = null
+  // Some a busca digitada e suas sugestões: a resposta agora é o candidato
+  // de localização — duas respostas na tela ao mesmo tempo confundem.
+  query.value = ''
+  suggestions.value = []
+  searchOpen.value = false
   try {
     const coords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(position => resolve(position.coords), reject, {
@@ -631,15 +636,17 @@ function onLabelResolved () {
 
     <!-- ── Campos estruturados ─────────────────────────────────────── -->
     <template v-else>
-      <div v-if="acceptedLine" class="flex flex-wrap items-center gap-x-2 gap-y-1" data-address-accepted>
-        <Icon name="lucide:map-pin" class="size-4 shrink-0 text-muted-foreground" />
-        <p class="min-w-0 flex-1 text-sm font-semibold">{{ acceptedLine }}</p>
+      <div v-if="acceptedLine" class="space-y-1" data-address-accepted>
+        <div class="flex items-start gap-2">
+          <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <p class="min-w-0 flex-1 text-sm font-semibold">{{ acceptedLine }}</p>
+        </div>
         <UiButton
           v-if="canAdjustOnMap"
           variant="ghost"
           size="sm"
           icon="lucide:map"
-          class="text-muted-foreground hover:text-foreground"
+          class="-ml-2 text-muted-foreground hover:text-foreground"
           data-address-adjust-map
           @click="openMapAdjust"
         >

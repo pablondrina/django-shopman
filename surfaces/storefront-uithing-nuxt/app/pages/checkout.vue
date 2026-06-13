@@ -610,7 +610,7 @@ useSeoMeta({
                         <Icon name="lucide:truck" class="size-4" />
                         Receber em endereço
                       </UiFieldTitle>
-                      <UiFieldDescription>{{ checkout.delivery_hint }}</UiFieldDescription>
+                      <UiFieldDescription>{{ checkout.delivery_hint || 'Taxa pelo endereço' }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
@@ -700,7 +700,10 @@ useSeoMeta({
                       </UiPopoverContent>
                     </UiPopover>
                   </div>
-                  <p v-if="selectedDateLabel" class="text-sm text-muted-foreground">
+                  <p
+                    v-if="selectedDateLabel && !quickDateOptions.some(option => option.value === state.delivery_date)"
+                    class="text-sm text-muted-foreground"
+                  >
                     Data escolhida: <span class="font-medium text-foreground">{{ selectedDateLabel }}</span>
                   </p>
                   <UiFieldError v-if="fieldErrors.delivery_date" :errors="fieldErrors.delivery_date" />
@@ -778,8 +781,8 @@ useSeoMeta({
               <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty">
                 <UiField orientation="horizontal">
                   <UiFieldContent>
-                    <UiFieldTitle>Usar fidelidade</UiFieldTitle>
-                    <UiFieldDescription>{{ checkout.loyalty_value_display }}</UiFieldDescription>
+                    <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
+                    <UiFieldDescription>Abater {{ checkout.loyalty_value_display }} do total</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
