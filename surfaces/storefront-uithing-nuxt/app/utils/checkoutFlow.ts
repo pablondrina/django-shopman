@@ -311,10 +311,10 @@ export function activeCheckoutStepSummary ({
   paymentMethodLabel,
   action
 }: CheckoutStepSummaryInput): string {
-  if (step === 'fulfillment') return availableFulfillment.length > 1 ? 'Escolha retirada ou entrega' : fulfillmentLabel
-  if (step === 'address') return savedAddressesCount ? 'Escolha um endereço salvo ou informe outro' : 'Informe onde deseja receber'
-  if (step === 'when') return form.fulfillment_type === 'delivery' ? 'Escolha a data prometida' : 'Escolha a data e o horário'
-  return action?.reason && !action.enabled ? action.reason : paymentMethodLabel || 'Forma de pagamento e observações finais'
+  if (step === 'fulfillment') return availableFulfillment.length > 1 ? 'Retirada ou entrega' : fulfillmentLabel
+  if (step === 'address') return savedAddressesCount ? 'Escolha ou informe o endereço' : 'Informe o endereço'
+  if (step === 'when') return form.fulfillment_type === 'delivery' ? 'Escolha a data' : 'Escolha data e horário'
+  return action?.reason && !action.enabled ? action.reason : paymentMethodLabel || 'Forma de pagamento'
 }
 
 export function checkoutStepHeaderSummary (input: CheckoutStepSummaryInput): string {

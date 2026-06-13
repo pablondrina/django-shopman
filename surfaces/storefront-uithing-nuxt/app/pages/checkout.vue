@@ -633,7 +633,7 @@ useSeoMeta({
               title="Contato"
               :state="contactState"
               icon="lucide:user-round"
-              :summary="contactComplete && !contactEditing ? contactCardSummary : 'Nome no pedido e telefone confirmado'"
+              :summary="contactComplete && !contactEditing ? contactCardSummary : 'Nome e telefone'"
               data-checkout-contact-card
               @edit="contactEditing = true"
             >
