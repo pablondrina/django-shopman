@@ -141,6 +141,10 @@ class LastOrderItemProjection:
 class PublicConfigProjection:
     google_maps_api_key: str
     whatsapp_url: str
+    # Proximity bias do Places Autocomplete client-side (a key acima é a
+    # pública domain-restricted; o geocoding reverso continua server-side).
+    shop_latitude: float | None
+    shop_longitude: float | None
 
 
 @dataclass(frozen=True)
@@ -209,9 +213,13 @@ def build_home(request: HttpRequest) -> HomeProjection:
 
     from django.conf import settings
 
+    shop_latitude = float(shop.latitude) if shop and shop.latitude else None
+    shop_longitude = float(shop.longitude) if shop and shop.longitude else None
     public_config = PublicConfigProjection(
         google_maps_api_key=getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
         whatsapp_url=shop_proj.whatsapp_url or "",
+        shop_latitude=shop_latitude,
+        shop_longitude=shop_longitude,
     )
 
     notices = _home_notices(

@@ -367,6 +367,8 @@ export interface LastOrderItemProjection {
 export interface PublicConfigProjection {
   google_maps_api_key: string
   whatsapp_url: string
+  shop_latitude: number | null
+  shop_longitude: number | null
 }
 
 export interface HomeProjection {
