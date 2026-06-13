@@ -111,6 +111,9 @@ const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value
 const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
 const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.value))
+// No card colapsado, nome e telefone em linhas próprias (telefone na 3ª linha
+// por padrão) — fica legível sem depender de caber tudo numa linha só.
+const contactCardSummary = computed(() => [state.name, phoneDisplay.value].filter(Boolean).join('\n'))
 const addressSummary = computed(() => buildAddressSummary(state))
 const confirmSheetDescription = computed(() => buildConfirmSheetDescription(checkout.value))
 const dateBounds = computed(() => checkoutDateBounds(checkout.value))
@@ -550,7 +553,7 @@ useSeoMeta({
               title="Contato"
               :state="contactState"
               icon="lucide:user-round"
-              :summary="contactComplete && !contactEditing ? contactSummary : 'Nome no pedido e telefone confirmado'"
+              :summary="contactComplete && !contactEditing ? contactCardSummary : 'Nome no pedido e telefone confirmado'"
               data-checkout-contact-card
               @edit="contactEditing = true"
             >
@@ -610,7 +613,7 @@ useSeoMeta({
                         <Icon name="lucide:truck" class="size-4" />
                         Receber em endereço
                       </UiFieldTitle>
-                      <UiFieldDescription>{{ checkout.delivery_hint || 'Taxa pelo endereço' }}</UiFieldDescription>
+                      <UiFieldDescription>{{ checkout.delivery_hint || 'Taxa conforme a região' }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
