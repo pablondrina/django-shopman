@@ -25,12 +25,13 @@ import {
   fulfillmentSummary as buildFulfillmentSummary,
   isCheckoutDateUnavailable,
   localDateValue,
-  otherCheckoutDateLabel,
   deliveryCoverageLabel,
+  isCustomCheckoutDate,
   parseClosedDateEntries,
   parseLocalDate,
   paymentIcon as resolvePaymentIcon,
   paymentMethodHint,
+  weekdayDateLabel,
   paymentMethodLabel as resolvePaymentMethodLabel,
   quickCheckoutDateOptions,
   reconciledPickupSlotRef,
@@ -126,7 +127,7 @@ const checkoutMaxDate = computed(() => dateBounds.value.maxDate)
 const closedDateEntries = computed(() => parseClosedDateEntries(checkout.value?.closed_dates_json))
 const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value))
 const quickDateOptions = computed(() => quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value))
-const otherDateLabel = computed(() => otherCheckoutDateLabel(state.delivery_date, quickDateOptions.value))
+const isCustomDate = computed(() => isCustomCheckoutDate(state.delivery_date, quickDateOptions.value))
 const contactState = computed<CheckoutSectionState>(() => {
   if (fieldErrors.value.name || fieldErrors.value.phone) return 'error'
   if (contactEditing.value || !contactComplete.value) return 'current'
@@ -634,10 +635,10 @@ useSeoMeta({
                 <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon name="lucide:store" class="size-4" />
-                        Retirar na loja
+                        Retirada
                       </UiFieldTitle>
                       <UiFieldDescription>{{ checkout.pickup_hint }}</UiFieldDescription>
                     </UiFieldContent>
@@ -646,10 +647,10 @@ useSeoMeta({
                 <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon name="lucide:truck" class="size-4" />
-                        Receber em endereço
+                        Entrega
                       </UiFieldTitle>
                       <UiFieldDescription>{{ checkout.delivery_hint || 'Taxa conforme a região' }}</UiFieldDescription>
                     </UiFieldContent>
@@ -716,26 +717,42 @@ useSeoMeta({
               <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <div class="space-y-3">
                   <UiLabel>Data</UiLabel>
-                  <div class="grid grid-cols-3 gap-2">
-                    <UiButton
+                  <!-- Datas padronizadas como as demais escolhas: caixas verticais
+                       com dia da semana + data explícita. "Outra data" abre o
+                       calendário e mostra a data escolhida quando ativa. -->
+                  <UiRadioGroup
+                    :model-value="state.delivery_date"
+                    class="grid gap-2"
+                    @update:model-value="pickDeliveryDate(String($event))"
+                  >
+                    <UiFieldLabel
                       v-for="option in quickDateOptions"
                       :key="option.value"
-                      class="min-h-11"
-                      :variant="state.delivery_date === option.value ? 'default' : 'outline'"
-                      :disabled="option.disabled"
-                      @click="pickDeliveryDate(option.value)"
+                      :for="`checkout-date-${option.value}`"
+                      class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
+                      :class="option.disabled ? 'opacity-60' : ''"
                     >
-                      {{ option.label }}
-                    </UiButton>
+                      <UiField orientation="horizontal" :data-disabled="option.disabled || undefined">
+                        <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
+                        <UiFieldContent class="gap-0.5">
+                          <UiFieldTitle>{{ option.label }}</UiFieldTitle>
+                          <UiFieldDescription>{{ weekdayDateLabel(option.value) }}</UiFieldDescription>
+                        </UiFieldContent>
+                      </UiField>
+                    </UiFieldLabel>
 
                     <UiPopover v-model:open="datePopoverOpen">
                       <UiPopoverTrigger as-child>
                         <UiButton
-                          class="min-h-11 w-full"
-                          icon="lucide:calendar-days"
-                          :variant="state.delivery_date && !quickDateOptions.some(option => option.value === state.delivery_date) ? 'default' : 'outline'"
+                          variant="outline"
+                          class="h-auto w-full justify-start gap-3 bg-card p-4"
+                          :class="isCustomDate ? 'border-primary ring-1 ring-primary' : ''"
                         >
-                          {{ otherDateLabel }}
+                          <Icon name="lucide:calendar-days" class="size-4 shrink-0" />
+                          <span class="flex flex-1 flex-col items-start gap-0.5 text-left">
+                            <span class="text-sm font-medium">Outra data</span>
+                            <span class="text-sm font-normal text-muted-foreground">{{ isCustomDate ? selectedDateLabel : 'Escolher no calendário' }}</span>
+                          </span>
                         </UiButton>
                       </UiPopoverTrigger>
                       <UiPopoverContent align="start" class="w-auto p-0">
@@ -748,13 +765,7 @@ useSeoMeta({
                         />
                       </UiPopoverContent>
                     </UiPopover>
-                  </div>
-                  <p
-                    v-if="selectedDateLabel && !quickDateOptions.some(option => option.value === state.delivery_date)"
-                    class="text-sm text-muted-foreground"
-                  >
-                    Data escolhida: <span class="font-medium text-foreground">{{ selectedDateLabel }}</span>
-                  </p>
+                  </UiRadioGroup>
                   <UiFieldError v-if="fieldErrors.delivery_date" :errors="fieldErrors.delivery_date" />
                 </div>
 
@@ -766,20 +777,20 @@ useSeoMeta({
                       :key="slot.ref"
                       :for="`checkout-slot-${slot.ref}`"
                       class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
-                      :class="!slot.enabled ? 'opacity-60' : ''"
+                      :class="!slot.enabled ? 'opacity-50' : ''"
                     >
                       <UiField orientation="horizontal" :data-disabled="!slot.enabled || undefined">
                         <UiRadioGroupItem
                           :id="`checkout-slot-${slot.ref}`"
                           :value="slot.ref"
                           :disabled="!slot.enabled"
+                          :aria-label="slot.enabled ? slot.label : `${slot.label} — ${slot.reason}`"
                         />
-                        <UiFieldContent>
+                        <UiFieldContent class="gap-0.5">
                           <UiFieldTitle>
-                            {{ slot.label }}
+                            <span :class="!slot.enabled ? 'line-through' : ''">{{ slot.label }}</span>
                             <UiBadge v-if="slot.is_earliest && slot.enabled" variant="secondary">Mais cedo</UiBadge>
                           </UiFieldTitle>
-                          <UiFieldDescription v-if="slot.reason">{{ slot.reason }}</UiFieldDescription>
                         </UiFieldContent>
                       </UiField>
                     </UiFieldLabel>
@@ -816,7 +827,7 @@ useSeoMeta({
                 <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
-                    <UiFieldContent>
+                    <UiFieldContent class="gap-0.5">
                       <UiFieldTitle>
                         <Icon :name="paymentIcon(method.ref)" class="size-4" />
                         {{ method.label }}
@@ -873,7 +884,7 @@ useSeoMeta({
                   >
                     Revisar pedido
                   </UiButton>
-                  <p v-if="submitDisabled && action?.reason" class="text-sm text-muted-foreground">
+                  <p v-if="submitDisabled && action?.reason" class="text-center text-sm text-muted-foreground">
                     {{ action.reason }}
                   </p>
                 </div>

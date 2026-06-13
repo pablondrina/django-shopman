@@ -183,6 +183,20 @@ export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: Chec
   return displayCheckoutDate(deliveryDate, now)
 }
 
+// Descrição complementar do dia (dia da semana + data explícita), p/ as
+// opções de data ficarem padronizadas como as demais escolhas (título + sub).
+export function weekdayDateLabel (value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const date = new Date(year, month - 1, day)
+  const label = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(date)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+export function isCustomCheckoutDate (deliveryDate: string, quickOptions: CheckoutQuickDateOption[]): boolean {
+  return !!deliveryDate && !quickOptions.some(option => option.value === deliveryDate)
+}
+
 export function availableFulfillmentOptions (checkout: CheckoutProjection | null | undefined): FulfillmentType[] {
   return (checkout?.fulfillment_options || []).filter((value): value is FulfillmentType => value === 'pickup' || value === 'delivery')
 }

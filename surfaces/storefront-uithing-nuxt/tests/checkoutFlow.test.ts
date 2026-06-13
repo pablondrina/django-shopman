@@ -8,9 +8,11 @@ import {
   parseClosedDateEntries,
   quickCheckoutDateOptions,
   deliveryCoverageLabel,
+  isCustomCheckoutDate,
   paymentMethodHint,
   reconciledPickupSlotRef,
-  shouldOfferPickupSwap
+  shouldOfferPickupSwap,
+  weekdayDateLabel
 } from '../app/utils/checkoutFlow'
 import type { PickupSlotProjection } from '../app/types/shopman'
 
@@ -78,6 +80,23 @@ describe('checkout flow view model', () => {
     expect(reconciledPickupSlotRef('pickup', 'slot-early', slots, null)).toBe('slot-late')
     expect(reconciledPickupSlotRef('pickup', '', slots, 'slot-late')).toBe('slot-late')
     expect(reconciledPickupSlotRef('delivery', 'slot-early', slots, null)).toBe('slot-early')
+  })
+})
+
+describe('weekdayDateLabel', () => {
+  it('formata dia da semana + data capitalizado', () => {
+    expect(weekdayDateLabel('2026-06-13')).toMatch(/, 13\/06$/)
+    expect(weekdayDateLabel('2026-06-13')[0]).toMatch(/[A-Z]/)
+    expect(weekdayDateLabel('')).toBe('')
+  })
+})
+
+describe('isCustomCheckoutDate', () => {
+  const quick = [{ label: 'Hoje', value: '2026-06-13', disabled: false }, { label: 'Amanhã', value: '2026-06-14', disabled: false }]
+  it('detecta data fora dos atalhos', () => {
+    expect(isCustomCheckoutDate('2026-06-18', quick)).toBe(true)
+    expect(isCustomCheckoutDate('2026-06-13', quick)).toBe(false)
+    expect(isCustomCheckoutDate('', quick)).toBe(false)
   })
 })
 
