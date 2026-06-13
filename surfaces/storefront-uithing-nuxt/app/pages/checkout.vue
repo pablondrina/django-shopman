@@ -593,7 +593,7 @@ useSeoMeta({
               @edit="goToStep('fulfillment')"
             >
               <UiRadioGroup v-model="state.fulfillment_type" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup">
+                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
                     <UiFieldContent>
@@ -605,7 +605,7 @@ useSeoMeta({
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
-                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery">
+                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
                     <UiFieldContent>
@@ -670,11 +670,11 @@ useSeoMeta({
               <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <div class="space-y-3">
                   <UiLabel>Data</UiLabel>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="grid grid-cols-3 gap-2">
                     <UiButton
                       v-for="option in quickDateOptions"
                       :key="option.value"
-                      size="sm"
+                      class="min-h-11"
                       :variant="state.delivery_date === option.value ? 'default' : 'outline'"
                       :disabled="option.disabled"
                       @click="pickDeliveryDate(option.value)"
@@ -685,7 +685,7 @@ useSeoMeta({
                     <UiPopover v-model:open="datePopoverOpen">
                       <UiPopoverTrigger as-child>
                         <UiButton
-                          size="sm"
+                          class="min-h-11 w-full"
                           icon="lucide:calendar-days"
                           :variant="state.delivery_date && !quickDateOptions.some(option => option.value === state.delivery_date) ? 'default' : 'outline'"
                         >
@@ -719,6 +719,7 @@ useSeoMeta({
                       v-for="slot in slots"
                       :key="slot.ref"
                       :for="`checkout-slot-${slot.ref}`"
+                      class="bg-card"
                       :class="!slot.enabled ? 'opacity-60' : ''"
                     >
                       <UiField orientation="horizontal" :data-disabled="!slot.enabled || undefined">
@@ -766,7 +767,7 @@ useSeoMeta({
               @edit="goToStep('payment')"
             >
               <UiRadioGroup v-model="state.payment_method" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`">
+                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
                     <UiFieldContent>
@@ -785,7 +786,7 @@ useSeoMeta({
                 <UiField orientation="horizontal">
                   <UiFieldContent>
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
-                    <UiFieldDescription>Abater {{ checkout.loyalty_value_display }} do total</UiFieldDescription>
+                    <UiFieldDescription>{{ checkout.loyalty_value_display }} de desconto no total</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
