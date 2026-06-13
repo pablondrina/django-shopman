@@ -301,12 +301,20 @@ def _maybe_update_name(adapter, customer: dict, name: str) -> None:
 
 
 def _save_delivery_address(customer: dict, order) -> None:
+    order_data = order.data or {}
+    snapshot_data = order.snapshot.get("data", {}) if order.snapshot else {}
     delivery_address = (
-        order.data.get("delivery_address")
-        or order.snapshot.get("data", {}).get("delivery_address")
+        order_data.get("delivery_address")
+        or snapshot_data.get("delivery_address")
     )
     if not delivery_address:
         return
+
+    structured = (
+        order_data.get("delivery_address_structured")
+        or snapshot_data.get("delivery_address_structured")
+        or {}
+    )
 
     adapter = get_adapter("customer")
     customer_ref = customer["ref"]
@@ -315,10 +323,29 @@ def _save_delivery_address(customer: dict, order) -> None:
         if adapter.has_address(customer_ref, delivery_address):
             return
         has_any = adapter.has_any_address(customer_ref)
+        lat = structured.get("latitude")
+        lng = structured.get("longitude")
+        coordinates = (float(lat), float(lng)) if lat and lng else None
+        # Etiqueta neutra: nem todo endereço de entrega é a "Casa" do cliente.
+        # Ele renomeia depois (etiqueta-DEPOIS do ADDRESS-UX). Os dados
+        # estruturados — place_id e lat/lng — nunca são descartados.
         adapter.create_address(
             customer_ref=customer_ref,
-            label="home",
+            label="other",
+            label_custom="Entrega",
             formatted_address=delivery_address,
+            place_id=structured.get("place_id") or None,
+            components={
+                "street_number": structured.get("street_number", ""),
+                "route": structured.get("route", ""),
+                "neighborhood": structured.get("neighborhood", ""),
+                "city": structured.get("city", ""),
+                "state_code": structured.get("state_code", ""),
+                "postal_code": structured.get("postal_code", ""),
+            },
+            coordinates=coordinates,
+            complement=structured.get("complement", ""),
+            delivery_instructions=structured.get("delivery_instructions", ""),
             is_default=not has_any,
         )
     except Exception as exc:

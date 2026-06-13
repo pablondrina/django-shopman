@@ -71,6 +71,9 @@ const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
+const addressLabelOpen = ref(false)
+const savedAddressIdForLabel = ref<number | null>(null)
+const pendingTrackingUrl = ref('')
 const confirmOpen = ref(false)
 const receiptOpen = ref(false)
 const datePopoverOpen = ref(false)
@@ -372,6 +375,43 @@ function validate (): boolean {
   return true
 }
 
+// O Core já grava o endereço de entrega no perfil ao confirmar o pedido
+// (shop/services/customer._save_delivery_address). Aqui só LOCALIZAMOS o
+// endereço recém-salvo (por place_id ou linha formatada) para oferecer a
+// etiqueta — sem POST, sem duplicar. Endereço já conhecido (saved_address_id)
+// ou que já existia no perfil não dispara etiqueta.
+async function findNewlySavedAddress (): Promise<number | null> {
+  const selection = addressSelection.value
+  if (state.fulfillment_type !== 'delivery' || !selection || selection.savedAddressId) return null
+  const structured = selection.structured || {}
+  if (!structured.route) return null
+  const knownBefore = savedAddresses.value.some(saved =>
+    (structured.place_id && saved.place_id === structured.place_id) ||
+    saved.formatted_address === selection.formattedAddress
+  )
+  if (knownBefore) return null
+  try {
+    const list = await $fetch<Array<{ id: number, place_id?: string | null, formatted_address: string }>>(
+      apiPath('/api/v1/account/addresses/'),
+      { credentials: 'include', headers: await csrfHeaders() }
+    )
+    const match = list.find(addr =>
+      (structured.place_id && addr.place_id === structured.place_id) ||
+      addr.formatted_address === selection.formattedAddress
+    )
+    return match?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+async function finishAfterCheckout () {
+  const target = pendingTrackingUrl.value
+  pendingTrackingUrl.value = ''
+  savedAddressIdForLabel.value = null
+  if (target) await navigateTo(target)
+}
+
 async function submitCheckout () {
   if (!checkout.value || !validate()) return
   submitting.value = true
@@ -389,7 +429,19 @@ async function submitCheckout () {
     })
     clearCart()
     attemptKey.value = createCheckoutAttemptKey()
-    await navigateTo(localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref)))
+    const trackingUrl = localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref))
+    // O Core já salvou o endereço de entrega ao confirmar (só em pedido que
+    // de fato fechou — fora-de-zona/abandonado nunca poluem o perfil). Se foi
+    // um endereço novo, oferecemos a etiqueta nele antes de seguir.
+    const newAddressId = await findNewlySavedAddress()
+    if (newAddressId) {
+      savedAddressIdForLabel.value = newAddressId
+      pendingTrackingUrl.value = trackingUrl
+      addressLabelOpen.value = true
+      submitting.value = false
+      return
+    }
+    await navigateTo(trackingUrl)
   } catch (e: any) {
     const data = e?.data || {}
     serverError.value = data.detail || 'Não foi possível confirmar o pedido.'
@@ -860,6 +912,14 @@ useSeoMeta({
               </UiScrollArea>
             </UiSheetContent>
           </UiSheet>
+
+          <!-- Etiqueta do endereço novo — só APÓS o pedido confirmar; ao
+               resolver (escolher/pular/fechar), segue para o acompanhamento. -->
+          <AddressLabelSheet
+            v-model:open="addressLabelOpen"
+            :address-id="savedAddressIdForLabel"
+            @resolved="finishAfterCheckout"
+          />
         </template>
       </section>
 

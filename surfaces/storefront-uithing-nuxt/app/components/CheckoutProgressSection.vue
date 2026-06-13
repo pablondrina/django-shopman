@@ -89,7 +89,7 @@ const badgeVariant = computed(() => {
             {{ stateLabel }}
           </UiBadge>
         </div>
-        <p class="mt-0.5 truncate text-sm text-muted-foreground">
+        <p class="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
           {{ summary || 'Complete esta etapa para continuar' }}
         </p>
       </div>

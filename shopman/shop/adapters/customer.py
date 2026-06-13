@@ -155,14 +155,32 @@ def create_address(
     label: str,
     formatted_address: str,
     is_default: bool = False,
+    *,
+    place_id: str | None = None,
+    components: dict | None = None,
+    coordinates: tuple[float, float] | None = None,
+    complement: str = "",
+    delivery_instructions: str = "",
+    label_custom: str = "",
 ) -> None:
-    """Salva endereço do cliente."""
+    """Salva endereço do cliente.
+
+    Repassa os dados estruturados (place_id, componentes, coordenadas) quando
+    disponíveis — descartar lat/lng quebra a precisão de entrega em compras
+    futuras (invariante do ADDRESS-UX-PLAN).
+    """
     from shopman.guestman.services import address as address_service
 
     address_service.add_address(
         customer_ref=customer_ref,
         label=label,
         formatted_address=formatted_address,
+        place_id=place_id,
+        components=components,
+        coordinates=coordinates,
+        complement=complement,
+        delivery_instructions=delivery_instructions,
+        label_custom=label_custom,
         is_default=is_default,
     )
 

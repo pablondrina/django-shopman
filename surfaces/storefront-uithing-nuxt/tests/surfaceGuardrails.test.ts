@@ -308,8 +308,14 @@ describe('surface UX guardrails', () => {
     expect(addressPicker).toContain('data-address-locate')
     expect(addressPicker).toContain('data-address-geo-candidate')
     expect(addressPicker).toContain('data-address-adjust-map')
-    expect(addressPicker).toContain('data-address-label-sheet')
-    expect(addressPicker).toContain('Agora não')
+    // Etiqueta-depois vive no componente compartilhado AddressLabelSheet,
+    // reusado pela conta e pelo checkout (pós-pedido).
+    expect(addressPicker).toContain('<AddressLabelSheet')
+    const labelSheet = read('app/components/AddressLabelSheet.vue')
+    expect(labelSheet).toContain('data-address-label-sheet')
+    expect(labelSheet).toContain('Agora não')
+    expect(checkout).toContain('<AddressLabelSheet')
+    expect(checkout).toContain('findNewlySavedAddress')
     expect(checkout).toContain('fieldErrors.delivery_date')
     expect(checkout).toContain('state.delivery_date = localDateValue(today)')
     expect(checkout).not.toContain("type Step = 'identity'")

@@ -83,11 +83,7 @@ const geoCandidate = ref<AddressDraft | null>(null)
 const saving = ref(false)
 const saveIssue = ref('')
 const pendingCreatedId = ref<number | null>(null)
-
 const labelOpen = ref(false)
-const labelCustomOpen = ref(false)
-const labelCustom = ref('')
-const labelSaving = ref(false)
 
 const accountLabel = ref<AddressLabelKey>((props.editingAddress?.label_key as AddressLabelKey) || 'home')
 const accountLabelCustom = ref(props.editingAddress?.label_custom || '')
@@ -458,39 +454,11 @@ async function confirmDraft () {
     await saveAccountAddress()
     return
   }
-  // Checkout: salva no perfil (omotenashi — a próxima compra já começa
-  // pronta) e só então pergunta a etiqueta. Falhou? O pedido segue com o
-  // endereço estruturado mesmo assim.
-  saving.value = true
-  let createdId: number | null = null
-  try {
-    const created = await $fetch<SavedAddressProjection>(apiPath('/api/v1/account/addresses/'), {
-      method: 'POST',
-      headers: await csrfHeaders(),
-      credentials: 'include',
-      body: {
-        ...addressApiPayload(),
-        label: 'other',
-        label_custom: '',
-        is_default: !props.savedAddresses.length
-      }
-    })
-    createdId = created?.id ?? null
-  } catch {
-    createdId = null
-  } finally {
-    saving.value = false
-  }
-  pendingCreatedId.value = createdId
-  if (createdId) {
-    labelOpen.value = true
-  } else {
-    finishNewAddress()
-  }
-}
-
-function finishNewAddress () {
-  emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, pendingCreatedId.value))
+  // Checkout: NÃO grava no perfil aqui — só carrega o endereço no pedido. O
+  // perfil é gravado pelo checkout APÓS o pedido confirmar (a etiqueta vem
+  // nesse momento), para endereços fora de zona/abandonados nunca virarem
+  // lixo no perfil do cliente.
+  emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, null))
   emit('confirmed')
 }
 
@@ -531,60 +499,12 @@ async function saveAccountAddress () {
   }
 }
 
-let labelResolved = false
-
-async function chooseLabel (key: AddressLabelKey) {
-  if (key === 'other' && !labelCustomOpen.value) {
-    labelCustomOpen.value = true
-    return
-  }
-  if (pendingCreatedId.value) {
-    labelSaving.value = true
-    try {
-      await $fetch(apiPath(`/api/v1/account/addresses/${encodeURIComponent(pendingCreatedId.value)}/`), {
-        method: 'PATCH',
-        headers: await csrfHeaders(),
-        credentials: 'include',
-        body: labelPatchPayload(key, labelCustom.value)
-      })
-    } catch {
-      // Etiqueta é açúcar — não trava o fluxo se falhar.
-    } finally {
-      labelSaving.value = false
-    }
-  }
-  closeLabelFlow()
+// Etiqueta de um endereço novo na conta — resolvida pelo AddressLabelSheet
+// (escolha, custom ou "agora não" por gesto). Concluído → fecha o sheet pai.
+function onLabelResolved () {
+  pendingCreatedId.value = null
+  emit('done')
 }
-
-function skipLabel () {
-  closeLabelFlow()
-}
-
-function finishAfterLabel () {
-  labelCustomOpen.value = false
-  labelCustom.value = ''
-  if (props.context === 'account') {
-    emit('done')
-  } else {
-    finishNewAddress()
-  }
-}
-
-function closeLabelFlow () {
-  labelResolved = true
-  labelOpen.value = false
-  finishAfterLabel()
-}
-
-// Fechar o sheet de etiqueta por gesto (X, overlay, ESC) = "Agora não" —
-// o fluxo continua; o endereço fica com a etiqueta neutra.
-watch(labelOpen, open => {
-  if (open) {
-    labelResolved = false
-    return
-  }
-  if (!labelResolved) finishAfterLabel()
-})
 </script>
 
 <template>
@@ -623,8 +543,8 @@ watch(labelOpen, open => {
       <div class="space-y-2">
         <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
         <div class="flex items-start gap-2">
-          <div class="relative min-w-0 flex-1">
-            <UiInputGroup>
+          <div class="min-w-0 flex-1">
+            <UiInputGroup class="h-10">
               <UiInputGroupAddon align="inline-start">
                 <Icon v-if="!searching" name="lucide:search" />
                 <Icon v-else name="lucide:loader-circle" class="animate-spin" />
@@ -640,35 +560,37 @@ watch(labelOpen, open => {
                 @input="onQueryInput"
               />
             </UiInputGroup>
-            <ul
-              v-if="searchOpen"
-              class="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-md border bg-background shadow-md"
-              data-address-suggestions
-            >
-              <li v-for="suggestion in suggestions" :key="suggestion.id">
-                <UiButton
-                  variant="ghost"
-                  class="h-auto min-h-10 w-full flex-col items-start gap-0.5 whitespace-normal rounded-none px-3 py-2 text-left font-normal"
-                  @click="acceptSuggestion(suggestion)"
-                >
-                  <span class="w-full text-sm font-semibold">{{ suggestion.main }}</span>
-                  <span v-if="suggestion.secondary" class="w-full text-xs text-muted-foreground">{{ suggestion.secondary }}</span>
-                </UiButton>
-              </li>
-            </ul>
           </div>
           <UiButton
             variant="outline"
-            class="size-10 shrink-0"
+            size="lg"
+            class="shrink-0"
             :loading="locating"
-            aria-label="Usar minha localização"
-            title="Usar minha localização"
+            icon="lucide:locate-fixed"
             data-address-locate
             @click="locateMe"
           >
-            <Icon v-if="!locating" name="lucide:locate-fixed" class="size-5" />
+            Perto de mim
           </UiButton>
         </div>
+        <!-- Sugestões inline (fluxo de bloco): não dependem de overlay
+             absoluto, que era cortado pelo overflow-hidden do card da etapa. -->
+        <ul
+          v-if="searchOpen"
+          class="divide-y overflow-hidden rounded-md border bg-background"
+          data-address-suggestions
+        >
+          <li v-for="suggestion in suggestions" :key="suggestion.id">
+            <UiButton
+              variant="ghost"
+              class="h-auto min-h-11 w-full flex-col items-start gap-0.5 whitespace-normal rounded-none px-3 py-2 text-left font-normal"
+              @click="acceptSuggestion(suggestion)"
+            >
+              <span class="w-full text-sm font-semibold">{{ suggestion.main }}</span>
+              <span v-if="suggestion.secondary" class="w-full text-xs text-muted-foreground">{{ suggestion.secondary }}</span>
+            </UiButton>
+          </li>
+        </ul>
         <p v-if="geoIssue" class="text-sm text-destructive">{{ geoIssue }}</p>
       </div>
 
@@ -850,41 +772,7 @@ watch(labelOpen, open => {
       </UiSheetContent>
     </UiSheet>
 
-    <!-- ── Etiqueta DEPOIS de salvar — modal discreto, fácil de dispensar ── -->
-    <UiSheet v-model:open="labelOpen">
-      <UiSheetContent
-        side="bottom"
-        variant="floating"
-        class="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 p-0"
-        data-address-label-sheet
-      >
-        <UiSheetHeader class="px-5 pt-5">
-          <UiSheetTitle title="Endereço salvo" />
-          <UiSheetDescription description="Como você quer chamar este endereço?" />
-        </UiSheetHeader>
-        <div class="space-y-3 px-5 pb-5 pt-3">
-          <div class="flex flex-wrap gap-2">
-            <UiButton
-              v-for="option in labelOptions"
-              :key="option.key"
-              variant="outline"
-              class="min-h-10"
-              :icon="option.icon"
-              :loading="labelSaving && option.key !== 'other'"
-              @click="chooseLabel(option.key)"
-            >
-              {{ option.label }}
-            </UiButton>
-          </div>
-          <div v-if="labelCustomOpen" class="flex items-start gap-2">
-            <UiInput v-model="labelCustom" class="min-w-0 flex-1" placeholder="Ex: Casa da mãe" aria-label="Nome da etiqueta" />
-            <UiButton :loading="labelSaving" :disabled="!labelCustom.trim()" @click="chooseLabel('other')">Salvar</UiButton>
-          </div>
-          <UiButton variant="ghost" size="sm" class="-ml-2 text-muted-foreground hover:text-foreground" @click="skipLabel">
-            Agora não
-          </UiButton>
-        </div>
-      </UiSheetContent>
-    </UiSheet>
+    <!-- ── Etiqueta DEPOIS de salvar (conta) — componente compartilhado ── -->
+    <AddressLabelSheet v-model:open="labelOpen" :address-id="pendingCreatedId" @resolved="onLabelResolved" />
   </div>
 </template>
