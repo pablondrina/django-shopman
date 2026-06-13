@@ -173,6 +173,7 @@ export interface CartProjection {
   delivery_fee_q: number | null
   delivery_fee_display: string | null
   delivery_is_free: boolean
+  delivery_zone_error: boolean
   grand_total_q: number
   grand_total_display: string
   coupon_code: string | null

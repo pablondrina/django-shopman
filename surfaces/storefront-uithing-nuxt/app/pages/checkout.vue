@@ -25,7 +25,6 @@ import {
   fulfillmentSummary as buildFulfillmentSummary,
   isCheckoutDateUnavailable,
   localDateValue,
-  deliveryCoverageLabel,
   isCustomCheckoutDate,
   parseClosedDateEntries,
   parseLocalDate,
@@ -76,7 +75,6 @@ const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
-const deliveryQuote = ref<{ covered: boolean, fee_display: string | null } | null>(null)
 const quotingZone = ref(false)
 const changePhoneOpen = ref(false)
 const addressLabelOpen = ref(false)
@@ -248,38 +246,42 @@ watch(addressSelection, selection => {
     fieldErrors.value = errors
   }
   // Antecipação de zona: assim que há um endereço de entrega estruturado,
-  // checa a cobertura (não espera o commit final). A oferta de retirada some
-  // até a checagem responder.
-  deliveryQuote.value = null
+  // grava o rascunho na sessão (o Core calcula a taxa) e refaz o total. A
+  // oferta de retirada some até a checagem responder.
   pickupSwapOffer.value = false
   if (state.fulfillment_type === 'delivery' && selection?.structured?.route) {
-    void checkDeliveryZone(selection.structured)
+    void applyDeliveryDraft()
   }
 }, { flush: 'sync' })
 
-// Pergunta ao servidor se a loja entrega no endereço (e qual a taxa) no
-// instante em que ele é confirmado — omotenashi/antecipação. A DeliveryZoneRule
-// segue como gate autoritativo no commit; aqui é só aviso antecipado.
-async function checkDeliveryZone (structured: { postal_code?: string, neighborhood?: string }) {
-  quotingZone.value = true
+// Grava o recebimento + endereço na sessão e re-resolve o cart, para que a
+// TAXA já entre no total (e a cobertura de zona seja conhecida) antes do
+// commit — fonte única (Core), sem matemática no cliente. A DeliveryZoneRule
+// segue como gate autoritativo no commit.
+async function applyDeliveryDraft () {
+  const isDelivery = state.fulfillment_type === 'delivery'
+  const structured = state.delivery_address_structured || {}
+  if (isDelivery && !structured.route) return
+  quotingZone.value = isDelivery
   try {
-    const quote = await $fetch<{ covered: boolean, fee_display: string | null }>(apiPath('/api/v1/delivery/quote/'), {
-      method: 'POST',
+    await $fetch(apiPath('/api/v1/checkout/draft/'), {
+      method: 'PATCH',
       headers: await csrfHeaders(),
       credentials: 'include',
-      body: { postal_code: structured.postal_code || '', neighborhood: structured.neighborhood || '' }
+      body: {
+        fulfillment_type: state.fulfillment_type,
+        delivery_address_structured: isDelivery ? structured : {}
+      }
     })
-    deliveryQuote.value = quote
-    if (quote.covered) {
-      serverError.value = ''
-      pickupSwapOffer.value = false
-    } else {
-      pickupSwapOffer.value = availableFulfillment.value.includes('pickup')
+    await refresh()
+    if (isDelivery) {
+      const covered = !cart.value?.delivery_zone_error && cart.value?.delivery_fee_q !== null
+      pickupSwapOffer.value = covered ? false : availableFulfillment.value.includes('pickup')
+      if (covered) serverError.value = ''
     }
   } catch {
-    // Falha na checagem antecipada não bloqueia — o commit ainda valida a zona.
-    deliveryQuote.value = null
-    pickupSwapOffer.value = false
+    // Falha no rascunho não bloqueia — o commit ainda valida a zona.
+    if (isDelivery) pickupSwapOffer.value = false
   } finally {
     quotingZone.value = false
   }
@@ -424,7 +426,11 @@ function saveContact () {
 }
 
 function continueFromFulfillment () {
-  if (validateFulfillmentStep()) activeStep.value = state.fulfillment_type === 'delivery' ? 'address' : 'when'
+  if (!validateFulfillmentStep()) return
+  // Retirada zera a taxa de entrega no total; entrega recalcula ao confirmar
+  // o endereço (applyDeliveryDraft no passo seguinte).
+  if (state.fulfillment_type === 'pickup') void applyDeliveryDraft()
+  activeStep.value = state.fulfillment_type === 'delivery' ? 'address' : 'when'
 }
 
 function continueFromAddress () {
@@ -568,6 +574,7 @@ function switchToPickup () {
   const errors = { ...fieldErrors.value }
   delete errors.delivery_address
   fieldErrors.value = errors
+  void applyDeliveryDraft()
   activeStep.value = 'when'
 }
 
@@ -754,9 +761,13 @@ useSeoMeta({
               <p v-if="quotingZone" class="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon name="lucide:loader-circle" class="size-4 animate-spin" /> Verificando se entregamos aqui…
               </p>
-              <p v-else-if="deliveryQuote?.covered" class="mt-3 flex items-center gap-2 text-sm font-medium" data-checkout-zone-ok>
+              <p
+                v-else-if="!pickupSwapOffer && cart && cart.delivery_fee_q !== null && !cart.delivery_zone_error"
+                class="mt-3 flex items-center gap-2 text-sm font-medium"
+                data-checkout-zone-ok
+              >
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
-                {{ deliveryCoverageLabel(deliveryQuote.fee_display) }}
+                Entregamos no seu endereço
               </p>
               <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">

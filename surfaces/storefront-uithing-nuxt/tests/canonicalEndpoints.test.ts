@@ -30,8 +30,7 @@ const allowedPrefixes = [
   '/api/v1/orders/',
   '/api/v1/payment/',
   '/api/v1/tracking/',
-  '/api/v1/geocode/',
-  '/api/v1/delivery/'
+  '/api/v1/geocode/'
 ]
 
 function read (path: string) {

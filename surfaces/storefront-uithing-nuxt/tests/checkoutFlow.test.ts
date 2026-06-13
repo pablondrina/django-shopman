@@ -7,7 +7,6 @@ import {
   isCheckoutDateUnavailable,
   parseClosedDateEntries,
   quickCheckoutDateOptions,
-  deliveryCoverageLabel,
   isCheckoutDateUnavailable,
   isClosedWeekday,
   isCustomCheckoutDate,
@@ -127,14 +126,6 @@ describe('paymentMethodHint', () => {
     expect(paymentMethodHint('cartao', 'Efí')).toBe('Pagamento seguro via Efí')
     expect(paymentMethodHint('cash')).toBe('Pague na entrega')
     expect(paymentMethodHint('boleto')).toBe('')
-  })
-})
-
-describe('deliveryCoverageLabel', () => {
-  it('confirma cobertura com a taxa (ou grátis)', () => {
-    expect(deliveryCoverageLabel('R$ 6,00')).toBe('Entrega disponível · taxa R$ 6,00')
-    expect(deliveryCoverageLabel('Grátis')).toBe('Entrega disponível · grátis')
-    expect(deliveryCoverageLabel(null)).toBe('Entrega disponível')
   })
 })
 

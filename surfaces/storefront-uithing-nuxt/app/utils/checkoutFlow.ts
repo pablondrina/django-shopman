@@ -358,14 +358,6 @@ export function paymentMethodHint (ref: string, cardProvider = ''): string {
   return ''
 }
 
-// Confirmação positiva de cobertura no passo de endereço (com a taxa, que
-// antes só aparecia no fim). feeDisplay vem do servidor ("Grátis" | "R$ 6,00").
-export function deliveryCoverageLabel (feeDisplay: string | null | undefined): string {
-  if (!feeDisplay) return 'Entrega disponível'
-  if (feeDisplay.trim().toLowerCase() === 'grátis') return 'Entrega disponível · grátis'
-  return `Entrega disponível · taxa ${feeDisplay}`
-}
-
 export function paymentIcon (ref: string): string {
   const value = ref.toLowerCase()
   if (value.includes('pix')) return 'lucide:qr-code'
