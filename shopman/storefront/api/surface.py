@@ -432,6 +432,70 @@ class CartCouponView(APIView):
         return Response({"cart": _cart_payload(request)})
 
 
+_DRAFT_ADDRESS_FIELDS = (
+    "formatted_address",
+    "route",
+    "street_number",
+    "neighborhood",
+    "city",
+    "state_code",
+    "postal_code",
+    "country",
+    "country_code",
+    "latitude",
+    "longitude",
+    "place_id",
+    "complement",
+    "delivery_instructions",
+)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        tags=["checkout"],
+        summary="Persist fulfillment + delivery address draft and re-resolve cart",
+        responses={200: OpenApiResponse(description="Cart projection reflecting delivery fee/coverage.")},
+    ),
+)
+class CheckoutDraftView(APIView):
+    """PATCH /api/v1/checkout/draft/
+
+    Grava o recebimento e o endereço de entrega escolhidos na sessão e re-roda
+    os modifiers, para que a taxa de entrega (e a cobertura de zona) já apareçam
+    no total *antes* do commit. Preview de leitura — nenhum pedido é criado; a
+    ``DeliveryZoneRule`` segue como gate autoritativo no commit.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    def patch(self, request):
+        from shopman.shop.services import cart as cart_service
+
+        data = request.data or {}
+        fulfillment_type = (data.get("fulfillment_type") or "pickup").strip()
+        if fulfillment_type not in {"pickup", "delivery"}:
+            fulfillment_type = "pickup"
+
+        structured_raw = data.get("delivery_address_structured") or {}
+        structured: dict = {}
+        if isinstance(structured_raw, dict):
+            for field in _DRAFT_ADDRESS_FIELDS:
+                value = structured_raw.get(field)
+                if value not in (None, ""):
+                    structured[field] = value
+
+        session_key = request.session.get("cart_session_key")
+        if session_key:
+            cart_service.set_delivery_draft(
+                session_key=session_key,
+                channel_ref=STOREFRONT_CHANNEL_REF,
+                fulfillment_type=fulfillment_type,
+                delivery_address_structured=structured,
+            )
+        return Response({"cart": _cart_payload(request)})
+
+
 @extend_schema_view(
     put=extend_schema(
         tags=["cart"],

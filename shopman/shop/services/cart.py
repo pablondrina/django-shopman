@@ -240,6 +240,47 @@ def remove_coupon_code(*, session_key: str, channel_ref: str) -> Session | None:
     return session
 
 
+def set_delivery_draft(
+    *,
+    session_key: str,
+    channel_ref: str,
+    fulfillment_type: str,
+    delivery_address_structured: dict | None = None,
+) -> Session | None:
+    """Persist the chosen fulfillment + delivery address to the session and
+    re-run modifiers so the cart reflects the delivery fee (and zone coverage)
+    *before* the final commit.
+
+    Read-side preview only — no order is created. The ``DeliveryZoneRule``
+    remains the authoritative gate at commit. Clearing ``delivery_fee_q`` and
+    ``delivery_zone_error`` forces ``DeliveryFeeModifier`` to recompute against
+    the (possibly new) address; on pickup the delivery keys are dropped so the
+    fee disappears from the total.
+    """
+    session = get_open_session(session_key=session_key, channel_ref=channel_ref)
+    if session is None:
+        return None
+
+    data = dict(session.data or {})
+    data["fulfillment_type"] = fulfillment_type
+    data.pop("delivery_fee_q", None)
+    data.pop("delivery_zone_error", None)
+    if fulfillment_type == "delivery":
+        if delivery_address_structured:
+            data["delivery_address_structured"] = delivery_address_structured
+    else:
+        data.pop("delivery_address_structured", None)
+        data.pop("delivery_address", None)
+    session.data = data
+    session.save(update_fields=["data"])
+
+    return session_service.modify_session(
+        session_key=session_key,
+        channel_ref=channel_ref,
+        ops=[],
+    )
+
+
 def clear_session(*, session_key: str, channel_ref: str) -> None:
     """Abandon the cart session."""
     session_service.abandon_session(session_key=session_key, channel_ref=channel_ref)

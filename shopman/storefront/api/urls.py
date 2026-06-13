@@ -29,6 +29,7 @@ from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderP
 from .surface import (
     CartCouponView,
     CartSkuQtyView,
+    CheckoutDraftView,
     OrderReorderView,
     StorefrontCartView,
     StorefrontCheckoutView,
@@ -61,6 +62,7 @@ urlpatterns = [
     path("cart/items/<str:line_id>/", views.CartItemView.as_view(), name="api-cart-item"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="api-checkout"),
+    path("checkout/draft/", CheckoutDraftView.as_view(), name="api-checkout-draft"),
     # Availability
     path("availability/<str:sku>/", AvailabilityView.as_view(), name="api-availability"),
     # Catalog

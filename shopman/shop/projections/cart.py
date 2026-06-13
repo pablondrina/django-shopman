@@ -124,6 +124,7 @@ class CartProjection:
 
     delivery_fee_q: int | None
     delivery_is_free: bool
+    delivery_zone_error: bool
     grand_total_q: int
 
     has_unavailable: bool
@@ -150,6 +151,7 @@ def _empty_cart(session_key: str = "") -> CartProjection:
         coupon=None,
         delivery_fee_q=None,
         delivery_is_free=False,
+        delivery_zone_error=False,
         grand_total_q=0,
         has_unavailable=False,
         has_awaiting_confirmation=False,
@@ -218,6 +220,7 @@ def build_cart(
 
     delivery_fee_q = (session.data or {}).get("delivery_fee_q")
     delivery_fee_q = int(delivery_fee_q) if delivery_fee_q is not None else None
+    delivery_zone_error = bool((session.data or {}).get("delivery_zone_error"))
     grand_total_q = subtotal_q + (delivery_fee_q or 0)
 
     minimum_order = build_minimum_order_progress(original_subtotal_q, channel_ref)
@@ -241,6 +244,7 @@ def build_cart(
         coupon=coupon,
         delivery_fee_q=delivery_fee_q,
         delivery_is_free=(delivery_fee_q is not None and delivery_fee_q == 0),
+        delivery_zone_error=delivery_zone_error,
         grand_total_q=grand_total_q,
         has_unavailable=has_unavailable,
         has_awaiting_confirmation=has_awaiting,
