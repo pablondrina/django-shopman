@@ -101,6 +101,7 @@ const mapEl = ref<HTMLElement | null>(null)
 let mapInstance: any = null
 let mapMarker: any = null
 
+const routeInput = ref<any>(null)
 const numberInput = ref<any>(null)
 const complementInput = ref<any>(null)
 const searchInput = ref<any>(null)
@@ -327,9 +328,11 @@ async function focusGuided () {
   focusUiInput(target)
 }
 
-function startManualEntry () {
+async function startManualEntry () {
   resetDraft()
   mode.value = 'form'
+  await nextTick()
+  focusUiInput(routeInput.value)
 }
 
 function backToSearch () {
@@ -608,43 +611,39 @@ function onLabelResolved () {
       </UiButton>
     </template>
 
-    <!-- ── Busca unificada ─────────────────────────────────────────── -->
+    <!-- ── Busca unificada (card dedicado, ações fullwidth) ──────────── -->
     <template v-else-if="mode === 'search'">
-      <div class="space-y-2">
-        <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
-        <div class="flex items-start gap-2">
-          <div class="min-w-0 flex-1">
-            <UiInputGroup class="h-10">
-              <UiInputGroupAddon align="inline-start">
-                <Icon v-if="!searching" name="lucide:search" />
-                <Icon v-else name="lucide:loader-circle" class="animate-spin" />
-              </UiInputGroupAddon>
-              <UiInputGroupInput
-                id="address-search"
-                ref="searchInput"
-                v-model="query"
-                type="text"
-                autocomplete="off"
-                placeholder="Rua, número ou CEP"
-                data-address-search
-                @input="onQueryInput"
-              />
-            </UiInputGroup>
-          </div>
+      <div class="space-y-3 rounded-lg border bg-card p-4" data-address-search-card>
+        <div class="flex items-center justify-between gap-2">
+          <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
           <UiButton
-            variant="outline"
-            size="lg"
-            class="shrink-0"
-            :loading="locating"
-            icon="lucide:locate-fixed"
-            data-address-locate
-            @click="locateMe"
-          >
-            Perto de mim
-          </UiButton>
+            v-if="hasSaved"
+            variant="ghost"
+            size="sm"
+            icon="lucide:x"
+            class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+            aria-label="Fechar e voltar aos endereços salvos"
+            data-address-dismiss
+            @click="backToSaved"
+          />
         </div>
-        <!-- Sugestões inline (fluxo de bloco): não dependem de overlay
-             absoluto, que era cortado pelo overflow-hidden do card da etapa. -->
+        <UiInputGroup class="h-11">
+          <UiInputGroupAddon align="inline-start">
+            <Icon v-if="!searching" name="lucide:search" />
+            <Icon v-else name="lucide:loader-circle" class="animate-spin" />
+          </UiInputGroupAddon>
+          <UiInputGroupInput
+            id="address-search"
+            ref="searchInput"
+            v-model="query"
+            type="text"
+            autocomplete="off"
+            placeholder="Rua, número ou CEP"
+            data-address-search
+            @input="onQueryInput"
+          />
+        </UiInputGroup>
+        <!-- Sugestões inline (fluxo de bloco) — sem overlay/clipping. -->
         <ul
           v-if="searchOpen"
           class="divide-y overflow-hidden rounded-md border bg-background"
@@ -662,45 +661,43 @@ function onLabelResolved () {
           </li>
         </ul>
         <p v-if="geoIssue" class="text-sm text-destructive">{{ geoIssue }}</p>
-      </div>
 
-      <!-- Candidato da localização: confirmação explícita, nunca preenchimento silencioso. -->
-      <div
-        v-if="geoCandidate"
-        class="-mx-4 space-y-3 border-y px-4 py-3 sm:mx-0 sm:rounded-md sm:border sm:px-3"
-        data-address-geo-candidate
-      >
-        <div class="flex items-start gap-2">
-          <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <div class="min-w-0">
-            <p class="text-sm font-semibold">Você está aqui?</p>
-            <p class="mt-0.5 text-sm text-muted-foreground">{{ draftSummaryLine(geoCandidate) }}</p>
+        <UiButton
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
+          :loading="locating"
+          icon="lucide:locate-fixed"
+          data-address-locate
+          @click="locateMe"
+        >
+          Usar minha localização
+        </UiButton>
+
+        <!-- Candidato da localização: confirmação explícita, nunca silencioso. -->
+        <div v-if="geoCandidate" class="space-y-3 rounded-md border bg-background p-3" data-address-geo-candidate>
+          <div class="flex items-start gap-2">
+            <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <div class="min-w-0">
+              <p class="text-sm font-semibold">Você está aqui?</p>
+              <p class="mt-0.5 text-sm text-muted-foreground">{{ draftSummaryLine(geoCandidate) }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UiButton size="sm" class="min-h-10" @click="useGeoCandidate">Usar este endereço</UiButton>
+            <UiButton size="sm" variant="ghost" class="min-h-10" @click="geoCandidate = null">Agora não</UiButton>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <UiButton size="sm" class="min-h-10" @click="useGeoCandidate">Usar este endereço</UiButton>
-          <UiButton size="sm" variant="ghost" class="min-h-10" @click="geoCandidate = null">Agora não</UiButton>
-        </div>
-      </div>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <UiButton variant="ghost" size="sm" class="-ml-2 text-muted-foreground hover:text-foreground" data-address-manual @click="startManualEntry">
+        <UiButton variant="ghost" size="lg" class="w-full justify-center" data-address-manual @click="startManualEntry">
           Preencher manualmente
-        </UiButton>
-        <UiButton
-          v-if="hasSaved"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
-          @click="backToSaved"
-        >
-          Voltar aos salvos
         </UiButton>
       </div>
     </template>
 
     <!-- ── Campos estruturados ─────────────────────────────────────── -->
     <template v-else>
+      <div class="space-y-4 rounded-lg border bg-card p-4" data-address-form-card>
       <div v-if="acceptedLine" class="space-y-1" data-address-accepted>
         <div class="flex items-start gap-2">
           <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -727,7 +724,7 @@ function onLabelResolved () {
       <div class="grid grid-cols-1 gap-4">
         <div class="space-y-2">
           <UiLabel for="address-route">Rua</UiLabel>
-          <UiInput id="address-route" v-model="draft.route" autocomplete="address-line1" />
+          <UiInput id="address-route" ref="routeInput" v-model="draft.route" autocomplete="address-line1" />
           <UiFieldError v-if="fieldErrors.route" :errors="fieldErrors.route" />
         </div>
         <div class="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
@@ -827,6 +824,7 @@ function onLabelResolved () {
         >
           Buscar outro endereço
         </UiButton>
+      </div>
       </div>
     </template>
 
