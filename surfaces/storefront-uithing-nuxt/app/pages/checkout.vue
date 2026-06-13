@@ -69,6 +69,23 @@ const contactEditing = ref(false)
 const nameEditing = ref(false)
 const nameInput = ref<any>(null)
 const useLoyalty = ref(false)
+const loyaltySyncing = ref(false)
+// Liga/desliga o resgate de pontos NA SESSÃO (fonte única). Carrinho e checkout
+// passam a refletir o mesmo desconto, em vez de um flag de UI divergente.
+watch(useLoyalty, async (enabled) => {
+  if (loyaltySyncing.value) return
+  try {
+    await $fetch(apiPath('/api/v1/checkout/loyalty/'), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: { enabled }
+    })
+    await refresh()
+  } catch {
+    // Falha não bloqueia; o commit ainda respeita o estado da sessão.
+  }
+})
 const submitting = ref(false)
 const serverError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
@@ -205,6 +222,11 @@ watch(() => checkout.value, value => {
   const projectedSlots = value.pickup_slots || []
 
   setFromServer(value.cart)
+  // Fidelidade: a sessão é a fonte única. Espelha o estado aplicado no cart
+  // (sem disparar o watcher que reescreveria a sessão).
+  loyaltySyncing.value = true
+  useLoyalty.value = !!value.cart?.loyalty_applied
+  nextTick(() => { loyaltySyncing.value = false })
   if (!state.name) state.name = value.customer_name || ''
   if (!state.phone) state.phone = value.customer_phone || ''
   if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
@@ -922,26 +944,26 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <!-- Observação: toggle idêntico ao da fidelidade; ao ligar, revela
-                   o campo. Desligar é o próprio dismiss (limpa a observação). -->
-              <div
-                class="overflow-hidden rounded-md border bg-card"
-                :class="notesOpen && 'border-primary'"
-                data-checkout-notes-box
-              >
-                <UiFieldLabel for="checkout-notes-toggle" class="rounded-none border-0 bg-transparent has-data-[state=checked]:bg-transparent">
-                  <UiField orientation="horizontal">
-                    <UiFieldContent class="gap-0.5">
-                      <UiFieldTitle>Adicionar observação</UiFieldTitle>
-                      <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
-                    </UiFieldContent>
-                    <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
-                  </UiField>
-                </UiFieldLabel>
-                <div v-if="notesOpen" class="border-t px-4 pb-4 pt-1">
-                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: tocar o interfone, ponto de referência…" class="resize-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
-                </div>
-              </div>
+              <!-- Observação: clone do toggle de fidelidade. Ligar expande o
+                   card; o campo aparece no espaço interno (sem traços nem
+                   divisórias). Desligar é o próprio dismiss (limpa a nota). -->
+              <UiFieldLabel for="checkout-notes-toggle" class="bg-card" data-checkout-notes-box>
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-0.5">
+                    <UiFieldTitle>Adicionar observação</UiFieldTitle>
+                    <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
+                  </UiFieldContent>
+                  <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
+                </UiField>
+                <UiTextarea
+                  v-if="notesOpen"
+                  id="checkout-notes"
+                  v-model="state.notes"
+                  rows="2"
+                  placeholder="Ex: tocar o interfone, ponto de referência…"
+                  @click.stop
+                />
+              </UiFieldLabel>
 
               <template #footer>
                 <div class="mt-4 space-y-3">
