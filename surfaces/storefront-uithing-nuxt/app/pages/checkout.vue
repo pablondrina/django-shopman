@@ -160,16 +160,22 @@ watch(() => checkout.value, value => {
   if (!state.phone) state.phone = value.customer_phone || ''
   if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
   if (!state.delivery_time_slot) state.delivery_time_slot = value.earliest_slot_ref || projectedSlots.find(slot => slot.enabled)?.ref || ''
-  if (import.meta.client && !chosenDate.value && projectedSlots.length) {
-    const today = new Date()
-    chosenDate.value = today
-    state.delivery_date = localDateValue(today)
-  }
   if (!fulfillments.includes(state.fulfillment_type)) {
     state.fulfillment_type = fulfillments[0] || 'pickup'
   }
   reconcileDeliverySlot()
 }, { immediate: true })
+
+// Pré-seleciona "hoje" só APÓS a hidratação: fazê-lo no setup (client-only)
+// divergia do HTML do servidor (que não tem data) — o resumo mostrava "Hoje"
+// e a query do checkout mudava, re-disparando o fetch (skeleton) em plena
+// hidratação. Em onMounted a mudança é pós-paint e o re-render é limpo.
+onMounted(() => {
+  if (chosenDate.value || !(checkout.value?.pickup_slots?.length)) return
+  const today = new Date()
+  chosenDate.value = today
+  state.delivery_date = localDateValue(today)
+})
 
 // O AddressPicker é o dono do passo de endereço: a seleção dele (salvo ou
 // novo) é a única fonte do que vai no payload do checkout. Flush síncrono:
