@@ -23,6 +23,7 @@ from .auth import DeviceCheckView, LogoutView, RequestCodeView, SessionView, Tru
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .conversation import OrderConversationView
+from .delivery import DeliveryZoneQuoteView
 from .geocode import ReverseGeocodeView
 from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderPaymentView
 from .surface import (
@@ -94,4 +95,6 @@ urlpatterns = [
     path("account/delete/", AccountDeleteView.as_view(), name="api-account-delete"),
     # Geocoding (server-side — key stays on the server)
     path("geocode/reverse/", ReverseGeocodeView.as_view(), name="api-geocode-reverse"),
+    # Delivery coverage quote (antecipação de zona no checkout)
+    path("delivery/quote/", DeliveryZoneQuoteView.as_view(), name="api-delivery-quote"),
 ]

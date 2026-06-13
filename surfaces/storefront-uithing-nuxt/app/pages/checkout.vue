@@ -71,6 +71,8 @@ const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
+const deliveryQuote = ref<{ covered: boolean, fee_display: string | null } | null>(null)
+const quotingZone = ref(false)
 const addressLabelOpen = ref(false)
 const savedAddressIdForLabel = ref<number | null>(null)
 const pendingTrackingUrl = ref('')
@@ -198,9 +200,43 @@ watch(addressSelection, selection => {
     delete errors.delivery_address
     fieldErrors.value = errors
   }
-  // Endereço novo escolhido → a oferta de retirada anterior não vale mais.
-  if (selection) pickupSwapOffer.value = false
+  // Antecipação de zona: assim que há um endereço de entrega estruturado,
+  // checa a cobertura (não espera o commit final). A oferta de retirada some
+  // até a checagem responder.
+  deliveryQuote.value = null
+  pickupSwapOffer.value = false
+  if (state.fulfillment_type === 'delivery' && selection?.structured?.route) {
+    void checkDeliveryZone(selection.structured)
+  }
 }, { flush: 'sync' })
+
+// Pergunta ao servidor se a loja entrega no endereço (e qual a taxa) no
+// instante em que ele é confirmado — omotenashi/antecipação. A DeliveryZoneRule
+// segue como gate autoritativo no commit; aqui é só aviso antecipado.
+async function checkDeliveryZone (structured: { postal_code?: string, neighborhood?: string }) {
+  quotingZone.value = true
+  try {
+    const quote = await $fetch<{ covered: boolean, fee_display: string | null }>(apiPath('/api/v1/delivery/quote/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: { postal_code: structured.postal_code || '', neighborhood: structured.neighborhood || '' }
+    })
+    deliveryQuote.value = quote
+    if (quote.covered) {
+      serverError.value = ''
+      pickupSwapOffer.value = false
+    } else {
+      pickupSwapOffer.value = availableFulfillment.value.includes('pickup')
+    }
+  } catch {
+    // Falha na checagem antecipada não bloqueia — o commit ainda valida a zona.
+    deliveryQuote.value = null
+    pickupSwapOffer.value = false
+  } finally {
+    quotingZone.value = false
+  }
+}
 
 watch(chosenDate, value => {
   if (!value) {
@@ -650,7 +686,14 @@ useSeoMeta({
                 @addresses-changed="refresh"
               />
               <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
-              <template v-if="addressSelection" #footer>
+              <p v-if="quotingZone" class="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="lucide:loader-circle" class="size-4 animate-spin" /> Verificando se entregamos aqui…
+              </p>
+              <p v-else-if="deliveryQuote?.covered" class="mt-3 flex items-center gap-2 text-sm font-medium" data-checkout-zone-ok>
+                <Icon name="lucide:circle-check" class="size-4 shrink-0" />
+                {{ deliveryQuote.fee_display === 'Grátis' ? 'Entregamos aqui — entrega grátis' : `Entregamos aqui — taxa ${deliveryQuote.fee_display}` }}
+              </p>
+              <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
