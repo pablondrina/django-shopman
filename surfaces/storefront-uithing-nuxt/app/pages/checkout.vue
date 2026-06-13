@@ -548,7 +548,7 @@ useSeoMeta({
             <UiAlertDescription>{{ serverError }}</UiAlertDescription>
           </UiAlert>
 
-          <div class="space-y-3" data-checkout-progress-stack>
+          <div data-checkout-progress-stack>
             <CheckoutProgressSection
               title="Contato"
               :state="contactState"
@@ -577,7 +577,7 @@ useSeoMeta({
                 </div>
               </div>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" @click="saveContact">Salvar contato</UiButton>
                 </div>
               </template>
@@ -623,7 +623,7 @@ useSeoMeta({
                 Esta é a opção disponível para este pedido.
               </p>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
@@ -650,7 +650,7 @@ useSeoMeta({
               />
               <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
               <template v-if="addressSelection" #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
                   </UiButton>
@@ -741,7 +741,7 @@ useSeoMeta({
                 </div>
               </div>
               <template #footer>
-                <div class="border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4">
                   <UiButton
                     class="w-full"
                     size="lg"
@@ -808,7 +808,7 @@ useSeoMeta({
               </div>
 
               <template #footer>
-                <div class="space-y-3 border-t bg-muted/30 p-4 sm:p-5">
+                <div class="mt-4 space-y-3">
                   <div class="flex items-end justify-between gap-3">
                     <div class="min-w-0">
                       <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
