@@ -67,6 +67,8 @@ const state = reactive<CheckoutFormState>({
 const chosenDate = ref<Date | null>(null)
 const activeStep = ref<Step>('fulfillment')
 const contactEditing = ref(false)
+const nameEditing = ref(false)
+const nameInput = ref<any>(null)
 const useLoyalty = ref(false)
 const submitting = ref(false)
 const serverError = ref('')
@@ -116,6 +118,15 @@ const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLab
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
 const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
+// Nome só vira input com ação deliberada (ou quando ainda não há nome).
+const showNameInput = computed(() => nameEditing.value || !state.name.trim())
+async function startEditName () {
+  nameEditing.value = true
+  await nextTick()
+  const el = nameInput.value?.$el
+  if (el?.tagName === 'INPUT') el.focus()
+  else el?.querySelector?.('input')?.focus?.()
+}
 const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.value))
 // No card colapsado, nome e telefone em linhas próprias (telefone na 3ª linha
 // por padrão) — fica legível sem depender de caber tudo numa linha só.
@@ -377,7 +388,7 @@ function validatePaymentStep (): boolean {
 }
 
 function saveContact () {
-  validateContact()
+  if (validateContact()) nameEditing.value = false
 }
 
 function continueFromFulfillment () {
@@ -598,22 +609,30 @@ useSeoMeta({
               @edit="contactEditing = true"
             >
               <div class="space-y-4">
-                <div class="space-y-2">
+                <div v-if="showNameInput" class="space-y-2">
                   <UiLabel for="checkout-name">Nome</UiLabel>
-                  <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
+                  <UiInput id="checkout-name" ref="nameInput" v-model="state.name" autocomplete="name" />
                   <UiFieldError v-if="fieldErrors.name" :errors="fieldErrors.name" />
                 </div>
-                <div class="-mx-4 flex items-center gap-3 border-y px-4 py-3 sm:mx-0 sm:px-0">
-                  <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
-                  <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold tabular-nums">
-                      {{ phoneDisplay || 'Entre por telefone para continuar' }}
-                    </p>
-                    <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
+                <!-- Nome e telefone como linhas de leitura; edição deliberada. -->
+                <div class="-mx-4 divide-y border-y sm:mx-0">
+                  <div v-if="!showNameInput" class="flex items-center gap-3 px-4 py-3 sm:px-0">
+                    <Icon name="lucide:user-round" class="size-4 shrink-0 text-muted-foreground" />
+                    <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ state.name }}</p>
+                    <UiButton variant="link" size="sm" class="h-auto p-0" @click="startEditName">Editar</UiButton>
                   </div>
-                  <UiButton variant="link" size="sm" class="h-auto p-0" @click="changePhoneOpen = true">
-                    Trocar
-                  </UiButton>
+                  <div class="flex items-center gap-3 px-4 py-3 sm:px-0">
+                    <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold tabular-nums">
+                        {{ phoneDisplay || 'Entre por telefone para continuar' }}
+                      </p>
+                      <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
+                    </div>
+                    <UiButton variant="link" size="sm" class="h-auto p-0" @click="changePhoneOpen = true">
+                      Trocar
+                    </UiButton>
+                  </div>
                 </div>
               </div>
               <template #footer>
@@ -990,14 +1009,14 @@ useSeoMeta({
           <UiAlertDialog v-model:open="changePhoneOpen">
             <UiAlertDialogContent>
               <UiAlertDialogHeader>
-                <UiAlertDialogTitle>Entrar com outro telefone?</UiAlertDialogTitle>
+                <UiAlertDialogTitle>Entrar com outro número?</UiAlertDialogTitle>
                 <UiAlertDialogDescription>
-                  Trocar o telefone significa entrar com outra conta. Seu carrinho continua reservado, mas os dados deste checkout (endereço, pagamento) serão dos dados da nova conta.
+                  Você troca de conta. Seu carrinho continua guardado.
                 </UiAlertDialogDescription>
               </UiAlertDialogHeader>
               <UiAlertDialogFooter>
-                <UiAlertDialogCancel>Continuar nesta conta</UiAlertDialogCancel>
-                <UiAlertDialogAction @click="navigateTo(authRoute)">Trocar telefone</UiAlertDialogAction>
+                <UiAlertDialogCancel>Cancelar</UiAlertDialogCancel>
+                <UiAlertDialogAction @click="navigateTo(authRoute)">Trocar número</UiAlertDialogAction>
               </UiAlertDialogFooter>
             </UiAlertDialogContent>
           </UiAlertDialog>
