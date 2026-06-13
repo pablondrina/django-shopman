@@ -50,7 +50,15 @@ o único sem equivalente.
    cobertura via `delivery_zone_error`) OU ficar como pré-check rápido. Decidir
    na implementação.
 
-## B) Políticas de entrega configuráveis — APROVADO (global primeiro)
+## B) Políticas de entrega configuráveis — ✅ ENTREGUE (2026-06-13, global)
+
+> Implementado: fonte única `shop.defaults["rules"]` (centavos, 0=off) via helper
+> `shop_rule_q`. Footgun removido; `MinimumOrderRule` deletado (papel absorvido por
+> `delivery_minimum_q` + `DeliveryZoneRule`); `free_delivery_above_q` no
+> `DeliveryFeeModifier` (recomputa por subtotal); 3 campos tipados em Reais no
+> ShopAdmin. Projections `delivery_minimum`/`free_delivery` + UI no checkout. Por-zona
+> fica para depois. (Spec original abaixo.)
+
 
 Em `shop.defaults["rules"]`, semântica limpa **0/vazio = regra não existe**:
 

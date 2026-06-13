@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.cache import cache
-from django.core.exceptions import ValidationError
 
 from shopman.shop.models import RuleConfig
 from shopman.shop.rules.engine import (
@@ -22,7 +21,7 @@ from shopman.shop.rules.engine import (
     register_active_rules,
 )
 from shopman.shop.rules.pricing import D1Rule, EmployeeRule, HappyHourRule, PromotionRule
-from shopman.shop.rules.validation import BusinessHoursRule, MinimumOrderRule
+from shopman.shop.rules.validation import BusinessHoursRule, DeliveryZoneRule
 
 # ── Pricing rules: class attributes ──────────────────────────────────
 
@@ -167,44 +166,78 @@ class TestBusinessHoursRule:
             rule.validate(channel=None, session=session, ctx={})
 
 
-class TestMinimumOrderRule:
-    def test_code_and_label(self):
-        rule = MinimumOrderRule()
-        assert rule.code == "shop.minimum_order"
+class TestDeliveryZoneRule:
+    """Delivery commit gate — zone coverage + delivery minimum.
+
+    Both read from a single source: zone coverage from
+    ``session.data["delivery_zone_error"]`` and the minimum from
+    ``shop.defaults.rules.delivery_minimum_q`` (patched here so these stay pure
+    unit tests, no DB).
+    """
+
+    def test_code_and_stage(self):
+        rule = DeliveryZoneRule()
+        assert rule.code == "shop.delivery_zone"
         assert rule.rule_type == "validator"
         assert rule.stage == "commit"
 
-    def test_default_params(self):
-        assert MinimumOrderRule.default_params == {"minimum_q": 1000}
+    def test_rejects_zone_not_covered(self):
+        from shopman.orderman.exceptions import ValidationError as OrderValidationError
 
-    def test_rejects_below_minimum_delivery(self):
-        rule = MinimumOrderRule(minimum_q=2000)
+        rule = DeliveryZoneRule()
+        session = MagicMock()
+        session.data = {"fulfillment_type": "delivery", "delivery_zone_error": True}
+        session.items = []
+
+        with pytest.raises(OrderValidationError):
+            rule.validate(channel=None, session=session, ctx={})
+
+    def test_rejects_below_delivery_minimum(self, monkeypatch):
+        from shopman.orderman.exceptions import ValidationError as OrderValidationError
+
+        from shopman.shop.rules import validation
+
+        monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 2000)
+        rule = DeliveryZoneRule()
         session = MagicMock()
         session.data = {"fulfillment_type": "delivery"}
         session.items = [{"line_total_q": 500}]
 
-        with pytest.raises(ValidationError, match="Pedido minimo para delivery"):
+        with pytest.raises(OrderValidationError, match="Pedido mínimo para entrega"):
             rule.validate(channel=None, session=session, ctx={})
 
-    def test_accepts_above_minimum_delivery(self):
-        rule = MinimumOrderRule(minimum_q=1000)
+    def test_accepts_above_delivery_minimum(self, monkeypatch):
+        from shopman.shop.rules import validation
+
+        monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 1000)
+        rule = DeliveryZoneRule()
         session = MagicMock()
         session.data = {"fulfillment_type": "delivery"}
         session.items = [{"line_total_q": 1500}]
 
         rule.validate(channel=None, session=session, ctx={})
 
-    def test_skips_non_delivery(self):
-        rule = MinimumOrderRule(minimum_q=5000)
+    def test_skips_non_delivery(self, monkeypatch):
+        from shopman.shop.rules import validation
+
+        monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 5000)
+        rule = DeliveryZoneRule()
         session = MagicMock()
         session.data = {"fulfillment_type": "pickup"}
         session.items = [{"line_total_q": 100}]
 
         rule.validate(channel=None, session=session, ctx={})
 
-    def test_custom_minimum(self):
-        rule = MinimumOrderRule(minimum_q=5000)
-        assert rule.minimum_q == 5000
+    def test_no_minimum_when_policy_off(self, monkeypatch):
+        from shopman.shop.rules import validation
+
+        monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 0)
+        rule = DeliveryZoneRule()
+        session = MagicMock()
+        session.data = {"fulfillment_type": "delivery"}
+        session.items = [{"line_total_q": 1}]
+
+        rule.validate(channel=None, session=session, ctx={})
 
 
 # ── Engine tests (require DB) ────────────────────────────────────────
@@ -354,16 +387,16 @@ class TestEngine:
             params={"start": "07:00", "end": "21:00"},
         )
         self._create_rule(
-            code="mo_register",
-            rule_path="shopman.shop.rules.validation.MinimumOrderRule",
-            params={"minimum_q": 2000},
+            code="dz_register",
+            rule_path="shopman.shop.rules.validation.DeliveryZoneRule",
+            params={},
         )
 
         register_active_rules()
 
         validator_codes = [v.code for v in registry.get_validators()]
         assert "shop.business_hours" in validator_codes
-        assert "shop.minimum_order" in validator_codes
+        assert "shop.delivery_zone" in validator_codes
 
     def test_register_active_rules_skips_modifiers(self):
         from shopman.orderman import registry

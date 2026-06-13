@@ -191,6 +191,12 @@ class Command(BaseCommand):
                         "dynamic_collections": ["featured", "fresh_from_oven"],
                     },
                     "notifications": {"backend": "console"},
+                    "rules": {
+                        # Políticas de pedido/entrega em centavos. 0 = desligada.
+                        "minimum_order_q": 0,        # sem mínimo geral (ticket baixo)
+                        "delivery_minimum_q": 2500,  # R$ 25,00 mínimo só p/ entrega
+                        "free_delivery_above_q": 0,  # frete grátis desligado
+                    },
                     "pickup_slots": [
                         {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
                         {"ref": "slot-12", "label": "A partir das 12h", "starts_at": "12:00"},
@@ -3913,13 +3919,9 @@ class Command(BaseCommand):
                 "params": {},
                 "priority": 10,
             },
-            {
-                "code": "minimum_order",
-                "rule_path": "shopman.shop.rules.validation.MinimumOrderRule",
-                "label": "Pedido Mínimo Delivery",
-                "params": {"minimum_q": 2500},
-                "priority": 20,
-            },
+            # Mínimo de entrega, mínimo geral e frete grátis são políticas da loja
+            # em Shop.defaults["rules"] (ver _seed_shop), fonte única consumida
+            # pelo aviso ao vivo e pelos validators de commit.
         ]
 
         count = 0

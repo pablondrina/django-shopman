@@ -48,8 +48,13 @@ Runtime:
 
 | Code | Classe | Params | Efeito |
 |------|--------|--------|--------|
-| `business_hours` | `BusinessHoursRule` | `open_hour`, `close_hour` | Seta flag `outside_business_hours` em `session.data`. NÃO bloqueia checkout — apenas informa |
-| `minimum_order` | `MinimumOrderRule` | `amount_q: int` | Bloqueia commits abaixo do valor mínimo com issue `minimum_order_not_met` |
+| `business_hours` | `BusinessHoursRule` | `start`, `end` | Seta flag `outside_business_hours` em `session.data`. NÃO bloqueia checkout — apenas informa |
+| `delivery_zone` | `DeliveryZoneRule` | — | Gate de entrega no commit: bloqueia fora da zona de cobertura **e** abaixo de `shop.defaults.rules.delivery_minimum_q`. Só entrega |
+
+> O mínimo geral, o mínimo de entrega e o frete grátis são políticas da loja em
+> `shop.defaults["rules"]` (em centavos; `0` = desligado), não `RuleConfig` —
+> ver [`data-schemas.md § Shop.defaults`](data-schemas.md#shopdefaults). Fonte
+> única consumida pelo aviso ao vivo e pelo `DeliveryZoneRule`/`DeliveryFeeModifier`.
 
 ### Modifiers (Pricing)
 
@@ -71,17 +76,17 @@ Runtime:
 
 ```python
 # Exemplo: validator mínimo
-class MinimumOrderRule:
+class WeekdayOnlyRule:
     rule_type = "validator"
-    code = "minimum_order"
+    code = "shop.weekday_only"
+    stage = "commit"
 
-    def __init__(self, amount_q: int):
-        self.amount_q = amount_q
+    def __init__(self, *, allowed=("mon", "tue", "wed", "thu", "fri")):
+        self.allowed = set(allowed)
 
-    def validate(self, session, context) -> list[dict]:
-        if session.total_q < self.amount_q:
-            return [{"code": "minimum_order_not_met", "blocking": True, ...}]
-        return []
+    def validate(self, *, channel, session, ctx) -> None:
+        # Levanta ValidationError de orderman para bloquear o commit.
+        ...
 ```
 
 ---
@@ -103,7 +108,7 @@ Exemplo no Channel.config:
 ```json
 {
   "rules": {
-    "validators": ["business_hours", "minimum_order"],
+    "validators": ["business_hours", "delivery_zone"],
     "modifiers": ["d1_discount", "promotion"]
   }
 }

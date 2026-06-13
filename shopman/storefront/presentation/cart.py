@@ -84,12 +84,23 @@ class CartItemProjection:
 
 @dataclass(frozen=True)
 class MinimumOrderProgressProjection:
-    """Progress bar data for the ``shop.minimum_order`` rule."""
+    """Progress bar data for a minimum-order policy (general or delivery-only)."""
 
     minimum_q: int
     remaining_q: int
     percent: int
     minimum_display: str
+    remaining_display: str
+
+
+@dataclass(frozen=True)
+class FreeDeliveryProgressProjection:
+    """Progress bar data for the free-delivery upsell."""
+
+    threshold_q: int
+    remaining_q: int
+    percent: int
+    threshold_display: str
     remaining_display: str
 
 
@@ -142,6 +153,11 @@ class CartProjection:
 
     # Minimum order + upsell context
     minimum_order_progress: MinimumOrderProgressProjection | None
+    # Delivery-only minimum, shown in the delivery step ("Pedido mínimo para
+    # entrega R$X · faltam R$Y"). Pickup never carries one.
+    delivery_minimum_progress: MinimumOrderProgressProjection | None
+    # Free-delivery upsell ("faltam R$Y para frete grátis"), reuses the bar.
+    free_delivery_progress: FreeDeliveryProgressProjection | None
     upsell: UpsellSuggestionProjection | None
 
     # Canonical cart-level actions. Surfaces render these instead of deriving
@@ -172,6 +188,8 @@ def build_cart(
     items = tuple(_present_line(line, image_by_sku) for line in data.lines)
 
     min_order = present_minimum_order(data.minimum_order)
+    delivery_minimum = present_minimum_order(data.delivery_minimum)
+    free_delivery = present_free_delivery(data.free_delivery)
     upsell = present_upsell(data.upsell)
     actions = _cart_actions(data, min_order)
 
@@ -205,6 +223,8 @@ def build_cart(
         has_awaiting_confirmation_items=data.has_awaiting_confirmation,
         has_ready_for_confirmation_items=data.has_ready_for_confirmation,
         minimum_order_progress=min_order,
+        delivery_minimum_progress=delivery_minimum,
+        free_delivery_progress=free_delivery,
         upsell=upsell,
         actions=actions,
     )
@@ -306,6 +326,21 @@ def present_minimum_order(
     )
 
 
+def present_free_delivery(
+    data: cart_data.FreeDeliveryProgressProjection | None,
+) -> FreeDeliveryProgressProjection | None:
+    """Format the free-delivery progress data into the cart presentation DTO."""
+    if data is None:
+        return None
+    return FreeDeliveryProgressProjection(
+        threshold_q=data.threshold_q,
+        remaining_q=data.remaining_q,
+        percent=data.percent,
+        threshold_display=_money(data.threshold_q),
+        remaining_display=_money(data.remaining_q),
+    )
+
+
 def present_upsell(
     data: cart_data.UpsellSuggestionProjection | None,
 ) -> UpsellSuggestionProjection | None:
@@ -386,6 +421,7 @@ __all__ = [
     "CartItemProjection",
     "CartProjection",
     "DiscountLineProjection",
+    "FreeDeliveryProgressProjection",
     "MinimumOrderProgressProjection",
     "UpsellSuggestionProjection",
     "build_cart",

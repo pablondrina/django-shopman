@@ -1424,26 +1424,15 @@ def _norm(value: str) -> str:
 
 
 def _delivery_minimum_q() -> int:
-    """Resolve the POS-visible delivery minimum from the active business rule."""
+    """Resolve the POS-visible delivery minimum from the unified policy source
+    (``shop.defaults.rules.delivery_minimum_q``; ``0`` = no minimum)."""
     try:
-        from shopman.shop.rules.engine import get_rule_params
+        from shopman.shop.projections.cart import shop_rule_q
 
-        params = get_rule_params("minimum_order") or get_rule_params("shop.minimum_order") or {}
-        if params.get("minimum_q") is not None:
-            return max(0, int(params.get("minimum_q") or 0))
+        return shop_rule_q("delivery_minimum_q")
     except Exception:
-        logger.debug("pos_delivery_minimum_rule_lookup_failed", exc_info=True)
-
-    try:
-        from shopman.shop.models import Shop
-
-        shop = Shop.load()
-        raw = ((shop.defaults or {}).get("rules") or {}).get("minimum_order_q") if shop else None
-        if raw:
-            return max(0, int(raw))
-    except Exception:
-        logger.debug("pos_delivery_minimum_shop_lookup_failed", exc_info=True)
-    return 0
+        logger.debug("pos_delivery_minimum_lookup_failed", exc_info=True)
+        return 0
 
 
 def _discount_approval_threshold_q() -> int:

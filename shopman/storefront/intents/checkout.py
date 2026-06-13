@@ -116,13 +116,13 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     if fulfillment_type == "delivery":
         from shopman.utils.monetary import format_money
 
-        from shopman.shop.projections.cart import build_minimum_order_progress
+        from shopman.shop.projections.cart import build_delivery_minimum_progress
 
-        warning = build_minimum_order_progress(cart.subtotal_q, channel_ref)
+        warning = build_delivery_minimum_progress(cart.subtotal_q, channel_ref)
         if warning:
             errors["minimum_order"] = (
                 f"Faltam R$ {format_money(warning.remaining_q)} para atingir o pedido "
-                f"mínimo de R$ {format_money(warning.minimum_q)}."
+                f"mínimo de entrega de R$ {format_money(warning.minimum_q)}."
             )
 
     # ── Step 7: Validate address/form ─────────────────────────────────────

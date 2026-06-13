@@ -216,11 +216,11 @@ class TestCheckoutPost:
     def test_minimum_order_warning_shows_on_checkout(
         self, cart_session, channel, customer, shop_instance
     ):
-        # Configure minimum order via Shop.defaults (channel-level config comes in WP-F1).
+        # Configure the general minimum order via Shop.defaults.rules (single source).
         # Below-minimum cart surfaces the block via CartProjection — the checkout view
         # renders the projection-backed summary; the stepper/progress bar lives in the
         # drawer. Here we just assert the projection flags the cart as below minimum.
-        shop_instance.defaults = {"rules": {"validators": ["shop.minimum_order"], "minimum_order_q": 50000}}
+        shop_instance.defaults = {"rules": {"minimum_order_q": 50000}}
         shop_instance.save()
 
         _login_as_customer(cart_session, customer)

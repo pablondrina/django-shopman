@@ -11,7 +11,6 @@ import logging
 from datetime import time
 from typing import Any
 
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from shopman.shop.rules import BaseRule
@@ -128,10 +127,18 @@ class BusinessHoursRule(BaseRule):
 
 
 class DeliveryZoneRule(BaseRule):
-    """Bloqueia checkout quando o endereço de entrega está fora das zonas cobertas.
+    """Gate de entrega no commit — cobertura de zona + pedido mínimo de entrega.
 
-    Ativado apenas quando fulfillment_type == "delivery" e
-    session.data["delivery_zone_error"] é True (setado pelo DeliveryFeeModifier).
+    Roda apenas quando ``fulfillment_type == "delivery"``. Bloqueia quando:
+
+    - o endereço está fora das zonas cobertas
+      (``session.data["delivery_zone_error"]``, setado pelo DeliveryFeeModifier); ou
+    - o subtotal está abaixo do mínimo de entrega
+      (``shop.defaults.rules.delivery_minimum_q``; ``0`` = sem mínimo).
+
+    O mesmo ``delivery_minimum_q`` alimenta o aviso ao vivo no checkout
+    (``build_delivery_minimum_progress``) — fonte única. Retirada nunca tem
+    mínimo.
     """
 
     code = "shop.delivery_zone"
@@ -154,40 +161,24 @@ class DeliveryZoneRule(BaseRule):
                 message="Não entregamos neste endereço ainda.",
             )
 
+        minimum_q = _delivery_minimum_q()
+        if minimum_q:
+            items = [
+                item for item in (session.items or [])
+                if item.get("sku") != "__DELIVERY_FEE__"
+                and (item.get("meta") or {}).get("type") != "delivery_fee"
+            ]
+            total_q = sum(item.get("line_total_q", 0) for item in items)
+            if total_q < minimum_q:
+                minimum_display = f"R$ {minimum_q / 100:.2f}".replace(".", ",")
+                raise OrderValidationError(
+                    code="below_delivery_minimum",
+                    message=f"Pedido mínimo para entrega: {minimum_display}.",
+                )
 
-class MinimumOrderRule(BaseRule):
-    """Minimum order value for delivery orders.
 
-    Applies when fulfillment_type is "delivery".
-    """
+def _delivery_minimum_q() -> int:
+    """Read the delivery minimum (cents) from ``shop.defaults.rules.delivery_minimum_q``."""
+    from shopman.shop.projections.cart import shop_rule_q
 
-    code = "shop.minimum_order"
-    label = "Pedido Mínimo Delivery"
-    rule_type = "validator"
-    stage = "commit"
-    default_params = {"minimum_q": 1000}
-
-    def __init__(self, *, minimum_q: int = 1000):
-        self.minimum_q = minimum_q
-
-    def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        session_data = getattr(session, "data", None) or {}
-        fulfillment_type = session_data.get("fulfillment_type", "")
-
-        if not fulfillment_type:
-            channel_ref = getattr(channel, "ref", "") if channel is not None else ""
-            if "delivery" in channel_ref:
-                fulfillment_type = "delivery"
-
-        if fulfillment_type != "delivery":
-            return
-
-        items = [
-            item for item in (session.items or [])
-            if item.get("sku") != "__DELIVERY_FEE__" and (item.get("meta") or {}).get("type") != "delivery_fee"
-        ]
-        total_q = sum(item.get("line_total_q", 0) for item in items)
-
-        if total_q < self.minimum_q:
-            minimum_display = f"R$ {self.minimum_q / 100:.2f}".replace(".", ",")
-            raise ValidationError(f"Pedido minimo para delivery: {minimum_display}.")
+    return shop_rule_q("delivery_minimum_q")

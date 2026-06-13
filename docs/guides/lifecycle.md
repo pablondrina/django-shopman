@@ -178,8 +178,8 @@ Rules são regras de negócio configuráveis pelo operador via admin (`RuleConfi
 
 | Code | Classe | Params | Descrição |
 |------|--------|--------|-----------|
-| `business_hours` | `BusinessHoursRule` | `open_hour, close_hour` | Seta flag `outside_business_hours` (NÃO bloqueia checkout) |
-| `minimum_order` | `MinimumOrderRule` | `amount_q: int` | Bloqueia pedidos abaixo do valor mínimo |
+| `business_hours` | `BusinessHoursRule` | `start, end` | Seta flag `outside_business_hours` (NÃO bloqueia checkout) |
+| `delivery_zone` | `DeliveryZoneRule` | — | Bloqueia entrega fora da zona e abaixo de `shop.defaults.rules.delivery_minimum_q` |
 
 ---
 

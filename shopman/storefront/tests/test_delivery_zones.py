@@ -261,6 +261,46 @@ class TestDeliveryFeeModifier(TestCase):
         self.assertEqual(session.data.get("delivery_fee_q"), 0)
         self.assertNotIn("delivery_zone_error", session.data)
 
+    def _set_free_delivery_threshold(self, threshold_q):
+        from django.core.cache import cache
+
+        from shopman.shop.models.shop import SHOP_CACHE_KEY
+
+        self.shop.defaults = {"rules": {"free_delivery_above_q": threshold_q}}
+        self.shop.save(update_fields=["defaults"])
+        cache.delete(SHOP_CACHE_KEY)
+
+    def _delivery_session(self, line_total_q):
+        session = self._make_session({
+            "fulfillment_type": "delivery",
+            "delivery_address_structured": {
+                "postal_code": "86050-270",
+                "neighborhood": "Bela Suíça",
+            },
+        })
+        session.items = [{"sku": "x", "line_total_q": line_total_q}]
+        return session
+
+    def test_free_delivery_threshold_zeros_fee_above(self):
+        _make_zone(
+            self.shop, name="Londrina",
+            zone_type=DeliveryZone.ZONE_TYPE_CEP_PREFIX, match_value="860", fee_q=600,
+        )
+        self._set_free_delivery_threshold(5000)
+        session = self._delivery_session(line_total_q=6000)  # acima do limiar
+        self.modifier.apply(channel=None, session=session, ctx={})
+        self.assertEqual(session.data.get("delivery_fee_q"), 0)
+
+    def test_free_delivery_threshold_keeps_fee_below(self):
+        _make_zone(
+            self.shop, name="Londrina",
+            zone_type=DeliveryZone.ZONE_TYPE_CEP_PREFIX, match_value="860", fee_q=600,
+        )
+        self._set_free_delivery_threshold(5000)
+        session = self._delivery_session(line_total_q=3000)  # abaixo do limiar
+        self.modifier.apply(channel=None, session=session, ctx={})
+        self.assertEqual(session.data.get("delivery_fee_q"), 600)
+
 
 class TestDeliveryZoneRule(TestCase):
     def setUp(self):

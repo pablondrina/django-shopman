@@ -121,6 +121,12 @@ const isAuthed = computed(() => !!checkout.value?.is_authenticated)
 const authAction = computed(() => checkout.value?.auth_action || null)
 const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/login?next=/checkout'))
 const availableFulfillment = computed(() => availableFulfillmentOptions(checkout.value))
+// Upsell de frete grátis: só faz sentido em entrega e enquanto a taxa não zerou.
+const freeDeliveryUpsell = computed(() =>
+  state.fulfillment_type === 'delivery' && !cart.value?.delivery_is_free
+    ? cart.value?.free_delivery_progress || null
+    : null
+)
 const savedAddresses = computed(() => checkout.value?.saved_addresses || [])
 const paymentMethods = computed(() => checkout.value?.payment_methods || [])
 const slots = computed(() => checkout.value?.pickup_slots || [])
@@ -791,6 +797,28 @@ useSeoMeta({
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
                 Entregamos no seu endereço
               </p>
+              <UiAlert
+                v-if="cart?.delivery_minimum_progress"
+                variant="warning"
+                class="mt-3"
+                data-checkout-delivery-minimum
+              >
+                <UiAlertTitle>
+                  Pedido mínimo para entrega {{ cart.delivery_minimum_progress.minimum_display }}
+                </UiAlertTitle>
+                <UiAlertDescription>
+                  Faltam {{ cart.delivery_minimum_progress.remaining_display }} para fechar a entrega.
+                </UiAlertDescription>
+              </UiAlert>
+              <div v-if="freeDeliveryUpsell" class="mt-3" data-checkout-free-delivery>
+                <div class="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                  <span class="flex items-center gap-2">
+                    <Icon name="lucide:truck" class="size-4 shrink-0" />
+                    Faltam {{ freeDeliveryUpsell.remaining_display }} para frete grátis
+                  </span>
+                </div>
+                <UiProgress :model-value="freeDeliveryUpsell.percent" />
+              </div>
               <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">
                   <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">

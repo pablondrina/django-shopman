@@ -23,7 +23,6 @@ from decimal import Decimal
 logger = logging.getLogger(__name__)
 
 DEFAULT_STOREFRONT_CHANNEL_REF = "web"
-_MINIMUM_ORDER_Q_DEFAULT = 1000  # R$ 10,00 fallback when the rule is active
 
 # Pricing-modifier discount keys aggregated into the cart breakdown.
 _PRICING_MODIFIER_KEYS = (
@@ -44,6 +43,19 @@ class MinimumOrderProgressProjection:
     """
 
     minimum_q: int
+    remaining_q: int
+    percent: int
+
+
+@dataclass(frozen=True)
+class FreeDeliveryProgressProjection:
+    """Progress toward the free-delivery threshold — cents only.
+
+    Emitted only while the order is below the threshold; the presentation
+    derives the ``R$`` strings and the "faltam X para frete grátis" copy.
+    """
+
+    threshold_q: int
     remaining_q: int
     percent: int
 
@@ -134,6 +146,14 @@ class CartProjection:
     has_ready_for_confirmation: bool
 
     minimum_order: MinimumOrderProgressProjection | None
+    # Delivery-only minimum (``shop.defaults.rules.delivery_minimum_q``): set
+    # while a delivery order is below it. Pickup never carries a minimum, but the
+    # projection stays fulfillment-agnostic — the surface shows it in the
+    # delivery step. ``delivery_minimum`` blocks the commit (DeliveryZoneRule).
+    delivery_minimum: MinimumOrderProgressProjection | None
+    # Free-delivery upsell (``shop.defaults.rules.free_delivery_above_q``): set
+    # while below the threshold so any surface can reuse the progress bar.
+    free_delivery: FreeDeliveryProgressProjection | None
     upsell: UpsellSuggestionProjection | None
 
     can_checkout: bool
@@ -160,6 +180,8 @@ def _empty_cart(session_key: str = "") -> CartProjection:
         has_awaiting_confirmation=False,
         has_ready_for_confirmation=False,
         minimum_order=None,
+        delivery_minimum=None,
+        free_delivery=None,
         upsell=None,
         can_checkout=False,
         checkout_block_reason="empty",
@@ -226,7 +248,9 @@ def build_cart(
     delivery_zone_error = bool((session.data or {}).get("delivery_zone_error"))
     grand_total_q = subtotal_q + (delivery_fee_q or 0)
 
-    minimum_order = build_minimum_order_progress(original_subtotal_q, channel_ref)
+    minimum_order = build_minimum_order_progress(subtotal_q, channel_ref)
+    delivery_minimum = build_delivery_minimum_progress(subtotal_q, channel_ref)
+    free_delivery = build_free_delivery_progress(subtotal_q, channel_ref)
     upsell = build_upsell_suggestion({line.sku for line in lines}, channel_ref=channel_ref)
 
     can_checkout, block_reason = _checkout_eligibility(
@@ -254,6 +278,8 @@ def build_cart(
         has_awaiting_confirmation=has_awaiting,
         has_ready_for_confirmation=has_ready,
         minimum_order=minimum_order,
+        delivery_minimum=delivery_minimum,
+        free_delivery=free_delivery,
         upsell=upsell,
         can_checkout=can_checkout,
         checkout_block_reason=block_reason,
@@ -422,43 +448,97 @@ def _checkout_eligibility(
 # ──────────────────────────────────────────────────────────────────────
 
 
+def shop_rule_q(key: str) -> int:
+    """Read a cents-valued policy from ``shop.defaults["rules"][key]``.
+
+    ``0``/empty means the policy is off — there is no magic fallback. This is
+    the single source for the configurable order/delivery thresholds, so the
+    cart, checkout and commit validators all read identical numbers.
+    """
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        rules = (shop.defaults.get("rules") or {}) if shop and shop.defaults else {}
+        raw = rules.get(key)
+        return max(0, int(raw)) if raw else 0
+    except Exception as e:
+        logger.warning("shop_rule_q_failed key=%s: %s", key, e, exc_info=True)
+        return 0
+
+
+def _threshold_progress(subtotal_q: int, threshold_q: int) -> tuple[int, int] | None:
+    """Return ``(remaining_q, percent)`` toward ``threshold_q``, or ``None`` when
+    the threshold is off (``0``) or already met."""
+    if not threshold_q or subtotal_q >= threshold_q:
+        return None
+    remaining_q = threshold_q - subtotal_q
+    percent = int(min(subtotal_q * 100 / threshold_q, 100))
+    return remaining_q, percent
+
+
 def build_minimum_order_progress(
     subtotal_q: int,
     channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
 ) -> MinimumOrderProgressProjection | None:
-    """Progress toward the minimum order amount configured for ``channel_ref``.
+    """Progress toward the general minimum order (``shop.defaults.rules.minimum_order_q``).
 
-    Returns ``None`` when the channel does not activate the
-    ``shop.minimum_order`` validator, or when the subtotal already meets the
-    minimum. Keeps the rule lookup out of every surface so the cart, checkout
-    and live cart-mutation payloads consume identical guidance.
+    Applies to every fulfillment type. Returns ``None`` when the policy is off
+    (``0``/empty) or the subtotal already meets the minimum. Keeps the rule
+    lookup out of every surface so the cart, checkout and live cart-mutation
+    payloads consume identical guidance.
     """
-    minimum_q = 0
-    try:
-        from shopman.shop.config import ChannelConfig
-        from shopman.shop.models import Channel, Shop
-
-        channel = Channel.objects.filter(ref=channel_ref).first()
-        if channel:
-            rules = ChannelConfig.for_channel(channel).rules
-            if rules.validators is None or "shop.minimum_order" in rules.validators:
-                shop = Shop.load()
-                raw = (
-                    shop.defaults.get("rules", {}).get("minimum_order_q")
-                    if shop and shop.defaults
-                    else None
-                )
-                minimum_q = int(raw) if raw else _MINIMUM_ORDER_Q_DEFAULT
-    except Exception as e:
-        logger.warning("min_order_progress_failed: %s", e, exc_info=True)
-
-    if not minimum_q or subtotal_q >= minimum_q:
+    minimum_q = shop_rule_q("minimum_order_q")
+    progress = _threshold_progress(subtotal_q, minimum_q)
+    if progress is None:
         return None
-
-    remaining_q = minimum_q - subtotal_q
-    percent = int(min(subtotal_q * 100 / minimum_q, 100)) if minimum_q else 0
+    remaining_q, percent = progress
     return MinimumOrderProgressProjection(
         minimum_q=minimum_q,
+        remaining_q=remaining_q,
+        percent=percent,
+    )
+
+
+def build_delivery_minimum_progress(
+    subtotal_q: int,
+    channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
+) -> MinimumOrderProgressProjection | None:
+    """Progress toward the delivery-only minimum (``shop.defaults.rules.delivery_minimum_q``).
+
+    Returns ``None`` when the policy is off or the subtotal already meets it.
+    The same value gates the commit in ``DeliveryZoneRule`` — single source.
+    Pickup orders carry no minimum, so the surface only shows this in the
+    delivery flow.
+    """
+    minimum_q = shop_rule_q("delivery_minimum_q")
+    progress = _threshold_progress(subtotal_q, minimum_q)
+    if progress is None:
+        return None
+    remaining_q, percent = progress
+    return MinimumOrderProgressProjection(
+        minimum_q=minimum_q,
+        remaining_q=remaining_q,
+        percent=percent,
+    )
+
+
+def build_free_delivery_progress(
+    subtotal_q: int,
+    channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
+) -> FreeDeliveryProgressProjection | None:
+    """Progress toward free delivery (``shop.defaults.rules.free_delivery_above_q``).
+
+    Returns ``None`` when the policy is off or the subtotal already qualifies.
+    The same value zeroes the fee in ``DeliveryFeeModifier`` — single source.
+    """
+    threshold_q = shop_rule_q("free_delivery_above_q")
+    progress = _threshold_progress(subtotal_q, threshold_q)
+    if progress is None:
+        return None
+    remaining_q, percent = progress
+    return FreeDeliveryProgressProjection(
+        threshold_q=threshold_q,
         remaining_q=remaining_q,
         percent=percent,
     )
@@ -514,9 +594,13 @@ __all__ = [
     "CartDiscountLineProjection",
     "CartLineProjection",
     "CartProjection",
+    "FreeDeliveryProgressProjection",
     "MinimumOrderProgressProjection",
     "UpsellSuggestionProjection",
     "build_cart",
+    "build_delivery_minimum_progress",
+    "build_free_delivery_progress",
     "build_minimum_order_progress",
     "build_upsell_suggestion",
+    "shop_rule_q",
 ]

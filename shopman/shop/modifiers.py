@@ -511,7 +511,8 @@ class EmployeeDiscountModifier:
 
 class DeliveryFeeModifier:
     """
-    Taxa de entrega calculada por zona (DeliveryZone).
+    Taxa de entrega calculada por zona (DeliveryZone), com frete grátis acima de
+    um limiar configurável.
 
     Só se aplica quando fulfillment_type == "delivery".
     Lê postal_code e neighborhood de session.data["delivery_address_structured"].
@@ -519,7 +520,11 @@ class DeliveryFeeModifier:
 
     Se nenhuma zona coincidir → seta session.data["delivery_zone_error"] = True.
     Se zona encontrada → seta session.data["delivery_fee_q"] = zone.fee_q.
-    fee_q == 0 → entrega grátis (sem erro).
+
+    Frete grátis: se ``shop.defaults.rules.free_delivery_above_q`` estiver ativo
+    (> 0) e o subtotal atingir o limiar, a taxa efetiva vira 0. Como isso depende
+    do subtotal, a taxa é reavaliada a cada passagem dos modifiers (sem cache),
+    para acompanhar mudanças no carrinho ao vivo. fee_q == 0 → entrega grátis.
     """
 
     code = "shop.delivery_fee"
@@ -531,14 +536,6 @@ class DeliveryFeeModifier:
         data = session.data or {}
         fulfillment_type = data.get("fulfillment_type", "")
         if fulfillment_type != "delivery":
-            return
-
-        if data.get("delivery_fee_q") not in (None, ""):
-            if data.get("delivery_zone_error"):
-                new_data = {**data}
-                new_data.pop("delivery_zone_error", None)
-                session.data = new_data
-                session.save(update_fields=["data"])
             return
 
         addr_structured = data.get("delivery_address_structured") or {}
@@ -556,17 +553,38 @@ class DeliveryFeeModifier:
 
         if zone is None:
             # Endereço fora da área de entrega
+            if data.get("delivery_zone_error") and data.get("delivery_fee_q") is None:
+                return  # já marcado — evita save redundante
             new_data = {**data, "delivery_zone_error": True}
             new_data.pop("delivery_fee_q", None)
             session.data = new_data
             session.save(update_fields=["data"])
             return
 
-        # Zona encontrada — gravar taxa e limpar eventual erro anterior
-        new_data = {**data, "delivery_fee_q": zone.fee_q}
+        # Zona encontrada — taxa base com frete grátis aplicado por subtotal.
+        effective_fee_q = self._effective_fee_q(zone.fee_q, session)
+        if data.get("delivery_fee_q") == effective_fee_q and not data.get("delivery_zone_error"):
+            return  # nada mudou — evita save redundante
+        new_data = {**data, "delivery_fee_q": effective_fee_q}
         new_data.pop("delivery_zone_error", None)
         session.data = new_data
         session.save(update_fields=["data"])
+
+    @staticmethod
+    def _effective_fee_q(zone_fee_q: int, session: Any) -> int:
+        """Apply the free-delivery threshold to the zone fee."""
+        from shopman.shop.projections.cart import shop_rule_q
+
+        free_above_q = shop_rule_q("free_delivery_above_q")
+        if not free_above_q:
+            return zone_fee_q
+        subtotal_q = sum(
+            item.get("line_total_q", 0)
+            for item in (session.items or [])
+            if item.get("sku") != "__DELIVERY_FEE__"
+            and (item.get("meta") or {}).get("type") != "delivery_fee"
+        )
+        return 0 if subtotal_q >= free_above_q else zone_fee_q
 
 
 class LoyaltyRedeemModifier:

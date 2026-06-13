@@ -136,6 +136,14 @@ export interface MinimumOrderProgressProjection {
   remaining_display: string
 }
 
+export interface FreeDeliveryProgressProjection {
+  threshold_q: number
+  remaining_q: number
+  percent: number
+  threshold_display: string
+  remaining_display: string
+}
+
 export interface CartItemProjection {
   line_id: string
   sku: string
@@ -184,6 +192,8 @@ export interface CartProjection {
   has_awaiting_confirmation_items: boolean
   has_ready_for_confirmation_items: boolean
   minimum_order_progress: MinimumOrderProgressProjection | null
+  delivery_minimum_progress: MinimumOrderProgressProjection | null
+  free_delivery_progress: FreeDeliveryProgressProjection | null
   upsell: { sku: string, name: string, unit_price_q: number, price_display: string, image_url: string | null } | null
   actions: Action[]
 }

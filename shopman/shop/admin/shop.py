@@ -104,6 +104,30 @@ def _shop_defaults(instance: Shop) -> dict:
     return defaults if isinstance(defaults, dict) else {}
 
 
+def _q_to_reais(value_q) -> Decimal | None:
+    """Cents → Reais for the admin field initial (``0``/empty → blank)."""
+    try:
+        cents = int(value_q)
+    except (TypeError, ValueError):
+        return None
+    return (Decimal(cents) / 100) if cents else None
+
+
+def _reais_to_q(value) -> int:
+    """Reais → cents for persistence (``None``/blank → ``0`` = policy off)."""
+    if value is None:
+        return 0
+    return int((Decimal(value) * 100).to_integral_value())
+
+
+# Shop.defaults["rules"] policies edited as typed Reais fields → stored as cents.
+DEFAULTS_RULE_Q_FIELDS = (
+    ("defaults_rules_minimum_order_q", "minimum_order_q"),
+    ("defaults_rules_delivery_minimum_q", "delivery_minimum_q"),
+    ("defaults_rules_free_delivery_above_q", "free_delivery_above_q"),
+)
+
+
 def _defaults_form_fields() -> dict[str, forms.Field]:
     fields: dict[str, forms.Field] = {
         "defaults_notifications_backend": forms.ChoiceField(
@@ -118,6 +142,33 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             min_value=0,
             max_value=365,
             widget=UnfoldAdminIntegerFieldWidget,
+        ),
+        "defaults_rules_minimum_order_q": forms.DecimalField(
+            label="Pedido mínimo geral (R$)",
+            required=False,
+            min_value=Decimal("0"),
+            max_digits=8,
+            decimal_places=2,
+            widget=UnfoldAdminDecimalFieldWidget,
+            help_text="Mínimo para finalizar qualquer pedido. 0 ou vazio = sem mínimo.",
+        ),
+        "defaults_rules_delivery_minimum_q": forms.DecimalField(
+            label="Pedido mínimo para entrega (R$)",
+            required=False,
+            min_value=Decimal("0"),
+            max_digits=8,
+            decimal_places=2,
+            widget=UnfoldAdminDecimalFieldWidget,
+            help_text="Mínimo só para entrega (retirada nunca tem mínimo). 0 ou vazio = sem mínimo.",
+        ),
+        "defaults_rules_free_delivery_above_q": forms.DecimalField(
+            label="Frete grátis acima de (R$)",
+            required=False,
+            min_value=Decimal("0"),
+            max_digits=8,
+            decimal_places=2,
+            widget=UnfoldAdminDecimalFieldWidget,
+            help_text="Taxa de entrega zera a partir deste valor. 0 ou vazio = desligado.",
         ),
         "defaults_pickup_rounding_minutes": forms.IntegerField(
             label="Arredondamento dos horários",
@@ -453,6 +504,10 @@ class ShopForm(forms.ModelForm):
         self.fields["defaults_high_demand_multiplier"].initial = defaults.get("high_demand_multiplier")
         self.fields["defaults_safety_stock_percent"].initial = defaults.get("safety_stock_percent")
 
+        rules = defaults.get("rules") if isinstance(defaults.get("rules"), dict) else {}
+        for field_name, key in DEFAULTS_RULE_Q_FIELDS:
+            self.fields[field_name].initial = _q_to_reais(rules.get(key))
+
         pickup_slots = defaults.get("pickup_slots") if isinstance(defaults.get("pickup_slots"), list) else []
         for index, slot in enumerate(pickup_slots[:DEFAULTS_PICKUP_SLOT_ROWS], start=1):
             if not isinstance(slot, dict):
@@ -668,6 +723,12 @@ class ShopForm(forms.ModelForm):
             else:
                 defaults[key] = str(value)
 
+        rules = defaults.get("rules") if isinstance(defaults.get("rules"), dict) else {}
+        rules = dict(rules)
+        for field_name, key in DEFAULTS_RULE_Q_FIELDS:
+            rules[key] = _reais_to_q(self.cleaned_data.get(field_name))
+        defaults["rules"] = rules
+
         return defaults
 
 
@@ -778,6 +839,19 @@ class ShopAdmin(ModelAdmin):
             "description": (
                 "Configurações gravadas em Shop.defaults, editadas como campos estruturados. "
                 "As coleções dinâmicas vêm do registry canônico do core; a posição define a ordem."
+            ),
+        }),
+        ("Defaults de negócio — pedido e entrega", {
+            "fields": (
+                "defaults_rules_minimum_order_q",
+                "defaults_rules_delivery_minimum_q",
+                "defaults_rules_free_delivery_above_q",
+            ),
+            "classes": ("collapse",),
+            "description": (
+                "Políticas em Reais gravadas em Shop.defaults.rules (centavos). "
+                "0 ou vazio desliga a regra. O mínimo de entrega e o frete grátis "
+                "valem só para entrega; a taxa por região fica nas Zonas de Entrega."
             ),
         }),
         ("Defaults de negócio — retirada e encomendas", {

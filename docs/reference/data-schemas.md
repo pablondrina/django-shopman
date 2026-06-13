@@ -27,7 +27,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `outside_business_hours` | `bool` | BusinessHoursRule (validation) | CheckoutView, CommitService | `True` se pedido feito fora do horário. Não bloqueia checkout — apenas flag informativa |
 | `delivery_address_structured` | `dict` | CheckoutView (`set_data`) | CommitService | Endereço estruturado do Google Places: `{route, street_number, complement, neighborhood, city, state_code, postal_code, place_id, formatted_address, delivery_instructions, is_verified, latitude, longitude}` |
 | `payment` | `dict` | CheckoutView (`set_data`), POS, API | CommitService, hooks, handlers | Dados de pagamento iniciais: `{method}`. Enriquecido por handlers pós-commit (intent_ref, status, etc.) |
-| `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
+| `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega efetiva em centavos. 0 = grátis (zona grátis ou subtotal ≥ `rules.free_delivery_above_q`). Só presente quando `fulfillment_type == "delivery"` e zona encontrada. Reavaliada a cada passagem dos modifiers (depende do subtotal) |
 | `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
 | `stock_check_unavailable` | `list[dict]` | `lifecycle._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
@@ -624,7 +624,6 @@ Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem pas
 |-------|----------|-----------|
 | `cutoff_hour` | CheckoutView._get_cutoff_info | Hora de corte para pedidos do dia (default 18) |
 | `rules.d1_discount_percent` | D1DiscountModifier, product_cards | Percentual de desconto D-1 |
-| `rules.minimum_order_q` | product_cards.minimum_order_progress | Valor mínimo de pedido (centavos) |
 
 ### Presets
 
@@ -658,9 +657,29 @@ uma chave específica herdam a da loja.
 {
   "confirmation": {"mode": "auto_confirm", "timeout_minutes": 10},
   "stock": {"hold_ttl_minutes": 30, "safety_margin": 2},
-  "notifications": {"backend": "manychat", "fallback_chain": ["sms"]}
+  "notifications": {"backend": "manychat", "fallback_chain": ["sms"]},
+  "rules": {"minimum_order_q": 0, "delivery_minimum_q": 2500, "free_delivery_above_q": 0}
 }
 ```
+
+### Políticas de pedido/entrega — `Shop.defaults["rules"]`
+
+Valores em centavos (`_q`). **Semântica única: `0`/ausente = regra desligada** (sem
+fallback mágico). Fonte única consumida pelo aviso ao vivo (projections) e pelo
+gate de commit. Editáveis tipados em Reais no ShopAdmin (`shop/admin/shop.py`).
+
+| Chave | Aplica a | Lido por | Descrição |
+|-------|----------|----------|-----------|
+| `rules.minimum_order_q` | todo pedido | `build_minimum_order_progress`, `can_checkout` | Mínimo geral para finalizar. Barra de progresso + bloqueio do checkout |
+| `rules.delivery_minimum_q` | só entrega | `build_delivery_minimum_progress`, `DeliveryZoneRule` (commit), POS | Mínimo só para entrega (retirada nunca tem). Aviso no passo de entrega + bloqueio do commit |
+| `rules.free_delivery_above_q` | só entrega | `build_free_delivery_progress`, `DeliveryFeeModifier` | Taxa de entrega zera no/above deste valor. Reusa a barra como upsell ("faltam X para frete grátis") |
+
+> Convivem no mesmo sub-dict `rules` que o tri-state `validators`/`modifiers`/
+> `checks` do `ChannelConfig` — o `_safe_init` filtra estas chaves de política, que
+> são lidas direto de `shop.defaults["rules"]` por `shop_rule_q()`.
+
+A taxa de entrega por região segue nas **Zonas de Entrega** (`DeliveryZone`, inline
+no admin). O frete grátis global é avaliado por cima da taxa da zona.
 
 ---
 

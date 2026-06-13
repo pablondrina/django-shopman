@@ -17,9 +17,9 @@ def _isolate_rules_state():
       and the singleton ``Shop`` under ``SHOP_CACHE_KEY``. A test that creates a
       ``Shop`` (rolled back afterwards) leaves a stale instance cached for the
       next test's ``Shop.load()``.
-    * ``shopman.orderman`` registers validator *instances* (e.g. a delivery
-      ``minimum_order`` with custom params) in an in-process registry; a test
-      that registers one leaves it grabbed for every later test.
+    * ``shopman.orderman`` registers validator *instances* (e.g. a
+      ``business_hours`` rule with custom params) in an in-process registry; a
+      test that registers one leaves it grabbed for every later test.
     * ``shopman.shop.rules.engine._bootstrapped`` is a module-level flag set once
       by ``bootstrap_active_rules()`` and never reset, so a test that triggers a
       bootstrap blocks re-bootstrap for every later test.

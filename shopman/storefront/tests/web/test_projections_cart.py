@@ -215,22 +215,20 @@ class TestAvailabilityOwnHoldCorrection:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _set_shop_rules(**rules_q):
+    """Set ``shop.defaults.rules`` cents policies for one test."""
+    from shopman.shop.models import Shop
+
+    shop = Shop.load()
+    shop.defaults = shop.defaults or {}
+    shop.defaults.setdefault("rules", {}).update(rules_q)
+    shop.save(update_fields=["defaults"])
+
+
 class TestMinimumOrderProgress:
-    def test_progress_shown_when_rule_active(
-        self, cart_session, channel, settings,
-    ):
-        # Activate the shop.minimum_order validator on the channel config.
-        channel.config = channel.config or {}
-        channel.config.setdefault("rules", {})["validators"] = ["shop.minimum_order"]
-        channel.save(update_fields=["config"])
-
-        # Bump the shop default to R$ 50,00 (5000q); the cart is R$ 1,80 → way below.
-        from shopman.shop.models import Shop
-
-        shop = Shop.load()
-        shop.defaults = shop.defaults or {}
-        shop.defaults.setdefault("rules", {})["minimum_order_q"] = 5000
-        shop.save(update_fields=["defaults"])
+    def test_progress_shown_when_minimum_set(self, cart_session):
+        # Set the general minimum to R$ 50,00 (5000q); the cart is R$ 1,80 → way below.
+        _set_shop_rules(minimum_order_q=5000)
 
         request = _request_with_cart_session(cart_session)
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
@@ -246,13 +244,9 @@ class TestMinimumOrderProgress:
         assert checkout.enabled is False
         assert checkout.reason == f"Faltam {progress.remaining_display} para o pedido mínimo."
 
-    def test_no_progress_when_rule_inactive(self, cart_session):
-        # Explicitly disable validators on the channel ([] = run none).
-        from shopman.shop.models import Channel
-        channel = Channel.objects.get(ref=STOREFRONT_CHANNEL_REF)
-        channel.config = channel.config or {}
-        channel.config.setdefault("rules", {})["validators"] = []
-        channel.save(update_fields=["config"])
+    def test_no_progress_when_minimum_off(self, cart_session):
+        # 0/absent = no minimum (footgun fixed: no magic R$ 10,00 fallback).
+        _set_shop_rules(minimum_order_q=0)
 
         request = _request_with_cart_session(cart_session)
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
@@ -260,6 +254,44 @@ class TestMinimumOrderProgress:
         checkout = next(action for action in proj.actions if action.ref == "checkout")
         assert checkout.enabled is True
         assert checkout.reason == ""
+
+
+class TestDeliveryMinimumProgress:
+    def test_progress_shown_when_below(self, cart_session):
+        _set_shop_rules(delivery_minimum_q=5000)
+
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.delivery_minimum_progress is not None
+        assert proj.delivery_minimum_progress.minimum_q == 5000
+        # General checkout is NOT blocked by the delivery-only minimum.
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.enabled is True
+
+    def test_none_when_off(self, cart_session):
+        _set_shop_rules(delivery_minimum_q=0)
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.delivery_minimum_progress is None
+
+
+class TestFreeDeliveryProgress:
+    def test_progress_shown_when_below(self, cart_session):
+        _set_shop_rules(free_delivery_above_q=5000)
+
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.free_delivery_progress is not None
+        assert proj.free_delivery_progress.threshold_q == 5000
+        assert proj.free_delivery_progress.remaining_q == 5000 - proj.subtotal_q
+
+    def test_none_when_off(self, cart_session):
+        _set_shop_rules(free_delivery_above_q=0)
+        request = _request_with_cart_session(cart_session)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.free_delivery_progress is None
 
 
 # ──────────────────────────────────────────────────────────────────────
