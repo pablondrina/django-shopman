@@ -169,13 +169,22 @@ function resetDraft () {
 
 // ── Busca unificada ────────────────────────────────────────────────────
 
-async function focusSearch () {
-  await nextTick()
-  searchInput.value?.$el?.querySelector?.('input')?.focus?.()
-  ;(searchInput.value as any)?.focus?.()
+// Refs de UiInput/UiInputGroupInput apontam para o componente; o elemento
+// nativo é o próprio $el (root do UiInput) ou o exposed inputRef.
+function focusUiInput (target: any) {
+  const native = target?.inputRef?.value
+    || (target?.$el?.tagName === 'INPUT' ? target.$el : target?.$el?.querySelector?.('input'))
+  native?.focus?.()
 }
 
-function onQueryInput () {
+async function focusSearch () {
+  await nextTick()
+  focusUiInput(searchInput.value)
+}
+
+function onQueryInput (event: Event) {
+  const input = event.target as HTMLInputElement | null
+  if (input) query.value = input.value
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { void runSearch(query.value) }, 300)
 }
@@ -296,8 +305,7 @@ function applyPartial (partial: Partial<AddressDraft>) {
 async function focusGuided () {
   await nextTick()
   const target = nextFocusAfterSuggestion(draft) === 'street_number' ? numberInput.value : complementInput.value
-  target?.$el?.querySelector?.('input')?.focus?.()
-  ;(target as any)?.focus?.()
+  focusUiInput(target)
 }
 
 function startManualEntry () {
@@ -421,7 +429,7 @@ function onCepInput () {
 
 function addressApiPayload (): Record<string, unknown> {
   const payload: Record<string, unknown> = {
-    formatted_address: draft.formatted_address || composedAddressLine(draft as AddressDraft),
+    formatted_address: composedAddressLine(draft as AddressDraft) || draft.formatted_address,
     route: draft.route.trim(),
     street_number: draft.street_number.trim(),
     neighborhood: draft.neighborhood.trim(),

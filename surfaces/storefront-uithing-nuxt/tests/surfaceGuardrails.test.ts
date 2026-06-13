@@ -295,6 +295,21 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('continueFromAddress')
     expect(checkout).toContain('continueFromWhen')
     expect(checkout).toContain('continueFromPayment')
+
+    // ADDRESS-UX-PLAN: o passo de endereço é o AddressPicker canônico —
+    // sem input livre de endereço, sem radio duplicado no checkout.
+    const addressPicker = read('app/components/AddressPicker.vue')
+    expect(checkout).toContain('<AddressPicker')
+    expect(checkout).toContain('v-model:selection="addressSelection"')
+    expect(checkout).not.toContain('id="checkout-address"')
+    expect(checkout).not.toContain('geocodeHere')
+    expect(addressPicker).toContain("from '~/presentation/address'")
+    expect(addressPicker).toContain('data-address-search')
+    expect(addressPicker).toContain('data-address-locate')
+    expect(addressPicker).toContain('data-address-geo-candidate')
+    expect(addressPicker).toContain('data-address-adjust-map')
+    expect(addressPicker).toContain('data-address-label-sheet')
+    expect(addressPicker).toContain('Agora não')
     expect(checkout).toContain('fieldErrors.delivery_date')
     expect(checkout).toContain('state.delivery_date = localDateValue(today)')
     expect(checkout).not.toContain("type Step = 'identity'")

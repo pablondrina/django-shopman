@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { CheckoutMutationResponse, CheckoutResponse, SavedAddressProjection, StructuredAddressProjection } from '~/types/shopman'
+import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
+import type { AddressSelection } from '~/presentation/address'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
   addressSummary as buildAddressSummary,
@@ -66,7 +67,7 @@ const submitting = ref(false)
 const serverError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
-const locating = ref(false)
+const addressSelection = ref<AddressSelection | null>(null)
 const confirmOpen = ref(false)
 const receiptOpen = ref(false)
 const datePopoverOpen = ref(false)
@@ -164,11 +165,25 @@ watch(() => checkout.value, value => {
   if (!fulfillments.includes(state.fulfillment_type)) {
     state.fulfillment_type = fulfillments[0] || 'pickup'
   }
-  if (state.saved_address_id == null && value.preselected_address_id) {
-    pickSavedAddress(value.preselected_address_id)
-  }
   reconcileDeliverySlot()
 }, { immediate: true })
+
+// O AddressPicker é o dono do passo de endereço: a seleção dele (salvo ou
+// novo) é a única fonte do que vai no payload do checkout. Flush síncrono:
+// o picker emite a seleção e o "confirmed" na mesma chamada — a validação
+// do avanço lê o state imediatamente.
+watch(addressSelection, selection => {
+  state.saved_address_id = selection?.savedAddressId ?? null
+  state.delivery_address = selection?.formattedAddress || ''
+  state.delivery_address_structured = selection?.structured || {}
+  state.delivery_complement = selection?.complement || ''
+  state.delivery_instructions = selection?.deliveryInstructions || ''
+  if (selection && fieldErrors.value.delivery_address) {
+    const errors = { ...fieldErrors.value }
+    delete errors.delivery_address
+    fieldErrors.value = errors
+  }
+}, { flush: 'sync' })
 
 watch(chosenDate, value => {
   if (!value) {
@@ -235,38 +250,6 @@ function goToStep (step: Step) {
 
 const paymentIcon = resolvePaymentIcon
 
-function pickSavedAddress (id: number) {
-  const address = savedAddresses.value.find(candidate => candidate.id === id)
-  state.saved_address_id = id
-  if (!address) return
-  state.delivery_address = address.formatted_address
-  state.delivery_complement = address.complement || ''
-  state.delivery_instructions = address.delivery_instructions || ''
-  state.delivery_address_structured = addressToStructured(address)
-}
-
-function addressToStructured (address: SavedAddressProjection): StructuredAddressProjection {
-  return {
-    formatted_address: address.formatted_address,
-    route: address.route,
-    street_number: address.street_number,
-    neighborhood: address.neighborhood,
-    city: address.city,
-    state_code: address.state_code,
-    postal_code: address.postal_code,
-    latitude: address.latitude,
-    longitude: address.longitude,
-    place_id: address.place_id
-  }
-}
-
-function useManualAddress () {
-  state.saved_address_id = null
-  state.delivery_address_structured = {
-    formatted_address: state.delivery_address
-  }
-}
-
 function validateContact (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.name
@@ -297,7 +280,7 @@ function validateFulfillmentStep (): boolean {
 function validateAddressStep (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.delivery_address
-  if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) errors.delivery_address = 'Informe o endereço.'
+  if (state.fulfillment_type === 'delivery' && !state.delivery_address.trim()) errors.delivery_address = 'Escolha ou informe o endereço de entrega.'
   fieldErrors.value = errors
   if (errors.delivery_address) {
     activeStep.value = 'address'
@@ -367,36 +350,6 @@ function openConfirmSheet () {
 
 function openReceiptSheet () {
   receiptOpen.value = true
-}
-
-async function geocodeHere () {
-  if (!import.meta.client || !navigator.geolocation) {
-    serverError.value = 'Geolocalização não está disponível neste dispositivo.'
-    return
-  }
-  locating.value = true
-  serverError.value = ''
-  try {
-    const coords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(position => resolve(position.coords), reject, {
-        enableHighAccuracy: true,
-        timeout: 10000
-      })
-    })
-    const result = await $fetch<StructuredAddressProjection>(apiPath('/api/v1/geocode/reverse/'), {
-      method: 'POST',
-      headers: await csrfHeaders(),
-      credentials: 'include',
-      body: { lat: coords.latitude, lng: coords.longitude }
-    })
-    state.saved_address_id = null
-    state.delivery_address_structured = result
-    state.delivery_address = result.formatted_address || compactText([result.route, result.street_number, result.neighborhood, result.city], ', ')
-  } catch (e: any) {
-    serverError.value = e?.data?.detail || 'Não foi possível resolver sua localização.'
-  } finally {
-    locating.value = false
-  }
 }
 
 function validate (): boolean {
@@ -582,47 +535,17 @@ useSeoMeta({
               body-class="space-y-4"
               @edit="goToStep('address')"
             >
-              <UiRadioGroup
-                v-if="savedAddresses.length"
-                v-model="state.saved_address_id"
-                class="grid gap-2"
-                @update:model-value="pickSavedAddress(Number($event))"
-              >
-                <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`checkout-address-${address.id}`">
-                  <UiField orientation="horizontal">
-                    <UiRadioGroupItem :id="`checkout-address-${address.id}`" :value="address.id" />
-                    <UiFieldContent>
-                      <UiFieldTitle>
-                        <Icon name="lucide:map-pin-house" class="size-4" />
-                        {{ address.label }}
-                      </UiFieldTitle>
-                      <UiFieldDescription>{{ address.formatted_address }}</UiFieldDescription>
-                    </UiFieldContent>
-                  </UiField>
-                </UiFieldLabel>
-              </UiRadioGroup>
-
-              <div class="space-y-2">
-                <UiLabel for="checkout-address">Endereço</UiLabel>
-                <UiInput id="checkout-address" v-model="state.delivery_address" @blur="useManualAddress" />
-                <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
-              </div>
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="space-y-2">
-                  <UiLabel for="checkout-complement">Complemento</UiLabel>
-                  <UiInput id="checkout-complement" v-model="state.delivery_complement" />
-                </div>
-                <div class="space-y-2">
-                  <UiLabel for="checkout-instructions">Instruções</UiLabel>
-                  <UiInput id="checkout-instructions" v-model="state.delivery_instructions" />
-                </div>
-              </div>
-              <UiButton variant="outline" icon="lucide:locate-fixed" :loading="locating" @click="geocodeHere">
-                Usar minha localização
-              </UiButton>
-              <template #footer>
+              <AddressPicker
+                v-model:selection="addressSelection"
+                context="checkout"
+                :saved-addresses="savedAddresses"
+                :preselected-id="checkout.preselected_address_id"
+                @confirmed="continueFromAddress"
+              />
+              <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
+              <template v-if="addressSelection" #footer>
                 <div class="border-t bg-muted/30 p-4 sm:p-5">
-                  <UiButton class="w-full" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
+                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
                   </UiButton>
                 </div>

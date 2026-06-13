@@ -114,12 +114,18 @@ function componentText (components: GoogleAddressComponent[], types: string[], s
   return ''
 }
 
+// Consultas de CEP devolvem faixa ("1-494") como street_number — não é um
+// número de porta; melhor deixar vazio e o foco guiado pedir o número.
+function cleanStreetNumber (value: string): string {
+  return /^\d+\s*-\s*\d+$/.test(value.trim()) ? '' : value
+}
+
 export function draftFromGooglePlace (place: GooglePlaceFields): Partial<AddressDraft> {
   const components = place.addressComponents || []
   return {
     formatted_address: place.formattedAddress || '',
     route: componentText(components, ['route']),
-    street_number: componentText(components, ['street_number']),
+    street_number: cleanStreetNumber(componentText(components, ['street_number'])),
     neighborhood: componentText(components, ['sublocality_level_1', 'sublocality', 'neighborhood']),
     city: componentText(components, ['administrative_area_level_2', 'locality']),
     state_code: componentText(components, ['administrative_area_level_1'], true),
@@ -181,8 +187,10 @@ export function draftSummaryLine (draft: AddressDraft): string {
 }
 
 export function structuredFromDraft (draft: AddressDraft): StructuredAddressProjection {
+  // A linha formatada é recomposta dos campos atuais — o formatted do Google
+  // fica obsoleto assim que o cliente edita número/complemento.
   const structured: StructuredAddressProjection = {
-    formatted_address: draft.formatted_address || composedAddressLine(draft),
+    formatted_address: composedAddressLine(draft) || draft.formatted_address,
     route: draft.route.trim(),
     street_number: draft.street_number.trim(),
     neighborhood: draft.neighborhood.trim(),
@@ -239,7 +247,7 @@ export function selectionFromSavedAddress (address: SavedAddressProjection): Add
 export function selectionFromDraft (draft: AddressDraft, savedAddressId: number | null = null): AddressSelection {
   return {
     savedAddressId,
-    formattedAddress: draft.formatted_address || composedAddressLine(draft),
+    formattedAddress: composedAddressLine(draft) || draft.formatted_address,
     structured: structuredFromDraft(draft),
     complement: draft.complement.trim(),
     deliveryInstructions: draft.delivery_instructions.trim()

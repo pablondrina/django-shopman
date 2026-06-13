@@ -127,6 +127,17 @@ describe('draftFromGooglePlace', () => {
     })
   })
 
+  it('drops range artifacts ("1-494") that CEP lookups return as street number', () => {
+    const partial = draftFromGooglePlace({
+      addressComponents: [
+        { longText: '1-494', shortText: '1-494', types: ['street_number'] },
+        { longText: 'Rua Guaporé', shortText: 'R. Guaporé', types: ['route'] }
+      ]
+    })
+    expect(partial.street_number).toBe('')
+    expect(partial.route).toBe('Rua Guaporé')
+  })
+
   it('degrades to empty fields when components are missing', () => {
     const partial = draftFromGooglePlace({ formattedAddress: 'Algum lugar' })
     expect(partial.route).toBe('')
@@ -206,6 +217,11 @@ describe('structured payload', () => {
     expect(located.latitude).toBe(-23.31)
     expect(located.longitude).toBe(-51.16)
     expect(located.place_id).toBe('p1')
+  })
+
+  it('recomposes the formatted line from the current fields — the Google one goes stale after edits', () => {
+    const structured = structuredFromDraft(filledDraft({ formatted_address: 'R. Guaporé, 1-494 - Centro, Londrina' }))
+    expect(structured.formatted_address).toBe('R. das Flores, 123 - Jardim - Londrina/PR')
   })
 
   it('falls back to the composed line when there is no formatted address', () => {
