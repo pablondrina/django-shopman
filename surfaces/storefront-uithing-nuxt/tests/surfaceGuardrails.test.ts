@@ -675,26 +675,25 @@ describe('surface UX guardrails', () => {
     expect(account).not.toContain('class="flex items-center justify-between rounded-lg border p-3"')
   })
 
-  it('lets authenticated customers add and edit addresses with UI Thing form controls', () => {
+  it('lets authenticated customers manage addresses through the canonical AddressPicker', () => {
     const account = read('app/pages/account.vue')
 
     expect(account).toContain("apiPath('/api/v1/account/addresses/')")
     expect(account).toContain('refresh: refreshAddresses')
     expect(account).toContain('openCreateAddress')
     expect(account).toContain('openEditAddress(address)')
-    expect(account).toContain('saveAddress')
-    expect(account).toContain('addressPayload')
     expect(account).toContain('setDefaultAddress(address)')
     expect(account).toContain('askDeleteAddress(address)')
     expect(account).toContain('deleteAddress')
-    expect(account).toContain("method: 'POST'")
-    expect(account).toContain("method: 'PATCH'")
     expect(account).toContain("method: 'DELETE'")
     expect(account).toContain('<UiSheet v-model:open="addressSheetOpen">')
     expect(account).toContain('<UiAlertDialog v-model:open="addressDeleteOpen">')
-    expect(account).toContain('<UiSelect v-model="addressForm.label">')
-    expect(account).toContain('<UiTextarea')
-    expect(account).toContain('<UiSwitch id="account-address-default"')
+    // ADDRESS-UX-PLAN: componente único — a conta não duplica formulário.
+    expect(account).toContain('<AddressPicker')
+    expect(account).toContain('context="account"')
+    expect(account).toContain(':editing-address="addressEditing"')
+    expect(account).not.toContain('addressForm')
+    expect(account).not.toContain('saveAddress')
     expect(account).toContain('Adicionar endereço')
     expect(account).toContain('Editar endereço')
     expect(account).not.toMatch(/<(button|input|select|textarea)\b/)

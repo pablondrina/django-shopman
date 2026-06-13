@@ -89,9 +89,7 @@ const revokeDeviceCandidate = ref<AccountDeviceProjection | null>(null)
 const revokeDevicePending = ref(false)
 const addressSheetOpen = ref(false)
 const addressMode = ref<AddressMode>('create')
-const addressEditingId = ref<number | null>(null)
-const addressOriginalFormatted = ref('')
-const addressPending = ref(false)
+const addressEditing = ref<SavedAddressProjection | null>(null)
 const addressIssue = ref('')
 const addressDeleteOpen = ref(false)
 const addressDeleteCandidate = ref<SavedAddressProjection | null>(null)
@@ -102,14 +100,6 @@ const profileForm = reactive({
   last_name: '',
   email: '',
   birthday: ''
-})
-const addressForm = reactive({
-  label: 'home',
-  label_custom: '',
-  formatted_address: '',
-  complement: '',
-  delivery_instructions: '',
-  is_default: false
 })
 
 const { data: auth } = await useFetch<AuthSessionResponse>(apiPath('/api/auth/session/'), {
@@ -311,91 +301,24 @@ function deviceIcon (label: string) {
   return 'lucide:monitor'
 }
 
-function resetAddressForm () {
-  addressForm.label = 'home'
-  addressForm.label_custom = ''
-  addressForm.formatted_address = ''
-  addressForm.complement = ''
-  addressForm.delivery_instructions = ''
-  addressForm.is_default = !(addresses.value || []).length
-  addressEditingId.value = null
-  addressOriginalFormatted.value = ''
-  addressIssue.value = ''
-}
-
 function openCreateAddress () {
   addressMode.value = 'create'
-  resetAddressForm()
+  addressEditing.value = null
+  addressIssue.value = ''
   addressSheetOpen.value = true
 }
 
 function openEditAddress (address: SavedAddressProjection) {
   addressMode.value = 'edit'
-  addressEditingId.value = address.id
-  addressOriginalFormatted.value = address.formatted_address || ''
-  addressForm.label = address.label_key || 'home'
-  addressForm.label_custom = address.label_custom || ''
-  addressForm.formatted_address = address.formatted_address || ''
-  addressForm.complement = address.complement || ''
-  addressForm.delivery_instructions = address.delivery_instructions || ''
-  addressForm.is_default = !!address.is_default
+  addressEditing.value = address
   addressIssue.value = ''
   addressSheetOpen.value = true
 }
 
-function addressPayload () {
-  const formattedAddress = addressForm.formatted_address.trim()
-  const payload: Record<string, unknown> = {
-    label: addressForm.label,
-    label_custom: addressForm.label === 'other' ? addressForm.label_custom.trim() : '',
-    formatted_address: formattedAddress,
-    complement: addressForm.complement.trim(),
-    delivery_instructions: addressForm.delivery_instructions.trim(),
-    is_default: addressForm.is_default
-  }
-  if (addressMode.value === 'create' || formattedAddress !== addressOriginalFormatted.value.trim()) {
-    payload.place_id = null
-  }
-  return payload
-}
-
-async function saveAddress () {
-  if (addressPending.value) return
-  if (!addressForm.formatted_address.trim()) {
-    addressIssue.value = 'Informe o endereço.'
-    return
-  }
-  if (addressForm.label === 'other' && !addressForm.label_custom.trim()) {
-    addressIssue.value = 'Dê um nome para este endereço.'
-    return
-  }
-
-  addressPending.value = true
-  addressIssue.value = ''
-  try {
-    const body = addressPayload()
-    if (addressMode.value === 'edit' && addressEditingId.value) {
-      await $fetch(apiPath(`/api/v1/account/addresses/${encodeURIComponent(addressEditingId.value)}/`), {
-        method: 'PATCH',
-        headers: await csrfHeaders(),
-        credentials: 'include',
-        body
-      })
-    } else {
-      await $fetch(apiPath('/api/v1/account/addresses/'), {
-        method: 'POST',
-        headers: await csrfHeaders(),
-        credentials: 'include',
-        body
-      })
-    }
-    await refreshAddresses()
-    addressSheetOpen.value = false
-  } catch (e: any) {
-    addressIssue.value = e?.data?.detail || 'Não foi possível salvar o endereço agora.'
-  } finally {
-    addressPending.value = false
-  }
+async function onAddressDone () {
+  await refreshAddresses()
+  addressSheetOpen.value = false
+  addressEditing.value = null
 }
 
 async function setDefaultAddress (address: SavedAddressProjection) {
@@ -778,9 +701,9 @@ useSeoMeta({
                       </UiFieldContent>
                       <UiSwitch
                         :id="`food-pref-${pref.key}`"
-                        :checked="pref.is_active"
+                        :model-value="pref.is_active"
                         :disabled="!!preferencePending[pref.key]"
-                        @update:checked="toggleFood(pref)"
+                        @update:model-value="toggleFood(pref)"
                       />
                     </UiField>
                   </UiFieldGroup>
@@ -799,9 +722,9 @@ useSeoMeta({
                       </UiFieldContent>
                       <UiSwitch
                         :id="`notification-pref-${pref.key}`"
-                        :checked="pref.enabled"
+                        :model-value="pref.enabled"
                         :disabled="!!preferencePending[pref.key]"
-                        @update:checked="toggleNotification(pref)"
+                        @update:model-value="toggleNotification(pref)"
                       />
                     </UiField>
                   </UiFieldGroup>
@@ -882,69 +805,15 @@ useSeoMeta({
             <UiSheetDescription>{{ addressSheetDescription }}</UiSheetDescription>
           </UiSheetHeader>
 
-          <form class="space-y-4 px-4 pb-4" @submit.prevent="saveAddress">
-            <UiAlert v-if="addressIssue" variant="destructive">
-              <UiAlertTitle>Revise o endereço</UiAlertTitle>
-              <UiAlertDescription>{{ addressIssue }}</UiAlertDescription>
-            </UiAlert>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-              <UiField>
-                <UiFieldLabel for="account-address-label">Tipo</UiFieldLabel>
-                <UiSelect v-model="addressForm.label">
-                  <UiSelectTrigger id="account-address-label" />
-                  <UiSelectContent>
-                    <UiSelectItem value="home">Casa</UiSelectItem>
-                    <UiSelectItem value="work">Trabalho</UiSelectItem>
-                    <UiSelectItem value="other">Outro</UiSelectItem>
-                  </UiSelectContent>
-                </UiSelect>
-              </UiField>
-
-              <UiField v-if="addressForm.label === 'other'">
-                <UiFieldLabel for="account-address-label-custom">Nome do endereço</UiFieldLabel>
-                <UiInput id="account-address-label-custom" v-model="addressForm.label_custom" placeholder="Ex: Casa da mãe" />
-              </UiField>
-            </div>
-
-            <UiField>
-              <UiFieldLabel for="account-address-formatted">Endereço</UiFieldLabel>
-              <UiTextarea
-                id="account-address-formatted"
-                v-model="addressForm.formatted_address"
-                :rows="3"
-                placeholder="Rua, número, bairro, cidade"
-                required
-              />
-              <UiFieldDescription>Use o endereço completo para evitar confirmação manual no checkout.</UiFieldDescription>
-            </UiField>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <UiField>
-                <UiFieldLabel for="account-address-complement">Complemento</UiFieldLabel>
-                <UiInput id="account-address-complement" v-model="addressForm.complement" placeholder="Apto, bloco, referência" />
-              </UiField>
-              <UiField>
-                <UiFieldLabel for="account-address-instructions">Instruções de entrega</UiFieldLabel>
-                <UiInput id="account-address-instructions" v-model="addressForm.delivery_instructions" placeholder="Portaria, interfone, melhor acesso" />
-              </UiField>
-            </div>
-
-            <UiField orientation="horizontal">
-              <UiFieldContent>
-                <UiFieldLabel for="account-address-default">Usar como padrão</UiFieldLabel>
-                <UiFieldDescription>Este endereço aparece primeiro na próxima compra.</UiFieldDescription>
-              </UiFieldContent>
-              <UiSwitch id="account-address-default" v-model="addressForm.is_default" />
-            </UiField>
-
-            <UiSheetFooter class="px-0">
-              <UiButton type="button" variant="ghost" :disabled="addressPending" @click="addressSheetOpen = false">Cancelar</UiButton>
-              <UiButton type="submit" :loading="addressPending" icon="lucide:check">
-                {{ addressMode === 'create' ? 'Salvar endereço' : 'Salvar alterações' }}
-              </UiButton>
-            </UiSheetFooter>
-          </form>
+          <div class="px-4 pb-4">
+            <AddressPicker
+              :key="addressEditing?.id ?? 'create'"
+              context="account"
+              :editing-address="addressEditing"
+              :initial-is-default="!(addresses || []).length"
+              @done="onAddressDone"
+            />
+          </div>
         </UiSheetContent>
       </UiSheet>
 
