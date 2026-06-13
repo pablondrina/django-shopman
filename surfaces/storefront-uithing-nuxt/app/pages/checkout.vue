@@ -647,6 +647,7 @@ useSeoMeta({
                 :saved-addresses="savedAddresses"
                 :preselected-id="checkout.preselected_address_id"
                 @confirmed="continueFromAddress"
+                @addresses-changed="refresh"
               />
               <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
               <template v-if="addressSelection" #footer>

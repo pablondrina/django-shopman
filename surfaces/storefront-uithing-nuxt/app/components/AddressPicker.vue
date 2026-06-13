@@ -56,6 +56,8 @@ const emit = defineEmits<{
   confirmed: []
   // Conta: criação/edição concluída — o pai fecha o sheet e atualiza a lista.
   done: []
+  // Checkout: um endereço salvo foi editado in-loco — o pai re-busca a lista.
+  'addresses-changed': []
 }>()
 
 const apiPath = useShopmanApiPath()
@@ -65,6 +67,9 @@ const maps = useGoogleMaps()
 type PickerMode = 'saved' | 'search' | 'form'
 
 const isEditing = computed(() => !!props.editingAddress)
+// Edição in-loco de um salvo no checkout (corrigir número/complemento sem sair).
+const editingSavedId = ref<number | null>(null)
+const isEditingForm = computed(() => isEditing.value || editingSavedId.value != null)
 const mode = ref<PickerMode>(initialMode())
 const draft = reactive<AddressDraft>(initialDraft())
 const fieldErrors = ref<Record<string, string>>({})
@@ -150,6 +155,24 @@ function backToSaved () {
   mode.value = 'saved'
   const preselected = resolvePreselectedAddress(props.savedAddresses, selectedSavedId.value ?? props.preselectedId)
   if (preselected) pickSaved(preselected.id)
+}
+
+// Editar um endereço salvo sem sair do checkout (corrigir número/complemento).
+function startEditSaved (address: SavedAddressProjection) {
+  editingSavedId.value = address.id
+  Object.assign(draft, draftFromSavedAddress(address))
+  accountLabel.value = (address.label_key as AddressLabelKey) || 'home'
+  accountLabelCustom.value = address.label_custom || ''
+  isDefault.value = !!address.is_default
+  acceptedLine.value = address.formatted_address || ''
+  fieldErrors.value = {}
+  saveIssue.value = ''
+  mode.value = 'form'
+}
+
+function cancelEdit () {
+  editingSavedId.value = null
+  backToSaved()
 }
 
 function resetDraft () {
@@ -459,12 +482,45 @@ async function confirmDraft () {
     await saveAccountAddress()
     return
   }
+  if (editingSavedId.value) {
+    await saveCheckoutEdit()
+    return
+  }
   // Checkout: NÃO grava no perfil aqui — só carrega o endereço no pedido. O
   // perfil é gravado pelo checkout APÓS o pedido confirmar (a etiqueta vem
   // nesse momento), para endereços fora de zona/abandonados nunca virarem
   // lixo no perfil do cliente.
   emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, null))
   emit('confirmed')
+}
+
+// PATCH de um salvo editado no checkout: persiste, re-seleciona com os dados
+// novos (selection imediata) e pede ao pai pra re-buscar a lista de salvos.
+async function saveCheckoutEdit () {
+  const id = editingSavedId.value
+  if (!id) return
+  saving.value = true
+  try {
+    await $fetch(apiPath(`/api/v1/account/addresses/${encodeURIComponent(id)}/`), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: {
+        ...addressApiPayload(),
+        ...labelPatchPayload(accountLabel.value, accountLabelCustom.value),
+        is_default: isDefault.value
+      }
+    })
+    selectedSavedId.value = id
+    emit('update:selection', selectionFromDraft({ ...(draft as AddressDraft) }, id))
+    emit('addresses-changed')
+    editingSavedId.value = null
+    mode.value = 'saved'
+  } catch (e: any) {
+    saveIssue.value = e?.data?.detail || 'Não foi possível salvar o endereço agora.'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveAccountAddress () {
@@ -522,7 +578,7 @@ function onLabelResolved () {
         data-address-saved-list
         @update:model-value="pickSaved(Number($event))"
       >
-        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`">
+        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`" class="bg-card">
           <UiField orientation="horizontal">
             <UiRadioGroupItem :id="`address-saved-${address.id}`" :value="address.id" />
             <UiFieldContent>
@@ -535,6 +591,15 @@ function onLabelResolved () {
                 {{ address.formatted_address }}<template v-if="address.complement"> · {{ address.complement }}</template>
               </UiFieldDescription>
             </UiFieldContent>
+            <UiButton
+              variant="ghost"
+              size="sm"
+              icon="lucide:pencil"
+              class="-my-1 shrink-0 self-start text-muted-foreground hover:text-foreground"
+              aria-label="Editar este endereço"
+              data-address-edit-saved
+              @click.stop.prevent="startEditSaved(address)"
+            />
           </UiField>
         </UiFieldLabel>
       </UiRadioGroup>
@@ -704,8 +769,8 @@ function onLabelResolved () {
         </div>
       </div>
 
-      <!-- Conta: etiqueta editável inline só na edição (já foi salva antes). -->
-      <template v-if="context === 'account' && isEditing">
+      <!-- Etiqueta editável inline na edição (conta ou salvo do checkout). -->
+      <template v-if="isEditingForm">
         <div class="space-y-2">
           <UiLabel>Etiqueta</UiLabel>
           <div class="flex flex-wrap gap-2">
@@ -730,7 +795,7 @@ function onLabelResolved () {
         </div>
       </template>
 
-      <UiFieldLabel v-if="context === 'account'" for="address-default" class="w-full">
+      <UiFieldLabel v-if="context === 'account' || editingSavedId" for="address-default" class="w-full">
         <div class="-mx-4 flex w-full items-center gap-4 border-y px-4 py-3 sm:mx-0 sm:px-0">
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold">Usar como padrão</p>
@@ -742,10 +807,19 @@ function onLabelResolved () {
 
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <UiButton size="lg" :loading="saving" icon="lucide:check" data-address-confirm @click="confirmDraft">
-          {{ context === 'account' ? (isEditing ? 'Salvar alterações' : 'Salvar endereço') : 'Usar este endereço' }}
+          {{ isEditingForm ? 'Salvar alterações' : (context === 'account' ? 'Salvar endereço' : 'Usar este endereço') }}
         </UiButton>
         <UiButton
-          v-if="!isEditing"
+          v-if="editingSavedId"
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground hover:text-foreground"
+          @click="cancelEdit"
+        >
+          Cancelar
+        </UiButton>
+        <UiButton
+          v-else-if="!isEditing"
           variant="ghost"
           size="sm"
           class="text-muted-foreground hover:text-foreground"
