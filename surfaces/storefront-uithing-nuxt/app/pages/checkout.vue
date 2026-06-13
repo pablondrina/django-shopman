@@ -86,6 +86,8 @@ const confirmOpen = ref(false)
 const receiptOpen = ref(false)
 const datePopoverOpen = ref(false)
 const notesOpen = ref(false)
+// Desligar o toggle é o dismiss: descarta a observação para não enviá-la oculta.
+watch(notesOpen, (open) => { if (!open) state.notes = '' })
 
 const checkoutQuery = computed(() => state.delivery_date ? { delivery_date: state.delivery_date } : {})
 
@@ -909,21 +911,24 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <!-- Observação: caixinha como as demais; abre o campo ao tocar. -->
-              <div class="overflow-hidden rounded-md border bg-card" data-checkout-notes-box>
-                <UiButton
-                  variant="ghost"
-                  class="h-auto w-full justify-between gap-3 rounded-none p-4 font-normal"
-                  @click="notesOpen = !notesOpen"
-                >
-                  <span class="flex items-center gap-2 text-sm font-medium">
-                    <Icon name="lucide:sticky-note" class="size-4 text-muted-foreground" />
-                    {{ state.notes ? 'Observação adicionada' : 'Adicionar observação' }}
-                  </span>
-                  <Icon :name="notesOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-4 shrink-0 text-muted-foreground" />
-                </UiButton>
-                <div v-if="notesOpen" class="space-y-2 border-t p-4 pt-3">
-                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: ponto de referência, tocar o interfone…" />
+              <!-- Observação: toggle idêntico ao da fidelidade; ao ligar, revela
+                   o campo. Desligar é o próprio dismiss (limpa a observação). -->
+              <div
+                class="overflow-hidden rounded-md border bg-card"
+                :class="notesOpen && 'border-primary'"
+                data-checkout-notes-box
+              >
+                <UiFieldLabel for="checkout-notes-toggle" class="rounded-none border-0 bg-transparent has-data-[state=checked]:bg-transparent">
+                  <UiField orientation="horizontal">
+                    <UiFieldContent class="gap-0.5">
+                      <UiFieldTitle>Adicionar observação</UiFieldTitle>
+                      <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
+                    </UiFieldContent>
+                    <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
+                  </UiField>
+                </UiFieldLabel>
+                <div v-if="notesOpen" class="border-t p-4 pt-3">
+                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: tocar o interfone, ponto de referência…" class="bg-background" />
                 </div>
               </div>
 
