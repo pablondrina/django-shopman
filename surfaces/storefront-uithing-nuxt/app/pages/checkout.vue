@@ -26,9 +26,11 @@ import {
   isCheckoutDateUnavailable,
   localDateValue,
   otherCheckoutDateLabel,
+  deliveryCoverageLabel,
   parseClosedDateEntries,
   parseLocalDate,
   paymentIcon as resolvePaymentIcon,
+  paymentMethodHint,
   paymentMethodLabel as resolvePaymentMethodLabel,
   quickCheckoutDateOptions,
   reconciledPickupSlotRef,
@@ -629,7 +631,7 @@ useSeoMeta({
               @edit="goToStep('fulfillment')"
             >
               <UiRadioGroup v-model="state.fulfillment_type" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card">
+                <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
                     <UiFieldContent>
@@ -641,7 +643,7 @@ useSeoMeta({
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
-                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card">
+                <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
                     <UiFieldContent>
@@ -691,7 +693,7 @@ useSeoMeta({
               </p>
               <p v-else-if="deliveryQuote?.covered" class="mt-3 flex items-center gap-2 text-sm font-medium" data-checkout-zone-ok>
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
-                {{ deliveryQuote.fee_display === 'Grátis' ? 'Entregamos aqui — entrega grátis' : `Entregamos aqui — taxa ${deliveryQuote.fee_display}` }}
+                {{ deliveryCoverageLabel(deliveryQuote.fee_display) }}
               </p>
               <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">
@@ -763,7 +765,7 @@ useSeoMeta({
                       v-for="slot in slots"
                       :key="slot.ref"
                       :for="`checkout-slot-${slot.ref}`"
-                      class="bg-card"
+                      class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
                       :class="!slot.enabled ? 'opacity-60' : ''"
                     >
                       <UiField orientation="horizontal" :data-disabled="!slot.enabled || undefined">
@@ -811,7 +813,7 @@ useSeoMeta({
               @edit="goToStep('payment')"
             >
               <UiRadioGroup v-model="state.payment_method" class="grid gap-2 sm:grid-cols-2">
-                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card">
+                <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
                     <UiFieldContent>
@@ -819,7 +821,7 @@ useSeoMeta({
                         <Icon :name="paymentIcon(method.ref)" class="size-4" />
                         {{ method.label }}
                       </UiFieldTitle>
-                      <UiFieldDescription v-if="method.is_default">Padrão da loja</UiFieldDescription>
+                      <UiFieldDescription v-if="paymentMethodHint(method.ref)">{{ paymentMethodHint(method.ref) }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
@@ -830,7 +832,7 @@ useSeoMeta({
                 <UiField orientation="horizontal">
                   <UiFieldContent>
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
-                    <UiFieldDescription>{{ checkout.loyalty_value_display }} de desconto no total</UiFieldDescription>
+                    <UiFieldDescription>Economize {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>

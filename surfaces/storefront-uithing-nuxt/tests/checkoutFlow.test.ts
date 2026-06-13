@@ -7,6 +7,8 @@ import {
   isCheckoutDateUnavailable,
   parseClosedDateEntries,
   quickCheckoutDateOptions,
+  deliveryCoverageLabel,
+  paymentMethodHint,
   reconciledPickupSlotRef,
   shouldOfferPickupSwap
 } from '../app/utils/checkoutFlow'
@@ -76,6 +78,24 @@ describe('checkout flow view model', () => {
     expect(reconciledPickupSlotRef('pickup', 'slot-early', slots, null)).toBe('slot-late')
     expect(reconciledPickupSlotRef('pickup', '', slots, 'slot-late')).toBe('slot-late')
     expect(reconciledPickupSlotRef('delivery', 'slot-early', slots, null)).toBe('slot-early')
+  })
+})
+
+describe('paymentMethodHint', () => {
+  it('descreve cada método pelo que o cliente espera', () => {
+    expect(paymentMethodHint('pix')).toBe('Aprovação na hora')
+    expect(paymentMethodHint('card')).toBe('Crédito ou débito')
+    expect(paymentMethodHint('cartao')).toBe('Crédito ou débito')
+    expect(paymentMethodHint('cash')).toBe('Pague na entrega')
+    expect(paymentMethodHint('boleto')).toBe('')
+  })
+})
+
+describe('deliveryCoverageLabel', () => {
+  it('confirma cobertura com a taxa (ou grátis)', () => {
+    expect(deliveryCoverageLabel('R$ 6,00')).toBe('Entrega disponível · taxa R$ 6,00')
+    expect(deliveryCoverageLabel('Grátis')).toBe('Entrega disponível · grátis')
+    expect(deliveryCoverageLabel(null)).toBe('Entrega disponível')
   })
 })
 

@@ -277,7 +277,7 @@ class GetEarliestSlotTests(TestCase):
         self.assertFalse(by_ref["slot-09"]["enabled"])
         self.assertFalse(by_ref["slot-12"]["enabled"])
         self.assertTrue(by_ref["slot-15"]["enabled"])
-        self.assertIn("carrinho", by_ref["slot-09"]["reason"])
+        self.assertEqual(by_ref["slot-09"]["reason"], "Sem tempo de preparo")
 
     def test_ready_early_item_keeps_slot_15_at_and_after_15h(self):
         for clock in (time(15, 0), time(16, 0)):

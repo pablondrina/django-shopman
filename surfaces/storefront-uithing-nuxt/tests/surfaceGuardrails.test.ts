@@ -338,7 +338,7 @@ describe('surface UX guardrails', () => {
     expect(read('app/components/CheckoutProgressSection.vue')).toContain(':data-checkout-section-state="state"')
     expect(checkout).toContain('<UiRadioGroup v-model="state.fulfillment_type" class="grid gap-2 sm:grid-cols-2">')
     expect(checkout).toContain('<UiRadioGroup v-model="state.payment_method" class="grid gap-2 sm:grid-cols-2">')
-    expect(checkout).toContain('<UiFieldLabel v-if="availableFulfillment.includes(\'pickup\')" for="checkout-fulfillment-pickup" class="bg-card">')
+    expect(checkout).toContain('<UiFieldLabel v-if="availableFulfillment.includes(\'pickup\')" for="checkout-fulfillment-pickup" class="bg-card')
     expect(checkout).toContain('<UiFieldLabel v-for="method in paymentMethods"')
     expect(checkout).toContain('<UiField orientation="horizontal">')
     expect(checkout).toContain('<UiFieldContent>')

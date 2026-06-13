@@ -308,6 +308,24 @@ export function shouldOfferPickupSwap ({ field, fulfillmentType, hasPickup, hasA
   return field === 'delivery_address' && fulfillmentType === 'delivery' && hasPickup && hasAddress
 }
 
+// Subtítulo do método de pagamento — diz ao cliente o que esperar (omotenashi),
+// no lugar do antigo "Padrão da loja" (que não significava nada pra ele).
+export function paymentMethodHint (ref: string): string {
+  const value = ref.toLowerCase()
+  if (value.includes('pix')) return 'Aprovação na hora'
+  if (value.includes('card') || value.includes('cart') || value.includes('credito') || value.includes('debito')) return 'Crédito ou débito'
+  if (value.includes('cash') || value.includes('dinheiro')) return 'Pague na entrega'
+  return ''
+}
+
+// Confirmação positiva de cobertura no passo de endereço (com a taxa, que
+// antes só aparecia no fim). feeDisplay vem do servidor ("Grátis" | "R$ 6,00").
+export function deliveryCoverageLabel (feeDisplay: string | null | undefined): string {
+  if (!feeDisplay) return 'Entrega disponível'
+  if (feeDisplay.trim().toLowerCase() === 'grátis') return 'Entrega disponível · grátis'
+  return `Entrega disponível · taxa ${feeDisplay}`
+}
+
 export function paymentIcon (ref: string): string {
   const value = ref.toLowerCase()
   if (value.includes('pix')) return 'lucide:qr-code'

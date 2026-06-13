@@ -267,7 +267,7 @@ class TestPickupSlots:
                         "label": "A partir das 09h",
                         "starts_at": "09:00",
                         "enabled": False,
-                        "reason": "Para este carrinho, escolha A partir das 12h ou mais tarde.",
+                        "reason": "Sem tempo de preparo",
                         "is_earliest": False,
                     },
                     {
@@ -298,7 +298,7 @@ class TestPickupSlots:
         assert seen_dates == ["2026-05-17"]
         assert proj.earliest_slot_ref == "slot-12"
         assert proj.pickup_slots[0].enabled is False
-        assert "carrinho" in proj.pickup_slots[0].reason
+        assert proj.pickup_slots[0].reason == "Sem tempo de preparo"
 
 
 # ──────────────────────────────────────────────────────────────────────

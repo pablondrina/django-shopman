@@ -578,7 +578,7 @@ function onLabelResolved () {
         data-address-saved-list
         @update:model-value="pickSaved(Number($event))"
       >
-        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`" class="bg-card">
+        <UiFieldLabel v-for="address in savedAddresses" :key="address.id" :for="`address-saved-${address.id}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
           <UiField orientation="horizontal">
             <UiRadioGroupItem :id="`address-saved-${address.id}`" :value="address.id" />
             <UiFieldContent>
