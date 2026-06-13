@@ -5,6 +5,7 @@
 // e etiqueta perguntada DEPOIS de salvar. Lógica pura em presentation/address.
 import {
   ADDRESS_LABEL_OPTIONS,
+  BR_STATES,
   addressDraftErrors,
   composedAddressLine,
   draftFromGooglePlace,
@@ -111,6 +112,7 @@ let searchSeq = 0
 let placesSessionToken: any = null
 
 const labelOptions = ADDRESS_LABEL_OPTIONS
+const brStates = BR_STATES
 const hasSaved = computed(() => props.context === 'checkout' && props.savedAddresses.length > 0)
 const canAdjustOnMap = computed(() => maps.enabled.value && draft.latitude != null && draft.longitude != null)
 const draftLine = computed(() => draftSummaryLine(draft as AddressDraft))
@@ -174,6 +176,15 @@ function startEditSaved (address: SavedAddressProjection) {
 function cancelEdit () {
   editingSavedId.value = null
   backToSaved()
+}
+
+// X de dismiss do form: conta fecha o sheet; edição de salvo cancela; novo
+// endereço do checkout volta aos salvos (ou à busca, se não houver salvos).
+function dismissForm () {
+  if (props.context === 'account') { emit('done'); return }
+  if (editingSavedId.value) { cancelEdit(); return }
+  if (hasSaved.value) backToSaved()
+  else backToSearch()
 }
 
 function resetDraft () {
@@ -698,6 +709,18 @@ function onLabelResolved () {
     <!-- ── Campos estruturados ─────────────────────────────────────── -->
     <template v-else>
       <div class="space-y-4 rounded-lg border bg-card p-4" data-address-form-card>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-semibold">{{ isEditingForm ? 'Editar endereço' : 'Novo endereço' }}</p>
+        <UiButton
+          variant="ghost"
+          size="sm"
+          icon="lucide:x"
+          class="-my-1 -mr-2 text-muted-foreground hover:text-foreground"
+          aria-label="Fechar"
+          data-address-form-dismiss
+          @click="dismissForm"
+        />
+      </div>
       <div v-if="acceptedLine" class="space-y-1" data-address-accepted>
         <div class="flex items-start gap-2">
           <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -738,12 +761,19 @@ function onLabelResolved () {
             <UiInput id="address-complement" ref="complementInput" v-model="draft.complement" placeholder="Apto, bloco, referência" />
           </div>
         </div>
-        <div class="space-y-2">
-          <UiLabel for="address-neighborhood">Bairro</UiLabel>
-          <UiInput id="address-neighborhood" v-model="draft.neighborhood" autocomplete="address-level3" />
-          <UiFieldError v-if="fieldErrors.neighborhood" :errors="fieldErrors.neighborhood" />
+        <div class="grid grid-cols-[minmax(0,1fr)_8rem] gap-4">
+          <div class="space-y-2">
+            <UiLabel for="address-neighborhood">Bairro</UiLabel>
+            <UiInput id="address-neighborhood" v-model="draft.neighborhood" autocomplete="address-level3" />
+            <UiFieldError v-if="fieldErrors.neighborhood" :errors="fieldErrors.neighborhood" />
+          </div>
+          <div class="space-y-2">
+            <UiLabel for="address-cep">CEP</UiLabel>
+            <UiInput id="address-cep" v-model="draft.postal_code" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
+            <UiFieldError v-if="fieldErrors.postal_code" :errors="fieldErrors.postal_code" />
+          </div>
         </div>
-        <div class="grid grid-cols-[minmax(0,1fr)_4.5rem_7rem] gap-4">
+        <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-4">
           <div class="space-y-2">
             <UiLabel for="address-city">Cidade</UiLabel>
             <UiInput id="address-city" v-model="draft.city" autocomplete="address-level2" />
@@ -751,13 +781,13 @@ function onLabelResolved () {
           </div>
           <div class="space-y-2">
             <UiLabel for="address-state">UF</UiLabel>
-            <UiInput id="address-state" v-model="draft.state_code" :maxlength="2" class="uppercase" autocomplete="address-level1" />
+            <UiSelect v-model="draft.state_code">
+              <UiSelectTrigger id="address-state" class="w-full" />
+              <UiSelectContent>
+                <UiSelectItem v-for="uf in brStates" :key="uf" :value="uf">{{ uf }}</UiSelectItem>
+              </UiSelectContent>
+            </UiSelect>
             <UiFieldError v-if="fieldErrors.state_code" :errors="fieldErrors.state_code" />
-          </div>
-          <div class="space-y-2">
-            <UiLabel for="address-cep">CEP</UiLabel>
-            <UiInput id="address-cep" v-model="draft.postal_code" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
-            <UiFieldError v-if="fieldErrors.postal_code" :errors="fieldErrors.postal_code" />
           </div>
         </div>
         <div class="space-y-2">
@@ -802,24 +832,24 @@ function onLabelResolved () {
         </div>
       </UiFieldLabel>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <UiButton size="lg" :loading="saving" icon="lucide:check" data-address-confirm @click="confirmDraft">
+      <div class="space-y-2">
+        <UiButton size="lg" class="w-full justify-center" :loading="saving" icon="lucide:check" data-address-confirm @click="confirmDraft">
           {{ isEditingForm ? 'Salvar alterações' : (context === 'account' ? 'Salvar endereço' : 'Usar este endereço') }}
         </UiButton>
         <UiButton
           v-if="editingSavedId"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
           @click="cancelEdit"
         >
           Cancelar
         </UiButton>
         <UiButton
           v-else-if="!isEditing"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
+          variant="outline"
+          size="lg"
+          class="w-full justify-center"
           @click="backToSearch"
         >
           Buscar outro endereço

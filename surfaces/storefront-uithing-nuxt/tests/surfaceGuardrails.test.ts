@@ -327,7 +327,9 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('<UiTabsContent value="review">')
     expect(checkout).not.toContain('<UiTabs')
     expect(checkout).not.toContain('<UiStepper')
-    expect(checkout).not.toContain('<UiAlertDialog')
+    // Confirmação do PEDIDO é bottom-sheet (pinada abaixo). UiAlertDialog é
+    // permitido para confirmações destrutivas pontuais (trocar telefone).
+    expect(checkout).toContain('changePhoneOpen')
     expect(checkout).toContain('confirmOpen')
     expect(checkout).toContain('openConfirmSheet')
     expect(checkout).toContain('<UiSheet v-model:open="confirmOpen">')

@@ -76,6 +76,7 @@ const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
 const deliveryQuote = ref<{ covered: boolean, fee_display: string | null } | null>(null)
 const quotingZone = ref(false)
+const changePhoneOpen = ref(false)
 const addressLabelOpen = ref(false)
 const savedAddressIdForLabel = ref<number | null>(null)
 const pendingTrackingUrl = ref('')
@@ -610,7 +611,7 @@ useSeoMeta({
                     </p>
                     <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
                   </div>
-                  <UiButton :to="authRoute" variant="link" size="sm" class="h-auto p-0">
+                  <UiButton variant="link" size="sm" class="h-auto p-0" @click="changePhoneOpen = true">
                     Trocar
                   </UiButton>
                 </div>
@@ -843,7 +844,7 @@ useSeoMeta({
                 <UiField orientation="horizontal">
                   <UiFieldContent>
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
-                    <UiFieldDescription>Economize {{ checkout.loyalty_value_display }}</UiFieldDescription>
+                    <UiFieldDescription>Economize até {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
@@ -984,6 +985,22 @@ useSeoMeta({
             :address-id="savedAddressIdForLabel"
             @resolved="finishAfterCheckout"
           />
+
+          <!-- Trocar telefone = entrar com outra conta: confirmação obrigatória. -->
+          <UiAlertDialog v-model:open="changePhoneOpen">
+            <UiAlertDialogContent>
+              <UiAlertDialogHeader>
+                <UiAlertDialogTitle>Entrar com outro telefone?</UiAlertDialogTitle>
+                <UiAlertDialogDescription>
+                  Trocar o telefone significa entrar com outra conta. Seu carrinho continua reservado, mas os dados deste checkout (endereço, pagamento) serão dos dados da nova conta.
+                </UiAlertDialogDescription>
+              </UiAlertDialogHeader>
+              <UiAlertDialogFooter>
+                <UiAlertDialogCancel>Continuar nesta conta</UiAlertDialogCancel>
+                <UiAlertDialogAction @click="navigateTo(authRoute)">Trocar telefone</UiAlertDialogAction>
+              </UiAlertDialogFooter>
+            </UiAlertDialogContent>
+          </UiAlertDialog>
         </template>
       </section>
 
