@@ -100,6 +100,11 @@ class CheckoutProjection:
     pickup_hint: str = ""
     delivery_hint: str = ""
 
+    # Provedor de cartão (Stripe/Efí) p/ o storefront dar previsibilidade no
+    # checkout ("pagamento seguro via X"). Vazio quando não há provedor real
+    # configurado (ex.: mock no dev). Tenant-safe: vem do adapter, não hardcoded.
+    card_provider: str = ""
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Builder
@@ -186,7 +191,24 @@ def build_checkout(
         support_whatsapp_url=support_whatsapp_url,
         pickup_hint="Gratuita",
         delivery_hint="",
+        card_provider=_card_provider(),
     )
+
+
+def _card_provider() -> str:
+    """Nome amigável do provedor de cartão configurado (Stripe/Efí).
+
+    Derivado do adapter em ``SHOPMAN_PAYMENT_ADAPTERS["card"]`` — tenant-safe,
+    nada hardcoded. Mock/sem provedor real → string vazia.
+    """
+    from django.conf import settings
+
+    path = (getattr(settings, "SHOPMAN_PAYMENT_ADAPTERS", {}) or {}).get("card") or ""
+    if "stripe" in path:
+        return "Stripe"
+    if "efi" in path:
+        return "Efí"
+    return ""
 
 
 # ──────────────────────────────────────────────────────────────────────

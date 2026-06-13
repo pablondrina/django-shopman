@@ -566,6 +566,7 @@ export interface CheckoutProjection {
   support_whatsapp_url: string
   pickup_hint: string
   delivery_hint: string
+  card_provider: string
 }
 
 export interface CheckoutResponse {

@@ -832,7 +832,7 @@ useSeoMeta({
                         <Icon :name="paymentIcon(method.ref)" class="size-4" />
                         {{ method.label }}
                       </UiFieldTitle>
-                      <UiFieldDescription v-if="paymentMethodHint(method.ref)">{{ paymentMethodHint(method.ref) }}</UiFieldDescription>
+                      <UiFieldDescription v-if="paymentMethodHint(method.ref, checkout.card_provider)">{{ paymentMethodHint(method.ref, checkout.card_provider) }}</UiFieldDescription>
                     </UiFieldContent>
                   </UiField>
                 </UiFieldLabel>
