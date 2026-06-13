@@ -8,6 +8,8 @@ import {
   parseClosedDateEntries,
   quickCheckoutDateOptions,
   deliveryCoverageLabel,
+  isCheckoutDateUnavailable,
+  isClosedWeekday,
   isCustomCheckoutDate,
   paymentMethodHint,
   reconciledPickupSlotRef,
@@ -80,6 +82,23 @@ describe('checkout flow view model', () => {
     expect(reconciledPickupSlotRef('pickup', 'slot-early', slots, null)).toBe('slot-late')
     expect(reconciledPickupSlotRef('pickup', '', slots, 'slot-late')).toBe('slot-late')
     expect(reconciledPickupSlotRef('delivery', 'slot-early', slots, null)).toBe('slot-early')
+  })
+})
+
+describe('isClosedWeekday', () => {
+  // closed_weekdays usa índice Python: 6 = domingo.
+  it('rejeita dia da semana sem expediente (domingo) e aceita os abertos', () => {
+    expect(isClosedWeekday('2026-06-14', [6])).toBe(true) // 2026-06-14 = domingo
+    expect(isClosedWeekday('2026-06-15', [6])).toBe(false) // segunda
+    expect(isClosedWeekday('2026-06-14', [])).toBe(false)
+  })
+})
+
+describe('isCheckoutDateUnavailable com closed_weekdays', () => {
+  const bounds = { todayValue: '2026-06-13', maxDateValue: '2026-07-13' }
+  it('marca indisponível um domingo fechado dentro do range', () => {
+    expect(isCheckoutDateUnavailable('2026-06-14', bounds, [], [6])).toBe(true)
+    expect(isCheckoutDateUnavailable('2026-06-15', bounds, [], [6])).toBe(false)
   })
 })
 

@@ -317,7 +317,9 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('<AddressLabelSheet')
     expect(checkout).toContain('findNewlySavedAddress')
     expect(checkout).toContain('fieldErrors.delivery_date')
-    expect(checkout).toContain('state.delivery_date = localDateValue(today)')
+    // Default = primeira data disponível do backend (nunca dia fechado).
+    expect(checkout).toContain('checkout.value?.available_dates?.[0]')
+    expect(checkout).toContain('closed_weekdays')
     expect(checkout).not.toContain("type Step = 'identity'")
     expect(checkout).toContain('data-checkout-progress-stack')
     expect(checkout).toContain('data-checkout-step="fulfillment"')

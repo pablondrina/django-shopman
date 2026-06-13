@@ -139,6 +139,56 @@ def next_operational_deadline(
     return None, state
 
 
+def is_open_on(day: date, *, shop=None) -> bool:
+    """Whether the shop operates on ``day`` (regular weekday + sem exceção).
+
+    Considera o horário semanal (``Shop.opening_hours``) e as exceções de
+    fechamento (feriados e férias coletivas em ``closed_dates``, inclusive
+    ranges ``from/to``). Sem agenda configurada → degrada para aberto (não
+    bloqueia deployments sem horário).
+    """
+    shop = _load_shop(shop)
+    if not shop or not _has_regular_hours(shop):
+        return True
+    if closed_date_for(day, _closed_dates(shop))[0]:
+        return False
+    return _day_window(shop, day) is not None
+
+
+def closed_weekdays(*, shop=None) -> list[int]:
+    """Índices de dia da semana (0=segunda … 6=domingo) sem expediente regular."""
+    shop = _load_shop(shop)
+    if not shop or not _has_regular_hours(shop):
+        return []
+    hours = getattr(shop, "opening_hours", {}) or {}
+    out: list[int] = []
+    for index, name in enumerate(DAY_ORDER):
+        raw = hours.get(name)
+        if not (isinstance(raw, dict) and raw.get("open") and raw.get("close")):
+            out.append(index)
+    return out
+
+
+def available_dates(*, max_count: int = 3, horizon_days: int = 30, now: datetime | None = None, shop=None) -> list[date]:
+    """As próximas ``max_count`` datas em que a loja realmente opera.
+
+    Pula dias da semana fechados e exceções (feriados/férias) — nunca devolve
+    um dia fechado. Fonte da verdade para as opções de data do checkout.
+    """
+    shop = _load_shop(shop)
+    base = now or timezone.now()
+    local = _localtime_for_shop(base, shop) if shop else base
+    today = local.date() if isinstance(local, datetime) else local
+    out: list[date] = []
+    for offset in range(0, max(0, horizon_days) + 1):
+        candidate = today + timedelta(days=offset)
+        if is_open_on(candidate, shop=shop):
+            out.append(candidate)
+            if len(out) >= max_count:
+                break
+    return out
+
+
 def closed_date_for(day: date, closed_dates: list | tuple | None) -> tuple[bool, str, str]:
     """Return whether ``day`` is covered by a closure exception."""
     for entry in closed_dates or []:

@@ -137,8 +137,16 @@ const dateBounds = computed(() => checkoutDateBounds(checkout.value))
 const checkoutMinDate = computed(() => dateBounds.value.minDate)
 const checkoutMaxDate = computed(() => dateBounds.value.maxDate)
 const closedDateEntries = computed(() => parseClosedDateEntries(checkout.value?.closed_dates_json))
-const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value))
-const quickDateOptions = computed(() => quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value))
+const closedWeekdays = computed(() => checkout.value?.closed_weekdays || [])
+const datepickerDisabledDates = computed(() => buildDatepickerDisabledDates(closedDateEntries.value, closedWeekdays.value))
+// Opções de data vêm do backend (datas em que a loja REALMENTE opera —
+// nunca um dia fechado). Fallback ao cálculo local (Hoje/Amanhã) só se a
+// projection não trouxer nada.
+const quickDateOptions = computed(() => {
+  const available = checkout.value?.available_dates || []
+  if (available.length) return available.map(value => ({ value, label: displayCheckoutDate(value), disabled: false }))
+  return quickCheckoutDateOptions(dateBounds.value, closedDateEntries.value)
+})
 const isCustomDate = computed(() => isCustomCheckoutDate(state.delivery_date, quickDateOptions.value))
 const contactState = computed<CheckoutSectionState>(() => {
   if (fieldErrors.value.name || fieldErrors.value.phone) return 'error'
@@ -146,7 +154,7 @@ const contactState = computed<CheckoutSectionState>(() => {
   return 'done'
 })
 const canContinueWhen = computed(() => {
-  return canContinueCheckoutWhen(state, slots.value, selectedSlot.value, dateBounds.value, closedDateEntries.value)
+  return canContinueCheckoutWhen(state, slots.value, selectedSlot.value, dateBounds.value, closedDateEntries.value, closedWeekdays.value)
 })
 
 const steps = computed<Step[]>(() => checkoutSteps(state.fulfillment_type))
@@ -154,7 +162,7 @@ const stepLabels = checkoutStepLabels
 const stepIcons = checkoutStepIcons
 
 function pickDeliveryDate (value: string) {
-  if (isCheckoutDateUnavailable(value, dateBounds.value, closedDateEntries.value)) return
+  if (isCheckoutDateUnavailable(value, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) return
   const date = parseLocalDate(value)
   if (!date) return
   chosenDate.value = date
@@ -194,10 +202,14 @@ watch(() => checkout.value, value => {
 // e a query do checkout mudava, re-disparando o fetch (skeleton) em plena
 // hidratação. Em onMounted a mudança é pós-paint e o re-render é limpo.
 onMounted(() => {
-  if (chosenDate.value || !(checkout.value?.pickup_slots?.length)) return
-  const today = new Date()
-  chosenDate.value = today
-  state.delivery_date = localDateValue(today)
+  if (chosenDate.value) return
+  // Default = primeira data REALMENTE disponível (não "hoje", que pode estar
+  // fechado: domingo, feriado, férias). Fallback p/ hoje só sem projection.
+  const value = checkout.value?.available_dates?.[0] || localDateValue(new Date())
+  const parsed = parseLocalDate(value)
+  if (!parsed) return
+  chosenDate.value = parsed
+  state.delivery_date = value
 })
 
 // O AddressPicker é o dono do passo de endereço: a seleção dele (salvo ou
@@ -259,7 +271,7 @@ watch(chosenDate, value => {
     return
   }
   const nextValue = localDateValue(value)
-  if (isCheckoutDateUnavailable(nextValue, dateBounds.value, closedDateEntries.value)) return
+  if (isCheckoutDateUnavailable(nextValue, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) return
   state.delivery_date = nextValue
   datePopoverOpen.value = false
 })
@@ -362,7 +374,7 @@ function validateWhenStep (): boolean {
   delete errors.delivery_date
   delete errors.delivery_time_slot
   if (!state.delivery_date) errors.delivery_date = 'Escolha a data.'
-  if (state.delivery_date && isCheckoutDateUnavailable(state.delivery_date, dateBounds.value, closedDateEntries.value)) errors.delivery_date = 'Escolha uma data disponível.'
+  if (state.delivery_date && isCheckoutDateUnavailable(state.delivery_date, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) errors.delivery_date = 'Escolha uma data disponível.'
   if (state.fulfillment_type === 'pickup' && slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horário.'
   if (state.fulfillment_type === 'pickup' && state.delivery_time_slot && !selectedSlot.value?.enabled) {
     errors.delivery_time_slot = selectedSlot.value?.reason || 'Escolha um horário disponível.'
@@ -746,7 +758,7 @@ useSeoMeta({
                     @update:model-value="pickDeliveryDate(String($event))"
                   >
                     <UiFieldLabel
-                      v-for="option in quickDateOptions"
+                      v-for="(option, index) in quickDateOptions"
                       :key="option.value"
                       :for="`checkout-date-${option.value}`"
                       class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
@@ -755,7 +767,10 @@ useSeoMeta({
                       <UiField orientation="horizontal" :data-disabled="option.disabled || undefined">
                         <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
                         <UiFieldContent class="gap-0.5">
-                          <UiFieldTitle>{{ option.label }}</UiFieldTitle>
+                          <UiFieldTitle>
+                            {{ option.label }}
+                            <UiBadge v-if="index === 0 && option.value !== dateBounds.todayValue" variant="secondary">Próxima fornada</UiBadge>
+                          </UiFieldTitle>
                           <UiFieldDescription>{{ weekdayDateLabel(option.value) }}</UiFieldDescription>
                         </UiFieldContent>
                       </UiField>

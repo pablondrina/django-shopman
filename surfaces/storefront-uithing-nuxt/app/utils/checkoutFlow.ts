@@ -111,8 +111,11 @@ export function parseClosedDateEntries (closedDatesJson: string | null | undefin
   }
 }
 
-export function datepickerDisabledDates (entries: ClosedDateEntry[]): DatepickerDisabledDate[] {
-  return entries
+export function datepickerDisabledDates (
+  entries: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
+): Array<DatepickerDisabledDate | { repeat: { weekdays: number[] } }> {
+  const out: Array<DatepickerDisabledDate | { repeat: { weekdays: number[] } }> = entries
     .map(entry => {
       if (typeof entry === 'string') return parseLocalDate(entry)
       if (entry.date) return parseLocalDate(entry.date)
@@ -125,6 +128,11 @@ export function datepickerDisabledDates (entries: ClosedDateEntry[]): Datepicker
       return null
     })
     .filter((entry): entry is DatepickerDisabledDate => !!entry)
+  // v-calendar usa 1=domingo…7=sábado; converte do índice Python (0=seg…6=dom).
+  if (closedWeekdays.length) {
+    out.push({ repeat: { weekdays: closedWeekdays.map(index => (index + 1) % 7 + 1) } })
+  }
+  return out
 }
 
 export function isDateWithinPreorderRange (value: string, bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>): boolean {
@@ -142,12 +150,25 @@ export function isClosedDateValue (value: string, entries: ClosedDateEntry[]): b
   })
 }
 
+// Dias da semana sem expediente (closed_weekdays do backend, 0=segunda…6=domingo,
+// padrão Python weekday()). Converte do getDay() do JS (0=domingo…6=sábado).
+export function isClosedWeekday (value: string, closedWeekdays: number[] | readonly number[] = []): boolean {
+  if (!closedWeekdays.length) return false
+  const date = parseLocalDate(value)
+  if (!date) return false
+  const pythonWeekday = (date.getDay() + 6) % 7
+  return closedWeekdays.includes(pythonWeekday)
+}
+
 export function isCheckoutDateUnavailable (
   value: string,
   bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>,
-  entries: ClosedDateEntry[]
+  entries: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
 ): boolean {
-  return !isDateWithinPreorderRange(value, bounds) || isClosedDateValue(value, entries)
+  return !isDateWithinPreorderRange(value, bounds)
+    || isClosedDateValue(value, entries)
+    || isClosedWeekday(value, closedWeekdays)
 }
 
 export function quickCheckoutDateOptions (
@@ -402,9 +423,10 @@ export function canContinueCheckoutWhen (
   slots: PickupSlotProjection[],
   selectedSlot: PickupSlotProjection | null,
   bounds: Pick<CheckoutDateBounds, 'todayValue' | 'maxDateValue'>,
-  closedDates: ClosedDateEntry[]
+  closedDates: ClosedDateEntry[],
+  closedWeekdays: number[] | readonly number[] = []
 ): boolean {
-  if (!form.delivery_date || isCheckoutDateUnavailable(form.delivery_date, bounds, closedDates)) return false
+  if (!form.delivery_date || isCheckoutDateUnavailable(form.delivery_date, bounds, closedDates, closedWeekdays)) return false
   if (form.fulfillment_type !== 'pickup' || !slots.length) return true
   return !!selectedSlot?.enabled
 }

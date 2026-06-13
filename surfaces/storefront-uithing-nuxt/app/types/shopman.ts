@@ -567,6 +567,8 @@ export interface CheckoutProjection {
   pickup_hint: string
   delivery_hint: string
   card_provider: string
+  available_dates: string[]
+  closed_weekdays: number[]
 }
 
 export interface CheckoutResponse {
