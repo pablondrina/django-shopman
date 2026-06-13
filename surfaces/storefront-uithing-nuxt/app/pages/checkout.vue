@@ -927,8 +927,8 @@ useSeoMeta({
                     <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
                   </UiField>
                 </UiFieldLabel>
-                <div v-if="notesOpen" class="border-t p-4 pt-3">
-                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: tocar o interfone, ponto de referência…" class="bg-background" />
+                <div v-if="notesOpen" class="border-t px-4 pb-4 pt-1">
+                  <UiTextarea id="checkout-notes" v-model="state.notes" rows="2" placeholder="Ex: tocar o interfone, ponto de referência…" class="resize-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
                 </div>
               </div>
 
