@@ -3440,8 +3440,8 @@ class Command(BaseCommand):
 
         now = timezone.now()
 
-        # Promotion 1: Semana do Pão — 15% off pães rústicos
-        promo_paes, _ = Promotion.objects.update_or_create(
+        # Promotion 1: Semana do Pão — 15% off pães rústicos (auto, sem cupom)
+        Promotion.objects.update_or_create(
             name="Semana do Pão",
             defaults={
                 "type": Promotion.PERCENT,
@@ -3449,19 +3449,6 @@ class Command(BaseCommand):
                 "valid_from": now,
                 "valid_until": now + timedelta(days=7),
                 "collections": ["rusticos"],
-                "is_active": True,
-            },
-        )
-
-        # Promotion 2: Delivery Desconto — R$2 off apenas em pedidos delivery
-        promo_delivery, _ = Promotion.objects.update_or_create(
-            name="Delivery Desconto",
-            defaults={
-                "type": Promotion.FIXED,
-                "value": 200,
-                "valid_from": now,
-                "valid_until": now + timedelta(days=30),
-                "fulfillment_types": ["delivery"],
                 "is_active": True,
             },
         )
@@ -3531,7 +3518,7 @@ class Command(BaseCommand):
             defaults={"promotion": promo_funcionario, "max_uses": 0, "is_active": True},
         )
 
-        self.stdout.write("  ✅ 6 promotions, 3 coupons")
+        self.stdout.write("  ✅ 5 promotions, 3 coupons")
 
     # ────────────────────────────────────────────────────────────────
     # Payments (PaymentIntent + PaymentTransaction)

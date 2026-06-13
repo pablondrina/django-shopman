@@ -955,14 +955,15 @@ useSeoMeta({
                   </UiFieldContent>
                   <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
                 </UiField>
-                <UiTextarea
-                  v-if="notesOpen"
-                  id="checkout-notes"
-                  v-model="state.notes"
-                  rows="2"
-                  placeholder="Ex: tocar o interfone, ponto de referência…"
-                  @click.stop
-                />
+                <div v-if="notesOpen" class="px-4 pb-4">
+                  <UiTextarea
+                    id="checkout-notes"
+                    v-model="state.notes"
+                    rows="2"
+                    placeholder="Ex: tocar o interfone, ponto de referência…"
+                    @click.stop
+                  />
+                </div>
               </UiFieldLabel>
 
               <template #footer>
