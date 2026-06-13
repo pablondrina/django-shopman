@@ -354,6 +354,11 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('Compra sem senha')
     expect(types).toContain('requires_authentication: boolean')
     expect(types).toContain('auth_action: Action | null')
+    // Telefone editorial formatado (não cru/truncado) e poka-yoke fora de área.
+    expect(checkout).toContain('formatPhoneDisplay')
+    expect(checkout).toContain('shouldOfferPickupSwap')
+    expect(checkout).toContain('data-checkout-pickup-swap')
+    expect(checkout).toContain('Mudar para retirada')
   })
 
   it('keeps checkout entry points visible before authentication', () => {

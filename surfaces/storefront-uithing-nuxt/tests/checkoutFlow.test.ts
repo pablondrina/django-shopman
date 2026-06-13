@@ -7,7 +7,8 @@ import {
   isCheckoutDateUnavailable,
   parseClosedDateEntries,
   quickCheckoutDateOptions,
-  reconciledPickupSlotRef
+  reconciledPickupSlotRef,
+  shouldOfferPickupSwap
 } from '../app/utils/checkoutFlow'
 import type { PickupSlotProjection } from '../app/types/shopman'
 
@@ -75,5 +76,27 @@ describe('checkout flow view model', () => {
     expect(reconciledPickupSlotRef('pickup', 'slot-early', slots, null)).toBe('slot-late')
     expect(reconciledPickupSlotRef('pickup', '', slots, 'slot-late')).toBe('slot-late')
     expect(reconciledPickupSlotRef('delivery', 'slot-early', slots, null)).toBe('slot-early')
+  })
+})
+
+describe('shouldOfferPickupSwap', () => {
+  const base = { field: 'delivery_address', fulfillmentType: 'delivery' as const, hasPickup: true, hasAddress: true }
+
+  it('offers pickup when delivery is out of area and the customer already gave an address', () => {
+    expect(shouldOfferPickupSwap(base)).toBe(true)
+  })
+
+  it('stays silent on a blank address (filling error, not coverage)', () => {
+    expect(shouldOfferPickupSwap({ ...base, hasAddress: false })).toBe(false)
+  })
+
+  it('stays silent when pickup is not available on the channel', () => {
+    expect(shouldOfferPickupSwap({ ...base, hasPickup: false })).toBe(false)
+  })
+
+  it('only reacts to the delivery_address field on a delivery order', () => {
+    expect(shouldOfferPickupSwap({ ...base, field: 'payment_method' })).toBe(false)
+    expect(shouldOfferPickupSwap({ ...base, fulfillmentType: 'pickup' })).toBe(false)
+    expect(shouldOfferPickupSwap({ ...base, field: null })).toBe(false)
   })
 })

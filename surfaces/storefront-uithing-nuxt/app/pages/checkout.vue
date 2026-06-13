@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
 import type { AddressSelection } from '~/presentation/address'
+import { phoneDisplay as formatPhoneDisplay } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
   addressSummary as buildAddressSummary,
@@ -32,6 +33,7 @@ import {
   quickCheckoutDateOptions,
   reconciledPickupSlotRef,
   selectedPickupSlot,
+  shouldOfferPickupSwap,
   whenSummary as buildWhenSummary,
   type CheckoutSectionState,
   type CheckoutStep
@@ -68,6 +70,7 @@ const serverError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
+const pickupSwapOffer = ref(false)
 const confirmOpen = ref(false)
 const receiptOpen = ref(false)
 const datePopoverOpen = ref(false)
@@ -102,7 +105,7 @@ const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date
 const whenSummary = computed(() => buildWhenSummary(state.delivery_date, selectedSlotLabel.value))
 const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLabel.value, whenSummary.value))
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
-const phoneDisplay = computed(() => state.phone || checkout.value?.customer_phone || '')
+const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
 const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.value))
 const addressSummary = computed(() => buildAddressSummary(state))
@@ -183,6 +186,8 @@ watch(addressSelection, selection => {
     delete errors.delivery_address
     fieldErrors.value = errors
   }
+  // Endereço novo escolhido → a oferta de retirada anterior não vale mais.
+  if (selection) pickupSwapOffer.value = false
 }, { flush: 'sync' })
 
 watch(chosenDate, value => {
@@ -383,15 +388,43 @@ async function submitCheckout () {
     const data = e?.data || {}
     serverError.value = data.detail || 'Não foi possível confirmar o pedido.'
     if (data.field) {
-      fieldErrors.value = { ...fieldErrors.value, [data.field]: serverError.value }
-      const step = checkoutStepForField(data.field)
-      if (step) activeStep.value = step
-      if (data.field === 'name' || data.field === 'phone') contactEditing.value = true
+      // Poka-yoke: endereço fora da zona, mas a loja faz retirada → oferecer
+      // a troca em 1 clique em vez de deixar o cliente num beco sem saída.
+      pickupSwapOffer.value = shouldOfferPickupSwap({
+        field: data.field,
+        fulfillmentType: state.fulfillment_type,
+        hasPickup: availableFulfillment.value.includes('pickup'),
+        hasAddress: !!state.delivery_address.trim()
+      })
+      if (pickupSwapOffer.value) {
+        // O aviso (com a troca em 1 clique) aparece no topo do fluxo. NÃO
+        // marcar fieldError nem reabrir o passo: o erro poria a seção de
+        // endereço em estado de erro, remontando o picker — que
+        // re-selecionaria o salvo e apagaria o endereço fora de área e a
+        // própria oferta. Fecha só o sheet de revisão.
+        confirmOpen.value = false
+      } else {
+        fieldErrors.value = { ...fieldErrors.value, [data.field]: serverError.value }
+        const step = checkoutStepForField(data.field)
+        if (step) activeStep.value = step
+        if (data.field === 'name' || data.field === 'phone') contactEditing.value = true
+      }
     }
-    if (import.meta.client) useSonner.error(serverError.value)
+    if (import.meta.client && !pickupSwapOffer.value) useSonner.error(serverError.value)
   } finally {
     submitting.value = false
   }
+}
+
+function switchToPickup () {
+  state.fulfillment_type = 'pickup'
+  pickupSwapOffer.value = false
+  serverError.value = ''
+  confirmOpen.value = false
+  const errors = { ...fieldErrors.value }
+  delete errors.delivery_address
+  fieldErrors.value = errors
+  activeStep.value = 'when'
 }
 
 useSeoMeta({
@@ -439,7 +472,17 @@ useSeoMeta({
             </UiAlertDescription>
           </UiAlert>
 
-          <UiAlert v-if="serverError && !confirmOpen" variant="destructive">
+          <UiAlert v-if="pickupSwapOffer" variant="warning" data-checkout-pickup-swap>
+            <UiAlertTitle>{{ serverError || 'Ainda não entregamos nesse endereço' }}</UiAlertTitle>
+            <UiAlertDescription>
+              <p>Mas você pode retirar na loja quando quiser.</p>
+              <UiButton size="sm" icon="lucide:store" class="mt-2" @click="switchToPickup">
+                Mudar para retirada
+              </UiButton>
+            </UiAlertDescription>
+          </UiAlert>
+
+          <UiAlert v-else-if="serverError && !confirmOpen" variant="destructive">
             <UiAlertTitle>Não confirmado</UiAlertTitle>
             <UiAlertDescription>{{ serverError }}</UiAlertDescription>
           </UiAlert>
@@ -453,26 +496,28 @@ useSeoMeta({
               data-checkout-contact-card
               @edit="contactEditing = true"
             >
-              <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div class="space-y-4">
                 <div class="space-y-2">
                   <UiLabel for="checkout-name">Nome</UiLabel>
                   <UiInput id="checkout-name" v-model="state.name" autocomplete="name" />
                   <UiFieldError v-if="fieldErrors.name" :errors="fieldErrors.name" />
                 </div>
-                <div class="rounded-md border bg-muted/30 p-3">
-                  <p class="text-xs font-medium uppercase text-muted-foreground">Telefone confirmado</p>
-                  <p class="mt-1 truncate text-sm font-medium">
-                    {{ phoneDisplay || 'Entre por telefone para continuar' }}
-                  </p>
-                  <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
-                  <UiButton :to="authRoute" variant="link" size="sm" class="mt-2 h-auto p-0">
-                    Trocar telefone
+                <div class="-mx-4 flex items-center gap-3 border-y px-4 py-3 sm:mx-0 sm:px-0">
+                  <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold tabular-nums">
+                      {{ phoneDisplay || 'Entre por telefone para continuar' }}
+                    </p>
+                    <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
+                  </div>
+                  <UiButton :to="authRoute" variant="link" size="sm" class="h-auto p-0">
+                    Trocar
                   </UiButton>
                 </div>
               </div>
               <template #footer>
                 <div class="border-t bg-muted/30 p-4 sm:p-5">
-                  <UiButton class="w-full" @click="saveContact">Salvar contato</UiButton>
+                  <UiButton class="w-full" size="lg" @click="saveContact">Salvar contato</UiButton>
                 </div>
               </template>
             </CheckoutProgressSection>
@@ -518,7 +563,7 @@ useSeoMeta({
               </p>
               <template #footer>
                 <div class="border-t bg-muted/30 p-4 sm:p-5">
-                  <UiButton class="w-full" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
+                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
                 </div>
@@ -635,6 +680,7 @@ useSeoMeta({
                 <div class="border-t bg-muted/30 p-4 sm:p-5">
                   <UiButton
                     class="w-full"
+                    size="lg"
                     icon="lucide:arrow-right"
                     icon-placement="right"
                     :disabled="!canContinueWhen"

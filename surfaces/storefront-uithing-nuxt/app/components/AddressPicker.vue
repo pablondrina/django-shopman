@@ -760,7 +760,7 @@ watch(labelOpen, open => {
           </div>
           <div class="space-y-2">
             <UiLabel for="address-state">UF</UiLabel>
-            <UiInput id="address-state" v-model="draft.state_code" maxlength="2" class="uppercase" autocomplete="address-level1" />
+            <UiInput id="address-state" v-model="draft.state_code" :maxlength="2" class="uppercase" autocomplete="address-level1" />
             <UiFieldError v-if="fieldErrors.state_code" :errors="fieldErrors.state_code" />
           </div>
           <div class="space-y-2">

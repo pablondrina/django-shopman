@@ -293,6 +293,21 @@ export function checkoutStepForField (field: string): CheckoutStep | null {
   return steps.find(step => checkoutStepErrorKeys(step).includes(field)) || null
 }
 
+// Poka-yoke: o servidor recusou o endereço de entrega (fora de área) mas a
+// retirada existe — oferecer a troca em 1 clique em vez de beco sem saída.
+// Só quando o cliente JÁ informou um endereço; "endereço vazio" é erro de
+// preenchimento, não de cobertura.
+export interface PickupSwapOfferInput {
+  field: string | null | undefined
+  fulfillmentType: FulfillmentType
+  hasPickup: boolean
+  hasAddress: boolean
+}
+
+export function shouldOfferPickupSwap ({ field, fulfillmentType, hasPickup, hasAddress }: PickupSwapOfferInput): boolean {
+  return field === 'delivery_address' && fulfillmentType === 'delivery' && hasPickup && hasAddress
+}
+
 export function paymentIcon (ref: string): string {
   const value = ref.toLowerCase()
   if (value.includes('pix')) return 'lucide:qr-code'
