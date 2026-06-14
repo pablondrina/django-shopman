@@ -3,7 +3,17 @@
 > **Fonte única da verdade para presente/entrega-a-terceiro no storefront.**
 > Ler antes de tocar qualquer tela onde o cliente possa estar comprando para
 > outra pessoa. Não reinventar, não resumir. Desenho aprovado por Pablo em
-> 2026-06-13 (refinamentos incorporados). Implementação ainda **não** iniciada.
+> 2026-06-13 (refinamentos incorporados).
+>
+> **Status (2026-06-14): slice backend do MVP ENTREGUE** (commit `f0fbf696`).
+> Pronto: integridade pura (`intents.gift.build_gift_data`), wiring nas duas
+> superfícies (API CheckoutView/Nuxt + interpret_checkout/HTML), propagação
+> Session→Order (`is_gift`/`recipient`/`gift_message` na whitelist de ops + Op
+> Serializer allowlist + lista do CommitService), serializer, data-schemas, e
+> testes (unitário + contrato). **Falta (precisa conferência visual):** UX no
+> checkout (pergunta única "É para presente?" + campos do destinatário +
+> AddressPicker sem pré-selecionar salvos + ocultar valores), KDS mostrando o
+> destinatário, e a notificação (comprador notificado; destinatário sem spoiler).
 
 ## Princípio
 
