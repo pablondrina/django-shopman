@@ -101,8 +101,12 @@ async function confirmRevokeDevice () {
     }
     await refreshDevices()
     revokeDeviceOpen.value = false
+    if (import.meta.client) {
+      useSonner.success(revokeDeviceMode.value === 'all' ? 'Aparelhos removidos.' : 'Aparelho removido.')
+    }
   } catch (e: any) {
     deviceIssue.value = e?.data?.detail || 'Não foi possível remover o aparelho agora.'
+    if (import.meta.client) useSonner.error(deviceIssue.value)
   } finally {
     revokeDevicePending.value = false
   }
