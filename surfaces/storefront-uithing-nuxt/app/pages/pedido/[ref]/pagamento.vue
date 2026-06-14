@@ -2,6 +2,7 @@
 import type { PaymentResponse, PaymentStatusResponse, Action } from '~/types/shopman'
 import { paymentAlertFilled, paymentAlertIcon, paymentAlertVariant, paymentMethodLabel, shouldPollPayment } from '~/presentation/payment'
 import { countdownPct, deadlineCountdown, isCountdownUrgent, serverClockOffsetMs } from '~/presentation/deadline'
+import { orderAccessErrorView } from '~/presentation/orderAccess'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -15,6 +16,8 @@ const { data, pending, error, refresh } = await useFetch<PaymentResponse>(
 )
 
 const payment = computed(() => data.value?.payment || null)
+const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'payment'))
+const loginHref = computed(() => `/login?next=${encodeURIComponent(`/pedido/${orderRef.value}/pagamento`)}`)
 
 watchEffect(() => {
   if (data.value?.redirect_url && !payment.value && import.meta.client) {
@@ -123,10 +126,17 @@ useSeoMeta({
 
       <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
 
-      <UiAlert v-else-if="error" variant="destructive">
-        <UiAlertTitle>Pagamento indisponível</UiAlertTitle>
+      <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
+        <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
         <UiAlertDescription>
-          <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
+          <div class="space-y-3">
+            <p>{{ errorView.message }}</p>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <UiButton v-if="errorView.showLogin" :to="loginHref" icon="lucide:log-in">Entrar</UiButton>
+              <UiButton v-if="errorView.canRetry" variant="outline" icon="lucide:rotate-cw" @click="refresh">Tentar de novo</UiButton>
+              <UiButton to="/menu" variant="ghost" icon="lucide:utensils">Ver cardápio</UiButton>
+            </div>
+          </div>
         </UiAlertDescription>
       </UiAlert>
 

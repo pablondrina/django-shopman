@@ -11,6 +11,7 @@ import {
   visibleTrackingPromiseRows
 } from '~/presentation/orderTracking'
 import { deadlineCountdown, serverClockOffsetMs } from '~/presentation/deadline'
+import { orderAccessErrorView } from '~/presentation/orderAccess'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -28,6 +29,8 @@ const { data, pending, error, refresh } = await useFetch<TrackingResponse>(
 )
 
 const tracking = computed(() => data.value || null)
+const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'tracking'))
+const loginHref = computed(() => `/login?next=${encodeURIComponent(`/tracking/${orderRef.value}`)}`)
 const paymentHref = computed(() => localRouteFromBackend(tracking.value?.payment_gate_url || tracking.value?.promise.actions.find(action => action.ref.includes('payment'))?.href || null))
 const cancelAction = computed(() => tracking.value?.actions.find(action => action.ref === 'cancel_order' && action.enabled) || null)
 const rateAction = computed(() => tracking.value?.actions.find(action => action.ref === 'rate_order' && action.enabled) || null)
@@ -174,12 +177,16 @@ useSeoMeta({
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
 
-        <UiAlert v-else-if="error" variant="destructive">
-          <UiAlertTitle>Pedido não encontrado</UiAlertTitle>
+        <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
+          <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
           <UiAlertDescription>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>Não conseguimos carregar o acompanhamento agora.</span>
-              <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
+            <div class="space-y-3">
+              <p>{{ errorView.message }}</p>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <UiButton v-if="errorView.showLogin" :to="loginHref" icon="lucide:log-in">Entrar</UiButton>
+                <UiButton v-if="errorView.canRetry" variant="outline" icon="lucide:rotate-cw" @click="refresh">Tentar de novo</UiButton>
+                <UiButton to="/menu" variant="ghost" icon="lucide:utensils">Ver cardápio</UiButton>
+              </div>
             </div>
           </UiAlertDescription>
         </UiAlert>
