@@ -1,0 +1,129 @@
+<script setup lang="ts">
+import type { AccountProfile } from '~/types/shopman'
+
+definePageMeta({ middleware: 'account' })
+
+const apiPath = useShopmanApiPath()
+const csrfHeaders = useShopmanCsrfHeaders()
+const session = useShopSession()
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
+const profileIssue = ref('')
+const profileSaved = ref(false)
+const profilePendingSave = ref(false)
+const profileForm = reactive({ first_name: '', last_name: '', email: '', birthday: '' })
+
+const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/v1/account/profile/'), {
+  credentials: 'include',
+  headers: requestHeaders
+})
+
+watch(() => profile.value, value => {
+  if (!value) return
+  profileForm.first_name = value.first_name || ''
+  profileForm.last_name = value.last_name || ''
+  profileForm.email = value.email || ''
+  profileForm.birthday = value.birthday || ''
+}, { immediate: true })
+
+async function saveProfile () {
+  if (profilePendingSave.value) return
+  profileIssue.value = ''
+  profileSaved.value = false
+  if (!profileForm.first_name.trim()) {
+    profileIssue.value = 'Informe seu primeiro nome.'
+    return
+  }
+  profilePendingSave.value = true
+  try {
+    const response = await $fetch<AccountProfile>(apiPath('/api/v1/account/profile/'), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: {
+        first_name: profileForm.first_name.trim(),
+        last_name: profileForm.last_name.trim(),
+        email: profileForm.email.trim(),
+        birthday: profileForm.birthday
+      }
+    })
+    profile.value = response
+    session.setIdentity({ name: response.name || response.first_name, phone: response.phone, isAuthenticated: true })
+    profileSaved.value = true
+  } catch (e: any) {
+    profileIssue.value = e?.data?.detail || 'Não foi possível salvar seu perfil agora.'
+  } finally {
+    profilePendingSave.value = false
+  }
+}
+
+useSeoMeta({ title: 'Perfil' })
+</script>
+
+<template>
+  <main class="shop-section">
+    <div class="shop-container space-y-5">
+      <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Perfil' }]" />
+
+      <div>
+        <h1 class="text-2xl font-semibold">Perfil</h1>
+        <p class="text-sm text-muted-foreground">Dados usados para identificar seus pedidos e recuperar sua conta.</p>
+      </div>
+
+      <UiSkeleton v-if="pending" class="h-64 rounded-lg" />
+
+      <form v-else class="max-w-2xl space-y-4" @submit.prevent="saveProfile">
+        <UiAlert v-if="profileIssue" variant="destructive">
+          <UiAlertTitle>Revise seu perfil</UiAlertTitle>
+          <UiAlertDescription>{{ profileIssue }}</UiAlertDescription>
+        </UiAlert>
+        <UiAlert v-if="profileSaved" variant="success">
+          <UiAlertTitle>Perfil salvo</UiAlertTitle>
+          <UiAlertDescription>Usaremos esses dados nos próximos pedidos.</UiAlertDescription>
+        </UiAlert>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <UiField>
+            <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
+            <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required />
+          </UiField>
+          <UiField>
+            <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
+            <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
+          </UiField>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <UiField>
+            <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
+            <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" />
+          </UiField>
+          <UiField>
+            <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
+            <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" />
+          </UiField>
+        </div>
+
+        <UiField>
+          <UiFieldLabel>Telefone confirmado</UiFieldLabel>
+          <UiItem variant="muted" size="sm" class="bg-muted">
+            <UiItemMedia variant="icon" class="size-8 rounded-md">
+              <Icon name="lucide:phone" />
+            </UiItemMedia>
+            <UiItemContent>
+              <UiItemTitle>{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</UiItemTitle>
+              <UiItemDescription>Para trocar o telefone, entre novamente usando outro número.</UiItemDescription>
+            </UiItemContent>
+            <UiItemActions>
+              <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Trocar</UiButton>
+            </UiItemActions>
+          </UiItem>
+        </UiField>
+
+        <div class="flex justify-end">
+          <UiButton type="submit" size="lg" :loading="profilePendingSave" icon="lucide:check">Salvar perfil</UiButton>
+        </div>
+      </form>
+    </div>
+  </main>
+</template>

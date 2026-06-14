@@ -804,3 +804,93 @@ export interface RemoteConversationProjection {
   supports_access_link: boolean
   requires_payment_gate: boolean
 }
+
+// ── Conta (Arc 9) ─────────────────────────────────────────────────────────
+// Contrato dos endpoints /api/v1/account/* (SAGRADO). A UI deriva apresentação
+// em presentation/account.ts; nada de inventar estado.
+
+export interface AccountLoyaltyTransaction {
+  points: number
+  description: string
+  date_display: string
+  is_credit: boolean
+}
+
+export interface AccountLoyalty {
+  tier?: string
+  tier_display: string
+  points_balance: number
+  stamps_current: number
+  stamps_target: number
+  stamps_completed?: number
+  stamps_range: number[]
+  transactions: AccountLoyaltyTransaction[]
+}
+
+export interface AccountOrderRef {
+  ref: string
+  created_at_display: string
+  total_display: string
+  status_label: string
+  item_count: number
+  actions?: Action[]
+}
+
+export interface AccountFoodPreference {
+  key: string
+  label: string
+  is_active: boolean
+}
+
+export interface AccountNotificationPreference {
+  key: string
+  label: string
+  description: string
+  enabled: boolean
+}
+
+export interface AccountSummary {
+  customer_first_name: string
+  recent_order_count: number
+  active_order_count: number
+  last_order: AccountOrderRef | null
+  loyalty: AccountLoyalty | null
+  food_preferences: AccountFoodPreference[]
+  notification_preferences: AccountNotificationPreference[]
+}
+
+export interface AccountProfile {
+  ref: string
+  name: string
+  first_name: string
+  last_name: string
+  phone: string
+  email: string
+  birthday: string
+}
+
+export interface OrderHistoryItem {
+  ref: string
+  status: string
+  status_label: string
+  status_color?: string
+  total_display: string
+  item_count?: number
+  created_at_display?: string
+  actions?: Action[]
+}
+
+export interface AccountDeviceProjection {
+  id: string
+  label: string
+  created_at: string | null
+  created_at_display: string
+  last_used_at: string | null
+  last_used_at_display: string
+  location: string
+  is_current: boolean
+}
+
+export interface AccountDeviceResponse {
+  devices: AccountDeviceProjection[]
+}
