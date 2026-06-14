@@ -124,36 +124,42 @@ useSeoMeta({ title: 'Endereços' })
         </div>
       </UiEmpty>
 
-      <UiItemGroup v-else class="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <UiItem v-for="address in addresses || []" :key="address.id" variant="outline" class="bg-card">
-          <UiItemMedia variant="icon" class="size-10 rounded-md">
-            <Icon name="lucide:map-pin" />
-          </UiItemMedia>
-          <UiItemContent>
-            <UiItemTitle>
-              {{ address.label }}
-              <UiBadge v-if="address.is_default" variant="secondary">Padrão</UiBadge>
-            </UiItemTitle>
-            <UiItemDescription>
-              {{ address.formatted_address }}
-              <span v-if="address.complement"> · {{ address.complement }}</span>
-            </UiItemDescription>
-          </UiItemContent>
-          <UiItemActions>
+      <ul v-else class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <li
+          v-for="address in addresses || []"
+          :key="address.id"
+          class="flex flex-col gap-3 rounded-lg border bg-card p-4"
+          :class="address.is_default ? 'border-primary/40' : ''"
+        >
+          <div class="flex items-start gap-3">
+            <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+              <Icon name="lucide:map-pin" class="size-5" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="flex items-center gap-2 font-medium">
+                {{ address.label }}
+                <UiBadge v-if="address.is_default" variant="secondary">Padrão</UiBadge>
+              </p>
+              <p class="mt-0.5 text-sm text-muted-foreground">{{ address.formatted_address }}</p>
+              <p v-if="address.complement" class="text-sm text-muted-foreground">{{ address.complement }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 border-t pt-3">
             <UiButton
               v-if="!address.is_default"
               variant="ghost"
               size="sm"
+              icon="lucide:star"
               :loading="!!addressDefaultPending[address.id]"
               @click="setDefaultAddress(address)"
             >
-              Padrão
+              Definir padrão
             </UiButton>
             <UiButton variant="ghost" size="sm" icon="lucide:pencil" @click="openEditAddress(address)">Editar</UiButton>
-            <UiButton variant="ghost" size="sm" icon="lucide:trash-2" class="text-muted-foreground hover:text-destructive" @click="askDeleteAddress(address)">Remover</UiButton>
-          </UiItemActions>
-        </UiItem>
-      </UiItemGroup>
+            <UiButton variant="ghost" size="sm" icon="lucide:trash-2" class="ml-auto text-muted-foreground hover:text-destructive" @click="askDeleteAddress(address)">Remover</UiButton>
+          </div>
+        </li>
+      </ul>
 
       <UiSheet v-model:open="addressSheetOpen">
         <UiSheetContent side="bottom" variant="floating" class="mx-auto max-h-[90dvh] max-w-2xl overflow-y-auto">
