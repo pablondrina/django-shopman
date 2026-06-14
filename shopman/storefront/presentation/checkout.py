@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections import checkout as checkout_projection
 from shopman.shop.projections import customer_context
 from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
 from shopman.shop.projections.copy import build_copy
@@ -162,7 +163,7 @@ def build_checkout(
         delivery_date=_delivery_date_from_context(request, delivery_date),
     )
     max_preorder_days, closed_dates, support_whatsapp_url = _shop_config()
-    available_dates, closed_weekdays = _availability_dates(max_preorder_days)
+    available_dates, closed_weekdays = checkout_projection.availability_dates(max_preorder_days)
 
     is_authenticated = customer_info is not None
     requires_authentication = _requires_authentication(channel_ref)
@@ -201,26 +202,6 @@ def build_checkout(
         delivery_hint="",
         card_provider=_card_provider(),
     )
-
-
-def _availability_dates(max_preorder_days: int) -> tuple[tuple[str, ...], tuple[int, ...]]:
-    """Próximas datas em que a loja opera + dias da semana fechados.
-
-    Fonte da verdade: ``business_calendar`` (horário semanal + feriados/férias).
-    Degrada para vazio se algo falhar — a UI cai no fallback de datas.
-    """
-    try:
-        from shopman.shop.services import business_calendar
-
-        # Duas é o bastante: a UI mostra "Hoje" (se aberto) + a próxima fornada.
-        dates = business_calendar.available_dates(max_count=2, horizon_days=max_preorder_days)
-        return (
-            tuple(d.isoformat() for d in dates),
-            tuple(business_calendar.closed_weekdays()),
-        )
-    except Exception:
-        logger.debug("checkout_projection_availability_dates_failed", exc_info=True)
-        return (), ()
 
 
 def _card_provider() -> str:
