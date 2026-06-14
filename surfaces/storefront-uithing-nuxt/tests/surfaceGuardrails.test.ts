@@ -732,9 +732,12 @@ describe('surface UX guardrails', () => {
     expect(css).toContain('--destructive-foreground: oklch(0.985 0 0)')
     expect(tracking).toContain('variant="default"')
     expect(tracking).toContain(':class="statusPanelClass"')
-    expect(tracking).toContain('border-l-4 border-border border-l-destructive bg-card text-foreground shadow-sm')
     expect(tracking).toContain(':icon-class="statusPanelIconClass"')
-    expect(tracking).toContain('lucide:triangle-alert')
+    // Tracking: tom→classe/ícone do painel agora vive em presentation/orderTracking.ts;
+    // o acento na borda esquerda (não banner cheio) permanece a regra.
+    const trackingPresentation = read('app/presentation/orderTracking.ts')
+    expect(trackingPresentation).toContain('border-l-4 border-border border-l-destructive bg-card text-foreground shadow-sm')
+    expect(trackingPresentation).toContain("if (tone === 'danger') return 'lucide:triangle-alert'")
     // Pagamento: tom→variante/preenchimento agora vive em presentation/payment.ts.
     // O contorno (não preenchido) para danger permanece a regra.
     expect(payment).toContain(':filled="paymentAlertFilled(payment.promise.tone)"')
@@ -760,12 +763,14 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('const { performAction: performReorderAction, conflict, pending: reorderPending } = useReorder()')
     expect(tracking).toContain('const reorderAction = computed')
     expect(tracking).toContain('const statusPanelActions = computed')
-    expect(tracking).toContain("promiseTone.value === 'danger'")
-    expect(tracking).toContain("actions.unshift(reorderAction.value)")
     expect(tracking).toContain('const hasStatusPanelActions = computed')
     expect(tracking).toContain('const visiblePromiseRows = computed')
-    expect(tracking).toContain("'última atualização'")
-    expect(tracking).toContain("'sua ação'")
+    // Ordenação das ações e filtro das rows agora vivem em presentation/orderTracking.ts.
+    const trackingPresentation = read('app/presentation/orderTracking.ts')
+    expect(trackingPresentation).toContain("tone === 'danger' && reorderAction")
+    expect(trackingPresentation).toContain('actions.unshift(reorderAction)')
+    expect(trackingPresentation).toContain("'última atualização'")
+    expect(trackingPresentation).toContain("'sua ação'")
     expect(tracking).toContain('{{ tracking.last_updated_display }}')
     expect(tracking).toContain('Ações disponíveis')
     expect(tracking).toContain('handleStatusPanelAction')

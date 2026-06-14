@@ -1,5 +1,16 @@
 <script setup lang="ts">
 import type { Action, TrackingResponse } from '~/types/shopman'
+import {
+  hasLiveDeadline,
+  pollIntervalMs,
+  timelineActiveStep,
+  trackingPanelClass,
+  trackingPanelIcon,
+  trackingPanelIconClass,
+  trackingStatusPanelActions,
+  visibleTrackingPromiseRows
+} from '~/presentation/orderTracking'
+import { deadlineCountdown, serverClockOffsetMs } from '~/presentation/deadline'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -23,31 +34,10 @@ const rateAction = computed(() => tracking.value?.actions.find(action => action.
 const reorderAction = computed(() => tracking.value?.actions.find(action => action.ref === 'reorder' && action.enabled) || null)
 const promiseActions = computed(() => tracking.value?.promise.actions.filter(action => action.enabled) || [])
 const promiseTone = computed(() => tracking.value?.promise.tone || 'info')
-const statusPanelActions = computed(() => {
-  const actions = [...promiseActions.value]
-  if (promiseTone.value === 'danger' && reorderAction.value && !actions.some(action => action.ref === 'reorder')) {
-    actions.unshift(reorderAction.value)
-  }
-  return actions
-})
-const statusPanelClass = computed(() => {
-  if (promiseTone.value === 'danger') return 'border-l-4 border-border border-l-destructive bg-card text-foreground shadow-sm'
-  if (promiseTone.value === 'warning') return 'border-l-4 border-border border-l-amber-500 bg-card text-foreground shadow-sm'
-  if (promiseTone.value === 'success') return 'border-l-4 border-border border-l-emerald-500 bg-card text-foreground shadow-sm'
-  return 'border-l-4 border-border border-l-blue-500 bg-card text-foreground shadow-sm'
-})
-const statusPanelIconClass = computed(() => {
-  if (promiseTone.value === 'danger') return 'text-destructive'
-  if (promiseTone.value === 'warning') return 'text-amber-600'
-  if (promiseTone.value === 'success') return 'text-emerald-600'
-  return 'text-blue-600'
-})
-const statusPanelIcon = computed(() => {
-  if (promiseTone.value === 'danger') return 'lucide:triangle-alert'
-  if (promiseTone.value === 'warning') return 'lucide:circle-alert'
-  if (promiseTone.value === 'success') return 'lucide:circle-check'
-  return 'lucide:info'
-})
+const statusPanelActions = computed(() => trackingStatusPanelActions(promiseActions.value, reorderAction.value, promiseTone.value))
+const statusPanelClass = computed(() => trackingPanelClass(promiseTone.value))
+const statusPanelIconClass = computed(() => trackingPanelIconClass(promiseTone.value))
+const statusPanelIcon = computed(() => trackingPanelIcon(promiseTone.value))
 const showPaymentStatusFallback = computed(() => Boolean(
   tracking.value?.requires_payment_gate &&
   !statusPanelActions.value.some(action => action.ref === 'pay_now' || action.ref.includes('payment'))
@@ -58,13 +48,7 @@ const hasStatusPanelActions = computed(() => Boolean(
   showPaymentStatusFallback.value ||
   showSupportInStatusPanel.value
 ))
-const visiblePromiseRows = computed(() => {
-  const hiddenLabels = ['última atualização', 'sua ação']
-  return (tracking.value?.promise_rows || []).filter(row => {
-    const label = row.label.toLocaleLowerCase('pt-BR')
-    return !hiddenLabels.some(hidden => label.includes(hidden))
-  })
-})
+const visiblePromiseRows = computed(() => visibleTrackingPromiseRows(tracking.value?.promise_rows || []))
 const showSideActions = computed(() => Boolean(
   tracking.value &&
   (
@@ -77,22 +61,36 @@ const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tr
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
 const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-0.5 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
 const trackingTabsTriggerClass = 'border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none'
-const progressTimelineStep = computed(() => {
-  const steps = tracking.value?.progress_steps || []
-  if (!steps.length) return undefined
-  const active = steps.findIndex(step => step.state === 'current' || step.state === 'cancelled')
-  if (active >= 0) return active + 1
-  return Math.max(steps.filter(step => step.state === 'completed').length, 1)
-})
+const progressTimelineStep = computed(() => timelineActiveStep(tracking.value?.progress_steps || []))
 
+// Deadline vivo (timeouts transparentes): countdown ancorado em server_now_iso
+// quando a promise pede contagem (ex.: prazo de confirmação/pagamento).
+const clientNow = ref(Date.now())
+const serverOffset = computed(() => serverClockOffsetMs(tracking.value?.server_now_iso, Date.now()))
+const nowMs = computed(() => clientNow.value + serverOffset.value)
+const deadlineLive = computed(() => tracking.value && hasLiveDeadline(tracking.value.promise))
+const deadlineCount = computed(() => deadlineLive.value ? deadlineCountdown(tracking.value!.promise.deadline_at, nowMs.value) : null)
+
+let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
+let deadlineHandled = false
 onMounted(() => {
+  tick = setInterval(() => { clientNow.value = Date.now() }, 1000)
   poll = setInterval(() => {
     if (tracking.value?.is_active) void refresh()
-  }, Math.max((tracking.value?.stale_after_seconds || 30) * 1000, 15000))
+  }, pollIntervalMs(tracking.value?.stale_after_seconds))
 })
 onBeforeUnmount(() => {
+  if (tick) clearInterval(tick)
   if (poll) clearInterval(poll)
+})
+
+// Ao zerar o prazo, o backend decide (deadline_action): a UI sincroniza uma vez.
+watch(() => deadlineCount.value?.isExpired, async expired => {
+  if (expired && !deadlineHandled && tracking.value?.is_active) {
+    deadlineHandled = true
+    await refresh()
+  }
 })
 
 async function postAction (action: Action, body: Record<string, unknown> = {}) {
@@ -197,6 +195,12 @@ useSeoMeta({
             <UiAlertDescription class="w-full text-muted-foreground">
               <div class="w-full space-y-3">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
+
+                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-medium" role="timer" aria-live="polite">
+                  <Icon name="lucide:timer" :size="18" :class="statusPanelIconClass" />
+                  <span class="text-muted-foreground">{{ tracking.promise_deadline_label || 'Tempo restante' }}</span>
+                  <span class="tabular-nums text-foreground">{{ deadlineCount.mmss }}</span>
+                </div>
 
                 <p class="text-sm text-muted-foreground">{{ tracking.last_updated_display }}</p>
 
