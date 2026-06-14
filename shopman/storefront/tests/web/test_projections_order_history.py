@@ -14,7 +14,7 @@ from shopman.storefront.presentation.order_history import (
     OrderHistoryProjection,
     build_order_history,
 )
-from shopman.storefront.presentation.status import status_color
+from shopman.storefront.presentation.status import status_color, status_tone
 from shopman.storefront.presentation.types import OrderSummaryProjection
 
 pytestmark = pytest.mark.django_db
@@ -126,6 +126,25 @@ class TestOrderHistoryOrders:
         self._make_order(customer)
         proj = build_order_history(customer)
         assert "às" in proj.orders[0].created_at_display
+
+    def test_status_tone_keyword_from_canonical_map(self):
+        # status_tone devolve o keyword semântico (Tone), surface-agnostic —
+        # espelha ORDER_STATUS_TONES. Superfícies que renderizam suas próprias
+        # classes (Nuxt) consomem este keyword, não o status_color (CSS legado).
+        assert status_tone("completed") == "success"
+        assert status_tone("ready") == "success"
+        assert status_tone("delivered") == "success"
+        assert status_tone("preparing") == "warning"
+        assert status_tone("cancelled") == "danger"
+        assert status_tone("returned") == "neutral"
+        assert status_tone("new") == "info"
+        assert status_tone("confirmed") == "info"
+        assert status_tone("dispatched") == "info"
+
+    def test_status_tone_unknown_defaults_to_info(self):
+        assert status_tone("nonexistent_status") == "info"
+        assert status_tone("") == "info"
+        assert status_tone(None) == "info"
 
     def test_item_count_zero_when_no_items(self, customer):
         self._make_order(customer)

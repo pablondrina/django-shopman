@@ -244,6 +244,30 @@ class TestCustomerProfileRecentOrders:
             assert o.status_label
             assert o.status_color
 
+    def test_order_history_dict_carries_status_tone(self, customer):
+        # Contrato REST do Arc 9b: o dict da API leva o keyword `status_tone`
+        # (semântico, surface-agnostic) — a superfície Nuxt mapeia tom→classe.
+        from shopman.orderman.models import Order
+        from shopman.storefront.presentation import account as account_presentation
+
+        Order.objects.create(
+            ref="ORD-TONE-DONE",
+            channel_ref="web",
+            status="completed",
+            total_q=1900,
+            handle_type="phone",
+            handle_ref=customer.phone,
+            data={"customer_ref": customer.ref},
+        )
+        rows = account_presentation.order_history_for_customer(
+            customer_ref=customer.ref, phone=customer.phone,
+        )
+        assert rows, "esperava ao menos um pedido"
+        done = next(r for r in rows if r["ref"] == "ORD-TONE-DONE")
+        assert done["status_tone"] == "success"
+        # status_color (CSS legado) coexiste, mas não é o que o Nuxt consome.
+        assert "status_color" in done
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Notification prefs
