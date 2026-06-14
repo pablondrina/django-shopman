@@ -35,6 +35,17 @@ def status_color(status: str) -> str:
     return _TONE_CLASSES[tone] if tone else DEFAULT_STATUS_COLOR
 
 
+def status_tone(status: str | None) -> str:
+    """Map an order status to its semantic tone keyword (surface-agnostic).
+
+    The data read-side carries *meaning* (the ``Tone``); each surface owns the
+    tone→class translation. Surfaces that render their own classes (the Nuxt
+    storefront) consume this keyword instead of the legacy class string.
+    """
+    tone = ORDER_STATUS_TONES.get(status or "")
+    return tone.value if tone else Tone.INFO.value
+
+
 def order_status_label(status: str | None, fallback: str | None = None) -> str:
     """Resolve an order-status key to its display label.
 

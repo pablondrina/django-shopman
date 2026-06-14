@@ -23,6 +23,7 @@ from shopman.shop.projections import customer as customer_projection
 from shopman.shop.projections import customer_context
 from shopman.shop.projections.types import SavedAddressProjection
 from shopman.storefront.presentation.order_history import present_summary
+from shopman.storefront.presentation.status import status_tone
 from shopman.storefront.presentation.types import (
     FoodPrefProjection,
     NotificationPrefProjection,
@@ -173,6 +174,7 @@ def order_history_for_customer(
                 "status": rendered.status,
                 "status_label": rendered.status_label,
                 "status_color": rendered.status_color,
+                "status_tone": status_tone(rendered.status),
                 "item_count": rendered.item_count,
             }
         )

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderHistoryItem, ReorderConflictProjection } from '~/types/shopman'
-import { ORDER_FILTER_OPTIONS, ordersEmptyCopy, reorderActionFrom } from '~/presentation/account'
+import { ORDER_FILTER_OPTIONS, orderStatusAccentClass, orderStatusDotClass, ordersEmptyCopy, reorderActionFrom } from '~/presentation/account'
 
 definePageMeta({ middleware: 'account' })
 
@@ -65,25 +65,35 @@ useSeoMeta({ title: 'Pedidos' })
         </div>
       </UiEmpty>
 
-      <UiItemGroup v-else class="gap-3">
-        <UiItem v-for="order in orders || []" :key="order.ref" variant="outline" class="bg-card">
-          <UiItemContent>
-            <UiItemTitle>{{ order.ref }}</UiItemTitle>
-            <UiItemDescription>{{ order.status_label }} · {{ order.created_at_display }}</UiItemDescription>
-          </UiItemContent>
-          <UiItemActions class="flex gap-2">
-            <UiButton :to="orderTrackingRoute(order.ref)" variant="outline" size="sm">Acompanhar</UiButton>
+      <ul v-else class="space-y-3">
+        <li
+          v-for="order in orders || []"
+          :key="order.ref"
+          class="flex flex-col gap-3 rounded-lg border border-l-2 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          :class="orderStatusAccentClass(order.status_tone)"
+        >
+          <div class="min-w-0">
+            <p class="flex items-center gap-2 font-medium">
+              <span class="size-2 shrink-0 rounded-full" :class="orderStatusDotClass(order.status_tone)" aria-hidden="true" />
+              {{ order.status_label }}
+              <span v-if="order.total_display" class="text-muted-foreground">· {{ order.total_display }}</span>
+            </p>
+            <p class="mt-0.5 truncate text-sm text-muted-foreground">{{ order.ref }} · {{ order.created_at_display }}</p>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <UiButton :to="orderTrackingRoute(order.ref)" variant="outline" size="sm" icon="lucide:radar">Acompanhar</UiButton>
             <UiButton
               v-if="reorderActionFrom(order)"
               size="sm"
+              icon="lucide:rotate-ccw"
               :loading="!!reorderPending[order.ref]"
               @click="performAction(reorderActionFrom(order)!)"
             >
               Refazer
             </UiButton>
-          </UiItemActions>
-        </UiItem>
-      </UiItemGroup>
+          </div>
+        </li>
+      </ul>
 
       <UiAlertDialog :open="!!conflictRef" @update:open="open => { if (!open) dismissConflict() }">
         <UiAlertDialogContent>

@@ -11,6 +11,7 @@ import {
   loyaltyStampsLabel,
   loyaltyView,
   orderStatusAccentClass,
+  orderStatusDotClass,
   ordersEmptyCopy,
   reorderActionFrom
 } from '~/presentation/account'
@@ -108,6 +109,15 @@ describe('orderStatusAccentClass', () => {
     expect(orderStatusAccentClass('danger')).toBe('border-l-destructive')
     expect(orderStatusAccentClass('info')).toBe('border-l-blue-500')
     expect(orderStatusAccentClass(undefined)).toBe('border-l-blue-500')
+  })
+})
+
+describe('orderStatusDotClass', () => {
+  it('mapeia tons do backend para o ponto', () => {
+    expect(orderStatusDotClass('success')).toBe('bg-emerald-500')
+    expect(orderStatusDotClass('warning')).toBe('bg-amber-500')
+    expect(orderStatusDotClass('danger')).toBe('bg-destructive')
+    expect(orderStatusDotClass(undefined)).toBe('bg-blue-500')
   })
 })
 

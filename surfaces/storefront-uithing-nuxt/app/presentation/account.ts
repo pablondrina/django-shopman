@@ -100,13 +100,25 @@ export function loyaltyStampsLabel (remaining: number, cardComplete: boolean, ta
 
 // ── Pedidos ────────────────────────────────────────────────────────────────
 // Acento do status na borda (mesma gramática do tracking: cor só na borda
-// esquerda, painel neutro). status_color vem do backend (success/warning/danger/info).
-export function orderStatusAccentClass (statusColor: string | null | undefined): string {
-  switch (statusColor) {
+// esquerda, painel neutro). Recebe o `status_tone` keyword do backend (o
+// read-side carrega o tom; cada superfície traduz tom→classe — regra R-B).
+export function orderStatusAccentClass (tone: string | null | undefined): string {
+  switch (tone) {
     case 'success': return 'border-l-emerald-500'
     case 'warning': return 'border-l-amber-500'
     case 'danger': return 'border-l-destructive'
+    case 'neutral': return 'border-l-muted-foreground/40'
     default: return 'border-l-blue-500'
+  }
+}
+
+export function orderStatusDotClass (tone: string | null | undefined): string {
+  switch (tone) {
+    case 'success': return 'bg-emerald-500'
+    case 'warning': return 'bg-amber-500'
+    case 'danger': return 'bg-destructive'
+    case 'neutral': return 'bg-muted-foreground/50'
+    default: return 'bg-blue-500'
   }
 }
 

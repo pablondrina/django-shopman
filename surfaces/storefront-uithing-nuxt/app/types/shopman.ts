@@ -874,6 +874,7 @@ export interface OrderHistoryItem {
   status: string
   status_label: string
   status_color?: string
+  status_tone?: 'info' | 'warning' | 'success' | 'danger' | 'neutral' | string
   total_display: string
   item_count?: number
   created_at_display?: string
