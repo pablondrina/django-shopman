@@ -291,6 +291,9 @@ def _build_ops_from_data(data: dict) -> list[dict]:
         "loyalty",
         "manual_discount",
         "stock_check_unavailable",
+        "is_gift",
+        "recipient",
+        "gift_message",
     ]
     for field in data_fields:
         if field in data:

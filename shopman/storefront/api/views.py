@@ -394,6 +394,25 @@ class CheckoutView(APIView):
             checkout_data["delivery_time_slot"] = delivery_time_slot
         if payment_method in {"pix", "card"}:
             checkout_data["payment"] = {"method": payment_method}
+
+        # Presente (entrega para terceiro) — integridade antes do commit.
+        from shopman.storefront.intents.gift import build_gift_data
+
+        gift_data, gift_errors = build_gift_data(
+            is_gift=serializer.validated_data.get("is_gift", False),
+            recipient_name=serializer.validated_data.get("recipient_name", ""),
+            recipient_phone=serializer.validated_data.get("recipient_phone", ""),
+            gift_message=serializer.validated_data.get("gift_message", ""),
+        )
+        if gift_errors:
+            field, message = next(iter(gift_errors.items()))
+            return Response(
+                {"detail": message, "field": field, "errors": gift_errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if gift_data:
+            checkout_data.update(gift_data)
+
         if use_loyalty:
             try:
                 from shopman.shop.projections import checkout_context

@@ -39,6 +39,9 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `fired_lines` | `list[str]` | POS `fire_pos_tab` (`session.save`) | `_tab_payload` (flag `fired` por item) | Marker UI de quais `line_id` da comanda já foram disparados à cozinha (KDS). Mirror do ledger autoritativo (tickets KDS por `session_key`, que sobrevive ao commit); escrito direto, sem re-pricing. Disparo progressivo curso-a-curso. **Não propagado ao Order.data** — o ledger pós-commit são os próprios `KDSTicket` |
 | `fiscal` | `dict` | POS checkout | Order.data | Preferências fiscais capturadas no checkout: `{issue_document, tax_id}` |
 | `receipt` | `dict` | POS checkout | Order.data | Preferência de recibo: `{mode, email}` |
+| `is_gift` | `bool` | CheckoutView, API (`set_data`) | CommitService, KDS/expedição | `True` quando o pedido é presente (entrega para terceiro). Só presente quando é presente. Ver [GIFT-UX-PLAN](../plans/GIFT-UX-PLAN.md) |
+| `recipient` | `dict` | CheckoutView, API (`set_data`) | CommitService, KDS/expedição | Destinatário do presente: `{name, phone}`. **Não** é identidade (não vira Customer) nem sobrescreve o comprador. Integridade garantida por `intents.gift.build_gift_data` (nunca parcial). Só presente quando `is_gift=True` |
+| `gift_message` | `string` | CheckoutView, API (`set_data`) | CommitService | Mensagem do presente para o destinatário. **Separada** de `order_notes` (operacional/cozinha). Opcional; só presente quando informada |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -53,7 +56,8 @@ O `ModifyService` aceita operações `set_data` nas seguintes paths:
 `customer`, `delivery`, `payment`, `notes`, `meta`, `extra`, `custom`, `tags`,
 `discounts`, `fees`, `tip`, `coupon`, `source`, `operator`, `table`, `tab`,
 `fulfillment_type`, `delivery_address`, `delivery_address_structured`,
-`delivery_date`, `delivery_time_slot`, `order_notes`.
+`delivery_date`, `delivery_time_slot`, `order_notes`,
+`is_gift`, `recipient`, `gift_message`.
 
 Paths **proibidas** (geridas pelo sistema): `checks`, `issues`, `state`, `status`,
 `rev`, `session_key`, `channel`, `items`, `pricing`, `pricing_trace`, `__`.
@@ -101,8 +105,14 @@ for key in (
     "delivery_time_slot", "order_notes",
     "origin_channel", "payment",
     "delivery_fee_q",
+    "is_gift", "recipient", "gift_message",
 ):
 ```
+
+> `is_gift` / `recipient` / `gift_message` — presente (entrega para terceiro),
+> ver [GIFT-UX-PLAN](../plans/GIFT-UX-PLAN.md). Só presentes quando o pedido é
+> presente; a integridade (recipient nunca parcial) é garantida na escrita por
+> `shopman.storefront.intents.gift.build_gift_data`.
 
 **Para adicionar uma nova chave ao fluxo Session→Order, adicione-a nessa lista.**
 

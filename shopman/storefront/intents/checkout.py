@@ -48,6 +48,10 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     name_raw = post.get("name", "").strip()
     phone_raw = post.get("phone", "").strip()
     notes = post.get("notes", "").strip()
+    is_gift = post.get("is_gift", "") == "true"
+    recipient_name_raw = post.get("recipient_name", "").strip()
+    recipient_phone_raw = post.get("recipient_phone", "").strip()
+    gift_message_raw = post.get("gift_message", "").strip()
     fulfillment_type = post.get("fulfillment_type", "pickup")
     delivery_address = post.get("delivery_address", "").strip()
     delivery_date = post.get("delivery_date", "").strip()
@@ -158,6 +162,17 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     if stock_errors:
         errors["stock"] = stock_errors[0]["message"]
 
+    # ── Presente (entrega para terceiro) — integridade ────────────────────
+    from .gift import build_gift_data
+
+    gift_data, gift_errors = build_gift_data(
+        is_gift=is_gift,
+        recipient_name=recipient_name_raw,
+        recipient_phone=recipient_phone_raw,
+        gift_message=gift_message_raw,
+    )
+    errors.update(gift_errors)
+
     if errors:
         return IntentResult(
             intent=None,
@@ -210,6 +225,8 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         checkout_data["delivery_time_slot"] = delivery_time_slot
     if chosen_method in ("pix", "card"):
         checkout_data["payment"] = {"method": chosen_method}
+    if gift_data:
+        checkout_data.update(gift_data)
 
     # ── Step 13: Resolve loyalty ──────────────────────────────────────────
     loyalty_redeem = post.get("use_loyalty") == "true"

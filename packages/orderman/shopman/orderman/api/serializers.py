@@ -91,6 +91,9 @@ class OperationSerializer(serializers.Serializer):
         "operator",      # operator.* (operador/vendedor)
         "table",         # table (mesa - restaurantes)
         "tab",           # tab label
+        "is_gift",        # presente (entrega para terceiro)
+        "recipient",      # destinatário do presente: {name, phone}
+        "gift_message",   # mensagem do presente (separada de order_notes)
     }
 
     NESTABLE_DATA_PATHS = {
@@ -98,6 +101,7 @@ class OperationSerializer(serializers.Serializer):
         "delivery",
         "delivery_address_structured",
         "payment",
+        "recipient",
         "meta",
         "extra",
         "custom",

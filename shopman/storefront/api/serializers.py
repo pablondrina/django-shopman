@@ -55,6 +55,12 @@ class CheckoutSerializer(serializers.Serializer):
     delivery_time_slot = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     payment_method = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     use_loyalty = serializers.BooleanField(required=False, default=False)
+    # Presente (entrega para terceiro) — GIFT-UX-PLAN. Validação de integridade
+    # em intents.gift.build_gift_data (is_gift=True exige recipient name+phone).
+    is_gift = serializers.BooleanField(required=False, default=False)
+    recipient_name = serializers.CharField(required=False, default="", allow_blank=True, max_length=120)
+    recipient_phone = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
+    gift_message = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
 
 
 class CheckoutResponseSerializer(serializers.Serializer):
