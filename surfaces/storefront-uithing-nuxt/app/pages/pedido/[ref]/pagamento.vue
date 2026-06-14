@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { PaymentResponse, PaymentStatusResponse, Action } from '~/types/shopman'
+import { paymentAlertFilled, paymentAlertIcon, paymentAlertVariant, paymentMethodLabel, shouldPollPayment } from '~/presentation/payment'
+import { countdownPct, deadlineCountdown, isCountdownUrgent, serverClockOffsetMs } from '~/presentation/deadline'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
@@ -20,10 +22,31 @@ watchEffect(() => {
   }
 })
 
+// Relógio vivo alinhado ao servidor (timeouts transparentes). `nowMs` corrige o
+// relógio do dispositivo pelo offset de server_now_iso.
+const clientNow = ref(Date.now())
+const serverOffset = computed(() => serverClockOffsetMs(payment.value?.server_now_iso, Date.now()))
+const nowMs = computed(() => clientNow.value + serverOffset.value)
+
+// Janela do PIX ancorada no primeiro tempo restante visto, para a barra drenar
+// de cheia a vazia sem o início real do intent.
+const pixWindowSeconds = ref(0)
+const pixCountdown = computed(() => deadlineCountdown(payment.value?.pix_expires_at, nowMs.value))
+watch(pixCountdown, countdown => {
+  if (countdown && countdown.totalSeconds > 0 && pixWindowSeconds.value === 0) {
+    pixWindowSeconds.value = countdown.totalSeconds
+  }
+}, { immediate: true })
+const pixPct = computed(() => pixCountdown.value ? countdownPct(pixCountdown.value.totalSeconds, pixWindowSeconds.value) : 0)
+const pixUrgent = computed(() => isCountdownUrgent(pixPct.value))
+
+let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
+let expiryHandled = false
 onMounted(() => {
+  tick = setInterval(() => { clientNow.value = Date.now() }, 1000)
   poll = setInterval(async () => {
-    if (!payment.value || ['paid', 'cancelled', 'expired'].includes(String(payment.value.payment_status))) return
+    if (!shouldPollPayment(payment.value)) return
     const status = await $fetch<PaymentStatusResponse>(apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/status/`), {
       credentials: 'include'
     }).catch(() => null)
@@ -35,7 +58,17 @@ onMounted(() => {
   }, 8000)
 })
 onBeforeUnmount(() => {
+  if (tick) clearInterval(tick)
   if (poll) clearInterval(poll)
+})
+
+// Quando o PIX zera, o backend decide (deadline_action): a UI só sincroniza uma
+// vez para refletir o estado terminal (expirado/cancelado) que a projeção trouxer.
+watch(() => pixCountdown.value?.isExpired, async expired => {
+  if (expired && !expiryHandled && shouldPollPayment(payment.value)) {
+    expiryHandled = true
+    await refresh()
+  }
 })
 
 async function copyPix () {
@@ -99,9 +132,9 @@ useSeoMeta({
 
       <template v-else-if="payment">
         <UiAlert
-          :variant="payment.promise.tone === 'danger' ? 'destructive' : payment.promise.tone === 'warning' ? 'warning' : 'info'"
-          :filled="payment.promise.tone !== 'danger'"
-          :icon="payment.promise.tone === 'danger' ? 'lucide:triangle-alert' : payment.promise.tone === 'warning' ? 'lucide:circle-alert' : 'lucide:info'"
+          :variant="paymentAlertVariant(payment.promise.tone)"
+          :filled="paymentAlertFilled(payment.promise.tone)"
+          :icon="paymentAlertIcon(payment.promise.tone)"
         >
           <UiAlertTitle>{{ payment.promise.title }}</UiAlertTitle>
           <UiAlertDescription>{{ payment.promise.message }}</UiAlertDescription>
@@ -111,7 +144,7 @@ useSeoMeta({
           <UiCard>
             <UiCardHeader>
               <UiCardTitle>{{ payment.total_display }}</UiCardTitle>
-              <UiCardDescription>{{ payment.method }} · {{ payment.payment_status || payment.order_status }}</UiCardDescription>
+              <UiCardDescription>{{ paymentMethodLabel(payment.method) }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
               <div v-if="payment.checkout_url" class="rounded-lg border p-4">
@@ -132,7 +165,16 @@ useSeoMeta({
                   <p class="text-sm text-muted-foreground">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
                   <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
-                  <p v-if="payment.pix_expires_at" class="text-sm text-muted-foreground">Expira em {{ payment.pix_expires_at }}</p>
+
+                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-1.5" role="timer" aria-live="polite">
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-muted-foreground">Tempo para pagar</span>
+                      <span class="font-semibold tabular-nums" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>
+                    </div>
+                    <UiProgress :model-value="pixPct" :class="pixUrgent ? '[&>div]:bg-destructive' : ''" />
+                    <p class="text-xs text-muted-foreground">Assim que o pagamento cair, atualizamos esta tela sozinhos.</p>
+                  </div>
+                  <p v-else-if="pixCountdown?.isExpired" class="text-sm font-medium text-destructive">O prazo do PIX expirou.</p>
                 </div>
               </div>
 
@@ -142,7 +184,7 @@ useSeoMeta({
               </UiAlert>
 
               <UiAlert v-if="payment.promise.recovery" variant="warning">
-                <UiAlertTitle>Recuperacao</UiAlertTitle>
+                <UiAlertTitle>Como resolver</UiAlertTitle>
                 <UiAlertDescription>{{ payment.promise.recovery }}</UiAlertDescription>
               </UiAlert>
             </UiCardContent>

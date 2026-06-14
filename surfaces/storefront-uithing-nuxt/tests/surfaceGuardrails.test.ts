@@ -735,8 +735,13 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('border-l-4 border-border border-l-destructive bg-card text-foreground shadow-sm')
     expect(tracking).toContain(':icon-class="statusPanelIconClass"')
     expect(tracking).toContain('lucide:triangle-alert')
-    expect(payment).toContain(':filled="payment.promise.tone !== \'danger\'"')
-    expect(payment).toContain('lucide:triangle-alert')
+    // Pagamento: tom→variante/preenchimento agora vive em presentation/payment.ts.
+    // O contorno (não preenchido) para danger permanece a regra.
+    expect(payment).toContain(':filled="paymentAlertFilled(payment.promise.tone)"')
+    expect(payment).toContain(':icon="paymentAlertIcon(payment.promise.tone)"')
+    const paymentPresentation = read('app/presentation/payment.ts')
+    expect(paymentPresentation).toContain("return tone !== 'danger'")
+    expect(paymentPresentation).toContain("if (tone === 'danger') return 'lucide:triangle-alert'")
   })
 
   it('does not submit projected sensitive actions without idempotency when declared', () => {
