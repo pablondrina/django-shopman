@@ -147,11 +147,22 @@ useSeoMeta({
               <UiCardDescription>{{ paymentMethodLabel(payment.method) }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
-              <div v-if="payment.checkout_url" class="rounded-lg border p-4">
-                <p class="text-sm text-muted-foreground">Checkout hospedado</p>
-                <UiButton :href="payment.checkout_url" target="_blank" class="mt-3" icon="lucide:external-link">
-                  Abrir pagamento
+              <div v-if="payment.method === 'card' && payment.checkout_url" class="space-y-3 rounded-lg border p-4">
+                <div class="flex items-start gap-3">
+                  <Icon name="lucide:shield-check" :size="22" class="mt-0.5 shrink-0 text-emerald-600" />
+                  <div class="space-y-1">
+                    <p class="font-medium text-foreground">Pagamento seguro</p>
+                    <p class="text-sm text-muted-foreground">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
+                  </div>
+                </div>
+                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" size="lg" icon="lucide:credit-card">
+                  Pagar com cartão
                 </UiButton>
+              </div>
+
+              <div v-else-if="payment.method === 'card'" class="flex items-center gap-3 rounded-lg border p-4">
+                <Icon name="lucide:loader-circle" :size="20" class="shrink-0 animate-spin text-muted-foreground" />
+                <p class="text-sm text-muted-foreground">Preparando o pagamento seguro com cartão…</p>
               </div>
 
               <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid grid-cols-1 gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
