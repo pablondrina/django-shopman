@@ -258,11 +258,11 @@ def generate_design_tokens(
     neutral_dark_hex: str = "",
     color_mode: str = "light",
 ) -> dict:
-    """Tokens do storefront: **Oxbow UI** (`oxbow_tokens.build_storefront_design_tokens`).
+    """Tokens do storefront: paleta da marca (`brand_tokens.build_storefront_design_tokens`).
 
     Os argumentos de cor são ignorados; mantidos só por compatibilidade de assinatura.
     Use `Shop.design_tokens` ou `build_storefront_design_tokens` com fontes.
     """
-    from shopman.shop.oxbow_tokens import build_storefront_design_tokens
+    from shopman.shop.brand_tokens import build_storefront_design_tokens
 
     return build_storefront_design_tokens(color_mode=color_mode)

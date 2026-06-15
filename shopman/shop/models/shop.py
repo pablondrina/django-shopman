@@ -437,7 +437,7 @@ class Shop(models.Model):
     @property
     def design_tokens(self) -> dict:
         """Return complete design token dict for template rendering."""
-        from shopman.shop.oxbow_tokens import build_storefront_design_tokens
+        from shopman.shop.brand_tokens import build_storefront_design_tokens
 
         return build_storefront_design_tokens(
             heading_font=self.heading_font or "Inter",

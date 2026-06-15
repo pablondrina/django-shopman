@@ -885,7 +885,7 @@ class ShopAdmin(ModelAdmin):
         }),
     )
 
-    @admin.display(description="Preview da paleta (Oxbow → RGB)")
+    @admin.display(description="Preview da paleta (marca → RGB)")
     def color_preview(self, obj):
         """Swatches dos tokens (canais RGB no storefront)."""
         if not obj or not obj.pk:
