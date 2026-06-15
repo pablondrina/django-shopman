@@ -480,7 +480,7 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('const isCheckoutReturn')
     expect(login).toContain('const stepTitle')
     expect(login).toContain('const stepDescription')
-    expect(login).toContain('<UiInputGroup>')
+    expect(login).toContain('<UiInputGroup class="bg-background">')
     expect(login).toContain('<UiInputGroupAddon align="inline-start">')
     expect(login).toContain('<UiInputGroupInput')
     expect(login).toContain('name="phone"')

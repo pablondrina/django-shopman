@@ -376,7 +376,7 @@ useSeoMeta({
         </UiAlert>
 
         <form v-if="step === 'phone'" ref="phoneForm" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
-          <UiField>
+          <UiField class="rounded-lg border bg-card p-4">
             <div class="flex items-center justify-between gap-3">
               <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
               <UiButton
@@ -389,7 +389,7 @@ useSeoMeta({
                 {{ regionToggleLabel }}
               </UiButton>
             </div>
-            <UiInputGroup>
+            <UiInputGroup class="bg-background">
               <UiInputGroupAddon align="inline-start">
                 <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
                 <Icon v-else name="lucide:globe-2" />
@@ -448,7 +448,7 @@ useSeoMeta({
             <UiAlertDescription>Leia o código no terminal onde o projeto está rodando.</UiAlertDescription>
           </UiAlert>
 
-          <UiField>
+          <UiField class="rounded-lg border bg-card p-4">
             <UiFieldLabel>Código de 6 dígitos</UiFieldLabel>
             <UiPinInput
               v-model="codeDigits"
@@ -502,11 +502,12 @@ useSeoMeta({
         </form>
 
         <form v-else ref="welcomeForm" class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
-          <UiField>
+          <UiField class="rounded-lg border bg-card p-4">
             <UiFieldLabel for="welcome-name">Nome</UiFieldLabel>
             <UiInput
               id="welcome-name"
               v-model="welcomeName"
+              class="bg-background"
               name="welcome-name"
               autocomplete="given-name"
               placeholder="Como prefere ser chamado"
