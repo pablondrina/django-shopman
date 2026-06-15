@@ -60,6 +60,43 @@ export function shopThemeStyle (shop: ShopProjection | null | undefined): Record
   return tokenVars(shop?.design_tokens as ShopDesignTokensProjection | undefined)
 }
 
+/**
+ * Família tipográfica da marca para `--font-sans` (null ⇒ herda o `ui-sans-serif` neutro).
+ * A superfície usa uma única família (hierarquia por peso 400/600), então preferimos
+ * `body_font`, caindo em `heading_font`. Fallback completo preserva o stack neutro.
+ */
+export function shopFontFamily (tokens: ShopDesignTokensProjection | null | undefined): string | null {
+  const name = (tokens?.body_font || tokens?.heading_font || '').trim()
+  return name ? `'${name}', ui-sans-serif, system-ui, sans-serif` : null
+}
+
+/** `<link>` para carregar a(s) fonte(s) da marca (vazio ⇒ neutro / preview). */
+export function shopFontLinks (
+  shop: ShopProjection | null | undefined,
+  options: { preview?: string | null } = {}
+): Array<Record<string, string>> {
+  if (options.preview === 'neutral') return []
+  const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
+  if (!tokens) return []
+
+  const families = [...new Set(
+    [tokens.heading_font, tokens.body_font]
+      .map(f => (f || '').trim())
+      .filter(Boolean)
+  )]
+  if (!families.length) return []
+
+  const query = families
+    .map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;500;600`)
+    .join('&')
+
+  return [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: `https://fonts.googleapis.com/css2?${query}&display=swap` }
+  ]
+}
+
 function declarations (vars: Record<string, string>): string {
   return Object.entries(vars).map(([name, value]) => `${name}: ${value};`).join(' ')
 }
@@ -80,6 +117,10 @@ export function shopThemeCss (
 
   const light = tokenVars(tokens)
   const dark = tokenVars(tokens.dark)
+
+  // Tipografia da marca entra no mesmo bloco claro (a família não muda no escuro).
+  const font = shopFontFamily(tokens)
+  if (font) light['--font-sans'] = font
 
   // Especificidade dobrada (`:root:root` = 0,2,0) para vencer o base neutro (`:root`
   // / `.dark` = 0,1,0) independentemente da ORDEM de injeção (head/HMR/prod). O bloco

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shopThemeCss, shopThemeStyle, tokenVars } from '../app/utils/shopTheme'
+import { shopFontFamily, shopFontLinks, shopThemeCss, shopThemeStyle, tokenVars } from '../app/utils/shopTheme'
 import type { ShopProjection } from '../app/types/shopman'
 
 function shop (design_tokens: ShopProjection['design_tokens']): ShopProjection {
@@ -71,5 +71,29 @@ describe('shop theme — marca como override das variáveis reais', () => {
     const style = shopThemeStyle(shop({ primary: '124 58 64' }))
     expect(style).toEqual({ '--primary': 'rgb(124 58 64)' })
     expect(style).not.toHaveProperty('--background')
+  })
+})
+
+describe('shop theme — tipografia da marca', () => {
+  const FONTS = { ...BRAND, heading_font: 'Instrument Sans', body_font: 'Instrument Sans' }
+
+  it('sobrescreve --font-sans com a fonte da marca + fallback neutro', () => {
+    expect(shopFontFamily(FONTS)).toBe("'Instrument Sans', ui-sans-serif, system-ui, sans-serif")
+    expect(shopThemeCss(shop(FONTS))).toContain("--font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;")
+  })
+
+  it('carrega a fonte via <link> Google Fonts (preconnect + stylesheet, pesos 400/500/600)', () => {
+    const links = shopFontLinks(shop(FONTS))
+    expect(links.some(l => l.rel === 'preconnect' && l.href === 'https://fonts.googleapis.com')).toBe(true)
+    const sheet = links.find(l => l.rel === 'stylesheet')
+    expect(sheet?.href).toContain('family=Instrument+Sans:wght@400;500;600')
+    expect(sheet?.href).toContain('display=swap')
+  })
+
+  it('reversibilidade: sem fonte / preview neutro ⇒ sem --font-sans e sem links', () => {
+    expect(shopFontFamily(undefined)).toBeNull()
+    expect(shopThemeCss(shop(BRAND))).not.toContain('--font-sans')
+    expect(shopFontLinks(shop(undefined))).toEqual([])
+    expect(shopFontLinks(shop(FONTS), { preview: 'neutral' })).toEqual([])
   })
 })

@@ -3,8 +3,9 @@ import type { Ref } from 'vue'
 
 /**
  * Aplica a marca como camada de override sobre o base neutro, no SSR e no client
- * (sem FOUC), via um único bloco `<style id="shop-theme">`. Reversibilidade:
- *   - sem `design_tokens` ⇒ bloco vazio ⇒ neutro pixel-idêntico;
+ * (sem FOUC): bloco `<style id="shop-theme">` (cores + `--font-sans`) e `<link>` das
+ * fontes da marca. Reversibilidade:
+ *   - sem `design_tokens` ⇒ bloco vazio + sem fontes ⇒ neutro pixel-idêntico;
  *   - `?theme=neutral` na URL ⇒ neutro ao vivo (A/B), sem tocar em dado.
  */
 export function useShopTheme (shop: Ref<ShopProjection | null>) {
@@ -14,9 +15,8 @@ export function useShopTheme (shop: Ref<ShopProjection | null>) {
     return Array.isArray(value) ? value[0] : value
   })
 
-  const css = computed(() => shopThemeCss(shop.value, { preview: preview.value }))
-
-  useHead({
-    style: [{ id: 'shop-theme', innerHTML: () => css.value }]
-  })
+  useHead(() => ({
+    style: [{ id: 'shop-theme', innerHTML: shopThemeCss(shop.value, { preview: preview.value }) }],
+    link: shopFontLinks(shop.value, { preview: preview.value })
+  }))
 }
