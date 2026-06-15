@@ -1140,20 +1140,20 @@ useSeoMeta({
                 <UiSheetDescription :description="confirmSheetDescription" />
               </UiSheetHeader>
 
-              <div class="max-h-[calc(85dvh-10rem)] overflow-y-auto px-5 py-4">
+              <div class="max-h-[calc(85dvh-10rem)] overflow-y-auto bg-background px-5 py-4">
                 <div class="space-y-4">
                   <UiAlert v-if="serverError" variant="destructive">
                     <UiAlertTitle>Não confirmado</UiAlertTitle>
                     <UiAlertDescription>{{ serverError }}</UiAlertDescription>
                   </UiAlert>
 
-                  <div class="space-y-1">
+                  <div class="space-y-1 rounded-lg border bg-card p-4">
                     <p class="text-xs font-medium uppercase text-muted-foreground">Total</p>
                     <p class="text-3xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
                     <p class="text-sm text-muted-foreground">{{ confirmItemSummary }}</p>
                   </div>
 
-                  <div class="divide-y rounded-md border text-sm">
+                  <div class="divide-y rounded-md border bg-card text-sm">
                     <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Recebimento</p>
                       <p class="font-medium">{{ fulfillmentSummary || fulfillmentLabel }}</p>
@@ -1176,12 +1176,12 @@ useSeoMeta({
                     </div>
                   </div>
 
-                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-card p-3 text-sm text-muted-foreground">
                     <span class="mb-0.5 block text-xs font-medium uppercase text-muted-foreground">Cartão do presente</span>
                     “{{ state.gift_message }}”
                   </p>
 
-                  <p v-if="state.notes" class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  <p v-if="state.notes" class="rounded-md border bg-card p-3 text-sm text-muted-foreground">
                     {{ state.notes }}
                   </p>
                 </div>
