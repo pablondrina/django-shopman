@@ -5,6 +5,7 @@ import {
   filteredSections,
   uniqueItemsBySku
 } from '~/presentation/menu'
+import { collectionJsonLd } from '~/presentation/seo'
 import type { MenuResponse } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
@@ -264,13 +265,30 @@ useSeoMeta({
 })
 // Canonical sem query → variantes de filtro (?filtro=/?secao=) não duplicam.
 useCanonical()
+
+// JSON-LD CollectionPage (ItemList) — a vitrine do cardápio para o Google.
+const requestUrl = useRequestURL()
+const menuCanonical = computed(() => `${requestUrl.origin}/menu`)
+useHead({
+  script: () => catalog.value && uniqueItems.value.length
+    ? [{
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify(collectionJsonLd({
+          name: 'Cardápio',
+          url: menuCanonical.value,
+          origin: requestUrl.origin,
+          items: uniqueItems.value
+        }))
+      }]
+    : []
+})
 </script>
 
 <template>
   <main class="min-w-0">
     <h1 class="sr-only">Cardápio</h1>
 
-    <section data-menu-filterbar class="sticky top-14 z-30 border-y bg-background shadow-sm md:top-16">
+    <section data-menu-filterbar class="sticky top-16 z-30 border-y bg-background shadow-sm">
       <div class="shop-container py-2">
         <div v-if="catalog" class="flex items-center gap-2">
           <UiButton
