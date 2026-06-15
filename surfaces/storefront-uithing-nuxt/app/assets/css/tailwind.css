@@ -95,6 +95,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -164,6 +170,15 @@
   --shop-header-foreground: var(--foreground);
   --shop-footer: oklch(0.32 0.008 60);
   --shop-footer-foreground: oklch(0.94 0.003 60);
+
+  /* Status — defaults NEUTROS (âmbar/esmeralda/azul de hoje); a marca sobrescreve
+     para gold/musgo. Foreground = cor de texto sobre o status preenchido (filled). */
+  --warning: #f59e0b;
+  --warning-foreground: #422006;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
 }
 
 .dark {
@@ -203,6 +218,14 @@
   /* Rodapé neutro no escuro (= hoje). Header herda --background/--foreground do .dark. */
   --shop-footer: oklch(0.23 0.006 60);
   --shop-footer-foreground: oklch(0.92 0.003 60);
+
+  /* Status no escuro — tons levemente mais claros para sentar sobre o fundo escuro. */
+  --warning: #fbbf24;
+  --warning-foreground: #422006;
+  --success: #34d399;
+  --success-foreground: #022c22;
+  --info: #60a5fa;
+  --info-foreground: #0a223f;
 }
 
 @layer base {

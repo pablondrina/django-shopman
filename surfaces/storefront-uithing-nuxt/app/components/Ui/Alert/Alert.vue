@@ -78,16 +78,16 @@
           icon: "text-destructive",
         },
         info: {
-          base: "border-blue-500/50 text-blue-600",
-          icon: "text-blue-600",
+          base: "border-info/40 bg-info/10 text-foreground",
+          icon: "text-info",
         },
         success: {
-          base: "border-emerald-500/50 text-emerald-600",
-          icon: "text-emerald-500",
+          base: "border-success/40 bg-success/10 text-foreground",
+          icon: "text-success",
         },
         warning: {
-          base: "border-amber-500/50 text-amber-600",
-          icon: "text-amber-600",
+          base: "border-warning/45 bg-warning/12 text-foreground",
+          icon: "text-warning",
         },
       },
       filled: {
@@ -119,17 +119,17 @@
       {
         filled: true,
         variant: "info",
-        class: { base: "bg-blue-500 text-blue-50 shadow-xs", icon: "text-blue-50" },
+        class: { base: "bg-info text-info-foreground shadow-xs", icon: "text-info-foreground" },
       },
       {
         filled: true,
         variant: "success",
-        class: { base: "bg-emerald-500 text-emerald-50 shadow-xs", icon: "text-emerald-50" },
+        class: { base: "bg-success text-success-foreground shadow-xs", icon: "text-success-foreground" },
       },
       {
         filled: true,
         variant: "warning",
-        class: { base: "bg-amber-500 text-amber-50 shadow-xs", icon: "text-amber-50" },
+        class: { base: "bg-warning text-warning-foreground shadow-xs", icon: "text-warning-foreground" },
       },
     ],
   });
