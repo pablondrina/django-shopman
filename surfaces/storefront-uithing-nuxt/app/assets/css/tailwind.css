@@ -101,6 +101,11 @@
   --color-success-foreground: var(--success-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-cta: var(--shop-cta);
+  --color-cta-foreground: var(--shop-cta-foreground);
+  --color-ink: var(--shop-ink);
+  --color-ink-foreground: var(--shop-ink-foreground);
+  --color-bottomnav: var(--shop-bottomnav);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -170,6 +175,12 @@
   --shop-header-foreground: var(--foreground);
   --shop-footer: oklch(0.32 0.008 60);
   --shop-footer-foreground: oklch(0.94 0.003 60);
+  /* barras escuras / bottom bar / CTAs — defaults NEUTROS (= hoje); marca sobrescreve */
+  --shop-ink: var(--foreground);
+  --shop-ink-foreground: var(--background);
+  --shop-bottomnav: var(--background);
+  --shop-cta: var(--primary);
+  --shop-cta-foreground: var(--primary-foreground);
 
   /* Status — defaults NEUTROS (âmbar/esmeralda/azul de hoje); a marca sobrescreve
      para gold/musgo. Foreground = cor de texto sobre o status preenchido (filled). */

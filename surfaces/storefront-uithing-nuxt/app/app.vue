@@ -54,7 +54,7 @@ const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim()
     >
       Pular para o conteúdo
     </a>
-    <div v-if="shopStatusMessage" class="border-b bg-foreground px-4 py-2 text-center text-xs text-background">
+    <div v-if="shopStatusMessage" class="border-b bg-ink px-4 py-2 text-center text-xs text-ink-foreground">
       {{ shopStatusMessage }}
     </div>
     <ShopHeader />

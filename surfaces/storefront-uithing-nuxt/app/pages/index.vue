@@ -142,18 +142,18 @@ useHead({
             <NuxtLink
               v-if="activeOrder"
               :to="`/tracking/${encodeURIComponent(activeOrder.ref)}`"
-              class="-mx-4 block bg-primary px-4 py-3.5 text-primary-foreground transition hover:bg-primary/95 sm:mx-0 sm:rounded-xl"
+              class="-mx-4 block bg-cta px-4 py-3.5 text-cta-foreground transition hover:bg-cta/95 sm:mx-0 sm:rounded-xl"
               data-home-active-order
             >
               <div class="flex items-center gap-3">
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15">
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cta-foreground/15">
                   <Icon name="lucide:chef-hat" class="size-5" />
                 </span>
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-semibold leading-5">{{ activeOrder.status_label }}</p>
                   <p class="text-xs opacity-80">Pedido {{ activeOrder.ref }}</p>
                 </div>
-                <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-foreground/15 py-1.5 pl-3.5 pr-2.5 text-sm font-semibold">
+                <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-cta-foreground/15 py-1.5 pl-3.5 pr-2.5 text-sm font-semibold">
                   Acompanhar
                   <Icon name="lucide:chevron-right" class="size-4" />
                 </span>

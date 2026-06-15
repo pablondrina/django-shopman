@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
                 :to="activeSlide.primaryTo"
                 size="lg"
                 :icon="activeSlide.primaryIcon"
-                class="bg-white text-neutral-900 shadow-lg hover:bg-white/90"
+                class="shop-hero-cta bg-white text-neutral-900 shadow-lg hover:bg-white/90"
               >
                 {{ activeSlide.primaryLabel }}
               </UiButton>
@@ -302,7 +302,7 @@ onBeforeUnmount(() => {
                 size="lg"
                 :icon="activeSlide.primaryIcon"
                 :loading="props.reorderLoading"
-                class="bg-white text-neutral-900 shadow-lg hover:bg-white/90"
+                class="shop-hero-cta bg-white text-neutral-900 shadow-lg hover:bg-white/90"
                 @click="handlePrimaryAction(activeSlide)"
               >
                 {{ activeSlide.primaryLabel }}
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
                 :to="activeSlide.secondaryTo"
                 size="lg"
                 variant="outline"
-                class="border-white/40 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+                class="shop-hero-cta-ghost border-white/40 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
               >
                 {{ activeSlide.secondaryLabel }}
               </UiButton>

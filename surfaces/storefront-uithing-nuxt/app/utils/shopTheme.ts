@@ -47,7 +47,12 @@ export const TOKEN_TO_CSS_VAR: Record<string, string> = {
   header: '--shop-header',
   header_foreground: '--shop-header-foreground',
   footer: '--shop-footer',
-  footer_foreground: '--shop-footer-foreground'
+  footer_foreground: '--shop-footer-foreground',
+  ink: '--shop-ink',
+  ink_foreground: '--shop-ink-foreground',
+  bottomnav: '--shop-bottomnav',
+  cta: '--shop-cta',
+  cta_foreground: '--shop-cta-foreground'
 }
 
 function cssColor (value: string): string {
@@ -162,6 +167,18 @@ export function shopThemeCss (
       ` --primary-foreground: var(--shop-header);` +
       ` --ring: ${fg};` +
       ` }`
+    )
+  }
+
+  // CTA do hero (sobre foto): neutro mantém a pílula branca (decisão do arco hero);
+  // com marca, primária = Kraft (texto escuro) e secundária = transparente + borda
+  // dourada. Emitido só com marca (especificidade dobrada vence as utilities bg-white).
+  if (light['--shop-cta']) {
+    blocks.push(
+      `.shop-hero-cta.shop-hero-cta { background-color: var(--shop-cta); color: var(--shop-cta-foreground); }`,
+      `.shop-hero-cta.shop-hero-cta:hover { background-color: color-mix(in srgb, var(--shop-cta) 90%, #000); color: var(--shop-cta-foreground); }`,
+      `.shop-hero-cta-ghost.shop-hero-cta-ghost { background-color: transparent; border-color: var(--shop-cta); color: #fff; }`,
+      `.shop-hero-cta-ghost.shop-hero-cta-ghost:hover { background-color: color-mix(in srgb, var(--shop-cta) 20%, transparent); color: #fff; }`
     )
   }
   return blocks.join('\n')

@@ -307,7 +307,7 @@ useHead({
                   :value="FILTERED_SECTION_VALUE"
                   :data-menu-pill-ref="FILTERED_SECTION_VALUE"
                   :pill="false"
-                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-cta data-[state=active]:bg-cta data-[state=active]:text-cta-foreground data-[state=active]:shadow-none"
                 >
                   <Icon name="lucide:funnel" class="mr-1 size-3.5" />
                   Filtrado
@@ -328,7 +328,7 @@ useHead({
                   value="all"
                   data-menu-pill-ref="all"
                   :pill="false"
-                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-cta data-[state=active]:bg-cta data-[state=active]:text-cta-foreground data-[state=active]:shadow-none"
                 >
                   Tudo
                   <span v-if="hasAppliedFilters" class="ml-1 text-xs tabular-nums opacity-70">{{ filteredCount }}</span>
@@ -339,7 +339,7 @@ useHead({
                   :value="section.ref"
                   :data-menu-pill-ref="section.ref"
                   :pill="false"
-                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                  class="h-9 rounded-full border bg-background px-3 transition-colors duration-150 ease-out data-[state=active]:border-cta data-[state=active]:bg-cta data-[state=active]:text-cta-foreground data-[state=active]:shadow-none"
                 >
                   <Icon v-if="section.isFavorite" name="lucide:heart" class="mr-1 size-3.5" />
                   {{ section.label }}

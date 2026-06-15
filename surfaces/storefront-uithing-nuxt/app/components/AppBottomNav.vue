@@ -18,7 +18,7 @@ function active (to: string) {
 
 <template>
   <nav
-    class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    class="fixed inset-x-0 bottom-0 z-40 border-t bg-bottomnav/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     aria-label="Navegação principal"
   >
     <div class="mx-auto grid h-16 max-w-md grid-cols-4 items-center px-2">

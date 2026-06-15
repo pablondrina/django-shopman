@@ -19,7 +19,7 @@ from __future__ import annotations
 # NB Kraft (greige) · NB Moss (verde). Hexes derivados do brand sheet.
 
 _BRAND_LIGHT: dict[str, str] = {
-    "background": "244 235 215",          # NB Faubourg — corpo creme
+    "background": "245 233 194",          # NB Light Yellow — corpo (comparação; Faubourg era 244 235 215)
     "foreground": "59 42 30",             # NB Wood escurecido — texto marrom
     "card": "252 247 238",                # creme quase-branco
     "card_foreground": "59 42 30",
@@ -44,11 +44,16 @@ _BRAND_LIGHT: dict[str, str] = {
     "border": "220 205 180",              # NB Kraft
     "input": "220 205 180",
     "ring": "200 150 47",                 # NB Brass/Mustard — destaque dourado (foco)
-    # Superfícies de identidade (navbar/rodapé) — tratamento de marca revesível
-    "header": "124 58 64",                # navbar burgundy
+    # Superfícies de identidade (navbar/rodapé/barras/CTAs) — tratamento de marca revesível
+    "header": "124 58 64",                # navbar burgundy (NB Burgundy)
     "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar
-    "footer": "94 123 59",                # NB Moss — rodapé verde-musgo
+    "footer": "70 81 47",                 # NB Dark Moss — rodapé
     "footer_foreground": "247 239 224",
+    "ink": "83 29 34",                    # NB Dark Burgundy — barras escuras (status)
+    "ink_foreground": "247 239 224",
+    "bottomnav": "244 235 215",           # NB Faubourg — bottom bar (leve contraste com o fundo)
+    "cta": "176 152 104",                 # NB Kraft (dourado) — destaques/CTAs
+    "cta_foreground": "59 42 30",         # texto escuro sobre o Kraft
 }
 
 _BRAND_LIGHT_ALIASES: dict[str, str] = {
@@ -91,8 +96,13 @@ _BRAND_DARK: dict[str, str] = {
     "ring": "212 165 63",                 # dourado mais claro p/ o escuro
     "header": "124 58 64",                # navbar burgundy também no escuro (a marca é a marca)
     "header_foreground": "247 239 224",
-    "footer": "74 96 46",                 # musgo mais escuro p/ o escuro
+    "footer": "54 63 36",                 # Dark Moss mais escuro p/ o escuro
     "footer_foreground": "240 230 210",
+    "ink": "83 29 34",                    # Dark Burgundy (barras escuras, nos dois modos)
+    "ink_foreground": "247 239 224",
+    "bottomnav": "43 29 22",              # superfície escura p/ a bottom bar no escuro
+    "cta": "176 152 104",                 # Kraft
+    "cta_foreground": "59 42 30",
 }
 
 _BRAND_DARK_ALIASES: dict[str, str] = {
