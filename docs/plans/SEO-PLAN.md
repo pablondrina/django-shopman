@@ -23,6 +23,16 @@ Mesma lógica para `short_description` (= meta description + og:description),
 
 ## Estado atual
 
+> **Nota (2026-06-15):** as seções abaixo descrevem o storefront **Django** (base.html,
+> template tags). A superfície viva é o **Nuxt** (`surfaces/storefront-uithing-nuxt`),
+> onde o SEO foi (re)implementado: meta ricas + Open Graph/Twitter + canonical +
+> JSON-LD (Product/Offer, Bakery/LocalBusiness, BreadcrumbList) server-driven, em
+> `app/presentation/seo.ts` (puro, vitest) consumido por PDP/home no SSR; canonical
+> sem query nas listagens (menu/busca) via `useCanonical()`. Commits `7529bc7c` +
+> `2190795d`. **Falta no Nuxt:** robots.txt + sitemap.xml (dependem da decisão de
+> domínio de produção da superfície), FAQ schema, e CollectionPage/ItemList nas
+> coleções. O conteúdo Django abaixo permanece como referência de paridade.
+
 ### Já existe
 - ✅ `Product.keywords` (django-taggit) — curadoria por SKU.
 - ✅ `robots.txt` em `storefront/robots.txt` — básico.
