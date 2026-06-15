@@ -16,6 +16,11 @@ export interface CheckoutFormState {
   delivery_time_slot: string
   payment_method: string
   notes: string
+  is_gift: boolean
+  recipient_name: string
+  recipient_phone: string
+  gift_message: string
+  gift_hide_values: boolean
 }
 
 export interface CheckoutSubmitPayload extends CheckoutFormState {
@@ -46,6 +51,11 @@ export function buildCheckoutPayload (
     delivery_time_slot: state.delivery_time_slot,
     payment_method: state.payment_method,
     notes: state.notes.trim(),
+    is_gift: state.is_gift,
+    recipient_name: state.is_gift ? state.recipient_name.trim() : '',
+    recipient_phone: state.is_gift ? state.recipient_phone.trim() : '',
+    gift_message: state.is_gift ? state.gift_message.trim() : '',
+    gift_hide_values: state.is_gift ? state.gift_hide_values : false,
     use_loyalty: useLoyalty
   }
 }

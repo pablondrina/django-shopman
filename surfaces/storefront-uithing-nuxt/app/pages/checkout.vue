@@ -60,7 +60,12 @@ const state = reactive<CheckoutFormState>({
   delivery_date: '',
   delivery_time_slot: '',
   payment_method: '',
-  notes: ''
+  notes: '',
+  is_gift: false,
+  recipient_name: '',
+  recipient_phone: '',
+  gift_message: '',
+  gift_hide_values: false
 })
 
 const chosenDate = ref<Date | null>(null)
@@ -103,6 +108,23 @@ const datePopoverOpen = ref(false)
 const notesOpen = ref(false)
 // Desligar o toggle é o dismiss: descarta a observação para não enviá-la oculta.
 watch(notesOpen, (open) => { if (!open) state.notes = '' })
+
+// Presente (GIFT-UX). Em ENTREGA: destinatário + mensagem + ocultar valores.
+// Em RETIRADA: "embalar para presente" — só mensagem + ocultar valores (o
+// comprador leva; sem destinatário). Desligar descarta os dados do presente.
+const isPickup = computed(() => state.fulfillment_type === 'pickup')
+const giftTitle = computed(() => (isPickup.value ? 'Embalar para presente' : 'É para presente?'))
+const giftDescription = computed(() => (isPickup.value
+  ? 'Embalagem especial e um cartão com sua mensagem.'
+  : 'Entregamos para outra pessoa, com cartão e sem valores na nota.'))
+watch(() => state.is_gift, (on) => {
+  if (!on) {
+    state.recipient_name = ''
+    state.recipient_phone = ''
+    state.gift_message = ''
+    state.gift_hide_values = false
+  }
+})
 
 const checkoutQuery = computed(() => state.delivery_date ? { delivery_date: state.delivery_date } : {})
 
@@ -962,7 +984,7 @@ useSeoMeta({
               </UiRadioGroup>
               <UiFieldError v-if="fieldErrors.payment_method" :errors="fieldErrors.payment_method" />
 
-              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card">
+              <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card has-data-[state=checked]:bg-card">
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-0.5">
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
@@ -975,7 +997,7 @@ useSeoMeta({
               <!-- Observação: clone do toggle de fidelidade. Ligar expande o
                    card; o campo aparece no espaço interno (sem traços nem
                    divisórias). Desligar é o próprio dismiss (limpa a nota). -->
-              <UiFieldLabel for="checkout-notes-toggle" class="bg-card" data-checkout-notes-box>
+              <UiFieldLabel for="checkout-notes-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-notes-box>
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-0.5">
                     <UiFieldTitle>Adicionar observação</UiFieldTitle>
@@ -987,10 +1009,50 @@ useSeoMeta({
                   <UiTextarea
                     id="checkout-notes"
                     v-model="state.notes"
-                    rows="2"
+                    :rows="2"
                     placeholder="Ex: tocar o interfone, ponto de referência…"
                     @click.stop
                   />
+                </div>
+              </UiFieldLabel>
+
+              <!-- Presente (GIFT-UX): clone do toggle de observação. Em entrega
+                   coleta o destinatário; em retirada vira "embalar para presente"
+                   (só mensagem). @click.stop no painel impede que cliques nos
+                   campos alternem o toggle externo (label). -->
+              <UiFieldLabel for="checkout-gift-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-gift-box>
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-0.5">
+                    <UiFieldTitle>{{ giftTitle }}</UiFieldTitle>
+                    <UiFieldDescription>{{ giftDescription }}</UiFieldDescription>
+                  </UiFieldContent>
+                  <UiSwitch id="checkout-gift-toggle" v-model="state.is_gift" />
+                </UiField>
+                <div v-if="state.is_gift" class="space-y-4 px-4 pb-4" @click.stop>
+                  <template v-if="!isPickup">
+                    <UiField>
+                      <UiFieldLabel for="gift-recipient-name">Nome de quem recebe</UiFieldLabel>
+                      <UiInput id="gift-recipient-name" v-model="state.recipient_name" class="bg-background" autocomplete="off" placeholder="Ex: Maria Silva" />
+                      <UiFieldError v-if="fieldErrors.recipient_name" :errors="fieldErrors.recipient_name" />
+                    </UiField>
+                    <UiField>
+                      <UiFieldLabel for="gift-recipient-phone">Telefone de quem recebe</UiFieldLabel>
+                      <UiInput id="gift-recipient-phone" v-model="state.recipient_phone" class="bg-background" type="tel" inputmode="tel" autocomplete="off" placeholder="(43) 99999-0000" />
+                      <UiFieldError v-if="fieldErrors.recipient_phone" :errors="fieldErrors.recipient_phone" />
+                    </UiField>
+                    <p class="text-xs leading-5 text-muted-foreground">O endereço de entrega escolhido acima é o de quem vai receber o presente.</p>
+                  </template>
+                  <UiField>
+                    <UiFieldLabel for="gift-message">Mensagem do presente</UiFieldLabel>
+                    <UiTextarea id="gift-message" v-model="state.gift_message" :rows="2" placeholder="Ex: Feliz aniversário! Com carinho." />
+                  </UiField>
+                  <UiField orientation="horizontal">
+                    <UiFieldContent class="gap-0.5">
+                      <UiFieldTitle>Ocultar valores</UiFieldTitle>
+                      <UiFieldDescription>Não mostrar preços na nota nem na etiqueta.</UiFieldDescription>
+                    </UiFieldContent>
+                    <UiSwitch id="gift-hide-values" v-model="state.gift_hide_values" />
+                  </UiField>
                 </div>
               </UiFieldLabel>
 
