@@ -717,6 +717,29 @@ describe('surface UX guardrails', () => {
     expect(account).not.toMatch(/<(button|input|select|textarea)\b/)
   })
 
+  it('drives SEO from the pure presentation layer (JSON-LD + canonical server-side)', () => {
+    // SEO técnico mora em presentation/seo.ts (puro, testado), consumido por
+    // PDP/home no SSR — canonical via useRequestURL, JSON-LD schema.org.
+    const seo = read('app/presentation/seo.ts')
+    expect(seo).toContain('export function productJsonLd')
+    expect(seo).toContain('export function bakeryJsonLd')
+    expect(seo).toContain('export function breadcrumbJsonLd')
+    expect(seo).toContain("'@type': 'Product'")
+    expect(seo).toContain("'@type': 'Bakery'")
+
+    const pdp = read('app/pages/product/[sku].vue')
+    expect(pdp).toContain("from '~/presentation/seo'")
+    expect(pdp).toContain('useRequestURL()')
+    expect(pdp).toContain("rel: 'canonical'")
+    expect(pdp).toContain('productJsonLd(')
+    expect(pdp).toContain('breadcrumbJsonLd(')
+    expect(pdp).toContain('application/ld+json')
+
+    const home = read('app/pages/index.vue')
+    expect(home).toContain('bakeryJsonLd(')
+    expect(home).toContain("rel: 'canonical'")
+  })
+
   it('keeps badges discreet and reserves success tone for explicit alerts', () => {
     const offenders = surfaceVueFiles
       .filter(file => /<UiBadge[^>]*variant="success"/.test(read(file)))

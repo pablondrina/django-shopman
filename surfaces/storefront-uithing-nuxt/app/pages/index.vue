@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { absoluteImage, bakeryJsonLd } from '~/presentation/seo'
 import type { HomeResponse, Action } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
+const requestUrl = useRequestURL()
 const { setFromServer } = useCartState()
 const { performAction, pending: reorderPending } = useReorder()
 
@@ -77,9 +79,42 @@ function noticeVariant (tone: string) {
   return 'default'
 }
 
+const canonicalUrl = computed(() => `${requestUrl.origin}/`)
+const homeDescription = computed(() => home.value?.shop.description || home.value?.shop.tagline || 'Storefront Shopman')
+const homeOgImage = computed(() => absoluteImage(
+  requestUrl.origin,
+  featured.value[0]?.image_url || home.value?.shop.logo_url
+))
+
 useSeoMeta({
   title: () => home.value?.shop.brand_name || 'Shopman',
-  description: () => home.value?.shop.description || 'Storefront Shopman'
+  description: () => homeDescription.value,
+  ogTitle: () => home.value?.shop.brand_name || 'Shopman',
+  ogDescription: () => homeDescription.value,
+  ogType: 'website',
+  ogUrl: () => canonicalUrl.value,
+  ogImage: () => homeOgImage.value || undefined,
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => home.value?.shop.brand_name || 'Shopman',
+  twitterDescription: () => homeDescription.value,
+  twitterImage: () => homeOgImage.value || undefined
+})
+
+// JSON-LD Bakery (LocalBusiness) — endereço, geo, contato server-driven.
+useHead({
+  link: [{ rel: 'canonical', href: () => canonicalUrl.value }],
+  script: () => home.value
+    ? [{
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify(bakeryJsonLd({
+          shop: home.value.shop,
+          origin: requestUrl.origin,
+          url: canonicalUrl.value,
+          latitude: home.value.public_config.shop_latitude,
+          longitude: home.value.public_config.shop_longitude
+        }))
+      }]
+    : []
 })
 </script>
 

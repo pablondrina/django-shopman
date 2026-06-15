@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { tileBadge } from '~/presentation/menu'
 import { crossSellItems, detailDescription, nutritionTable } from '~/presentation/product'
+import { absoluteImage, breadcrumbJsonLd, metaDescription, priceFromQ, productJsonLd } from '~/presentation/seo'
 import type { ProductMutationMeta, ProductResponse } from '~/types/shopman'
 
 const route = useRoute()
 const apiPath = useShopmanApiPath()
+const requestUrl = useRequestURL()
+const session = useShopSession()
 const sku = computed(() => String(route.params.sku || ''))
 const { setFromServer, qtyForSku } = useCartState()
 
@@ -33,9 +36,53 @@ const longDescription = computed(() => product.value ? detailDescription(product
 const nutrition = computed(() => nutritionTable(product.value?.nutrition || null))
 const crossSell = computed(() => product.value ? crossSellItems(product.value) : [])
 
+const canonicalUrl = computed(() => `${requestUrl.origin}${route.path}`)
+const ogImage = computed(() => absoluteImage(requestUrl.origin, product.value?.image_url))
+const pageDescription = computed(() => metaDescription(product.value) || 'Produto')
+
 useSeoMeta({
   title: () => product.value?.name || 'Produto',
-  description: () => product.value?.seo_description || product.value?.short_description || 'Produto'
+  description: () => pageDescription.value,
+  ogTitle: () => product.value?.name || 'Produto',
+  ogDescription: () => pageDescription.value,
+  ogUrl: () => canonicalUrl.value,
+  ogImage: () => ogImage.value || undefined,
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => product.value?.name || 'Produto',
+  twitterDescription: () => pageDescription.value,
+  twitterImage: () => ogImage.value || undefined
+})
+
+// og:type=product + product:price (cards do WhatsApp/Facebook) e canonical —
+// via meta crua (TS-safe). JSON-LD Product/Offer + BreadcrumbList p/ rich results.
+useHead({
+  link: [{ rel: 'canonical', href: () => canonicalUrl.value }],
+  meta: [
+    { property: 'og:type', content: 'product' },
+    { property: 'product:price:amount', content: () => priceFromQ(product.value?.base_price_q) },
+    { property: 'product:price:currency', content: 'BRL' }
+  ],
+  script: () => product.value
+    ? [
+        {
+          type: 'application/ld+json',
+          innerHTML: JSON.stringify(productJsonLd({
+            product: product.value,
+            origin: requestUrl.origin,
+            url: canonicalUrl.value,
+            brandName: session.shop.value?.brand_name || ''
+          }))
+        },
+        {
+          type: 'application/ld+json',
+          innerHTML: JSON.stringify(breadcrumbJsonLd([
+            { name: 'Início', url: `${requestUrl.origin}/` },
+            { name: 'Cardápio', url: `${requestUrl.origin}/menu` },
+            { name: product.value.name, url: canonicalUrl.value }
+          ]))
+        }
+      ]
+    : []
 })
 </script>
 

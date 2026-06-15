@@ -19,6 +19,17 @@ watch(() => shellHome.value, value => {
 
 useShopTheme(session.shop)
 
+// SEO global: nome do site = marca server-driven (tenant-neutral, não theming).
+// titleTemplate evita duplicar a marca na home (onde o título JÁ é a marca).
+const brandName = computed(() => session.shop.value?.brand_name || 'Shopman')
+useHead({
+  titleTemplate: title => (title && title !== brandName.value ? `${title} | ${brandName.value}` : brandName.value)
+})
+useSeoMeta({
+  ogSiteName: () => brandName.value,
+  ogLocale: 'pt_BR'
+})
+
 const shellStyle = computed(() => shopThemeStyle(session.shop.value))
 const globalHomeNotice = computed(() => session.homeNotices.value.find(notice => notice.priority === 'global') || null)
 const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim() || session.shopStatus.value?.message?.trim() || '')
