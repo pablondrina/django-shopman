@@ -94,6 +94,7 @@ class OperationSerializer(serializers.Serializer):
         "is_gift",        # presente (entrega para terceiro)
         "recipient",      # destinatário do presente: {name, phone}
         "gift_message",   # mensagem do presente (separada de order_notes)
+        "gift_hide_values",  # ocultar valores na nota/etiqueta do presente
     }
 
     NESTABLE_DATA_PATHS = {

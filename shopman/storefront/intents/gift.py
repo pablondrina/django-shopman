@@ -21,16 +21,22 @@ from ._phone import normalize_phone_input
 def build_gift_data(
     *,
     is_gift: bool,
+    fulfillment_type: str,
     recipient_name: str | None,
     recipient_phone: str | None,
     gift_message: str | None = "",
+    hide_values: bool = False,
 ) -> tuple[dict | None, dict[str, str]]:
     """Build the gift contribution to ``checkout_data``, or field errors.
 
     Returns ``(gift_data, {})`` quando é um presente válido — onde ``gift_data``
-    é ``{"is_gift": True, "recipient": {"name", "phone"}, "gift_message"?}`` —,
-    ``(None, {})`` quando não é presente, e ``(None, errors)`` quando é presente
-    mas faltam/são inválidos os dados do destinatário.
+    é ``{"is_gift": True, "recipient"?: {"name", "phone"}, "gift_message"?,
+    "gift_hide_values"?}`` —, ``(None, {})`` quando não é presente, e
+    ``(None, errors)`` quando é presente mas faltam/são inválidos os dados.
+
+    **Destinatário é obrigatório só na ENTREGA.** Em retirada o presente vira só
+    "embalar para presente" (o comprador leva): destinatário é opcional — se vier
+    nome + telefone válidos, é guardado; senão, omitido.
     """
     errors: dict[str, str] = {}
     if not is_gift:
@@ -39,25 +45,30 @@ def build_gift_data(
     name = (recipient_name or "").strip()
     phone_raw = (recipient_phone or "").strip()
     message = (gift_message or "").strip()
-
-    if not name:
-        errors["recipient_name"] = "Informe o nome de quem vai receber o presente."
-
     phone = normalize_phone_input(phone_raw) if phone_raw else ""
-    if not phone_raw:
-        errors["recipient_phone"] = "Informe o telefone de quem vai receber o presente."
-    elif not phone:
-        errors["recipient_phone"] = (
-            "Telefone do destinatário inválido. Informe com DDD, ex: (43) 99999-9999"
-        )
+    is_delivery = fulfillment_type == "delivery"
 
-    if errors:
-        return None, errors
+    gift_data: dict = {"is_gift": True}
 
-    gift_data: dict = {
-        "is_gift": True,
-        "recipient": {"name": name, "phone": phone},
-    }
+    if is_delivery:
+        # Entrega a terceiro: destinatário obrigatório e validado (nunca parcial).
+        if not name:
+            errors["recipient_name"] = "Informe o nome de quem vai receber o presente."
+        if not phone_raw:
+            errors["recipient_phone"] = "Informe o telefone de quem vai receber o presente."
+        elif not phone:
+            errors["recipient_phone"] = (
+                "Telefone do destinatário inválido. Informe com DDD, ex: (43) 99999-9999"
+            )
+        if errors:
+            return None, errors
+        gift_data["recipient"] = {"name": name, "phone": phone}
+    elif name and phone:
+        # Retirada: destinatário é opcional; só guarda se vier completo e válido.
+        gift_data["recipient"] = {"name": name, "phone": phone}
+
     if message:
         gift_data["gift_message"] = message
+    if hide_values:
+        gift_data["gift_hide_values"] = True
     return gift_data, errors

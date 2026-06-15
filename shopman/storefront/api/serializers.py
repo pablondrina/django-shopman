@@ -61,6 +61,7 @@ class CheckoutSerializer(serializers.Serializer):
     recipient_name = serializers.CharField(required=False, default="", allow_blank=True, max_length=120)
     recipient_phone = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     gift_message = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
+    gift_hide_values = serializers.BooleanField(required=False, default=False)
 
 
 class CheckoutResponseSerializer(serializers.Serializer):

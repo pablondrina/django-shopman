@@ -52,6 +52,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     recipient_name_raw = post.get("recipient_name", "").strip()
     recipient_phone_raw = post.get("recipient_phone", "").strip()
     gift_message_raw = post.get("gift_message", "").strip()
+    gift_hide_values = post.get("gift_hide_values", "") == "true"
     fulfillment_type = post.get("fulfillment_type", "pickup")
     delivery_address = post.get("delivery_address", "").strip()
     delivery_date = post.get("delivery_date", "").strip()
@@ -167,9 +168,11 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
 
     gift_data, gift_errors = build_gift_data(
         is_gift=is_gift,
+        fulfillment_type=fulfillment_type,
         recipient_name=recipient_name_raw,
         recipient_phone=recipient_phone_raw,
         gift_message=gift_message_raw,
+        hide_values=gift_hide_values,
     )
     errors.update(gift_errors)
 

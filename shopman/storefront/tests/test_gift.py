@@ -23,58 +23,89 @@ class BuildGiftDataTests(TestCase):
 
     def test_not_a_gift_returns_none(self) -> None:
         data, errors = build_gift_data(
-            is_gift=False, recipient_name="Maria", recipient_phone="43999990000",
+            is_gift=False, fulfillment_type="delivery",
+            recipient_name="Maria", recipient_phone="43999990000",
         )
         self.assertIsNone(data)
         self.assertEqual(errors, {})
 
-    def test_valid_gift(self) -> None:
+    def test_valid_gift_delivery(self) -> None:
         data, errors = build_gift_data(
             is_gift=True,
+            fulfillment_type="delivery",
             recipient_name="  Maria Silva ",
             recipient_phone="(43) 99999-0000",
             gift_message="  Feliz aniversário! ",
+            hide_values=True,
         )
         self.assertEqual(errors, {})
         self.assertEqual(data["is_gift"], True)
         self.assertEqual(data["recipient"]["name"], "Maria Silva")
         self.assertEqual(data["recipient"]["phone"], "+5543999990000")
         self.assertEqual(data["gift_message"], "Feliz aniversário!")
+        self.assertEqual(data["gift_hide_values"], True)
 
-    def test_gift_message_optional(self) -> None:
+    def test_gift_message_and_hide_values_optional(self) -> None:
         data, errors = build_gift_data(
-            is_gift=True, recipient_name="Maria", recipient_phone="43999990000",
+            is_gift=True, fulfillment_type="delivery",
+            recipient_name="Maria", recipient_phone="43999990000",
         )
         self.assertEqual(errors, {})
         self.assertNotIn("gift_message", data)
+        self.assertNotIn("gift_hide_values", data)
 
-    def test_missing_name_errors(self) -> None:
+    def test_delivery_missing_name_errors(self) -> None:
         data, errors = build_gift_data(
-            is_gift=True, recipient_name="  ", recipient_phone="43999990000",
+            is_gift=True, fulfillment_type="delivery",
+            recipient_name="  ", recipient_phone="43999990000",
         )
         self.assertIsNone(data)
         self.assertIn("recipient_name", errors)
 
-    def test_missing_phone_errors(self) -> None:
+    def test_delivery_missing_phone_errors(self) -> None:
         data, errors = build_gift_data(
-            is_gift=True, recipient_name="Maria", recipient_phone="",
+            is_gift=True, fulfillment_type="delivery",
+            recipient_name="Maria", recipient_phone="",
         )
         self.assertIsNone(data)
         self.assertIn("recipient_phone", errors)
 
-    def test_invalid_phone_errors(self) -> None:
+    def test_delivery_invalid_phone_errors(self) -> None:
         data, errors = build_gift_data(
-            is_gift=True, recipient_name="Maria", recipient_phone="123",
+            is_gift=True, fulfillment_type="delivery",
+            recipient_name="Maria", recipient_phone="123",
         )
         self.assertIsNone(data)
         self.assertIn("recipient_phone", errors)
 
-    def test_never_partial_recipient(self) -> None:
-        """Com erro, nunca devolve recipient parcial."""
+    def test_delivery_never_partial_recipient(self) -> None:
+        """Com erro na entrega, nunca devolve recipient parcial."""
         data, errors = build_gift_data(
-            is_gift=True, recipient_name="Maria", recipient_phone="",
+            is_gift=True, fulfillment_type="delivery",
+            recipient_name="Maria", recipient_phone="",
         )
         self.assertIsNone(data)
+
+    def test_pickup_gift_without_recipient(self) -> None:
+        """Retirada = 'embalar para presente': destinatário opcional, sem erro."""
+        data, errors = build_gift_data(
+            is_gift=True, fulfillment_type="pickup",
+            recipient_name="", recipient_phone="",
+            gift_message="Para a vovó", hide_values=True,
+        )
+        self.assertEqual(errors, {})
+        self.assertEqual(data["is_gift"], True)
+        self.assertNotIn("recipient", data)
+        self.assertEqual(data["gift_message"], "Para a vovó")
+        self.assertEqual(data["gift_hide_values"], True)
+
+    def test_pickup_keeps_recipient_when_complete(self) -> None:
+        data, errors = build_gift_data(
+            is_gift=True, fulfillment_type="pickup",
+            recipient_name="Maria", recipient_phone="43999990000",
+        )
+        self.assertEqual(errors, {})
+        self.assertEqual(data["recipient"], {"name": "Maria", "phone": "+5543999990000"})
 
 
 def _make_gift_session(channel_ref: str = "web") -> tuple[str, str]:
@@ -127,6 +158,7 @@ class GiftPropagationContractTests(TestCase):
                 "is_gift": True,
                 "recipient": {"name": "Maria Silva", "phone": "5543999990000"},
                 "gift_message": "Feliz aniversário!",
+                "gift_hide_values": True,
             },
             idempotency_key="gift-test-1",
         )
@@ -134,6 +166,7 @@ class GiftPropagationContractTests(TestCase):
         self.assertEqual(order.data["is_gift"], True)
         self.assertEqual(order.data["recipient"], {"name": "Maria Silva", "phone": "5543999990000"})
         self.assertEqual(order.data["gift_message"], "Feliz aniversário!")
+        self.assertEqual(order.data["gift_hide_values"], True)
         # Cobrança/identidade continuam do comprador — recipient não sobrescreve.
         self.assertEqual(order.data["customer"]["phone"], "5543999887766")
 

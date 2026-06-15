@@ -400,9 +400,11 @@ class CheckoutView(APIView):
 
         gift_data, gift_errors = build_gift_data(
             is_gift=serializer.validated_data.get("is_gift", False),
+            fulfillment_type=fulfillment_type,
             recipient_name=serializer.validated_data.get("recipient_name", ""),
             recipient_phone=serializer.validated_data.get("recipient_phone", ""),
             gift_message=serializer.validated_data.get("gift_message", ""),
+            hide_values=serializer.validated_data.get("gift_hide_values", False),
         )
         if gift_errors:
             field, message = next(iter(gift_errors.items()))

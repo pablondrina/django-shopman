@@ -301,7 +301,7 @@ class CommitService:
             "delivery_time_slot", "order_notes",
             "origin_channel", "payment",
             "delivery_fee_q",
-            "is_gift", "recipient", "gift_message",
+            "is_gift", "recipient", "gift_message", "gift_hide_values",
         ):
             if key in session_data:
                 order_data[key] = session_data[key]
