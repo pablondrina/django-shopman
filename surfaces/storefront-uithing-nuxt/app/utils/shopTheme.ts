@@ -1,4 +1,42 @@
-import type { ShopProjection } from '~/types/shopman'
+import type { ShopProjection, ShopDesignTokensProjection } from '~/types/shopman'
+
+/**
+ * Camada de marca = OVERRIDE sobre o base neutro (`app/assets/css/tailwind.css`).
+ *
+ * O base define a paleta stone em `:root`/`.dark` e os componentes UI-Thing leem as
+ * variáveis reais (`--primary`, `--background`, …) via `@theme inline`. Aqui mapeamos
+ * o `design_tokens` server-driven para ESSAS mesmas variáveis, emitidas num bloco
+ * `<style>` (`:root{}` + `.dark{}`) injetado no SSR. Regras de reversibilidade:
+ *   - ausência de `design_tokens` ⇒ nenhum override ⇒ cai no neutro (pixel-idêntico);
+ *   - `?theme=neutral` ⇒ ignora a marca ao vivo (A/B), sem tocar em dado.
+ *
+ * O backend serve cada cor como canais `'R G B'` (0–255). No base neutro do Nuxt a
+ * variável guarda uma COR COMPLETA (`oklch(...)`) consumida via `var(--token)` — então
+ * aqui emitimos `rgb(R G B)` (cor completa), não os canais crus.
+ */
+
+/** token semântico do backend → custom property que o base neutro realmente consome. */
+export const TOKEN_TO_CSS_VAR: Record<string, string> = {
+  background: '--background',
+  foreground: '--foreground',
+  card: '--card',
+  card_foreground: '--card-foreground',
+  popover: '--popover',
+  popover_foreground: '--popover-foreground',
+  primary: '--primary',
+  primary_foreground: '--primary-foreground',
+  secondary: '--secondary',
+  secondary_foreground: '--secondary-foreground',
+  muted: '--muted',
+  muted_foreground: '--muted-foreground',
+  accent: '--accent',
+  accent_foreground: '--accent-foreground',
+  destructive: '--destructive',
+  destructive_foreground: '--destructive-foreground',
+  border: '--border',
+  input: '--input',
+  ring: '--ring'
+}
 
 function cssColor (value: string): string {
   const trimmed = value.trim()
@@ -6,9 +44,48 @@ function cssColor (value: string): string {
   return trimmed
 }
 
+/** Mapeia um conjunto de tokens (light ou dark) → { '--var': 'rgb(...)' }. */
+export function tokenVars (tokens: Record<string, string> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!tokens) return out
+  for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
+    const raw = tokens[key]
+    if (typeof raw === 'string' && raw.trim()) out[cssVar] = cssColor(raw)
+  }
+  return out
+}
+
+/** Variáveis CSS da marca para o modo claro (vazio ⇒ neutro). */
 export function shopThemeStyle (shop: ShopProjection | null | undefined): Record<string, string> {
-  const style: Record<string, string> = {}
-  if (shop?.theme_color?.trim()) style['--shop-brand-color'] = cssColor(shop.theme_color)
-  if (shop?.background_color?.trim()) style['--shop-brand-background'] = cssColor(shop.background_color)
-  return style
+  return tokenVars(shop?.design_tokens as ShopDesignTokensProjection | undefined)
+}
+
+function declarations (vars: Record<string, string>): string {
+  return Object.entries(vars).map(([name, value]) => `${name}: ${value};`).join(' ')
+}
+
+/**
+ * Bloco `<style>` da marca: `:root{}` (claro) + `.dark{}` (escuro). Retorna `''` quando
+ * não há marca a aplicar — é o interruptor de reversibilidade.
+ *
+ * @param preview valor de `?theme=` (ex.: `'neutral'` força o neutro ao vivo).
+ */
+export function shopThemeCss (
+  shop: ShopProjection | null | undefined,
+  options: { preview?: string | null } = {}
+): string {
+  if (options.preview === 'neutral') return ''
+  const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
+  if (!tokens) return ''
+
+  const light = tokenVars(tokens)
+  const dark = tokenVars(tokens.dark)
+
+  // Especificidade dobrada (`:root:root` = 0,2,0) para vencer o base neutro (`:root`
+  // / `.dark` = 0,1,0) independentemente da ORDEM de injeção (head/HMR/prod). O bloco
+  // dark vem depois do light: em dark mode ambos casam com 0,2,0 e o último ganha.
+  const blocks: string[] = []
+  if (Object.keys(light).length) blocks.push(`:root:root { ${declarations(light)} }`)
+  if (Object.keys(dark).length) blocks.push(`:root.dark { ${declarations(dark)} }`)
+  return blocks.join('\n')
 }

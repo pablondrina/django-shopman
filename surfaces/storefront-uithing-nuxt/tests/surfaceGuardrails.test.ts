@@ -847,10 +847,11 @@ describe('surface UX guardrails', () => {
     expect(cartState).not.toContain('{ coupon_code }')
   })
 
-  it('keeps the UI Thing theme surface-owned with stone primary and doubled radius', () => {
+  it('keeps the UI Thing neutral base (stone) intact as the brand-off fallback', () => {
+    // O base neutro é o fallback quando a marca está desligada — não é reescrito
+    // pela camada de marca, só sobrescrito por ela em runtime. Pinos do neutro:
     const css = read('app/assets/css/tailwind.css')
     const config = read('ui-thing.config.ts')
-    const theme = read('app/utils/shopTheme.ts')
 
     expect(config).toContain('"theme": "stone"')
     expect(css).toContain('--radius: 0.5rem')
@@ -862,9 +863,23 @@ describe('surface UX guardrails', () => {
     expect(css).not.toContain('"Inter"')
     expect(css).toContain('@apply bg-muted text-foreground')
     expect(css).toContain('@apply min-h-dvh min-w-0 bg-muted text-foreground')
-    expect(theme).toContain('--shop-brand-color')
-    expect(theme).not.toContain('TOKEN_TO_CSS_VAR')
-    expect(theme).not.toContain("style['--primary']")
+  })
+
+  it('dresses the brand as a reversible override of the neutral base', () => {
+    // A marca é uma CAMADA DE OVERRIDE: design_tokens → as variáveis reais que os
+    // componentes consomem (`--primary`, `--background`, …), num bloco :root{}/.dark{}.
+    const theme = read('app/utils/shopTheme.ts')
+
+    expect(theme).toContain('TOKEN_TO_CSS_VAR')
+    expect(theme).toContain("primary: '--primary'")
+    expect(theme).toContain("background: '--background'")
+    expect(theme).toContain(':root:root {')
+    expect(theme).toContain(':root.dark {')
+    // Interruptor de reversibilidade: ausência de tokens / preview neutro ⇒ sem override.
+    expect(theme).toContain("options.preview === 'neutral'")
+    expect(theme).toContain('if (!tokens) return')
+    // O override NÃO usa os resíduos do theming rejeitado anterior.
+    expect(theme).not.toContain('--shop-brand-color')
   })
 
   it('keeps cart counters on canonical UiBadge without extending the component API', () => {

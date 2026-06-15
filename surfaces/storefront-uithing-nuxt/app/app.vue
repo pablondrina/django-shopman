@@ -30,13 +30,12 @@ useSeoMeta({
   ogLocale: 'pt_BR'
 })
 
-const shellStyle = computed(() => shopThemeStyle(session.shop.value))
 const globalHomeNotice = computed(() => session.homeNotices.value.find(notice => notice.priority === 'global') || null)
 const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim() || session.shopStatus.value?.message?.trim() || '')
 </script>
 
 <template>
-  <div class="shop-shell flex min-h-dvh flex-col" :style="shellStyle">
+  <div class="shop-shell flex min-h-dvh flex-col">
     <NuxtRouteAnnouncer />
     <a
       href="#main-content"
