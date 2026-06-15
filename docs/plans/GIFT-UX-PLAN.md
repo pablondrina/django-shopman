@@ -5,15 +5,18 @@
 > outra pessoa. Não reinventar, não resumir. Desenho aprovado por Pablo em
 > 2026-06-13 (refinamentos incorporados).
 >
-> **Status (2026-06-14): slice backend do MVP ENTREGUE** (commit `f0fbf696`).
-> Pronto: integridade pura (`intents.gift.build_gift_data`), wiring nas duas
-> superfícies (API CheckoutView/Nuxt + interpret_checkout/HTML), propagação
-> Session→Order (`is_gift`/`recipient`/`gift_message` na whitelist de ops + Op
-> Serializer allowlist + lista do CommitService), serializer, data-schemas, e
-> testes (unitário + contrato). **Falta (precisa conferência visual):** UX no
-> checkout (pergunta única "É para presente?" + campos do destinatário +
-> AddressPicker sem pré-selecionar salvos + ocultar valores), KDS mostrando o
-> destinatário, e a notificação (comprador notificado; destinatário sem spoiler).
+> **Status (2026-06-15): MVP COMPLETO.** Backend (`f0fbf696`+`b392964c`): integridade
+> pura (`intents.gift.build_gift_data`, destinatário obrigatório só na entrega),
+> wiring nas duas superfícies, propagação Session→Order (`is_gift`/`recipient`/
+> `gift_message`/`gift_hide_values`), serializer, data-schemas, testes. Checkout
+> (`fb2a497e`+`2d4cbdcc`): toggle "É para presente?"/"Embalar para presente",
+> destinatário (entrega) + mensagem + ocultar valores, validação CEDO no "Revisar
+> pedido", resumo do pedido mostra o presente, "É para presente?" antes de obs.
+> Operador (`cb734c84`): bloco "Presente" no detalhe do pedido (admin Unfold) com
+> destinatário/telefone/ocultar-valores/mensagem. Notificação: comprador notificado,
+> destinatário sem spoiler **por construção** (recipient nunca entra no roteamento).
+> **Follow-ups (opcionais):** aviso "a caminho" ao destinatário (decisão de canal —
+> ManyChat exige opt-in); AddressPicker sem pré-selecionar salvos quando é presente.
 
 ## Princípio
 
