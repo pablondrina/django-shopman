@@ -204,19 +204,20 @@ export function shopThemeCss (
     // pill de destaque BRANCA com texto Brass (como um segmented control). Remap escopado
     // resolve busca/limpar/contadores. Neutro mantém a barra clara (sem este emit).
     blocks.push(
-      `.shop-pillbar.shop-pillbar { background-color: var(--shop-cta); --background: transparent; --foreground: #fff; --muted-foreground: color-mix(in srgb, #fff 82%, transparent); --border: color-mix(in srgb, #fff 42%, transparent); --input: color-mix(in srgb, #fff 42%, transparent); --accent: color-mix(in srgb, #fff 16%, transparent); --accent-foreground: #fff; }`,
-      `.shop-pillbar [data-menu-pill-ref][data-state="active"] { background-color: #fff; border-color: #fff; color: var(--shop-cta); }`
+      `.shop-pillbar.shop-pillbar { background-color: var(--shop-cta); color: #fff; --background: transparent; --foreground: #fff; --muted-foreground: #fff; --border: #fff; --input: #fff; --accent: color-mix(in srgb, #fff 18%, transparent); --accent-foreground: #fff; }`,
+      `.shop-pillbar [data-menu-pill-ref][data-state="active"] { background-color: color-mix(in srgb, var(--shop-cta) 38%, #000); border-color: color-mix(in srgb, var(--shop-cta) 38%, #000); color: #fff; }`
     )
 
     // Barra de busca: fundo Brass, campo branco (bg-card no input), ícone de voltar branco.
     blocks.push(
-      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); }`,
+      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); color: #fff; }`,
       `.shop-searchbar [aria-label="Voltar ao cardápio"] { color: #fff; }`
     )
 
-    // Breadcrumb sobre barra Brass: letras creme/translúcidas, item atual branco.
+    // Breadcrumb sobre barra Brass: letras creme nos links, item ATUAL branco (o
+    // UiBreadcrumbs usa text-primary no atual → remapeado p/ branco aqui).
     blocks.push(
-      `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); --foreground: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
+      `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); color: #fff; --foreground: #fff; --primary: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
     )
   }
   return blocks.join('\n')

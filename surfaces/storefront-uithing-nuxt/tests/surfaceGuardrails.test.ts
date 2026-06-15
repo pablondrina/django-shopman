@@ -139,7 +139,7 @@ describe('surface UX guardrails', () => {
     expect(menu).toContain('<main class="min-w-0">')
     expect(menu).toContain('<h1 class="sr-only">Cardápio</h1>')
     expect(menu.indexOf('<UiBreadcrumbs')).toBeGreaterThan(menu.indexOf('<div class="shop-section">'))
-    expect(menu).toContain('border-y bg-background shadow-sm')
+    expect(menu).toContain('shop-pillbar sticky top-16 z-30 bg-background shadow-sm')
     expect(menu).not.toContain('bg-background/92')
     expect(menu).not.toContain('backdrop-blur supports-[backdrop-filter]:bg-background/78')
     expect(menu).not.toContain('[margin-left:calc(50%_-_50vw)]')
@@ -399,7 +399,7 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('aria-label="Ver carrinho"')
     expect(header).toContain('cartPulse')
     expect(header).toContain('class="hidden md:inline-flex"')
-    expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40 border-b">')
+    expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40">')
     expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
     // Mobile: hambúrguer abre um menu rico (UiSheet canônico) com acesso à loja;
     // a bottom-nav segue como navegação primária (decisão Pablo 2026-06-15).

@@ -139,10 +139,16 @@ const giftSummary = computed(() => {
   return parts.join(' · ')
 })
 
-// Descrição da opção de data: relativa quando for "Amanhã" (a "Próxima fornada"
-// costuma ser amanhã); senão o dia da semana + data. "Hoje" já vem no título.
+// Subtítulo da opção de data = SEMPRE o dia da semana + data ("Segunda-feira, 15/06").
+// A palavra relativa (Hoje/Amanhã/Próxima fornada) vive no TÍTULO — mesmo padrão p/ todas.
 function dateOptionDescription (value: string): string {
-  return displayCheckoutDate(value) === 'Amanhã' ? 'Amanhã' : weekdayDateLabel(value)
+  return weekdayDateLabel(value)
+}
+
+// Título da próxima data disponível: "Amanhã" quando ela for de fato o dia seguinte;
+// senão "Próxima fornada" (ex.: sáb→seg pulando domingo, véspera de feriado/férias).
+function nextDateTitle (value: string): string {
+  return displayCheckoutDate(value) === 'Amanhã' ? 'Amanhã' : 'Próxima fornada'
 }
 
 const checkoutQuery = computed(() => state.delivery_date ? { delivery_date: state.delivery_date } : {})
@@ -222,10 +228,11 @@ const quickDateOptions = computed(() => {
   const out: Array<{ value: string, title: string, disabled: boolean }> = []
   if (available[0] === today) {
     out.push({ value: available[0], title: 'Hoje', disabled: false })
-    if (available[1]) out.push({ value: available[1], title: 'Próxima fornada', disabled: false })
+    if (available[1]) out.push({ value: available[1], title: nextDateTitle(available[1]), disabled: false })
   } else {
-    // Hoje está fechado → a opção mais próxima JÁ é a próxima fornada.
-    out.push({ value: available[0], title: 'Próxima fornada', disabled: false })
+    // Hoje está fechado → a opção mais próxima JÁ é a próxima data disponível
+    // ("Amanhã" se for o dia seguinte; senão "Próxima fornada").
+    out.push({ value: available[0], title: nextDateTitle(available[0]), disabled: false })
   }
   return out
 })
