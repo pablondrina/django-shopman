@@ -125,6 +125,25 @@ watch(() => state.is_gift, (on) => {
     state.gift_hide_values = false
   }
 })
+// Resumo do presente para o passo de confirmação.
+const giftSummary = computed(() => {
+  if (!state.is_gift) return ''
+  const parts: string[] = []
+  if (isPickup.value) {
+    parts.push('Embalar para presente')
+  } else {
+    parts.push(`Para ${state.recipient_name.trim() || 'quem recebe'}`)
+    if (state.recipient_phone.trim()) parts.push(state.recipient_phone.trim())
+  }
+  if (state.gift_hide_values) parts.push('valores ocultos')
+  return parts.join(' · ')
+})
+
+// Descrição da opção de data: relativa quando for "Amanhã" (a "Próxima fornada"
+// costuma ser amanhã); senão o dia da semana + data. "Hoje" já vem no título.
+function dateOptionDescription (value: string): string {
+  return displayCheckoutDate(value) === 'Amanhã' ? 'Amanhã' : weekdayDateLabel(value)
+}
 
 const checkoutQuery = computed(() => state.delivery_date ? { delivery_date: state.delivery_date } : {})
 
@@ -462,9 +481,24 @@ function validateWhenStep (): boolean {
 function validatePaymentStep (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.payment_method
+  delete errors.recipient_name
+  delete errors.recipient_phone
   if (!state.payment_method) errors.payment_method = 'Escolha o pagamento.'
+  // Presente em ENTREGA exige destinatário — validado JÁ aqui (no "Revisar
+  // pedido"), não no commit. Espelha intents.gift.build_gift_data.
+  if (state.is_gift && state.fulfillment_type === 'delivery') {
+    if (!state.recipient_name.trim()) {
+      errors.recipient_name = 'Informe o nome de quem vai receber o presente.'
+    }
+    const digits = state.recipient_phone.replace(/\D/g, '')
+    if (!state.recipient_phone.trim()) {
+      errors.recipient_phone = 'Informe o telefone de quem vai receber o presente.'
+    } else if (digits.length < 10) {
+      errors.recipient_phone = 'Telefone do destinatário inválido. Informe com DDD, ex: (43) 99999-9999'
+    }
+  }
   fieldErrors.value = errors
-  if (errors.payment_method) {
+  if (errors.payment_method || errors.recipient_name || errors.recipient_phone) {
     activeStep.value = 'payment'
     return false
   }
@@ -881,7 +915,7 @@ useSeoMeta({
                         <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
                         <UiFieldContent class="gap-0.5">
                           <UiFieldTitle>{{ option.title }}</UiFieldTitle>
-                          <UiFieldDescription>{{ weekdayDateLabel(option.value) }}</UiFieldDescription>
+                          <UiFieldDescription>{{ dateOptionDescription(option.value) }}</UiFieldDescription>
                         </UiFieldContent>
                       </UiField>
                     </UiFieldLabel>
@@ -994,32 +1028,11 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <!-- Observação: clone do toggle de fidelidade. Ligar expande o
-                   card; o campo aparece no espaço interno (sem traços nem
-                   divisórias). Desligar é o próprio dismiss (limpa a nota). -->
-              <UiFieldLabel for="checkout-notes-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-notes-box>
-                <UiField orientation="horizontal">
-                  <UiFieldContent class="gap-0.5">
-                    <UiFieldTitle>Adicionar observação</UiFieldTitle>
-                    <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
-                  </UiFieldContent>
-                  <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
-                </UiField>
-                <div v-if="notesOpen" class="px-4 pb-4">
-                  <UiTextarea
-                    id="checkout-notes"
-                    v-model="state.notes"
-                    :rows="2"
-                    placeholder="Ex: tocar o interfone, ponto de referência…"
-                    @click.stop
-                  />
-                </div>
-              </UiFieldLabel>
-
-              <!-- Presente (GIFT-UX): clone do toggle de observação. Em entrega
-                   coleta o destinatário; em retirada vira "embalar para presente"
-                   (só mensagem). @click.stop no painel impede que cliques nos
-                   campos alternem o toggle externo (label). -->
+              <!-- Presente (GIFT-UX) ANTES de Observação (é mais estrutural —
+                   muda destinatário/endereço/valores). Clone do toggle de obs.
+                   Em entrega coleta o destinatário; em retirada vira "embalar
+                   para presente" (só mensagem). @click.stop no painel impede que
+                   cliques nos campos alternem o toggle externo (label). -->
               <UiFieldLabel for="checkout-gift-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-gift-box>
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-0.5">
@@ -1053,6 +1066,28 @@ useSeoMeta({
                     </UiFieldContent>
                     <UiSwitch id="gift-hide-values" v-model="state.gift_hide_values" />
                   </UiField>
+                </div>
+              </UiFieldLabel>
+
+              <!-- Observação: clone do toggle de fidelidade. Ligar expande o
+                   card; o campo aparece no espaço interno (sem traços nem
+                   divisórias). Desligar é o próprio dismiss (limpa a nota). -->
+              <UiFieldLabel for="checkout-notes-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-notes-box>
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-0.5">
+                    <UiFieldTitle>Adicionar observação</UiFieldTitle>
+                    <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
+                  </UiFieldContent>
+                  <UiSwitch id="checkout-notes-toggle" v-model="notesOpen" />
+                </UiField>
+                <div v-if="notesOpen" class="px-4 pb-4">
+                  <UiTextarea
+                    id="checkout-notes"
+                    v-model="state.notes"
+                    :rows="2"
+                    placeholder="Ex: tocar o interfone, ponto de referência…"
+                    @click.stop
+                  />
                 </div>
               </UiFieldLabel>
 
@@ -1124,7 +1159,16 @@ useSeoMeta({
                       <p class="text-muted-foreground">Contato</p>
                       <p class="font-medium">{{ contactSummary }}</p>
                     </div>
+                    <div v-if="state.is_gift" class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                      <p class="text-muted-foreground">Presente</p>
+                      <p class="font-medium">{{ giftSummary }}</p>
+                    </div>
                   </div>
+
+                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                    <span class="mb-0.5 block text-xs font-medium uppercase text-muted-foreground">Cartão do presente</span>
+                    “{{ state.gift_message }}”
+                  </p>
 
                   <p v-if="state.notes" class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
                     {{ state.notes }}
