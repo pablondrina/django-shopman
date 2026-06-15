@@ -52,8 +52,8 @@ _BRAND_LIGHT: dict[str, str] = {
     "ink": "83 29 34",                    # NB Dark Burgundy — barras escuras (status)
     "ink_foreground": "247 239 224",
     "bottomnav": "244 235 215",           # NB Faubourg — bottom bar (leve contraste com o fundo)
-    "cta": "176 152 104",                 # NB Kraft (dourado) — destaques/CTAs
-    "cta_foreground": "59 42 30",         # texto escuro sobre o Kraft
+    "cta": "139 107 46",                  # NB Brass — destaques/CTAs (escuro p/ texto claro)
+    "cta_foreground": "250 246 237",      # creme quase-branco sobre o Brass
 }
 
 _BRAND_LIGHT_ALIASES: dict[str, str] = {
@@ -101,8 +101,8 @@ _BRAND_DARK: dict[str, str] = {
     "ink": "83 29 34",                    # Dark Burgundy (barras escuras, nos dois modos)
     "ink_foreground": "247 239 224",
     "bottomnav": "43 29 22",              # superfície escura p/ a bottom bar no escuro
-    "cta": "176 152 104",                 # Kraft
-    "cta_foreground": "59 42 30",
+    "cta": "150 116 52",                  # NB Brass (um tom acima p/ o escuro)
+    "cta_foreground": "250 246 237",
 }
 
 _BRAND_DARK_ALIASES: dict[str, str] = {

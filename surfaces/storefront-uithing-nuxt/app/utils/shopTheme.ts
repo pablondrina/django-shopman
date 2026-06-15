@@ -180,6 +180,25 @@ export function shopThemeCss (
       `.shop-hero-cta-ghost.shop-hero-cta-ghost { background-color: transparent; border-color: var(--shop-cta); color: #fff; }`,
       `.shop-hero-cta-ghost.shop-hero-cta-ghost:hover { background-color: color-mix(in srgb, var(--shop-cta) 20%, transparent); color: #fff; }`
     )
+
+    // Controle de quantidade INTEIRO dourado (não só o "+"): pílula Brass + conteúdo
+    // creme. Remapeia --foreground p/ os botões −/+ (que usam text-foreground) virarem
+    // creme. Neutro mantém a pílula branca (sem este emit).
+    blocks.push(
+      `.shop-qty.shop-qty { background-color: var(--shop-cta); color: var(--shop-cta-foreground); border-color: color-mix(in srgb, var(--shop-cta-foreground) 28%, transparent); --foreground: var(--shop-cta-foreground); }`
+    )
+
+    // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o
+    // banner de pedido e os CTAs que também são Brass sólido.
+    blocks.push(
+      `.shop-section-cta.shop-section-cta { background-color: color-mix(in srgb, var(--shop-cta) 18%, var(--background)); }`
+    )
+
+    // Botão da seção "Dúvidas?" em Dark Moss (= token do rodapé) com texto creme.
+    blocks.push(
+      `.shop-help-cta.shop-help-cta { background-color: var(--shop-footer); color: var(--shop-footer-foreground); }`,
+      `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-footer) 88%, #000); color: var(--shop-footer-foreground); }`
+    )
   }
   return blocks.join('\n')
 }

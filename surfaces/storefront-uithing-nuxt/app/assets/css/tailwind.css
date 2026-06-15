@@ -256,7 +256,7 @@
     @apply antialiased;
   }
   body {
-    @apply bg-muted text-foreground;
+    @apply bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     overflow-x: clip;
   }
@@ -287,7 +287,7 @@
 
 @layer components {
   .shop-shell {
-    @apply min-h-dvh min-w-0 bg-muted text-foreground;
+    @apply min-h-dvh min-w-0 bg-background text-foreground;
     overflow-x: clip;
   }
 

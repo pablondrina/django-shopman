@@ -241,7 +241,7 @@ useHead({
         </section>
 
         <div
-          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
+          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">

@@ -119,8 +119,8 @@ useHead({
 </script>
 
 <template>
-  <main class="bg-muted">
-    <section class="bg-muted pb-5 pt-0 sm:py-8 lg:py-10">
+  <main class="bg-background">
+    <section class="shop-section-cta bg-background pb-5 pt-0 sm:py-8 lg:py-10">
       <div class="shop-container">
         <div v-if="pending" class="space-y-5">
           <UiSkeleton class="-mx-4 h-[calc(100svh-12.5rem)] rounded-none sm:mx-0 sm:h-[440px] sm:rounded-lg" />
@@ -173,7 +173,7 @@ useHead({
             <UiButton
               variant="outline"
               to="/busca"
-              class="mt-3 h-11 w-full justify-start gap-2 rounded-full bg-background font-normal text-muted-foreground shadow-sm"
+              class="mt-3 h-11 w-full justify-start gap-2 rounded-full bg-card font-normal text-muted-foreground shadow-sm"
               data-home-search-shortcut
             >
               <Icon name="lucide:search" class="size-4" />
@@ -271,7 +271,7 @@ useHead({
       </div>
     </section>
 
-    <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-muted scroll-mt-20">
+    <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-background scroll-mt-20">
       <div class="shop-container space-y-8">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="text-xl font-semibold tracking-tight">{{ sectionsCopy.how_it_works_heading.title }}</h2>
@@ -281,7 +281,7 @@ useHead({
         </div>
 
         <div class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-3 rounded-lg border bg-background p-5" data-home-path-online>
+          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-online>
             <UiItemMedia variant="icon" class="size-10 rounded-full">
               <Icon name="lucide:shopping-bag" />
             </UiItemMedia>
@@ -292,7 +292,7 @@ useHead({
             </UiButton>
           </div>
 
-          <div class="flex flex-col gap-3 rounded-lg border bg-background p-5" data-home-path-visit>
+          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-visit>
             <UiItemMedia variant="icon" class="size-10 rounded-full">
               <Icon name="lucide:store" />
             </UiItemMedia>
@@ -330,7 +330,7 @@ useHead({
 
     <section v-if="home && whatsappUrl && sectionsCopy" class="border-y bg-background py-0 sm:py-8 lg:py-10">
       <div class="shop-container">
-        <div class="relative -mx-4 overflow-hidden rounded-none bg-foreground text-background sm:mx-0 sm:rounded-lg">
+        <div class="relative -mx-4 overflow-hidden rounded-none bg-ink text-ink-foreground sm:mx-0 sm:rounded-lg">
           <img
             v-if="whatsappImage"
             :src="whatsappImage"
@@ -341,7 +341,7 @@ useHead({
           >
           <div class="relative mx-auto max-w-2xl px-6 py-14 text-center md:py-16">
             <h2 class="text-xl font-semibold tracking-tight md:text-2xl">{{ sectionsCopy.whatsapp_cta.title }}</h2>
-            <p class="mt-3 text-sm leading-6 text-background/80 md:text-base">
+            <p class="mt-3 text-sm leading-6 text-ink-foreground/85 md:text-base">
               {{ sectionsCopy.whatsapp_cta.message }}
             </p>
             <UiButton
@@ -351,7 +351,7 @@ useHead({
               size="lg"
               variant="secondary"
               icon="lucide:message-circle"
-              class="mt-6"
+              class="shop-help-cta mt-6"
             >
               {{ sectionsCopy.whatsapp_cta_label.title || 'Falar no WhatsApp' }}
             </UiButton>

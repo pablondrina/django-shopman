@@ -36,7 +36,7 @@ function commit (value: number) {
   <div
     role="group"
     :aria-label="`Quantidade de ${meta.name}`"
-    class="inline-flex h-10 items-center rounded-full border bg-background text-foreground shadow-sm"
+    class="shop-qty inline-flex h-10 items-center rounded-full border bg-background text-foreground shadow-sm"
     :class="compact ? '' : 'px-1'"
   >
     <UiButton
