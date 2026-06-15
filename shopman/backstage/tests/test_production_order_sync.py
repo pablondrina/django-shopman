@@ -54,6 +54,36 @@ def test_confirmed_order_links_existing_planned_work_order(recipe):
 
 
 @pytest.mark.django_db
+def test_operator_order_projects_gift_recipient():
+    """GIFT-UX: o operador vê o destinatário do presente (entrega a terceiro)."""
+    order = _order("GIFT-OP-1")
+    order.data = {
+        **order.data,
+        "is_gift": True,
+        "recipient": {"name": "Maria Silva", "phone": "+5543988887777"},
+        "gift_message": "Feliz aniversário!",
+        "gift_hide_values": True,
+    }
+    order.save(update_fields=["data", "updated_at"])
+
+    detail = build_operator_order(order)
+
+    assert detail.is_gift is True
+    assert detail.gift_recipient_name == "Maria Silva"
+    assert detail.gift_recipient_phone == "+5543988887777"
+    assert detail.gift_message == "Feliz aniversário!"
+    assert detail.gift_hide_values is True
+
+
+@pytest.mark.django_db
+def test_operator_order_non_gift_has_empty_gift_fields():
+    detail = build_operator_order(_order("GIFT-OP-2"))
+    assert detail.is_gift is False
+    assert detail.gift_recipient_name == ""
+    assert detail.gift_hide_values is False
+
+
+@pytest.mark.django_db
 def test_order_without_produced_recipe_does_not_link(recipe):
     order = _order("SYNC-ORD-2", sku="AGUA")
 

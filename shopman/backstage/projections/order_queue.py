@@ -139,6 +139,11 @@ class OperatorOrderProjection:
     fiscal_status: str
     fiscal_links: tuple[dict[str, str], ...]
     awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
+    is_gift: bool
+    gift_recipient_name: str
+    gift_recipient_phone: str
+    gift_message: str
+    gift_hide_values: bool
 
 
 @dataclass(frozen=True)
@@ -227,6 +232,8 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
     payment_method_label = _payment_method_label(method, payment_data)
     fiscal_status, fiscal_status_label, fiscal_links = _fiscal_status(order)
 
+    recipient = order.data.get("recipient") if isinstance(order.data.get("recipient"), dict) else {}
+
     return OperatorOrderProjection(
         ref=order.ref,
         status=order.status,
@@ -248,6 +255,11 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         fiscal_status_label=fiscal_status_label,
         fiscal_links=fiscal_links,
         awaiting_work_orders=_awaiting_work_orders(order),
+        is_gift=bool(order.data.get("is_gift")),
+        gift_recipient_name=str(recipient.get("name", "") or ""),
+        gift_recipient_phone=str(recipient.get("phone", "") or ""),
+        gift_message=str(order.data.get("gift_message", "") or ""),
+        gift_hide_values=bool(order.data.get("gift_hide_values")),
     )
 
 
