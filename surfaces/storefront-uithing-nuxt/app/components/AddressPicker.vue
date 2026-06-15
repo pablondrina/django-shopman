@@ -747,42 +747,42 @@ function onLabelResolved () {
       <div class="grid grid-cols-1 gap-4">
         <div class="space-y-2">
           <UiLabel for="address-route">Rua</UiLabel>
-          <UiInput id="address-route" ref="routeInput" v-model="draft.route" autocomplete="address-line1" />
+          <UiInput id="address-route" ref="routeInput" v-model="draft.route" class="bg-background" autocomplete="address-line1" />
           <UiFieldError v-if="fieldErrors.route" :errors="fieldErrors.route" />
         </div>
         <div class="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
           <div class="space-y-2">
             <UiLabel for="address-number">Número</UiLabel>
-            <UiInput id="address-number" ref="numberInput" v-model="draft.street_number" inputmode="numeric" />
+            <UiInput id="address-number" ref="numberInput" v-model="draft.street_number" class="bg-background" inputmode="numeric" />
             <UiFieldError v-if="fieldErrors.street_number" :errors="fieldErrors.street_number" />
           </div>
           <div class="space-y-2">
             <UiLabel for="address-complement">Complemento</UiLabel>
-            <UiInput id="address-complement" ref="complementInput" v-model="draft.complement" placeholder="Apto, bloco, referência" />
+            <UiInput id="address-complement" ref="complementInput" v-model="draft.complement" class="bg-background" placeholder="Apto, bloco, referência" />
           </div>
         </div>
         <div class="grid grid-cols-[minmax(0,1fr)_8rem] gap-4">
           <div class="space-y-2">
             <UiLabel for="address-neighborhood">Bairro</UiLabel>
-            <UiInput id="address-neighborhood" v-model="draft.neighborhood" autocomplete="address-level3" />
+            <UiInput id="address-neighborhood" v-model="draft.neighborhood" class="bg-background" autocomplete="address-level3" />
             <UiFieldError v-if="fieldErrors.neighborhood" :errors="fieldErrors.neighborhood" />
           </div>
           <div class="space-y-2">
             <UiLabel for="address-cep">CEP</UiLabel>
-            <UiInput id="address-cep" v-model="draft.postal_code" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
+            <UiInput id="address-cep" v-model="draft.postal_code" class="bg-background" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" @input="onCepInput" />
             <UiFieldError v-if="fieldErrors.postal_code" :errors="fieldErrors.postal_code" />
           </div>
         </div>
         <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-4">
           <div class="space-y-2">
             <UiLabel for="address-city">Cidade</UiLabel>
-            <UiInput id="address-city" v-model="draft.city" autocomplete="address-level2" />
+            <UiInput id="address-city" v-model="draft.city" class="bg-background" autocomplete="address-level2" />
             <UiFieldError v-if="fieldErrors.city" :errors="fieldErrors.city" />
           </div>
           <div class="space-y-2">
             <UiLabel for="address-state">UF</UiLabel>
             <UiSelect v-model="draft.state_code">
-              <UiSelectTrigger id="address-state" class="w-full" />
+              <UiSelectTrigger id="address-state" class="w-full bg-background" />
               <UiSelectContent>
                 <UiSelectItem v-for="uf in brStates" :key="uf" :value="uf">{{ uf }}</UiSelectItem>
               </UiSelectContent>
@@ -792,7 +792,7 @@ function onLabelResolved () {
         </div>
         <div class="space-y-2">
           <UiLabel for="address-instructions">Instruções de entrega</UiLabel>
-          <UiInput id="address-instructions" v-model="draft.delivery_instructions" placeholder="Portaria, interfone, melhor acesso" />
+          <UiInput id="address-instructions" v-model="draft.delivery_instructions" class="bg-background" placeholder="Portaria, interfone, melhor acesso" />
         </div>
       </div>
 

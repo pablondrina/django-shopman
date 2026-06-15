@@ -84,43 +84,40 @@ useSeoMeta({ title: 'Perfil' })
           <UiAlertDescription>Usaremos esses dados nos próximos pedidos.</UiAlertDescription>
         </UiAlert>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <UiField>
-            <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
-            <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required />
-          </UiField>
-          <UiField>
-            <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
-            <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
-          </UiField>
-        </div>
+        <div class="space-y-4 rounded-lg border bg-card p-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <UiField>
+              <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
+              <UiInput id="account-first-name" v-model="profileForm.first_name" class="bg-background" autocomplete="given-name" required />
+            </UiField>
+            <UiField>
+              <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
+              <UiInput id="account-last-name" v-model="profileForm.last_name" class="bg-background" autocomplete="family-name" />
+            </UiField>
+          </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <UiField>
-            <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
-            <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" />
-          </UiField>
-          <UiField>
-            <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
-            <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" />
-          </UiField>
-        </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <UiField>
+              <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
+              <UiInput id="account-email" v-model="profileForm.email" class="bg-background" type="email" autocomplete="email" />
+            </UiField>
+            <UiField>
+              <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
+              <UiInput id="account-birthday" v-model="profileForm.birthday" class="bg-background" type="date" />
+            </UiField>
+          </div>
 
-        <UiField>
-          <UiFieldLabel>Telefone confirmado</UiFieldLabel>
-          <UiItem variant="muted" size="sm" class="bg-muted">
-            <UiItemMedia variant="icon" class="size-8 rounded-md">
-              <Icon name="lucide:phone" />
-            </UiItemMedia>
-            <UiItemContent>
-              <UiItemTitle>{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</UiItemTitle>
-              <UiItemDescription>Para trocar o telefone, entre novamente usando outro número.</UiItemDescription>
-            </UiItemContent>
-            <UiItemActions>
-              <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Trocar</UiButton>
-            </UiItemActions>
-          </UiItem>
-        </UiField>
+          <div class="flex items-center gap-3 border-t pt-4">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+              <Icon name="lucide:phone" class="size-4" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
+              <p class="text-xs text-muted-foreground">Para trocar o telefone, entre novamente usando outro número.</p>
+            </div>
+            <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Trocar</UiButton>
+          </div>
+        </div>
 
         <div class="flex justify-end">
           <UiButton type="submit" size="lg" :loading="profilePendingSave" icon="lucide:check">Salvar perfil</UiButton>
