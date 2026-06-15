@@ -114,6 +114,10 @@ let placesSessionToken: any = null
 const labelOptions = ADDRESS_LABEL_OPTIONS
 const brStates = BR_STATES
 const hasSaved = computed(() => props.context === 'checkout' && props.savedAddresses.length > 0)
+// Card branco só quando o picker vai DIRETO no fundo cinza (checkout, inline).
+// Na conta ele abre dentro de um sheet (já é superfície branca) → sem card,
+// pra não virar card-dentro-de-card. Os campos seguem com bg-background + borda.
+const surfaceChrome = computed(() => (props.context === 'checkout' ? 'rounded-lg border bg-card p-4' : ''))
 const canAdjustOnMap = computed(() => maps.enabled.value && draft.latitude != null && draft.longitude != null)
 const draftLine = computed(() => draftSummaryLine(draft as AddressDraft))
 
@@ -624,7 +628,7 @@ function onLabelResolved () {
 
     <!-- ── Busca unificada (card dedicado, ações fullwidth) ──────────── -->
     <template v-else-if="mode === 'search'">
-      <div class="space-y-3 rounded-lg border bg-card p-4" data-address-search-card>
+      <div class="space-y-3" :class="surfaceChrome" data-address-search-card>
         <div class="flex items-center justify-between gap-2">
           <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
           <UiButton
@@ -708,7 +712,7 @@ function onLabelResolved () {
 
     <!-- ── Campos estruturados ─────────────────────────────────────── -->
     <template v-else>
-      <div class="space-y-4 rounded-lg border bg-card p-4" data-address-form-card>
+      <div class="space-y-4" :class="surfaceChrome" data-address-form-card>
       <div class="flex items-center justify-between gap-2">
         <p class="text-sm font-semibold">{{ isEditingForm ? 'Editar endereço' : 'Novo endereço' }}</p>
         <UiButton
