@@ -6,6 +6,7 @@ import {
   availabilitySchemaUrl,
   bakeryJsonLd,
   breadcrumbJsonLd,
+  collectionJsonLd,
   metaDescription,
   priceFromQ,
   productJsonLd,
@@ -143,6 +144,35 @@ describe('breadcrumbJsonLd', () => {
     expect(items[2]!.position).toBe(3)
     expect(items[2]!.name).toBe('Croissant')
     expect(items[2]!.item).toBe('https://x/produto/CROIS-01')
+  })
+})
+
+describe('collectionJsonLd', () => {
+  const items = [
+    { sku: 'CROIS-01', name: 'Croissant', base_price_q: 1290, availability: 'available' as const, image_url: '/media/c.jpg' },
+    { sku: 'BAGUE-01', name: 'Baguete', base_price_q: 1300, availability: 'unavailable' as const, image_url: null }
+  ]
+  it('monta CollectionPage com ItemList de produtos', () => {
+    const ld = collectionJsonLd({ name: 'Cardápio', url: ORIGIN + '/menu', origin: ORIGIN, items })
+    expect(ld['@type']).toBe('CollectionPage')
+    expect(ld.url).toBe('https://loja.exemplo.com/menu')
+    const list = ld.mainEntity as Record<string, unknown>
+    expect(list['@type']).toBe('ItemList')
+    expect(list.numberOfItems).toBe(2)
+    const elements = list.itemListElement as Array<Record<string, unknown>>
+    expect(elements[0]!.position).toBe(1)
+    const first = elements[0]!.item as Record<string, unknown>
+    expect(first['@type']).toBe('Product')
+    expect(first.url).toBe('https://loja.exemplo.com/product/CROIS-01')
+    expect(first.image).toBe('https://loja.exemplo.com/media/c.jpg')
+    expect((first.offers as Record<string, unknown>).price).toBe('12.90')
+  })
+  it('omite imagem quando ausente', () => {
+    const ld = collectionJsonLd({ name: 'Cardápio', url: ORIGIN + '/menu', origin: ORIGIN, items })
+    const elements = (ld.mainEntity as Record<string, unknown>).itemListElement as Array<Record<string, unknown>>
+    const second = elements[1]!.item as Record<string, unknown>
+    expect(second.image).toBeUndefined()
+    expect((second.offers as Record<string, unknown>).availability).toBe('https://schema.org/OutOfStock')
   })
 })
 

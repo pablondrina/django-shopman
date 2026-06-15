@@ -1,4 +1,4 @@
-import type { ProductDetailProjection, ShopProjection } from '~/types/shopman'
+import type { CatalogItemProjection, ProductDetailProjection, ShopProjection } from '~/types/shopman'
 
 // Lógica pura de SEO técnico. Contrato vem das projeções do backend (SAGRADO):
 // montamos meta tags + JSON-LD schema.org a partir do dado já servido (produto,
@@ -102,6 +102,50 @@ export function breadcrumbJsonLd (items: Array<{ name: string, url: string }>): 
       name: item.name,
       item: item.url
     }))
+  }
+}
+
+// ── JSON-LD: CollectionPage + ItemList ───────────────────────────────────────
+// Cardápio = uma página de coleção com a lista de produtos. Cada item aponta para
+// a própria PDP (/product/<sku>) com Offer mínima — ajuda o Google a entender a
+// vitrine sem duplicar o Product completo (que vive na PDP).
+export function collectionJsonLd (params: {
+  name: string
+  url: string
+  origin: string
+  items: Array<Pick<CatalogItemProjection, 'sku' | 'name' | 'base_price_q' | 'availability' | 'image_url'>>
+}): Record<string, unknown> {
+  const { name, url, origin, items } = params
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name,
+    url,
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: items.length,
+      itemListElement: items.map((item, index) => {
+        const product: Record<string, unknown> = {
+          '@type': 'Product',
+          name: item.name,
+          sku: item.sku,
+          url: absoluteUrl(origin, `/product/${encodeURIComponent(item.sku)}`),
+          offers: {
+            '@type': 'Offer',
+            price: priceFromQ(item.base_price_q),
+            priceCurrency: CURRENCY,
+            availability: availabilitySchemaUrl(item.availability)
+          }
+        }
+        const image = absoluteImage(origin, item.image_url)
+        if (image) product.image = image
+        return {
+          '@type': 'ListItem',
+          position: index + 1,
+          item: product
+        }
+      })
+    }
   }
 }
 
