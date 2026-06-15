@@ -80,11 +80,39 @@ function activateSlide (index: number) {
   activeIndex.value = index
 }
 
+// Toda navegação manual reinicia o autoplay, senão o avanço automático (8s)
+// pode trocar o slide logo após o toque do usuário — parecendo que a seta
+// "não funcionou".
+function restartAutoplay () {
+  if (autoplayTimer) {
+    clearInterval(autoplayTimer)
+    autoplayTimer = null
+  }
+  if (!paused.value && slides.value.length > 1) {
+    autoplayTimer = setInterval(activateNextSlide, 8000)
+  }
+}
+
+function goToPreviousSlide () {
+  activatePreviousSlide()
+  restartAutoplay()
+}
+
+function goToNextSlide () {
+  activateNextSlide()
+  restartAutoplay()
+}
+
+function goToSlide (index: number) {
+  activateSlide(index)
+  restartAutoplay()
+}
+
 function handleTouchEnd (event: TouchEvent) {
   const dx = event.changedTouches[0]?.screenX - touchStartX.value
   if (Math.abs(dx) < 50) return
-  if (dx < 0) activateNextSlide()
-  else activatePreviousSlide()
+  if (dx < 0) goToNextSlide()
+  else goToPreviousSlide()
 }
 
 function handlePrimaryAction (slide: HeroSlide) {
@@ -245,22 +273,21 @@ onBeforeUnmount(() => {
       </div>
       <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,.78),rgba(0,0,0,.42),rgba(0,0,0,.14))]" />
 
-      <!-- Layout pôster: título no centro vertical, CTA ancorada mais abaixo. -->
-      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] flex-col px-5 pb-10 pt-12 text-center text-white sm:min-h-[440px] sm:px-7 sm:pb-14 sm:pt-16 lg:min-h-[480px] lg:px-9">
+      <!-- Layout pôster: conteúdo ancorado embaixo (foto respira no topo). Sem
+           flex-1 a empurrar — o bloco cresce pelo conteúdo, nunca sobrepõe. -->
+      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] flex-col justify-end px-5 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-7 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-9">
         <Transition name="hero-text" mode="out-in">
-          <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-1 flex-col">
-            <div class="flex flex-1 flex-col items-center justify-center">
-              <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>
-              <h1 class="mt-2 text-4xl font-semibold leading-[1.08] tracking-tight [text-shadow:0_2px_18px_rgba(0,0,0,0.45)] sm:text-5xl" :aria-label="heroTitleLabel">
-                <span v-for="line in activeSlide.titleLines" :key="line" class="block" aria-hidden="true">
-                  {{ line }}
-                </span>
-              </h1>
-              <p v-if="activeSlide.description" class="mt-4 max-w-xl text-sm leading-6 text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.4)] sm:text-base">
-                {{ activeSlide.description }}
-              </p>
-            </div>
-            <div class="mt-8 flex flex-wrap justify-center gap-3">
+          <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center">
+            <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>
+            <h1 class="mt-2 text-4xl font-semibold leading-[1.08] tracking-tight [text-shadow:0_2px_18px_rgba(0,0,0,0.45)] sm:text-5xl" :aria-label="heroTitleLabel">
+              <span v-for="line in activeSlide.titleLines" :key="line" class="block" aria-hidden="true">
+                {{ line }}
+              </span>
+            </h1>
+            <p v-if="activeSlide.description" class="mt-4 max-w-xl text-sm leading-6 text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.4)] sm:text-base">
+              {{ activeSlide.description }}
+            </p>
+            <div class="mt-7 flex flex-wrap justify-center gap-3">
               <UiButton
                 v-if="activeSlide.primaryTo"
                 :to="activeSlide.primaryTo"
@@ -297,19 +324,19 @@ onBeforeUnmount(() => {
       <template v-if="slides.length > 1">
         <UiButton
           variant="ghost"
-          size="icon-sm"
+          size="icon-lg"
           icon="lucide:chevron-left"
-          class="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/25 text-white backdrop-blur-sm hover:bg-black/40 hover:text-white"
+          class="absolute left-2.5 top-1/2 z-20 size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:left-3"
           aria-label="Slide anterior"
-          @click="activatePreviousSlide"
+          @click="goToPreviousSlide"
         />
         <UiButton
           variant="ghost"
-          size="icon-sm"
+          size="icon-lg"
           icon="lucide:chevron-right"
-          class="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/25 text-white backdrop-blur-sm hover:bg-black/40 hover:text-white"
+          class="absolute right-2.5 top-1/2 z-20 size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:right-3"
           aria-label="Próximo slide"
-          @click="activateNextSlide"
+          @click="goToNextSlide"
         />
         <div class="absolute inset-x-0 bottom-3 z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
           <UiButton
@@ -322,7 +349,7 @@ onBeforeUnmount(() => {
             :aria-label="`Slide ${index + 1}`"
             :aria-selected="index === activeIndex"
             role="tab"
-            @click="activateSlide(index)"
+            @click="goToSlide(index)"
           />
         </div>
       </template>

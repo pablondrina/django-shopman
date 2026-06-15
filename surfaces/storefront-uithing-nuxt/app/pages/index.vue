@@ -142,7 +142,7 @@ useHead({
             <NuxtLink
               v-if="activeOrder"
               :to="`/tracking/${encodeURIComponent(activeOrder.ref)}`"
-              class="-mx-4 mb-3 block bg-primary px-4 py-3.5 text-primary-foreground transition hover:bg-primary/95 sm:mx-0 sm:rounded-xl sm:shadow-sm"
+              class="-mx-4 block bg-primary px-4 py-3.5 text-primary-foreground transition hover:bg-primary/95 sm:mx-0 sm:rounded-xl"
               data-home-active-order
             >
               <div class="flex items-center gap-3">
