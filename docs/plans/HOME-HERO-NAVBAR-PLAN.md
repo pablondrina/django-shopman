@@ -114,3 +114,31 @@ A reconstrução do hero deve usar **slides empilhados + opacity por classe**
 ## Estado inicial
 Branch `redesign/surface-excellence`, último commit `0b9df3cb`. Verde (vitest 202,
 backstage 80 + admin 63, storefront 863).
+
+---
+
+## Execução (2026-06-15, co-author Claude Fable 5) — CONCLUÍDO ✅
+
+- **Sub-arco A** `7f… navbar`: wordmark com presença (text-lg, ícone em círculo) +
+  hambúrguer "lindão" via `UiSheet` canônico (Início/Cardápio/Carrinho[badge]/Conta/
+  Como funciona + card "Visite a loja" [endereço/como chegar, horário, telefone,
+  e-mail] + WhatsApp + redes sociais). Tudo server-driven. Header `h-16` mobile
+  reconciliado no `app.vue`; âncora `#como-funciona` na home. Guardrails reescritos
+  p/ o novo contrato (UiSheet + UiBadge canônico; gatilho via `UiButton`).
+- **Sub-arco B** `hero`: CTA pílula branca alto-contraste, layout pôster (título
+  no centro, CTA ancorada abaixo), título com text-shadow + tracking-tight (peso
+  600), setas com mais presença. **Crossfade ROBUSTO** (imagens empilhadas + opacity
+  por classe) — matou o bug do hero virar cinza (Transition único + troca de `:key`
+  orfanava imgs em sessão longa/HMR; reproduzido: 4 imgs presos opacity:0). CSS
+  `hero-fade` removido (zero-residual).
+- **Sub-arco C** `corpo`: banner de pedido ativo deixa de ser laje (chip no ícone,
+  pílula "Acompanhar", arredondado, respiro antes do hero); headings com
+  tracking-tight. Corpo já era editorial/sólido — polimento cirúrgico.
+
+**Gates por sub-arco**: vitest 202, nuxt build OK, console limpo. Verificado ao vivo
+375px (menu abre/fecha/navega, X visível, 4 redes; hero crossfade 10s sem cinza,
+CTA branca, slides greeting/order/reorder) + desktop estrutural. Tudo **neutro** —
+theming/marca segue como arco SEPARADO e POSTERIOR.
+
+Bug pré-existente notado (fora do escopo, flagado): `UiTextarea rows="2"` (string)
+no gift-message do checkout dispara Vue warn — deve ser `:rows="2"`.
