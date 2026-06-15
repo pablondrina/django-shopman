@@ -75,6 +75,8 @@ onMounted(() => {
 useSeoMeta({
   title: 'Buscar'
 })
+// Canonical sem query → variantes ?q= não geram duplicate content.
+useCanonical()
 </script>
 
 <template>

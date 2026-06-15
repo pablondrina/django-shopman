@@ -262,6 +262,8 @@ useSeoMeta({
   title: 'Cardápio',
   description: () => catalog.value?.has_items ? `${uniqueItems.value.length} itens publicados.` : 'Cardápio publicado.'
 })
+// Canonical sem query → variantes de filtro (?filtro=/?secao=) não duplicam.
+useCanonical()
 </script>
 
 <template>
