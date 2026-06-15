@@ -48,7 +48,7 @@ const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim()
       {{ shopStatusMessage }}
     </div>
     <ShopHeader />
-    <div id="main-content" class="flex-1 min-h-[calc(100svh-3.5rem)] md:min-h-[calc(100svh-4rem)]">
+    <div id="main-content" class="flex-1 min-h-[calc(100svh-4rem)]">
       <NuxtPage />
     </div>
     <ShopFooter />

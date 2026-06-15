@@ -256,7 +256,7 @@ describe('surface UX guardrails', () => {
     expect(home).toContain('sectionsCopy.how_it_works_heading.title')
     expect(home).toContain('sectionsCopy.whatsapp_cta.title')
     expect(home).toContain('class="shop-section border-y bg-background pt-8 md:pt-10"')
-    expect(home).toContain('class="shop-section bg-muted"')
+    expect(home).toContain('id="como-funciona" class="shop-section bg-muted scroll-mt-20"')
     expect(home).toContain('class="border-y bg-background py-0 sm:py-8 lg:py-10"')
     expect(home).toContain('class="relative -mx-4 overflow-hidden rounded-none bg-foreground text-background sm:mx-0 sm:rounded-lg"')
     expect(home).not.toContain('v-if="operationalStatus.message"')
@@ -401,14 +401,18 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('class="hidden md:inline-flex"')
     expect(header).toContain('<header class="sticky top-0 z-40 border-b bg-background">')
     expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
-    // Mobile: a bottom-nav é a navegação primária; o header não duplica menu.
-    expect(header).not.toContain('mobileMenuOpen')
-    expect(header).not.toContain('UiSheet')
-    expect(header).not.toContain('icon="lucide:menu"')
+    // Mobile: hambúrguer abre um menu rico (UiSheet canônico) com acesso à loja;
+    // a bottom-nav segue como navegação primária (decisão Pablo 2026-06-15).
+    expect(header).toContain('<UiSheet v-model:open="menuOpen">')
+    expect(header).toContain('<UiSheetContent side="right"')
+    expect(header).toContain('data-shop-menu-trigger')
+    expect(header).toContain('name="lucide:menu"') // ícone do gatilho via <Icon>
+    expect(header).toContain('Como funciona')
+    expect(header).toContain('Redes sociais')
+    expect(header).toContain('md:hidden') // gatilho do menu só no mobile
     expect(bottomNav).toContain("to: '/menu'")
     expect(bottomNav).toContain("to: '/account'")
     expect(header).not.toContain('shopping-basket')
-    expect(header).not.toContain('bg-primary text-primary-foreground')
     expect(header).not.toContain('session.shop.value?.tagline')
     expect(header).not.toContain('Compra rápida e acompanhada')
     expect(home).not.toContain('fixed bottom-20 right-4')
@@ -869,7 +873,7 @@ describe('surface UX guardrails', () => {
     const bottomNav = read('app/components/AppBottomNav.vue')
 
     expect(badge).not.toContain('counter:')
-    expect(header).not.toContain('<UiBadge')
+    // Header usa o UiBadge canônico (chip de contagem no menu) — sem hacks de posição.
     expect(header).toContain('`Carrinho (${cart.items_count})`')
     expect(bottomNav).toContain('<UiBadge')
     expect(bottomNav).toContain('size="sm"')

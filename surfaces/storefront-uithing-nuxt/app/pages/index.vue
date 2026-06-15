@@ -269,7 +269,7 @@ useHead({
       </div>
     </section>
 
-    <section v-if="home && sectionsCopy" class="shop-section bg-muted">
+    <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-muted scroll-mt-20">
       <div class="shop-container space-y-8">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="text-xl font-semibold">{{ sectionsCopy.how_it_works_heading.title }}</h2>
