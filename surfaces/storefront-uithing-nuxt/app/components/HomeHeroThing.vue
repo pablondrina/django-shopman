@@ -29,7 +29,16 @@ const emit = defineEmits<{
   reorder: [action: Action | null]
 }>()
 
-const featured = computed(() => props.home.featured_items || [])
+// Mesmas fotos do hero da home Django (shopman/storefront/templates/storefront/
+// home.html) — pareadas por slide para comparação direta de composição.
+// Não é theming/marca: é o conjunto neutro de referência da padaria.
+const HERO_IMAGE_URLS = {
+  greeting: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80',
+  order: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1600&q=80',
+  reorder: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1600&q=80',
+  handmade: 'https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=1600&q=80'
+} as const
+
 const menuTo = computed(() => localRouteFromBackend(props.primaryAction?.href || '/menu'))
 const activeIndex = ref(0)
 const paused = ref(false)
@@ -47,14 +56,6 @@ function messageOf (entry: CopyEntryProjection, fallback: string) {
 function shopDescription () {
   const shop = props.home.shop
   return shop.description?.trim() || shop.tagline?.trim() || shop.brand_name
-}
-
-function imageAt (index: number) {
-  return featured.value[index]?.image_url || featured.value[0]?.image_url || null
-}
-
-function imageAltAt (index: number, fallback: string) {
-  return featured.value[index]?.name || fallback
 }
 
 function sentence (value: string) {
@@ -106,8 +107,8 @@ const slides = computed<HeroSlide[]>(() => {
       ref: 'birthday',
       titleLines: [`${titleOf(copy.birthday_heading, 'Um cuidado especial hoje')}${customerName ? `, ${customerName}` : ''}!`],
       description: messageOf(copy.birthday_sub, description),
-      imageUrl: imageAt(0),
-      imageAlt: imageAltAt(0, shop.brand_name),
+      imageUrl: HERO_IMAGE_URLS.greeting,
+      imageAlt: shop.brand_name,
       primaryLabel: titleOf(copy.birthday_cta, titleOf(copy.menu_cta, 'Ver cardápio')),
       primaryIcon: 'lucide:gift',
       primaryTo: menuTo.value
@@ -116,8 +117,8 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting',
       titleLines: [greetingTitle],
-      imageUrl: imageAt(0),
-      imageAlt: imageAltAt(0, shop.brand_name),
+      imageUrl: HERO_IMAGE_URLS.greeting,
+      imageAlt: shop.brand_name,
       primaryLabel: menuLabel,
       primaryIcon: 'lucide:utensils',
       primaryTo: menuTo.value
@@ -131,8 +132,8 @@ const slides = computed<HeroSlide[]>(() => {
       titleOf(copy.order_title_suffix, shop.tagline)
     ],
     description: messageOf(copy.order_subtitle, description),
-    imageUrl: imageAt(1),
-    imageAlt: imageAltAt(1, shop.brand_name),
+    imageUrl: HERO_IMAGE_URLS.order,
+    imageAlt: shop.brand_name,
     primaryLabel: (!props.statusOpen && props.closedCtaLabel) || props.primaryAction?.label || menuLabel,
     primaryIcon: 'lucide:utensils',
     primaryTo: menuTo.value
@@ -146,8 +147,8 @@ const slides = computed<HeroSlide[]>(() => {
         `${titleOf(copy.reorder_title_suffix, 'último pedido')}${customerName ? `, ${customerName}` : ''}?`
       ],
       description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
-      imageUrl: imageAt(2),
-      imageAlt: imageAltAt(2, shop.brand_name),
+      imageUrl: HERO_IMAGE_URLS.reorder,
+      imageAlt: shop.brand_name,
       primaryLabel: props.reorderAction.label || 'Pedir de novo',
       primaryIcon: 'lucide:rotate-ccw',
       primaryAction: props.reorderAction,
@@ -158,8 +159,8 @@ const slides = computed<HeroSlide[]>(() => {
     list.push({
       ref: 'greeting-return',
       titleLines: [greetingTitle],
-      imageUrl: imageAt(2),
-      imageAlt: imageAltAt(2, shop.brand_name),
+      imageUrl: HERO_IMAGE_URLS.reorder,
+      imageAlt: shop.brand_name,
       primaryLabel: menuLabel,
       primaryIcon: 'lucide:utensils',
       primaryTo: menuTo.value
@@ -173,8 +174,8 @@ const slides = computed<HeroSlide[]>(() => {
       titleOf(copy.handmade_title_suffix, 'todo dia')
     ],
     description: messageOf(copy.handmade_subtitle, 'Do forno para a sua mesa.'),
-    imageUrl: imageAt(3),
-    imageAlt: imageAltAt(3, shop.brand_name),
+    imageUrl: HERO_IMAGE_URLS.handmade,
+    imageAlt: shop.brand_name,
     primaryLabel: menuLabel,
     primaryIcon: 'lucide:utensils',
     primaryTo: menuTo.value
