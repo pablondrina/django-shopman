@@ -293,17 +293,8 @@
     padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
   }
 
-  /* Crossfade lento do hero (imagem) e fade suave do texto entre slides. */
-  .hero-fade-enter-active,
-  .hero-fade-leave-active {
-    transition: opacity 900ms ease;
-  }
-
-  .hero-fade-enter-from,
-  .hero-fade-leave-to {
-    opacity: 0;
-  }
-
+  /* Fade suave do texto do hero entre slides (a imagem faz crossfade por
+     opacity na própria camada empilhada — ver HomeHeroThing.vue). */
   .hero-text-enter-active {
     transition: opacity 500ms ease, transform 500ms ease;
   }
@@ -322,8 +313,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-fade-enter-active,
-    .hero-fade-leave-active,
     .hero-text-enter-active,
     .hero-text-leave-active {
       transition: none;
