@@ -686,7 +686,11 @@ useSeoMeta({
           </p>
         </div>
 
-        <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
+        <!-- Skeleton só no carregamento INICIAL. Em refresh de fundo (ex.: rascunho
+             de entrega) manter o conteúdo montado — apagar a página remontava o
+             AddressPicker, que re-selecionava o salvo e re-disparava o rascunho →
+             refresh → loop (tela piscando ao entrar em "entrega"). -->
+        <UiSkeleton v-if="pending && !checkout" class="h-96 rounded-lg" />
 
         <UiAlert v-else-if="error" variant="destructive">
           <UiAlertTitle>Checkout indisponível</UiAlertTitle>
