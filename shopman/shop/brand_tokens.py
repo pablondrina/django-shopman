@@ -48,12 +48,12 @@ _BRAND_LIGHT: dict[str, str] = {
     "header": "124 58 64",                # navbar burgundy (NB Burgundy)
     "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar
     "footer": "70 81 47",                 # NB Dark Moss — rodapé
-    "footer_foreground": "247 239 224",
+    "footer_foreground": "255 255 255",   # branco (melhor contraste no Dark Moss)
     "ink": "83 29 34",                    # NB Dark Burgundy — barras escuras (status)
     "ink_foreground": "247 239 224",
     "bottomnav": "244 235 215",           # NB Faubourg — bottom bar (leve contraste com o fundo)
     "cta": "139 107 46",                  # NB Brass — destaques/CTAs (escuro p/ texto claro)
-    "cta_foreground": "250 246 237",      # creme quase-branco sobre o Brass
+    "cta_foreground": "255 255 255",      # branco sobre o Brass (contraste)
 }
 
 _BRAND_LIGHT_ALIASES: dict[str, str] = {
@@ -97,7 +97,7 @@ _BRAND_DARK: dict[str, str] = {
     "header": "124 58 64",                # navbar burgundy também no escuro (a marca é a marca)
     "header_foreground": "247 239 224",
     "footer": "54 63 36",                 # Dark Moss mais escuro p/ o escuro
-    "footer_foreground": "240 230 210",
+    "footer_foreground": "255 255 255",   # branco no Dark Moss
     "ink": "83 29 34",                    # Dark Burgundy (barras escuras, nos dois modos)
     "ink_foreground": "247 239 224",
     "bottomnav": "43 29 22",              # superfície escura p/ a bottom bar no escuro

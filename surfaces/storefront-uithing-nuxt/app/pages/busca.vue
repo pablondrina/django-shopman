@@ -81,7 +81,7 @@ useCanonical()
 
 <template>
   <main class="min-w-0 pb-6">
-    <div class="sticky top-16 z-30 border-b bg-background" data-busca-bar>
+    <div class="shop-searchbar sticky top-16 z-30 border-b bg-background" data-busca-bar>
       <div class="shop-container flex items-center gap-2 py-2">
         <UiButton
           variant="ghost"
@@ -91,7 +91,7 @@ useCanonical()
           class="shrink-0 rounded-full"
           :to="menuTargetFor(baseFilters)"
         />
-        <UiInputGroup class="min-w-0 flex-1 rounded-full">
+        <UiInputGroup class="min-w-0 flex-1 rounded-full bg-card">
           <UiInputGroupAddon>
             <Icon name="lucide:search" class="size-4" />
           </UiInputGroupAddon>

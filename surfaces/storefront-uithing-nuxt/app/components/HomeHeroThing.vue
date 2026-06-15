@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     v-if="activeSlide"
-    class="-mx-4 overflow-hidden rounded-none border-y bg-card text-card-foreground shadow-sm sm:mx-0 sm:rounded-lg sm:border"
+    class="-mx-4 overflow-hidden rounded-none border-b bg-card text-card-foreground shadow-sm sm:mx-0 sm:rounded-lg sm:border"
     data-home-hero-carousel
     aria-roledescription="carousel"
     aria-label="Destaques da loja"

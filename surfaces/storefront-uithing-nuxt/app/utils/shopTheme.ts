@@ -185,7 +185,7 @@ export function shopThemeCss (
     // creme. Remapeia --foreground p/ os botões −/+ (que usam text-foreground) virarem
     // creme. Neutro mantém a pílula branca (sem este emit).
     blocks.push(
-      `.shop-qty.shop-qty { background-color: var(--shop-cta); color: var(--shop-cta-foreground); border-color: color-mix(in srgb, var(--shop-cta-foreground) 28%, transparent); --foreground: var(--shop-cta-foreground); }`
+      `.shop-qty.shop-qty { background-color: var(--shop-cta); color: var(--shop-cta-foreground); border-color: color-mix(in srgb, var(--shop-cta-foreground) 28%, transparent); --foreground: var(--shop-cta-foreground); --accent: color-mix(in srgb, var(--shop-cta) 82%, #000); --accent-foreground: var(--shop-cta-foreground); }`
     )
 
     // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o
@@ -198,6 +198,25 @@ export function shopThemeCss (
     blocks.push(
       `.shop-help-cta.shop-help-cta { background-color: var(--shop-footer); color: var(--shop-footer-foreground); }`,
       `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-footer) 88%, #000); color: var(--shop-footer-foreground); }`
+    )
+
+    // Pill bar (cardápio): barra Brass; pills inativas transparentes com texto branco;
+    // pill de destaque BRANCA com texto Brass (como um segmented control). Remap escopado
+    // resolve busca/limpar/contadores. Neutro mantém a barra clara (sem este emit).
+    blocks.push(
+      `.shop-pillbar.shop-pillbar { background-color: var(--shop-cta); --background: transparent; --foreground: #fff; --muted-foreground: color-mix(in srgb, #fff 82%, transparent); --border: color-mix(in srgb, #fff 42%, transparent); --input: color-mix(in srgb, #fff 42%, transparent); --accent: color-mix(in srgb, #fff 16%, transparent); --accent-foreground: #fff; }`,
+      `.shop-pillbar [data-menu-pill-ref][data-state="active"] { background-color: #fff; border-color: #fff; color: var(--shop-cta); }`
+    )
+
+    // Barra de busca: fundo Brass, campo branco (bg-card no input), ícone de voltar branco.
+    blocks.push(
+      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); }`,
+      `.shop-searchbar [aria-label="Voltar ao cardápio"] { color: #fff; }`
+    )
+
+    // Breadcrumb sobre barra Brass: letras creme/translúcidas, item atual branco.
+    blocks.push(
+      `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); --foreground: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
     )
   }
   return blocks.join('\n')

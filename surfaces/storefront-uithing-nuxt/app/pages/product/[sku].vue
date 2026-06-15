@@ -132,15 +132,16 @@ useHead({
             </div>
           </section>
 
-          <div class="mt-4 min-w-0 lg:sticky lg:top-24 lg:mt-0 lg:self-start">
-            <UiBreadcrumbs
-              class="mb-3"
-              :items="[
-                { label: 'Início', link: '/' },
-                { label: 'Cardápio', link: '/menu' },
-                { label: product.name }
-              ]"
-            />
+          <div class="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            <div class="shop-breadcrumb-bar -mx-4 mb-4 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-3 lg:rounded-md lg:px-3 lg:py-2">
+              <UiBreadcrumbs
+                :items="[
+                  { label: 'Início', link: '/' },
+                  { label: 'Cardápio', link: '/menu' },
+                  { label: product.name }
+                ]"
+              />
+            </div>
 
             <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
               <UiBadge v-if="badge" :variant="badge.variant">{{ badge.label }}</UiBadge>
