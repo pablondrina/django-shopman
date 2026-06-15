@@ -39,7 +39,7 @@ function closeMenu () {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 border-b bg-background">
+  <header class="shop-header-bar sticky top-0 z-40 border-b">
     <div class="shop-container flex h-16 items-center gap-3">
       <NuxtLink to="/" class="flex min-w-0 items-center gap-2.5" @click="closeMenu">
         <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">

@@ -399,7 +399,7 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('aria-label="Ver carrinho"')
     expect(header).toContain('cartPulse')
     expect(header).toContain('class="hidden md:inline-flex"')
-    expect(header).toContain('<header class="sticky top-0 z-40 border-b bg-background">')
+    expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40 border-b">')
     expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
     // Mobile: hambúrguer abre um menu rico (UiSheet canônico) com acesso à loja;
     // a bottom-nav segue como navegação primária (decisão Pablo 2026-06-15).

@@ -97,3 +97,35 @@ describe('shop theme — tipografia da marca', () => {
     expect(shopFontLinks(shop(FONTS), { preview: 'neutral' })).toEqual([])
   })
 })
+
+describe('shop theme — superfícies de identidade (navbar/rodapé)', () => {
+  const SURFACES = {
+    ...BRAND,
+    header: '124 58 64',
+    header_foreground: '247 239 224',
+    footer: '94 123 59',
+    footer_foreground: '247 239 224'
+  }
+
+  it('mapeia header/footer para --shop-header*/--shop-footer*', () => {
+    expect(shopThemeStyle(shop(SURFACES))).toMatchObject({
+      '--shop-header': 'rgb(124 58 64)',
+      '--shop-header-foreground': 'rgb(247 239 224)',
+      '--shop-footer': 'rgb(94 123 59)',
+      '--shop-footer-foreground': 'rgb(247 239 224)'
+    })
+  })
+
+  it('emite o remap escopado da navbar só quando há header (conteúdo creme sobre burgundy)', () => {
+    const css = shopThemeCss(shop(SURFACES))
+    expect(css).toContain('.shop-header-bar {')
+    expect(css).toContain('--foreground: var(--shop-header-foreground)')
+    expect(css).toContain('--background: var(--shop-header)')
+    // sem header ⇒ sem remap (navbar neutra)
+    expect(shopThemeCss(shop(BRAND))).not.toContain('.shop-header-bar')
+  })
+
+  it('reversibilidade: ?theme=neutral ⇒ sem vars de superfície e sem remap', () => {
+    expect(shopThemeCss(shop(SURFACES), { preview: 'neutral' })).toBe('')
+  })
+})

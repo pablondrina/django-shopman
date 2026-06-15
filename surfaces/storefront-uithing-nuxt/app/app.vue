@@ -19,6 +19,16 @@ watch(() => shellHome.value, value => {
 
 useShopTheme(session.shop)
 
+// theme-color (tint da barra de URL) acompanha a navbar burgundy server-driven, nos
+// dois modos. Sem marca / ?theme=neutral ⇒ default neutro (header claro).
+const route = useRoute()
+const themeColor = computed(() => {
+  const value = route.query.theme
+  const previewNeutral = (Array.isArray(value) ? value[0] : value) === 'neutral'
+  if (previewNeutral) return '#85786c'
+  return session.shop.value?.design_tokens?.theme_hex || '#85786c'
+})
+
 // SEO global: nome do site = marca server-driven (tenant-neutral, não theming).
 // titleTemplate evita duplicar a marca na home (onde o título JÁ é a marca).
 const brandName = computed(() => session.shop.value?.brand_name || 'Shopman')
@@ -27,7 +37,8 @@ useHead({
 })
 useSeoMeta({
   ogSiteName: () => brandName.value,
-  ogLocale: 'pt_BR'
+  ogLocale: 'pt_BR',
+  themeColor: () => themeColor.value
 })
 
 const globalHomeNotice = computed(() => session.homeNotices.value.find(notice => notice.priority === 'global') || null)

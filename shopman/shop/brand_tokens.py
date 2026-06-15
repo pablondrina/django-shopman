@@ -44,6 +44,11 @@ _BRAND_LIGHT: dict[str, str] = {
     "border": "220 205 180",              # NB Kraft
     "input": "220 205 180",
     "ring": "200 150 47",                 # NB Brass/Mustard — destaque dourado (foco)
+    # Superfícies de identidade (navbar/rodapé) — tratamento de marca revesível
+    "header": "124 58 64",                # navbar burgundy
+    "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar
+    "footer": "94 123 59",                # NB Moss — rodapé verde-musgo
+    "footer_foreground": "247 239 224",
 }
 
 _BRAND_LIGHT_ALIASES: dict[str, str] = {
@@ -84,6 +89,10 @@ _BRAND_DARK: dict[str, str] = {
     "border": "70 53 40",
     "input": "70 53 40",
     "ring": "212 165 63",                 # dourado mais claro p/ o escuro
+    "header": "124 58 64",                # navbar burgundy também no escuro (a marca é a marca)
+    "header_foreground": "247 239 224",
+    "footer": "74 96 46",                 # musgo mais escuro p/ o escuro
+    "footer_foreground": "240 230 210",
 }
 
 _BRAND_DARK_ALIASES: dict[str, str] = {

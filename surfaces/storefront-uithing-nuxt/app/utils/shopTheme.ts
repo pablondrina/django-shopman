@@ -35,7 +35,13 @@ export const TOKEN_TO_CSS_VAR: Record<string, string> = {
   destructive_foreground: '--destructive-foreground',
   border: '--border',
   input: '--input',
-  ring: '--ring'
+  ring: '--ring',
+  // Superfícies de identidade (navbar/rodapé). Defaults neutros no base = background/
+  // foreground / tom do rodapé de hoje, então ausência da marca ⇒ neutro idêntico.
+  header: '--shop-header',
+  header_foreground: '--shop-header-foreground',
+  footer: '--shop-footer',
+  footer_foreground: '--shop-footer-foreground'
 }
 
 function cssColor (value: string): string {
@@ -128,5 +134,29 @@ export function shopThemeCss (
   const blocks: string[] = []
   if (Object.keys(light).length) blocks.push(`:root:root { ${declarations(light)} }`)
   if (Object.keys(dark).length) blocks.push(`:root.dark { ${declarations(dark)} }`)
+
+  // Remap escopado da navbar (só com marca): os internos usam tokens globais (--muted,
+  // --primary, …) calibrados para o corpo creme; sobre o burgundy eles viram creme/gold
+  // translúcido derivado de --shop-header-foreground. Emitido só aqui ⇒ neutro intacto.
+  if (light['--shop-header'] && light['--shop-header-foreground']) {
+    const fg = 'var(--shop-header-foreground)'
+    blocks.push(
+      `.shop-header-bar {` +
+      ` color: ${fg};` +
+      ` --background: var(--shop-header);` +
+      ` --foreground: ${fg};` +
+      ` --muted: color-mix(in srgb, ${fg} 14%, transparent);` +
+      ` --muted-foreground: color-mix(in srgb, ${fg} 78%, transparent);` +
+      ` --accent: color-mix(in srgb, ${fg} 16%, transparent);` +
+      ` --accent-foreground: ${fg};` +
+      ` --border: color-mix(in srgb, ${fg} 24%, transparent);` +
+      ` --secondary: color-mix(in srgb, ${fg} 16%, transparent);` +
+      ` --secondary-foreground: ${fg};` +
+      ` --primary: var(--ring);` +
+      ` --primary-foreground: var(--shop-header);` +
+      ` --ring: ${fg};` +
+      ` }`
+    )
+  }
   return blocks.join('\n')
 }

@@ -157,6 +157,13 @@
   --sidebar-accent-foreground: oklch(0.216 0.006 56.0);
   --sidebar-border: oklch(0.923 0.003 48.7);
   --sidebar-ring: oklch(0.646 0.022 64.5);
+
+  /* Superfícies de identidade — defaults NEUTROS (= aparência de hoje). A marca
+     sobrescreve estas vars via :root:root; ausência ⇒ navbar clara + rodapé neutro. */
+  --shop-header: var(--background);
+  --shop-header-foreground: var(--foreground);
+  --shop-footer: oklch(0.32 0.008 60);
+  --shop-footer-foreground: oklch(0.94 0.003 60);
 }
 
 .dark {
@@ -192,6 +199,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.735 0.024 64.5);
+
+  /* Rodapé neutro no escuro (= hoje). Header herda --background/--foreground do .dark. */
+  --shop-footer: oklch(0.23 0.006 60);
+  --shop-footer-foreground: oklch(0.92 0.003 60);
 }
 
 @layer base {
@@ -265,15 +276,17 @@
     @apply rounded-lg border bg-card text-card-foreground shadow-sm;
   }
 
-  /* Rodapé em tom médio-escuro neutro (não preto); theming calibra depois. */
-  .shop-footer {
-    background-color: oklch(0.32 0.008 60);
-    color: oklch(0.94 0.003 60);
+  /* Navbar e rodapé como superfícies de marca: consomem as vars de superfície (header
+     e footer), cujos defaults neutros (em :root/.dark) reproduzem a aparência de hoje.
+     A cor do texto da navbar fica a cargo do remap escopado da marca (shopThemeCss); no
+     neutro herda o --foreground do corpo, como hoje. */
+  .shop-header-bar {
+    background-color: var(--shop-header);
   }
 
-  .dark .shop-footer {
-    background-color: oklch(0.23 0.006 60);
-    color: oklch(0.92 0.003 60);
+  .shop-footer {
+    background-color: var(--shop-footer);
+    color: var(--shop-footer-foreground);
   }
 
   .shop-section {

@@ -240,6 +240,10 @@ export interface ShopDesignTokensProjection {
   accent_hover?: string
   error?: string
   error_foreground?: string
+  header?: string
+  header_foreground?: string
+  footer?: string
+  footer_foreground?: string
   background_hex?: string
   theme_hex?: string
   heading_font?: string
