@@ -144,3 +144,41 @@ Branch `redesign/surface-excellence`. Storefront: arcos 0–9 + HOME/HERO/NAVBAR
 SEO técnico ✅, tudo neutro. vitest 204 / nuxt build verdes. Backend já serve
 `design_tokens` (Django storefront já se veste por eles). Sessão preview = Pablo
 Teste (+5543999887766).
+
+---
+
+## Execução (registro — 2026-06-15, Claude Fable 5 / Opus 4.8)
+
+Marca definida pelo Pablo via brand sheet (boulangerie francesa clássica):
+**navbar burgundy, corpo creme, destaques dourado/latão, rodapé verde-musgo**,
+tipografia Instrument Sans. Paleta nomeada NB em [[project_nelson_brand_palette]].
+Logo oficial (SVG) **pendente** — Pablo envia depois; por ora só tipografia.
+
+Commits por tela (todos com vitest + nuxt build verdes, verificados ao vivo em
+127.0.0.1, claro/escuro, tema ligado/desligado):
+
+- **T1 `a7665d39`** — pipeline de override revesível. `shopTheme.ts`
+  (`TOKEN_TO_CSS_VAR`, `shopThemeStyle`, `shopThemeCss`) + `useShopTheme` injeta
+  `<style id="shop-theme">` no SSR (anti-FOUC), `:root:root{}`/`:root.dark{}`
+  (especificidade dobrada vence o base neutro em qualquer ordem). Interruptor
+  (sem `design_tokens` ⇒ neutro) + preview `?theme=neutral`. Guardrails flipados.
+- **T-Marca `cff93d90`** — `oxbow_tokens.py → brand_tokens.py`: serve a paleta
+  Nelson (canais RGB, light+dark) em `design_tokens`; veste Nuxt + Django de uma
+  config. Gerador `colors.py` intocado. Dívida: paleta → dado (seed/Shop) depois.
+- **T2 `7e1558c9`** — tipografia Instrument Sans server-driven (`--font-sans` +
+  `<link>` Google Fonts 400/500/600), fallback `ui-sans-serif`.
+- **T3a `54329c2c`** — superfícies de identidade: `header/footer` tokens →
+  `--shop-header*`/`--shop-footer*` (defaults neutros no base = hoje). Navbar
+  burgundy (conteúdo creme via remap escopado em `.shop-header-bar`, nos dois
+  modos), rodapé musgo, `theme-color` = burgundy server-driven.
+- **T3b `3902b834`** — alerts em tokens de status (warning/success/info →
+  gold/musgo/azul), tratamento soft contraste-correto (texto `--foreground` +
+  acento na cor do status). Resolve o âmbar hardcoded + contraste fraco.
+
+**Reversibilidade (aceite-mãe) demonstrada ao vivo**: `?theme=neutral` devolve a
+superfície stone neutra pixel-idêntica (navbar branca, rodapé/banner neutros,
+`ui-sans-serif`). A marca é camada aditiva; remover o mapeamento volta ao neutro.
+
+**Pendente**: logo/favicon (aguarda SVG do Pablo) → trocar o ícone-em-círculo do
+header/menu e o favicon quando chegar. Hexes da paleta são leitura do brand sheet —
+afináveis (fluem inalterados pelos tokens).
