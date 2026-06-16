@@ -45,10 +45,13 @@ useSeoMeta({ title: 'Conta' })
 </script>
 
 <template>
-  <main class="shop-section">
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-6">
+      <div class="shop-container py-2.5">
+        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta' }]" />
+      </div>
+    </div>
     <div class="shop-container space-y-6">
-      <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta' }]" />
-
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <h1 class="truncate text-2xl font-semibold">{{ greeting }}</h1>

@@ -29,9 +29,13 @@ useSeoMeta({ title: 'Pedidos' })
 </script>
 
 <template>
-  <main class="shop-section">
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-5">
+      <div class="shop-container py-2.5">
+        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Pedidos' }]" />
+      </div>
+    </div>
     <div class="shop-container space-y-5">
-      <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Pedidos' }]" />
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

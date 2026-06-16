@@ -63,9 +63,13 @@ useSeoMeta({ title: 'Perfil' })
 </script>
 
 <template>
-  <main class="shop-section">
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-5">
+      <div class="shop-container py-2.5">
+        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Perfil' }]" />
+      </div>
+    </div>
     <div class="shop-container space-y-5">
-      <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Perfil' }]" />
 
       <div>
         <h1 class="text-2xl font-semibold">Perfil</h1>
