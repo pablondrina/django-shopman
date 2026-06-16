@@ -1056,12 +1056,12 @@ useSeoMeta({
                   <template v-if="!isPickup">
                     <UiField>
                       <UiFieldLabel for="gift-recipient-name">Nome de quem recebe</UiFieldLabel>
-                      <UiInput id="gift-recipient-name" v-model="state.recipient_name" class="bg-background" autocomplete="off" placeholder="Ex: Maria Silva" />
+                      <UiInput id="gift-recipient-name" v-model="state.recipient_name" autocomplete="off" placeholder="Ex: Maria Silva" />
                       <UiFieldError v-if="fieldErrors.recipient_name" :errors="fieldErrors.recipient_name" />
                     </UiField>
                     <UiField>
                       <UiFieldLabel for="gift-recipient-phone">Telefone de quem recebe</UiFieldLabel>
-                      <UiInput id="gift-recipient-phone" v-model="state.recipient_phone" class="bg-background" type="tel" inputmode="tel" autocomplete="off" placeholder="(43) 99999-0000" />
+                      <UiInput id="gift-recipient-phone" v-model="state.recipient_phone" type="tel" inputmode="tel" autocomplete="off" placeholder="(43) 99999-0000" />
                       <UiFieldError v-if="fieldErrors.recipient_phone" :errors="fieldErrors.recipient_phone" />
                     </UiField>
                     <p class="text-xs leading-5 text-muted-foreground">O endereço de entrega escolhido acima é o de quem vai receber o presente.</p>

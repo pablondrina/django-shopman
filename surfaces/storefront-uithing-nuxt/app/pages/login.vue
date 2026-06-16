@@ -389,7 +389,7 @@ useSeoMeta({
                 {{ regionToggleLabel }}
               </UiButton>
             </div>
-            <UiInputGroup class="bg-background">
+            <UiInputGroup class="bg-white">
               <UiInputGroupAddon align="inline-start">
                 <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
                 <Icon v-else name="lucide:globe-2" />
@@ -507,7 +507,6 @@ useSeoMeta({
             <UiInput
               id="welcome-name"
               v-model="welcomeName"
-              class="bg-background"
               name="welcome-name"
               autocomplete="given-name"
               placeholder="Como prefere ser chamado"

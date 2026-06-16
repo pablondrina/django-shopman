@@ -204,7 +204,9 @@ export function shopThemeCss (
     // pill de destaque BRANCA com texto Brass (como um segmented control). Remap escopado
     // resolve busca/limpar/contadores. Neutro mantém a barra clara (sem este emit).
     blocks.push(
-      `.shop-pillbar.shop-pillbar { background-color: var(--shop-cta); color: #fff; --background: transparent; --foreground: #fff; --muted-foreground: #fff; --border: #fff; --input: #fff; --accent: color-mix(in srgb, #fff 18%, transparent); --accent-foreground: #fff; }`,
+      // Pills inativas = rótulos brancos limpos (sem borda/fill); ação (busca/limpar)
+      // mantém leve contorno branco (--input). Selecionada = pílula deep dark brass.
+      `.shop-pillbar.shop-pillbar { background-color: var(--shop-cta); color: #fff; --background: transparent; --foreground: #fff; --muted-foreground: #fff; --border: transparent; --input: color-mix(in srgb, #fff 55%, transparent); --accent: color-mix(in srgb, #fff 16%, transparent); --accent-foreground: #fff; }`,
       `.shop-pillbar [data-menu-pill-ref][data-state="active"] { background-color: color-mix(in srgb, var(--shop-cta) 38%, #000); border-color: color-mix(in srgb, var(--shop-cta) 38%, #000); color: #fff; }`
     )
 

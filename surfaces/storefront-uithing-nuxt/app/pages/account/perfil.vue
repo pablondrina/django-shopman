@@ -88,22 +88,22 @@ useSeoMeta({ title: 'Perfil' })
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
               <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
-              <UiInput id="account-first-name" v-model="profileForm.first_name" class="bg-background" autocomplete="given-name" required />
+              <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required />
             </UiField>
             <UiField>
               <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
-              <UiInput id="account-last-name" v-model="profileForm.last_name" class="bg-background" autocomplete="family-name" />
+              <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
             </UiField>
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
               <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
-              <UiInput id="account-email" v-model="profileForm.email" class="bg-background" type="email" autocomplete="email" />
+              <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" />
             </UiField>
             <UiField>
               <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
-              <UiInput id="account-birthday" v-model="profileForm.birthday" class="bg-background" type="date" />
+              <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" />
             </UiField>
           </div>
 

@@ -91,7 +91,7 @@ useCanonical()
           class="shrink-0 rounded-full"
           :to="menuTargetFor(baseFilters)"
         />
-        <UiInputGroup class="min-w-0 flex-1 rounded-full bg-card">
+        <UiInputGroup class="min-w-0 flex-1 rounded-full bg-white">
           <UiInputGroupAddon>
             <Icon name="lucide:search" class="size-4" />
           </UiInputGroupAddon>
