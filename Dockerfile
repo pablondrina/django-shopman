@@ -31,7 +31,6 @@ RUN addgroup --system shopman \
 
 COPY pyproject.toml README.md manage.py ./
 COPY config ./config
-COPY instances ./instances
 COPY packages ./packages
 COPY shopman ./shopman
 
