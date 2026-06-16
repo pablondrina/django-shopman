@@ -42,13 +42,24 @@ function closeMenu () {
           <span class="truncate">{{ statusLabel || 'Confira nossos horários' }}</span>
         </span>
         <a
-          v-if="shop?.phone_url"
+          v-if="statusOpen && shop?.phone_url"
           :href="shop.phone_url"
           class="flex shrink-0 items-center gap-1.5 font-medium opacity-90 transition hover:opacity-100"
           :aria-label="`Ligar para ${shop?.brand_name || 'a loja'}`"
         >
           <span>Ligar</span>
           <Icon name="lucide:phone" class="size-3.5" />
+        </a>
+        <a
+          v-else-if="!statusOpen && whatsappUrl"
+          :href="whatsappUrl"
+          target="_blank"
+          rel="noopener"
+          class="flex shrink-0 items-center gap-1.5 font-medium opacity-90 transition hover:opacity-100"
+          :aria-label="`Enviar mensagem para ${shop?.brand_name || 'a loja'}`"
+        >
+          <span>Mensagem</span>
+          <Icon name="lucide:message-circle" class="size-3.5" />
         </a>
       </div>
     </div>
