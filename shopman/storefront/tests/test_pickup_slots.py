@@ -27,6 +27,7 @@ from shopman.storefront.services.pickup_slots import (
     get_slots,
     get_typical_ready_times,
     is_slot_available_for_today,
+    validate_pickup_slot_selection,
 )
 
 
@@ -295,6 +296,30 @@ class GetEarliestSlotTests(TestCase):
         self.assertFalse(is_slot_available_for_today(slots, "slot-12", now=time(15, 0)))
         self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(15, 0)))
         self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(16, 0)))
+
+    def test_closing_time_bounds_today_slots(self):
+        """Regressão GRAVE: loja fechada (18h) NÃO oferece retirada hoje, mesmo
+        o último slot 'A partir das 15h' estando tecnicamente 'ativo'."""
+        slots = get_slots()
+        # Aberta (fecha 18h): às 17:55 o slot-15 ainda vale (retira até fechar).
+        self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(17, 55), closes_at=time(18, 0)))
+        # Fechada: 18:00 / 18:30 → nenhum slot de hoje disponível.
+        self.assertFalse(is_slot_available_for_today(slots, "slot-15", now=time(18, 0), closes_at=time(18, 0)))
+        self.assertFalse(is_slot_available_for_today(slots, "slot-09", now=time(18, 30), closes_at=time(18, 0)))
+        # Slot cuja janela só abre no/depois do fechamento é inalcançável hoje.
+        self.assertFalse(is_slot_available_for_today(slots, "slot-15", now=time(14, 0), closes_at=time(15, 0)))
+
+    def test_validate_blocks_pickup_today_after_closing(self):
+        from datetime import date
+
+        error = validate_pickup_slot_selection(
+            "slot-15",
+            delivery_date=date.today().isoformat(),
+            now=time(18, 0),
+            closes_at=time(18, 0),
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("fechou", error)
 
 
 class AnnotateSlotsTests(TestCase):

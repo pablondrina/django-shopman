@@ -313,12 +313,23 @@ class CheckoutView(APIView):
                 _parsed_date = _date.fromisoformat(delivery_date)
             except ValueError:
                 _parsed_date = None
-            if _parsed_date is not None and not business_calendar.is_open_on(_parsed_date):
-                message = "Estamos fechados nesse dia. Escolha outra data."
-                return Response(
-                    {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            if _parsed_date is not None:
+                if not business_calendar.is_open_on(_parsed_date):
+                    message = "Estamos fechados nesse dia. Escolha outra data."
+                    return Response(
+                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # Eixo de HORA: dia operante mas já encerrado hoje (entrega e
+                # retirada). is_open_on é cego à hora — esta é a última linha.
+                _state = business_calendar.current_business_state()
+                _today = _state.resolved_at.date() if _state.resolved_at else None
+                if _parsed_date == _today and _state.closure_source == "after_close":
+                    message = "Já encerramos o atendimento de hoje. Escolha outra data."
+                    return Response(
+                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         if fulfillment_type == "pickup":
             from shopman.storefront.services.pickup_slots import validate_pickup_slot_selection

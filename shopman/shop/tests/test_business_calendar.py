@@ -7,6 +7,7 @@ import pytest
 
 from shopman.shop.models import Shop
 from shopman.shop.services.business_calendar import (
+    available_dates,
     current_business_state,
     format_next_opening,
     next_operational_deadline,
@@ -54,6 +55,28 @@ def test_before_open_message_uses_plain_sentence():
 
     assert state.is_closed is True
     assert state.message == "Fechado. Abrimos às 9h"
+
+
+def test_available_dates_drops_today_after_closing():
+    """Depois do expediente, 'hoje' não é mais data fulfillável (eixo de HORA).
+
+    Regressão: loja fechada às 18h ainda ofertava retirada/entrega para hoje.
+    """
+    tz = ZoneInfo("America/Sao_Paulo")
+    shop = Shop.objects.create(
+        name="Padaria",
+        timezone="America/Sao_Paulo",
+        opening_hours=OPEN_MONDAY_TO_SATURDAY,
+    )
+    monday = datetime(2026, 5, 4, 12, 0, tzinfo=tz)  # aberto (09–18)
+    after_close = datetime(2026, 5, 4, 18, 30, tzinfo=tz)  # já fechou
+
+    open_dates = available_dates(max_count=3, now=monday, shop=shop)
+    closed_dates = available_dates(max_count=3, now=after_close, shop=shop)
+
+    assert open_dates[0] == monday.date()  # aberto → hoje conta
+    assert closed_dates[0] != after_close.date()  # fechou → hoje some
+    assert closed_dates[0] == monday.date() + timedelta(days=1)  # vai p/ terça
 
 
 def test_closure_range_skips_collective_vacation():
