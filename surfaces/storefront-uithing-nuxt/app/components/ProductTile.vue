@@ -59,7 +59,7 @@ function productRoute (sku: string) {
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <div class="space-y-3 px-1 pt-3">
+      <div class="shop-stack-tight px-1 pt-3">
         <div class="min-w-0">
           <h3 class="line-clamp-2 text-base leading-5">{{ item.name }}</h3>
           <p class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground sm:min-h-10">

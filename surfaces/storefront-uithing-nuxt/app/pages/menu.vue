@@ -361,7 +361,7 @@ useHead({
     </section>
 
     <div class="shop-section">
-      <div class="shop-container space-y-5">
+      <div class="shop-container shop-stack-block">
         <div v-if="pending" class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
           <div v-for="n in 6" :key="n" class="flex gap-3 border-b py-3">
             <div class="min-w-0 flex-1 space-y-2 self-center">
@@ -390,7 +390,7 @@ useHead({
           </UiAlert>
 
           <section data-menu-results class="min-w-0 scroll-mt-40 space-y-4">
-            <div v-if="activeSections.length" class="space-y-7">
+            <div v-if="activeSections.length" class="shop-stack-section">
               <div
                 v-for="section in activeSections"
                 :id="sectionDomId(section.ref)"
@@ -398,7 +398,7 @@ useHead({
                 :data-menu-section-ref="section.ref"
                 class="scroll-mt-40 space-y-1"
               >
-                <div class="space-y-0.5">
+                <div class="shop-stack-micro">
                   <h2 class="text-base font-semibold">{{ section.label }}</h2>
                   <p v-if="section.description" class="text-sm text-muted-foreground">{{ section.description }}</p>
                 </div>
