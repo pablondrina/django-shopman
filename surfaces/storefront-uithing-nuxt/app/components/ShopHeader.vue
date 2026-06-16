@@ -65,11 +65,6 @@ function closeMenu () {
             data-shop-menu-trigger
           >
             <Icon name="lucide:menu" class="size-6" />
-            <span
-              v-if="!cart.is_empty"
-              class="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary ring-2 ring-background"
-              aria-hidden="true"
-            />
           </UiButton>
         </UiSheetTrigger>
 
