@@ -47,7 +47,7 @@ function productRoute (sku: string) {
         <span class="sr-only">Ver detalhes de {{ item.name }}</span>
       </UiButton>
       <div v-if="badge" class="absolute left-3 top-3 z-20">
-        <UiBadge :variant="badge.variant" class="shadow-sm">{{ badge.label }}</UiBadge>
+        <UiBadge :variant="badge.variant" class="font-normal shadow-sm">{{ badge.label }}</UiBadge>
       </div>
     </UiAspectRatio>
 
@@ -61,10 +61,11 @@ function productRoute (sku: string) {
         </div>
 
         <div class="hidden flex-wrap gap-1 sm:flex">
-          <UiBadge v-if="item.promotion_label" variant="default">{{ item.promotion_label }}</UiBadge>
-          <UiBadge v-if="item.is_new" variant="secondary">Novo</UiBadge>
-          <UiBadge v-if="item.is_featured" variant="secondary">Destaque</UiBadge>
-          <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline">{{ tag }}</UiBadge>
+          <UiBadge v-if="item.promotion_label" variant="default" class="font-normal">{{ item.promotion_label }}</UiBadge>
+          <UiBadge v-if="item.is_new" variant="secondary" class="font-normal">Novo</UiBadge>
+          <UiBadge v-if="item.is_featured" variant="secondary" class="font-normal">Destaque</UiBadge>
+          <!-- tags secundárias (dieta): mesma cor/peso/tamanho da descrição -->
+          <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline" class="border-muted-foreground/40 text-xs font-normal text-muted-foreground">{{ tag }}</UiBadge>
         </div>
 
         <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">

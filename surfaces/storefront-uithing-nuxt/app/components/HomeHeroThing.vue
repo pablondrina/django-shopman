@@ -177,11 +177,11 @@ const slides = computed<HeroSlide[]>(() => {
       description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
       imageUrl: HERO_IMAGE_URLS.reorder,
       imageAlt: shop.brand_name,
-      primaryLabel: props.reorderAction.label || 'Pedir de novo',
-      primaryIcon: 'lucide:rotate-ccw',
-      primaryAction: props.reorderAction,
-      secondaryLabel: menuLabel,
-      secondaryTo: menuTo.value
+      // O botão de repetir vive no card "Repetir pedido" abaixo do hero — aqui o
+      // slide só convida ao cardápio (sem botão de reorder, decisão Pablo).
+      primaryLabel: menuLabel,
+      primaryIcon: 'lucide:utensils',
+      primaryTo: menuTo.value
     })
   } else {
     list.push({

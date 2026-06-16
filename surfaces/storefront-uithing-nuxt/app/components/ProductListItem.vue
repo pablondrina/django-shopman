@@ -31,7 +31,7 @@ const badge = computed(() => tileBadge(props.item))
       <p v-if="item.short_description" class="mt-1.5 line-clamp-2 text-xs leading-[14px] text-muted-foreground">
         {{ item.short_description }}
       </p>
-      <UiBadge v-if="badge" :variant="badge.variant" class="mt-1.5">{{ badge.label }}</UiBadge>
+      <UiBadge v-if="badge" :variant="badge.variant" class="mt-1.5 font-normal">{{ badge.label }}</UiBadge>
       <p class="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-sm">
         <span v-if="item.original_price_display" class="text-xs text-muted-foreground line-through">{{ item.original_price_display }}</span>
         <span class="font-semibold tabular-nums">{{ item.price_display }}</span>

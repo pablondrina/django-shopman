@@ -47,7 +47,7 @@ _BRAND_LIGHT: dict[str, str] = {
     # Superfícies de identidade (navbar/rodapé/barras/CTAs) — tratamento de marca revesível
     "header": "124 58 64",                # navbar burgundy (NB Burgundy)
     "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar
-    "footer": "70 81 47",                 # NB Dark Moss — rodapé
+    "footer": "48 57 30",                 # Deep Dark Moss — rodapé (mais escuro)
     "footer_foreground": "255 255 255",   # branco (melhor contraste no Dark Moss)
     "ink": "83 29 34",                    # NB Dark Burgundy — barras escuras (status)
     "ink_foreground": "247 239 224",
@@ -96,7 +96,7 @@ _BRAND_DARK: dict[str, str] = {
     "ring": "212 165 63",                 # dourado mais claro p/ o escuro
     "header": "124 58 64",                # navbar burgundy também no escuro (a marca é a marca)
     "header_foreground": "247 239 224",
-    "footer": "54 63 36",                 # Dark Moss mais escuro p/ o escuro
+    "footer": "38 45 24",                 # Deep Dark Moss (ainda mais escuro no dark mode)
     "footer_foreground": "255 255 255",   # branco no Dark Moss
     "ink": "83 29 34",                    # Dark Burgundy (barras escuras, nos dois modos)
     "ink_foreground": "247 239 224",

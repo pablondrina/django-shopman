@@ -144,8 +144,8 @@ useHead({
             </div>
 
             <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
-              <UiBadge v-if="badge" :variant="badge.variant">{{ badge.label }}</UiBadge>
-              <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
+              <UiBadge v-if="badge" :variant="badge.variant" class="font-normal">{{ badge.label }}</UiBadge>
+              <UiBadge v-if="product.promotion_label" variant="default" class="font-normal">{{ product.promotion_label }}</UiBadge>
             </div>
 
             <h1 class="line-clamp-2 text-3xl font-semibold leading-tight">{{ product.name }}</h1>
