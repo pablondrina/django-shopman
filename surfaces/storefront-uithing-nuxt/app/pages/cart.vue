@@ -234,14 +234,14 @@ useSeoMeta({
                   <p v-if="line.availability_warning && !holdFor(line)" class="mt-0.5 text-xs text-destructive">{{ line.availability_warning }}</p>
 
                   <template v-if="holdFor(line)">
-                    <div v-if="holdFor(line)!.kind === 'awaiting'" class="mt-1.5" data-cart-line-awaiting>
+                    <div v-if="holdFor(line)!.kind === 'awaiting'" class="mt-2" data-cart-line-awaiting>
                       <UiBadge variant="outline">
                         <Icon name="lucide:clock" class="mr-1 size-3.5" />
                         Aguardando confirmação
                       </UiBadge>
                       <p class="mt-1 text-xs text-muted-foreground">Avisamos quando ficar pronto.</p>
                     </div>
-                    <div v-else class="mt-1.5" data-cart-line-ready>
+                    <div v-else class="mt-2" data-cart-line-ready>
                       <UiBadge variant="default">
                         <Icon name="lucide:party-popper" class="mr-1 size-3.5" />
                         Confirme{{ holdFor(line)!.deadlineDisplay ? ` até ${holdFor(line)!.deadlineDisplay}` : '' }}

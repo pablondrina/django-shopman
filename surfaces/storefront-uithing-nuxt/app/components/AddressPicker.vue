@@ -628,7 +628,7 @@ function onLabelResolved () {
 
     <!-- ── Busca unificada (card dedicado, ações fullwidth) ──────────── -->
     <template v-else-if="mode === 'search'">
-      <div class="space-y-3" :class="surfaceChrome" data-address-search-card>
+      <div class="shop-stack-block" :class="surfaceChrome" data-address-search-card>
         <div class="flex items-center justify-between gap-2">
           <UiLabel for="address-search">Buscar endereço ou CEP</UiLabel>
           <UiButton
@@ -667,7 +667,7 @@ function onLabelResolved () {
           <li v-for="suggestion in suggestions" :key="suggestion.id">
             <UiButton
               variant="ghost"
-              class="h-auto min-h-11 w-full flex-col items-start gap-0.5 whitespace-normal rounded-none px-3 py-2 text-left font-normal"
+              class="h-auto min-h-11 w-full flex-col items-start gap-1 whitespace-normal rounded-none px-3 py-2 text-left font-normal"
               @click="acceptSuggestion(suggestion)"
             >
               <span class="w-full text-sm font-semibold">{{ suggestion.main }}</span>
@@ -690,7 +690,7 @@ function onLabelResolved () {
         </UiButton>
 
         <!-- Candidato da localização: confirmação explícita, nunca silencioso. -->
-        <div v-if="geoCandidate" class="space-y-3 rounded-md border bg-card p-3" data-address-geo-candidate>
+        <div v-if="geoCandidate" class="shop-stack-tight rounded-md border bg-card p-3" data-address-geo-candidate>
           <div class="flex items-start gap-2">
             <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div class="min-w-0">
