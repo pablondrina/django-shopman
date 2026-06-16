@@ -110,8 +110,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container max-w-4xl py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container max-w-4xl py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -121,7 +121,7 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container max-w-4xl space-y-5">
+    <div class="shop-container max-w-4xl shop-stack-block">
       <div>
         <p class="shop-kicker">Pagamento</p>
         <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
@@ -132,7 +132,7 @@ useSeoMeta({
       <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
         <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
         <UiAlertDescription>
-          <div class="space-y-3">
+          <div class="shop-stack-block">
             <p>{{ errorView.message }}</p>
             <div class="flex flex-col gap-2 sm:flex-row">
               <UiButton v-if="errorView.showLogin" :to="loginHref" icon="lucide:log-in">Entrar</UiButton>
@@ -153,14 +153,14 @@ useSeoMeta({
           <UiAlertDescription>{{ payment.promise.message }}</UiAlertDescription>
         </UiAlert>
 
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <UiCard>
             <UiCardHeader>
               <UiCardTitle>{{ payment.total_display }}</UiCardTitle>
               <UiCardDescription>{{ paymentMethodLabel(payment.method) }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
-              <div v-if="payment.method === 'card' && payment.checkout_url" class="space-y-3 rounded-lg border p-4">
+              <div v-if="payment.method === 'card' && payment.checkout_url" class="shop-stack-block rounded-lg border p-4">
                 <div class="flex items-start gap-3">
                   <Icon name="lucide:shield-check" :size="22" class="mt-0.5 shrink-0 text-emerald-600" />
                   <div class="space-y-1">
@@ -185,12 +185,12 @@ useSeoMeta({
                     <Icon name="lucide:qr-code" class="size-12" />
                   </div>
                 </div>
-                <div class="space-y-3">
+                <div class="shop-stack-block">
                   <p class="text-sm text-muted-foreground">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
                   <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
 
-                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-1.5" role="timer" aria-live="polite">
+                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer" aria-live="polite">
                     <div class="flex items-center justify-between text-sm">
                       <span class="text-muted-foreground">Tempo para pagar</span>
                       <span class="font-semibold tabular-nums" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>

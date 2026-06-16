@@ -824,7 +824,7 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('const showDeliveryTab = computed')
     expect(tracking).toContain("const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')")
     expect(tracking).toContain('const trackingTabsListClass =')
-    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-0.5 overflow-x-auto bg-transparent p-0 before:absolute')
+    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute')
     expect(tracking).toContain('const trackingTabsTriggerClass =')
     expect(tracking).toContain('border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10')
     expect(tracking).toContain('<UiTabs default-value="history"')
