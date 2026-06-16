@@ -79,7 +79,7 @@ describe('surface UX guardrails', () => {
     expect(read('app/pages/index.vue')).toContain('home.value?.shop_status')
     expect(read('app/pages/index.vue')).toContain('contextualNotices')
     expect(read('app/pages/index.vue')).not.toContain("home.origin_channel === 'whatsapp'")
-    expect(read('app/app.vue')).toContain('globalHomeNotice')
+    expect(read('app/components/ShopHeader.vue')).toContain('statusLabel')
     expect(read('app/composables/useShopSession.ts')).toContain('homeNotices')
     expect(read('app/types/shopman.ts')).toContain('label: string')
     expect(read('app/types/shopman.ts')).toContain('export interface HomeNoticeProjection')
@@ -403,18 +403,20 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('to="/cart"')
     expect(header).toContain('aria-label="Ver carrinho"')
     expect(header).toContain('cartPulse')
-    expect(header).toContain('class="hidden md:inline-flex"')
+    // Logo centralizado: carrinho (badge) sempre visível à direita — não mais só no desktop.
+    expect(header).toContain('lucide:shopping-cart')
     expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40">')
-    expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
-    // Mobile: hambúrguer abre um menu rico (UiSheet canônico) com acesso à loja;
-    // a bottom-nav segue como navegação primária (decisão Pablo 2026-06-15).
+    // Barra utilitária: horário + ligar em 1 toque (omotenashi).
+    expect(header).toContain('lucide:clock')
+    expect(header).toContain('lucide:phone')
+    // Hambúrguer (esq) abre um menu rico (UiSheet canônico) em todos os tamanhos;
+    // a bottom-nav segue como navegação primária no mobile (decisão Pablo 2026-06-15).
     expect(header).toContain('<UiSheet v-model:open="menuOpen">')
     expect(header).toContain('<UiSheetContent side="right"')
     expect(header).toContain('data-shop-menu-trigger')
     expect(header).toContain('name="lucide:menu"') // ícone do gatilho via <Icon>
     expect(header).toContain('Como funciona')
     expect(header).toContain('Redes sociais')
-    expect(header).toContain('md:hidden') // gatilho do menu só no mobile
     expect(bottomNav).toContain("to: '/menu'")
     expect(bottomNav).toContain("to: '/account'")
     expect(header).not.toContain('shopping-basket')
@@ -466,7 +468,7 @@ describe('surface UX guardrails', () => {
     expect(app).toContain('<ShopFooter')
     expect(app).toContain('id="main-content"')
     expect(app).toContain('Pular para o conteúdo')
-    expect(app).toContain('shopStatusMessage')
+    expect(read('app/components/ShopHeader.vue')).toContain('bg-ink text-ink-foreground')
     expect(footer).toContain('session.shop.value')
     expect(footer).toContain('session.openingHours.value')
     expect(footer).not.toContain('openingHours.slice')
@@ -895,8 +897,9 @@ describe('surface UX guardrails', () => {
     const bottomNav = read('app/components/AppBottomNav.vue')
 
     expect(badge).not.toContain('counter:')
-    // Header usa o UiBadge canônico (chip de contagem no menu) — sem hacks de posição.
-    expect(header).toContain('`Carrinho (${cart.items_count})`')
+    // Header usa o UiBadge canônico (contador no ícone do carrinho + chip no menu) — sem hacks.
+    expect(header).toContain('<UiBadge')
+    expect(header).toContain('{{ cart.items_count }}')
     expect(bottomNav).toContain('<UiBadge')
     expect(bottomNav).toContain('size="sm"')
     expect(bottomNav).toContain('rounded-full')

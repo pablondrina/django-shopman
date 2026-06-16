@@ -22,12 +22,6 @@ const primaryNav = computed(() => [
   { to: '/account', label: 'Conta e pedidos', icon: 'lucide:user-round' }
 ] as const)
 
-const desktopNav = [
-  { to: '/', label: 'Início', icon: 'lucide:home' },
-  { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils' },
-  { to: '/account', label: 'Conta', icon: 'lucide:user-round' }
-]
-
 function navActive (to: string) {
   if (to === '/') return route.path === '/'
   return route.path.startsWith(to)
@@ -40,45 +34,33 @@ function closeMenu () {
 
 <template>
   <header class="shop-header-bar sticky top-0 z-40">
-    <div class="shop-container flex h-16 items-center gap-3">
-      <NuxtLink to="/" class="flex min-w-0 items-center gap-2.5" @click="closeMenu">
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-          <Icon name="lucide:store" class="size-5" />
-        </div>
-        <p class="truncate text-lg font-semibold leading-6 tracking-tight">
-          {{ shop?.brand_name || 'Shopman' }}
-        </p>
-      </NuxtLink>
+    <!-- Barra de status: horário/status (esq) · telefone (dir). Substitui o banner genérico. -->
+    <div class="bg-ink text-ink-foreground">
+      <div class="shop-container flex h-9 items-center justify-between gap-3 text-xs">
+        <span class="flex min-w-0 items-center gap-1.5 opacity-90">
+          <Icon name="lucide:clock" class="size-3.5 shrink-0" />
+          <span class="truncate">{{ statusLabel || 'Confira nossos horários' }}</span>
+        </span>
+        <a
+          v-if="shop?.phone_url"
+          :href="shop.phone_url"
+          class="flex shrink-0 items-center gap-1.5 opacity-90 transition hover:opacity-100"
+          :aria-label="`Ligar para ${shop?.brand_name || 'a loja'}`"
+        >
+          <Icon name="lucide:phone" class="size-3.5" />
+          <span class="font-medium">{{ shop?.phone_display || 'Ligar' }}</span>
+        </a>
+      </div>
+    </div>
 
-      <nav class="ml-auto hidden items-center gap-1 md:flex" aria-label="Navegação principal">
-        <UiButton
-          v-for="item in desktopNav"
-          :key="item.to"
-          :to="item.to"
-          variant="ghost"
-          size="sm"
-          :icon="item.icon"
-          :text="item.label"
-        />
-      </nav>
-
-      <UiButton
-        to="/cart"
-        variant="outline"
-        size="sm"
-        icon="lucide:shopping-cart"
-        :text="cart.is_empty ? 'Carrinho' : `Carrinho (${cart.items_count})`"
-        class="hidden md:inline-flex"
-        :class="cartPulse ? 'scale-[1.03] ring-2 ring-primary/25' : ''"
-        aria-label="Ver carrinho"
-      />
-
+    <!-- Barra principal: hambúrguer (esq) · logo central · carrinho (dir). -->
+    <div class="shop-container relative flex h-16 items-center">
       <UiSheet v-model:open="menuOpen">
         <UiSheetTrigger as-child>
           <UiButton
             variant="ghost"
             size="icon"
-            class="relative ml-auto size-11 rounded-full text-foreground md:hidden"
+            class="relative -ml-2 size-11 rounded-full text-foreground"
             aria-label="Abrir menu"
             data-shop-menu-trigger
           >
@@ -234,6 +216,34 @@ function closeMenu () {
           </div>
         </UiSheetContent>
       </UiSheet>
+
+      <!-- Logo centralizado. SVG oficial Nelson Boulangerie. -->
+      <NuxtLink
+        to="/"
+        class="absolute left-1/2 flex -translate-x-1/2 items-center"
+        aria-label="Página inicial"
+        @click="closeMenu"
+      >
+        <ShopLogo class="h-8 w-auto" />
+      </NuxtLink>
+
+      <UiButton
+        to="/cart"
+        variant="ghost"
+        size="icon"
+        class="relative -mr-2 ml-auto size-11 rounded-full text-foreground"
+        :class="cartPulse ? 'scale-105' : ''"
+        aria-label="Ver carrinho"
+      >
+        <Icon name="lucide:shopping-cart" class="size-6" />
+        <UiBadge
+          v-if="!cart.is_empty"
+          variant="default"
+          size="sm"
+          class="absolute -right-1 -top-1 size-5 min-w-5 rounded-full p-0 text-[11px] font-semibold tabular-nums ring-2 ring-background"
+          :class="cartPulse ? 'scale-110' : ''"
+        >{{ cart.items_count }}</UiBadge>
+      </UiButton>
     </div>
   </header>
 </template>

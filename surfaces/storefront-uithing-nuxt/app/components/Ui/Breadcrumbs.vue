@@ -89,8 +89,9 @@
   );
 
   // Regra (portada do storefront Django): o breadcrumb NUNCA quebra linha. O último
-  // nível aparece sempre na íntegra; os níveis internos colapsam num único "…" quando
-  // não cabem. O "…" leva ao nível-pai (último item interno escondido).
+  // nível aparece sempre na íntegra; os níveis internos colapsam num único "•••" quando
+  // não cabem (3 bullets na meia-altura — mais evidentes que o "…" no baseline). O
+  // "•••" leva ao nível-pai (último item interno escondido).
   const navRef = ref<HTMLElement | null>(null);
   const collapsed = ref(false);
   let ro: ResizeObserver | null = null;
@@ -101,7 +102,7 @@
     const parent = items[items.length - 2];
     return [
       items[0],
-      { label: "…", link: parent?.link, disabled: !parent?.link },
+      { label: "•••", link: parent?.link, disabled: !parent?.link },
       items[items.length - 1],
     ];
   });
