@@ -87,7 +87,19 @@ useHead({
 </script>
 
 <template>
-  <main class="pb-6 pt-0 lg:py-8">
+  <main class="pb-6 pt-0 lg:pb-8">
+    <!-- Breadcrumb full-width encostando na navbar (mesma transcrição do mobile p/ desktop) -->
+    <div v-if="product" class="shop-breadcrumb-bar mb-4 lg:mb-6">
+      <div class="shop-container py-2.5">
+        <UiBreadcrumbs
+          :items="[
+            { label: 'Início', link: '/' },
+            { label: 'Cardápio', link: '/menu' },
+            { label: product.name }
+          ]"
+        />
+      </div>
+    </div>
     <div class="shop-container">
       <div v-if="pending" class="space-y-4">
         <UiSkeleton class="-mx-4 aspect-[4/3] rounded-none sm:-mx-6 lg:mx-0 lg:h-96 lg:w-1/2 lg:rounded-lg" />
@@ -107,17 +119,6 @@ useHead({
       </UiAlert>
 
       <template v-else-if="product && meta">
-        <!-- Breadcrumb sobe e ocupa a largura total (desktop), acima do card -->
-        <div class="shop-breadcrumb-bar -mx-4 mb-4 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <UiBreadcrumbs
-            :items="[
-              { label: 'Início', link: '/' },
-              { label: 'Cardápio', link: '/menu' },
-              { label: product.name }
-            ]"
-          />
-        </div>
-
         <!-- Imagem + informações num único card claro (mobile e desktop) -->
         <article class="overflow-hidden rounded-lg border bg-card lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
           <section class="min-w-0">
@@ -232,7 +233,7 @@ useHead({
           </div>
         </article>
 
-        <section v-if="crossSell.length" class="shop-section-oldlace -mx-4 mt-8 rounded-lg px-4 py-5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" data-product-cross-sell>
+        <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
           <h2 class="text-base font-semibold">Você também pode gostar</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem

@@ -222,10 +222,6 @@ export function shopThemeCss (
       `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); color: #fff; --foreground: #fff; --primary: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
     )
 
-    // Seção em NB Old Lace (teste de cor de fundo — ex.: "Você também pode gostar").
-    blocks.push(
-      `.shop-section-oldlace.shop-section-oldlace { background-color: rgb(240 222 217); }`
-    )
   }
   return blocks.join('\n')
 }
