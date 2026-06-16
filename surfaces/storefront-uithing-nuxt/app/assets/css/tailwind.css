@@ -318,6 +318,7 @@
      neutro herda o --foreground do corpo, como hoje. */
   .shop-header-bar {
     background-color: var(--shop-header);
+    --logo-brass: #8B6B2E; /* neutro: brass 500 (escuro, legível no header claro) */
   }
 
   .shop-footer {

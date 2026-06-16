@@ -219,7 +219,7 @@ function closeMenu () {
         aria-label="Página inicial"
         @click="closeMenu"
       >
-        <ShopLogo class="h-10 w-auto" />
+        <ShopLogo class="h-12 w-auto" />
       </NuxtLink>
 
       <UiButton
