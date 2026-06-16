@@ -281,51 +281,67 @@ useHead({
         </div>
 
         <div class="mx-auto grid max-w-4xl grid-cols-1 items-stretch gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-4 rounded-xl border bg-card p-6" data-home-path-online>
-            <div class="flex size-12 items-center justify-center rounded-xl bg-cta text-cta-foreground">
-              <Icon name="lucide:shopping-bag" class="size-6" />
-            </div>
-            <div class="space-y-1">
-              <h3 class="text-base font-semibold">Peça online</h3>
+          <div class="flex flex-col overflow-hidden rounded-xl border bg-card" data-home-path-online>
+            <UiAspectRatio :ratio="16 / 9" class="bg-muted">
+              <img
+                src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=900&q=80"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                class="size-full object-cover"
+              >
+            </UiAspectRatio>
+            <div class="flex flex-1 flex-col gap-3 p-5">
+              <div class="flex items-center gap-2">
+                <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
+                <h3 class="text-base font-semibold">Peça online</h3>
+              </div>
               <p class="text-sm leading-6 text-muted-foreground">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+              <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
+                {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
+              </UiButton>
             </div>
-            <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
-              {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
-            </UiButton>
           </div>
 
-          <div class="flex flex-col gap-4 rounded-xl border bg-card p-6" data-home-path-visit>
-            <div class="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Icon name="lucide:store" class="size-6" />
-            </div>
-            <div class="space-y-1">
+          <div class="flex flex-col overflow-hidden rounded-xl border bg-card" data-home-path-visit>
+            <UiAspectRatio :ratio="16 / 9" class="bg-muted">
+              <img
+                src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=900&q=80"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                class="size-full object-cover"
+              >
+            </UiAspectRatio>
+            <div class="flex flex-1 flex-col gap-3 p-5">
               <div class="flex flex-wrap items-center gap-2">
+                <Icon name="lucide:store" class="size-5 shrink-0 text-muted-foreground" />
                 <h3 class="text-base font-semibold">Visite a loja</h3>
                 <UiBadge v-if="operationalStatus.label" variant="secondary" class="font-normal">{{ operationalStatus.label }}</UiBadge>
               </div>
               <p v-if="visitAddressLines.length" class="text-sm leading-6 text-muted-foreground">
                 <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
               </p>
-            </div>
-            <div class="mt-auto flex flex-wrap gap-2">
-              <UiButton
-                v-if="home.shop.maps_url"
-                :href="home.shop.maps_url"
-                target="_blank"
-                rel="noopener"
-                variant="outline"
-                icon="lucide:map-pin"
-              >
-                Como chegar
-              </UiButton>
-              <UiButton
-                v-if="operationalStatus.isOpen && home.shop.phone_url"
-                :href="home.shop.phone_url"
-                variant="ghost"
-                icon="lucide:phone"
-              >
-                Ligar
-              </UiButton>
+              <div class="mt-auto flex flex-wrap gap-2">
+                <UiButton
+                  v-if="home.shop.maps_url"
+                  :href="home.shop.maps_url"
+                  target="_blank"
+                  rel="noopener"
+                  variant="outline"
+                  icon="lucide:map-pin"
+                >
+                  Como chegar
+                </UiButton>
+                <UiButton
+                  v-if="operationalStatus.isOpen && home.shop.phone_url"
+                  :href="home.shop.phone_url"
+                  variant="ghost"
+                  icon="lucide:phone"
+                >
+                  Ligar
+                </UiButton>
+              </div>
             </div>
           </div>
         </div>

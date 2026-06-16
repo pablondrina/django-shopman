@@ -336,19 +336,26 @@ onBeforeUnmount(() => {
           aria-label="Próximo slide"
           @click="goToNextSlide"
         />
-        <div class="absolute inset-x-0 bottom-3 z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
+        <div class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center sm:bottom-1" role="tablist" aria-label="Slides">
+          <!-- Alvo de toque ≥44px (h-11 + px-1.5): a pílula visível é pequena (h-2),
+               mas a área clicável é generosa — antes o dot de 8px era quase impossível
+               de acertar, dando a sensação de "botão que não funciona". -->
           <UiButton
             v-for="(slide, index) in slides"
             :key="slide.ref"
             variant="ghost"
             size="icon-xs"
-            class="h-2 min-h-0 rounded-full p-0 hover:bg-white/70"
-            :class="index === activeIndex ? 'w-6 bg-white' : 'w-2 bg-white/45'"
+            class="h-11 min-h-0 w-auto rounded-full px-1.5 hover:bg-transparent"
             :aria-label="`Slide ${index + 1}`"
             :aria-selected="index === activeIndex"
             role="tab"
             @click="goToSlide(index)"
-          />
+          >
+            <span
+              class="block h-2 rounded-full transition-all duration-300"
+              :class="index === activeIndex ? 'w-6 bg-white' : 'w-2 bg-white/45'"
+            />
+          </UiButton>
         </div>
       </template>
     </div>
