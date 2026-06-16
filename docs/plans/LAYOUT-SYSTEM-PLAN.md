@@ -1,5 +1,16 @@
 # LAYOUT-SYSTEM-PLAN — Sistema de diagramação storefront-wide
 
+> **STATUS: CONCLUÍDO (2026-06-16).** Gramática única estabelecida em `tailwind.css`
+> (escala de stack 4 degraus `.shop-stack-micro/tight/block/section` + raio de card
+> `rounded-lg`) e aplicada tela a tela (home, menu, busca, PDP, carrinho, checkout,
+> conta+5 sub-páginas, tracking, pagamento, login) — verificada ao vivo 375px (e
+> desktop na home), commit por tela. Guardrail enforça as invariantes (sem `space-y`
+> off-scale; sem gutters/margens meio-degrau ou 5/7/9; raio `rounded-lg`). Régua:
+> **stack = {1,2,4,8}**, **gutter/pad = {1,2,3,4,6,8}**. vitest 215, build verde.
+> Commits `dcc1654c`→`d4621259`.
+
+
+
 > **Prompt auto-contido.** Faça pelo LAYOUT (diagramação, espaçamentos,
 > alinhamentos) o que o arco de theming fez pela COR: estabelecer uma **gramática
 > única**, torná-la a fonte da verdade, e aplicá-la consistente em TODA a
