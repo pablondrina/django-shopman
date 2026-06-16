@@ -107,20 +107,32 @@ useHead({
       </UiAlert>
 
       <template v-else-if="product && meta">
-        <article class="lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start lg:gap-8">
+        <!-- Breadcrumb sobe e ocupa a largura total (desktop), acima do card -->
+        <div class="shop-breadcrumb-bar -mx-4 mb-4 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <UiBreadcrumbs
+            :items="[
+              { label: 'Início', link: '/' },
+              { label: 'Cardápio', link: '/menu' },
+              { label: product.name }
+            ]"
+          />
+        </div>
+
+        <!-- Imagem + informações num único card claro (mobile e desktop) -->
+        <article class="overflow-hidden rounded-lg border bg-card lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
           <section class="min-w-0">
             <img
               v-if="product.image_url"
               :src="product.image_url"
               :alt="product.name"
-              class="-mx-4 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg"
+              class="aspect-[4/3] w-full object-cover lg:h-full"
               fetchpriority="high"
             >
-            <div v-else class="-mx-4 flex aspect-[4/3] w-[calc(100%+2rem)] items-center justify-center bg-muted text-muted-foreground sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg">
+            <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground lg:h-full">
               <Icon name="lucide:croissant" class="size-10" />
             </div>
 
-            <div v-if="product.gallery.length" class="mt-3 grid grid-cols-3 gap-3">
+            <div v-if="product.gallery.length" class="grid grid-cols-3 gap-3 p-4 pb-0 lg:p-6 lg:pb-0">
               <img
                 v-for="image in product.gallery.slice(0, 3)"
                 :key="image"
@@ -132,16 +144,7 @@ useHead({
             </div>
           </section>
 
-          <div class="min-w-0 lg:sticky lg:top-24 lg:self-start">
-            <div class="shop-breadcrumb-bar -mx-4 mb-4 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-3 lg:rounded-md lg:px-3 lg:py-2">
-              <UiBreadcrumbs
-                :items="[
-                  { label: 'Início', link: '/' },
-                  { label: 'Cardápio', link: '/menu' },
-                  { label: product.name }
-                ]"
-              />
-            </div>
+          <div class="min-w-0 p-4 sm:p-6">
 
             <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
               <UiBadge v-if="badge" :variant="badge.variant" class="font-normal">{{ badge.label }}</UiBadge>
@@ -229,7 +232,7 @@ useHead({
           </div>
         </article>
 
-        <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
+        <section v-if="crossSell.length" class="shop-section-oldlace -mx-4 mt-8 rounded-lg px-4 py-5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" data-product-cross-sell>
           <h2 class="text-base font-semibold">Você também pode gostar</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem

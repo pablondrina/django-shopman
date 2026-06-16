@@ -280,29 +280,33 @@ useHead({
           </p>
         </div>
 
-        <div class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-online>
-            <UiItemMedia variant="icon" class="size-10 rounded-full">
-              <Icon name="lucide:shopping-bag" />
-            </UiItemMedia>
-            <h3 class="text-base font-semibold">Peça online</h3>
-            <p class="text-sm text-muted-foreground">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+        <div class="mx-auto grid max-w-4xl grid-cols-1 items-stretch gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-4 rounded-xl border bg-card p-6" data-home-path-online>
+            <div class="flex size-12 items-center justify-center rounded-xl bg-cta text-cta-foreground">
+              <Icon name="lucide:shopping-bag" class="size-6" />
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-base font-semibold">Peça online</h3>
+              <p class="text-sm leading-6 text-muted-foreground">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+            </div>
             <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
               {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
             </UiButton>
           </div>
 
-          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-visit>
-            <UiItemMedia variant="icon" class="size-10 rounded-full">
-              <Icon name="lucide:store" />
-            </UiItemMedia>
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-base font-semibold">Visite a loja</h3>
-              <UiBadge v-if="operationalStatus.label" variant="secondary">{{ operationalStatus.label }}</UiBadge>
+          <div class="flex flex-col gap-4 rounded-xl border bg-card p-6" data-home-path-visit>
+            <div class="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Icon name="lucide:store" class="size-6" />
             </div>
-            <p v-if="visitAddressLines.length" class="text-sm text-muted-foreground">
-              <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
-            </p>
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-base font-semibold">Visite a loja</h3>
+                <UiBadge v-if="operationalStatus.label" variant="secondary" class="font-normal">{{ operationalStatus.label }}</UiBadge>
+              </div>
+              <p v-if="visitAddressLines.length" class="text-sm leading-6 text-muted-foreground">
+                <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
+              </p>
+            </div>
             <div class="mt-auto flex flex-wrap gap-2">
               <UiButton
                 v-if="home.shop.maps_url"
