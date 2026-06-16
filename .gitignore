@@ -22,3 +22,4 @@ node_modules/
 shopman/static/storefront/css/output.css
 staticfiles/*
 !staticfiles/.gitkeep
+.tools/

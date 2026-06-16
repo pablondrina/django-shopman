@@ -188,7 +188,7 @@ describe('surface UX guardrails', () => {
     const productTile = read('app/components/ProductTile.vue')
     const home = read('app/pages/index.vue')
 
-    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm"')
+    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6 shadow-sm"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('data-slot="aspect-ratio"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('import { AspectRatio } from "reka-ui"')
     // ProductTile usa moldura vintage (retrato): paspatur branco recortado, sem UiCard.
