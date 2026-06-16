@@ -43,7 +43,7 @@ _BRAND_LIGHT: dict[str, str] = {
     "info_foreground": "255 255 255",
     "border": "220 205 180",              # NB Kraft
     "input": "220 205 180",
-    "ring": "200 150 47",                 # NB Brass/Mustard — destaque dourado (foco)
+    "ring": "107 80 25",                  # NB Deep Brass — foco (gold vivo falhava 3:1 no creme)
     # Superfícies de identidade (navbar/rodapé/barras/CTAs) — tratamento de marca revesível
     "header": "124 58 64",                # navbar burgundy (NB Burgundy)
     "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar

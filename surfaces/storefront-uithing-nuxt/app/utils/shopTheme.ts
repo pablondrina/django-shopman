@@ -183,11 +183,11 @@ export function shopThemeCss (
       `.shop-hero-cta-ghost.shop-hero-cta-ghost:hover { background-color: color-mix(in srgb, var(--shop-cta) 20%, transparent); color: #fff; }`
     )
 
-    // Controle de quantidade INTEIRO dourado (não só o "+"): pílula Brass + conteúdo
-    // creme. Remapeia --foreground p/ os botões −/+ (que usam text-foreground) virarem
-    // creme. Neutro mantém a pílula branca (sem este emit).
+    // Controle de quantidade é INTERATIVO (−/+) ⇒ cor de AÇÃO: pílula burgundy
+    // (--primary) + conteúdo claro, dando continuidade ao botão "Adicionar". Remapeia
+    // --foreground p/ os botões −/+ (text-foreground) ficarem claros. Neutro = pílula branca.
     blocks.push(
-      `.shop-qty.shop-qty { background-color: var(--shop-cta); color: var(--shop-cta-foreground); border-color: color-mix(in srgb, var(--shop-cta-foreground) 28%, transparent); --foreground: var(--shop-cta-foreground); --accent: color-mix(in srgb, var(--shop-cta) 82%, #000); --accent-foreground: var(--shop-cta-foreground); }`
+      `.shop-qty.shop-qty { background-color: var(--primary); color: var(--primary-foreground); border-color: color-mix(in srgb, var(--primary-foreground) 28%, transparent); --foreground: var(--primary-foreground); --accent: color-mix(in srgb, var(--primary) 82%, #000); --accent-foreground: var(--primary-foreground); }`
     )
 
     // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o
