@@ -637,6 +637,7 @@ describe('surface UX guardrails', () => {
   it('shows coupon savings as signed discounts without losing the original subtotal', () => {
     const summary = read('app/components/CartSummaryBreakdown.vue')
     const cartPage = read('app/pages/cart.vue')
+    const checkout = read('app/pages/checkout.vue')
 
     expect(summary).toContain("import type { CartProjection } from '~/types/shopman'")
     expect(summary).toContain('cart.has_discount')
@@ -645,11 +646,14 @@ describe('surface UX guardrails', () => {
     expect(summary).toContain('discountDisplay(discount.amount_display)')
     expect(summary).toContain("return value.startsWith('-') ? value : `- ${value}`")
     expect(cartPage).not.toContain('{{ cart.subtotal_display }}</span>')
-    // Cupom discreto: linha "Tem um cupom?" expande; aplicado vira linha com ×.
-    expect(cartPage).toContain('Tem um cupom?')
-    expect(cartPage).toContain('data-cart-coupon')
-    expect(cartPage).toContain('Cupom {{ cart.coupon_code }}')
-    expect(cartPage).toContain('aria-label="Remover cupom"')
+    // Cupom mora no CHECKOUT (decisão Pablo 2026-06-16), não mais no carrinho —
+    // aplicar/remover via cart state + refresh() do payload do checkout.
+    expect(cartPage).not.toContain('data-cart-coupon')
+    expect(checkout).toContain('data-checkout-coupon')
+    expect(checkout).toContain('Cupom {{ cart.coupon_code }}')
+    expect(checkout).toContain('aria-label="Remover cupom"')
+    expect(checkout).toContain('await applyCoupon(coupon.value.trim())')
+    expect(checkout).toContain('await refresh()')
   })
 
   it('keeps account logic in the pure presentation layer and guards every sub-page', () => {

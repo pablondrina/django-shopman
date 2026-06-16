@@ -11,8 +11,6 @@ const {
   setFromServer,
   setSkuQty,
   refreshCart,
-  applyCoupon,
-  removeCoupon,
   acceptAvailableQty,
   retryLastMutation
 } = useCartState()
@@ -24,9 +22,6 @@ watch(() => data.value?.cart, cart => {
   setFromServer(cart)
 }, { immediate: true })
 
-const coupon = ref('')
-const couponOpen = ref(false)
-const couponPending = ref(false)
 const checkoutAction = computed(() => cart.value.actions.find(action => action.ref === 'checkout') || null)
 const continueAction = computed(() => cart.value.actions.find(action => action.ref === 'continue_shopping') || null)
 const checkoutTarget = computed(() => localRouteFromBackend(checkoutAction.value?.href || '/checkout'))
@@ -80,18 +75,6 @@ function holdFor (line: CartItemProjection) {
 
 async function removeLine (line: CartItemProjection) {
   await setSkuQty(metaForLine(line), 0)
-}
-
-async function submitCoupon () {
-  if (!coupon.value.trim()) return
-  couponPending.value = true
-  try {
-    await applyCoupon(coupon.value.trim())
-    coupon.value = ''
-    couponOpen.value = false
-  } finally {
-    couponPending.value = false
-  }
 }
 
 useSeoMeta({
@@ -291,35 +274,6 @@ useSeoMeta({
               <UiProgress :model-value="cart.minimum_order_progress.percent" />
             </div>
 
-            <div class="mt-4" data-cart-coupon>
-              <div v-if="cart.coupon_code" class="flex items-center gap-3 text-sm">
-                <Icon name="lucide:ticket-percent" class="size-4 shrink-0 text-muted-foreground" />
-                <span class="min-w-0 flex-1 truncate">Cupom {{ cart.coupon_code }}</span>
-                <span v-if="cart.coupon_discount_display" class="font-semibold tabular-nums text-primary">- {{ cart.coupon_discount_display }}</span>
-                <UiButton
-                  size="icon-sm"
-                  variant="ghost"
-                  icon="lucide:x"
-                  aria-label="Remover cupom"
-                  @click="removeCoupon"
-                />
-              </div>
-              <form v-else-if="couponOpen" class="flex items-center gap-2" @submit.prevent="submitCoupon">
-                <UiInput v-model="coupon" placeholder="Código do cupom" autocomplete="off" autofocus class="max-w-56" />
-                <UiButton type="submit" variant="outline" :loading="couponPending">Aplicar</UiButton>
-                <UiButton variant="ghost" size="icon-sm" icon="lucide:x" aria-label="Fechar cupom" @click="couponOpen = false" />
-              </form>
-              <UiButton
-                v-else
-                variant="ghost"
-                size="sm"
-                icon="lucide:ticket-percent"
-                class="-ml-2 text-muted-foreground hover:text-foreground"
-                @click="couponOpen = true"
-              >
-                Tem um cupom?
-              </UiButton>
-            </div>
           </section>
 
           <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">

@@ -45,7 +45,7 @@ type Step = CheckoutStep
 
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
-const { setFromServer, clearCart } = useCartState()
+const { setFromServer, clearCart, applyCoupon, removeCoupon } = useCartState()
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const state = reactive<CheckoutFormState>({
@@ -161,6 +161,31 @@ const { data, pending, error, refresh } = await useFetch<CheckoutResponse>(apiPa
 
 const checkout = computed(() => data.value?.checkout || null)
 const cart = computed(() => checkout.value?.cart)
+
+// Cupom: aplica/remove via cart state (servidor) e re-busca o checkout p/ refletir
+// o desconto no resumo (o `cart` daqui vem do payload do checkout, não do cart state).
+const coupon = ref('')
+const couponPending = ref(false)
+async function submitCoupon () {
+  if (!coupon.value.trim() || couponPending.value) return
+  couponPending.value = true
+  try {
+    await applyCoupon(coupon.value.trim())
+    coupon.value = ''
+    await refresh()
+  } finally {
+    couponPending.value = false
+  }
+}
+async function dropCoupon () {
+  couponPending.value = true
+  try {
+    await removeCoupon()
+    await refresh()
+  } finally {
+    couponPending.value = false
+  }
+}
 const action = computed(() => checkout.value?.actions.find(candidate => candidate.ref === 'checkout') || null)
 const checkoutActionLabel = computed(() => action.value?.label || 'Confirmar pedido')
 const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
@@ -1048,6 +1073,32 @@ useSeoMeta({
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
               </UiFieldLabel>
+
+              <!-- Cupom de desconto: convencionalmente no checkout, junto do pagamento. -->
+              <div class="rounded-xl border bg-card p-4" data-checkout-coupon>
+                <div v-if="cart?.coupon_code" class="flex items-center gap-3 text-sm">
+                  <Icon name="lucide:ticket-percent" class="size-5 shrink-0 text-primary" />
+                  <span class="min-w-0 flex-1 truncate font-medium">Cupom {{ cart.coupon_code }}</span>
+                  <span v-if="cart.coupon_discount_display" class="font-semibold tabular-nums text-primary">- {{ cart.coupon_discount_display }}</span>
+                  <UiButton
+                    size="icon-sm"
+                    variant="ghost"
+                    icon="lucide:x"
+                    aria-label="Remover cupom"
+                    :loading="couponPending"
+                    @click="dropCoupon"
+                  />
+                </div>
+                <form v-else class="flex items-center gap-2" @submit.prevent="submitCoupon">
+                  <UiInputGroup class="min-w-0 flex-1">
+                    <UiInputGroupAddon>
+                      <Icon name="lucide:ticket-percent" class="size-4" />
+                    </UiInputGroupAddon>
+                    <UiInput v-model="coupon" placeholder="Código do cupom" autocomplete="off" class="bg-background" />
+                  </UiInputGroup>
+                  <UiButton type="submit" variant="outline" :loading="couponPending" :disabled="!coupon.trim()">Aplicar</UiButton>
+                </form>
+              </div>
 
               <!-- Presente (GIFT-UX) ANTES de Observação (é mais estrutural —
                    muda destinatário/endereço/valores). Clone do toggle de obs.
