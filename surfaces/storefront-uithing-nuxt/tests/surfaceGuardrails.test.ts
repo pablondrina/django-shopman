@@ -964,4 +964,29 @@ describe('surface UX guardrails', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')
   })
+
+  // Sistema de layout (LAYOUT-SYSTEM-PLAN): o ritmo vertical é a fonte única.
+  // Telas consomem a escala de stack de 4 degraus; números mágicos avulsos somem.
+  it('keeps vertical rhythm on the 4-step stack scale (fonte única de layout)', () => {
+    const css = read('app/assets/css/tailwind.css')
+    // As primitivas de composição existem e a largura de leitura é única.
+    for (const primitive of ['.shop-container', '.shop-section', '.shop-stack-micro', '.shop-stack-tight', '.shop-stack-block', '.shop-stack-section']) {
+      expect(css).toContain(primitive)
+    }
+    expect(css).toContain('max-w-6xl')
+
+    // Pilhas verticais usam só a régua {1,2,4,8}; off-scale (3/5/6/7 e meio-degraus) é deriva.
+    const offScaleStack = /\bspace-y-(0\.5|1\.5|2\.5|3|5|6|7)\b/
+    const stackOffenders = surfaceVueFiles
+      .filter(file => offScaleStack.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(stackOffenders).toEqual([])
+
+    // Gutters/paddings/margens autorais sem meio-degraus nem 5/7/9 (working set {1,2,3,4,6,8}).
+    const offScaleGutter = /\bgap-(0\.5|1\.5|2\.5|5|7)\b|\b[pm][trblxy]?-(2\.5|3\.5|5|7|9)\b|\brounded-(xl|2xl)\b/
+    const gutterOffenders = surfaceVueFiles
+      .filter(file => offScaleGutter.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(gutterOffenders).toEqual([])
+  })
 })
