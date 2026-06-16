@@ -128,7 +128,7 @@ function declarations (vars: Record<string, string>): string {
  */
 export function shopThemeCss (
   shop: ShopProjection | null | undefined,
-  options: { preview?: string | null, action?: string | null } = {}
+  options: { preview?: string | null } = {}
 ): string {
   if (options.preview === 'neutral') return ''
   const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
@@ -244,21 +244,6 @@ export function shopThemeCss (
       `.shop-gold-hover.shop-gold-hover:hover { background-color: color-mix(in srgb, var(--shop-cta) 14%, transparent); color: var(--shop-cta); }`
     )
 
-  }
-
-  // A/B da cor de AÇÃO (preview, reversível). Sem param ⇒ ação = burgundy (o --primary
-  // dos tokens). `?action=` troca o --primary p/ TODA ação (botões/links/foco/hero),
-  // enquanto os acentos/barras seguem em --shop-cta (ouro). Apenso por último ⇒ vence os
-  // blocos de token por ordem, nos dois modos.
-  //   brass → deep brass (overload-y c/ as barras douradas; só p/ referência)
-  //   moss  → verde-musgo (matiz distinto das barras douradas → sem overload)
-  const ACTION_OVERRIDES: Record<string, string> = {
-    brass: '--primary: rgb(107 80 25); --primary-foreground: #fff;',
-    moss: '--primary: rgb(74 94 46); --primary-foreground: #fff;'
-  }
-  const actionOverride = options.action ? ACTION_OVERRIDES[options.action] : undefined
-  if (actionOverride) {
-    blocks.push(`:root:root { ${actionOverride} }`, `:root.dark { ${actionOverride} }`)
   }
 
   return blocks.join('\n')
