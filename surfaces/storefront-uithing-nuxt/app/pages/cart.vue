@@ -355,24 +355,23 @@ useSeoMeta({
 
       <div
         v-if="!cart.is_empty"
-        class="sticky bottom-20 z-30 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
+        class="sticky bottom-20 z-30 space-y-2.5 rounded-xl border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
       >
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-xs uppercase tracking-wide text-background/70">Total do pedido</p>
-            <p class="text-xl font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
-          </div>
-          <UiButton
-            :to="checkoutTarget"
-            size="lg"
-            variant="secondary"
-            icon="lucide:clipboard-check"
-            :disabled="checkoutDisabled"
-          >
-            {{ checkoutAction?.label || 'Finalizar pedido' }}
-          </UiButton>
+        <div class="flex items-baseline justify-between gap-3">
+          <p class="text-xs uppercase tracking-wide text-ink-foreground/70">Total do pedido</p>
+          <p class="text-xl font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
         </div>
-        <p v-if="checkoutDisabled && checkoutReason" class="mt-2 text-center text-xs text-background/70">
+        <UiButton
+          :to="checkoutTarget"
+          size="lg"
+          variant="default"
+          icon="lucide:clipboard-check"
+          class="w-full"
+          :disabled="checkoutDisabled"
+        >
+          {{ checkoutAction?.label || 'Finalizar pedido' }}
+        </UiButton>
+        <p v-if="checkoutDisabled && checkoutReason" class="text-center text-xs text-ink-foreground/70">
           {{ checkoutReason }}
         </p>
       </div>

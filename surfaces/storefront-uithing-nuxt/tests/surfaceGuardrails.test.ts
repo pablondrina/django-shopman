@@ -409,12 +409,15 @@ describe('surface UX guardrails', () => {
     // Barra utilitária: horário + ligar em 1 toque (omotenashi).
     expect(header).toContain('lucide:clock')
     expect(header).toContain('lucide:phone')
-    // Hambúrguer (esq) abre um menu rico (UiSheet canônico) em todos os tamanhos;
-    // a bottom-nav segue como navegação primária no mobile (decisão Pablo 2026-06-15).
-    expect(header).toContain('<UiSheet v-model:open="menuOpen">')
-    expect(header).toContain('<UiSheetContent side="right"')
+    // Hambúrguer (esq) abre um menu que BROTA verticalmente sob a navbar — seção
+    // full-width em fundo da marca, lista estilo busca (decisão Pablo 2026-06-16).
+    // A bottom-nav segue como navegação primária no mobile.
+    expect(header).toContain('id="shop-menu-panel"')
+    expect(header).toContain('data-shop-menu-panel')
+    expect(header).toContain('Transition name="shop-menu-drop"')
+    expect(header).toContain('aria-expanded="menuOpen"')
     expect(header).toContain('data-shop-menu-trigger')
-    expect(header).toContain('name="lucide:menu"') // ícone do gatilho via <Icon>
+    expect(header).toContain("'lucide:x' : 'lucide:menu'") // gatilho alterna menu↔x via <Icon>
     expect(header).toContain('Como funciona')
     expect(header).toContain('Redes sociais')
     expect(bottomNav).toContain("to: '/menu'")

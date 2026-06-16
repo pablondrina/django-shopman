@@ -404,7 +404,10 @@
       radial-gradient(farthest-side, #000 98%, #0000) 0 0 / var(--vp-scallop) var(--vp-scallop) round;
   }
   .shop-photo-frame-sm {
-    --vp-scallop: 0.6rem;
+    /* Módulo do recorte ~constante (vs. o frame grande em 1rem): em fotos pequenas
+       isso dá poucas voltinhas grandes — proporcional e legível — em vez de muitas
+       miúdas que somem. */
+    --vp-scallop: 0.9rem;
   }
   .shop-photo-mat {
     @apply border-8 border-white outline-8 outline-white outline-offset-2 ring-8 ring-inset ring-white;

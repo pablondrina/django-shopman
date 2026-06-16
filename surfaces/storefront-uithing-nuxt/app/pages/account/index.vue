@@ -26,15 +26,24 @@ const lastOrder = computed(() => summary.value?.last_order || null)
 const lastOrderReorder = computed(() => (lastOrder.value ? reorderActionFrom(lastOrder.value) : null))
 const conflictRef = conflict as Ref<ReorderConflictProjection | null>
 
+const logoutOpen = ref(false)
+const loggingOut = ref(false)
+
 async function logout () {
-  const csrfHeaders = useShopmanCsrfHeaders()
-  await $fetch(apiPath('/api/auth/logout/'), {
-    method: 'POST',
-    headers: await csrfHeaders(),
-    credentials: 'include'
-  })
-  session.reset()
-  await navigateTo('/')
+  loggingOut.value = true
+  try {
+    const csrfHeaders = useShopmanCsrfHeaders()
+    await $fetch(apiPath('/api/auth/logout/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include'
+    })
+    session.reset()
+    await navigateTo('/')
+  } finally {
+    loggingOut.value = false
+    logoutOpen.value = false
+  }
 }
 
 function dismissConflict () {
@@ -60,8 +69,25 @@ useSeoMeta({ title: 'Conta' })
             <template v-else>{{ formatCount(summary?.recent_order_count || 0, 'pedido recente', 'pedidos recentes') }}</template>
           </p>
         </div>
-        <UiButton variant="ghost" size="sm" icon="lucide:log-out" @click="logout">Sair</UiButton>
+        <UiButton variant="ghost" size="sm" icon="lucide:log-out" @click="logoutOpen = true">Sair</UiButton>
       </header>
+
+      <UiAlertDialog v-model:open="logoutOpen">
+        <UiAlertDialogContent>
+          <UiAlertDialogHeader>
+            <UiAlertDialogTitle>Sair da sua conta?</UiAlertDialogTitle>
+            <UiAlertDialogDescription>
+              Você precisará entrar de novo para ver seus pedidos e fidelidade. Seus dados ficam guardados.
+            </UiAlertDialogDescription>
+          </UiAlertDialogHeader>
+          <UiAlertDialogFooter>
+            <UiAlertDialogCancel :disabled="loggingOut">Ficar conectado</UiAlertDialogCancel>
+            <UiAlertDialogAction :disabled="loggingOut" @click.prevent="logout">
+              {{ loggingOut ? 'Saindo…' : 'Sair' }}
+            </UiAlertDialogAction>
+          </UiAlertDialogFooter>
+        </UiAlertDialogContent>
+      </UiAlertDialog>
 
       <!-- Vitrine de fidelidade -->
       <section
