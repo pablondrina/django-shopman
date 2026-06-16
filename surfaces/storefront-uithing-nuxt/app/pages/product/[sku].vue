@@ -88,8 +88,9 @@ useHead({
 
 <template>
   <main class="pb-6 pt-0 lg:pb-8">
-    <!-- Breadcrumb full-width encostando na navbar (mesma transcrição do mobile p/ desktop) -->
-    <div v-if="product" class="shop-breadcrumb-bar mb-4 lg:mb-6">
+    <!-- Breadcrumb full-width encostando na navbar; sem respiro até a foto (a barra
+         dourada encosta direto na imagem da PDP). -->
+    <div v-if="product" class="shop-breadcrumb-bar">
       <div class="shop-container py-2.5">
         <UiBreadcrumbs
           :items="[
@@ -121,7 +122,7 @@ useHead({
       <template v-else-if="product && meta">
         <!-- Imagem + informações num único card claro. Mobile/tablet: full-bleed
              (sangra até as bordas, sem cantos/laterais). Desktop: card 2-col contido. -->
-        <article class="-mx-4 overflow-hidden border-y bg-card sm:-mx-6 lg:mx-0 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch lg:rounded-lg lg:border">
+        <article class="-mx-4 overflow-hidden border-b bg-card sm:-mx-6 lg:mx-0 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch lg:rounded-lg lg:border">
           <section class="min-w-0">
             <img
               v-if="product.image_url"
