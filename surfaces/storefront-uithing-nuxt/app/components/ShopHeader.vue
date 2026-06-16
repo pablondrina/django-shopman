@@ -36,7 +36,7 @@ function closeMenu () {
   <header class="shop-header-bar sticky top-0 z-40">
     <!-- Barra de status: horário/status (esq) · telefone (dir). Substitui o banner genérico. -->
     <div class="bg-ink text-ink-foreground">
-      <div class="shop-container flex h-9 items-center justify-between gap-3 text-xs">
+      <div class="shop-container flex h-9 items-center justify-between gap-3 text-sm">
         <span class="flex min-w-0 items-center gap-1.5 opacity-90">
           <Icon name="lucide:clock" class="size-3.5 shrink-0" />
           <span class="truncate">{{ statusLabel || 'Confira nossos horários' }}</span>
@@ -44,11 +44,11 @@ function closeMenu () {
         <a
           v-if="shop?.phone_url"
           :href="shop.phone_url"
-          class="flex shrink-0 items-center gap-1.5 opacity-90 transition hover:opacity-100"
+          class="flex shrink-0 items-center gap-1.5 font-medium opacity-90 transition hover:opacity-100"
           :aria-label="`Ligar para ${shop?.brand_name || 'a loja'}`"
         >
+          <span>Ligar</span>
           <Icon name="lucide:phone" class="size-3.5" />
-          <span class="font-medium">{{ shop?.phone_display || 'Ligar' }}</span>
         </a>
       </div>
     </div>
@@ -224,7 +224,7 @@ function closeMenu () {
         aria-label="Página inicial"
         @click="closeMenu"
       >
-        <ShopLogo class="h-8 w-auto" />
+        <ShopLogo class="h-10 w-auto" />
       </NuxtLink>
 
       <UiButton
