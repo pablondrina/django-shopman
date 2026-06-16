@@ -254,7 +254,7 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain('activateNextSlide')
     expect(hero).toContain('UiButton')
     expect(home).toContain('<main class="bg-background">')
-    expect(home).toContain('<section class="shop-section-cta bg-background pb-5 pt-0 sm:py-8 lg:py-10">')
+    expect(home).toContain('<section class="shop-section-cta bg-background pb-6 pt-0 sm:py-8 lg:py-10">')
     expect(home).toContain(':reorder-action="reorderAction"')
     expect(home).toContain('@reorder="handleReorder"')
     expect(home).toContain('sectionsCopy.availability_heading.title')
