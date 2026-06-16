@@ -246,13 +246,19 @@ export function shopThemeCss (
 
   }
 
-  // A/B da cor de AÇÃO (preview, reversível). Sem param ⇒ Modelo A (ação = burgundy,
-  // o --primary que vem dos tokens). `?action=brass` ⇒ Modelo B: --primary vira deep
-  // brass p/ TODA ação (botões/links/foco/hero), enquanto os acentos seguem em --shop-cta.
-  // Apenso por último ⇒ vence os blocos de token por ordem, nos dois modos.
-  if (options.action === 'brass') {
-    const a = '--primary: rgb(107 80 25); --primary-foreground: #fff;'
-    blocks.push(`:root:root { ${a} }`, `:root.dark { ${a} }`)
+  // A/B da cor de AÇÃO (preview, reversível). Sem param ⇒ ação = burgundy (o --primary
+  // dos tokens). `?action=` troca o --primary p/ TODA ação (botões/links/foco/hero),
+  // enquanto os acentos/barras seguem em --shop-cta (ouro). Apenso por último ⇒ vence os
+  // blocos de token por ordem, nos dois modos.
+  //   brass → deep brass (overload-y c/ as barras douradas; só p/ referência)
+  //   moss  → verde-musgo (matiz distinto das barras douradas → sem overload)
+  const ACTION_OVERRIDES: Record<string, string> = {
+    brass: '--primary: rgb(107 80 25); --primary-foreground: #fff;',
+    moss: '--primary: rgb(74 94 46); --primary-foreground: #fff;'
+  }
+  const actionOverride = options.action ? ACTION_OVERRIDES[options.action] : undefined
+  if (actionOverride) {
+    blocks.push(`:root:root { ${actionOverride} }`, `:root.dark { ${actionOverride} }`)
   }
 
   return blocks.join('\n')
