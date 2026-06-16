@@ -661,7 +661,7 @@ function onLabelResolved () {
         <!-- Sugestões inline (fluxo de bloco) — sem overlay/clipping. -->
         <ul
           v-if="searchOpen"
-          class="divide-y overflow-hidden rounded-md border bg-background"
+          class="divide-y overflow-hidden rounded-md border bg-card"
           data-address-suggestions
         >
           <li v-for="suggestion in suggestions" :key="suggestion.id">
@@ -690,7 +690,7 @@ function onLabelResolved () {
         </UiButton>
 
         <!-- Candidato da localização: confirmação explícita, nunca silencioso. -->
-        <div v-if="geoCandidate" class="space-y-3 rounded-md border bg-background p-3" data-address-geo-candidate>
+        <div v-if="geoCandidate" class="space-y-3 rounded-md border bg-card p-3" data-address-geo-candidate>
           <div class="flex items-start gap-2">
             <Icon name="lucide:map-pin" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div class="min-w-0">
@@ -874,7 +874,7 @@ function onLabelResolved () {
           <div v-if="mapLoading" class="absolute inset-0 grid place-items-center bg-background/60">
             <Icon name="lucide:loader-circle" class="size-6 animate-spin text-muted-foreground" />
           </div>
-          <p v-if="mapIssue" class="absolute inset-x-4 top-3 rounded-md border bg-background px-3 py-2 text-sm text-destructive shadow-sm">
+          <p v-if="mapIssue" class="absolute inset-x-4 top-3 rounded-md border bg-card px-3 py-2 text-sm text-destructive shadow-sm">
             {{ mapIssue }}
           </p>
         </div>

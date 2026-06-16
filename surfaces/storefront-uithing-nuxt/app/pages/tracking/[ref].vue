@@ -212,7 +212,7 @@ useSeoMeta({
                 <p class="text-sm text-muted-foreground">{{ tracking.last_updated_display }}</p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-background/60 p-3 text-sm">
+                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 text-sm">
                     <p class="text-muted-foreground">{{ row.label }}</p>
                     <a v-if="row.url" :href="row.url" target="_blank" class="font-medium text-primary">{{ row.value }}</a>
                     <p v-else class="font-medium text-foreground">{{ row.value }}</p>

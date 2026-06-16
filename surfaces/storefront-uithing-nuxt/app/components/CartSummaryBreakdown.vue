@@ -15,7 +15,7 @@ function discountDisplay (amount: string) {
 </script>
 
 <template>
-  <UiDescriptionList :class="[flat ? '' : 'rounded-lg border bg-background px-3', compact ? 'text-sm' : '']">
+  <UiDescriptionList :class="[flat ? '' : 'rounded-lg border bg-card px-3', compact ? 'text-sm' : '']">
     <UiDescriptionListTerm>Subtotal</UiDescriptionListTerm>
     <UiDescriptionListDetails class="sm:text-right">
       <span v-if="cart.has_discount" class="inline-flex flex-col items-start sm:items-end">
