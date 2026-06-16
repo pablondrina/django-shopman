@@ -109,16 +109,19 @@ useSeoMeta({
 </script>
 
 <template>
-  <main class="shop-section">
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-5">
+      <div class="shop-container max-w-4xl py-2.5">
+        <UiBreadcrumbs
+          :items="[
+            { label: 'Início', link: '/' },
+            { label: 'Pedido', link: orderTrackingRoute(orderRef) },
+            { label: 'Pagamento' }
+          ]"
+        />
+      </div>
+    </div>
     <div class="shop-container max-w-4xl space-y-5">
-      <UiBreadcrumbs
-        :items="[
-          { label: 'Início', link: '/' },
-          { label: 'Pedido', link: orderTrackingRoute(orderRef) },
-          { label: 'Pagamento' }
-        ]"
-      />
-
       <div>
         <p class="shop-kicker">Pagamento</p>
         <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>

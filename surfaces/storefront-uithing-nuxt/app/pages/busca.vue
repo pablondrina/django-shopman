@@ -156,7 +156,7 @@ useCanonical()
               v-for="option in panel.collections"
               :key="option.key"
               variant="ghost"
-              class="h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-2.5 font-normal last:border-b-0"
+              class="shop-gold-hover h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-2.5 font-normal last:border-b-0"
               @click="goToSection(option.value)"
             >
               <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />

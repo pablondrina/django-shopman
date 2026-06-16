@@ -257,7 +257,7 @@ useHead({
           <h2 class="text-xl font-semibold tracking-tight">{{ sectionsCopy.availability_heading.title }}</h2>
           <p class="mt-2 text-sm text-muted-foreground">{{ sectionsCopy.availability_heading.message }}</p>
         </div>
-        <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
+        <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
           <ProductTile
             v-for="item in featuredPreview"
             :key="item.sku"
@@ -266,7 +266,7 @@ useHead({
           />
         </div>
         <div class="text-center">
-          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">
+          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right" class="shop-gold-hover">
             {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio completo' }}
           </UiButton>
         </div>

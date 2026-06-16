@@ -138,7 +138,9 @@ describe('surface UX guardrails', () => {
     expect(menu).toContain('data-menu-filterbar')
     expect(menu).toContain('<main class="min-w-0">')
     expect(menu).toContain('<h1 class="sr-only">Cardápio</h1>')
-    expect(menu.indexOf('<UiBreadcrumbs')).toBeGreaterThan(menu.indexOf('<div class="shop-section">'))
+    // O cardápio NÃO tem breadcrumb: a pill bar dourada (sticky, flush sob a navbar)
+    // já ancora a página — um segundo bar dourado de breadcrumb somaria/duplicaria.
+    expect(menu).not.toContain('<UiBreadcrumbs')
     expect(menu).toContain('shop-pillbar sticky top-16 z-30 bg-background shadow-sm')
     expect(menu).not.toContain('bg-background/92')
     expect(menu).not.toContain('backdrop-blur supports-[backdrop-filter]:bg-background/78')
@@ -446,7 +448,9 @@ describe('surface UX guardrails', () => {
     expect(productRoute).not.toContain('mobileCtaTouched')
     expect(productRoute).toContain('sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
     expect(productRoute).toContain(':qty="currentQty"')
-    expect(productRoute).toContain('tone="inverted"')
+    // CTA de commit usa o Brass canônico (mesma cor de "Adicionar" no resto do site),
+    // não o secondary/kraft invertido — conformidade com o design system.
+    expect(productRoute).not.toContain('tone="inverted"')
     expect(cartState).not.toContain('drawerOpen')
     expect(smoke).toContain('cart page entry point should remain visible after add')
   })

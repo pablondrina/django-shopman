@@ -675,9 +675,9 @@ useSeoMeta({
 </script>
 
 <template>
-  <main class="shop-section pb-24 lg:pb-0">
-    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <section class="space-y-5">
+  <main class="shop-section pt-0 pb-24 lg:pb-0">
+    <div class="shop-breadcrumb-bar mb-5">
+      <div class="shop-container py-2.5">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -685,7 +685,10 @@ useSeoMeta({
             { label: 'Finalizar pedido' }
           ]"
         />
-
+      </div>
+    </div>
+    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section class="space-y-5">
         <div>
           <h1 class="text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
           <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
@@ -1116,7 +1119,7 @@ useSeoMeta({
                     :disabled="submitDisabled"
                     icon="lucide:clipboard-check"
                     size="lg"
-                    class="w-full"
+                    class="w-full bg-cta text-cta-foreground hover:bg-cta/90"
                     @click="continueFromPayment"
                   >
                     Revisar pedido
@@ -1189,7 +1192,7 @@ useSeoMeta({
 
               <UiSheetFooter class="grid grid-cols-1 gap-2 border-t bg-background p-4 sm:grid-cols-2">
                 <UiButton variant="outline" class="w-full" @click="confirmOpen = false">Voltar</UiButton>
-                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full" @click="submitCheckout">
+                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full bg-cta text-cta-foreground hover:bg-cta/90" @click="submitCheckout">
                   {{ checkoutActionLabel }}
                 </UiButton>
               </UiSheetFooter>

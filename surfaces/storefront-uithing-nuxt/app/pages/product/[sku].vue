@@ -261,7 +261,6 @@ useHead({
               :qty="currentQty"
               :disabled="!product.can_add_to_cart"
               :max-qty="product.available_qty ?? product.max_qty"
-              tone="inverted"
             />
           </div>
         </div>

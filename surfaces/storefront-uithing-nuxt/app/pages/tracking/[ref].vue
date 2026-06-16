@@ -159,9 +159,9 @@ useSeoMeta({
 </script>
 
 <template>
-  <main class="shop-section">
-    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <section class="space-y-5">
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-5">
+      <div class="shop-container py-2.5">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -169,7 +169,10 @@ useSeoMeta({
             { label: `Pedido ${orderRef}` }
           ]"
         />
-
+      </div>
+    </div>
+    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section class="space-y-5">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
           <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>

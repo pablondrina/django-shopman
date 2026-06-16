@@ -214,8 +214,9 @@ export function shopThemeCss (
     )
 
     // Barra de busca: fundo Brass, campo branco (bg-card no input), ícone de voltar branco.
+    // Hover do botão de voltar (ghost) = mesmo wash branco sutil da pill bar (remap --accent).
     blocks.push(
-      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); color: #fff; }`,
+      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); color: #fff; --accent: color-mix(in srgb, #fff 16%, transparent); --accent-foreground: #fff; }`,
       `.shop-searchbar [aria-label="Voltar ao cardápio"] { color: #fff; }`
     )
 
@@ -223,6 +224,24 @@ export function shopThemeCss (
     // UiBreadcrumbs usa text-primary no atual → remapeado p/ branco aqui).
     blocks.push(
       `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); color: #fff; --foreground: #fff; --primary: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
+    )
+
+    // Fios dourados que emolduram o conteúdo. Desenhados como SOMBRA (não borda):
+    // a navbar (z-40) pinta 3px Brass logo abaixo de si, sobre o topo do conteúdo;
+    // o rodapé pinta 3px Brass logo acima de si, sobre o fim do conteúdo. Quando o
+    // que encosta também é Brass (barra de breadcrumb/pill bar douradas), dourado
+    // sobre dourado = sem "soma" — vê-se uma só. Sobre o creme, o fio aparece.
+    blocks.push(
+      `.shop-header-bar.shop-header-bar { box-shadow: 0 3px 0 0 var(--shop-cta); }`,
+      `.shop-footer.shop-footer { box-shadow: 0 -3px 0 0 var(--shop-cta); }`,
+      // Bottom bar: fio FINO (1px) dourado no topo — recolore a borda existente.
+      `.shop-bottomnav-bar.shop-bottomnav-bar { border-top-color: var(--shop-cta); }`
+    )
+
+    // Hover dourado-claro elegante (sobre o creme): wash Brass sutil + texto Brass.
+    // Usado em CTAs ghost ("Ver cardápio completo") e nas linhas de coleção da busca.
+    blocks.push(
+      `.shop-gold-hover.shop-gold-hover:hover { background-color: color-mix(in srgb, var(--shop-cta) 14%, transparent); color: var(--shop-cta); }`
     )
 
   }

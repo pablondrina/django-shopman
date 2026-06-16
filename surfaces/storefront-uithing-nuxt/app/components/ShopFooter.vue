@@ -16,11 +16,10 @@ const year = new Date().getFullYear()
         <p class="text-sm leading-6 opacity-75">
           {{ shop?.description || shop?.tagline || 'Compra rápida e acompanhada.' }}
         </p>
-        <p v-if="shop?.default_city" class="text-sm opacity-75">{{ shop.default_city }}</p>
       </section>
 
       <section class="min-w-0 space-y-2">
-        <p class="text-xs font-semibold uppercase tracking-wide opacity-60">Horário</p>
+        <p class="text-xs font-semibold uppercase tracking-wide">Horário</p>
         <div v-if="openingHours.length" class="space-y-1">
           <p v-for="entry in openingHours" :key="entry.label" class="text-sm">
             <span class="opacity-75">{{ entry.label }}:</span>
@@ -31,7 +30,7 @@ const year = new Date().getFullYear()
       </section>
 
       <section class="min-w-0 space-y-2">
-        <p class="text-xs font-semibold uppercase tracking-wide opacity-60">Links</p>
+        <p class="text-xs font-semibold uppercase tracking-wide">Links</p>
         <NuxtLink to="/menu" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
           Cardápio
         </NuxtLink>
@@ -44,7 +43,7 @@ const year = new Date().getFullYear()
       </section>
 
       <section class="min-w-0 space-y-2">
-        <p class="text-xs font-semibold uppercase tracking-wide opacity-60">Contato</p>
+        <p class="text-xs font-semibold uppercase tracking-wide">Contato</p>
         <NuxtLink
           v-if="shop?.maps_url && fullAddressLines.length"
           :to="shop.maps_url"

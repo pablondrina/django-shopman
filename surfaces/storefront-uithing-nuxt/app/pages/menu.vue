@@ -362,13 +362,6 @@ useHead({
 
     <div class="shop-section">
       <div class="shop-container space-y-5">
-        <UiBreadcrumbs
-          :items="[
-            { label: 'Início', link: '/' },
-            { label: 'Cardápio' }
-          ]"
-        />
-
         <div v-if="pending" class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
           <div v-for="n in 6" :key="n" class="flex gap-3 border-b py-3">
             <div class="min-w-0 flex-1 space-y-2 self-center">
