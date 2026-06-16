@@ -389,6 +389,28 @@
   [data-slot="alert-description"] {
     overflow-wrap: anywhere;
   }
+
+  /* Moldura vintage (retrato antigo): paspatur branco em camadas (.shop-photo-mat) +
+     borda recortada (scallop) via máscara — técnica do Temani Afif. --vp-scallop ajusta
+     o tamanho do recorte. .shop-photo-frame vai no container que envolve o paspatur. */
+  .shop-photo-frame {
+    --vp-scallop: 1rem;
+    -webkit-mask:
+      linear-gradient(#000 0 0) 50% / calc(100% - var(--vp-scallop) * 0.93) calc(100% - var(--vp-scallop) * 0.93) no-repeat,
+      radial-gradient(farthest-side, #000 98%, #0000) 0 0 / var(--vp-scallop) var(--vp-scallop) round;
+    mask:
+      linear-gradient(#000 0 0) 50% / calc(100% - var(--vp-scallop) * 0.93) calc(100% - var(--vp-scallop) * 0.93) no-repeat,
+      radial-gradient(farthest-side, #000 98%, #0000) 0 0 / var(--vp-scallop) var(--vp-scallop) round;
+  }
+  .shop-photo-frame-sm {
+    --vp-scallop: 0.6rem;
+  }
+  .shop-photo-mat {
+    @apply border-8 border-white outline-8 outline-white outline-offset-2 ring-8 ring-inset ring-white;
+  }
+  .shop-photo-mat-sm {
+    @apply border-4 border-white outline-4 outline-white outline-offset-1 ring-4 ring-inset ring-white;
+  }
 }
 
 @utility no-scrollbar {

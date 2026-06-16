@@ -407,6 +407,7 @@ useHead({
                     v-for="item in section.items"
                     :key="`${section.ref}-${item.sku}`"
                     :item="item"
+                    framed
                     class="border-b"
                   />
                 </div>

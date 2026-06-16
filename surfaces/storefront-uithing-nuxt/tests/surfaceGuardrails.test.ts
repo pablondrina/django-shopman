@@ -191,7 +191,10 @@ describe('surface UX guardrails', () => {
     expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('data-slot="aspect-ratio"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('import { AspectRatio } from "reka-ui"')
-    expect(productTile).toContain('<UiCard class="gap-0 overflow-hidden py-0" data-product-tile>')
+    // ProductTile usa moldura vintage (retrato): paspatur branco recortado, sem UiCard.
+    expect(productTile).toContain('data-product-tile')
+    expect(productTile).toContain('shop-photo-frame')
+    expect(productTile).toContain('shop-photo-mat')
     expect(productTile).toContain('<UiAspectRatio :ratio="4 / 3" class="overflow-hidden bg-muted">')
     expect(productTile).toContain('class="size-full object-cover"')
     expect(productTile).toContain(':to="productRoute(item.sku)"')

@@ -4,6 +4,8 @@ import type { CatalogItemProjection, ProductMutationMeta } from '~/types/shopman
 
 const props = defineProps<{
   item: CatalogItemProjection
+  // Moldura vintage na miniatura (ligada no cardápio; desligada na busca).
+  framed?: boolean
 }>()
 
 const { qtyForSku } = useCartState()
@@ -40,17 +42,22 @@ const badge = computed(() => tileBadge(props.item))
     </div>
 
     <div class="relative shrink-0 self-start">
-      <div class="size-28 overflow-hidden rounded-lg bg-muted" :class="item.availability === 'unavailable' ? 'opacity-60 grayscale' : ''">
-        <img
-          v-if="item.image_url"
-          :src="item.image_url"
-          :alt="item.name"
-          loading="lazy"
-          decoding="async"
-          class="size-full object-cover"
+      <div :class="framed ? 'shop-photo-frame shop-photo-frame-sm drop-shadow-md' : ''">
+        <div
+          class="size-28 overflow-hidden bg-muted"
+          :class="[framed ? 'shop-photo-mat-sm' : 'rounded-lg', item.availability === 'unavailable' ? 'opacity-60 grayscale' : '']"
         >
-        <div v-else class="flex size-full items-center justify-center text-muted-foreground">
-          <Icon name="lucide:croissant" class="size-6" />
+          <img
+            v-if="item.image_url"
+            :src="item.image_url"
+            :alt="item.name"
+            loading="lazy"
+            decoding="async"
+            class="size-full object-cover"
+          >
+          <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+            <Icon name="lucide:croissant" class="size-6" />
+          </div>
         </div>
       </div>
       <div class="absolute bottom-1 right-1 z-10">
