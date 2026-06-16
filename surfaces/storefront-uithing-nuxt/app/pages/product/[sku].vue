@@ -119,8 +119,9 @@ useHead({
       </UiAlert>
 
       <template v-else-if="product && meta">
-        <!-- Imagem + informações num único card claro (mobile e desktop) -->
-        <article class="overflow-hidden rounded-lg border bg-card lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+        <!-- Imagem + informações num único card claro. Mobile/tablet: full-bleed
+             (sangra até as bordas, sem cantos/laterais). Desktop: card 2-col contido. -->
+        <article class="-mx-4 overflow-hidden border-y bg-card sm:-mx-6 lg:mx-0 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch lg:rounded-lg lg:border">
           <section class="min-w-0">
             <img
               v-if="product.image_url"
@@ -139,7 +140,7 @@ useHead({
                 :key="image"
                 :src="image"
                 :alt="product.name"
-                class="aspect-square rounded-lg border object-cover"
+                class="aspect-[4/3] rounded-lg border object-cover"
                 loading="lazy"
               >
             </div>
