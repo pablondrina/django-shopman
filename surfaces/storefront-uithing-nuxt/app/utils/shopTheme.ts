@@ -48,6 +48,8 @@ export const TOKEN_TO_CSS_VAR: Record<string, string> = {
   header_foreground: '--shop-header-foreground',
   footer: '--shop-footer',
   footer_foreground: '--shop-footer-foreground',
+  help: '--shop-help',
+  help_foreground: '--shop-help-foreground',
   ink: '--shop-ink',
   ink_foreground: '--shop-ink-foreground',
   bottomnav: '--shop-bottomnav',
@@ -194,10 +196,11 @@ export function shopThemeCss (
       `.shop-section-cta.shop-section-cta { background-color: color-mix(in srgb, var(--shop-cta) 18%, var(--background)); }`
     )
 
-    // Botão da seção "Dúvidas?" em Dark Moss (= token do rodapé) com texto creme.
+    // Botão da seção "Dúvidas?" (WhatsApp) em Dark Moss próprio — um tom acima do
+    // rodapé, que reserva o Deep Dark Moss só pra ele. Texto branco.
     blocks.push(
-      `.shop-help-cta.shop-help-cta { background-color: var(--shop-footer); color: var(--shop-footer-foreground); }`,
-      `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-footer) 88%, #000); color: var(--shop-footer-foreground); }`
+      `.shop-help-cta.shop-help-cta { background-color: var(--shop-help); color: var(--shop-help-foreground); }`,
+      `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-help) 88%, #000); color: var(--shop-help-foreground); }`
     )
 
     // Pill bar (cardápio): barra Brass; pills inativas transparentes com texto branco;

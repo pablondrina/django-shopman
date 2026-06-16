@@ -42,7 +42,9 @@ const quickReorderImageItem = computed(() => {
 })
 const visitAddressLines = computed(() => addressLines(home.value?.shop.full_address))
 const whatsappUrl = computed(() => home.value?.public_config.whatsapp_url || '')
-const whatsappImage = computed(() => featured.value[1]?.image_url || featured.value[0]?.image_url || null)
+// Fundo do CTA de ajuda: ambiente (interior da padaria), não foto de produto —
+// produto fica nos cards/cardápio; aqui o tom é de acolhimento/lugar.
+const whatsappImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80'
 
 // A home mais útil para quem voltou com pedido em andamento é o próprio
 // pedido: banner com prioridade sobre o hero (silencioso para anônimos).
@@ -284,7 +286,7 @@ useHead({
           <div class="flex flex-col overflow-hidden rounded-xl border bg-card" data-home-path-online>
             <UiAspectRatio :ratio="16 / 9" class="bg-muted">
               <img
-                src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=900&q=80"
+                src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=900&q=80"
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -306,7 +308,7 @@ useHead({
           <div class="flex flex-col overflow-hidden rounded-xl border bg-card" data-home-path-visit>
             <UiAspectRatio :ratio="16 / 9" class="bg-muted">
               <img
-                src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=900&q=80"
+                src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=900&q=80"
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -328,7 +330,6 @@ useHead({
                   :href="home.shop.maps_url"
                   target="_blank"
                   rel="noopener"
-                  variant="outline"
                   icon="lucide:map-pin"
                 >
                   Como chegar

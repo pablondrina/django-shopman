@@ -175,6 +175,8 @@
   --shop-header-foreground: var(--foreground);
   --shop-footer: oklch(0.32 0.008 60);
   --shop-footer-foreground: oklch(0.94 0.003 60);
+  --shop-help: var(--shop-footer);
+  --shop-help-foreground: var(--shop-footer-foreground);
   /* barras escuras / bottom bar / CTAs — defaults NEUTROS (= hoje); marca sobrescreve */
   --shop-ink: var(--foreground);
   --shop-ink-foreground: var(--background);
