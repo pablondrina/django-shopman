@@ -128,7 +128,7 @@ function declarations (vars: Record<string, string>): string {
  */
 export function shopThemeCss (
   shop: ShopProjection | null | undefined,
-  options: { preview?: string | null } = {}
+  options: { preview?: string | null, action?: string | null } = {}
 ): string {
   if (options.preview === 'neutral') return ''
   const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
@@ -177,8 +177,8 @@ export function shopThemeCss (
   // dourada. Emitido só com marca (especificidade dobrada vence as utilities bg-white).
   if (light['--shop-cta']) {
     blocks.push(
-      `.shop-hero-cta.shop-hero-cta { background-color: var(--shop-cta); color: var(--shop-cta-foreground); }`,
-      `.shop-hero-cta.shop-hero-cta:hover { background-color: color-mix(in srgb, var(--shop-cta) 90%, #000); color: var(--shop-cta-foreground); }`,
+      `.shop-hero-cta.shop-hero-cta { background-color: var(--primary); color: var(--primary-foreground); }`,
+      `.shop-hero-cta.shop-hero-cta:hover { background-color: color-mix(in srgb, var(--primary) 90%, #000); color: var(--primary-foreground); }`,
       `.shop-hero-cta-ghost.shop-hero-cta-ghost { background-color: transparent; border-color: var(--shop-cta); color: #fff; }`,
       `.shop-hero-cta-ghost.shop-hero-cta-ghost:hover { background-color: color-mix(in srgb, var(--shop-cta) 20%, transparent); color: #fff; }`
     )
@@ -245,5 +245,15 @@ export function shopThemeCss (
     )
 
   }
+
+  // A/B da cor de AÇÃO (preview, reversível). Sem param ⇒ Modelo A (ação = burgundy,
+  // o --primary que vem dos tokens). `?action=brass` ⇒ Modelo B: --primary vira deep
+  // brass p/ TODA ação (botões/links/foco/hero), enquanto os acentos seguem em --shop-cta.
+  // Apenso por último ⇒ vence os blocos de token por ordem, nos dois modos.
+  if (options.action === 'brass') {
+    const a = '--primary: rgb(107 80 25); --primary-foreground: #fff;'
+    blocks.push(`:root:root { ${a} }`, `:root.dark { ${a} }`)
+  }
+
   return blocks.join('\n')
 }

@@ -7,16 +7,17 @@ import type { Ref } from 'vue'
  * fontes da marca. Reversibilidade:
  *   - sem `design_tokens` ⇒ bloco vazio + sem fontes ⇒ neutro pixel-idêntico;
  *   - `?theme=neutral` na URL ⇒ neutro ao vivo (A/B), sem tocar em dado.
+ *   - `?action=brass` na URL ⇒ A/B da cor de AÇÃO: `--primary` vira deep brass (Modelo B);
+ *     sem o param, a ação é burgundy (Modelo A). Só preview, não toca em dado.
  */
 export function useShopTheme (shop: Ref<ShopProjection | null>) {
   const route = useRoute()
-  const preview = computed(() => {
-    const value = route.query.theme
-    return Array.isArray(value) ? value[0] : value
-  })
+  const firstQuery = (value: unknown) => (Array.isArray(value) ? value[0] : value) as string | undefined
+  const preview = computed(() => firstQuery(route.query.theme))
+  const action = computed(() => firstQuery(route.query.action))
 
   useHead(() => ({
-    style: [{ id: 'shop-theme', innerHTML: shopThemeCss(shop.value, { preview: preview.value }) }],
+    style: [{ id: 'shop-theme', innerHTML: shopThemeCss(shop.value, { preview: preview.value, action: action.value }) }],
     link: shopFontLinks(shop.value, { preview: preview.value })
   }))
 }

@@ -784,7 +784,7 @@ useSeoMeta({
               </div>
               <template #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" @click="saveContact">Salvar contato</UiButton>
+                  <UiButton class="w-full" size="lg" @click="saveContact">Salvar contato</UiButton>
                 </div>
               </template>
             </CheckoutProgressSection>
@@ -830,7 +830,7 @@ useSeoMeta({
               </p>
               <template #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
+                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
                 </div>
@@ -891,7 +891,7 @@ useSeoMeta({
               </div>
               <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
+                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
                   </UiButton>
                 </div>
@@ -994,7 +994,7 @@ useSeoMeta({
               <template #footer>
                 <div class="mt-4">
                   <UiButton
-                    class="w-full bg-cta text-cta-foreground hover:bg-cta/90"
+                    class="w-full"
                     size="lg"
                     icon="lucide:arrow-right"
                     icon-placement="right"
@@ -1119,7 +1119,7 @@ useSeoMeta({
                     :disabled="submitDisabled"
                     icon="lucide:clipboard-check"
                     size="lg"
-                    class="w-full bg-cta text-cta-foreground hover:bg-cta/90"
+                    class="w-full"
                     @click="continueFromPayment"
                   >
                     Revisar pedido
@@ -1192,7 +1192,7 @@ useSeoMeta({
 
               <UiSheetFooter class="grid grid-cols-1 gap-2 border-t bg-background p-4 sm:grid-cols-2">
                 <UiButton variant="outline" class="w-full" @click="confirmOpen = false">Voltar</UiButton>
-                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full bg-cta text-cta-foreground hover:bg-cta/90" @click="submitCheckout">
+                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full" @click="submitCheckout">
                   {{ checkoutActionLabel }}
                 </UiButton>
               </UiSheetFooter>
