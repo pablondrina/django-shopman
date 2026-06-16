@@ -26,7 +26,7 @@ function productRoute (sku: string) {
 </script>
 
 <template>
-  <section v-if="upsell && meta" class="space-y-3" data-cart-upsell-rail>
+  <section v-if="upsell && meta" class="shop-stack-block" data-cart-upsell-rail>
     <div class="flex items-center justify-between gap-3">
       <p class="text-sm font-semibold">{{ heading }}</p>
     </div>

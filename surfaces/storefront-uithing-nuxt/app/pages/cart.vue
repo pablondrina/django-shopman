@@ -84,8 +84,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -94,7 +94,7 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
       <div>
         <h1 class="text-3xl font-semibold">Seu carrinho</h1>
         <p class="mt-2 text-sm text-muted-foreground">
@@ -102,7 +102,7 @@ useSeoMeta({
         </p>
       </div>
 
-      <div v-if="pending" class="space-y-3">
+      <div v-if="pending" class="space-y-2">
         <div v-for="n in 3" :key="n" class="flex gap-3 border-b py-3">
           <UiSkeleton class="size-20 shrink-0 rounded-lg" />
           <div class="min-w-0 flex-1 space-y-2 self-center">
@@ -309,7 +309,7 @@ useSeoMeta({
 
       <div
         v-if="!cart.is_empty"
-        class="sticky bottom-20 z-30 space-y-2.5 rounded-xl border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
+        class="sticky bottom-20 z-30 shop-stack-tight rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
       >
         <div class="flex items-baseline justify-between gap-3">
           <p class="text-xs uppercase tracking-wide text-ink-foreground/70">Total do pedido</p>

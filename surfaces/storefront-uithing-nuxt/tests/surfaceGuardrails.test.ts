@@ -454,7 +454,7 @@ describe('surface UX guardrails', () => {
     expect(quantity).not.toContain('<UiNumberField')
     // CTA sticky honesto: pílula com a qty real do carrinho, sem estado fantasma.
     expect(productRoute).not.toContain('mobileCtaTouched')
-    expect(productRoute).toContain('sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
+    expect(productRoute).toContain('sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
     expect(productRoute).toContain(':qty="currentQty"')
     // CTA de commit usa o Brass canônico (mesma cor de "Adicionar" no resto do site),
     // não o secondary/kraft invertido — conformidade com o design system.

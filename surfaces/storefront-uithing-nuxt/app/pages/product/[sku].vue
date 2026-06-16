@@ -91,7 +91,7 @@ useHead({
     <!-- Breadcrumb full-width encostando na navbar; sem respiro até a foto (a barra
          dourada encosta direto na imagem da PDP). -->
     <div v-if="product" class="shop-breadcrumb-bar">
-      <div class="shop-container py-2.5">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -248,7 +248,7 @@ useHead({
         </section>
 
         <div
-          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
+          class="sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
