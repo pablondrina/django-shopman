@@ -573,16 +573,23 @@ async function findNewlySavedAddress (): Promise<number | null> {
     saved.formatted_address === selection.formattedAddress
   )
   if (knownBefore) return null
+  // Detecta o endereço recém-salvo pela DIFERENÇA de ids (robusto): o Core pode
+  // reformatar o formatted_address ao gravar, então casar por string falha calado
+  // e a etiqueta nunca é pedida. Preferimos o match por conteúdo entre os novos;
+  // senão, se exatamente um endereço novo apareceu, é ele.
+  const beforeIds = new Set(savedAddresses.value.map(saved => saved.id))
   try {
     const list = await $fetch<Array<{ id: number, place_id?: string | null, formatted_address: string }>>(
       apiPath('/api/v1/account/addresses/'),
       { credentials: 'include', headers: await csrfHeaders() }
     )
-    const match = list.find(addr =>
+    const fresh = list.filter(addr => !beforeIds.has(addr.id))
+    const byContent = fresh.find(addr =>
       (structured.place_id && addr.place_id === structured.place_id) ||
       addr.formatted_address === selection.formattedAddress
     )
-    return match?.id ?? null
+    const resolved = byContent || (fresh.length === 1 ? fresh[0] : null)
+    return resolved?.id ?? null
   } catch {
     return null
   }
