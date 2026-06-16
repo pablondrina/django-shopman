@@ -168,7 +168,7 @@ export function shopThemeCss (
       ` --primary: var(--ring);` +
       ` --primary-foreground: var(--shop-header);` +
       ` --ring: ${fg};` +
-      ` --logo-brass: #D4A53F;` +
+      ` --logo-brass: #C8962F;` +
       ` }`
     )
   }
