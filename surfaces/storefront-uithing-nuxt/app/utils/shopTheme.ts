@@ -232,8 +232,8 @@ export function shopThemeCss (
     // que encosta também é Brass (barra de breadcrumb/pill bar douradas), dourado
     // sobre dourado = sem "soma" — vê-se uma só. Sobre o creme, o fio aparece.
     blocks.push(
-      `.shop-header-bar.shop-header-bar { box-shadow: 0 3px 0 0 var(--shop-cta); }`,
-      `.shop-footer.shop-footer { box-shadow: 0 -3px 0 0 var(--shop-cta); }`,
+      `.shop-header-bar.shop-header-bar { box-shadow: 0 6px 0 0 var(--shop-cta); }`,
+      `.shop-footer.shop-footer { box-shadow: 0 -6px 0 0 var(--shop-cta); }`,
       // Bottom bar: fio FINO (1px) dourado no topo — recolore a borda existente.
       `.shop-bottomnav-bar.shop-bottomnav-bar { border-top-color: var(--shop-cta); }`
     )

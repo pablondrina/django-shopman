@@ -784,7 +784,7 @@ useSeoMeta({
               </div>
               <template #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full" size="lg" @click="saveContact">Salvar contato</UiButton>
+                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" @click="saveContact">Salvar contato</UiButton>
                 </div>
               </template>
             </CheckoutProgressSection>
@@ -830,7 +830,7 @@ useSeoMeta({
               </p>
               <template #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
+                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
                 </div>
@@ -891,7 +891,7 @@ useSeoMeta({
               </div>
               <template v-if="addressSelection && !pickupSwapOffer" #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
+                  <UiButton class="w-full bg-cta text-cta-foreground hover:bg-cta/90" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromAddress">
                     Continuar
                   </UiButton>
                 </div>
@@ -994,7 +994,7 @@ useSeoMeta({
               <template #footer>
                 <div class="mt-4">
                   <UiButton
-                    class="w-full"
+                    class="w-full bg-cta text-cta-foreground hover:bg-cta/90"
                     size="lg"
                     icon="lucide:arrow-right"
                     icon-placement="right"
