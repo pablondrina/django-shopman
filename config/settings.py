@@ -773,6 +773,18 @@ ASGI_APPLICATION = "config.asgi.application"
 # if this instance uses a different ref (e.g. "site", "loja").
 SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 
+# Base URL pública da LOJA (superfície Nuxt) — FONTE ÚNICA dos links de cliente que o
+# Django gera (notificações de pagamento/acompanhamento, magic links, "ver site").
+# O Django é headless: não serve páginas de cliente, só aponta para a loja Nuxt.
+# Na arquitetura desacoplada, em produção isto vira o apex (ex.: https://nelson.com);
+# em staging path-routed, a base da loja (ex.: https://…/thing). Sem trailing slash.
+SHOPMAN_STOREFRONT_BASE_URL = (
+    os.environ.get("SHOPMAN_STOREFRONT_BASE_URL")
+    or os.environ.get("WHATSAPP_STOREFRONT_URL")
+    or os.environ.get("SHOPMAN_DOMAIN")
+    or ""
+).strip().rstrip("/")
+
 # Ref of the Channel used for POS/counter orders.
 SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 
