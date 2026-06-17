@@ -32,12 +32,15 @@ export default defineNuxtConfig({
     "vue-sonner/nuxt"
   ],
 
-  // Display serif (Fraunces) self-hospedada para os títulos — corpo segue system-ui.
-  // @nuxt/fonts baixa, self-hospeda e injeta @font-face + métrica de fallback
-  // (size-adjust) p/ zero CLS. Variável c/ eixo opsz: font-optical-sizing: auto
-  // dá o corte display automático nos títulos grandes.
+  // Tipografia canônica self-hospedada via @nuxt/fonts (baixa, self-hospeda e injeta
+  // @font-face + métrica de fallback size-adjust = zero CLS):
+  //  · Instrument Sans → corpo (--font-sans canônica; 500 incluso p/ o chrome das
+  //    primitivas Ui). É a fonte oficial do tema, não mais um <link> de runtime da marca.
+  //  · Fraunces (serif, eixo opsz) → títulos (.shop-display/.shop-title), com
+  //    font-optical-sizing: auto dando o corte display nos títulos grandes.
   fonts: {
     families: [
+      { name: 'Instrument Sans', provider: 'google', weights: [400, 500, 600], styles: ['normal'] },
       { name: 'Fraunces', provider: 'google', weights: [400, 600], styles: ['normal'] }
     ]
   },

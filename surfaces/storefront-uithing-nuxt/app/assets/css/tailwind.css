@@ -8,12 +8,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+  /* Corpo: Instrument Sans é a fonte CANÔNICA do tema (self-hospedada via @nuxt/fonts),
+     com o stack do sistema como fallback. system-ui assume só se a webfont falhar. */
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   /* Display serif (Fraunces, self-hospedada via @nuxt/fonts) — só nos títulos
-     (.shop-display do hero + .shop-title h1). Corpo segue --font-sans (system). */
+     (.shop-display do hero + .shop-title h1). Corpo segue --font-sans (Instrument Sans). */
   --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
 
   --animate-shine: shine 3s ease-out infinite;

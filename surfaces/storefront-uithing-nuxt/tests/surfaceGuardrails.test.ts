@@ -875,7 +875,9 @@ describe('surface UX guardrails', () => {
     expect(css).toContain('--primary: oklch(0.374 0.010 67.558)')
     expect(css).toContain('--sidebar-primary: oklch(0.374 0.010 67.558)')
     expect(css).toContain('--destructive-foreground: oklch(0.985 0 0)')
-    expect(css).toContain('--font-sans: ui-sans-serif')
+    // Tipografia canônica do tema: corpo = Instrument Sans (self-hospedada), com o
+    // stack do sistema como fallback. Não é "Inter" (fonte do theming rejeitado).
+    expect(css).toContain('--font-sans: "Instrument Sans", ui-sans-serif, system-ui')
     expect(css).not.toContain('"Inter"')
     expect(css).toContain('@apply bg-background text-foreground')
     expect(css).toContain('@apply min-h-dvh min-w-0 bg-background text-foreground')

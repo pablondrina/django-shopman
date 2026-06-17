@@ -75,18 +75,25 @@ describe('shop theme — marca como override das variáveis reais', () => {
 })
 
 describe('shop theme — tipografia da marca', () => {
-  const FONTS = { ...BRAND, heading_font: 'Instrument Sans', body_font: 'Instrument Sans' }
+  // Instrument Sans é a fonte CANÔNICA do tema (self-hospedada via @nuxt/fonts no
+  // tailwind.css). A marca não a re-injeta nem busca externamente.
+  const CANON = { ...BRAND, heading_font: 'Instrument Sans', body_font: 'Instrument Sans' }
+  // Um tenant pode pedir uma fonte DIFERENTE — aí o override + <link> permanecem.
+  const TENANT = { ...BRAND, heading_font: 'Poppins', body_font: 'Poppins' }
 
-  it('sobrescreve --font-sans com a fonte da marca + fallback neutro', () => {
-    expect(shopFontFamily(FONTS)).toBe("'Instrument Sans', ui-sans-serif, system-ui, sans-serif")
-    expect(shopThemeCss(shop(FONTS))).toContain("--font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;")
+  it('fonte canônica (Instrument Sans) é self-hospedada: sem override de --font-sans e sem <link> de runtime', () => {
+    expect(shopFontFamily(CANON)).toBeNull()
+    expect(shopThemeCss(shop(CANON))).not.toContain('--font-sans')
+    expect(shopFontLinks(shop(CANON))).toEqual([])
   })
 
-  it('carrega a fonte via <link> Google Fonts (preconnect + stylesheet, pesos 400/500/600)', () => {
-    const links = shopFontLinks(shop(FONTS))
+  it('tenant com fonte DIFERENTE ainda sobrescreve --font-sans + carrega via <link> Google (400/500/600)', () => {
+    expect(shopFontFamily(TENANT)).toBe("'Poppins', ui-sans-serif, system-ui, sans-serif")
+    expect(shopThemeCss(shop(TENANT))).toContain("--font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;")
+    const links = shopFontLinks(shop(TENANT))
     expect(links.some(l => l.rel === 'preconnect' && l.href === 'https://fonts.googleapis.com')).toBe(true)
     const sheet = links.find(l => l.rel === 'stylesheet')
-    expect(sheet?.href).toContain('family=Instrument+Sans:wght@400;500;600')
+    expect(sheet?.href).toContain('family=Poppins:wght@400;500;600')
     expect(sheet?.href).toContain('display=swap')
   })
 
@@ -94,7 +101,7 @@ describe('shop theme — tipografia da marca', () => {
     expect(shopFontFamily(undefined)).toBeNull()
     expect(shopThemeCss(shop(BRAND))).not.toContain('--font-sans')
     expect(shopFontLinks(shop(undefined))).toEqual([])
-    expect(shopFontLinks(shop(FONTS), { preview: 'neutral' })).toEqual([])
+    expect(shopFontLinks(shop(TENANT), { preview: 'neutral' })).toEqual([])
   })
 })
 
