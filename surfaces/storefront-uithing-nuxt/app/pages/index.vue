@@ -150,7 +150,7 @@ useHead({
                   <Icon name="lucide:chef-hat" class="size-5" />
                 </span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-semibold leading-5">{{ activeOrder.status_label }}</p>
+                  <p class="shop-body font-semibold">{{ activeOrder.status_label }}</p>
                   <p class="text-xs opacity-80">Pedido {{ activeOrder.ref }}</p>
                 </div>
                 <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-cta-foreground/15 py-1.5 pl-3.5 pr-2.5 text-sm font-semibold">
@@ -225,14 +225,14 @@ useHead({
                   <Icon name="lucide:rotate-ccw" />
                 </UiItemMedia>
                 <div class="space-y-2">
-                  <h2 class="text-xl font-semibold leading-tight tracking-tight">{{ quickReorderTitle }}</h2>
-                  <ul v-if="quickReorderItems.length" class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground" aria-label="Itens do último pedido">
+                  <h2 class="shop-heading">{{ quickReorderTitle }}</h2>
+                  <ul v-if="quickReorderItems.length" class="shop-muted flex flex-wrap gap-x-3 gap-y-1" aria-label="Itens do último pedido">
                     <li v-for="item in quickReorderItems" :key="item.sku" class="inline-flex items-center gap-1">
                       <span class="font-semibold text-foreground">{{ item.qty }}×</span>
                       <span>{{ item.name }}</span>
                     </li>
                   </ul>
-                  <p v-else class="text-sm text-muted-foreground">Seu pedido anterior volta ao carrinho para revisão.</p>
+                  <p v-else class="shop-muted">Seu pedido anterior volta ao carrinho para revisão.</p>
                 </div>
                 <UiButton
                   icon="lucide:shopping-bag"
@@ -252,8 +252,8 @@ useHead({
     <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-8 md:pt-10">
       <div class="shop-container space-y-6">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="text-xl font-semibold tracking-tight">{{ sectionsCopy.availability_heading.title }}</h2>
-          <p class="mt-2 text-sm text-muted-foreground">{{ sectionsCopy.availability_heading.message }}</p>
+          <h2 class="shop-heading">{{ sectionsCopy.availability_heading.title }}</h2>
+          <p class="mt-2 shop-muted">{{ sectionsCopy.availability_heading.message }}</p>
         </div>
         <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
           <ProductTile
@@ -274,8 +274,8 @@ useHead({
     <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-background scroll-mt-20">
       <div class="shop-container space-y-8">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="text-xl font-semibold tracking-tight">{{ sectionsCopy.how_it_works_heading.title }}</h2>
-          <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 text-sm text-muted-foreground">
+          <h2 class="shop-heading">{{ sectionsCopy.how_it_works_heading.title }}</h2>
+          <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 shop-muted">
             {{ sectionsCopy.how_it_works_intro.message }}
           </p>
         </div>
@@ -285,8 +285,8 @@ useHead({
             <UiItemMedia variant="icon" class="size-10 rounded-full">
               <Icon name="lucide:shopping-bag" />
             </UiItemMedia>
-            <h3 class="text-base font-semibold">Peça online</h3>
-            <p class="text-sm text-muted-foreground">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+            <h3 class="shop-item-title font-semibold">Peça online</h3>
+            <p class="shop-muted">Escolha, pague e acompanhe — entregamos ou você retira.</p>
             <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
               {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
             </UiButton>
@@ -297,10 +297,10 @@ useHead({
               <Icon name="lucide:store" />
             </UiItemMedia>
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-base font-semibold">Visite a loja</h3>
+              <h3 class="shop-item-title font-semibold">Visite a loja</h3>
               <UiBadge v-if="operationalStatus.label" variant="secondary">{{ operationalStatus.label }}</UiBadge>
             </div>
-            <p v-if="visitAddressLines.length" class="text-sm text-muted-foreground">
+            <p v-if="visitAddressLines.length" class="shop-muted">
               <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
             </p>
             <div class="mt-auto flex flex-wrap gap-2">
@@ -340,8 +340,8 @@ useHead({
             class="absolute inset-0 size-full object-cover opacity-35"
           >
           <div class="relative mx-auto max-w-2xl px-6 py-14 text-center md:py-16">
-            <h2 class="text-xl font-semibold tracking-tight md:text-2xl">{{ sectionsCopy.whatsapp_cta.title }}</h2>
-            <p class="mt-3 text-sm leading-6 text-ink-foreground/85 md:text-base">
+            <h2 class="shop-heading">{{ sectionsCopy.whatsapp_cta.title }}</h2>
+            <p class="mt-3 shop-body text-ink-foreground/85 md:text-base">
               {{ sectionsCopy.whatsapp_cta.message }}
             </p>
             <UiButton

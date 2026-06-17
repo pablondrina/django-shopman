@@ -12,7 +12,9 @@
     "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
-  --font-display--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  /* Display serif (Fraunces, self-hospedada via @nuxt/fonts) — só nos títulos
+     (.shop-display do hero + .shop-title h1). Corpo segue --font-sans (system). */
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
 
   --animate-shine: shine 3s ease-out infinite;
   --animate-gradient-flow: gradientFlow 10s ease 0s infinite normal none running;
@@ -291,16 +293,75 @@
     overflow-x: clip;
   }
 
-  /*
-   * Escala tipográfica da superfície (mínima variação, níveis claros):
-   *   30/3xl·600  título de página (h1)
-   *   20/xl·600   preço em destaque (PDP, CTA sticky)
-   *   16/base·600 título de seção (h2) | 16/base·400 título de item (cards)
-   *   14/sm·400   corpo, controles, footer | 14/sm·600 preços de card, valores
-   *   12/xs·400   metadados (descrições muted, pesos) | 12/xs·600 kickers uppercase
-   * Pesos: somente 400 e 600 (500 é reservado ao chrome dos componentes Ui).
-   * No mesmo tamanho, o nível muda por peso OU cor — nunca por tamanhos vizinhos.
+  /* ── Sistema tipográfico (fonte única) ──────────────────────────────────────
+   * Espelha o que `.shop-stack-*` fez pelo espaço: papéis semânticos que amarram
+   * size + weight + leading + tracking juntos; as TELAS consomem o papel, não
+   * `text-*`/`font-*`/`leading-*` avulso.
+   *
+   * Escala FECHADA (degraus sancionados): 12/xs · 14/sm · 16/base · 20/xl · 30/3xl
+   *   + display do hero 36/4xl → 48/5xl. lg(18) e 2xl(24) abolidos.
+   * Pesos: SOMENTE 400 e 600 nas telas (500 reservado ao chrome das primitivas Ui;
+   *   sem 700 autoral). No mesmo tamanho o nível sobe por PESO ou COR — nunca por
+   *   um tamanho vizinho.
+   * Famílias: corpo = --font-sans (system); títulos (display/h1) = --font-display
+   *   (Fraunces serif), com optical-sizing automático.
+   *
+   *   .shop-display     hero full-bleed (36→48, serif, leading apertado)
+   *   .shop-title       título de página h1 (30, serif)
+   *   .shop-heading     título de seção h2 (20, sans 600)
+   *   .shop-item-title  título de card/linha (16, 400)
+   *   .shop-body        corpo, controles, footer (14, 400, leading confortável)
+   *   .shop-meta        metadados muted (12, 400)
+   *   .shop-muted       parágrafo muted de corpo (14, 400, muted)
+   *   .shop-kicker      eyebrow uppercase (12, 600, tracking-wide, muted)
+   *   .shop-price       preço/valor de card/linha (14, 600, tabular-nums)
+   *   .shop-price-strong  preço/total em destaque (20, 600, tabular-nums)
    */
+  /* NB: as utilities de tamanho (text-*) trazem seu próprio line-height; por isso
+     o line-height de cada papel é declarado DEPOIS do @apply, para vencer. */
+  .shop-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    @apply text-4xl font-semibold tracking-tight sm:text-5xl;
+    line-height: 1.05;
+  }
+
+  .shop-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    @apply text-3xl font-semibold tracking-tight;
+    line-height: 1.12;
+  }
+
+  .shop-heading {
+    @apply text-xl font-semibold tracking-tight;
+    line-height: 1.3;
+  }
+
+  .shop-item-title {
+    @apply text-base font-normal leading-5;
+  }
+
+  .shop-body {
+    @apply text-sm font-normal;
+    line-height: 1.5;
+  }
+
+  .shop-meta {
+    @apply text-xs font-normal text-muted-foreground;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .shop-price {
+    @apply text-sm font-semibold tabular-nums;
+  }
+
+  .shop-price-strong {
+    @apply text-xl font-semibold tabular-nums;
+    line-height: 1.15;
+  }
+
   .shop-container {
     @apply mx-auto w-full max-w-6xl min-w-0 px-4 sm:px-6 lg:px-8;
     box-sizing: border-box;
@@ -328,7 +389,7 @@
   }
 
   .shop-kicker {
-    @apply text-xs font-semibold uppercase tracking-normal text-primary;
+    @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
   }
 
   .shop-muted {

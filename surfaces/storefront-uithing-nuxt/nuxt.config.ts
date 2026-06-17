@@ -27,9 +27,20 @@ export default defineNuxtConfig({
     'motion-v/nuxt',
     '@vueuse/nuxt',
     '@nuxt/icon',
+    '@nuxt/fonts',
     "@yuta-inoue-ph/nuxt-vcalendar",
     "vue-sonner/nuxt"
   ],
+
+  // Display serif (Fraunces) self-hospedada para os títulos — corpo segue system-ui.
+  // @nuxt/fonts baixa, self-hospeda e injeta @font-face + métrica de fallback
+  // (size-adjust) p/ zero CLS. Variável c/ eixo opsz: font-optical-sizing: auto
+  // dá o corte display automático nos títulos grandes.
+  fonts: {
+    families: [
+      { name: 'Fraunces', provider: 'google', weights: [400, 600], styles: ['normal'] }
+    ]
+  },
 
   imports: {
     imports: [{

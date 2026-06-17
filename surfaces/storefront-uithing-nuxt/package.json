@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@internationalized/number": "^3.6.6",
+    "@nuxt/fonts": "^0.14.0",
     "@nuxt/icon": "^2.2.2",
     "@nuxtjs/color-mode": "^4.0.0",
     "@tailwindcss/forms": "^0.5.11",

@@ -279,12 +279,12 @@ onBeforeUnmount(() => {
         <Transition name="hero-text" mode="out-in">
           <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center">
             <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>
-            <h1 class="mt-2 text-4xl font-semibold leading-[1.08] tracking-tight [text-shadow:0_2px_18px_rgba(0,0,0,0.45)] sm:text-5xl" :aria-label="heroTitleLabel">
+            <h1 class="shop-display mt-2 [text-shadow:0_2px_18px_rgba(0,0,0,0.45)]" :aria-label="heroTitleLabel">
               <span v-for="line in activeSlide.titleLines" :key="line" class="block" aria-hidden="true">
                 {{ line }}
               </span>
             </h1>
-            <p v-if="activeSlide.description" class="mt-4 max-w-xl text-sm leading-6 text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.4)] sm:text-base">
+            <p v-if="activeSlide.description" class="mt-4 max-w-xl shop-body text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.4)] sm:text-base">
               {{ activeSlide.description }}
             </p>
             <div class="mt-7 flex flex-wrap justify-center gap-3">
