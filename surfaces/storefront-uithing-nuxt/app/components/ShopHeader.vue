@@ -45,7 +45,7 @@ function closeMenu () {
         <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
           <Icon name="lucide:store" class="size-5" />
         </div>
-        <p class="truncate text-lg font-semibold leading-6 tracking-tight">
+        <p class="truncate text-xl font-semibold leading-6 tracking-tight">
           {{ shop?.brand_name || 'Shopman' }}
         </p>
       </NuxtLink>
@@ -109,7 +109,7 @@ function closeMenu () {
                 <UiSheetTitle class="truncate text-base font-semibold leading-5 tracking-tight">
                   {{ shop?.brand_name || 'Shopman' }}
                 </UiSheetTitle>
-                <UiSheetDescription v-if="statusLabel" class="truncate text-xs leading-4" :class="statusOpen ? 'text-primary' : 'text-muted-foreground'">
+                <UiSheetDescription v-if="statusLabel" class="truncate text-xs" :class="statusOpen ? 'text-primary' : 'text-muted-foreground'">
                   {{ statusLabel }}
                 </UiSheetDescription>
                 <UiSheetDescription v-else class="sr-only">Menu da loja</UiSheetDescription>
@@ -146,7 +146,7 @@ function closeMenu () {
               </ul>
 
               <div class="space-y-3 rounded-xl border bg-card p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visite a loja</p>
+                <p class="shop-kicker">Visite a loja</p>
 
                 <a
                   v-if="shop?.maps_url && addressLinesValue.length"
@@ -209,7 +209,7 @@ function closeMenu () {
               </UiButton>
 
               <div v-if="socialLinks.length" class="space-y-2">
-                <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Redes sociais</p>
+                <p class="px-1 shop-kicker">Redes sociais</p>
                 <div class="flex flex-wrap gap-2">
                   <a
                     v-for="link in socialLinks"
@@ -228,7 +228,7 @@ function closeMenu () {
               </div>
             </nav>
 
-            <div class="border-t px-5 py-3 text-xs text-muted-foreground">
+            <div class="border-t px-5 py-3 shop-meta">
               {{ shop?.brand_name || 'Shopman' }}
             </div>
           </div>

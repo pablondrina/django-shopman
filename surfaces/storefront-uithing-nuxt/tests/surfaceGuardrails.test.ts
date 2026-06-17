@@ -509,7 +509,7 @@ describe('surface UX guardrails', () => {
     // Login editorial: passos direto no background (sem card), h1 semântico,
     // máquina de passos/erros em presentation/auth.ts.
     expect(login).not.toContain('<UiCard')
-    expect(login).toContain('<h1 class="text-3xl font-semibold')
+    expect(login).toContain('<h1 class="shop-title">')
     expect(login).toContain("from '~/presentation/auth'")
     expect(authPresentation).toContain('export function authStep')
     expect(authPresentation).toContain('export function authErrorView')
