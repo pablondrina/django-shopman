@@ -947,4 +947,54 @@ describe('surface UX guardrails', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')
   })
+
+  it('keeps typography on the single-source grammar (papéis, degraus sancionados, sem deriva)', () => {
+    // Espelha o que .shop-stack-* fez pelo espaço: a TIPOGRAFIA é uma gramática
+    // única. Papéis semânticos no tailwind.css amarram size+weight+leading+tracking;
+    // as telas consomem o papel. Escala FECHADA: 12/14/16/20/30 + display do hero;
+    // lg(18) e 2xl(24) abolidos; pesos 400/600 nas telas (500 só no chrome Ui).
+    const css = read('app/assets/css/tailwind.css')
+
+    // 1) Fonte única: os papéis existem como primitivas reais.
+    for (const role of [
+      '.shop-display', '.shop-title', '.shop-heading', '.shop-item-title',
+      '.shop-body', '.shop-meta', '.shop-price', '.shop-price-strong',
+      '.shop-kicker', '.shop-muted'
+    ]) {
+      expect(css).toContain(role)
+    }
+    // Display serif (Fraunces) declarada e usada SÓ nos títulos.
+    expect(css).toContain('--font-display: "Fraunces"')
+    expect(css).toMatch(/\.shop-display\s*\{[\s\S]*?font-family: var\(--font-display\)/)
+    expect(css).toMatch(/\.shop-title\s*\{[\s\S]*?font-family: var\(--font-display\)/)
+    // Preços carregam tabular-nums (ritmo de valor).
+    expect(css).toMatch(/\.shop-price\s*\{[\s\S]*?tabular-nums/)
+    expect(css).toMatch(/\.shop-price-strong\s*\{[\s\S]*?tabular-nums/)
+    // Kicker é uppercase tracking-wide muted (regra corrigida, não tracking-normal/primary).
+    expect(css).toMatch(/\.shop-kicker\s*\{[\s\S]*?uppercase[\s\S]*?tracking-wide/)
+
+    // 2) Os títulos das telas consomem os papéis de título (não voltam a text-* avulso).
+    const greedyTemplate = (source: string) => source.match(/<template>([\s\S]*)<\/template>/)?.[1] || ''
+    expect(greedyTemplate(read('app/components/HomeHeroThing.vue'))).toContain('shop-display')
+    for (const page of ['cart', 'checkout', 'login', 'product/[sku]', 'tracking/[ref]', 'account/index']) {
+      expect(greedyTemplate(read(`app/pages/${page}.vue`))).toContain('shop-title')
+    }
+
+    // 3) Sem deriva nas telas autorais (template inteiro; Ui/ excluído pelo coletor).
+    const weight = []      // 500/700+ autoral — só 400/600 permitidos nas telas
+    const abolished = []   // lg(18)/2xl(24) abolidos da escala
+    const magicLead = []   // leading-[..]/leading-4/leading-none avulsos
+    const magicSize = []   // text-[..px/rem/em] mágico (corpo nunca < 14)
+    for (const file of surfaceVueFiles) {
+      const t = greedyTemplate(read(file))
+      if (/\bfont-(thin|extralight|light|medium|bold|extrabold|black)\b/.test(t)) weight.push(file)
+      if (/\btext-(lg|2xl|4xl|5xl)\b/.test(t)) abolished.push(file)
+      if (/\bleading-\[[^\]]+\]|\bleading-(?:4|none)\b/.test(t)) magicLead.push(file)
+      if (/\btext-\[[0-9.]+(px|rem|em)/.test(t)) magicSize.push(file)
+    }
+    expect(weight).toEqual([])
+    expect(abolished).toEqual([])
+    expect(magicLead).toEqual([])
+    expect(magicSize).toEqual([])
+  })
 })
