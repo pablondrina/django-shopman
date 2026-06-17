@@ -21,6 +21,9 @@ export interface CheckoutFormState {
   recipient_phone: string
   gift_message: string
   gift_hide_values: boolean
+  // "Salvar para a próxima vez": pré-marcado (opt-out). O endereço novo salva
+  // sempre; este toggle controla só os defaults (fulfillment/pagamento/horário).
+  save_as_default: boolean
 }
 
 export interface CheckoutSubmitPayload extends CheckoutFormState {
@@ -56,6 +59,7 @@ export function buildCheckoutPayload (
     recipient_phone: state.is_gift ? state.recipient_phone.trim() : '',
     gift_message: state.is_gift ? state.gift_message.trim() : '',
     gift_hide_values: state.is_gift ? state.gift_hide_values : false,
+    save_as_default: state.save_as_default,
     use_loyalty: useLoyalty
   }
 }

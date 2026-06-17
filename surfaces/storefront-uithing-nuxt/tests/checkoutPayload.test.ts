@@ -24,7 +24,13 @@ const deliveryState: CheckoutFormState = {
   delivery_date: '2026-05-16',
   delivery_time_slot: 'slot-1',
   payment_method: 'pix',
-  notes: ' Sem talher '
+  notes: ' Sem talher ',
+  is_gift: false,
+  recipient_name: '',
+  recipient_phone: '',
+  gift_message: '',
+  gift_hide_values: false,
+  save_as_default: true
 }
 
 describe('checkout payload contract', () => {
@@ -44,9 +50,20 @@ describe('checkout payload contract', () => {
       delivery_time_slot: 'slot-1',
       payment_method: 'pix',
       notes: 'Sem talher',
+      save_as_default: true,
       use_loyalty: true
     })
     expect(payload.delivery_address_structured.place_id).toBe('place-123')
+  })
+
+  it('propagates save_as_default opt-out (desmarcado → false)', () => {
+    const payload = buildCheckoutPayload(
+      { ...deliveryState, save_as_default: false },
+      'checkout-optout',
+      false
+    )
+
+    expect(payload.save_as_default).toBe(false)
   })
 
   it('does not leak delivery address data for pickup payloads', () => {

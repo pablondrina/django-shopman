@@ -65,7 +65,8 @@ const state = reactive<CheckoutFormState>({
   recipient_name: '',
   recipient_phone: '',
   gift_message: '',
-  gift_hide_values: false
+  gift_hide_values: false,
+  save_as_default: true
 })
 
 const chosenDate = ref<Date | null>(null)
@@ -1161,6 +1162,19 @@ useSeoMeta({
                     @click.stop
                   />
                 </div>
+              </UiFieldLabel>
+
+              <!-- "Salvar para a próxima vez": pré-marcado (omotenashi — default na
+                   hospitalidade, controle preservado). O endereço novo salva sempre;
+                   desmarcar só evita gravar fulfillment/pagamento/horário como padrão. -->
+              <UiFieldLabel for="checkout-save-default" class="bg-card has-data-[state=checked]:bg-card" data-checkout-save-default>
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-1">
+                    <UiFieldTitle>Salvar para a próxima vez</UiFieldTitle>
+                    <UiFieldDescription>Guardamos suas escolhas para agilizar seu próximo pedido.</UiFieldDescription>
+                  </UiFieldContent>
+                  <UiSwitch id="checkout-save-default" v-model="state.save_as_default" />
+                </UiField>
               </UiFieldLabel>
 
               <template #footer>
