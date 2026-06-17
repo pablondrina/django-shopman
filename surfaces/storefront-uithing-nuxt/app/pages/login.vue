@@ -346,21 +346,21 @@ useSeoMeta({
 <template>
   <main class="shop-section">
     <div class="shop-container">
-      <div class="mx-auto max-w-md space-y-5">
+      <div class="mx-auto max-w-md shop-stack-block">
         <div v-if="moment !== 'none'" class="py-10 text-center" data-login-moment>
           <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-foreground text-background">
             <Icon name="lucide:check" class="size-6" />
           </div>
-          <h1 class="mt-4 text-3xl font-semibold">{{ momentTitle }}</h1>
-          <p class="mt-2 text-sm leading-6 text-muted-foreground" aria-live="polite">{{ momentMessage }}</p>
-          <p v-if="momentSavedNote" class="mt-1 text-xs text-muted-foreground">{{ momentSavedNote }}</p>
+          <h1 class="mt-4 shop-title">{{ momentTitle }}</h1>
+          <p class="mt-2 shop-muted" aria-live="polite">{{ momentMessage }}</p>
+          <p v-if="momentSavedNote" class="mt-1 shop-meta">{{ momentSavedNote }}</p>
         </div>
 
         <template v-else>
         <header>
-          <h1 class="text-3xl font-semibold leading-tight">{{ stepTitle }}</h1>
-          <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ stepDescription }}</p>
-          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <h1 class="shop-title">{{ stepTitle }}</h1>
+          <p class="mt-2 shop-muted">{{ stepDescription }}</p>
+          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-2 shop-meta">
             <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
             Seu carrinho continua reservado durante a entrada.
           </p>
@@ -375,7 +375,7 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <form v-if="step === 'phone'" ref="phoneForm" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
+        <form v-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="requestCode('whatsapp', $event)">
           <UiField class="rounded-lg border bg-card p-4">
             <div class="flex items-center justify-between gap-3">
               <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
@@ -421,8 +421,8 @@ useSeoMeta({
           </div>
         </form>
 
-        <form v-else-if="step === 'code'" ref="codeForm" class="space-y-5" @submit.prevent="verifyCode">
-          <p class="text-sm leading-6">
+        <form v-else-if="step === 'code'" ref="codeForm" class="shop-stack-block" @submit.prevent="verifyCode">
+          <p class="shop-body">
             Código enviado por {{ deliveryLabel }} para
             <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
@@ -489,8 +489,8 @@ useSeoMeta({
           <UiFieldLabel for="trusted-device" class="w-full">
             <div class="-mx-4 flex w-full items-center gap-4 border-y px-4 py-3 sm:mx-0 sm:px-0" data-login-trust>
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold">{{ copyTitle(authCopy?.device_trust_prompt, 'Salvar este aparelho?') }}</p>
-                <p class="mt-0.5 text-xs font-normal leading-5 text-muted-foreground">{{ copyMessage(authCopy?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.') }}</p>
+                <p class="shop-body font-semibold">{{ copyTitle(authCopy?.device_trust_prompt, 'Salvar este aparelho?') }}</p>
+                <p class="mt-0.5 shop-meta">{{ copyMessage(authCopy?.device_trust_prompt, 'Use só em um aparelho seu. Por 30 dias, você entra sem código.') }}</p>
               </div>
               <UiSwitch id="trusted-device" v-model="trustedDevice" />
             </div>
@@ -501,7 +501,7 @@ useSeoMeta({
           </UiButton>
         </form>
 
-        <form v-else ref="welcomeForm" class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
+        <form v-else ref="welcomeForm" class="shop-stack-block" data-login-welcome @submit.prevent="submitWelcome">
           <UiField class="rounded-lg border bg-card p-4">
             <UiFieldLabel for="welcome-name">Nome</UiFieldLabel>
             <UiInput
@@ -523,13 +523,13 @@ useSeoMeta({
           </div>
         </form>
 
-        <p v-if="step !== 'welcome'" class="text-xs leading-5 text-muted-foreground">
+        <p v-if="step !== 'welcome'" class="shop-meta">
           {{ copyMessage(authCopy?.terms_note, 'Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.') }}
         </p>
 
         <div v-if="supportUrl" class="-mx-4 border-t px-4 pt-4 sm:mx-0 sm:px-0" data-login-support>
-          <p class="text-base font-semibold">O código não chegou?</p>
-          <p class="mt-1 text-sm leading-6 text-muted-foreground">Fale com a loja e resolvemos juntos.</p>
+          <p class="shop-item-title font-semibold">O código não chegou?</p>
+          <p class="mt-1 shop-muted">Fale com a loja e resolvemos juntos.</p>
           <UiButton
             :href="supportUrl"
             target="_blank"

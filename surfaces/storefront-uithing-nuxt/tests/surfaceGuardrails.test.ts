@@ -188,7 +188,7 @@ describe('surface UX guardrails', () => {
     const productTile = read('app/components/ProductTile.vue')
     const home = read('app/pages/index.vue')
 
-    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm"')
+    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6 shadow-sm"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('data-slot="aspect-ratio"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('import { AspectRatio } from "reka-ui"')
     // ProductTile usa moldura vintage (retrato): paspatur branco recortado, sem UiCard.
@@ -254,7 +254,7 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain('activateNextSlide')
     expect(hero).toContain('UiButton')
     expect(home).toContain('<main class="bg-background">')
-    expect(home).toContain('<section class="shop-section-cta bg-background pb-5 pt-0 sm:py-8 lg:py-10">')
+    expect(home).toContain('<section class="shop-section-cta bg-background pb-6 pt-0 sm:py-8 lg:py-10">')
     expect(home).toContain(':reorder-action="reorderAction"')
     expect(home).toContain('@reorder="handleReorder"')
     expect(home).toContain('sectionsCopy.availability_heading.title')
@@ -350,7 +350,7 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('<UiFieldLabel v-if="availableFulfillment.includes(\'pickup\')" for="checkout-fulfillment-pickup" class="bg-card')
     expect(checkout).toContain('<UiFieldLabel v-for="method in paymentMethods"')
     expect(checkout).toContain('<UiField orientation="horizontal">')
-    expect(checkout).toContain('<UiFieldContent class="gap-0.5">')
+    expect(checkout).toContain('<UiFieldContent class="gap-1">')
     expect(checkout).toContain('paymentIcon(method.ref)')
     expect(checkout).toContain('{{ method.label }}')
     expect(checkout).not.toContain('class="flex gap-3 rounded-lg border p-4"')
@@ -454,7 +454,7 @@ describe('surface UX guardrails', () => {
     expect(quantity).not.toContain('<UiNumberField')
     // CTA sticky honesto: pílula com a qty real do carrinho, sem estado fantasma.
     expect(productRoute).not.toContain('mobileCtaTouched')
-    expect(productRoute).toContain('sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
+    expect(productRoute).toContain('sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
     expect(productRoute).toContain(':qty="currentQty"')
     // CTA de commit usa o Brass canônico (mesma cor de "Adicionar" no resto do site),
     // não o secondary/kraft invertido — conformidade com o design system.
@@ -521,7 +521,7 @@ describe('surface UX guardrails', () => {
     // Login editorial: passos direto no background (sem card), h1 semântico,
     // máquina de passos/erros em presentation/auth.ts.
     expect(login).not.toContain('<UiCard')
-    expect(login).toContain('<h1 class="text-3xl font-semibold')
+    expect(login).toContain('<h1 class="shop-title">')
     expect(login).toContain("from '~/presentation/auth'")
     expect(authPresentation).toContain('export function authStep')
     expect(authPresentation).toContain('export function authErrorView')
@@ -824,7 +824,7 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('const showDeliveryTab = computed')
     expect(tracking).toContain("const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')")
     expect(tracking).toContain('const trackingTabsListClass =')
-    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-0.5 overflow-x-auto bg-transparent p-0 before:absolute')
+    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute')
     expect(tracking).toContain('const trackingTabsTriggerClass =')
     expect(tracking).toContain('border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10')
     expect(tracking).toContain('<UiTabs default-value="history"')
@@ -875,7 +875,9 @@ describe('surface UX guardrails', () => {
     expect(css).toContain('--primary: oklch(0.374 0.010 67.558)')
     expect(css).toContain('--sidebar-primary: oklch(0.374 0.010 67.558)')
     expect(css).toContain('--destructive-foreground: oklch(0.985 0 0)')
-    expect(css).toContain('--font-sans: ui-sans-serif')
+    // Tipografia canônica do tema: corpo = Instrument Sans (self-hospedada), com o
+    // stack do sistema como fallback. Não é "Inter" (fonte do theming rejeitado).
+    expect(css).toContain('--font-sans: "Instrument Sans", ui-sans-serif, system-ui')
     expect(css).not.toContain('"Inter"')
     expect(css).toContain('@apply bg-background text-foreground')
     expect(css).toContain('@apply min-h-dvh min-w-0 bg-background text-foreground')
@@ -963,5 +965,80 @@ describe('surface UX guardrails', () => {
   it('formats simple Portuguese counts without placeholder copy', () => {
     expect(formatCount(1, 'item', 'itens')).toBe('1 item')
     expect(formatCount(2, 'item', 'itens')).toBe('2 itens')
+  })
+
+  it('keeps typography on the single-source grammar (papéis, degraus sancionados, sem deriva)', () => {
+    // Espelha o que .shop-stack-* fez pelo espaço: a TIPOGRAFIA é uma gramática
+    // única. Papéis semânticos no tailwind.css amarram size+weight+leading+tracking;
+    // as telas consomem o papel. Escala FECHADA: 12/14/16/20/30 + display do hero;
+    // lg(18) e 2xl(24) abolidos; pesos 400/600 nas telas (500 só no chrome Ui).
+    const css = read('app/assets/css/tailwind.css')
+
+    // 1) Fonte única: os papéis existem como primitivas reais.
+    for (const role of [
+      '.shop-display', '.shop-title', '.shop-heading', '.shop-item-title',
+      '.shop-body', '.shop-meta', '.shop-price', '.shop-price-strong',
+      '.shop-kicker', '.shop-muted'
+    ]) {
+      expect(css).toContain(role)
+    }
+    // Display serif (Fraunces) declarada e usada SÓ nos títulos.
+    expect(css).toContain('--font-display: "Fraunces"')
+    expect(css).toMatch(/\.shop-display\s*\{[\s\S]*?font-family: var\(--font-display\)/)
+    expect(css).toMatch(/\.shop-title\s*\{[\s\S]*?font-family: var\(--font-display\)/)
+    // Preços carregam tabular-nums (ritmo de valor).
+    expect(css).toMatch(/\.shop-price\s*\{[\s\S]*?tabular-nums/)
+    expect(css).toMatch(/\.shop-price-strong\s*\{[\s\S]*?tabular-nums/)
+    // Kicker é uppercase tracking-wide muted (regra corrigida, não tracking-normal/primary).
+    expect(css).toMatch(/\.shop-kicker\s*\{[\s\S]*?uppercase[\s\S]*?tracking-wide/)
+
+    // 2) Os títulos das telas consomem os papéis de título (não voltam a text-* avulso).
+    const greedyTemplate = (source: string) => source.match(/<template>([\s\S]*)<\/template>/)?.[1] || ''
+    expect(greedyTemplate(read('app/components/HomeHeroThing.vue'))).toContain('shop-display')
+    for (const page of ['cart', 'checkout', 'login', 'product/[sku]', 'tracking/[ref]', 'account/index']) {
+      expect(greedyTemplate(read(`app/pages/${page}.vue`))).toContain('shop-title')
+    }
+
+    // 3) Sem deriva nas telas autorais (template inteiro; Ui/ excluído pelo coletor).
+    const weight = []      // 500/700+ autoral — só 400/600 permitidos nas telas
+    const abolished = []   // lg(18)/2xl(24) abolidos da escala
+    const magicLead = []   // leading-[..]/leading-4/leading-none avulsos
+    const magicSize = []   // text-[..px/rem/em] mágico (corpo nunca < 14)
+    for (const file of surfaceVueFiles) {
+      const t = greedyTemplate(read(file))
+      if (/\bfont-(thin|extralight|light|medium|bold|extrabold|black)\b/.test(t)) weight.push(file)
+      if (/\btext-(lg|2xl|4xl|5xl)\b/.test(t)) abolished.push(file)
+      if (/\bleading-\[[^\]]+\]|\bleading-(?:4|none)\b/.test(t)) magicLead.push(file)
+      if (/\btext-\[[0-9.]+(px|rem|em)/.test(t)) magicSize.push(file)
+    }
+    expect(weight).toEqual([])
+    expect(abolished).toEqual([])
+    expect(magicLead).toEqual([])
+    expect(magicSize).toEqual([])
+  })
+
+  // Sistema de layout (LAYOUT-SYSTEM-PLAN): o ritmo vertical é a fonte única.
+  // Telas consomem a escala de stack de 4 degraus; números mágicos avulsos somem.
+  it('keeps vertical rhythm on the 4-step stack scale (fonte única de layout)', () => {
+    const css = read('app/assets/css/tailwind.css')
+    // As primitivas de composição existem e a largura de leitura é única.
+    for (const primitive of ['.shop-container', '.shop-section', '.shop-stack-micro', '.shop-stack-tight', '.shop-stack-block', '.shop-stack-section']) {
+      expect(css).toContain(primitive)
+    }
+    expect(css).toContain('max-w-6xl')
+
+    // Pilhas verticais usam só a régua {1,2,4,8}; off-scale (3/5/6/7 e meio-degraus) é deriva.
+    const offScaleStack = /\bspace-y-(0\.5|1\.5|2\.5|3|5|6|7)\b/
+    const stackOffenders = surfaceVueFiles
+      .filter(file => offScaleStack.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(stackOffenders).toEqual([])
+
+    // Gutters/paddings/margens autorais sem meio-degraus nem 5/7/9 (working set {1,2,3,4,6,8}).
+    const offScaleGutter = /\bgap-(0\.5|1\.5|2\.5|5|7)\b|\b[pm][trblxy]?-(2\.5|3\.5|5|7|9)\b|\brounded-(xl|2xl)\b/
+    const gutterOffenders = surfaceVueFiles
+      .filter(file => offScaleGutter.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(gutterOffenders).toEqual([])
   })
 })

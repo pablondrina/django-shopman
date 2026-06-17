@@ -53,16 +53,16 @@ useSeoMeta({ title: 'Preferências' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Preferências' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
 
       <div>
-        <h1 class="text-2xl font-semibold">Preferências</h1>
-        <p class="text-sm text-muted-foreground">Conte como você gosta de ser atendido. Você pode mudar quando quiser.</p>
+        <h1 class="shop-title">Preferências</h1>
+        <p class="shop-muted">Conte como você gosta de ser atendido. Você pode mudar quando quiser.</p>
       </div>
 
       <UiSkeleton v-if="pending" class="h-48 rounded-lg" />

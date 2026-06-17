@@ -110,8 +110,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container max-w-4xl py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container max-w-4xl py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -121,10 +121,10 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container max-w-4xl space-y-5">
+    <div class="shop-container max-w-4xl shop-stack-block">
       <div>
         <p class="shop-kicker">Pagamento</p>
-        <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
+        <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
       </div>
 
       <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -132,7 +132,7 @@ useSeoMeta({
       <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
         <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
         <UiAlertDescription>
-          <div class="space-y-3">
+          <div class="shop-stack-block">
             <p>{{ errorView.message }}</p>
             <div class="flex flex-col gap-2 sm:flex-row">
               <UiButton v-if="errorView.showLogin" :to="loginHref" icon="lucide:log-in">Entrar</UiButton>
@@ -153,19 +153,19 @@ useSeoMeta({
           <UiAlertDescription>{{ payment.promise.message }}</UiAlertDescription>
         </UiAlert>
 
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <UiCard>
             <UiCardHeader>
               <UiCardTitle>{{ payment.total_display }}</UiCardTitle>
               <UiCardDescription>{{ paymentMethodLabel(payment.method) }}</UiCardDescription>
             </UiCardHeader>
             <UiCardContent class="space-y-4">
-              <div v-if="payment.method === 'card' && payment.checkout_url" class="space-y-3 rounded-lg border p-4">
+              <div v-if="payment.method === 'card' && payment.checkout_url" class="shop-stack-block rounded-lg border p-4">
                 <div class="flex items-start gap-3">
                   <Icon name="lucide:shield-check" :size="22" class="mt-0.5 shrink-0 text-emerald-600" />
                   <div class="space-y-1">
-                    <p class="font-medium text-foreground">Pagamento seguro</p>
-                    <p class="text-sm text-muted-foreground">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
+                    <p class="shop-item-title font-semibold text-foreground">Pagamento seguro</p>
+                    <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
                   </div>
                 </div>
                 <UiButton :href="payment.checkout_url" target="_blank" class="w-full" size="lg" icon="lucide:credit-card">
@@ -175,7 +175,7 @@ useSeoMeta({
 
               <div v-else-if="payment.method === 'card'" class="flex items-center gap-3 rounded-lg border p-4">
                 <Icon name="lucide:loader-circle" :size="20" class="shrink-0 animate-spin text-muted-foreground" />
-                <p class="text-sm text-muted-foreground">Preparando o pagamento seguro com cartão…</p>
+                <p class="shop-muted">Preparando o pagamento seguro com cartão…</p>
               </div>
 
               <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid grid-cols-1 gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
@@ -185,20 +185,20 @@ useSeoMeta({
                     <Icon name="lucide:qr-code" class="size-12" />
                   </div>
                 </div>
-                <div class="space-y-3">
-                  <p class="text-sm text-muted-foreground">Copia e cola PIX</p>
+                <div class="shop-stack-block">
+                  <p class="shop-muted">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
                   <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
 
-                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-1.5" role="timer" aria-live="polite">
-                    <div class="flex items-center justify-between text-sm">
+                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer" aria-live="polite">
+                    <div class="flex items-center justify-between shop-body">
                       <span class="text-muted-foreground">Tempo para pagar</span>
-                      <span class="font-semibold tabular-nums" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>
+                      <span class="shop-price" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>
                     </div>
                     <UiProgress :model-value="pixPct" :class="pixUrgent ? '[&>div]:bg-destructive' : ''" />
-                    <p class="text-xs text-muted-foreground">Assim que o pagamento cair, atualizamos esta tela sozinhos.</p>
+                    <p class="shop-meta">Assim que o pagamento cair, atualizamos esta tela sozinhos.</p>
                   </div>
-                  <p v-else-if="pixCountdown?.isExpired" class="text-sm font-medium text-destructive">O prazo do PIX expirou.</p>
+                  <p v-else-if="pixCountdown?.isExpired" class="shop-body font-semibold text-destructive">O prazo do PIX expirou.</p>
                 </div>
               </div>
 

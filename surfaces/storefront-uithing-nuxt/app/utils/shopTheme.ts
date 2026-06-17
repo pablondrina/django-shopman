@@ -79,14 +79,20 @@ export function shopThemeStyle (shop: ShopProjection | null | undefined): Record
   return tokenVars(shop?.design_tokens as ShopDesignTokensProjection | undefined)
 }
 
+// Fontes canônicas já self-hospedadas via @nuxt/fonts (declaradas no tailwind.css):
+// Instrument Sans é a `--font-sans` do tema; Fraunces a display dos títulos. A marca
+// não precisa re-injetá-las nem buscá-las externamente — só fontes de tenant DIFERENTES.
+const SELF_HOSTED_FONTS = new Set(['Instrument Sans', 'Fraunces'])
+
 /**
- * Família tipográfica da marca para `--font-sans` (null ⇒ herda o `ui-sans-serif` neutro).
- * A superfície usa uma única família (hierarquia por peso 400/600), então preferimos
- * `body_font`, caindo em `heading_font`. Fallback completo preserva o stack neutro.
+ * Família tipográfica da marca para `--font-sans` — só quando o tenant pede uma fonte
+ * DIFERENTE da canônica (Instrument Sans, já o default self-hospedado). null ⇒ usa a
+ * canônica do tema, sem override redundante.
  */
 export function shopFontFamily (tokens: ShopDesignTokensProjection | null | undefined): string | null {
   const name = (tokens?.body_font || tokens?.heading_font || '').trim()
-  return name ? `'${name}', ui-sans-serif, system-ui, sans-serif` : null
+  if (!name || SELF_HOSTED_FONTS.has(name)) return null
+  return `'${name}', ui-sans-serif, system-ui, sans-serif`
 }
 
 /** `<link>` para carregar a(s) fonte(s) da marca (vazio ⇒ neutro / preview). */
@@ -102,7 +108,7 @@ export function shopFontLinks (
     [tokens.heading_font, tokens.body_font]
       .map(f => (f || '').trim())
       .filter(Boolean)
-  )]
+  )].filter(f => !SELF_HOSTED_FONTS.has(f))
   if (!families.length) return []
 
   const query = families

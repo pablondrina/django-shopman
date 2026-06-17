@@ -708,8 +708,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0 pb-24 lg:pb-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -719,11 +719,11 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <section class="space-y-5">
+    <div class="shop-container grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section class="shop-stack-block">
         <div>
-          <h1 class="text-2xl font-semibold sm:text-3xl">Finalize seu pedido</h1>
-          <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
+          <h1 class="shop-title">Finalize seu pedido</h1>
+          <p class="mt-2 max-w-2xl shop-muted">
             Uma etapa por vez. Você confere tudo antes de enviar.
           </p>
         </div>
@@ -777,7 +777,7 @@ useSeoMeta({
               @edit="contactEditing = true"
             >
               <!-- Card branco, padronizado com endereço; edição deliberada. -->
-              <div class="space-y-3 rounded-lg border bg-card p-4">
+              <div class="shop-stack-block rounded-lg border bg-card p-4">
                 <div v-if="showNameInput" class="space-y-2">
                   <div class="flex items-center justify-between gap-2">
                     <UiLabel for="checkout-name">Nome</UiLabel>
@@ -803,7 +803,7 @@ useSeoMeta({
                   <div class="flex items-center gap-3 py-3 first:pt-0">
                     <Icon name="lucide:phone" class="size-4 shrink-0 text-muted-foreground" />
                     <div class="min-w-0 flex-1">
-                      <p class="text-sm font-semibold tabular-nums">
+                      <p class="shop-price">
                         {{ phoneDisplay || 'Entre por telefone para continuar' }}
                       </p>
                       <UiFieldError v-if="fieldErrors.phone" class="mt-1" :errors="fieldErrors.phone" />
@@ -834,7 +834,7 @@ useSeoMeta({
                 <UiFieldLabel v-if="availableFulfillment.includes('pickup')" for="checkout-fulfillment-pickup" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-pickup" value="pickup" />
-                    <UiFieldContent class="gap-0.5">
+                    <UiFieldContent class="gap-1">
                       <UiFieldTitle>
                         <Icon name="lucide:store" class="size-4" />
                         Retirada
@@ -846,7 +846,7 @@ useSeoMeta({
                 <UiFieldLabel v-if="availableFulfillment.includes('delivery')" for="checkout-fulfillment-delivery" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem id="checkout-fulfillment-delivery" value="delivery" />
-                    <UiFieldContent class="gap-0.5">
+                    <UiFieldContent class="gap-1">
                       <UiFieldTitle>
                         <Icon name="lucide:truck" class="size-4" />
                         Entrega
@@ -857,7 +857,7 @@ useSeoMeta({
                 </UiFieldLabel>
               </UiRadioGroup>
               <UiFieldError v-if="fieldErrors.fulfillment_type" :errors="fieldErrors.fulfillment_type" />
-              <p v-if="availableFulfillment.length === 1" class="text-sm text-muted-foreground">
+              <p v-if="availableFulfillment.length === 1" class="shop-muted">
                 Esta é a opção disponível para este pedido.
               </p>
               <template #footer>
@@ -888,12 +888,12 @@ useSeoMeta({
                 @addresses-changed="refresh"
               />
               <UiFieldError v-if="fieldErrors.delivery_address" :errors="fieldErrors.delivery_address" />
-              <p v-if="quotingZone" class="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <p v-if="quotingZone" class="mt-3 flex items-center gap-2 shop-muted">
                 <Icon name="lucide:loader-circle" class="size-4 animate-spin" /> Verificando se entregamos aqui…
               </p>
               <p
                 v-else-if="!pickupSwapOffer && cart && cart.delivery_fee_q !== null && !cart.delivery_zone_error"
-                class="mt-3 flex items-center gap-2 text-sm font-medium"
+                class="mt-3 flex items-center gap-2 text-sm font-semibold"
                 data-checkout-zone-ok
               >
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
@@ -913,7 +913,7 @@ useSeoMeta({
                 </UiAlertDescription>
               </UiAlert>
               <div v-if="freeDeliveryUpsell" class="mt-3" data-checkout-free-delivery>
-                <div class="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                <div class="mb-2 flex items-center justify-between gap-3 text-sm font-semibold">
                   <span class="flex items-center gap-2">
                     <Icon name="lucide:truck" class="size-4 shrink-0" />
                     Faltam {{ freeDeliveryUpsell.remaining_display }} para frete grátis
@@ -936,11 +936,11 @@ useSeoMeta({
               :icon="stepIcons.when"
               :summary="stepHeaderSummary('when')"
               data-checkout-step="when"
-              body-class="space-y-5"
+              body-class="shop-stack-block"
               @edit="goToStep('when')"
             >
               <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                <div class="space-y-3">
+                <div class="space-y-2">
                   <UiLabel>Data</UiLabel>
                   <!-- Datas padronizadas como as demais escolhas: caixas verticais
                        com dia da semana + data explícita. "Outra data" abre o
@@ -959,7 +959,7 @@ useSeoMeta({
                     >
                       <UiField orientation="horizontal" :data-disabled="option.disabled || undefined">
                         <UiRadioGroupItem :id="`checkout-date-${option.value}`" :value="option.value" :disabled="option.disabled" />
-                        <UiFieldContent class="gap-0.5">
+                        <UiFieldContent class="gap-1">
                           <UiFieldTitle>{{ option.title }}</UiFieldTitle>
                           <UiFieldDescription>{{ dateOptionDescription(option.value) }}</UiFieldDescription>
                         </UiFieldContent>
@@ -974,9 +974,9 @@ useSeoMeta({
                           :class="isCustomDate ? 'border-primary ring-1 ring-primary' : ''"
                         >
                           <Icon name="lucide:calendar-days" class="size-4 shrink-0" />
-                          <span class="flex flex-1 flex-col items-start gap-0.5 text-left">
-                            <span class="text-sm font-medium">Outra data</span>
-                            <span class="text-sm font-normal text-muted-foreground">{{ isCustomDate ? selectedDateLabel : 'Escolher no calendário' }}</span>
+                          <span class="flex flex-1 flex-col items-start gap-1 text-left">
+                            <span class="shop-body font-semibold">Outra data</span>
+                            <span class="shop-muted">{{ isCustomDate ? selectedDateLabel : 'Escolher no calendário' }}</span>
                           </span>
                         </UiButton>
                       </UiPopoverTrigger>
@@ -994,7 +994,7 @@ useSeoMeta({
                   <UiFieldError v-if="fieldErrors.delivery_date" :errors="fieldErrors.delivery_date" />
                 </div>
 
-                <div v-if="state.fulfillment_type === 'pickup' && slots.length" class="space-y-3">
+                <div v-if="state.fulfillment_type === 'pickup' && slots.length" class="space-y-2">
                   <UiLabel>Horário</UiLabel>
                   <UiRadioGroup v-model="state.delivery_time_slot" class="grid gap-2">
                     <UiFieldLabel
@@ -1011,7 +1011,7 @@ useSeoMeta({
                           :disabled="!slot.enabled"
                           :aria-label="slot.enabled ? slot.label : `${slot.label} — ${slot.reason}`"
                         />
-                        <UiFieldContent class="gap-0.5">
+                        <UiFieldContent class="gap-1">
                           <UiFieldTitle>
                             <span :class="!slot.enabled ? 'line-through' : ''">{{ slot.label }}</span>
                             <UiBadge v-if="slot.is_earliest && slot.enabled" variant="secondary">Mais cedo</UiBadge>
@@ -1052,7 +1052,7 @@ useSeoMeta({
                 <UiFieldLabel v-for="method in paymentMethods" :key="method.ref" :for="`checkout-payment-${method.ref}`" class="bg-card has-data-[state=checked]:bg-card has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary">
                   <UiField orientation="horizontal">
                     <UiRadioGroupItem :id="`checkout-payment-${method.ref}`" :value="method.ref" />
-                    <UiFieldContent class="gap-0.5">
+                    <UiFieldContent class="gap-1">
                       <UiFieldTitle>
                         <Icon :name="paymentIcon(method.ref)" class="size-4" />
                         {{ method.label }}
@@ -1066,7 +1066,7 @@ useSeoMeta({
 
               <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card has-data-[state=checked]:bg-card">
                 <UiField orientation="horizontal">
-                  <UiFieldContent class="gap-0.5">
+                  <UiFieldContent class="gap-1">
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
                     <UiFieldDescription>Economize até {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
@@ -1075,11 +1075,11 @@ useSeoMeta({
               </UiFieldLabel>
 
               <!-- Cupom de desconto: convencionalmente no checkout, junto do pagamento. -->
-              <div class="rounded-xl border bg-card p-4" data-checkout-coupon>
-                <div v-if="cart?.coupon_code" class="flex items-center gap-3 text-sm">
+              <div class="rounded-lg border bg-card p-4" data-checkout-coupon>
+                <div v-if="cart?.coupon_code" class="flex items-center gap-3 shop-body">
                   <Icon name="lucide:ticket-percent" class="size-5 shrink-0 text-primary" />
-                  <span class="min-w-0 flex-1 truncate font-medium">Cupom {{ cart.coupon_code }}</span>
-                  <span v-if="cart.coupon_discount_display" class="font-semibold tabular-nums text-primary">- {{ cart.coupon_discount_display }}</span>
+                  <span class="min-w-0 flex-1 truncate font-semibold">Cupom {{ cart.coupon_code }}</span>
+                  <span v-if="cart.coupon_discount_display" class="shop-price text-primary">- {{ cart.coupon_discount_display }}</span>
                   <UiButton
                     size="icon-sm"
                     variant="ghost"
@@ -1107,7 +1107,7 @@ useSeoMeta({
                    cliques nos campos alternem o toggle externo (label). -->
               <UiFieldLabel for="checkout-gift-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-gift-box>
                 <UiField orientation="horizontal">
-                  <UiFieldContent class="gap-0.5">
+                  <UiFieldContent class="gap-1">
                     <UiFieldTitle>{{ giftTitle }}</UiFieldTitle>
                     <UiFieldDescription>{{ giftDescription }}</UiFieldDescription>
                   </UiFieldContent>
@@ -1125,14 +1125,14 @@ useSeoMeta({
                       <UiInput id="gift-recipient-phone" v-model="state.recipient_phone" type="tel" inputmode="tel" autocomplete="off" placeholder="(43) 99999-0000" />
                       <UiFieldError v-if="fieldErrors.recipient_phone" :errors="fieldErrors.recipient_phone" />
                     </UiField>
-                    <p class="text-xs leading-5 text-muted-foreground">O endereço de entrega escolhido acima é o de quem vai receber o presente.</p>
+                    <p class="shop-meta">O endereço de entrega escolhido acima é o de quem vai receber o presente.</p>
                   </template>
                   <UiField>
                     <UiFieldLabel for="gift-message">Mensagem do presente</UiFieldLabel>
                     <UiTextarea id="gift-message" v-model="state.gift_message" :rows="2" placeholder="Ex: Feliz aniversário! Com carinho." />
                   </UiField>
                   <UiField orientation="horizontal">
-                    <UiFieldContent class="gap-0.5">
+                    <UiFieldContent class="gap-1">
                       <UiFieldTitle>Ocultar valores</UiFieldTitle>
                       <UiFieldDescription>Não mostrar preços na nota nem na etiqueta.</UiFieldDescription>
                     </UiFieldContent>
@@ -1146,7 +1146,7 @@ useSeoMeta({
                    divisórias). Desligar é o próprio dismiss (limpa a nota). -->
               <UiFieldLabel for="checkout-notes-toggle" class="bg-card has-data-[state=checked]:bg-card" data-checkout-notes-box>
                 <UiField orientation="horizontal">
-                  <UiFieldContent class="gap-0.5">
+                  <UiFieldContent class="gap-1">
                     <UiFieldTitle>Adicionar observação</UiFieldTitle>
                     <UiFieldDescription>Ponto de referência, interfone, troco…</UiFieldDescription>
                   </UiFieldContent>
@@ -1164,12 +1164,12 @@ useSeoMeta({
               </UiFieldLabel>
 
               <template #footer>
-                <div class="mt-4 space-y-3">
+                <div class="mt-4 space-y-2">
                   <div class="flex items-end justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="text-xs font-medium uppercase text-muted-foreground">Total do pedido</p>
-                      <p class="text-xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
-                      <p class="truncate text-xs text-muted-foreground">{{ confirmItemSummary }}</p>
+                      <p class="shop-kicker">Total do pedido</p>
+                      <p class="shop-price-strong">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+                      <p class="truncate shop-meta">{{ confirmItemSummary }}</p>
                     </div>
                   </div>
                   <UiButton
@@ -1182,7 +1182,7 @@ useSeoMeta({
                   >
                     Revisar pedido
                   </UiButton>
-                  <p v-if="submitDisabled && action?.reason" class="text-center text-sm text-muted-foreground">
+                  <p v-if="submitDisabled && action?.reason" class="text-center shop-muted">
                     {{ action.reason }}
                   </p>
                 </div>
@@ -1196,12 +1196,12 @@ useSeoMeta({
               variant="floating"
               class="mx-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0"
             >
-              <UiSheetHeader class="border-b px-5 py-4 pr-12">
+              <UiSheetHeader class="border-b px-4 py-4 pr-12">
                 <UiSheetTitle title="Confirmar pedido" />
                 <UiSheetDescription :description="confirmSheetDescription" />
               </UiSheetHeader>
 
-              <div class="max-h-[calc(85dvh-10rem)] overflow-y-auto bg-background px-5 py-4">
+              <div class="max-h-[calc(85dvh-10rem)] overflow-y-auto bg-background px-4 py-4">
                 <div class="space-y-4">
                   <UiAlert v-if="serverError" variant="destructive">
                     <UiAlertTitle>Não confirmado</UiAlertTitle>
@@ -1209,40 +1209,40 @@ useSeoMeta({
                   </UiAlert>
 
                   <div class="space-y-1 rounded-lg border bg-card p-4">
-                    <p class="text-xs font-medium uppercase text-muted-foreground">Total</p>
+                    <p class="shop-kicker">Total</p>
                     <p class="text-3xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
-                    <p class="text-sm text-muted-foreground">{{ confirmItemSummary }}</p>
+                    <p class="shop-muted">{{ confirmItemSummary }}</p>
                   </div>
 
                   <div class="divide-y rounded-md border bg-card text-sm">
                     <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Recebimento</p>
-                      <p class="font-medium">{{ fulfillmentSummary || fulfillmentLabel }}</p>
+                      <p class="font-semibold">{{ fulfillmentSummary || fulfillmentLabel }}</p>
                     </div>
                     <div v-if="state.fulfillment_type === 'delivery'" class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Endereço</p>
-                      <p class="font-medium">{{ addressSummary }}</p>
+                      <p class="font-semibold">{{ addressSummary }}</p>
                     </div>
                     <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Pagamento</p>
-                      <p class="font-medium">{{ paymentMethodLabel }}</p>
+                      <p class="font-semibold">{{ paymentMethodLabel }}</p>
                     </div>
                     <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Contato</p>
-                      <p class="font-medium">{{ contactSummary }}</p>
+                      <p class="font-semibold">{{ contactSummary }}</p>
                     </div>
                     <div v-if="state.is_gift" class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                       <p class="text-muted-foreground">Presente</p>
-                      <p class="font-medium">{{ giftSummary }}</p>
+                      <p class="font-semibold">{{ giftSummary }}</p>
                     </div>
                   </div>
 
-                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-card p-3 text-sm text-muted-foreground">
-                    <span class="mb-0.5 block text-xs font-medium uppercase text-muted-foreground">Cartão do presente</span>
+                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-card p-3 shop-muted">
+                    <span class="mb-0.5 block shop-kicker">Cartão do presente</span>
                     “{{ state.gift_message }}”
                   </p>
 
-                  <p v-if="state.notes" class="rounded-md border bg-card p-3 text-sm text-muted-foreground">
+                  <p v-if="state.notes" class="rounded-md border bg-card p-3 shop-muted">
                     {{ state.notes }}
                   </p>
                 </div>
@@ -1275,7 +1275,7 @@ useSeoMeta({
                         <UiItemTitle class="line-clamp-1">{{ line.qty }}× {{ line.name }}</UiItemTitle>
                         <UiItemDescription>{{ line.price_display }} cada</UiItemDescription>
                       </UiItemContent>
-                      <UiItemActions class="text-sm font-semibold tabular-nums">{{ line.total_display }}</UiItemActions>
+                      <UiItemActions class="shop-price">{{ line.total_display }}</UiItemActions>
                     </UiItem>
                   </UiItemGroup>
                   <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
@@ -1312,15 +1312,15 @@ useSeoMeta({
 
       <aside class="hidden space-y-4 lg:block lg:sticky lg:top-24 lg:self-start">
         <UiCard v-if="checkout" class="gap-0 overflow-hidden py-0">
-          <div class="p-5">
+          <div class="p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <UiCardTitle>Seu pedido</UiCardTitle>
                 <UiCardDescription>{{ formatCount(cart?.items_count || 0, 'item', 'itens') }}</UiCardDescription>
               </div>
-              <p class="text-lg font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+              <p class="shop-price-strong">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
             </div>
-            <div class="mt-4 space-y-2 text-sm text-muted-foreground" data-checkout-live-summary>
+            <div class="mt-4 space-y-2 shop-muted" data-checkout-live-summary>
               <div class="flex items-center gap-2">
                 <Icon :name="fulfillmentIcon" class="size-4 shrink-0" />
                 <span class="truncate">{{ fulfillmentSummary || fulfillmentLabel }}</span>
@@ -1334,14 +1334,14 @@ useSeoMeta({
 
           <UiSeparator />
 
-          <UiCardContent class="space-y-4 p-5">
+          <UiCardContent class="space-y-4 p-4">
             <UiItemGroup class="gap-2">
               <UiItem v-for="line in cart?.items || []" :key="line.line_id" size="sm" class="items-start bg-transparent p-0">
                 <UiItemContent>
                   <UiItemTitle class="line-clamp-1">{{ line.qty }}× {{ line.name }}</UiItemTitle>
                   <UiItemDescription>{{ line.price_display }} cada</UiItemDescription>
                 </UiItemContent>
-                <UiItemActions class="text-sm font-semibold tabular-nums">{{ line.total_display }}</UiItemActions>
+                <UiItemActions class="shop-price">{{ line.total_display }}</UiItemActions>
               </UiItem>
             </UiItemGroup>
 
@@ -1363,7 +1363,7 @@ useSeoMeta({
     <div v-if="checkout" class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 shadow-lg backdrop-blur lg:hidden">
       <div class="mx-auto flex max-w-screen-sm items-center gap-3">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-medium uppercase text-muted-foreground">Seu pedido</p>
+          <p class="shop-kicker">Seu pedido</p>
           <p class="truncate text-sm font-semibold">
             {{ formatCount(cart?.items_count || 0, 'item', 'itens') }} · {{ cart?.grand_total_display || 'R$ 0,00' }}
           </p>

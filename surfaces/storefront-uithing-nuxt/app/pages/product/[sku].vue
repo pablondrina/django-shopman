@@ -91,7 +91,7 @@ useHead({
     <!-- Breadcrumb full-width encostando na navbar; sem respiro até a foto (a barra
          dourada encosta direto na imagem da PDP). -->
     <div v-if="product" class="shop-breadcrumb-bar">
-      <div class="shop-container py-2.5">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -154,18 +154,18 @@ useHead({
               <UiBadge v-if="product.promotion_label" variant="default" class="font-normal">{{ product.promotion_label }}</UiBadge>
             </div>
 
-            <h1 class="line-clamp-2 text-3xl font-semibold leading-tight">{{ product.name }}</h1>
-            <p class="mt-2 line-clamp-2 text-sm leading-4 text-muted-foreground">{{ product.short_description }}</p>
-            <p v-if="longDescription" class="mt-2 text-sm leading-6 text-muted-foreground">{{ longDescription }}</p>
+            <h1 class="shop-title line-clamp-2">{{ product.name }}</h1>
+            <p class="mt-2 line-clamp-2 shop-muted">{{ product.short_description }}</p>
+            <p v-if="longDescription" class="mt-2 shop-muted">{{ longDescription }}</p>
 
             <div class="mt-2 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p v-if="product.original_price_display" class="text-sm text-muted-foreground line-through">
+                <p v-if="product.original_price_display" class="shop-meta line-through">
                   {{ product.original_price_display }}
                 </p>
                 <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <p class="text-xl font-semibold tabular-nums">{{ product.price_display }}</p>
-                  <p v-if="product.unit_weight_label" class="text-xs text-muted-foreground">
+                  <p class="shop-price-strong">{{ product.price_display }}</p>
+                  <p v-if="product.unit_weight_label" class="shop-meta">
                     {{ product.unit_weight_label }}
                   </p>
                 </div>
@@ -184,7 +184,7 @@ useHead({
               <UiAccordionItem v-if="product.components.length" value="components">
                 <UiAccordionTrigger>Itens do combo</UiAccordionTrigger>
                 <UiAccordionContent>
-                  <div v-for="component in product.components" :key="component.sku" class="flex justify-between gap-3 py-1 text-sm">
+                  <div v-for="component in product.components" :key="component.sku" class="flex justify-between gap-3 py-1 shop-body">
                     <span>{{ component.name }}</span>
                     <span>{{ component.qty_display }}</span>
                   </div>
@@ -193,7 +193,7 @@ useHead({
               <UiAccordionItem v-if="product.allergen?.has_any || product.ingredients_text || product.trace_notice" value="ingredients">
                 <UiAccordionTrigger>Ingredientes e restrições</UiAccordionTrigger>
                 <UiAccordionContent>
-                  <div class="space-y-2 text-sm leading-6 text-muted-foreground">
+                  <div class="space-y-2 shop-muted">
                     <p v-if="product.ingredients_text">{{ product.ingredients_text }}</p>
                     <p v-if="product.allergen?.allergens.length">Alérgenos: {{ product.allergen.allergens.join(', ') }}</p>
                     <p v-if="product.allergen?.dietary_info.length">Dieta: {{ product.allergen.dietary_info.join(', ') }}</p>
@@ -204,8 +204,8 @@ useHead({
               <UiAccordionItem v-if="nutrition" value="nutrition">
                 <UiAccordionTrigger>Nutricional</UiAccordionTrigger>
                 <UiAccordionContent>
-                  <div class="space-y-1 text-sm">
-                    <p v-if="nutrition.serving" class="pb-1 text-xs text-muted-foreground">Porção: {{ nutrition.serving }}</p>
+                  <div class="space-y-1 shop-body">
+                    <p v-if="nutrition.serving" class="pb-1 shop-meta">Porção: {{ nutrition.serving }}</p>
                     <div
                       v-for="row in nutrition.rows"
                       :key="row.label"
@@ -213,8 +213,8 @@ useHead({
                     >
                       <span class="text-muted-foreground">{{ row.label }}</span>
                       <span class="text-right">
-                        <span class="font-semibold tabular-nums">{{ row.value }}</span>
-                        <span v-if="row.pdv != null" class="ml-2 text-xs tabular-nums text-muted-foreground">{{ row.pdv }}% VD</span>
+                        <span class="shop-price">{{ row.value }}</span>
+                        <span v-if="row.pdv != null" class="ml-2 shop-meta tabular-nums">{{ row.pdv }}% VD</span>
                       </span>
                     </div>
                   </div>
@@ -223,7 +223,7 @@ useHead({
               <UiAccordionItem v-if="product.conservation?.has_any || product.unit_weight_label || product.approx_dimensions_label" value="care">
                 <UiAccordionTrigger>Conservação</UiAccordionTrigger>
                 <UiAccordionContent>
-                  <div class="space-y-2 text-sm text-muted-foreground">
+                  <div class="space-y-2 shop-muted">
                     <p v-if="product.conservation?.shelf_life_label">{{ product.conservation.shelf_life_label }}</p>
                     <p v-if="product.conservation?.storage_tip">{{ product.conservation.storage_tip }}</p>
                     <p v-if="product.unit_weight_label">Peso: {{ product.unit_weight_label }}</p>
@@ -236,7 +236,7 @@ useHead({
         </article>
 
         <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
-          <h2 class="text-base font-semibold">Você também pode gostar</h2>
+          <h2 class="shop-heading">Você também pode gostar</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem
               v-for="item in crossSell"
@@ -248,12 +248,12 @@ useHead({
         </section>
 
         <div
-          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
+          class="sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm">{{ product.name }}</p>
-              <p class="text-xl font-semibold tabular-nums text-background">{{ product.price_display }}</p>
+              <p class="truncate shop-body">{{ product.name }}</p>
+              <p class="shop-price-strong text-background">{{ product.price_display }}</p>
               <p v-if="product.unit_weight_label" class="text-xs text-background/70">
                 {{ compactUnitWeightLabel(product.unit_weight_label) }}
               </p>

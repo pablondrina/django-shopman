@@ -117,24 +117,24 @@ useSeoMeta({ title: 'Segurança e dados' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Segurança e dados' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-6">
+    <div class="shop-container shop-stack-block">
 
       <div>
-        <h1 class="text-2xl font-semibold">Segurança e dados</h1>
-        <p class="text-sm text-muted-foreground">Aparelhos confiáveis e o controle dos seus dados pessoais.</p>
+        <h1 class="shop-title">Segurança e dados</h1>
+        <p class="shop-muted">Aparelhos confiáveis e o controle dos seus dados pessoais.</p>
       </div>
 
       <!-- Aparelhos confiáveis -->
       <section class="space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="text-lg font-semibold">Aparelhos confiáveis</h2>
-            <p class="text-sm text-muted-foreground">
+            <h2 class="shop-heading">Aparelhos confiáveis</h2>
+            <p class="shop-muted">
               {{ devicesPending ? 'Carregando…' : formatCount(accountDevices.length, 'aparelho autorizado', 'aparelhos autorizados') }}
             </p>
           </div>
@@ -184,10 +184,10 @@ useSeoMeta({ title: 'Segurança e dados' })
       </section>
 
       <!-- Dados e privacidade -->
-      <section class="space-y-3 rounded-lg border bg-card p-4">
+      <section class="shop-stack-block rounded-lg border bg-card p-4">
         <div>
-          <h2 class="text-lg font-semibold">Dados e privacidade</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Baixe uma cópia dos seus dados ou encerre sua conta.</p>
+          <h2 class="shop-heading">Dados e privacidade</h2>
+          <p class="mt-1 shop-muted">Baixe uma cópia dos seus dados ou encerre sua conta.</p>
         </div>
         <UiAlert v-if="privacyIssue" variant="destructive">
           <UiAlertTitle>Privacidade</UiAlertTitle>

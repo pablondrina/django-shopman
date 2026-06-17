@@ -56,15 +56,15 @@ useSeoMeta({ title: 'Conta' })
 <template>
   <main class="shop-section pt-0">
     <div class="shop-breadcrumb-bar mb-6">
-      <div class="shop-container py-2.5">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-6">
+    <div class="shop-container shop-stack-block">
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-          <h1 class="truncate text-2xl font-semibold">{{ greeting }}</h1>
-          <p class="mt-0.5 text-sm text-muted-foreground">
+          <h1 class="truncate shop-title">{{ greeting }}</h1>
+          <p class="mt-0.5 shop-muted">
             <template v-if="pending">Carregando sua conta…</template>
             <template v-else>{{ formatCount(summary?.recent_order_count || 0, 'pedido recente', 'pedidos recentes') }}</template>
           </p>
@@ -92,23 +92,23 @@ useSeoMeta({ title: 'Conta' })
       <!-- Vitrine de fidelidade -->
       <section
         v-if="loyalty.available"
-        class="overflow-hidden rounded-2xl border bg-card"
+        class="overflow-hidden rounded-lg border bg-card"
         aria-labelledby="loyalty-heading"
       >
-        <div class="flex flex-wrap items-end justify-between gap-4 border-b px-5 py-4">
+        <div class="flex flex-wrap items-end justify-between gap-4 border-b px-4 py-4">
           <div class="min-w-0">
-            <p id="loyalty-heading" class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p id="loyalty-heading" class="shop-kicker">
               {{ loyalty.tierDisplay || 'Programa de fidelidade' }}
             </p>
-            <p class="mt-1 flex items-baseline gap-1.5">
-              <span class="text-3xl font-semibold tabular-nums leading-none">{{ loyalty.pointsBalance }}</span>
-              <span class="text-sm text-muted-foreground">pontos</span>
+            <p class="mt-1 flex items-baseline gap-2">
+              <span class="text-3xl font-semibold tabular-nums">{{ loyalty.pointsBalance }}</span>
+              <span class="shop-muted">pontos</span>
             </p>
           </div>
           <Icon name="lucide:sparkles" class="size-7 shrink-0 text-primary" />
         </div>
 
-        <div v-if="loyalty.hasStamps" class="space-y-3 px-5 py-4">
+        <div v-if="loyalty.hasStamps" class="shop-stack-block px-4 py-4">
           <div class="flex flex-wrap gap-2" role="img" :aria-label="`${loyalty.stampsCurrent} de ${loyalty.stampsTarget} selos`">
             <span
               v-for="slot in loyalty.slots"
@@ -122,7 +122,7 @@ useSeoMeta({ title: 'Conta' })
               <span v-else class="tabular-nums">{{ slot.index }}</span>
             </span>
           </div>
-          <p class="text-sm" :class="loyalty.cardComplete ? 'font-medium text-primary' : 'text-muted-foreground'">
+          <p class="shop-body" :class="loyalty.cardComplete ? 'font-semibold text-primary' : 'text-muted-foreground'">
             {{ loyalty.stampsLabel }}
           </p>
         </div>
@@ -130,11 +130,11 @@ useSeoMeta({ title: 'Conta' })
 
       <!-- Último pedido -->
       <section v-if="lastOrder" class="space-y-2">
-        <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Último pedido</h2>
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3">
+        <h2 class="shop-kicker">Último pedido</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
           <div class="min-w-0">
-            <p class="font-medium">{{ lastOrder.total_display }} · {{ lastOrder.status_label }}</p>
-            <p class="text-sm text-muted-foreground">{{ lastOrder.created_at_display }}</p>
+            <p class="font-semibold">{{ lastOrder.total_display }} · {{ lastOrder.status_label }}</p>
+            <p class="shop-muted">{{ lastOrder.created_at_display }}</p>
           </div>
           <div class="flex shrink-0 gap-2">
             <UiButton :to="orderTrackingRoute(lastOrder.ref)" variant="outline" size="sm" icon="lucide:radar">Acompanhar</UiButton>
@@ -157,17 +157,17 @@ useSeoMeta({ title: 'Conta' })
           v-for="card in navCards"
           :key="card.to"
           :to="card.to"
-          class="group flex items-center gap-4 rounded-xl border bg-card px-4 py-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="group flex items-center gap-4 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
             <Icon :name="card.icon" class="size-5" />
           </span>
           <span class="min-w-0 flex-1">
-            <span class="flex items-center gap-2 font-medium">
+            <span class="flex items-center gap-2 font-semibold">
               {{ card.label }}
               <UiBadge v-if="card.count" variant="secondary" size="sm" class="tabular-nums">{{ card.count }}</UiBadge>
             </span>
-            <span class="block truncate text-sm text-muted-foreground">{{ card.description }}</span>
+            <span class="block truncate shop-muted">{{ card.description }}</span>
           </span>
           <Icon name="lucide:chevron-right" class="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </NuxtLink>

@@ -71,8 +71,8 @@ const titleClass = computed(() => props.state === 'upcoming' ? 'text-muted-foreg
         <span class="sr-only">{{ stateLabel }}</span>
       </span>
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold" :class="titleClass">{{ title }}</p>
-        <p class="mt-0.5 line-clamp-3 whitespace-pre-line text-sm text-muted-foreground">
+        <p class="shop-item-title font-semibold" :class="titleClass">{{ title }}</p>
+        <p class="mt-0.5 line-clamp-3 whitespace-pre-line shop-muted">
           {{ summary || 'Complete esta etapa para continuar' }}
         </p>
       </div>

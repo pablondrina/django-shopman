@@ -62,7 +62,7 @@ const showSideActions = computed(() => Boolean(
 ))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
-const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-0.5 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
+const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
 const trackingTabsTriggerClass = 'border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none'
 const progressTimelineStep = computed(() => timelineActiveStep(tracking.value?.progress_steps || []))
 
@@ -160,8 +160,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -171,11 +171,11 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <section class="space-y-5">
+    <div class="shop-container grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
+          <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -183,7 +183,7 @@ useSeoMeta({
         <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
           <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
           <UiAlertDescription>
-            <div class="space-y-3">
+            <div class="shop-stack-block">
               <p>{{ errorView.message }}</p>
               <div class="flex flex-col gap-2 sm:flex-row">
                 <UiButton v-if="errorView.showLogin" :to="loginHref" icon="lucide:log-in">Entrar</UiButton>
@@ -203,22 +203,22 @@ useSeoMeta({
           >
             <UiAlertTitle class="text-foreground">{{ tracking.promise.title || tracking.status_label }}</UiAlertTitle>
             <UiAlertDescription class="w-full text-muted-foreground">
-              <div class="w-full space-y-3">
+              <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
 
-                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-medium" role="timer" aria-live="polite">
+                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-semibold" role="timer" aria-live="polite">
                   <Icon name="lucide:timer" :size="18" :class="statusPanelIconClass" />
                   <span class="text-muted-foreground">{{ tracking.promise_deadline_label || 'Tempo restante' }}</span>
                   <span class="tabular-nums text-foreground">{{ deadlineCount.mmss }}</span>
                 </div>
 
-                <p class="text-sm text-muted-foreground">{{ tracking.last_updated_display }}</p>
+                <p class="shop-muted">{{ tracking.last_updated_display }}</p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 text-sm">
+                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 shop-body">
                     <p class="text-muted-foreground">{{ row.label }}</p>
-                    <a v-if="row.url" :href="row.url" target="_blank" class="font-medium text-primary">{{ row.value }}</a>
-                    <p v-else class="font-medium text-foreground">{{ row.value }}</p>
+                    <a v-if="row.url" :href="row.url" target="_blank" class="font-semibold text-primary">{{ row.value }}</a>
+                    <p v-else class="font-semibold text-foreground">{{ row.value }}</p>
                   </div>
                 </div>
 
@@ -300,26 +300,26 @@ useSeoMeta({
                 </UiTabsContent>
 
                 <UiTabsContent value="summary">
-                  <div class="space-y-5">
+                  <div class="shop-stack-block">
                     <section class="space-y-2">
-                      <p class="text-xs font-medium uppercase text-muted-foreground">Resumo do pedido</p>
+                      <p class="shop-kicker">Resumo do pedido</p>
                       <UiDescriptionList class="rounded-lg border px-3">
                         <UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>
                         <UiDescriptionListDetails class="font-semibold">{{ tracking.total_display }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails class="font-medium">{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails>{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm v-if="tracking.payment_status_label || tracking.payment_status">Pagamento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status" class="font-medium">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm v-if="tracking.delivery_fee_display">{{ tracking.copy.delivery_fee_label }}</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display" class="font-medium">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
                       </UiDescriptionList>
                     </section>
 
                     <section v-if="tracking.items.length" class="space-y-2">
-                      <p class="text-xs font-medium uppercase text-muted-foreground">{{ tracking.copy.items_heading }}</p>
+                      <p class="shop-kicker">{{ tracking.copy.items_heading }}</p>
                       <UiItemGroup class="rounded-lg border">
                         <UiItem v-for="item in tracking.items" :key="item.sku" class="border-b px-3 py-3 last:border-b-0">
                           <UiItemContent>
@@ -334,7 +334,7 @@ useSeoMeta({
                 </UiTabsContent>
 
                 <UiTabsContent v-if="showDeliveryTab" value="delivery">
-                  <div class="space-y-3">
+                  <div class="shop-stack-block">
                     <UiAlert v-if="tracking.pickup_info">
                       <UiAlertTitle>Endereço</UiAlertTitle>
                       <UiAlertDescription>

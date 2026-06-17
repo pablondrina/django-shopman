@@ -62,14 +62,14 @@ onBeforeUnmount(() => {
     <!-- Barra de status: horário/status (esq) · telefone (dir). Substitui o banner genérico. -->
     <div class="bg-ink text-ink-foreground">
       <div class="shop-container flex h-9 items-center justify-between gap-3 text-sm">
-        <span class="flex min-w-0 items-center gap-1.5 opacity-90">
+        <span class="flex min-w-0 items-center gap-2 opacity-90">
           <Icon name="lucide:clock" class="size-3.5 shrink-0" />
           <span class="truncate">{{ statusLabel || 'Confira nossos horários' }}</span>
         </span>
         <a
           v-if="statusOpen && shop?.phone_url"
           :href="shop.phone_url"
-          class="flex shrink-0 items-center gap-1.5 font-medium opacity-90 transition hover:opacity-100"
+          class="flex shrink-0 items-center gap-2 font-semibold opacity-90 transition hover:opacity-100"
           :aria-label="`Ligar para ${shop?.brand_name || 'a loja'}`"
         >
           <span>Ligar</span>
@@ -80,7 +80,7 @@ onBeforeUnmount(() => {
           :href="whatsappUrl"
           target="_blank"
           rel="noopener"
-          class="flex shrink-0 items-center gap-1.5 font-medium opacity-90 transition hover:opacity-100"
+          class="flex shrink-0 items-center gap-2 font-semibold opacity-90 transition hover:opacity-100"
           :aria-label="`Enviar mensagem para ${shop?.brand_name || 'a loja'}`"
         >
           <span>Mensagem</span>
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
           v-if="!cart.is_empty"
           variant="default"
           size="sm"
-          class="absolute -right-1 -top-1 size-5 min-w-5 rounded-full p-0 text-[11px] font-semibold tabular-nums ring-2 ring-background"
+          class="absolute -right-1 -top-1 size-5 min-w-5 rounded-full p-0 text-xs font-semibold tabular-nums ring-2 ring-background"
           :class="cartPulse ? 'scale-110' : ''"
         >{{ cart.items_count }}</UiBadge>
       </UiButton>
@@ -145,8 +145,8 @@ onBeforeUnmount(() => {
           class="fixed inset-x-0 top-25 z-40 border-t border-border bg-background text-foreground shadow-xl"
           data-shop-menu-panel
         >
-          <nav class="shop-container max-h-[calc(100dvh-6.25rem)] space-y-6 overflow-y-auto py-5" aria-label="Menu">
-          <ul class="space-y-1">
+          <nav class="shop-container max-h-[calc(100dvh-6.25rem)] shop-stack-block overflow-y-auto py-4" aria-label="Menu">
+          <ul class="shop-stack-micro">
             <li v-for="item in primaryNav" :key="item.to">
               <NuxtLink
                 :to="item.to"
@@ -174,8 +174,8 @@ onBeforeUnmount(() => {
             </li>
           </ul>
 
-          <div class="space-y-3 rounded-xl border bg-card p-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visite a loja</p>
+          <div class="shop-stack-tight rounded-lg border bg-card p-4">
+            <p class="shop-kicker">Visite a loja</p>
 
             <a
               v-if="shop?.maps_url && addressLinesValue.length"
@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
 
             <div v-if="openingHours.length" class="flex items-start gap-3 text-sm">
               <Icon name="lucide:clock" class="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <div class="min-w-0 space-y-0.5">
+              <div class="min-w-0 shop-stack-micro">
                 <p v-for="entry in openingHours" :key="entry.label" class="leading-5">
                   <span class="text-muted-foreground">{{ entry.label }}:</span>
                   {{ entry.hours }}
@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
           </UiButton>
 
           <div v-if="socialLinks.length" class="space-y-2">
-            <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Redes sociais</p>
+            <p class="px-1 shop-kicker">Redes sociais</p>
             <div class="flex flex-wrap gap-2">
               <a
                 v-for="link in socialLinks"

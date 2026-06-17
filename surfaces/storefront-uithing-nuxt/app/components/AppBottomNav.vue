@@ -27,7 +27,7 @@ function active (to: string) {
         :key="item.to"
         :to="item.to"
         class="relative flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-xs"
-        :class="[active(item.to) ? 'font-bold text-primary' : 'text-muted-foreground', item.showsCartBadge && cartPulse ? 'scale-105 text-primary' : '']"
+        :class="[active(item.to) ? 'font-semibold text-primary' : 'text-muted-foreground', item.showsCartBadge && cartPulse ? 'scale-105 text-primary' : '']"
         :aria-current="active(item.to) ? 'page' : undefined"
       >
         <Icon

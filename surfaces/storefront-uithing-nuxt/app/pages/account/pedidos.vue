@@ -30,17 +30,17 @@ useSeoMeta({ title: 'Pedidos' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Pedidos' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold">Pedidos</h1>
-          <p class="text-sm text-muted-foreground">
+          <h1 class="shop-title">Pedidos</h1>
+          <p class="shop-muted">
             {{ pending ? 'Carregando…' : formatCount(orders?.length || 0, 'pedido', 'pedidos') }}
           </p>
         </div>
@@ -69,7 +69,7 @@ useSeoMeta({ title: 'Pedidos' })
         </div>
       </UiEmpty>
 
-      <ul v-else class="space-y-3">
+      <ul v-else class="shop-stack-block">
         <li
           v-for="order in orders || []"
           :key="order.ref"
@@ -77,12 +77,12 @@ useSeoMeta({ title: 'Pedidos' })
           :class="orderStatusAccentClass(order.status_tone)"
         >
           <div class="min-w-0">
-            <p class="flex items-center gap-2 font-medium">
+            <p class="flex items-center gap-2 font-semibold">
               <span class="size-2 shrink-0 rounded-full" :class="orderStatusDotClass(order.status_tone)" aria-hidden="true" />
               {{ order.status_label }}
               <span v-if="order.total_display" class="text-muted-foreground">· {{ order.total_display }}</span>
             </p>
-            <p class="mt-0.5 truncate text-sm text-muted-foreground">{{ order.ref }} · {{ order.created_at_display }}</p>
+            <p class="mt-0.5 truncate shop-muted">{{ order.ref }} · {{ order.created_at_display }}</p>
           </div>
           <div class="flex shrink-0 gap-2">
             <UiButton :to="orderTrackingRoute(order.ref)" variant="outline" size="sm" icon="lucide:radar">Acompanhar</UiButton>
