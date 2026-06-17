@@ -277,7 +277,16 @@ Ao adicionar domínio próprio, confirme que:
 ## Fase 1 — cutover por subdomínios (headless: loja no apex `/`)
 
 Depois do headless (Django não serve mais páginas de cliente), a topologia final
-desacopla **por domínio** (blueprint pronto em [`.do/app.subdomains.yaml`](../../.do/app.subdomains.yaml)):
+desacopla **por domínio**. Blueprints prontos (schema validado com `doctl apps spec
+validate --schema-only`):
+
+- **Staging primeiro** (recomendado): [`.do/app.staging-subdomains.yaml`](../../.do/app.staging-subdomains.yaml)
+  — concreto em `staging.nelsonboulangerie.com.br`, pagamentos MOCK, reusa o Postgres/Valkey
+  de staging. Aplica com `doctl apps update <STAGING_APP_ID> --spec .do/app.staging-subdomains.yaml`.
+- **Produção** (depois de validar): [`.do/app.subdomains.yaml`](../../.do/app.subdomains.yaml)
+  — template no apex real (trocar `STORE_DOMAIN`), pagamentos reais + secrets.
+
+Topologia (apex = loja):
 
 | Host | Componente | O quê |
 |---|---|---|
