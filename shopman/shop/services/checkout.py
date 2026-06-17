@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.models import Channel
@@ -50,13 +51,15 @@ def process(
             channel_ref=channel_ref,
             phone=phone,
         )
-    return process_ops(
+    result = process_ops(
         session_key=session_key,
         channel_ref=channel_ref,
         ops=_build_ops_from_data(data),
         idempotency_key=idempotency_key,
         ctx=ctx,
     )
+    _apply_post_commit_side_effects(data, channel_ref, order_ref=result.order_ref)
+    return result
 
 
 def process_ops(
@@ -235,6 +238,54 @@ def save_defaults(intent, *, order_ref: str, enabled: bool) -> None:
         data=defaults_data,
         source=f"order:{order_ref}",
     )
+
+
+def _post_commit_intent(data: dict, channel_ref: str) -> SimpleNamespace:
+    """Lightweight intent built from checkout data for the post-commit side effects.
+
+    Shop never imports the storefront ``CheckoutIntent`` (dependency rule); the side
+    effects only read attributes, so a namespace from ``data`` is enough.
+    """
+    customer = data.get("customer") if isinstance(data.get("customer"), dict) else {}
+    payment = data.get("payment") if isinstance(data.get("payment"), dict) else {}
+    return SimpleNamespace(
+        customer_phone=customer.get("phone") or "",
+        customer_name=customer.get("name") or "",
+        fulfillment_type=data.get("fulfillment_type", "pickup"),
+        saved_address_id=data.get("saved_address_id"),
+        delivery_address=data.get("delivery_address"),
+        delivery_address_structured=data.get("delivery_address_structured"),
+        payment_method=payment.get("method") or "",
+        delivery_time_slot=data.get("delivery_time_slot"),
+        notes=data.get("order_notes"),
+        channel_ref=channel_ref,
+    )
+
+
+def _apply_post_commit_side_effects(data: dict, channel_ref: str, *, order_ref: str) -> None:
+    """Persist customer-facing side effects after a successful commit (best-effort).
+
+    Upsert the customer, save a newly typed delivery address to their account, and
+    remember their checkout choices as defaults. Hospitality (omotenashi): saving is
+    the default; the surface opts OUT via ``save_as_default=false``. None of these may
+    break the checkout — the order is already committed.
+    """
+    intent = _post_commit_intent(data, channel_ref)
+    if not intent.customer_phone:
+        return
+
+    try:
+        ensure_customer(intent)
+    except Exception:
+        logger.warning("checkout.ensure_customer_failed order=%s", order_ref, exc_info=True)
+    try:
+        persist_new_address(intent)
+    except Exception:
+        logger.warning("checkout.persist_new_address_failed order=%s", order_ref, exc_info=True)
+    try:
+        save_defaults(intent, order_ref=order_ref, enabled=bool(data.get("save_as_default", True)))
+    except Exception:
+        logger.warning("checkout.save_defaults_failed order=%s", order_ref, exc_info=True)
 
 
 def order_has_payment_error(order_ref: str) -> bool:

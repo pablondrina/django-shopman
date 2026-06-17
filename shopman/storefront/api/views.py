@@ -384,6 +384,9 @@ class CheckoutView(APIView):
         checkout_data = {
             "customer": {"name": name, "phone": phone},
             "fulfillment_type": fulfillment_type,
+            # Omotenashi: lembrar escolhas é o default; toggle desmarcado → False.
+            # (Endereço novo é salvo sempre, independente disto.)
+            "save_as_default": serializer.validated_data.get("save_as_default", True),
         }
         if notes:
             checkout_data["order_notes"] = notes
