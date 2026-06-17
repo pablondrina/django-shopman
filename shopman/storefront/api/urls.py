@@ -28,7 +28,7 @@ from .auth import (
     TrustDeviceView,
     VerifyCodeView,
 )
-from .availability import AvailabilityView
+from .availability import AvailabilityView, StockAlertSubscribeView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .conversation import OrderConversationView
 from .geocode import ReverseGeocodeView
@@ -75,6 +75,7 @@ urlpatterns = [
     path("checkout/loyalty/", CheckoutLoyaltyView.as_view(), name="api-checkout-loyalty"),
     # Availability
     path("availability/<str:sku>/", AvailabilityView.as_view(), name="api-availability"),
+    path("availability/<str:sku>/notify/", StockAlertSubscribeView.as_view(), name="api-availability-notify"),
     # Catalog
     path("catalog/products/", ProductListView.as_view(), name="api-catalog-products"),
     path("catalog/products/<str:sku>/", ProductDetailView.as_view(), name="api-catalog-product-detail"),

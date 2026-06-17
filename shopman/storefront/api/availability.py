@@ -6,7 +6,12 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.http import Http404
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -73,6 +78,51 @@ class AvailabilityView(APIView):
 
         cache.set(cache_key, data, 10)
         return Response(data)
+
+
+@method_decorator(
+    ratelimit(key="user_or_ip", rate="10/m", method="POST", block=False), name="dispatch"
+)
+class StockAlertSubscribeView(APIView):
+    """POST /api/v1/availability/<sku>/notify/ — "Me avise quando disponível".
+
+    Aberto a cliente logado (usa o telefone da conta) ou anônimo (telefone no
+    corpo). Registra uma assinatura pendente; o aviso dispara quando o SKU volta.
+    """
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [AllowAny]
+
+    def post(self, request, sku):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde um instante."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        if not catalog_service.product_exists(sku):
+            raise Http404
+
+        from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.identity import get_authenticated_customer
+        from shopman.storefront.intents._phone import normalize_phone_input
+        from shopman.storefront.services import stock_alerts
+
+        customer = get_authenticated_customer(request)
+        phone = normalize_phone_input(str(request.data.get("phone") or "")) or ""
+        if customer is None and not phone:
+            return Response(
+                {"detail": "Informe um telefone para avisarmos quando voltar.", "field": "phone"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        channel_ref = request.GET.get("channel") or STOREFRONT_CHANNEL_REF
+        sub = stock_alerts.subscribe(sku, channel_ref=channel_ref, customer=customer, phone=phone)
+        if sub is None:
+            return Response(
+                {"detail": "Não foi possível registrar o aviso."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"ok": True})
 
 
 def _badge_for(result: dict) -> tuple[str, str]:
