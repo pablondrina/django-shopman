@@ -209,6 +209,17 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 17. **AccessLink `audience`** é validado na criação mas não enforçado na troca (débito de segurança a
     confirmar).
 
+### Fluxo de Entrega (WP-11 — pedido do Pablo, 2026-06-17)
+19. **Taxa de entrega por faixa de distância (admin-configurável)** — hoje a taxa vem do `DeliveryZone`
+    (CEP/bairro) como modifier. Falta calcular por distância (loja→endereço, via lat/lng) com faixas
+    configuráveis no admin.
+20. **Taxa de entrega como ITEM do pedido** — hoje é `delivery_fee_q` no total; Pablo quer como linha
+    do pedido (visível carrinho/KDS/fiscal).
+21. **Facilitador "teleporte" de endereço (sem API)** — o serviço de entrega usado não tem API; um
+    facilitador operador leva os dados de endereço pro site externo (pré-preenche/copia) só p/ reduzir
+    erro de digitação; despacho segue manual num primeiro momento. Detalhes no
+    [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md) WP-11.
+
 ### Produção (não é gap, é o próximo passo)
 18. **Cutover de produção** no apex real ainda não feito (staging-first). Falta pagamentos reais +
     secrets + desligar debug OTP; o apex hoje aponta p/ a landing `nb-site`.

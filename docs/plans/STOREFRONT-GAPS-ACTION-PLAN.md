@@ -157,6 +157,30 @@ rotas Django legadas. Reescrever os de cliente contra a loja Nuxt/API; manter os
 
 ---
 
+## Tier 1 (novo) — WP-11 — Fluxo final de ENTREGA  ⏱ grande · risco médio
+> Pedido do Pablo (2026-06-17). Hoje a taxa de entrega vem do `DeliveryZone` (por CEP/bairro) como
+> **modifier** no total. Falta o fluxo de entrega "para valer":
+
+1. **Taxa por FAIXA DE DISTÂNCIA (admin-configurável).** Calcular a distância loja→endereço
+   (já temos `Shop.latitude/longitude` + lat/lng no `delivery_address_structured`) e casar com faixas
+   configuráveis (ex.: 0–2km=R$5, 2–5km=R$8, …). Modelo/admin novo (faixas) OU `Shop.defaults`
+   dataclass-driven (ver `feedback_dataclass_driven_admin`). Coexistir/decidir vs `DeliveryZone`
+   (CEP/bairro): distância pode ser a regra primária; CEP/bairro fallback.
+2. **Injetar a taxa como ITEM do pedido.** Hoje é `delivery_fee_q` (modifier/total). Pablo quer a
+   entrega como **linha** do pedido (visível no carrinho/KDS/fiscal). DECISÃO: linha real (OrderItem
+   sintético) vs linha só de apresentação. Cuidar de fiscal/totais/estoque (item não-estocável).
+3. **Facilitador "teleporte" de endereço (sem API).** O serviço de entrega usado hoje **não tem API**.
+   Construir um facilitador OPERADOR que leva os dados de endereço do pedido para o site externo do
+   serviço (pré-preencher via query params/deep-link, ou copiar campos estruturados p/ clipboard) —
+   só para **reduzir erro de digitação**; o resto do despacho segue **manual** num primeiro momento.
+   Provável superfície: ação no backstage (detalhe do pedido / KDS expedição). Definir o alvo (URL do
+   serviço) com o Pablo.
+
+**Abertos p/ o Pablo:** qual serviço de entrega (URL/forma de deep-link); faixas de distância iniciais;
+taxa como OrderItem real ou apresentação; relação distância × DeliveryZone (CEP/bairro).
+
+---
+
 ## Ordem sugerida & gates
 
 1. **WP-1** (correção real, rápida) → 2. **WP-2** (destrava WP-3/WP-5) → 3. **WP-3** + **WP-5** + **WP-4**
