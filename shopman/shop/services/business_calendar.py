@@ -179,9 +179,14 @@ def available_dates(*, max_count: int = 3, horizon_days: int = 30, now: datetime
     base = now or timezone.now()
     local = _localtime_for_shop(base, shop) if shop else base
     today = local.date() if isinstance(local, datetime) else local
+    # Hoje só conta se a loja ainda não fechou — depois do expediente, a próxima
+    # data fulfillável é o próximo dia operante (eixo de HORA, par do is_open_on).
+    today_done = current_business_state(now=base, shop=shop).closure_source == "after_close"
     out: list[date] = []
     for offset in range(0, max(0, horizon_days) + 1):
         candidate = today + timedelta(days=offset)
+        if offset == 0 and today_done:
+            continue
         if is_open_on(candidate, shop=shop):
             out.append(candidate)
             if len(out) >= max_count:

@@ -84,11 +84,11 @@ watch(() => props.open, open => {
       class="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 p-0"
       data-address-label-sheet
     >
-      <UiSheetHeader class="px-5 pt-5">
+      <UiSheetHeader class="px-4 pt-4">
         <UiSheetTitle title="Endereço salvo" />
         <UiSheetDescription description="Como você quer chamar este endereço?" />
       </UiSheetHeader>
-      <div class="space-y-3 px-5 pb-5 pt-3">
+      <div class="shop-stack-block px-4 pb-4 pt-3">
         <div class="flex flex-wrap gap-2">
           <UiButton
             v-for="option in labelOptions"

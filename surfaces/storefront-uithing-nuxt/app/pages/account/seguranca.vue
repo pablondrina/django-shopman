@@ -117,12 +117,12 @@ useSeoMeta({ title: 'Segurança e dados' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Segurança e dados' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-6">
+    <div class="shop-container shop-stack-block">
 
       <div>
         <h1 class="shop-title">Segurança e dados</h1>
@@ -184,7 +184,7 @@ useSeoMeta({ title: 'Segurança e dados' })
       </section>
 
       <!-- Dados e privacidade -->
-      <section class="space-y-3 rounded-lg border bg-card p-4">
+      <section class="shop-stack-block rounded-lg border bg-card p-4">
         <div>
           <h2 class="shop-heading">Dados e privacidade</h2>
           <p class="mt-1 shop-muted">Baixe uma cópia dos seus dados ou encerre sua conta.</p>

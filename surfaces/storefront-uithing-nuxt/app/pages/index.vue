@@ -42,7 +42,9 @@ const quickReorderImageItem = computed(() => {
 })
 const visitAddressLines = computed(() => addressLines(home.value?.shop.full_address))
 const whatsappUrl = computed(() => home.value?.public_config.whatsapp_url || '')
-const whatsappImage = computed(() => featured.value[1]?.image_url || featured.value[0]?.image_url || null)
+// Fundo do CTA de ajuda: ambiente (interior da padaria), não foto de produto —
+// produto fica nos cards/cardápio; aqui o tom é de acolhimento/lugar.
+const whatsappImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80'
 
 // A home mais útil para quem voltou com pedido em andamento é o próprio
 // pedido: banner com prioridade sobre o hero (silencioso para anônimos).
@@ -120,9 +122,9 @@ useHead({
 
 <template>
   <main class="bg-background">
-    <section class="shop-section-cta bg-background pb-5 pt-0 sm:py-8 lg:py-10">
+    <section class="shop-section-cta bg-background pb-6 pt-0 sm:py-8 lg:py-10">
       <div class="shop-container">
-        <div v-if="pending" class="space-y-5">
+        <div v-if="pending" class="shop-stack-block">
           <UiSkeleton class="-mx-4 h-[calc(100svh-12.5rem)] rounded-none sm:mx-0 sm:h-[440px] sm:rounded-lg" />
           <UiSkeleton class="h-72 rounded-lg" />
         </div>
@@ -137,12 +139,12 @@ useHead({
           </UiAlertDescription>
         </UiAlert>
 
-        <div v-else-if="home" class="space-y-5">
+        <div v-else-if="home" class="shop-stack-block">
           <div>
             <NuxtLink
               v-if="activeOrder"
               :to="`/tracking/${encodeURIComponent(activeOrder.ref)}`"
-              class="-mx-4 block bg-cta px-4 py-3.5 text-cta-foreground transition hover:bg-cta/95 sm:mx-0 sm:rounded-xl"
+              class="-mx-4 block bg-cta px-4 py-3 text-cta-foreground transition hover:bg-cta/95 sm:mx-0 sm:rounded-lg"
               data-home-active-order
             >
               <div class="flex items-center gap-3">
@@ -153,7 +155,7 @@ useHead({
                   <p class="shop-body font-semibold">{{ activeOrder.status_label }}</p>
                   <p class="text-xs opacity-80">Pedido {{ activeOrder.ref }}</p>
                 </div>
-                <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-cta-foreground/15 py-1.5 pl-3.5 pr-2.5 text-sm font-semibold">
+                <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-cta-foreground/15 py-1 pl-3 pr-2 text-sm font-semibold">
                   Acompanhar
                   <Icon name="lucide:chevron-right" class="size-4" />
                 </span>
@@ -166,14 +168,14 @@ useHead({
               :reorder-action="reorderAction"
               :reorder-loading="home.last_order_ref ? !!reorderPending[home.last_order_ref] : false"
               :status-open="operationalStatus.isOpen"
-              closed-cta-label="Monte seu pedido para amanhã"
+              closed-cta-label="Montar pedido"
               @reorder="handleReorder"
             />
 
             <UiButton
               variant="outline"
               to="/busca"
-              class="mt-3 h-11 w-full justify-start gap-2 rounded-full bg-card font-normal text-muted-foreground shadow-sm"
+              class="mt-4 h-11 w-full justify-start gap-2 rounded-full bg-card font-normal text-muted-foreground shadow-sm"
               data-home-search-shortcut
             >
               <Icon name="lucide:search" class="size-4" />
@@ -220,11 +222,11 @@ useHead({
                 </div>
               </UiAspectRatio>
 
-              <UiCardContent class="flex flex-col justify-center gap-4 p-5 sm:p-7 lg:p-8">
+              <UiCardContent class="flex flex-col justify-center gap-4 p-6 sm:p-8">
                 <UiItemMedia variant="icon" class="size-12 rounded-full">
                   <Icon name="lucide:rotate-ccw" />
                 </UiItemMedia>
-                <div class="space-y-2">
+                <div class="shop-stack-tight">
                   <h2 class="shop-heading">{{ quickReorderTitle }}</h2>
                   <ul v-if="quickReorderItems.length" class="shop-muted flex flex-wrap gap-x-3 gap-y-1" aria-label="Itens do último pedido">
                     <li v-for="item in quickReorderItems" :key="item.sku" class="inline-flex items-center gap-1">
@@ -250,12 +252,12 @@ useHead({
     </section>
 
     <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-8 md:pt-10">
-      <div class="shop-container space-y-6">
+      <div class="shop-container shop-stack-section">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="shop-heading">{{ sectionsCopy.availability_heading.title }}</h2>
           <p class="mt-2 shop-muted">{{ sectionsCopy.availability_heading.message }}</p>
         </div>
-        <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
+        <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
           <ProductTile
             v-for="item in featuredPreview"
             :key="item.sku"
@@ -264,7 +266,7 @@ useHead({
           />
         </div>
         <div class="text-center">
-          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right">
+          <UiButton to="/menu" variant="ghost" icon="lucide:arrow-right" icon-placement="right" class="shop-gold-hover">
             {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio completo' }}
           </UiButton>
         </div>
@@ -272,7 +274,7 @@ useHead({
     </section>
 
     <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-background scroll-mt-20">
-      <div class="shop-container space-y-8">
+      <div class="shop-container shop-stack-section">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="shop-heading">{{ sectionsCopy.how_it_works_heading.title }}</h2>
           <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 shop-muted">
@@ -280,48 +282,67 @@ useHead({
           </p>
         </div>
 
-        <div class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-online>
-            <UiItemMedia variant="icon" class="size-10 rounded-full">
-              <Icon name="lucide:shopping-bag" />
-            </UiItemMedia>
-            <h3 class="shop-item-title font-semibold">Peça online</h3>
-            <p class="shop-muted">Escolha, pague e acompanhe — entregamos ou você retira.</p>
-            <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
-              {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
-            </UiButton>
+        <div class="mx-auto grid max-w-4xl grid-cols-1 items-stretch gap-4 md:grid-cols-2">
+          <div class="flex flex-col overflow-hidden rounded-lg border bg-card" data-home-path-online>
+            <UiAspectRatio :ratio="16 / 9" class="bg-muted">
+              <img
+                src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=900&q=80"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                class="size-full object-cover"
+              >
+            </UiAspectRatio>
+            <div class="flex flex-1 flex-col gap-3 p-4">
+              <div class="flex items-center gap-2">
+                <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
+                <h3 class="shop-item-title font-semibold">Peça online</h3>
+              </div>
+              <p class="shop-muted">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+              <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
+                {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
+              </UiButton>
+            </div>
           </div>
 
-          <div class="flex flex-col gap-3 rounded-lg border bg-card p-5" data-home-path-visit>
-            <UiItemMedia variant="icon" class="size-10 rounded-full">
-              <Icon name="lucide:store" />
-            </UiItemMedia>
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="shop-item-title font-semibold">Visite a loja</h3>
-              <UiBadge v-if="operationalStatus.label" variant="secondary">{{ operationalStatus.label }}</UiBadge>
-            </div>
-            <p v-if="visitAddressLines.length" class="shop-muted">
-              <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
-            </p>
-            <div class="mt-auto flex flex-wrap gap-2">
-              <UiButton
-                v-if="home.shop.maps_url"
-                :href="home.shop.maps_url"
-                target="_blank"
-                rel="noopener"
-                variant="outline"
-                icon="lucide:map-pin"
+          <div class="flex flex-col overflow-hidden rounded-lg border bg-card" data-home-path-visit>
+            <UiAspectRatio :ratio="16 / 9" class="bg-muted">
+              <img
+                src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=900&q=80"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                class="size-full object-cover"
               >
-                Como chegar
-              </UiButton>
-              <UiButton
-                v-if="operationalStatus.isOpen && home.shop.phone_url"
-                :href="home.shop.phone_url"
-                variant="ghost"
-                icon="lucide:phone"
-              >
-                Ligar
-              </UiButton>
+            </UiAspectRatio>
+            <div class="flex flex-1 flex-col gap-3 p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <Icon name="lucide:store" class="size-5 shrink-0 text-muted-foreground" />
+                <h3 class="shop-item-title font-semibold">Visite a loja</h3>
+                <UiBadge v-if="operationalStatus.label" variant="secondary" class="font-normal">{{ operationalStatus.label }}</UiBadge>
+              </div>
+              <p v-if="visitAddressLines.length" class="shop-muted">
+                <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
+              </p>
+              <div class="mt-auto flex flex-wrap gap-2">
+                <UiButton
+                  v-if="home.shop.maps_url"
+                  :href="home.shop.maps_url"
+                  target="_blank"
+                  rel="noopener"
+                  icon="lucide:map-pin"
+                >
+                  Como chegar
+                </UiButton>
+                <UiButton
+                  v-if="operationalStatus.isOpen && home.shop.phone_url"
+                  :href="home.shop.phone_url"
+                  variant="ghost"
+                  icon="lucide:phone"
+                >
+                  Ligar
+                </UiButton>
+              </div>
             </div>
           </div>
         </div>

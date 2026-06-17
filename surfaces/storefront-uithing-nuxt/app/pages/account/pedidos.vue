@@ -30,12 +30,12 @@ useSeoMeta({ title: 'Pedidos' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Pedidos' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -69,7 +69,7 @@ useSeoMeta({ title: 'Pedidos' })
         </div>
       </UiEmpty>
 
-      <ul v-else class="space-y-3">
+      <ul v-else class="shop-stack-block">
         <li
           v-for="order in orders || []"
           :key="order.ref"

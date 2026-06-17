@@ -177,6 +177,8 @@
   --shop-header-foreground: var(--foreground);
   --shop-footer: oklch(0.32 0.008 60);
   --shop-footer-foreground: oklch(0.94 0.003 60);
+  --shop-help: var(--shop-footer);
+  --shop-help-foreground: var(--shop-footer-foreground);
   /* barras escuras / bottom bar / CTAs — defaults NEUTROS (= hoje); marca sobrescreve */
   --shop-ink: var(--foreground);
   --shop-ink-foreground: var(--background);
@@ -377,6 +379,7 @@
      neutro herda o --foreground do corpo, como hoje. */
   .shop-header-bar {
     background-color: var(--shop-header);
+    --logo-brass: #8B6B2E; /* neutro: brass 500 (escuro, legível no header claro) */
   }
 
   .shop-footer {
@@ -386,6 +389,38 @@
 
   .shop-section {
     @apply py-6 sm:py-8 lg:py-10;
+  }
+
+  /*
+   * Sistema de layout — escala de ritmo vertical (4 degraus semânticos, fonte única).
+   * Régua geométrica ×2: cada degrau tem SIGNIFICADO; as telas consomem o apelido,
+   * nunca um space-y-* avulso. Espelha o que TOKEN_TO_CSS_VAR fez pela cor.
+   *
+   *   .shop-stack-micro    space-y-1 (0.25rem)  kicker→título, ícone↔label
+   *   .shop-stack-tight    space-y-2 (0.5rem)   stack interno de card, label→valor, gutter de lista
+   *   .shop-stack-block    space-y-4 (1rem)     entre cards, título de seção→conteúdo, campos de form
+   *   .shop-stack-section  space-y-8 (2rem)     entre seções maiores da página
+   *
+   * Snap dos números mágicos legados (nearest-in-log, decidir por PAPEL ao aplicar):
+   *   0.5/1/1.5 → micro · 2/2.5 → tight · 3 → tight (lista/intra-card) ou block (separa blocos)
+   *   5 → block · 6/7/8 → section.
+   * Gutters horizontais (gap) usam o working set {1,2,3,4} — sem 0.5/1.5/5.
+   * Card canônico: bg-card rounded-lg p-4 + stack interno tight; row compacto p-3.
+   */
+  .shop-stack-micro {
+    @apply space-y-1;
+  }
+
+  .shop-stack-tight {
+    @apply space-y-2;
+  }
+
+  .shop-stack-block {
+    @apply space-y-4;
+  }
+
+  .shop-stack-section {
+    @apply space-y-8;
   }
 
   .shop-kicker {
@@ -447,6 +482,31 @@
   [data-slot="card-description"],
   [data-slot="alert-description"] {
     overflow-wrap: anywhere;
+  }
+
+  /* Moldura vintage (retrato antigo): paspatur branco em camadas (.shop-photo-mat) +
+     borda recortada (scallop) via máscara — técnica do Temani Afif. --vp-scallop ajusta
+     o tamanho do recorte. .shop-photo-frame vai no container que envolve o paspatur. */
+  .shop-photo-frame {
+    --vp-scallop: 1rem;
+    -webkit-mask:
+      linear-gradient(#000 0 0) 50% / calc(100% - var(--vp-scallop) * 0.93) calc(100% - var(--vp-scallop) * 0.93) no-repeat,
+      radial-gradient(farthest-side, #000 98%, #0000) 0 0 / var(--vp-scallop) var(--vp-scallop) round;
+    mask:
+      linear-gradient(#000 0 0) 50% / calc(100% - var(--vp-scallop) * 0.93) calc(100% - var(--vp-scallop) * 0.93) no-repeat,
+      radial-gradient(farthest-side, #000 98%, #0000) 0 0 / var(--vp-scallop) var(--vp-scallop) round;
+  }
+  .shop-photo-frame-sm {
+    /* Módulo do recorte ~constante (vs. o frame grande em 1rem): em fotos pequenas
+       isso dá poucas voltinhas grandes — proporcional e legível — em vez de muitas
+       miúdas que somem. */
+    --vp-scallop: 0.9rem;
+  }
+  .shop-photo-mat {
+    @apply border-8 border-white outline-8 outline-white outline-offset-2 ring-8 ring-inset ring-white;
+  }
+  .shop-photo-mat-sm {
+    @apply border-4 border-white outline-4 outline-white outline-offset-1 ring-4 ring-inset ring-white;
   }
 }
 

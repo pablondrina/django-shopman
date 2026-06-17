@@ -18,7 +18,7 @@ function active (to: string) {
 
 <template>
   <nav
-    class="fixed inset-x-0 bottom-0 z-40 border-t bg-bottomnav/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    class="shop-bottomnav-bar fixed inset-x-0 bottom-0 z-40 border-t bg-bottomnav/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     aria-label="Navegação principal"
   >
     <div class="mx-auto grid h-16 max-w-md grid-cols-4 items-center px-2">
@@ -27,13 +27,13 @@ function active (to: string) {
         :key="item.to"
         :to="item.to"
         class="relative flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-xs"
-        :class="[active(item.to) ? 'text-primary' : 'text-muted-foreground', item.showsCartBadge && cartPulse ? 'scale-105 text-primary' : '']"
+        :class="[active(item.to) ? 'font-semibold text-primary' : 'text-muted-foreground', item.showsCartBadge && cartPulse ? 'scale-105 text-primary' : '']"
         :aria-current="active(item.to) ? 'page' : undefined"
       >
         <Icon
           :name="item.icon"
           class="size-5"
-          :class="item.showsCartBadge ? ['transition-transform', cartPulse ? 'scale-110' : ''] : ''"
+          :class="[active(item.to) ? 'fill-current' : '', item.showsCartBadge ? ['transition-transform', cartPulse ? 'scale-110' : ''] : '']"
         />
         <span class="truncate">{{ item.label }}</span>
         <UiBadge

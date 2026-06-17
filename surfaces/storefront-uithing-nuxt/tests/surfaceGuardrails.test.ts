@@ -79,7 +79,7 @@ describe('surface UX guardrails', () => {
     expect(read('app/pages/index.vue')).toContain('home.value?.shop_status')
     expect(read('app/pages/index.vue')).toContain('contextualNotices')
     expect(read('app/pages/index.vue')).not.toContain("home.origin_channel === 'whatsapp'")
-    expect(read('app/app.vue')).toContain('globalHomeNotice')
+    expect(read('app/components/ShopHeader.vue')).toContain('statusLabel')
     expect(read('app/composables/useShopSession.ts')).toContain('homeNotices')
     expect(read('app/types/shopman.ts')).toContain('label: string')
     expect(read('app/types/shopman.ts')).toContain('export interface HomeNoticeProjection')
@@ -138,7 +138,9 @@ describe('surface UX guardrails', () => {
     expect(menu).toContain('data-menu-filterbar')
     expect(menu).toContain('<main class="min-w-0">')
     expect(menu).toContain('<h1 class="sr-only">Cardápio</h1>')
-    expect(menu.indexOf('<UiBreadcrumbs')).toBeGreaterThan(menu.indexOf('<div class="shop-section">'))
+    // O cardápio NÃO tem breadcrumb: a pill bar dourada (sticky, flush sob a navbar)
+    // já ancora a página — um segundo bar dourado de breadcrumb somaria/duplicaria.
+    expect(menu).not.toContain('<UiBreadcrumbs')
     expect(menu).toContain('shop-pillbar sticky top-16 z-30 bg-background shadow-sm')
     expect(menu).not.toContain('bg-background/92')
     expect(menu).not.toContain('backdrop-blur supports-[backdrop-filter]:bg-background/78')
@@ -186,10 +188,13 @@ describe('surface UX guardrails', () => {
     const productTile = read('app/components/ProductTile.vue')
     const home = read('app/pages/index.vue')
 
-    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm"')
+    expect(read('app/components/Ui/Card/Card.vue')).toContain('base: "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6 shadow-sm"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('data-slot="aspect-ratio"')
     expect(read('app/components/Ui/AspectRatio.vue')).toContain('import { AspectRatio } from "reka-ui"')
-    expect(productTile).toContain('<UiCard class="gap-0 overflow-hidden py-0" data-product-tile>')
+    // ProductTile usa moldura vintage (retrato): paspatur branco recortado, sem UiCard.
+    expect(productTile).toContain('data-product-tile')
+    expect(productTile).toContain('shop-photo-frame')
+    expect(productTile).toContain('shop-photo-mat')
     expect(productTile).toContain('<UiAspectRatio :ratio="4 / 3" class="overflow-hidden bg-muted">')
     expect(productTile).toContain('class="size-full object-cover"')
     expect(productTile).toContain(':to="productRoute(item.sku)"')
@@ -249,7 +254,7 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain('activateNextSlide')
     expect(hero).toContain('UiButton')
     expect(home).toContain('<main class="bg-background">')
-    expect(home).toContain('<section class="shop-section-cta bg-background pb-5 pt-0 sm:py-8 lg:py-10">')
+    expect(home).toContain('<section class="shop-section-cta bg-background pb-6 pt-0 sm:py-8 lg:py-10">')
     expect(home).toContain(':reorder-action="reorderAction"')
     expect(home).toContain('@reorder="handleReorder"')
     expect(home).toContain('sectionsCopy.availability_heading.title')
@@ -345,7 +350,7 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('<UiFieldLabel v-if="availableFulfillment.includes(\'pickup\')" for="checkout-fulfillment-pickup" class="bg-card')
     expect(checkout).toContain('<UiFieldLabel v-for="method in paymentMethods"')
     expect(checkout).toContain('<UiField orientation="horizontal">')
-    expect(checkout).toContain('<UiFieldContent class="gap-0.5">')
+    expect(checkout).toContain('<UiFieldContent class="gap-1">')
     expect(checkout).toContain('paymentIcon(method.ref)')
     expect(checkout).toContain('{{ method.label }}')
     expect(checkout).not.toContain('class="flex gap-3 rounded-lg border p-4"')
@@ -398,18 +403,23 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('to="/cart"')
     expect(header).toContain('aria-label="Ver carrinho"')
     expect(header).toContain('cartPulse')
-    expect(header).toContain('class="hidden md:inline-flex"')
+    // Logo centralizado: carrinho (badge) sempre visível à direita — não mais só no desktop.
+    expect(header).toContain('lucide:shopping-cart')
     expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40">')
-    expect(header).toContain('<Icon name="lucide:store" class="size-5" />')
-    // Mobile: hambúrguer abre um menu rico (UiSheet canônico) com acesso à loja;
-    // a bottom-nav segue como navegação primária (decisão Pablo 2026-06-15).
-    expect(header).toContain('<UiSheet v-model:open="menuOpen">')
-    expect(header).toContain('<UiSheetContent side="right"')
+    // Barra utilitária: horário + ligar em 1 toque (omotenashi).
+    expect(header).toContain('lucide:clock')
+    expect(header).toContain('lucide:phone')
+    // Hambúrguer (esq) abre um menu que BROTA verticalmente sob a navbar — seção
+    // full-width em fundo da marca, lista estilo busca (decisão Pablo 2026-06-16).
+    // A bottom-nav segue como navegação primária no mobile.
+    expect(header).toContain('id="shop-menu-panel"')
+    expect(header).toContain('data-shop-menu-panel')
+    expect(header).toContain('Transition name="shop-menu-drop"')
+    expect(header).toContain('aria-expanded="menuOpen"')
     expect(header).toContain('data-shop-menu-trigger')
-    expect(header).toContain('name="lucide:menu"') // ícone do gatilho via <Icon>
+    expect(header).toContain("'lucide:x' : 'lucide:menu'") // gatilho alterna menu↔x via <Icon>
     expect(header).toContain('Como funciona')
     expect(header).toContain('Redes sociais')
-    expect(header).toContain('md:hidden') // gatilho do menu só no mobile
     expect(bottomNav).toContain("to: '/menu'")
     expect(bottomNav).toContain("to: '/account'")
     expect(header).not.toContain('shopping-basket')
@@ -444,9 +454,11 @@ describe('surface UX guardrails', () => {
     expect(quantity).not.toContain('<UiNumberField')
     // CTA sticky honesto: pílula com a qty real do carrinho, sem estado fantasma.
     expect(productRoute).not.toContain('mobileCtaTouched')
-    expect(productRoute).toContain('sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
+    expect(productRoute).toContain('sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
     expect(productRoute).toContain(':qty="currentQty"')
-    expect(productRoute).toContain('tone="inverted"')
+    // CTA de commit usa o Brass canônico (mesma cor de "Adicionar" no resto do site),
+    // não o secondary/kraft invertido — conformidade com o design system.
+    expect(productRoute).not.toContain('tone="inverted"')
     expect(cartState).not.toContain('drawerOpen')
     expect(smoke).toContain('cart page entry point should remain visible after add')
   })
@@ -459,7 +471,7 @@ describe('surface UX guardrails', () => {
     expect(app).toContain('<ShopFooter')
     expect(app).toContain('id="main-content"')
     expect(app).toContain('Pular para o conteúdo')
-    expect(app).toContain('shopStatusMessage')
+    expect(read('app/components/ShopHeader.vue')).toContain('bg-ink text-ink-foreground')
     expect(footer).toContain('session.shop.value')
     expect(footer).toContain('session.openingHours.value')
     expect(footer).not.toContain('openingHours.slice')
@@ -625,6 +637,7 @@ describe('surface UX guardrails', () => {
   it('shows coupon savings as signed discounts without losing the original subtotal', () => {
     const summary = read('app/components/CartSummaryBreakdown.vue')
     const cartPage = read('app/pages/cart.vue')
+    const checkout = read('app/pages/checkout.vue')
 
     expect(summary).toContain("import type { CartProjection } from '~/types/shopman'")
     expect(summary).toContain('cart.has_discount')
@@ -633,11 +646,14 @@ describe('surface UX guardrails', () => {
     expect(summary).toContain('discountDisplay(discount.amount_display)')
     expect(summary).toContain("return value.startsWith('-') ? value : `- ${value}`")
     expect(cartPage).not.toContain('{{ cart.subtotal_display }}</span>')
-    // Cupom discreto: linha "Tem um cupom?" expande; aplicado vira linha com ×.
-    expect(cartPage).toContain('Tem um cupom?')
-    expect(cartPage).toContain('data-cart-coupon')
-    expect(cartPage).toContain('Cupom {{ cart.coupon_code }}')
-    expect(cartPage).toContain('aria-label="Remover cupom"')
+    // Cupom mora no CHECKOUT (decisão Pablo 2026-06-16), não mais no carrinho —
+    // aplicar/remover via cart state + refresh() do payload do checkout.
+    expect(cartPage).not.toContain('data-cart-coupon')
+    expect(checkout).toContain('data-checkout-coupon')
+    expect(checkout).toContain('Cupom {{ cart.coupon_code }}')
+    expect(checkout).toContain('aria-label="Remover cupom"')
+    expect(checkout).toContain('await applyCoupon(coupon.value.trim())')
+    expect(checkout).toContain('await refresh()')
   })
 
   it('keeps account logic in the pure presentation layer and guards every sub-page', () => {
@@ -808,7 +824,7 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('const showDeliveryTab = computed')
     expect(tracking).toContain("const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')")
     expect(tracking).toContain('const trackingTabsListClass =')
-    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-0.5 overflow-x-auto bg-transparent p-0 before:absolute')
+    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute')
     expect(tracking).toContain('const trackingTabsTriggerClass =')
     expect(tracking).toContain('border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10')
     expect(tracking).toContain('<UiTabs default-value="history"')
@@ -888,8 +904,9 @@ describe('surface UX guardrails', () => {
     const bottomNav = read('app/components/AppBottomNav.vue')
 
     expect(badge).not.toContain('counter:')
-    // Header usa o UiBadge canônico (chip de contagem no menu) — sem hacks de posição.
-    expect(header).toContain('`Carrinho (${cart.items_count})`')
+    // Header usa o UiBadge canônico (contador no ícone do carrinho + chip no menu) — sem hacks.
+    expect(header).toContain('<UiBadge')
+    expect(header).toContain('{{ cart.items_count }}')
     expect(bottomNav).toContain('<UiBadge')
     expect(bottomNav).toContain('size="sm"')
     expect(bottomNav).toContain('rounded-full')
@@ -996,5 +1013,30 @@ describe('surface UX guardrails', () => {
     expect(abolished).toEqual([])
     expect(magicLead).toEqual([])
     expect(magicSize).toEqual([])
+  })
+
+  // Sistema de layout (LAYOUT-SYSTEM-PLAN): o ritmo vertical é a fonte única.
+  // Telas consomem a escala de stack de 4 degraus; números mágicos avulsos somem.
+  it('keeps vertical rhythm on the 4-step stack scale (fonte única de layout)', () => {
+    const css = read('app/assets/css/tailwind.css')
+    // As primitivas de composição existem e a largura de leitura é única.
+    for (const primitive of ['.shop-container', '.shop-section', '.shop-stack-micro', '.shop-stack-tight', '.shop-stack-block', '.shop-stack-section']) {
+      expect(css).toContain(primitive)
+    }
+    expect(css).toContain('max-w-6xl')
+
+    // Pilhas verticais usam só a régua {1,2,4,8}; off-scale (3/5/6/7 e meio-degraus) é deriva.
+    const offScaleStack = /\bspace-y-(0\.5|1\.5|2\.5|3|5|6|7)\b/
+    const stackOffenders = surfaceVueFiles
+      .filter(file => offScaleStack.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(stackOffenders).toEqual([])
+
+    // Gutters/paddings/margens autorais sem meio-degraus nem 5/7/9 (working set {1,2,3,4,6,8}).
+    const offScaleGutter = /\bgap-(0\.5|1\.5|2\.5|5|7)\b|\b[pm][trblxy]?-(2\.5|3\.5|5|7|9)\b|\brounded-(xl|2xl)\b/
+    const gutterOffenders = surfaceVueFiles
+      .filter(file => offScaleGutter.test(read(file)))
+      .map(file => relative(root, join(root, file)))
+    expect(gutterOffenders).toEqual([])
   })
 })

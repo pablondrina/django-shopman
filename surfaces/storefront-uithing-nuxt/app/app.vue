@@ -41,8 +41,6 @@ useSeoMeta({
   themeColor: () => themeColor.value
 })
 
-const globalHomeNotice = computed(() => session.homeNotices.value.find(notice => notice.priority === 'global') || null)
-const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim() || session.shopStatus.value?.message?.trim() || '')
 </script>
 
 <template>
@@ -54,9 +52,6 @@ const shopStatusMessage = computed(() => globalHomeNotice.value?.message?.trim()
     >
       Pular para o conteúdo
     </a>
-    <div v-if="shopStatusMessage" class="bg-ink px-4 py-2 text-center text-xs text-ink-foreground">
-      {{ shopStatusMessage }}
-    </div>
     <ShopHeader />
     <div id="main-content" class="flex-1 min-h-[calc(100svh-4rem)]">
       <NuxtPage />

@@ -11,8 +11,6 @@ const {
   setFromServer,
   setSkuQty,
   refreshCart,
-  applyCoupon,
-  removeCoupon,
   acceptAvailableQty,
   retryLastMutation
 } = useCartState()
@@ -24,9 +22,6 @@ watch(() => data.value?.cart, cart => {
   setFromServer(cart)
 }, { immediate: true })
 
-const coupon = ref('')
-const couponOpen = ref(false)
-const couponPending = ref(false)
 const checkoutAction = computed(() => cart.value.actions.find(action => action.ref === 'checkout') || null)
 const continueAction = computed(() => cart.value.actions.find(action => action.ref === 'continue_shopping') || null)
 const checkoutTarget = computed(() => localRouteFromBackend(checkoutAction.value?.href || '/checkout'))
@@ -82,18 +77,6 @@ async function removeLine (line: CartItemProjection) {
   await setSkuQty(metaForLine(line), 0)
 }
 
-async function submitCoupon () {
-  if (!coupon.value.trim()) return
-  couponPending.value = true
-  try {
-    await applyCoupon(coupon.value.trim())
-    coupon.value = ''
-    couponOpen.value = false
-  } finally {
-    couponPending.value = false
-  }
-}
-
 useSeoMeta({
   title: 'Carrinho'
 })
@@ -101,8 +84,8 @@ useSeoMeta({
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
@@ -111,7 +94,7 @@ useSeoMeta({
         />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
       <div>
         <h1 class="shop-title">Seu carrinho</h1>
         <p class="mt-2 shop-muted">
@@ -119,7 +102,7 @@ useSeoMeta({
         </p>
       </div>
 
-      <div v-if="pending" class="space-y-3">
+      <div v-if="pending" class="space-y-2">
         <div v-for="n in 3" :key="n" class="flex gap-3 border-b py-3">
           <UiSkeleton class="size-20 shrink-0 rounded-lg" />
           <div class="min-w-0 flex-1 space-y-2 self-center">
@@ -251,14 +234,14 @@ useSeoMeta({
                   <p v-if="line.availability_warning && !holdFor(line)" class="mt-0.5 text-xs text-destructive">{{ line.availability_warning }}</p>
 
                   <template v-if="holdFor(line)">
-                    <div v-if="holdFor(line)!.kind === 'awaiting'" class="mt-1.5" data-cart-line-awaiting>
+                    <div v-if="holdFor(line)!.kind === 'awaiting'" class="mt-2" data-cart-line-awaiting>
                       <UiBadge variant="outline">
                         <Icon name="lucide:clock" class="mr-1 size-3.5" />
                         Aguardando confirmação
                       </UiBadge>
                       <p class="mt-1 shop-meta">Avisamos quando ficar pronto.</p>
                     </div>
-                    <div v-else class="mt-1.5" data-cart-line-ready>
+                    <div v-else class="mt-2" data-cart-line-ready>
                       <UiBadge variant="default">
                         <Icon name="lucide:party-popper" class="mr-1 size-3.5" />
                         Confirme{{ holdFor(line)!.deadlineDisplay ? ` até ${holdFor(line)!.deadlineDisplay}` : '' }}
@@ -291,35 +274,6 @@ useSeoMeta({
               <UiProgress :model-value="cart.minimum_order_progress.percent" />
             </div>
 
-            <div class="mt-4" data-cart-coupon>
-              <div v-if="cart.coupon_code" class="flex items-center gap-3 shop-body">
-                <Icon name="lucide:ticket-percent" class="size-4 shrink-0 text-muted-foreground" />
-                <span class="min-w-0 flex-1 truncate">Cupom {{ cart.coupon_code }}</span>
-                <span v-if="cart.coupon_discount_display" class="shop-price text-primary">- {{ cart.coupon_discount_display }}</span>
-                <UiButton
-                  size="icon-sm"
-                  variant="ghost"
-                  icon="lucide:x"
-                  aria-label="Remover cupom"
-                  @click="removeCoupon"
-                />
-              </div>
-              <form v-else-if="couponOpen" class="flex items-center gap-2" @submit.prevent="submitCoupon">
-                <UiInput v-model="coupon" placeholder="Código do cupom" autocomplete="off" autofocus class="max-w-56" />
-                <UiButton type="submit" variant="outline" :loading="couponPending">Aplicar</UiButton>
-                <UiButton variant="ghost" size="icon-sm" icon="lucide:x" aria-label="Fechar cupom" @click="couponOpen = false" />
-              </form>
-              <UiButton
-                v-else
-                variant="ghost"
-                size="sm"
-                icon="lucide:ticket-percent"
-                class="-ml-2 text-muted-foreground hover:text-foreground"
-                @click="couponOpen = true"
-              >
-                Tem um cupom?
-              </UiButton>
-            </div>
           </section>
 
           <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">
@@ -355,24 +309,23 @@ useSeoMeta({
 
       <div
         v-if="!cart.is_empty"
-        class="sticky bottom-20 z-30 rounded-lg border border-foreground bg-foreground p-3 text-background shadow-lg md:hidden"
+        class="sticky bottom-20 z-30 shop-stack-tight rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
       >
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-xs uppercase tracking-wide text-background/70">Total do pedido</p>
-            <p class="shop-price-strong" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
-          </div>
-          <UiButton
-            :to="checkoutTarget"
-            size="lg"
-            variant="secondary"
-            icon="lucide:clipboard-check"
-            :disabled="checkoutDisabled"
-          >
-            {{ checkoutAction?.label || 'Finalizar pedido' }}
-          </UiButton>
+        <div class="flex items-baseline justify-between gap-3">
+          <p class="text-xs uppercase tracking-wide text-ink-foreground/70">Total do pedido</p>
+          <p class="shop-price-strong" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
         </div>
-        <p v-if="checkoutDisabled && checkoutReason" class="mt-2 text-center text-xs text-background/70">
+        <UiButton
+          :to="checkoutTarget"
+          size="lg"
+          variant="default"
+          icon="lucide:clipboard-check"
+          class="w-full"
+          :disabled="checkoutDisabled"
+        >
+          {{ checkoutAction?.label || 'Finalizar pedido' }}
+        </UiButton>
+        <p v-if="checkoutDisabled && checkoutReason" class="text-center text-xs text-ink-foreground/70">
           {{ checkoutReason }}
         </p>
       </div>

@@ -64,12 +64,12 @@ useSeoMeta({ title: 'Perfil' })
 
 <template>
   <main class="shop-section pt-0">
-    <div class="shop-breadcrumb-bar mb-5">
-      <div class="shop-container py-2.5">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
         <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Perfil' }]" />
       </div>
     </div>
-    <div class="shop-container space-y-5">
+    <div class="shop-container shop-stack-block">
 
       <div>
         <h1 class="shop-title">Perfil</h1>

@@ -177,11 +177,9 @@ const slides = computed<HeroSlide[]>(() => {
       description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
       imageUrl: HERO_IMAGE_URLS.reorder,
       imageAlt: shop.brand_name,
-      primaryLabel: props.reorderAction.label || 'Pedir de novo',
+      primaryLabel: 'Repetir pedido',
       primaryIcon: 'lucide:rotate-ccw',
-      primaryAction: props.reorderAction,
-      secondaryLabel: menuLabel,
-      secondaryTo: menuTo.value
+      primaryAction: props.reorderAction
     })
   } else {
     list.push({
@@ -275,7 +273,7 @@ onBeforeUnmount(() => {
 
       <!-- Layout pôster: conteúdo ancorado embaixo (foto respira no topo). Sem
            flex-1 a empurrar — o bloco cresce pelo conteúdo, nunca sobrepõe. -->
-      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] flex-col justify-end px-5 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-7 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-9">
+      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] flex-col justify-end px-6 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-8 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-10">
         <Transition name="hero-text" mode="out-in">
           <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center">
             <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>
@@ -287,7 +285,7 @@ onBeforeUnmount(() => {
             <p v-if="activeSlide.description" class="mt-4 max-w-xl shop-body text-white/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.4)] sm:text-base">
               {{ activeSlide.description }}
             </p>
-            <div class="mt-7 flex flex-wrap justify-center gap-3">
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
               <UiButton
                 v-if="activeSlide.primaryTo"
                 :to="activeSlide.primaryTo"
@@ -338,19 +336,26 @@ onBeforeUnmount(() => {
           aria-label="Próximo slide"
           @click="goToNextSlide"
         />
-        <div class="absolute inset-x-0 bottom-3 z-20 flex items-center justify-center gap-1.5 sm:bottom-4" role="tablist" aria-label="Slides">
+        <div class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center sm:bottom-1" role="tablist" aria-label="Slides">
+          <!-- Alvo de toque ≥44px (h-11 + px-1.5): a pílula visível é pequena (h-2),
+               mas a área clicável é generosa — antes o dot de 8px era quase impossível
+               de acertar, dando a sensação de "botão que não funciona". -->
           <UiButton
             v-for="(slide, index) in slides"
             :key="slide.ref"
             variant="ghost"
             size="icon-xs"
-            class="h-2 min-h-0 rounded-full p-0 hover:bg-white/70"
-            :class="index === activeIndex ? 'w-6 bg-white' : 'w-2 bg-white/45'"
+            class="h-11 min-h-0 w-auto rounded-full px-1.5 hover:bg-transparent"
             :aria-label="`Slide ${index + 1}`"
             :aria-selected="index === activeIndex"
             role="tab"
             @click="goToSlide(index)"
-          />
+          >
+            <span
+              class="block h-2 rounded-full transition-all duration-300"
+              :class="index === activeIndex ? 'w-6 bg-white' : 'w-2 bg-white/45'"
+            />
+          </UiButton>
         </div>
       </template>
     </div>

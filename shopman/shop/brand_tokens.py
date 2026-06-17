@@ -4,70 +4,98 @@ Paleta da marca do storefront (Nelson Boulangerie), exposta ao CSS como **canais
 Identidade: **navbar burgundy, corpo creme, detalhes/destaques em dourado/latão, rodapé
 verde-musgo** — boulangerie francesa clássica. Os valores são strings `'R G B'` (0–255).
 
-Uso no CSS: `rgb(var(--primary))` e no Tailwind `rgb(var(--primary) / <alpha-value>)`;
-na superfície Nuxt a camada de marca emite `rgb(R G B)` nas variáveis reais do tema.
+## Arquitetura (escala de matizes)
+A fonte da verdade são **escalas nomeadas por matiz** (Burgundy, Brass, Moss, Faubourg, Yellow),
+cada uma com poucos degraus (100=mais claro → 900=mais escuro). Os **papéis** semânticos
+(`primary`, `background`, `border`, …) mapeiam degraus dessas escalas — então retunar um matiz é
+mexer na escala, não caçar hex espalhado. Sistema de cor decidido em
+[[project_color_system_plan]] (Modelo A: **burgundy = ação**, ouro = acento/superfície/estado).
 
-NOTA (dívida de governança): a paleta vive aqui como código porque o deployment é o
-Nelson singleton. O destino é movê-la para dado (seed/Shop) consumido por um builder
-genérico — ver docs/plans/THEMING-PLAN.md.
+- **Ação** = Burgundy (`primary`, `header`, `ink`).
+- **Acento/superfície/estado** = Brass (barras douradas, fios, pílula selecionada, foco=Brass-700).
+- **Neutros do corpo** = Faubourg (com leve sopro róseo) + Yellow (canvas) + creme/branco.
+- **Status** (success/warning/error/info) = eixo PRÓPRIO, distinto da marca (não reusa Moss/Brass).
+
+Dark mode é um esquema derivado à mão (fundo marrom-burgundy quase-preto), não um degrau das
+escalas claras — por isso fica num dict próprio.
+
+Uso no CSS: `rgb(var(--primary))`; na superfície Nuxt a marca emite `rgb(R G B)` nas variáveis reais.
+
+NOTA (dívida de governança): a paleta vive aqui como código porque o deployment é o Nelson
+singleton. O destino é movê-la para dado (seed/Shop) consumido por um builder genérico.
 """
 
 from __future__ import annotations
 
-# ── Paleta nomeada NB (referência) → papéis semânticos shadcn/UI-Thing ──
-# NB Faubourg (creme) · NB Wood (marrom) · NB Burgundy · NB Brass/Mustard (dourado) ·
-# NB Kraft (greige) · NB Moss (verde). Hexes derivados do brand sheet.
+# ── Escalas de matiz NB (light) — fonte da verdade. '100' mais claro → '900' mais escuro. ──
+_BURGUNDY = {"100": "233 212 214", "300": "185 123 130", "500": "124 58 64", "600": "106 49 55", "800": "83 29 34", "900": "58 20 24"}
+_BRASS = {"100": "239 226 201", "300": "200 150 47", "500": "139 107 46", "700": "107 80 25", "900": "59 42 30"}
+_MOSS = {"300": "138 154 107", "500": "94 123 59", "700": "66 82 42", "900": "48 57 30"}
+# Faubourg = bege com leve sopro róseo (R puxa, B sobe p/ tirar o amarelo). Neutros do corpo.
+_FAUBOURG = {"100": "252 246 241", "200": "245 231 221", "300": "238 223 212", "400": "232 216 203", "500": "222 201 187", "700": "110 90 72"}
+_YELLOW = {"100": "251 244 220", "300": "245 233 194", "500": "236 214 143", "700": "217 184 90", "900": "168 134 47"}
+_CREAM = "247 239 224"   # creme de leitura sobre superfícies escuras de marca
+_WHITE = "255 255 255"
+
+# Eixo de STATUS — distinto da marca, mas na mesma linha terrosa (saturação/valor moderados).
+# success = verde-folha (≠ Moss oliva) · warning = âmbar queimado (≠ Brass mostarda) ·
+# error = vermelho-tijolo (≠ Burgundy vinho) · info = azul-poeira (único tom frio).
+_STATUS = {"success": "62 125 68", "warning": "194 112 28", "error": "180 51 37", "info": "63 110 140"}
 
 _BRAND_LIGHT: dict[str, str] = {
-    "background": "245 233 194",          # NB Light Yellow — corpo (comparação; Faubourg era 244 235 215)
-    "foreground": "59 42 30",             # NB Wood escurecido — texto marrom
-    "card": "252 247 238",                # creme quase-branco
-    "card_foreground": "59 42 30",
-    "popover": "252 247 238",
-    "popover_foreground": "59 42 30",
-    "primary": "124 58 64",               # NB Burgundy — CTA/forte
-    "primary_foreground": "247 239 224",  # creme sobre burgundy
-    "secondary": "233 220 196",           # NB Kraft claro
-    "secondary_foreground": "59 42 30",
-    "muted": "237 227 208",
-    "muted_foreground": "110 90 72",      # marrom médio (texto secundário)
-    "accent": "239 226 201",              # creme/dourado pálido — hover sutil (NÃO o dourado vivo)
-    "accent_foreground": "59 42 30",
-    "destructive": "180 35 24",
-    "destructive_foreground": "255 255 255",
-    "success": "94 123 59",               # NB Moss — verde
-    "success_foreground": "255 255 255",
-    "warning": "200 150 47",              # NB Mustard — dourado
-    "warning_foreground": "59 42 30",
-    "info": "63 110 140",
-    "info_foreground": "255 255 255",
-    "border": "220 205 180",              # NB Kraft
-    "input": "220 205 180",
-    "ring": "200 150 47",                 # NB Brass/Mustard — destaque dourado (foco)
-    # Superfícies de identidade (navbar/rodapé/barras/CTAs) — tratamento de marca revesível
-    "header": "124 58 64",                # navbar burgundy (NB Burgundy)
-    "header_foreground": "247 239 224",   # conteúdo creme sobre a navbar
-    "footer": "70 81 47",                 # NB Dark Moss — rodapé
-    "footer_foreground": "255 255 255",   # branco (melhor contraste no Dark Moss)
-    "ink": "83 29 34",                    # NB Dark Burgundy — barras escuras (status)
-    "ink_foreground": "247 239 224",
-    "bottomnav": "244 235 215",           # NB Faubourg — bottom bar (leve contraste com o fundo)
-    "cta": "139 107 46",                  # NB Brass — destaques/CTAs (escuro p/ texto claro)
-    "cta_foreground": "255 255 255",      # branco sobre o Brass (contraste)
+    "background": _YELLOW["300"],          # NB Light Yellow — canvas
+    "foreground": _BRASS["900"],           # Brass-900 (bronze quase-marrom) — texto
+    "card": _FAUBOURG["100"],              # creme quase-branco (sopro róseo)
+    "card_foreground": _BRASS["900"],
+    "popover": _FAUBOURG["100"],
+    "popover_foreground": _BRASS["900"],
+    "primary": _BURGUNDY["500"],           # AÇÃO — burgundy
+    "primary_foreground": _CREAM,
+    "secondary": _FAUBOURG["400"],
+    "secondary_foreground": _BRASS["900"],
+    "muted": _FAUBOURG["300"],
+    "muted_foreground": _FAUBOURG["700"],  # marrom médio (texto secundário)
+    "accent": _BRASS["100"],               # dourado pálido — hover sutil (NÃO o dourado vivo)
+    "accent_foreground": _BRASS["900"],
+    "destructive": _STATUS["error"],
+    "destructive_foreground": _WHITE,
+    "success": _STATUS["success"],
+    "success_foreground": _WHITE,
+    "warning": _STATUS["warning"],
+    "warning_foreground": _WHITE,
+    "info": _STATUS["info"],
+    "info_foreground": _WHITE,
+    "border": _FAUBOURG["500"],            # Faubourg rosé
+    "input": _FAUBOURG["500"],
+    "ring": _BRASS["700"],                 # Deep Brass — foco (passa 3:1 no creme)
+    # Superfícies de identidade (navbar/rodapé/barras) — tratamento de marca reversível.
+    "header": _BURGUNDY["500"],            # navbar burgundy
+    "header_foreground": _CREAM,
+    "footer": _MOSS["900"],                # Deep Dark Moss — EXCLUSIVO do rodapé
+    "footer_foreground": _WHITE,
+    "help": _MOSS["700"],                  # Dark Moss — CTA de ajuda/WhatsApp
+    "help_foreground": _WHITE,
+    "ink": _BURGUNDY["800"],               # Dark Burgundy — barras escuras (status)
+    "ink_foreground": _CREAM,
+    "bottomnav": _FAUBOURG["200"],         # Faubourg rosé — bottom bar
+    "cta": _BRASS["500"],                  # Brass — acento/superfície/estado (barras, fios, qty)
+    "cta_foreground": _WHITE,
 }
 
 _BRAND_LIGHT_ALIASES: dict[str, str] = {
-    "surface": "252 247 238",
-    "surface_hover": "237 227 208",
-    "foreground_muted": "110 90 72",
-    "border_strong": "200 177 137",
-    "primary_hover": "106 49 55",
-    "secondary_hover": "224 208 180",
+    "surface": _FAUBOURG["100"],
+    "surface_hover": _FAUBOURG["300"],
+    "foreground_muted": _FAUBOURG["700"],
+    "border_strong": "200 178 160",
+    "primary_hover": _BURGUNDY["600"],
+    "secondary_hover": _FAUBOURG["500"],
     "accent_hover": "230 214 184",
-    "error": "180 35 24",
-    "error_foreground": "255 255 255",
+    "error": _STATUS["error"],
+    "error_foreground": _WHITE,
 }
 
+# Dark mode = esquema derivado à mão (fundo marrom-burgundy quase-preto). Status levantado p/
+# contraste no escuro; marca (burgundy/brass/moss) mantida; neutros sem o rosé (concern do claro).
 _BRAND_DARK: dict[str, str] = {
     "background": "34 22 16",             # marrom-burgundy quase-preto
     "foreground": "240 230 210",          # creme
@@ -76,7 +104,7 @@ _BRAND_DARK: dict[str, str] = {
     "popover": "43 29 22",
     "popover_foreground": "240 230 210",
     "primary": "154 79 86",               # burgundy levantado p/ o escuro
-    "primary_foreground": "247 239 224",
+    "primary_foreground": _CREAM,
     "secondary": "58 42 32",
     "secondary_foreground": "240 230 210",
     "muted": "51 36 26",
@@ -85,23 +113,25 @@ _BRAND_DARK: dict[str, str] = {
     "accent_foreground": "240 230 210",
     "destructive": "224 106 94",
     "destructive_foreground": "43 29 22",
-    "success": "127 160 85",
+    "success": "126 178 110",             # verde-folha levantado
     "success_foreground": "34 22 16",
-    "warning": "216 174 74",
+    "warning": "224 154 74",              # âmbar levantado
     "warning_foreground": "34 22 16",
     "info": "111 160 192",
     "info_foreground": "34 22 16",
     "border": "70 53 40",
     "input": "70 53 40",
-    "ring": "212 165 63",                 # dourado mais claro p/ o escuro
+    "ring": "212 165 63",                 # brass mais claro p/ o escuro (visível no fundo escuro)
     "header": "124 58 64",                # navbar burgundy também no escuro (a marca é a marca)
-    "header_foreground": "247 239 224",
-    "footer": "54 63 36",                 # Dark Moss mais escuro p/ o escuro
-    "footer_foreground": "255 255 255",   # branco no Dark Moss
+    "header_foreground": _CREAM,
+    "footer": "38 45 24",                 # Deep Dark Moss (ainda mais escuro no dark) — só rodapé
+    "footer_foreground": _WHITE,
+    "help": "54 66 35",                   # Dark Moss — CTA de ajuda/WhatsApp
+    "help_foreground": _WHITE,
     "ink": "83 29 34",                    # Dark Burgundy (barras escuras, nos dois modos)
-    "ink_foreground": "247 239 224",
+    "ink_foreground": _CREAM,
     "bottomnav": "43 29 22",              # superfície escura p/ a bottom bar no escuro
-    "cta": "150 116 52",                  # NB Brass (um tom acima p/ o escuro)
+    "cta": "150 116 52",                  # Brass (um tom acima p/ o escuro)
     "cta_foreground": "250 246 237",
 }
 

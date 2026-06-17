@@ -25,34 +25,41 @@ function productRoute (sku: string) {
 </script>
 
 <template>
-  <UiCard class="gap-0 overflow-hidden py-0" data-product-tile>
-    <UiAspectRatio :ratio="4 / 3" class="overflow-hidden bg-muted">
-      <img
-        v-if="item.image_url"
-        :src="item.image_url"
-        :alt="item.name"
-        loading="lazy"
-        decoding="async"
-        class="size-full object-cover"
-      >
-      <div v-else class="flex size-full items-center justify-center text-muted-foreground">
-        <Icon name="lucide:image" class="size-7" />
+  <div class="flex min-w-0 flex-col" data-product-tile>
+    <!-- Foto como retrato vintage: paspatur branco recortado + sombra + leve inclinação. -->
+    <div class="drop-shadow-md transition-transform duration-200 hover:-rotate-1 motion-reduce:hover:rotate-0">
+      <div class="shop-photo-frame">
+        <div class="shop-photo-mat relative block bg-white">
+          <UiAspectRatio :ratio="4 / 3" class="overflow-hidden bg-muted">
+            <img
+              v-if="item.image_url"
+              :src="item.image_url"
+              :alt="item.name"
+              loading="lazy"
+              decoding="async"
+              class="size-full object-cover"
+            >
+            <div v-else class="flex size-full items-center justify-center text-muted-foreground">
+              <Icon name="lucide:image" class="size-7" />
+            </div>
+            <UiButton
+              :to="productRoute(item.sku)"
+              variant="ghost"
+              class="absolute inset-0 z-10 size-full rounded-none bg-transparent p-0 hover:bg-black/5"
+              :aria-label="`Ver detalhes de ${item.name}`"
+            >
+              <span class="sr-only">Ver detalhes de {{ item.name }}</span>
+            </UiButton>
+            <div v-if="badge" class="absolute left-2 top-2 z-20">
+              <UiBadge :variant="badge.variant" class="font-normal shadow-sm">{{ badge.label }}</UiBadge>
+            </div>
+          </UiAspectRatio>
+        </div>
       </div>
-      <UiButton
-        :to="productRoute(item.sku)"
-        variant="ghost"
-        class="absolute inset-0 z-10 size-full rounded-none bg-transparent p-0 hover:bg-black/5"
-        :aria-label="`Ver detalhes de ${item.name}`"
-      >
-        <span class="sr-only">Ver detalhes de {{ item.name }}</span>
-      </UiButton>
-      <div v-if="badge" class="absolute left-3 top-3 z-20">
-        <UiBadge :variant="badge.variant" class="shadow-sm">{{ badge.label }}</UiBadge>
-      </div>
-    </UiAspectRatio>
+    </div>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <UiCardContent class="space-y-3 p-3 sm:p-4">
+      <div class="shop-stack-tight px-1 pt-3">
         <div class="min-w-0">
           <h3 class="shop-item-title line-clamp-2">{{ item.name }}</h3>
           <p class="mt-1 line-clamp-2 shop-meta sm:min-h-10">
@@ -61,10 +68,11 @@ function productRoute (sku: string) {
         </div>
 
         <div class="hidden flex-wrap gap-1 sm:flex">
-          <UiBadge v-if="item.promotion_label" variant="default">{{ item.promotion_label }}</UiBadge>
-          <UiBadge v-if="item.is_new" variant="secondary">Novo</UiBadge>
-          <UiBadge v-if="item.is_featured" variant="secondary">Destaque</UiBadge>
-          <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline">{{ tag }}</UiBadge>
+          <UiBadge v-if="item.promotion_label" variant="default" class="font-normal">{{ item.promotion_label }}</UiBadge>
+          <UiBadge v-if="item.is_new" variant="secondary" class="font-normal">Novo</UiBadge>
+          <UiBadge v-if="item.is_featured" variant="secondary" class="font-normal">Destaque</UiBadge>
+          <!-- tags secundárias (dieta): mesma cor/peso/tamanho da descrição -->
+          <UiBadge v-for="tag in item.dietary_info.slice(0, 2)" :key="tag" variant="outline" class="border-muted-foreground/40 text-xs font-normal text-muted-foreground">{{ tag }}</UiBadge>
         </div>
 
         <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
@@ -88,7 +96,7 @@ function productRoute (sku: string) {
             />
           </div>
         </div>
-      </UiCardContent>
+      </div>
     </div>
-  </UiCard>
+  </div>
 </template>

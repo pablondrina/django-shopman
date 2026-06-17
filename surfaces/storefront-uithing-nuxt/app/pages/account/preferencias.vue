@@ -52,9 +52,13 @@ useSeoMeta({ title: 'Preferências' })
 </script>
 
 <template>
-  <main class="shop-section">
-    <div class="shop-container space-y-5">
-      <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Preferências' }]" />
+  <main class="shop-section pt-0">
+    <div class="shop-breadcrumb-bar mb-4">
+      <div class="shop-container py-2">
+        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Preferências' }]" />
+      </div>
+    </div>
+    <div class="shop-container shop-stack-block">
 
       <div>
         <h1 class="shop-title">Preferências</h1>

@@ -14,7 +14,7 @@
   import type { TextareaProps } from "@/components/Ui/Textarea.vue";
 
   const inputGroupTextareaStyles = tv({
-    base: "flex-1 resize-none rounded-none border-0 bg-transparent py-3 shadow-none focus-visible:ring-0 dark:bg-transparent",
+    base: "flex-1 resize-none rounded-none border-0 bg-transparent py-3 text-base shadow-none focus-visible:ring-0 md:text-sm dark:bg-transparent",
   });
 </script>
 

@@ -53,6 +53,6 @@
   );
 
   const styles = tv({
-    base: "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+    base: "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6 shadow-sm",
   });
 </script>

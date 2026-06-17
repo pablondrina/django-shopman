@@ -14,7 +14,7 @@
   import type { InputProps } from "@/components/Ui/Input.vue";
 
   const inputGroupInputStyles = tv({
-    base: "flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent",
+    base: "flex-1 rounded-none border-0 bg-transparent text-base shadow-none focus-visible:ring-0 md:text-sm dark:bg-transparent",
   });
 </script>
 

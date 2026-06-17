@@ -48,6 +48,8 @@ export const TOKEN_TO_CSS_VAR: Record<string, string> = {
   header_foreground: '--shop-header-foreground',
   footer: '--shop-footer',
   footer_foreground: '--shop-footer-foreground',
+  help: '--shop-help',
+  help_foreground: '--shop-help-foreground',
   ink: '--shop-ink',
   ink_foreground: '--shop-ink-foreground',
   bottomnav: '--shop-bottomnav',
@@ -166,6 +168,7 @@ export function shopThemeCss (
       ` --primary: var(--ring);` +
       ` --primary-foreground: var(--shop-header);` +
       ` --ring: ${fg};` +
+      ` --logo-brass: color-mix(in oklch, var(--shop-cta), white 34%);` +
       ` }`
     )
   }
@@ -175,17 +178,17 @@ export function shopThemeCss (
   // dourada. Emitido só com marca (especificidade dobrada vence as utilities bg-white).
   if (light['--shop-cta']) {
     blocks.push(
-      `.shop-hero-cta.shop-hero-cta { background-color: var(--shop-cta); color: var(--shop-cta-foreground); }`,
-      `.shop-hero-cta.shop-hero-cta:hover { background-color: color-mix(in srgb, var(--shop-cta) 90%, #000); color: var(--shop-cta-foreground); }`,
+      `.shop-hero-cta.shop-hero-cta { background-color: var(--primary); color: var(--primary-foreground); }`,
+      `.shop-hero-cta.shop-hero-cta:hover { background-color: color-mix(in srgb, var(--primary) 90%, #000); color: var(--primary-foreground); }`,
       `.shop-hero-cta-ghost.shop-hero-cta-ghost { background-color: transparent; border-color: var(--shop-cta); color: #fff; }`,
       `.shop-hero-cta-ghost.shop-hero-cta-ghost:hover { background-color: color-mix(in srgb, var(--shop-cta) 20%, transparent); color: #fff; }`
     )
 
-    // Controle de quantidade INTEIRO dourado (não só o "+"): pílula Brass + conteúdo
-    // creme. Remapeia --foreground p/ os botões −/+ (que usam text-foreground) virarem
-    // creme. Neutro mantém a pílula branca (sem este emit).
+    // Controle de quantidade é INTERATIVO (−/+) ⇒ cor de AÇÃO: pílula burgundy
+    // (--primary) + conteúdo claro, dando continuidade ao botão "Adicionar". Remapeia
+    // --foreground p/ os botões −/+ (text-foreground) ficarem claros. Neutro = pílula branca.
     blocks.push(
-      `.shop-qty.shop-qty { background-color: var(--shop-cta); color: var(--shop-cta-foreground); border-color: color-mix(in srgb, var(--shop-cta-foreground) 28%, transparent); --foreground: var(--shop-cta-foreground); --accent: color-mix(in srgb, var(--shop-cta) 82%, #000); --accent-foreground: var(--shop-cta-foreground); }`
+      `.shop-qty.shop-qty { background-color: var(--primary); color: var(--primary-foreground); border-color: color-mix(in srgb, var(--primary-foreground) 28%, transparent); --foreground: var(--primary-foreground); --accent: color-mix(in srgb, var(--primary) 82%, #000); --accent-foreground: var(--primary-foreground); }`
     )
 
     // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o
@@ -194,10 +197,11 @@ export function shopThemeCss (
       `.shop-section-cta.shop-section-cta { background-color: color-mix(in srgb, var(--shop-cta) 18%, var(--background)); }`
     )
 
-    // Botão da seção "Dúvidas?" em Dark Moss (= token do rodapé) com texto creme.
+    // Botão da seção "Dúvidas?" (WhatsApp) em Dark Moss próprio — um tom acima do
+    // rodapé, que reserva o Deep Dark Moss só pra ele. Texto branco.
     blocks.push(
-      `.shop-help-cta.shop-help-cta { background-color: var(--shop-footer); color: var(--shop-footer-foreground); }`,
-      `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-footer) 88%, #000); color: var(--shop-footer-foreground); }`
+      `.shop-help-cta.shop-help-cta { background-color: var(--shop-help); color: var(--shop-help-foreground); }`,
+      `.shop-help-cta.shop-help-cta:hover { background-color: color-mix(in srgb, var(--shop-help) 88%, #000); color: var(--shop-help-foreground); }`
     )
 
     // Pill bar (cardápio): barra Brass; pills inativas transparentes com texto branco;
@@ -211,8 +215,9 @@ export function shopThemeCss (
     )
 
     // Barra de busca: fundo Brass, campo branco (bg-card no input), ícone de voltar branco.
+    // Hover do botão de voltar (ghost) = mesmo wash branco sutil da pill bar (remap --accent).
     blocks.push(
-      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); color: #fff; }`,
+      `.shop-searchbar.shop-searchbar { background-color: var(--shop-cta); color: #fff; --accent: color-mix(in srgb, #fff 16%, transparent); --accent-foreground: #fff; }`,
       `.shop-searchbar [aria-label="Voltar ao cardápio"] { color: #fff; }`
     )
 
@@ -221,6 +226,26 @@ export function shopThemeCss (
     blocks.push(
       `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); color: #fff; --foreground: #fff; --primary: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
     )
+
+    // Fios dourados que emolduram o conteúdo. Desenhados como SOMBRA (não borda):
+    // a navbar (z-40) pinta 3px Brass logo abaixo de si, sobre o topo do conteúdo;
+    // o rodapé pinta 3px Brass logo acima de si, sobre o fim do conteúdo. Quando o
+    // que encosta também é Brass (barra de breadcrumb/pill bar douradas), dourado
+    // sobre dourado = sem "soma" — vê-se uma só. Sobre o creme, o fio aparece.
+    blocks.push(
+      `.shop-header-bar.shop-header-bar { box-shadow: 0 6px 0 0 var(--shop-cta); }`,
+      `.shop-footer.shop-footer { box-shadow: 0 -6px 0 0 var(--shop-cta); }`,
+      // Bottom bar: fio FINO (1px) dourado no topo — recolore a borda existente.
+      `.shop-bottomnav-bar.shop-bottomnav-bar { border-top-color: var(--shop-cta); }`
+    )
+
+    // Hover dourado-claro elegante (sobre o creme): wash Brass sutil + texto Brass.
+    // Usado em CTAs ghost ("Ver cardápio completo") e nas linhas de coleção da busca.
+    blocks.push(
+      `.shop-gold-hover.shop-gold-hover:hover { background-color: color-mix(in srgb, var(--shop-cta) 14%, transparent); color: var(--shop-cta); }`
+    )
+
   }
+
   return blocks.join('\n')
 }

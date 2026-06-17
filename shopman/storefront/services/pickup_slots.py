@@ -44,6 +44,24 @@ def _local_date() -> date:
         return date.today()
 
 
+def _today_closes_at() -> time | None:
+    """Hoje fecha às (hora local), ou ``None`` se sem janela/agenda.
+
+    Fonte da verdade do expediente é o ``business_calendar``. Um slot de
+    retirada "A partir das HH" só vale enquanto a loja está aberta — depois do
+    fechamento NÃO há retirada hoje, por mais que o último slot fique "ativo".
+    """
+    try:
+        from shopman.shop.services import business_calendar
+
+        state = business_calendar.current_business_state()
+        if state.closes_at:
+            return _parse_time(state.closes_at)
+    except Exception:
+        logger.debug("pickup_slots: could not read today's closing time", exc_info=True)
+    return None
+
+
 # ── Defaults ─────────────────────────────────────────────────────────
 
 DEFAULT_SLOTS = [
@@ -126,19 +144,40 @@ def _delivery_date_is_today(delivery_date: str) -> bool:
         return True
 
 
-def is_slot_available_for_today(slots: list[dict], slot_ref: str, *, now: time | None = None) -> bool:
+_CLOSED_SENTINEL = object()
+
+
+def is_slot_available_for_today(
+    slots: list[dict],
+    slot_ref: str,
+    *,
+    now: time | None = None,
+    closes_at: time | None | object = _CLOSED_SENTINEL,
+) -> bool:
     """Return whether a pickup slot is still selectable today.
 
-    Slot labels are "A partir das HHh": a slot remains available after its
-    start until a later configured slot starts. The last slot therefore stays
-    selectable for the rest of the day.
+    Slot labels are "A partir das HHh": a slot stays available after its start
+    until a later configured slot starts. BUT a slot is bounded by the store's
+    closing time — once the shop has closed (``clock >= closes_at``) there is no
+    pickup today, and a slot whose window only starts at/after closing is never
+    reachable today. ``closes_at`` is read from the business calendar by default;
+    pass it explicitly (incl. ``None`` for "no schedule") to keep this pure in tests.
     """
     slot = _find_slot_by_ref(slots, slot_ref)
     if slot is None:
         return False
     clock = now or _wall_clock()
-    current = _current_or_next_slot(slots, clock)
+    if closes_at is _CLOSED_SENTINEL:
+        closes_at = _today_closes_at()
     slot_start = _parse_time(slot["starts_at"])
+    if isinstance(closes_at, time):
+        # Loja já fechou hoje → nada de retirada hoje.
+        if clock >= closes_at:
+            return False
+        # Janela do slot começa no/depois do fechamento → inalcançável hoje.
+        if slot_start >= closes_at:
+            return False
+    current = _current_or_next_slot(slots, clock)
     return slot_start > clock or slot["ref"] == current["ref"]
 
 
@@ -313,6 +352,7 @@ def validate_pickup_slot_selection(
     delivery_date: str = "",
     cart_skus: list[str] | None = None,
     now: time | None = None,
+    closes_at: time | None | object = _CLOSED_SENTINEL,
 ) -> str | None:
     """Return a customer-facing error when a pickup slot cannot be selected."""
     if not delivery_time_slot:
@@ -324,7 +364,11 @@ def validate_pickup_slot_selection(
         return "Horário de retirada inválido."
 
     is_today = _delivery_date_is_today(delivery_date)
-    if is_today and not is_slot_available_for_today(slots, delivery_time_slot, now=now):
+    if is_today and not is_slot_available_for_today(slots, delivery_time_slot, now=now, closes_at=closes_at):
+        clock = now or _wall_clock()
+        effective_close = _today_closes_at() if closes_at is _CLOSED_SENTINEL else closes_at
+        if isinstance(effective_close, time) and clock >= effective_close:
+            return "A loja já fechou hoje. Escolha outra data para retirar."
         return "Este horário já passou. Selecione um horário futuro."
 
     if cart_skus:
@@ -357,15 +401,24 @@ def annotate_slots_for_checkout(cart_skus: list[str], *, delivery_date: str = ""
     effective_result = get_earliest_slot_for_skus(cart_skus, include_current_time=is_today)
     cart_earliest_ref = cart_result["slot_ref"]
     effective_earliest_ref = effective_result["slot_ref"]
-    effective_earliest_label = _slot_label(slots, effective_earliest_ref)
+
+    # Para hoje, o expediente limita a oferta: depois do fechamento NÃO há
+    # retirada hoje, por mais que o último slot continue "ativo" pela hora.
+    clock = _wall_clock() if is_today else None
+    closes_at = _today_closes_at() if is_today else None
+    store_closed_today = is_today and isinstance(closes_at, time) and clock is not None and clock >= closes_at
 
     annotated_slots = []
     for slot in slots:
         slot_ref = str(slot.get("ref") or "")
         enabled = _slot_is_at_or_after(slots, slot_ref, effective_earliest_ref)
+        if is_today and enabled:
+            enabled = is_slot_available_for_today(slots, slot_ref, now=clock, closes_at=closes_at)
         reason = ""
         if not _slot_is_at_or_after(slots, slot_ref, cart_earliest_ref):
             reason = "Sem tempo de preparo"
+        elif store_closed_today:
+            reason = "Loja fechada hoje"
         elif not enabled:
             reason = "Horário já passou"
         annotated_slots.append(
@@ -373,7 +426,7 @@ def annotate_slots_for_checkout(cart_skus: list[str], *, delivery_date: str = ""
                 **slot,
                 "enabled": enabled,
                 "reason": reason,
-                "is_earliest": slot_ref == effective_earliest_ref,
+                "is_earliest": enabled and slot_ref == effective_earliest_ref,
             }
         )
 

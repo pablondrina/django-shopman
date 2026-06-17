@@ -346,7 +346,7 @@ useSeoMeta({
 <template>
   <main class="shop-section">
     <div class="shop-container">
-      <div class="mx-auto max-w-md space-y-5">
+      <div class="mx-auto max-w-md shop-stack-block">
         <div v-if="moment !== 'none'" class="py-10 text-center" data-login-moment>
           <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-foreground text-background">
             <Icon name="lucide:check" class="size-6" />
@@ -360,7 +360,7 @@ useSeoMeta({
         <header>
           <h1 class="shop-title">{{ stepTitle }}</h1>
           <p class="mt-2 shop-muted">{{ stepDescription }}</p>
-          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-1.5 shop-meta">
+          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-2 shop-meta">
             <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
             Seu carrinho continua reservado durante a entrada.
           </p>
@@ -375,7 +375,7 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <form v-if="step === 'phone'" ref="phoneForm" class="space-y-5" @submit.prevent="requestCode('whatsapp', $event)">
+        <form v-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="requestCode('whatsapp', $event)">
           <UiField class="rounded-lg border bg-card p-4">
             <div class="flex items-center justify-between gap-3">
               <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
@@ -421,7 +421,7 @@ useSeoMeta({
           </div>
         </form>
 
-        <form v-else-if="step === 'code'" ref="codeForm" class="space-y-5" @submit.prevent="verifyCode">
+        <form v-else-if="step === 'code'" ref="codeForm" class="shop-stack-block" @submit.prevent="verifyCode">
           <p class="shop-body">
             Código enviado por {{ deliveryLabel }} para
             <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
@@ -501,7 +501,7 @@ useSeoMeta({
           </UiButton>
         </form>
 
-        <form v-else ref="welcomeForm" class="space-y-5" data-login-welcome @submit.prevent="submitWelcome">
+        <form v-else ref="welcomeForm" class="shop-stack-block" data-login-welcome @submit.prevent="submitWelcome">
           <UiField class="rounded-lg border bg-card p-4">
             <UiFieldLabel for="welcome-name">Nome</UiFieldLabel>
             <UiInput

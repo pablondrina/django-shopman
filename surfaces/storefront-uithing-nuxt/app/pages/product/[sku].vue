@@ -87,7 +87,20 @@ useHead({
 </script>
 
 <template>
-  <main class="pb-6 pt-0 lg:py-8">
+  <main class="pb-6 pt-0 lg:pb-8">
+    <!-- Breadcrumb full-width encostando na navbar; sem respiro até a foto (a barra
+         dourada encosta direto na imagem da PDP). -->
+    <div v-if="product" class="shop-breadcrumb-bar">
+      <div class="shop-container py-2">
+        <UiBreadcrumbs
+          :items="[
+            { label: 'Início', link: '/' },
+            { label: 'Cardápio', link: '/menu' },
+            { label: product.name }
+          ]"
+        />
+      </div>
+    </div>
     <div class="shop-container">
       <div v-if="pending" class="space-y-4">
         <UiSkeleton class="-mx-4 aspect-[4/3] rounded-none sm:-mx-6 lg:mx-0 lg:h-96 lg:w-1/2 lg:rounded-lg" />
@@ -107,45 +120,38 @@ useHead({
       </UiAlert>
 
       <template v-else-if="product && meta">
-        <article class="lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start lg:gap-8">
+        <!-- Imagem + informações num único card claro. Mobile/tablet: full-bleed
+             (sangra até as bordas, sem cantos/laterais). Desktop: card 2-col contido. -->
+        <article class="-mx-4 overflow-hidden border-b bg-card sm:-mx-6 lg:mx-0 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch lg:rounded-lg lg:border">
           <section class="min-w-0">
             <img
               v-if="product.image_url"
               :src="product.image_url"
               :alt="product.name"
-              class="-mx-4 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg"
+              class="aspect-[4/3] w-full object-cover lg:h-full"
               fetchpriority="high"
             >
-            <div v-else class="-mx-4 flex aspect-[4/3] w-[calc(100%+2rem)] items-center justify-center bg-muted text-muted-foreground sm:-mx-6 sm:w-[calc(100%+3rem)] lg:mx-0 lg:w-full lg:rounded-lg">
+            <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground lg:h-full">
               <Icon name="lucide:croissant" class="size-10" />
             </div>
 
-            <div v-if="product.gallery.length" class="mt-3 grid grid-cols-3 gap-3">
+            <div v-if="product.gallery.length" class="grid grid-cols-3 gap-3 p-4 pb-0 lg:p-6 lg:pb-0">
               <img
                 v-for="image in product.gallery.slice(0, 3)"
                 :key="image"
                 :src="image"
                 :alt="product.name"
-                class="aspect-square rounded-lg border object-cover"
+                class="aspect-[4/3] rounded-lg border object-cover"
                 loading="lazy"
               >
             </div>
           </section>
 
-          <div class="min-w-0 lg:sticky lg:top-24 lg:self-start">
-            <div class="shop-breadcrumb-bar -mx-4 mb-4 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-3 lg:rounded-md lg:px-3 lg:py-2">
-              <UiBreadcrumbs
-                :items="[
-                  { label: 'Início', link: '/' },
-                  { label: 'Cardápio', link: '/menu' },
-                  { label: product.name }
-                ]"
-              />
-            </div>
+          <div class="min-w-0 p-4 sm:p-6">
 
             <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
-              <UiBadge v-if="badge" :variant="badge.variant">{{ badge.label }}</UiBadge>
-              <UiBadge v-if="product.promotion_label" variant="default">{{ product.promotion_label }}</UiBadge>
+              <UiBadge v-if="badge" :variant="badge.variant" class="font-normal">{{ badge.label }}</UiBadge>
+              <UiBadge v-if="product.promotion_label" variant="default" class="font-normal">{{ product.promotion_label }}</UiBadge>
             </div>
 
             <h1 class="shop-title line-clamp-2">{{ product.name }}</h1>
@@ -242,7 +248,7 @@ useHead({
         </section>
 
         <div
-          class="sticky bottom-20 z-30 mt-5 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
+          class="sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
@@ -257,7 +263,6 @@ useHead({
               :qty="currentQty"
               :disabled="!product.can_add_to_cart"
               :max-qty="product.available_qty ?? product.max_qty"
-              tone="inverted"
             />
           </div>
         </div>

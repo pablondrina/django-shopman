@@ -91,7 +91,7 @@ useCanonical()
           class="shrink-0 rounded-full"
           :to="menuTargetFor(baseFilters)"
         />
-        <UiInputGroup class="min-w-0 flex-1 rounded-full bg-white">
+        <UiInputGroup class="min-w-0 flex-1 rounded-full bg-white text-foreground">
           <UiInputGroupAddon>
             <Icon name="lucide:search" class="size-4" />
           </UiInputGroupAddon>
@@ -115,7 +115,7 @@ useCanonical()
       </div>
     </div>
 
-    <div class="shop-container space-y-5 pt-4">
+    <div class="shop-container shop-stack-block pt-4">
       <div v-if="pending" class="space-y-2">
         <UiSkeleton v-for="n in 6" :key="n" class="h-10 rounded-lg" />
       </div>
@@ -130,7 +130,7 @@ useCanonical()
       <template v-else>
         <div v-if="activeChips.length && !normalizedQuery" data-busca-active-filters>
           <p class="shop-kicker">Filtros ativos</p>
-          <div class="mt-2 flex flex-wrap gap-1.5">
+          <div class="mt-2 flex flex-wrap gap-2">
             <UiButton
               v-for="chip in activeChips"
               :key="chip.key"
@@ -156,7 +156,7 @@ useCanonical()
               v-for="option in panel.collections"
               :key="option.key"
               variant="ghost"
-              class="h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-2.5 font-normal last:border-b-0"
+              class="shop-gold-hover h-auto w-full justify-start gap-3 rounded-none border-b px-1 py-3 font-normal last:border-b-0"
               @click="goToSection(option.value)"
             >
               <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />
@@ -168,7 +168,7 @@ useCanonical()
 
         <div v-if="panel.chips.length" data-busca-filter-chips>
           <p class="shop-kicker">Filtre por</p>
-          <div class="mt-2 flex flex-wrap gap-1.5">
+          <div class="mt-2 flex flex-wrap gap-2">
             <UiButton
               v-for="chip in panel.chips"
               :key="chip.key"
