@@ -18,12 +18,6 @@ ingress:
         preserve_path_prefix: true
     - match:
         path:
-          prefix: /nuxt
-      component:
-        name: nuxt-storefront
-        preserve_path_prefix: true
-    - match:
-        path:
           prefix: /pos
       component:
         name: pos-uithing
@@ -69,18 +63,6 @@ envs:
     type: GENERAL
   - key: WHATSAPP_STOREFRONT_URL
     value: "${APP_URL}"
-    scope: RUN_TIME
-    type: GENERAL
-  - key: SHOPMAN_INSTANCE_APPS
-    value: nelson
-    scope: RUN_TIME
-    type: GENERAL
-  - key: SHOPMAN_CUSTOMER_STRATEGY_MODULES
-    value: nelson.customer_strategies
-    scope: RUN_TIME
-    type: GENERAL
-  - key: SHOPMAN_INSTANCE_MODIFIERS
-    value: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
     scope: RUN_TIME
     type: GENERAL
   - key: DOORMAN_MESSAGE_SENDER_CLASS
@@ -152,7 +134,7 @@ services:
   - name: web
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
+      branch: main
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
@@ -186,37 +168,10 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
-  - name: nuxt-storefront
-    git:
-      repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
-    source_dir: /surfaces/storefront-nuxt
-    build_command: npm ci && npm run build
-    run_command: node .output/server/index.mjs
-    http_port: 3000
-    instance_count: 1
-    instance_size_slug: apps-s-1vcpu-0.5gb
-    envs:
-      - key: NUXT_DJANGO_BASE_URL
-        value: "${APP_URL}"
-        scope: RUN_TIME
-        type: GENERAL
-    health_check:
-      http_path: /nuxt/menu
-      initial_delay_seconds: 30
-      period_seconds: 10
-      timeout_seconds: 5
-      success_threshold: 1
-      failure_threshold: 5
-    alerts:
-      - rule: RESTART_COUNT
-        operator: GREATER_THAN
-        value: 2
-        window: TEN_MINUTES
   - name: thing-storefront
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
+      branch: main
     source_dir: /surfaces/storefront-uithing-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
@@ -247,7 +202,7 @@ services:
   - name: pos-uithing
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
+      branch: main
     source_dir: /surfaces/pos-uithing-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
@@ -280,7 +235,7 @@ workers:
   - name: directive-worker
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
+      branch: main
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: python manage.py process_directives --watch
@@ -297,7 +252,7 @@ jobs:
     kind: PRE_DEPLOY
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
-      branch: feat/pos-odoo-fidelity
+      branch: main
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: sh -c 'python manage.py check --deploy && python manage.py migrate --noinput'
