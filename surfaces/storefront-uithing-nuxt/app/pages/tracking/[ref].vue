@@ -172,7 +172,7 @@ useSeoMeta({
 
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 text-3xl font-semibold">Pedido {{ orderRef }}</h1>
+          <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -203,19 +203,19 @@ useSeoMeta({
               <div class="w-full space-y-3">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
 
-                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-medium" role="timer" aria-live="polite">
+                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-semibold" role="timer" aria-live="polite">
                   <Icon name="lucide:timer" :size="18" :class="statusPanelIconClass" />
                   <span class="text-muted-foreground">{{ tracking.promise_deadline_label || 'Tempo restante' }}</span>
                   <span class="tabular-nums text-foreground">{{ deadlineCount.mmss }}</span>
                 </div>
 
-                <p class="text-sm text-muted-foreground">{{ tracking.last_updated_display }}</p>
+                <p class="shop-muted">{{ tracking.last_updated_display }}</p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 text-sm">
+                  <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 shop-body">
                     <p class="text-muted-foreground">{{ row.label }}</p>
-                    <a v-if="row.url" :href="row.url" target="_blank" class="font-medium text-primary">{{ row.value }}</a>
-                    <p v-else class="font-medium text-foreground">{{ row.value }}</p>
+                    <a v-if="row.url" :href="row.url" target="_blank" class="font-semibold text-primary">{{ row.value }}</a>
+                    <p v-else class="font-semibold text-foreground">{{ row.value }}</p>
                   </div>
                 </div>
 
@@ -299,24 +299,24 @@ useSeoMeta({
                 <UiTabsContent value="summary">
                   <div class="space-y-5">
                     <section class="space-y-2">
-                      <p class="text-xs font-medium uppercase text-muted-foreground">Resumo do pedido</p>
+                      <p class="shop-kicker">Resumo do pedido</p>
                       <UiDescriptionList class="rounded-lg border px-3">
                         <UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>
                         <UiDescriptionListDetails class="font-semibold">{{ tracking.total_display }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails class="font-medium">{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails>{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm v-if="tracking.payment_status_label || tracking.payment_status">Pagamento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status" class="font-medium">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
 
                         <UiDescriptionListTerm v-if="tracking.delivery_fee_display">{{ tracking.copy.delivery_fee_label }}</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display" class="font-medium">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
+                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
                       </UiDescriptionList>
                     </section>
 
                     <section v-if="tracking.items.length" class="space-y-2">
-                      <p class="text-xs font-medium uppercase text-muted-foreground">{{ tracking.copy.items_heading }}</p>
+                      <p class="shop-kicker">{{ tracking.copy.items_heading }}</p>
                       <UiItemGroup class="rounded-lg border">
                         <UiItem v-for="item in tracking.items" :key="item.sku" class="border-b px-3 py-3 last:border-b-0">
                           <UiItemContent>
