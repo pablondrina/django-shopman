@@ -83,30 +83,41 @@ quebrado — por isso é tela-a-tela, testado, nunca no susto.
 2. ✅ **`shop/services/notification.py`** — feito no Passo 2 (fallback → `order_payment_url`).
 3. ✅ **`shop/services/access_urls.py` + magic links** — MIGRADOS de verdade no Passo 2 (acima).
    Cross-domain resolvido: link da loja + sessão no host da loja via BFF.
-4. **`storefront/presentation/catalog.py:114`** (`detail_url` → `storefront:product_detail`) —
-   "convenience for templates". Confirmar se a API/Nuxt usa; se não, é legado (tem fallback).
-5. **`storefront/services/catalog.py`** (sitemap Django reverse `storefront:home/menu/…`) — o
-   Nuxt já serve o próprio `sitemap.xml`/`robots.txt`. Aposentar o sitemap Django.
+4. ✅ **`storefront/presentation/catalog.py` `detail_url`** — era código morto (zero consumidores);
+   removido no Passo 3.
+5. ✅ **`storefront/services/catalog.py` sitemap** — `sitemap_urls` removido no Passo 3 (Nuxt serve
+   o próprio `sitemap.xml`/`robots.txt`).
 
-## Aposentar (depois que os links acima apontarem para o Nuxt)
+## ✅ Passo 3 — páginas Django de cliente APOSENTADAS (commit `37e34d12`)
 
-- **SSE legado** (`storefront:sku_state`, `order_events`, `stock_events`) — o Nuxt NÃO usa
-  EventSource. Remover views + rotas + `test_sse_emitters.py`.
-- **Templates Django de cliente** (`shop/templates/components/_header.html`, `_bottom_nav.html`,
-  `_focus_overlay.html` referenciam `storefront:`) — só os usam as páginas legadas. Aposentar
-  junto. (Confirmar que o admin/operador NÃO os usa.)
-- **Páginas legadas** `shopman/storefront/urls.py` — remover `path("", include("shopman.
-  storefront.urls"))` do `config/urls.py`. A ponte de auth do magic link já NÃO depende mais de
-  páginas Django (o `/a/` Django foi removido; quem consome é a loja Nuxt + `/api/v1/auth/access/`).
-  **MANTER** `storefront/api/`, `storefront/services/`, `storefront/projections/` (a API que o BFF
-  consome).
-- **Testes legados** de web-view (`storefront/tests/test_web_views*`) — remover/quarentenar.
+Django headless de verdade. **Removido:** `storefront/views/` inteiro, `storefront/urls.py`,
+`storefront/templates/` (61 templates), `context_processors.py`; `config/urls.py` perdeu o
+`include("storefront.urls")`; settings perderam `WelcomeGateMiddleware` + os context processors de
+storefront. **SSE de cliente** (`sku_state`/`order_events`) some com as views; **`_sse_emitters` e o
+SSE de operador (backstage) ficam** (separados). **Extraído p/ manter a API:**
+`get_authenticated_customer` → `storefront/identity.py`; `omotenashi_qa` (backstage) → links de
+cliente via `storefront_links`. **MANTIDOS** (a API que o BFF consome): `storefront/api/`,
+`services/`, `projections/`, `presentation/`, `intents/`, `models/`, `cart.py`, `identity.py`,
+`ChannelParamMiddleware`. **Testes:** removidos os de página (`test_web_*`, guardrails de
+template/asset, omotenashi partials/cold-strings, SSE trigger guard); contratos vivos PORTADOS p/
+a API/serviço (acesso a pedido, magic link, rate limiting, persist_address, home reorder);
+`cart_session` fixture usa `PUT /api/v1/cart/skus/`. `make test` verde (**1792 passed**).
+
+**Follow-ups (não bloqueiam o headless):**
+- `shop/templates/components/` (header/bottom_nav/etc.) e `storefront/static/` agora órfãos —
+  varrer com checagem de uso (alguns componentes podem ser compartilhados com backstage).
+- `shop/handlers/_sse_emitters.py`: emite p/ canais `stock-{ref}` sem assinante na loja; avaliar se
+  o backstage consome `order-{ref}` antes de remover.
+- e2e Playwright (`shop/tests/e2e/test_storefront_e2e.py`, `importorskip`→skip) e
+  `shop/tests/load/locustfile.py` ainda batem em rotas legadas — reescrever contra a loja Nuxt/API.
+- `make lint`: dívida de import-sort PRÉ-EXISTENTE em arquivos não tocados (test_projections_account,
+  conversation, order_tracking, diagnose_remote_order, test_kds_projections).
 
 ## Ordem & gates
 
-`make test` verde a cada passo. Reapontar (itens 1–5) → aposentar SSE/templates/páginas →
-limpar testes → `make test` → deploy staging e verificar **API + admin + operador + PDV +
-notificações** 100%.
+`make test` verde a cada passo. ✅ Reapontar (itens 1–5) → ✅ aposentar SSE/templates/páginas →
+✅ limpar testes → ✅ `make test` → **falta: deploy staging e verificar API + admin + operador +
+PDV + notificações 100%.**
 
 ## Fase 1 — subdomínios (depois do headless, na virada de domínio)
 
