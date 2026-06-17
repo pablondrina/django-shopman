@@ -39,6 +39,9 @@ const badge = computed(() => tileBadge(props.item))
         <span class="shop-price">{{ item.price_display }}</span>
         <span v-if="item.unit_weight_label" class="shop-meta">{{ compactUnitWeightLabel(item.unit_weight_label) }}</span>
       </p>
+      <div v-if="item.is_notifiable" class="relative z-10 mt-2">
+        <StockNotifyButton :sku="item.sku" compact />
+      </div>
     </div>
 
     <div class="relative shrink-0 self-start">
@@ -60,7 +63,7 @@ const badge = computed(() => tileBadge(props.item))
           </div>
         </div>
       </div>
-      <div class="absolute bottom-1 right-1 z-10">
+      <div v-if="!item.is_notifiable" class="absolute bottom-1 right-1 z-10">
         <CartQuantityAction
           :meta="meta"
           :qty="currentQty"

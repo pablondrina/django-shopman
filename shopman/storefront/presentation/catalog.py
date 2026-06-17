@@ -407,7 +407,10 @@ def _build_items(
             Availability.LOW_STOCK,
             Availability.PLANNED_OK,
         )
-        is_paused = bool(raw_avail and raw_avail.get("is_paused"))
+        # Pausado = decisão do operador: produto publicado (aparece no cardápio)
+        # mas não vendável, ou stock marcado como pausado. Distingue-se do esgotado
+        # honesto (que habilita "Me avise"). Espelha catalog_context (`or not is_sellable`).
+        is_paused = (not p.is_sellable) or bool(raw_avail and raw_avail.get("is_paused"))
         is_notifiable = (
             availability == Availability.UNAVAILABLE and p.is_sellable and not is_paused
         )

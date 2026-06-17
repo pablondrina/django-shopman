@@ -171,7 +171,9 @@ useHead({
                 </div>
               </div>
               <div class="hidden md:block">
+                <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" />
                 <CartQuantityAction
+                  v-else
                   :meta="meta"
                   :qty="currentQty"
                   :disabled="!product.can_add_to_cart"
@@ -258,7 +260,9 @@ useHead({
                 {{ compactUnitWeightLabel(product.unit_weight_label) }}
               </p>
             </div>
+            <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" compact />
             <CartQuantityAction
+              v-else
               :meta="meta"
               :qty="currentQty"
               :disabled="!product.can_add_to_cart"

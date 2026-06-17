@@ -29,6 +29,14 @@ export interface CatalogItemProjection {
   qty_in_cart: number
   available_qty: number | null
   allergens: string[]
+  // Disponibilidade fina (WP-2): distingue, dentro de unavailable, "pausado pelo
+  // operador" de "esgotado honesto". is_notifiable habilita o CTA "Me avise" (WP-3).
+  is_paused: boolean
+  is_notifiable: boolean
+  // Favorito do cliente logado (WP-4); false p/ anônimo.
+  is_favorite: boolean
+  // Avisos de preferência alimentar (WP-5), ex.: "Contém glúten". Vazio sem conflito.
+  dietary_warnings: string[]
 }
 
 export interface CatalogSectionProjection {
@@ -113,6 +121,11 @@ export interface ProductDetailProjection {
   available_qty: number | null
   max_qty: number
   qty_in_cart: number
+  // Disponibilidade fina (WP-2/WP-3) + favorito (WP-4) + avisos dietéticos (WP-5).
+  is_paused: boolean
+  is_notifiable: boolean
+  is_favorite: boolean
+  dietary_warnings: string[]
   is_bundle: boolean
   components: ComponentProjection[]
   unit_weight_label: string | null

@@ -87,7 +87,9 @@ function productRoute (sku: string) {
           </div>
 
           <div class="ml-auto shrink-0">
+            <StockNotifyButton v-if="item.is_notifiable" :sku="item.sku" compact />
             <CartQuantityAction
+              v-else
               :meta="meta"
               :qty="currentQty"
               :disabled="!item.can_add_to_cart"

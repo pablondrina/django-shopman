@@ -264,7 +264,11 @@ def build_product_detail(
         Availability.PLANNED_OK,
     )
     available_qty = catalog_context.promisable_int(raw_avail_session)
-    is_paused = bool(raw_avail_session and raw_avail_session.get("is_paused"))
+    # Pausado = decisão do operador (publicado mas não vendável, ou stock pausado);
+    # distingue-se do esgotado honesto que habilita "Me avise".
+    is_paused = (not product.is_sellable) or bool(
+        raw_avail_session and raw_avail_session.get("is_paused")
+    )
     is_notifiable = (
         availability == Availability.UNAVAILABLE and product.is_sellable and not is_paused
     )
