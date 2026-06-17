@@ -8,6 +8,36 @@
 > Depois de atacar (ou priorizar) estes, **retomamos a Revisão Reversa Spec-driven** para as outras
 > superfícies (PDV, backstage/KDS) e/ou re-spec do storefront pós-correções.
 
+## Status da camada visual Nuxt (fase A) — ✅ CONCLUÍDA (2026-06-17)
+
+Os backends WP-1..WP-6 já estavam feitos; a **camada visual Nuxt foi entregue e
+verificada ao vivo** (preview 127.0.0.1:3000), commit por WP, `make test` 1828 +
+`make lint` + vitest 217 verdes:
+
+- **WP-1** (`288fd141`): toggle "Salvar para a próxima vez" no checkout (pré-marcado,
+  opt-out) → `save_as_default=false` quando desmarcado.
+- **WP-2/WP-3** (`e5e665e4`): badge "Pausado" (is_paused) nos cards/PDP; CTA reusável
+  `StockNotifyButton` (logado 1-clique / anônimo popover de telefone) quando
+  is_notifiable. **+ correção de presentation**: is_paused agora honra produto
+  publicado-mas-não-vendável (catalog.py/product_detail.py).
+- **WP-4** (`208fb628`): coração `FavoriteHeart` + `useFavoritesState` (otimista,
+  sincroniza instâncias, version pós-confirmação); prateleira `MenuFavoritesShelf`
+  "Seus favoritos"; seed += new_arrivals → 4 coleções (Destaques/Direto do forno/
+  Novidades/Seus favoritos). "Direto do forno" (fresh_from_oven) só aparece com
+  dados de produção.
+- **WP-5** (`d524b552`): `DietaryWarningBadges` (âmbar, ícone, omotenashi) em
+  card+PDP; filtro "Só compatível com minhas preferências" no menu (off, contador
+  "N ocultos", pills de seções vazias somem).
+- **WP-6**: cross_sell já renderiza na PDP ("Você também pode gostar") — confirmado.
+  *(Nota: o plano citava "Talvez você também goste"; a loja usa "Você também pode
+  gostar" — ambas válidas, deixado como está.)*
+
+**Falta (fase B+):** WP-7 (dietético/nutricional via Recipe/BOM), WP-8 (gate
+browser-QA Omotenashi no CI), WP-9 (e2e/locust), WP-11 (entrega — decisões com Pablo),
+WP-10 resto.
+
+---
+
 ## Princípio transversal: Omotenashi é passageiro de 1ª classe
 
 O headless **removeu do CI o gate de browser-QA Omotenashi** (ele navegava as páginas Django, mortas).

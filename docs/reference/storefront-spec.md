@@ -169,19 +169,25 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 > Itens que o **código sugere** estarem faltando, inconsistentes ou só pela metade. Cada um é um
 > "confere comigo?" — alguns podem ser intencionais.
 
+> **Atualização 2026-06-17:** os itens 1, 2, 3, 4 e 9 abaixo foram **RESOLVIDOS**
+> (backends WP-1..6 + camada visual Nuxt fase A; ver
+> [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md)).
+> Mantidos aqui como registro da revisão original.
+
 ### Funcionais (candidatos a brecha real)
-1. **⚠️ Checkout via API não persiste endereço novo / não faz `ensure_customer` / `save_defaults`.**
+1. **✅ RESOLVIDO — Checkout via API não persiste endereço novo / `ensure_customer` / `save_defaults`.**
    A view de página (deletada) chamava `checkout_service.{ensure_customer,persist_new_address,save_defaults}`
    *depois* do commit. A `CheckoutView` da API (`storefront/api/views.py`) chama só `process()` +
    `grant_order_access` + limpa carrinho. **Confirmar** se isso é coberto por um handler de lifecycle
    ou se a loja Nuxt deixou de salvar o endereço novo na conta / criar o cliente / salvar defaults.
    *(Coberto por teste de serviço `test_persist_address.py`, mas o serviço pode não estar sendo chamado
    no caminho da API.)*
-2. **Preferência alimentar não filtra o menu.** Salva o toggle, mas não há "esconder itens não-veganos"
-   na vitrine. Wiring preferência→catálogo ausente.
-3. **Sem "Me avise quando voltar"** na PDP indisponível (feature "ouro" já anotada no roadmap).
-4. **Sem "Veja também" curado / sem favoritos do cliente.** "Veja também" é lista do backend;
-   "favorite_category" é admin-driven, não curadoria do cliente.
+2. **✅ RESOLVIDO — Preferência alimentar não filtra o menu.** WP-5: aviso dietético (badge âmbar)
+   no card+PDP + filtro opcional "Só compatível com minhas preferências" (off, contador de ocultos).
+3. **✅ RESOLVIDO — Sem "Me avise quando voltar".** WP-3: `StockNotifyButton` na PDP/cards quando
+   is_notifiable (logado 1-clique / anônimo só-telefone).
+4. **✅ RESOLVIDO — favoritos do cliente.** WP-4: coração explícito (PDP/cards) + coleção "Seus
+   favoritos". "Veja também" (cross_sell) segue sendo lista do backend (WP-6, ok).
 5. **Sem assinatura/pedido recorrente, sem gift card/créditos** na superfície.
 6. **Reorder só lê do último pedido elegível** (`min_days`); sem escolher qual pedido refazer.
 
@@ -192,8 +198,9 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
    (hoje staging usa adapter mock com auto-confirm via `SHOPMAN_MOCK_PIX_AUTO_CONFIRM`).
 
 ### Contratos / consistência
-9. **Disponibilidade tem só 4 estados** (available/low_stock/planned_ok/unavailable) — sem distinguir
-   "pausado" vs "esgotado hoje, volta amanhã" vs "descontinuado". A UX infere pelo contexto.
+9. **✅ RESOLVIDO (parcial) — Disponibilidade colapsava pausado vs esgotado.** WP-2: flags
+   `is_paused`/`is_notifiable` nas projeções + UX ("Pausado" vs "Me avise"). Enum segue com 4
+   estados (decisão deliberada); a distinção fina é por flag semântica.
 10. **Label de endereço:** `label_key` vs `label_custom` — qual ganha na renderização não é explícito.
 11. **Loyalty sem tom/cor canônico** (diferente dos status de pedido) — UI define o estilo do tier.
 12. **Copy em cascata dupla** (orchestrator + fallback por módulo) sem auditoria de chaves usadas →
