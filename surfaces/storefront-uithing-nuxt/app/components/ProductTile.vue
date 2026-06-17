@@ -54,8 +54,8 @@ function productRoute (sku: string) {
     <div class="flex min-w-0 flex-1 flex-col">
       <UiCardContent class="space-y-3 p-3 sm:p-4">
         <div class="min-w-0">
-          <h3 class="line-clamp-2 text-base leading-5">{{ item.name }}</h3>
-          <p class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground sm:min-h-10">
+          <h3 class="shop-item-title line-clamp-2">{{ item.name }}</h3>
+          <p class="mt-1 line-clamp-2 shop-meta sm:min-h-10">
             {{ item.short_description || sectionLabel }}
           </p>
         </div>
@@ -69,11 +69,11 @@ function productRoute (sku: string) {
 
         <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
           <div class="min-w-0 flex-1">
-            <p v-if="item.original_price_display" class="text-xs text-muted-foreground line-through">
+            <p v-if="item.original_price_display" class="shop-meta line-through">
               {{ item.original_price_display }}
             </p>
-            <p class="text-sm font-semibold tabular-nums">{{ item.price_display }}</p>
-            <p v-if="item.unit_weight_label" class="text-xs leading-5 text-muted-foreground">
+            <p class="shop-price">{{ item.price_display }}</p>
+            <p v-if="item.unit_weight_label" class="shop-meta">
               {{ compactUnitWeightLabel(item.unit_weight_label) }}
             </p>
           </div>

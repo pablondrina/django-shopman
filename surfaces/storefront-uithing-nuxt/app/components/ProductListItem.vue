@@ -27,15 +27,15 @@ const badge = computed(() => tileBadge(props.item))
     />
 
     <div class="min-w-0 flex-1 self-center">
-      <h3 class="line-clamp-2 text-base leading-5">{{ item.name }}</h3>
-      <p v-if="item.short_description" class="mt-1.5 line-clamp-2 text-xs leading-[14px] text-muted-foreground">
+      <h3 class="shop-item-title line-clamp-2">{{ item.name }}</h3>
+      <p v-if="item.short_description" class="mt-1.5 line-clamp-2 shop-meta">
         {{ item.short_description }}
       </p>
       <UiBadge v-if="badge" :variant="badge.variant" class="mt-1.5">{{ badge.label }}</UiBadge>
-      <p class="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-sm">
-        <span v-if="item.original_price_display" class="text-xs text-muted-foreground line-through">{{ item.original_price_display }}</span>
-        <span class="font-semibold tabular-nums">{{ item.price_display }}</span>
-        <span v-if="item.unit_weight_label" class="text-xs text-muted-foreground">{{ compactUnitWeightLabel(item.unit_weight_label) }}</span>
+      <p class="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+        <span v-if="item.original_price_display" class="shop-meta line-through">{{ item.original_price_display }}</span>
+        <span class="shop-price">{{ item.price_display }}</span>
+        <span v-if="item.unit_weight_label" class="shop-meta">{{ compactUnitWeightLabel(item.unit_weight_label) }}</span>
       </p>
     </div>
 

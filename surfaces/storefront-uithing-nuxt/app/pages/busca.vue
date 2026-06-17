@@ -129,7 +129,7 @@ useCanonical()
 
       <template v-else>
         <div v-if="activeChips.length && !normalizedQuery" data-busca-active-filters>
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtros ativos</p>
+          <p class="shop-kicker">Filtros ativos</p>
           <div class="mt-2 flex flex-wrap gap-1.5">
             <UiButton
               v-for="chip in activeChips"
@@ -150,7 +150,7 @@ useCanonical()
         </div>
 
         <div v-if="panel.collections.length" data-busca-collections>
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coleções</p>
+          <p class="shop-kicker">Coleções</p>
           <div class="mt-1">
             <UiButton
               v-for="option in panel.collections"
@@ -160,14 +160,14 @@ useCanonical()
               @click="goToSection(option.value)"
             >
               <Icon :name="option.icon" class="size-4 text-muted-foreground" :class="option.icon === 'lucide:heart' ? 'text-foreground' : ''" />
-              <span class="min-w-0 flex-1 truncate text-left text-sm">{{ option.label }}</span>
-              <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ option.count }}</span>
+              <span class="min-w-0 flex-1 truncate text-left shop-body">{{ option.label }}</span>
+              <span class="shrink-0 shop-meta tabular-nums">{{ option.count }}</span>
             </UiButton>
           </div>
         </div>
 
         <div v-if="panel.chips.length" data-busca-filter-chips>
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtre por</p>
+          <p class="shop-kicker">Filtre por</p>
           <div class="mt-2 flex flex-wrap gap-1.5">
             <UiButton
               v-for="chip in panel.chips"
@@ -186,7 +186,7 @@ useCanonical()
         </div>
 
         <div v-if="resultItems.length" data-busca-results>
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Produtos</p>
+          <p class="shop-kicker">Produtos</p>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem
               v-for="item in resultItems"

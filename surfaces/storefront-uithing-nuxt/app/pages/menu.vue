@@ -406,8 +406,8 @@ useHead({
                 class="scroll-mt-40 space-y-1"
               >
                 <div class="space-y-0.5">
-                  <h2 class="text-base font-semibold">{{ section.label }}</h2>
-                  <p v-if="section.description" class="text-sm text-muted-foreground">{{ section.description }}</p>
+                  <h2 class="shop-heading">{{ section.label }}</h2>
+                  <p v-if="section.description" class="shop-muted">{{ section.description }}</p>
                 </div>
                 <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
                   <ProductListItem
