@@ -1,5 +1,27 @@
 # TYPOGRAPHY-SYSTEM-PLAN — Sistema tipográfico storefront-wide
 
+> **✅ CONCLUÍDO (2026-06-16).** Gramática tipográfica única estabelecida no
+> `tailwind.css` (papéis semânticos em `@layer components`) e aplicada tela a tela,
+> verificada ao vivo (375px + desktop, claro/escuro, marca on + `?theme=neutral`),
+> commit por tela, guardrail enforçando. Fecha o tripé **cor · espaço · tipografia**.
+> Branch `redesign/surface-excellence`, commits `889fe99d`→`beb74eda`.
+>
+> **Decisões aprovadas (D1–D3):** D1 = corpo system (na marca = Instrument Sans, já
+> carregada via brand link; no neutro = system-ui) + **display serif Fraunces** só
+> nos títulos (`.shop-display`/`.shop-title`), self-hospedada via `@nuxt/fonts`
+> (fallback c/ size-adjust = zero CLS). D2 = escala **fechada 12/14/16/20/30** +
+> display do hero 36→48; `lg`(18) e `2xl`(24) **abolidos**. D3 = **classes de papel**
+> em `@layer components` (greppável, espelha `.shop-stack-*`).
+>
+> **Papéis (fonte única):** `.shop-display` (hero 36→48 serif) · `.shop-title` (h1
+> 30 serif) · `.shop-heading` (h2 20·600 sans) · `.shop-item-title` (16·400) ·
+> `.shop-body` (14·400) · `.shop-meta` (12·400 muted) · `.shop-price` (14·600 tabular)
+> · `.shop-price-strong` (20·600 tabular) · `.shop-kicker` (12·600 uppercase wide
+> muted) · `.shop-muted` (14·400 muted). Pesos só 400/600 nas telas; nível sobe por
+> **peso OU cor**, nunca por tamanho vizinho. Guardrail: `tests/surfaceGuardrails.test.ts`
+> (papéis existem; Fraunces nos títulos; tabular nos preços; zero font-medium/bold;
+> zero lg/2xl/4xl/5xl; zero leading mágico; corpo ≥14).
+
 > **Prompt auto-contido.** Faça pela TIPOGRAFIA (tamanho, peso, entrelinha,
 > tracking, hierarquia) o que os arcos de COR e de LAYOUT fizeram pela cor e pelo
 > espaço: estabelecer uma **gramática única**, torná-la a fonte da verdade, e
