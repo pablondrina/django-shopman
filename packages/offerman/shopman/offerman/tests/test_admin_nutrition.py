@@ -126,7 +126,63 @@ def test_form_serializes_remote_purchase_metadata_on_save():
         "dietary_info": ["100% vegetal", "sem lactose"],
         "serves": "2 a 4 pessoas",
         "approx_dimensions": "aprox. 24 x 12 x 10 cm",
+        # Operator typed dietary data → mark as manual override so the
+        # Recipe→Product derivation (WP-7) won't overwrite it.
+        "dietary_auto_filled": False,
     }
+
+
+def test_form_marks_dietary_manual_only_when_changed():
+    """Re-saving a recipe-derived product unchanged must NOT freeze derivation."""
+    product = Product.objects.create(
+        sku="DERIVED",
+        name="Derived",
+        base_price_q=100,
+        metadata={
+            "allergens": ["glúten"],
+            "dietary_info": ["100% vegetal", "sem lactose"],
+            "dietary_auto_filled": True,
+        },
+    )
+    # Operator opens and saves the form with the SAME dietary values.
+    data = _base_data(
+        sku="DERIVED",
+        name="Derived",
+        allergens_text="glúten",
+        dietary_info_text="100% vegetal, sem lactose",
+    )
+    form = ProductAdminForm(data=data, instance=product)
+    assert form.is_valid(), form.errors
+    saved = form.save()
+    saved.refresh_from_db()
+    # Unchanged → sentinel preserved as auto-filled (derivation still wins).
+    assert saved.metadata["dietary_auto_filled"] is True
+
+
+def test_form_marks_dietary_manual_when_operator_edits():
+    """Changing the dietary text flips the sentinel to manual override."""
+    product = Product.objects.create(
+        sku="EDIT",
+        name="Edit",
+        base_price_q=100,
+        metadata={
+            "allergens": ["glúten"],
+            "dietary_info": ["100% vegetal"],
+            "dietary_auto_filled": True,
+        },
+    )
+    data = _base_data(
+        sku="EDIT",
+        name="Edit",
+        allergens_text="glúten, leite",
+        dietary_info_text="vegetariano",
+    )
+    form = ProductAdminForm(data=data, instance=product)
+    assert form.is_valid(), form.errors
+    saved = form.save()
+    saved.refresh_from_db()
+    assert saved.metadata["dietary_auto_filled"] is False
+    assert saved.metadata["allergens"] == ["glúten", "leite"]
 
 
 def test_form_rejects_invalid_invariant():

@@ -52,8 +52,9 @@ class ShopmanConfig(AppConfig):
         # 4. Connect production_changed → production_lifecycle.dispatch_production
         self._connect_production_lifecycle_signal()
 
-        # 5. Connect Recipe post_save → materialize Product ingredients + nutrition
-        self._connect_recipe_nutrition_signal()
+        # 5. Connect Recipe post_save → materialize Product ingredients,
+        #    nutrition and dietary (allergens/diet) from the BOM
+        self._connect_recipe_derivation_signal()
 
         # 6. Register CHANNEL RefType
         self._register_ref_types()
@@ -149,17 +150,22 @@ class ShopmanConfig(AppConfig):
         )
         logger.info("ShopmanConfig: production lifecycle signal connected.")
 
-    def _connect_recipe_nutrition_signal(self):
-        """Materialize Product ingredients + nutrition whenever a Recipe is saved.
+    def _connect_recipe_derivation_signal(self):
+        """Materialize Product ingredients, nutrition and dietary on Recipe save.
 
-        Idempotent: the service refuses to overwrite manual overrides
-        (``nutrition_facts["auto_filled"]=False``). See
-        ``docs/decisions/adr-008-pdp-nutrition.md``.
+        Two derivations share the BOM and the same idempotency contract,
+        each refusing to overwrite its own manual override:
+        - nutrition + ingredients (``nutrition_facts["auto_filled"]=False``);
+        - allergens + diet (``metadata["dietary_auto_filled"]=False``).
+        See ``docs/decisions/adr-008-pdp-nutrition.md``.
         """
         from django.db.models.signals import post_save
         from shopman.craftsman.models import Recipe
         from shopman.offerman.models import Product
 
+        from shopman.shop.services.dietary_from_recipe import (
+            aggregate_dietary_from_recipe,
+        )
         from shopman.shop.services.nutrition_from_recipe import (
             fill_nutrition_from_recipe,
         )
@@ -177,11 +183,18 @@ class ShopmanConfig(AppConfig):
                     "nutrition_from_recipe: failed for product=%s recipe=%s",
                     instance.output_sku, instance.ref,
                 )
+            try:
+                aggregate_dietary_from_recipe(product)
+            except Exception:
+                logger.exception(
+                    "dietary_from_recipe: failed for product=%s recipe=%s",
+                    instance.output_sku, instance.ref,
+                )
 
         post_save.connect(
             on_recipe_saved,
             sender=Recipe,
-            dispatch_uid="shopman.shop.services.nutrition_from_recipe.on_recipe_saved",
+            dispatch_uid="shopman.shop.services.recipe_derivation.on_recipe_saved",
             weak=False,
         )
-        logger.info("ShopmanConfig: recipe nutrition signal connected.")
+        logger.info("ShopmanConfig: recipe derivation signal connected.")

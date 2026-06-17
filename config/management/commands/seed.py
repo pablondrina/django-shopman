@@ -76,6 +76,7 @@ from shopman.backstage.services.operations import (
     supervise_task_run,
 )
 from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
+from shopman.shop.services.dietary_from_recipe import aggregate_dietary_from_recipe
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
 from shopman.storefront.models import Coupon, Promotion
 
@@ -1790,34 +1791,36 @@ class Command(BaseCommand):
             },
         ]
 
-        # Perfil nutricional por insumo (valores aproximados por 100g).
-        # Alimenta RecipeItem.meta e, via signal, materializa
-        # Product.nutrition_facts + Product.ingredients_text no PDP.
+        # Perfil de insumo (valores aproximados por 100g). Alimenta
+        # RecipeItem.meta e, via signal, materializa no PDP:
+        # - nutrition → Product.nutrition_facts (soma) + ingredients_text (label);
+        # - allergens + diet → Product.metadata.allergens/dietary_info (WP-7):
+        #   alérgenos = união; vegano só se TODOS vegan; "sem X" se NENHUM tem X.
         # Ref: TACO / USDA simplificado — valores didáticos.
         INGREDIENT_PROFILES = {
-            "INS-FARINHA-T65":  {"label": "Farinha de trigo T65",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-T55":  {"label": "Farinha de trigo T55",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-T45":  {"label": "Farinha de trigo T45",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-INT":  {"label": "Farinha de trigo integral", "nutrition": {"energy_kcal": 340, "carbohydrates_g": 72, "sugars_g": 0.4, "proteins_g": 13, "total_fat_g": 2.5, "saturated_fat_g": 0.4, "trans_fat_g": 0, "fiber_g": 10.7, "sodium_mg": 2}},
-            "INS-CENTEIO":      {"label": "Farinha de centeio",     "nutrition": {"energy_kcal": 338, "carbohydrates_g": 76, "sugars_g": 1.0, "proteins_g": 10, "total_fat_g": 1.7, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 15.0, "sodium_mg": 2}},
-            "INS-AGUA":         {"label": "Água",                   "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 0}},
-            "INS-FERMENTO-NAT": {"label": "Fermento natural (levain)", "nutrition": {"energy_kcal": 220, "carbohydrates_g": 45, "sugars_g": 0.5, "proteins_g": 7,  "total_fat_g": 0.5, "saturated_fat_g": 0.1, "trans_fat_g": 0, "fiber_g": 1.8,  "sodium_mg": 5}},
-            "INS-FERMENTO-BIO": {"label": "Fermento biológico",     "nutrition": {"energy_kcal": 105, "carbohydrates_g": 12, "sugars_g": 0,   "proteins_g": 13, "total_fat_g": 1.5, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 8.1,  "sodium_mg": 30}},
-            "INS-SAL":          {"label": "Sal marinho",            "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 38758}},
-            "INS-ACUCAR":       {"label": "Açúcar",                 "nutrition": {"energy_kcal": 387, "carbohydrates_g": 100, "sugars_g": 100, "proteins_g": 0, "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 1}},
-            "INS-MANTEIGA-FR":  {"label": "Manteiga francesa",      "nutrition": {"energy_kcal": 717, "carbohydrates_g": 0.1, "sugars_g": 0.1, "proteins_g": 0.9, "total_fat_g": 81, "saturated_fat_g": 51,  "trans_fat_g": 3.3, "fiber_g": 0,  "sodium_mg": 11}},
-            "INS-LEITE":        {"label": "Leite integral",         "nutrition": {"energy_kcal": 61,  "carbohydrates_g": 4.8, "sugars_g": 4.8, "proteins_g": 3.2, "total_fat_g": 3.3, "saturated_fat_g": 1.9, "trans_fat_g": 0.1, "fiber_g": 0,  "sodium_mg": 40}},
-            "INS-OVOS":         {"label": "Ovos",                   "nutrition": {"energy_kcal": 155, "carbohydrates_g": 1.1, "sugars_g": 1.1, "proteins_g": 13,  "total_fat_g": 11,  "saturated_fat_g": 3.3, "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 124}},
-            "INS-AZEITE":       {"label": "Azeite extra virgem",    "nutrition": {"energy_kcal": 884, "carbohydrates_g": 0,   "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 100, "saturated_fat_g": 14,  "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 2}},
-            "INS-MALTE":        {"label": "Malte",                  "nutrition": {"energy_kcal": 360, "carbohydrates_g": 78, "sugars_g": 60,  "proteins_g": 10, "total_fat_g": 1.8, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 7,  "sodium_mg": 23}},
-            "INS-CHOCOLATE-70": {"label": "Chocolate amargo 70%",   "nutrition": {"energy_kcal": 598, "carbohydrates_g": 46, "sugars_g": 24,  "proteins_g": 7.8, "total_fat_g": 43, "saturated_fat_g": 24,  "trans_fat_g": 0,   "fiber_g": 11, "sodium_mg": 20}},
-            "INS-CEBOLA-ROXA":  {"label": "Cebola roxa",            "nutrition": {"energy_kcal": 40,  "carbohydrates_g": 9,   "sugars_g": 4.2, "proteins_g": 1.1, "total_fat_g": 0.1, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 1.7, "sodium_mg": 4}},
-            "INS-AZEITONA":     {"label": "Azeitonas pretas",       "nutrition": {"energy_kcal": 115, "carbohydrates_g": 6.3, "sugars_g": 0,   "proteins_g": 0.8, "total_fat_g": 10.7, "saturated_fat_g": 1.4, "trans_fat_g": 0,  "fiber_g": 3.2, "sodium_mg": 735}},
-            "INS-ALECRIM":      {"label": "Alecrim",                "nutrition": {"energy_kcal": 131, "carbohydrates_g": 21, "sugars_g": 0,   "proteins_g": 3.3, "total_fat_g": 5.9, "saturated_fat_g": 2.8, "trans_fat_g": 0,   "fiber_g": 14, "sodium_mg": 26}},
-            "INS-GERGELIM":     {"label": "Gergelim",               "nutrition": {"energy_kcal": 573, "carbohydrates_g": 23, "sugars_g": 0.3, "proteins_g": 18,  "total_fat_g": 50, "saturated_fat_g": 7,   "trans_fat_g": 0,   "fiber_g": 12, "sodium_mg": 11}},
-            "INS-MACA":         {"label": "Maçã",                   "nutrition": {"energy_kcal": 52,  "carbohydrates_g": 14, "sugars_g": 10,  "proteins_g": 0.3, "total_fat_g": 0.2, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.4, "sodium_mg": 1}},
-            "INS-CANELA":       {"label": "Canela",                 "nutrition": {"energy_kcal": 247, "carbohydrates_g": 81, "sugars_g": 2.2, "proteins_g": 4,   "total_fat_g": 1.2, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 53, "sodium_mg": 10}},
-            "INS-LIMAO":        {"label": "Limão",                  "nutrition": {"energy_kcal": 29,  "carbohydrates_g": 9,  "sugars_g": 2.5, "proteins_g": 1.1, "total_fat_g": 0.3, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.8, "sodium_mg": 2}},
+            "INS-FARINHA-T65":  {"label": "Farinha de trigo T65",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-T55":  {"label": "Farinha de trigo T55",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-T45":  {"label": "Farinha de trigo T45",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-INT":  {"label": "Farinha de trigo integral", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 340, "carbohydrates_g": 72, "sugars_g": 0.4, "proteins_g": 13, "total_fat_g": 2.5, "saturated_fat_g": 0.4, "trans_fat_g": 0, "fiber_g": 10.7, "sodium_mg": 2}},
+            "INS-CENTEIO":      {"label": "Farinha de centeio",     "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 338, "carbohydrates_g": 76, "sugars_g": 1.0, "proteins_g": 10, "total_fat_g": 1.7, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 15.0, "sodium_mg": 2}},
+            "INS-AGUA":         {"label": "Água",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 0}},
+            "INS-FERMENTO-NAT": {"label": "Fermento natural (levain)", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 220, "carbohydrates_g": 45, "sugars_g": 0.5, "proteins_g": 7,  "total_fat_g": 0.5, "saturated_fat_g": 0.1, "trans_fat_g": 0, "fiber_g": 1.8,  "sodium_mg": 5}},
+            "INS-FERMENTO-BIO": {"label": "Fermento biológico",     "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 105, "carbohydrates_g": 12, "sugars_g": 0,   "proteins_g": 13, "total_fat_g": 1.5, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 8.1,  "sodium_mg": 30}},
+            "INS-SAL":          {"label": "Sal marinho",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 38758}},
+            "INS-ACUCAR":       {"label": "Açúcar",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 387, "carbohydrates_g": 100, "sugars_g": 100, "proteins_g": 0, "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 1}},
+            "INS-MANTEIGA-FR":  {"label": "Manteiga francesa",      "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 717, "carbohydrates_g": 0.1, "sugars_g": 0.1, "proteins_g": 0.9, "total_fat_g": 81, "saturated_fat_g": 51,  "trans_fat_g": 3.3, "fiber_g": 0,  "sodium_mg": 11}},
+            "INS-LEITE":        {"label": "Leite integral",         "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 61,  "carbohydrates_g": 4.8, "sugars_g": 4.8, "proteins_g": 3.2, "total_fat_g": 3.3, "saturated_fat_g": 1.9, "trans_fat_g": 0.1, "fiber_g": 0,  "sodium_mg": 40}},
+            "INS-OVOS":         {"label": "Ovos",                   "allergens": ["ovos"], "diet": "vegetarian", "nutrition": {"energy_kcal": 155, "carbohydrates_g": 1.1, "sugars_g": 1.1, "proteins_g": 13,  "total_fat_g": 11,  "saturated_fat_g": 3.3, "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 124}},
+            "INS-AZEITE":       {"label": "Azeite extra virgem",    "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 884, "carbohydrates_g": 0,   "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 100, "saturated_fat_g": 14,  "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 2}},
+            "INS-MALTE":        {"label": "Malte",                  "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 360, "carbohydrates_g": 78, "sugars_g": 60,  "proteins_g": 10, "total_fat_g": 1.8, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 7,  "sodium_mg": 23}},
+            "INS-CHOCOLATE-70": {"label": "Chocolate amargo 70%",   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 598, "carbohydrates_g": 46, "sugars_g": 24,  "proteins_g": 7.8, "total_fat_g": 43, "saturated_fat_g": 24,  "trans_fat_g": 0,   "fiber_g": 11, "sodium_mg": 20}},
+            "INS-CEBOLA-ROXA":  {"label": "Cebola roxa",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 40,  "carbohydrates_g": 9,   "sugars_g": 4.2, "proteins_g": 1.1, "total_fat_g": 0.1, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 1.7, "sodium_mg": 4}},
+            "INS-AZEITONA":     {"label": "Azeitonas pretas",       "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 115, "carbohydrates_g": 6.3, "sugars_g": 0,   "proteins_g": 0.8, "total_fat_g": 10.7, "saturated_fat_g": 1.4, "trans_fat_g": 0,  "fiber_g": 3.2, "sodium_mg": 735}},
+            "INS-ALECRIM":      {"label": "Alecrim",                "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 131, "carbohydrates_g": 21, "sugars_g": 0,   "proteins_g": 3.3, "total_fat_g": 5.9, "saturated_fat_g": 2.8, "trans_fat_g": 0,   "fiber_g": 14, "sodium_mg": 26}},
+            "INS-GERGELIM":     {"label": "Gergelim",               "allergens": ["gergelim"], "diet": "vegan", "nutrition": {"energy_kcal": 573, "carbohydrates_g": 23, "sugars_g": 0.3, "proteins_g": 18,  "total_fat_g": 50, "saturated_fat_g": 7,   "trans_fat_g": 0,   "fiber_g": 12, "sodium_mg": 11}},
+            "INS-MACA":         {"label": "Maçã",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 52,  "carbohydrates_g": 14, "sugars_g": 10,  "proteins_g": 0.3, "total_fat_g": 0.2, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.4, "sodium_mg": 1}},
+            "INS-CANELA":       {"label": "Canela",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 247, "carbohydrates_g": 81, "sugars_g": 2.2, "proteins_g": 4,   "total_fat_g": 1.2, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 53, "sodium_mg": 10}},
+            "INS-LIMAO":        {"label": "Limão",                  "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 29,  "carbohydrates_g": 9,  "sugars_g": 2.5, "proteins_g": 1.1, "total_fat_g": 0.3, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.8, "sodium_mg": 2}},
         }
 
         for rd in recipes_data:
@@ -1850,6 +1853,7 @@ class Command(BaseCommand):
                 )
             if product:
                 fill_nutrition_from_recipe(product)
+                aggregate_dietary_from_recipe(product)
 
         # Production data is intentionally time-relative. Re-running the seed on
         # another day creates the same operational story around that new date:

@@ -154,11 +154,18 @@ class ProductAdminForm(forms.ModelForm):
 
         cleaned["nutrition_facts"] = collected
 
+        original_meta = (
+            dict(self.instance.metadata or {})
+            if (self.instance and self.instance.pk)
+            else {}
+        )
+
         metadata = dict(cleaned.get("metadata") or {})
         metadata.pop("allergens", None)
         metadata.pop("dietary_info", None)
         metadata.pop("serves", None)
         metadata.pop("approx_dimensions", None)
+        metadata.pop("dietary_auto_filled", None)
 
         allergens = _split_list(cleaned.get("allergens_text") or "")
         dietary_info = _split_list(cleaned.get("dietary_info_text") or "")
@@ -172,6 +179,19 @@ class ProductAdminForm(forms.ModelForm):
             metadata["serves"] = serves
         if approx_dimensions:
             metadata["approx_dimensions"] = approx_dimensions
+
+        # Manual-override sentinel for the Recipe→Product dietary derivation
+        # (mirrors nutrition's ``auto_filled``). Only flip to manual when the
+        # operator actually changes the dietary data, so merely re-saving a
+        # recipe-derived product does not freeze the derivation.
+        dietary_changed = (
+            allergens != (original_meta.get("allergens") or [])
+            or dietary_info != (original_meta.get("dietary_info") or [])
+        )
+        if dietary_changed and (allergens or dietary_info):
+            metadata["dietary_auto_filled"] = False
+        elif "dietary_auto_filled" in original_meta:
+            metadata["dietary_auto_filled"] = original_meta["dietary_auto_filled"]
         cleaned["metadata"] = metadata
 
         # Mirror into self.instance so Model.clean() sees the new value.

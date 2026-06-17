@@ -159,7 +159,31 @@ mapeamento pref→atributo — definir ao executar.
 `find_substitutes(require_available=False, exclude_self=True)`. Copy fixa: **"Talvez você também
 goste"**. Grid após a descrição. Zero acoplamento com disponibilidade.
 
-### WP-7 — Dados da PDP via Recipe/BOM  ⏱ médio · ESCOPO REAL apurado (2026-06-17, investigação do Core)
+### WP-7 — Dados da PDP via Recipe/BOM  ✅ CONCLUÍDO (2026-06-17) · ESCOPO REAL apurado (investigação do Core)
+
+> **FEITO.** Alérgenos/dieta agora derivam da Recipe/BOM, espelhando o padrão da nutrição.
+> `make test` 1844 + `make lint` + gate Admin/Unfold verdes; verificado ao vivo na PDP (Nuxt).
+> Entregue:
+> - `packages/craftsman/shopman/craftsman/dietary.py` — dataclass `IngredientDietary`
+>   (schema dietético de `RecipeItem.meta`: `allergens` + `diet` ∈ {vegan, vegetarian, animal}).
+> - `shopman/shop/services/recipe_bom.py` — `expand_recipe_items` extraído (DRY: nutrição + dieta
+>   compartilham a expansão recursiva do BOM com cycle-detection).
+> - `shopman/shop/services/dietary_from_recipe.py` — `aggregate_dietary_from_recipe(product)`:
+>   união de alérgenos; "100% vegetal" se TODOS vegan, "vegetariano" se NENHUM animal; "sem glúten"/
+>   "sem lactose" se NENHUM insumo dispara; grava `Product.metadata` com sentinel
+>   `dietary_auto_filled` (respeita override manual). **Segurança:** só materializa se TODOS os
+>   insumos declararem perfil (rotulagem de alérgeno incompleta é perigosa → no-op).
+> - Signal `post_save` em Recipe unificado (`_connect_recipe_derivation_signal`): nutrição + dieta.
+> - Form admin Craftsman (`RecipeItemInlineForm`): campos `diet` + `allergens_text` por insumo.
+> - Form admin Offerman (`ProductAdminForm`): sentinel `dietary_auto_filled` preservado; só vira
+>   manual quando o operador realmente muda a dieta (sem footgun ao re-salvar).
+> - Seed: `INGREDIENT_PROFILES` ganhou `allergens` + `diet` por insumo; chama a agregação.
+> - Testes: `shopman/shop/tests/test_dietary_from_recipe.py` (16) + atualizações em
+>   test_admin_nutrition + test_admin_operational_integration.
+> **Achado:** a derivação corrige divergências do stopgap manual — ex.: CHALLAH (massa com leite+
+> manteiga) agora declara honestamente `leite`/lactose, onde o seed manual dizia "sem lactose".
+
+**ORIGINAL (referência do escopo):**
 
 **O Core já resolve a maior parte.** Mapa (file:line) levantado por investigação completa:
 - ✅ **Peso junto ao preço** — JÁ FEITO. `Product.unit_weight_g` → `unit_weight_label` exibido nos
@@ -243,7 +267,7 @@ taxa como OrderItem real ou apresentação; relação distância × DeliveryZone
 ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 1828 + `make lint` + vitest verdes.
 
 **Fase B — dívida do storefront + entrega (ordem):**
-1. **WP-7** — alérgenos/dieta via Recipe/BOM (escopo real acima; nutrição+ingredientes+peso já feitos no Core).
+1. **WP-7** ✅ — alérgenos/dieta via Recipe/BOM CONCLUÍDO (2026-06-17; nutrição+ingredientes+peso já eram do Core).
 2. **WP-8** — gate de browser-QA Omotenashi contra a loja Nuxt no CI.
 3. **WP-9** — e2e Playwright + locustfile contra Nuxt/API.
 4. **WP-11** — fluxo de entrega (taxa por distância + item + teleporte). **Coletar decisões do Pablo ao chegar**

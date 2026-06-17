@@ -21,6 +21,11 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from shopman.craftsman.dietary import (
+    DIET_CLASSES,
+    DIET_LABELS_PT,
+    IngredientDietary,
+)
 from shopman.craftsman.models import (
     Recipe,
     RecipeItem,
@@ -43,6 +48,7 @@ from unfold.widgets import (
     UnfoldAdminSelect2Widget,
     UnfoldAdminSelectWidget,
     UnfoldAdminTextareaWidget,
+    UnfoldAdminTextInputWidget,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,6 +80,19 @@ class RecipeItemInlineForm(forms.ModelForm):
         choices=RecipeItem.Unit.choices,
         widget=UnfoldAdminSelectWidget(),
     )
+    allergens_text = forms.CharField(
+        label=_("Alérgenos do insumo"),
+        required=False,
+        widget=UnfoldAdminTextInputWidget(),
+        help_text=_("Separe por vírgula. Ex.: glúten, leite, ovos."),
+    )
+    diet = forms.ChoiceField(
+        label=_("Dieta do insumo"),
+        required=False,
+        choices=[(value, DIET_LABELS_PT[value]) for value in DIET_CLASSES],
+        widget=UnfoldAdminSelectWidget(),
+        help_text=_("Usado para derivar vegano/vegetariano do produto final."),
+    )
 
     class Meta:
         model = RecipeItem
@@ -83,6 +102,33 @@ class RecipeItemInlineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         current = getattr(self.instance, "input_sku", "") if self.instance else ""
         self.fields["input_sku"].choices = _recipe_input_sku_choices(current)
+        profile = IngredientDietary.from_meta(getattr(self.instance, "meta", None))
+        if profile is not None:
+            self.fields["allergens_text"].initial = ", ".join(profile.allergens)
+            self.fields["diet"].initial = profile.diet
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        allergens = [
+            token.strip()
+            for token in (self.cleaned_data.get("allergens_text") or "").split(",")
+            if token.strip()
+        ]
+        diet = self.cleaned_data.get("diet") or ""
+        meta = dict(instance.meta or {})
+        if diet:
+            profile = IngredientDietary(allergens=tuple(allergens), diet=diet)
+            meta.update(profile.to_meta())
+        else:
+            # No diet declared: clear the dietary keys so aggregation treats
+            # the insumo as undeclared rather than guessing.
+            meta.pop("allergens", None)
+            meta.pop("diet", None)
+        instance.meta = meta
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class RecipeItemInline(BaseTabularInline):
@@ -94,7 +140,7 @@ class RecipeItemInline(BaseTabularInline):
     verbose_name_plural = _("Ingredientes")
     extra = 1
     tab = True
-    fields = ("sort_order", "input_sku", "quantity", "unit", "is_optional")
+    fields = ("sort_order", "input_sku", "quantity", "unit", "is_optional", "diet", "allergens_text")
     ordering = ("sort_order", "input_sku")
     ordering_field = "sort_order"
     hide_ordering_field = True

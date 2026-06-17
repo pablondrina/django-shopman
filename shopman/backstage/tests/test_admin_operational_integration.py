@@ -559,7 +559,7 @@ class RecipeAdminSemanticsTests(TestCase):
         self.assertEqual(str(inline.verbose_name_plural), "Ingredientes")
         self.assertEqual(
             tuple(inline.fields),
-            ("sort_order", "input_sku", "quantity", "unit", "is_optional"),
+            ("sort_order", "input_sku", "quantity", "unit", "is_optional", "diet", "allergens_text"),
         )
         self.assertEqual(inline.ordering_field, "sort_order")
         self.assertTrue(inline.hide_ordering_field)

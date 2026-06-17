@@ -98,6 +98,27 @@ Rejeitada **por ora**. `RecipeItem.input_ref` é string ref hoje; `RecipeItem.me
 
 Rejeitada. Rotulagem alimentar errada é risco regulatório; preferimos deixar vazio.
 
+## Adendo (2026-06-17): alérgenos/dieta também derivam da Recipe/BOM (WP-7)
+
+A ADR original adiou o eixo dietético de propósito (nutrientes são soma aritmética; alérgenos são
+**união** e exigem flags por insumo + UI). O WP-7 fecha essa lacuna espelhando o desenho da nutrição:
+
+- `RecipeItem.meta` ganha o schema dietético via dataclass `shopman.craftsman.dietary.IngredientDietary`
+  (`allergens` que o insumo **contém** + `diet` ∈ {vegan, vegetarian, animal}). Sem migração (JSONField).
+- `shopman.shop.services.dietary_from_recipe.aggregate_dietary_from_recipe(product)` faz **união** de
+  alérgenos e resolve a dieta: "100% vegetal" só se **todos** os insumos vegan; "vegetariano" se
+  **nenhum** animal; "sem glúten"/"sem lactose" se **nenhum** insumo dispara. Grava em
+  `Product.metadata['allergens']`/`['dietary_info']` (tokens que o filtro de preferências do storefront
+  entende) com sentinel `metadata['dietary_auto_filled']` espelhando `nutrition_facts['auto_filled']`.
+- **Segurança de rotulagem:** só materializa quando **todos** os insumos do BOM declaram perfil
+  dietético. Um insumo não declarado torna o produto um no-op (allergen incompleto é perigoso) —
+  mais rígido que o "vazio melhor que chute" da nutrição.
+- O signal `post_save` em Recipe é o mesmo (`_connect_recipe_derivation_signal`): nutrição + dieta.
+- Bundles continuam de fora (mesma razão do nutricional).
+
+A expansão recursiva do BOM (cycle-detection, itens opcionais) foi extraída para
+`shopman.shop.services.recipe_bom.expand_recipe_items`, compartilhada pelas duas derivações.
+
 ## Referências
 
 - [`docs/plans/PDP-DATA-FIELDS-PLAN.md`](../plans/PDP-DATA-FIELDS-PLAN.md)
