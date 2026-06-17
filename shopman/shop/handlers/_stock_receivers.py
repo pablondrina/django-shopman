@@ -297,23 +297,11 @@ def _deadline_at_for_holds(hold_ids: list[str]) -> str | None:
 
 
 def _cart_url() -> str:
-    try:
-        from django.urls import reverse
+    # Loja desacoplada (Nuxt): link do carrinho aponta para a loja real, via a fonte
+    # única SHOPMAN_STOREFRONT_BASE_URL (caminho canônico /cart).
+    from shopman.shop.services.storefront_links import cart_url
 
-        path = reverse("storefront:cart")
-    except Exception:
-        logger.debug("stock_receivers._cart_url path resolution degraded", exc_info=True)
-        path = "/cart/"
-
-    try:
-        from django.conf import settings
-
-        base_url = getattr(settings, "SHOPMAN_BASE_URL", "").rstrip("/")
-    except Exception:
-        logger.debug("stock_receivers._cart_url base_url resolution degraded", exc_info=True)
-        base_url = ""
-
-    return f"{base_url}{path}" if base_url else path
+    return cart_url()
 
 
 def _all_holds_materialized(check_result: dict) -> bool:
