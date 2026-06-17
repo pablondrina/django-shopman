@@ -100,6 +100,10 @@ class CatalogItemProjection:
     is_paused: bool = False
     is_notifiable: bool = False
 
+    # Estado do coração (favorito do cliente logado). Populado quando o builder
+    # recebe um request autenticado; False p/ anônimo.
+    is_favorite: bool = False
+
     # Available quantity for stock-aware UX. None = demand-based/untracked
     # (sem teto). Integer = exato. Permite o menu abrir o modal de estoque
     # client-side quando requested > available, sem esperar o POST falhar.
@@ -222,6 +226,7 @@ def build_catalog(
         fulfillment_type=ft_hint,
         low_stock_threshold=low_stock_threshold,
         qty_in_cart_by_sku=qty_in_cart_by_sku,
+        favorite_skus=_favorite_skus(request),
     )
 
     static_sections = _build_sections(items_flat, group_index, categories)
@@ -321,6 +326,7 @@ def build_catalog_items_for_skus(
             low_stock_threshold=low_stock_threshold,
             qty_in_cart_by_sku=qty_in_cart_by_sku,
             freshness_by_sku=freshness_by_sku,
+            favorite_skus=_favorite_skus(request),
         )
     )
 
@@ -335,9 +341,11 @@ def _build_items(
     low_stock_threshold: Decimal,
     qty_in_cart_by_sku: dict[str, int] | None = None,
     freshness_by_sku: dict[str, str] | None = None,
+    favorite_skus: set[str] | None = None,
 ) -> list[CatalogItemProjection]:
     qty_in_cart_by_sku = qty_in_cart_by_sku or {}
     freshness_by_sku = freshness_by_sku or {}
+    favorite_skus = favorite_skus or set()
     skus = [p.sku for p in products]
 
     # Batch: collections per SKU (used as `category` and for pricing context).
@@ -444,6 +452,7 @@ def _build_items(
                 is_new=bool(meta.get("is_new", False)),
                 is_featured=p.sku in popular,
                 qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
+                is_favorite=p.sku in favorite_skus,
                 allergens=allergens,
                 freshness_label=freshness_by_sku.get(p.sku, ""),
             ),
@@ -586,6 +595,23 @@ def _money(value_q: int | None) -> str:
 
 def _menu_anchor_url(ref: str) -> str:
     return f"/menu#{ref}" if ref else "/menu"
+
+
+def _favorite_skus(request: HttpRequest | None) -> set[str]:
+    """SKUs the logged-in customer has favorited (empty for anonymous)."""
+    if request is None:
+        return set()
+    try:
+        from shopman.storefront.identity import get_authenticated_customer
+        from shopman.storefront.services import favorites
+
+        customer = get_authenticated_customer(request)
+        if customer is None:
+            return set()
+        return favorites.favorite_sku_set(customer.ref)
+    except Exception:
+        logger.debug("catalog._favorite_skus failed", exc_info=True)
+        return set()
 
 
 def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:

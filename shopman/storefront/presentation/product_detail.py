@@ -34,6 +34,7 @@ from shopman.storefront.presentation.types import ComponentProjection
 from .catalog import (
     CatalogItemProjection,
     _cart_qty_by_sku,
+    _favorite_skus,
     _resolve_availability,
     build_catalog_items_for_skus,
 )
@@ -139,6 +140,7 @@ class ProductDetailProjection:
     # "Me avise quando disponível" na PDP (WP-3).
     is_paused: bool
     is_notifiable: bool
+    is_favorite: bool
     max_qty: int
 
     # Cart state
@@ -282,6 +284,7 @@ def build_product_detail(
     gallery = _gallery(product)
 
     qty_in_cart = int(_cart_qty_by_sku(request).get(product.sku, 0))
+    is_favorite = product.sku in _favorite_skus(request)
 
     cross_sell = build_catalog_items_for_skus(
         catalog_context.related_skus(product.sku, limit=6),
@@ -308,6 +311,7 @@ def build_product_detail(
         available_qty=available_qty,
         is_paused=is_paused,
         is_notifiable=is_notifiable,
+        is_favorite=is_favorite,
         max_qty=99,  # storefront cap; matches v1 <input max="99">
         qty_in_cart=qty_in_cart,
         is_bundle=product.is_bundle,

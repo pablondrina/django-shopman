@@ -663,3 +663,54 @@ class AccountDeleteView(APIView):
         })
         response.delete_cookie(device_service.cookie_name())
         return response
+
+
+class FavoriteListView(APIView):
+    """GET /api/v1/account/favorites/ — the customer's favorite products as cards."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    @extend_schema(tags=["account"], summary="List the customer's favorite products")
+    def get(self, request):
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return Response({"detail": "Authentication required."}, status=401)
+
+        from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.presentation import build_catalog_items_for_skus
+        from shopman.storefront.services import favorites
+
+        skus = favorites.skus_for(customer.ref)
+        items = build_catalog_items_for_skus(
+            skus, channel_ref=STOREFRONT_CHANNEL_REF, request=request
+        )
+        return Response({"items": [projection_data(item) for item in items]})
+
+
+class FavoriteDetailView(APIView):
+    """POST/DELETE /api/v1/account/favorites/<sku>/ — favorite / unfavorite a SKU."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    @extend_schema(tags=["account"], summary="Favorite a product")
+    def post(self, request, sku):
+        return self._set(request, sku, value=True)
+
+    @extend_schema(tags=["account"], summary="Unfavorite a product")
+    def delete(self, request, sku):
+        return self._set(request, sku, value=False)
+
+    def _set(self, request, sku, *, value: bool):
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return Response({"detail": "Authentication required."}, status=401)
+
+        from shopman.storefront.services import favorites
+
+        if value:
+            favorites.add(customer.ref, sku)
+        else:
+            favorites.remove(customer.ref, sku)
+        return Response({"ok": True, "is_favorite": value})
