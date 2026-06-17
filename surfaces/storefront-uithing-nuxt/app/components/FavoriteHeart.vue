@@ -1,12 +1,10 @@
 <script setup lang="ts">
-// Coração de favorito (WP-4). Toggle otimista compartilhado entre card/PDP via
+// Coração de favorito (WP-4), exclusivo da PDP. Toggle otimista compartilhado via
 // useFavoritesState. Anônimo é convidado a logar (omotenashi: convida, não bloqueia).
 const props = defineProps<{
   sku: string
   // Estado inicial vindo da projeção (is_favorite). O overlay tem precedência.
   initial?: boolean
-  // Variante sobre foto (card): fundo translúcido + sombra para contraste.
-  onPhoto?: boolean
 }>()
 
 const { isFavorite, toggle, isAuthenticated } = useFavoritesState()
@@ -40,8 +38,7 @@ async function onClick () {
     :aria-pressed="active"
     :aria-label="active ? `Remover ${sku} dos favoritos` : `Salvar ${sku} nos favoritos`"
     :disabled="submitting"
-    class="rounded-full"
-    :class="onPhoto ? 'bg-background/80 text-foreground shadow-sm backdrop-blur hover:bg-background' : 'text-muted-foreground hover:text-primary'"
+    class="rounded-full text-muted-foreground hover:text-primary"
     @click.stop.prevent="onClick"
   >
     <Icon

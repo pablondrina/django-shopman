@@ -77,6 +77,7 @@ function onAnonymousSubmit () {
     variant="outline"
     icon="lucide:bell"
     :loading="submitting"
+    class="text-foreground"
     :class="compact ? '' : 'w-full'"
     @click="onAuthenticatedClick"
   >
@@ -90,6 +91,7 @@ function onAnonymousSubmit () {
         :size="compact ? 'sm' : 'lg'"
         variant="outline"
         icon="lucide:bell"
+        class="text-foreground"
         :class="compact ? '' : 'w-full'"
       >
         Me avise
