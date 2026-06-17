@@ -306,10 +306,17 @@ para `api.` por baixo: seta `origin`/`referer` = host do Django (CSRF passa) e r
 cliente. Exige (já é o caso no código): `SESSION_COOKIE_DOMAIN`/`CSRF_COOKIE_DOMAIN`
 **não setados** (host-only); `CSRF_TRUSTED_ORIGINS` inclui `https://api.` e `https://admin.`.
 
-**Passos do cutover:**
+**DNS — automático quando a zona está na DigitalOcean.** Se os nameservers do domínio
+forem `ns1/ns2/ns3.digitalocean.com` e a zona estiver na MESMA conta do app, basta o
+campo `zone:` em cada `domains:` do spec — a App Platform cria os registros + certs TLS
+no deploy (não crie CNAME manual, causaria conflito). É exatamente o caso de
+`nelsonboulangerie.com.br` (zona na DO, conta `NB//IT`): o cutover de staging é só o
+`doctl apps update`. Se a zona estivesse num DNS externo, aí sim seriam CNAMEs manuais.
 
-1. **DNS:** no registrador, aponte o apex + `api`/`admin`/`pos` para o app (a App
-   Platform mostra os alvos A/CNAME ao adicionar cada domínio no painel ou via spec).
+**Passos do cutover (zona externa; na DO pule o passo 1):**
+
+1. **DNS (só se externo):** aponte o apex + `api`/`admin`/`pos` para o alvo
+   `*.ondigitalocean.app` do app (o painel mostra o alvo ao adicionar cada domínio).
 2. **Spec:** troque `STORE_DOMAIN` pelo domínio real em `.do/app.subdomains.yaml`
    (`sed -i '' 's/STORE_DOMAIN/seudominio.com/g' .do/app.subdomains.yaml`) e aplique
    (`doctl apps update <APP_ID> --spec .do/app.subdomains.yaml`).

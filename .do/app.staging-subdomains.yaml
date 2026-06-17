@@ -8,19 +8,20 @@
 #   pos.staging.nelsonboulangerie.com.br    → pos-uithing (PDV Nuxt em /)
 #
 # DEPLOY (valores concretos do app de staging atual):
-#   APP_ID      = 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f   (app `shopman-staging`)
-#   CNAME alvo  = shopman-staging-cdjpy.ondigitalocean.app
+#   APP_ID = 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f   (app `shopman-staging`)
 #
-#   1. DNS na zona nelsonboulangerie.com.br — 4 registros CNAME → o alvo acima:
-#        staging        CNAME  shopman-staging-cdjpy.ondigitalocean.app
-#        api.staging    CNAME  shopman-staging-cdjpy.ondigitalocean.app
-#        admin.staging  CNAME  shopman-staging-cdjpy.ondigitalocean.app
-#        pos.staging    CNAME  shopman-staging-cdjpy.ondigitalocean.app
-#      (ou um wildcard `*.staging`). Apex de zona não é tocado.
-#   2. doctl apps update 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f \
-#        --spec .do/app.staging-subdomains.yaml --context shopman-staging-write
-#      (atualiza o app existente — reusa o mesmo Postgres/Valkey; NÃO recria banco).
-#   3. Secrets (ManyChat etc.) seguem como variáveis ENCRIPTADAS no painel.
+#   DNS = AUTOMÁTICO. A zona nelsonboulangerie.com.br já está na DigitalOcean
+#   (nameservers ns1/ns2/ns3.digitalocean.com), na MESMA conta do app. Como cada
+#   domínio abaixo declara `zone: nelsonboulangerie.com.br`, a App Platform CRIA os
+#   registros (staging/api.staging/admin.staging/pos.staging) e os certificados TLS
+#   sozinha no deploy. NÃO crie CNAME manualmente (causaria conflito).
+#
+#   Único passo:
+#     doctl apps update 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f \
+#       --spec .do/app.staging-subdomains.yaml --context shopman-staging-write
+#     (atualiza o app existente — reusa o mesmo Postgres/Valkey; NÃO recria banco;
+#      pode levar alguns minutos p/ provisionar domínios + certs.)
+#   Secrets (ManyChat etc.) seguem como variáveis ENCRIPTADAS no painel.
 #
 # ⚠️ Esta atualização troca o staging atual (path-routed: loja em /thing) pela
 #    topologia por subdomínios. Faça quando puder validar logo em seguida.
