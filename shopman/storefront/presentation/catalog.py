@@ -93,6 +93,13 @@ class CatalogItemProjection:
     # Cart state (populated when the builder receives a request)
     qty_in_cart: int = 0
 
+    # Disponibilidade — distingue, dentro de UNAVAILABLE, "pausado pelo operador"
+    # de "esgotado de verdade". `is_notifiable` = esgotado honesto (vendável, não
+    # pausado, sem plano) → habilita o CTA "Me avise quando disponível" (WP-3).
+    # Pausado NÃO é notificável (decisão do operador, não falta de estoque).
+    is_paused: bool = False
+    is_notifiable: bool = False
+
     # Available quantity for stock-aware UX. None = demand-based/untracked
     # (sem teto). Integer = exato. Permite o menu abrir o modal de estoque
     # client-side quando requested > available, sem esperar o POST falhar.
@@ -383,6 +390,10 @@ def _build_items(
             Availability.LOW_STOCK,
             Availability.PLANNED_OK,
         )
+        is_paused = bool(raw_avail and raw_avail.get("is_paused"))
+        is_notifiable = (
+            availability == Availability.UNAVAILABLE and p.is_sellable and not is_paused
+        )
         available_qty: int | None = None
         if raw_avail is not None and not raw_avail.get("is_paused", False):
             policy = raw_avail.get("availability_policy", "planned_ok")
@@ -426,6 +437,8 @@ def _build_items(
                 availability=availability,
                 availability_label=avail_label,
                 can_add_to_cart=can_add,
+                is_paused=is_paused,
+                is_notifiable=is_notifiable,
                 available_qty=available_qty,
                 dietary_info=tuple(str(d) for d in dietary),
                 is_new=bool(meta.get("is_new", False)),

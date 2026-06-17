@@ -134,6 +134,11 @@ class ProductDetailProjection:
     availability_label: str
     can_add_to_cart: bool
     available_qty: int | None
+    # "Pausado pelo operador" vs "esgotado de verdade" dentro de UNAVAILABLE.
+    # `is_notifiable` (esgotado honesto: vendável, não pausado) habilita o CTA
+    # "Me avise quando disponível" na PDP (WP-3).
+    is_paused: bool
+    is_notifiable: bool
     max_qty: int
 
     # Cart state
@@ -254,6 +259,10 @@ def build_product_detail(
         Availability.PLANNED_OK,
     )
     available_qty = catalog_context.promisable_int(raw_avail_session)
+    is_paused = bool(raw_avail_session and raw_avail_session.get("is_paused"))
+    is_notifiable = (
+        availability == Availability.UNAVAILABLE and product.is_sellable and not is_paused
+    )
 
     # Bundle components — expand only if the product declares itself a bundle.
     components = _components(product)
@@ -297,6 +306,8 @@ def build_product_detail(
         availability_label=availability_label,
         can_add_to_cart=can_add_to_cart,
         available_qty=available_qty,
+        is_paused=is_paused,
+        is_notifiable=is_notifiable,
         max_qty=99,  # storefront cap; matches v1 <input max="99">
         qty_in_cart=qty_in_cart,
         is_bundle=product.is_bundle,
