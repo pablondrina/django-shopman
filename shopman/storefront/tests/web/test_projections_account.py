@@ -248,6 +248,7 @@ class TestCustomerProfileRecentOrders:
         # Contrato REST do Arc 9b: o dict da API leva o keyword `status_tone`
         # (semântico, surface-agnostic) — a superfície Nuxt mapeia tom→classe.
         from shopman.orderman.models import Order
+
         from shopman.storefront.presentation import account as account_presentation
 
         Order.objects.create(
