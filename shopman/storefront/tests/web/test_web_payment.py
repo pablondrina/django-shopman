@@ -280,7 +280,7 @@ class TestPaymentIntentRecovery:
         assert "Se o erro continuar" in body
         assert "Não conseguimos gerar o pagamento agora." in body
         assert "Tentar novamente" in body
-        assert f"/pedido/{order_pix_without_intent.ref}/pagamento/" in body
+        assert f"/pedido/{order_pix_without_intent.ref}/pagamento" in body
         assert "QR Code PIX" not in body
 
 

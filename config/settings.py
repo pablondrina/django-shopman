@@ -785,6 +785,10 @@ SHOPMAN_STOREFRONT_BASE_URL = (
     or ""
 ).strip().rstrip("/")
 
+# Magic links (doorman AccessLink) land on the Nuxt store, so the session cookie
+# is set on the store host — same single source as every other customer link.
+DOORMAN["ACCESS_LINK_ENTRY_URL"] = SHOPMAN_STOREFRONT_BASE_URL
+
 # Ref of the Channel used for POS/counter orders.
 SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 

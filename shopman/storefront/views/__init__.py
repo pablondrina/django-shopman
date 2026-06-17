@@ -1,6 +1,5 @@
 """Storefront views — customer-facing web surface (HTMX + Alpine)."""
 
-from .access import AccessLinkEntryView
 from .account import (
     AccountDeleteView,
     AccountView,
@@ -17,7 +16,6 @@ from .account import (
     ProfileUpdateView,
 )
 from .auth import (
-    AccessLinkLoginView,
     CustomerLookupView,
     DeviceCheckLoginView,
     LoginView,
@@ -58,7 +56,6 @@ from .tracking import (
 from .welcome import WelcomeView
 
 __all__ = [
-    "AccessLinkLoginView",
     "AccountDeleteView",
     "AccountView",
     "AddressCreateView",
@@ -67,7 +64,6 @@ __all__ = [
     "AddressSetDefaultView",
     "AddressUpdateView",
     "ApplyCouponView",
-    "AccessLinkEntryView",
     "CartDrawerContentProjView",
     "CartPageContentView",
     "CartSetQtyBySkuView",

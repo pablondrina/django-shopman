@@ -286,24 +286,26 @@ def _build_context(order, payload: dict, template: str) -> dict:
                 is_active=True,
             )
             order_ref = payload.get("order_ref") or order.ref
-            context["tracking_url"] = build_tracking_access_url(None, auth_customer, order_ref)
-            context["payment_url"] = build_payment_access_url(None, auth_customer, order_ref)
-            context["reorder_url"] = build_reorder_access_url(None, auth_customer, order_ref)
+            context["tracking_url"] = build_tracking_access_url(auth_customer, order_ref)
+            context["payment_url"] = build_payment_access_url(auth_customer, order_ref)
+            context["reorder_url"] = build_reorder_access_url(auth_customer, order_ref)
         except Exception:
             logger.debug("access_urls: could not build tracking/reorder URLs", exc_info=True)
 
     if order.total_q:
         context["total"] = f"R$ {order.total_q / 100:,.2f}"
 
+    from shopman.shop.services import storefront_links
+
     payment = order.data.get("payment")
     if payment:
         context["payment"] = payment
-        context["payment_url"] = context.get("payment_url") or f"/pedido/{order.ref}/pagamento/"
+        context["payment_url"] = context.get("payment_url") or storefront_links.order_payment_url(order.ref)
         copy_paste = payment.get("copy_paste")
         context["copy_paste"] = copy_paste or ""
         context["pix_suffix"] = f" Codigo PIX: {copy_paste}" if copy_paste else ""
     else:
-        context["payment_url"] = context.get("payment_url") or f"/pedido/{order.ref}/pagamento/"
+        context["payment_url"] = context.get("payment_url") or storefront_links.order_payment_url(order.ref)
         context["pix_suffix"] = ""
 
     return context

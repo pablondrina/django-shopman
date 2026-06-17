@@ -14,8 +14,6 @@ app_name = "storefront"
 urlpatterns = [
     # Home
     path("", views.HomeView.as_view(), name="home"),
-    # AccessLink entry — pre-authenticated link from notifications
-    path("a/", views.AccessLinkEntryView.as_view(), name="access_link_entry"),
     # PWA
     path("manifest.json", ManifestView.as_view(), name="manifest"),
     path("sw.js", ServiceWorkerView.as_view(), name="service_worker"),
@@ -101,7 +99,6 @@ urlpatterns = [
     # Auth
     path("login/", views.LoginView.as_view(), name="login"),
     path("bem-vindo/", views.WelcomeView.as_view(), name="welcome"),
-    path("auth/access/<str:token>/", views.AccessLinkLoginView.as_view(), name="access_link_login"),
     path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
     path("auth/trust-device/", views.TrustDeviceView.as_view(), name="trust_device"),
     # Device management

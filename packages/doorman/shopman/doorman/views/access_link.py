@@ -89,13 +89,20 @@ class AccessLinkCreateView(View):
         if not customer.is_active:
             return JsonResponse({"error": "Customer inactive"}, status=400)
 
-        # Create token
+        # Fold the post-login destination into the token metadata so the entry
+        # link carries no `next` query param (the consuming surface derives the
+        # destination server-side from the token → no open-redirect surface).
+        metadata = dict(data.get("metadata") or {})
+        next_url = self._next_url(data)
+        if next_url:
+            metadata["next"] = safe_redirect_url(next_url, request)
+
         result = AccessLinkService.create_token(
             customer=customer,
             audience=data.get("audience", AccessLink.Audience.WEB_GENERAL),
             source=data.get("source", AccessLink.Source.MANYCHAT),
             ttl_minutes=data.get("ttl_minutes"),
-            metadata=data.get("metadata"),
+            metadata=metadata,
         )
         if not result.success:
             return JsonResponse(
@@ -103,15 +110,8 @@ class AccessLinkCreateView(View):
                 status=400,
             )
 
-        next_url = self._next_url(data)
-        access_url = self._build_access_url(
-            request,
-            result.token,
-            next_url,
-        )
-
         response_data = {
-            "access_url": access_url,
+            "access_url": self._build_access_url(result.token),
             "token": result.token,
             "expires_at": result.expires_at,
         }
@@ -123,11 +123,9 @@ class AccessLinkCreateView(View):
         return data.get("next")
 
     @staticmethod
-    def _build_access_url(request, token: str | None, next_url: str | None) -> str:
-        params = {"t": token}
-        if next_url:
-            params["next"] = safe_redirect_url(next_url, request)
-        return f"{request.build_absolute_uri('/a/')}?{urlencode(params)}"
+    def _build_access_url(token: str | None) -> str:
+        base = (get_doorman_settings().ACCESS_LINK_ENTRY_URL or "").rstrip("/")
+        return f"{base}/a?{urlencode({'t': token})}"
 
     @classmethod
     def _resolve_customer(cls, data: dict, resolver):

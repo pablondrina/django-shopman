@@ -291,7 +291,7 @@ def test_fermata_add_materialize_notify_and_countdown(
     customer,
 ):
     """Scenario 5: demand hold -> awaiting badge -> materialization notification + countdown."""
-    settings.SHOPMAN_BASE_URL = "https://shop.example"
+    settings.SHOPMAN_STOREFRONT_BASE_URL = "https://shop.example"
     _use_offerman_sku_validator(settings)
     product = _make_product(
         "AV-E2E-FERMATA",
@@ -345,7 +345,7 @@ def test_fermata_add_materialize_notify_and_countdown(
     assert kwargs["event"] == "stock.arrived"
     assert kwargs["context"]["product_name"] == product.name
     assert kwargs["context"]["deadline_at"] == deadline.isoformat()
-    assert kwargs["context"]["cart_url"] == "https://shop.example/cart/"
+    assert kwargs["context"]["cart_url"] == "https://shop.example/cart"
 
     ready = build_cart(
         request=_request_with_session(client),

@@ -6,7 +6,6 @@ import json
 from datetime import date, time, timedelta
 from decimal import Decimal
 from unittest.mock import patch
-from urllib.parse import urlsplit
 
 import pytest
 from django.test import Client
@@ -116,11 +115,12 @@ class TestCheckoutGet:
         )
         assert create_resp.status_code == 200
 
-        access_url = create_resp.json()["access_url"]
-        entry = urlsplit(access_url)
-        entry_resp = cart_session.get(f"{entry.path}?{entry.query}")
-        assert entry_resp.status_code == 302
-        assert entry_resp.url == "/checkout/"
+        # The minted link points at the store ("/a?t=<token>"); the store page
+        # exchanges the token through the API to establish the session.
+        token = create_resp.json()["token"]
+        exchange = cart_session.post("/api/v1/auth/access/", {"token": token})
+        assert exchange.status_code == 200
+        assert exchange.json()["redirect"] == "/checkout/"
 
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200

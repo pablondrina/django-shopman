@@ -374,8 +374,14 @@ class TestAccessLinkCreateViewEdges:
         assert response.status_code == 200
         data = json.loads(response.content)
         assert sorted(data) == ["access_url", "expires_at", "token"]
-        assert "/a/?t=" in data["access_url"]
-        assert "next=%2Fpedido%2FORD-123%2F" in data["access_url"]
+        # Store-domain entry link; the destination rides in the token metadata,
+        # never as a `next` query param (no open-redirect surface).
+        assert "/a?t=" in data["access_url"]
+        assert "next=" not in data["access_url"]
+
+        from shopman.doorman.models import AccessLink
+        link = AccessLink.get_by_token(data["token"])
+        assert link.metadata.get("next") == "/pedido/ORD-123/"
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
     def test_create_accepts_manychat_payload_with_next(self, customer):
@@ -404,8 +410,8 @@ class TestAccessLinkCreateViewEdges:
             "first_name": "Pablo",
             "last_name": "Valentini",
         }
-        assert "/a/?t=" in data["access_url"]
-        assert "next=%2Fmenu%2F" in data["access_url"]
+        assert "/a?t=" in data["access_url"]
+        assert "next=" not in data["access_url"]
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
     def test_create_with_customer_id_persists_manychat_contact_payload(self):

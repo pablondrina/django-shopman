@@ -123,106 +123,87 @@ class TestVerifyCodeView:
 # ── AccessLink ────────────────────────────────────────────────────
 
 
-class TestAccessLinkLoginView:
-    """BridgeLoginView: consume access link → authenticated session."""
+class TestAccessLinkExchangeApi:
+    """POST /api/v1/auth/access/ — magic-link token → store-domain session.
 
-    def test_access_link_creates_authenticated_session(self, client: Client, customer):
-        """Valid access link logs in via Django auth."""
-        link, raw_token = AccessLink.create_with_token(
+    The destination is derived from the token metadata (no client `next`), so a
+    link can only ever land on a safe in-store path. The session cookie is set on
+    the store host (the Nuxt page posts here through the BFF).
+    """
+
+    URL = "/api/v1/auth/access/"
+
+    def _token(self, customer, *, metadata=None, minutes=5):
+        return AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.INTERNAL,
-            expires_at=timezone.now() + timedelta(minutes=5),
+            metadata=metadata or {},
+            expires_at=timezone.now() + timedelta(minutes=minutes),
         )
 
-        response = client.get(f"/auth/access/{raw_token}/")
+    def test_valid_token_creates_session_and_defaults_to_account(self, client: Client, customer):
+        _link, raw_token = self._token(customer)
 
-        assert response.status_code == 302
-        # Django auth user should be set
-        user_id = client.session.get("_auth_user_id")
-        assert user_id is not None
-
-    def test_access_link_expired_returns_error(self, client: Client, customer):
-        """Expired access link renders error page."""
-        link, raw_token = AccessLink.create_with_token(
-            customer_id=customer.uuid,
-            audience=AccessLink.Audience.WEB_GENERAL,
-            source=AccessLink.Source.INTERNAL,
-            expires_at=timezone.now() - timedelta(minutes=1),
-        )
-
-        response = client.get(f"/auth/access/{raw_token}/")
+        response = client.post(self.URL, {"token": raw_token})
 
         assert response.status_code == 200
-        assert client.session.get("_auth_user_id") is None
+        assert client.session.get("_auth_user_id") is not None
+        body = response.json()
+        assert body["redirect"] == "/account"
+        assert body["is_authenticated"] is True
 
-    def test_access_link_invalid_returns_error(self, client: Client):
-        """Non-existent access link renders error."""
-        response = client.get("/auth/access/nonexistent-token/")
+    def test_order_metadata_grants_access_and_redirects_to_tracking(self, client: Client, customer):
+        _link, raw_token = self._token(customer, metadata={"order_ref": "ORD-NUXT-1"})
+
+        response = client.post(self.URL, {"token": raw_token})
 
         assert response.status_code == 200
+        assert response.json()["redirect"] == "/tracking/ORD-NUXT-1"
+        assert "ORD-NUXT-1" in client.session.get("shopman_order_access_refs", [])
+
+    def test_payment_action_redirects_to_payment_page(self, client: Client, customer):
+        _link, raw_token = self._token(customer, metadata={"order_ref": "ORD-PAY-1", "action": "payment"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.json()["redirect"] == "/pedido/ORD-PAY-1/pagamento"
+
+    def test_reorder_action_redirects_to_order_history(self, client: Client, customer):
+        _link, raw_token = self._token(customer, metadata={"order_ref": "ORD-RE-1", "action": "reorder"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.json()["redirect"] == "/account/pedidos"
+
+    def test_expired_token_is_rejected_without_session(self, client: Client, customer):
+        _link, raw_token = self._token(customer, minutes=-1)
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 400
         assert client.session.get("_auth_user_id") is None
 
-    def test_access_link_used_returns_error(self, client: Client, customer):
-        """Already-used access link returns error (outside reuse window)."""
-        link, raw_token = AccessLink.create_with_token(
-            customer_id=customer.uuid,
-            audience=AccessLink.Audience.WEB_GENERAL,
-            source=AccessLink.Source.INTERNAL,
-            expires_at=timezone.now() + timedelta(minutes=5),
-        )
+    def test_invalid_token_is_rejected(self, client: Client):
+        response = client.post(self.URL, {"token": "nonexistent-token"})
+
+        assert response.status_code == 400
+        assert client.session.get("_auth_user_id") is None
+
+    def test_used_token_is_rejected(self, client: Client, customer):
+        link, raw_token = self._token(customer)
         link.used_at = timezone.now() - timedelta(minutes=5)
         link.save()
 
-        response = client.get(f"/auth/access/{raw_token}/")
+        response = client.post(self.URL, {"token": raw_token})
 
-        assert response.status_code == 200
+        assert response.status_code == 400
         assert client.session.get("_auth_user_id") is None
 
-    def test_access_link_redirects_to_next(self, client: Client, customer):
-        """Access link respects ?next= parameter for redirect."""
-        link, raw_token = AccessLink.create_with_token(
-            customer_id=customer.uuid,
-            audience=AccessLink.Audience.WEB_GENERAL,
-            source=AccessLink.Source.INTERNAL,
-            expires_at=timezone.now() + timedelta(minutes=5),
-        )
+    def test_missing_token_is_rejected(self, client: Client):
+        response = client.post(self.URL, {})
 
-        response = client.get(f"/auth/access/{raw_token}/?next=/minha-conta/")
-
-        assert response.status_code == 302
-        assert response.url == "/minha-conta/"
-
-    def test_access_entry_rejects_external_next(self, client: Client, customer):
-        """Short access entry sanitizes next before redirecting."""
-        link, raw_token = AccessLink.create_with_token(
-            customer_id=customer.uuid,
-            audience=AccessLink.Audience.WEB_GENERAL,
-            source=AccessLink.Source.INTERNAL,
-            expires_at=timezone.now() + timedelta(minutes=5),
-        )
-
-        response = client.get(f"/a/?t={raw_token}&next=https://evil.example/phish")
-
-        assert response.status_code == 302
-        assert response.url.startswith("/")
-        assert "evil.example" not in response.url
-
-    def test_access_link_grants_order_metadata_before_nuxt_tracking_redirect(self, client: Client, customer):
-        """Access links for Nuxt tracking can bind order access and redirect safely."""
-        link, raw_token = AccessLink.create_with_token(
-            customer_id=customer.uuid,
-            audience=AccessLink.Audience.WEB_GENERAL,
-            source=AccessLink.Source.INTERNAL,
-            metadata={"order_ref": "ORD-NUXT-ACCESS"},
-            expires_at=timezone.now() + timedelta(minutes=5),
-        )
-
-        response = client.get(f"/auth/access/{raw_token}/?next=/tracking/ORD-NUXT-ACCESS")
-
-        assert response.status_code == 302
-        assert response.url == "/tracking/ORD-NUXT-ACCESS"
-        assert "ORD-NUXT-ACCESS" in client.session.get("shopman_order_access_refs", [])
+        assert response.status_code == 400
 
 
 # ── Login page ─────────────────────────────────────────────────────

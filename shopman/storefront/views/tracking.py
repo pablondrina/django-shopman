@@ -307,7 +307,7 @@ class OrderConfirmationView(View):
         try:
             from shopman.shop.services.access_urls import build_tracking_access_url
 
-            access_url = build_tracking_access_url(request, getattr(request, "customer", None), order.ref)
+            access_url = build_tracking_access_url(getattr(request, "customer", None), order.ref)
             if access_url:
                 return access_url
         except Exception:

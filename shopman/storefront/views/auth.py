@@ -385,40 +385,6 @@ class VerifyCodeView(View):
         })
 
 
-class AccessLinkLoginView(View):
-    """Consume an access link and create an authenticated session.
-
-    URL: /auth/access/<token>/
-    Lifecycle: WhatsApp link → this view → session created → redirect
-    """
-
-    def get(self, request: HttpRequest, token: str) -> HttpResponse:
-        if not HAS_AUTH:
-            return redirect("/")
-
-        from shopman.shop.services import access as access_service
-
-        metadata = access_service.token_metadata(token)
-        result = auth_service.exchange_access_link(token=token, request=request)
-
-        if not result.success:
-            logger.warning("Access link exchange failed: %s", result.error)
-            return render(request, "storefront/access_link_invalid.html", {
-                "error": result.error,
-            })
-
-        order_ref = metadata.get("order_ref") if isinstance(metadata, dict) else ""
-        if order_ref:
-            from ..services import orders as order_service
-
-            order_service.grant_order_access(request, str(order_ref))
-
-        # Django auth already called by AccessLinkService.exchange(request=request)
-        # Redirect based on token audience or next param
-        next_url = auth_service.safe_redirect_url(request.GET.get("next"), request)
-        return redirect(next_url)
-
-
 class DeviceCheckLoginView(View):
     """HTMX: auto-login via device trust and show greeting, or 204 to fall through.
 

@@ -64,6 +64,16 @@ def path_login() -> str:
     return "/login"
 
 
+def path_access() -> str:
+    """Magic-link bridge route on the Nuxt store (`/a?t=<token>`).
+
+    The page exchanges the token via the BFF (`/api/auth/access/`), so the
+    session cookie is set on the store host, then navigates to the destination
+    the backend derives from the token metadata.
+    """
+    return "/a"
+
+
 def storefront_url(path: str) -> str:
     """URL absoluta da loja para um caminho (base + caminho).
 

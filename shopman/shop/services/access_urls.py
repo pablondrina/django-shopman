@@ -1,17 +1,21 @@
-"""
-AccessUrlService — pre-authenticated entry URLs for notifications and share buttons.
+"""AccessUrlService — pre-authenticated magic links for notifications and shares.
 
-Generates AccessLink tokens and wraps them as entry URLs that authenticate
-the customer on first click, then redirect to the intended destination.
+Generates an ``AccessLink`` token and wraps it as a **store** entry URL that
+authenticates the customer on first click, then lands them on the destination
+the backend derives from the token metadata.
+
+Decoupled architecture: the link always points at the Nuxt store
+(``SHOPMAN_STOREFRONT_BASE_URL``) — ``…/a?t=<token>`` — so the session cookie is
+established on the store host (via the BFF), never on the headless ``api.``
+domain. The destination is derived server-side from the token metadata
+(``order_ref``/``action``); there is no ``next`` query parameter, so there is no
+open-redirect surface.
 
 Usage:
-    from shopman.shop.services.access_urls import build_access_url
+    from shopman.shop.services.access_urls import build_tracking_access_url
 
-    url = build_access_url(request, customer, next_url="/pedido/ORD-001/")
-    # → https://example.com/a/?t=abc123&next=/pedido/ORD-001/
-
-    # Without a request (e.g. from async notification handlers):
-    url = build_access_url(None, customer, next_url="/pedido/ORD-001/")
+    url = build_tracking_access_url(customer, "ORD-001")
+    # → https://nelson.com/a?t=abc123
 """
 
 from __future__ import annotations
@@ -23,25 +27,21 @@ logger = logging.getLogger(__name__)
 
 
 def build_access_url(
-    request_or_shop,
     customer,
-    next_url: str = "/menu/",
+    *,
     source: str = "manychat",
     metadata: dict | None = None,
 ) -> str | None:
-    """
-    Create an AccessLink token and return the full entry URL.
+    """Create an AccessLink token and return the full store entry URL.
 
     Args:
-        request_or_shop: HttpRequest for absolute URL building, or None to use
-                         the Sites framework domain.
-        customer: AuthCustomerInfo with uuid field. Returns None if falsy.
-        next_url: Destination path after authentication.
+        customer: AuthCustomerInfo with a ``uuid`` field. Returns None if falsy.
         source: Token source tag (e.g. "manychat", "internal").
-        metadata: Optional metadata stored on the AccessLink.
+        metadata: Metadata stored on the AccessLink. The backend derives the
+            post-login destination from ``order_ref``/``action``.
 
     Returns:
-        Full entry URL string, or None if token creation fails.
+        Absolute store entry URL, or None if token creation fails.
     """
     if not customer or not getattr(customer, "uuid", None):
         return None
@@ -57,73 +57,39 @@ def build_access_url(
             metadata=metadata or {},
         )
         raw_token = result.token
-
     except Exception:
         logger.exception("access_urls.build_access_url: token creation failed")
         return None
 
-    domain = _resolve_domain(request_or_shop)
-    params = urlencode({"t": raw_token, "next": next_url})
-    return f"{domain}/a/?{params}"
+    from shopman.shop.services import storefront_links
+
+    return storefront_links.storefront_url(
+        f"{storefront_links.path_access()}?{urlencode({'t': raw_token})}"
+    )
 
 
-def build_tracking_access_url(request_or_shop, customer, order_ref: str, source: str = "manychat") -> str | None:
-    """Shortcut for building an authenticated tracking access URL."""
+def build_tracking_access_url(customer, order_ref: str, source: str = "manychat") -> str | None:
+    """Magic link that lands on the Nuxt order tracking page."""
     return build_access_url(
-        request_or_shop,
         customer,
-        next_url=f"/pedido/{order_ref}/",
         source=source,
         metadata={"order_ref": order_ref},
     )
 
 
-def build_payment_access_url(request_or_shop, customer, order_ref: str, source: str = "manychat") -> str | None:
-    """Shortcut for building an authenticated payment access URL."""
+def build_payment_access_url(customer, order_ref: str, source: str = "manychat") -> str | None:
+    """Magic link that lands on the Nuxt order payment page."""
     return build_access_url(
-        request_or_shop,
         customer,
-        next_url=f"/pedido/{order_ref}/pagamento/",
         source=source,
         metadata={"order_ref": order_ref, "action": "payment"},
     )
 
 
-def build_reorder_access_url(request_or_shop, customer, order_ref: str, source: str = "manychat") -> str | None:
-    """Shortcut for building an authenticated reorder access URL."""
+def build_reorder_access_url(customer, order_ref: str, source: str = "manychat") -> str | None:
+    """Magic link that lands on the Nuxt order history (for reordering)."""
     return build_access_url(
-        request_or_shop,
         customer,
-        next_url=f"/meus-pedidos/{order_ref}/reorder/",
         source=source,
         metadata={"order_ref": order_ref, "action": "reorder"},
     )
-
-
-# ── private helpers ──
-
-def _resolve_domain(request_or_shop) -> str:
-    """Return protocol+domain string for URL construction."""
-    from django.http import HttpRequest
-
-    if isinstance(request_or_shop, HttpRequest):
-        return request_or_shop.build_absolute_uri("/").rstrip("/")
-
-    # Async context — use Sites framework
-    try:
-        from django.contrib.sites.models import Site
-        from shopman.doorman.conf import doorman_settings
-
-        domain = Site.objects.get_current().domain
-        protocol = "https" if doorman_settings.USE_HTTPS else "http"
-        return f"{protocol}://{domain}"
-    except Exception:
-        logger.debug("access_urls._get_base_url: Site lookup failed", exc_info=True)
-
-    # Final fallback
-    try:
-        from django.conf import settings
-        return getattr(settings, "SHOPMAN_BASE_URL", "https://localhost:8000")
-    except Exception:
-        logger.debug("access_urls._get_base_url: settings fallback failed", exc_info=True)
-        return "https://localhost:8000"

@@ -42,28 +42,47 @@ quebrado — por isso é tela-a-tela, testado, nunca no susto.
 - ✅ **Reapontados (seguros):** `admin/shop.py` (preview da loja → `home_url()`),
   `handlers/_stock_receivers.py::_cart_url` (→ `cart_url()`). Teste de stock-receiver
   atualizado para o novo contrato (`/cart`, base = `SHOPMAN_STOREFRONT_BASE_URL`).
+- ✅ **Passo 2 — projeção de pagamento + magic links (interino):**
+  - `shop/projections/payment_status.py` desacoplado de `reverse("storefront:…")`:
+    `status_url` → `/api/v1/payment/{ref}/status/` (endpoint que sobrevive, mesmo path que a
+    view da API já sobrescreve); `redirect_url` + hrefs `track_order` → `order_tracking_url`;
+    hrefs `retry_payment` → `order_payment_url`. **Confirmado** que o Nuxt NÃO renderiza
+    `promise.actions` (a página usa `payment.actions` [só mock_confirm em DEBUG, `/api/v1/…`],
+    `payment.tracking_url` e `payment.checkout_url`; `status_url`/`redirect_url` são
+    sobrescritos pela própria view da API com paths Nuxt) — repoint é seguro p/ a superfície
+    viva e remove o acoplamento que quebraria ao aposentar as URLs do storefront.
+  - `shop/services/notification.py` (fallback) → `storefront_links.order_payment_url(ref)`.
+  - Testes ajustados: `test_access_urls`, `test_projections_payment`, `test_web_payment`
+    (legado, assert sem trailing slash), `test_availability_plan_e2e` (cart_url no contrato
+    `SHOPMAN_STOREFRONT_BASE_URL` — herança vermelha do Passo 1).
+- ✅ **Passo 2 — magic links MIGRADOS de verdade (sem legado, sem interino):**
+  decisão do Pablo: projeto novo em pré-lançamento, zero legado a manter. O magic link
+  agora **nasce, é consumido e estabelece sessão no domínio da LOJA (Nuxt)**:
+  - **Builders** (`access_urls.py`) reescritos: link = `storefront_links` base + `/a?t=<token>`
+    (domínio da loja, sem `next` na query). O **destino vem da metadata do token** server-side
+    (`order_ref`/`action`/`next`) → zero superfície de open-redirect. Assinatura enxuta:
+    `build_*_access_url(customer, order_ref)` (caíram `request_or_shop`/`next_url`/`_resolve_domain`).
+  - **Página Nuxt** `app/pages/a.vue` (rota `/a`): faz `POST /api/auth/access/` (BFF →
+    `/api/v1/auth/access/`), seta o cookie no host da loja, e `navigateTo(redirect)`.
+  - **Endpoint** `storefront/api/auth.py::AccessLinkExchangeView` (`POST /api/v1/auth/access/`):
+    troca token→sessão (reusa `shop.services.access`), grava `origin_channel`, concede acesso ao
+    pedido, e devolve `{session, redirect}` derivado da metadata (`path_order_payment`/
+    `path_order_tracking`/`path_order_history`/`next` relativo/`/account`).
+  - **Ponte ManyChat** (doorman Core, `views/access_link.py`): `access/create/` agora emite o
+    link da loja via novo setting `DOORMAN.ACCESS_LINK_ENTRY_URL` (= `SHOPMAN_STOREFRONT_BASE_URL`)
+    e **dobra o `next` na metadata** (validado relativo) em vez de query param.
+  - **Legado REMOVIDO:** `storefront/views/access.py` (`/a/`), `AccessLinkLoginView`
+    (`/auth/access/<token>/`), `shop/services/auth.exchange_access_link`,
+    `templates/.../access_link_invalid.html`, e os testes legados (portados p/ o endpoint novo).
+  - **Verificado ao vivo** (preview 3000): `/a?t=token-inválido` → 400 no Django → estado de erro
+    amigável na loja, integrado ao shell. `make test` verde (2142 passed).
 
 ## Geradores de link de cliente AINDA a reapontar (mapeados)
 
-1. **`shop/projections/payment_status.py`** (consumida pelo Nuxt!) — `reverse("storefront:
-   order_payment")` (≈ l.419, l.473) e `reverse("storefront:payment_status_partial")` (l.146).
-   ⚠️ **SUTILEZA:** `surfaces/storefront-uithing-nuxt/app/pages/pedido/[ref]/pagamento.vue:90`
-   faz `$fetch(apiPath(action.href))` esperando `{redirect_url}` — ou seja, ALGUM `action.href`
-   é consumido como **chamada de API**, não link de página. **Entender o handling por `kind`
-   (link/external/mutation) no Nuxt ANTES de mexer.** O Nuxt já tem a própria página de
-   pagamento (`/pedido/[ref]/pagamento`) e o próprio polling via `/api/v1`; provavelmente
-   esses URLs Django são vestigiais para navegação, mas confirmar o uso do `apiPath`.
-2. **`shop/services/notification.py`** (l.301/306, fallback `/pedido/{ref}/pagamento/`) —
-   trocar o fallback por `storefront_links.order_payment_url(ref)`. O caminho PRIMÁRIO usa
-   `build_payment_access_url`/`build_tracking_access_url` (magic link) → ver item 3.
-3. **`shop/services/access_urls.py`** (magic links `/a/?t=&next=/pedido/{ref}/…`) —
-   ⚠️ **SUTILEZA (cross-domain):** em subdomínios, um magic link que cai no Django (`api.`)
-   seta o cookie em `api.`, mas o cliente aterrissa na loja (`nelson.com`) onde o cookie não
-   existe. **Magic-link precisa MIGRAR de feature:** o link aponta para uma rota da LOJA Nuxt
-   (ex. `nelson.com/a/<token>`) que chama `/api/auth/...` (BFF) e estabelece a sessão no
-   domínio da loja. É feature nova (rota Nuxt + endpoint de API), não só repoint. Interino
-   (staging single-domain): magic link no `/a/` Django segue funcionando; trocar só os
-   `next_url` para os caminhos Nuxt de `storefront_links`.
+1. ✅ **`shop/projections/payment_status.py`** — feito no Passo 2.
+2. ✅ **`shop/services/notification.py`** — feito no Passo 2 (fallback → `order_payment_url`).
+3. ✅ **`shop/services/access_urls.py` + magic links** — MIGRADOS de verdade no Passo 2 (acima).
+   Cross-domain resolvido: link da loja + sessão no host da loja via BFF.
 4. **`storefront/presentation/catalog.py:114`** (`detail_url` → `storefront:product_detail`) —
    "convenience for templates". Confirmar se a API/Nuxt usa; se não, é legado (tem fallback).
 5. **`storefront/services/catalog.py`** (sitemap Django reverse `storefront:home/menu/…`) — o
@@ -77,9 +96,10 @@ quebrado — por isso é tela-a-tela, testado, nunca no susto.
   `_focus_overlay.html` referenciam `storefront:`) — só os usam as páginas legadas. Aposentar
   junto. (Confirmar que o admin/operador NÃO os usa.)
 - **Páginas legadas** `shopman/storefront/urls.py` — remover `path("", include("shopman.
-  storefront.urls"))` do `config/urls.py`. **MANTER** o que vira ponte de auth do magic link
-  (`/a/`, `/auth/access/<token>/`) até a migração do item 3, e **MANTER** `storefront/api/`,
-  `storefront/services/`, `storefront/projections/` (a API que o BFF consome).
+  storefront.urls"))` do `config/urls.py`. A ponte de auth do magic link já NÃO depende mais de
+  páginas Django (o `/a/` Django foi removido; quem consome é a loja Nuxt + `/api/v1/auth/access/`).
+  **MANTER** `storefront/api/`, `storefront/services/`, `storefront/projections/` (a API que o BFF
+  consome).
 - **Testes legados** de web-view (`storefront/tests/test_web_views*`) — remover/quarentenar.
 
 ## Ordem & gates
