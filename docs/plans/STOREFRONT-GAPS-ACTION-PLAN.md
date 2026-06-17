@@ -19,7 +19,11 @@ acolhedores (informar, nunca bloquear seco).
 
 ## Tier 1 — impacto direto no cliente
 
-### WP-1 — Checkout volta a persistir endereço/cliente/defaults  ⏱ pequeno · risco baixo
+### WP-1 — Checkout volta a persistir endereço/cliente/defaults  ✅ FEITO (commit `6f5a6bfa`) · ⏱ pequeno · risco baixo
+> Efeitos pós-commit (`ensure_customer`/`persist_new_address`/`save_defaults`) movidos p/ dentro de
+> `checkout.process()` (fonte única; só o storefront chama process(), POS tem caminho próprio),
+> best-effort. `save_as_default` default True (omotenashi); toggle Nuxt "Salvar p/ a próxima vez"
+> (pré-marcado, opt-out) = peça de front pendente. Testes `test_checkout_side_effects.py` verdes.
 **Problema (brecha REAL confirmada).** A view de página Django (apagada) chamava, pós-commit:
 `checkout_service.ensure_customer()`, `persist_new_address()`, `save_defaults(enabled=...)`. A
 `CheckoutView` da API (`shopman/storefront/api/views.py`) só faz `process()` + `grant_order_access` +
@@ -36,7 +40,11 @@ já marcado** ("Salvar para a próxima vez") que o cliente pode desmarcar — de
 controle preservado. `save_defaults` roda salvo se o toggle for desmarcado.
 **Cobertura:** `test_persist_address.py` já existe (serviço); adicionar teste do caminho API.
 
-### WP-2 — Revisão do vocabulário de disponibilidade  ⏱ médio · risco baixo
+### WP-2 — Revisão do vocabulário de disponibilidade  ✅ FEITO (commit `feat WP-2`) · ⏱ médio · risco baixo
+> `is_paused` + `is_notifiable` expostos nas projeções de catálogo e PDP (`is_notifiable` = esgotado
+> honesto: UNAVAILABLE + vendável + não pausado → habilita "Me avise"). Testes verdes.
+> **Follow-up:** "Volta em {data}" p/ PLANNED_OK precisa de plumbing do `target_date` no `raw_avail`
+> (não está lá hoje) — fica p/ depois; PLANNED_OK já é vendável, então não urge.
 **Problema.** O enum tem 4 estados (`AVAILABLE/LOW_STOCK/PLANNED_OK/UNAVAILABLE`). O motor por baixo
 (AVAILABILITY-PLAN, scope unification, planned holds) é robusto, mas a **superfície colapsa**
 "pausado" e "esgotado sem plano" ambos em `UNAVAILABLE` — distinção que importa para a UX (e habilita
@@ -60,7 +68,13 @@ falta **surfaceá-lo**.
 - Notificação respeita prefs do Guestman (ManyChat→WhatsApp; email pro resto) — reusa
   `shop/services/notification.py` + magic link da loja.
 **Abordagem.** Slice fino: modelo + subscribe endpoint (`POST /api/v1/availability/<sku>/notify/`) +
-resolver de "ready 0→+" no signal + template de notificação `stock_back`. CTA na PDP Nuxt.
+template de notificação `stock_back`. CTA na PDP Nuxt (lê `is_notifiable` do WP-2).
+**Trigger VALIDADO (sem detecção frágil de borda 0→+):** num receiver de mudança de estoque (Move
+post_save, mesmo ponto do `_sse_emitters`), se houver assinatura **pendente** (`notified_at IS NULL`)
+p/ o SKU **E** `availability.check` agora diz disponível → notifica + marca `notified_at`. Idempotente,
+dispara uma vez. Fast-path: só consulta se `exists()` de assinatura pendente p/ aquele SKU.
+**Onde mora o modelo:** `storefront/models/` (app-level, como Promotion/Coupon/DeliveryZone) — precisa
+migração.
 **DECIDIDO:** anônimo **pode** se inscrever (só telefone/WhatsApp) — reduz fricção; valida via o
 mesmo OTP se virar pedido.
 
