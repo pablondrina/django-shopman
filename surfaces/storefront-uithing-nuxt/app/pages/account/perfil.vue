@@ -72,8 +72,8 @@ useSeoMeta({ title: 'Perfil' })
     <div class="shop-container space-y-5">
 
       <div>
-        <h1 class="text-2xl font-semibold">Perfil</h1>
-        <p class="text-sm text-muted-foreground">Dados usados para identificar seus pedidos e recuperar sua conta.</p>
+        <h1 class="shop-title">Perfil</h1>
+        <p class="shop-muted">Dados usados para identificar seus pedidos e recuperar sua conta.</p>
       </div>
 
       <UiSkeleton v-if="pending" class="h-64 rounded-lg" />
@@ -116,8 +116,8 @@ useSeoMeta({ title: 'Perfil' })
               <Icon name="lucide:phone" class="size-4" />
             </span>
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
-              <p class="text-xs text-muted-foreground">Para trocar o telefone, entre novamente usando outro número.</p>
+              <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
+              <p class="shop-meta">Para trocar o telefone, entre novamente usando outro número.</p>
             </div>
             <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Trocar</UiButton>
           </div>

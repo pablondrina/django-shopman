@@ -105,8 +105,8 @@ useSeoMeta({ title: 'Endereços' })
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold">Endereços</h1>
-          <p class="text-sm text-muted-foreground">
+          <h1 class="shop-title">Endereços</h1>
+          <p class="shop-muted">
             {{ pending ? 'Carregando…' : formatCount(addresses?.length || 0, 'endereço salvo', 'endereços salvos') }}
           </p>
         </div>
@@ -140,12 +140,12 @@ useSeoMeta({ title: 'Endereços' })
               <Icon name="lucide:map-pin" class="size-5" />
             </span>
             <div class="min-w-0 flex-1">
-              <p class="flex items-center gap-2 font-medium">
+              <p class="flex items-center gap-2 font-semibold">
                 {{ address.label }}
                 <UiBadge v-if="address.is_default" variant="secondary">Padrão</UiBadge>
               </p>
-              <p class="mt-0.5 text-sm text-muted-foreground">{{ address.formatted_address }}</p>
-              <p v-if="address.complement" class="text-sm text-muted-foreground">{{ address.complement }}</p>
+              <p class="mt-0.5 shop-muted">{{ address.formatted_address }}</p>
+              <p v-if="address.complement" class="shop-muted">{{ address.complement }}</p>
             </div>
           </div>
           <div class="flex flex-wrap gap-2 border-t pt-3">
