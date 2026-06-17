@@ -32,6 +32,7 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     HappyHourProjection,
 )
+from shopman.storefront.presentation.dietary import dietary_warnings as _dietary_warnings
 from shopman.storefront.presentation.icons import collection_icon
 from shopman.storefront.presentation.status import availability_label
 
@@ -103,6 +104,11 @@ class CatalogItemProjection:
     # Estado do coração (favorito do cliente logado). Populado quando o builder
     # recebe um request autenticado; False p/ anônimo.
     is_favorite: bool = False
+
+    # Avisos de preferência alimentar (ex.: "Contém glúten") quando o produto
+    # conflita com uma preferência ATIVA do cliente logado. Vazio p/ anônimo ou
+    # sem conflito (omotenashi: avisar, nunca esconder).
+    dietary_warnings: tuple[str, ...] = field(default_factory=tuple)
 
     # Available quantity for stock-aware UX. None = demand-based/untracked
     # (sem teto). Integer = exato. Permite o menu abrir o modal de estoque
@@ -227,6 +233,7 @@ def build_catalog(
         low_stock_threshold=low_stock_threshold,
         qty_in_cart_by_sku=qty_in_cart_by_sku,
         favorite_skus=_favorite_skus(request),
+        active_food_prefs=_active_food_prefs(request),
     )
 
     static_sections = _build_sections(items_flat, group_index, categories)
@@ -327,6 +334,7 @@ def build_catalog_items_for_skus(
             qty_in_cart_by_sku=qty_in_cart_by_sku,
             freshness_by_sku=freshness_by_sku,
             favorite_skus=_favorite_skus(request),
+            active_food_prefs=_active_food_prefs(request),
         )
     )
 
@@ -342,6 +350,7 @@ def _build_items(
     qty_in_cart_by_sku: dict[str, int] | None = None,
     freshness_by_sku: dict[str, str] | None = None,
     favorite_skus: set[str] | None = None,
+    active_food_prefs=frozenset(),
 ) -> list[CatalogItemProjection]:
     qty_in_cart_by_sku = qty_in_cart_by_sku or {}
     freshness_by_sku = freshness_by_sku or {}
@@ -453,6 +462,9 @@ def _build_items(
                 is_featured=p.sku in popular,
                 qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
                 is_favorite=p.sku in favorite_skus,
+                dietary_warnings=_dietary_warnings(
+                    active_food_prefs, dietary_info=dietary, allergens=allergens
+                ),
                 allergens=allergens,
                 freshness_label=freshness_by_sku.get(p.sku, ""),
             ),
@@ -612,6 +624,23 @@ def _favorite_skus(request: HttpRequest | None) -> set[str]:
     except Exception:
         logger.debug("catalog._favorite_skus failed", exc_info=True)
         return set()
+
+
+def _active_food_prefs(request: HttpRequest | None):
+    """Active food-preference keys for the logged-in customer (empty otherwise)."""
+    if request is None:
+        return frozenset()
+    try:
+        from shopman.shop.projections import customer_context
+        from shopman.storefront.identity import get_authenticated_customer
+
+        customer = get_authenticated_customer(request)
+        if customer is None:
+            return frozenset()
+        return customer_context.active_preference_keys(customer.ref, "alimentar")
+    except Exception:
+        logger.debug("catalog._active_food_prefs failed", exc_info=True)
+        return frozenset()
 
 
 def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:

@@ -33,11 +33,13 @@ from shopman.storefront.presentation.types import ComponentProjection
 
 from .catalog import (
     CatalogItemProjection,
+    _active_food_prefs,
     _cart_qty_by_sku,
     _favorite_skus,
     _resolve_availability,
     build_catalog_items_for_skus,
 )
+from .dietary import dietary_warnings as _dietary_warnings
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401
@@ -141,6 +143,7 @@ class ProductDetailProjection:
     is_paused: bool
     is_notifiable: bool
     is_favorite: bool
+    dietary_warnings: tuple[str, ...]
     max_qty: int
 
     # Cart state
@@ -285,6 +288,12 @@ def build_product_detail(
 
     qty_in_cart = int(_cart_qty_by_sku(request).get(product.sku, 0))
     is_favorite = product.sku in _favorite_skus(request)
+    _meta = product.metadata if isinstance(product.metadata, dict) else {}
+    dietary_warns = _dietary_warnings(
+        _active_food_prefs(request),
+        dietary_info=_meta.get("dietary_info") or (),
+        allergens=_meta.get("allergens") or (),
+    )
 
     cross_sell = build_catalog_items_for_skus(
         catalog_context.related_skus(product.sku, limit=6),
@@ -312,6 +321,7 @@ def build_product_detail(
         is_paused=is_paused,
         is_notifiable=is_notifiable,
         is_favorite=is_favorite,
+        dietary_warnings=dietary_warns,
         max_qty=99,  # storefront cap; matches v1 <input max="99">
         qty_in_cart=qty_in_cart,
         is_bundle=product.is_bundle,
