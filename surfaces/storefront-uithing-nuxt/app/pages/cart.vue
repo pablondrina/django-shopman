@@ -113,8 +113,8 @@ useSeoMeta({
     </div>
     <div class="shop-container space-y-5">
       <div>
-        <h1 class="text-3xl font-semibold">Seu carrinho</h1>
-        <p class="mt-2 text-sm text-muted-foreground">
+        <h1 class="shop-title">Seu carrinho</h1>
+        <p class="mt-2 shop-muted">
           {{ cart.is_empty ? 'Escolha itens no cardápio para montar o pedido.' : `${formatCount(cart.items_count, 'item', 'itens')} · ${cart.grand_total_display}` }}
         </p>
       </div>
@@ -143,7 +143,7 @@ useSeoMeta({
           <UiAlertDescription>
             <p>{{ cartIssue.detail }}</p>
             <div v-if="cartIssue.substitutes.length" class="mt-3 space-y-2">
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alternativas disponíveis</p>
+              <p class="shop-kicker">Alternativas disponíveis</p>
               <UiItemGroup class="gap-2">
                 <UiItem v-for="substitute in cartIssue.substitutes.slice(0, 3)" :key="substitute.sku || substitute.name" variant="outline" size="sm">
                   <UiItemContent>
@@ -233,7 +233,7 @@ useSeoMeta({
 
                 <div class="min-w-0 flex-1">
                   <div class="flex items-start gap-2">
-                    <h3 class="line-clamp-2 min-w-0 flex-1 text-base leading-5">{{ line.name }}</h3>
+                    <h3 class="shop-item-title line-clamp-2 min-w-0 flex-1">{{ line.name }}</h3>
                     <UiButton
                       variant="ghost"
                       size="icon-sm"
@@ -243,7 +243,7 @@ useSeoMeta({
                       @click="removeLine(line)"
                     />
                   </div>
-                  <p class="mt-0.5 text-xs text-muted-foreground">
+                  <p class="mt-0.5 shop-meta">
                     <span v-if="line.original_price_display" class="line-through">{{ line.original_price_display }}</span>
                     {{ line.qty }} × {{ line.price_display }} cada
                   </p>
@@ -256,7 +256,7 @@ useSeoMeta({
                         <Icon name="lucide:clock" class="mr-1 size-3.5" />
                         Aguardando confirmação
                       </UiBadge>
-                      <p class="mt-1 text-xs text-muted-foreground">Avisamos quando ficar pronto.</p>
+                      <p class="mt-1 shop-meta">Avisamos quando ficar pronto.</p>
                     </div>
                     <div v-else class="mt-1.5" data-cart-line-ready>
                       <UiBadge variant="default">
@@ -275,7 +275,7 @@ useSeoMeta({
                       :min-qty="1"
                       compact
                     />
-                    <p class="ml-auto text-sm font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-60' : ''">{{ line.total_display }}</p>
+                    <p class="ml-auto shop-price" :class="cart.summary_pending ? 'opacity-60' : ''">{{ line.total_display }}</p>
                   </div>
                 </div>
               </div>
@@ -284,7 +284,7 @@ useSeoMeta({
             <CartUpsellRail v-if="cart.upsell" :upsell="cart.upsell" heading="Mais um item?" class="mt-4" />
 
             <div v-if="cart.minimum_order_progress" class="mt-4 border-b pb-4">
-              <div class="mb-2 flex justify-between gap-3 text-sm">
+              <div class="mb-2 flex justify-between gap-3 shop-body">
                 <span>Pedido mínimo</span>
                 <span class="tabular-nums">{{ cart.minimum_order_progress.remaining_display }}</span>
               </div>
@@ -292,10 +292,10 @@ useSeoMeta({
             </div>
 
             <div class="mt-4" data-cart-coupon>
-              <div v-if="cart.coupon_code" class="flex items-center gap-3 text-sm">
+              <div v-if="cart.coupon_code" class="flex items-center gap-3 shop-body">
                 <Icon name="lucide:ticket-percent" class="size-4 shrink-0 text-muted-foreground" />
                 <span class="min-w-0 flex-1 truncate">Cupom {{ cart.coupon_code }}</span>
-                <span v-if="cart.coupon_discount_display" class="font-semibold tabular-nums text-primary">- {{ cart.coupon_discount_display }}</span>
+                <span v-if="cart.coupon_discount_display" class="shop-price text-primary">- {{ cart.coupon_discount_display }}</span>
                 <UiButton
                   size="icon-sm"
                   variant="ghost"
@@ -323,7 +323,7 @@ useSeoMeta({
           </section>
 
           <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">
-            <h2 class="text-base font-semibold">Resumo</h2>
+            <h2 class="shop-heading">Resumo</h2>
             <div class="mt-2" :class="cart.summary_pending ? 'opacity-60 transition-opacity' : 'transition-opacity'">
               <CartSummaryBreakdown :cart="cart" flat />
             </div>
@@ -337,7 +337,7 @@ useSeoMeta({
               >
                 {{ checkoutAction?.label || 'Finalizar pedido' }}
               </UiButton>
-              <p v-if="checkoutDisabled && checkoutReason" class="text-center text-xs text-muted-foreground">
+              <p v-if="checkoutDisabled && checkoutReason" class="text-center shop-meta">
                 {{ checkoutReason }}
               </p>
               <UiButton
@@ -360,7 +360,7 @@ useSeoMeta({
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs uppercase tracking-wide text-background/70">Total do pedido</p>
-            <p class="text-xl font-semibold tabular-nums" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
+            <p class="shop-price-strong" :class="cart.summary_pending ? 'opacity-70' : ''">{{ cart.grand_total_display }}</p>
           </div>
           <UiButton
             :to="checkoutTarget"
