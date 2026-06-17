@@ -72,6 +72,24 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Resolve a matrix URL to a navigable http(s) URL, or null when it points at a
+// surface this gate does not serve. Empty URLs (surface base not configured —
+// e.g. POS, whose Nuxt surface is not wired into this gate) and unresolved Django
+// route names ("unresolved:...") become null, so the runner SKIPS them with an
+// explicit notice instead of crashing or scoring a false pass.
+function resolveNavigable(rawUrl, baseUrl) {
+  const raw = String(rawUrl || "").trim();
+  if (!raw) return null;
+  let resolved;
+  try {
+    resolved = new URL(raw, baseUrl);
+  } catch {
+    return null;
+  }
+  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
+  return resolved;
+}
+
 function extractJsonObject(raw, label) {
   const text = String(raw || "").trim();
   const start = text.indexOf("{");
@@ -121,13 +139,20 @@ function normalizeCookie(raw) {
   return { name, value };
 }
 
-function buildLocalSessionCookie() {
+function buildLocalSessionCookie(orderRefs = []) {
   const python = process.env.PYTHON || ".venv/bin/python";
+  // The QA session is a single identity that covers both surfaces:
+  //  · superuser → Django operator/admin pages (request.user via session auth);
+  //  · order-access grants (shopman_order_access_refs) → customer store pages,
+  //    which authorize via the session grant (DRF does not read request.user),
+  //    exactly like a real customer's session after checkout/magic-link.
   const code = `
 import json
+import os
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.sessions.backends.db import SessionStore
+from shopman.shop.services.customer_orders import ORDER_ACCESS_SESSION_KEY
 
 User = get_user_model()
 user = User._default_manager.filter(is_superuser=True, is_active=True).order_by("pk").first()
@@ -146,6 +171,9 @@ session = SessionStore()
 session[SESSION_KEY] = str(user._meta.pk.value_to_string(user))
 session[BACKEND_SESSION_KEY] = settings.AUTHENTICATION_BACKENDS[0]
 session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+order_refs = json.loads(os.environ.get("SHOPMAN_QA_ORDER_REFS", "[]"))
+if order_refs:
+    session[ORDER_ACCESS_SESSION_KEY] = order_refs
 session.save()
 print(json.dumps({"name": settings.SESSION_COOKIE_NAME, "value": session.session_key}))
 `;
@@ -153,14 +181,15 @@ print(json.dumps({"name": settings.SESSION_COOKIE_NAME, "value": session.session
     cwd: process.cwd(),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
+    env: { ...process.env, SHOPMAN_QA_ORDER_REFS: JSON.stringify(orderRefs) },
   });
   return extractJsonObject(output, "sessao admin local");
 }
 
-function resolveCookie(options) {
+function resolveCookie(options, orderRefs = []) {
   const provided = normalizeCookie(options.sessionCookie);
   if (provided) return provided;
-  if (isLocalBaseUrl(options.baseUrl)) return buildLocalSessionCookie();
+  if (isLocalBaseUrl(options.baseUrl)) return buildLocalSessionCookie(orderRefs);
   throw new Error("Informe --session-cookie=sessionid=... para QA browser fora de localhost.");
 }
 
@@ -341,7 +370,10 @@ async function runBrowserQa(matrix, options) {
   }
 
   const chromePath = findChrome(options.chromePath);
-  const cookie = resolveCookie(options);
+  // Order-scoped store checks (payment/tracking) carry an order_ref the QA session
+  // must be granted so the page renders the real state, not the "not found" fallback.
+  const orderRefs = [...new Set(matrix.checks.map((check) => check.order_ref).filter(Boolean))];
+  const cookie = resolveCookie(options, orderRefs);
   await assertServerReachable(options.baseUrl);
   await fs.rm(options.screenshotsDir, { recursive: true, force: true });
   await fs.mkdir(options.screenshotsDir, { recursive: true });
@@ -377,26 +409,58 @@ async function runBrowserQa(matrix, options) {
     await client.send("Runtime.enable");
     await client.send("Page.enable");
     await client.send("Network.enable");
-    await client.send("Network.setCookie", {
-      name: cookie.name,
-      value: cookie.value,
-      url: options.baseUrl,
-      path: "/",
-      httpOnly: true,
-      sameSite: "Lax",
-    });
+
+    // Headless split: the matrix mixes Django operator URLs (relative → resolved
+    // against baseUrl) with absolute Nuxt-store URLs (different host). Bind the QA
+    // session cookie to EVERY origin the matrix navigates, so order-scoped store
+    // pages carry the session too (the Nuxt BFF forwards it to Django, where a
+    // superuser short-circuits order access — see request_can_access_order).
+    const cookieOrigins = new Set([new URL(options.baseUrl).origin]);
+    for (const check of matrix.checks) {
+      const resolved = resolveNavigable(check.url, options.baseUrl);
+      if (resolved) cookieOrigins.add(resolved.origin);
+    }
+    for (const origin of cookieOrigins) {
+      await client.send("Network.setCookie", {
+        name: cookie.name,
+        value: cookie.value,
+        url: origin,
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+      });
+    }
 
     const auditExpression = buildAuditExpression();
     const results = [];
     for (const check of matrix.checks) {
       const viewport = parseViewport(check.viewport);
+      const navigable = resolveNavigable(check.url, options.baseUrl);
+      if (!navigable) {
+        // Surface not served by this gate (e.g. POS lives in its own Nuxt surface
+        // not wired here). Skip honestly — never a silent drop, never a fake pass.
+        results.push({
+          id: check.id,
+          persona: check.persona,
+          title: check.title,
+          surface: check.surface,
+          url: check.url,
+          viewport,
+          status: "skipped",
+          blockers: ["surface-not-served"],
+          screenshot: null,
+          audit: null,
+        });
+        console.log(`skipped ${check.id} (surface=${check.surface || "?"} url=${check.url || "-"})`);
+        continue;
+      }
       await client.send("Emulation.setDeviceMetricsOverride", {
         width: viewport.width,
         height: viewport.height,
         deviceScaleFactor: 1,
         mobile: viewport.width < 700,
       });
-      const url = new URL(check.url, options.baseUrl).toString();
+      const url = navigable.toString();
       await client.send("Page.navigate", { url });
       await waitForDocument(client);
       await sleep(800);
@@ -419,7 +483,10 @@ async function runBrowserQa(matrix, options) {
       await fs.writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
 
       const blockers = [];
-      if (audit.loginPage) blockers.push("login-page");
+      // An auth-gated checkpoint (e.g. checkout) is SUPPOSED to land on the login
+      // page for an anonymous visitor — that is the expected guardrail, not a
+      // regression. We still audit overflow/offscreen/exceptions on that surface.
+      if (audit.loginPage && !check.auth_gated) blockers.push("login-page");
       if (audit.hOverflow) blockers.push("horizontal-overflow");
       if (audit.offscreenControls.length) blockers.push("offscreen-controls");
       if (evaluated.exceptionDetails) blockers.push("runtime-exception");
@@ -447,6 +514,7 @@ async function runBrowserQa(matrix, options) {
         total: results.length,
         pass: results.filter((item) => item.status === "pass").length,
         review: results.filter((item) => item.status === "review").length,
+        skipped: results.filter((item) => item.status === "skipped").length,
       },
       results,
     };
@@ -469,6 +537,13 @@ async function main() {
   assertMatrixReady(matrix);
   const report = await runBrowserQa(matrix, options);
   console.log(JSON.stringify(report.summary));
+  const skipped = report.results.filter((item) => item.status === "skipped");
+  if (skipped.length) {
+    console.log(
+      `skipped ${skipped.length} check(s) — surface not served by this gate: ` +
+        skipped.map((item) => `${item.id}[${item.surface || "?"}]`).join(", "),
+    );
+  }
   console.log(`screenshots=${options.screenshotsDir}`);
   console.log(`report=${options.reportPath}`);
   if (options.strict && report.summary.review > 0) {

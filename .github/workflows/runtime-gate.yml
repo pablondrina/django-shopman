@@ -140,7 +140,7 @@ jobs:
         timeout-minutes: 25
         run: make test-runtime
 
-  # NOTE (headless): o gate "Omotenashi browser QA" foi removido. Ele navegava as
-  # PÁGINAS de cliente do Django (servidor Django isolado), que foram aposentadas no
-  # cutover headless — a superfície de cliente agora é a loja Nuxt. Reescrever esse QA
-  # de browser contra a loja Nuxt (subindo o servidor Nuxt no CI) é um follow-up.
+  # NOTE (headless): o gate "Omotenashi browser QA" vive agora em workflow próprio
+  # (.github/workflows/omotenashi-gate.yml). Ele foi reescrito para a superfície que
+  # de fato existe — sobe a loja Nuxt + o Django operador no CI e navega a matriz
+  # Omotenashi (cliente na loja Nuxt, operador no Django). Omotenashi é 1ª classe.

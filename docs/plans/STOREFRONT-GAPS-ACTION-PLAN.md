@@ -219,11 +219,31 @@ nutrition_form.py` (form do stopgap), ADR-008 `docs/decisions/adr-008-pdp-nutrit
 
 ## Tier 3 — dívida operacional (paralelo; omotenashi é prioridade)
 
-### WP-8 — 🥇 Reconstruir o gate de browser-QA Omotenashi contra a loja Nuxt  ⏱ médio
+### WP-8 — 🥇 Reconstruir o gate de browser-QA Omotenashi contra a loja Nuxt  ✅ CONCLUÍDO (2026-06-17) · ⏱ médio
 O headless removeu o gate do CI (navegava páginas Django mortas). **Omotenashi é 1ª classe** → o gate
-volta, reescrito p/ subir a loja Nuxt no CI e navegar a matriz Omotenashi (a matriz em
-`backstage/services/omotenashi_qa.py` já aponta p/ `storefront_links`/loja). Restaura cobertura de
-acolhimento na superfície que de fato existe.
+voltou, reescrito p/ a topologia real. Entregue:
+- **Workflow dedicado** `.github/workflows/omotenashi-gate.yml` ("Omotenashi Gate"): Postgres +
+  Python + Node + Chrome → `make omotenashi-browser-ci`; sobe screenshots/relatório/logs como artifact.
+  (Comentário stale do `runtime-gate.yml` atualizado p/ apontar o novo workflow.)
+- **Orquestração única** (`scripts/run_omotenashi_browser_ci.sh`) runnable local==CI: migrate + seed +
+  **build/serve da loja Nuxt** (`127.0.0.1:3100`, BFF→Django) + Django (`:8001`) com
+  `SHOPMAN_STOREFRONT_BASE_URL` apontando p/ a loja, QA browser estrita, teardown dos dois servidores.
+- **Runner** (`run_omotenashi_browser_qa.mjs`): cookie de sessão QA gravado em **todas as origens** da
+  matriz (Django + Nuxt); sessão = superusuário (operador) **+ order-access grants**
+  (`shopman_order_access_refs`, via `order_ref` exposto na matriz) p/ os pedidos dos checks de
+  pagamento/tracking — DRF não lê `request.user`, o acesso a pedido é por grant de sessão; helper
+  `resolveNavigable` **pula honestamente** (log explícito, nunca falso-verde) superfícies não servidas;
+  flag `auth_gated` (checkout) trata o gate de login como estado esperado, não bloqueio.
+- **Matriz** (`omotenashi_qa.py`): POS repontado p/ `pos_links.pos_url()` (knob `SHOPMAN_POS_BASE_URL`),
+  pulado até a fase C; novos campos `auth_gated` + `order_ref`.
+- **Fixes reais que o gate surfaceou:** (a) `shop/services/kds.py` — qty de componente de bundle era
+  `int * Decimal` → `Decimal` no JSONField do ticket (quebrava seed no SQLite; Postgres mascarava);
+  agora `int()`. (b) `tracking/[ref].vue` + `pedido/[ref]/pagamento.vue` — não repassavam o cookie no
+  SSR (igual às páginas de conta), então renderizavam o fallback "não encontrado" p/ um cliente que
+  PODE ver o pedido; corrigido.
+- **Verificado ao vivo:** `make omotenashi-browser-ci` → **12 pass, 0 review, 2 skipped (POS)**; os 3
+  pedidos-cliente renderizam o estado REAL (PIX, expiração+recuperação, pronto p/ retirada), loja Nuxt
+  + operador Django navegados.
 
 ### WP-9 — e2e Playwright + locustfile contra Nuxt/API  ⏱ médio
 `shop/tests/e2e/test_storefront_e2e.py` (cenários 01/02/06) e `shop/tests/load/locustfile.py` batem em
@@ -268,7 +288,7 @@ ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 18
 
 **Fase B — dívida do storefront + entrega (ordem):**
 1. **WP-7** ✅ — alérgenos/dieta via Recipe/BOM CONCLUÍDO (2026-06-17; nutrição+ingredientes+peso já eram do Core).
-2. **WP-8** — gate de browser-QA Omotenashi contra a loja Nuxt no CI.
+2. **WP-8** ✅ — gate de browser-QA Omotenashi contra a loja Nuxt + operador Django no CI CONCLUÍDO (2026-06-17; workflow dedicado, 12 pass/0 review/2 POS skipped).
 3. **WP-9** — e2e Playwright + locustfile contra Nuxt/API.
 4. **WP-11** — fluxo de entrega (taxa por distância + item + teleporte). **Coletar decisões do Pablo ao chegar**
    (taxa OrderItem real vs apresentação; distância vs DeliveryZone; URL do serviço + faixas iniciais).

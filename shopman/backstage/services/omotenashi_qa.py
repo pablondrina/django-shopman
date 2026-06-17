@@ -13,7 +13,7 @@ from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
 
 from shopman.backstage.models import CashShift, DayClosing, KDSInstance, OperatorAlert, POSTab
-from shopman.shop.services import storefront_links
+from shopman.shop.services import pos_links, storefront_links
 
 Status = Literal["ready", "missing"]
 
@@ -32,8 +32,17 @@ class OmotenashiQACheck:
     evidence: str
     status: Status
     blocker: str = ""
+    # True when the surface deliberately gates on authentication (e.g. checkout),
+    # so the browser runner treats landing on the login page as the EXPECTED state
+    # for this checkpoint instead of an accidental session-expiry redirect.
+    auth_gated: bool = False
+    # Order ref for customer order-scoped store pages (payment/tracking). The
+    # browser runner grants this ref to the QA session (shopman_order_access_refs),
+    # exactly as a real customer's session carries it — so the page renders the
+    # real state instead of the "not found" fallback.
+    order_ref: str = ""
 
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict:
         data = {
             "id": self.id,
             "surface": self.surface,
@@ -47,6 +56,10 @@ class OmotenashiQACheck:
         }
         if self.blocker:
             data["blocker"] = self.blocker
+        if self.auth_gated:
+            data["auth_gated"] = True
+        if self.order_ref:
+            data["order_ref"] = self.order_ref
         return data
 
 
@@ -139,6 +152,7 @@ def _checkout_intent_check() -> OmotenashiQACheck:
         expectation="Checkout deve mostrar etapa atual, bloqueio claro, recuperacao e CTA unico.",
         evidence=evidence,
         blocker="Rode make seed; nenhuma sessao remota aberta foi encontrada.",
+        auth_gated=True,
     )
 
 
@@ -158,6 +172,7 @@ def _pix_pending_check() -> OmotenashiQACheck:
         expectation="Pagamento deve explicar prazo, acao do cliente, proximo evento e recuperacao sem confirmar por refresh.",
         evidence=evidence,
         blocker="Rode make seed; cenario security:payment-pending-near-expiry ausente.",
+        order_ref=order.ref if order else "",
     )
 
 
@@ -177,6 +192,7 @@ def _pix_expired_check() -> OmotenashiQACheck:
         expectation="Tela deve reconhecer expiracao, preservar contexto e oferecer proxima acao segura.",
         evidence=evidence,
         blocker="Rode make seed; cenario security:payment-expired-low-attention ausente.",
+        order_ref=order.ref if order else "",
     )
 
 
@@ -211,6 +227,7 @@ def _tracking_ready_check() -> OmotenashiQACheck:
         expectation="Tracking deve dizer o que aconteceu agora, se ha acao do cliente e o proximo evento.",
         evidence=_order_evidence(order),
         blocker="Rode make seed; nenhum pedido READY foi encontrado.",
+        order_ref=order.ref if order else "",
     )
 
 
@@ -291,7 +308,7 @@ def _pos_check() -> OmotenashiQACheck:
         viewport="desktop/touch 1280x800",
         persona="balcao com cliente na frente",
         title="POS com comanda disponível e caixa vivo",
-        url=_url("backstage:pos"),
+        url=pos_links.pos_url(pos_links.path_counter()),
         expectation="Operador deve vender, editar e fechar sem procurar funcao nem tocar em admin generico.",
         evidence=evidence,
         blocker="Rode make seed; POS tab ativa ou caixa aberto ausente.",
@@ -341,7 +358,7 @@ def _cash_register_check() -> OmotenashiQACheck:
         viewport="desktop/touch 1280x800",
         persona="operador abrindo ou fechando caixa",
         title="Caixa aberto/fechado com diferenca auditavel",
-        url=_url("backstage:pos"),
+        url=pos_links.pos_url(pos_links.path_counter()),
         expectation="Caixa deve expor estado, sangria/fechamento e diferenca sem depender de memoria do operador.",
         evidence=evidence,
         blocker="Rode make seed; nenhuma sessao de caixa foi encontrada.",
@@ -359,6 +376,8 @@ def _check(
     expectation: str,
     evidence: str,
     blocker: str,
+    auth_gated: bool = False,
+    order_ref: str = "",
 ) -> OmotenashiQACheck:
     status: Status = "ready" if evidence else "missing"
     return OmotenashiQACheck(
@@ -372,6 +391,8 @@ def _check(
         evidence=evidence or "-",
         status=status,
         blocker="" if status == "ready" else blocker,
+        auth_gated=auth_gated,
+        order_ref=order_ref,
     )
 
 

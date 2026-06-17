@@ -212,8 +212,11 @@ omotenashi-qa: ## Matriz manual QA mobile/tablet/desktop baseada no seed (strict
 omotenashi-browser-qa: ## Navega a matriz Omotenashi em Chrome headless (servidor local precisa estar rodando)
 	PYTHON="$(PYTHON)" node scripts/run_omotenashi_browser_qa.mjs $(if $(strict),--strict,) $(if $(base_url),--base-url=$(base_url),) $(if $(matrix),--matrix=$(matrix),) $(if $(screenshots),--screenshots-dir=$(screenshots),) $(if $(report),--report=$(report),)
 
-omotenashi-browser-ci: css ## Gate local/CI: seed + servidor isolado + QA browser Omotenashi (port=8001)
-	PYTHON="$(PYTHON)" SHOPMAN_QA_PORT="$(or $(port),$(PORT),8001)" bash scripts/run_omotenashi_browser_ci.sh
+omotenashi-browser-ci: css $(NUXT_DIR)/node_modules/.package-lock.json ## Gate local/CI: seed + Django + loja Nuxt + QA browser Omotenashi (port=8001 nuxt_port=3100)
+	PYTHON="$(PYTHON)" \
+		SHOPMAN_QA_PORT="$(or $(port),$(PORT),8001)" \
+		SHOPMAN_QA_NUXT_PORT="$(or $(nuxt_port),3100)" \
+		bash scripts/run_omotenashi_browser_ci.sh
 
 # ── Deploy wrappers (Docker fica encapsulado aqui) ───────────────────
 

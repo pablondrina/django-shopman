@@ -9,10 +9,15 @@ const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
 const actionPending = ref<Record<string, boolean>>({})
+// Forward the session cookie on SSR so order access resolves on first paint
+// (same pattern as the account pages) — otherwise the server fetch lands
+// unauthenticated and the page renders the "not found" fallback for a customer
+// who can actually see this payment.
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const { data, pending, error, refresh } = await useFetch<PaymentResponse>(
   () => apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/`),
-  { credentials: 'include' }
+  { credentials: 'include', headers: requestHeaders }
 )
 
 const payment = computed(() => data.value?.payment || null)

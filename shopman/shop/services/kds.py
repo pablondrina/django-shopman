@@ -254,7 +254,10 @@ def _build_routable_items(lines: list[dict]) -> list[dict]:
                 routable_items.append({
                     "sku": comp_sku,
                     "name": f"{comp_name} ({name})",
-                    "qty": qty * comp_qty,
+                    # comp_qty is a DecimalField; the KDS line qty is an integral
+                    # count everywhere else (and must be JSON-serializable for the
+                    # ticket items JSONField — plain json.dumps rejects Decimal).
+                    "qty": int(qty * comp_qty),
                     "notes": notes,
                     "parent_sku": ln["sku"],
                     "line_id": line_id,

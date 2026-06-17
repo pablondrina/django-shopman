@@ -1,0 +1,98 @@
+name: Omotenashi Gate
+
+# Omotenashi is a first-class passenger: hospitality on the surfaces that ACTUALLY
+# exist must not regress silently. The headless cutover retired the Django customer
+# pages, so the old browser-QA gate (which navigated them) was dropped. This gate
+# rebuilds it against the real topology — the Nuxt customer store + the Django
+# operator pages — driving the seeded Omotenashi matrix in headless Chrome.
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  DJANGO_DEBUG: "true"
+  DJANGO_SECRET_KEY: ci-omotenashi-gate-local-secret-key
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  omotenashi-browser-qa:
+    name: Browser QA (Nuxt store + Django operator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: shopman
+          POSTGRES_USER: shopman
+          POSTGRES_PASSWORD: shopman
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U shopman -d shopman"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: surfaces/storefront-uithing-nuxt/package-lock.json
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install Python dependencies
+        run: make install
+
+      - name: Install Nuxt store dependencies
+        run: npm ci
+        working-directory: surfaces/storefront-uithing-nuxt
+
+      - name: Omotenashi browser-QA gate (strict)
+        env:
+          CI: "true"
+          SHOPMAN_CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: make omotenashi-browser-ci
+
+      - name: Upload Omotenashi QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omotenashi-browser-qa
+          path: |
+            /tmp/shopman-omotenashi-qa-screens
+            /tmp/shopman-omotenashi-qa-browser.json
+            /tmp/shopman-omotenashi-browser-ci-django.log
+            /tmp/shopman-omotenashi-browser-ci-nuxt.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -22,10 +22,15 @@ const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
 const supportOpen = ref(false)
 const { performAction: performReorderAction, conflict, pending: reorderPending } = useReorder()
+// Forward the session cookie on SSR so order access resolves on first paint
+// (same pattern as the account pages) — otherwise the server fetch lands
+// unauthenticated and the page renders the "not found" fallback for a customer
+// who can actually see this order.
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const { data, pending, error, refresh } = await useFetch<TrackingResponse>(
   () => apiPath(`/api/v1/tracking/${encodeURIComponent(orderRef.value)}/`),
-  { credentials: 'include' }
+  { credentials: 'include', headers: requestHeaders }
 )
 
 const tracking = computed(() => data.value || null)

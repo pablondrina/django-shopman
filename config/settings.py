@@ -788,6 +788,15 @@ DOORMAN["ACCESS_LINK_ENTRY_URL"] = SHOPMAN_STOREFRONT_BASE_URL
 # Ref of the Channel used for POS/counter orders.
 SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 
+# Base URL pública da superfície POS (operador) — a mesma ideia de
+# SHOPMAN_STOREFRONT_BASE_URL, mas para o PDV, que migrou para o seu próprio
+# app Nuxt (surfaces/pos-uithing-nuxt). Vazio ⇒ o POS não está conectado neste
+# contexto (ex.: o gate Omotenashi storefront+operador não sobe o POS), e os
+# links/checks de POS são pulados em vez de apontarem para uma rota morta.
+SHOPMAN_POS_BASE_URL = (
+    os.environ.get("SHOPMAN_POS_BASE_URL") or ""
+).strip().rstrip("/")
+
 # Employee discount — configurable percentage
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
