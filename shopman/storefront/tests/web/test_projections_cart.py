@@ -6,6 +6,8 @@ the default product, so the projection builder has a real Orderman session
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 from django.test import RequestFactory
 from shopman.orderman.models import Session
@@ -193,7 +195,11 @@ class TestAvailabilityOwnHoldCorrection:
             reason="own-hold regression seed",
         )
 
-        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": 5})
+        resp = client.put(
+            f"/api/v1/cart/skus/{product.sku}/",
+            data=json.dumps({"qty": 5}),
+            content_type="application/json",
+        )
         assert resp.status_code in (200, 201), (
             "adding all available stock must succeed — hold protects the qty"
         )

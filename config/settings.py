@@ -216,7 +216,6 @@ MIDDLEWARE = [
     "shopman.storefront.middleware.ChannelParamMiddleware",
     "shopman.backstage.middleware.OnboardingMiddleware",
     "shopman.shop.middleware.APIVersionHeaderMiddleware",
-    "shopman.storefront.middleware.WelcomeGateMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -255,9 +254,6 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "shopman.backstage.context_processors.operator",
-                "shopman.storefront.context_processors.shop",
-                "shopman.storefront.context_processors.omotenashi",
-                "shopman.storefront.context_processors.cart_count",
             ],
         },
     },
@@ -772,6 +768,22 @@ ASGI_APPLICATION = "config.asgi.application"
 # Ref of the Channel that powers the web storefront. Override in instance settings
 # if this instance uses a different ref (e.g. "site", "loja").
 SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
+
+# Base URL pública da LOJA (superfície Nuxt) — FONTE ÚNICA dos links de cliente que o
+# Django gera (notificações de pagamento/acompanhamento, magic links, "ver site").
+# O Django é headless: não serve páginas de cliente, só aponta para a loja Nuxt.
+# Na arquitetura desacoplada, em produção isto vira o apex (ex.: https://nelson.com);
+# em staging path-routed, a base da loja (ex.: https://…/thing). Sem trailing slash.
+SHOPMAN_STOREFRONT_BASE_URL = (
+    os.environ.get("SHOPMAN_STOREFRONT_BASE_URL")
+    or os.environ.get("WHATSAPP_STOREFRONT_URL")
+    or os.environ.get("SHOPMAN_DOMAIN")
+    or ""
+).strip().rstrip("/")
+
+# Magic links (doorman AccessLink) land on the Nuxt store, so the session cookie
+# is set on the store host — same single source as every other customer link.
+DOORMAN["ACCESS_LINK_ENTRY_URL"] = SHOPMAN_STOREFRONT_BASE_URL
 
 # Ref of the Channel used for POS/counter orders.
 SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")

@@ -956,13 +956,11 @@ class ShopAdmin(ModelAdmin):
                 '<p class="help">Salve a loja para carregar o preview do storefront.</p>'
             )
 
-        from django.urls import reverse
+        from shopman.shop.services.storefront_links import home_url
 
-        try:
-            url = reverse("storefront:home")
-        except Exception:
-            logger.debug("shop.storefront_preview degraded; using fallback", exc_info=True)
-            url = "/"
+        # Loja desacoplada (Nuxt): o preview aponta para a loja real, não as páginas
+        # Django legadas. Base via SHOPMAN_STOREFRONT_BASE_URL (vazia ⇒ "/").
+        url = home_url() or "/"
 
         url_json = mark_safe(json.dumps(url))
         return format_html(

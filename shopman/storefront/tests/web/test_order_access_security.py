@@ -1,11 +1,15 @@
-"""Security tests for customer-facing order URLs."""
+"""Security tests for the order API surface (headless).
+
+Order access is enforced by the API the BFF consumes (`get_accessible_order`):
+a session may only read an order it owns (via login match or a magic-link grant).
+Ref-guessing by an anonymous attacker must 404.
+"""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
 import pytest
-from asgiref.sync import async_to_sync
 from django.test import Client
 from django.utils import timezone
 from shopman.doorman.models import AccessLink
@@ -31,14 +35,6 @@ def _login_as_customer(client: Client, customer: Customer):
     return user
 
 
-def test_tracking_ref_guess_returns_404(order):
-    attacker = Client()
-
-    response = attacker.get(f"/pedido/{order.ref}/")
-
-    assert response.status_code == 404
-
-
 def test_tracking_api_ref_guess_returns_404(order):
     attacker = Client()
 
@@ -54,55 +50,32 @@ def test_tracking_api_allows_session_order_access(client, order):
     assert response.json()["ref"] == order.ref
 
 
-def test_order_events_allows_session_order_access(client, order):
-    response = client.get(f"/pedido/{order.ref}/events/")
-
-    async def first_chunk():
-        async for chunk in response.streaming_content:
-            return chunk
-        return b""
-
-    chunk = async_to_sync(first_chunk)()
-
-    assert response.status_code == 200
-    assert response["Content-Type"].startswith("text/event-stream")
-    assert b"stream-open" in chunk
-    assert b"forbidden" not in chunk
-
-
-def test_order_events_ref_guess_returns_404(order):
+def test_payment_api_ref_guess_returns_404(order_with_payment):
     attacker = Client()
 
-    response = attacker.get(f"/pedido/{order.ref}/events/")
+    response = attacker.get(f"/api/v1/payment/{order_with_payment.ref}/")
 
     assert response.status_code == 404
 
 
-def test_payment_ref_guess_returns_404(order_with_payment):
+def test_reorder_api_ref_guess_returns_404(order_items):
     attacker = Client()
 
-    response = attacker.get(f"/pedido/{order_with_payment.ref}/pagamento/")
+    response = attacker.post(f"/api/v1/orders/{order_items.ref}/reorder/")
 
     assert response.status_code == 404
 
 
-def test_reorder_ref_guess_returns_404(order_items):
-    attacker = Client()
-
-    response = attacker.post(f"/meus-pedidos/{order_items.ref}/reorder/")
-
-    assert response.status_code == 404
-
-
-def test_authenticated_matching_customer_can_open_tracking(client, order, customer):
+def test_authenticated_matching_customer_can_open_tracking(order, customer):
     order.data = {"customer_ref": customer.ref}
     order.save(update_fields=["data", "updated_at"])
     fresh_browser = Client()
     _login_as_customer(fresh_browser, customer)
 
-    response = fresh_browser.get(f"/pedido/{order.ref}/")
+    response = fresh_browser.get(f"/api/v1/tracking/{order.ref}/")
 
     assert response.status_code == 200
+    assert response.json()["ref"] == order.ref
 
 
 def test_access_link_metadata_grants_session_order_access(client, channel, customer):
@@ -123,9 +96,9 @@ def test_access_link_metadata_grants_session_order_access(client, channel, custo
         metadata={"order_ref": order.ref},
     )
 
-    entry = client.get(f"/a/?t={raw_token}&next=/pedido/{order.ref}/")
-    response = client.get(f"/pedido/{order.ref}/")
+    entry = client.post("/api/v1/auth/access/", {"token": raw_token})
 
-    assert entry.status_code == 302
-    assert entry.url == f"/pedido/{order.ref}/"
-    assert response.status_code == 200
+    assert entry.status_code == 200
+    assert entry.json()["redirect"] == f"/tracking/{order.ref}"
+    # The magic link binds order access to the session (store host).
+    assert order.ref in client.session.get("shopman_order_access_refs", [])

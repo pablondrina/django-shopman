@@ -1,9 +1,0 @@
-{# Timeline. Used inside the live tracking partial. Status badge lives in the page header. #}
-{# Accepts: tracking_status (OrderTrackingStatusProjection or OrderTrackingProjection). #}
-{% with ts=tracking_status %}
-  <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5">
-    {% if ts.progress_steps %}
-      {% include "storefront/components/timeline.html" with steps=ts.progress_steps aria_label="Progresso do pedido" %}
-    {% endif %}
-  </div>
-{% endwith %}

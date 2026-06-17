@@ -13,11 +13,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.services import access as access_service
 from shopman.shop.services import auth as auth_service
 from shopman.storefront.constants import HAS_AUTH
+from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents._phone import normalize_phone_input
 from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
-from shopman.storefront.views.auth import get_authenticated_customer
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,92 @@ class LogoutView(APIView):
         response = Response(_session_payload(None))
         auth_service.revoke_current_device(request=request, response=response)
         return response
+
+
+def _access_link_redirect(metadata: dict | None) -> str:
+    """Derive the Nuxt store destination from AccessLink metadata.
+
+    The destination is owned by the backend (no client-supplied ``next``), so a
+    magic link can only ever land on a safe in-store path.
+    """
+    from shopman.shop.services import storefront_links
+
+    meta = metadata if isinstance(metadata, dict) else {}
+    order_ref = str(meta.get("order_ref") or "")
+    action = str(meta.get("action") or "")
+    if order_ref:
+        if action == "payment":
+            return storefront_links.path_order_payment(order_ref)
+        if action == "reorder":
+            return storefront_links.path_order_history()
+        return storefront_links.path_order_tracking(order_ref)
+    # A destination folded into the token at creation (e.g. ManyChat → /checkout).
+    # It was validated as a safe relative path when minted; re-check defensively.
+    next_path = str(meta.get("next") or "")
+    if next_path.startswith("/") and not next_path.startswith("//"):
+        return next_path
+    return storefront_links.path_account()
+
+
+@method_decorator(ratelimit(key="user_or_ip", rate="10/m", method="POST", block=False), name="dispatch")
+class AccessLinkExchangeView(APIView):
+    """POST /api/v1/auth/access/ — exchange a magic-link token for a session.
+
+    The customer clicks ``…/a?t=<token>`` on the store; the Nuxt page posts the
+    token here (through the BFF), so the session cookie is established on the
+    store host. Returns the session payload plus the backend-derived ``redirect``
+    destination (from the token metadata).
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(tags=["auth"], summary="Exchange a magic-link token for a session")
+    def post(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde alguns minutos."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        payload = request.data if hasattr(request, "data") else {}
+        token = str(payload.get("token") or payload.get("t") or "").strip()
+        if not token:
+            return Response({"detail": "Link inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not HAS_AUTH:
+            return Response({"ok": True, "redirect": "/account", **_session_payload(None)})
+
+        metadata = access_service.token_metadata(token)
+        result = access_service.exchange_token(token, request)
+        if not result.success:
+            logger.warning("access_link_exchange_failed error=%s", getattr(result, "error", "?"))
+            return Response(
+                {"detail": "Este link expirou ou já foi usado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if hasattr(request, "session"):
+            request.session["origin_channel"] = access_service.resolve_origin(result)
+
+        order_ref = str(metadata.get("order_ref") or "") if isinstance(metadata, dict) else ""
+        if order_ref:
+            from shopman.storefront.services import orders as order_service
+
+            order_service.grant_order_access(request, order_ref)
+
+        customer = None
+        try:
+            if result.customer:
+                customer = auth_service.customer_by_uuid(result.customer.uuid)
+        except Exception:
+            logger.debug("access_link_exchange: customer lookup degraded", exc_info=True)
+
+        return Response({
+            "ok": True,
+            "redirect": _access_link_redirect(metadata),
+            **_session_payload(customer),
+        })
 
 
 def _normalize_payload_phone(payload: dict) -> str:

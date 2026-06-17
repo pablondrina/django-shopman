@@ -126,17 +126,6 @@ def confirmed_customer_name(auth_result) -> str:
         return ""
 
 
-def exchange_access_link(*, token: str, request):
-    from shopman.doorman import get_access_link_service
-
-    AccessLinkService = get_access_link_service()
-    return AccessLinkService.exchange(
-        token_str=token,
-        request=request,
-        preserve_session_keys=["cart"],
-    )
-
-
 def preserved_session_values(session) -> dict:
     from shopman.doorman.conf import doorman_settings
 

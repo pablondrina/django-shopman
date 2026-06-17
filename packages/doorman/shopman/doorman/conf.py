@@ -68,6 +68,13 @@ class DoormanSettings:
     # or X-Api-Key: <key> header. Leave empty to skip auth (dev only).
     ACCESS_LINK_API_KEY: str = ""
 
+    # Access Link entry URL (decoupled storefront).
+    # Base URL of the surface that consumes the magic link (e.g. the Nuxt store).
+    # The minted link is "{ENTRY_URL}/a?t=<token>"; the post-login destination is
+    # carried in the token metadata (no `next` query param → no open redirect).
+    # Empty = same-host relative link ("/a?t=<token>").
+    ACCESS_LINK_ENTRY_URL: str = ""
+
     # Customer auto-creation (H03)
     # When True, verify_for_login() creates a new Customer if phone not found.
     # When False, login fails if customer doesn't exist.

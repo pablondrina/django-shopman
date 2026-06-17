@@ -17,7 +17,7 @@ from shopman.shop.handlers._stock_receivers import on_holds_materialized
 
 
 @pytest.mark.django_db
-@override_settings(SHOPMAN_BASE_URL="https://shop.example")
+@override_settings(SHOPMAN_STOREFRONT_BASE_URL="https://shop.example")
 def test_holds_materialized_notifies_customer_with_deadline_and_cart_url():
     customer = Customer.objects.create(
         ref="CUS-STOCK-ARRIVED",
@@ -62,7 +62,7 @@ def test_holds_materialized_notifies_customer_with_deadline_and_cart_url():
     assert kwargs["context"]["sku"] == product.sku
     assert kwargs["context"]["product_name"] == product.name
     assert kwargs["context"]["deadline_at"] == deadline.isoformat()
-    assert kwargs["context"]["cart_url"] == "https://shop.example/cart/"
+    assert kwargs["context"]["cart_url"] == "https://shop.example/cart"
     assert kwargs["context"]["session_key"] == session.session_key
 
 
@@ -94,7 +94,7 @@ def test_holds_materialized_without_customer_is_silent():
 
 
 @pytest.mark.django_db
-@override_settings(SHOPMAN_BASE_URL="https://shop.example")
+@override_settings(SHOPMAN_STOREFRONT_BASE_URL="https://shop.example")
 def test_holds_materialized_honours_enabled_email_channel():
     customer = Customer.objects.create(
         ref="CUS-STOCK-EMAIL",

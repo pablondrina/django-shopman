@@ -13,6 +13,7 @@ from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
 
 from shopman.backstage.models import CashShift, DayClosing, KDSInstance, OperatorAlert, POSTab
+from shopman.shop.services import storefront_links
 
 Status = Literal["ready", "missing"]
 
@@ -118,7 +119,7 @@ def _catalog_check() -> OmotenashiQACheck:
         viewport="mobile 375x812",
         persona="cliente anonimo ou novo",
         title="Explorar cardapio e PDP sem dead end",
-        url=_url("storefront:menu"),
+        url=storefront_links.storefront_url(storefront_links.path_menu()),
         expectation="Menu e produto devem antecipar disponibilidade, preco, alergênicos e proxima acao.",
         evidence=evidence,
         blocker="Rode make seed; nenhum produto publicado/vendavel foi encontrado.",
@@ -134,7 +135,7 @@ def _checkout_intent_check() -> OmotenashiQACheck:
         viewport="mobile 375x812",
         persona="cliente com baixa atencao",
         title="Carrinho/checkout guiando intencao sem pular guardrails",
-        url=_url("storefront:checkout"),
+        url=storefront_links.storefront_url(storefront_links.path_checkout()),
         expectation="Checkout deve mostrar etapa atual, bloqueio claro, recuperacao e CTA unico.",
         evidence=evidence,
         blocker="Rode make seed; nenhuma sessao remota aberta foi encontrada.",
@@ -153,7 +154,7 @@ def _pix_pending_check() -> OmotenashiQACheck:
         viewport="mobile 375x812",
         persona="cliente baixa atencao voltando pelo tracking",
         title="PIX pendente perto de expirar",
-        url=_order_url("storefront:order_payment", order),
+        url=_store_order_url(storefront_links.order_payment_url, order),
         expectation="Pagamento deve explicar prazo, acao do cliente, proximo evento e recuperacao sem confirmar por refresh.",
         evidence=evidence,
         blocker="Rode make seed; cenario security:payment-pending-near-expiry ausente.",
@@ -172,7 +173,7 @@ def _pix_expired_check() -> OmotenashiQACheck:
         viewport="mobile 375x812",
         persona="cliente distraido apos prazo",
         title="PIX expirado com caminho de recuperacao",
-        url=_order_url("storefront:order_payment", order),
+        url=_store_order_url(storefront_links.order_payment_url, order),
         expectation="Tela deve reconhecer expiracao, preservar contexto e oferecer proxima acao segura.",
         evidence=evidence,
         blocker="Rode make seed; cenario security:payment-expired-low-attention ausente.",
@@ -206,7 +207,7 @@ def _tracking_ready_check() -> OmotenashiQACheck:
         viewport="mobile 375x812",
         persona="cliente aguardando retirada ou entrega",
         title="Tracking de pedido pronto",
-        url=_order_url("storefront:order_tracking", order),
+        url=_store_order_url(storefront_links.order_tracking_url, order),
         expectation="Tracking deve dizer o que aconteceu agora, se ha acao do cliente e o proximo evento.",
         evidence=_order_evidence(order),
         blocker="Rode make seed; nenhum pedido READY foi encontrado.",
@@ -394,6 +395,12 @@ def _order_evidence(order: Order | None) -> str:
 def _order_url(name: str, order: Order | None) -> str:
     ref = order.ref if order is not None else "ORDER_REF"
     return _url(name, ref)
+
+
+def _store_order_url(builder, order: Order | None) -> str:
+    """Absolute Nuxt-store URL for an order-scoped customer surface (QA link)."""
+    ref = order.ref if order is not None else "ORDER_REF"
+    return builder(ref)
 
 
 def _url(name: str, *args) -> str:

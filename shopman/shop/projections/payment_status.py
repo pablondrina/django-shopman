@@ -23,13 +23,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections.types import Action
 from shopman.shop.services import payment_status as payment_policy
+from shopman.shop.services import storefront_links
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ def build_payment(order, *, is_debug: bool = False) -> PaymentData:
         pix_copy_paste=pix_copy_paste,
         pix_expires_at=pix_expires_at,
         checkout_url=checkout_url,
-        status_url=reverse("storefront:payment_status_partial", kwargs={"ref": order.ref}),
+        status_url=f"/api/v1/payment/{order.ref}/status/",
         server_now_iso=timezone.now().isoformat(),
         actions=_build_payment_actions(order, is_debug=is_debug),
         error_message=error_message,
@@ -159,7 +159,7 @@ def build_payment_status(order) -> PaymentStatusData:
         order=order,
         expires_at_str=payment.get("expires_at"),
     )
-    redirect_url = f"/pedido/{order.ref}/"
+    redirect_url = storefront_links.order_tracking_url(order.ref)
     promise = _build_payment_promise(
         order=order,
         method=payment.get("method") or "pix",
@@ -349,7 +349,7 @@ def _build_payment_promise(
                     kind="link",
                     label=_copy_title("CONFIRMATION_TRACK_CTA", "Acompanhar pedido"),
                     priority="secondary",
-                    href=f"/pedido/{order.ref}/",
+                    href=storefront_links.order_tracking_url(order.ref),
                 ),
             ),
             deadline_at=None,
@@ -368,7 +368,7 @@ def _build_payment_promise(
                     kind="link",
                     label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
                     priority="secondary",
-                    href=f"/pedido/{order.ref}/",
+                    href=storefront_links.order_tracking_url(order.ref),
                 ),
             ),
             deadline_at=None,
@@ -387,7 +387,7 @@ def _build_payment_promise(
                     kind="link",
                     label=_copy_title("PAYMENT_VIEW_ORDER_CTA", "Ver pedido"),
                     priority="secondary",
-                    href=f"/pedido/{order.ref}/",
+                    href=storefront_links.order_tracking_url(order.ref),
                 ),
             ),
             deadline_at=None,
@@ -416,7 +416,7 @@ def _build_payment_promise(
                     ref="retry_payment",
                     kind="link",
                     label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
-                    href=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+                    href=storefront_links.order_payment_url(order.ref),
                 ),
             ),
             deadline_at=pix_expires_at,
@@ -470,7 +470,7 @@ def _build_payment_promise(
                     ref="retry_payment",
                     kind="link",
                     label=_copy_title("PAYMENT_RETRY_CTA", "Tentar novamente"),
-                    href=reverse("storefront:order_payment", kwargs={"ref": order.ref}),
+                    href=storefront_links.order_payment_url(order.ref),
                 ),
             ),
             deadline_at=None,

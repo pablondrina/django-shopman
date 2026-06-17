@@ -274,6 +274,66 @@ Ao adicionar domínio próprio, confirme que:
 - `SHOPMAN_DOMAIN` e `WHATSAPP_STOREFRONT_URL` apontam para a URL pública;
 - o domínio está como `PRIMARY` na App Platform.
 
+## Fase 1 — cutover por subdomínios (headless: loja no apex `/`)
+
+Depois do headless (Django não serve mais páginas de cliente), a topologia final
+desacopla **por domínio**. Blueprints prontos (schema validado com `doctl apps spec
+validate --schema-only`):
+
+- **Staging primeiro** (recomendado): [`.do/app.staging-subdomains.yaml`](../../.do/app.staging-subdomains.yaml)
+  — concreto em `staging.nelsonboulangerie.com.br`, pagamentos MOCK, reusa o Postgres/Valkey
+  de staging. Aplica com `doctl apps update <STAGING_APP_ID> --spec .do/app.staging-subdomains.yaml`.
+- **Produção** (depois de validar): [`.do/app.subdomains.yaml`](../../.do/app.subdomains.yaml)
+  — template no apex real (trocar `STORE_DOMAIN`), pagamentos reais + secrets.
+
+Topologia (apex = loja):
+
+| Host | Componente | O quê |
+|---|---|---|
+| `seudominio.com` (apex) | `thing-storefront` | loja Nuxt em `/` |
+| `api.seudominio.com` | `web` (Django) | API REST + webhooks |
+| `admin.seudominio.com` | `web` (Django) | admin/operador (Unfold, KDS, produção) |
+| `pos.seudominio.com` | `pos-uithing` | PDV Nuxt em `/` |
+
+**Por que subdomínios e não path único:** o BFF das superfícies Nuxt serve `/api/v1`
+e `/api/auth`; o Django também tem `/api/*`. Na raiz isso colide. Em subdomínios cada
+superfície só tem o próprio `/api` — a colisão evapora.
+
+**Como o cross-domain funciona (já implementado, sem CORS):** o navegador só fala com o
+próprio host (apex/pos.). O servidor Nuxt (BFF, `server/utils/djangoProxy.ts`) proxia
+para `api.` por baixo: seta `origin`/`referer` = host do Django (CSRF passa) e repassa o
+`Set-Cookie` do Django **host-only** para o host da loja — a sessão nasce no domínio do
+cliente. Exige (já é o caso no código): `SESSION_COOKIE_DOMAIN`/`CSRF_COOKIE_DOMAIN`
+**não setados** (host-only); `CSRF_TRUSTED_ORIGINS` inclui `https://api.` e `https://admin.`.
+
+**DNS — automático quando a zona está na DigitalOcean.** Se os nameservers do domínio
+forem `ns1/ns2/ns3.digitalocean.com` e a zona estiver na MESMA conta do app, basta o
+campo `zone:` em cada `domains:` do spec — a App Platform cria os registros + certs TLS
+no deploy (não crie CNAME manual, causaria conflito). É exatamente o caso de
+`nelsonboulangerie.com.br` (zona na DO, conta `NB//IT`): o cutover de staging é só o
+`doctl apps update`. Se a zona estivesse num DNS externo, aí sim seriam CNAMEs manuais.
+
+**Passos do cutover (zona externa; na DO pule o passo 1):**
+
+1. **DNS (só se externo):** aponte o apex + `api`/`admin`/`pos` para o alvo
+   `*.ondigitalocean.app` do app (o painel mostra o alvo ao adicionar cada domínio).
+2. **Spec:** troque `STORE_DOMAIN` pelo domínio real em `.do/app.subdomains.yaml`
+   (`sed -i '' 's/STORE_DOMAIN/seudominio.com/g' .do/app.subdomains.yaml`) e aplique
+   (`doctl apps update <APP_ID> --spec .do/app.subdomains.yaml`).
+3. **Knob único:** `SHOPMAN_STOREFRONT_BASE_URL=https://seudominio.com` (apex) vira **todos**
+   os links de cliente (notificações, magic link, "ver site"). `NUXT_DJANGO_BASE_URL` das
+   superfícies → `https://api.seudominio.com`; `NUXT_APP_BASE_URL=/` (loja e PDV na raiz).
+4. **Produção:** trocar os adapters de pagamento mock pelos reais + secrets, desligar
+   `SHOPMAN_EXPOSE_DEBUG_OTP`, `SHOPMAN_ENVIRONMENT=production`.
+
+**Verificação end-to-end (gate do plano):**
+- Loja: `https://seudominio.com/menu` carrega, add→carrinho→checkout→pagamento→tracking.
+- Magic link: link de notificação `https://seudominio.com/a?t=…` autentica e cai no pedido.
+- API: `https://api.seudominio.com/api/v1/storefront/home/` responde; `/health` e `/ready` ok.
+- Admin/operador: `https://admin.seudominio.com/admin/` loga e abre consoles (pedidos/KDS/produção).
+- PDV: `https://pos.seudominio.com/` opera (login operador, venda, fechamento).
+- Notificações: WhatsApp/ManyChat entrega com links apontando para o apex.
+
 ## Media
 
 Arquivos estáticos ficam resolvidos pelo build + WhiteNoise. Arquivos de mídia

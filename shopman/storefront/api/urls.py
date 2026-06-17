@@ -19,7 +19,15 @@ from .account import (
     OrderHistoryView,
     ProfileView,
 )
-from .auth import DeviceCheckView, LogoutView, RequestCodeView, SessionView, TrustDeviceView, VerifyCodeView
+from .auth import (
+    AccessLinkExchangeView,
+    DeviceCheckView,
+    LogoutView,
+    RequestCodeView,
+    SessionView,
+    TrustDeviceView,
+    VerifyCodeView,
+)
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .conversation import OrderConversationView
@@ -49,6 +57,7 @@ urlpatterns = [
     path("storefront/checkout/", StorefrontCheckoutView.as_view(), name="api-storefront-checkout"),
     # Auth
     path("auth/session/", SessionView.as_view(), name="api-auth-session"),
+    path("auth/access/", AccessLinkExchangeView.as_view(), name="api-auth-access"),
     path("auth/device-check/", DeviceCheckView.as_view(), name="api-auth-device-check"),
     path("auth/request-code/", RequestCodeView.as_view(), name="api-auth-request-code"),
     path("auth/verify-code/", VerifyCodeView.as_view(), name="api-auth-verify-code"),

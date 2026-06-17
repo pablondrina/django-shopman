@@ -112,7 +112,7 @@ def test_kds_views_render_picker_station_and_cards(client, kds_setup):
     expedition_station = client.get(reverse("backstage:kds_station_runtime", args=[expedition.ref]))
     assert expedition_station.status_code == 200
     assert b"KDS-READY" in expedition_station.content
-    assert "Delivery".encode() in expedition_station.content
+    assert b"Delivery" in expedition_station.content
 
     cards = client.get(reverse("backstage:kds_station_runtime_cards", args=[prep.ref]))
     assert cards.status_code == 200

@@ -27,6 +27,7 @@ from django.utils.dateparse import parse_datetime
 from shopman.orderman.models import Directive
 
 from shopman.shop.omotenashi import resolve_copy
+from shopman.shop.projections.interaction_context import InteractionContext
 from shopman.shop.projections.types import Action
 from shopman.shop.services import payment_status
 from shopman.shop.services.business_calendar import (
@@ -34,7 +35,6 @@ from shopman.shop.services.business_calendar import (
     current_business_state,
     format_next_opening,
 )
-from shopman.shop.projections.interaction_context import InteractionContext
 
 logger = logging.getLogger(__name__)
 

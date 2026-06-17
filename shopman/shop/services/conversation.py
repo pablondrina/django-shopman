@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from shopman.shop.projections import order_tracking, payment_status
-from shopman.shop.projections.types import Action
 from shopman.shop.projections.channel_policy import resolve_channel_policy
 from shopman.shop.projections.interaction_context import InteractionContext
+from shopman.shop.projections.types import Action
 
 _PAYMENT_ACTIONS = {"pay_now", "copy_pix", "authorize_card", "pay_card", "retry_payment"}
 

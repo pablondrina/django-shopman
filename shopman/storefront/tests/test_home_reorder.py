@@ -1,4 +1,10 @@
-"""Tests for HomeView._reorder_context (WP-O2 — reorder suggestion)."""
+"""Tests for the home reorder suggestion (presentation.home._reorder_context).
+
+The reorder-suggestion context (last order ref + items) feeds the API home
+projection the Nuxt store consumes. The HTML rendering moved to the store; here
+we cover the data logic via the kept presentation helper, which delegates to
+``storefront.services.orders.last_reorder_context``.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +16,12 @@ from unittest.mock import patch
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from shopman.guestman.models import Customer, CustomerGroup
-from shopman.offerman.models import Product
 from shopman.orderman.models import Order, OrderItem
 
-from shopman.storefront.views.home import REORDER_MIN_DAYS, HomeView
+from shopman.storefront.presentation.home import _reorder_context
+
+# A "sufficiently old" offset; the suggestion has no age gate (min_days=0).
+OLD_DAYS = 30
 
 ITEMS = [
     {"line_id": "L1", "sku": "CROIS-01", "name": "Croissant Clássico", "qty": 2,
@@ -85,120 +93,57 @@ class ReorderContextTests(TestCase):
     # ── No customer ─────────────────────────────────────────────────────
 
     def test_unauthenticated_returns_none(self):
-        req = _make_request()  # no customer
-        ref, items = HomeView._reorder_context(req)
+        ref, items = _reorder_context(_make_request())  # no customer
         self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertFalse(items)
 
     # ── Customer with no orders ──────────────────────────────────────────
 
     def test_no_orders_returns_none(self):
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertFalse(items)
 
-    # ── Recent orders ─────────────────────────────────────────────────────
+    # ── Prior orders, without an age gate ────────────────────────────────
 
     def test_recent_order_returns_ref_and_items(self):
         order = self._create_order(days_ago=0)
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertEqual(ref, order.ref)
         self.assertEqual(len(items), len(ITEMS))
 
     def test_one_day_old_returns_ref_and_items(self):
         order = self._create_order(days_ago=1)
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertEqual(ref, order.ref)
         self.assertEqual(len(items), len(ITEMS))
-
-    # ── Prior orders, without an age gate ────────────────────────────────
 
     def test_old_order_returns_ref_and_items(self):
-        order = self._create_order(days_ago=REORDER_MIN_DAYS + 1)
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        order = self._create_order(days_ago=OLD_DAYS + 1)
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertEqual(ref, order.ref)
         self.assertEqual(len(items), len(ITEMS))
-        self.assertEqual(items[0]["name"], "Croissant Clássico")
-        self.assertEqual(items[0]["qty"], 2)
-
-    def test_home_renders_reorder_cta_when_customer_has_previous_order(self):
-        self._create_order(days_ago=0)
-        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
-
-        response = HomeView.as_view()(req)
-
-        content = response.content.decode()
-        self.assertIn('id="quick-reorder-cta"', content)
-        self.assertLess(content.index('id="home-carousel"'), content.index('id="quick-reorder-cta"'))
-        self.assertIn("Quer repetir seu último pedido, João?", content)
-        self.assertIn("Repetir pedido", content)
-        self.assertIn("Pedir de novo", content)
-        self.assertIn("Quer repetir seu<br>último pedido", content)
-
-    def test_home_reorder_formats_snapshot_quantities_for_customer_display(self):
-        self._create_order(
-            days_ago=0,
-            items=[
-                {"sku": "FOC-001", "name": "Focaccia", "qty": "1.000", "unit_price_q": 1200},
-                {"sku": "BAG-001", "name": "Baguete", "qty": "2.500", "unit_price_q": 900},
-            ],
-        )
-        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
-
-        response = HomeView.as_view()(req)
-
-        content = response.content.decode()
-        self.assertIn("1×</span>", content)
-        self.assertIn(">Focaccia</span>", content)
-        self.assertIn("2,5×</span>", content)
-        self.assertIn(">Baguete</span>", content)
-        self.assertNotIn("1.000×", content)
-        self.assertNotIn("2.500×", content)
-        self.assertNotIn("item do pedido", content)
-
-    def test_home_reorder_uses_catalog_name_when_order_item_name_is_empty(self):
-        Product.objects.create(sku="CAPPUCCINO", name="Cappuccino", base_price_q=1200)
-        self._create_order(
-            days_ago=0,
-            items=[
-                {"sku": "CAPPUCCINO", "name": "", "qty": "1.000", "unit_price_q": 1200},
-            ],
-        )
-        req = _make_request(customer_uuid=self.customer.uuid, customer_name=self.customer.first_name)
-
-        response = HomeView.as_view()(req)
-
-        content = response.content.decode()
-        self.assertIn("1×</span>", content)
-        self.assertIn(">Cappuccino</span>", content)
-        self.assertNotIn("item do pedido", content)
+        self.assertEqual(items[0].name, "Croissant Clássico")
+        self.assertEqual(items[0].qty, 2)
 
     def test_returns_most_recent_order(self):
         # Older order should NOT win
-        self._create_order(days_ago=30)
-        recent = self._create_order(days_ago=REORDER_MIN_DAYS + 1)
-        # Give the recent one a distinct ref suffix
+        self._create_order(days_ago=OLD_DAYS)
+        recent = self._create_order(days_ago=1)
         Order.objects.filter(pk=recent.pk).update(ref="ORD-RO-RECENT")
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, _ = HomeView._reorder_context(req)
+        ref, _ = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertEqual(ref, "ORD-RO-RECENT")
 
     def test_order_with_empty_snapshot_items(self):
-        self._create_order(days_ago=REORDER_MIN_DAYS + 1, items=[])
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        self._create_order(days_ago=OLD_DAYS + 1, items=[])
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         # ref still returned even with empty items
         self.assertIsNotNone(ref)
-        self.assertEqual(items, [])
+        self.assertFalse(items)
 
     # ── Orders from other customers are excluded ──────────────────────────
 
     def test_other_customer_orders_not_returned(self):
-        # Order belongs to a different customer ref
         Order.objects.create(
             ref="ORD-RO-OTHER",
             channel_ref="web",
@@ -208,19 +153,17 @@ class ReorderContextTests(TestCase):
             data={"customer_ref": "OTHER-CUST"},
             total_q=1500,
         )
-        req = _make_request(customer_uuid=self.customer.uuid)
-        ref, items = HomeView._reorder_context(req)
+        ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertFalse(items)
 
     # ── Exception safety ─────────────────────────────────────────────────
 
-    def test_exception_in_customer_lookup_returns_none(self):
-        req = _make_request(customer_uuid=self.customer.uuid)
+    def test_exception_in_reorder_lookup_returns_none(self):
         with patch(
-            "shopman.guestman.services.customer.get_by_uuid",
+            "shopman.storefront.services.orders.last_reorder_context",
             side_effect=Exception("db down"),
         ):
-            ref, items = HomeView._reorder_context(req)
+            ref, items = _reorder_context(_make_request(customer_uuid=self.customer.uuid))
         self.assertIsNone(ref)
-        self.assertEqual(items, [])
+        self.assertFalse(items)

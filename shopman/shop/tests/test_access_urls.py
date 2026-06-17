@@ -32,85 +32,102 @@ class TestBuildAccessUrl:
     def test_returns_none_when_no_customer(self):
         from shopman.shop.services.access_urls import build_access_url
 
-        assert build_access_url(None, None) is None
+        assert build_access_url(None) is None
 
     def test_returns_none_when_customer_lacks_uuid(self):
         from shopman.shop.services.access_urls import build_access_url
 
         customer = SimpleNamespace()  # no uuid attribute
-        assert build_access_url(None, customer) is None
+        assert build_access_url(customer) is None
 
-    def test_returns_access_url_with_token_and_next(self):
+    def test_returns_store_magic_link_with_token(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = "https://nelson.com"
         from shopman.shop.services.access_urls import build_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_abc123"
 
-        with (
-            patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://example.com"),
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
         ):
-            url = build_access_url(None, _make_customer(), next_url="/menu/")
+            url = build_access_url(_make_customer(), metadata={"order_ref": "ORD-1"})
 
-        assert url == "https://example.com/a/?t=tok_abc123&next=%2Fmenu%2F"
+        # Aponta para a LOJA (Nuxt), não há `next` (destino vem da metadata server-side).
+        assert url == "https://nelson.com/a?t=tok_abc123"
+
+    def test_url_is_relative_when_base_unset(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = ""
+        from shopman.shop.services.access_urls import build_access_url
+
+        token_result = MagicMock()
+        token_result.token = "tok_rel"
+
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
+        ):
+            url = build_access_url(_make_customer())
+
+        assert url == "/a?t=tok_rel"
 
     def test_returns_none_on_token_creation_failure(self):
         from shopman.shop.services.access_urls import build_access_url
 
         with patch("shopman.doorman.services.access_link.AccessLinkService.create_token", side_effect=Exception("DB error")):
-            url = build_access_url(None, _make_customer())
+            url = build_access_url(_make_customer())
 
         assert url is None
 
-    def test_uses_request_for_domain(self):
-        from django.test import RequestFactory
-
-        from shopman.shop.services.access_urls import build_access_url
-
-        token_result = MagicMock()
-        token_result.token = "tok_req"
-        request = RequestFactory().get("/")
-
-        with patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result):
-            url = build_access_url(request, _make_customer(), next_url="/pedido/ORD-1/")
-
-        assert url is not None
-        assert "/a/" in url
-        assert "t=tok_req" in url
-        assert "next=%2Fpedido%2FORD-1%2F" in url
-        assert "testserver" in url  # RequestFactory default host
-
 
 class TestBuildTrackingAndReorderAccessUrl:
-    def test_tracking_access_url_points_to_pedido(self):
+    def test_tracking_access_url_carries_order_metadata(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = "https://shop.test"
         from shopman.shop.services.access_urls import build_tracking_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_tracking"
 
-        with (
-            patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
-        ):
-            url = build_tracking_access_url(None, _make_customer(), "ORD-999")
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
+        ) as create:
+            url = build_tracking_access_url(_make_customer(), "ORD-999")
 
-        assert url is not None
-        assert "next=%2Fpedido%2FORD-999%2F" in url
+        assert url == "https://shop.test/a?t=tok_tracking"
+        assert create.call_args.kwargs["metadata"] == {"order_ref": "ORD-999"}
 
-    def test_reorder_access_url_points_to_reorder_path(self):
+    def test_payment_access_url_carries_payment_action(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = "https://shop.test"
+        from shopman.shop.services.access_urls import build_payment_access_url
+
+        token_result = MagicMock()
+        token_result.token = "tok_pay"
+
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
+        ) as create:
+            url = build_payment_access_url(_make_customer(), "ORD-999")
+
+        assert url == "https://shop.test/a?t=tok_pay"
+        assert create.call_args.kwargs["metadata"] == {"order_ref": "ORD-999", "action": "payment"}
+
+    def test_reorder_access_url_carries_reorder_action(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = "https://shop.test"
         from shopman.shop.services.access_urls import build_reorder_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_reorder"
 
-        with (
-            patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
-        ):
-            url = build_reorder_access_url(None, _make_customer(), "ORD-999")
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
+        ) as create:
+            url = build_reorder_access_url(_make_customer(), "ORD-999")
 
-        assert url is not None
-        assert "reorder" in url
+        assert url == "https://shop.test/a?t=tok_reorder"
+        assert create.call_args.kwargs["metadata"] == {"order_ref": "ORD-999", "action": "reorder"}
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -136,7 +153,8 @@ def _make_order_with_customer(uuid=str(CUSTOMER_UUID)):
 
 
 class TestNotificationContextEnrichment:
-    def test_tracking_and_reorder_urls_injected_when_uuid_present(self):
+    def test_tracking_and_reorder_urls_injected_when_uuid_present(self, settings):
+        settings.SHOPMAN_STOREFRONT_BASE_URL = "https://shop.test"
         from shopman.shop.services.notification import _build_context
 
         order = _make_order_with_customer()
@@ -144,15 +162,14 @@ class TestNotificationContextEnrichment:
 
         token_result = MagicMock()
         token_result.token = "tok_ctx"
-        with (
-            patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
+        with patch(
+            "shopman.doorman.services.access_link.AccessLinkService.create_token",
+            return_value=token_result,
         ):
             ctx = _build_context(order, payload, "order_confirmed")
 
         assert "tracking_url" in ctx
-        assert ctx["tracking_url"] is not None
-        assert "/a/" in ctx["tracking_url"]
+        assert ctx["tracking_url"] == "https://shop.test/a?t=tok_ctx"
         assert "reorder_url" in ctx
         assert ctx["reorder_url"] is not None
 
@@ -199,9 +216,9 @@ class TestManychatMessageSuffixes:
             return _build_message(template, ctx)
 
     def test_tracking_suffix_appended_when_url_present(self):
-        msg = self._build("order_confirmed", tracking_url="https://shop.test/a/?t=abc&next=/pedido/ORD-042/")
+        msg = self._build("order_confirmed", tracking_url="https://shop.test/a?t=abc")
         assert "Acompanhe:" in msg
-        assert "/a/" in msg
+        assert "/a?t=abc" in msg
 
     def test_tracking_suffix_absent_when_url_missing(self):
         msg = self._build("order_confirmed")
@@ -209,9 +226,9 @@ class TestManychatMessageSuffixes:
         assert "{tracking_suffix}" not in msg
 
     def test_reorder_suffix_appended_when_url_present(self):
-        msg = self._build("order_delivered", reorder_url="https://shop.test/a/?t=xyz&next=/meus-pedidos/ORD-042/reorder/")
+        msg = self._build("order_delivered", reorder_url="https://shop.test/a?t=xyz")
         assert "Peca de novo:" in msg
-        assert "/a/" in msg
+        assert "/a?t=xyz" in msg
 
     def test_reorder_suffix_absent_when_url_missing(self):
         msg = self._build("order_delivered")
@@ -222,34 +239,3 @@ class TestManychatMessageSuffixes:
         msg = self._build("order_confirmed", tracking_url=None)
         assert "None" not in msg
         assert "{tracking_suffix}" not in msg
-
-
-# ══════════════════════════════════════════════════════════════════════
-# 4. order_confirmation — share_text includes shop name
-# ══════════════════════════════════════════════════════════════════════
-
-
-class TestOrderConfirmationShareText:
-    def test_share_text_format_includes_shop_name_and_url(self):
-        """share_text must embed shop name and tracking URL — format tested directly."""
-        shop_name = "Nelson Boulangerie"
-        share_url = "https://shop.example.com/pedido/ORD-001/"
-        share_text = f"Fiz um pedido em {shop_name}! Acompanhe: {share_url}"
-
-        assert shop_name in share_text
-        assert share_url in share_text
-
-    def test_template_uses_share_text_not_share_url_for_whatsapp(self):
-        """Template must use share_text (not share_url) for the WhatsApp href."""
-        from pathlib import Path
-
-        tpl = (
-            Path(__file__).resolve().parents[2]
-            / "storefront/templates/storefront/order_confirmation.html"
-        )
-        content = tpl.read_text(encoding="utf-8")
-        # wa.me link must urlencode share_text, not the bare share_url
-        assert "share_text|urlencode" in content, (
-            "WhatsApp share link in order_confirmation.html must use share_text|urlencode "
-            "so that the shop name is included in the shared message"
-        )

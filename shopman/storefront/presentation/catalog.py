@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from django.urls import NoReverseMatch, reverse
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
@@ -106,14 +105,6 @@ class CatalogItemProjection:
     # builder receives a freshness map (home "Direto do Forno" rail). Empty
     # on the menu grid, where the short description takes its place.
     freshness_label: str = ""
-
-    @property
-    def detail_url(self) -> str:
-        """Convenience for templates — build the PDP URL."""
-        try:
-            return reverse("storefront:product_detail", args=[self.sku])
-        except NoReverseMatch:
-            return f"/produto/{self.sku}/"
 
 
 @dataclass(frozen=True)

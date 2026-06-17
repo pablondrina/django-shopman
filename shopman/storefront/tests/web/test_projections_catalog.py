@@ -7,6 +7,7 @@ falls back when the channel's Listing is missing.
 """
 from __future__ import annotations
 
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -323,7 +324,11 @@ class TestVitrineCartPriceParity:
         )
 
         # Add the promo SKU to a real cart and resolve both reads.
-        client.post("/cart/set-qty/", {"sku": product.sku, "qty": 1})
+        client.put(
+            f"/api/v1/cart/skus/{product.sku}/",
+            data=json.dumps({"qty": 1}),
+            content_type="application/json",
+        )
         cart = build_cart_data(client.session.get("cart_session_key"), STOREFRONT_CHANNEL_REF)
         cart_line = next(line for line in cart.lines if line.sku == product.sku)
 

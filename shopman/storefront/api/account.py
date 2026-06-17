@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import devices as device_service
+from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents.types import AddressIntent
 from shopman.storefront.presentation.account import (
     FOOD_PREFERENCE_OPTIONS,
@@ -28,7 +29,6 @@ from shopman.storefront.presentation.account import (
     present_notification_prefs,
 )
 from shopman.storefront.services import orders as order_service
-from shopman.storefront.views.auth import get_authenticated_customer
 
 from .projections import projection_data
 from .serializers import (

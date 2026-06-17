@@ -408,7 +408,7 @@ useSeoMeta({
             </UiDialogHeader>
             <div class="space-y-4">
               <UiNumberField v-model="rating" :min="1" :max="5" />
-              <UiTextarea v-model="comment" rows="3" />
+              <UiTextarea v-model="comment" :rows="3" />
             </div>
             <UiDialogFooter>
               <UiButton @click="postAction(rateAction, { rating, comment })">{{ tracking.copy.rating_submit_label }}</UiButton>

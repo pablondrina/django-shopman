@@ -310,8 +310,9 @@ class TestPaymentStatusProjection:
         assert proj.should_redirect is True
 
     def test_redirect_url_points_to_tracking(self, order_with_payment):
+        # Nuxt-canonical tracking path (storefront_links); base-tolerant assertion.
         proj = build_payment_status(order_with_payment)
-        assert proj.redirect_url == f"/pedido/{order_with_payment.ref}/"
+        assert proj.redirect_url.endswith(f"/tracking/{order_with_payment.ref}")
 
     def test_is_immutable(self, order_with_payment):
         from dataclasses import FrozenInstanceError
