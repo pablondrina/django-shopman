@@ -159,11 +159,37 @@ mapeamento pref→atributo — definir ao executar.
 `find_substitutes(require_available=False, exclude_self=True)`. Copy fixa: **"Talvez você também
 goste"**. Grid após a descrição. Zero acoplamento com disponibilidade.
 
-### WP-7 — Dados da PDP: ingredientes + nutricional + peso junto ao preço  ⏱ pequeno-médio
-`project_pdp_data_fields_pending`: peso já existe (`Product.unit_weight_g`) — só exibir junto ao preço
-(hoje enterrado no accordion). **DECIDIDO:** ingredientes/nutricional **derivam da Recipe/BOM** (Craftsman) — sempre o correto, sem
-duplicar dado no `Product`. (Insumos com ficha técnica → tabela nutricional derivada; ingredientes
-da BOM em texto humano pt-BR.) WP-5 (atributo dietético) também sai daí.
+### WP-7 — Dados da PDP via Recipe/BOM  ⏱ médio · ESCOPO REAL apurado (2026-06-17, investigação do Core)
+
+**O Core já resolve a maior parte.** Mapa (file:line) levantado por investigação completa:
+- ✅ **Peso junto ao preço** — JÁ FEITO. `Product.unit_weight_g` → `unit_weight_label` exibido nos
+  cards (ProductTile/ProductListItem) e na PDP, junto ao preço. Nada a fazer.
+- ✅ **Nutricional somado** — JÁ DERIVA da Recipe/BOM. `shop/services/nutrition_from_recipe.py`
+  (`fill_nutrition_from_recipe`, signal `post_save` em Recipe) expande BOM recursivamente, soma
+  `RecipeItem.meta["nutrition"]` (por 100g), escala p/ serving, materializa `Product.nutrition_facts`
+  (flag `auto_filled`, respeita override manual). PDP lê via `_nutrition()`.
+- ✅ **Ingredientes humanos** — JÁ DERIVA. `_build_ingredients_text()` junta `RecipeItem.meta["label"]`
+  por peso decrescente → `Product.ingredients_text`.
+- ❌ **Alérgenos/dieta** — **A LACUNA REAL DO WP-7.** Hoje vivem só em `Product.metadata`
+  (`allergens`/`dietary_info`) — stopgap que o WP-5 consome. `RecipeItem.meta` NÃO tem campos
+  estruturais de alérgeno/dieta. ADR-008 adiou dietary de propósito (nutrientes = soma aritmética;
+  alérgenos = união, exige flags no insumo + UI).
+
+**Escopo WP-7 (o que falta), espelhando o padrão de `fill_nutrition_from_recipe`:**
+1. Estender `RecipeItem.meta` (JSONField — sem migração) com `allergens: list[str]` e
+   `dietary_info: list[str]` por insumo. Dataclass-driven (ver [[feedback_dataclass_driven_admin]]).
+2. Novo serviço `aggregate_dietary_from_recipe(product)` em `shop/services/`: expande BOM (reusar
+   `_expand_recipe_items`), faz **união** de alérgenos e resolve dietary (vegano/vegetariano = só se
+   TODOS os insumos compatíveis; "sem X" = se NENHUM insumo tem X), grava em `Product.metadata`
+   (auto_filled, respeita override manual — como nutrição).
+3. Signal `post_save` em Recipe dispara junto com a nutrição (mesmo ponto).
+4. Form admin no Craftsman p/ preencher allergens/dietary do `RecipeItem` (hoje JSON raw).
+5. Seed: popular flags dos insumos da Nelson (hoje o seed põe direto no `Product.metadata`).
+6. Testes do serviço (união/edge cases) + manter WP-5 funcionando (lê `Product.metadata`, que passa a
+   ser derivado em vez de manual).
+**Referências do Core:** `packages/craftsman/shopman/craftsman/models/recipe.py` (Recipe/RecipeItem),
+`shop/services/nutrition_from_recipe.py` (padrão a espelhar), `packages/offerman/.../admin_unfold/
+nutrition_form.py` (form do stopgap), ADR-008 `docs/decisions/adr-008-pdp-nutrition.md`.
 
 ---
 
@@ -211,13 +237,26 @@ taxa como OrderItem real ou apresentação; relação distância × DeliveryZone
 
 ---
 
-## Ordem sugerida & gates
+## SEQUÊNCIA MESTRA (decidida 2026-06-17 — "fazer tudo")
 
-1. **WP-1** (correção real, rápida) → 2. **WP-2** (destrava WP-3/WP-5) → 3. **WP-3** + **WP-5** + **WP-4**
-   (features de cliente) → 4. **WP-8** (omotenashi de volta ao CI) em paralelo → 5. **WP-6/WP-7**
-   (polish) → 6. **WP-9/WP-10** (dívida).
-`make test` + `make lint` verdes a cada WP. Cada feature nasce com teste + copy omotenashi.
+**Fase A — camada visual Nuxt (WP-1..6): ✅ CONCLUÍDA** (commits `288fd141`→`0d5ddc8e`, inclui os
+ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 1828 + `make lint` + vitest verdes.
 
-## Depois: retomar a Revisão Reversa Spec-driven
-Aplicar o mesmo método (ler o código → spec → caçar brechas) às outras superfícies: **PDV**,
-**backstage/KDS/produção/fechamento**, e re-spec do storefront pós-correções.
+**Fase B — dívida do storefront + entrega (ordem):**
+1. **WP-7** — alérgenos/dieta via Recipe/BOM (escopo real acima; nutrição+ingredientes+peso já feitos no Core).
+2. **WP-8** — gate de browser-QA Omotenashi contra a loja Nuxt no CI.
+3. **WP-9** — e2e Playwright + locustfile contra Nuxt/API.
+4. **WP-11** — fluxo de entrega (taxa por distância + item + teleporte). **Coletar decisões do Pablo ao chegar**
+   (taxa OrderItem real vs apresentação; distância vs DeliveryZone; URL do serviço + faixas iniciais).
+5. **WP-10 resto** — podar SSE de cliente (no-op), `.do/app.yaml` stale, device-trust cleanup agendado,
+   enforcement de `audience` do AccessLink na troca.
+
+**Fase C — Revisão Reversa Spec-driven das outras superfícies** (mesmo método: ler código → spec →
+caçar brechas → plano → executar):
+6. **PDV (POS)** — `surfaces/pos-uithing-nuxt` + `shop/services/pos.py` + backstage POS.
+7. **Backstage / KDS / produção / fechamento** — `shopman/backstage/`.
+8. **Re-spec do storefront** pós-correções.
+
+**Gate por WP:** `make test` + `make lint` (+ vitest p/ mudanças Nuxt) verdes; verificar UI no preview
+(127.0.0.1:3000); commit por WP; copy via OmotenashiCopy; não mergear sem o Pablo. Cada chunk grande
+(WP-7, WP-8, WP-9, WP-11, e cada superfície da fase C) pode virar uma sessão nova com prompt auto-contido.
