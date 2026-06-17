@@ -59,7 +59,10 @@ falta **surfaceá-lo**.
 - `UNAVAILABLE` sem plano → estado honesto → **CTA "Me avise" (WP-3)**.
 **Entrega:** documentar o modelo completo na spec (a parte robusta hoje é invisível) + ajustar copy.
 
-### WP-3 — "Me avise quando disponível" (ativo, WhatsApp)  ⏱ médio-grande · risco médio · 🥇 ouro
+### WP-3 — "Me avise quando disponível"  ✅ BACKEND FEITO (commit feat WP-3) · 🥇 ouro
+> Modelo StockAlertSubscription (+migração), serviço subscribe/notify idempotente, endpoint
+> `POST /api/v1/availability/<sku>/notify/` (anônimo só-telefone OU logado), trigger no Move
+> (apps.ready → on_commit) só quando há pendente. Falta CTA na PDP Nuxt (lê `is_notifiable`).
 **Contexto recuperado (`project_notify_me_pending`).** Desenho já decidido (2026-04-18):
 - Modelo `StockAlertSubscription(sku, channel, contact/customer, subscribed_at, notified_at)`.
 - Disparo: signal de Stockman `Move` quando `ready` passa de 0 → positivo (reusar o caminho de
@@ -78,7 +81,11 @@ migração.
 **DECIDIDO:** anônimo **pode** se inscrever (só telefone/WhatsApp) — reduz fricção; valida via o
 mesmo OTP se virar pedido.
 
-### WP-4 — Favoritos + expansão de coleções dinâmicas  ⏱ médio-grande · risco médio
+### WP-4 — Favoritos  ✅ BACKEND FEITO (commit feat WP-4) · ⏱ médio-grande
+> Modelo CustomerFavorite (+migração), serviço add/remove/toggle/skus, endpoints
+> `GET/POST/DELETE /api/v1/account/favorites/[<sku>/]`, flag `is_favorite` nas projeções.
+> Coleções globais (featured/fresh_from_oven/new_arrivals) já existem. Falta coração na UI Nuxt
+> + expor as 4 coleções na home/menu.
 **Contexto recuperado.** `shopman/shop/dynamic_collections.py` é um **registry vivo** com resolvers
 `featured` (mais vendidos 30d), `fresh_from_oven`, `new_arrivals`, configurável por canal em
 `Shop.defaults["menu"]["dynamic_collections"]`. **Favoritos = uma coleção dinâmica client-scoped.**
@@ -92,7 +99,10 @@ otimista, `POST/DELETE /api/v1/account/favorites/<sku>/`, exposto como resolver 
 **Pré-checagem:** confirmar que home/menu Nuxt **renderizam** as dynamic collections hoje (a
 presentation resolve, mas a loja pode não exibir todas) — parte do trabalho é expor as 4.
 
-### WP-5 — Política de preferências alimentares (avisar, opcionalmente filtrar)  ⏱ médio · risco baixo
+### WP-5 — Preferências alimentares  ✅ AVISO FEITO (commit feat WP-5) · ⏱ médio
+> `dietary_warnings` nas projeções de catálogo+PDP (conservador: só conflito claro). Mapeamento
+> tunável em `presentation/dietary.py`. Falta: badge no card/PDP Nuxt + o FILTRO opcional no menu
+> ("Só compatível com minhas preferências").
 **Problema.** Prefs alimentares são salvas (toggles em `/account/preferencias`), mas **não fazem nada**
 no catálogo.
 **Contexto.** Produtos já têm dieta/alergênicos (`product_detail.py`: allergens, dietary). Prefs do
@@ -112,7 +122,9 @@ mapeamento pref→atributo — definir ao executar.
 
 ## Tier 2 — descoberta / PDP (specs prontas, só executar)
 
-### WP-6 — "Talvez você também goste" na PDP  ⏱ pequeno
+### WP-6 — "Talvez você também goste" na PDP  ✅ JÁ EXISTIA (backend)
+> `cross_sell` na projeção PDP via `related_skus` (scorer por keywords), copy correta. Só falta
+> confirmar o render no Nuxt (já existe per o mapa).
 `project_pdp_veja_tambem_pending`: descoberta lateral (NÃO substituição). Reusar o scorer de
 `find_substitutes(require_available=False, exclude_self=True)`. Copy fixa: **"Talvez você também
 goste"**. Grid após a descrição. Zero acoplamento com disponibilidade.

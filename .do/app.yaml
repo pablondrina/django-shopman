@@ -1,4 +1,10 @@
-# DigitalOcean App Platform blueprint for the first Shopman staging deploy.
+# DigitalOcean App Platform blueprint — single-domain / path-routed (LEGADO).
+#
+# ⚠️ SUPERSEDED pelo cutover headless por subdomínios. O staging em produção hoje
+#    roda `.do/app.staging-subdomains.yaml` (apex=loja Nuxt, api./admin.→Django,
+#    pos.→PDV). Mantido como referência da topologia path-routed (/thing, /pos, /).
+#    Para produção, ver `.do/app.subdomains.yaml`.
+#
 # Runtime secrets are intentionally not stored here. Add them as encrypted
 # app-level RUN_TIME variables before deploying; see docs/guides/deploy-digitalocean.md.
 name: shopman-staging
