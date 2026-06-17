@@ -68,6 +68,7 @@ function productRoute (sku: string) {
           <p class="mt-1 line-clamp-2 shop-meta sm:min-h-10">
             {{ item.short_description || sectionLabel }}
           </p>
+          <DietaryWarningBadges :warnings="item.dietary_warnings" class="mt-2" />
         </div>
 
         <div class="hidden flex-wrap gap-1 sm:flex">

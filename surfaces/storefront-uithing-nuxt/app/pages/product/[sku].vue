@@ -160,6 +160,7 @@ useHead({
             </div>
             <p class="mt-2 line-clamp-2 shop-muted">{{ product.short_description }}</p>
             <p v-if="longDescription" class="mt-2 shop-muted">{{ longDescription }}</p>
+            <DietaryWarningBadges :warnings="product.dietary_warnings" class="mt-3" />
 
             <div class="mt-2 flex flex-wrap items-end justify-between gap-4">
               <div>

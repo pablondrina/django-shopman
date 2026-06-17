@@ -34,6 +34,7 @@ const badge = computed(() => tileBadge(props.item))
         {{ item.short_description }}
       </p>
       <UiBadge v-if="badge" :variant="badge.variant" class="mt-2 font-normal">{{ badge.label }}</UiBadge>
+      <DietaryWarningBadges :warnings="item.dietary_warnings" class="mt-2" />
       <p class="mt-2 flex flex-wrap items-baseline gap-x-2">
         <span v-if="item.original_price_display" class="shop-meta line-through">{{ item.original_price_display }}</span>
         <span class="shop-price">{{ item.price_display }}</span>

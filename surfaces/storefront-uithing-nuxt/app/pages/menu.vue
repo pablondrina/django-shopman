@@ -22,6 +22,9 @@ const route = useRoute()
 const activeSection = ref('all')
 const pillRailTailWidth = ref(160)
 const appliedFilterKeys = ref<string[]>([])
+// "Só compatível com minhas preferências" (WP-5): off por padrão; esconde itens
+// com aviso dietético, de forma transparente e reversível (contador de ocultos).
+const dietaryFilterOn = ref(false)
 
 const catalog = computed(() => data.value?.catalog || null)
 const sections = computed(() => catalog.value?.sections || [])
@@ -30,19 +33,30 @@ const uniqueItems = computed(() => uniqueItemsBySku(allItems.value))
 const favoriteRef = computed(() => catalog.value?.favorite_category_ref || '')
 const hasAppliedFilters = computed(() => appliedFilterKeys.value.length > 0)
 const sectionsBySku = computed(() => buildSectionsBySku(sections.value))
-const activeSections = computed(() => filteredSections(
-  sections.value,
-  '',
-  appliedFilterKeys.value,
-  sectionsBySku.value
-))
+// O toggle só faz sentido quando o cliente logado tem preferências que geram aviso.
+const hasDietaryPrefs = computed(() => allItems.value.some(item => item.dietary_warnings.length > 0))
+const activeSections = computed(() => {
+  const base = filteredSections(sections.value, '', appliedFilterKeys.value, sectionsBySku.value)
+  if (!dietaryFilterOn.value) return base
+  return base
+    .map(section => ({ ...section, items: section.items.filter(item => item.dietary_warnings.length === 0) }))
+    .filter(section => section.items.length > 0)
+})
+const hiddenByDietaryCount = computed(() => {
+  if (!dietaryFilterOn.value) return 0
+  const hidden = new Set<string>()
+  for (const section of filteredSections(sections.value, '', appliedFilterKeys.value, sectionsBySku.value)) {
+    for (const item of section.items) if (item.dietary_warnings.length > 0) hidden.add(item.sku)
+  }
+  return hidden.size
+})
 const buscaTarget = computed(() => appliedFilterKeys.value.length
   ? `/busca?filtro=${encodeURIComponent(appliedFilterKeys.value.join(','))}`
   : '/busca')
 
 const filteredCount = computed(() => uniqueItemsBySku(activeSections.value.flatMap(section => [...section.items])).length)
 const sectionOptions = computed(() => {
-  const source = hasAppliedFilters.value ? activeSections.value : sections.value
+  const source = (hasAppliedFilters.value || dietaryFilterOn.value) ? activeSections.value : sections.value
   return source.map(section => ({
     ref: section.ref,
     label: section.label,
@@ -390,6 +404,24 @@ useHead({
           </UiAlert>
 
           <section data-menu-results class="min-w-0 scroll-mt-40 space-y-4">
+            <!-- Filtro de preferências (WP-5): off por padrão, transparente e
+                 reversível; só aparece quando o cliente tem preferências ativas. -->
+            <div
+              v-if="hasDietaryPrefs"
+              class="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
+              data-menu-dietary-filter
+            >
+              <div class="min-w-0">
+                <p class="shop-body font-semibold">Só compatível com minhas preferências</p>
+                <p class="shop-meta">
+                  {{ dietaryFilterOn
+                    ? `${hiddenByDietaryCount} ${hiddenByDietaryCount === 1 ? 'item oculto' : 'itens ocultos'} pelas suas preferências`
+                    : 'Esconder itens que conflitam com o que você marcou.' }}
+                </p>
+              </div>
+              <UiSwitch v-model="dietaryFilterOn" aria-label="Só compatível com minhas preferências" />
+            </div>
+
             <!-- "Seus favoritos": prateleira pessoal no topo, só logado e sem filtro ativo. -->
             <MenuFavoritesShelf :active="!hasAppliedFilters" />
 
