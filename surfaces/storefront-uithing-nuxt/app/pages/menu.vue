@@ -390,6 +390,9 @@ useHead({
           </UiAlert>
 
           <section data-menu-results class="min-w-0 scroll-mt-40 space-y-4">
+            <!-- "Seus favoritos": prateleira pessoal no topo, só logado e sem filtro ativo. -->
+            <MenuFavoritesShelf :active="!hasAppliedFilters" />
+
             <div v-if="activeSections.length" class="shop-stack-section">
               <div
                 v-for="section in activeSections"

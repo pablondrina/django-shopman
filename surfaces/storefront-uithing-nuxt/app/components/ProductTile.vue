@@ -53,6 +53,9 @@ function productRoute (sku: string) {
             <div v-if="badge" class="absolute left-2 top-2 z-20">
               <UiBadge :variant="badge.variant" class="font-normal shadow-sm">{{ badge.label }}</UiBadge>
             </div>
+            <div class="absolute right-2 top-2 z-20">
+              <FavoriteHeart :sku="item.sku" :initial="item.is_favorite" on-photo />
+            </div>
           </UiAspectRatio>
         </div>
       </div>

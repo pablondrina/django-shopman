@@ -188,7 +188,7 @@ class Command(BaseCommand):
                 },
                 "defaults": {
                     "menu": {
-                        "dynamic_collections": ["featured", "fresh_from_oven"],
+                        "dynamic_collections": ["featured", "fresh_from_oven", "new_arrivals"],
                     },
                     "notifications": {"backend": "console"},
                     "rules": {

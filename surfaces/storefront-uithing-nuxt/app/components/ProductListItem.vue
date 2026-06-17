@@ -63,6 +63,9 @@ const badge = computed(() => tileBadge(props.item))
           </div>
         </div>
       </div>
+      <div class="absolute right-1 top-1 z-10">
+        <FavoriteHeart :sku="item.sku" :initial="item.is_favorite" on-photo />
+      </div>
       <div v-if="!item.is_notifiable" class="absolute bottom-1 right-1 z-10">
         <CartQuantityAction
           :meta="meta"

@@ -154,7 +154,10 @@ useHead({
               <UiBadge v-if="product.promotion_label" variant="default" class="font-normal">{{ product.promotion_label }}</UiBadge>
             </div>
 
-            <h1 class="shop-title line-clamp-2">{{ product.name }}</h1>
+            <div class="flex items-start justify-between gap-3">
+              <h1 class="shop-title line-clamp-2">{{ product.name }}</h1>
+              <FavoriteHeart :sku="product.sku" :initial="product.is_favorite" class="-mr-1 shrink-0" />
+            </div>
             <p class="mt-2 line-clamp-2 shop-muted">{{ product.short_description }}</p>
             <p v-if="longDescription" class="mt-2 shop-muted">{{ longDescription }}</p>
 
