@@ -103,15 +103,25 @@ template/asset, omotenashi partials/cold-strings, SSE trigger guard); contratos 
 a API/serviço (acesso a pedido, magic link, rate limiting, persist_address, home reorder);
 `cart_session` fixture usa `PUT /api/v1/cart/skus/`. `make test` verde (**1792 passed**).
 
-**Follow-ups (não bloqueiam o headless):**
-- `shop/templates/components/` (header/bottom_nav/etc.) e `storefront/static/` agora órfãos —
-  varrer com checagem de uso (alguns componentes podem ser compartilhados com backstage).
-- `shop/handlers/_sse_emitters.py`: emite p/ canais `stock-{ref}` sem assinante na loja; avaliar se
-  o backstage consome `order-{ref}` antes de remover.
-- e2e Playwright (`shop/tests/e2e/test_storefront_e2e.py`, `importorskip`→skip) e
-  `shop/tests/load/locustfile.py` ainda batem em rotas legadas — reescrever contra a loja Nuxt/API.
-- `make lint`: dívida de import-sort PRÉ-EXISTENTE em arquivos não tocados (test_projections_account,
-  conversation, order_tracking, diagnose_remote_order, test_kds_projections).
+**Investigado e RESOLVIDO/decidido:**
+- ✅ `make lint` verde: dívida de import-sort pré-existente corrigida (commit `chore(lint)`); Admin
+  canônico passa.
+- ⚠️ **`shop/templates/components/` + `storefront/static/` NÃO são órfãos — são COMPARTILHADOS com o
+  backstage** (ex.: `gestor/base.html` e `kds_customer/board.html` carregam
+  `storefront/css/output-gestor.css`; `_badge.html` é usado pelo admin/gestor). **Ficam.** Separar
+  o que é só-cliente do build compartilhado é delicado e de baixo valor.
+- ⚠️ **`_sse_emitters.py` está VIVO p/ o operador** — `_on_order_changed`/`_on_payment_changed`
+  emitem `backstage-orders-update` (SSE do operador) junto com `order-{ref}`/`stock-{ref}` (canais de
+  cliente agora sem assinante, no-op barato). **Fica.** Remover só os emits de cliente é frágil e ~zero
+  benefício.
+
+**Follow-ups remanescentes (não bloqueiam):**
+- e2e Playwright (`shop/tests/e2e/test_storefront_e2e.py`, `importorskip`→skip; cenários 01/02/06 de
+  cliente) e `shop/tests/load/locustfile.py` ainda batem em rotas legadas — **reescrever contra a loja
+  Nuxt/API** (esforço próprio; não afeta `make test`).
+- **Fase 1 (deploy/subdomínios)** — código JÁ pronto: `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e
+  `SHOPMAN_STOREFRONT_BASE_URL` são todos env-driven (`config/settings.py`). Falta só o deploy +
+  DNS + DO App Platform (outward-facing, do Pablo).
 
 ## Ordem & gates
 
