@@ -15,14 +15,12 @@ mock ``send_event`` and assert on the call surface.
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
 from django.core.cache import cache
-from django.urls import reverse
 from shopman.offerman.models import Listing, ListingItem, Product
 from shopman.orderman.models import Order
 from shopman.stockman.models import Hold
@@ -257,45 +255,3 @@ def test_listing_item_unpublish_emits_listing_changed(
     assert listing_calls[0].args[2] == {"sku": "BAGUETE"}
 
 
-# ── Endpoint test ───────────────────────────────────────────────────
-
-
-@pytest.mark.django_db
-def test_sku_state_endpoint_returns_badge_and_hx_trigger(
-    client, baguete, listings_for_baguete,
-):
-    url = reverse("storefront:sku_state", kwargs={"sku": "BAGUETE"})
-    response = client.get(f"{url}?channel_ref=web")
-
-    assert response.status_code == 200
-    assert "HX-Trigger" in response.headers
-
-    payload = json.loads(response.headers["HX-Trigger"])
-    assert "sku-state" in payload
-    detail = payload["sku-state"]
-    assert detail["sku"] == "BAGUETE"
-    assert detail["channel_ref"] == "web"
-    assert "availability" in detail
-    assert "can_add_to_cart" in detail
-
-
-@pytest.mark.django_db
-def test_sku_state_endpoint_404_for_unknown_sku(client):
-    url = reverse("storefront:sku_state", kwargs={"sku": "NOPE"})
-    response = client.get(url)
-    assert response.status_code == 404
-
-
-@pytest.mark.django_db
-def test_sku_state_endpoint_marks_paused_product_unavailable(
-    client, baguete, listings_for_baguete,
-):
-    Product.objects.filter(sku="BAGUETE").update(is_sellable=False)
-
-    url = reverse("storefront:sku_state", kwargs={"sku": "BAGUETE"})
-    response = client.get(f"{url}?channel_ref=web")
-
-    detail = json.loads(response.headers["HX-Trigger"])["sku-state"]
-    assert detail["availability"] == "unavailable"
-    assert detail["can_add_to_cart"] is False
-    assert b"Indispon" in response.content

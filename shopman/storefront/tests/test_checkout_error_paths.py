@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 
@@ -31,18 +30,6 @@ def _make_channels():
     )
 
 
-def _make_staff():
-    User = get_user_model()
-    user, _ = User.objects.get_or_create(
-        username="err_staff",
-        defaults={"is_staff": True},
-    )
-    if not user.has_usable_password():
-        user.set_password("x")
-        user.save()
-    return user
-
-
 def repricing_warnings(cart: dict) -> list[dict]:
     """Run the drained repricing path (data → presentation) over a cart-items dict.
 
@@ -67,39 +54,6 @@ def repricing_warnings(cart: dict) -> list[dict]:
         for i in cart.get("items", [])
     )
     return present_repricing_warnings(repricing_changes(lines))
-
-
-class CartExpiredRedirectTests(TestCase):
-    """Expired cart session → redirect with flash message."""
-
-    def setUp(self):
-        _make_shop()
-        _make_channels()
-        from shopman.backstage.models import CashShift
-        staff = _make_staff()
-        CashShift.objects.get_or_create(operator=staff, defaults={"opening_amount_q": 0})
-
-    def test_expired_cart_redirects_to_cart_with_message(self) -> None:
-        """POST /checkout/ with expired session_key → redirect to /cart/ with message."""
-        # Browser cookie still holds a cart_session_key, but no open ordering
-        # session exists for it — CartService.has_items detects this, pops the
-        # stale key and returns False, so checkout redirects with the flash.
-        self.client.get("/")  # warm up session
-        session = self.client.session
-        session["cart_session_key"] = "EXPIRED-KEY-9999"
-        session.save()
-
-        resp = self.client.post("/checkout/", {
-            "name": "Test",
-            "phone": "5543999001122",
-            "fulfillment_type": "pickup",
-            "payment_method": "cash",
-        })
-
-        self.assertEqual(resp.status_code, 302)
-        # Flash message was set
-        messages = list(resp.wsgi_request._messages)
-        self.assertTrue(any("expirou" in str(m) for m in messages))
 
 
 class PaymentMethodUnavailableTests(TestCase):

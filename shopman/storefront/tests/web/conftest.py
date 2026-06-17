@@ -1,6 +1,7 @@
 """Fixtures for storefront (channels.web) view tests."""
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -275,7 +276,7 @@ def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> No
     """Garante ListingItem(published+available) no listing do canal.
 
     `availability.check` valida membership no listing do canal: sem isso o
-    /cart/set-qty/ devolve 422 (`error_code=not_in_listing`).
+    PUT /api/v1/cart/skus/<sku>/ devolve 422 (`error_code=not_in_listing`).
     """
     listing_obj, _ = Listing.objects.get_or_create(
         ref=channel.ref,
@@ -293,7 +294,11 @@ def cart_session(client, channel, product):
     """Add an item to the cart and return the client with active session."""
     _seed_stock_for_product_sku(product.sku)
     _ensure_listing_item(channel, product, price_q=90)
-    client.post("/cart/set-qty/", {"sku": product.sku, "qty": 2})
+    client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 2}),
+        content_type="application/json",
+    )
     return client
 
 
@@ -302,5 +307,9 @@ def cart_session_delivery(client, channel, croissant):
     """Cart with enough value for delivery (min R$ 20,00). Uses croissant (R$ 8,00 x 4 = R$ 32,00)."""
     _seed_stock_for_product_sku(croissant.sku)
     _ensure_listing_item(channel, croissant, price_q=800)
-    client.post("/cart/set-qty/", {"sku": croissant.sku, "qty": 4})
+    client.put(
+        f"/api/v1/cart/skus/{croissant.sku}/",
+        data=json.dumps({"qty": 4}),
+        content_type="application/json",
+    )
     return client

@@ -1,6 +1,8 @@
-"""Tests for rate limiting on OTP and checkout endpoints.
+"""Rate limiting on the storefront API endpoints the BFF consumes.
 
-WP-C3: Rate Limiting (OTP, login, checkout).
+OTP request/verify, checkout, tracking polling, reorder and cart mutation all
+return a recovery payload (error_code + retry_after_seconds + Retry-After) so the
+Nuxt store can surface a friendly wait instead of a bare 429.
 """
 from __future__ import annotations
 
@@ -23,95 +25,34 @@ def _clear_cache():
     cache.clear()
 
 
-# ── OTP Request (RequestCodeView) ──────────────────────────────────────────
+# ── OTP request / verify (api/auth) ────────────────────────────────────────
 
 
 @override_settings(RATELIMIT_ENABLE=True)
-def test_otp_request_rate_limited(client: Client):
+def test_api_otp_request_rate_limited(client: Client):
     """6th OTP request in the same minute returns 429."""
-    payload = {"phone": "+5511999990001"}
+    payload = json.dumps({"phone": "+5511999990001"})
     for _ in range(5):
-        resp = client.post("/checkout/request-code/", data=payload)
-        assert resp.status_code != 429, (
-            f"Should not be rate limited before 5 requests (got {resp.status_code})"
-        )
+        resp = client.post("/api/v1/auth/request-code/", data=payload, content_type="application/json")
+        assert resp.status_code != 429, f"not limited before 5 (got {resp.status_code})"
 
-    resp = client.post("/checkout/request-code/", data=payload)
+    resp = client.post("/api/v1/auth/request-code/", data=payload, content_type="application/json")
     assert resp.status_code == 429
 
 
 @override_settings(RATELIMIT_ENABLE=True)
-def test_otp_request_normal_use_passes(client: Client):
-    """Single OTP request is not rate-limited."""
-    resp = client.post("/checkout/request-code/", data={"phone": "+5511999990002"})
-    assert resp.status_code != 429
-
-
-# ── OTP Verify (VerifyCodeView) ────────────────────────────────────────────
-
-
-@override_settings(RATELIMIT_ENABLE=True)
-def test_otp_verify_rate_limited(client: Client):
-    """11th OTP verify request in the same minute returns 429."""
-    payload = {"phone": "+5511999990003", "code": "000000"}
+def test_api_otp_verify_rate_limited(client: Client):
+    """11th OTP verify in the same minute returns 429."""
+    payload = json.dumps({"phone": "+5511999990003", "code": "000000"})
     for _ in range(10):
-        resp = client.post("/checkout/verify-code/", data=payload)
-        assert resp.status_code != 429, (
-            f"Should not be rate limited before 10 requests (got {resp.status_code})"
-        )
+        resp = client.post("/api/v1/auth/verify-code/", data=payload, content_type="application/json")
+        assert resp.status_code != 429, f"not limited before 10 (got {resp.status_code})"
 
-    resp = client.post("/checkout/verify-code/", data=payload)
+    resp = client.post("/api/v1/auth/verify-code/", data=payload, content_type="application/json")
     assert resp.status_code == 429
 
 
-@override_settings(RATELIMIT_ENABLE=True)
-def test_otp_verify_normal_use_passes(client: Client):
-    """Single OTP verify request is not rate-limited."""
-    resp = client.post(
-        "/checkout/verify-code/",
-        data={"phone": "+5511999990004", "code": "000000"},
-    )
-    assert resp.status_code != 429
-
-
-# ── Web Checkout (CheckoutView) ────────────────────────────────────────────
-
-
-@override_settings(RATELIMIT_ENABLE=True)
-def test_checkout_rate_limited(client: Client):
-    """4th checkout POST in the same minute returns 429."""
-    payload = {
-        "name": "Test User",
-        "phone": "+5511999990005",
-        "fulfillment_type": "pickup",
-        "payment_method": "cash",
-    }
-    for _ in range(3):
-        resp = client.post("/checkout/", data=payload)
-        assert resp.status_code != 429, (
-            f"Should not be rate limited before 3 requests (got {resp.status_code})"
-        )
-
-    resp = client.post("/checkout/", data=payload)
-    assert resp.status_code == 429
-
-
-@override_settings(RATELIMIT_ENABLE=True)
-def test_checkout_normal_use_passes(client: Client):
-    """Single checkout POST is not rate-limited."""
-    resp = client.post(
-        "/checkout/",
-        data={
-            "name": "Test User",
-            "phone": "+5511999990006",
-            "fulfillment_type": "pickup",
-            "payment_method": "cash",
-        },
-    )
-    assert resp.status_code != 429
-
-
-# ── API Checkout (api/views.CheckoutView) ─────────────────────────────────
+# ── Checkout (api/views.CheckoutView) ──────────────────────────────────────
 
 
 @override_settings(RATELIMIT_ENABLE=True)
@@ -124,9 +65,7 @@ def test_api_checkout_rate_limited(client: Client):
     }
     for _ in range(3):
         resp = client.post("/api/v1/checkout/", data=payload, content_type="application/json")
-        assert resp.status_code != 429, (
-            f"Should not be rate limited before 3 requests (got {resp.status_code})"
-        )
+        assert resp.status_code != 429, f"not limited before 3 (got {resp.status_code})"
 
     resp = client.post("/api/v1/checkout/", data=payload, content_type="application/json")
     assert resp.status_code == 429
@@ -145,6 +84,9 @@ def test_api_checkout_normal_use_passes(client: Client):
         content_type="application/json",
     )
     assert resp.status_code != 429
+
+
+# ── Tracking / reorder / cart mutation (recovery payloads) ─────────────────
 
 
 @override_settings(RATELIMIT_ENABLE=True)
@@ -199,25 +141,3 @@ def test_api_cart_sku_qty_rate_limited_payload_has_recovery(client: Client):
     assert data["error_code"] == "rate_limited"
     assert data["retry_after_seconds"] == 30
     assert resp.headers["Retry-After"] == "30"
-
-
-@override_settings(RATELIMIT_ENABLE=True)
-def test_cep_lookup_rate_limited(client: Client):
-    """31st CEP lookup in the same minute returns 429 before external IO."""
-    for _ in range(30):
-        resp = client.get("/checkout/cep-lookup/?cep=abc")
-        assert resp.status_code != 429
-
-    resp = client.get("/checkout/cep-lookup/?cep=abc")
-    assert resp.status_code == 429
-
-
-@override_settings(RATELIMIT_ENABLE=True)
-def test_cart_mutation_rate_limited(client: Client):
-    """121st public cart mutation in the same minute returns 429."""
-    for _ in range(120):
-        resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
-        assert resp.status_code != 429
-
-    resp = client.post("/cart/set-qty/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
-    assert resp.status_code == 429

@@ -239,34 +239,3 @@ class TestManychatMessageSuffixes:
         msg = self._build("order_confirmed", tracking_url=None)
         assert "None" not in msg
         assert "{tracking_suffix}" not in msg
-
-
-# ══════════════════════════════════════════════════════════════════════
-# 4. order_confirmation — share_text includes shop name
-# ══════════════════════════════════════════════════════════════════════
-
-
-class TestOrderConfirmationShareText:
-    def test_share_text_format_includes_shop_name_and_url(self):
-        """share_text must embed shop name and tracking URL — format tested directly."""
-        shop_name = "Nelson Boulangerie"
-        share_url = "https://shop.example.com/pedido/ORD-001/"
-        share_text = f"Fiz um pedido em {shop_name}! Acompanhe: {share_url}"
-
-        assert shop_name in share_text
-        assert share_url in share_text
-
-    def test_template_uses_share_text_not_share_url_for_whatsapp(self):
-        """Template must use share_text (not share_url) for the WhatsApp href."""
-        from pathlib import Path
-
-        tpl = (
-            Path(__file__).resolve().parents[2]
-            / "storefront/templates/storefront/order_confirmation.html"
-        )
-        content = tpl.read_text(encoding="utf-8")
-        # wa.me link must urlencode share_text, not the bare share_url
-        assert "share_text|urlencode" in content, (
-            "WhatsApp share link in order_confirmation.html must use share_text|urlencode "
-            "so that the shop name is included in the shared message"
-        )

@@ -1,12 +1,16 @@
-"""Tests for CheckoutView._persist_new_address (omotenashi address persistence)."""
+"""Tests for checkout address persistence (omotenashi).
+
+Covers ``shop.services.checkout.persist_new_address`` — the post-commit side
+effect that saves a new delivery address to the customer's account.
+"""
 
 from __future__ import annotations
 
 from django.test import TestCase
 from shopman.guestman.models import Customer, CustomerAddress, CustomerGroup
 
+from shopman.shop.services import checkout as checkout_service
 from shopman.storefront.intents.types import CheckoutIntent
-from shopman.storefront.views.checkout import CheckoutView
 
 PHONE = "+5543999990001"
 FORMATTED = "Rua das Flores, 123, Centro, Londrina - PR, 86020-000"
@@ -78,7 +82,7 @@ class PersistNewAddressTests(TestCase):
 
     def test_new_address_saved_to_customer_account(self):
         intent = _make_intent()
-        CheckoutView._persist_new_address(intent, "ORD-PA-001")
+        checkout_service.persist_new_address(intent)
 
         addrs = list(CustomerAddress.objects.filter(customer=self.customer))
         self.assertEqual(len(addrs), 1)
@@ -100,7 +104,7 @@ class PersistNewAddressTests(TestCase):
 
     def test_first_address_becomes_default(self):
         intent = _make_intent()
-        CheckoutView._persist_new_address(intent, "ORD-PA-002")
+        checkout_service.persist_new_address(intent)
 
         addr = CustomerAddress.objects.get(customer=self.customer)
         self.assertTrue(addr.is_default)
@@ -114,7 +118,7 @@ class PersistNewAddressTests(TestCase):
             is_default=True,
         )
         intent = _make_intent()
-        CheckoutView._persist_new_address(intent, "ORD-PA-003")
+        checkout_service.persist_new_address(intent)
 
         new_addr = CustomerAddress.objects.get(
             customer=self.customer, formatted_address=FORMATTED
@@ -123,7 +127,7 @@ class PersistNewAddressTests(TestCase):
 
     def test_address_without_structured_data(self):
         intent = _make_intent(delivery_address_structured=None)
-        CheckoutView._persist_new_address(intent, "ORD-PA-004")
+        checkout_service.persist_new_address(intent)
 
         addr = CustomerAddress.objects.get(customer=self.customer)
         self.assertEqual(addr.formatted_address, FORMATTED)
@@ -134,7 +138,7 @@ class PersistNewAddressTests(TestCase):
 
     def test_pickup_order_skipped(self):
         intent = _make_intent(fulfillment_type="pickup")
-        CheckoutView._persist_new_address(intent, "ORD-PA-005")
+        checkout_service.persist_new_address(intent)
 
         self.assertFalse(CustomerAddress.objects.filter(customer=self.customer).exists())
 
@@ -146,7 +150,7 @@ class PersistNewAddressTests(TestCase):
             is_default=True,
         )
         intent = _make_intent(saved_address_id=existing.pk)
-        CheckoutView._persist_new_address(intent, "ORD-PA-006")
+        checkout_service.persist_new_address(intent)
 
         self.assertEqual(CustomerAddress.objects.filter(customer=self.customer).count(), 1)
 
@@ -158,31 +162,18 @@ class PersistNewAddressTests(TestCase):
             is_default=True,
         )
         intent = _make_intent()  # no saved_address_id, new entry path
-        CheckoutView._persist_new_address(intent, "ORD-PA-007")
+        checkout_service.persist_new_address(intent)
 
         self.assertEqual(CustomerAddress.objects.filter(customer=self.customer).count(), 1)
 
     def test_no_delivery_address_skipped(self):
         intent = _make_intent(delivery_address=None)
-        CheckoutView._persist_new_address(intent, "ORD-PA-008")
+        checkout_service.persist_new_address(intent)
 
         self.assertFalse(CustomerAddress.objects.filter(customer=self.customer).exists())
 
     def test_unknown_phone_skipped(self):
         intent = _make_intent(customer_phone="+5500000000000")
-        CheckoutView._persist_new_address(intent, "ORD-PA-009")
+        checkout_service.persist_new_address(intent)
 
         self.assertFalse(CustomerAddress.objects.exists())
-
-    # ── Exception safety ─────────────────────────────────────────────────
-
-    def test_exception_does_not_propagate(self):
-        from unittest.mock import patch
-
-        intent = _make_intent()
-        with patch(
-            "shopman.guestman.services.address.has_address",
-            side_effect=Exception("db error"),
-        ):
-            # Must not raise — checkout should never fail for address persistence
-            CheckoutView._persist_new_address(intent, "ORD-PA-010")

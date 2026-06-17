@@ -216,7 +216,6 @@ MIDDLEWARE = [
     "shopman.storefront.middleware.ChannelParamMiddleware",
     "shopman.backstage.middleware.OnboardingMiddleware",
     "shopman.shop.middleware.APIVersionHeaderMiddleware",
-    "shopman.storefront.middleware.WelcomeGateMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -255,9 +254,6 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "shopman.backstage.context_processors.operator",
-                "shopman.storefront.context_processors.shop",
-                "shopman.storefront.context_processors.omotenashi",
-                "shopman.storefront.context_processors.cart_count",
             ],
         },
     },

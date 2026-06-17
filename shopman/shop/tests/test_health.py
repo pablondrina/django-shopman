@@ -143,7 +143,7 @@ def test_app_platform_probe_host_reaches_ready(client, db):
 
 @override_settings(ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"])
 def test_app_platform_probe_host_does_not_bypass_business_routes(client, db):
-    response = client.get("/menu/", HTTP_HOST="100.127.25.212:8000")
+    response = client.get("/api/v1/storefront/menu/", HTTP_HOST="100.127.25.212:8000")
 
     assert response.status_code == 400
 

@@ -16,9 +16,9 @@ from rest_framework.views import APIView
 from shopman.shop.services import access as access_service
 from shopman.shop.services import auth as auth_service
 from shopman.storefront.constants import HAS_AUTH
+from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents._phone import normalize_phone_input
 from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
-from shopman.storefront.views.auth import get_authenticated_customer
 
 logger = logging.getLogger(__name__)
 

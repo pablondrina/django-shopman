@@ -521,7 +521,7 @@ def _saved_address_payload(request, address_id: int | None) -> tuple[dict | None
     if not address_id:
         return None, None
     from shopman.shop.services import account as account_service
-    from shopman.storefront.views.auth import get_authenticated_customer
+    from shopman.storefront.identity import get_authenticated_customer
 
     customer = get_authenticated_customer(request)
     if not customer:
