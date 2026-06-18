@@ -33,7 +33,9 @@ function discountDisplay (amount: string) {
     </template>
 
     <template v-if="cart.delivery_fee_display">
-      <UiDescriptionListTerm>Entrega</UiDescriptionListTerm>
+      <UiDescriptionListTerm>
+        Entrega<span v-if="cart.delivery_distance_display" class="shop-muted font-normal"> · {{ cart.delivery_distance_display }}</span>
+      </UiDescriptionListTerm>
       <UiDescriptionListDetails class="tabular-nums sm:text-right">{{ cart.delivery_fee_display }}</UiDescriptionListDetails>
     </template>
 

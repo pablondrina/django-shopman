@@ -143,6 +143,7 @@ class TrackingData:
     items: tuple[TrackingItemData, ...]
     total_q: int
     delivery_fee_q: int | None
+    delivery_distance_km: float | None
     delivery_fulfillments: tuple[TrackingFulfillmentData, ...]
     pickup_fulfillments: tuple[TrackingFulfillmentData, ...]
     pickup: TrackingPickupData | None
@@ -201,6 +202,8 @@ def build_tracking(order, *, is_debug: bool = False) -> TrackingData:
     pickup = _pickup_data() if is_pickup else None
 
     delivery_fee_q = order_data.get("delivery_fee_q")
+    delivery_distance_km = order_data.get("delivery_distance_km")
+    delivery_distance_km = float(delivery_distance_km) if delivery_distance_km is not None else None
 
     payment_pending, payment_confirmed, payment_status_key, payment_expires_at = _payment_info(order)
     progress_steps = _build_progress_steps(
@@ -252,6 +255,7 @@ def build_tracking(order, *, is_debug: bool = False) -> TrackingData:
         items=items,
         total_q=int(order.total_q),
         delivery_fee_q=delivery_fee_q,
+        delivery_distance_km=delivery_distance_km,
         delivery_fulfillments=delivery_fulfillments,
         pickup_fulfillments=pickup_fulfillments,
         pickup=pickup,

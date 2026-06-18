@@ -161,3 +161,28 @@ class TestDeliveryFeeModifierByDistance(TestCase):
         self.modifier.apply(channel=None, session=session, ctx={})
         self.assertTrue(session.data.get("delivery_zone_error"))
         self.assertNotIn("delivery_fee_q", session.data)
+
+
+class TestDistanceDisplay(TestCase):
+    """Formatação pt-BR da distância exibida no checkout/tracking (slice 2)."""
+
+    def test_cart_presentation_display(self):
+        from shopman.storefront.presentation.cart import _delivery_distance_display
+
+        self.assertIsNone(_delivery_distance_display(_FakeKm(None)))
+        self.assertEqual(_delivery_distance_display(_FakeKm(2.0)), "2 km")
+        self.assertEqual(_delivery_distance_display(_FakeKm(2.5)), "2,5 km")
+
+    def test_tracking_presentation_display(self):
+        from shopman.storefront.presentation.order_tracking import _delivery_distance_display
+
+        self.assertIsNone(_delivery_distance_display(None))
+        self.assertEqual(_delivery_distance_display(10.0), "10 km")
+        self.assertEqual(_delivery_distance_display(3.4), "3,4 km")
+
+
+class _FakeKm:
+    """Mínimo que `cart._delivery_distance_display` lê (`.delivery_distance_km`)."""
+
+    def __init__(self, km):
+        self.delivery_distance_km = km

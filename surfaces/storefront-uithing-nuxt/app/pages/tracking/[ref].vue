@@ -318,7 +318,9 @@ useSeoMeta({
                         <UiDescriptionListTerm v-if="tracking.payment_status_label || tracking.payment_status">Pagamento</UiDescriptionListTerm>
                         <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
 
-                        <UiDescriptionListTerm v-if="tracking.delivery_fee_display">{{ tracking.copy.delivery_fee_label }}</UiDescriptionListTerm>
+                        <UiDescriptionListTerm v-if="tracking.delivery_fee_display">
+                          {{ tracking.copy.delivery_fee_label }}<span v-if="tracking.delivery_distance_display" class="shop-muted"> · {{ tracking.delivery_distance_display }}</span>
+                        </UiDescriptionListTerm>
                         <UiDescriptionListDetails v-if="tracking.delivery_fee_display">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
                       </UiDescriptionList>
                     </section>

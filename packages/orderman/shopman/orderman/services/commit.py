@@ -300,7 +300,7 @@ class CommitService:
             "delivery_address_structured", "delivery_date",
             "delivery_time_slot", "order_notes",
             "origin_channel", "payment",
-            "delivery_fee_q",
+            "delivery_fee_q", "delivery_distance_km",
             "is_gift", "recipient", "gift_message", "gift_hide_values",
         ):
             if key in session_data:

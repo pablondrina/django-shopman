@@ -898,7 +898,7 @@ useSeoMeta({
                 data-checkout-zone-ok
               >
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
-                Entregamos no seu endereço
+                Entregamos no seu endereço<span v-if="cart.delivery_distance_display" class="font-normal shop-muted">&nbsp;· a {{ cart.delivery_distance_display }}</span>
               </p>
               <UiAlert
                 v-if="cart?.delivery_minimum_progress"

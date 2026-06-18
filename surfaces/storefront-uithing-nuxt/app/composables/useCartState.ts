@@ -49,6 +49,8 @@ function emptyCart (): CartProjection {
     delivery_fee_q: null,
     delivery_fee_display: null,
     delivery_is_free: false,
+    delivery_distance_km: null,
+    delivery_distance_display: null,
     grand_total_q: 0,
     grand_total_display: 'R$ 0,00',
     coupon_code: null,

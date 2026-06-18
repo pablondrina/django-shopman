@@ -137,6 +137,9 @@ class CartProjection:
     delivery_fee_display: str | None
     delivery_is_free: bool
     delivery_zone_error: bool
+    # Distância loja→endereço, p/ justificar a taxa no checkout ("a 2 km · R$ 5,00").
+    delivery_distance_km: float | None
+    delivery_distance_display: str | None
     grand_total_q: int
     grand_total_display: str
     loyalty_applied: bool
@@ -209,6 +212,8 @@ def build_cart(
         delivery_fee_display=_delivery_fee_display(data),
         delivery_is_free=data.delivery_is_free,
         delivery_zone_error=data.delivery_zone_error,
+        delivery_distance_km=data.delivery_distance_km,
+        delivery_distance_display=_delivery_distance_display(data),
         loyalty_applied=data.loyalty_applied,
         grand_total_q=data.grand_total_q,
         grand_total_display=_money(data.grand_total_q),
@@ -291,6 +296,15 @@ def _delivery_fee_display(data: cart_data.CartProjection) -> str | None:
     if data.delivery_fee_q is None:
         return None
     return "Grátis" if data.delivery_is_free else _money(data.delivery_fee_q)
+
+
+def _delivery_distance_display(data: cart_data.CartProjection) -> str | None:
+    km = data.delivery_distance_km
+    if km is None:
+        return None
+    if km == int(km):
+        return f"{int(km)} km"
+    return f"{km:.1f}".replace(".", ",") + " km"
 
 
 def _deadline_display(deadline_iso: str | None) -> str | None:

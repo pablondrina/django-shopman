@@ -209,6 +209,7 @@ class OrderTrackingProjection:
     items: tuple[OrderItemProjection, ...]
     total_display: str
     delivery_fee_display: str | None
+    delivery_distance_display: str | None
     is_delivery: bool
     delivery_fulfillments: tuple[FulfillmentProjection, ...]
     pickup_fulfillments: tuple[FulfillmentProjection, ...]
@@ -282,6 +283,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         items=_present_items(data),
         total_display=f"R$ {format_money(data.total_q)}",
         delivery_fee_display=_delivery_fee_display(data.delivery_fee_q),
+        delivery_distance_display=_delivery_distance_display(data.delivery_distance_km),
         is_delivery=data.is_delivery,
         delivery_fulfillments=_present_fulfillments(data.delivery_fulfillments, copy=copy),
         pickup_fulfillments=_present_fulfillments(data.pickup_fulfillments, copy=copy),
@@ -337,6 +339,15 @@ def _payment_status_label(payment_status_key: str | None) -> str | None:
     if not payment_status_key:
         return None
     return PAYMENT_STATUS_LABELS.get(payment_status_key)
+
+
+def _delivery_distance_display(delivery_distance_km: float | None) -> str | None:
+    km = delivery_distance_km
+    if km is None:
+        return None
+    if km == int(km):
+        return f"{int(km)} km"
+    return f"{km:.1f}".replace(".", ",") + " km"
 
 
 def _delivery_fee_display(delivery_fee_q: int | None) -> str | None:

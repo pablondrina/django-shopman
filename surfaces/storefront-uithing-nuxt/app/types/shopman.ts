@@ -195,6 +195,8 @@ export interface CartProjection {
   delivery_fee_display: string | null
   delivery_is_free: boolean
   delivery_zone_error: boolean
+  delivery_distance_km: number | null
+  delivery_distance_display: string | null
   grand_total_q: number
   grand_total_display: string
   loyalty_applied: boolean
@@ -717,6 +719,7 @@ export interface TrackingResponse {
   progress_steps: OrderProgressStepProjection[]
   total_display: string
   delivery_fee_display: string | null
+  delivery_distance_display: string | null
   is_delivery: boolean
   timeline: TimelineEventProjection[]
   items: OrderItemProjection[]

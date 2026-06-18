@@ -137,6 +137,9 @@ class CartProjection:
     delivery_fee_q: int | None
     delivery_is_free: bool
     delivery_zone_error: bool
+    # Distância loja→endereço em km (1 casa), quando calculável. Justifica a taxa
+    # ao cliente ("a X km · R$ Y"). None quando não há coordenada.
+    delivery_distance_km: float | None
     grand_total_q: int
 
     loyalty_applied: bool
@@ -174,6 +177,7 @@ def _empty_cart(session_key: str = "") -> CartProjection:
         delivery_fee_q=None,
         delivery_is_free=False,
         delivery_zone_error=False,
+        delivery_distance_km=None,
         grand_total_q=0,
         loyalty_applied=False,
         has_unavailable=False,
@@ -246,6 +250,8 @@ def build_cart(
     delivery_fee_q = (session.data or {}).get("delivery_fee_q")
     delivery_fee_q = int(delivery_fee_q) if delivery_fee_q is not None else None
     delivery_zone_error = bool((session.data or {}).get("delivery_zone_error"))
+    delivery_distance_km = (session.data or {}).get("delivery_distance_km")
+    delivery_distance_km = float(delivery_distance_km) if delivery_distance_km is not None else None
     grand_total_q = subtotal_q + (delivery_fee_q or 0)
 
     minimum_order = build_minimum_order_progress(subtotal_q, channel_ref)
@@ -272,6 +278,7 @@ def build_cart(
         delivery_fee_q=delivery_fee_q,
         delivery_is_free=(delivery_fee_q is not None and delivery_fee_q == 0),
         delivery_zone_error=delivery_zone_error,
+        delivery_distance_km=delivery_distance_km,
         grand_total_q=grand_total_q,
         loyalty_applied="loyalty_redeem" in pricing,
         has_unavailable=has_unavailable,
