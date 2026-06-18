@@ -320,11 +320,12 @@ serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_
   do deploy). Pendente do Pablo: **URL + nomes dos campos** do serviço. Não bloqueia o backend.
 
 ### Slices de execução
-1. **Backend distância (PRIMEIRO):** `Shop.latitude/longitude` (já existe) = origem; novo modelo
-   `DeliveryDistanceBand` (faixas admin-configuráveis, espelha `DeliveryZone`); serviço haversine puro
-   (`shop/services/delivery_distance.py`); `DeliveryZone.mode` (override/exclude); `DeliveryFeeModifier`
-   reescrito p/ a ordem de resolução acima; adapter `match_distance_band`; seed (coords + faixas);
-   `delivery_distance_km` em `session.data` p/ transparência no checkout (omotenashi). Testes.
+1. **Backend distância (PRIMEIRO) ✅ CONCLUÍDO (2026-06-17, commit `c401f77e`):** `Shop.latitude/longitude`
+   (origem) + modelo `DeliveryDistanceBand` (faixas admin, +migração 0005) + serviço haversine puro
+   (`shop/services/delivery_distance.py`) + `DeliveryZone.mode` (override/exclude) + `DeliveryFeeModifier`
+   reescrito (ordem exclude→override→faixa→fora-da-área) + adapter `match_distance_band` + admin Unfold +
+   seed (faixas 3/6/10km=R$5/8/12; zonas viram exceções) + `delivery_distance_km` em `session.data`.
+   `make test` 1859 + `make lint` verdes; 17 testes novos; sanity ao vivo OK.
 2. **Camada visual** (checkout/tracking Nuxt): mostrar "X km · R$ Y" explícito; estados fora-de-área.
 3. **Teleporte** (por último, quando o Pablo passar URL/campos): ação no backstage que dispara o
    utilitário local com os dados estruturados do endereço.
