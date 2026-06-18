@@ -142,8 +142,10 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 - **Confirmação otimista:** `immediate`/`auto_confirm`/`auto_cancel`/`manual` via `ChannelConfig`;
   auto-confirma se operador não cancelar no prazo (Directive `confirmation.timeout`, resolvido quando
   a superfície do cliente abre o pedido).
-- **Recompra:** `last_reorder_context()` (último pedido do cliente) + `add_reorder_items()` (re-resolve
-  SKU publicado/vendável; pula indisponíveis). Conflito se carrinho tem itens (append/replace).
+- **Recompra:** `add_reorder_items()` refaz **qualquer pedido acessível** (`POST /orders/<ref>/reorder/`,
+  botão "Refazer" por pedido no histórico) — re-resolve SKU publicado/vendável, pula indisponíveis,
+  conflito append/replace se o carrinho tem itens. `last_reorder_context()` é só o atalho do home
+  ("refazer o último", `min_days`).
 - **Cupom/loyalty:** cupom valida `Coupon` ativo+disponível+promo vigente → `session.data["coupon_code"]`;
   loyalty `redeem_points_q` em `session.data["loyalty"]`; ambos re-rodam os modifiers de preço. Earn
   pós-conclusão (1 ponto/R$1, no handler).
@@ -198,17 +200,22 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
   POS pulado/fase C). `scripts/run_storefront_e2e.sh` + `make storefront-e2e`.
 - **WP-11 — Entrega (slices 1+2).** Taxa por faixa de distância (motor) + zona override/exclude (exceção);
   frete = campo dedicado→`vFrete`; "a X km" explícito no checkout/tracking. Ver §4.
+- **Re-verificado (2026-06-18) — já estavam implementados** (a revisão original os flagou por engano):
+  **reorder de pedido escolhido** (botão "Refazer" por pedido em `/account/pedidos` → `POST /orders/<ref>/reorder/`
+  com conflito append/replace; o `last_reorder_context` é só o atalho do home) e **precedência do label de
+  endereço** (`savedAddressDisplayLabel`: `other`+custom → custom; senão o label).
 
 ### ⏳ Em aberto (com o porquê)
 - **WP-11 slice 3 — teleporte de endereço.** Utilitário local Python que preenche o form do serviço de
   entrega (sem API; clipboard fallback). **Bloqueado:** pendente URL + campos do serviço (Pablo).
-- **Assinatura/recorrente, gift card/créditos** — não existem na superfície. Feature futura.
-- **Reorder só do último pedido elegível** (`min_days`) — sem escolher qual pedido refazer. Feature futura.
+- **Assinatura / pedido recorrente** — não existe na superfície. Feature futura.
+- **Gift card / créditos (carteira pré-paga)** — não existe. Feature futura. (≠ **"presente"**, que JÁ
+  está implementado: backend GIFT-UX + visual no checkout — destinatário/mensagem/ocultar valores.)
 - **Cartão depende de webhook** (PCI SAQ A) — gate faz polling; confirmar UX se o webhook atrasar.
 - **`mock-confirm` é DEBUG-only** — staging usa adapter mock com auto-confirm (`SHOPMAN_MOCK_PIX_AUTO_CONFIRM`);
   sem atalho manual de PIX em `DEBUG=false`. Provável intencional.
-- **Label de endereço** `label_key` vs `label_custom` — precedência na renderização não é explícita.
-- **Loyalty sem tom/cor canônico** (≠ status de pedido) — UI define o estilo do tier.
+- **Loyalty sem tom/cor canônico** (≠ status de pedido) — tier/pontos funcionam; falta só padronizar o
+  tom/cor do tier (hoje a UI define). Polish.
 - **Copy em cascata dupla** (orchestrator + fallback por módulo) sem auditoria de chaves → risco de drift;
   chave ausente degrada p/ string vazia.
 - **AccessLink `audience` não enforçado na troca** — validado na criação, não no exchange. **Decisão de
