@@ -184,7 +184,7 @@
   /* barras escuras / bottom bar / CTAs — defaults NEUTROS (= hoje); marca sobrescreve */
   --shop-ink: var(--foreground);
   --shop-ink-foreground: var(--background);
-  --shop-bottomnav: var(--background);
+  --shop-bottomnav: rgb(245 231 221); /* Faubourg 200 — bottom bar + área de overscroll (brand_tokens) */
   --shop-cta: var(--primary);
   --shop-cta-foreground: var(--primary-foreground);
 
@@ -235,6 +235,8 @@
   /* Rodapé neutro no escuro (= hoje). Header herda --background/--foreground do .dark. */
   --shop-footer: oklch(0.23 0.006 60);
   --shop-footer-foreground: oklch(0.92 0.003 60);
+  /* Faubourg é cor clara; no escuro a bottom bar/overscroll seguem o fundo. */
+  --shop-bottomnav: var(--background);
 
   /* Status no escuro — tons levemente mais claros para sentar sobre o fundo escuro. */
   --warning: #fbbf24;
