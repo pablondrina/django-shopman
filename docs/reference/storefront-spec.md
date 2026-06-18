@@ -200,6 +200,10 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
   POS pulado/fase C). `scripts/run_storefront_e2e.sh` + `make storefront-e2e`.
 - **WP-11 — Entrega (slices 1+2).** Taxa por faixa de distância (motor) + zona override/exclude (exceção);
   frete = campo dedicado→`vFrete`; "a X km" explícito no checkout/tracking. Ver §4.
+- **Copy Omotenashi — saudável + guardada.** Cruzamento confirmou **0 chaves usadas-mas-não-definidas**
+  (todas as 38 chaves literais `.title/.text` ∈ `OMOTENASHI_DEFAULTS`, todos os call-sites com fallback).
+  Novo teste `test_omotenashi_copy_keys.py` trava a invariante; o antigo `lint_omotenashi_copy.py`
+  (varria templates Django de cliente, removidos no headless) foi **aposentado** (+ hooks/targets).
 - **Re-verificado (2026-06-18) — já estavam implementados** (a revisão original os flagou por engano):
   **reorder de pedido escolhido** (botão "Refazer" por pedido em `/account/pedidos` → `POST /orders/<ref>/reorder/`
   com conflito append/replace; o `last_reorder_context` é só o atalho do home) e **precedência do label de
@@ -214,10 +218,9 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 - **Cartão depende de webhook** (PCI SAQ A) — gate faz polling; confirmar UX se o webhook atrasar.
 - **`mock-confirm` é DEBUG-only** — staging usa adapter mock com auto-confirm (`SHOPMAN_MOCK_PIX_AUTO_CONFIRM`);
   sem atalho manual de PIX em `DEBUG=false`. Provável intencional.
-- **Loyalty sem tom/cor canônico** (≠ status de pedido) — tier/pontos funcionam; falta só padronizar o
-  tom/cor do tier (hoje a UI define). Polish.
-- **Copy em cascata dupla** (orchestrator + fallback por módulo) sem auditoria de chaves → risco de drift;
-  chave ausente degrada p/ string vazia.
+- **Loyalty — tier sem cor** (decisão de design, não bug): o card é **neutro por intenção** (cor só no
+  ícone/selos via `text-primary`); tier aparece só como texto. Dar accent por tier (bronze/prata/ouro)
+  é escolha de design — vai contra o neutro-first. Aguarda decisão do Pablo, não é débito.
 - **AccessLink `audience` não enforçado na troca** — validado na criação, não no exchange. **Decisão de
   design:** o `/a` é uma ponte genérica (destino vem da metadata, não da audience); enforçar exigiria
   definir qual audience o exchange genérico requer. Débito de defense-in-depth, baixo risco.
