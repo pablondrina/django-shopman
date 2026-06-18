@@ -326,7 +326,12 @@ serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_
    reescrito (ordem exclude→override→faixa→fora-da-área) + adapter `match_distance_band` + admin Unfold +
    seed (faixas 3/6/10km=R$5/8/12; zonas viram exceções) + `delivery_distance_km` em `session.data`.
    `make test` 1859 + `make lint` verdes; 17 testes novos; sanity ao vivo OK.
-2. **Camada visual** (checkout/tracking Nuxt): mostrar "X km · R$ Y" explícito; estados fora-de-área.
+2. **Camada visual ✅ CONCLUÍDO (2026-06-17, commit `c6bf449c`):** `delivery_distance_km`/`_display`
+   ("2 km"/"2,5 km" pt-BR) nas projeções+presentation de cart e tracking; `CommitService` propaga
+   `delivery_distance_km` Session→Order; Nuxt mostra "Entrega · 2 km" (breakdown), "Entregamos no seu
+   endereço · a 2 km" (checkout) e "Entrega · 2 km" (tracking). make test 1861 + lint + vitest + build
+   verdes; API real emite `delivery_distance_display`. (Screenshot ao vivo depende de geocode/Places —
+   provado pela API real + build.)
 3. **Teleporte** (por último, quando o Pablo passar URL/campos): ação no backstage que dispara o
    utilitário local com os dados estruturados do endereço.
 
