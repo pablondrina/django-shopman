@@ -2,10 +2,11 @@
 
 > **Como ler.** Esta spec foi escrita **a partir do código** (não do desejado): descreve o que o
 > storefront **de fato entrega hoje**, no estado headless (Django sem páginas de cliente; loja Nuxt
-> no apex). Serve para uma "revisão às avessas" — compare com o que você esperava e veja onde há
-> brecha. A seção final (**Gaps / a verificar**) é o ponto de partida da revisão.
+> no apex). A revisão às avessas que a originou já foi **executada**: a seção final
+> (**Estado da revisão**) registra o que foi resolvido (WP-1..11) e o que de fato resta em aberto.
 >
-> Data: 2026-06-17. Base: branch `main` pós-merge do headless (PR #10).
+> Data: 2026-06-18. Base: branch `review/storefront-gaps` (WP-1..11 + WP-9/WP-10; não mergeada).
+> Os WPs e decisões estão em [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md).
 
 ---
 
@@ -36,7 +37,7 @@ projeções do Django via BFF).
 | `/busca` | Busca + filtros (chips dietéticos/categóricos), deep-link `?q=&filtro=` | reusa `/storefront/menu/` (filtra client-side) |
 | `/product/[sku]` | PDP: galeria, preço (com riscado), disponibilidade, badges, acordeões (combo/ingredientes/nutricional/conservação), "veja também", add-to-cart sticky no mobile, JSON-LD | `GET /api/v1/storefront/products/<sku>/` |
 | `/cart` | Carrinho: linhas, descontos, progresso de mínimo, upsell, **estados de hold** (aguardando confirmação → pronto p/ confirmar, countdown), alerta de estoque com substitutos | `GET /api/v1/storefront/cart/`; `PUT /api/v1/cart/skus/<sku>/`; cupom `POST/DELETE /api/v1/cart/coupon/` |
-| `/checkout` | Checkout multi-step: contato → retirada/entrega → endereço (Google Places + zona) → data/hora (slots) → pagamento (método, cupom, loyalty, presente, observações) → revisão | `GET /api/v1/storefront/checkout/`; `PATCH /api/v1/checkout/draft/` (zona); `PATCH /api/v1/checkout/loyalty/`; `POST /api/v1/checkout/` (commit) |
+| `/checkout` | Checkout multi-step: contato → retirada/entrega → endereço (Google Places + taxa por distância, "a X km") → data/hora (slots) → pagamento (método, cupom, loyalty, presente, observações) → revisão | `GET /api/v1/storefront/checkout/`; `PATCH /api/v1/checkout/draft/` (zona); `PATCH /api/v1/checkout/loyalty/`; `POST /api/v1/checkout/` (commit) |
 | `/pedido/[ref]/pagamento` | Gate de pagamento: PIX (QR + copia-e-cola + countdown ancorado em `server_now_iso`) ou cartão (redirect seguro); polling 8s | `GET /api/v1/payment/<ref>/` + `/status/`; ações via `POST` (apiPath) |
 | `/tracking/[ref]` | Acompanhamento: promessa (título/msg/deadline), timeline, resumo, fulfillment (retirada/entrega+rastreio), ações (recompra, pagar, cancelar, avaliar, suporte); polling 30s | `GET /api/v1/tracking/<ref>/`; ações `POST /api/v1/orders/<ref>/{cancel,rate,reorder}/` |
 | `/account` | Hub: card de loyalty (tier/pontos/carimbos), último pedido (acompanhar/refazer), navegação, logout | `GET /api/v1/account/summary/` |
@@ -118,7 +119,17 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
   delivery_address[_structured], saved_address_id, delivery_date/time_slot, payment, loyalty, gift…).
   Pedido nasce `status=new`.
 - **Fulfillment:** pickup (slot obrigatório, sem mínimo) vs delivery (endereço obrigatório, mínimo do
-  canal, zona valida cobertura+taxa via `DeliveryZone.match()` por CEP/bairro).
+  canal, taxa resolvida pelo `DeliveryFeeModifier`).
+- **Taxa de entrega (WP-11):** motor = **faixa de DISTÂNCIA** (`DeliveryDistanceBand`, admin) — haversine
+  `Shop.lat/lng`→endereço (lat/lng do `delivery_address_structured`). `DeliveryZone` (CEP/bairro) é a
+  camada de **exceção** (`mode`): `override` (taxa fixa que sobrepõe a distância) ou `exclude` (bloqueia).
+  Ordem: exclude → override → faixa → fora-da-área (`delivery_zone_error`, bloqueia o commit via
+  `DeliveryZoneRule`). `delivery_distance_km` é gravado p/ o cliente ver "a X km" no checkout/tracking.
+  Frete grátis acima de `free_delivery_above_q`; frete é **campo dedicado** (`delivery_fee_q`→`vFrete`
+  na NF-e), nunca OrderItem.
+- **Alérgenos/dieta (WP-7):** derivam da **Recipe/BOM** (`aggregate_dietary_from_recipe`, espelha a
+  nutrição), não são digitados no produto. Aviso dietético (badge) só com conflito claro vs uma
+  preferência ativa do cliente — nunca por ausência de dado.
 - **Disponibilidade & holds:** `availability.reserve()` cria hold pendente por `(session_key, sku)`,
   TTL ~30min. **Planned hold (fermata):** produção sob demanda → `metadata.planned=True`,
   `expires_at=None` até materializar; estados `is_awaiting_confirmation`→`is_ready_for_confirmation`
@@ -160,76 +171,64 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
   templates "ativos" exigem canal; links nas mensagens são magic links da loja. `origin_channel`
   (via `?channel=` ou metadata do AccessLink) roteia a notificação de volta ao canal de entrada.
 - **Models do storefront:** `Promotion` (desconto auto, segmentos/aniversário/validade/mínimo),
-  `Coupon` (código + limite de uso), `DeliveryZone` (taxa por CEP/bairro).
+  `Coupon` (código + limite de uso), `DeliveryDistanceBand` (faixa de distância → taxa, motor de frete),
+  `DeliveryZone` (CEP/bairro, `mode` override/exclude — exceção ao motor de distância),
+  `StockAlertSubscription` ("me avise"), `CustomerFavorite` (favoritos).
 
 ---
 
-## 6. Gaps / a verificar (o foco da revisão às avessas)
+## 6. Estado da revisão (resolvido / em aberto)
 
-> Itens que o **código sugere** estarem faltando, inconsistentes ou só pela metade. Cada um é um
-> "confere comigo?" — alguns podem ser intencionais.
+> A revisão às avessas foi **executada**. Abaixo: o que foi resolvido (com o WP/commit), o que ainda
+> está em aberto (com o porquê), e as limpezas. Detalhe e decisões em
+> [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md).
 
-> **Atualização 2026-06-17:** os itens 1, 2, 3, 4 e 9 abaixo foram **RESOLVIDOS**
-> (backends WP-1..6 + camada visual Nuxt fase A; ver
-> [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md)).
-> Mantidos aqui como registro da revisão original.
+### ✅ Resolvido (loja)
+- **WP-1 — Checkout persiste endereço/cliente/defaults.** Os 3 efeitos pós-commit
+  (`ensure_customer`/`persist_new_address`/`save_defaults`) entraram em `checkout.process()` (fonte única).
+- **WP-2 — Disponibilidade: pausado ≠ esgotado.** Flags `is_paused`/`is_notifiable` nas projeções + UX.
+- **WP-3 — "Me avise quando voltar".** `StockAlertSubscription` + `StockNotifyButton` (anônimo só-telefone).
+- **WP-4 — Favoritos.** `CustomerFavorite` + coração (PDP) + coleção "Seus favoritos".
+- **WP-5 — Preferência alimentar.** Aviso dietético (badge) + filtro "só compatível"; conservador.
+- **WP-6 — "Talvez você também goste".** cross_sell via `related_skus` (já existia).
+- **WP-7 — Alérgenos/dieta via Recipe/BOM.** Derivados da receita (`aggregate_dietary_from_recipe`),
+  não digitados; ADR-008 destravado.
+- **WP-8 — Gate browser-QA Omotenashi** (loja Nuxt + operador Django) de volta no CI (workflow dedicado).
+- **WP-9 — e2e Playwright + locust** reescritos contra a loja Nuxt + API (cliente→Nuxt, operador→Django,
+  POS pulado/fase C). `scripts/run_storefront_e2e.sh` + `make storefront-e2e`.
+- **WP-11 — Entrega (slices 1+2).** Taxa por faixa de distância (motor) + zona override/exclude (exceção);
+  frete = campo dedicado→`vFrete`; "a X km" explícito no checkout/tracking. Ver §4.
 
-### Funcionais (candidatos a brecha real)
-1. **✅ RESOLVIDO — Checkout via API não persiste endereço novo / `ensure_customer` / `save_defaults`.**
-   A view de página (deletada) chamava `checkout_service.{ensure_customer,persist_new_address,save_defaults}`
-   *depois* do commit. A `CheckoutView` da API (`storefront/api/views.py`) chama só `process()` +
-   `grant_order_access` + limpa carrinho. **Confirmar** se isso é coberto por um handler de lifecycle
-   ou se a loja Nuxt deixou de salvar o endereço novo na conta / criar o cliente / salvar defaults.
-   *(Coberto por teste de serviço `test_persist_address.py`, mas o serviço pode não estar sendo chamado
-   no caminho da API.)*
-2. **✅ RESOLVIDO — Preferência alimentar não filtra o menu.** WP-5: aviso dietético (badge âmbar)
-   no card+PDP + filtro opcional "Só compatível com minhas preferências" (off, contador de ocultos).
-3. **✅ RESOLVIDO — Sem "Me avise quando voltar".** WP-3: `StockNotifyButton` na PDP/cards quando
-   is_notifiable (logado 1-clique / anônimo só-telefone).
-4. **✅ RESOLVIDO — favoritos do cliente.** WP-4: coração explícito (PDP/cards) + coleção "Seus
-   favoritos". "Veja também" (cross_sell) segue sendo lista do backend (WP-6, ok).
-5. **Sem assinatura/pedido recorrente, sem gift card/créditos** na superfície.
-6. **Reorder só lê do último pedido elegível** (`min_days`); sem escolher qual pedido refazer.
+### ⏳ Em aberto (com o porquê)
+- **WP-11 slice 3 — teleporte de endereço.** Utilitário local Python que preenche o form do serviço de
+  entrega (sem API; clipboard fallback). **Bloqueado:** pendente URL + campos do serviço (Pablo).
+- **Assinatura/recorrente, gift card/créditos** — não existem na superfície. Feature futura.
+- **Reorder só do último pedido elegível** (`min_days`) — sem escolher qual pedido refazer. Feature futura.
+- **Cartão depende de webhook** (PCI SAQ A) — gate faz polling; confirmar UX se o webhook atrasar.
+- **`mock-confirm` é DEBUG-only** — staging usa adapter mock com auto-confirm (`SHOPMAN_MOCK_PIX_AUTO_CONFIRM`);
+  sem atalho manual de PIX em `DEBUG=false`. Provável intencional.
+- **Label de endereço** `label_key` vs `label_custom` — precedência na renderização não é explícita.
+- **Loyalty sem tom/cor canônico** (≠ status de pedido) — UI define o estilo do tier.
+- **Copy em cascata dupla** (orchestrator + fallback por módulo) sem auditoria de chaves → risco de drift;
+  chave ausente degrada p/ string vazia.
+- **AccessLink `audience` não enforçado na troca** — validado na criação, não no exchange. **Decisão de
+  design:** o `/a` é uma ponte genérica (destino vem da metadata, não da audience); enforçar exigiria
+  definir qual audience o exchange genérico requer. Débito de defense-in-depth, baixo risco.
+- **Agendamento de cleanups** — o comando `auth_cleanup` (purga device-trust + access links + códigos)
+  existe; falta rodá-lo periodicamente. É **infra compartilhada** (nenhum cleanup —`cleanup_d1`,
+  `cleanup_stale_sessions`, etc.— está agendado; DO App Platform não tem cron no spec). Resolver junto.
 
-### Pagamento / lifecycle
-7. **Cartão depende de webhook** como único retorno confiável (PCI SAQ A) — o gate de pagamento faz
-   polling; confirmar UX se o webhook atrasar.
-8. **`mock-confirm` é DEBUG-only** — em staging com `DEBUG=false` não há atalho de confirmação PIX
-   (hoje staging usa adapter mock com auto-confirm via `SHOPMAN_MOCK_PIX_AUTO_CONFIRM`).
+### ✅ Limpezas (WP-10)
+- **`.do/app.yaml`** (staging path-routed) **removido** — staging/prod usam subdomínios
+  (`.do/app.staging-subdomains.yaml` / `.do/app.subdomains.yaml`); docs reconciliados.
+- **`_sse_emitters`** emite canais de cliente (`stock-`/`order-`) sem assinante junto com os do operador
+  (`backstage-*`) — **decidido MANTER**: estão entrelaçados; o emit de cliente é no-op inofensivo e
+  remover arrisca quebrar o operador.
 
-### Contratos / consistência
-9. **✅ RESOLVIDO (parcial) — Disponibilidade colapsava pausado vs esgotado.** WP-2: flags
-   `is_paused`/`is_notifiable` nas projeções + UX ("Pausado" vs "Me avise"). Enum segue com 4
-   estados (decisão deliberada); a distinção fina é por flag semântica.
-10. **Label de endereço:** `label_key` vs `label_custom` — qual ganha na renderização não é explícito.
-11. **Loyalty sem tom/cor canônico** (diferente dos status de pedido) — UI define o estilo do tier.
-12. **Copy em cascata dupla** (orchestrator + fallback por módulo) sem auditoria de chaves usadas →
-    risco de drift; chave ausente degrada para string vazia.
-
-### Operacional / infra (follow-ups já conhecidos)
-13. **e2e Playwright + `locustfile`** ainda apontam p/ rotas Django legadas (apagadas) — reescrever
-    contra a loja Nuxt/API. O gate de browser-QA Omotenashi foi **removido do CI** no headless.
-14. **`_sse_emitters`** ainda emite canais de cliente (`stock-`/`order-`) sem assinante (no-op) junto
-    com os do operador — podar.
-15. **`.do/app.yaml`** (staging path-routed) ficou stale no repo (staging agora é subdomínios).
-16. **Cleanup de device-trust expirado** tem método mas não há tarefa agendada.
-17. **AccessLink `audience`** é validado na criação mas não enforçado na troca (débito de segurança a
-    confirmar).
-
-### Fluxo de Entrega (WP-11 — pedido do Pablo, 2026-06-17)
-19. **Taxa de entrega por faixa de distância (admin-configurável)** — hoje a taxa vem do `DeliveryZone`
-    (CEP/bairro) como modifier. Falta calcular por distância (loja→endereço, via lat/lng) com faixas
-    configuráveis no admin.
-20. **Taxa de entrega como ITEM do pedido** — hoje é `delivery_fee_q` no total; Pablo quer como linha
-    do pedido (visível carrinho/KDS/fiscal).
-21. **Facilitador "teleporte" de endereço (sem API)** — o serviço de entrega usado não tem API; um
-    facilitador operador leva os dados de endereço pro site externo (pré-preenche/copia) só p/ reduzir
-    erro de digitação; despacho segue manual num primeiro momento. Detalhes no
-    [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md) WP-11.
-
-### Produção (não é gap, é o próximo passo)
-18. **Cutover de produção** no apex real ainda não feito (staging-first). Falta pagamentos reais +
-    secrets + desligar debug OTP; o apex hoje aponta p/ a landing `nb-site`.
+### Produção (próximo passo, não é gap)
+- **Cutover no apex real** ainda não feito (staging-first). Falta pagamentos reais + secrets + desligar
+  debug OTP; o apex hoje aponta p/ a landing `nb-site`. Trilha headless
+  ([`DJANGO-HEADLESS-PLAN.md`](../plans/DJANGO-HEADLESS-PLAN.md)).
 
 ---
 

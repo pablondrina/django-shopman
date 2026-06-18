@@ -25,7 +25,9 @@ Fontes oficiais usadas para este contrato:
 
 ## Blueprint
 
-O arquivo `.do/app.yaml` define:
+O arquivo `.do/app.staging-subdomains.yaml` define o staging por subdomínios
+(ingress host-based: apex→loja Nuxt, `api.`/`admin.`→Django, `pos.`→PDV). Produção
+usa `.do/app.subdomains.yaml` (trocar `STORE_DOMAIN`). Ambos definem:
 
 - `web`: Daphne ASGI em `config.asgi:application`;
 - `directive-worker`: `python manage.py process_directives --watch`;
@@ -198,8 +200,8 @@ doctl databases create shopman-staging-postgres --engine pg --version 16 --regio
 doctl databases create shopman-staging-cache --engine valkey --version 8 --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1 --wait
 doctl databases db create <postgres-id> shopman
 doctl databases user create <postgres-id> shopman
-doctl apps spec validate .do/app.yaml
-doctl apps create --spec .do/app.yaml --project-id <project-id> --wait
+doctl apps spec validate .do/app.staging-subdomains.yaml
+doctl apps create --spec .do/app.staging-subdomains.yaml --project-id <project-id> --wait
 ```
 
 O usuário `shopman` precisa ter permissão de criação no schema `public` do banco
@@ -209,7 +211,7 @@ O usuário `shopman` precisa ter permissão de criação no schema `public` do b
 Se o app já existir:
 
 ```bash
-doctl apps update <app-id> --spec .do/app.yaml --update-sources --wait
+doctl apps update <app-id> --spec .do/app.staging-subdomains.yaml --update-sources --wait
 ```
 
 Depois do deploy:

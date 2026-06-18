@@ -11,21 +11,21 @@ propria.
 
 ## Politica Publica
 
-No staging publico da DigitalOcean:
+No staging publico da DigitalOcean, o roteamento e por **subdominio** (host-based
+ingress), nao mais por prefixo de caminho. O modelo path-routed (`/nuxt`, `/thing`)
+e a superficie `storefront-nuxt` foram **aposentados** no cutover headless.
 
-| Caminho | Superficie | Papel |
+| Host | Superficie | Papel |
 | --- | --- | --- |
-| `/` | Django/Penguin atual | Storefront mais madura e referencia de descoberta de UX. Nao e canon de dominio. |
-| `/nuxt/` | `surfaces/storefront-nuxt` | Storefront Nuxt existente. Deve continuar funcionando sem depender da nova superficie. |
-| `/thing/` | `surfaces/storefront-uithing-nuxt` | Nova Storefront Nuxt com UI Thing scaffoldado/copied para codigo local editavel. |
+| apex (`/`) | `surfaces/storefront-uithing-nuxt` | Loja do cliente (Nuxt/UI Thing). |
+| `api.` | Django headless | `/api/v1/*` + webhooks; nenhuma pagina de cliente. |
+| `admin.` | Django Admin/Unfold | Operador/admin. |
+| `pos.` | `surfaces/pos-uithing-nuxt` | PDV. |
 
-O blueprint `.do/app.yaml` preserva os prefixes `/nuxt` e `/thing` no proxy da
-App Platform. Cada superficie Nuxt define seu proprio `app.baseURL`:
-
-- `storefront-nuxt`: `/nuxt/` em producao.
-- `storefront-uithing-nuxt`: `/thing/` em producao e tambem no dev server
-  local (`cd surfaces/storefront-uithing-nuxt && npm run dev` abre
-  `http://127.0.0.1:3003/thing/`).
+Blueprints: `.do/app.staging-subdomains.yaml` (staging) e `.do/app.subdomains.yaml`
+(template de producao). Cada superficie Nuxt serve em `/` no seu host; o BFF proxia
+`/api/v1` → `api.` (ver `server/utils/djangoProxy.ts`). Dev local da loja:
+`cd surfaces/storefront-uithing-nuxt && npm run dev` (`http://127.0.0.1:3000/`).
 
 ## Regras De Superficie
 
@@ -101,4 +101,4 @@ A superficie Thing possui guardrails locais:
   cobrindo status contraditorio, hero colapsado, busca duplicada no cardapio e
   mutacao canonica de quantidade/carrinho sem erro indevido de estoque, PDP
   com `h1`, botao de adicionar antes do stepper e checkout anonimo seguindo a
-  action de auth projetada. O smoke roda no prefixo canonico `/thing/`.
+  action de auth projetada. O smoke roda na raiz da loja (`/`).

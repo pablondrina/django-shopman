@@ -25,7 +25,8 @@ Nao ha `django-redis`, Celery ou broker adicional neste contrato.
   profiles para nao alterar o fluxo de desenvolvimento.
 - `.env.example`: variaveis base. Copie para `.env` e substitua os segredos.
 - `Makefile`: wrappers `deploy-*`.
-- `.do/app.yaml`: blueprint DigitalOcean App Platform para staging sem segredos.
+- `.do/app.staging-subdomains.yaml`: blueprint DigitalOcean App Platform de staging
+  (ingress por subdomínio), sem segredos. Produção: `.do/app.subdomains.yaml`.
 
 ## Comandos
 

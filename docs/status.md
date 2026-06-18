@@ -39,8 +39,10 @@ Docker. No run `25407383805`, a job `Docker deploy image` passou em 1m37s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
-Para DigitalOcean, `.do/app.yaml` define App Platform com web, directive worker,
-release job, PostgreSQL 16 e Valkey Redis-compatible para staging técnico.
+Para DigitalOcean, `.do/app.staging-subdomains.yaml` define o App Platform de
+staging (ingress por subdomínio — apex→loja Nuxt, `api.`/`admin.`/`pos.`) com web,
+directive worker, release job, PostgreSQL 16 e Valkey Redis-compatible. O template
+de produção é `.do/app.subdomains.yaml`.
 Staging técnico está ativo na DigitalOcean App Platform desde 2026-05-06:
 `shopman-staging` (`40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f`) em
 <https://shopman-staging-cdjpy.ondigitalocean.app>, no projeto

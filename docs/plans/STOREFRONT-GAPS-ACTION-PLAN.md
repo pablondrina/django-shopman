@@ -276,11 +276,18 @@ locust headless 30s/-u30 → **0.00% fails** (333 reqs). `make test` 1844 + `mak
 **Flagado (infra):** alvos de P95<500ms dependem de Postgres + workers reais (SQLite dev single-process
 serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_docker_validation]].
 
-### WP-10 — Limpezas  ⏱ pequeno
-- Podar emits de cliente mortos em `shop/handlers/_sse_emitters.py` (`stock-`/`order-` sem assinante),
-  preservando os do operador (`backstage-*`).
-- Atualizar/remover `.do/app.yaml` (staging path-routed, stale — staging agora é subdomínios).
-- Cleanup agendado de device-trust expirado; revisar enforcement de `audience` do AccessLink na troca.
+### WP-10 — Limpezas  ✅ CONCLUÍDO/CARACTERIZADO (2026-06-18) · ⏱ pequeno
+- **`.do/app.yaml` REMOVIDO** ✅ — staging path-routed morto (staging/prod usam subdomínios:
+  `.do/app.staging-subdomains.yaml` / `.do/app.subdomains.yaml`). Docs reconciliados (status.md,
+  deploy.md, deploy-digitalocean.md, surfaces.md — esta também aposentou o `storefront-nuxt`/path-prefix).
+- **`_sse_emitters` MANTIDO** (decisão) — emits de cliente (`stock-`/`order-`) estão entrelaçados com os
+  do operador (`backstage-*`); são no-op inofensivo e remover arrisca quebrar o operador.
+- **Cleanup de device-trust:** o comando `auth_cleanup` (purga device-trust + access links + códigos) já
+  existe; falta só **agendar periodicamente** — é infra COMPARTILHADA (nenhum cleanup está agendado; DO
+  App Platform não tem cron no spec). Resolver junto com os outros cleanups, não isolado.
+- **AccessLink `audience` na troca:** decisão de design — o `/a` é ponte genérica (destino vem da
+  metadata, não da audience); enforçar exigiria definir qual audience o exchange genérico requer. Débito
+  de defense-in-depth, baixo risco. Deixado documentado na spec.
 
 ---
 
@@ -349,10 +356,12 @@ ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 18
 1. **WP-7** ✅ — alérgenos/dieta via Recipe/BOM CONCLUÍDO (2026-06-17; nutrição+ingredientes+peso já eram do Core).
 2. **WP-8** ✅ — gate de browser-QA Omotenashi contra a loja Nuxt + operador Django no CI CONCLUÍDO (2026-06-17; workflow dedicado, 12 pass/0 review/2 POS skipped).
 3. **WP-9** ✅ — e2e Playwright + locustfile contra Nuxt/API CONCLUÍDO (2026-06-17; e2e 17 pass/1 POS skip, locust 0 fails; `scripts/run_storefront_e2e.sh` + `make storefront-e2e`).
-4. **WP-11** — fluxo de entrega (taxa por distância + item + teleporte). **Coletar decisões do Pablo ao chegar**
-   (taxa OrderItem real vs apresentação; distância vs DeliveryZone; URL do serviço + faixas iniciais).
-5. **WP-10 resto** — podar SSE de cliente (no-op), `.do/app.yaml` stale, device-trust cleanup agendado,
-   enforcement de `audience` do AccessLink na troca.
+4. **WP-11** ⏳ — fluxo de entrega: slices 1 (backend distância, `c401f77e`) + 2 (camada visual, `c6bf449c`)
+   ✅. Decisões travadas (distância=motor, zona=exceção; frete=campo dedicado→vFrete). **Falta slice 3
+   (teleporte)** — bloqueado em URL/campos do serviço (Pablo).
+5. **WP-10 resto** ✅ — `.do/app.yaml` removido + docs reconciliados; SSE de cliente MANTIDO (no-op,
+   entrelaçado); device-trust cleanup (comando existe; agendar = infra compartilhada); `audience` do
+   AccessLink = decisão de design. Caracterizado na spec.
 
 **Fase C — Revisão Reversa Spec-driven das outras superfícies** (mesmo método: ler código → spec →
 caçar brechas → plano → executar):
