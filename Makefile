@@ -15,7 +15,7 @@ APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 NUXT_DIR := surfaces/storefront-uithing-nuxt
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test storefront-e2e test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -39,6 +39,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"qrcode[pil]>=7.4,<8.0" \
 		"locust>=2.24,<3.0" \
 		"pytest-timeout>=2.3,<3.0" \
+		"pytest-playwright>=0.5,<0.8" \
 		"ruff>=0.15,<1.0" \
 		phonenumbers pytest pytest-django pytest-cov
 	# Instala cada app em modo editável
@@ -108,8 +109,14 @@ test-runtime: test-runtime-preflight ## Stress de segurança/confiabilidade em P
 	$(PYTHON) scripts/run_runtime_tests.py
 	@echo "✓ Runtime security/reliability gate passou"
 
-load-test: ## Locust headless contra servidor rodando (HOST=http://localhost:8000 USERS=100 RATE=10 TIME=60s)
-	$(PYTHON) -m locust -f shopman/shop/tests/load/locustfile.py --host=$(or $(HOST),http://localhost:8000) --headless -u $(or $(USERS),100) -r $(or $(RATE),10) --run-time $(or $(TIME),60s)
+load-test: ## Locust headless contra a API Django rodando (HOST=http://127.0.0.1:8001 USERS=100 RATE=10 TIME=60s)
+	$(PYTHON) -m locust -f shopman/shop/tests/load/locustfile.py --host=$(or $(HOST),http://127.0.0.1:8001) --headless -u $(or $(USERS),100) -r $(or $(RATE),10) --run-time $(or $(TIME),60s)
+
+storefront-e2e: $(NUXT_DIR)/node_modules/.package-lock.json ## E2E Playwright: seed + Django:8001 + loja Nuxt:3100 + fluxos cliente/operador (port/nuxt_port; args extras via args=)
+	PYTHON="$(PYTHON)" \
+		SHOPMAN_E2E_PORT="$(or $(port),$(PORT),8001)" \
+		SHOPMAN_E2E_NUXT_PORT="$(or $(nuxt_port),3100)" \
+		bash scripts/run_storefront_e2e.sh $(args)
 
 test-coverage: ## Cobertura do Backstage com gate de 75%
 	@echo "── Backstage coverage ──"

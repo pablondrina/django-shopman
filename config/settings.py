@@ -557,6 +557,12 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@shopman.local
 
 # ── REST Framework ─────────────────────────────────────────────────
 
+# Anonymous API throttle is a per-IP guardrail (120/min by default). It can be
+# tuned — or disabled (empty string → no rate) — via env. Disable it ONLY for
+# synthetic single-IP load testing, where one client IP would otherwise trip the
+# shared limit and you'd be measuring the throttle instead of the backend.
+_ANON_THROTTLE_RATE = os.environ.get("SHOPMAN_API_ANON_THROTTLE_RATE", "120/minute").strip()
+
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": [
@@ -566,7 +572,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "120/minute",
+        "anon": _ANON_THROTTLE_RATE or None,
     },
 }
 

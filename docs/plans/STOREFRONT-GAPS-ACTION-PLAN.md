@@ -245,9 +245,36 @@ voltou, reescrito p/ a topologia real. Entregue:
   pedidos-cliente renderizam o estado REAL (PIX, expiração+recuperação, pronto p/ retirada), loja Nuxt
   + operador Django navegados.
 
-### WP-9 — e2e Playwright + locustfile contra Nuxt/API  ⏱ médio
-`shop/tests/e2e/test_storefront_e2e.py` (cenários 01/02/06) e `shop/tests/load/locustfile.py` batem em
-rotas Django legadas. Reescrever os de cliente contra a loja Nuxt/API; manter os de operador.
+### WP-9 — e2e Playwright + locustfile contra Nuxt/API  ✅ CONCLUÍDO (2026-06-17) · ⏱ médio
+Os testes batiam em rotas Django de cliente aposentadas no cutover headless. Reescritos para a
+superfície que existe de fato (loja Nuxt + API), mantendo os de operador (Django vivos) e pulando o
+POS (migrou para seu próprio app Nuxt — fase C).
+
+**Entregue:**
+- **e2e** (`shop/tests/e2e/test_storefront_e2e.py`): fluxos de cliente (menu→PDP→carrinho→checkout,
+  tracking, pagamento) contra a **loja Nuxt** com selectors UI-Thing; checkout trata o gate de login
+  como guardrail esperado; order-scoped (tracking/pagamento) via **grant de sessão**
+  (`shopman_order_access_refs`, mintado pelo conftest e setado como cookie). Operador (console de
+  pedidos, KDS) segue em **Django**, autenticado por sessão de superusuário mintada. POS → `skip`
+  explícito (fase C). Refs de cenário semeado reusam a **mesma matriz Omotenashi** (fonte única).
+- **conftest** (`shop/tests/e2e/conftest.py`): `--store-base-url` (Nuxt :3100) + `--operator-base-url`
+  (Django :8001); fixtures `grant_order_access`/`operator_session` mintam sessões via ORM **em thread
+  separada** (a sync-API do Playwright mantém um event loop na thread do teste → `SynchronousOnlyOperation`).
+- **orquestração** (`scripts/run_storefront_e2e.sh` + `make storefront-e2e`): espelha o gate WP-8 —
+  seed + build/serve loja Nuxt :3100 (BFF→Django) + Django :8001, depois `pytest -m browser`. Browser
+  E2E é **deselecionado por padrão** (`addopts -m 'not browser'` no pyproject) e re-selecionado só pelo
+  script — `make test` não tenta subir browser.
+- **locust** (`shop/tests/load/locustfile.py`): reescrito contra a **API Django** (`/api/v1/*`, rotas
+  nomeadas e confirmadas no `storefront/api/urls.py`). Browsing/checkout aprendem SKUs reais do menu no
+  `on_start` (auto-corrige vs seed); operador (console/KDS, Django vivos) com **login CSRF-aware**; cart
+  `409` (conflito de estoque) tratado como resposta válida. O throttle anônimo (120/min por IP) virou
+  env-configurável (`SHOPMAN_API_ANON_THROTTLE_RATE`) — produção mantém o guardrail; a carga sintética
+  single-IP roda com ele desligado para medir o backend, não o throttle.
+
+**Verificado ao vivo (2026-06-17):** e2e **17 passed / 1 skipped (POS)** com os dois servidores no ar;
+locust headless 30s/-u30 → **0.00% fails** (333 reqs). `make test` 1844 + `make lint` verdes.
+**Flagado (infra):** alvos de P95<500ms dependem de Postgres + workers reais (SQLite dev single-process
+serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_docker_validation]].
 
 ### WP-10 — Limpezas  ⏱ pequeno
 - Podar emits de cliente mortos em `shop/handlers/_sse_emitters.py` (`stock-`/`order-` sem assinante),
@@ -289,7 +316,7 @@ ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 18
 **Fase B — dívida do storefront + entrega (ordem):**
 1. **WP-7** ✅ — alérgenos/dieta via Recipe/BOM CONCLUÍDO (2026-06-17; nutrição+ingredientes+peso já eram do Core).
 2. **WP-8** ✅ — gate de browser-QA Omotenashi contra a loja Nuxt + operador Django no CI CONCLUÍDO (2026-06-17; workflow dedicado, 12 pass/0 review/2 POS skipped).
-3. **WP-9** — e2e Playwright + locustfile contra Nuxt/API.
+3. **WP-9** ✅ — e2e Playwright + locustfile contra Nuxt/API CONCLUÍDO (2026-06-17; e2e 17 pass/1 POS skip, locust 0 fails; `scripts/run_storefront_e2e.sh` + `make storefront-e2e`).
 4. **WP-11** — fluxo de entrega (taxa por distância + item + teleporte). **Coletar decisões do Pablo ao chegar**
    (taxa OrderItem real vs apresentação; distância vs DeliveryZone; URL do serviço + faixas iniciais).
 5. **WP-10 resto** — podar SSE de cliente (no-op), `.do/app.yaml` stale, device-trust cleanup agendado,

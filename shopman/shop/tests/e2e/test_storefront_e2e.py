@@ -1,294 +1,226 @@
 """
-WP-F17.1 — Playwright E2E tests for the storefront.
+Playwright E2E for the storefront — post-headless topology.
 
-10 flows: 5 happy paths + 5 edge cases.
+The headless cutover retired the Django customer pages: the **Nuxt store** now
+serves every customer surface, and **Django** serves only the API + the operator/
+admin pages. These flows are rewritten accordingly:
 
-Prerequisites:
-  pip install pytest-playwright
-  playwright install chromium
-  make seed  # populate DB with demo data
-  make run   # start dev server in another terminal
+  · Customer flows (menu → PDP → cart → checkout, tracking, payment) run against
+    the Nuxt store (``store_base_url``), with UI-Thing/Nuxt selectors — not the
+    dead HTMX pages.
+  · Operator flows (order console, KDS) stay on Django (``operator_base_url``).
+  · POS migrated to its OWN Nuxt app (surfaces/pos-uithing-nuxt, knob
+    ``SHOPMAN_POS_BASE_URL``) and is NOT wired into this gate — its check is
+    skipped with an explicit note, mirroring how the Omotenashi browser-QA gate
+    skips POS until the fase-C PDV review.
 
-Run:
-  pytest tests/e2e/ --base-url=http://localhost:8000
+Prerequisites (handled by scripts/run_storefront_e2e.sh):
+  pip install pytest-playwright && playwright install chromium
+  Two servers up: Nuxt store (:3100, BFF → Django) + Django (:8001), seeded.
 
-These tests require a RUNNING server. They are NOT collected by `make test`
+Run via the orchestration script (boots both servers + seed):
+  bash scripts/run_storefront_e2e.sh
+
+Or against already-running servers:
+  pytest shopman/shop/tests/e2e/test_storefront_e2e.py \
+      --store-base-url=http://127.0.0.1:3100 \
+      --operator-base-url=http://127.0.0.1:8001
+
+These tests require RUNNING servers. They are NOT collected by `make test`
 (the e2e directory is excluded from the default pytest path).
 """
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
-# Skip entire module if playwright is not installed
+# Skip the whole module if Playwright is not installed.
 pw = pytest.importorskip("playwright.sync_api")
+from playwright.sync_api import expect  # noqa: E402
+
+# Browser E2E: deselected from the default suite (addopts `-m 'not browser'`),
+# re-selected by scripts/run_storefront_e2e.sh with `-m browser` once both the
+# Nuxt store and the Django API are up.
+pytestmark = pytest.mark.browser
+
+ADD_TO_CART = re.compile(r"Adicionar", re.IGNORECASE)
+
+
+def _seeded_sku(page, store_base_url) -> str | None:
+    """First product SKU off the live menu, from a /product/<sku> card link."""
+    page.goto(f"{store_base_url}/menu", wait_until="networkidle")
+    href = page.locator("a[href*='/product/']").first.get_attribute("href")
+    if not href:
+        return None
+    match = re.search(r"/product/([^/?#]+)", href)
+    return match.group(1) if match else None
 
 
 # ---------------------------------------------------------------------------
-# Happy paths
+# Customer store (Nuxt) — happy paths
 # ---------------------------------------------------------------------------
 
 
-class TestHappyPaths:
-    """5 happy-path flows covering the core customer journey."""
+class TestCustomerStore:
+    """Core customer journey against the Nuxt store."""
 
-    def test_01_menu_add_cart_checkout_pix_tracking_new_customer(self, page, base_url):
+    def test_01_menu_lists_products_with_pdp_links(self, page, store_base_url):
+        """Menu renders product cards that link to the PDP — no dead end."""
+        page.goto(f"{store_base_url}/menu", wait_until="networkidle")
+        assert page.title(), "Menu should have a title"
+        product_links = page.locator("a[href*='/product/']")
+        expect(product_links.first).to_be_visible()
+        assert product_links.count() > 0, "Seeded menu should list products"
+
+    def test_02_pdp_loads_with_price_and_add_button(self, page, store_base_url):
+        """Navigate menu → PDP; the PDP shows price + an Adicionar action."""
+        sku = _seeded_sku(page, store_base_url)
+        assert sku, "Seeded menu should expose at least one product SKU"
+        page.goto(f"{store_base_url}/product/{sku}", wait_until="networkidle")
+        assert f"/product/{sku}" in page.url
+        # Price is rendered as R$ … and an add-to-cart control is offered.
+        expect(page.get_by_text(re.compile(r"R\$")).first).to_be_visible()
+        expect(page.get_by_role("button", name=ADD_TO_CART).first).to_be_visible()
+
+    def test_03_add_to_cart_then_cart_shows_item(self, page, store_base_url):
+        """Add from the PDP, then the cart leaves the empty state."""
+        sku = _seeded_sku(page, store_base_url)
+        assert sku, "Seeded menu should expose at least one product SKU"
+        page.goto(f"{store_base_url}/product/{sku}", wait_until="networkidle")
+        page.get_by_role("button", name=ADD_TO_CART).first.click()
+        # Optimistic cart state settles, then the cart page reflects the item.
+        page.wait_for_timeout(600)
+        page.goto(f"{store_base_url}/cart", wait_until="networkidle")
+        expect(page.get_by_text("Carrinho vazio")).to_have_count(0)
+
+    def test_04_checkout_surfaces_auth_gate(self, page, store_base_url):
+        """Anonymous checkout surfaces the login guardrail (expected, not a bug).
+
+        Checkout gates on authentication: the store either redirects to /login or
+        shows the "entrar por telefone" prompt. Either is the intended guardrail.
         """
-        HP-1: Menu → add → cart → checkout → PIX → tracking (cliente novo).
+        page.goto(f"{store_base_url}/checkout", wait_until="networkidle")
+        gated = "/login" in page.url or page.get_by_text(
+            re.compile(r"entrar", re.IGNORECASE)
+        ).first.is_visible()
+        assert gated, "Checkout should gate anonymous visitors on login"
 
-        New customer browses menu, adds items, goes through checkout,
-        provides phone + name, sees PIX QR, then order tracking page.
+
+# ---------------------------------------------------------------------------
+# Customer store (Nuxt) — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestCustomerEdgeCases:
+    """Resilience + order-scoped access on the Nuxt store."""
+
+    def test_05_cart_empty_state(self, page, store_base_url):
+        """A fresh visitor sees the empty-cart message, not a crash."""
+        page.context.clear_cookies()
+        page.goto(f"{store_base_url}/cart", wait_until="networkidle")
+        expect(page.get_by_text("Carrinho vazio")).to_be_visible()
+
+    def test_06_unknown_order_tracking_is_graceful(self, page, store_base_url):
+        """Tracking a non-existent/unauthorized order degrades gracefully.
+
+        Without an order-access grant the store shows an access/not-found view
+        with a path back (login), never a stack trace.
         """
-        # 1. Visit menu
-        page.goto(f"{base_url}/menu/")
-        page.wait_for_load_state("networkidle")
-        assert page.title(), "Page should have a title"
+        page.context.clear_cookies()
+        page.goto(f"{store_base_url}/tracking/NONEXISTENT-001", wait_until="networkidle")
+        body = page.locator("body")
+        expect(body).to_be_visible()
+        # Friendly recovery, not a server error dump.
+        assert not re.search(r"Server Error|Traceback", body.inner_text())
 
-        # 2. Find a product and click on it
-        product_links = page.locator("[data-testid='product-card'], .product-card, a[href*='/produto/']")
-        if product_links.count() > 0:
-            product_links.first.click()
-            page.wait_for_load_state("networkidle")
-
-            # 3. Add to cart
-            add_btn = page.locator(
-                "button:has-text('Adicionar'), "
-                "button:has-text('Comprar'), "
-                "[data-action='add-to-cart'], "
-                "form[action*='cart/add'] button[type='submit']"
-            )
-            if add_btn.count() > 0:
-                add_btn.first.click()
-                page.wait_for_timeout(500)
-
-        # 4. Go to cart
-        page.goto(f"{base_url}/cart/")
-        page.wait_for_load_state("networkidle")
-
-        # 5. Proceed to checkout
-        checkout_btn = page.locator(
-            "a[href*='checkout'], "
-            "button:has-text('Finalizar'), "
-            "button:has-text('Checkout')"
+    def test_07_tracking_ready_with_grant(
+        self, page, store_base_url, grant_order_access, ready_order_ref
+    ):
+        """With a session grant, tracking renders the real READY order state."""
+        grant_order_access(page.context, ready_order_ref)
+        page.goto(f"{store_base_url}/tracking/{ready_order_ref}", wait_until="networkidle")
+        body = page.locator("body").inner_text()
+        # The granted page shows the order, not the access-error fallback.
+        assert ready_order_ref in body or re.search(r"pronto|retir|entrega", body, re.IGNORECASE), (
+            "Granted tracking page should render the order state"
         )
-        if checkout_btn.count() > 0:
-            checkout_btn.first.click()
-            page.wait_for_load_state("networkidle")
-            # Should be on checkout page
-            assert "/checkout" in page.url or "/cart" in page.url
 
-    def test_02_menu_add_cart_checkout_prefilled_returning_customer(self, page, base_url):
-        """
-        HP-2: Menu → add → cart → checkout prefilled (cliente recorrente).
-
-        Returning customer has data prefilled from previous session.
-        """
-        # 1. Visit menu
-        page.goto(f"{base_url}/menu/")
-        page.wait_for_load_state("networkidle")
-
-        # Add through the public storefront UI. Cart mutations use the
-        # canonical /cart/set-qty/ contract behind the button.
-        page.goto(f"{base_url}/menu/", wait_until="networkidle")
-        add_btn = page.locator("button:has-text('Adicionar')").first
-        if add_btn.count() > 0:
-            add_btn.click()
-            page.wait_for_timeout(500)
-
-        # Go to checkout
-        page.goto(f"{base_url}/checkout/")
-        page.wait_for_load_state("networkidle")
-
-        # Checkout page should load
-        assert page.url.endswith("/checkout/") or "checkout" in page.url
-
-    def test_03_admin_orders_console_view_confirm_advance(self, page, base_url):
-        """
-        HP-3: Console de Pedidos → ver pedido → confirmar → preparar → pronto → entregue.
-
-        Operator uses the order management panel to advance order status.
-        """
-        # Login as admin
-        page.goto(f"{base_url}/admin/login/")
-        page.fill("input[name='username']", "admin")
-        page.fill("input[name='password']", "admin")
-        page.locator("input[type='submit']").click()
-        page.wait_for_load_state("networkidle")
-
-        # Visit Admin/Unfold Orders Console
-        page.goto(f"{base_url}/admin/operacao/pedidos/")
-        page.wait_for_load_state("networkidle")
-
-        # Page should load (may be empty if no orders seeded)
-        assert page.locator("body").is_visible()
-
-    def test_04_kds_display_check_items(self, page, base_url):
-        """
-        HP-4: KDS Prep → check items → Pronto → KDS Picking → Despachar.
-
-        Kitchen display shows tickets, operator checks items off.
-        """
-        # Login as admin
-        page.goto(f"{base_url}/admin/login/")
-        page.fill("input[name='username']", "admin")
-        page.fill("input[name='password']", "admin")
-        page.locator("input[type='submit']").click()
-        page.wait_for_load_state("networkidle")
-
-        # Visit KDS station picker
-        page.goto(f"{base_url}/operacao/kds/")
-        page.wait_for_load_state("networkidle")
-
-        # Page should load with KDS stations listed
-        assert page.locator("body").is_visible()
-
-    def test_05_pos_add_items_close(self, page, base_url):
-        """
-        HP-5: POS → add items → selecionar cliente → fechar venda.
-
-        Point of sale flow for cash/POS sales.
-        """
-        # Login as admin
-        page.goto(f"{base_url}/admin/login/")
-        page.fill("input[name='username']", "admin")
-        page.fill("input[name='password']", "admin")
-        page.locator("input[type='submit']").click()
-        page.wait_for_load_state("networkidle")
-
-        # Visit POS
-        page.goto(f"{base_url}/gestor/pos/")
-        page.wait_for_load_state("networkidle")
-
-        # POS page should load
-        assert page.locator("body").is_visible()
+    def test_08_payment_pending_with_grant(
+        self, page, store_base_url, grant_order_access, pix_pending_order_ref
+    ):
+        """With a session grant, the PIX payment page renders the real state."""
+        grant_order_access(page.context, pix_pending_order_ref)
+        page.goto(
+            f"{store_base_url}/pedido/{pix_pending_order_ref}/pagamento",
+            wait_until="networkidle",
+        )
+        body = page.locator("body").inner_text()
+        assert re.search(r"PIX|pagamento|pagar|expir", body, re.IGNORECASE), (
+            "Granted payment page should render the PIX payment state"
+        )
 
 
 # ---------------------------------------------------------------------------
-# Edge cases
+# Operator (Django) — still alive post-headless
 # ---------------------------------------------------------------------------
 
 
-class TestEdgeCases:
-    """5 edge-case flows testing error handling and resilience."""
+class TestOperator:
+    """Operator surfaces remain Django-served and gated by auth."""
 
-    def test_06_product_out_of_stock_during_checkout(self, page, base_url):
-        """
-        EC-6: Produto esgota durante checkout → toast de conflito.
+    def test_09_order_console_loads_for_operator(
+        self, page, operator_base_url, operator_session
+    ):
+        """The Admin/Unfold order console renders for an authenticated operator."""
+        operator_session(page.context)
+        response = page.goto(f"{operator_base_url}/admin/operacao/pedidos/")
+        assert response.status == 200
+        expect(page.locator("body")).to_be_visible()
+        assert "/login" not in page.url
 
-        Visit a product detail page, verify the page loads correctly.
-        Stock conflict is tested at the Django level in flow integrity tests.
-        """
-        page.goto(f"{base_url}/menu/")
-        page.wait_for_load_state("networkidle")
-
-        # Navigate to a product if available
-        links = page.locator("a[href*='/produto/']")
-        if links.count() > 0:
-            links.first.click()
-            page.wait_for_load_state("networkidle")
-            assert "/produto/" in page.url
-
-    def test_07_pix_expired_shows_cancelled(self, page, base_url):
-        """
-        EC-7: PIX expira → auto-cancel → cliente vê "Pedido cancelado".
-
-        The tracking page should show cancelled status for cancelled orders.
-        PIX timeout logic is tested in flow integrity tests.
-        """
-        # Visit a non-existent order to verify 404 handling
-        page.goto(f"{base_url}/pedido/NONEXISTENT-001/")
-        # Should return 404 or redirect
-        assert page.locator("body").is_visible()
-
-    def test_08_double_click_submit_idempotency(self, page, base_url):
-        """
-        EC-8: Double-click submit → idempotency protege.
-
-        The checkout form should prevent double submission via:
-        - Alpine.js disable-on-submit
-        - Server-side idempotency key
-        """
-        page.goto(f"{base_url}/checkout/")
-        page.wait_for_load_state("networkidle")
-
-        # Check that form buttons have double-click protection
-        submit_btns = page.locator("button[type='submit']")
-        if submit_btns.count() > 0:
-            # Protection should exist (but may vary by implementation)
-            assert page.locator("body").is_visible()
-
-    def test_09_otp_rate_limit(self, page, base_url):
-        """
-        EC-9: OTP incorreto 5x → rate limit.
-
-        The OTP verification endpoint should rate-limit after repeated failures.
-        """
-        page.goto(f"{base_url}/checkout/")
-        page.wait_for_load_state("networkidle")
-
-        # OTP field may not be visible until phone is entered
-        assert page.locator("body").is_visible()
-
-    def test_10_reorder_with_unavailable_item(self, page, base_url):
-        """
-        EC-10: Reorder com item indisponível → toast parcial.
-
-        Reorder page should gracefully handle unavailable items.
-        """
-        # Visit order history (requires auth)
-        page.goto(f"{base_url}/meus-pedidos/")
-        page.wait_for_load_state("networkidle")
-
-        # May redirect to login or show empty history
-        assert page.locator("body").is_visible()
-
-
-# ---------------------------------------------------------------------------
-# Navigation & accessibility
-# ---------------------------------------------------------------------------
-
-
-class TestNavigation:
-    """Verify core pages load without errors."""
-
-    @pytest.mark.parametrize("path", [
-        "/",
-        "/menu/",
-        "/cart/",
-        "/checkout/",
-        "/como-funciona/",
-    ])
-    def test_public_pages_load(self, page, base_url, path):
-        """All public pages should return 200 and render."""
-        response = page.goto(f"{base_url}{path}")
-        assert response.status in (200, 302), f"{path} returned {response.status}"
+    def test_10_kds_picker_loads_for_operator(
+        self, page, operator_base_url, operator_session
+    ):
+        """The KDS station picker renders for an authenticated operator."""
+        operator_session(page.context)
+        response = page.goto(f"{operator_base_url}/operacao/kds/")
+        assert response.status == 200
+        expect(page.locator("body")).to_be_visible()
 
     @pytest.mark.parametrize("path", [
         "/admin/operacao/pedidos/",
         "/operacao/kds/",
-        "/gestor/pos/",
     ])
-    def test_operator_pages_require_auth(self, page, base_url, path):
-        """Operator pages should redirect to login."""
-        response = page.goto(f"{base_url}{path}")
-        # Should redirect to login or return 302/403
+    def test_11_operator_pages_require_auth(self, page, operator_base_url, path):
+        """Operator pages redirect anonymous visitors to login."""
+        page.context.clear_cookies()
+        response = page.goto(f"{operator_base_url}{path}")
         assert response.status in (200, 302, 403)
+        # Anonymous lands on (or is redirected to) the login flow.
+        assert "/login" in page.url or response.status in (302, 403)
 
-    def test_menu_has_products(self, page, base_url):
-        """Menu page should display products (after seeding)."""
-        page.goto(f"{base_url}/menu/")
-        page.wait_for_load_state("networkidle")
+    @pytest.mark.skip(
+        reason="POS migrou para seu próprio app Nuxt (surfaces/pos-uithing-nuxt, "
+        "knob SHOPMAN_POS_BASE_URL) e não está cabeado neste gate — coberto na "
+        "fase C (revisão do PDV), igual o gate Omotenashi pula o POS."
+    )
+    def test_12_pos_counter(self):
+        """POS flow — deferred to fase C (PDV review)."""
 
-        # Products exist if DB is seeded (skip assertion if empty DB)
-        assert page.locator("body").is_visible()
 
-    def test_cart_empty_state(self, page, base_url):
-        """Empty cart should show appropriate message."""
-        # Clear any existing session by visiting fresh
-        context = page.context
-        context.clear_cookies()
+# ---------------------------------------------------------------------------
+# Navigation smoke
+# ---------------------------------------------------------------------------
 
-        page.goto(f"{base_url}/cart/")
-        page.wait_for_load_state("networkidle")
 
-        assert page.locator("body").is_visible()
+class TestNavigation:
+    """Core pages return 200 and render."""
+
+    @pytest.mark.parametrize("path", ["/", "/menu", "/cart", "/checkout", "/busca"])
+    def test_store_pages_load(self, page, store_base_url, path):
+        """Public store pages return 200/redirect and render."""
+        response = page.goto(f"{store_base_url}{path}")
+        assert response.status in (200, 302), f"{path} returned {response.status}"
+        expect(page.locator("body")).to_be_visible()

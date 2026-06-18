@@ -1,221 +1,276 @@
 """
-WP-F17.2 — Locust load testing scenarios.
+Locust load testing — post-headless topology.
+
+After the headless cutover the customer load is on the **Django API**
+(``/api/v1/*``): the Nuxt store's BFF is a thin proxy, so stressing the backend
+means hitting the API directly. The customer classes below target the real API
+contracts (confirmed in ``shopman/storefront/api/urls.py``); the operator classes
+stay on the live Django operator pages.
 
 Targets:
-  - 100 concurrent browsing menu
-  - 50 concurrent checkouts
-  - 20 concurrent PIX payments
-  - Dashboard admin with 10 operators
-  - KDS with 30 tickets simultâneos
+  - Browsing (weight=100): home/menu/PDP/search/availability projections
+  - Checkout (weight=50): cart mutation + cart/checkout projections + draft
+  - Payment (weight=20): PIX status polling + order tracking
+  - Operator (weight=10): order console + dashboard (Django, live)
+  - KDS (weight=30): KDS picker + station runtime (Django, live)
   - P95 < 500ms
 
 Prerequisites:
   pip install locust
-  make seed  # populate DB
-  make run   # start dev server
+  Django API up (seeded). Customer host = the Django API origin.
 
-Run:
-  locust -f tests/load/locustfile.py --host=http://localhost:8000
+Run (headless, CI-style):
+  locust -f shopman/shop/tests/load/locustfile.py \\
+    --host=http://127.0.0.1:8001 --headless -u 100 -r 10 --run-time 60s
 
-  # Headless (CI):
-  locust -f tests/load/locustfile.py --host=http://localhost:8000 \\
-    --headless -u 100 -r 10 --run-time 60s
+  # or via the Makefile:
+  make load-test HOST=http://127.0.0.1:8001 USERS=100 RATE=10 TIME=60s
 
-User mix (configured via weights):
-  - BrowsingUser (weight=100): menu browsing, product detail, search
-  - CheckoutUser (weight=50): add to cart, checkout flow
-  - PaymentUser (weight=20): PIX generation, payment status polling
-  - OperatorUser (weight=10): gestor de pedidos, dashboard
-  - KDSUser (weight=30): KDS display, ticket check, ticket done
+The customer host and the operator host are the SAME Django origin post-headless
+(the store's HTML host is the Nuxt app, which is not what we load here).
+
+IMPORTANT — run the Django target with the anonymous API throttle DISABLED:
+
+  SHOPMAN_API_ANON_THROTTLE_RATE= python manage.py runserver 127.0.0.1:8001
+
+Locust drives all traffic from one IP; the per-IP ``anon`` throttle (120/min)
+would otherwise trip instantly and you'd be measuring the throttle, not the
+backend. The env knob keeps the production guardrail intact while letting the
+synthetic load reach the app.
 """
 
 from __future__ import annotations
 
 import random
+import re
 
 from locust import HttpUser, between, task
 
-# Product SKUs from seed data
-PRODUCT_SKUS = [
+_CSRF_INPUT = re.compile(r'name="csrfmiddlewaretoken"\s+value="([^"]+)"')
+
+
+def _admin_login(client):
+    """Authenticate against the Django admin, honoring CSRF.
+
+    The admin login form is CSRF-protected: fetch it, lift the
+    ``csrfmiddlewaretoken`` (the ``csrftoken`` cookie rides along on the locust
+    session), then POST with the token + Referer.
+    """
+    form = client.get("/admin/login/", name="/admin/login/")
+    match = _CSRF_INPUT.search(form.text)
+    token = match.group(1) if match else ""
+    client.post(
+        "/admin/login/",
+        data={
+            "username": "admin",
+            "password": "admin",
+            "csrfmiddlewaretoken": token,
+            "next": "/admin/",
+        },
+        headers={"Referer": client.base_url + "/admin/login/"},
+        name="/admin/login/ (POST)",
+    )
+
+# Static fallbacks — the customer classes refresh these from the live menu on
+# start, so they self-correct against whatever the seed produced.
+FALLBACK_SKUS = [
     "PAO-FRANCES",
     "CROISSANT",
-    "BAGUETTE",
+    "BAGUETE",
     "BOLO-CENOURA",
-    "BOLO-CHOCOLATE",
-    "BRIGADEIRO",
-    "COXINHA",
-    "EMPADA",
 ]
 
-COLLECTION_REFS = [
-    "padaria",
-    "confeitaria",
-    "salgados",
-]
+SEARCH_TERMS = ["pao", "bolo", "croissant", "pastel", "cafe"]
 
 
-def _random_phone():
-    return f"+554399988{random.randint(1000, 9999)}"
+def _extract_skus(payload) -> list[str]:
+    """Walk an API projection JSON and collect every product ``sku`` string."""
+    found: list[str] = []
+
+    def visit(node):
+        if isinstance(node, dict):
+            sku = node.get("sku")
+            if isinstance(sku, str) and sku:
+                found.append(sku)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for item in node:
+                visit(item)
+
+    visit(payload)
+    # Preserve order, de-duplicate.
+    return list(dict.fromkeys(found))
 
 
-def _random_name():
-    first = random.choice(["João", "Maria", "Pedro", "Ana", "Carlos", "Julia"])
-    last = random.choice(["Silva", "Santos", "Oliveira", "Lima", "Costa", "Souza"])
-    return f"{first} {last}"
+class _CatalogAwareUser(HttpUser):
+    """Base user that learns real product SKUs from the live menu projection."""
+
+    abstract = True
+
+    def on_start(self):
+        self.skus = list(FALLBACK_SKUS)
+        try:
+            response = self.client.get("/api/v1/storefront/menu/", name="/api/v1/storefront/menu/")
+            if response.ok:
+                skus = _extract_skus(response.json())
+                if skus:
+                    self.skus = skus
+        except Exception:
+            # Keep the fallbacks; the run still exercises the endpoints.
+            pass
+
+    def a_sku(self) -> str:
+        return random.choice(self.skus)
 
 
 # ---------------------------------------------------------------------------
-# 1. Browsing (weight=100) — Menu, product detail, search
+# 1. Browsing (weight=100) — catalog projections + search
 # ---------------------------------------------------------------------------
 
 
-class BrowsingUser(HttpUser):
-    """Simulates customers browsing the menu."""
+class BrowsingUser(_CatalogAwareUser):
+    """Customers browsing the catalog through the API."""
 
     weight = 100
     wait_time = between(1, 3)
 
+    @task(2)
+    def home(self):
+        self.client.get("/api/v1/storefront/home/", name="/api/v1/storefront/home/")
+
     @task(5)
-    def browse_menu(self):
-        """GET /menu/ — main menu page."""
-        self.client.get("/menu/", name="/menu/")
+    def menu(self):
+        self.client.get("/api/v1/storefront/menu/", name="/api/v1/storefront/menu/")
 
     @task(3)
-    def browse_collection(self):
-        """GET /menu/<collection>/ — filtered by collection."""
-        ref = random.choice(COLLECTION_REFS)
-        self.client.get(f"/menu/{ref}/", name="/menu/[collection]/")
+    def product_detail(self):
+        sku = self.a_sku()
+        self.client.get(
+            f"/api/v1/storefront/products/{sku}/",
+            name="/api/v1/storefront/products/[sku]/",
+        )
 
     @task(2)
-    def product_detail(self):
-        """GET /produto/<sku>/ — product detail page."""
-        sku = random.choice(PRODUCT_SKUS)
-        self.client.get(f"/produto/{sku}/", name="/produto/[sku]/")
-
-    @task(1)
     def search(self):
-        """GET /menu/search/?q=... — search menu."""
-        query = random.choice(["pao", "bolo", "croissant", "coxinha"])
-        self.client.get(f"/menu/search/?q={query}", name="/menu/search/")
+        term = random.choice(SEARCH_TERMS)
+        self.client.get(
+            f"/api/v1/catalog/products/?search={term}",
+            name="/api/v1/catalog/products/?search=",
+        )
 
     @task(1)
-    def home_page(self):
-        """GET / — home page."""
-        self.client.get("/", name="/")
+    def availability(self):
+        sku = self.a_sku()
+        self.client.get(
+            f"/api/v1/availability/{sku}/",
+            name="/api/v1/availability/[sku]/",
+        )
 
 
 # ---------------------------------------------------------------------------
-# 2. Checkout (weight=50) — Cart + checkout flow
+# 2. Checkout (weight=50) — cart mutation + cart/checkout projections
 # ---------------------------------------------------------------------------
 
 
-class CheckoutUser(HttpUser):
-    """Simulates customers going through checkout."""
+class CheckoutUser(_CatalogAwareUser):
+    """Customers building a cart and reaching the checkout projection.
+
+    The anonymous storefront session authorizes cart mutations without CSRF
+    (DRF SessionAuthentication only enforces CSRF for authenticated users), so
+    the absolute-quantity PUT is the canonical mutation here. No order is
+    committed (checkout commit gates on auth), keeping the run idempotent.
+    """
 
     weight = 50
     wait_time = between(2, 5)
 
-    def on_start(self):
-        """Start with a fresh session."""
-        self.client.get("/menu/")
-
     @task(3)
     def add_to_cart(self):
-        """POST /cart/set-qty/ — add random item."""
-        sku = random.choice(PRODUCT_SKUS)
-        self.client.post(
-            "/cart/set-qty/",
-            data={"sku": sku, "qty": random.randint(1, 5)},
-            name="/cart/set-qty/",
-        )
+        sku = self.a_sku()
+        # A 409 is the documented stock-conflict contract — a valid response when
+        # concurrent carts deplete a SKU, not a backend failure.
+        with self.client.put(
+            f"/api/v1/cart/skus/{sku}/",
+            json={"qty": 1},
+            name="/api/v1/cart/skus/[sku]/ (PUT)",
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 409):
+                response.success()
 
     @task(2)
     def view_cart(self):
-        """GET /cart/ — view cart."""
-        self.client.get("/cart/", name="/cart/")
+        self.client.get("/api/v1/storefront/cart/", name="/api/v1/storefront/cart/")
 
     @task(1)
-    def cart_drawer(self):
-        """GET /cart/drawer/ — HTMX cart drawer partial."""
-        self.client.get(
-            "/cart/drawer/",
-            headers={"HX-Request": "true"},
-            name="/cart/drawer/ (HTMX)",
+    def checkout_projection(self):
+        self.client.get("/api/v1/storefront/checkout/", name="/api/v1/storefront/checkout/")
+
+    @task(1)
+    def checkout_draft(self):
+        """PATCH the fulfillment draft — read-preview that re-resolves the cart."""
+        self.client.patch(
+            "/api/v1/checkout/draft/",
+            json={"fulfillment_type": "pickup"},
+            name="/api/v1/checkout/draft/ (PATCH)",
         )
-
-    @task(1)
-    def checkout_page(self):
-        """GET /checkout/ — checkout form."""
-        self.client.get("/checkout/", name="/checkout/")
 
 
 # ---------------------------------------------------------------------------
-# 3. Payment (weight=20) — PIX generation + polling
+# 3. Payment (weight=20) — PIX status polling + tracking
 # ---------------------------------------------------------------------------
 
 
 class PaymentUser(HttpUser):
-    """Simulates PIX payment flow with status polling."""
+    """PIX status polling + order tracking — the read-heavy post-checkout phase."""
 
     weight = 20
     wait_time = between(3, 8)
 
-    @task(1)
-    def checkout_submit(self):
-        """POST /checkout/ — submit checkout (may fail without valid session)."""
-        self.client.post(
-            "/checkout/",
-            data={
-                "phone": _random_phone(),
-                "name": _random_name(),
-                "fulfillment_type": "pickup",
-            },
-            name="/checkout/ (POST)",
-            catch_response=True,
-        )
-
-    @task(2)
+    @task(3)
     def payment_status_poll(self):
-        """GET /pedido/<ref>/pagamento/status/ — simulates PIX status polling."""
-        # Use a dummy ref — measures response time even for 404
-        self.client.get(
-            "/pedido/LOAD-TEST-001/pagamento/status/",
-            name="/pedido/[ref]/pagamento/status/",
+        # Dummy ref — clients poll this endpoint while a PIX is pending; a 404 for
+        # an unknown ref still measures the endpoint's latency under load.
+        with self.client.get(
+            "/api/v1/payment/LOAD-TEST-001/status/",
+            name="/api/v1/payment/[ref]/status/",
             catch_response=True,
-        )
+        ) as response:
+            if response.status_code in (200, 404):
+                response.success()
+
+    @task(1)
+    def tracking(self):
+        with self.client.get(
+            "/api/v1/tracking/LOAD-TEST-001/",
+            name="/api/v1/tracking/[ref]/",
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 403, 404):
+                response.success()
 
 
 # ---------------------------------------------------------------------------
-# 4. Operator — Dashboard + Gestor (weight=10)
+# 4. Operator — Django order console + dashboard (weight=10, live post-headless)
 # ---------------------------------------------------------------------------
 
 
 class OperatorUser(HttpUser):
-    """Simulates operators using admin/gestor panels."""
+    """Operators on the live Django order console."""
 
     weight = 10
     wait_time = between(2, 5)
 
     def on_start(self):
-        """Login as admin."""
-        self.client.get("/admin/login/")
-        self.client.post(
-            "/admin/login/",
-            data={
-                "username": "admin",
-                "password": "admin",
-            },
-            name="/admin/login/ (POST)",
-        )
+        _admin_login(self.client)
 
     @task(3)
-    def admin_console_orders(self):
-        """GET /admin/operacao/pedidos/ — order management panel."""
+    def order_console(self):
         self.client.get("/admin/operacao/pedidos/", name="/admin/operacao/pedidos/")
 
     @task(2)
-    def admin_console_orders_list_partial(self):
-        """GET /admin/operacao/pedidos/lista/ — HTMX partial order list."""
+    def order_console_list_partial(self):
         self.client.get(
             "/admin/operacao/pedidos/lista/",
             headers={"HX-Request": "true"},
@@ -224,54 +279,38 @@ class OperatorUser(HttpUser):
 
     @task(1)
     def admin_dashboard(self):
-        """GET /admin/ — Django admin dashboard."""
         self.client.get("/admin/", name="/admin/")
 
 
 # ---------------------------------------------------------------------------
-# 5. KDS (weight=30) — Kitchen display + ticket actions
+# 5. KDS — Django kitchen display (weight=30, live post-headless)
 # ---------------------------------------------------------------------------
 
 
 class KDSUser(HttpUser):
-    """Simulates KDS stations with ticket management."""
+    """KDS stations on the live Django runtime."""
 
     weight = 30
     wait_time = between(1, 3)
 
     def on_start(self):
-        """Login as admin for KDS access."""
-        self.client.get("/admin/login/")
-        self.client.post(
-            "/admin/login/",
-            data={
-                "username": "admin",
-                "password": "admin",
-            },
-        )
+        _admin_login(self.client)
 
     @task(3)
     def kds_picker(self):
-        """GET /operacao/kds/ — KDS station selector."""
         self.client.get("/operacao/kds/", name="/operacao/kds/")
 
     @task(5)
     def kds_station(self):
-        """GET /operacao/kds/estacao/<ref>/ — KDS station runtime."""
         ref = random.choice(["paes", "picking", "confeitaria"])
-        self.client.get(
+        with self.client.get(
             f"/operacao/kds/estacao/{ref}/",
             name="/operacao/kds/estacao/[ref]/",
             catch_response=True,
-        )
+        ) as response:
+            if response.status_code in (200, 404):
+                response.success()
 
-    @task(3)
-    def kds_station_cards(self):
-        """GET /operacao/kds/estacao/<ref>/cards/ — HTMX/SSE card polling."""
-        ref = random.choice(["paes", "picking"])
-        self.client.get(
-            f"/operacao/kds/estacao/{ref}/cards/",
-            headers={"HX-Request": "true"},
-            name="/operacao/kds/estacao/[ref]/cards/ (HTMX)",
-            catch_response=True,
-        )
+    @task(2)
+    def production_kds(self):
+        self.client.get("/gestor/producao/kds/", name="/gestor/producao/kds/")

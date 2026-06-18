@@ -57,6 +57,13 @@ include = ["shopman*", "config*"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["."]
 testpaths = ["shopman/shop/tests"]
+# Browser E2E (Playwright) needs TWO running servers (Nuxt store + Django API);
+# deselect it from the default suite. Run it via scripts/run_storefront_e2e.sh,
+# which boots both servers and re-selects with `-m browser`.
+addopts = "-m 'not browser'"
+markers = [
+    "browser: Playwright browser E2E — requires running Nuxt store + Django API",
+]
 
 [tool.coverage.run]
 source = ["shopman"]
