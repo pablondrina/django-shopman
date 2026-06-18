@@ -47,3 +47,10 @@ def match_delivery_zone(postal_code: str, neighborhood: str) -> Any | None:
     from shopman.storefront.models import DeliveryZone
 
     return DeliveryZone.match(postal_code=postal_code, neighborhood=neighborhood)
+
+
+def match_distance_band(distance_km: float) -> Any | None:
+    """Retorna a faixa de distância ativa que cobre ``distance_km``, ou None."""
+    from shopman.storefront.models import DeliveryDistanceBand
+
+    return DeliveryDistanceBand.match(distance_km)

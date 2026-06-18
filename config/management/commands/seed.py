@@ -101,6 +101,7 @@ class Command(BaseCommand):
 
         self._create_superuser(admin_password)
         self._seed_shop()
+        self._seed_delivery_distance_bands()
         self._seed_delivery_zones()
         products = self._seed_catalog()
         positions = self._seed_positions()
@@ -230,39 +231,51 @@ class Command(BaseCommand):
     # Delivery Zones
     # ────────────────────────────────────────────────────────────────
 
+    def _seed_delivery_distance_bands(self):
+        """Motor de precificação: taxa por faixa de distância (loja→endereço)."""
+        from shopman.storefront.models import DeliveryDistanceBand
+
+        shop = Shop.objects.get(pk=1)
+        bands = [
+            {"max_distance_km": "3.00", "fee_q": 500, "sort_order": 10},    # até 3 km → R$ 5,00
+            {"max_distance_km": "6.00", "fee_q": 800, "sort_order": 20},    # até 6 km → R$ 8,00
+            {"max_distance_km": "10.00", "fee_q": 1200, "sort_order": 30},  # até 10 km → R$ 12,00
+        ]
+        created_count = 0
+        for data in bands:
+            _, created = DeliveryDistanceBand.objects.update_or_create(
+                shop=shop,
+                max_distance_km=data["max_distance_km"],
+                defaults={k: v for k, v in data.items() if k != "max_distance_km"},
+            )
+            if created:
+                created_count += 1
+        self.stdout.write(
+            f"  ✅ Faixas de distância: {len(bands)} configuradas ({created_count} novas). "
+            "Acima de 10 km → fora da área."
+        )
+
     def _seed_delivery_zones(self):
+        """Exceções à distância: override (taxa fixa) e exclude (não entregar)."""
         from shopman.storefront.models import DeliveryZone
 
         shop = Shop.objects.get(pk=1)
-        # Londrina — CEP prefixes: 860xx e 861xx (regiao metropolitana)
-        # https://www.correios.com.br/ — Londrina PR: 86000-000 a 86099-999, 86100-000 a 86199-999
+        # A taxa primária vem das faixas de distância; estas zonas são exceções.
         zones = [
             {
-                "name": "Londrina Centro e Norte",
-                "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
-                "match_value": "860",
-                "fee_q": 600,   # R$ 6,00
-                "sort_order": 10,
-            },
-            {
-                "name": "Londrina Sul e Leste",
-                "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
-                "match_value": "861",
-                "fee_q": 800,   # R$ 8,00
-                "sort_order": 20,
-            },
-            {
-                "name": "Bairro Bela Suíça (grátis)",
+                "name": "Bairro Bela Suíça (cortesia)",
+                "mode": DeliveryZone.MODE_OVERRIDE,
                 "zone_type": DeliveryZone.ZONE_TYPE_NEIGHBORHOOD,
                 "match_value": "Bela Suíça",
-                "fee_q": 0,     # entrega grátis
+                "fee_q": 0,     # entrega grátis (sobrepõe a distância)
                 "sort_order": 5,
             },
             {
-                "name": "Cambé e Ibiporã",
+                "name": "Fora de Londrina (Cambé/Ibiporã)",
+                "mode": DeliveryZone.MODE_EXCLUDE,
                 "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
-                "match_value": "862",
-                "fee_q": 1200,  # R$ 12,00
+                "match_value": "862",  # não entregamos nestes CEPs
+                "fee_q": 0,
                 "sort_order": 30,
             },
         ]
@@ -276,7 +289,7 @@ class Command(BaseCommand):
             if created:
                 created_count += 1
         self.stdout.write(
-            f"  ✅ Zonas de entrega: {len(zones)} configuradas ({created_count} novas)"
+            f"  ✅ Zonas de entrega (exceções): {len(zones)} configuradas ({created_count} novas)"
         )
 
     # ────────────────────────────────────────────────────────────────

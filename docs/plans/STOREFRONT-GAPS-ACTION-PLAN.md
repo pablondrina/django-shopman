@@ -293,9 +293,9 @@ serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_
    configuráveis (ex.: 0–2km=R$5, 2–5km=R$8, …). Modelo/admin novo (faixas) OU `Shop.defaults`
    dataclass-driven (ver `feedback_dataclass_driven_admin`). Coexistir/decidir vs `DeliveryZone`
    (CEP/bairro): distância pode ser a regra primária; CEP/bairro fallback.
-2. **Injetar a taxa como ITEM do pedido.** Hoje é `delivery_fee_q` (modifier/total). Pablo quer a
-   entrega como **linha** do pedido (visível no carrinho/KDS/fiscal). DECISÃO: linha real (OrderItem
-   sintético) vs linha só de apresentação. Cuidar de fiscal/totais/estoque (item não-estocável).
+2. **Frete explícito no pedido.** ~~Injetar como ITEM~~ → **DECIDIDO: campo dedicado** (`delivery_fee_q`,
+   já first-class), mapeável a `vFrete` na NF-e. Não vira OrderItem (ver decisões travadas abaixo).
+   WP-11 garante que apareça explícito no carrinho/checkout/tracking/fechamento.
 3. **Facilitador "teleporte" de endereço (sem API).** O serviço de entrega usado hoje **não tem API**.
    Construir um facilitador OPERADOR que leva os dados de endereço do pedido para o site externo do
    serviço (pré-preencher via query params/deep-link, ou copiar campos estruturados p/ clipboard) —
@@ -303,8 +303,34 @@ serializa o menu); medir em ambiente com infra — ver [[project_infra_wps_need_
    Provável superfície: ação no backstage (detalhe do pedido / KDS expedição). Definir o alvo (URL do
    serviço) com o Pablo.
 
-**Abertos p/ o Pablo:** qual serviço de entrega (URL/forma de deep-link); faixas de distância iniciais;
-taxa como OrderItem real ou apresentação; relação distância × DeliveryZone (CEP/bairro).
+### Decisões TRAVADAS (Pablo, 2026-06-17)
+- **Taxa = motor de DISTÂNCIA; `DeliveryZone` rebaixada a EXCEÇÃO.** Faixa de distância (lat/lng,
+  haversine loja→endereço) é o preço primário. A `DeliveryZone` (CEP/bairro) deixa de ser preço default e
+  passa a ter dois modos: **`exclude`** ("não entrego aqui" → bloqueia) e **`override`** ("esse
+  bairro/CEP é taxa fixa X, ignora o raio"). Default `override` mantém zonas semeadas funcionando.
+  Ordem de resolução: exclusão de zona → override de zona → faixa de distância → (sem faixa/cobertura)
+  `delivery_zone_error`.
+- **Frete = CAMPO DEDICADO, NUNCA OrderItem.** Best-practice fiscal BR: frete é `vFrete` no bloco de
+  transporte da NF-e/NFC-e, **não** linha de produto. Mantém o `delivery_fee_q` de primeira classe
+  (já é assim: `DeliveryFeeModifier`→`CommitService`→tracking) — queryable, reconciliável, mapeável a
+  `vFrete`. OrderItem sintético seria regressão (fere "Offerman=só vendáveis", polui estoque/KDS/picking,
+  distorce a nota). WP-11 troca só a ORIGEM do valor (distância) e o torna explícito no checkout/tracking.
+- **Teleporte = utilitário LOCAL Python** que preenche o form do serviço externo (DOM via
+  Playwright/Selenium ou autotype), **clipboard como fallback**. Roda na máquina do operador (desacoplado
+  do deploy). Pendente do Pablo: **URL + nomes dos campos** do serviço. Não bloqueia o backend.
+
+### Slices de execução
+1. **Backend distância (PRIMEIRO):** `Shop.latitude/longitude` (já existe) = origem; novo modelo
+   `DeliveryDistanceBand` (faixas admin-configuráveis, espelha `DeliveryZone`); serviço haversine puro
+   (`shop/services/delivery_distance.py`); `DeliveryZone.mode` (override/exclude); `DeliveryFeeModifier`
+   reescrito p/ a ordem de resolução acima; adapter `match_distance_band`; seed (coords + faixas);
+   `delivery_distance_km` em `session.data` p/ transparência no checkout (omotenashi). Testes.
+2. **Camada visual** (checkout/tracking Nuxt): mostrar "X km · R$ Y" explícito; estados fora-de-área.
+3. **Teleporte** (por último, quando o Pablo passar URL/campos): ação no backstage que dispara o
+   utilitário local com os dados estruturados do endereço.
+
+**Abertos p/ o Pablo (não bloqueiam o backend):** URL + campos do serviço de entrega; faixas de
+distância iniciais (km→R$) p/ o seed.
 
 ---
 

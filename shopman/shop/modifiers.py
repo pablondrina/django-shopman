@@ -509,82 +509,106 @@ class EmployeeDiscountModifier:
             session.save(update_fields=["pricing"])
 
 
+_ZONE_MODE_EXCLUDE = "exclude"
+
+
 class DeliveryFeeModifier:
     """
-    Taxa de entrega calculada por zona (DeliveryZone), com frete grátis acima de
-    um limiar configurável.
+    Taxa de entrega: faixa de DISTÂNCIA (motor) + zona CEP/bairro (exceção).
 
-    Só se aplica quando fulfillment_type == "delivery".
-    Lê postal_code e neighborhood de session.data["delivery_address_structured"].
-    Busca a DeliveryZone ativa de maior prioridade que coincide com o endereço.
+    Só se aplica quando fulfillment_type == "delivery". Lê o endereço estruturado
+    de session.data["delivery_address_structured"] (postal_code, neighborhood,
+    latitude, longitude).
 
-    Se nenhuma zona coincidir → seta session.data["delivery_zone_error"] = True.
-    Se zona encontrada → seta session.data["delivery_fee_q"] = zone.fee_q.
+    Ordem de resolução (WP-11):
+      1. Zona ``exclude`` casa → fora da área (``delivery_zone_error``).
+      2. Zona ``override`` casa → taxa fixa da zona (sobrepõe a distância).
+      3. Senão, distância loja→endereço casa uma ``DeliveryDistanceBand`` → taxa da faixa.
+      4. Senão (sem faixa/cobertura, ou sem coordenada e sem zona) → fora da área.
 
-    Frete grátis: se ``shop.defaults.rules.free_delivery_above_q`` estiver ativo
-    (> 0) e o subtotal atingir o limiar, a taxa efetiva vira 0. Como isso depende
-    do subtotal, a taxa é reavaliada a cada passagem dos modifiers (sem cache),
-    para acompanhar mudanças no carrinho ao vivo. fee_q == 0 → entrega grátis.
+    Grava ``delivery_fee_q`` (taxa efetiva) ou ``delivery_zone_error``, e
+    ``delivery_distance_km`` quando a distância foi calculada (transparência no
+    checkout). Frete grátis: se ``shop.defaults.rules.free_delivery_above_q`` > 0
+    e o subtotal atingir o limiar, a taxa efetiva vira 0. Como depende do subtotal,
+    é reavaliada a cada passagem dos modifiers (sem cache).
     """
 
     code = "shop.delivery_fee"
     order = 70
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.shop.adapters import get_adapter
-
         data = session.data or {}
-        fulfillment_type = data.get("fulfillment_type", "")
-        if fulfillment_type != "delivery":
+        if data.get("fulfillment_type", "") != "delivery":
             return
 
-        addr_structured = data.get("delivery_address_structured") or {}
-        postal_code = (addr_structured.get("postal_code") or "").strip()
-        neighborhood = (addr_structured.get("neighborhood") or "").strip()
+        addr = data.get("delivery_address_structured") or {}
+        postal_code = (addr.get("postal_code") or "").strip()
+        neighborhood = (addr.get("neighborhood") or "").strip()
+        lat, lng = addr.get("latitude"), addr.get("longitude")
 
-        if not postal_code and not neighborhood:
-            # Endereço ainda não preenchido (pré-checkout) — não calcular taxa
+        if not postal_code and not neighborhood and lat in (None, "") and lng in (None, ""):
+            # Endereço ainda não preenchido (pré-checkout) — não calcular taxa.
             return
+
+        base_fee_q, distance_km, blocked = self._resolve(postal_code, neighborhood, lat, lng)
+
+        new_data = dict(data)
+        if distance_km is not None:
+            new_data["delivery_distance_km"] = round(distance_km, 1)
+        else:
+            new_data.pop("delivery_distance_km", None)
+
+        if blocked:
+            new_data["delivery_zone_error"] = True
+            new_data.pop("delivery_fee_q", None)
+        else:
+            new_data["delivery_fee_q"] = self._effective_fee_q(base_fee_q, session)
+            new_data.pop("delivery_zone_error", None)
+
+        if new_data != data:  # evita save redundante a cada passagem dos modifiers
+            session.data = new_data
+            session.save(update_fields=["data"])
+
+    @staticmethod
+    def _resolve(postal_code: str, neighborhood: str, lat, lng) -> tuple[int, float | None, bool]:
+        """Resolve (taxa_base_q, distância_km, bloqueado) pela ordem distância+exceção."""
+        from shopman.shop.adapters import get_adapter
+        from shopman.shop.services import delivery_distance
 
         adapter = get_adapter("promotion")
         if adapter is None:
-            return
+            return (0, None, True)
+
+        distance_km = delivery_distance.store_distance_km(lat, lng)
+
         zone = adapter.match_delivery_zone(postal_code, neighborhood)
+        if zone is not None:
+            if getattr(zone, "mode", "") == _ZONE_MODE_EXCLUDE:
+                return (0, distance_km, True)  # não entregamos aqui
+            return (zone.fee_q, distance_km, False)  # override: taxa fixa da zona
 
-        if zone is None:
-            # Endereço fora da área de entrega
-            if data.get("delivery_zone_error") and data.get("delivery_fee_q") is None:
-                return  # já marcado — evita save redundante
-            new_data = {**data, "delivery_zone_error": True}
-            new_data.pop("delivery_fee_q", None)
-            session.data = new_data
-            session.save(update_fields=["data"])
-            return
+        if distance_km is not None:
+            band = adapter.match_distance_band(distance_km)
+            if band is not None:
+                return (band.fee_q, distance_km, False)
 
-        # Zona encontrada — taxa base com frete grátis aplicado por subtotal.
-        effective_fee_q = self._effective_fee_q(zone.fee_q, session)
-        if data.get("delivery_fee_q") == effective_fee_q and not data.get("delivery_zone_error"):
-            return  # nada mudou — evita save redundante
-        new_data = {**data, "delivery_fee_q": effective_fee_q}
-        new_data.pop("delivery_zone_error", None)
-        session.data = new_data
-        session.save(update_fields=["data"])
+        return (0, distance_km, True)  # sem faixa/cobertura → fora da área
 
     @staticmethod
-    def _effective_fee_q(zone_fee_q: int, session: Any) -> int:
-        """Apply the free-delivery threshold to the zone fee."""
+    def _effective_fee_q(base_fee_q: int, session: Any) -> int:
+        """Apply the free-delivery threshold to the resolved fee."""
         from shopman.shop.projections.cart import shop_rule_q
 
         free_above_q = shop_rule_q("free_delivery_above_q")
         if not free_above_q:
-            return zone_fee_q
+            return base_fee_q
         subtotal_q = sum(
             item.get("line_total_q", 0)
             for item in (session.items or [])
             if item.get("sku") != "__DELIVERY_FEE__"
             and (item.get("meta") or {}).get("type") != "delivery_fee"
         )
-        return 0 if subtotal_q >= free_above_q else zone_fee_q
+        return 0 if subtotal_q >= free_above_q else base_fee_q
 
 
 class LoyaltyRedeemModifier:
