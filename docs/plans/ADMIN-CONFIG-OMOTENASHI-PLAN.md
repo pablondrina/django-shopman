@@ -114,6 +114,14 @@ canais" focados em DADOS, não config.)
   admin**: POS discount approval threshold → `Shop.defaults["pos"]`; **stock alert cooldown →
   `Shop.defaults["stock_alerts"]`** (decisão do Pablo, WP-5b). Ambos: em branco = herda env = zero
   regressão. Nenhuma pendência aberta.
+- **WP-8 — Refino canônico Unfold. ✅ CONCLUÍDO (`2e86bd82` + `0412ae75`).** Resposta aos apontamentos
+  do Pablo de melhor uso dos componentes nativos do Unfold 0.92: (1) OmotenashiCopy — selects nativos
+  feios → `UnfoldAdminSelectWidget` (momento/público) + `UnfoldAdminSelect2Widget` (chave, busca);
+  (2) DeliveryZone — coluna numérica de ordem → **lista arrastável** (`ordering_field` + `hide_ordering_field`);
+  (3) `social_links` → **ArrayWidget** (um input por URL); (4) Cardápio — 5 slots fixos de coleção → um
+  **ArrayWidget** (add/remove, ordem da lista); (5) Produção — meses em texto → **multi-select Select2**
+  (`UnfoldAdminSelect2MultipleWidget`). `social_links` declarado como `forms.Field` (JSONField serializaria
+  e quebraria o ArrayWidget); `_shop_form_data` migrado p/ QueryDict. make test 1898 verde.
 - **WP-7 — Páginas dedicadas por domínio (proxy models). ✅ CONCLUÍDO (`a109ab70`).** A pedido do Pablo
   (UX, benchmarks Shopify/STORES): a página única da Loja (~19 fieldsets) foi quebrada em 9 páginas
   focadas, cada uma editando o mesmo Shop singleton, na sidebar Configurações: Loja & contato (base),
