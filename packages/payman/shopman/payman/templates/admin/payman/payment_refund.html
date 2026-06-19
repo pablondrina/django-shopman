@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="payment-refund-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6">
+    {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
+
+    {% component "unfold/components/card.html" %}
+      <form method="post" class="flex flex-col gap-4">{% csrf_token %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          {% blocktrans with v=available_display %}Disponível para reembolso: R$ {{ v }}. Deixe o valor em branco para reembolsar o total.{% endblocktrans %}
+        {% endcomponent %}
+
+        <div class="flex flex-col gap-1">
+          {% component "unfold/components/text.html" with class="font-medium" %}{{ form.amount_reais.label }}{% endcomponent %}
+          {{ form.amount_reais }}
+          {% if form.amount_reais.help_text %}
+            {% component "unfold/components/text.html" with class="text-base-500 text-sm" %}{{ form.amount_reais.help_text }}{% endcomponent %}
+          {% endif %}
+          {% for error in form.amount_reais.errors %}
+            {% component "unfold/components/text.html" with class="text-red-600 text-sm" %}{{ error }}{% endcomponent %}
+          {% endfor %}
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          {% component "unfold/components/button.html" with submit=1 variant="danger" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}undo{% endcomponent %}
+            {% trans "Confirmar reembolso" %}
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with href=back_url variant="default" %}
+            {% trans "Cancelar" %}
+          {% endcomponent %}
+        </div>
+      </form>
+    {% endcomponent %}
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

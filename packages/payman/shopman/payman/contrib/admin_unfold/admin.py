@@ -11,9 +11,12 @@ Both models are mutated exclusively through ``PaymentService`` (and the immutabl
 
 import json
 import logging
+from decimal import Decimal
 
+from django import forms
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
+from django.shortcuts import render
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
@@ -25,8 +28,23 @@ from shopman.utils.monetary import format_money
 from unfold.contrib.filters.admin.choice_filters import ChoicesRadioFilter
 from unfold.decorators import action, display
 from unfold.enums import ActionVariant
+from unfold.widgets import UnfoldAdminDecimalFieldWidget
 
 logger = logging.getLogger(__name__)
+
+
+class RefundForm(forms.Form):
+    """Valor do reembolso em Reais. Em branco = total disponível (capturado − já reembolsado)."""
+
+    amount_reais = forms.DecimalField(
+        label=_("Valor a reembolsar (R$)"),
+        required=False,
+        min_value=Decimal("0.01"),
+        max_digits=10,
+        decimal_places=2,
+        widget=UnfoldAdminDecimalFieldWidget,
+        help_text=_("Deixe em branco para reembolsar o total disponível."),
+    )
 
 # Rótulos amigáveis para as chaves de gateway_data (heterogêneas por gateway).
 _GATEWAY_LABELS = {
@@ -183,6 +201,7 @@ class PaymentIntentAdmin(BaseModelAdmin):
     compressed_fields = True
     actions = ["refund_selected"]
     actions_row = ["refund_row"]
+    actions_detail = ["refund_detail"]
 
     @action(
         description=_("Reembolsar (total)"),
@@ -197,6 +216,49 @@ class PaymentIntentAdmin(BaseModelAdmin):
             return HttpResponseRedirect(reverse("admin:payman_paymentintent_changelist"))
         self._refund_one(request, intent)
         return HttpResponseRedirect(reverse("admin:payman_paymentintent_change", args=[intent.pk]))
+
+    @action(
+        description=_("Reembolsar (parcial/total)"),
+        url_path="refund-amount",
+        icon="undo",
+        variant=ActionVariant.DANGER,
+    )
+    def refund_detail(self, request, object_id):
+        """Intermediate page to refund a specific amount (or total if left blank)."""
+        intent = self.get_object(request, object_id)
+        if intent is None:
+            messages.error(request, _("Intent não encontrado."))
+            return HttpResponseRedirect(reverse("admin:payman_paymentintent_changelist"))
+
+        change_url = reverse("admin:payman_paymentintent_change", args=[intent.pk])
+        available_q = max(intent.amount_q - PaymentService.refunded_total(intent.ref), 0)
+
+        if request.method == "POST":
+            form = RefundForm(request.POST)
+            if form.is_valid():
+                amount = form.cleaned_data.get("amount_reais")
+                amount_q = int((amount * 100).to_integral_value()) if amount is not None else None
+                if amount_q is not None and amount_q > available_q:
+                    form.add_error(
+                        "amount_reais",
+                        _("Valor acima do disponível (R$ %(v)s).") % {"v": format_money(available_q)},
+                    )
+                else:
+                    self._refund_one(request, intent, amount_q=amount_q)
+                    return HttpResponseRedirect(change_url)
+        else:
+            form = RefundForm()
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Reembolso — %(ref)s") % {"ref": intent.ref},
+            "form": form,
+            "intent": intent,
+            "available_display": format_money(available_q),
+            "back_url": change_url,
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/payman/payment_refund.html", context)
 
     @admin.action(description=_("Reembolsar total dos selecionados"))
     def refund_selected(self, request, queryset):
@@ -213,10 +275,12 @@ class PaymentIntentAdmin(BaseModelAdmin):
                 % {"n": queryset.count() - done},
             )
 
-    def _refund_one(self, request, intent, *, quiet: bool = False) -> bool:
-        """Full refund of the remaining captured balance. Returns True on success."""
+    def _refund_one(self, request, intent, *, amount_q: int | None = None, quiet: bool = False) -> bool:
+        """Refund ``amount_q`` (or the full remaining balance if None). Returns True on success."""
         try:
-            transaction = PaymentService.refund(intent.ref, reason="Reembolso via admin")
+            transaction = PaymentService.refund(
+                intent.ref, amount_q=amount_q, reason="Reembolso via admin"
+            )
         except Exception as exc:  # PaymentService valida elegibilidade e levanta
             logger.warning("refund failed for %s: %s", intent.ref, exc)
             if not quiet:
