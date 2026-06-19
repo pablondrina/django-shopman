@@ -182,7 +182,14 @@ Por domínio, dar forma a JSONs que o operador precisa ler/editar:
 - `Listing.description` não editável.
 (Tudo em Core → `contrib/admin_unfold`.)
 
-### WP-D4 — Ações faltando (admin actions)
+### WP-D4 — Ações faltando (admin actions) ✅
+> Concluído. **PaymentIntent: reembolso total** (`PaymentService.refund`) via row action +
+> bulk (DANGER); parcial deliberadamente fora (exige form de valor + cuidado financeiro).
+> **Quant: recalcular** (`quant.recalculate()`) bulk. **Coupon: zerar contador** de usos.
+> **CashMovement: admin auditado** registrando sangria/suprimento/ajuste (inclusive pós-
+> fechamento), valor em Reais→centavos, `created_by` carimbado; existentes imutáveis (trilha).
+> Testes novos (cash reais→centavos + audit; coupon reset) + verificado ao vivo.
+
 - **PaymentIntent: reembolso** (parcial/total) via `PaymentService` (não há porta hoje).
 - **Quant: recalcular** cache divergente (`quant.recalculate()`).
 - **Coupon: resetar contador** de usos.

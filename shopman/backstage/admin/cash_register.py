@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
+from django import forms
 from django.contrib import admin
 from shopman.utils import unfold_badge, unfold_badge_numeric
 from shopman.utils.monetary import format_money
 from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminDecimalFieldWidget
 
 from shopman.backstage.models import CashMovement, CashShift, POSTerminal
 
@@ -73,6 +77,76 @@ class CashShiftAdmin(ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         return request.user.has_perm("backstage.operate_pos")
+
+
+class CashMovementForm(forms.ModelForm):
+    """Add-form for cash movements — valor em Reais (convertido p/ centavos)."""
+
+    amount_reais = forms.DecimalField(
+        label="Valor (R$)",
+        min_value=Decimal("0.01"),
+        max_digits=10,
+        decimal_places=2,
+        widget=UnfoldAdminDecimalFieldWidget,
+        help_text="Valor do movimento em Reais (sempre positivo).",
+    )
+
+    class Meta:
+        model = CashMovement
+        fields = ("shift", "movement_type", "amount_reais", "reason")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.amount_q:
+            self.fields["amount_reais"].initial = Decimal(self.instance.amount_q) / 100
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.amount_q = int((self.cleaned_data["amount_reais"] * 100).to_integral_value())
+        if commit:
+            instance.save()
+        return instance
+
+
+@admin.register(CashMovement)
+class CashMovementAdmin(ModelAdmin):
+    """Registro auditado de sangria/suprimento/ajuste (inclusive pós-fechamento).
+
+    Existentes são imutáveis (trilha de auditoria); só é possível adicionar novos,
+    com ``created_by`` carimbado pelo operador logado.
+    """
+
+    form = CashMovementForm
+    list_display = ("shift", "movement_type", "amount_display", "reason", "created_by", "created_at")
+    list_filter = ("movement_type", "created_at")
+    search_fields = ("shift__operator", "reason", "created_by")
+    readonly_fields = ("created_by", "created_at")
+    ordering = ["-created_at"]
+    compressed_fields = True
+
+    def amount_display(self, obj):
+        return f"R$ {format_money(obj.amount_q)}"
+    amount_display.short_description = "Valor"
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return request.user.has_perm("backstage.operate_pos")
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.has_perm("backstage.operate_pos")
+
+    def has_module_permission(self, request):
+        return request.user.has_perm("backstage.operate_pos")
+
+    def save_model(self, request, obj, form, change):
+        if not change and not obj.created_by:
+            obj.created_by = request.user.get_username()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(POSTerminal)

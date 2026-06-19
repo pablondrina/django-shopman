@@ -10,16 +10,23 @@ Both models are mutated exclusively through ``PaymentService`` (and the immutabl
 """
 
 import json
+import logging
 
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 from shopman.payman.models import PaymentIntent, PaymentTransaction
+from shopman.payman.service import PaymentService
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
 from shopman.utils.monetary import format_money
 from unfold.contrib.filters.admin.choice_filters import ChoicesRadioFilter
-from unfold.decorators import display
+from unfold.decorators import action, display
+from unfold.enums import ActionVariant
+
+logger = logging.getLogger(__name__)
 
 # Rótulos amigáveis para as chaves de gateway_data (heterogêneas por gateway).
 _GATEWAY_LABELS = {
@@ -174,6 +181,54 @@ class PaymentIntentAdmin(BaseModelAdmin):
     inlines = [PaymentTransactionInline]
     ordering = ("-created_at",)
     compressed_fields = True
+    actions = ["refund_selected"]
+    actions_row = ["refund_row"]
+
+    @action(
+        description=_("Reembolsar (total)"),
+        url_path="refund",
+        icon="undo",
+        variant=ActionVariant.DANGER,
+    )
+    def refund_row(self, request, object_id):
+        intent = self.get_object(request, object_id)
+        if intent is None:
+            messages.error(request, _("Intent não encontrado."))
+            return HttpResponseRedirect(reverse("admin:payman_paymentintent_changelist"))
+        self._refund_one(request, intent)
+        return HttpResponseRedirect(reverse("admin:payman_paymentintent_change", args=[intent.pk]))
+
+    @admin.action(description=_("Reembolsar total dos selecionados"))
+    def refund_selected(self, request, queryset):
+        done = 0
+        for intent in queryset:
+            if self._refund_one(request, intent, quiet=True):
+                done += 1
+        if done:
+            messages.success(request, _("%(n)d reembolso(s) processado(s).") % {"n": done})
+        if done < queryset.count():
+            messages.warning(
+                request,
+                _("%(n)d intent(s) não puderam ser reembolsados (sem saldo capturado).")
+                % {"n": queryset.count() - done},
+            )
+
+    def _refund_one(self, request, intent, *, quiet: bool = False) -> bool:
+        """Full refund of the remaining captured balance. Returns True on success."""
+        try:
+            transaction = PaymentService.refund(intent.ref, reason="Reembolso via admin")
+        except Exception as exc:  # PaymentService valida elegibilidade e levanta
+            logger.warning("refund failed for %s: %s", intent.ref, exc)
+            if not quiet:
+                messages.error(request, str(exc))
+            return False
+        if not quiet:
+            messages.success(
+                request,
+                _("Reembolso de R$ %(v)s processado para %(ref)s.")
+                % {"v": format_money(transaction.amount_q), "ref": intent.ref},
+            )
+        return True
 
     @display(description=_("Dados do gateway"))
     def gateway_data_display(self, obj):

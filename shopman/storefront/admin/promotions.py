@@ -78,6 +78,12 @@ class CouponAdmin(ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("code", "promotion__name")
     readonly_fields = ("uses_count",)
+    actions = ["reset_usage"]
+
+    @admin.action(description="Zerar contador de usos")
+    def reset_usage(self, request, queryset):
+        updated = queryset.update(uses_count=0)
+        self.message_user(request, f"{updated} cupom(ns) com contador zerado.")
 
     @admin.display(description="uso")
     def usage_display(self, obj):

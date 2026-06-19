@@ -186,6 +186,8 @@ class QuantAdmin(BaseModelAdmin):
     # Unfold options
     compressed_fields = True
 
+    actions = ['recalculate_quants']
+
     def has_add_permission(self, request):
         return False
 
@@ -194,6 +196,23 @@ class QuantAdmin(BaseModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    @admin.action(description=_('Recalcular saldo a partir dos movimentos'))
+    def recalculate_quants(self, request, queryset):
+        """Recompute _quantity from Moves and persist if divergent (quant.recalculate())."""
+        fixed = 0
+        checked = 0
+        for quant in queryset:
+            checked += 1
+            before = quant._quantity
+            quant.recalculate()
+            if quant._quantity != before:
+                fixed += 1
+        self.message_user(
+            request,
+            _('%(checked)d saldo(s) conferido(s), %(fixed)d corrigido(s).')
+            % {'checked': checked, 'fixed': fixed},
+        )
 
     @display(description=_('Data'))
     def target_date_display(self, obj):
