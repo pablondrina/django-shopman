@@ -60,6 +60,35 @@ class AdminNavigationTests(TestCase):
         audit_items = [item["title"] for item in audit_group["items"] if item["has_permission"]]
         self.assertIn("Pagamentos", audit_items)
 
+    def test_sidebar_groups_all_store_config_under_one_discoverable_group(self) -> None:
+        """WP-2 — config da loja num grupo 'Configurações' descobrível."""
+        request = RequestFactory().get("/admin/")
+        request.user = User.objects.create_superuser("cfg", "cfg@example.com", "pw")
+
+        groups = admin.site.get_sidebar_list(request)
+        config_group = next(group for group in groups if group["title"] == "Configurações")
+        config_items = {item["title"] for item in config_group["items"] if item["has_permission"]}
+
+        # Tudo que é config vive aqui.
+        for expected in {
+            "Configuração da Loja", "Canais", "Promoções", "Cupons",
+            "Regras de preço", "Faixas de distância", "Zonas de entrega",
+            "Grupos de clientes", "Copy Omotenashi", "Templates de notificação",
+            "Estações KDS", "POS tabs",
+        }:
+            self.assertIn(expected, config_items)
+
+        # E saiu dos grupos de DADOS onde estava disperso.
+        orders_group = next(group for group in groups if group["title"] == "Pedidos e canais")
+        orders_items = {item["title"] for item in orders_group["items"]}
+        self.assertNotIn("Canais", orders_items)
+        self.assertNotIn("POS tabs", orders_items)
+
+        catalog_group = next(group for group in groups if group["title"] == "Catálogo")
+        catalog_items = {item["title"] for item in catalog_group["items"]}
+        self.assertNotIn("Promoções", catalog_items)
+        self.assertNotIn("Configuração da Loja", catalog_items)
+
     def test_sidebar_badges_count_operational_attention(self) -> None:
         Order.objects.create(
             ref="NAV-NEW",
