@@ -745,6 +745,21 @@ class OrderEventInline(admin.TabularInline):
         return False
 
 
+class FulfillmentOrderInline(admin.TabularInline):
+    """Read-only view of the order's fulfillments (carrier, tracking, dates)."""
+
+    model = Fulfillment
+    extra = 0
+    fields = ("status", "carrier", "tracking_code", "dispatched_at", "delivered_at")
+    readonly_fields = ("status", "carrier", "tracking_code", "dispatched_at", "delivered_at")
+    can_delete = False
+    verbose_name = _("fulfillment")
+    verbose_name_plural = _("fulfillments")
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(SessionEvent)
 class SessionEventAdmin(ModelAdmin):
     """Read-only audit trail of session-phase actions (anti-fraud conference).
@@ -842,7 +857,7 @@ class OrderAdmin(ModelAdmin):
     compressed_fields = True
     warn_unsaved_form = True
 
-    inlines = [OrderItemInline, OrderEventInline]
+    inlines = [OrderItemInline, OrderEventInline, FulfillmentOrderInline]
 
     actions_detail = ["history_detail_action"]
     actions_row = ["advance_status_row", "cancel_order_row"]

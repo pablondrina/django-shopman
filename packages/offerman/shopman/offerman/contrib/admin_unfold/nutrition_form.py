@@ -99,6 +99,11 @@ class ProductAdminForm(forms.ModelForm):
         required=False,
         help_text="Ex.: aprox. 24 x 12 x 10 cm.",
     )
+    allows_next_day_sale = forms.BooleanField(
+        label="Permite venda D-1",
+        required=False,
+        help_text="Produto pode ser vendido no dia seguinte com desconto D-1.",
+    )
 
     class Meta:
         model = Product
@@ -131,6 +136,9 @@ class ProductAdminForm(forms.ModelForm):
             self.fields["serves_text"].initial = str(metadata.get("serves") or "")
             self.fields["approx_dimensions_text"].initial = str(
                 metadata.get("approx_dimensions") or ""
+            )
+            self.fields["allows_next_day_sale"].initial = bool(
+                metadata.get("allows_next_day_sale", False)
             )
 
     def clean(self):
@@ -179,6 +187,8 @@ class ProductAdminForm(forms.ModelForm):
             metadata["serves"] = serves
         if approx_dimensions:
             metadata["approx_dimensions"] = approx_dimensions
+
+        metadata["allows_next_day_sale"] = bool(cleaned.get("allows_next_day_sale"))
 
         # Manual-override sentinel for the Recipe→Product dietary derivation
         # (mirrors nutrition's ``auto_filled``). Only flip to manual when the

@@ -80,6 +80,51 @@ class HasStockFilter(admin.SimpleListFilter):
         return queryset
 
 
+class SupplierFilter(admin.SimpleListFilter):
+    """Filter batches by their distinct suppliers."""
+    title = _("fornecedor")
+    parameter_name = "supplier"
+
+    def lookups(self, request, model_admin):
+        suppliers = (
+            Batch.objects.exclude(supplier="")
+            .values_list("supplier", flat=True)
+            .distinct()
+            .order_by("supplier")
+        )
+        return [(s, s) for s in suppliers]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(supplier=self.value())
+        return queryset
+
+
+class ExpiryStatusFilter(admin.SimpleListFilter):
+    """Filter batches by expiry status (expired / valid / no expiry)."""
+    title = _("validade")
+    parameter_name = "expiry_status"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("expired", _("Expirado")),
+            ("valid", _("Válido")),
+            ("no_expiry", _("Sem validade")),
+        ]
+
+    def queryset(self, request, queryset):
+        from datetime import date
+
+        today = date.today()
+        if self.value() == "expired":
+            return queryset.filter(expiry_date__lt=today)
+        if self.value() == "valid":
+            return queryset.filter(expiry_date__gte=today)
+        if self.value() == "no_expiry":
+            return queryset.filter(expiry_date__isnull=True)
+        return queryset
+
+
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -183,8 +228,17 @@ class QuantAdmin(BaseModelAdmin):
 
     @display(description=_('Lote'))
     def batch_display(self, obj):
-        """Display batch reference."""
-        return obj.batch or '-'
+        """Display batch reference as a clickable link to the Batch (traceability)."""
+        if not obj.batch:
+            return '-'
+        from django.urls import reverse
+        from django.utils.html import format_html
+
+        batch = Batch.objects.filter(ref=obj.batch).only('pk').first()
+        if batch:
+            url = reverse('admin:stockman_batch_change', args=[batch.pk])
+            return format_html('<a href="{}" class="text-primary-600 dark:text-primary-400">{}</a>', url, obj.batch)
+        return obj.batch
 
     @display(description=_('Validade'))
     def expiry_display(self, obj):
@@ -388,7 +442,7 @@ class BatchAdmin(BaseModelAdmin):
 
     list_display = ['ref', 'sku', 'production_date_display',
                     'expiry_date_display', 'supplier', 'is_expired_display']
-    list_filter = ['expiry_date', 'production_date']
+    list_filter = ['expiry_date', 'production_date', SupplierFilter, ExpiryStatusFilter]
     search_fields = ['ref', 'sku', 'supplier']
     readonly_fields = ['created_at']
 

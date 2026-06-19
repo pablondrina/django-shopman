@@ -256,6 +256,7 @@ class ProductAdmin(_ProductImportExportBase):
                     "is_perishable",
                     "production_cycle_hours",
                     "is_batch_produced",
+                    "allows_next_day_sale",
                 )
             },
         ),

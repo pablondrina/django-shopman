@@ -129,6 +129,7 @@ def test_form_serializes_remote_purchase_metadata_on_save():
         # Operator typed dietary data → mark as manual override so the
         # Recipe→Product derivation (WP-7) won't overwrite it.
         "dietary_auto_filled": False,
+        "allows_next_day_sale": False,
     }
 
 

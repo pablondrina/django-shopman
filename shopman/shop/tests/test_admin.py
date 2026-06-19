@@ -693,9 +693,8 @@ class TestOperatorAlertAdmin:
 
 class TestOrderAdminExtensions:
     def test_order_has_fulfillment_inline(self, db):
+        from shopman.orderman.admin import FulfillmentOrderInline
         from shopman.orderman.models import Order
-
-        from shopman.shop.admin.orders import FulfillmentOrderInline
 
         if Order not in admin.site._registry:
             pytest.skip("Order not registered in admin")
@@ -731,9 +730,8 @@ class TestProductAdminExtension:
 
 class TestBatchAdminExtension:
     def test_batch_has_supplier_filter(self, db):
+        from shopman.stockman.contrib.admin_unfold.admin import SupplierFilter
         from shopman.stockman.models import Batch
-
-        from shopman.shop.admin.orders import SupplierFilter
 
         if Batch not in admin.site._registry:
             pytest.skip("Batch not registered in admin")
@@ -742,9 +740,8 @@ class TestBatchAdminExtension:
         assert SupplierFilter in (batch_admin_cls.list_filter or [])
 
     def test_batch_has_expiry_filter(self, db):
+        from shopman.stockman.contrib.admin_unfold.admin import ExpiryStatusFilter
         from shopman.stockman.models import Batch
-
-        from shopman.shop.admin.orders import ExpiryStatusFilter
 
         if Batch not in admin.site._registry:
             pytest.skip("Batch not registered in admin")
