@@ -95,7 +95,14 @@ Inventário de HTML/JS cru em métodos de admin (mark_safe/format_html com `<div
    (`authorized-by` real, `authorization-ref`, `reason` ≥20 chars) + remover `style=` inline.
 **Meta:** zero `mark_safe(f"<…")` com estilo inline sem waiver; `check_unfold_canonical` limpo.
 
-### WP-C3 — Fallback plain dos admins de Core não pode ativar em produção
+### WP-C3 — Fallback plain dos admins de Core não pode ativar em produção ✅
+> Concluído. Guarda runtime `test_core_models_use_unfold_admin` (parametrizada sobre todo o
+> registry de models de Core; sem allowlist) plugada no `make admin`. Os 7 admins CRM do
+> guestman que eram Django plain → Unfold: 5 feature-contribs (consent/identifiers/insights/
+> preferences/timeline) base-swap in-place; ContactPoint/ExternalIdentity portados p/
+> `contrib/admin_unfold` com badges canônicos (sem style inline). Scan: 0 admins de Core
+> vanilla. Verificado ao vivo (ContactPoint com badges booleanos Unfold + datas pt-BR).
+
 **Problema:** cada package tem `admin.py` plain (Django vanilla) + `contrib/admin_unfold`. Se
 o contrib sair de `INSTALLED_APPS`, o admin cai para vanilla (sem Unfold) silenciosamente.
 **Ação:** teste/guard que TODOS os models de Core estão registrados com `unfold.admin.ModelAdmin`

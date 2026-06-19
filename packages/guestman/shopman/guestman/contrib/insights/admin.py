@@ -2,10 +2,11 @@
 
 from django.contrib import admin
 from shopman.guestman.contrib.insights.models import CustomerInsight
+from unfold.admin import ModelAdmin
 
 
 @admin.register(CustomerInsight)
-class CustomerInsightAdmin(admin.ModelAdmin):
+class CustomerInsightAdmin(ModelAdmin):
     list_display = [
         "customer",
         "total_orders",

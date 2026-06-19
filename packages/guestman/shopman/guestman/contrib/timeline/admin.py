@@ -3,10 +3,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from shopman.guestman.contrib.timeline.models import TimelineEvent
+from unfold.admin import ModelAdmin
 
 
 @admin.register(TimelineEvent)
-class TimelineEventAdmin(admin.ModelAdmin):
+class TimelineEventAdmin(ModelAdmin):
     list_display = [
         "created_at",
         "event_type_badge",

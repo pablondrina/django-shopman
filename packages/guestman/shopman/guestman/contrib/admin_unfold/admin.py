@@ -16,9 +16,11 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from shopman.guestman.models import (
+    ContactPoint,
     Customer,
     CustomerAddress,
     CustomerGroup,
+    ExternalIdentity,
 )
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
@@ -26,7 +28,7 @@ from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
 from unfold.decorators import display
 
 # Unregister basic admins
-for model in [Customer, CustomerGroup, CustomerAddress]:
+for model in [Customer, CustomerGroup, CustomerAddress, ContactPoint, ExternalIdentity]:
     try:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
@@ -327,6 +329,92 @@ class CustomerAddressAdmin(BaseModelAdmin):
     @display(description="Verified", boolean=True)
     def is_verified_badge(self, obj):
         return obj.is_verified
+
+
+# =============================================================================
+# CONTACT POINT ADMIN
+# =============================================================================
+
+
+@admin.register(ContactPoint)
+class ContactPointAdmin(BaseModelAdmin):
+    list_display = [
+        "value_masked",
+        "type",
+        "customer_link",
+        "is_primary",
+        "is_verified_badge",
+        "created_at",
+    ]
+    list_filter = ["type", "is_primary", "is_verified", "verification_method"]
+    search_fields = ["value_normalized", "customer__ref", "customer__first_name"]
+    raw_id_fields = ["customer"]
+    readonly_fields = ["id", "verified_at", "created_at", "updated_at"]
+
+    fieldsets = [
+        (None, {"fields": ["id", "customer", "type", "value_normalized", "value_display"]}),
+        ("Status", {"fields": ["is_primary", "is_verified"]}),
+        (
+            "Verification",
+            {"fields": ["verification_method", "verified_at", "verification_ref"]},
+        ),
+        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+    ]
+
+    @display(description="Value")
+    def value_masked(self, obj):
+        return obj.value_masked
+
+    @display(description="Customer")
+    def customer_link(self, obj):
+        from django.urls import reverse
+
+        url = reverse("admin:guestman_customer_change", args=[obj.customer.pk])
+        return format_html('<a href="{}">{}</a>', url, obj.customer.ref)
+
+    @display(description="Verified", boolean=True)
+    def is_verified_badge(self, obj):
+        return obj.is_verified
+
+
+# =============================================================================
+# EXTERNAL IDENTITY ADMIN
+# =============================================================================
+
+
+@admin.register(ExternalIdentity)
+class ExternalIdentityAdmin(BaseModelAdmin):
+    list_display = [
+        "provider",
+        "provider_uid_short",
+        "customer_link",
+        "is_active",
+        "created_at",
+    ]
+    list_filter = ["provider", "is_active"]
+    search_fields = ["provider_uid", "customer__ref", "customer__first_name"]
+    raw_id_fields = ["customer"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+    fieldsets = [
+        (None, {"fields": ["id", "customer", "provider", "provider_uid"]}),
+        ("Status", {"fields": ["is_active"]}),
+        ("Metadata", {"fields": ["provider_meta"], "classes": ["collapse"]}),
+        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+    ]
+
+    @display(description="Provider UID")
+    def provider_uid_short(self, obj):
+        if len(obj.provider_uid) > 20:
+            return obj.provider_uid[:20] + "..."
+        return obj.provider_uid
+
+    @display(description="Customer")
+    def customer_link(self, obj):
+        from django.urls import reverse
+
+        url = reverse("admin:guestman_customer_change", args=[obj.customer.pk])
+        return format_html('<a href="{}">{}</a>', url, obj.customer.ref)
 
 
 # =============================================================================

@@ -3,10 +3,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from shopman.guestman.contrib.consent.models import CommunicationConsent
+from unfold.admin import ModelAdmin
 
 
 @admin.register(CommunicationConsent)
-class CommunicationConsentAdmin(admin.ModelAdmin):
+class CommunicationConsentAdmin(ModelAdmin):
     list_display = [
         "customer_link",
         "channel",

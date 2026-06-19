@@ -2,10 +2,11 @@
 
 from django.contrib import admin
 from shopman.guestman.contrib.preferences.models import CustomerPreference
+from unfold.admin import ModelAdmin
 
 
 @admin.register(CustomerPreference)
-class CustomerPreferenceAdmin(admin.ModelAdmin):
+class CustomerPreferenceAdmin(ModelAdmin):
     list_display = [
         "customer",
         "category",

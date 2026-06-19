@@ -29,6 +29,28 @@ _REGISTERED_MODELS = sorted(
 )
 
 
+# Core packages (packages/*). Every model whose admin lives in one of these is a
+# Core model and MUST be registered with an Unfold ``ModelAdmin`` at deployment
+# runtime — never a silent vanilla fallback (which happens if a contrib/admin_unfold
+# app drops out of INSTALLED_APPS). See test_core_models_use_unfold_admin.
+_CORE_MODULE_PREFIXES = (
+    "shopman.refs.",
+    "shopman.offerman.",
+    "shopman.stockman.",
+    "shopman.craftsman.",
+    "shopman.orderman.",
+    "shopman.guestman.",
+    "shopman.doorman.",
+    "shopman.payman.",
+    "shopman.utils.",
+)
+
+_CORE_MODELS = [
+    model for model in _REGISTERED_MODELS
+    if model.__module__.startswith(_CORE_MODULE_PREFIXES)
+]
+
+
 def _model_id(model) -> str:
     return f"{model._meta.app_label}.{model._meta.model_name}"
 
@@ -96,6 +118,26 @@ def test_change_form_renders_for_seeded_order(admin_client):
     response = admin_client.get(_admin_url(order.__class__, "change", order.pk))
     assert response.status_code == 200
     assert "Pagamentos" in response.content.decode("utf-8")
+
+
+@pytest.mark.parametrize("model", _CORE_MODELS, ids=_model_id)
+def test_core_models_use_unfold_admin(model):
+    """Contract (WP-C3): every Core model is registered with an Unfold ModelAdmin.
+
+    Each Core package ships a plain ``admin.py`` and (usually) a
+    ``contrib/admin_unfold`` app that unregisters the plain admin and re-registers
+    an Unfold one. If the contrib app silently drops out of INSTALLED_APPS, the
+    admin degrades to vanilla Django with no warning. This guard fails loudly so
+    that can never reach production unnoticed — no allowlist, no exceptions.
+    """
+    from unfold.admin import ModelAdmin as UnfoldModelAdmin
+
+    registered = admin.site._registry[model]
+    assert isinstance(registered, UnfoldModelAdmin), (
+        f"{_model_id(model)} caiu em admin vanilla "
+        f"({type(registered).__module__}.{type(registered).__name__}); "
+        "registre-o com unfold.admin.ModelAdmin (ou via contrib/admin_unfold)."
+    )
 
 
 @pytest.mark.django_db

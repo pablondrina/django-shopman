@@ -2,10 +2,11 @@
 
 from django.contrib import admin
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
+from unfold.admin import ModelAdmin
 
 
 @admin.register(CustomerIdentifier)
-class CustomerIdentifierAdmin(admin.ModelAdmin):
+class CustomerIdentifierAdmin(ModelAdmin):
     list_display = [
         "customer",
         "identifier_type",
