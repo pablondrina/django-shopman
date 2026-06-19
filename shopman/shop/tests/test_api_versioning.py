@@ -22,7 +22,7 @@ def client():
 
 @pytest.mark.django_db
 def test_api_cart_mounted_at_v1():
-    url = reverse("api-cart")
+    url = reverse("api-cart-sku-qty", args=["ANY-SKU"])
     assert url.startswith("/api/v1/"), url
 
 

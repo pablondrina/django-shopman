@@ -5,7 +5,7 @@ import logging
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
-from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny
@@ -13,21 +13,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.utils.phone import normalize_phone
 
-from shopman.shop.projections import catalog_context
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
-from shopman.storefront.cart import CHANNEL_REF, CartService
-from shopman.storefront.presentation import get_channel_listing_ref
-from shopman.storefront.services import catalog as catalog_service
+from shopman.storefront.cart import CHANNEL_REF
 from shopman.storefront.services import orders as order_service
 
 from .serializers import (
-    AddItemSerializer,
-    CartSerializer,
     CheckoutResponseSerializer,
     CheckoutSerializer,
     DetailSerializer,
-    UpdateItemSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,193 +31,13 @@ CHECKOUT_RATE_LIMIT_RETRY_SECONDS = 60
 
 
 def _cart_data(request):
-    """Resolve the cart DATA projection for the current visitor.
+    """Resolve the cart DATA projection for the current visitor (checkout commit).
 
-    The REST surface serializes this directly (``CartSerializer``) — the
-    headless contract reads the orchestrator read-side, not the legacy dict.
+    Reads the orchestrator read-side (``shop.projections.cart.CartProjection``).
     """
     from shopman.shop.projections.cart import build_cart
 
     return build_cart(request.session.get("cart_session_key"), CHANNEL_REF)
-
-
-def _stock_unit_count_label(qty: int) -> str:
-    unit_word = "unidade disponível" if qty == 1 else "unidades disponíveis"
-    return f"{qty} {unit_word}"
-
-
-def _stock_error_detail(exc) -> str:
-    available_qty = getattr(exc, "available_qty", None)
-    if available_qty is not None and available_qty > 0:
-        return f"Estoque disponível agora: {_stock_unit_count_label(available_qty)}."
-    return "Sem estoque disponível para a quantidade solicitada."
-
-
-@extend_schema_view(
-    get=extend_schema(
-        tags=["cart"],
-        summary="Get cart",
-        responses={200: CartSerializer},
-    ),
-)
-class CartView(APIView):
-    """
-    GET /api/v1/cart/
-
-    Returns the current cart contents.
-    """
-
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    serializer_class = CartSerializer
-
-    def get(self, request):
-        cart = _cart_data(request)
-        data = CartSerializer(cart).data
-        return Response(data)
-
-
-@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="post")
-class CartAddItemView(APIView):
-    """
-    POST /api/v1/cart/items/
-
-    Add an item to the cart. Requires sku and optional qty.
-    """
-
-    permission_classes = [AllowAny]
-    authentication_classes = [SessionAuthentication]
-    serializer_class = AddItemSerializer
-
-    @extend_schema(
-        tags=["cart"],
-        summary="Add cart item",
-        request=AddItemSerializer,
-        responses={
-            201: CartSerializer,
-            400: DetailSerializer,
-            404: DetailSerializer,
-            409: OpenApiResponse(description="Estoque insuficiente para a quantidade solicitada."),
-        },
-    )
-    def post(self, request):
-        if getattr(request, "limited", False):
-            return Response(
-                {"detail": "Muitas tentativas. Aguarde um instante."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-        serializer = AddItemSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        sku = serializer.validated_data["sku"]
-        qty = serializer.validated_data["qty"]
-
-        product = catalog_service.get_sellable_published_product(sku)
-        if product is None:
-            return Response(
-                {"detail": "Product not found or unavailable."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        price_q = catalog_context.price_q_for_product(product, listing_ref=get_channel_listing_ref())
-        if price_q is None:
-            return Response(
-                {"detail": "No price available for this product."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        from shopman.shop.services.cart import CartUnavailableError
-
-        try:
-            CartService.add_item(
-                request,
-                sku,
-                qty,
-                price_q,
-                is_d1=catalog_context.is_d1_only(product.sku, channel_ref=CHANNEL_REF),
-            )
-        except CartUnavailableError as exc:
-            return Response(
-                {
-                    "detail": _stock_error_detail(exc),
-                    "error_code": exc.error_code,
-                    "sku": exc.sku,
-                    "requested_qty": exc.requested_qty,
-                    "available_qty": exc.available_qty,
-                    "is_paused": exc.is_paused,
-                    "substitutes": exc.substitutes,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        cart = _cart_data(request)
-        data = CartSerializer(cart).data
-        return Response(data, status=status.HTTP_201_CREATED)
-
-
-@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="PATCH", block=False), name="patch")
-@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="DELETE", block=False), name="delete")
-class CartItemView(APIView):
-    """
-    PATCH /api/v1/cart/items/{line_id}/ — update quantity
-    DELETE /api/v1/cart/items/{line_id}/ — remove item
-    """
-
-    permission_classes = [AllowAny]
-    authentication_classes = [SessionAuthentication]
-    serializer_class = UpdateItemSerializer
-
-    @extend_schema(
-        tags=["cart"],
-        summary="Update cart item quantity",
-        request=UpdateItemSerializer,
-        responses={200: CartSerializer, 404: DetailSerializer},
-    )
-    def patch(self, request, line_id):
-        if getattr(request, "limited", False):
-            return Response(
-                {"detail": "Muitas tentativas. Aguarde um instante."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-        serializer = UpdateItemSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        qty = serializer.validated_data["qty"]
-
-        try:
-            CartService.update_qty(request, line_id, qty)
-        except ValueError:
-            return Response(
-                {"detail": "No active cart."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        cart = _cart_data(request)
-        data = CartSerializer(cart).data
-        return Response(data)
-
-    @extend_schema(
-        tags=["cart"],
-        summary="Remove cart item",
-        responses={200: CartSerializer, 404: DetailSerializer},
-    )
-    def delete(self, request, line_id):
-        if getattr(request, "limited", False):
-            return Response(
-                {"detail": "Muitas tentativas. Aguarde um instante."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-        try:
-            CartService.remove_item(request, line_id)
-        except ValueError:
-            return Response(
-                {"detail": "No active cart."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        cart = _cart_data(request)
-        data = CartSerializer(cart).data
-        return Response(data)
 
 
 @method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")

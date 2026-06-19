@@ -5,7 +5,7 @@
 > no apex). A revisão às avessas que a originou já foi **executada**: a seção final
 > (**Estado da revisão**) registra o que foi resolvido (WP-1..11) e o que de fato resta em aberto.
 >
-> Data: 2026-06-18. Base: branch `review/storefront-gaps` (WP-1..11 + WP-9/WP-10; não mergeada).
+> Data: 2026-06-18. Base: `main` (WP-1..11 + WP-9/WP-10 mergeados, `5a2a0ed7`; deployado no staging).
 > Os WPs e decisões estão em [`STOREFRONT-GAPS-ACTION-PLAN.md`](../plans/STOREFRONT-GAPS-ACTION-PLAN.md).
 
 ---
@@ -69,8 +69,9 @@ GETs de storefront fazem `ensure_csrf_cookie` (estabelecem sessão+token).
 + o carrinho. Catálogo público: `catalog/products/` (filtros collection/search/available, paginado),
 `catalog/products/<sku>/`, `catalog/collections/`, `availability/<sku>/` (cache 10s).
 
-**Carrinho:** `PUT /api/v1/cart/skus/<sku>/` (set qty absoluta; 409 com `available_qty`+substitutos+ações
-em falta de estoque; 120/m), `cart/coupon/` (POST/DELETE). (`cart/items/…` legado ainda existe.)
+**Carrinho:** `PUT /api/v1/cart/skus/<sku>/` (set qty absoluta; qty ∈ [0,99] validado no serializer
+antes da lógica; 409 com `available_qty`+substitutos+ações em falta de estoque; 120/m), `cart/coupon/`
+(POST/DELETE). *(O endpoint legado `cart/items/` foi removido — limpeza total.)*
 
 **Checkout:** `POST /api/v1/checkout/` (commit; 3/m; valida calendário, slot, endereço, zona, presente,
 loyalty), `PATCH /api/v1/checkout/draft/` (cotação de zona antes do commit), `PATCH /api/v1/checkout/loyalty/`.
@@ -131,21 +132,27 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
   nutrição), não são digitados no produto. Aviso dietético (badge) só com conflito claro vs uma
   preferência ativa do cliente — nunca por ausência de dado.
 - **Disponibilidade & holds:** `availability.reserve()` cria hold pendente por `(session_key, sku)`,
-  TTL ~30min. **Planned hold (fermata):** produção sob demanda → `metadata.planned=True`,
-  `expires_at=None` até materializar; estados `is_awaiting_confirmation`→`is_ready_for_confirmation`
-  (com deadline). Web: `check_on_commit=False` (confia nos holds); POS/marketplace re-verifica.
+  TTL ~30min (hold normal). **Planned hold (*fermata* — nome conceitual interno):** produção sob
+  demanda → `metadata.planned=True` e **`expires_at=None` — indefinido por definição**: o hold NÃO
+  expira por tempo; só muda quando o operador sinaliza o planejado como realizado (ou uma confirmação
+  negativa). Estados `is_awaiting_confirmation`→`is_ready_for_confirmation`. Web: `check_on_commit=False`
+  (confia nos holds); POS/marketplace re-verifica.
 - **Slots de retirada:** mediana do `WorkOrder.finished_at` por SKU (30d, arredonda p/ 30min) → gargalo
-  define o slot mais cedo. **Regra de hora:** não vende retirada/entrega HOJE após o fechamento; slot
-  passado é rejeitado. Preorder: `today ≤ data ≤ today+max_preorder_days`, fora de `closed_dates`.
+  define o slot mais cedo. **Fallback p/ pouca/nenhuma amostra:** SKU sem histórico é omitido (não
+  distorce o gargalo); se NENHUM SKU do carrinho tem histórico, usa o `fallback_slot` configurável em
+  `Shop.defaults["pickup_slot_config"]` (ou o 1º slot), sempre respeitando o relógio de hoje. **Regra de
+  hora:** não vende retirada/entrega HOJE após o fechamento; slot passado é rejeitado. Preorder:
+  `today ≤ data ≤ today+max_preorder_days`, fora de `closed_dates`.
 - **Pagamento:** timing `at_commit`/`post_commit`/`external` por `ChannelConfig`. PIX (QR+copia-cola,
   `expires_at`) / cartão (intent + captura na confirmação). Expiry → cancela + libera holds.
-- **Confirmação otimista:** `immediate`/`auto_confirm`/`auto_cancel`/`manual` via `ChannelConfig`;
-  auto-confirma se operador não cancelar no prazo (Directive `confirmation.timeout`, resolvido quando
-  a superfície do cliente abre o pedido).
+- **Confirmação — otimista vs pessimista por CANAL:** `immediate`/`auto_confirm`/`auto_cancel`/`manual`
+  via `ChannelConfig` (não é global). **Storefront = otimista** (auto-confirma se o operador não cancelar
+  no prazo — Directive `confirmation.timeout`, resolvido quando o cliente abre o pedido); canais como
+  **iFood são pessimistas** (exigem confirmação ativa do operador). A postura é config do canal.
 - **Recompra:** `add_reorder_items()` refaz **qualquer pedido acessível** (`POST /orders/<ref>/reorder/`,
   botão "Refazer" por pedido no histórico) — re-resolve SKU publicado/vendável, pula indisponíveis,
-  conflito append/replace se o carrinho tem itens. `last_reorder_context()` é só o atalho do home
-  ("refazer o último", `min_days`).
+  conflito append/replace se o carrinho tem itens. O **último pedido é a opção PADRÃO** de recompra (o
+  atalho do home, `last_reorder_context()`, `min_days`); o histórico permite escolher qualquer outro.
 - **Cupom/loyalty:** cupom valida `Coupon` ativo+disponível+promo vigente → `session.data["coupon_code"]`;
   loyalty `redeem_points_q` em `session.data["loyalty"]`; ambos re-rodam os modifiers de preço. Earn
   pós-conclusão (1 ponto/R$1, no handler).
@@ -221,6 +228,10 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 - **Loyalty — tier sem cor** (decisão de design, não bug): o card é **neutro por intenção** (cor só no
   ícone/selos via `text-primary`); tier aparece só como texto. Dar accent por tier (bronze/prata/ouro)
   é escolha de design — vai contra o neutro-first. Aguarda decisão do Pablo, não é débito.
+- **Loyalty não é admin-configurável "elegantemente"** (melhoria futura): o **earn rate é hardcoded**
+  (`1 ponto/R$1` em `shop/handlers/loyalty.py`); os **tier thresholds** são via `settings.GUESTMAN_LOYALTY`
+  (env/código, **não** admin); `stamps_target` é campo por-conta. Caminho limpo: mover earn rate +
+  thresholds + stamps p/ `Shop.defaults` dataclass-driven (como `pickup_slots`), editável no admin.
 - **AccessLink `audience` não enforçado na troca** — validado na criação, não no exchange. **Decisão de
   design:** o `/a` é uma ponte genérica (destino vem da metadata, não da audience); enforçar exigiria
   definir qual audience o exchange genérico requer. Débito de defense-in-depth, baixo risco.

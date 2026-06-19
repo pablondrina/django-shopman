@@ -4,34 +4,6 @@ from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 
-class CartItemSerializer(serializers.Serializer):
-    line_id = serializers.CharField(read_only=True)
-    sku = serializers.CharField()
-    qty = serializers.IntegerField(min_value=1)
-    unit_price_q = serializers.IntegerField(read_only=True)
-    line_total_q = serializers.IntegerField(read_only=True)
-    name = serializers.CharField(read_only=True, required=False)
-
-
-class CartSerializer(serializers.Serializer):
-    # ``source="lines"`` so the serializer reads the cart DATA projection
-    # (``shop.projections.cart.CartProjection``) directly — the headless REST
-    # contract serves the orchestrator read-side, not the legacy dict.
-    items = CartItemSerializer(many=True, read_only=True, source="lines")
-    subtotal_q = serializers.IntegerField(read_only=True)
-    count = serializers.IntegerField(read_only=True)
-    session_key = serializers.CharField(read_only=True, required=False)
-
-
-class AddItemSerializer(serializers.Serializer):
-    sku = serializers.CharField(max_length=64)
-    qty = serializers.IntegerField(min_value=1, max_value=99, default=1)
-
-
-class UpdateItemSerializer(serializers.Serializer):
-    qty = serializers.IntegerField(min_value=1, max_value=99)
-
-
 class SetSkuQtySerializer(serializers.Serializer):
     qty = serializers.IntegerField(min_value=0, max_value=99)
 

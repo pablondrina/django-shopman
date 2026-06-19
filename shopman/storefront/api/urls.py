@@ -66,11 +66,8 @@ urlpatterns = [
     path("auth/trust-device/", TrustDeviceView.as_view(), name="api-auth-trust-device"),
     path("auth/logout/", LogoutView.as_view(), name="api-auth-logout"),
     # Cart
-    path("cart/", views.CartView.as_view(), name="api-cart"),
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),
     path("cart/coupon/", CartCouponView.as_view(), name="api-cart-coupon"),
-    path("cart/items/", views.CartAddItemView.as_view(), name="api-cart-add"),
-    path("cart/items/<str:line_id>/", views.CartItemView.as_view(), name="api-cart-item"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="api-checkout"),
     path("checkout/draft/", CheckoutDraftView.as_view(), name="api-checkout-draft"),
