@@ -331,6 +331,101 @@ class TestShopAdminLoyaltyDefaults:
         assert "defaults_loyalty_tier_gold_threshold" in form.errors
 
 
+class TestRuleConfigTypedParams:
+    """WP-3 — params de regras conhecidas editados como campos tipados."""
+
+    @pytest.fixture
+    def happy_hour_rule(self, db):
+        return RuleConfig.objects.create(
+            code="happy_hour",
+            rule_path="shopman.shop.rules.pricing.HappyHourRule",
+            label="Hora da Xepa",
+            params={"discount_percent": 25, "start": "17:30", "end": "18:00"},
+            priority=65,
+        )
+
+    def test_form_exposes_typed_fields_for_known_rule(self, happy_hour_rule):
+        from shopman.shop.admin.rules import RuleConfigForm
+
+        form = RuleConfigForm(instance=happy_hour_rule)
+        assert "params" not in form.fields
+        assert form.fields["param_discount_percent"].initial == 25
+        assert form.fields["param_start"].initial == "17:30"
+        assert form.fields["param_end"].initial == "18:00"
+
+    def test_form_saves_typed_fields_back_to_params(self, happy_hour_rule):
+        from shopman.shop.admin.rules import RuleConfigForm
+
+        data = {
+            "code": "happy_hour",
+            "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
+            "label": "Hora da Xepa",
+            "enabled": "on",
+            "priority": "65",
+            "param_discount_percent": "30",
+            "param_start": "17:00",
+            "param_end": "19:00",
+        }
+        form = RuleConfigForm(data=data, instance=happy_hour_rule)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.params == {"discount_percent": 30, "start": "17:00", "end": "19:00"}
+
+    def test_form_preserves_extra_param_keys(self, db):
+        from shopman.shop.admin.rules import RuleConfigForm
+
+        rule = RuleConfig.objects.create(
+            code="employee_discount",
+            rule_path="shopman.shop.rules.pricing.EmployeeRule",
+            label="Desconto Funcionário",
+            params={"discount_percent": 20, "group": "staff"},
+            priority=60,
+        )
+        data = {
+            "code": "employee_discount",
+            "rule_path": "shopman.shop.rules.pricing.EmployeeRule",
+            "label": "Desconto Funcionário",
+            "enabled": "on",
+            "priority": "60",
+            "param_discount_percent": "15",
+        }
+        form = RuleConfigForm(data=data, instance=rule)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.params == {"discount_percent": 15, "group": "staff"}
+
+    def test_happy_hour_rejects_inverted_window(self, happy_hour_rule):
+        from shopman.shop.admin.rules import RuleConfigForm
+
+        data = {
+            "code": "happy_hour",
+            "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
+            "label": "Hora da Xepa",
+            "enabled": "on",
+            "priority": "65",
+            "param_discount_percent": "25",
+            "param_start": "19:00",
+            "param_end": "17:00",
+        }
+        form = RuleConfigForm(data=data, instance=happy_hour_rule)
+        assert not form.is_valid()
+        assert "param_end" in form.errors
+
+    def test_unknown_rule_keeps_raw_json_params(self, db):
+        from shopman.shop.admin.rules import RuleConfigForm
+
+        rule = RuleConfig.objects.create(
+            code="business_hours",
+            rule_path="shopman.shop.rules.validation.BusinessHoursRule",
+            label="Horário de Funcionamento",
+            params={},
+            priority=10,
+        )
+        form = RuleConfigForm(instance=rule)
+        assert "params" in form.fields
+        assert "param_discount_percent" not in form.fields
+
+
 class TestShopAdminSingleton:
     def test_has_add_permission_when_empty(self, db, rf, admin_user):
         shop_admin = admin.site._registry[Shop]
