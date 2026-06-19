@@ -102,7 +102,15 @@ def get_sidebar_navigation(request):
         # mensagens → estação/operação. A config de fidelidade vive dentro da
         # "Configuração da Loja" (fieldset), por isso não tem item próprio aqui.
         _group("Configurações", "settings", [
-            _item("Configuração da Loja", "tune", _url("admin:shop_shop_changelist"), permission=_is_staff),
+            _item("Loja & contato", "store", _url("admin:shop_shop_changelist"), permission=_is_staff),
+            _item("Marca & aparência", "palette", _url("admin:shop_shopappearance_changelist"), permission=_is_staff),
+            _item("Horários & operação", "schedule", _url("admin:shop_shopoperation_changelist"), permission=_is_staff),
+            _item("Cardápio", "restaurant_menu", _url("admin:shop_shopmenu_changelist"), permission=_is_staff),
+            _item("Pedidos & entrega", "local_shipping", _url("admin:shop_shopordering_changelist"), permission=_is_staff),
+            _item("Fidelidade", "loyalty", _url("admin:shop_shoployalty_changelist"), permission=_is_staff),
+            _item("PDV & alertas", "point_of_sale", _url("admin:shop_shoppos_changelist"), permission=_is_staff),
+            _item("Produção", "manufacturing", _url("admin:shop_shopproduction_changelist"), permission=_is_staff),
+            _item("Integrações", "extension", _url("admin:shop_shopintegrations_changelist"), permission=_is_staff),
             _item("Canais", "storefront", _url("admin:shop_channel_changelist"), permission=_is_staff),
             _item("Promoções", "sell", _url("admin:storefront_promotion_changelist"), permission=_is_staff),
             _item("Cupons", "confirmation_number", _url("admin:storefront_coupon_changelist"), permission=_is_staff),

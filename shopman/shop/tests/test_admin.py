@@ -109,13 +109,15 @@ class TestShopAdminStorefrontPreview:
     """WP-S4 — iframe preview no change do Shop."""
 
     def test_readonly_fields_include_storefront_preview(self, db):
-        shop_admin = admin.site._registry[Shop]
-        assert "storefront_preview" in (shop_admin.readonly_fields or ())
+        from shopman.shop.models import ShopAppearance
+
+        appearance_admin = admin.site._registry[ShopAppearance]
+        assert "storefront_preview" in (appearance_admin.readonly_fields or ())
 
     def test_change_page_contains_preview_iframe(self, db, admin_user, shop):
         client = Client()
         client.force_login(admin_user)
-        url = reverse("admin:shop_shop_change", args=[shop.pk])
+        url = reverse("admin:shop_shopappearance_change", args=[shop.pk])
         resp = client.get(url)
         assert resp.status_code == 200
         assert b"storefront-preview-iframe" in resp.content
@@ -126,7 +128,7 @@ class TestShopAdminOpeningHours:
     def test_change_page_uses_structured_opening_hour_fields(self, db, admin_user, shop):
         client = Client()
         client.force_login(admin_user)
-        url = reverse("admin:shop_shop_change", args=[shop.pk])
+        url = reverse("admin:shop_shopoperation_change", args=[shop.pk])
         resp = client.get(url)
         assert resp.status_code == 200
         assert b'name="opening_hours_wednesday_status"' in resp.content
@@ -162,16 +164,23 @@ class TestShopAdminOpeningHours:
 
 
 class TestShopAdminDefaults:
-    def test_change_page_uses_structured_defaults_fields(self, db, admin_user, shop):
+    def test_structured_defaults_fields_live_on_focused_pages(self, db, admin_user, shop):
         client = Client()
         client.force_login(admin_user)
-        url = reverse("admin:shop_shop_change", args=[shop.pk])
-        resp = client.get(url)
-        assert resp.status_code == 200
-        assert b'name="defaults_dynamic_collection_1"' in resp.content
-        assert b'name="defaults_pickup_slot_1_ref"' in resp.content
-        assert b'name="defaults_closed_date_1_date"' in resp.content
-        assert b'name="defaults"' not in resp.content
+        # Cada domínio na sua própria página (proxy), não num scroll único.
+        pages = {
+            "shop_shopmenu_change": b'name="defaults_dynamic_collection_1"',
+            "shop_shopordering_change": b'name="defaults_pickup_slot_1_ref"',
+            "shop_shopoperation_change": b'name="defaults_closed_date_1_date"',
+        }
+        for url_name, field in pages.items():
+            resp = client.get(reverse(f"admin:{url_name}", args=[shop.pk]))
+            assert resp.status_code == 200, url_name
+            assert field in resp.content, url_name
+            assert b'name="defaults"' not in resp.content, url_name
+        # A página base (Loja & contato) não carrega os defaults.
+        base = client.get(reverse("admin:shop_shop_change", args=[shop.pk]))
+        assert b'name="defaults_pickup_slot_1_ref"' not in base.content
 
     def test_form_saves_defaults_from_structured_fields(self, shop):
         from shopman.shop.admin.shop import ShopForm
@@ -270,7 +279,7 @@ class TestShopAdminLoyaltyDefaults:
     def test_change_page_uses_structured_loyalty_fields(self, db, admin_user, shop):
         client = Client()
         client.force_login(admin_user)
-        resp = client.get(reverse("admin:shop_shop_change", args=[shop.pk]))
+        resp = client.get(reverse("admin:shop_shoployalty_change", args=[shop.pk]))
         assert resp.status_code == 200
         assert b'name="defaults_loyalty_points_per_real"' in resp.content
         assert b'name="defaults_loyalty_stamps_target"' in resp.content
@@ -531,6 +540,58 @@ class TestRuleConfigTypedParams:
         form = RuleConfigForm(instance=rule)
         assert "params" in form.fields
         assert "param_discount_percent" not in form.fields
+
+
+class TestProxyPagesIsolation:
+    """WP-7 — salvar uma página focada NÃO apaga os outros domínios."""
+
+    def test_saving_loyalty_page_preserves_pos_and_rules(self, shop):
+        from shopman.shop.admin.shop import _LOYALTY_FIELDSETS, _section_form
+
+        shop.defaults = {
+            "loyalty": {"points_per_real": 1, "stamps_target": 10,
+                        "tiers": [{"name": "bronze", "threshold": 0}]},
+            "pos": {"discount_approval_threshold_q": 500},
+            "rules": {"minimum_order_q": 1500},
+        }
+        shop.save(update_fields=["defaults"])
+
+        LoyaltyForm = _section_form(_LOYALTY_FIELDSETS)
+        bound = LoyaltyForm(instance=shop)
+        # só os campos de fidelidade existem nesta página
+        assert "defaults_pos_discount_approval_threshold_q" not in bound.fields
+        data = {
+            name: ("" if field.initial is None else field.initial)
+            for name, field in bound.fields.items()
+        }
+        data["defaults_loyalty_points_per_real"] = "3"
+
+        form = LoyaltyForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.defaults["loyalty"]["points_per_real"] == 3
+        # Outros domínios intactos.
+        assert saved.defaults["pos"]["discount_approval_threshold_q"] == 500
+        assert saved.defaults["rules"]["minimum_order_q"] == 1500
+
+    def test_proxy_pages_registered(self, db):
+        from shopman.shop.models import (
+            ShopAppearance,
+            ShopIntegrations,
+            ShopLoyalty,
+            ShopMenu,
+            ShopOperation,
+            ShopOrdering,
+            ShopPos,
+            ShopProduction,
+        )
+
+        for model in (
+            ShopAppearance, ShopOperation, ShopMenu, ShopOrdering,
+            ShopLoyalty, ShopPos, ShopProduction, ShopIntegrations,
+        ):
+            assert model in admin.site._registry
 
 
 class TestShopAdminSingleton:

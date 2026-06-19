@@ -69,9 +69,12 @@ class AdminNavigationTests(TestCase):
         config_group = next(group for group in groups if group["title"] == "Configurações")
         config_items = {item["title"] for item in config_group["items"] if item["has_permission"]}
 
-        # Tudo que é config vive aqui.
+        # Tudo que é config vive aqui — incl. as páginas focadas da Loja (WP-7).
         for expected in {
-            "Configuração da Loja", "Canais", "Promoções", "Cupons",
+            "Loja & contato", "Marca & aparência", "Horários & operação",
+            "Cardápio", "Pedidos & entrega", "Fidelidade", "PDV & alertas",
+            "Produção", "Integrações",
+            "Canais", "Promoções", "Cupons",
             "Regras de preço", "Faixas de distância", "Zonas de entrega",
             "Grupos de clientes", "Copy Omotenashi", "Templates de notificação",
             "Estações KDS", "POS tabs",
@@ -87,7 +90,7 @@ class AdminNavigationTests(TestCase):
         catalog_group = next(group for group in groups if group["title"] == "Catálogo")
         catalog_items = {item["title"] for item in catalog_group["items"]}
         self.assertNotIn("Promoções", catalog_items)
-        self.assertNotIn("Configuração da Loja", catalog_items)
+        self.assertNotIn("Loja & contato", catalog_items)
 
     def test_sidebar_badges_count_operational_attention(self) -> None:
         Order.objects.create(
