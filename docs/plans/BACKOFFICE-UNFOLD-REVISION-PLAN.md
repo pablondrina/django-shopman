@@ -55,6 +55,11 @@ resolvidos** — ignore-os:
 
 ## 2. CAMADA 1 — Correção funcional, sem gambiarra (P0)
 
+> **Estado (2026-06-19): CAMADA 1 ENTREGUE.** WP-C1 ✅ `80ac462b`, WP-C4 ✅ `9fc33b94`,
+> WP-C2 ✅ `8cf7c13e`, WP-C3 ✅ `f1378ad2`. WP-C5 ⏸️ adiado p/ SURFACE-CONVERGENCE.
+> Tudo na branch `feat/admin-config-omotenashi`. `make test`(2077)/`lint`/`admin` verdes;
+> verificado ao vivo. Próximo: Camada 2 (D1-D5) em sessão nova.
+
 > Critério: cada superfície abre, salva e executa ações sem erro; zero HTML/JS cru "na mão"
 > onde há primitiva Unfold; zero monkey-patching; zero acoplamento frágil. `make admin` verde
 > de verdade (não por waiver preguiçoso).
@@ -118,7 +123,11 @@ falha se algum cair em vanilla. Documentar o contrato.
 cada model (com um objeto seed), + GET de cada página `admin_console`, afirmando 200 e ausência
 de erro de template/field. Pega `list_display`/`fieldsets` quebrados, ações órfãs, imports.
 
-### WP-C5 — Higiene de superfícies legado (coordenar com SURFACE-CONVERGENCE-PLAN)
+### WP-C5 — Higiene de superfícies legado (coordenar com SURFACE-CONVERGENCE-PLAN) ⏸️ ADIADO
+> Adiado por decisão do Pablo (2026-06-19): o kill do POS-HTMX legado (migração de ~12 testes
+> `test_pos_*` + remoção de views/templates/rotas) será tratado no `SURFACE-CONVERGENCE-PLAN`,
+> não nesta revisão. Camada 1 entregue como C1-C4 + C3.
+
 POS-HTMX legado (`backstage/views/pos.py`, `templates/pos/`) está morto-vivo (POS é Nuxt). Não é
 "Unfold", mas polui o backoffice/nav. **Ação:** confirmar com o Pablo o kill (migrar ~12 testes
 `test_pos_*` para a API Nuxt antes), e limpar nav/rotas órfãs. Fora do escopo se o Pablo preferir
