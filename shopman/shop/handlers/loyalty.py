@@ -39,8 +39,12 @@ class LoyaltyEarnHandler:
             logger.warning("loyalty.earn: no customer_ref on order %s, skipping", order_ref)
             return
 
-        # Calculate points: 1 point per R$ 1,00 (100 centavos)
-        points = order.total_q // 100
+        # Calculate points: points_per_real por R$ 1,00 (100 centavos),
+        # configurável via Shop.defaults["loyalty"] (admin).
+        from shopman.shop.loyalty_config import resolve_loyalty_config
+
+        config = resolve_loyalty_config()
+        points = (order.total_q // 100) * config.points_per_real
         if points <= 0:
             return
 

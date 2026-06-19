@@ -14,7 +14,10 @@ from shopman.guestman.models import Customer
 logger = logging.getLogger(__name__)
 
 
-from shopman.guestman.contrib.loyalty.conf import get_tier_thresholds
+from shopman.guestman.contrib.loyalty.conf import (
+    get_default_stamps_target,
+    get_tier_thresholds,
+)
 
 
 class LoyaltyService:
@@ -42,7 +45,10 @@ class LoyaltyService:
             Customer.DoesNotExist: If customer not found
         """
         customer = Customer.objects.get(ref=customer_ref, is_active=True)
-        account, _ = LoyaltyAccount.objects.get_or_create(customer=customer)
+        account, _ = LoyaltyAccount.objects.get_or_create(
+            customer=customer,
+            defaults={"stamps_target": get_default_stamps_target()},
+        )
         return account
 
     @classmethod

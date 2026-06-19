@@ -222,6 +222,16 @@ class Command(BaseCommand):
                     },
                     "high_demand_multiplier": "1.2",
                     "safety_stock_percent": "0.20",
+                    "loyalty": {
+                        "points_per_real": 1,    # 1 ponto por R$ 1,00
+                        "stamps_target": 10,     # cartela de 10 carimbos
+                        "tiers": [
+                            {"name": "bronze", "threshold": 0},
+                            {"name": "silver", "threshold": 500},
+                            {"name": "gold", "threshold": 2000},
+                            {"name": "platinum", "threshold": 5000},
+                        ],
+                    },
                 },
             },
         )

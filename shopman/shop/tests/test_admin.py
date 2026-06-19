@@ -264,6 +264,73 @@ class TestShopAdminDefaults:
         assert saved.defaults["safety_stock_percent"] == "0.15"
 
 
+class TestShopAdminLoyaltyDefaults:
+    """WP-1 — fidelidade editável como campos estruturados no ShopForm."""
+
+    def test_change_page_uses_structured_loyalty_fields(self, db, admin_user, shop):
+        client = Client()
+        client.force_login(admin_user)
+        resp = client.get(reverse("admin:shop_shop_change", args=[shop.pk]))
+        assert resp.status_code == 200
+        assert b'name="defaults_loyalty_points_per_real"' in resp.content
+        assert b'name="defaults_loyalty_stamps_target"' in resp.content
+        assert b'name="defaults_loyalty_tier_silver_threshold"' in resp.content
+        assert b'name="defaults_loyalty_tier_platinum_threshold"' in resp.content
+
+    def test_initial_reflects_existing_loyalty_block(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.defaults = {"loyalty": {"points_per_real": 3, "stamps_target": 8, "tiers": [
+            {"name": "bronze", "threshold": 0},
+            {"name": "silver", "threshold": 250},
+        ]}}
+        shop.save(update_fields=["defaults"])
+
+        form = ShopForm(instance=shop)
+        assert form.fields["defaults_loyalty_points_per_real"].initial == 3
+        assert form.fields["defaults_loyalty_stamps_target"].initial == 8
+        assert form.fields["defaults_loyalty_tier_silver_threshold"].initial == 250
+        # Tier ausente no bloco fica vazio.
+        assert form.fields["defaults_loyalty_tier_gold_threshold"].initial is None
+
+    def test_form_saves_loyalty_from_structured_fields(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data["defaults_loyalty_points_per_real"] = "2"
+        data["defaults_loyalty_stamps_target"] = "12"
+        data["defaults_loyalty_tier_silver_threshold"] = "400"
+        data["defaults_loyalty_tier_gold_threshold"] = "1800"
+        data["defaults_loyalty_tier_platinum_threshold"] = "4000"
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.defaults["loyalty"] == {
+            "points_per_real": 2,
+            "stamps_target": 12,
+            "tiers": [
+                {"name": "bronze", "threshold": 0},
+                {"name": "silver", "threshold": 400},
+                {"name": "gold", "threshold": 1800},
+                {"name": "platinum", "threshold": 4000},
+            ],
+        }
+
+    def test_non_ascending_tiers_rejected(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data["defaults_loyalty_tier_silver_threshold"] = "2000"
+        data["defaults_loyalty_tier_gold_threshold"] = "1000"  # menor que prata → erro
+        data["defaults_loyalty_tier_platinum_threshold"] = "5000"
+
+        form = ShopForm(data=data, instance=shop)
+        assert not form.is_valid()
+        assert "defaults_loyalty_tier_gold_threshold" in form.errors
+
+
 class TestShopAdminSingleton:
     def test_has_add_permission_when_empty(self, db, rf, admin_user):
         shop_admin = admin.site._registry[Shop]

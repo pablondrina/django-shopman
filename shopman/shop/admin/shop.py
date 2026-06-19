@@ -25,6 +25,12 @@ from unfold.widgets import (
 from shopman.shop import dynamic_collections
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
+from shopman.shop.loyalty_config import (
+    DEFAULT_POINTS_PER_REAL,
+    DEFAULT_STAMPS_TARGET,
+    TIER_LABELS,
+    LoyaltyConfig,
+)
 from shopman.shop.models import NotificationTemplate, Shop
 
 logger = logging.getLogger(__name__)
@@ -57,6 +63,9 @@ DEFAULTS_DYNAMIC_COLLECTION_ROWS = 5
 DEFAULTS_PICKUP_SLOT_ROWS = 5
 DEFAULTS_CLOSED_DATE_ROWS = 8
 
+# Tiers editáveis no admin (bronze é o piso, sempre em 0 — não editável).
+DEFAULTS_LOYALTY_TIERS = ("silver", "gold", "platinum")
+
 
 def _opening_field(day: str, suffix: str) -> str:
     return f"opening_hours_{day}_{suffix}"
@@ -72,6 +81,10 @@ def _defaults_pickup_field(index: int, suffix: str) -> str:
 
 def _defaults_closed_date_field(index: int, suffix: str) -> str:
     return f"defaults_closed_date_{index}_{suffix}"
+
+
+def _defaults_loyalty_tier_field(name: str) -> str:
+    return f"defaults_loyalty_tier_{name}_threshold"
 
 
 def _dynamic_collection_choices() -> tuple[tuple[str, str], ...]:
@@ -264,6 +277,35 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             label=f"Feriado {index} rótulo",
             required=False,
             widget=UnfoldAdminTextInputWidget,
+        )
+    fields["defaults_loyalty_points_per_real"] = forms.IntegerField(
+        label="Pontos por R$ 1,00",
+        required=False,
+        min_value=0,
+        max_value=1000,
+        widget=UnfoldAdminIntegerFieldWidget,
+        help_text="Pontos que o cliente ganha a cada R$ 1,00 gasto. Ex.: 1 = 1 ponto por real. 0 desliga o acúmulo.",
+    )
+    fields["defaults_loyalty_stamps_target"] = forms.IntegerField(
+        label="Carimbos para o prêmio",
+        required=False,
+        min_value=1,
+        max_value=100,
+        widget=UnfoldAdminIntegerFieldWidget,
+        help_text="Quantos carimbos completam uma cartela. Aplica-se às novas contas de fidelidade.",
+    )
+    tier_help = {
+        "silver": "Pontos acumulados (na vida toda) para o cliente chegar ao nível Prata.",
+        "gold": "Pontos acumulados para chegar ao nível Ouro.",
+        "platinum": "Pontos acumulados para chegar ao nível Platina.",
+    }
+    for name in DEFAULTS_LOYALTY_TIERS:
+        fields[_defaults_loyalty_tier_field(name)] = forms.IntegerField(
+            label=f"Nível {TIER_LABELS[name]} a partir de",
+            required=False,
+            min_value=1,
+            widget=UnfoldAdminIntegerFieldWidget,
+            help_text=tier_help[name],
         )
     return fields
 
@@ -508,6 +550,13 @@ class ShopForm(forms.ModelForm):
         for field_name, key in DEFAULTS_RULE_Q_FIELDS:
             self.fields[field_name].initial = _q_to_reais(rules.get(key))
 
+        loyalty = LoyaltyConfig.from_defaults(defaults)
+        self.fields["defaults_loyalty_points_per_real"].initial = loyalty.points_per_real
+        self.fields["defaults_loyalty_stamps_target"].initial = loyalty.stamps_target
+        tier_by_name = {tier["name"]: tier["threshold"] for tier in loyalty.tiers}
+        for name in DEFAULTS_LOYALTY_TIERS:
+            self.fields[_defaults_loyalty_tier_field(name)].initial = tier_by_name.get(name)
+
         pickup_slots = defaults.get("pickup_slots") if isinstance(defaults.get("pickup_slots"), list) else []
         for index, slot in enumerate(pickup_slots[:DEFAULTS_PICKUP_SLOT_ROWS], start=1):
             if not isinstance(slot, dict):
@@ -598,6 +647,23 @@ class ShopForm(forms.ModelForm):
                 cleaned_data[field] = _parse_months(cleaned_data.get(field), label)
             except forms.ValidationError as exc:
                 self.add_error(field, exc)
+
+        # Limiares dos níveis devem subir: bronze(0) < prata < ouro < platina.
+        previous_threshold = 0
+        previous_label = TIER_LABELS["bronze"]
+        for name in DEFAULTS_LOYALTY_TIERS:
+            field = _defaults_loyalty_tier_field(name)
+            threshold = cleaned_data.get(field)
+            if threshold is None:
+                continue
+            if threshold <= previous_threshold:
+                self.add_error(
+                    field,
+                    f"O nível {TIER_LABELS[name]} precisa exigir mais pontos que {previous_label}.",
+                )
+            else:
+                previous_threshold = threshold
+                previous_label = TIER_LABELS[name]
 
     def _existing_extra_pickup_slots(self) -> list[dict]:
         pickup_slots = _shop_defaults(self.instance).get("pickup_slots")
@@ -728,6 +794,23 @@ class ShopForm(forms.ModelForm):
         for field_name, key in DEFAULTS_RULE_Q_FIELDS:
             rules[key] = _reais_to_q(self.cleaned_data.get(field_name))
         defaults["rules"] = rules
+
+        loyalty = defaults.get("loyalty") if isinstance(defaults.get("loyalty"), dict) else {}
+        loyalty = dict(loyalty)
+        points_per_real = self.cleaned_data.get("defaults_loyalty_points_per_real")
+        loyalty["points_per_real"] = (
+            points_per_real if points_per_real is not None else DEFAULT_POINTS_PER_REAL
+        )
+        loyalty["stamps_target"] = (
+            self.cleaned_data.get("defaults_loyalty_stamps_target") or DEFAULT_STAMPS_TARGET
+        )
+        tiers = [{"name": "bronze", "threshold": 0}]
+        for name in DEFAULTS_LOYALTY_TIERS:
+            threshold = self.cleaned_data.get(_defaults_loyalty_tier_field(name))
+            if threshold is not None:
+                tiers.append({"name": name, "threshold": int(threshold)})
+        loyalty["tiers"] = tiers
+        defaults["loyalty"] = loyalty
 
         return defaults
 
@@ -874,6 +957,23 @@ class ShopAdmin(ModelAdmin):
             ),
             "classes": ("collapse",),
             "description": "Parâmetros usados por sugestões operacionais e estoque de segurança.",
+        }),
+        ("Fidelidade", {
+            "fields": (
+                ("defaults_loyalty_points_per_real", "defaults_loyalty_stamps_target"),
+                (
+                    "defaults_loyalty_tier_silver_threshold",
+                    "defaults_loyalty_tier_gold_threshold",
+                    "defaults_loyalty_tier_platinum_threshold",
+                ),
+            ),
+            "classes": ("collapse",),
+            "description": (
+                "Programa de fidelidade da loja. A taxa de acúmulo vale para todos os pedidos. "
+                "Os limiares definem quando o cliente sobe de nível — Bronze é o nível inicial "
+                "(a partir de 0 pontos) e cada nível seguinte exige mais pontos acumulados. "
+                "A meta de carimbos vale para novas contas."
+            ),
         }),
         ("Integrações", {
             "fields": ("integrations",),

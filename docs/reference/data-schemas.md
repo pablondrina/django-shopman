@@ -693,6 +693,39 @@ gate de commit. Editáveis tipados em Reais no ShopAdmin (`shop/admin/shop.py`).
 A taxa de entrega por região segue nas **Zonas de Entrega** (`DeliveryZone`, inline
 no admin). O frete grátis global é avaliado por cima da taxa da zona.
 
+### Fidelidade — `Shop.defaults["loyalty"]`
+
+Política do programa de fidelidade, fora do schema do `ChannelConfig` (`_safe_init`
+filtra). Source-of-truth tipado em `shopman/shop/loyalty_config.py` (`LoyaltyConfig`,
+dataclass-driven), editável no ShopAdmin (fieldset "Fidelidade"). O Core (guestman)
+não depende do shop: o orquestrador (`shop/apps.py`) registra resolvers em
+`guestman.contrib.loyalty.conf` que injetam estes valores.
+
+| Chave | Tipo | Lido por | Descrição |
+|-------|------|----------|-----------|
+| `loyalty.points_per_real` | `int` | `LoyaltyEarnHandler` (`shop/handlers/loyalty.py`) | Pontos por R$ 1,00 gasto. `0` desliga o acúmulo. Default `1` |
+| `loyalty.stamps_target` | `int` | `LoyaltyService.enroll` (via resolver) | Meta de carimbos de novas contas. Default `10` |
+| `loyalty.tiers` | `list[{name, threshold}]` | `LoyaltyService._update_tier` (via resolver) | Limiares de nível por pontos acumulados. `name` ∈ {bronze, silver, gold, platinum}; bronze é o piso (`0`) |
+
+```json
+{
+  "loyalty": {
+    "points_per_real": 1,
+    "stamps_target": 10,
+    "tiers": [
+      {"name": "bronze", "threshold": 0},
+      {"name": "silver", "threshold": 500},
+      {"name": "gold", "threshold": 2000},
+      {"name": "platinum", "threshold": 5000}
+    ]
+  }
+}
+```
+
+> Chaves ausentes herdam os defaults do dataclass (idênticos ao comportamento
+> hardcoded anterior — zero regressão). Sem `Shop` ou sem bloco `loyalty`, os
+> resolvers caem nos defaults do guestman.
+
 ---
 
 ## Shop.integrations

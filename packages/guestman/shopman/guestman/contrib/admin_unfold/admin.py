@@ -13,6 +13,7 @@ import csv
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from shopman.guestman.models import (
     Customer,
@@ -326,3 +327,131 @@ class CustomerAddressAdmin(BaseModelAdmin):
     @display(description="Verified", boolean=True)
     def is_verified_badge(self, obj):
         return obj.is_verified
+
+
+# =============================================================================
+# LOYALTY ADMIN (optional contrib — only if guestman.contrib.loyalty installed)
+# =============================================================================
+
+try:
+    from shopman.guestman.contrib.loyalty.models import (
+        LoyaltyAccount,
+        LoyaltyTransaction,
+    )
+except ImportError:
+    LoyaltyAccount = None  # type: ignore[assignment,misc]
+    LoyaltyTransaction = None  # type: ignore[assignment,misc]
+
+
+if LoyaltyAccount is not None:
+    for _model in (LoyaltyAccount, LoyaltyTransaction):
+        try:
+            admin.site.unregister(_model)
+        except admin.sites.NotRegistered:
+            pass
+
+    _TIER_COLORS = {
+        "bronze": "orange",
+        "silver": "base",
+        "gold": "yellow",
+        "platinum": "blue",
+    }
+
+    class LoyaltyTransactionInline(BaseTabularInline):
+        """Histórico imutável de pontos sob uma conta (somente leitura)."""
+
+        model = LoyaltyTransaction
+        extra = 0
+        fields = ["transaction_type", "points", "balance_after", "description", "reference", "created_at"]
+        readonly_fields = fields
+        ordering = ["-created_at"]
+
+        def has_add_permission(self, request, obj=None):
+            return False
+
+        def has_change_permission(self, request, obj=None):
+            return False
+
+        def has_delete_permission(self, request, obj=None):
+            return False
+
+    @admin.register(LoyaltyAccount)
+    class LoyaltyAccountAdmin(BaseModelAdmin):
+        list_display = [
+            "customer_link",
+            "points_balance",
+            "lifetime_points",
+            "tier_badge",
+            "stamps_progress",
+            "is_active_badge",
+            "enrolled_at",
+        ]
+        list_filter = ["tier", "is_active"]
+        search_fields = ["customer__ref", "customer__first_name"]
+        raw_id_fields = ["customer"]
+        readonly_fields = ["enrolled_at", "updated_at"]
+        inlines = [LoyaltyTransactionInline]
+
+        @display(description=_("Cliente"))
+        def customer_link(self, obj):
+            from django.urls import reverse
+
+            url = reverse("admin:guestman_customer_change", args=[obj.customer.pk])
+            return format_html('<a href="{}">{}</a>', url, obj.customer.ref)
+
+        @display(description=_("Nível"))
+        def tier_badge(self, obj):
+            color = _TIER_COLORS.get(obj.tier, "base")
+            return unfold_badge(obj.get_tier_display(), color)
+
+        @display(description=_("Carimbos"))
+        def stamps_progress(self, obj):
+            return f"{obj.stamps_current}/{obj.stamps_target} ({obj.stamps_progress_percent}%) — {obj.stamps_completed} completas"
+
+        @display(description=_("Ativo"), boolean=True)
+        def is_active_badge(self, obj):
+            return obj.is_active
+
+    @admin.register(LoyaltyTransaction)
+    class LoyaltyTransactionAdmin(BaseModelAdmin):
+        list_display = [
+            "created_at",
+            "customer_ref",
+            "type_badge",
+            "points_badge",
+            "balance_after",
+            "description",
+        ]
+        list_filter = ["transaction_type"]
+        search_fields = ["account__customer__ref", "description", "reference"]
+        readonly_fields = [
+            "account",
+            "transaction_type",
+            "points",
+            "balance_after",
+            "description",
+            "reference",
+            "created_at",
+            "created_by",
+        ]
+        date_hierarchy = "created_at"
+
+        def has_add_permission(self, request):
+            return False
+
+        def has_delete_permission(self, request, obj=None):
+            return False
+
+        @display(description=_("Cliente"))
+        def customer_ref(self, obj):
+            return obj.account.customer.ref
+
+        @display(description=_("Tipo"))
+        def type_badge(self, obj):
+            return unfold_badge(obj.get_transaction_type_display(), "base")
+
+        @display(description=_("Pontos"))
+        def points_badge(self, obj):
+            color = "green" if obj.points > 0 else "red"
+            text = f"+{obj.points}" if obj.points > 0 else str(obj.points)
+            return unfold_badge(text, color)

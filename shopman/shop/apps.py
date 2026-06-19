@@ -59,6 +59,9 @@ class ShopmanConfig(AppConfig):
         # 6. Register CHANNEL RefType
         self._register_ref_types()
 
+        # 7. Inject store-driven loyalty config into the guestman Core
+        self._register_loyalty_resolvers()
+
     def _register_ref_types(self):
         try:
             from shopman.refs import register_ref_type
@@ -76,6 +79,29 @@ class ShopmanConfig(AppConfig):
                 pass
         except ImportError:
             pass
+
+    def _register_loyalty_resolvers(self):
+        """Drive guestman loyalty thresholds/stamps from Shop.defaults.
+
+        The orchestrator owns store policy (Shop.defaults["loyalty"]); guestman
+        stays decoupled. We push resolvers into the guestman conf so the Core
+        reads live store config without importing the shop. Optional — silent if
+        the loyalty contrib is not installed.
+        """
+        try:
+            from shopman.guestman.contrib.loyalty import conf as loyalty_conf
+        except ImportError:
+            return
+
+        from shopman.shop.loyalty_config import resolve_loyalty_config
+
+        loyalty_conf.set_tier_thresholds_resolver(
+            lambda: resolve_loyalty_config().tier_thresholds()
+        )
+        loyalty_conf.set_default_stamps_target_resolver(
+            lambda: resolve_loyalty_config().stamps_target
+        )
+        logger.info("ShopmanConfig: loyalty resolvers registered.")
 
     def _register_handlers(self):
         """Register all directive handlers, modifiers, validators, and stock signals.
