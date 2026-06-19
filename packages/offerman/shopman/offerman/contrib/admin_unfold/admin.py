@@ -56,6 +56,10 @@ class CollectionItemInline(BaseTabularInline):
 
 @admin.register(Collection)
 class CollectionAdmin(BaseModelAdmin):
+    # Ordem das coleções = lista arrastável (Unfold). O Unfold reatribui
+    # sort_order pela posição (topo→base), por isso a lista ordena ascendente.
+    ordering_field = "sort_order"
+    hide_ordering_field = True
     list_display = [
         "ref",
         "name",
