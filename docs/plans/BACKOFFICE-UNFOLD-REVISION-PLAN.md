@@ -150,7 +150,15 @@ adapters de pagamento/notificação (`Shop.integrations` já existe — **tipá-
 adapters disponíveis em vez de JSON). **Regra:** secret/credencial = infra (fora); ref de canal /
 escolha de adapter = política (admin). Coletar decisão do Pablo item a item.
 
-### WP-D2 — JSONField cru → tipado/parseado
+### WP-D2 — JSONField cru → tipado/parseado ✅
+> Concluído. `PaymentIntent.gateway_data` → display **parseado** read-only (expande o
+> client_secret/QR da EFI, rótulos amigáveis, sem JSON cru) + fieldsets agrupados;
+> `Order.data` → aba **Resumo** com visão curada (tipo, cliente, endereço, entrega, taxa,
+> cupom, observações, presente). Recipe.steps/meta e RecipeItem.meta **já eram tipados**
+> (steps_text + meta fields — achado da auditoria estava desatualizado). Hold/POSTerminal/
+> Product.metadata: dados avançados raramente tocados, JSONField cru mantido (sem valor de
+> tipar). Verificado ao vivo.
+
 Por domínio, dar forma a JSONs que o operador precisa ler/editar:
 - `Order.data` — editor/visão tipada (fulfillment_type, delivery_address, notes, gift) read-side
   pelo menos parseado; write só onde seguro (respeitar CommitService como contrato).
