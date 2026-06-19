@@ -225,6 +225,12 @@ def _safe_load(rule_config):
     """Load a rule, returning None on failure."""
     try:
         return load_rule(rule_config)
+    except (ImportError, ValueError) as exc:
+        # rule_path aponta para uma regra removida ou fora da whitelist — condição
+        # de configuração esperada (ex.: RuleConfig órfão), não um crash. Aviso
+        # conciso, sem traceback; tracebacks ficam só para erros inesperados.
+        logger.warning("rules.engine: skipping rule %s — %s", rule_config.code, exc)
+        return None
     except Exception:
         logger.warning("rules.engine: Failed to load rule %s", rule_config.code, exc_info=True)
         return None
