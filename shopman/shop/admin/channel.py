@@ -11,6 +11,7 @@ from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminTextareaWidget
 
 from shopman.shop.config import ChannelConfig, deep_merge
 from shopman.shop.models import Channel
@@ -18,48 +19,57 @@ from shopman.shop.models import Channel
 logger = logging.getLogger(__name__)
 
 
+def _aspect_widget(rows: int) -> UnfoldAdminTextareaWidget:
+    return UnfoldAdminTextareaWidget(attrs={"rows": rows})
+
+
+# Cada aspecto é um override avançado (JSON). Vazio = herda da Configuração da
+# Loja. As notas abaixo explicam, em pt-BR, o que cada knob controla.
+_INHERIT = "Vazio = herda da loja."
+
+
 class ChannelForm(forms.ModelForm):
     """Form com campos de config por aspecto."""
 
     confirmation = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
+        widget=_aspect_widget(4),
         required=False,
-        help_text="JSON: mode (immediate/auto_confirm/auto_cancel/manual), timeout_minutes",
+        help_text=f"Como o pedido é aceito. JSON: mode (immediate/auto_confirm/auto_cancel/manual), timeout_minutes. {_INHERIT}",
     )
     payment = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 5, "class": "vLargeTextField"}),
+        widget=_aspect_widget(5),
         required=False,
-        help_text="JSON: method, timing, timeout_minutes",
+        help_text=f"Como e quando o cliente paga. JSON: method, timing, timeout_minutes. {_INHERIT}",
     )
     fulfillment = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3, "class": "vLargeTextField"}),
+        widget=_aspect_widget(3),
         required=False,
-        help_text="JSON: timing, auto_sync",
+        help_text=f"Quando preparar/despachar. JSON: timing, auto_sync. {_INHERIT}",
     )
     stock = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
+        widget=_aspect_widget(4),
         required=False,
-        help_text="JSON: hold_ttl_minutes, safety_margin, check_on_commit, allowed_positions",
+        help_text=f"Reserva de estoque. JSON: hold_ttl_minutes, safety_margin, check_on_commit, allowed_positions. {_INHERIT}",
     )
     notifications = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3, "class": "vLargeTextField"}),
+        widget=_aspect_widget(3),
         required=False,
-        help_text="JSON: backend, fallback_chain, routing",
+        help_text=f"Por onde avisamos o cliente. JSON: backend, fallback_chain, routing. {_INHERIT}",
     )
     pricing = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 2, "class": "vLargeTextField"}),
+        widget=_aspect_widget(2),
         required=False,
-        help_text='JSON: policy ("internal" ou "external")',
+        help_text=f'Origem do preço. JSON: policy ("internal" = backend, "external" = marketplace). {_INHERIT}',
     )
     editing = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 2, "class": "vLargeTextField"}),
+        widget=_aspect_widget(2),
         required=False,
-        help_text='JSON: policy ("open" ou "locked")',
+        help_text=f'Itens podem ser editados? JSON: policy ("open" ou "locked"). {_INHERIT}',
     )
     rules = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
+        widget=_aspect_widget(4),
         required=False,
-        help_text="JSON: validators, modifiers, checks",
+        help_text=f"Quais validators/modifiers ativar. JSON: validators, modifiers, checks. {_INHERIT}",
     )
 
     class Meta:
@@ -215,7 +225,14 @@ class ChannelAdmin(ModelAdmin):
             )
 
     fieldsets = (
-        (None, {"fields": ("ref", "name", "shop", "display_order", "is_active")}),
+        (None, {
+            "fields": ("ref", "name", "shop", "display_order", "is_active"),
+            "description": (
+                "Os aspectos nas abas abaixo são overrides avançados deste canal. "
+                "Deixe um aspecto vazio para herdar a Configuração da Loja — a aba "
+                "“Config resolvida” mostra o resultado final da cascata."
+            ),
+        }),
         ("Confirmação", {"fields": ("confirmation",), "classes": ("tab",)}),
         ("Pagamento", {"fields": ("payment",), "classes": ("tab",)}),
         ("Fulfillment", {"fields": ("fulfillment",), "classes": ("tab",)}),
