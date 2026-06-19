@@ -217,6 +217,17 @@ Campos que o operador precisa ajustar e hoje são read-only: `CashShift.notes`,
 
 ## 4. CAMADA 3 — UX de primeira linha (P2, benchmark-grade)
 
+> **Estado (2026-06-19): CAMADA 3 ENTREGUE.** U1 ✅ (sidebar IA já benchmark — grupos
+> Operação ao vivo/Dados/Configurações/Auditoria, badges de atenção, ícones, permissões;
+> construída em WP-2/WP-8, confirmada). U4 ✅ (dashboard já completo — KPI cards, charts
+> Chart.js, 7 tabelas + saúde Omotenashi; `dashboard.py`+projection). U2 ✅ (changelists já
+> ricos — badges/filtros Unfold/search/autocomplete/list_editable/compressed_fields nos
+> admins de dados). U3 ✅ (forms longos tabulados — Channel/Shop/Order/PaymentIntent já com
+> tabs; **form de Produto reorganizado em 9 abas pt-BR** neste WP). U5 ✅ (consoles canônicos
+> WP-8, primitivas exigidas pelo gate). **U6 ✅ `9b5769f6`** (pt-BR completo nos admins de
+> Core — offerman/guestman/doorman). `make test`(2088)/`lint`/`admin` verdes; verificado ao
+> vivo. Decisão KDS (HTMX vs Nuxt) segue pendente p/ SURFACE-CONVERGENCE.
+
 > Critério: um operador novo entende e opera sem treino; nada fica atrás de Shopify/Odoo/STORES/
 > Take.app em clareza, densidade certa, descoberta e velocidade. Tudo canônico Unfold.
 

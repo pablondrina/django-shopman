@@ -237,12 +237,13 @@ class ProductAdmin(_ProductImportExportBase):
         ),
         (
             "Preço e custo",
-            {"fields": ("base_price_q", "margin_percent")},
+            {"fields": ("base_price_q", "margin_percent"), "classes": ("tab",)},
         ),
         (
             "Publicação e venda",
             {
                 "fields": ("is_published", "is_sellable"),
+                "classes": ("tab",),
                 "description": "“Publicado” controla a exposição no catálogo; “vendável” controla se o produto está comercialmente habilitado.",
             },
         ),
@@ -259,13 +260,15 @@ class ProductAdmin(_ProductImportExportBase):
                     "production_cycle_hours",
                     "is_batch_produced",
                     "allows_next_day_sale",
-                )
+                ),
+                "classes": ("tab",),
             },
         ),
         (
             "Ingredientes",
             {
                 "fields": ("ingredients_text",),
+                "classes": ("tab",),
                 "description": (
                     "Lista humana em pt-BR, ordem decrescente de peso "
                     "(ANVISA RDC 360/2003). Pode ser preenchido automaticamente "
@@ -277,6 +280,7 @@ class ProductAdmin(_ProductImportExportBase):
             "Compra remota",
             {
                 "fields": REMOTE_PURCHASE_FORM_FIELDS,
+                "classes": ("tab",),
                 "description": (
                     "Dados exibidos na PDP para reduzir dúvida na compra remota: "
                     "alérgenos, restrições, rendimento e medidas aproximadas."
@@ -285,21 +289,21 @@ class ProductAdmin(_ProductImportExportBase):
         ),
         (
             "Informações Nutricionais — Porção",
-            {"fields": SERVING_FIELDS},
+            {"fields": SERVING_FIELDS, "classes": ("tab",)},
         ),
         (
             "Informações Nutricionais — Macronutrientes",
-            {"fields": MACRONUTRIENTS},
+            {"fields": MACRONUTRIENTS, "classes": ("tab",)},
         ),
         (
             "Informações Nutricionais — Micronutrientes",
-            {"fields": MICRONUTRIENTS},
+            {"fields": MICRONUTRIENTS, "classes": ("tab",)},
         ),
         (
             "Metadados",
             {
                 "fields": ("metadata", "nutrition_facts", "uuid", "created_at", "updated_at"),
-                "classes": ("collapse",),
+                "classes": ("tab",),
             },
         ),
     ]
