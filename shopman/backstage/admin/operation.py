@@ -167,8 +167,20 @@ class OperationTaskRunAdmin(ModelAdmin):
     )
     list_filter = ("status", "is_required", "evidence_required", "checklist_run__template__moment")
     search_fields = ("template__title", "template__ref", "checklist_run__template__title", "linked_ref", "notes")
-    autocomplete_fields = ("checklist_run", "template", "executed_by", "supervised_by")
+    autocomplete_fields = ("checklist_run", "template")
     ordering = ("-checklist_run__business_date", "template__sort_order", "template__title")
+    # A evidência e a trilha de execução (quem/quando) são o registro operacional
+    # anti-fraude, capturado pelo app — não se forja no admin. Ficam read-only;
+    # status/notes seguem corrigíveis (auditados via histórico do admin).
+    readonly_fields = (
+        "evidence_text",
+        "evidence_number",
+        "evidence_data",
+        "executed_by",
+        "executed_at",
+        "supervised_by",
+        "supervised_at",
+    )
     list_fullwidth = True
     compressed_fields = True
 

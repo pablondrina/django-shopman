@@ -32,10 +32,12 @@ class CashMovementInline(admin.TabularInline):
 class CashShiftAdmin(ModelAdmin):
     list_display = ("operator", "terminal", "opened_at", "status_display", "opening_display", "closing_display", "difference_display")
     list_filter = ("status", "terminal", "opened_at")
+    # ``notes`` é editável (gerente anota/corrige um turno fechado); a alteração
+    # fica registrada no histórico do admin (LogEntry: quem/quando). Os valores
+    # financeiros permanecem read-only (mutados só via PDV/serviço).
     readonly_fields = (
         "terminal", "operator", "opened_at", "closed_at", "status",
         "opening_display", "closing_display", "expected_display", "difference_display",
-        "notes",
     )
     inlines = [CashMovementInline]
     ordering = ["-opened_at"]

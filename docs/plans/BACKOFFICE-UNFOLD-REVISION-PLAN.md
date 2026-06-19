@@ -137,6 +137,11 @@ tratar no SURFACE-CONVERGENCE.
 
 ## 3. CAMADA 2 — Completude: tudo que o operador deve poder configurar (P1)
 
+> **Estado (2026-06-19): CAMADA 2 ENTREGUE.** WP-D1 ✅ `56434cf1`, WP-D2 ✅ `3cbb79c4`,
+> WP-D3 ✅ `9dc31b14`, WP-D4 ✅ `23e59470`, WP-D5 ✅ (este). Branch `feat/admin-config-omotenashi`.
+> `make test`(2088)/`lint`/`admin` verdes; verificado ao vivo. Vários achados da auditoria
+> estavam desatualizados (já feitos) — confirmado no código. Próximo: Camada 3 (U1-U6).
+
 > Critério: nada que seja **política/operação** fica preso em env, settings ou JSON cru; toda
 > capacidade relevante do backend tem porta no admin (campo, ação, inline). Infra real
 > (credenciais, timeouts de deploy) fica fora — triagem item a item com o Pablo (como no WP-5).
@@ -196,7 +201,14 @@ Por domínio, dar forma a JSONs que o operador precisa ler/editar:
 - **CashShift: corrigir fechamento** / **registrar sangria/suprimento** pós-fechamento (com audit).
 - Revisar todas as ações existentes: cada uma tem efeito e feedback ao operador.
 
-### WP-D5 — Read-only ↔ editável (com audit)
+### WP-D5 — Read-only ↔ editável (com audit) ✅
+> Concluído. **Destravado:** `CashShift.notes` (gerente anota/corrige turno fechado; auditado
+> pelo histórico do admin/LogEntry). **Travado (o inverso):** `OperationTaskRunAdmin` não tinha
+> nenhum readonly_field — evidência (`evidence_text/number/data`) e trilha de execução
+> (`executed_by/at`, `supervised_by/at`), que são o registro anti-fraude capturado pelo app,
+> agora são read-only; `status`/`notes` seguem corrigíveis (auditados). Testes de contrato +
+> verificado ao vivo. `evidence_*` decidido como app-only (read no admin).
+
 Campos que o operador precisa ajustar e hoje são read-only: `CashShift.notes`,
 `OperationTaskRun.evidence_*` (decidir — pode ser só via app), etc. Editar **sempre com trilha**
 (quem/quando). E o inverso: travar o que não deveria ser editável.
