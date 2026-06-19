@@ -2,55 +2,48 @@
 
 from __future__ import annotations
 
+import json
+
 from django import forms
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 
 class FontPreviewWidget(forms.Select):
-    """Select widget with live Google Fonts preview.
+    """Select widget with a live Google Fonts preview.
 
-    Renders a <select> followed by a preview <div> that loads
-    the selected Google Font and displays sample text.
+    Renders the Unfold select followed by a preview block whose font updates
+    live as the operator changes the selection. The interactivity is Alpine
+    (the project's DOM standard) — no hand-rolled ``<script>`` — and all static
+    chrome uses Unfold utility classes. Only the irreducible dynamic bits (the
+    Google Fonts stylesheet href and the preview ``font-family``) are Alpine
+    bindings, since no design token can represent an arbitrary web font.
     """
 
     def __init__(self, *args, sample_text: str = "", **kwargs):
-        self.sample_text = sample_text or "Aa Bb Cc \u2014 O sabor que encanta"
+        self.sample_text = sample_text or "Aa Bb Cc — O sabor que encanta"
         super().__init__(*args, **kwargs)
 
     def render(self, name, value, attrs=None, renderer=None):
+        attrs = {**(attrs or {}), "x-on:change": "font = $event.target.value"}
         select_html = super().render(name, value, attrs, renderer)
-        widget_id = attrs.get("id", name) if attrs else name
-        preview_id = f"{widget_id}_preview"
-        link_id = f"{widget_id}_font_link"
 
         current_font = value or ""
-        font_url = ""
-        if current_font:
-            encoded = current_font.replace(" ", "+")
-            font_url = f"https://fonts.googleapis.com/css2?family={encoded}:wght@400;600;700&display=swap"
+        # JSON-encoded literal, then HTML-escaped for use inside the x-data attr.
+        font_init = escape(json.dumps(current_font))
+        sample = escape(self.sample_text)
+        href_expr = escape(
+            "font ? 'https://fonts.googleapis.com/css2?family=' "
+            "+ font.replaceAll(' ', '+') + ':wght@400;600;700&display=swap' : ''"
+        )
+        style_expr = escape("font ? (\"font-family: '\" + font + \"', sans-serif\") : ''")
 
-        preview_html = f"""
-        <link id="{link_id}" rel="stylesheet" href="{font_url}">
-        <div id="{preview_id}"
-             style="margin-top:8px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;
-                    font-family:'{current_font}',sans-serif;font-size:1.25rem;line-height:1.4;
-                    color:#1f2937;background:#fafafa;transition:font-family 0.3s ease">
-            {self.sample_text}
-        </div>
-        <script>
-        (function() {{
-            var sel = document.getElementById("{widget_id}");
-            var preview = document.getElementById("{preview_id}");
-            var link = document.getElementById("{link_id}");
-            if (!sel || !preview) return;
-            sel.addEventListener("change", function() {{
-                var font = sel.value;
-                if (!font) return;
-                var encoded = font.replace(/ /g, "+");
-                link.href = "https://fonts.googleapis.com/css2?family=" + encoded + ":wght@400;600;700&display=swap";
-                preview.style.fontFamily = "'" + font + "', sans-serif";
-            }});
-        }})();
-        </script>
-        """
+        preview_html = (
+            f'<div x-data="{{ font: {font_init} }}" class="mt-2">'
+            f'<link rel="stylesheet" x-bind:href="{href_expr}">'
+            f'<div class="border border-base-200 dark:border-base-700 '
+            f'bg-base-50 dark:bg-base-800 text-base-700 dark:text-base-300 '
+            f'rounded-default p-4 text-lg" x-bind:style="{style_expr}">{sample}</div>'
+            f"</div>"
+        )
         return mark_safe(select_html + preview_html)

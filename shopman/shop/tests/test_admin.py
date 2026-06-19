@@ -134,7 +134,8 @@ class TestShopAdminStorefrontPreview:
         url = reverse("admin:shop_shopappearance_change", args=[shop.pk])
         resp = client.get(url)
         assert resp.status_code == 200
-        assert b"storefront-preview-iframe" in resp.content
+        assert b'title="Storefront"' in resp.content
+        assert b'x-bind:src="src"' in resp.content
         assert b"Atualizar preview" in resp.content
 
 

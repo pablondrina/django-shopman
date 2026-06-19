@@ -9,7 +9,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from unfold.widgets import UnfoldAdminTextareaWidget
 
@@ -256,7 +256,14 @@ class ChannelAdmin(ModelAdmin):
             config = ChannelConfig.for_channel(obj)
             data = config.to_dict()
             formatted = json.dumps(data, indent=2, ensure_ascii=False)
-            return mark_safe(f"<pre>{formatted}</pre>")
+            # format_html escapa o JSON (evita injeção de HTML); classes do Unfold,
+            # sem style inline — mesmo padrão do bloco JSON do SessionAdmin.
+            return format_html(
+                '<pre class="bg-base-50 border border-base-200 dark:bg-base-800 '
+                'dark:border-base-700 font-mono overflow-x-auto p-3 rounded-default '
+                'text-sm">{}</pre>',
+                formatted,
+            )
         except Exception:
             logger.debug("channel.resolved_config_display degraded; using fallback", exc_info=True)
             return "-"

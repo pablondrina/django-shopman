@@ -13,7 +13,7 @@ batch/quant filters and links) now live in their own Core admins.
 from __future__ import annotations
 
 from django.contrib import admin
-from django.utils.html import format_html, format_html_join
+from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 from shopman.orderman.admin import OrderAdmin as _OrdermanOrderAdmin
 from shopman.orderman.models import Order
@@ -37,36 +37,25 @@ class OrderAdmin(_OrdermanOrderAdmin):
 
     @admin.display(description=_("Pagamentos"))
     def payment_info(self, obj):
-        """Show PaymentIntent rows linked via order_ref."""
+        """Show PaymentIntent rows (linked via order_ref) in an Unfold table."""
         from shopman.payman.models import PaymentIntent
 
         intents = PaymentIntent.objects.filter(order_ref=obj.ref).order_by("-created_at")
         if not intents.exists():
             return "—"
 
-        rows = format_html_join(
-            "",
-            '<tr><td style="padding:2px 8px">{}</td>'
-            '<td style="padding:2px 8px">{}</td>'
-            '<td style="padding:2px 8px">{}</td>'
-            '<td style="padding:2px 8px">R$ {}</td></tr>',
-            (
-                (
+        table = {
+            "headers": [_("Ref"), _("Método"), _("Status"), _("Valor")],
+            "rows": [
+                [
                     pi.ref,
                     pi.get_method_display(),
                     pi.get_status_display(),
-                    _format_brl(pi.amount_q),
-                )
+                    f"R$ {_format_brl(pi.amount_q)}",
+                ]
                 for pi in intents
-            ),
-        )
-        return format_html(
-            '<table style="border-collapse:collapse">'
-            "<thead><tr>"
-            '<th style="padding:2px 8px;text-align:left">Ref</th>'
-            '<th style="padding:2px 8px;text-align:left">Método</th>'
-            '<th style="padding:2px 8px;text-align:left">Status</th>'
-            '<th style="padding:2px 8px;text-align:left">Valor</th>'
-            "</tr></thead><tbody>{}</tbody></table>",
-            rows,
+            ],
+        }
+        return render_to_string(
+            "admin/shop/order_payment_info.html", {"payment_table": table}
         )

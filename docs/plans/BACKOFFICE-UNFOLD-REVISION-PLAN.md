@@ -74,7 +74,14 @@ registradas (`_extend_order_admin()` via `type(admin.site._registry[Order])`, id
 explícito exportado pelo Core). Eliminar `type()`-patching. Teste garantindo o inline/َcampos.
 **Restrição:** Core sagrado — a mudança é no `contrib/admin_unfold` (presentation), não no model.
 
-### WP-C2 — Refatorar displays/widgets com HTML+JS inline
+### WP-C2 — Refatorar displays/widgets com HTML+JS inline ✅
+> Concluído. payment_info → componente Unfold `table.html` (template varrido, canônico);
+> resolved_config_display → JSON escapado (corrige injeção) + classes Unfold; FontPreviewWidget,
+> color_preview e storefront_preview → Alpine no lugar de `<script>` cru + classes Unfold no
+> chrome; sobra só o estilo inline irredutível (cor do swatch, font-family, altura do iframe —
+> sem token/primitiva Unfold). Verificado ao vivo (Alpine aplica font-family, sem erros).
+> Nota: `shop/admin/*.py` não é varrido pelo gate; estes são previews custom autorizados (§4 tier 3).
+
 Inventário de HTML/JS cru em métodos de admin (mark_safe/format_html com `<div>/<table>/<script>/<pre>` + `style=`):
 - `shop/admin/widgets.py` **FontPreviewWidget** — `<script>` + `<div style>` inline (pior caso).
 - `shop/admin/shop.py` **color_preview** (~60 linhas de `<div style>`), **storefront_preview**
@@ -95,7 +102,11 @@ o contrib sair de `INSTALLED_APPS`, o admin cai para vanilla (sem Unfold) silenc
 no runtime do deployment (estende a guarda do WP-4 para todos os Core), e check de release que
 falha se algum cair em vanilla. Documentar o contrato.
 
-### WP-C4 — Smoke test por ModelAdmin + páginas custom
+### WP-C4 — Smoke test por ModelAdmin + páginas custom ✅ (`9fc33b94`)
+> Concluído. `shopman/backstage/tests/test_admin_smoke.py` (67 models × changelist+add,
+> +Order change semeado, +7 páginas console), plugado no `make admin`. Pegou e corrigiu o
+> Product 500 (campos de nutrição → declarados em escopo de classe). Varredura: 0 outras quebras.
+
 **Ação:** teste que percorre `admin.site._registry` e faz GET no changelist e no add/change de
 cada model (com um objeto seed), + GET de cada página `admin_console`, afirmando 200 e ausência
 de erro de template/field. Pega `list_display`/`fieldsets` quebrados, ações órfãs, imports.
