@@ -74,11 +74,17 @@ canais" focados em DADOS, não config.)
 
 ## 4. WPs (incrementais, cada um auto-contido)
 
-- **WP-1 — Fidelidade admin-configurável (PEDIDO DO PABLO).** Mover earn rate + tier thresholds +
-  stamps_target default para `Shop.defaults` **dataclass-driven** (espelha `pickup_slots`): novo bloco
-  `loyalty` (`points_per_real`, `tiers: [{threshold, name}]`, `stamps_target`). `loyalty.py` handler e
-  `get_tier_thresholds()` passam a ler do Shop (fallback nos defaults atuais). Form Unfold no ShopAdmin
-  + validação. Migrar os admins guestman de loyalty para Unfold de quebra.
+- **WP-1 — Fidelidade admin-configurável (PEDIDO DO PABLO). ✅ CONCLUÍDO (2026-06-19, `fe644d08`).**
+  Novo bloco `Shop.defaults["loyalty"]` (`points_per_real`, `stamps_target`, `tiers:[{name,threshold}]`),
+  source-of-truth tipado em `shop/loyalty_config.py` (`LoyaltyConfig`, dataclass-driven, espelha
+  `pickup_slots`). O handler `shop/handlers/loyalty.py` lê `points_per_real` (era `total_q // 100`).
+  **Core SAGRADO:** guestman ganhou resolvers pluggáveis em `contrib/loyalty/conf.py`
+  (`set_tier_thresholds_resolver`/`set_default_stamps_target_resolver`) — sem depender do shop; o
+  orquestrador injeta no `shop/apps.py:ready()`; `enroll()` usa o `stamps_target` configurável.
+  Fallback nos defaults atuais = **zero regressão**. Fieldset "Fidelidade" no ShopForm (campos
+  estruturados + validação de limiares ascendentes). Admins guestman `LoyaltyAccount`/
+  `LoyaltyTransaction` migrados para Unfold (`contrib/admin_unfold`). Seed + `data-schemas.md`
+  atualizados. `make test`/`make lint`/`make admin` verdes; verificado ao vivo no Admin.
 - **WP-2 — IA/Sidebar "Configurações".** Implementar o grupo do §3; reagrupar os modelos de config.
   Sem mudança de modelo — só navegação + descoberta. Alto valor, baixo risco.
 - **WP-3 — `RuleConfig.params` tipado.** Form dataclass-driven por tipo de regra (happy_hour:
