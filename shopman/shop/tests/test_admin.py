@@ -331,6 +331,26 @@ class TestShopAdminLoyaltyDefaults:
         assert "defaults_loyalty_tier_gold_threshold" in form.errors
 
 
+class TestGuestmanLoyaltyAdminUnfold:
+    """WP-4 — admins guestman config-adjacentes ficam em Unfold (guarda)."""
+
+    def test_loyalty_and_group_admins_are_unfold(self, db):
+        from shopman.guestman.contrib.loyalty.models import (
+            LoyaltyAccount,
+            LoyaltyTransaction,
+        )
+        from shopman.guestman.models import CustomerGroup
+        from unfold.admin import ModelAdmin as UnfoldModelAdmin
+
+        for model in (LoyaltyAccount, LoyaltyTransaction, CustomerGroup):
+            registered = admin.site._registry.get(model)
+            assert registered is not None, f"{model.__name__} não registrado"
+            assert isinstance(registered, UnfoldModelAdmin), (
+                f"{model.__name__} não está em Unfold: "
+                f"{type(registered).__module__}"
+            )
+
+
 class TestRuleConfigTypedParams:
     """WP-3 — params de regras conhecidas editados como campos tipados."""
 
