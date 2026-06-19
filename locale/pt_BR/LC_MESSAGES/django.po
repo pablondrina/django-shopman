@@ -1,0 +1,166 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: shopman\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-19 00:00+0000\n"
+"PO-Revision-Date: 2026-06-19 00:00+0000\n"
+"Language-Team: Português (Brasil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+# ── django-unfold: strings próprias (sem tradução upstream) ──
+
+msgid "Add new item"
+msgstr "Adicionar item"
+
+msgid "Add row"
+msgstr "Adicionar linha"
+
+msgid "All applications"
+msgstr "Todos os aplicativos"
+
+msgid "Apply Filters"
+msgstr "Aplicar filtros"
+
+msgid "Clear all filters"
+msgstr "Limpar todos os filtros"
+
+msgid "Reset filters"
+msgstr "Redefinir filtros"
+
+msgid "Reset to default"
+msgstr "Restaurar padrão"
+
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "Hide counts"
+msgstr "Ocultar contagens"
+
+msgid "Show counts"
+msgstr "Mostrar contagens"
+
+msgid "Type to search"
+msgstr "Digite para buscar"
+
+msgid "Select all rows"
+msgstr "Selecionar todas as linhas"
+
+msgid "More actions"
+msgstr "Mais ações"
+
+msgid "Run the selected action"
+msgstr "Executar a ação selecionada"
+
+msgid "Recent searches"
+msgstr "Buscas recentes"
+
+msgid "No recent searches"
+msgstr "Nenhuma busca recente"
+
+msgid "No results found"
+msgstr "Nenhum resultado encontrado"
+
+msgid "No results matching your query"
+msgstr "Nenhum resultado para a sua busca"
+
+msgid "No data"
+msgstr "Sem dados"
+
+msgid "Loading more results..."
+msgstr "Carregando mais resultados..."
+
+msgid "Toggle password visibility"
+msgstr "Mostrar/ocultar senha"
+
+msgid "View traceback"
+msgstr "Ver detalhes do erro"
+
+msgid "Go back"
+msgstr "Voltar"
+
+msgid "Manage group"
+msgstr "Gerenciar grupo"
+
+msgid "Manage user"
+msgstr "Gerenciar usuário"
+
+msgid "Record picture"
+msgstr "Imagem do registro"
+
+msgid "Current file"
+msgstr "Arquivo atual"
+
+msgid "Click to download"
+msgstr "Clique para baixar"
+
+msgid "Click to cancel"
+msgstr "Clique para cancelar"
+
+msgid "Collapse"
+msgstr "Recolher"
+
+msgid "Expand row"
+msgstr "Expandir linha"
+
+msgid "Change History"
+msgstr "Histórico de alterações"
+
+# ── WYSIWYG (editor de texto rico) ──
+
+msgid "Bold"
+msgstr "Negrito"
+
+msgid "Italic"
+msgstr "Itálico"
+
+msgid "Underlined"
+msgstr "Sublinhado"
+
+msgid "Strike"
+msgstr "Tachado"
+
+msgid "Code"
+msgstr "Código"
+
+msgid "Heading"
+msgstr "Título"
+
+msgid "Paragraph"
+msgstr "Parágrafo"
+
+msgid "Quote"
+msgstr "Citação"
+
+msgid "Ordered list"
+msgstr "Lista numerada"
+
+msgid "Unordered list"
+msgstr "Lista com marcadores"
+
+msgid "Link"
+msgstr "Link"
+
+msgid "Unlink"
+msgstr "Remover link"
+
+msgid "Enter an URL"
+msgstr "Informe uma URL"
+
+msgid "Indent increase"
+msgstr "Aumentar recuo"
+
+msgid "Indent decrease"
+msgstr "Diminuir recuo"
+
+msgid "Undo"
+msgstr "Desfazer"
+
+msgid "Redo"
+msgstr "Refazer"
+
+msgid "Line number"
+msgstr "Número da linha"

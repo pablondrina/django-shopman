@@ -448,6 +448,11 @@ TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
 
+# Catálogo de tradução do projeto. O django-unfold não embarca traduções, então
+# suas strings próprias ("Add new item", filtros, etc.) caem para o inglês — aqui
+# fornecemos o pt-BR. Tem precedência sobre os catálogos dos apps.
+LOCALE_PATHS = [os.path.join(BASE_DIR, "locale")]
+
 # ── Unfold Admin ────────────────────────────────────────────────────
 # SITE_TITLE callable reads Shop.name via model import (lazy).
 

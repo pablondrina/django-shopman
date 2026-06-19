@@ -151,7 +151,7 @@ class RuleConfigAdmin(ModelAdmin):
         if schema is not None:
             param_fields = tuple(_param_field_name(p.name) for p in schema.params)
             params_section = (
-                schema.title,
+                "Parâmetros",
                 {
                     "fields": param_fields,
                     "description": "Parâmetros desta regra, editados como campos.",
