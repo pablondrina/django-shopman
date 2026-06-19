@@ -138,7 +138,10 @@ class RuleConfigForm(forms.ModelForm):
 @admin.register(RuleConfig)
 class RuleConfigAdmin(ModelAdmin):
     form = RuleConfigForm
-    list_display = ("label", "code", "enabled", "priority", "rule_type_display", "params_summary")
+    # Prioridade de avaliação = lista arrastável (menor = avaliada primeiro).
+    ordering_field = "priority"
+    hide_ordering_field = True
+    list_display = ("label", "code", "enabled", "rule_type_display", "params_summary")
     list_filter = ("enabled", RuleTypeFilter)
     search_fields = ("label", "code")
     list_editable = ("enabled",)

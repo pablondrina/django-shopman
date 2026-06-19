@@ -4,16 +4,22 @@ from __future__ import annotations
 
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 
 from shopman.storefront.models import DeliveryDistanceBand, DeliveryZone
 
 
 @admin.register(DeliveryDistanceBand)
 class DeliveryDistanceBandAdmin(ModelAdmin):
-    list_display = ("max_distance_km", "fee_display", "sort_order", "is_active")
+    # Lista arrastável (Unfold) em vez da coluna numérica de ordem. O motor
+    # avalia pela distância (a menor faixa que cobre o pedido vence); o arraste
+    # define a ordem de exibição/empate.
+    ordering_field = "sort_order"
+    hide_ordering_field = True
+    list_display = ("max_distance_km", "fee_display", "is_active")
     list_filter = ("is_active", "shop")
-    ordering = ("max_distance_km", "sort_order")
-    list_editable = ("sort_order", "is_active")
+    ordering = ("sort_order", "max_distance_km")
+    list_editable = ("is_active",)
     fieldsets = (
         (None, {
             "fields": ("shop", "max_distance_km", "fee_q", "sort_order", "is_active"),
@@ -39,11 +45,26 @@ class DeliveryZoneAdmin(ModelAdmin):
     # uma coluna numérica de ordem. Menor sort_order = maior prioridade.
     ordering_field = "sort_order"
     hide_ordering_field = True
-    list_display = ("name", "mode", "zone_type", "match_value", "fee_display", "is_active")
+    list_display = ("name", "mode_badge", "zone_type_badge", "match_value", "fee_display", "is_active")
     list_filter = ("mode", "zone_type", "is_active", "shop")
     search_fields = ("name", "match_value")
     ordering = ("sort_order", "name")
     list_editable = ("is_active",)
+
+    @display(
+        description="Modo",
+        label={"Sobrepor taxa (fixa)": "info", "Não entregar (bloquear)": "danger"},
+    )
+    def mode_badge(self, obj):
+        return obj.get_mode_display()
+
+    @display(
+        description="Tipo",
+        label={"Prefixo de CEP": "info", "Bairro": "warning"},
+    )
+    def zone_type_badge(self, obj):
+        return obj.get_zone_type_display()
+
     fieldsets = (
         (None, {
             "fields": ("shop", "name", "zone_type", "match_value", "mode", "fee_q", "sort_order", "is_active"),

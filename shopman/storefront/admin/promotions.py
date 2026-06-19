@@ -5,6 +5,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.utils import timezone
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 
 from shopman.storefront.models import Coupon, Promotion
 
@@ -41,8 +42,8 @@ class PromotionStatusFilter(admin.SimpleListFilter):
 @admin.register(Promotion)
 class PromotionAdmin(ModelAdmin):
     list_display = (
-        "name", "type", "value_display", "valid_from", "valid_until",
-        "birthday_only", "is_active", "status_display",
+        "name", "value_display", "valid_from", "valid_until",
+        "birthday_only", "status_badge",
     )
     list_filter = (PromotionStatusFilter, "is_active", "type", "birthday_only")
     search_fields = ("name",)
@@ -54,12 +55,19 @@ class PromotionAdmin(ModelAdmin):
             return f"{obj.value}%"
         return f"R$ {obj.value / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-    @admin.display(description="situação", boolean=True)
-    def status_display(self, obj):
+    @display(
+        description="situação",
+        label={"Ativa": "success", "Futura": "info", "Expirada": "danger", "Inativa": "warning"},
+    )
+    def status_badge(self, obj):
         now = timezone.now()
         if not obj.is_active:
-            return False
-        return obj.valid_from <= now <= obj.valid_until
+            return "Inativa"
+        if obj.valid_from > now:
+            return "Futura"
+        if obj.valid_until < now:
+            return "Expirada"
+        return "Ativa"
 
 
 @admin.register(Coupon)

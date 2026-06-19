@@ -132,7 +132,10 @@ class ChannelAdmin(ModelAdmin):
     """Admin para canais de venda com configuração por aspecto."""
 
     form = ChannelForm
-    list_display = ("ref", "name", "is_active", "display_order")
+    # Ordem de exibição dos canais = lista arrastável (Unfold).
+    ordering_field = "display_order"
+    hide_ordering_field = True
+    list_display = ("ref", "name", "is_active")
     list_filter = ("is_active",)
     search_fields = ("ref", "name")
     ordering = ("display_order", "ref")
