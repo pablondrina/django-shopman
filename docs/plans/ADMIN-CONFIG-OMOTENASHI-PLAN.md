@@ -52,7 +52,7 @@ event-cleanup retention. São deploy/infra, não política de loja.
 | **low_stock_threshold** | já é `ChannelConfig.Stock.low_stock_threshold` | **Já configurável**. Nada a mover. |
 | **hold TTLs** | já em `ChannelConfig.Stock` (`hold_ttl_minutes`, `planned_hold_ttl_hours`) | **Já configurável**. Nada a mover. |
 | **POS discount approval threshold** (`SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q`) | só env, lido em `backstage/projections/pos.py` | **Política pura → MOVIDO p/ `Shop.defaults["pos"]`** (fallback no env = zero regressão). |
-| **stock alert cooldown** (`STOCKMAN_ALERT_COOLDOWN_MINUTES`) | Core (stockman), resolver via settings | **Borderline (anti-flood de notificação). DECISÃO DO PABLO:** mover p/ Shop.defaults (com resolver injetado, igual loyalty) ou manter infra? Não movido. |
+| **stock alert cooldown** (`STOCKMAN_ALERT_COOLDOWN_MINUTES`) | Core (stockman), resolver via settings | ✅ **MOVIDO p/ `Shop.defaults["stock_alerts"]["cooldown_minutes"]`** (decisão do Pablo: é bom omotenashi). Resolver pluggável no stockman + re-export no nível do pacote (respeita guard de arquitetura); shop injeta. Em branco = herda env = zero regressão. (`abea7aa8`) |
 | **webhook idempotency TTL** | janela de dedup | **Infra**. Manter fora. |
 
 KEEP-AS-IS confirmados (infra): mock adapters, throttle anon, timeouts 3rd-party, debug OTP,
@@ -109,10 +109,11 @@ canais" focados em DADOS, não config.)
   WP-1; CustomerGroup já era Unfold. Guarda de regressão adicionada. Demais admins CRM do guestman
   (consent/identifiers/insights/preferences/timeline/ContactPoint/ExternalIdentity) seguem plain — são
   DADOS de cliente, fora do escopo desta iniciativa de config.
-- **WP-5 — Tunables triados. ✅ CONCLUÍDO (`b4a52b25`).** Triagem na §1: já-configuráveis (PIX expiry,
-  low_stock, hold TTLs via ChannelConfig), infra (mantidos fora) e a única política-pura-não-configurável
-  → **POS discount approval threshold movido p/ `Shop.defaults["pos"]`** (em branco = herda env = zero
-  regressão). **Pendente decisão do Pablo:** stock alert cooldown (borderline, não movido).
+- **WP-5 — Tunables triados. ✅ CONCLUÍDO (`b4a52b25` + `abea7aa8`).** Triagem na §1: já-configuráveis
+  (PIX expiry, low_stock, hold TTLs via ChannelConfig), infra (mantidos fora), e **2 políticas movidas ao
+  admin**: POS discount approval threshold → `Shop.defaults["pos"]`; **stock alert cooldown →
+  `Shop.defaults["stock_alerts"]`** (decisão do Pablo, WP-5b). Ambos: em branco = herda env = zero
+  regressão. Nenhuma pendência aberta.
 - **WP-6 — Passada de omotenashi. ✅ CONCLUÍDO (`30f567a4`).** ChannelForm: `forms.Textarea` cru →
   `UnfoldAdminTextareaWidget` + help pt-BR por aspecto + nota de cascata. Delivery (faixas/zonas):
   fieldsets com descrição motor-vs-exceção. Demais admins de config já estavam bem documentados.
