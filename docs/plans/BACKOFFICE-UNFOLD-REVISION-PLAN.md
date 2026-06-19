@@ -59,7 +59,12 @@ resolvidos** — ignore-os:
 > onde há primitiva Unfold; zero monkey-patching; zero acoplamento frágil. `make admin` verde
 > de verdade (não por waiver preguiçoso).
 
-### WP-C1 — Matar o monkey-patching do OrderAdmin/ProductAdmin
+### WP-C1 — Matar o monkey-patching do OrderAdmin/ProductAdmin ✅ (`80ac462b`)
+> Concluído. Fulfillment inline→orderman; D-1→offerman form; filtros/batch-link→stockman
+> contrib; payment_info→subclasse shop via unregister+re-register. Zero `type()`-patching.
+> Achado: a página de Product 500a (campos de nutrição injetados em `__init__` não são
+> declarados) — **pré-existente** (500 idêntico no HEAD), será corrigido no WP-C4.
+
 **Problema:** `shopman/shop/admin/orders.py` faz monkey-patching em runtime das classes já
 registradas (`_extend_order_admin()` via `type(admin.site._registry[Order])`, idem
 `_extend_product_admin`), adicionando inline de Fulfillment, `payment_info`, campos. Frágil

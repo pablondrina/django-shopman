@@ -312,7 +312,7 @@ admin: ## Admin: valida tudo de Admin/Unfold
 ifneq ($(ADMIN_URL),)
 	@echo "✓ Admin canônico ($(ADMIN_URL))"
 else
-	$(PYTHON) -m pytest shopman/backstage/tests/test_unfold_canonical_templates.py shopman/backstage/tests/test_admin_operational_integration.py -q
+	$(PYTHON) -m pytest shopman/backstage/tests/test_unfold_canonical_templates.py shopman/backstage/tests/test_admin_operational_integration.py shopman/backstage/tests/test_admin_smoke.py -q
 	@echo "✓ Admin canônico"
 endif
 

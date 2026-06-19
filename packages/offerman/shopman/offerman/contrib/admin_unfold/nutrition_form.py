@@ -105,16 +105,19 @@ class ProductAdminForm(forms.ModelForm):
         help_text="Produto pode ser vendido no dia seguinte com desconto D-1.",
     )
 
+    # Virtual nutrient fields are declared at class scope (dataclass-driven via
+    # NutritionFacts) so the admin fieldsets that reference them validate. The
+    # admin builds the form with ``modelform_factory(fields=flatten_fieldsets)``,
+    # which only resolves model fields and *declared* form fields — fields added
+    # in ``__init__`` are invisible to it and raise FieldError.
+    locals().update({name: _field_for(name) for name in NUTRITION_FORM_FIELDS})
+
     class Meta:
         model = Product
         fields = "__all__"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Inject a virtual field per nutrient.
-        for name in NUTRITION_FORM_FIELDS:
-            self.fields[name] = _field_for(name)
 
         # Hide the raw JSON field from the admin rendering.
         if "nutrition_facts" in self.fields:
