@@ -19,6 +19,7 @@ from unfold.widgets import (
     UnfoldAdminDateWidget,
     UnfoldAdminDecimalFieldWidget,
     UnfoldAdminIntegerFieldWidget,
+    UnfoldAdminSelect2MultipleWidget,
     UnfoldAdminSelectWidget,
     UnfoldAdminTextInputWidget,
     UnfoldAdminTimeWidget,
@@ -72,20 +73,21 @@ NOTIFICATION_BACKEND_CHOICES = (
     ("none", "Nenhum"),
 )
 
-DEFAULTS_DYNAMIC_COLLECTION_ROWS = 5
 DEFAULTS_PICKUP_SLOT_ROWS = 5
 DEFAULTS_CLOSED_DATE_ROWS = 8
 
 # Tiers editáveis no admin (bronze é o piso, sempre em 0 — não editável).
 DEFAULTS_LOYALTY_TIERS = ("silver", "gold", "platinum")
 
+MONTH_CHOICES = (
+    ("1", "Janeiro"), ("2", "Fevereiro"), ("3", "Março"), ("4", "Abril"),
+    ("5", "Maio"), ("6", "Junho"), ("7", "Julho"), ("8", "Agosto"),
+    ("9", "Setembro"), ("10", "Outubro"), ("11", "Novembro"), ("12", "Dezembro"),
+)
+
 
 def _opening_field(day: str, suffix: str) -> str:
     return f"opening_hours_{day}_{suffix}"
-
-
-def _defaults_dynamic_collection_field(index: int) -> str:
-    return f"defaults_dynamic_collection_{index}"
 
 
 def _defaults_pickup_field(index: int, suffix: str) -> str:
@@ -217,23 +219,24 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             widget=UnfoldAdminTextInputWidget,
             help_text="Ref de um dos slots abaixo. Ex.: slot-09.",
         ),
-        "defaults_season_hot_months": forms.CharField(
+        "defaults_season_hot_months": forms.MultipleChoiceField(
             label="Meses quentes",
             required=False,
-            widget=UnfoldAdminTextInputWidget,
-            help_text="Números de 1 a 12 separados por vírgula.",
+            choices=MONTH_CHOICES,
+            widget=UnfoldAdminSelect2MultipleWidget,
+            help_text="Selecione os meses de clima quente.",
         ),
-        "defaults_season_mild_months": forms.CharField(
+        "defaults_season_mild_months": forms.MultipleChoiceField(
             label="Meses amenos",
             required=False,
-            widget=UnfoldAdminTextInputWidget,
-            help_text="Números de 1 a 12 separados por vírgula.",
+            choices=MONTH_CHOICES,
+            widget=UnfoldAdminSelect2MultipleWidget,
         ),
-        "defaults_season_cold_months": forms.CharField(
+        "defaults_season_cold_months": forms.MultipleChoiceField(
             label="Meses frios",
             required=False,
-            widget=UnfoldAdminTextInputWidget,
-            help_text="Números de 1 a 12 separados por vírgula.",
+            choices=MONTH_CHOICES,
+            widget=UnfoldAdminSelect2MultipleWidget,
         ),
         "defaults_high_demand_multiplier": forms.DecimalField(
             label="Multiplicador de alta demanda",
@@ -254,14 +257,12 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             help_text="Percentual em decimal. Ex.: 0,20 para 20%.",
         ),
     }
-    for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1):
-        fields[_defaults_dynamic_collection_field(index)] = forms.ChoiceField(
-            label=f"Coleção dinâmica {index}",
-            required=False,
-            choices=(("", "—"),) + _dynamic_collection_choices(),
-            widget=UnfoldAdminSelectWidget,
-            help_text="A posição define a ordem no cardápio." if index == 1 else "",
-        )
+    fields["defaults_dynamic_collections"] = forms.Field(
+        required=False,
+        label="Coleções dinâmicas",
+        widget=ArrayWidget(choices=(("", "—"),) + _dynamic_collection_choices()),
+        help_text="Adicione as coleções na ordem em que devem aparecer no cardápio.",
+    )
     for index in range(1, DEFAULTS_PICKUP_SLOT_ROWS + 1):
         fields[_defaults_pickup_field(index, "ref")] = forms.CharField(
             label=f"Slot {index} ref",
@@ -346,40 +347,26 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
     return fields
 
 
-def _parse_months(value: str, label: str) -> list[int]:
-    months: list[int] = []
-    for chunk in str(value or "").replace(";", ",").split(","):
-        raw = chunk.strip()
-        if not raw:
-            continue
-        try:
-            month = int(raw)
-        except ValueError as exc:
-            raise forms.ValidationError(f"{label}: use apenas números de 1 a 12.") from exc
-        if month < 1 or month > 12:
-            raise forms.ValidationError(f"{label}: {month} não é um mês válido.")
-        if month not in months:
-            months.append(month)
-    return months
-
-
-def _months_to_text(months) -> str:
+def _months_to_choice(months) -> list[str]:
+    """Stored ``list[int]`` → ``list[str]`` para o MultipleChoiceField."""
     if not isinstance(months, (list, tuple)):
-        return ""
-    return ", ".join(str(month) for month in months)
+        return []
+    return [str(month) for month in months]
 
 
-def _defaults_dynamic_collection_admin_rows() -> tuple[tuple[str, ...], ...]:
-    return (
-        tuple(
-            _defaults_dynamic_collection_field(index)
-            for index in range(1, min(DEFAULTS_DYNAMIC_COLLECTION_ROWS, 3) + 1)
-        ),
-        tuple(
-            _defaults_dynamic_collection_field(index)
-            for index in range(4, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1)
-        ),
-    )
+def _choice_to_months(values) -> list[int]:
+    """Selecionados (``list[str]``) → ``list[int]`` ordenados para persistir."""
+    if not values:
+        return []
+    months: list[int] = []
+    for value in values:
+        try:
+            month = int(value)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= month <= 12 and month not in months:
+            months.append(month)
+    return sorted(months)
 
 
 def _defaults_pickup_admin_rows() -> tuple[tuple[str, str, str], ...]:
@@ -581,10 +568,10 @@ class ShopForm(forms.ModelForm):
         )
         seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
 
-        if self._has(_defaults_dynamic_collection_field(1)):
-            dynamic_refs = list(menu.get("dynamic_collections") or [])
-            for index, ref in enumerate(dynamic_refs[:DEFAULTS_DYNAMIC_COLLECTION_ROWS], start=1):
-                self.fields[_defaults_dynamic_collection_field(index)].initial = ref
+        if self._has("defaults_dynamic_collections"):
+            self.fields["defaults_dynamic_collections"].initial = list(
+                menu.get("dynamic_collections") or []
+            )
         if self._has("defaults_notifications_backend"):
             self.fields["defaults_notifications_backend"].initial = notifications.get("backend") or "console"
         if self._has("defaults_max_preorder_days"):
@@ -594,9 +581,9 @@ class ShopForm(forms.ModelForm):
             self.fields["defaults_pickup_history_days"].initial = pickup_config.get("history_days", 30)
             self.fields["defaults_pickup_fallback_slot"].initial = pickup_config.get("fallback_slot", "")
         if self._has("defaults_season_hot_months"):
-            self.fields["defaults_season_hot_months"].initial = _months_to_text(seasons.get("hot"))
-            self.fields["defaults_season_mild_months"].initial = _months_to_text(seasons.get("mild"))
-            self.fields["defaults_season_cold_months"].initial = _months_to_text(seasons.get("cold"))
+            self.fields["defaults_season_hot_months"].initial = _months_to_choice(seasons.get("hot"))
+            self.fields["defaults_season_mild_months"].initial = _months_to_choice(seasons.get("mild"))
+            self.fields["defaults_season_cold_months"].initial = _months_to_choice(seasons.get("cold"))
         if self._has("defaults_high_demand_multiplier"):
             self.fields["defaults_high_demand_multiplier"].initial = defaults.get("high_demand_multiplier")
             self.fields["defaults_safety_stock_percent"].initial = defaults.get("safety_stock_percent")
@@ -668,16 +655,13 @@ class ShopForm(forms.ModelForm):
         return cleaned_data
 
     def _clean_defaults(self, cleaned_data: dict) -> None:
-        if self._has(_defaults_dynamic_collection_field(1)):
-            dynamic_refs: set[str] = set()
-            for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1):
-                field = _defaults_dynamic_collection_field(index)
-                ref = cleaned_data.get(field)
-                if not ref:
-                    continue
-                if ref in dynamic_refs:
-                    self.add_error(field, "Esta coleção já foi usada em outra posição.")
-                dynamic_refs.add(ref)
+        if self._has("defaults_dynamic_collections"):
+            refs = cleaned_data.get("defaults_dynamic_collections") or []
+            if len(refs) != len(set(refs)):
+                self.add_error(
+                    "defaults_dynamic_collections",
+                    "Há coleções repetidas — cada coleção só pode aparecer uma vez.",
+                )
 
         if self._has(_defaults_pickup_field(1, "ref")):
             slot_refs: set[str] = set()
@@ -714,18 +698,6 @@ class ShopForm(forms.ModelForm):
                 label = (cleaned_data.get(label_field) or "").strip()
                 if label and not closed_date:
                     self.add_error(date_field, "Informe a data deste feriado ou remova o rótulo.")
-
-        if self._has("defaults_season_hot_months"):
-            for key, label in (
-                ("hot", "Meses quentes"),
-                ("mild", "Meses amenos"),
-                ("cold", "Meses frios"),
-            ):
-                field = f"defaults_season_{key}_months"
-                try:
-                    cleaned_data[field] = _parse_months(cleaned_data.get(field), label)
-                except forms.ValidationError as exc:
-                    self.add_error(field, exc)
 
         if self._has("defaults_loyalty_points_per_real"):
             # Limiares dos níveis devem subir: bronze(0) < prata < ouro < platina.
@@ -791,14 +763,12 @@ class ShopForm(forms.ModelForm):
     def _build_defaults(self) -> dict:
         defaults = dict(_shop_defaults(self.instance))
 
-        if self._has(_defaults_dynamic_collection_field(1)):
+        if self._has("defaults_dynamic_collections"):
             menu = defaults.get("menu") if isinstance(defaults.get("menu"), dict) else {}
             menu = dict(menu)
-            menu["dynamic_collections"] = [
-                ref
-                for index in range(1, DEFAULTS_DYNAMIC_COLLECTION_ROWS + 1)
-                if (ref := self.cleaned_data.get(_defaults_dynamic_collection_field(index)))
-            ]
+            menu["dynamic_collections"] = list(
+                self.cleaned_data.get("defaults_dynamic_collections") or []
+            )
             defaults["menu"] = menu
 
         if self._has("defaults_notifications_backend"):
@@ -865,9 +835,9 @@ class ShopForm(forms.ModelForm):
         if self._has("defaults_season_hot_months"):
             seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
             seasons = dict(seasons)
-            seasons["hot"] = self.cleaned_data.get("defaults_season_hot_months") or []
-            seasons["mild"] = self.cleaned_data.get("defaults_season_mild_months") or []
-            seasons["cold"] = self.cleaned_data.get("defaults_season_cold_months") or []
+            seasons["hot"] = _choice_to_months(self.cleaned_data.get("defaults_season_hot_months"))
+            seasons["mild"] = _choice_to_months(self.cleaned_data.get("defaults_season_mild_months"))
+            seasons["cold"] = _choice_to_months(self.cleaned_data.get("defaults_season_cold_months"))
             defaults["seasons"] = seasons
 
         for field, key in (
@@ -1049,11 +1019,13 @@ _OPERATION_FIELDSETS = (
 _MENU_FIELDSETS = (
     ("Cardápio", {
         "fields": (
+            "defaults_dynamic_collections",
             "defaults_notifications_backend",
-        ) + _defaults_dynamic_collection_admin_rows(),
+        ),
         "description": (
-            "Coleções dinâmicas do cardápio (a posição define a ordem) e o canal "
-            "padrão de notificações. As coleções vêm do registry canônico do core."
+            "Coleções dinâmicas do cardápio (a ordem da lista define a ordem no "
+            "cardápio) e o canal padrão de notificações. As coleções vêm do "
+            "registry canônico do core."
         ),
     }),
 )

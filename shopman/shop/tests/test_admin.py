@@ -183,7 +183,7 @@ class TestShopAdminDefaults:
         client.force_login(admin_user)
         # Cada domínio na sua própria página (proxy), não num scroll único.
         pages = {
-            "shop_shopmenu_change": b'name="defaults_dynamic_collection_1"',
+            "shop_shopmenu_change": b'name="defaults_dynamic_collections"',
             "shop_shopordering_change": b'name="defaults_pickup_slot_1_ref"',
             "shop_shopoperation_change": b'name="defaults_closed_date_1_date"',
         }
@@ -223,11 +223,7 @@ class TestShopAdminDefaults:
         shop.save(update_fields=["defaults"])
 
         data = _shop_form_data(shop)
-        data["defaults_dynamic_collection_1"] = "featured"
-        data["defaults_dynamic_collection_2"] = "fresh_from_oven"
-        data["defaults_dynamic_collection_3"] = "new_arrivals"
-        data["defaults_dynamic_collection_4"] = ""
-        data["defaults_dynamic_collection_5"] = ""
+        data.setlist("defaults_dynamic_collections", ["featured", "fresh_from_oven", "new_arrivals"])
         data["defaults_notifications_backend"] = "manychat"
         data["defaults_max_preorder_days"] = "21"
         data["defaults_pickup_rounding_minutes"] = "30"
@@ -241,9 +237,9 @@ class TestShopAdminDefaults:
         data["defaults_pickup_slot_2_starts_at"] = "12:00"
         data["defaults_closed_date_1_date"] = "2026-12-25"
         data["defaults_closed_date_1_label"] = "Natal"
-        data["defaults_season_hot_months"] = "10, 11, 12, 1, 2, 3"
-        data["defaults_season_mild_months"] = "4, 5, 9"
-        data["defaults_season_cold_months"] = "6, 7, 8"
+        data.setlist("defaults_season_hot_months", ["10", "11", "12", "1", "2", "3"])
+        data.setlist("defaults_season_mild_months", ["4", "5", "9"])
+        data.setlist("defaults_season_cold_months", ["6", "7", "8"])
         data["defaults_high_demand_multiplier"] = "1.30"
         data["defaults_safety_stock_percent"] = "0.15"
 
@@ -279,7 +275,7 @@ class TestShopAdminDefaults:
             {"from": "2026-01-02", "to": "2026-01-05", "label": "Férias"},
         ]
         assert saved.defaults["seasons"] == {
-            "hot": [10, 11, 12, 1, 2, 3],
+            "hot": [1, 2, 3, 10, 11, 12],  # multiselect persiste ordenado
             "mild": [4, 5, 9],
             "cold": [6, 7, 8],
         }
