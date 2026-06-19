@@ -53,6 +53,11 @@ def __getattr__(name):
     elif name == 'StockHolds':
         from shopman.stockman.services.holds import StockHolds
         return StockHolds
+    elif name == 'set_alert_cooldown_resolver':
+        # Extension point: o host injeta o cooldown dos alertas sem o stockman
+        # depender dele. Lazy (a contrib de alertas é opcional).
+        from shopman.stockman.contrib.alerts.conf import set_cooldown_resolver
+        return set_cooldown_resolver
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -70,6 +75,7 @@ __all__ = [
     'StockAlert',
     'Batch',
     'StockHolds',
+    'set_alert_cooldown_resolver',
 ]
 
 __version__ = '0.3.0'

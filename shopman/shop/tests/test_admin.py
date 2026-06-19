@@ -395,6 +395,49 @@ class TestPosDiscountThresholdPolicy:
         assert _discount_approval_threshold_q() == 0
 
 
+class TestStockAlertCooldownPolicy:
+    """WP-5b — cooldown de alerta de estoque vira política da loja."""
+
+    def test_form_saves_cooldown_to_stock_alerts(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data["defaults_stock_alert_cooldown_minutes"] = "120"
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.defaults["stock_alerts"]["cooldown_minutes"] == 120
+
+    def test_blank_inherits_deploy_default(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.defaults = {"stock_alerts": {"cooldown_minutes": 30}}
+        shop.save(update_fields=["defaults"])
+        data = _shop_form_data(shop)
+        data["defaults_stock_alert_cooldown_minutes"] = ""
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert "stock_alerts" not in saved.defaults
+
+    def test_resolver_reads_shop_then_setting(self, shop, settings):
+        from django.core.cache import cache
+        from shopman.stockman.contrib.alerts.conf import get_alert_cooldown_minutes
+
+        from shopman.shop.models import Shop
+
+        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 90
+        # Sem bloco → herda deploy default.
+        Shop.objects.update(defaults={})
+        cache.clear()
+        assert get_alert_cooldown_minutes() == 90
+
+        shop.defaults = {"stock_alerts": {"cooldown_minutes": 15}}
+        shop.save()
+        cache.clear()
+        assert get_alert_cooldown_minutes() == 15
+
+
 class TestRuleConfigTypedParams:
     """WP-3 — params de regras conhecidas editados como campos tipados."""
 

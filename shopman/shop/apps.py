@@ -62,6 +62,9 @@ class ShopmanConfig(AppConfig):
         # 7. Inject store-driven loyalty config into the guestman Core
         self._register_loyalty_resolvers()
 
+        # 8. Inject store-driven stock-alert cooldown into the stockman Core
+        self._register_stock_alert_resolvers()
+
     def _register_ref_types(self):
         try:
             from shopman.refs import register_ref_type
@@ -102,6 +105,33 @@ class ShopmanConfig(AppConfig):
             lambda: resolve_loyalty_config().stamps_target
         )
         logger.info("ShopmanConfig: loyalty resolvers registered.")
+
+    def _register_stock_alert_resolvers(self):
+        """Drive the stockman alert cooldown from Shop.defaults["stock_alerts"].
+
+        Same decoupling as loyalty: the orchestrator owns the policy, stockman
+        stays agnostic. Optional — silent if the alerts contrib is absent.
+        """
+        try:
+            from shopman.stockman import set_alert_cooldown_resolver
+        except (ImportError, AttributeError):
+            return
+
+        def resolve_cooldown_minutes():
+            from shopman.shop.models import Shop
+
+            shop = Shop.load()
+            cfg = (shop.defaults.get("stock_alerts") or {}) if shop and shop.defaults else {}
+            raw = cfg.get("cooldown_minutes")
+            if raw is None:
+                return None
+            try:
+                return max(0, int(raw))
+            except (TypeError, ValueError):
+                return None
+
+        set_alert_cooldown_resolver(resolve_cooldown_minutes)
+        logger.info("ShopmanConfig: stock alert resolvers registered.")
 
     def _register_handlers(self):
         """Register all directive handlers, modifiers, validators, and stock signals.

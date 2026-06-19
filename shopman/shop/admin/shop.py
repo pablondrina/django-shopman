@@ -294,6 +294,17 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
         widget=UnfoldAdminIntegerFieldWidget,
         help_text="Quantos carimbos completam uma cartela. Aplica-se às novas contas de fidelidade.",
     )
+    fields["defaults_stock_alert_cooldown_minutes"] = forms.IntegerField(
+        label="Intervalo entre avisos do mesmo alerta (min)",
+        required=False,
+        min_value=1,
+        max_value=10080,
+        widget=UnfoldAdminIntegerFieldWidget,
+        help_text=(
+            "Tempo mínimo entre dois avisos do mesmo alerta de estoque baixo, "
+            "para não receber uma notificação a cada venda. Em branco = padrão do sistema (60)."
+        ),
+    )
     fields["defaults_pos_discount_approval_threshold_q"] = forms.DecimalField(
         label="Aprovação do gerente para descontos acima de (R$)",
         required=False,
@@ -569,6 +580,11 @@ class ShopForm(forms.ModelForm):
                 Decimal(int(threshold_q)) / 100
             )
 
+        stock_alerts = defaults.get("stock_alerts") if isinstance(defaults.get("stock_alerts"), dict) else {}
+        cooldown = stock_alerts.get("cooldown_minutes")
+        if cooldown is not None:
+            self.fields["defaults_stock_alert_cooldown_minutes"].initial = cooldown
+
         loyalty = LoyaltyConfig.from_defaults(defaults)
         self.fields["defaults_loyalty_points_per_real"].initial = loyalty.points_per_real
         self.fields["defaults_loyalty_stamps_target"].initial = loyalty.stamps_target
@@ -828,6 +844,18 @@ class ShopForm(forms.ModelForm):
         else:
             defaults.pop("pos", None)
 
+        stock_alerts = defaults.get("stock_alerts") if isinstance(defaults.get("stock_alerts"), dict) else {}
+        stock_alerts = dict(stock_alerts)
+        cooldown = self.cleaned_data.get("defaults_stock_alert_cooldown_minutes")
+        if cooldown is None:
+            stock_alerts.pop("cooldown_minutes", None)
+        else:
+            stock_alerts["cooldown_minutes"] = int(cooldown)
+        if stock_alerts:
+            defaults["stock_alerts"] = stock_alerts
+        else:
+            defaults.pop("stock_alerts", None)
+
         loyalty = defaults.get("loyalty") if isinstance(defaults.get("loyalty"), dict) else {}
         loyalty = dict(loyalty)
         points_per_real = self.cleaned_data.get("defaults_loyalty_points_per_real")
@@ -997,6 +1025,14 @@ class ShopAdmin(ModelAdmin):
             "description": (
                 "Políticas do balcão. O limite de aprovação vale para descontos "
                 "manuais aplicados no PDV — acima dele, é preciso o PIN do gerente."
+            ),
+        }),
+        ("Alertas de estoque", {
+            "fields": ("defaults_stock_alert_cooldown_minutes",),
+            "classes": ("collapse",),
+            "description": (
+                "O limite de cada alerta (quantidade mínima por produto) fica em "
+                "“Alertas de estoque”. Aqui você ajusta só a frequência de aviso."
             ),
         }),
         ("Fidelidade", {

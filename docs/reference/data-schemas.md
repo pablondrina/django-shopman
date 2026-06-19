@@ -734,6 +734,12 @@ Políticas do balcão, fora do schema do `ChannelConfig`.
 |-------|------|----------|-----------|
 | `pos.discount_approval_threshold_q` | `int` (centavos) | `_discount_approval_threshold_q` (`backstage/projections/pos.py`) | Descontos manuais acima deste valor exigem PIN do gerente. `0` = todo desconto exige aprovação. **Ausente = herda `SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q`** (deploy) — zero regressão. Editado em Reais no ShopAdmin. |
 
+### Alertas de estoque — `Shop.defaults["stock_alerts"]`
+
+| Chave | Tipo | Lido por | Descrição |
+|-------|------|----------|-----------|
+| `stock_alerts.cooldown_minutes` | `int` (minutos) | `get_alert_cooldown_minutes` (`stockman/contrib/alerts/conf.py`, via resolver) | Intervalo mínimo entre re-notificações do MESMO alerta de estoque baixo (anti-flood; o cooldown é por `StockAlert` = par sku+posição). **Ausente = herda `STOCKMAN_ALERT_COOLDOWN_MINUTES`** (deploy, default 60) — zero regressão. O Core não depende do shop: o orquestrador injeta um resolver em `stockman.contrib.alerts.conf`. O limiar de cada alerta (`min_quantity`) continua por-SKU no admin de Alertas. |
+
 ---
 
 ## Shop.integrations
