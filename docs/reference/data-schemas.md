@@ -726,6 +726,14 @@ não depende do shop: o orquestrador (`shop/apps.py`) registra resolvers em
 > hardcoded anterior — zero regressão). Sem `Shop` ou sem bloco `loyalty`, os
 > resolvers caem nos defaults do guestman.
 
+### Ponto de venda — `Shop.defaults["pos"]`
+
+Políticas do balcão, fora do schema do `ChannelConfig`.
+
+| Chave | Tipo | Lido por | Descrição |
+|-------|------|----------|-----------|
+| `pos.discount_approval_threshold_q` | `int` (centavos) | `_discount_approval_threshold_q` (`backstage/projections/pos.py`) | Descontos manuais acima deste valor exigem PIN do gerente. `0` = todo desconto exige aprovação. **Ausente = herda `SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q`** (deploy) — zero regressão. Editado em Reais no ShopAdmin. |
+
 ---
 
 ## Shop.integrations

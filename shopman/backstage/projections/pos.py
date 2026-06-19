@@ -1436,7 +1436,23 @@ def _delivery_minimum_q() -> int:
 
 
 def _discount_approval_threshold_q() -> int:
-    """Return configured POS discount approval threshold in cents."""
+    """POS discount approval threshold (cents): descontos acima dele exigem
+    aprovação do gerente.
+
+    Política da loja em ``Shop.defaults["pos"]["discount_approval_threshold_q"]``
+    (editável no admin). Ausente = herda o padrão do deploy
+    (``SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q``) — zero regressão.
+    """
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        pos_cfg = (shop.defaults.get("pos") or {}) if shop and shop.defaults else {}
+        raw = pos_cfg.get("discount_approval_threshold_q")
+        if raw is not None:
+            return max(0, int(raw))
+    except Exception:
+        logger.debug("pos_discount_threshold_lookup_failed", exc_info=True)
     return max(0, int(getattr(settings, "SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", 0) or 0))
 
 

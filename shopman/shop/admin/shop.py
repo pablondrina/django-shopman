@@ -294,6 +294,18 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
         widget=UnfoldAdminIntegerFieldWidget,
         help_text="Quantos carimbos completam uma cartela. Aplica-se às novas contas de fidelidade.",
     )
+    fields["defaults_pos_discount_approval_threshold_q"] = forms.DecimalField(
+        label="Aprovação do gerente para descontos acima de (R$)",
+        required=False,
+        min_value=Decimal("0"),
+        max_digits=8,
+        decimal_places=2,
+        widget=UnfoldAdminDecimalFieldWidget,
+        help_text=(
+            "No PDV, descontos acima deste valor exigem PIN do gerente. "
+            "0 = todo desconto exige aprovação. Em branco = usa o padrão do sistema."
+        ),
+    )
     tier_help = {
         "silver": "Pontos acumulados (na vida toda) para o cliente chegar ao nível Prata.",
         "gold": "Pontos acumulados para chegar ao nível Ouro.",
@@ -550,6 +562,13 @@ class ShopForm(forms.ModelForm):
         for field_name, key in DEFAULTS_RULE_Q_FIELDS:
             self.fields[field_name].initial = _q_to_reais(rules.get(key))
 
+        pos_cfg = defaults.get("pos") if isinstance(defaults.get("pos"), dict) else {}
+        threshold_q = pos_cfg.get("discount_approval_threshold_q")
+        if threshold_q is not None:
+            self.fields["defaults_pos_discount_approval_threshold_q"].initial = (
+                Decimal(int(threshold_q)) / 100
+            )
+
         loyalty = LoyaltyConfig.from_defaults(defaults)
         self.fields["defaults_loyalty_points_per_real"].initial = loyalty.points_per_real
         self.fields["defaults_loyalty_stamps_target"].initial = loyalty.stamps_target
@@ -795,6 +814,20 @@ class ShopForm(forms.ModelForm):
             rules[key] = _reais_to_q(self.cleaned_data.get(field_name))
         defaults["rules"] = rules
 
+        pos_cfg = defaults.get("pos") if isinstance(defaults.get("pos"), dict) else {}
+        pos_cfg = dict(pos_cfg)
+        threshold = self.cleaned_data.get("defaults_pos_discount_approval_threshold_q")
+        if threshold is None:
+            pos_cfg.pop("discount_approval_threshold_q", None)
+        else:
+            pos_cfg["discount_approval_threshold_q"] = int(
+                (Decimal(threshold) * 100).to_integral_value()
+            )
+        if pos_cfg:
+            defaults["pos"] = pos_cfg
+        else:
+            defaults.pop("pos", None)
+
         loyalty = defaults.get("loyalty") if isinstance(defaults.get("loyalty"), dict) else {}
         loyalty = dict(loyalty)
         points_per_real = self.cleaned_data.get("defaults_loyalty_points_per_real")
@@ -957,6 +990,14 @@ class ShopAdmin(ModelAdmin):
             ),
             "classes": ("collapse",),
             "description": "Parâmetros usados por sugestões operacionais e estoque de segurança.",
+        }),
+        ("Ponto de venda (PDV)", {
+            "fields": ("defaults_pos_discount_approval_threshold_q",),
+            "classes": ("collapse",),
+            "description": (
+                "Políticas do balcão. O limite de aprovação vale para descontos "
+                "manuais aplicados no PDV — acima dele, é preciso o PIN do gerente."
+            ),
         }),
         ("Fidelidade", {
             "fields": (

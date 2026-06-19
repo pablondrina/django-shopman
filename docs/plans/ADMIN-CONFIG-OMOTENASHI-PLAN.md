@@ -44,9 +44,19 @@
 Mock payment adapters, throttle anon, timeouts de terceiros (ManyChat/Focus), debug OTP,
 event-cleanup retention. São deploy/infra, não política de loja.
 
-### 🤔 A TRIAR com o Pablo (policy vs infra)
-PIX expiry (`SHOPMAN_PIX_EXPIRY_SECONDS`), POS discount approval threshold, stock alert cooldown,
-low_stock_threshold, hold TTLs, webhook idempotency TTL. Alguns são política (operador), outros infra.
+### 🤔 A TRIAR com o Pablo (policy vs infra) — ✅ TRIAGEM FEITA (WP-5)
+
+| Tunable | Estado real | Veredito |
+|---------|-------------|----------|
+| **PIX expiry** (`SHOPMAN_PIX_EXPIRY_SECONDS`) | `payment_efi.py` já usa `ChannelConfig.payment.timeout_minutes` primeiro; o env é só fallback | **Já configurável** (Canal/Loja). Nada a mover. |
+| **low_stock_threshold** | já é `ChannelConfig.Stock.low_stock_threshold` | **Já configurável**. Nada a mover. |
+| **hold TTLs** | já em `ChannelConfig.Stock` (`hold_ttl_minutes`, `planned_hold_ttl_hours`) | **Já configurável**. Nada a mover. |
+| **POS discount approval threshold** (`SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q`) | só env, lido em `backstage/projections/pos.py` | **Política pura → MOVIDO p/ `Shop.defaults["pos"]`** (fallback no env = zero regressão). |
+| **stock alert cooldown** (`STOCKMAN_ALERT_COOLDOWN_MINUTES`) | Core (stockman), resolver via settings | **Borderline (anti-flood de notificação). DECISÃO DO PABLO:** mover p/ Shop.defaults (com resolver injetado, igual loyalty) ou manter infra? Não movido. |
+| **webhook idempotency TTL** | janela de dedup | **Infra**. Manter fora. |
+
+KEEP-AS-IS confirmados (infra): mock adapters, throttle anon, timeouts 3rd-party, debug OTP,
+event-cleanup retention.
 
 ---
 

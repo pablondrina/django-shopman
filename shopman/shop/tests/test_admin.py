@@ -351,6 +351,50 @@ class TestGuestmanLoyaltyAdminUnfold:
             )
 
 
+class TestPosDiscountThresholdPolicy:
+    """WP-5 — limiar de aprovação de desconto do PDV vira política da loja."""
+
+    def test_form_saves_threshold_to_pos_defaults(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data["defaults_pos_discount_approval_threshold_q"] = "5.00"
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.defaults["pos"]["discount_approval_threshold_q"] == 500
+
+    def test_blank_inherits_deploy_default(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.defaults = {"pos": {"discount_approval_threshold_q": 500}}
+        shop.save(update_fields=["defaults"])
+        data = _shop_form_data(shop)
+        data["defaults_pos_discount_approval_threshold_q"] = ""
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert "pos" not in saved.defaults
+
+    def test_resolver_prefers_shop_then_setting(self, shop, settings):
+        from django.core.cache import cache
+
+        from shopman.backstage.projections.pos import _discount_approval_threshold_q
+        from shopman.shop.models import Shop
+
+        settings.SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q = 1000
+        # Sem bloco pos → herda deploy default.
+        Shop.objects.update(defaults={})
+        cache.clear()
+        assert _discount_approval_threshold_q() == 1000
+
+        shop.defaults = {"pos": {"discount_approval_threshold_q": 0}}
+        shop.save()
+        cache.clear()
+        # 0 é valor explícito (todo desconto exige aprovação), não "ausente".
+        assert _discount_approval_threshold_q() == 0
+
+
 class TestRuleConfigTypedParams:
     """WP-3 — params de regras conhecidas editados como campos tipados."""
 
