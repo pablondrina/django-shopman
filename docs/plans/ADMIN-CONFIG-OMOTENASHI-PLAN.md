@@ -95,17 +95,27 @@ canais" focados em DADOS, não config.)
   estruturados + validação de limiares ascendentes). Admins guestman `LoyaltyAccount`/
   `LoyaltyTransaction` migrados para Unfold (`contrib/admin_unfold`). Seed + `data-schemas.md`
   atualizados. `make test`/`make lint`/`make admin` verdes; verificado ao vivo no Admin.
-- **WP-2 — IA/Sidebar "Configurações".** Implementar o grupo do §3; reagrupar os modelos de config.
-  Sem mudança de modelo — só navegação + descoberta. Alto valor, baixo risco.
-- **WP-3 — `RuleConfig.params` tipado.** Form dataclass-driven por tipo de regra (happy_hour:
-  start/end/discount_percent; d1_discount: discount_percent; employee_discount: discount_percent) —
-  fim do JSON cru. (Os modifiers já leem os params; só a EDIÇÃO muda.)
-- **WP-4 — Unfold-ify guestman.** `LoyaltyAccount`/`LoyaltyTransaction`/`CustomerGroup` → Unfold
-  ModelAdmin (consistência + badges canônicos).
-- **WP-5 — Tunables triados.** Levar ao admin só os que o Pablo confirmar como política (ex.: PIX expiry,
-  low_stock_threshold) via `Shop.defaults`; manter infra fora. **Coletar decisão do Pablo.**
-- **WP-6 — Passada de omotenashi.** Revisar labels/help/validação/defaults em TODOS os admins de config
-  (pt-BR acolhedor, help text explicando o efeito de cada knob).
+- **WP-2 — IA/Sidebar "Configurações". ✅ CONCLUÍDO (`f514be19`).** Grupo colapsável "Configurações"
+  (`navigation.py`) reúne Shop/Channel/Promotion/Coupon/RuleConfig/DeliveryDistanceBand/DeliveryZone/
+  CustomerGroup/OmotenashiCopy/NotificationTemplate/KDSInstance/POSTab, ordenado por subtema (§3). Os
+  grupos de DADOS ficaram focados ("Catálogo e loja"→"Catálogo"; "Pedidos e canais" perde Canais/POS tabs;
+  Auditoria perde KDS; Clientes perde Grupos e ganha "Contas de fidelidade"). Fidelidade fica dentro da
+  "Configuração da Loja" (sem item próprio). Teste de sidebar reforçado.
+- **WP-3 — `RuleConfig.params` tipado. ✅ CONCLUÍDO (`9cfe4415`).** `shop/rules/params_schema.py`
+  (dataclass por `RuleConfig.code` sem prefixo) + `RuleConfigForm` com campos `param_*` (happy_hour:
+  desconto/início/fim com time-picker; d1/employee: percentual), `get_fieldsets` dinâmico, validação
+  início<fim, preserva chaves extras (ex.: `employee_discount.group`). Regras sem schema mantêm o JSON.
+- **WP-4 — Unfold-ify guestman. ✅ CONCLUÍDO (`482895c8`, escopo feito no WP-1).** Loyalty migrado no
+  WP-1; CustomerGroup já era Unfold. Guarda de regressão adicionada. Demais admins CRM do guestman
+  (consent/identifiers/insights/preferences/timeline/ContactPoint/ExternalIdentity) seguem plain — são
+  DADOS de cliente, fora do escopo desta iniciativa de config.
+- **WP-5 — Tunables triados. ✅ CONCLUÍDO (`b4a52b25`).** Triagem na §1: já-configuráveis (PIX expiry,
+  low_stock, hold TTLs via ChannelConfig), infra (mantidos fora) e a única política-pura-não-configurável
+  → **POS discount approval threshold movido p/ `Shop.defaults["pos"]`** (em branco = herda env = zero
+  regressão). **Pendente decisão do Pablo:** stock alert cooldown (borderline, não movido).
+- **WP-6 — Passada de omotenashi. ✅ CONCLUÍDO (`30f567a4`).** ChannelForm: `forms.Textarea` cru →
+  `UnfoldAdminTextareaWidget` + help pt-BR por aspecto + nota de cascata. Delivery (faixas/zonas):
+  fieldsets com descrição motor-vs-exceção. Demais admins de config já estavam bem documentados.
 
 **Ordem sugerida:** WP-1 (loyalty, pedido explícito) → WP-2 (descoberta, win rápido) → WP-3 → WP-4 →
 WP-6 → WP-5 (depende de decisões).
