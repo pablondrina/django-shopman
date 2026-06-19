@@ -371,6 +371,65 @@ class TestGuestmanLoyaltyAdminUnfold:
             )
 
 
+class TestShopIntegrationsForm:
+    """WP-D1 — seleção de adapters tipada (dropdowns) em Shop.integrations."""
+
+    def test_saves_nested_adapter_selection(self, shop):
+        from shopman.shop.admin.shop import _INTEGRATIONS_FIELDSETS, _section_form
+
+        Form = _section_form(_INTEGRATIONS_FIELDSETS)
+        form = Form(
+            data={
+                "integrations_payment_pix": "shopman.shop.adapters.payment_efi",
+                "integrations_payment_card": "shopman.shop.adapters.payment_stripe",
+                "integrations_notification_default": "shopman.shop.adapters.notification_manychat",
+                "integrations_fiscal": "",
+            },
+            instance=shop,
+        )
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        saved.refresh_from_db()
+        assert saved.integrations["payment"]["pix"] == "shopman.shop.adapters.payment_efi"
+        assert saved.integrations["payment"]["card"] == "shopman.shop.adapters.payment_stripe"
+        assert saved.integrations["notification"]["default"] == (
+            "shopman.shop.adapters.notification_manychat"
+        )
+        assert "fiscal" not in saved.integrations
+
+    def test_initial_reflects_stored_integrations(self, shop):
+        from shopman.shop.admin.shop import _INTEGRATIONS_FIELDSETS, _section_form
+
+        shop.integrations = {"payment": {"pix": "shopman.shop.adapters.payment_efi"}}
+        shop.save(update_fields=["integrations"])
+        Form = _section_form(_INTEGRATIONS_FIELDSETS)
+        form = Form(instance=shop)
+        assert form.fields["integrations_payment_pix"].initial == (
+            "shopman.shop.adapters.payment_efi"
+        )
+
+    def test_other_domains_preserved_on_save(self, shop):
+        from shopman.shop.admin.shop import _INTEGRATIONS_FIELDSETS, _section_form
+
+        shop.defaults = {"pos": {"discount_approval_threshold_q": 500}}
+        shop.save(update_fields=["defaults"])
+        Form = _section_form(_INTEGRATIONS_FIELDSETS)
+        form = Form(
+            data={
+                "integrations_payment_pix": "shopman.shop.adapters.payment_mock",
+                "integrations_payment_card": "",
+                "integrations_notification_default": "",
+                "integrations_fiscal": "",
+            },
+            instance=shop,
+        )
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        saved.refresh_from_db()
+        assert saved.defaults["pos"]["discount_approval_threshold_q"] == 500
+        assert saved.integrations["payment"]["pix"] == "shopman.shop.adapters.payment_mock"
+
+
 class TestPosDiscountThresholdPolicy:
     """WP-5 — limiar de aprovação de desconto do PDV vira política da loja."""
 

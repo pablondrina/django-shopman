@@ -347,6 +347,63 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
     return fields
 
 
+# ── Integrações (seleção de adapters tipada com dropdowns) ──────────────────
+
+# Módulos em shopman.shop.adapters que não são adapters selecionáveis por tipo.
+_ADAPTER_EXCLUDE = {"payment_types", "catalog_projection_ifood", "otp_manychat", "kds", "pos", "alert"}
+
+
+def _adapter_choices(prefix: str) -> list[tuple[str, str]]:
+    """Descobre os adapters disponíveis por prefixo (ex.: 'payment_')."""
+    import pkgutil
+
+    import shopman.shop.adapters as adapters_pkg
+
+    choices: list[tuple[str, str]] = []
+    for info in pkgutil.iter_modules(adapters_pkg.__path__):
+        name = info.name
+        if name.startswith("_") or name in _ADAPTER_EXCLUDE:
+            continue
+        if name.startswith(prefix):
+            label = name[len(prefix):].replace("_", " ").title() or name
+            choices.append((f"shopman.shop.adapters.{name}", label))
+    return sorted(choices)
+
+
+def _integrations_form_fields() -> dict[str, forms.Field]:
+    blank = [("", "Herda do sistema")]
+    return {
+        "integrations_payment_pix": forms.ChoiceField(
+            label="Adapter de PIX",
+            required=False,
+            choices=blank + _adapter_choices("payment_"),
+            widget=UnfoldAdminSelectWidget,
+            help_text="Gateway que processa cobranças PIX. Em branco = padrão do sistema.",
+        ),
+        "integrations_payment_card": forms.ChoiceField(
+            label="Adapter de cartão",
+            required=False,
+            choices=blank + _adapter_choices("payment_"),
+            widget=UnfoldAdminSelectWidget,
+            help_text="Gateway que processa cartão. Em branco = padrão do sistema.",
+        ),
+        "integrations_notification_default": forms.ChoiceField(
+            label="Adapter de notificação",
+            required=False,
+            choices=blank + _adapter_choices("notification_"),
+            widget=UnfoldAdminSelectWidget,
+            help_text="Canal padrão de envio de notificações. Em branco = padrão do sistema.",
+        ),
+        "integrations_fiscal": forms.ChoiceField(
+            label="Adapter fiscal",
+            required=False,
+            choices=blank + _adapter_choices("fiscal_"),
+            widget=UnfoldAdminSelectWidget,
+            help_text="Emissor fiscal (NFC-e). Em branco = desligado/padrão do sistema.",
+        ),
+    }
+
+
 def _months_to_choice(months) -> list[str]:
     """Stored ``list[int]`` → ``list[str]`` para o MultipleChoiceField."""
     if not isinstance(months, (list, tuple)):
@@ -517,6 +574,7 @@ class ShopForm(forms.ModelForm):
     social_links = forms.Field(required=False, widget=ArrayWidget())
 
     locals().update(_defaults_form_fields())
+    locals().update(_integrations_form_fields())
 
     class Meta:
         model = Shop
@@ -535,6 +593,7 @@ class ShopForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields.pop("opening_hours", None)
         self.fields.pop("defaults", None)
+        self.fields.pop("integrations", None)
 
         if "social_links" in self.fields:
             self.fields["social_links"].required = False
@@ -557,6 +616,29 @@ class ShopForm(forms.ModelForm):
                 self.fields[_opening_field(day, "close")].initial = closes_at
 
         self._set_defaults_initial(_shop_defaults(self.instance))
+        self._set_integrations_initial(getattr(self.instance, "integrations", None) or {})
+
+    def _set_integrations_initial(self, integrations: dict) -> None:
+        if not self._has("integrations_payment_pix"):
+            return
+        if not isinstance(integrations, dict):
+            integrations = {}
+        payment = integrations.get("payment") if isinstance(integrations.get("payment"), dict) else {}
+        notif = integrations.get("notification") if isinstance(integrations.get("notification"), dict) else {}
+        mapping = {
+            "integrations_payment_pix": payment.get("pix"),
+            "integrations_payment_card": payment.get("card"),
+            "integrations_notification_default": notif.get("default"),
+            "integrations_fiscal": integrations.get("fiscal"),
+        }
+        for field_name, value in mapping.items():
+            value = value or ""
+            field = self.fields[field_name]
+            # Preserva caminho custom (vindo de settings/JSON) que não esteja na
+            # lista descoberta, para o select não perdê-lo silenciosamente.
+            if value and value not in {choice[0] for choice in field.choices}:
+                field.choices = list(field.choices) + [(value, value)]
+            field.initial = value
 
     def _set_defaults_initial(self, defaults: dict) -> None:
         menu = defaults.get("menu") if isinstance(defaults.get("menu"), dict) else {}
@@ -755,10 +837,47 @@ class ShopForm(forms.ModelForm):
                 if self.cleaned_data.get(_opening_field(day, "status")) == "open"
             }
         instance.defaults = self._build_defaults()
+        instance.integrations = self._build_integrations()
         if commit:
             instance.save()
             self.save_m2m()
         return instance
+
+    def _build_integrations(self) -> dict:
+        integrations = dict(getattr(self.instance, "integrations", None) or {})
+        if not self._has("integrations_payment_pix"):
+            return integrations
+
+        payment = dict(integrations.get("payment") or {})
+        for key, field_name in (("pix", "integrations_payment_pix"), ("card", "integrations_payment_card")):
+            value = self.cleaned_data.get(field_name) or None
+            if value:
+                payment[key] = value
+            else:
+                payment.pop(key, None)
+        if payment:
+            integrations["payment"] = payment
+        else:
+            integrations.pop("payment", None)
+
+        notif = dict(integrations.get("notification") or {})
+        default = self.cleaned_data.get("integrations_notification_default") or None
+        if default:
+            notif["default"] = default
+        else:
+            notif.pop("default", None)
+        if notif:
+            integrations["notification"] = notif
+        else:
+            integrations.pop("notification", None)
+
+        fiscal = self.cleaned_data.get("integrations_fiscal") or None
+        if fiscal:
+            integrations["fiscal"] = fiscal
+        else:
+            integrations.pop("fiscal", None)
+
+        return integrations
 
     def _build_defaults(self) -> dict:
         defaults = dict(_shop_defaults(self.instance))
@@ -1099,11 +1218,18 @@ _POS_FIELDSETS = (
 )
 
 _INTEGRATIONS_FIELDSETS = (
-    ("Integrações", {
-        "fields": ("integrations",),
+    ("Pagamentos", {
+        "fields": ("integrations_payment_pix", "integrations_payment_card"),
         "description": (
-            "Seleção de adapters Admin-configurável. Sobreescreve settings.py. "
-            "Exemplo: {\"payment\": {\"pix\": \"shopman.shop.adapters.payment_efi\"}}."
+            "Escolha o gateway de cada meio de pagamento. Sobreescreve o padrão do "
+            "deployment (settings). Em branco = herda do sistema."
+        ),
+    }),
+    ("Notificações e fiscal", {
+        "fields": ("integrations_notification_default", "integrations_fiscal"),
+        "description": (
+            "Canal padrão de notificação ao cliente e emissor fiscal. "
+            "Em branco = herda do sistema."
         ),
     }),
 )
