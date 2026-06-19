@@ -782,10 +782,10 @@ class TestProductAdminExtension:
         product_admin_cls = type(admin.site._registry[Product])
         fieldsets = product_admin_cls.fieldsets or []
         for title, opts in fieldsets:
-            if title == "Configuration":
+            if title == "Configuração":
                 assert "allows_next_day_sale" in opts["fields"]
                 return
-        pytest.skip("Configuration fieldset not found")
+        pytest.skip("Configuração fieldset not found")
 
 
 class TestBatchAdminExtension:

@@ -36,10 +36,10 @@ class CustomerUserAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["user", "customer_id"]}),
-        ("Metadata", {"fields": ["metadata", "created_at"], "classes": ["collapse"]}),
+        ("Metadados", {"fields": ["metadata", "created_at"], "classes": ["collapse"]}),
     ]
 
-    @display(description="Customer ID")
+    @display(description="ID do cliente")
     def customer_id_short(self, obj):
         return str(obj.customer_id)[:8] + "…"
 
@@ -84,21 +84,21 @@ class AccessLinkAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["id", "token_hash", "customer_id"]}),
-        ("Scope", {"fields": ["audience", "source"]}),
-        ("Lifecycle", {"fields": ["created_at", "expires_at", "used_at"]}),
-        ("Result", {"fields": ["user"]}),
-        ("Metadata", {"fields": ["metadata"], "classes": ["collapse"]}),
+        ("Escopo", {"fields": ["audience", "source"]}),
+        ("Ciclo de vida", {"fields": ["created_at", "expires_at", "used_at"]}),
+        ("Resultado", {"fields": ["user"]}),
+        ("Metadados", {"fields": ["metadata"], "classes": ["collapse"]}),
     ]
 
-    @display(description="Token Hash")
+    @display(description="Hash do token")
     def token_short(self, obj):
         return obj.token_hash[:12] + "…"
 
-    @display(description="Customer")
+    @display(description="Cliente")
     def customer_id_short(self, obj):
         return str(obj.customer_id)[:8] + "…"
 
-    @display(description="Audience")
+    @display(description="Público")
     def audience_badge(self, obj):
         colors = {
             "web_checkout": "green",
@@ -109,7 +109,7 @@ class AccessLinkAdmin(BaseModelAdmin):
         color = colors.get(obj.audience, "base")
         return unfold_badge(obj.get_audience_display(), color)
 
-    @display(description="Source")
+    @display(description="Origem")
     def source_badge(self, obj):
         colors = {
             "manychat": "blue",
@@ -119,14 +119,14 @@ class AccessLinkAdmin(BaseModelAdmin):
         color = colors.get(obj.source, "base")
         return unfold_badge(obj.get_source_display(), color)
 
-    @display(description="Status")
+    @display(description="Situação")
     def status_badge(self, obj):
         if obj.used_at:
-            return unfold_badge("Used", "blue")
+            return unfold_badge("Usado", "blue")
         elif obj.is_expired:
-            return unfold_badge("Expired", "base")
+            return unfold_badge("Expirado", "base")
         else:
-            return unfold_badge("Valid", "green")
+            return unfold_badge("Válido", "green")
 
     def has_add_permission(self, request):
         return False
@@ -174,17 +174,17 @@ class VerificationCodeAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["id", "code_hash", "target_value"]}),
-        ("Purpose", {"fields": ["purpose", "delivery_method"]}),
-        ("Lifecycle", {"fields": ["status", "created_at", "expires_at", "sent_at", "verified_at"]}),
-        ("Security", {"fields": ["attempts", "max_attempts", "ip_address"]}),
-        ("Result", {"fields": ["customer_id"]}),
+        ("Finalidade", {"fields": ["purpose", "delivery_method"]}),
+        ("Ciclo de vida", {"fields": ["status", "created_at", "expires_at", "sent_at", "verified_at"]}),
+        ("Segurança", {"fields": ["attempts", "max_attempts", "ip_address"]}),
+        ("Resultado", {"fields": ["customer_id"]}),
     ]
 
-    @display(description="Code Hash")
+    @display(description="Hash do código")
     def code_hash_short(self, obj):
         return obj.code_hash[:12] + "…"
 
-    @display(description="Target")
+    @display(description="Destino")
     def target_masked(self, obj):
         value = obj.target_value
         if "@" in value:
@@ -197,19 +197,19 @@ class VerificationCodeAdmin(BaseModelAdmin):
             return "***" + value[-4:]
         return "****"
 
-    @display(description="Purpose")
+    @display(description="Finalidade")
     def purpose_badge(self, obj):
         colors = {"login": "blue", "verify_contact": "green"}
         color = colors.get(obj.purpose, "base")
         return unfold_badge(obj.get_purpose_display(), color)
 
-    @display(description="Method")
+    @display(description="Método")
     def delivery_badge(self, obj):
         colors = {"whatsapp": "green", "sms": "blue", "email": "yellow"}
         color = colors.get(obj.delivery_method, "base")
         return unfold_badge(obj.get_delivery_method_display(), color)
 
-    @display(description="Status")
+    @display(description="Situação")
     def status_badge(self, obj):
         colors = {
             "pending": "yellow",
@@ -221,7 +221,7 @@ class VerificationCodeAdmin(BaseModelAdmin):
         color = colors.get(obj.status, "base")
         return unfold_badge(obj.get_status_display(), color)
 
-    @display(description="Attempts")
+    @display(description="Tentativas")
     def attempts_display(self, obj):
         text = f"{obj.attempts}/{obj.max_attempts}"
         if obj.attempts >= obj.max_attempts:
@@ -269,33 +269,33 @@ class TrustedDeviceAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["id", "customer_id", "token_hash"]}),
-        ("Device", {"fields": ["label", "user_agent", "ip_address"]}),
-        ("Lifecycle", {"fields": ["created_at", "expires_at", "last_used_at", "is_active"]}),
+        ("Dispositivo", {"fields": ["label", "user_agent", "ip_address"]}),
+        ("Ciclo de vida", {"fields": ["created_at", "expires_at", "last_used_at", "is_active"]}),
     ]
 
     actions = ["revoke_selected"]
 
-    @display(description="Token Hash")
+    @display(description="Hash do token")
     def token_hash_short(self, obj):
         return obj.token_hash[:12] + "…"
 
-    @display(description="Customer")
+    @display(description="Cliente")
     def customer_id_short(self, obj):
         return str(obj.customer_id)[:8] + "…"
 
-    @display(description="Status")
+    @display(description="Situação")
     def status_badge(self, obj):
         if not obj.is_active:
-            return unfold_badge("Revoked", "red")
+            return unfold_badge("Revogado", "red")
         elif obj.is_expired:
-            return unfold_badge("Expired", "base")
+            return unfold_badge("Expirado", "base")
         else:
-            return unfold_badge("Active", "green")
+            return unfold_badge("Ativo", "green")
 
-    @admin.action(description="Revoke selected devices")
+    @admin.action(description="Revogar dispositivos selecionados")
     def revoke_selected(self, request, queryset):
         count = queryset.filter(is_active=True).update(is_active=False)
-        self.message_user(request, f"{count} device(s) revoked.")
+        self.message_user(request, f"{count} dispositivo(s) revogado(s).")
 
     def has_add_permission(self, request):
         return False

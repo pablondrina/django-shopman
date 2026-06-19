@@ -90,11 +90,11 @@ class CustomerGroupAdmin(BaseModelAdmin):
     search_fields = ["ref", "name"]
     ordering = ["-priority", "name"]
 
-    @display(description="Default", boolean=True)
+    @display(description="Padrão", boolean=True)
     def is_default_badge(self, obj):
         return obj.is_default
 
-    @display(description="Guestman")
+    @display(description="Clientes")
     def customer_count(self, obj):
         return obj.customers.count()
 
@@ -136,7 +136,7 @@ class CustomerAdmin(BaseModelAdmin):
 
     fieldsets = [
         (
-            "Identification",
+            "Identificação",
             {
                 "fields": [
                     "ref",
@@ -148,10 +148,10 @@ class CustomerAdmin(BaseModelAdmin):
                 ]
             },
         ),
-        ("Contact", {"fields": ["email", "phone"]}),
-        ("Segmentation", {"fields": ["group", "notes"]}),
+        ("Contato", {"fields": ["email", "phone"]}),
+        ("Segmentação", {"fields": ["group", "notes"]}),
         (
-            "System",
+            "Sistema",
             {
                 "fields": [
                     "is_active",
@@ -168,7 +168,7 @@ class CustomerAdmin(BaseModelAdmin):
 
     actions = ["export_selected_csv", "recalculate_insights"]
 
-    @display(description="Type")
+    @display(description="Tipo")
     def customer_type_badge(self, obj):
         colors = {
             "individual": "blue",
@@ -177,11 +177,11 @@ class CustomerAdmin(BaseModelAdmin):
         color = colors.get(obj.customer_type, "base")
         return unfold_badge(obj.get_customer_type_display(), color)
 
-    @display(description="Active", boolean=True)
+    @display(description="Ativo", boolean=True)
     def is_active_badge(self, obj):
         return obj.is_active
 
-    @display(description="Orders")
+    @display(description="Pedidos")
     def orders_link(self, obj):
         """Show order count using Orderman's public customer-history contract."""
         try:
@@ -312,7 +312,7 @@ class CustomerAddressAdmin(BaseModelAdmin):
     search_fields = ["customer__ref", "customer__first_name", "formatted_address"]
     raw_id_fields = ["customer"]
 
-    @display(description="Label")
+    @display(description="Rótulo")
     def label_badge(self, obj):
         colors = {
             "home": "green",
@@ -322,11 +322,11 @@ class CustomerAddressAdmin(BaseModelAdmin):
         color = colors.get(obj.label, "base")
         return unfold_badge(obj.get_label_display(), color)
 
-    @display(description="Default", boolean=True)
+    @display(description="Padrão", boolean=True)
     def is_default_badge(self, obj):
         return obj.is_default
 
-    @display(description="Verified", boolean=True)
+    @display(description="Verificado", boolean=True)
     def is_verified_badge(self, obj):
         return obj.is_verified
 
@@ -353,26 +353,26 @@ class ContactPointAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["id", "customer", "type", "value_normalized", "value_display"]}),
-        ("Status", {"fields": ["is_primary", "is_verified"]}),
+        ("Situação", {"fields": ["is_primary", "is_verified"]}),
         (
-            "Verification",
+            "Verificação",
             {"fields": ["verification_method", "verified_at", "verification_ref"]},
         ),
-        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+        ("Datas", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
     ]
 
-    @display(description="Value")
+    @display(description="Valor")
     def value_masked(self, obj):
         return obj.value_masked
 
-    @display(description="Customer")
+    @display(description="Cliente")
     def customer_link(self, obj):
         from django.urls import reverse
 
         url = reverse("admin:guestman_customer_change", args=[obj.customer.pk])
         return format_html('<a href="{}">{}</a>', url, obj.customer.ref)
 
-    @display(description="Verified", boolean=True)
+    @display(description="Verificado", boolean=True)
     def is_verified_badge(self, obj):
         return obj.is_verified
 
@@ -398,18 +398,18 @@ class ExternalIdentityAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ["id", "customer", "provider", "provider_uid"]}),
-        ("Status", {"fields": ["is_active"]}),
-        ("Metadata", {"fields": ["provider_meta"], "classes": ["collapse"]}),
-        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+        ("Situação", {"fields": ["is_active"]}),
+        ("Metadados", {"fields": ["provider_meta"], "classes": ["collapse"]}),
+        ("Datas", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
     ]
 
-    @display(description="Provider UID")
+    @display(description="UID do provedor")
     def provider_uid_short(self, obj):
         if len(obj.provider_uid) > 20:
             return obj.provider_uid[:20] + "..."
         return obj.provider_uid
 
-    @display(description="Customer")
+    @display(description="Cliente")
     def customer_link(self, obj):
         from django.urls import reverse
 

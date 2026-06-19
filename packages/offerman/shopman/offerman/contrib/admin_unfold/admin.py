@@ -77,16 +77,16 @@ class CollectionAdmin(BaseModelAdmin):
 
     fieldsets = [
         (None, {"fields": ("ref", "name", "description")}),
-        ("Hierarchy", {"fields": ("parent",)}),
-        ("Validity", {"fields": ("valid_from", "valid_until")}),
-        ("Settings", {"fields": ("sort_order", "is_active")}),
+        ("Hierarquia", {"fields": ("parent",)}),
+        ("Validade", {"fields": ("valid_from", "valid_until")}),
+        ("Configurações", {"fields": ("sort_order", "is_active")}),
     ]
 
-    @display(description="Active", boolean=True)
+    @display(description="Ativo", boolean=True)
     def is_active_badge(self, obj):
         return obj.is_active
 
-    @display(description="Products")
+    @display(description="Produtos")
     def products_count(self, obj):
         return obj.items.count()
 
@@ -132,8 +132,8 @@ class ListingAdmin(_ListingExportBase):
 
     fieldsets = [
         (None, {"fields": ("ref", "name", "description")}),
-        ("Validity", {"fields": ("valid_from", "valid_until")}),
-        ("Settings", {"fields": ("priority", "is_active")}),
+        ("Validade", {"fields": ("valid_from", "valid_until")}),
+        ("Configurações", {"fields": ("priority", "is_active")}),
     ]
 
     def save_formset(self, request, form, formset, change):
@@ -148,11 +148,11 @@ class ListingAdmin(_ListingExportBase):
             obj.delete()
         formset.save_m2m()
 
-    @display(description="Active", boolean=True)
+    @display(description="Ativo", boolean=True)
     def is_active_badge(self, obj):
         return obj.is_active
 
-    @display(description="Items")
+    @display(description="Itens")
     def items_count(self, obj):
         return obj.items.count()
 
@@ -236,18 +236,18 @@ class ProductAdmin(_ProductImportExportBase):
             {"fields": ("sku", "name", "short_description", "long_description", "keywords")},
         ),
         (
-            "Price & Cost",
+            "Preço e custo",
             {"fields": ("base_price_q", "margin_percent")},
         ),
         (
-            "Publication & Sellability",
+            "Publicação e venda",
             {
                 "fields": ("is_published", "is_sellable"),
-                "description": "is_published controls catalog exposure, is_sellable controls whether the product is commercially enabled.",
+                "description": "“Publicado” controla a exposição no catálogo; “vendável” controla se o produto está comercialmente habilitado.",
             },
         ),
         (
-            "Configuration",
+            "Configuração",
             {
                 "fields": (
                     "unit",
@@ -296,7 +296,7 @@ class ProductAdmin(_ProductImportExportBase):
             {"fields": MICRONUTRIENTS},
         ),
         (
-            "Metadata",
+            "Metadados",
             {
                 "fields": ("metadata", "nutrition_facts", "uuid", "created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -313,22 +313,22 @@ class ProductAdmin(_ProductImportExportBase):
             )
         return ""
 
-    @display(description="Price")
+    @display(description="Preço")
     def formatted_price(self, obj):
         return f"R$ {obj.base_price_q / 100:.2f}"
 
-    @display(description="Status")
+    @display(description="Situação")
     def visibility_status(self, obj):
         """Display visibility status with colored badges."""
         badges = []
 
         if not obj.is_published:
-            badges.append(unfold_badge("Unpublished", "yellow"))
+            badges.append(unfold_badge("Não publicado", "yellow"))
         if not obj.is_sellable:
-            badges.append(unfold_badge("Not Sellable", "red"))
+            badges.append(unfold_badge("Não vendável", "red"))
 
         if not badges:
-            return unfold_badge("Active", "green")
+            return unfold_badge("Ativo", "green")
 
         return format_html(" ".join(str(b) for b in badges))
 
@@ -340,7 +340,7 @@ class ProductAdmin(_ProductImportExportBase):
             has_components=Exists(ProductComponent.objects.filter(parent=OuterRef("pk"))),
         )
 
-    @display(description="Bundle", boolean=True)
+    @display(description="Combo", boolean=True)
     def is_bundle_display(self, obj):
         if hasattr(obj, "has_components"):
             return obj.has_components
@@ -395,25 +395,25 @@ class ProductAdmin(_ProductImportExportBase):
         "add_to_collection",
     ]
 
-    @admin.action(description=_("Unpublish selected products"))
+    @admin.action(description=_("Despublicar produtos selecionados"))
     def unpublish_products(self, request, queryset):
         updated = queryset.update(is_published=False)
-        self.message_user(request, f"{updated} product(s) unpublished.")
+        self.message_user(request, f"{updated} produto(s) despublicado(s).")
 
-    @admin.action(description=_("Publish selected products"))
+    @admin.action(description=_("Publicar produtos selecionados"))
     def publish_products(self, request, queryset):
         updated = queryset.update(is_published=True)
-        self.message_user(request, f"{updated} product(s) published.")
+        self.message_user(request, f"{updated} produto(s) publicado(s).")
 
-    @admin.action(description=_("Disable selling for selected products"))
+    @admin.action(description=_("Desabilitar venda dos selecionados"))
     def pause_products(self, request, queryset):
         updated = queryset.update(is_sellable=False)
-        self.message_user(request, f"{updated} product(s) disabled for sale.")
+        self.message_user(request, f"{updated} produto(s) com venda desabilitada.")
 
-    @admin.action(description=_("Enable selling for selected products"))
+    @admin.action(description=_("Habilitar venda dos selecionados"))
     def resume_products(self, request, queryset):
         updated = queryset.update(is_sellable=True)
-        self.message_user(request, f"{updated} product(s) enabled for sale.")
+        self.message_user(request, f"{updated} produto(s) com venda habilitada.")
 
     @admin.action(description=_("Atualizar preço +X%%"))
     def update_price_percent(self, request, queryset):
