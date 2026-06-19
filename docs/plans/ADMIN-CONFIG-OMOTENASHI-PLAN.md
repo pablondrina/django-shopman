@@ -114,6 +114,13 @@ canais" focados em DADOS, não config.)
   admin**: POS discount approval threshold → `Shop.defaults["pos"]`; **stock alert cooldown →
   `Shop.defaults["stock_alerts"]`** (decisão do Pablo, WP-5b). Ambos: em branco = herda env = zero
   regressão. Nenhuma pendência aberta.
+- **WP-7 — Páginas dedicadas por domínio (proxy models). ✅ CONCLUÍDO (`a109ab70`).** A pedido do Pablo
+  (UX, benchmarks Shopify/STORES): a página única da Loja (~19 fieldsets) foi quebrada em 9 páginas
+  focadas, cada uma editando o mesmo Shop singleton, na sidebar Configurações: Loja & contato (base),
+  Marca & aparência, Horários & operação, Cardápio, Pedidos & entrega, Fidelidade, PDV & alertas,
+  Produção, Integrações. Mecanismo: `ShopForm` presence-aware (só toca campos presentes) + proxy models
+  (`models/settings_proxies.py`, migração 0014 só metadado) + `_section_form` que poda campos fora do
+  domínio (preserva os demais no save). Isolamento testado; verificado ao vivo. make test 1896 verde.
 - **WP-6 — Passada de omotenashi. ✅ CONCLUÍDO (`30f567a4`).** ChannelForm: `forms.Textarea` cru →
   `UnfoldAdminTextareaWidget` + help pt-BR por aspecto + nota de cascata. Delivery (faixas/zonas):
   fieldsets com descrição motor-vs-exceção. Demais admins de config já estavam bem documentados.
