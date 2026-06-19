@@ -6,6 +6,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminSelect2Widget, UnfoldAdminSelectWidget
 
 from shopman.shop.models import OmotenashiCopy
 from shopman.shop.omotenashi.copy import (
@@ -29,9 +30,14 @@ class OmotenashiCopyForm(forms.ModelForm):
             label="chave",
             choices=sorted((k, k) for k in all_keys()),
             help_text="Cópias disponíveis estão definidas no código (omotenashi/copy.py).",
+            widget=UnfoldAdminSelect2Widget,
         )
-        self.fields["moment"] = forms.ChoiceField(label="momento", choices=MOMENT_CHOICES)
-        self.fields["audience"] = forms.ChoiceField(label="público", choices=AUDIENCE_CHOICES)
+        self.fields["moment"] = forms.ChoiceField(
+            label="momento", choices=MOMENT_CHOICES, widget=UnfoldAdminSelectWidget,
+        )
+        self.fields["audience"] = forms.ChoiceField(
+            label="público", choices=AUDIENCE_CHOICES, widget=UnfoldAdminSelectWidget,
+        )
 
 
 @admin.register(OmotenashiCopy)

@@ -35,11 +35,15 @@ class DeliveryDistanceBandAdmin(ModelAdmin):
 
 @admin.register(DeliveryZone)
 class DeliveryZoneAdmin(ModelAdmin):
-    list_display = ("name", "mode", "zone_type", "match_value", "fee_display", "sort_order", "is_active")
+    # Prioridade manual → lista arrastável (Unfold ordering_field) em vez de
+    # uma coluna numérica de ordem. Menor sort_order = maior prioridade.
+    ordering_field = "sort_order"
+    hide_ordering_field = True
+    list_display = ("name", "mode", "zone_type", "match_value", "fee_display", "is_active")
     list_filter = ("mode", "zone_type", "is_active", "shop")
     search_fields = ("name", "match_value")
-    ordering = ("zone_type", "sort_order", "name")
-    list_editable = ("sort_order", "is_active")
+    ordering = ("sort_order", "name")
+    list_editable = ("is_active",)
     fieldsets = (
         (None, {
             "fields": ("shop", "name", "zone_type", "match_value", "mode", "fee_q", "sort_order", "is_active"),

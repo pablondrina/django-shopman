@@ -13,6 +13,7 @@ from django.contrib.admin.utils import flatten_fieldsets
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
+from unfold.contrib.forms.widgets import ArrayWidget
 from unfold.widgets import (
     UnfoldAdminColorInputWidget,
     UnfoldAdminDateWidget,
@@ -523,6 +524,11 @@ class ShopForm(forms.ModelForm):
         widget=UnfoldAdminTimeWidget(format="%H:%M"),
     )
 
+    # Lista de URLs editada como inputs add/remove (ArrayWidget). Declarado
+    # explicitamente para entregar a lista crua ao widget — o JSONField default
+    # serializaria para string e o ArrayWidget quebraria no split por vírgula.
+    social_links = forms.Field(required=False, widget=ArrayWidget())
+
     locals().update(_defaults_form_fields())
 
     class Meta:
@@ -542,6 +548,13 @@ class ShopForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields.pop("opening_hours", None)
         self.fields.pop("defaults", None)
+
+        if "social_links" in self.fields:
+            self.fields["social_links"].required = False
+            self.fields["social_links"].help_text = (
+                "Adicione uma rede por vez (URL completa, ex.: https://instagram.com/sualoja). "
+                "O ícone é detectado automaticamente."
+            )
 
         opening_hours = getattr(self.instance, "opening_hours", None) or {}
         if not isinstance(opening_hours, dict):
@@ -637,6 +650,9 @@ class ShopForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # ArrayWidget vazio → None; o campo é NOT NULL (default lista).
+        if self._has("social_links") and not cleaned_data.get("social_links"):
+            cleaned_data["social_links"] = []
         if self._has(_opening_field("monday", "status")):
             for day, label in OPENING_HOUR_DAYS:
                 status = cleaned_data.get(_opening_field(day, "status"))

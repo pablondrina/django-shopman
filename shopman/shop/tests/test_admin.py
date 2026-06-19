@@ -43,11 +43,18 @@ def shop(db):
 
 
 def _shop_form_data(shop):
+    """Build POST data for ShopForm as a QueryDict (mirrors real admin POST).
+
+    ArrayWidget fields (social_links) bind via ``getlist`` → precisam de QueryDict
+    com multi-valor, não de um dict simples.
+    """
+    from django.http import QueryDict
+
     from shopman.shop.admin.shop import ShopForm
 
     initial_form = ShopForm(instance=shop)
     data = {}
-    json_list_fields = {"social_links"}
+    list_fields = {"social_links"}  # ArrayWidget → lista de valores
     json_object_fields = {"tracking_copy", "integrations"}
 
     for name, field in initial_form.fields.items():
@@ -59,8 +66,8 @@ def _shop_form_data(shop):
             value = field.initial
         if value is None and hasattr(shop, name):
             value = getattr(shop, name)
-        if name in json_list_fields:
-            data[name] = json.dumps(value or [])
+        if name in list_fields:
+            data[name] = list(value or [])
             continue
         if name in json_object_fields:
             data[name] = json.dumps(value or {})
@@ -77,7 +84,14 @@ def _shop_form_data(shop):
             data[name] = ""
         else:
             data[name] = value
-    return data
+
+    query = QueryDict(mutable=True)
+    for name, value in data.items():
+        if isinstance(value, list):
+            query.setlist(name, value)
+        else:
+            query[name] = value
+    return query
 
 
 # ── Registration tests ──────────────────────────────────────────────
@@ -540,6 +554,36 @@ class TestRuleConfigTypedParams:
         form = RuleConfigForm(instance=rule)
         assert "params" in form.fields
         assert "param_discount_percent" not in form.fields
+
+
+class TestSocialLinksArrayWidget:
+    """WP-8 — social_links editado como lista (ArrayWidget), persiste lista."""
+
+    def test_roundtrip_saves_list(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data.setlist("social_links", [
+            "https://instagram.com/nelson",
+            "https://wa.me/5543999998888",
+        ])
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.social_links == [
+            "https://instagram.com/nelson",
+            "https://wa.me/5543999998888",
+        ]
+
+    def test_empty_saves_empty_list(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data.setlist("social_links", [])
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        assert saved.social_links == []
 
 
 class TestProxyPagesIsolation:
