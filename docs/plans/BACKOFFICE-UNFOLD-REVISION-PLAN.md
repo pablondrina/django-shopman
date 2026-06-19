@@ -169,7 +169,14 @@ Por domínio, dar forma a JSONs que o operador precisa ler/editar:
 - `Shop.integrations` / `Shop.opening_hours` / `tracking_copy` — verificar o que já ficou tipado
   no WP-1..8; completar o que faltar.
 
-### WP-D3 — Inlines e campos faltando
+### WP-D3 — Inlines e campos faltando ✅
+> Concluído. Achados da auditoria estavam majoritariamente DESATUALIZADOS (verificado no
+> código + ao vivo): `OrderItem.meta` já em readonly_fields do inline; `Listing.description`
+> já editável no fieldset; `ProductComponent` já renderizava `qty` (sem `fields=` → todos os
+> campos; `unit` não existe no modelo, é atributo do Product pai); RecipeItem dietário já
+> exposto via `diet`/`allergens_text`. Única ação: tornar o inline de bundle **explícito**
+> (`fields=["component","qty"]`) p/ a quantidade ficar sempre visível/intencional.
+
 - `ProductComponent` inline sem `quantity`/`unit` (bundle sem quantidade visível).
 - `OrderItem.meta`, `RecipeItem.meta` invisíveis nos inlines.
 - `Listing.description` não editável.

@@ -167,6 +167,8 @@ class ProductComponentInline(BaseTabularInline):
     fk_name = "parent"
     extra = 1
     autocomplete_fields = ["component"]
+    # Explícito: o componente e a quantidade no bundle ficam sempre visíveis.
+    fields = ["component", "qty"]
 
 
 class ProductCollectionItemInline(BaseTabularInline):
