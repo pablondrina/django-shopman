@@ -1,5 +1,12 @@
 # Plano — Revisão Completa do Backoffice Unfold
 
+> **✅ CONCLUÍDO (2026-06-19).** Camadas 1, 2 e 3 entregues na branch
+> `feat/admin-config-omotenashi` (commits `80ac462b`→`0933d10a`). Único item adiado:
+> WP-C5 (kill do POS-HTMX legado) → `SURFACE-CONVERGENCE-PLAN`. Decisão KDS segue pendente.
+> `make test`(2088)/`lint`/`admin` verdes; cada WP verificado ao vivo. Branch NÃO mergeada
+> (aguarda revisão/publish do Pablo). Ver status por camada em §2/§3/§4.
+
+
 > **Objetivo (Pablo, 2026-06-19):** o backoffice (Django Admin/Unfold) também virou um
 > "Frankenstein". Revisar TUDO, em três camadas **nesta ordem**:
 > 1. **Correção funcional** — funcionar certo, sem falhas, **sem gambiarra alguma**.
