@@ -49,6 +49,25 @@ class AdminNavigationTests(TestCase):
         live_items = [item["title"] for item in groups[0]["items"] if item["has_permission"]]
         self.assertEqual(live_items[:3], ["Pedidos", "Produção", "Fechamento"])
 
+    def test_pos_nav_item_hidden_without_url_shown_when_configured(self) -> None:
+        """POS é Nuxt headless: sem SHOPMAN_POS_BASE_URL o item some (sem link morto);
+        configurado, aponta para a superfície Nuxt."""
+        from django.test import override_settings
+
+        request = RequestFactory().get("/admin/")
+        request.user = User.objects.create_superuser("posnav", "posnav@example.com", "pw")
+
+        with override_settings(SHOPMAN_POS_BASE_URL=""):
+            groups = admin.site.get_sidebar_list(request)
+            live = {item["title"]: item for item in groups[0]["items"]}
+            self.assertNotIn("POS", live)
+
+        with override_settings(SHOPMAN_POS_BASE_URL="https://pos.example.com"):
+            groups = admin.site.get_sidebar_list(request)
+            live = {item["title"]: item for item in groups[0]["items"]}
+            self.assertIn("POS", live)
+            self.assertEqual(live["POS"]["link"], "https://pos.example.com")
+
         production_group = next(group for group in groups if group["title"] == "Produção")
         production_items = [item["title"] for item in production_group["items"] if item["has_permission"]]
         self.assertEqual(

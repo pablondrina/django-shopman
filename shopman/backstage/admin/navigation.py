@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 
+from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 
 from shopman.backstage import permissions
@@ -17,54 +18,69 @@ from shopman.backstage import permissions
 logger = logging.getLogger(__name__)
 
 
+def _pos_base_url() -> str:
+    """Base absoluta do PDV (superfície Nuxt). Vazio ⇒ item de PDV oculto.
+
+    O PDV migrou para Nuxt (surfaces/pos-uithing-nuxt, headless via
+    api/v1/backstage/pos/*); não há rota Django. O link do operador aponta para a
+    superfície Nuxt, configurável por deployment (como SHOPMAN_STOREFRONT_BASE_URL).
+    """
+    return (getattr(settings, "SHOPMAN_POS_BASE_URL", "") or "").rstrip("/")
+
+
 def get_sidebar_navigation(request):
     """Return the canonical Admin sidebar for this Shopman installation."""
+    live_items = [
+        _item(
+            "Pedidos",
+            "receipt_long",
+            _url("admin_console_orders"),
+            permission=_can_manage_orders,
+            badge="shopman.backstage.admin.navigation.badge_new_orders",
+            badge_variant="warning",
+        ),
+        _item(
+            "Produção",
+            "manufacturing",
+            _url("admin_console_production"),
+            permission=_can_access_production,
+            badge="shopman.backstage.admin.navigation.badge_started_work_orders",
+            badge_variant="info",
+        ),
+        _item(
+            "Fechamento",
+            "fact_check",
+            _url("admin_console_day_closing"),
+            permission=_can_close_day,
+        ),
+    ]
+    # PDV é Nuxt headless: só mostra o link quando há URL configurada (sem rota
+    # Django, evita link morto). KDS segue com sua tela Django enquanto a decisão
+    # HTMX-vs-Nuxt do KDS não fecha (SURFACE-CONVERGENCE).
+    pos_url = _pos_base_url()
+    if pos_url:
+        live_items.append(_item("POS", "point_of_sale", pos_url, permission=_can_operate_pos))
+    live_items.append(
+        _item(
+            "KDS",
+            "tv",
+            _url("backstage:kds_station_picker"),
+            permission=_can_operate_kds,
+        )
+    )
+    live_items.append(
+        _item(
+            "Alertas ativos",
+            "warning",
+            _url("admin:backstage_operatoralert_changelist") + "?acknowledged__exact=0",
+            permission=_can_view_operator_alerts,
+            badge="shopman.backstage.admin.navigation.badge_operator_alerts",
+            badge_variant="danger",
+            badge_style="solid",
+        )
+    )
     return [
-        _group("Operação ao vivo", "bolt", [
-            _item(
-                "Pedidos",
-                "receipt_long",
-                _url("admin_console_orders"),
-                permission=_can_manage_orders,
-                badge="shopman.backstage.admin.navigation.badge_new_orders",
-                badge_variant="warning",
-            ),
-            _item(
-                "Produção",
-                "manufacturing",
-                _url("admin_console_production"),
-                permission=_can_access_production,
-                badge="shopman.backstage.admin.navigation.badge_started_work_orders",
-                badge_variant="info",
-            ),
-            _item(
-                "Fechamento",
-                "fact_check",
-                _url("admin_console_day_closing"),
-                permission=_can_close_day,
-            ),
-            _item(
-                "POS",
-                "point_of_sale",
-                _url("backstage:pos"),
-                permission=_can_operate_pos,
-            ),
-            _item(
-                "KDS",
-                "tv",
-                _url("backstage:kds_station_picker"),
-                permission=_can_operate_kds,
-            ),
-            _item(
-                "Alertas ativos",
-                "warning",
-                _url("admin:backstage_operatoralert_changelist") + "?acknowledged__exact=0",
-                permission=_can_view_operator_alerts,
-                badge="shopman.backstage.admin.navigation.badge_operator_alerts",
-                badge_variant="danger",
-                badge_style="solid",
-            ),
-        ], collapsible=False),
+        _group("Operação ao vivo", "bolt", live_items, collapsible=False),
         _group("Pedidos e canais", "hub", [
             _item("Histórico de pedidos", "assignment", _url("admin:orderman_order_changelist"), permission=_can_manage_orders),
             _item("Sessões abertas", "shopping_bag", _url("admin:orderman_session_changelist") + "?state__exact=open", permission=_can_manage_orders),

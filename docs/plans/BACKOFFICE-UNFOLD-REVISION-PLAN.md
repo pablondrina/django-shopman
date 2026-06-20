@@ -130,10 +130,14 @@ falha se algum cair em vanilla. Documentar o contrato.
 cada model (com um objeto seed), + GET de cada página `admin_console`, afirmando 200 e ausência
 de erro de template/field. Pega `list_display`/`fieldsets` quebrados, ações órfãs, imports.
 
-### WP-C5 — Higiene de superfícies legado (coordenar com SURFACE-CONVERGENCE-PLAN) ⏸️ ADIADO
-> Adiado por decisão do Pablo (2026-06-19): o kill do POS-HTMX legado (migração de ~12 testes
-> `test_pos_*` + remoção de views/templates/rotas) será tratado no `SURFACE-CONVERGENCE-PLAN`,
-> não nesta revisão. Camada 1 entregue como C1-C4 + C3.
+### WP-C5 — Higiene de superfícies legado ✅ (depois retomado pelo Pablo)
+> Concluído. Ao mapear, o POS-HTMX já estava removido em capítulo anterior (sem
+> `views/pos.py`, sem `templates/pos/`, rota `backstage:pos` inexistente; testes já eram do
+> contrato headless/Nuxt). O único resíduo era o **item "POS" da sidebar apontando para a rota
+> morta** (`_url("backstage:pos")` → "#"). Agora o nav usa `SHOPMAN_POS_BASE_URL` (já existia em
+> settings) e só mostra o item quando configurado — sem link morto. `pos.py` de
+> models/services/projections/admin são o domínio vivo do PDV headless (mantidos). Teste de nav
+> (oculto sem URL / visível com URL) + verificado ao vivo (0 links `href="#"`).
 
 POS-HTMX legado (`backstage/views/pos.py`, `templates/pos/`) está morto-vivo (POS é Nuxt). Não é
 "Unfold", mas polui o backoffice/nav. **Ação:** confirmar com o Pablo o kill (migrar ~12 testes
