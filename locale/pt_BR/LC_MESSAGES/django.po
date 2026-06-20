@@ -164,3 +164,10 @@ msgstr "Refazer"
 
 msgid "Line number"
 msgstr "Número da linha"
+
+# Unfold — empty state (changelist sem resultados)
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "Nada por aqui ainda. Crie o primeiro item ou ajuste os filtros."
+
+msgid "Add %(name)s"
+msgstr "Adicionar %(name)s"
