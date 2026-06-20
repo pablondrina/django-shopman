@@ -239,6 +239,7 @@ class PositionViewSet(mixins.ListModelMixin, GenericViewSet):
 
     permission_classes = [IsAuthenticated]
     serializer_class = PositionSerializer
+    pagination_class = StockmanPagination
     lookup_field = "ref"
 
     def get_queryset(self):

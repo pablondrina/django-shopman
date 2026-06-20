@@ -174,6 +174,16 @@ class TestCustomerList:
         assert "count" in resp.data
         assert "results" in resp.data
 
+    def test_pagination_independent_of_global_page_size(self, api_client, customer):
+        """A paginação é explícita (pagination_class no viewset) — não depende de
+        DEFAULT_PAGINATION_CLASS no settings do deployment (config.settings não tem)."""
+        from django.test import override_settings
+
+        with override_settings(REST_FRAMEWORK={}):
+            resp = api_client.get("/api/customers/customers/")
+            assert "count" in resp.data
+            assert "results" in resp.data
+
     def test_serializer_fields(self, api_client, customer):
         resp = api_client.get("/api/customers/customers/")
         cust = resp.data["results"][0]

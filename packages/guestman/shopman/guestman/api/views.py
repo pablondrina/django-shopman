@@ -5,6 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import filters, status
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,6 +29,18 @@ from .serializers import (
 )
 
 
+class GuestmanPagination(PageNumberPagination):
+    """Explicit API pagination, independent of the project-level DRF PAGE_SIZE.
+
+    The customer list is unbounded; pagination is part of this endpoint's contract
+    (não depende de DEFAULT_PAGINATION_CLASS estar setado no settings do deployment).
+    """
+
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 500
+
+
 class CustomerViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -38,6 +51,7 @@ class CustomerViewSet(
     """ViewSet for customers. Supports list, retrieve, create, and partial update."""
 
     permission_classes = [IsAuthenticated]
+    pagination_class = GuestmanPagination
     lookup_field = "ref"
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = CustomerFilter
