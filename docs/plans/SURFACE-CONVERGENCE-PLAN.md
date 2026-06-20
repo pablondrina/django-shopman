@@ -100,7 +100,15 @@ manter um como storefront-alvo, arquivar o outro; `backstage-nuxt` (33, pos.vue 
 histórico por adr-013) — arquivar. Tira ambiguidade do repo. (Pablo não aprovou
 ainda — pendente.)
 
-### WP3 — KDS → Nuxt · ✅ DECIDIDO (Pablo, 2026-06-20); migração pendente
+### WP3 — KDS → Nuxt · ✅ DECIDIDO + ▶️ DEPLOY FEITO (2026-06-20); kill-HTMX pendente
+**Deploy (2026-06-20):** `kds-uithing` virou componente do app de staging
+(`kds.staging.nelsonboulangerie.com.br`) via `doctl apps update --spec … --context fix`.
+URLs enxutas no ar: `/` (seletor), `/<ref>` (estação), `/retirada` (board do cliente);
+legados 301 (`/estacao/<ref>`→`/<ref>`, `/cliente`→`/retirada`). **Falta:** ratificar o
+contrato, migrar os testes que dependem das views gestor-HTMX e **matar o KDS-HTMX**
+(`gestor/`/`runtime/` + rotas + nav) — análogo ao WP1. O texto abaixo é o plano original.
+
+
 Alvo ratificado: **Nuxt** (§3). Já existe `surfaces/kds-uithing-nuxt` (redesign concluído,
 `539b861a`) sobre o design system do PDV (rail, tokens, componentes). Falta: confirmar o
 contrato headless (`api/v1/backstage/kds/`), migrar os testes que ainda dependem das views
