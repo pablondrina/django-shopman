@@ -24,6 +24,10 @@ async function toggleFood (pref: { key: string, is_active: boolean }) {
       body: { key: pref.key, enabled: !pref.is_active }
     })
     await refreshSummary()
+  } catch {
+    // Falha (rede/429): re-sincroniza o switch com o servidor e avisa.
+    await refreshSummary()
+    if (import.meta.client) useSonner.error('Não foi possível salvar sua preferência. Tente de novo.')
   } finally {
     const next = { ...preferencePending.value }
     delete next[pref.key]
@@ -41,6 +45,9 @@ async function toggleNotification (pref: { key: string, enabled: boolean }) {
       body: { channel: pref.key, enabled: !pref.enabled }
     })
     await refreshSummary()
+  } catch {
+    await refreshSummary()
+    if (import.meta.client) useSonner.error('Não foi possível salvar sua preferência. Tente de novo.')
   } finally {
     const next = { ...preferencePending.value }
     delete next[pref.key]

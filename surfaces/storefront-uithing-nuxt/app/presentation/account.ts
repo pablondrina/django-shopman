@@ -204,6 +204,13 @@ export function accountNavCards (summary: AccountSummary | null | undefined): Ac
       count: null
     },
     {
+      to: '/account/favoritos',
+      label: 'Favoritos',
+      description: 'Produtos que você salvou',
+      icon: 'lucide:heart',
+      count: null
+    },
+    {
       to: '/account/perfil',
       label: 'Perfil',
       description: 'Seus dados de contato',
