@@ -378,48 +378,50 @@ useSeoMeta({
         </UiAlert>
 
         <form v-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="requestCode('whatsapp', $event)">
-          <UiField class="rounded-lg border bg-card p-4">
-            <div class="flex items-center justify-between gap-3">
-              <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
-              <UiButton
-                type="button"
-                variant="link"
-                size="sm"
-                class="h-auto px-0 text-xs"
-                @click="togglePhoneRegion"
-              >
-                {{ regionToggleLabel }}
+          <div class="shop-stack-block rounded-lg border bg-bottomnav p-4">
+            <UiField>
+              <div class="flex items-center justify-between gap-3">
+                <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
+                <UiButton
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  class="h-auto px-0 text-xs"
+                  @click="togglePhoneRegion"
+                >
+                  {{ regionToggleLabel }}
+                </UiButton>
+              </div>
+              <UiInputGroup class="bg-white">
+                <UiInputGroupAddon align="inline-start">
+                  <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
+                  <Icon v-else name="lucide:globe-2" />
+                </UiInputGroupAddon>
+                <UiInputGroupInput
+                  id="login-phone"
+                  v-model="phone"
+                  name="phone"
+                  type="tel"
+                  :inputmode="phoneInputMode"
+                  :autocomplete="phoneAutocomplete"
+                  :placeholder="phonePlaceholder"
+                  :maxlength="phoneRegion === 'INTL' ? 24 : 16"
+                  @input="syncPhoneFromInput"
+                />
+              </UiInputGroup>
+              <UiFieldDescription>
+                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}
+              </UiFieldDescription>
+            </UiField>
+
+            <div class="grid gap-3">
+              <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
+                {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
+              </UiButton>
+              <UiButton type="button" size="lg" variant="ghost" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
+                {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
               </UiButton>
             </div>
-            <UiInputGroup class="bg-white">
-              <UiInputGroupAddon align="inline-start">
-                <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
-                <Icon v-else name="lucide:globe-2" />
-              </UiInputGroupAddon>
-              <UiInputGroupInput
-                id="login-phone"
-                v-model="phone"
-                name="phone"
-                type="tel"
-                :inputmode="phoneInputMode"
-                :autocomplete="phoneAutocomplete"
-                :placeholder="phonePlaceholder"
-                :maxlength="phoneRegion === 'INTL' ? 24 : 16"
-                @input="syncPhoneFromInput"
-              />
-            </UiInputGroup>
-            <UiFieldDescription>
-              {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}
-            </UiFieldDescription>
-          </UiField>
-
-          <div class="grid gap-3 rounded-lg border bg-bottomnav p-4">
-            <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
-              {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
-            </UiButton>
-            <UiButton type="button" size="lg" variant="outline" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
-              {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
-            </UiButton>
           </div>
         </form>
 
