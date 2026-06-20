@@ -1,10 +1,11 @@
 # Plano — Revisão Completa do Backoffice Unfold
 
-> **✅ CONCLUÍDO (2026-06-19).** Camadas 1, 2 e 3 entregues na branch
-> `feat/admin-config-omotenashi` (commits `80ac462b`→`0933d10a`). Único item adiado:
-> WP-C5 (kill do POS-HTMX legado) → `SURFACE-CONVERGENCE-PLAN`. Decisão KDS segue pendente.
-> `make test`(2088)/`lint`/`admin` verdes; cada WP verificado ao vivo. Branch NÃO mergeada
-> (aguarda revisão/publish do Pablo). Ver status por camada em §2/§3/§4.
+> **✅ CONCLUÍDO + MERGEADO + DEPLOYADO (2026-06-19/20).** Camadas 1, 2 e 3 entregues, mais a
+> quitação das dívidas (D4-parcial, D1 read-only, D2 metadata, U2 empty-state pt-BR, C2 design
+> tokens, C5 nav-PDV, warning rules). Mergeado no `main` (ff `2fac15d5..f175c6b6`) e deployado no
+> staging (`doctl … 40b86e35-… --wait` → ACTIVE; `api.staging.nelsonboulangerie.com.br/ready/`=200).
+> `make test`(2093)/`lint`/`admin` verdes; cada WP verificado ao vivo. **Único item aberto:** decisão
+> KDS (HTMX vs Nuxt) → kill do KDS-HTMX fica no `SURFACE-CONVERGENCE-PLAN`. Status por camada em §2/§3/§4.
 
 
 > **Objetivo (Pablo, 2026-06-19):** o backoffice (Django Admin/Unfold) também virou um
