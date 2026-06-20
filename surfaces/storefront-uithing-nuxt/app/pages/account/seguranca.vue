@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AccountDeviceProjection, AccountDeviceResponse } from '~/types/shopman'
 import { deviceIcon } from '~/presentation/account'
+import { authPhonePayload } from '~/utils/authPhone'
 
 definePageMeta({ middleware: 'account' })
 
@@ -21,6 +22,16 @@ const revokeDeviceOpen = ref(false)
 const revokeDeviceMode = ref<RevokeDeviceMode>('one')
 const revokeDeviceCandidate = ref<AccountDeviceProjection | null>(null)
 const revokeDevicePending = ref(false)
+
+// Step-up: reconfirma identidade por OTP antes de excluir/exportar (mesmo logado).
+const stepUpOpen = ref(false)
+const stepUpCode = ref<number[]>([])
+const stepUpPending = ref(false)
+const stepUpSendPending = ref(false)
+const stepUpSent = ref(false)
+const stepUpIssue = ref('')
+let pendingStepUpAction: null | (() => void | Promise<void>) = null
+const stepUpCodeStr = computed(() => stepUpCode.value.join('').slice(0, 6))
 
 const { data: devicesResponse, pending: devicesPending, refresh: refreshDevices } = await useFetch<AccountDeviceResponse>(apiPath('/api/v1/account/devices/'), {
   credentials: 'include',
@@ -112,6 +123,69 @@ async function confirmRevokeDevice () {
   }
 }
 
+async function requireStepUp (action: () => void | Promise<void>) {
+  pendingStepUpAction = action
+  stepUpCode.value = []
+  stepUpIssue.value = ''
+  stepUpSent.value = false
+  stepUpOpen.value = true
+  await sendStepUpCode()
+}
+
+async function sendStepUpCode () {
+  if (stepUpSendPending.value) return
+  stepUpSendPending.value = true
+  stepUpIssue.value = ''
+  try {
+    await $fetch(apiPath('/api/auth/request-code/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: authPhonePayload(session.customerPhone.value || '', 'BR')
+    })
+    stepUpSent.value = true
+  } catch (e: any) {
+    stepUpIssue.value = e?.data?.detail || 'Não foi possível enviar o código agora.'
+  } finally {
+    stepUpSendPending.value = false
+  }
+}
+
+async function confirmStepUp () {
+  if (stepUpPending.value || stepUpCodeStr.value.length !== 6) return
+  stepUpPending.value = true
+  stepUpIssue.value = ''
+  try {
+    await $fetch(apiPath('/api/v1/account/step-up/'), {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: { code: stepUpCodeStr.value }
+    })
+    stepUpOpen.value = false
+    const action = pendingStepUpAction
+    pendingStepUpAction = null
+    if (action) await action()
+  } catch (e: any) {
+    stepUpIssue.value = e?.data?.detail || 'Código inválido ou expirado.'
+    stepUpCode.value = []
+  } finally {
+    stepUpPending.value = false
+  }
+}
+
+// Exportar dados exige step-up antes do download (GET passa pela marca de sessão).
+function startExport () {
+  privacyIssue.value = ''
+  void requireStepUp(exportData)
+}
+
+// Excluir conta: fecha o diálogo de ack e exige step-up antes de anonimizar.
+function confirmDeleteAccount () {
+  deleteAccountOpen.value = false
+  void requireStepUp(deleteAccount)
+}
+
 useSeoMeta({ title: 'Segurança e dados' })
 </script>
 
@@ -194,7 +268,7 @@ useSeoMeta({ title: 'Segurança e dados' })
           <UiAlertDescription>{{ privacyIssue }}</UiAlertDescription>
         </UiAlert>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <UiButton variant="outline" class="justify-start" icon="lucide:download" :loading="exportPending" @click="exportData">
+          <UiButton variant="outline" class="justify-start" icon="lucide:download" :loading="exportPending" @click="startExport">
             Exportar meus dados
           </UiButton>
           <UiButton variant="destructive" class="justify-start" icon="lucide:user-x" @click="askDeleteAccount">
@@ -224,8 +298,8 @@ useSeoMeta({ title: 'Segurança e dados' })
           </UiField>
           <UiAlertDialogFooter>
             <UiAlertDialogCancel :disabled="deleteAccountPending">Voltar</UiAlertDialogCancel>
-            <UiAlertDialogAction variant="destructive" :disabled="!deleteAccountAcknowledged || deleteAccountPending" @click="deleteAccount">
-              Excluir conta
+            <UiAlertDialogAction variant="destructive" :disabled="!deleteAccountAcknowledged || deleteAccountPending" @click="confirmDeleteAccount">
+              Continuar
             </UiAlertDialogAction>
           </UiAlertDialogFooter>
         </UiAlertDialogContent>
@@ -249,6 +323,48 @@ useSeoMeta({ title: 'Segurança e dados' })
           </UiAlertDialogFooter>
         </UiAlertDialogContent>
       </UiAlertDialog>
+
+      <!-- Step-up: reconfirmar identidade por OTP antes de excluir/exportar -->
+      <UiDialog v-model:open="stepUpOpen">
+        <UiDialogContent>
+          <UiDialogHeader>
+            <UiDialogTitle>Confirme sua identidade</UiDialogTitle>
+            <UiDialogDescription>
+              Enviamos um código para o seu telefone. Digite-o para continuar com esta ação.
+            </UiDialogDescription>
+          </UiDialogHeader>
+          <UiAlert v-if="stepUpIssue" variant="destructive">
+            <UiAlertTitle>Não foi possível confirmar</UiAlertTitle>
+            <UiAlertDescription>{{ stepUpIssue }}</UiAlertDescription>
+          </UiAlert>
+          <div class="space-y-2">
+            <UiPinInput
+              v-model="stepUpCode"
+              :input-count="6"
+              type="number"
+              otp
+              :aria-invalid="!!stepUpIssue"
+              class="justify-between sm:justify-start"
+            />
+            <UiButton
+              variant="link"
+              size="sm"
+              class="px-0"
+              :loading="stepUpSendPending"
+              :disabled="stepUpSendPending"
+              @click="sendStepUpCode"
+            >
+              {{ stepUpSent ? 'Reenviar código' : 'Enviar código' }}
+            </UiButton>
+          </div>
+          <UiDialogFooter>
+            <UiButton variant="ghost" :disabled="stepUpPending" @click="stepUpOpen = false">Cancelar</UiButton>
+            <UiButton :loading="stepUpPending" :disabled="stepUpPending || stepUpCodeStr.length !== 6" @click="confirmStepUp">
+              Confirmar
+            </UiButton>
+          </UiDialogFooter>
+        </UiDialogContent>
+      </UiDialog>
     </div>
   </main>
 </template>

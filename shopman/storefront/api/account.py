@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 
 from django.http import HttpResponse
 from django.utils import timezone
@@ -18,6 +19,7 @@ from rest_framework.views import APIView
 
 from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
+from shopman.shop.services import auth as auth_service
 from shopman.shop.services import devices as device_service
 from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents.types import AddressIntent
@@ -39,6 +41,38 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Step-up de reautenticação: antes de ações destrutivas/sensíveis (excluir conta,
+# exportar dados) exigimos uma reconfirmação de identidade por OTP, mesmo já logado.
+# A confirmação marca a sessão por uma janela curta; delete/export checam essa marca.
+STEP_UP_SESSION_KEY = "account_step_up_at"
+STEP_UP_MAX_AGE_SECONDS = 600  # 10 minutos
+
+
+def _mark_step_up(request) -> None:
+    if hasattr(request, "session"):
+        request.session[STEP_UP_SESSION_KEY] = timezone.now().isoformat()
+
+
+def _step_up_is_fresh(request) -> bool:
+    session = getattr(request, "session", None)
+    if session is None:
+        return False
+    raw = session.get(STEP_UP_SESSION_KEY)
+    if not raw:
+        return False
+    try:
+        confirmed_at = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return False
+    return (timezone.now() - confirmed_at).total_seconds() <= STEP_UP_MAX_AGE_SECONDS
+
+
+def _step_up_required_response() -> Response:
+    return Response(
+        {"detail": "Confirme sua identidade para continuar.", "code": "step_up_required"},
+        status=status.HTTP_403_FORBIDDEN,
+    )
 
 
 def _client_ip(request) -> str:
@@ -638,11 +672,42 @@ class AccountExportView(APIView):
         customer = get_authenticated_customer(request)
         if not customer:
             return Response({"detail": "Authentication required."}, status=401)
+        if not _step_up_is_fresh(request):
+            return _step_up_required_response()
         payload = account_service.export_customer_data(customer)
         body = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
         response = HttpResponse(body, content_type="application/json; charset=utf-8")
         response["Content-Disposition"] = 'attachment; filename="shopman-dados-cliente.json"'
         return response
+
+
+class AccountStepUpView(APIView):
+    """POST /api/v1/account/step-up/ — reconfirma identidade por OTP antes de ações sensíveis.
+
+    Verifica um código enviado ao próprio telefone do cliente logado SEM refazer o
+    login (``request=None`` no verify), e marca a sessão por uma janela curta. As
+    rotas de excluir/exportar exigem essa marca recente.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    def post(self, request):
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return Response({"detail": "Authentication required."}, status=401)
+        code = str((request.data or {}).get("code") or "").strip()
+        if not code:
+            return Response({"detail": "Informe o código de confirmação."}, status=400)
+        phone = getattr(customer, "phone", "") or ""
+        if not phone:
+            return Response({"detail": "Conta sem telefone para confirmar."}, status=400)
+        # request=None: apenas verifica o código (não refaz login / não cicla sessão).
+        result = auth_service.verify_for_login(phone=phone, code_input=code, request=None)
+        if not getattr(result, "success", False):
+            return Response({"detail": "Código inválido ou expirado."}, status=400)
+        _mark_step_up(request)
+        return Response({"ok": True})
 
 
 class AccountDeleteView(APIView):
@@ -658,6 +723,8 @@ class AccountDeleteView(APIView):
         payload = request.data if hasattr(request, "data") else {}
         if not payload.get("acknowledged"):
             return Response({"detail": "Confirme a exclusão antes de continuar."}, status=400)
+        if not _step_up_is_fresh(request):
+            return _step_up_required_response()
 
         original_ref, phone_hash = account_service.anonymize_customer(customer)
         if hasattr(request, "session"):

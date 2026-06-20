@@ -10,6 +10,7 @@ from .account import (
     AccountDeviceDetailView,
     AccountDeviceListView,
     AccountExportView,
+    AccountStepUpView,
     AccountSummaryView,
     ActiveOrderCountView,
     AddressDetailView,
@@ -105,6 +106,7 @@ urlpatterns = [
     ),
     path("account/devices/", AccountDeviceListView.as_view(), name="api-account-devices"),
     path("account/devices/<uuid:device_id>/", AccountDeviceDetailView.as_view(), name="api-account-device-detail"),
+    path("account/step-up/", AccountStepUpView.as_view(), name="api-account-step-up"),
     path("account/export/", AccountExportView.as_view(), name="api-account-export"),
     path("account/delete/", AccountDeleteView.as_view(), name="api-account-delete"),
     # Geocoding (server-side — key stays on the server)
