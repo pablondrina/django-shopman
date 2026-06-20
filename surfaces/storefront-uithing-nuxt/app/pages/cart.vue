@@ -114,9 +114,12 @@ useSeoMeta({
       </div>
 
       <UiAlert v-else-if="error" variant="destructive">
-        <UiAlertTitle>Não foi possível carregar o carrinho</UiAlertTitle>
+        <UiAlertTitle>Seu carrinho não quis carregar agora</UiAlertTitle>
         <UiAlertDescription>
-          <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>Seus itens estão guardados. Tente de novo em instantes.</span>
+            <UiButton size="sm" variant="outline" @click="refresh">Tentar de novo</UiButton>
+          </div>
         </UiAlertDescription>
       </UiAlert>
 

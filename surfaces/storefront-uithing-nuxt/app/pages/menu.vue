@@ -388,11 +388,11 @@ useHead({
         </div>
 
         <UiAlert v-else-if="error" variant="destructive">
-          <UiAlertTitle>Cardápio indisponível</UiAlertTitle>
+          <UiAlertTitle>O cardápio não quis abrir agora</UiAlertTitle>
           <UiAlertDescription>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>Não conseguimos carregar o cardápio agora.</span>
-              <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
+              <span>Foi só um tropeço. Tente de novo em instantes.</span>
+              <UiButton size="sm" variant="outline" @click="refresh">Tentar de novo</UiButton>
             </div>
           </UiAlertDescription>
         </UiAlert>
