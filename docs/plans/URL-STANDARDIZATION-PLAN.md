@@ -1,5 +1,12 @@
 # Plano — Padronização de URLs da loja (pt-BR, omotenashi)
 
+> **✅ EXECUTADO (2026-06-20, commit `fb82dfb3`).** Decisões do Pablo: `/menu` mantido;
+> `/cart`→`/sacola` (conforme iFood) e `/checkout`→`/finalizar`. Implementado via renomeação
+> das páginas Nuxt + **bridge `localRouteFromBackend`** (Django segue em inglês, zero mudança
+> no backend) + **301 permanentes** (routeRules) + links/nav/sitemap/robots/middleware/testes
+> atualizados. vitest 218; verificado ao vivo (301s + novas rotas + PDP self-canonical).
+> **Pendente:** push + deploy. Detalhe abaixo (referência).
+
 > **Origem (Pablo, 2026-06-20):** as URLs da loja misturam inglês e português
 > (`/cart`, `/checkout`, `/account` vs `/busca`, `/colecao`, `/pedido`). Para
 > omotenashi excelente (cliente brasileiro, pt-BR first-class), as URLs **que o
