@@ -2,6 +2,7 @@
 Tests for Auth message senders.
 """
 
+import contextlib
 import logging
 from unittest.mock import MagicMock, patch
 
@@ -14,6 +15,27 @@ from shopman.doorman.senders import (
     SMSSender,
     WhatsAppCloudAPISender,
 )
+
+_SENDERS_LOGGER = "shopman.doorman.senders"
+
+
+@contextlib.contextmanager
+def _capture_senders(caplog, level):
+    """Capture logs from ``shopman.doorman.senders``.
+
+    The ``shopman`` logger has ``propagate=False`` no settings real, então o handler
+    do caplog (na raiz) não enxerga os filhos. Anexamos o handler direto no logger
+    que emite — mesmo padrão de ``storefront/tests/test_omotenashi_tag.py``. Sem isso,
+    ``caplog.text`` fica vazio e as asserções passam por acidente (inclusive a de
+    segurança "não vaza o código", que passaria vacuamente).
+    """
+    logger = logging.getLogger(_SENDERS_LOGGER)
+    logger.addHandler(caplog.handler)
+    caplog.set_level(level, logger=_SENDERS_LOGGER)
+    try:
+        yield
+    finally:
+        logger.removeHandler(caplog.handler)
 
 
 class TestConsoleSender:
@@ -41,7 +63,7 @@ class TestLogSender:
 
     def test_send_code_logs_message(self, caplog):
         sender = LogSender()
-        with caplog.at_level(logging.INFO, logger="shopman.doorman.senders"):
+        with _capture_senders(caplog, logging.INFO):
             sender.send_code("+5541999999999", "654321", "sms")
         assert "+5541999999999" in caplog.text
 
@@ -56,13 +78,15 @@ class TestSMSSender:
     def test_send_code_does_not_log_raw_code(self, caplog):
         """SMSSender must NOT leak the raw OTP code in logs."""
         sender = SMSSender()
-        with caplog.at_level(logging.WARNING, logger="shopman.doorman.senders"):
+        with _capture_senders(caplog, logging.WARNING):
             sender.send_code("+5541999999999", "SECRET_CODE_987654", "sms")
+        # Há captura de verdade (a asserção não passa por caplog vazio):
+        assert caplog.text
         assert "SECRET_CODE_987654" not in caplog.text
 
     def test_send_code_logs_warning(self, caplog):
         sender = SMSSender()
-        with caplog.at_level(logging.WARNING, logger="shopman.doorman.senders"):
+        with _capture_senders(caplog, logging.WARNING):
             sender.send_code("+5541999999999", "123456", "sms")
         assert "not implemented" in caplog.text
 
