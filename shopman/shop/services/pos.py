@@ -352,11 +352,11 @@ def review_sale(
             "field": "payment_tenders",
             "message": "Adicione as linhas do pagamento misto antes de finalizar.",
         })
-    elif payment_method == "mixed" and total_q > 0 and tender_total_q != total_q:
+    elif payment_method == "mixed" and total_q > 0 and tender_total_q < total_q:
         warnings.append({
             "code": "payment_tenders_total_mismatch",
             "field": "payment_tenders",
-            "message": "Pagamentos informados não fecham o total da venda.",
+            "message": "Os pagamentos informados não cobrem o total da venda.",
         })
 
     return PosSaleReview(
@@ -371,7 +371,13 @@ def review_sale(
         tender_total_q=tender_total_q,
         tender_count=len(tenders),
         tendered_amount_q=tendered_amount_q,
-        change_q=max(0, tendered_amount_q - total_q) if tendered_amount_q else 0,
+        # Troco: no pagamento misto, o excedente das linhas é o troco (uma linha de
+        # dinheiro pode ser recebida a mais); no dinheiro simples, vem do valor recebido.
+        change_q=(
+            max(0, tender_total_q - total_q)
+            if payment_method == "mixed"
+            else (max(0, tendered_amount_q - total_q) if tendered_amount_q else 0)
+        ),
         requires_manager_approval=(
             (threshold_q > 0 and discount_q > threshold_q)
             or _payload_has_d1_line_discount(payload)
@@ -1370,13 +1376,13 @@ def _payload_tenders(
                 entry["received_at"] = timezone.now().isoformat()
             tenders.append(entry)
         paid_q = sum(int(tender["amount_q"]) for tender in tenders)
-        if require_complete and total_q > 0 and paid_q != total_q:
+        if require_complete and total_q > 0 and paid_q < total_q:
             raise PosIntentError(
                 code="payment_tenders_total_mismatch",
-                message="Pagamentos informados não fecham o total da venda.",
+                message="Os pagamentos informados não cobrem o total da venda.",
                 field="payment_tenders",
                 focus="payment",
-                recovery="Ajuste as linhas do pagamento misto até somarem o total revisado.",
+                recovery="Ajuste as linhas do pagamento até cobrirem o total revisado (o excedente vira troco).",
             )
         return tenders
 

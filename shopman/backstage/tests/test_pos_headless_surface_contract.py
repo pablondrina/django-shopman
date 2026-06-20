@@ -516,6 +516,50 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(mismatch_close.json()["error"]["field"], "payment_tenders")
         self.assertEqual(Order.objects.count(), 0)
 
+    def test_api_headless_pos_split_with_change_is_accepted(self) -> None:
+        """Split que COBRE o total (excedente = troco) passa — não é mismatch.
+
+        Regressão: antes a validação exigia soma EXATA (`!= total`), então uma
+        linha de dinheiro recebida a mais (troco) era rejeitada por engano.
+        """
+        opened = self.client.post("/api/v1/backstage/pos/tabs/00001008/open/", {})
+        self.assertEqual(opened.status_code, 200)
+        tab = opened.json()
+        # total = 1300; card 1000 + cash 500 = 1500 → cobre, troco 200.
+        payload = {
+            "intent_version": POS_SALE_INTENT_VERSION,
+            "tab_ref": tab["tab_ref"],
+            "tab_session_key": tab["tab_session_key"],
+            "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
+            "fulfillment_type": "pickup",
+            "payment_method": "mixed",
+            "payment_collection": "terminal",
+            "client_request_id": "pos-headless-split-change-001",
+            "payment_tenders": [
+                {"method": "card", "amount_q": 1000, "collection": "terminal"},
+                {"method": "cash", "amount_q": 500, "collection": "terminal"},
+            ],
+        }
+
+        review = self.client.post(
+            "/api/v1/backstage/pos/sale/review/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(review.status_code, 200)
+        review_body = review.json()["review"]
+        codes = [w["code"] for w in review_body["warnings"]]
+        self.assertNotIn("payment_tenders_total_mismatch", codes)
+        self.assertEqual(review_body["change_q"], 200)
+
+        close = self.client.post(
+            "/api/v1/backstage/pos/sale/close/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(close.status_code, 200)
+        self.assertEqual(Order.objects.count(), 1)
+
     def test_api_customer_lookup_returns_memory_and_default_address_projection(self) -> None:
         customer = Customer.objects.create(
             ref="CUST-POS-HEADLESS",
