@@ -15,6 +15,13 @@ export default defineNuxtConfig({
     },
   },
 
+  // 301 das rotas antigas → enxutas: estação direta em /<ref> (era /estacao/<ref>);
+  // board do cliente em /retirada (era /cliente). Splat preservado pelo Nitro.
+  routeRules: {
+    "/estacao/**": { redirect: { to: "/**", statusCode: 301 } },
+    "/cliente": { redirect: { to: "/retirada", statusCode: 301 } },
+  },
+
   modules: [
     '@nuxtjs/color-mode',
     'motion-v/nuxt',

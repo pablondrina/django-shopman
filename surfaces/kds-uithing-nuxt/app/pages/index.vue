@@ -33,7 +33,7 @@ function typeIcon(type: string): string {
     <ul v-else class="grid gap-3">
       <li v-for="inst in instances" :key="inst.ref">
         <NuxtLink
-          :to="`/estacao/${inst.ref}`"
+          :to="`/${inst.ref}`"
           class="flex items-center gap-4 rounded-md border bg-card p-5 transition hover:border-primary/50 hover:bg-accent active:translate-y-px"
         >
           <span class="grid size-12 shrink-0 place-items-center rounded-md bg-background text-muted-foreground">

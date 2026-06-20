@@ -170,7 +170,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
             <span class="grid size-9 place-items-center rounded-md border text-muted-foreground"><Icon name="lucide:sun" class="size-4" /></span>
           </template>
         </ClientOnly>
-        <NuxtLink to="/cliente" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Tela do cliente" title="Tela do cliente">
+        <NuxtLink to="/retirada" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Tela do cliente" title="Tela do cliente">
           <Icon name="lucide:monitor" class="size-4" />
         </NuxtLink>
       </div>
