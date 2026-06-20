@@ -289,7 +289,8 @@ class MoveAdmin(BaseModelAdmin):
     list_filter = [('timestamp', RangeDateFilter), 'user']
     list_filter_submit = True
     search_fields = ['reason']
-    readonly_fields = ['quant', 'delta', 'reason', 'metadata', 'timestamp', 'user']
+    exclude = ['metadata']
+    readonly_fields = ['quant', 'delta', 'reason', 'metadata_display', 'timestamp', 'user']
     ordering = ['-timestamp']
 
     def has_add_permission(self, request):
@@ -300,6 +301,12 @@ class MoveAdmin(BaseModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    @display(description=_('Metadados'))
+    def metadata_display(self, obj):
+        from shopman.utils.contrib.admin_unfold.displays import unfold_kv_list
+
+        return unfold_kv_list(obj.metadata)
 
     # Unfold options
     compressed_fields = True
@@ -339,7 +346,8 @@ class HoldAdmin(BaseModelAdmin):
     list_display = ['id', 'sku', 'quantity', 'target_date_display', 'status_display', 'is_demand_display', 'expires_at_display']
     list_filter = ['status', 'target_date']
     search_fields = ['sku']
-    readonly_fields = ['hold_id', 'sku', 'quant', 'target_date', 'quantity', 'status', 'is_demand', 'expires_at', 'metadata', 'created_at', 'resolved_at']
+    exclude = ['metadata']
+    readonly_fields = ['hold_id', 'sku', 'quant', 'target_date', 'quantity', 'status', 'is_demand', 'expires_at', 'metadata_display', 'created_at', 'resolved_at']
     actions = ['release_holds']
     actions_row = ['release_hold_row']
 
@@ -354,6 +362,12 @@ class HoldAdmin(BaseModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    @display(description=_('Metadados'))
+    def metadata_display(self, obj):
+        from shopman.utils.contrib.admin_unfold.displays import unfold_kv_list
+
+        return unfold_kv_list(obj.metadata)
 
     @display(description=_('Status'))
     def status_display(self, obj):
