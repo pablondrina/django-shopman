@@ -50,7 +50,20 @@ irmãos que já funcionam via BFF). Confirmar que o BFF envia o token CSRF (já 
 
 ---
 
-## Lote 2 — P1 por área (a registrar/executar depois)
+## Lote 2 — P1 por área ✅ CONCLUÍDO (55f16986 · b91cd0c8 · 39f87211 · 04d8b53d · 6b8bfdac)
+
+**Feito:** W4 validação inline no perfil (blur: nome+email; checkout já gateava por passo);
+W5 página de Favoritos (endpoint órfão) + cartão no hub + tratamento de erro nos toggles de
+preferência; W6 carrinho (upsell "faltam R$X p/ frete grátis" + alerta de zona + "usar X
+disponíveis" em linha indisponível); W7 troco no dinheiro (entrega) → Order.data.payment.change_for_q
+(+ data-schemas); W8 empty-state de catálogo vazio + busca noindex + JSON-LD com galeria.
+`make test` 2105 + vitest 217 verdes; smoke ao vivo (rotas renderizam/redirecionam, sem console
+errors). **Pendências P2 (Lote 3):** undo no remover do carrinho, exibir loyalty_applied, step-up
+de reautenticação no excluir/exportar, coleções como rotas indexáveis.
+
+---
+
+## Lote 2 — detalhamento original (referência)
 
 ### W4 — Validação cedo/inline (regra ativa)
 Checkout (contato valida só no "Salvar") e `account/perfil.vue` validam no submit, violando
