@@ -60,6 +60,7 @@ const state = reactive<CheckoutFormState>({
   delivery_date: '',
   delivery_time_slot: '',
   payment_method: '',
+  change_for: '',
   notes: '',
   is_gift: false,
   recipient_name: '',
@@ -1064,6 +1065,22 @@ useSeoMeta({
                 </UiFieldLabel>
               </UiRadioGroup>
               <UiFieldError v-if="fieldErrors.payment_method" :errors="fieldErrors.payment_method" />
+
+              <UiField v-if="state.payment_method === 'cash' && !isPickup" class="mt-3">
+                <UiFieldLabel for="checkout-change-for">Precisa de troco?</UiFieldLabel>
+                <UiInputGroup class="min-w-0">
+                  <UiInputGroupAddon>R$</UiInputGroupAddon>
+                  <UiInput
+                    id="checkout-change-for"
+                    v-model="state.change_for"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="Troco para quanto?"
+                    class="bg-background"
+                  />
+                </UiInputGroup>
+                <UiFieldDescription>Opcional — informe o valor da nota para o entregador levar o troco certinho.</UiFieldDescription>
+              </UiField>
 
               <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card has-data-[state=checked]:bg-card">
                 <UiField orientation="horizontal">

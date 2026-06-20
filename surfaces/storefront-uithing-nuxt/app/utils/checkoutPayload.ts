@@ -15,6 +15,7 @@ export interface CheckoutFormState {
   delivery_date: string
   delivery_time_slot: string
   payment_method: string
+  change_for: string
   notes: string
   is_gift: boolean
   recipient_name: string
@@ -53,6 +54,10 @@ export function buildCheckoutPayload (
     delivery_date: state.delivery_date,
     delivery_time_slot: state.delivery_time_slot,
     payment_method: state.payment_method,
+    // Troco só faz sentido em dinheiro + entrega; caso contrário vai vazio.
+    change_for: (state.payment_method === 'cash' && state.fulfillment_type === 'delivery')
+      ? state.change_for.trim()
+      : '',
     notes: state.notes.trim(),
     is_gift: state.is_gift,
     recipient_name: state.is_gift ? state.recipient_name.trim() : '',

@@ -228,6 +228,12 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         checkout_data["delivery_time_slot"] = delivery_time_slot
     if chosen_method in ("pix", "card"):
         checkout_data["payment"] = {"method": chosen_method}
+    elif chosen_method == "cash":
+        # Troco: na ENTREGA o cliente informa "troco para R$ X"; o operador/motoboy
+        # leva o troco. Guardado no dict payment (copiado Session→Order pelo commit).
+        change_for_q = _parse_change_for(post.get("change_for", ""))
+        if change_for_q and fulfillment_type == "delivery":
+            checkout_data["payment"] = {"method": "cash", "change_for_q": change_for_q}
     if gift_data:
         checkout_data.update(gift_data)
 
@@ -279,6 +285,18 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
 
 
 # ── Payment helpers ───────────────────────────────────────────────────────────
+
+
+def _parse_change_for(raw: str) -> int:
+    """'50'/'50,00'/'50.00' (Reais) → centavos. Vazio/inválido → 0."""
+    text = (raw or "").strip().replace("R$", "").replace(" ", "").replace(",", ".")
+    if not text:
+        return 0
+    try:
+        value = float(text)
+    except ValueError:
+        return 0
+    return max(int(round(value * 100)), 0)
 
 
 def _resolve_payment_method(post, payment_methods: list[str]) -> str:
