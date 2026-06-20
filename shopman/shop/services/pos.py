@@ -1136,7 +1136,20 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
 
 
 def _replace_session_ops(session: Session, payload: dict, operator_username: str) -> list[dict]:
-    """Build ops that replace mutable POS payload fields on an existing session."""
+    """Build ops that replace mutable POS payload fields on an existing session.
+
+    Preserva o ``line_id`` por SKU ao reconstruir as linhas: o PDV tem uma linha por
+    SKU, então o remove+readd do fechamento pode manter a identidade durável de cada
+    linha. Sem isso, os line_ids são regerados e o pedido committado dispara DE NOVO
+    pra cozinha (o ledger de fire é por line_id) — comanda preparada em dobro.
+    """
+    line_id_by_sku: dict[str, str] = {}
+    for item in (session.items or []):
+        sku = item.get("sku")
+        line_id = item.get("line_id")
+        if sku and line_id and sku not in line_id_by_sku:
+            line_id_by_sku[sku] = line_id
+
     ops = [
         {"op": "remove_line", "line_id": item["line_id"]}
         for item in (session.items or [])
@@ -1157,7 +1170,13 @@ def _replace_session_ops(session: Session, payload: dict, operator_username: str
         {"op": "set_data", "path": "delivery_fee_q", "value": 0},
         {"op": "set_data", "path": "order_notes", "value": ""},
     ])
-    ops.extend(build_session_ops(payload, operator_username))
+    add_ops = build_session_ops(payload, operator_username)
+    for op in add_ops:
+        if op.get("op") == "add_line":
+            preserved = line_id_by_sku.pop(op.get("sku"), None)  # consome (1 linha/SKU)
+            if preserved:
+                op["line_id"] = preserved
+    ops.extend(add_ops)
     return ops
 
 

@@ -328,8 +328,12 @@ class ModifyService:
                 message="unit_price_q é obrigatório quando pricing_policy=external",
             )
 
+        # line_id explícito é preservado (mesma semântica de Session.update_items:
+        # `raw.get("line_id") or generate_line_id()`). Permite re-emitir uma linha
+        # mantendo sua identidade durável — ex.: o PDV reconstrói a comanda no
+        # fechamento sem perder o vínculo com o ticket de KDS já disparado.
         line = {
-            "line_id": generate_line_id(),
+            "line_id": op.get("line_id") or generate_line_id(),
             "sku": op["sku"],
             "qty": qty,
             "meta": op.get("meta", {}),

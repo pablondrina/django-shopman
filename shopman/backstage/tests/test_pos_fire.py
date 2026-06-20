@@ -103,6 +103,53 @@ class POSFireTabTests(TestCase):
         self.assertEqual(third.fired_count, 0)
         self.assertEqual(KDSTicket.objects.filter(session_key=session.session_key).count(), 2)
 
+    def test_close_after_fire_does_not_refire_to_kitchen(self) -> None:
+        """Regressão: comanda disparada e DEPOIS fechada não pode re-disparar.
+
+        Antes, o fechamento reconstruía as linhas com line_ids NOVOS, então o
+        dispatch do pedido committado via lifecycle disparava tudo de novo —
+        comanda preparada em dobro. Agora o line_id é preservado por SKU no
+        remove+readd, o pedido herda o mesmo line_id e o ledger de fire casa.
+        """
+        from shopman.orderman.models import Order
+
+        session = self._open_tab_with_two_items()
+        fired_line_ids = {it["line_id"] for it in session.items}
+
+        pos_service.fire_pos_tab(
+            channel_ref="pdv", session_key=session.session_key,
+            actor="pos:alice", operator_username="alice",
+        )
+        tickets_after_fire = KDSTicket.objects.filter(session_key=session.session_key).exclude(status="cancelled").count()
+        self.assertEqual(tickets_after_fire, 1)
+
+        pos_service.close_sale(
+            channel_ref="pdv",
+            payload={
+                "intent_version": pos_service.POS_SALE_INTENT_VERSION,
+                "tab_ref": "2001",
+                "tab_session_key": session.session_key,
+                "items": [
+                    {"sku": "FIRE-A", "name": "Fire A", "qty": 1, "unit_price_q": 1000},
+                    {"sku": "FIRE-B", "name": "Fire B", "qty": 1, "unit_price_q": 1000},
+                ],
+                "fulfillment_type": "pickup",
+                "payment_method": "cash",
+                "payment_collection": "terminal",
+                "tendered_amount_q": 2000,
+                "client_request_id": "pos-fire-then-close-001",
+            },
+            actor="pos:alice", operator_username="alice",
+        )
+
+        order = Order.objects.get(session_key=session.session_key)
+        order_line_ids = {item.line_id for item in order.items.all()}
+        # As linhas do pedido herdaram os line_ids disparados (não foram regeradas)…
+        self.assertEqual(order_line_ids, fired_line_ids)
+        # …então NÃO houve re-disparo: continua 1 ticket vivo (não dobrou).
+        tickets_after_close = KDSTicket.objects.filter(session_key=session.session_key).exclude(status="cancelled").count()
+        self.assertEqual(tickets_after_close, 1)
+
     def test_tab_board_flags_fired_unpaid_tab(self) -> None:
         from shopman.backstage.projections.pos import build_pos_tabs
 
