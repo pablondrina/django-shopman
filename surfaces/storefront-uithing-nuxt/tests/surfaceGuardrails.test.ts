@@ -54,7 +54,7 @@ describe('surface UX guardrails', () => {
   it('uses a single add-or-quantity action instead of zero-value steppers', () => {
     const addSurfaces = [
       'app/components/ProductTile.vue',
-      'app/pages/product/[sku].vue'
+      'app/pages/produto/[sku].vue'
     ]
     for (const file of addSurfaces) {
       expect(read(file)).toContain('<CartQuantityAction')
@@ -63,7 +63,7 @@ describe('surface UX guardrails', () => {
     }
 
     expect(read('app/components/CartQuantityAction.vue')).toContain('<QuantityControl')
-    expect(read('app/pages/cart.vue')).toContain('<QuantityControl')
+    expect(read('app/pages/sacola.vue')).toContain('<QuantityControl')
   })
 
   it('does not revive stale projected quantities after cart removal', () => {
@@ -219,8 +219,8 @@ describe('surface UX guardrails', () => {
     expect(productTile).toContain('class="flex flex-wrap items-end justify-between gap-x-3 gap-y-2"')
     expect(productTile).toContain('<div class="ml-auto shrink-0">')
     expect(productTile).not.toContain('<UiCardFooter class="mt-auto flex items-center justify-end gap-2')
-    expect(read('app/pages/product/[sku].vue')).toContain('{{ product.unit_weight_label }}')
-    expect(read('app/pages/product/[sku].vue')).toContain('compactUnitWeightLabel(product.unit_weight_label)')
+    expect(read('app/pages/produto/[sku].vue')).toContain('{{ product.unit_weight_label }}')
+    expect(read('app/pages/produto/[sku].vue')).toContain('compactUnitWeightLabel(product.unit_weight_label)')
     expect(home).toContain('<ProductTile')
     expect(home).toContain('v-for="item in featuredPreview"')
     expect(home).not.toContain('<UiCard v-for="item in featured')
@@ -276,7 +276,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('keeps checkout authentication driven by the projection contract', () => {
-    const checkout = read('app/pages/checkout.vue')
+    const checkout = read('app/pages/finalizar.vue')
     const checkoutFlow = read('app/utils/checkoutFlow.ts')
     const types = read('app/types/shopman.ts')
 
@@ -381,7 +381,7 @@ describe('surface UX guardrails', () => {
     const bottomNav = read('app/components/AppBottomNav.vue')
     const header = read('app/components/ShopHeader.vue')
     const cartState = read('app/composables/useCartState.ts')
-    const cartPage = read('app/pages/cart.vue')
+    const cartPage = read('app/pages/sacola.vue')
     const home = read('app/pages/index.vue')
     const types = read('app/types/shopman.ts')
     const reorder = read('app/composables/useReorder.ts')
@@ -389,18 +389,18 @@ describe('surface UX guardrails', () => {
     expect(types).toContain('actions: Action[]')
     expect(app).not.toContain('<CartDrawer')
     expect(cartState).not.toContain('drawerOpen')
-    expect(cartState).toContain("await navigateTo('/cart')")
+    expect(cartState).toContain("await navigateTo('/sacola')")
     expect(reorder).not.toContain('drawerOpen')
-    expect(reorder).toContain("await navigateTo('/cart')")
+    expect(reorder).toContain("await navigateTo('/sacola')")
     expect(bottomNav).not.toContain("label: 'Finalizar'")
-    expect(bottomNav).not.toContain("to: '/checkout'")
-    expect(bottomNav).toContain("to: '/cart'")
+    expect(bottomNav).not.toContain("to: '/finalizar'")
+    expect(bottomNav).toContain("to: '/sacola'")
     expect(bottomNav).not.toContain('drawerOpen')
     expect(bottomNav).toContain('cartPulse')
     expect(bottomNav).toContain('scale-125 ring-2 ring-primary/25')
     expect(header).not.toContain("label: 'Finalizar'")
-    expect(header).not.toContain("to: '/checkout'")
-    expect(header).toContain('to="/cart"')
+    expect(header).not.toContain("to: '/finalizar'")
+    expect(header).toContain('to="/sacola"')
     expect(header).toContain('aria-label="Ver carrinho"')
     expect(header).toContain('cartPulse')
     // Logo centralizado: carrinho (badge) sempre visível à direita — não mais só no desktop.
@@ -421,7 +421,7 @@ describe('surface UX guardrails', () => {
     expect(header).toContain('Como funciona')
     expect(header).toContain('Redes sociais')
     expect(bottomNav).toContain("to: '/menu'")
-    expect(bottomNav).toContain("to: '/account'")
+    expect(bottomNav).toContain("to: '/conta'")
     expect(header).not.toContain('shopping-basket')
     expect(header).not.toContain('session.shop.value?.tagline')
     expect(header).not.toContain('Compra rápida e acompanhada')
@@ -441,7 +441,7 @@ describe('surface UX guardrails', () => {
   it('keeps mobile product add controls explicit before switching to quantity editing', () => {
     const action = read('app/components/CartQuantityAction.vue')
     const quantity = read('app/components/QuantityControl.vue')
-    const productRoute = read('app/pages/product/[sku].vue')
+    const productRoute = read('app/pages/produto/[sku].vue')
     const cartState = read('app/composables/useCartState.ts')
     const smoke = read('scripts/ux-smoke.mjs')
 
@@ -486,7 +486,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('keeps login copy and recovery actions projection-driven', () => {
-    const login = read('app/pages/login.vue')
+    const login = read('app/pages/entrar.vue')
     const authPhone = read('app/utils/authPhone.ts')
     const authPresentation = read('app/presentation/auth.ts')
 
@@ -567,11 +567,11 @@ describe('surface UX guardrails', () => {
   })
 
   it('uses scaffolded UI Thing components for OTP, empty states and structured fields', () => {
-    const login = read('app/pages/login.vue')
+    const login = read('app/pages/entrar.vue')
     const menu = read('app/pages/menu.vue')
-    const productRoute = read('app/pages/product/[sku].vue')
+    const productRoute = read('app/pages/produto/[sku].vue')
     const upsellRail = read('app/components/CartUpsellRail.vue')
-    const cartPage = read('app/pages/cart.vue')
+    const cartPage = read('app/pages/sacola.vue')
 
     expect(read('app/components/Ui/PinInput/PinInput.vue')).toContain('PinInputRoot')
     expect(read('app/components/Ui/Field/Field.vue')).toContain('data-slot="field"')
@@ -609,7 +609,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('keeps cart lines editable with explicit remove instead of hidden decrement removal', () => {
-    const cartPage = read('app/pages/cart.vue')
+    const cartPage = read('app/pages/sacola.vue')
     const quantity = read('app/components/QuantityControl.vue')
 
     expect(quantity).toContain('minQty')
@@ -636,8 +636,8 @@ describe('surface UX guardrails', () => {
 
   it('shows coupon savings as signed discounts without losing the original subtotal', () => {
     const summary = read('app/components/CartSummaryBreakdown.vue')
-    const cartPage = read('app/pages/cart.vue')
-    const checkout = read('app/pages/checkout.vue')
+    const cartPage = read('app/pages/sacola.vue')
+    const checkout = read('app/pages/finalizar.vue')
 
     expect(summary).toContain("import type { CartProjection } from '~/types/shopman'")
     expect(summary).toContain('cart.has_discount')
@@ -671,14 +671,14 @@ describe('surface UX guardrails', () => {
     const guard = read('app/middleware/account.ts')
     expect(guard).toContain('defineNuxtRouteMiddleware')
     expect(guard).toContain("apiPath('/api/auth/session/')")
-    expect(guard).toContain('navigateTo(`/login?next=')
+    expect(guard).toContain('navigateTo(`/entrar?next=')
     for (const page of ['index', 'pedidos', 'enderecos', 'perfil', 'preferencias', 'seguranca']) {
-      expect(read(`app/pages/account/${page}.vue`)).toContain("definePageMeta({ middleware: 'account' })")
+      expect(read(`app/pages/conta/${page}.vue`)).toContain("definePageMeta({ middleware: 'account' })")
     }
   })
 
   it('uses Field + reka modelValue switches for preferences and Item for trusted devices', () => {
-    const prefs = read('app/pages/account/preferencias.vue')
+    const prefs = read('app/pages/conta/preferencias.vue')
     expect(prefs).toContain('<UiFieldLegend>Preferências alimentares</UiFieldLegend>')
     expect(prefs).toContain('orientation="horizontal"')
     expect(prefs).toContain('<UiSwitch')
@@ -692,7 +692,7 @@ describe('surface UX guardrails', () => {
     expect(prefs).not.toContain(':checked')
     expect(prefs).not.toContain('@update:checked')
 
-    const security = read('app/pages/account/seguranca.vue')
+    const security = read('app/pages/conta/seguranca.vue')
     expect(security).toContain("apiPath('/api/v1/account/devices/')")
     expect(security).toContain("apiPath('/api/v1/account/export/')")
     expect(security).toContain("apiPath('/api/v1/account/delete/')")
@@ -705,14 +705,14 @@ describe('surface UX guardrails', () => {
     expect(security).toContain('askRevokeDevice(device)')
     expect(security).toContain('confirmRevokeDevice')
 
-    const profile = read('app/pages/account/perfil.vue')
+    const profile = read('app/pages/conta/perfil.vue')
     expect(profile).toContain("apiPath('/api/v1/account/profile/')")
     expect(profile).toContain('saveProfile')
     expect(profile).toContain('Salvar perfil')
   })
 
   it('lets authenticated customers manage addresses through the canonical AddressPicker', () => {
-    const account = read('app/pages/account/enderecos.vue')
+    const account = read('app/pages/conta/enderecos.vue')
 
     expect(account).toContain("apiPath('/api/v1/account/addresses/')")
     expect(account).toContain('refresh: refreshAddresses')
@@ -747,7 +747,7 @@ describe('surface UX guardrails', () => {
     expect(seo).toContain("'@type': 'Product'")
     expect(seo).toContain("'@type': 'Bakery'")
 
-    const pdp = read('app/pages/product/[sku].vue')
+    const pdp = read('app/pages/produto/[sku].vue')
     expect(pdp).toContain("from '~/presentation/seo'")
     expect(pdp).toContain('useRequestURL()')
     expect(pdp).toContain("rel: 'canonical'")
@@ -771,7 +771,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('keeps destructive promise alerts readable instead of full red banners', () => {
-    const tracking = read('app/pages/tracking/[ref].vue')
+    const tracking = read('app/pages/pedido/[ref]/index.vue')
     const payment = read('app/pages/pedido/[ref]/pagamento.vue')
     const css = read('app/assets/css/tailwind.css')
 
@@ -794,7 +794,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('does not submit projected sensitive actions without idempotency when declared', () => {
-    const tracking = read('app/pages/tracking/[ref].vue')
+    const tracking = read('app/pages/pedido/[ref]/index.vue')
     const payment = read('app/pages/pedido/[ref]/pagamento.vue')
 
     for (const source of [tracking, payment]) {
@@ -804,7 +804,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('keeps tracking recovery actionable and avoids repeated promise copy', () => {
-    const tracking = read('app/pages/tracking/[ref].vue')
+    const tracking = read('app/pages/pedido/[ref]/index.vue')
 
     expect(tracking).toContain('const { performAction: performReorderAction, conflict, pending: reorderPending } = useReorder()')
     expect(tracking).toContain('const reorderAction = computed')
@@ -917,8 +917,8 @@ describe('surface UX guardrails', () => {
   })
 
   it('uses canonical guide-line subcomponents for tracking timeline and keeps checkout as progressive sections', () => {
-    const tracking = read('app/pages/tracking/[ref].vue')
-    const checkout = read('app/pages/checkout.vue')
+    const tracking = read('app/pages/pedido/[ref]/index.vue')
+    const checkout = read('app/pages/finalizar.vue')
     const checkoutFlow = read('app/utils/checkoutFlow.ts')
 
     expect(tracking).toContain('<UiTimeline :model-value="progressTimelineStep"')
@@ -938,7 +938,7 @@ describe('surface UX guardrails', () => {
   })
 
   it('does not shadow Vue refs in tracking after checkout navigation', () => {
-    const tracking = read('app/pages/tracking/[ref].vue')
+    const tracking = read('app/pages/pedido/[ref]/index.vue')
 
     expect(tracking).toContain('const orderRef = computed')
     expect(tracking).not.toContain('const ref = computed')
@@ -995,7 +995,7 @@ describe('surface UX guardrails', () => {
     // 2) Os títulos das telas consomem os papéis de título (não voltam a text-* avulso).
     const greedyTemplate = (source: string) => source.match(/<template>([\s\S]*)<\/template>/)?.[1] || ''
     expect(greedyTemplate(read('app/components/HomeHeroThing.vue'))).toContain('shop-display')
-    for (const page of ['cart', 'checkout', 'login', 'product/[sku]', 'tracking/[ref]', 'account/index']) {
+    for (const page of ['sacola', 'finalizar', 'entrar', 'produto/[sku]', 'pedido/[ref]/index', 'conta/index']) {
       expect(greedyTemplate(read(`app/pages/${page}.vue`))).toContain('shop-title')
     }
 

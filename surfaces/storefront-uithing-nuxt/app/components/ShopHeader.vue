@@ -18,8 +18,8 @@ const addressLinesValue = computed(() => addressLines(shop.value?.full_address))
 const primaryNav = computed(() => [
   { to: '/', label: 'Início', icon: 'lucide:home' },
   { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils' },
-  { to: '/cart', label: 'Carrinho', icon: 'lucide:shopping-cart', badge: cart.value.is_empty ? '' : String(cart.value.items_count) },
-  { to: '/account', label: 'Conta e pedidos', icon: 'lucide:user-round' }
+  { to: '/sacola', label: 'Carrinho', icon: 'lucide:shopping-cart', badge: cart.value.is_empty ? '' : String(cart.value.items_count) },
+  { to: '/conta', label: 'Conta e pedidos', icon: 'lucide:user-round' }
 ] as const)
 
 function navActive (to: string) {
@@ -116,7 +116,7 @@ onBeforeUnmount(() => {
       </NuxtLink>
 
       <UiButton
-        to="/cart"
+        to="/sacola"
         variant="ghost"
         size="icon"
         class="relative -mr-2 ml-auto size-11 rounded-full text-foreground"

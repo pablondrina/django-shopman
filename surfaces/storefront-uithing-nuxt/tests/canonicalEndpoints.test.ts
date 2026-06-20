@@ -9,19 +9,19 @@ const sourceFiles = [
   'app/composables/useReorder.ts',
   'app/pages/index.vue',
   'app/pages/menu.vue',
-  'app/pages/product/[sku].vue',
-  'app/pages/cart.vue',
-  'app/pages/checkout.vue',
-  'app/pages/tracking/[ref].vue',
+  'app/pages/produto/[sku].vue',
+  'app/pages/sacola.vue',
+  'app/pages/finalizar.vue',
+  'app/pages/pedido/[ref]/index.vue',
   'app/pages/pedido/[ref]/pagamento.vue',
-  'app/pages/account/index.vue',
-  'app/pages/account/pedidos.vue',
-  'app/pages/account/enderecos.vue',
-  'app/pages/account/perfil.vue',
-  'app/pages/account/preferencias.vue',
-  'app/pages/account/seguranca.vue',
+  'app/pages/conta/index.vue',
+  'app/pages/conta/pedidos.vue',
+  'app/pages/conta/enderecos.vue',
+  'app/pages/conta/perfil.vue',
+  'app/pages/conta/preferencias.vue',
+  'app/pages/conta/seguranca.vue',
   'app/middleware/account.ts',
-  'app/pages/login.vue',
+  'app/pages/entrar.vue',
   'server/api/v1/[...path].ts',
   'server/api/auth/[...path].ts'
 ]
@@ -71,7 +71,7 @@ describe('canonical endpoint guardrail', () => {
   })
 
   it('keeps auth verification pinned to the backend-returned requested phone', () => {
-    const login = read('app/pages/login.vue')
+    const login = read('app/pages/entrar.vue')
     expect(login).toContain('requestedPhone.value = response.phone')
     expect(login).toContain('body: { phone: requestedPhone.value, code: code.value }')
   })

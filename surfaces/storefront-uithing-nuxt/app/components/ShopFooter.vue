@@ -34,10 +34,10 @@ const year = new Date().getFullYear()
         <NuxtLink to="/menu" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
           Cardápio
         </NuxtLink>
-        <NuxtLink to="/cart" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
+        <NuxtLink to="/sacola" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
           Carrinho
         </NuxtLink>
-        <NuxtLink to="/account" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
+        <NuxtLink to="/conta" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
           Conta e pedidos
         </NuxtLink>
       </section>

@@ -35,7 +35,7 @@ onMounted(async () => {
       body: { token: token.value }
     })
     session.setFromAuthSession(response)
-    await navigateTo(localRouteFromBackend(response.redirect || '/account'))
+    await navigateTo(localRouteFromBackend(response.redirect || '/conta'))
   } catch {
     failed.value = true
   }
@@ -63,7 +63,7 @@ useSeoMeta({
           <div class="shop-stack-block">
             <p>O link pode ter expirado ou já ter sido usado. Entre para acompanhar seu pedido.</p>
             <div class="flex flex-col gap-2 sm:flex-row">
-              <UiButton to="/login" icon="lucide:log-in">Entrar</UiButton>
+              <UiButton to="/entrar" icon="lucide:log-in">Entrar</UiButton>
               <UiButton to="/menu" variant="ghost" icon="lucide:utensils">Ver cardápio</UiButton>
             </div>
           </div>

@@ -15,7 +15,7 @@ const active = computed(() => isFavorite(props.sku, props.initial ?? false))
 async function onClick () {
   if (!isAuthenticated.value) {
     if (import.meta.client) useSonner('Entre para salvar seus favoritos.')
-    await navigateTo('/login')
+    await navigateTo('/entrar')
     return
   }
   if (submitting.value) return

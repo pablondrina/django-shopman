@@ -22,7 +22,7 @@ const { data, pending, error, refresh } = await useFetch<PaymentResponse>(
 
 const payment = computed(() => data.value?.payment || null)
 const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'payment'))
-const loginHref = computed(() => `/login?next=${encodeURIComponent(`/pedido/${orderRef.value}/pagamento`)}`)
+const loginHref = computed(() => `/entrar?next=${encodeURIComponent(`/pedido/${orderRef.value}/pagamento`)}`)
 
 watchEffect(() => {
   if (data.value?.redirect_url && !payment.value && import.meta.client) {

@@ -69,7 +69,7 @@ function emptyCart (): CartProjection {
         priority: 'primary',
         enabled: false,
         reason: 'Carrinho vazio.',
-        href: '/checkout',
+        href: '/finalizar',
         method: '',
         payload_schema: {},
         idempotency: 'none',
@@ -241,7 +241,7 @@ export function useCartState () {
       if (status === 409 && data) {
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
-        if (import.meta.client) await navigateTo('/cart')
+        if (import.meta.client) await navigateTo('/sacola')
       } else if (status === 429) {
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {

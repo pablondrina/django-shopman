@@ -112,7 +112,7 @@ export function breadcrumbJsonLd (items: Array<{ name: string, url: string }>): 
 
 // ── JSON-LD: CollectionPage + ItemList ───────────────────────────────────────
 // Cardápio = uma página de coleção com a lista de produtos. Cada item aponta para
-// a própria PDP (/product/<sku>) com Offer mínima — ajuda o Google a entender a
+// a própria PDP (/produto/<sku>) com Offer mínima — ajuda o Google a entender a
 // vitrine sem duplicar o Product completo (que vive na PDP).
 export function collectionJsonLd (params: {
   name: string
@@ -134,7 +134,7 @@ export function collectionJsonLd (params: {
           '@type': 'Product',
           name: item.name,
           sku: item.sku,
-          url: absoluteUrl(origin, `/product/${encodeURIComponent(item.sku)}`),
+          url: absoluteUrl(origin, `/produto/${encodeURIComponent(item.sku)}`),
           offers: {
             '@type': 'Offer',
             price: priceFromQ(item.base_price_q),

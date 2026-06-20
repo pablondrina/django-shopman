@@ -21,7 +21,7 @@ export function useReorder () {
       })
       if (response.cart) setFromServer(response.cart)
       if (import.meta.client) useSonner.success('Itens adicionados ao carrinho.')
-      if (import.meta.client) await navigateTo('/cart')
+      if (import.meta.client) await navigateTo('/sacola')
       conflict.value = null
       return response
     } catch (e: any) {

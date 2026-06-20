@@ -23,7 +23,7 @@ const badge = computed(() => tileBadge(props.item))
 <template>
   <article class="relative flex min-w-0 items-stretch gap-3 py-3" data-product-list-item>
     <NuxtLink
-      :to="`/product/${encodeURIComponent(item.sku)}`"
+      :to="`/produto/${encodeURIComponent(item.sku)}`"
       class="absolute inset-0 z-0 rounded-md"
       :aria-label="`Ver detalhes de ${item.name}`"
     />

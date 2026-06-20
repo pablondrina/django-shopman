@@ -8,6 +8,19 @@ export default defineNuxtConfig({
     djangoBaseUrl: process.env.NUXT_DJANGO_BASE_URL || 'http://127.0.0.1:8000'
   },
 
+  // 301 das rotas antigas (inglês) → pt-BR. Rede de segurança para links já enviados
+  // (notificações/WhatsApp), bookmarks e qualquer href interno que escape. Query e
+  // splat (**) são preservados pelo Nitro.
+  routeRules: {
+    '/cart': { redirect: { to: '/sacola', statusCode: 301 } },
+    '/checkout': { redirect: { to: '/finalizar', statusCode: 301 } },
+    '/login': { redirect: { to: '/entrar', statusCode: 301 } },
+    '/account': { redirect: { to: '/conta', statusCode: 301 } },
+    '/account/**': { redirect: { to: '/conta/**', statusCode: 301 } },
+    '/product/**': { redirect: { to: '/produto/**', statusCode: 301 } },
+    '/tracking/**': { redirect: { to: '/pedido/**', statusCode: 301 } },
+  },
+
   app: {
     baseURL: process.env.NUXT_APP_BASE_URL || '/',
     head: {

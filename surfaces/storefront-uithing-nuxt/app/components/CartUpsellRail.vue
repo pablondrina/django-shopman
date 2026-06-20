@@ -21,7 +21,7 @@ const meta = computed<ProductMutationMeta | null>(() => props.upsell
 const qty = computed(() => props.upsell ? qtyForSku(props.upsell.sku) : 0)
 
 function productRoute (sku: string) {
-  return `/product/${encodeURIComponent(sku)}`
+  return `/produto/${encodeURIComponent(sku)}`
 }
 </script>
 

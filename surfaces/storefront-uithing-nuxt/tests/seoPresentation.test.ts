@@ -163,7 +163,7 @@ describe('collectionJsonLd', () => {
     expect(elements[0]!.position).toBe(1)
     const first = elements[0]!.item as Record<string, unknown>
     expect(first['@type']).toBe('Product')
-    expect(first.url).toBe('https://loja.exemplo.com/product/CROIS-01')
+    expect(first.url).toBe('https://loja.exemplo.com/produto/CROIS-01')
     expect(first.image).toBe('https://loja.exemplo.com/media/c.jpg')
     expect((first.offers as Record<string, unknown>).price).toBe('12.90')
   })

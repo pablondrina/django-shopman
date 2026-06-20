@@ -193,7 +193,7 @@ const checkoutActionLabel = computed(() => action.value?.label || 'Confirmar ped
 const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
 const isAuthed = computed(() => !!checkout.value?.is_authenticated)
 const authAction = computed(() => checkout.value?.auth_action || null)
-const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/login?next=/checkout'))
+const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/entrar?next=/finalizar'))
 const availableFulfillment = computed(() => availableFulfillmentOptions(checkout.value))
 // Upsell de frete grátis: só faz sentido em entrega e enquanto a taxa não zerou.
 const freeDeliveryUpsell = computed(() =>
@@ -715,7 +715,7 @@ useSeoMeta({
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
-            { label: 'Carrinho', link: '/cart' },
+            { label: 'Carrinho', link: '/sacola' },
             { label: 'Finalizar pedido' }
           ]"
         />

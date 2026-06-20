@@ -2,7 +2,7 @@ import type { MenuResponse } from '~/types/shopman'
 
 // sitemap.xml domain-aware, alimentado pelo catálogo real (Django). Inclui a
 // home, o cardápio, cada coleção estática (/colecao/<ref>) e cada PDP
-// (/product/<sku>). As variantes de filtro (?filtro=/?secao=) NÃO entram — elas
+// (/produto/<sku>). As variantes de filtro (?filtro=/?secao=) NÃO entram — elas
 // canonicalizam para /menu (anti-duplicate).
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     { loc: `${origin}/`, priority: '1.0' },
     { loc: `${origin}/menu`, priority: '0.9' },
     ...collectionRefs.map(ref => ({ loc: `${origin}/colecao/${encodeURIComponent(ref)}`, priority: '0.7' })),
-    ...skus.map(sku => ({ loc: `${origin}/product/${encodeURIComponent(sku)}`, priority: '0.8' }))
+    ...skus.map(sku => ({ loc: `${origin}/produto/${encodeURIComponent(sku)}`, priority: '0.8' }))
   ]
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n`

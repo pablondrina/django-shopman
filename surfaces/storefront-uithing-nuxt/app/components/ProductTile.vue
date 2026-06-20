@@ -20,7 +20,7 @@ const meta = computed<ProductMutationMeta>(() => ({
 const currentQty = computed(() => qtyForSku(props.item.sku))
 
 function productRoute (sku: string) {
-  return `/product/${encodeURIComponent(sku)}`
+  return `/produto/${encodeURIComponent(sku)}`
 }
 </script>
 

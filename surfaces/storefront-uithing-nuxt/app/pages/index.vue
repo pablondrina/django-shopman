@@ -64,7 +64,7 @@ onMounted(async () => {
 
 async function handleReorder (action: Action | null) {
   if (!action) {
-    await navigateTo('/account')
+    await navigateTo('/conta')
     return
   }
   try {
@@ -143,7 +143,7 @@ useHead({
           <div>
             <NuxtLink
               v-if="activeOrder"
-              :to="`/tracking/${encodeURIComponent(activeOrder.ref)}`"
+              :to="`/pedido/${encodeURIComponent(activeOrder.ref)}`"
               class="-mx-4 block bg-cta px-4 py-3 text-cta-foreground transition hover:bg-cta/95 sm:mx-0 sm:rounded-lg"
               data-home-active-order
             >

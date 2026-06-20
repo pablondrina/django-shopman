@@ -77,7 +77,7 @@ useSeoMeta({ title: 'Perfil' })
   <main class="shop-section pt-0">
     <div class="shop-breadcrumb-bar mb-4">
       <div class="shop-container py-2">
-        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/account' }, { label: 'Perfil' }]" />
+        <UiBreadcrumbs :items="[{ label: 'Início', link: '/' }, { label: 'Conta', link: '/conta' }, { label: 'Perfil' }]" />
       </div>
     </div>
     <div class="shop-container shop-stack-block">
@@ -132,7 +132,7 @@ useSeoMeta({ title: 'Perfil' })
               <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
               <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
             </div>
-            <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Entrar com outra conta</UiButton>
+            <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm">Entrar com outra conta</UiButton>
           </div>
         </div>
 

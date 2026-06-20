@@ -35,7 +35,7 @@ const { data, pending, error, refresh } = await useFetch<TrackingResponse>(
 
 const tracking = computed(() => data.value || null)
 const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'tracking'))
-const loginHref = computed(() => `/login?next=${encodeURIComponent(`/tracking/${orderRef.value}`)}`)
+const loginHref = computed(() => `/entrar?next=${encodeURIComponent(`/pedido/${orderRef.value}`)}`)
 const paymentHref = computed(() => localRouteFromBackend(tracking.value?.payment_gate_url || tracking.value?.promise.actions.find(action => action.ref.includes('payment'))?.href || null))
 const cancelAction = computed(() => tracking.value?.actions.find(action => action.ref === 'cancel_order' && action.enabled) || null)
 const rateAction = computed(() => tracking.value?.actions.find(action => action.ref === 'rate_order' && action.enabled) || null)
@@ -170,7 +170,7 @@ useSeoMeta({
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
-            { label: 'Pedidos', link: '/account' },
+            { label: 'Pedidos', link: '/conta' },
             { label: `Pedido ${orderRef}` }
           ]"
         />

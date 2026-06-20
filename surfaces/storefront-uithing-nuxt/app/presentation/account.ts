@@ -190,42 +190,42 @@ export interface AccountNavCard {
 export function accountNavCards (summary: AccountSummary | null | undefined): AccountNavCard[] {
   return [
     {
-      to: '/account/pedidos',
+      to: '/conta/pedidos',
       label: 'Pedidos',
       description: 'Acompanhe e repita pedidos',
       icon: 'lucide:receipt',
       count: summary ? summary.recent_order_count : null
     },
     {
-      to: '/account/enderecos',
+      to: '/conta/enderecos',
       label: 'Endereços',
       description: 'Locais de entrega salvos',
       icon: 'lucide:map-pin',
       count: null
     },
     {
-      to: '/account/favoritos',
+      to: '/conta/favoritos',
       label: 'Favoritos',
       description: 'Produtos que você salvou',
       icon: 'lucide:heart',
       count: null
     },
     {
-      to: '/account/perfil',
+      to: '/conta/perfil',
       label: 'Perfil',
       description: 'Seus dados de contato',
       icon: 'lucide:user-round',
       count: null
     },
     {
-      to: '/account/preferencias',
+      to: '/conta/preferencias',
       label: 'Preferências',
       description: 'Alimentação e notificações',
       icon: 'lucide:sliders-horizontal',
       count: null
     },
     {
-      to: '/account/seguranca',
+      to: '/conta/seguranca',
       label: 'Segurança e dados',
       description: 'Aparelhos, exportar e excluir',
       icon: 'lucide:shield-check',

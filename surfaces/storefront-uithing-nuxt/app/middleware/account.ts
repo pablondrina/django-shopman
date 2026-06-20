@@ -16,6 +16,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   session.setFromAuthSession(auth)
 
   if (!auth?.is_authenticated) {
-    return navigateTo(`/login?next=${encodeURIComponent(to.fullPath)}`)
+    return navigateTo(`/entrar?next=${encodeURIComponent(to.fullPath)}`)
   }
 })

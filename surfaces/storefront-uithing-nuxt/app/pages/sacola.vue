@@ -24,7 +24,7 @@ watch(() => data.value?.cart, cart => {
 
 const checkoutAction = computed(() => cart.value.actions.find(action => action.ref === 'checkout') || null)
 const continueAction = computed(() => cart.value.actions.find(action => action.ref === 'continue_shopping') || null)
-const checkoutTarget = computed(() => localRouteFromBackend(checkoutAction.value?.href || '/checkout'))
+const checkoutTarget = computed(() => localRouteFromBackend(checkoutAction.value?.href || '/finalizar'))
 const checkoutDisabled = computed(() => !checkoutAction.value?.enabled)
 const checkoutReason = computed(() => checkoutAction.value?.reason || '')
 const cartIssueQtyAction = computed(() => cartIssue.value?.actions.find(action => action.ref === 'set_available_qty' && action.enabled) || null)

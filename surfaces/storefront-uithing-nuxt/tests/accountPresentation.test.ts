@@ -182,12 +182,12 @@ describe('accountNavCards', () => {
   it('expõe as seções com rotas pt-BR', () => {
     const cards = accountNavCards(null)
     expect(cards.map(c => c.to)).toEqual([
-      '/account/pedidos',
-      '/account/enderecos',
-      '/account/favoritos',
-      '/account/perfil',
-      '/account/preferencias',
-      '/account/seguranca'
+      '/conta/pedidos',
+      '/conta/enderecos',
+      '/conta/favoritos',
+      '/conta/perfil',
+      '/conta/preferencias',
+      '/conta/seguranca'
     ])
   })
   it('mostra a contagem de pedidos do summary', () => {
