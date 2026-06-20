@@ -1359,8 +1359,9 @@ class ShopAppearanceAdmin(_ShopSingletonAdmin):
                         '<div class="w-9 h-9" style="background:{}" title="Dark: {}"></div>'
                         '</div>'
                         '<div class="text-xs text-base-400 mt-0.5">{}</div>'
+                        '<div class="text-xs font-mono text-base-400 uppercase">{}</div>'
                         '</div>',
-                        hex_color, hex_color, dark_hex, dark_hex, label,
+                        hex_color, hex_color, dark_hex, dark_hex, label, hex_color,
                     )
                 )
             html_parts.append(mark_safe("</div></div>"))
