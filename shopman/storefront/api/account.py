@@ -173,7 +173,9 @@ class ProfileView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    # SessionAuthentication garante enforcement de CSRF no PATCH (cliente é Django
+    # auth via login() no doorman). O front já envia o token; aqui passa a validar.
+    authentication_classes = [SessionAuthentication]
     serializer_class = CustomerProfileSerializer
 
     def get(self, request):
@@ -334,7 +336,9 @@ class AddressListView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    # SessionAuthentication garante enforcement de CSRF nas mutations (POST/PATCH/
+    # DELETE). O front já envia o token; aqui passa a validar.
+    authentication_classes = [SessionAuthentication]
     serializer_class = AddressSerializer
 
     def get(self, request):
@@ -399,7 +403,9 @@ class AddressDetailView(APIView):
     """
 
     permission_classes = [AllowAny]
-    authentication_classes = []
+    # SessionAuthentication garante enforcement de CSRF nas mutations (POST/PATCH/
+    # DELETE). O front já envia o token; aqui passa a validar.
+    authentication_classes = [SessionAuthentication]
     serializer_class = AddressSerializer
 
     def patch(self, request, pk: int):

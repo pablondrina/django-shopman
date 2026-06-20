@@ -105,6 +105,27 @@ def test_account_profile_patch_persists_before_returning_success(client: Client)
     assert customer.birthday == date(1991, 6, 15)
 
 
+def test_account_profile_patch_enforces_csrf():
+    """W2: mutação de perfil exige CSRF (SessionAuthentication). Sem token → 403."""
+    customer = Customer.objects.create(
+        ref="CUS-PROFILE-CSRF",
+        first_name="Caio",
+        phone="+5543999990006",
+    )
+    csrf_client = Client(enforce_csrf_checks=True)
+    _login_as_customer(csrf_client, customer)
+
+    response = csrf_client.patch(
+        "/api/v1/account/profile/",
+        data=json.dumps({"first_name": "Caião"}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    customer.refresh_from_db()
+    assert customer.first_name == "Caio"  # não persistiu
+
+
 def test_account_profile_patch_failure_does_not_mutate_customer(client: Client):
     customer = Customer.objects.create(
         ref="CUS-PROFILE-03",
