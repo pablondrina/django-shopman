@@ -16,6 +16,12 @@ const { data, pending, error, refresh } = await useFetch<ProductResponse>(
   { credentials: 'include' }
 )
 
+// SKU inexistente: 404 de verdade (SSR responde 404 + noindex via error.vue),
+// não uma página-fantasma 200 indexável. Falhas de rede seguem no retry inline.
+if (error.value?.statusCode === 404) {
+  throw createError({ statusCode: 404, statusMessage: 'Produto não encontrado', fatal: true })
+}
+
 watch(() => data.value?.cart, cart => {
   setFromServer(cart)
 }, { immediate: true })
@@ -110,11 +116,11 @@ useHead({
       </div>
 
       <UiAlert v-else-if="error" variant="destructive" class="mt-4">
-        <UiAlertTitle>Produto indisponível</UiAlertTitle>
+        <UiAlertTitle>Não foi possível abrir este produto</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>Não foi possível carregar este produto.</span>
-            <UiButton size="sm" variant="outline" @click="refresh">Atualizar</UiButton>
+            <span>Tivemos um percalço ao carregar — tente de novo em instantes.</span>
+            <UiButton size="sm" variant="outline" @click="refresh">Tentar de novo</UiButton>
           </div>
         </UiAlertDescription>
       </UiAlert>
