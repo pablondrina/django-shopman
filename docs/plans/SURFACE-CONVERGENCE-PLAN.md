@@ -54,16 +54,22 @@ Convergir + podar, **não acumular**. O alvo natural (já implícito nas decisõ
   renderiza intent, o orquestrador decide. Isso é o que torna trocar a camada de
   apresentação barato (foi assim que o PDV migrou).
 
-> **Decisão ABERTA (precisa do Pablo) — o alvo do KDS:** migrar pro Nuxt/UI-Thing
-> (unifica o design system de verdade — mesmo rail, tokens, componentes; aposenta a
-> base gestor-HTMX) **ou** manter HTMX (acabou de ser alinhado ao PDV visualmente) e
-> só organizar o entorno. **Recomendação:** migrar pro Nuxt no médio prazo (é o
-> Excellence Refactor; o KDS é rico/tempo-real, encaixa no molde do PDV; o polimento
-> HTMX de hoje vira a referência visual). Curto prazo: o KDS HTMX alinhado serve.
+> **Decisão FECHADA (Pablo, 2026-06-20) — o alvo do KDS é Nuxt/UI-Thing.** Unifica o
+> design system de verdade (mesmo rail, tokens, componentes do PDV/loja; aposenta a base
+> gestor-HTMX). Já existe um redesign Nuxt do KDS concluído (`surfaces/kds-uithing-nuxt`,
+> commit `539b861a`) — o trabalho de apresentação está feito; falta ratificar o contrato
+> headless e **matar o KDS-HTMX** (gestor/runtime), análogo ao kill do POS-HTMX. O
+> polimento HTMX de hoje serve de referência visual e como fallback até o cutover.
 
 ## 4. Ordem de convergência (work packages)
 
-### WP1 — Matar o POS-HTMX legado (§5.1) · APROVADO, mas é work-package
+### WP1 — Matar o POS-HTMX legado (§5.1) · ✅ CONCLUÍDO
+> Feito (capítulos anteriores + revisão do backoffice 2026-06-20): `views/pos.py`,
+> `templates/pos/` e as rotas `gestor/pos/*` já não existem; os `test_pos_*` já exercem
+> o contrato headless/Nuxt (`api/v1/backstage/pos/`). Resíduo final (link morto "POS" no
+> nav do admin) corrigido em `f175c6b6` — usa `SHOPMAN_POS_BASE_URL`, oculto se vazio.
+> O blinding do caixa cego (§2.6) segue como item próprio se ainda houver consumo legado.
+
 Remover a camada de **view HTMX** do POS legado (o Nuxt POS já a substituiu).
 **Footprint exato:**
 - `shopman/backstage/views/pos.py` (15 funções HTMX-view: `pos_view`,
@@ -94,11 +100,12 @@ manter um como storefront-alvo, arquivar o outro; `backstage-nuxt` (33, pos.vue 
 histórico por adr-013) — arquivar. Tira ambiguidade do repo. (Pablo não aprovou
 ainda — pendente.)
 
-### WP3 — Decidir o alvo do KDS (§3) e, se Nuxt, migrar
-Ratificar Nuxt vs HTMX. Se Nuxt: nasce `surfaces/kds-*` sobre o mesmo contrato
-headless + design system do PDV (rail, tokens, componentes compartilháveis). O
-KDS-customer-board (display de retirada) e a futura tela-do-cliente-do-PDV podem
-compartilhar a base "customer display".
+### WP3 — KDS → Nuxt · ✅ DECIDIDO (Pablo, 2026-06-20); migração pendente
+Alvo ratificado: **Nuxt** (§3). Já existe `surfaces/kds-uithing-nuxt` (redesign concluído,
+`539b861a`) sobre o design system do PDV (rail, tokens, componentes). Falta: confirmar o
+contrato headless (`api/v1/backstage/kds/`), migrar os testes que ainda dependem das views
+gestor-HTMX, e **matar o KDS-HTMX** (`gestor/`/`runtime/` + rotas + nav) — análogo ao WP1.
+O KDS-customer-board e a futura tela-do-cliente-do-PDV compartilham a base "customer display".
 
 ### WP4 — Storefront (pilar Loja Online)
 Convergir o storefront (Django vivo → Nuxt-alvo escolhido no WP2), mobile-first,
