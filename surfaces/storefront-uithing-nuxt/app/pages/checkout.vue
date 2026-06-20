@@ -1241,7 +1241,7 @@ useSeoMeta({
 
                   <div class="space-y-1 rounded-lg border bg-card p-4">
                     <p class="shop-kicker">Total</p>
-                    <p class="text-3xl font-semibold tabular-nums">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
+                    <p class="shop-price-strong">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
                     <p class="shop-muted">{{ confirmItemSummary }}</p>
                   </div>
 

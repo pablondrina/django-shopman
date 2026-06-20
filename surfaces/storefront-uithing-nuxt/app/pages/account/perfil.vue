@@ -130,9 +130,9 @@ useSeoMeta({ title: 'Perfil' })
             </span>
             <div class="min-w-0 flex-1">
               <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
-              <p class="shop-meta">Para trocar o telefone, entre novamente usando outro número.</p>
+              <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
             </div>
-            <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Trocar</UiButton>
+            <UiButton to="/login?next=/account/perfil" variant="ghost" size="sm">Entrar com outra conta</UiButton>
           </div>
         </div>
 

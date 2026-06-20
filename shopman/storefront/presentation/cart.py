@@ -78,7 +78,7 @@ class CartItemProjection:
     # ready-stock line.
     is_awaiting_confirmation: bool
     is_ready_for_confirmation: bool
-    confirmation_deadline_iso: str | None       # ISO 8601 UTC, fuels the Alpine countdown
+    confirmation_deadline_iso: str | None       # ISO 8601 UTC, fuels the countdown na loja Nuxt
     confirmation_deadline_display: str | None   # pre-formatted HH:MM for badge copy / toast
 
 

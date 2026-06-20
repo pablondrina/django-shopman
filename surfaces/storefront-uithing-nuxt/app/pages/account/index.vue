@@ -101,7 +101,7 @@ useSeoMeta({ title: 'Conta' })
               {{ loyalty.tierDisplay || 'Programa de fidelidade' }}
             </p>
             <p class="mt-1 flex items-baseline gap-2">
-              <span class="text-3xl font-semibold tabular-nums">{{ loyalty.pointsBalance }}</span>
+              <span class="shop-price-strong">{{ loyalty.pointsBalance }}</span>
               <span class="shop-muted">pontos</span>
             </p>
           </div>

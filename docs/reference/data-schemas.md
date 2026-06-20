@@ -44,6 +44,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `recipient` | `dict` | CheckoutView, API (`set_data`) | CommitService, KDS/expedição | Destinatário do presente: `{name, phone}`. **Não** é identidade (não vira Customer) nem sobrescreve o comprador. Integridade garantida por `intents.gift.build_gift_data` (nunca parcial). **Obrigatório só na ENTREGA**; em retirada ("embalar para presente") é opcional/omitido |
 | `gift_message` | `string` | CheckoutView, API (`set_data`) | CommitService | Mensagem do presente para o destinatário. **Separada** de `order_notes` (operacional/cozinha). Opcional; só presente quando informada |
 | `gift_hide_values` | `bool` | CheckoutView, API (`set_data`) | CommitService, nota/etiqueta, KDS | `True` para ocultar valores na nota/etiqueta do presente. Só presente quando `True` (ausência = mostrar valores) |
+| `customer_rating` | `dict` | `OrderRateView` (storefront tracking) | (futuro: agregação/relatórios) | Avaliação do pedido pelo cliente: `{rating, comment, submitted_at, source}`. Só presente após o cliente avaliar. Ver [[project_customer_rating_intent]] (sistema de avaliação é nice-to-have futuro) |
 
 ### Chaves de sistema (geridas pelo Core)
 
