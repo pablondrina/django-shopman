@@ -68,7 +68,12 @@ export function productJsonLd (params: {
   brandName: string
 }): Record<string, unknown> {
   const { product, origin, url, brandName } = params
-  const image = absoluteImage(origin, product.image_url)
+  // Rich results favorecem múltiplas imagens: principal + galeria (absolutas, deduped).
+  const images = [...new Set(
+    [product.image_url, ...(product.gallery || [])]
+      .map(candidate => absoluteImage(origin, candidate))
+      .filter((candidate): candidate is string => !!candidate)
+  )]
   const ld: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -83,7 +88,7 @@ export function productJsonLd (params: {
       url
     }
   }
-  if (image) ld.image = image
+  if (images.length) ld.image = images.length === 1 ? images[0] : images
   if (brandName) ld.brand = { '@type': 'Brand', name: brandName }
   if (Array.isArray(product.seo_keywords) && product.seo_keywords.length) {
     ld.keywords = product.seo_keywords.join(', ')

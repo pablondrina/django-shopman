@@ -73,7 +73,9 @@ onMounted(() => {
 })
 
 useSeoMeta({
-  title: 'Buscar'
+  title: 'Buscar',
+  // Ferramenta de busca interna não deve poluir o índice; segue os links (follow).
+  robots: 'noindex, follow'
 })
 // Canonical sem query → variantes ?q= não geram duplicate content.
 useCanonical()

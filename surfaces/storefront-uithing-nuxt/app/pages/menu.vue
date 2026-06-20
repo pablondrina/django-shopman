@@ -449,6 +449,16 @@ useHead({
               </div>
             </div>
 
+            <UiEmpty v-else-if="catalog && !catalog.has_items" class="border">
+              <UiEmptyMedia variant="icon">
+                <Icon name="lucide:croissant" />
+              </UiEmptyMedia>
+              <UiEmptyHeader>
+                <UiEmptyTitle>Cardápio em preparo</UiEmptyTitle>
+                <UiEmptyDescription>Estamos preparando as novidades — volte em breve!</UiEmptyDescription>
+              </UiEmptyHeader>
+            </UiEmpty>
+
             <UiEmpty v-else class="border">
               <UiEmptyMedia variant="icon">
                 <Icon name="lucide:search-x" />
