@@ -256,6 +256,7 @@ async function resendCode () {
       body: payload
     })
     applyCodeDelivery(response, lastDeliveryMethod.value)
+    if (import.meta.client) useSonner.success('Enviamos um novo código.')
   } catch (e: any) {
     error.value = fetchErrorView(e, 'Não foi possível reenviar o código.')
   } finally {
@@ -264,6 +265,7 @@ async function resendCode () {
 }
 
 async function verifyCode () {
+  if (pending.value) return  // guarda contra duplo submit (auto-watch + submit manual)
   if (code.value.length !== 6) {
     error.value = authErrorView({ field: 'code' }, 'Informe os 6 dígitos do código.')
     return
@@ -366,11 +368,11 @@ useSeoMeta({
           </p>
         </header>
 
-        <UiAlert v-if="error && error.kind === 'rate_limit'" icon="lucide:clock">
+        <UiAlert v-if="error && error.kind === 'rate_limit'" id="login-error" role="alert" icon="lucide:clock">
           <UiAlertTitle>{{ error.title }}</UiAlertTitle>
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
-        <UiAlert v-else-if="error" variant="destructive">
+        <UiAlert v-else-if="error" id="login-error" role="alert" variant="destructive">
           <UiAlertTitle>{{ error.title }}</UiAlertTitle>
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
@@ -456,6 +458,7 @@ useSeoMeta({
               type="number"
               otp
               :aria-invalid="!!error"
+              :aria-describedby="error ? 'login-error' : undefined"
               class="justify-between sm:justify-start"
             />
             <UiFieldDescription>

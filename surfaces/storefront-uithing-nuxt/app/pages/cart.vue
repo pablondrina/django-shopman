@@ -74,7 +74,15 @@ function holdFor (line: CartItemProjection) {
 }
 
 async function removeLine (line: CartItemProjection) {
-  await setSkuQty(metaForLine(line), 0)
+  const meta = metaForLine(line)
+  const prevQty = line.qty
+  await setSkuQty(meta, 0)
+  // Desfazer: re-adiciona a quantidade anterior (toque acidental é recuperável).
+  if (import.meta.client) {
+    useSonner(`${line.name} removido`, {
+      action: { label: 'Desfazer', onClick: () => { void setSkuQty(meta, prevQty) } }
+    })
+  }
 }
 
 // Linha indisponível com algum estoque: ajusta para a quantidade disponível,

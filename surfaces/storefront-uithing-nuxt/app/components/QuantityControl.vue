@@ -54,7 +54,8 @@ function commit (value: number) {
       size="icon-sm"
       class="size-10 rounded-full text-foreground"
       icon="lucide:plus"
-      :aria-label="`Aumentar ${meta.name}`"
+      :aria-label="atMax && maxQty != null ? `Máximo disponível de ${meta.name}: ${maxQty}` : `Aumentar ${meta.name}`"
+      :title="atMax && maxQty != null ? `Só temos ${maxQty} disponíve${maxQty > 1 ? 'is' : 'l'}` : undefined"
       :disabled="disabled || atMax"
       @click="commit(qty + 1)"
     />
