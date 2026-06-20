@@ -10,7 +10,7 @@ from decimal import Decimal
 from django import forms
 from django.contrib import admin
 from django.contrib.admin.utils import flatten_fieldsets
-from django.utils.html import escape, format_html
+from django.utils.html import escape, format_html, format_html_join
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 from unfold.contrib.forms.widgets import ArrayWidget
@@ -1232,6 +1232,13 @@ _INTEGRATIONS_FIELDSETS = (
             "Em branco = herda do sistema."
         ),
     }),
+    ("Canais do sistema (deployment)", {
+        "fields": ("channel_refs_display",),
+        "description": (
+            "Quais canais respondem pela Loja online e pelo PDV. Definidos no "
+            "deployment (settings/env) — exibidos aqui só para conferência."
+        ),
+    }),
 )
 
 
@@ -1445,6 +1452,37 @@ class ShopPosAdmin(_ShopSingletonAdmin):
 class ShopIntegrationsAdmin(_ShopSingletonAdmin):
     form = _section_form(_INTEGRATIONS_FIELDSETS)
     fieldsets = _INTEGRATIONS_FIELDSETS
+    readonly_fields = ("channel_refs_display",)
+
+    @admin.display(description="Canais do sistema")
+    def channel_refs_display(self, obj):
+        """Read-only: which Channel answers as Loja online / PDV (deployment config).
+
+        Source of truth is settings/env (SHOPMAN_STOREFRONT/POS_CHANNEL_REF) — these
+        are deployment identity, intentionally not editable by operators. Lê de
+        settings (não importa storefront, respeitando a camada shop←storefront).
+        """
+        from django.conf import settings as dj_settings
+
+        from shopman.shop.models import Channel
+
+        pairs = (
+            ("Loja online", getattr(dj_settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web")),
+            ("PDV", getattr(dj_settings, "SHOPMAN_POS_CHANNEL_REF", "pdv")),
+        )
+        rows = []
+        for label, ref in pairs:
+            channel = Channel.objects.filter(ref=ref).first()
+            name = channel.name if channel else "(canal não encontrado)"
+            rows.append((label, f"{ref} — {name}"))
+        body = format_html_join(
+            "",
+            '<div class="flex gap-3 py-1 border-b border-base-100 dark:border-base-800">'
+            '<dt class="font-medium text-base-500 dark:text-base-400 w-40 shrink-0">{}</dt>'
+            '<dd class="text-sm">{}</dd></div>',
+            rows,
+        )
+        return format_html('<dl class="flex flex-col">{}</dl>', body)
 
 
 @admin.register(NotificationTemplate)
