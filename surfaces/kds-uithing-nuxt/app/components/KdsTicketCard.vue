@@ -31,9 +31,17 @@ const nextSurface = computed(() => toneNextSurface(tone.value));
 // então reflete o overflow real (não um chute por contagem).
 const itemsRef = ref<HTMLElement | null>(null);
 const clipped = ref(false);
+// Quantos itens NÃO cabem (medido) — para dizer explicitamente "+N itens" em vez de
+// só esmaecer. Conta os <li> cujo fim ultrapassa a área visível da lista.
+const hiddenCount = ref(0);
 function measure() {
   const el = itemsRef.value;
-  clipped.value = !!el && el.scrollHeight > el.clientHeight + 1;
+  if (!el) { clipped.value = false; hiddenCount.value = 0; return; }
+  clipped.value = el.scrollHeight > el.clientHeight + 1;
+  const limit = el.clientHeight + 1;
+  hiddenCount.value = Array.from(el.querySelectorAll("li")).filter(
+    (li) => (li as HTMLElement).offsetTop + (li as HTMLElement).offsetHeight > limit,
+  ).length;
 }
 useResizeObserver(itemsRef, measure);
 watch([() => props.ticket.items, () => props.density], () => nextTick(measure), { deep: true });
@@ -108,6 +116,12 @@ const d = computed(
           </button>
         </li>
       </ul>
+      <!-- Sinal explícito de overflow: além do esmaecimento, diz QUANTOS itens faltam. -->
+      <div v-if="clipped && hiddenCount" class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1" :class="d.inset">
+        <span class="rounded-full bg-foreground px-2.5 py-0.5 text-xs font-bold text-background shadow-sm">
+          +{{ hiddenCount }} {{ hiddenCount === 1 ? "item" : "itens" }}
+        </span>
+      </div>
     </div>
 
     <!-- ações: "Ver completo" (olho — abre o detalhe) + "Finalizar" em destaque

@@ -44,6 +44,7 @@ export interface KDSExpeditionCardProjection {
   units_count: string;
   line_count: number;
   total_display: string;
+  items: KDSItemProjection[];
 }
 
 export interface KDSInstanceSummaryProjection {

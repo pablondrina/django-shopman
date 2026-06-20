@@ -14,6 +14,9 @@ const props = withDefaults(
 defineEmits<{ action: [action: "dispatch" | "complete"] }>();
 
 const ref_ = computed(() => splitRef(props.card.ref));
+// Conferência de itens na expedição: colapsado por padrão (board scannable),
+// expande pra conferir o que entregar/despachar.
+const showItems = ref(false);
 const d = computed(
   () =>
     ({
@@ -52,6 +55,28 @@ const d = computed(
         <div class="text-muted-foreground">{{ card.line_count }} {{ card.line_count === 1 ? "linha" : "linhas" }}</div>
         <div class="font-bold tabular-nums">{{ card.total_display }}</div>
       </div>
+    </div>
+
+    <!-- conferência de itens (qty × nome): toggle pra manter o board enxuto -->
+    <div v-if="card.items.length" class="border-t pt-2">
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+        :aria-expanded="showItems"
+        @click="showItems = !showItems"
+      >
+        <span class="inline-flex items-center gap-1.5">
+          <Icon name="lucide:list" class="size-4 shrink-0" />
+          {{ showItems ? "Ocultar itens" : `Ver itens (${card.line_count})` }}
+        </span>
+        <Icon :name="showItems ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-4 shrink-0" />
+      </button>
+      <ul v-if="showItems" class="mt-1 space-y-1">
+        <li v-for="(item, idx) in card.items" :key="idx" class="flex items-baseline gap-2.5 text-sm">
+          <span class="min-w-[2.5ch] shrink-0 text-right font-bold tabular-nums">{{ item.qty }}×</span>
+          <span class="min-w-0 flex-1 truncate font-medium">{{ item.name }}</span>
+        </li>
+      </ul>
     </div>
 
     <!-- ação principal: neutro invertido -->

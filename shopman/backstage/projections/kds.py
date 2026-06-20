@@ -84,6 +84,7 @@ class KDSExpeditionCardProjection:
     units_count: str
     line_count: int
     total_display: str
+    items: tuple[KDSItemProjection, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -397,6 +398,18 @@ def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:
     is_delivery = get_fulfillment_type(order) == "delivery"
     items = tuple(order.items.all())
     units_count = sum((Decimal(str(item.qty)) for item in items), Decimal("0"))
+    # Itens para conferência na expedição (despacho/entrega): qty × nome, sem check/SLA.
+    item_projections = tuple(
+        KDSItemProjection(
+            sku=getattr(item, "sku", "") or "",
+            name=getattr(item, "name", "") or getattr(item, "sku", "") or "",
+            qty=int(Decimal(str(item.qty))),
+            notes=str(getattr(item, "notes", "") or ""),
+            checked=False,
+            stock_warning="",
+        )
+        for item in items
+    )
 
     return KDSExpeditionCardProjection(
         pk=order.pk,
@@ -409,6 +422,7 @@ def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:
         units_count=_qty(units_count),
         line_count=len(items),
         total_display=_money(order.total_q),
+        items=item_projections,
     )
 
 
