@@ -434,7 +434,14 @@ useHead({
                 class="scroll-mt-40 space-y-1"
               >
                 <div class="shop-stack-micro">
-                  <h2 class="shop-heading">{{ section.label }}</h2>
+                  <h2 class="shop-heading">
+                    <NuxtLink
+                      v-if="!section.is_dynamic && section.ref"
+                      :to="`/colecao/${encodeURIComponent(section.ref)}`"
+                      class="hover:underline"
+                    >{{ section.label }}</NuxtLink>
+                    <template v-else>{{ section.label }}</template>
+                  </h2>
                   <p v-if="section.description" class="shop-muted">{{ section.description }}</p>
                 </div>
                 <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">

@@ -1,17 +1,23 @@
 import type { MenuResponse } from '~/types/shopman'
 
 // sitemap.xml domain-aware, alimentado pelo catálogo real (Django). Inclui a
-// home, o cardápio e cada PDP (/product/<sku>). As variantes de filtro
-// (?filtro=/?secao=) NÃO entram — elas canonicalizam para /menu (anti-duplicate).
+// home, o cardápio, cada coleção estática (/colecao/<ref>) e cada PDP
+// (/product/<sku>). As variantes de filtro (?filtro=/?secao=) NÃO entram — elas
+// canonicalizam para /menu (anti-duplicate).
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const origin = getRequestURL(event).origin
 
   let skus: string[] = []
+  let collectionRefs: string[] = []
   try {
     const menu = await $fetch<MenuResponse>(`${config.djangoBaseUrl}/api/v1/storefront/menu/`)
     const items = menu?.catalog?.items || []
     skus = [...new Set(items.map(item => item.sku).filter(Boolean))]
+    // Só coleções ESTÁTICAS viram rota indexável; seções dinâmicas ("Destaques"
+    // etc.) são curadoria volátil → ficam fora do sitemap.
+    const sections = menu?.catalog?.sections || []
+    collectionRefs = [...new Set(sections.filter(s => s && !s.is_dynamic && s.ref).map(s => s.ref))]
   } catch {
     // Catálogo indisponível: ainda servimos as rotas estáticas.
   }
@@ -19,6 +25,7 @@ export default defineEventHandler(async (event) => {
   const urls = [
     { loc: `${origin}/`, priority: '1.0' },
     { loc: `${origin}/menu`, priority: '0.9' },
+    ...collectionRefs.map(ref => ({ loc: `${origin}/colecao/${encodeURIComponent(ref)}`, priority: '0.7' })),
     ...skus.map(sku => ({ loc: `${origin}/product/${encodeURIComponent(sku)}`, priority: '0.8' }))
   ]
 
