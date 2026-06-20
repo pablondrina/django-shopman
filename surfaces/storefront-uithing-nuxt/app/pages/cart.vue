@@ -77,6 +77,14 @@ async function removeLine (line: CartItemProjection) {
   await setSkuQty(metaForLine(line), 0)
 }
 
+// Linha indisponível com algum estoque: ajusta para a quantidade disponível,
+// em vez de só permitir remover (consistente com o fluxo de erro 409).
+async function adjustToAvailable (line: CartItemProjection) {
+  if (line.available_qty && line.available_qty > 0) {
+    await setSkuQty(metaForLine(line), line.available_qty)
+  }
+}
+
 useSeoMeta({
   title: 'Carrinho'
 })
@@ -261,6 +269,14 @@ useSeoMeta({
                       :min-qty="1"
                       compact
                     />
+                    <UiButton
+                      v-if="!line.is_available && !holdFor(line) && line.available_qty && line.available_qty > 0"
+                      size="sm"
+                      variant="outline"
+                      @click="adjustToAvailable(line)"
+                    >
+                      Usar {{ line.available_qty }} disponíve{{ line.available_qty > 1 ? 'is' : 'l' }}
+                    </UiButton>
                     <p class="ml-auto shop-price" :class="cart.summary_pending ? 'opacity-60' : ''">{{ line.total_display }}</p>
                   </div>
                 </div>
@@ -276,6 +292,21 @@ useSeoMeta({
               </div>
               <UiProgress :model-value="cart.minimum_order_progress.percent" />
             </div>
+
+            <div v-if="cart.free_delivery_progress" class="mt-4 border-b pb-4" data-cart-free-delivery>
+              <div class="mb-2 flex items-center justify-between gap-3 shop-body">
+                <span class="flex items-center gap-2">
+                  <Icon name="lucide:truck" class="size-4" />
+                  Faltam <strong class="tabular-nums">{{ cart.free_delivery_progress.remaining_display }}</strong> para frete grátis
+                </span>
+              </div>
+              <UiProgress :model-value="cart.free_delivery_progress.percent" />
+            </div>
+
+            <UiAlert v-if="cart.delivery_zone_error" variant="destructive" class="mt-4">
+              <UiAlertTitle>Endereço fora da área de entrega</UiAlertTitle>
+              <UiAlertDescription>Escolha a retirada na loja ou um endereço dentro da nossa área.</UiAlertDescription>
+            </UiAlert>
 
           </section>
 
