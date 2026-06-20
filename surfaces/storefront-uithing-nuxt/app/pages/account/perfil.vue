@@ -12,6 +12,20 @@ const profileIssue = ref('')
 const profileSaved = ref(false)
 const profilePendingSave = ref(false)
 const profileForm = reactive({ first_name: '', last_name: '', email: '', birthday: '' })
+const fieldErrors = reactive<{ first_name?: string, email?: string }>({})
+
+function validateFirstName () {
+  fieldErrors.first_name = profileForm.first_name.trim() ? undefined : 'Informe seu primeiro nome.'
+}
+function validateEmail () {
+  const email = profileForm.email.trim()
+  fieldErrors.email = (!email || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) ? undefined : 'E-mail inválido.'
+}
+function validateProfile (): boolean {
+  validateFirstName()
+  validateEmail()
+  return !fieldErrors.first_name && !fieldErrors.email
+}
 
 const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/v1/account/profile/'), {
   credentials: 'include',
@@ -30,10 +44,7 @@ async function saveProfile () {
   if (profilePendingSave.value) return
   profileIssue.value = ''
   profileSaved.value = false
-  if (!profileForm.first_name.trim()) {
-    profileIssue.value = 'Informe seu primeiro nome.'
-    return
-  }
+  if (!validateProfile()) return
   profilePendingSave.value = true
   try {
     const response = await $fetch<AccountProfile>(apiPath('/api/v1/account/profile/'), {
@@ -92,7 +103,8 @@ useSeoMeta({ title: 'Perfil' })
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
               <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
-              <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required />
+              <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required :aria-invalid="!!fieldErrors.first_name" @blur="validateFirstName" />
+              <UiFieldError v-if="fieldErrors.first_name" :errors="[fieldErrors.first_name]" />
             </UiField>
             <UiField>
               <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
@@ -103,7 +115,8 @@ useSeoMeta({ title: 'Perfil' })
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
               <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
-              <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" />
+              <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" :aria-invalid="!!fieldErrors.email" @blur="validateEmail" />
+              <UiFieldError v-if="fieldErrors.email" :errors="[fieldErrors.email]" />
             </UiField>
             <UiField>
               <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
