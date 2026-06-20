@@ -11,9 +11,13 @@
 
 ---
 
-## Lote 1 — Cross-confirmado (must-fix, EM EXECUÇÃO)
+## Lote 1 — Cross-confirmado ✅ CONCLUÍDO (commits 2d4018a4 · 499d521c · 6c0042b6)
 
 Achados levantados por **mais de um auditor** — maior valor, menor ambiguidade.
+**Feito:** W1 `error.vue` de marca + 404 real na PDP (SSR 404, não mais 200 indexável);
+W2 CSRF uniforme (Profile/Address → SessionAuthentication, front já enviava token);
+W3 copy de erro acolhedora (menu/carrinho/busca). `make test` 2094 + vitest 217 verdes;
+verificado ao vivo (404 + erro acolhedor com API derrubada). NÃO pushado/deployado ainda.
 
 ### W1 — Robustez de erro & 404 nas rotas dinâmicas
 **Achado (SEO + PDP + transversal):** PDP de SKU inexistente responde **HTTP 200 e indexável**
