@@ -413,7 +413,7 @@ useSeoMeta({
             </UiFieldDescription>
           </UiField>
 
-          <div class="grid gap-3">
+          <div class="grid gap-3 rounded-lg border bg-bottomnav p-4">
             <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
               {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
             </UiButton>

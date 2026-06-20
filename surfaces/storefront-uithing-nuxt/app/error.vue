@@ -17,13 +17,17 @@ const title = computed(() =>
 )
 const message = computed(() =>
   is404.value
-    ? 'O item pode ter saído do cardápio ou o endereço está incorreto — vamos te levar de volta ao cardápio.'
+    ? 'O item pode ter saído do cardápio ou o endereço está incorreto — vamos te levar de volta a um lugar seguro.'
     : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale com a gente no WhatsApp.'
 )
 
 // Páginas de erro nunca devem ser indexadas (o status 404/5xx já sinaliza, isto é
-// reforço). `follow` para o crawler ainda seguir o link de volta ao cardápio.
+// reforço). `follow` para o crawler ainda seguir os links de volta.
 useSeoMeta({ robots: 'noindex, follow', title: () => title.value })
+
+function goMenu () {
+  clearError({ redirect: '/menu' })
+}
 
 function goHome () {
   clearError({ redirect: '/' })
@@ -38,16 +42,34 @@ function goHome () {
       <p class="shop-muted">{{ message }}</p>
     </div>
     <div class="flex flex-col gap-3 sm:flex-row">
-      <UiButton @click="goHome">Voltar ao cardápio</UiButton>
-      <UiButton
-        v-if="whatsappUrl"
-        variant="outline"
-        :href="whatsappUrl"
-        target="_blank"
-        rel="noreferrer noopener"
-      >
-        Falar no WhatsApp
-      </UiButton>
+      <template v-if="is404">
+        <UiButton icon="lucide:utensils" @click="goMenu">Voltar ao cardápio</UiButton>
+        <UiButton variant="outline" icon="lucide:house" @click="goHome">Página inicial</UiButton>
+      </template>
+      <template v-else>
+        <UiButton icon="lucide:house" @click="goHome">Página inicial</UiButton>
+        <UiButton
+          v-if="whatsappUrl"
+          variant="outline"
+          :href="whatsappUrl"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Falar no WhatsApp
+        </UiButton>
+      </template>
     </div>
+
+    <UiButton
+      v-if="is404 && whatsappUrl"
+      variant="link"
+      size="sm"
+      :href="whatsappUrl"
+      target="_blank"
+      rel="noreferrer noopener"
+      class="text-muted-foreground"
+    >
+      Prefere falar com a gente? WhatsApp
+    </UiButton>
   </div>
 </template>
