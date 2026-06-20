@@ -107,16 +107,27 @@ contrato headless (`api/v1/backstage/kds/`), migrar os testes que ainda dependem
 gestor-HTMX, e **matar o KDS-HTMX** (`gestor/`/`runtime/` + rotas + nav) — análogo ao WP1.
 O KDS-customer-board e a futura tela-do-cliente-do-PDV compartilham a base "customer display".
 
-### WP4 — Storefront (pilar Loja Online)
-Convergir o storefront (Django vivo → Nuxt-alvo escolhido no WP2), mobile-first,
-branding pleno. Pilar grande, próprio.
+### WP4 — Storefront (pilar Loja Online) · ✅ CONVERGIDO + DEPLOYADO (2026-06-20)
+O storefront-alvo é o **`storefront-uithing-nuxt`** (headless, consome `/api/v1/*`).
+As páginas Django de cliente foram aposentadas (headless de verdade), a loja Nuxt
+passou por redesign completo (tipografia/layout/cor/marca) + **auditoria reversa**
+(Lotes 1-3) e está **no ar no staging**. O `storefront-nuxt` (56) e `backstage-nuxt`
+(33) continuam candidatos a arquivar no WP2. Resta a **padronização de URLs pt-BR**
+(ver `docs/plans/URL-STANDARDIZATION-PLAN.md`).
 
-### WP5 — Gestor de Pedidos / back-office (Unfold)
-Auditar o admin_console (Unfold canônico) — aderência ao tema/componentes; é a casa
-do CRUD de gestão. Provável já bom (WP8 Arc F); confirmar.
+### WP5 — Gestor de Pedidos / back-office (Unfold) · ✅ AUDITADO (2026-06)
+admin_console Unfold canônico revisado na BACKOFFICE-UNFOLD-REVISION (3 camadas,
+mergeada + deployada). É a casa do CRUD de gestão; nada estrutural pendente.
 
-## 5. Estado atual desta iniciativa
-- **Feito (2026-06):** PDV redesenhado (Nuxt) + KDS/gestor **neutralizado e alinhado
-  visualmente ao PDV** (paleta, rounded-md, tema light-first, rail dark-spine).
-- **Próximo:** ratificar §3 (alvo KDS) + executar WP1 (kill legado, com migração de
-  testes) — ambos dependem de decisão/scheduling do Pablo.
+## 5. Estado atual desta iniciativa (2026-06-20)
+- **Feito:** PDV redesenhado (Nuxt); **storefront convergido p/ Nuxt + auditado + deployado
+  (WP4)**; **WP1 kill POS-HTMX legado** concluído; backoffice Unfold auditado (WP5).
+- **Próxima execução (em ordem):**
+  1. **WP3 — KDS → Nuxt** (decidido): ratificar contrato `api/v1/backstage/kds/`, migrar
+     testes que dependem das views gestor-HTMX, **matar o KDS-HTMX** (`gestor/`/`runtime/`
+     + rotas + nav). O redesign Nuxt já existe (`kds-uithing-nuxt`, `539b861a`).
+  2. **WP2 — podar experimentos Nuxt mortos** (`storefront-nuxt`, `backstage-nuxt`) →
+     arquivar; tira ambiguidade do repo. (Barato; pode ir junto com o WP3.)
+  3. **Padronização de URLs pt-BR** (storefront) — `docs/plans/URL-STANDARDIZATION-PLAN.md`.
+- **Depois (novas frentes, fora de convergência):** tela-do-cliente do PDV (customer
+  display, base compartilhada com o KDS-board); produção first-class; pilar Agentic.
