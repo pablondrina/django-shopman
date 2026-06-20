@@ -22,6 +22,15 @@
   > **Insight:** o **step-up de reautenticação** (excluir/exportar) NÃO tem esse problema — é o
   > **mesmo número** do usuário logado, então pode reusar `verify_for_login` (re-login da MESMA conta
   > é inócuo). É só "mudar número" que precisa do verify-sem-login.
+  >
+  > **RESOLVIDO PARCIALMENTE (2026-06-20, via step-up):** `verify_for_login(target, code, request=None)`
+  > JÁ é um verify-sem-login no nível de serviço (passar `request=None` pula o `login()`). O step-up
+  > usa exatamente isso, ZERO mudança no Core. **PORÉM**, para "mudar número" sobra uma aresta: o
+  > `verify_for_login` também faz `resolve_customer(target)` + auto-create (linhas ~284-297). Para o
+  > número NOVO isso (a) encontra outro cliente → conflito a rejeitar, ou (b) **cria um cliente-fantasma**
+  > para o número novo (efeito colateral indesejado). Então o que falta avaliar não é o login, e sim
+  > um verify que **não resolve/cria cliente** — ou aceitar o resolve e tratar o merge. Provavelmente
+  > um helper `verify_code(target, code)` puro (sem resolve_customer) no doorman, aditivo e pequeno.
 - **storefront/shop: orquestração + UI novas** — informar número novo → OTP → confirmar; rejeitar se
   o número já pertence a outra conta (ou oferecer merge — futuro); atualizar `Customer.phone` +
   `ContactPoint` atômico.

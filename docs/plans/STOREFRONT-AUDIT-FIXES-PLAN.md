@@ -100,20 +100,36 @@ Evidência: `utils/checkoutPayload.ts:38-65`, `checkout.vue:1152`.
 
 ---
 
-## Lote 3 — P2 polimento
+## Lote 3 — P2 polimento ✅ CONCLUÍDO (1c6c74c3 · 0385d242 · 00d9aff3 · 690b2798 · 7ba0ea86)
 
-- 404-vs-erro também na **copy** (PDP "Produto não encontrado" vs "Indisponível, tente de novo").
-- `aria-live`/`role=status` em empty states induzidos por filtro (`menu`, `account/pedidos`).
-- Headings semânticos: `CheckoutProgressSection.vue:74` (`<p>`→`<h2>`); `busca.vue` sem `<h1>`.
-- Microcopy de limite de quantidade no máximo (`QuantityControl`).
-- Galeria da PDP: thumbnails clicáveis/lightbox (futuro).
-- Código morto: `_allergen_info` (`product_detail.py:647-668`); docstring "Alpine countdown"
-  (`cart.py:81`); prop `sectionLabel` não usada (`ProductListItem.vue:7`).
-- `customer_rating` (`tracking.py:303`) → documentar em `docs/reference/data-schemas.md`.
-- ~6 desvios de token tipográfico/cor (`text-3xl`, `text-neutral-900`, `text-emerald-600`).
-- Imagens Unsplash hardcoded na home (`index.vue`) → assets locais/server-driven + width/height.
-- `except Exception` largo no `CheckoutView.post` → estreitar p/ exceções de domínio.
-- Reenvio de OTP sem confirmação visível/`aria-live`; PinInput sem `aria-describedby` no erro.
+Decidido com o Pablo (2026-06-20): fazer 🟢 (limpezas/a11y) + 🟡 (mais trabalho) +
+coleções indexáveis + tipografia + step-up; copy do "trocar telefone" corrigida.
+
+**Feito:**
+- 🟢 Código morto removido (`_allergen_info`; docstring "Alpine"→Nuxt; `sectionLabel`
+  estava EM USO em ProductTile, mantido). `customer_rating` documentado em data-schemas.
+  Headings: CheckoutProgressSection `<p>`→`<h2>`, busca `<h1 sr-only>`. Tipografia:
+  `text-3xl`→`.shop-price-strong` (total checkout + saldo de pontos).
+- 🟡 Undo no remover do carrinho (toast com ação); microcopy de qtd-máx via aria-label+title;
+  polish de OTP (guarda de duplo-submit, confirmação de reenvio, aria-describedby+role=alert).
+- **Coleções indexáveis** `/colecao/[ref]` (SSR, self-canonical, CollectionPage+BreadcrumbList
+  JSON-LD, 404 real) + sitemap (estáticas) + internal links no /menu.
+- **Step-up de reautenticação** (OTP) antes de excluir/exportar conta — verify-only via
+  `verify_for_login(request=None)`, marca de sessão (10 min), zero mudança no Core. 5 testes.
+- Copy honesta do "trocar de conta" no perfil.
+
+**Decisões/deferidos (com justificativa):**
+- `loyalty_applied` NÃO exibido: redundante com a linha de desconto já mostrada.
+- Tons emerald/amber/blue (tracking/account): paleta DELIBERADA e testada — mantida (não é
+  desvio a corrigir).
+- `text-neutral-900` no CTA branco do hero: contraste fixo intencional — mantido.
+- `except Exception` do `CheckoutView.post`: já **re-levanta** erros não-mapeados (bugs não são
+  engolidos) → estreitar arriscaria classificar erro de domínio como 500. Mantido.
+- **Imagens Unsplash da home: DECISÃO DO PABLO.** CLS já resolvido (`UiAspectRatio`) e já têm
+  `loading=lazy`+`decoding=async`. Só sobra a dependência externa (privacidade/disponibilidade),
+  que exige **fotos de marca** (self-host) OU ir image-less com tratamento de marca (gradiente).
+  É escolha de design/conteúdo — aguarda input.
+- FAQ schema, lightbox da galeria, `aria-live` em empties filtrados: backlog (ver memória/SEO).
 
 ---
 
