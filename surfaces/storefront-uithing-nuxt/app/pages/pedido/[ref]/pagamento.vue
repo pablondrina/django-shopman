@@ -108,6 +108,29 @@ async function postAction (action: Action) {
   }
 }
 
+// "Simular pagamento" (staging/DEBUG): captura o pagamento por um gateway mock,
+// para testar o fluxo PIX/cartão de ponta a ponta sem gateway real. Só aparece
+// quando o backend marca payment.mock_enabled.
+const simulating = ref(false)
+async function simulatePayment () {
+  if (simulating.value) return
+  simulating.value = true
+  try {
+    const headers = await csrfHeaders()
+    headers['x-idempotency-key'] = newRemoteMutationKey(`mock-confirm:${orderRef.value}`)
+    const result = await $fetch<{ redirect_url?: string }>(
+      apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/mock-confirm/`),
+      { method: 'POST', headers, credentials: 'include' }
+    )
+    if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
+    else await refresh()
+  } catch (e: any) {
+    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível simular o pagamento.')
+  } finally {
+    simulating.value = false
+  }
+}
+
 useSeoMeta({
   title: () => `Pagamento ${orderRef.value}`
 })
@@ -240,6 +263,19 @@ useSeoMeta({
                 >
                   {{ action.label }}
                 </UiButton>
+
+                <div v-if="payment.mock_enabled" class="mt-2 space-y-1 border-t border-dashed pt-3">
+                  <UiButton
+                    variant="outline"
+                    class="w-full border-dashed"
+                    icon="lucide:flask-conical"
+                    :loading="simulating"
+                    @click="simulatePayment"
+                  >
+                    Simular pagamento
+                  </UiButton>
+                  <p class="shop-meta text-center">Ambiente de teste · captura por gateway simulado</p>
+                </div>
               </UiCardContent>
             </UiCard>
 

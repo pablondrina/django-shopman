@@ -140,7 +140,9 @@ class OrderPaymentMockConfirmView(APIView):
         if getattr(request, "limited", False):
             return _rate_limited_response()
 
-        if not settings.DEBUG:
+        from shopman.storefront.presentation.payment import mock_payment_enabled
+
+        if not mock_payment_enabled():
             raise Http404
         try:
             order = order_service.get_accessible_order(request, ref)

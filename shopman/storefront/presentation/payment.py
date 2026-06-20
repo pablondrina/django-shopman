@@ -171,6 +171,9 @@ class PaymentProjection:
     actions: tuple[Action, ...]
     error_message: str | None
     is_debug: bool
+    # Habilita o botão "Simular pagamento" (PIX e cartão): DEBUG OU adapters de
+    # pagamento mock (staging). Em produção real (gateway de verdade) fica False.
+    mock_enabled: bool = False
 
 
 @dataclass(frozen=True)
@@ -192,11 +195,21 @@ class PaymentStatusProjection:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def mock_payment_enabled() -> bool:
+    """Mock payment ('Simular pagamento') liberado em DEBUG ou com adapters mock (staging)."""
+    from django.conf import settings
+
+    return bool(settings.DEBUG or getattr(settings, "SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS", False))
+
+
 def build_payment(order) -> PaymentProjection:
     """Build the full payment page projection for an Order."""
     from django.conf import settings
 
-    return present_payment(build_payment_data(order, is_debug=settings.DEBUG))
+    return present_payment(
+        build_payment_data(order, is_debug=settings.DEBUG),
+        mock_enabled=mock_payment_enabled(),
+    )
 
 
 def build_payment_status(order) -> PaymentStatusProjection:
@@ -204,7 +217,7 @@ def build_payment_status(order) -> PaymentStatusProjection:
     return present_payment_status(build_payment_status_data(order))
 
 
-def present_payment(data: PaymentData) -> PaymentProjection:
+def present_payment(data: PaymentData, *, mock_enabled: bool = False) -> PaymentProjection:
     copy = build_copy("PAYMENT")
     return PaymentProjection(
         order_ref=data.order_ref,
@@ -222,6 +235,7 @@ def present_payment(data: PaymentData) -> PaymentProjection:
         actions=data.actions,
         error_message=data.error_message,
         is_debug=data.is_debug,
+        mock_enabled=mock_enabled,
     )
 
 

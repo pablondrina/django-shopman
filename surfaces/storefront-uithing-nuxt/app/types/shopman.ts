@@ -784,6 +784,7 @@ export interface PaymentProjection {
   actions: Action[]
   error_message: string | null
   is_debug: boolean
+  mock_enabled: boolean
 }
 
 export interface PaymentResponse {
