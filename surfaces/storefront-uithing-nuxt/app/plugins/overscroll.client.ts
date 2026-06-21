@@ -1,11 +1,14 @@
 /**
- * Cor do canvas (área revelada no overscroll/rubber-band do iOS) acompanha
- * DINAMICAMENTE o elemento de borda da tela:
- *   - topo  → cor do elemento no topo da página (status bar, ou navbar quando a
- *             status colapsar, ou um topo colorido) — amostrada ao vivo, sem
- *             assumir uma cor fixa. Assim não há diferença entre a navbar e o
- *             scrollover superior, aconteça o que acontecer no topo.
- *   - base  → bottom-nav no mobile (--shop-bottomnav) · rodapé no desktop (--shop-footer)
+ * Cor do canvas (área revelada no overscroll/rubber-band) acompanha DINAMICAMENTE
+ * o elemento de borda — nos DOIS sentidos:
+ *   - topo → cor do elemento no topo da página (status bar quando expandida, navbar
+ *            quando a status colapsa, etc.)
+ *   - base → cor do elemento na base (bottom-nav no mobile, rodapé no desktop, …)
+ *
+ * Amostra ao vivo via elementFromPoint (sobe até um bg sólido), a cada frame de
+ * scroll + um repintar tardio quando o scroll/transições assentam (a status bar
+ * colapsa em ~200ms; sem isso a cor "travava" ao voltar ao topo). Não amostra
+ * DENTRO do próprio overscroll (layout deslocado) — usa o último valor estável.
  *
  * CSS puro não consegue topo ≠ base (o overscroll pinta uma cor única do canvas),
  * então pintamos o background do <html> por posição de scroll. O <body> é
@@ -15,12 +18,10 @@ export default defineNuxtPlugin(() => {
   if (!import.meta.client) return
 
   const root = document.documentElement
-  const mobile = window.matchMedia('(max-width: 767px)')
   let ticking = false
-  // Cache da cor do topo: o rubber-band superior leva scrollY a negativo e desloca
-  // o layout, então só re-amostramos com o layout estável (scrollY >= 0) e usamos
-  // o cache durante o overscroll.
+  let settleTimer = 0
   let topColor = 'var(--shop-ink)'
+  let bottomColor = 'var(--shop-bottomnav)'
 
   // Sobe da posição (centro, y) até achar um background sólido (não-transparente).
   function solidBgAt (y: number): string | null {
@@ -33,34 +34,40 @@ export default defineNuxtPlugin(() => {
     return null
   }
 
+  function sample () {
+    // Topo: só fora do overscroll de topo (scrollY >= 0); senão o layout está deslocado.
+    if (window.scrollY >= 0) {
+      const t = solidBgAt(2)
+      if (t) topColor = t
+    }
+    // Base: só fora do overscroll de base.
+    const maxScroll = root.scrollHeight - window.innerHeight
+    if (window.scrollY <= maxScroll + 1) {
+      const b = solidBgAt(window.innerHeight - 2)
+      if (b) bottomColor = b
+    }
+  }
+
   function paint () {
     ticking = false
+    sample()
     const atBottom = window.innerHeight + window.scrollY >= root.scrollHeight - 4
-    if (atBottom) {
-      root.style.backgroundColor = mobile.matches ? 'var(--shop-bottomnav)' : 'var(--shop-footer)'
-      return
-    }
-    // Topo dinâmico: 2px abaixo da borda cai dentro do elemento do topo (header sticky).
-    if (window.scrollY >= 0) {
-      const sampled = solidBgAt(2)
-      if (sampled) topColor = sampled
-    }
-    root.style.backgroundColor = topColor
+    root.style.backgroundColor = atBottom ? bottomColor : topColor
   }
 
   function schedule () {
     if (ticking) return
     ticking = true
     requestAnimationFrame(paint)
+    // Re-amostra depois que o scroll + transições (status bar 200ms) assentam —
+    // senão a cor do topo fica presa na navbar ao retornar ao topo.
+    clearTimeout(settleTimer)
+    settleTimer = window.setTimeout(paint, 300)
   }
 
   window.addEventListener('scroll', schedule, { passive: true })
   window.addEventListener('resize', schedule, { passive: true })
-  // `scrollend`/`touchend` garantem o repintar na posição ASSENTADA (um scroll
-  // programático/suave pode não disparar 'scroll' no fim, deixando a base sem virar).
   window.addEventListener('scrollend', paint, { passive: true })
   window.addEventListener('touchend', schedule, { passive: true })
-  mobile.addEventListener('change', paint)
-  // Primeira amostragem após o paint inicial do layout.
   requestAnimationFrame(paint)
 })
