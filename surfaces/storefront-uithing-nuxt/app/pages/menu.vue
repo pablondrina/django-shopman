@@ -434,7 +434,7 @@ useHead({
                 class="scroll-mt-40 space-y-1"
               >
                 <div class="shop-stack-micro">
-                  <h2 class="shop-heading">
+                  <h2 class="shop-heading font-display">
                     <NuxtLink
                       v-if="!section.is_dynamic && section.ref"
                       :to="`/colecao/${encodeURIComponent(section.ref)}`"

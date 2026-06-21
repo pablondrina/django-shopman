@@ -246,8 +246,9 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain('copy.handmade_title_prefix')
     expect(hero).toContain('data-home-hero-carousel')
     expect(hero).toContain('aria-roledescription="carousel"')
-    // Tela-cheia com faixa-peek: header 3.5rem + bottom-nav 4rem + peek 5rem.
-    expect(hero).toContain('min-h-[calc(100svh-14.25rem)]')
+    // Tela-cheia com faixa-peek: reserva header+busca+bottom-nav, ciente do
+    // safe-area inferior (notch) p/ a busca nunca ser cortada no mobile.
+    expect(hero).toContain('min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))]')
     expect(hero).toContain('-mx-4 overflow-hidden rounded-none')
     expect(hero).toContain('items-center justify-center')
     expect(hero).toContain('text-center text-white')
@@ -879,7 +880,9 @@ describe('surface UX guardrails', () => {
     // stack do sistema como fallback. Não é "Inter" (fonte do theming rejeitado).
     expect(css).toContain('--font-sans: "Instrument Sans", ui-sans-serif, system-ui')
     expect(css).not.toContain('"Inter"')
-    expect(css).toContain('@apply bg-background text-foreground')
+    // O body NÃO pinta bg-background (fica transparente p/ o overscroll revelar o
+    // <html> bicolor do plugin); a base neutra vem do .shop-shell (min-h-dvh).
+    expect(css).toMatch(/body \{[\s\S]*?@apply text-foreground;/)
     expect(css).toContain('@apply min-h-dvh min-w-0 bg-background text-foreground')
   })
 

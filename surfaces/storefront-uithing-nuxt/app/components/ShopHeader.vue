@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
               <NuxtLink
                 :to="item.to"
                 class="shop-gold-hover flex items-center gap-3 rounded-lg px-3 py-3 text-base font-semibold transition"
-                :class="navActive(item.to) ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted'"
+                :class="navActive(item.to) ? 'bg-cta/12 text-cta' : 'text-foreground'"
                 :aria-current="navActive(item.to) ? 'page' : undefined"
                 @click="closeMenu"
               >

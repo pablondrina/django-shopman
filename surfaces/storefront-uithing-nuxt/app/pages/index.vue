@@ -227,7 +227,7 @@ useHead({
                   <Icon name="lucide:rotate-ccw" />
                 </UiItemMedia>
                 <div class="shop-stack-tight">
-                  <h2 class="shop-heading">{{ quickReorderTitle }}</h2>
+                  <h2 class="shop-heading font-display">{{ quickReorderTitle }}</h2>
                   <ul v-if="quickReorderItems.length" class="shop-muted flex flex-wrap gap-x-3 gap-y-1" aria-label="Itens do último pedido">
                     <li v-for="item in quickReorderItems" :key="item.sku" class="inline-flex items-center gap-1">
                       <span class="font-semibold text-foreground">{{ item.qty }}×</span>
@@ -254,7 +254,7 @@ useHead({
     <section v-if="home && featuredPreview.length && sectionsCopy" class="shop-section border-y bg-background pt-8 md:pt-10">
       <div class="shop-container shop-stack-section">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="shop-heading">{{ sectionsCopy.availability_heading.title }}</h2>
+          <h2 class="shop-heading font-display">{{ sectionsCopy.availability_heading.title }}</h2>
           <p class="mt-2 shop-muted">{{ sectionsCopy.availability_heading.message }}</p>
         </div>
         <div class="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-3" data-home-featured-rail>
@@ -276,7 +276,7 @@ useHead({
     <section v-if="home && sectionsCopy" id="como-funciona" class="shop-section bg-background scroll-mt-20">
       <div class="shop-container shop-stack-section">
         <div class="mx-auto max-w-2xl text-center">
-          <h2 class="shop-heading">{{ sectionsCopy.how_it_works_heading.title }}</h2>
+          <h2 class="shop-heading font-display">{{ sectionsCopy.how_it_works_heading.title }}</h2>
           <p v-if="sectionsCopy.how_it_works_intro.message" class="mt-2 shop-muted">
             {{ sectionsCopy.how_it_works_intro.message }}
           </p>
@@ -361,7 +361,7 @@ useHead({
             class="absolute inset-0 size-full object-cover opacity-35"
           >
           <div class="relative mx-auto max-w-2xl px-6 py-14 text-center md:py-16">
-            <h2 class="shop-heading">{{ sectionsCopy.whatsapp_cta.title }}</h2>
+            <h2 class="shop-heading font-display">{{ sectionsCopy.whatsapp_cta.title }}</h2>
             <p class="mt-3 shop-body text-ink-foreground/85 md:text-base">
               {{ sectionsCopy.whatsapp_cta.message }}
             </p>

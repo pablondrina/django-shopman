@@ -291,7 +291,16 @@ useSeoMeta({
               </div>
             </div>
 
-            <CartUpsellRail v-if="cart.upsell" :upsell="cart.upsell" heading="Mais um item?" class="mt-4" />
+            <CartUpsellRail v-if="cart.upsell" :upsell="cart.upsell" heading="Que tal adicionar?" class="mt-4" />
+
+            <UiButton
+              to="/menu"
+              variant="ghost"
+              icon="lucide:arrow-left"
+              class="mt-4 w-full justify-center text-muted-foreground"
+            >
+              Continuar comprando
+            </UiButton>
 
             <div v-if="cart.minimum_order_progress" class="mt-4 border-b pb-4">
               <div class="mb-2 flex justify-between gap-3 shop-body">

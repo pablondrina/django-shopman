@@ -264,7 +264,11 @@
     @apply antialiased;
   }
   body {
-    @apply bg-background text-foreground;
+    /* Sem bg aqui: o .shop-shell (min-h-dvh bg-background) pinta o conteúdo. O body
+       fica transparente para o overscroll revelar o <html> (pintado pelo plugin
+       overscroll: burgundy no topo, faubourg na base) — senão o creme do body
+       vazava no rubber-band inferior. */
+    @apply text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     overflow-x: clip;
   }

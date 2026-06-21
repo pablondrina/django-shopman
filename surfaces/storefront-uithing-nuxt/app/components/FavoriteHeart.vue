@@ -44,7 +44,17 @@ async function onClick () {
     <Icon
       name="lucide:heart"
       class="size-5 transition"
-      :class="active ? 'fill-primary text-primary' : ''"
+      :class="active ? 'heart-on' : ''"
     />
   </UiButton>
 </template>
+
+<style scoped>
+/* O path do lucide:heart tem fill="none" embutido — nenhum `fill-*` no <svg>
+   consegue preenchê-lo. Quando ativo, pintamos o PATH direto com a cor da marca
+   (var --color-primary), sobrepondo o atributo: coração SÓLIDO burgundy. */
+.heart-on :deep(path) {
+  fill: var(--color-primary);
+  stroke: var(--color-primary);
+}
+</style>

@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
     @touchstart.passive="touchStartX = $event.changedTouches[0]?.screenX || 0"
     @touchend.passive="handleTouchEnd"
   >
-    <div class="relative min-h-[calc(100svh-14.25rem)] select-none sm:min-h-[440px] lg:min-h-[480px]">
+    <div class="relative min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))] select-none sm:min-h-[440px] lg:min-h-[480px]">
       <!-- Camada de imagens empilhada: crossfade por opacity (robusto — sem
            enter/leave do Vue a orfanar elementos durante autoplay/HMR). -->
       <div class="absolute inset-0 bg-muted">
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
 
       <!-- Layout pôster: conteúdo ancorado embaixo (foto respira no topo). Sem
            flex-1 a empurrar — o bloco cresce pelo conteúdo, nunca sobrepõe. -->
-      <div class="relative z-10 flex min-h-[calc(100svh-14.25rem)] flex-col justify-end px-6 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-8 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-10">
+      <div class="relative z-10 flex min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))] flex-col justify-end px-6 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-8 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-10">
         <Transition name="hero-text" mode="out-in">
           <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center">
             <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>
@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
           variant="ghost"
           size="icon-lg"
           icon="lucide:chevron-left"
-          class="absolute left-2.5 top-1/2 z-20 size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:left-3"
+          class="absolute left-2.5 top-1/2 z-20 hidden size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:left-3 sm:inline-flex"
           aria-label="Slide anterior"
           @click="goToPreviousSlide"
         />
@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
           variant="ghost"
           size="icon-lg"
           icon="lucide:chevron-right"
-          class="absolute right-2.5 top-1/2 z-20 size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:right-3"
+          class="absolute right-2.5 top-1/2 z-20 hidden size-11 -translate-y-1/2 rounded-full bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white sm:right-3 sm:inline-flex"
           aria-label="Próximo slide"
           @click="goToNextSlide"
         />

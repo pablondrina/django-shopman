@@ -36,10 +36,7 @@ const visible = computed(() => props.active !== false && items.value.length > 0)
 
 <template>
   <div v-if="visible" class="shop-stack-micro">
-    <h2 class="shop-heading flex items-center gap-2">
-      <Icon name="lucide:heart" class="size-4 fill-primary text-primary" />
-      Seus favoritos
-    </h2>
+    <h2 class="shop-heading font-display">Seus favoritos</h2>
     <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2 xl:grid-cols-3">
       <ProductListItem
         v-for="item in items"

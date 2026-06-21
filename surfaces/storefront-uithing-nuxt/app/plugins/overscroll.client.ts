@@ -30,6 +30,10 @@ export default defineNuxtPlugin(() => {
 
   window.addEventListener('scroll', schedule, { passive: true })
   window.addEventListener('resize', schedule, { passive: true })
+  // `scrollend`/`touchend` garantem o repintar na posição ASSENTADA (um scroll
+  // programático/suave pode não disparar 'scroll' no fim, deixando a base sem virar).
+  window.addEventListener('scrollend', paint, { passive: true })
+  window.addEventListener('touchend', schedule, { passive: true })
   mobile.addEventListener('change', paint)
   paint()
 })
