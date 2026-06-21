@@ -302,7 +302,7 @@ useHead({
   <main class="min-w-0">
     <h1 class="sr-only">Cardápio</h1>
 
-    <section data-menu-filterbar class="shop-pillbar sticky top-25 z-30 bg-background shadow-sm">
+    <section data-menu-filterbar class="shop-pillbar sticky top-16 z-30 bg-background shadow-sm">
       <div class="shop-container py-2">
         <div v-if="catalog" class="flex items-center gap-2">
           <UiButton

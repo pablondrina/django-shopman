@@ -35,6 +35,27 @@ function toggleMenu () {
   menuOpen.value = !menuOpen.value
 }
 
+// Status bar colapsa ao rolar (deixa só navbar + linha dourada). Position-based:
+// colapsa fora do topo, reexpande ao voltar. O scrollover superior acompanha a cor
+// dinamicamente (plugin overscroll), então navbar e borda nunca destoam.
+const scrolled = ref(false)
+let scrollRaf = 0
+function onScroll () {
+  if (scrollRaf) return
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0
+    scrolled.value = window.scrollY > 8
+  })
+}
+// Topo do chrome sticky: 6.25rem (status+navbar) no topo · 4rem (só navbar) ao rolar.
+// Alinha o painel do menu à base da navbar nos dois estados.
+const chromeTop = computed(() => (scrolled.value ? '4rem' : '6.25rem'))
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+})
+
 // Fecha ao navegar.
 watch(() => route.fullPath, closeMenu)
 
@@ -54,13 +75,19 @@ onBeforeUnmount(() => {
   if (!import.meta.client) return
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('scroll', onScroll)
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
 })
 </script>
 
 <template>
   <header class="shop-header-bar sticky top-0 z-40">
-    <!-- Barra de status: horário/status (esq) · telefone (dir). Substitui o banner genérico. -->
-    <div class="bg-ink text-ink-foreground">
+    <!-- Barra de status: horário/status (esq) · telefone (dir). Colapsa ao rolar
+         (deixa só navbar + linha dourada); reexpande no topo. -->
+    <div
+      class="overflow-hidden bg-ink text-ink-foreground transition-[max-height] duration-200 ease-out"
+      :style="{ maxHeight: scrolled ? '0px' : '2.25rem' }"
+    >
       <div class="shop-container flex h-9 items-center justify-between gap-3 text-sm">
         <span class="flex min-w-0 items-center gap-2 opacity-90">
           <Icon name="lucide:clock" class="size-3.5 shrink-0" />
@@ -142,10 +169,11 @@ onBeforeUnmount(() => {
         <div
           v-if="menuOpen"
           id="shop-menu-panel"
-          class="fixed inset-x-0 top-25 z-40 border-t border-border bg-background text-foreground shadow-xl"
+          class="fixed inset-x-0 z-40 border-t border-border bg-background text-foreground shadow-xl"
+          :style="{ top: chromeTop }"
           data-shop-menu-panel
         >
-          <nav class="shop-container max-h-[calc(100dvh-6.25rem)] shop-stack-block overflow-y-auto py-4" aria-label="Menu">
+          <nav class="shop-container shop-stack-block overflow-y-auto py-4" :style="{ maxHeight: `calc(100dvh - ${chromeTop})` }" aria-label="Menu">
           <ul class="shop-stack-micro">
             <li v-for="item in primaryNav" :key="item.to">
               <NuxtLink
