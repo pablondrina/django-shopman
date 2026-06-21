@@ -65,7 +65,7 @@ class TestEmptyCart:
         checkout = next(action for action in proj.actions if action.ref == "checkout")
         assert checkout.kind == "link"
         assert checkout.enabled is False
-        assert checkout.reason == "Carrinho vazio."
+        assert checkout.reason == "Sacola vazia."
         assert checkout.href == "/checkout"
 
 

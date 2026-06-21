@@ -427,7 +427,7 @@ useSeoMeta({
       <UiAlertDialog :open="!!conflict" @update:open="open => { if (!open) dismissReorderConflict() }">
         <UiAlertDialogContent>
           <UiAlertDialogHeader>
-            <UiAlertDialogTitle>{{ conflict?.copy.title.title || 'Carrinho já tem itens' }}</UiAlertDialogTitle>
+            <UiAlertDialogTitle>{{ conflict?.copy.title.title || 'Sacola já tem itens' }}</UiAlertDialogTitle>
             <UiAlertDialogDescription>{{ conflict?.copy.message.message || conflict?.detail }}</UiAlertDialogDescription>
           </UiAlertDialogHeader>
           <UiAlertDialogFooter>

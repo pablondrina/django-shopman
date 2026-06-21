@@ -364,7 +364,7 @@ useSeoMeta({
           <p class="mt-2 shop-muted">{{ stepDescription }}</p>
           <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-2 shop-meta">
             <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
-            Seu carrinho continua reservado durante a entrada.
+            Sua sacola continua reservada durante a entrada.
           </p>
         </header>
 

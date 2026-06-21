@@ -234,7 +234,7 @@ useHead({
                       <span>{{ item.name }}</span>
                     </li>
                   </ul>
-                  <p v-else class="shop-muted">Seu pedido anterior volta ao carrinho para revisão.</p>
+                  <p v-else class="shop-muted">Seu pedido anterior volta à sacola para revisão.</p>
                 </div>
                 <UiButton
                   icon="lucide:shopping-bag"

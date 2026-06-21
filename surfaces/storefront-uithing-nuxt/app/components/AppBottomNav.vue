@@ -6,7 +6,7 @@ const { cartPulse } = useCartPulse()
 const items = [
   { to: '/', label: 'Início', icon: 'lucide:home', showsCartBadge: false },
   { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils', showsCartBadge: false },
-  { to: '/sacola', label: 'Carrinho', icon: 'lucide:shopping-cart', showsCartBadge: true },
+  { to: '/sacola', label: 'Sacola', icon: 'lucide:shopping-bag', showsCartBadge: true },
   { to: '/conta', label: 'Conta', icon: 'lucide:user-round', showsCartBadge: false }
 ]
 

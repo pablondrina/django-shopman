@@ -18,7 +18,7 @@ const addressLinesValue = computed(() => addressLines(shop.value?.full_address))
 const primaryNav = computed(() => [
   { to: '/', label: 'Início', icon: 'lucide:home' },
   { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils' },
-  { to: '/sacola', label: 'Carrinho', icon: 'lucide:shopping-cart', badge: cart.value.is_empty ? '' : String(cart.value.items_count) },
+  { to: '/sacola', label: 'Sacola', icon: 'lucide:shopping-bag', badge: cart.value.is_empty ? '' : String(cart.value.items_count) },
   { to: '/conta', label: 'Conta e pedidos', icon: 'lucide:user-round' }
 ] as const)
 
@@ -89,7 +89,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Barra principal: hambúrguer (esq) · logo central · carrinho (dir). -->
+    <!-- Barra principal: hambúrguer (esq) · logo central · sacola (dir). -->
     <div class="shop-container relative flex h-16 items-center">
       <UiButton
         variant="ghost"
@@ -121,9 +121,9 @@ onBeforeUnmount(() => {
         size="icon"
         class="relative -mr-2 ml-auto size-11 rounded-full text-foreground"
         :class="cartPulse ? 'scale-105' : ''"
-        aria-label="Ver carrinho"
+        aria-label="Ver sacola"
       >
-        <Icon name="lucide:shopping-cart" class="size-6" />
+        <Icon name="lucide:shopping-bag" class="size-6" />
         <UiBadge
           v-if="!cart.is_empty"
           variant="default"

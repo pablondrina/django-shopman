@@ -102,7 +102,7 @@ useSeoMeta({ title: 'Pedidos' })
       <UiAlertDialog :open="!!conflictRef" @update:open="open => { if (!open) dismissConflict() }">
         <UiAlertDialogContent>
           <UiAlertDialogHeader>
-            <UiAlertDialogTitle>{{ conflictRef?.copy.title.title || 'Carrinho já tem itens' }}</UiAlertDialogTitle>
+            <UiAlertDialogTitle>{{ conflictRef?.copy.title.title || 'Sacola já tem itens' }}</UiAlertDialogTitle>
             <UiAlertDialogDescription>{{ conflictRef?.copy.message.message || conflictRef?.detail }}</UiAlertDialogDescription>
           </UiAlertDialogHeader>
           <UiAlertDialogFooter>

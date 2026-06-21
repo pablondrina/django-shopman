@@ -13,7 +13,7 @@ HEADLESS_CONTRACT = REPO_ROOT / "docs" / "reference" / "headless-surface-contrac
 REMOTE_MUTATION_CONTRACT = REPO_ROOT / "docs" / "reference" / "remote-mutation-contract.md"
 REMOTE_RUNBOOK = REPO_ROOT / "docs" / "runbooks" / "pedido-remoto-preso.md"
 NUXT_TYPES = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "types" / "shopman.ts"
-NUXT_TRACKING_PAGE = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "pages" / "tracking" / "[ref].vue"
+NUXT_TRACKING_PAGE = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "pages" / "pedido" / "[ref]" / "index.vue"
 
 ORDER_STATUSES = {
     "new",

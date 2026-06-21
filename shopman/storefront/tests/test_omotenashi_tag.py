@@ -140,7 +140,7 @@ def test_tag_kwarg_overrides_context_moment_and_audience():
         "{% omotenashi 'CART_EMPTY' audience='returning' as e %}{{ e.title }}",
         omotenashi_ctx=_ctx(MOMENT_MANHA, AUDIENCE_ANON),
     )
-    assert "vazio" in out_default.lower()           # anon default
+    assert "vazia" in out_default.lower()           # anon default ("Sacola vazia")
     assert "repetir" not in out_default.lower()
     # Returning audience has a different title in MOMENT_MANHA.
     assert out_override.strip() != out_default.strip()

@@ -155,7 +155,7 @@ def test_context_closed_before_open_uses_business_calendar_projection_source(sho
 
 def test_resolver_falls_back_to_code_default(db):
     entry = resolve_copy("CART_EMPTY", moment=MOMENT_MANHA, audience=AUDIENCE_ANON)
-    assert entry.title == "Carrinho vazio"
+    assert entry.title == "Sacola vazia"
 
 
 def test_resolver_uses_audience_specific_when_present(db):

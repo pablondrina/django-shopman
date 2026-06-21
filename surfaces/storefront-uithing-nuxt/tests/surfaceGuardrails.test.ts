@@ -404,10 +404,10 @@ describe('surface UX guardrails', () => {
     expect(header).not.toContain("label: 'Finalizar'")
     expect(header).not.toContain("to: '/finalizar'")
     expect(header).toContain('to="/sacola"')
-    expect(header).toContain('aria-label="Ver carrinho"')
+    expect(header).toContain('aria-label="Ver sacola"')
     expect(header).toContain('cartPulse')
-    // Logo centralizado: carrinho (badge) sempre visível à direita — não mais só no desktop.
-    expect(header).toContain('lucide:shopping-cart')
+    // Logo centralizado: sacola (badge) sempre visível à direita — não mais só no desktop.
+    expect(header).toContain('lucide:shopping-bag')
     expect(header).toContain('<header class="shop-header-bar sticky top-0 z-40">')
     // Barra utilitária: horário + ligar em 1 toque (omotenashi).
     expect(header).toContain('lucide:clock')

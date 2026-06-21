@@ -82,7 +82,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         },
         MOMENT_MANHA: {
             AUDIENCE_ANON: CopyEntry(
-                title="Carrinho vazio",
+                title="Sacola vazia",
                 message="Pão fresquinho acabou de sair do forno.",
             ),
             AUDIENCE_RETURNING: CopyEntry(
@@ -179,7 +179,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Cart microcopy ────────────────────────────────────────────
     "CART_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu carrinho")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Sua sacola")},
     },
     # Discount-line labels for the rule-driven pricing modifiers. Generic by
     # function; a deployment overrides with its brand wording (e.g. "D-1",
@@ -228,7 +228,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="último pedido")},
     },
     "HOME_HERO_REORDER_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Com um toque, seu favorito volta ao carrinho.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Com um toque, seu favorito volta à sacola.")},
     },
     "HOME_HERO_HANDMADE_SUBTITLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Do forno para a sua mesa.")},
@@ -307,7 +307,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Duas formas simples de aproveitar: peça pelo site ou venha escolher na loja.")},
     },
     "HOW_ONLINE_CHOOSE_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Navegue pelo cardápio e adicione ao carrinho. A disponibilidade aparece em tempo real.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Navegue pelo cardápio e adicione à sacola. A disponibilidade aparece em tempo real.")},
     },
     "HOW_ONLINE_PAY_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="PIX rápido e seguro, com confirmação automática assim que o pagamento chega.")},
@@ -1327,25 +1327,25 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Reorder ──────────────────────────────────────────────────
     "REORDER_CONFLICT_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu carrinho já tem itens")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Sua sacola já tem itens")},
     },
     "REORDER_CONFLICT_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha como deseja repetir este pedido.")},
     },
     "REORDER_CONFLICT_CURRENT_CART_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="No carrinho agora")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Na sacola agora")},
     },
     "REORDER_CONFLICT_PREVIOUS_ORDER_LABEL": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedido anterior")},
     },
     "REORDER_CONFLICT_APPEND_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Adicionar ao carrinho atual")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Adicionar à sacola atual")},
     },
     "REORDER_CONFLICT_APPEND_HELP": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Mantemos o carrinho atual e somamos os itens disponíveis do pedido anterior.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Mantemos a sacola atual e somamos os itens disponíveis do pedido anterior.")},
     },
     "REORDER_CONFLICT_REPLACE_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Substituir carrinho")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Substituir sacola")},
     },
     "REORDER_CONFLICT_REPLACE_HELP": {
         WILDCARD: {WILDCARD: CopyEntry(message="Os itens atuais serão removidos antes de recriar o pedido anterior.")},
@@ -1354,7 +1354,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Entendo que os itens atuais serão removidos.")},
     },
     "REORDER_CONFLICT_CANCEL_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Manter meu carrinho")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Manter minha sacola")},
     },
 
     # ── Order status labels (shared: storefront tracking + operator queue) ─

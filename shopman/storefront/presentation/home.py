@@ -300,7 +300,7 @@ def _home_notices(
             ref="origin_whatsapp",
             tone="info",
             title="Você veio do WhatsApp",
-            message="Seu pedido pode continuar por aqui, com carrinho e acompanhamento atualizados.",
+            message="Seu pedido pode continuar por aqui, com a sacola e o acompanhamento atualizados.",
             priority="contextual",
             actions=(
                 Action(

@@ -395,7 +395,7 @@ def _cart_actions(
     checkout_label = "Finalizar pedido"
 
     if data.checkout_block_reason == "empty":
-        checkout_reason = "Carrinho vazio."
+        checkout_reason = "Sacola vazia."
     elif data.checkout_block_reason == "unavailable":
         checkout_reason = "Revise itens indisponíveis antes de finalizar."
     elif data.checkout_block_reason == "below_minimum":

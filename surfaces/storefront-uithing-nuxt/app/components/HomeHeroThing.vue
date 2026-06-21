@@ -174,7 +174,7 @@ const slides = computed<HeroSlide[]>(() => {
         titleOf(copy.reorder_title_prefix, 'Quer repetir seu'),
         `${titleOf(copy.reorder_title_suffix, 'último pedido')}${customerName ? `, ${customerName}` : ''}?`
       ],
-      description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta ao carrinho.'),
+      description: messageOf(copy.reorder_subtitle, 'Com um toque, seu favorito volta à sacola.'),
       imageUrl: HERO_IMAGE_URLS.reorder,
       imageAlt: shop.brand_name,
       primaryLabel: 'Repetir pedido',

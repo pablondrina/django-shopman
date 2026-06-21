@@ -93,7 +93,7 @@ class TestCustomerStore:
         # Optimistic cart state settles, then the cart page reflects the item.
         page.wait_for_timeout(600)
         page.goto(f"{store_base_url}/cart", wait_until="networkidle")
-        expect(page.get_by_text("Carrinho vazio")).to_have_count(0)
+        expect(page.get_by_text("Sacola vazia")).to_have_count(0)
 
     def test_04_checkout_surfaces_auth_gate(self, page, store_base_url):
         """Anonymous checkout surfaces the login guardrail (expected, not a bug).
@@ -120,7 +120,7 @@ class TestCustomerEdgeCases:
         """A fresh visitor sees the empty-cart message, not a crash."""
         page.context.clear_cookies()
         page.goto(f"{store_base_url}/cart", wait_until="networkidle")
-        expect(page.get_by_text("Carrinho vazio")).to_be_visible()
+        expect(page.get_by_text("Sacola vazia")).to_be_visible()
 
     def test_06_unknown_order_tracking_is_graceful(self, page, store_base_url):
         """Tracking a non-existent/unauthorized order degrades gracefully.

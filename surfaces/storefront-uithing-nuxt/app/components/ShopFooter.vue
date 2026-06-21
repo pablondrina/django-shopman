@@ -35,7 +35,7 @@ const year = new Date().getFullYear()
           Cardápio
         </NuxtLink>
         <NuxtLink to="/sacola" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
-          Carrinho
+          Sacola
         </NuxtLink>
         <NuxtLink to="/conta" class="block text-sm opacity-75 underline-offset-2 hover:underline hover:opacity-100">
           Conta e pedidos

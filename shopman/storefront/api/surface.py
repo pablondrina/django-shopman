@@ -75,7 +75,7 @@ def _stock_error_payload(exc, *, product=None) -> dict:
         action_payload(
             ref="review_cart",
             kind="link",
-            label="Revisar carrinho",
+            label="Revisar sacola",
             href="/cart",
             priority="secondary",
         ),
@@ -396,7 +396,7 @@ class CartCouponView(APIView):
 
     ERROR_MESSAGES = {
         "empty_code": "Informe o código do cupom.",
-        "no_cart": "Carrinho vazio.",
+        "no_cart": "Sacola vazia.",
         "invalid_coupon": "Cupom não encontrado.",
         "coupon_exhausted": "Este cupom já foi utilizado.",
         "coupon_expired": "Cupom expirado.",
@@ -571,7 +571,7 @@ class CartSkuQtyView(APIView):
             method="PUT",
         ):
             return _rate_limited_response(
-                detail="Muitas alterações no carrinho. Aguarde um instante.",
+                detail="Muitas alterações na sacola. Aguarde um instante.",
                 retry_after_seconds=CART_RATE_LIMIT_RETRY_SECONDS,
             )
 

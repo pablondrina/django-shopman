@@ -62,7 +62,7 @@ def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None
             Action(
                 ref="reorder_append",
                 kind="mutation",
-                label=append_label.title or "Adicionar ao carrinho atual",
+                label=append_label.title or "Adicionar à sacola atual",
                 priority="primary",
                 href=f"/api/v1/orders/{ref}/reorder/",
                 method="POST",
@@ -79,7 +79,7 @@ def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None
             Action(
                 ref="reorder_replace",
                 kind="mutation",
-                label=replace_label.title or "Substituir carrinho",
+                label=replace_label.title or "Substituir sacola",
                 priority="danger",
                 href=f"/api/v1/orders/{ref}/reorder/",
                 method="POST",
@@ -93,9 +93,9 @@ def build_reorder_conflict(request: HttpRequest, order, *, order_ref: str | None
                 },
                 idempotency="required",
                 confirmation={
-                    "title": replace_label.title or "Substituir carrinho",
+                    "title": replace_label.title or "Substituir sacola",
                     "message": copy.replace_help.message,
-                    "confirm_label": replace_label.title or "Substituir carrinho",
+                    "confirm_label": replace_label.title or "Substituir sacola",
                     "severity": "danger",
                 },
             ),

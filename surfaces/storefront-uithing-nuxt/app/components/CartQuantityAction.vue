@@ -60,7 +60,7 @@ async function addOne () {
     v-else
     :variant="tone === 'inverted' ? 'secondary' : 'default'"
     :size="compact ? 'sm' : 'default'"
-    icon="lucide:shopping-cart"    :disabled="!hydrated || disabled || pending"
+    icon="lucide:shopping-bag"    :disabled="!hydrated || disabled || pending"
     :loading="pending"
     @click="addOne"
   >

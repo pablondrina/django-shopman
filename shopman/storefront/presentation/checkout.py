@@ -308,7 +308,7 @@ def _checkout_actions(
     enabled = policy.can_checkout and not cart.is_empty and not auth_blocked
     reason = ""
     if cart.is_empty:
-        reason = "Carrinho vazio."
+        reason = "Sacola vazia."
     elif auth_blocked:
         reason = "Entre por telefone para continuar."
     elif not policy.can_checkout:

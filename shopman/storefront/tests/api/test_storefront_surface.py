@@ -34,7 +34,7 @@ def test_api_storefront_menu_returns_projection_contract(client):
     cart_checkout = next(action for action in data["cart"]["actions"] if action["ref"] == "checkout")
     assert cart_checkout["kind"] == "link"
     assert cart_checkout["enabled"] is False
-    assert cart_checkout["reason"] == "Carrinho vazio."
+    assert cart_checkout["reason"] == "Sacola vazia."
 
 
 def test_api_storefront_menu_sets_csrf_cookie(client):

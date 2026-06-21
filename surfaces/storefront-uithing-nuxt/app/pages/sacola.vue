@@ -94,7 +94,7 @@ async function adjustToAvailable (line: CartItemProjection) {
 }
 
 useSeoMeta({
-  title: 'Carrinho'
+  title: 'Sacola'
 })
 </script>
 
@@ -105,14 +105,14 @@ useSeoMeta({
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
-            { label: 'Carrinho' }
+            { label: 'Sacola' }
           ]"
         />
       </div>
     </div>
     <div class="shop-container shop-stack-block">
       <div>
-        <h1 class="shop-title">Seu carrinho</h1>
+        <h1 class="shop-title">Sua sacola</h1>
         <p class="mt-2 shop-muted">
           {{ cart.is_empty ? 'Escolha itens no cardápio para montar o pedido.' : `${formatCount(cart.items_count, 'item', 'itens')} · ${cart.grand_total_display}` }}
         </p>
@@ -130,7 +130,7 @@ useSeoMeta({
       </div>
 
       <UiAlert v-else-if="error" variant="destructive">
-        <UiAlertTitle>Seu carrinho não quis carregar agora</UiAlertTitle>
+        <UiAlertTitle>Sua sacola não quis carregar agora</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>Seus itens estão guardados. Tente de novo em instantes.</span>
@@ -195,7 +195,7 @@ useSeoMeta({
             <Icon name="lucide:shopping-bag" />
           </UiEmptyMedia>
           <UiEmptyHeader>
-            <UiEmptyTitle>Carrinho vazio</UiEmptyTitle>
+            <UiEmptyTitle>Sacola vazia</UiEmptyTitle>
             <UiEmptyDescription>Escolha um item no cardápio e volte para finalizar por aqui.</UiEmptyDescription>
           </UiEmptyHeader>
           <UiEmptyContent class="flex flex-col items-center gap-2">

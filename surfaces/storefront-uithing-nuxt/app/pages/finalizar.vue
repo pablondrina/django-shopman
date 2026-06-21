@@ -718,7 +718,7 @@ useSeoMeta({
         <UiBreadcrumbs
           :items="[
             { label: 'Início', link: '/' },
-            { label: 'Carrinho', link: '/sacola' },
+            { label: 'Sacola', link: '/sacola' },
             { label: 'Finalizar pedido' }
           ]"
         />
@@ -1353,7 +1353,7 @@ useSeoMeta({
               <UiAlertDialogHeader>
                 <UiAlertDialogTitle>Entrar com outro número?</UiAlertDialogTitle>
                 <UiAlertDialogDescription>
-                  Você troca de conta. Seu carrinho continua guardado.
+                  Você troca de conta. Sua sacola continua guardada.
                 </UiAlertDialogDescription>
               </UiAlertDialogHeader>
               <UiAlertDialogFooter>
