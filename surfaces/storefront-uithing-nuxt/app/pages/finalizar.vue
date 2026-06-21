@@ -168,6 +168,9 @@ const cart = computed(() => checkout.value?.cart)
 // o desconto no resumo (o `cart` daqui vem do payload do checkout, não do cart state).
 const coupon = ref('')
 const couponPending = ref(false)
+// Cupom: mesmo toggle-card dos demais campos. Desligar limpa o código digitado.
+const couponOpen = ref(false)
+watch(couponOpen, (open) => { if (!open) coupon.value = '' })
 async function submitCoupon () {
   if (!coupon.value.trim() || couponPending.value) return
   couponPending.value = true
@@ -1092,31 +1095,52 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <!-- Cupom de desconto: convencionalmente no checkout, junto do pagamento. -->
-              <div class="rounded-lg border bg-card p-4" data-checkout-coupon>
-                <div v-if="cart?.coupon_code" class="flex items-center gap-3 shop-body">
-                  <Icon name="lucide:ticket-percent" class="size-5 shrink-0 text-primary" />
-                  <span class="min-w-0 flex-1 truncate font-semibold">Cupom {{ cart.coupon_code }}</span>
-                  <span v-if="cart.coupon_discount_display" class="shop-price text-primary">- {{ cart.coupon_discount_display }}</span>
+              <!-- Cupom: mesmo toggle-card dos demais campos. Aplicado → chip + remover;
+                   senão → toggle "Cupom de desconto?" que expande o campo (sem descrição). -->
+              <UiFieldLabel
+                v-if="cart?.coupon_code"
+                class="bg-card has-data-[state=checked]:bg-card"
+                data-checkout-coupon
+              >
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-1">
+                    <UiFieldTitle>Cupom {{ cart.coupon_code }}</UiFieldTitle>
+                    <UiFieldDescription v-if="cart.coupon_discount_display">- {{ cart.coupon_discount_display }} aplicado</UiFieldDescription>
+                  </UiFieldContent>
                   <UiButton
                     size="icon-sm"
                     variant="ghost"
                     icon="lucide:x"
                     aria-label="Remover cupom"
                     :loading="couponPending"
-                    @click="dropCoupon"
+                    @click.prevent="dropCoupon"
                   />
+                </UiField>
+              </UiFieldLabel>
+              <UiFieldLabel
+                v-else
+                for="checkout-coupon-toggle"
+                class="bg-card has-data-[state=checked]:bg-card"
+                data-checkout-coupon
+              >
+                <UiField orientation="horizontal">
+                  <UiFieldContent class="gap-1">
+                    <UiFieldTitle>Cupom de desconto?</UiFieldTitle>
+                  </UiFieldContent>
+                  <UiSwitch id="checkout-coupon-toggle" v-model="couponOpen" />
+                </UiField>
+                <div v-if="couponOpen" class="flex items-center gap-2 px-4 pb-4">
+                  <UiInput
+                    v-model="coupon"
+                    placeholder="Código do cupom"
+                    autocomplete="off"
+                    class="min-w-0 flex-1 bg-background"
+                    @click.stop
+                    @keyup.enter="submitCoupon"
+                  />
+                  <UiButton variant="outline" :loading="couponPending" :disabled="!coupon.trim()" @click.prevent="submitCoupon">Aplicar</UiButton>
                 </div>
-                <form v-else class="flex items-center gap-2" @submit.prevent="submitCoupon">
-                  <UiInputGroup class="min-w-0 flex-1">
-                    <UiInputGroupAddon>
-                      <Icon name="lucide:ticket-percent" class="size-4" />
-                    </UiInputGroupAddon>
-                    <UiInput v-model="coupon" placeholder="Código do cupom" autocomplete="off" class="bg-background" />
-                  </UiInputGroup>
-                  <UiButton type="submit" variant="outline" :loading="couponPending" :disabled="!coupon.trim()">Aplicar</UiButton>
-                </form>
-              </div>
+              </UiFieldLabel>
 
               <!-- Presente (GIFT-UX) ANTES de Observação (é mais estrutural —
                    muda destinatário/endereço/valores). Clone do toggle de obs.

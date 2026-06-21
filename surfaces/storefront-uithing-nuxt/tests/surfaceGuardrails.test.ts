@@ -141,7 +141,9 @@ describe('surface UX guardrails', () => {
     // O cardápio NÃO tem breadcrumb: a pill bar dourada (sticky, flush sob a navbar)
     // já ancora a página — um segundo bar dourado de breadcrumb somaria/duplicaria.
     expect(menu).not.toContain('<UiBreadcrumbs')
-    expect(menu).toContain('shop-pillbar sticky top-16 z-30 bg-background shadow-sm')
+    // top-25 = altura do header completo (status h-9 + navbar h-16), p/ a pill bar
+    // grudar LIMPO abaixo da linha dourada (top-16 deixava 36px atrás do header).
+    expect(menu).toContain('shop-pillbar sticky top-25 z-30 bg-background shadow-sm')
     expect(menu).not.toContain('bg-background/92')
     expect(menu).not.toContain('backdrop-blur supports-[backdrop-filter]:bg-background/78')
     expect(menu).not.toContain('[margin-left:calc(50%_-_50vw)]')

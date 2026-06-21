@@ -84,7 +84,7 @@ useCanonical()
 <template>
   <main class="min-w-0 pb-6">
     <h1 class="sr-only">Buscar no cardápio</h1>
-    <div class="shop-searchbar sticky top-16 z-30 bg-background shadow-sm" data-busca-bar>
+    <div class="shop-searchbar sticky top-25 z-30 bg-background shadow-sm" data-busca-bar>
       <div class="shop-container flex items-center gap-2 py-2">
         <UiButton
           variant="ghost"
