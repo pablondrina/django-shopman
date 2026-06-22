@@ -233,14 +233,14 @@ export function shopThemeCss (
       `.shop-breadcrumb-bar.shop-breadcrumb-bar { background-color: var(--shop-cta); color: #fff; --foreground: #fff; --primary: #fff; --muted-foreground: color-mix(in srgb, #fff 80%, transparent); }`
     )
 
-    // Fios dourados que emolduram o conteúdo. Desenhados como SOMBRA (não borda):
-    // a navbar (z-40) pinta 3px Brass logo abaixo de si, sobre o topo do conteúdo;
-    // o rodapé pinta 3px Brass logo acima de si, sobre o fim do conteúdo. Quando o
-    // que encosta também é Brass (barra de breadcrumb/pill bar douradas), dourado
-    // sobre dourado = sem "soma" — vê-se uma só. Sobre o creme, o fio aparece.
+    // Fios dourados que emolduram o conteúdo. O header pinta 6px Brass logo ABAIXO de
+    // si (sombra externa, sobre o topo do conteúdo). O footer usa sombra INTERNA (inset)
+    // no próprio topo: o fio fica DENTRO do rodapé (Brass sobre o verde), então é sempre
+    // nítido e consistente em todas as páginas — antes, como sombra externa sobre o
+    // conteúdo, sumia quando o que encostava era foto/imagem.
     blocks.push(
       `.shop-header-bar.shop-header-bar { box-shadow: 0 6px 0 0 var(--shop-cta); }`,
-      `.shop-footer.shop-footer { box-shadow: 0 -6px 0 0 var(--shop-cta); }`,
+      `.shop-footer.shop-footer { box-shadow: inset 0 6px 0 0 var(--shop-cta); }`,
       // Bottom bar: fio FINO (1px) dourado no topo — recolore a borda existente.
       `.shop-bottomnav-bar.shop-bottomnav-bar { border-top-color: var(--shop-cta); }`
     )
