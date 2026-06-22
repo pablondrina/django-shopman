@@ -45,7 +45,7 @@ const badge = computed(() => tileBadge(props.item))
       </div>
     </div>
 
-    <div class="relative shrink-0 self-start">
+    <div class="pointer-events-none relative shrink-0 self-start">
       <div :class="framed ? 'shop-photo-frame shop-photo-frame-sm drop-shadow-md' : ''">
         <div
           class="size-28 overflow-hidden bg-muted"
@@ -64,7 +64,7 @@ const badge = computed(() => tileBadge(props.item))
           </div>
         </div>
       </div>
-      <div v-if="!item.is_notifiable" class="absolute bottom-1 right-1 z-10">
+      <div v-if="!item.is_notifiable" class="pointer-events-auto absolute bottom-1 right-1 z-10">
         <CartQuantityAction
           :meta="meta"
           :qty="currentQty"

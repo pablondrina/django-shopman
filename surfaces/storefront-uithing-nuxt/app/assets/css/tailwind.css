@@ -262,13 +262,15 @@
   }
   html {
     @apply antialiased;
+    /* Canvas = área de overscroll da BASE → faubourg (--shop-bottomnav), igual à
+       bottom-nav, pra fundir embaixo. O TOPO é outra superfície (o header escuro que
+       estica), por isso topo e base podem ter cores diferentes. */
+    background-color: var(--shop-bottomnav);
+    overscroll-behavior: none;
   }
   body {
-    /* Sem bg aqui: o .shop-shell (min-h-dvh bg-background) pinta o conteúdo. O body
-       fica transparente para o overscroll revelar o <html> (pintado pelo plugin
-       overscroll: burgundy no topo, faubourg na base) — senão o creme do body
-       vazava no rubber-band inferior. */
     @apply text-foreground;
+    overscroll-behavior: none;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     overflow-x: clip;
   }
@@ -386,8 +388,15 @@
      A cor do texto da navbar fica a cargo do remap escopado da marca (shopThemeCss); no
      neutro herda o --foreground do corpo, como hoje. */
   .shop-header-bar {
-    background-color: var(--shop-header);
+    /* Fundo ESCURO (--shop-ink) porque é esta a camada (header sticky) que se estica no
+       overscroll do iOS — assim a área que aparece acima funde com a status bar escura,
+       sem faixa. A navbar recebe o tom claro (--shop-header) num wrapper próprio, então
+       o visual do header não muda. */
+    background-color: var(--shop-ink);
     --logo-brass: #8B6B2E; /* neutro: brass 500 (escuro, legível no header claro) */
+  }
+  .shop-navbar-bar {
+    background-color: var(--shop-header);
   }
 
   .shop-footer {

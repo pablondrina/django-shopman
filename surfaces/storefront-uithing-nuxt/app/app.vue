@@ -19,15 +19,20 @@ watch(() => shellHome.value, value => {
 
 useShopTheme(session.shop)
 
-// theme-color (tint da barra de URL) acompanha a navbar burgundy server-driven, nos
-// dois modos. Sem marca / ?theme=neutral ⇒ default neutro (header claro).
+// theme-color (tint da barra do iOS/Safari no topo) = burgundy escuro (tom do header e
+// da status bar), pra o topo ficar consistente. A BASE é preta (canvas do <html>).
+// ?theme=neutral mantém o preview neutro.
 const route = useRoute()
 const themeColor = computed(() => {
   const value = route.query.theme
   const previewNeutral = (Array.isArray(value) ? value[0] : value) === 'neutral'
   if (previewNeutral) return '#85786c'
-  return session.shop.value?.design_tokens?.theme_hex || '#85786c'
+  return '#531d22'
 })
+
+// Footer global (âncora de contato/info) em todas as páginas, EXCETO o checkout —
+// ali um rodapé grande compete com a conclusão do pedido. Mantém o fluxo focado.
+const hideFooter = computed(() => route.path.startsWith('/finalizar'))
 
 // SEO global: nome do site = marca server-driven (tenant-neutral, não theming).
 // titleTemplate evita duplicar a marca na home (onde o título JÁ é a marca).
@@ -56,7 +61,7 @@ useSeoMeta({
     <div id="main-content" class="flex-1 min-h-[calc(100svh-4rem)]">
       <NuxtPage />
     </div>
-    <ShopFooter />
+    <ShopFooter v-if="!hideFooter" />
     <AppBottomNav />
     <UiSonner />
   </div>

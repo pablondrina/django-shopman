@@ -134,10 +134,10 @@ useHead({
               v-if="product.image_url"
               :src="product.image_url"
               :alt="product.name"
-              class="aspect-[4/3] w-full object-cover lg:h-full"
+              class="aspect-[4/3] w-full object-cover"
               fetchpriority="high"
             >
-            <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground lg:h-full">
+            <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground">
               <Icon name="lucide:croissant" class="size-10" />
             </div>
 

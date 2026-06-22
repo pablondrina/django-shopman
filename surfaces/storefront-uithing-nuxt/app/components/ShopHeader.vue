@@ -39,13 +39,10 @@ function toggleMenu () {
 // colapsa fora do topo, reexpande ao voltar. O scrollover superior acompanha a cor
 // dinamicamente (plugin overscroll), então navbar e borda nunca destoam.
 const scrolled = ref(false)
-let scrollRaf = 0
+// Síncrono (sem rAF): o iOS PAUSA o requestAnimationFrame durante o scroll, então a
+// status bar não colapsava no iPhone. Ler scrollY é barato, não causa thrash.
 function onScroll () {
-  if (scrollRaf) return
-  scrollRaf = requestAnimationFrame(() => {
-    scrollRaf = 0
-    scrolled.value = window.scrollY > 8
-  })
+  scrolled.value = window.scrollY > 8
 }
 // Topo do chrome sticky: 6.25rem (status+navbar) no topo · 4rem (só navbar) ao rolar.
 // Alinha o painel do menu à base da navbar nos dois estados.
@@ -53,6 +50,9 @@ const chromeTop = computed(() => (scrolled.value ? '4rem' : '6.25rem'))
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
+  // touchmove dispara durante o arraste do dedo (o scroll do iOS chega em lote/atrasado),
+  // então a status bar reage na hora, não com atraso.
+  window.addEventListener('touchmove', onScroll, { passive: true })
   onScroll()
 })
 
@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
-  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+  window.removeEventListener('touchmove', onScroll)
 })
 </script>
 
@@ -116,7 +116,10 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Barra principal: hambúrguer (esq) · logo central · sacola (dir). -->
+    <!-- Barra principal: hambúrguer (esq) · logo central · sacola (dir). Wrapper
+         full-width com o tom claro da navbar (o header em si é escuro, pra a área de
+         overscroll do topo fundir com a status bar). -->
+    <div class="shop-navbar-bar">
     <div class="shop-container relative flex h-16 items-center">
       <UiButton
         variant="ghost"
@@ -159,6 +162,7 @@ onBeforeUnmount(() => {
           :class="cartPulse ? 'scale-110' : ''"
         >{{ cart.items_count }}</UiBadge>
       </UiButton>
+    </div>
     </div>
 
     <!-- Menu: brota verticalmente sob a navbar, seção full-width em fundo da marca.
