@@ -177,20 +177,20 @@ onBeforeUnmount(() => {
           :style="{ top: chromeTop }"
           data-shop-menu-panel
         >
-          <nav class="shop-container shop-stack-block overflow-y-auto py-4" :style="{ maxHeight: `calc(100dvh - ${chromeTop})` }" aria-label="Menu">
+          <nav class="shop-container shop-stack-block overflow-y-auto pt-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]" :style="{ maxHeight: `calc(100dvh - ${chromeTop})` }" aria-label="Menu">
           <ul class="shop-stack-micro">
             <li v-for="item in primaryNav" :key="item.to">
               <NuxtLink
                 :to="item.to"
-                class="shop-gold-hover flex items-center gap-3 rounded-lg px-3 py-3 text-base font-semibold transition"
-                :class="navActive(item.to) ? 'bg-cta/12 text-cta' : 'text-foreground'"
+                class="flex items-center gap-3 rounded-lg px-3 py-3 text-base font-semibold transition"
+                :class="navActive(item.to) ? 'bg-cta text-cta-foreground' : 'shop-gold-hover text-foreground'"
                 :aria-current="navActive(item.to) ? 'page' : undefined"
                 @click="closeMenu"
               >
-                <Icon :name="item.icon" class="size-5 shrink-0 text-muted-foreground" />
+                <Icon :name="item.icon" class="size-5 shrink-0" :class="navActive(item.to) ? 'text-cta-foreground' : 'text-muted-foreground'" />
                 <span class="flex-1">{{ item.label }}</span>
                 <UiBadge v-if="item.badge" variant="default" size="sm" class="tabular-nums">{{ item.badge }}</UiBadge>
-                <Icon name="lucide:chevron-right" class="size-4 shrink-0 text-muted-foreground/60" />
+                <Icon name="lucide:chevron-right" class="size-4 shrink-0" :class="navActive(item.to) ? 'text-cta-foreground/70' : 'text-muted-foreground/60'" />
               </NuxtLink>
             </li>
             <li>

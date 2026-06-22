@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
     @touchstart.passive="touchStartX = $event.changedTouches[0]?.screenX || 0"
     @touchend.passive="handleTouchEnd"
   >
-    <div class="relative min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))] select-none sm:min-h-[440px] lg:min-h-[480px]">
+    <div class="relative h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))] select-none sm:h-[440px] lg:h-[480px]">
       <!-- Camada de imagens empilhada: crossfade por opacity (robusto — sem
            enter/leave do Vue a orfanar elementos durante autoplay/HMR). -->
       <div class="absolute inset-0 bg-muted">
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
 
       <!-- Layout pôster: conteúdo ancorado embaixo (foto respira no topo). Sem
            flex-1 a empurrar — o bloco cresce pelo conteúdo, nunca sobrepõe. -->
-      <div class="relative z-10 flex min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))] flex-col justify-end px-6 pb-16 pt-12 text-center text-white sm:min-h-[440px] sm:px-8 sm:pb-20 sm:pt-16 lg:min-h-[480px] lg:px-10">
+      <div class="relative z-10 flex h-full flex-col justify-end px-6 pb-10 pt-8 text-center text-white sm:px-8 sm:pb-14 sm:pt-12 lg:px-10">
         <Transition name="hero-text" mode="out-in">
           <div :key="activeSlide.ref" class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center">
             <p v-if="activeSlide.eyebrow" class="text-sm font-semibold uppercase tracking-wide text-white/80">{{ activeSlide.eyebrow }}</p>

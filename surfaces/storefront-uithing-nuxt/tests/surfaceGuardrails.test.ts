@@ -248,9 +248,9 @@ describe('surface UX guardrails', () => {
     expect(hero).toContain('copy.handmade_title_prefix')
     expect(hero).toContain('data-home-hero-carousel')
     expect(hero).toContain('aria-roledescription="carousel"')
-    // Tela-cheia com faixa-peek: reserva header+busca+bottom-nav, ciente do
-    // safe-area inferior (notch) p/ a busca nunca ser cortada no mobile.
-    expect(hero).toContain('min-h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))]')
+    // Altura FIXA (não min-h): todos os slides ocupam o mesmo espaço (uniforme),
+    // reservando header+busca+bottom-nav e ciente do safe-area inferior (notch).
+    expect(hero).toContain('h-[calc(100svh-15.25rem-env(safe-area-inset-bottom,0px))]')
     expect(hero).toContain('-mx-4 overflow-hidden rounded-none')
     expect(hero).toContain('items-center justify-center')
     expect(hero).toContain('text-center text-white')
