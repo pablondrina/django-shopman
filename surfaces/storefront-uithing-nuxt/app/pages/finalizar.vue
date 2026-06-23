@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
-import type { AddressSelection } from '~/presentation/address'
+import { labelPatchPayload, type AddressSelection, type AddressLabelKey } from '~/presentation/address'
 import { phoneDisplay as formatPhoneDisplay } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
@@ -103,6 +103,10 @@ const quotingZone = ref(false)
 const changePhoneOpen = ref(false)
 const addressLabelOpen = ref(false)
 const savedAddressIdForLabel = ref<number | null>(null)
+// Etiqueta escolhida ao ADICIONAR um endereço novo no checkout (coletada na hora,
+// aplicada quando o pedido fecha — o endereço só ganha ID na confirmação).
+const collectLabelOpen = ref(false)
+const pendingAddressLabel = ref<{ key: AddressLabelKey, custom: string } | null>(null)
 const pendingTrackingUrl = ref('')
 const confirmOpen = ref(false)
 const receiptOpen = ref(false)
@@ -307,6 +311,7 @@ if (import.meta.client) {
       if (fresh && draft.state) {
         Object.assign(state, draft.state)
         if (draft.activeStep && checkoutSteps(state.fulfillment_type).includes(draft.activeStep)) activeStep.value = draft.activeStep
+        if (draft.pendingAddressLabel) pendingAddressLabel.value = draft.pendingAddressLabel
       } else if (!fresh) {
         clearCheckoutDraft()
       }
@@ -314,10 +319,10 @@ if (import.meta.client) {
   } catch { /* rascunho corrompido: ignora */ }
 }
 draftRestored = true
-watch([state, activeStep], () => {
+watch([state, activeStep, pendingAddressLabel], () => {
   if (!import.meta.client || !draftRestored) return
   try {
-    localStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ state, activeStep: activeStep.value, savedAt: Date.now() }))
+    localStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ state, activeStep: activeStep.value, pendingAddressLabel: pendingAddressLabel.value, savedAt: Date.now() }))
   } catch { /* quota/serialização: ignora */ }
 }, { deep: true })
 
@@ -601,7 +606,13 @@ function continueFromFulfillment () {
 }
 
 function continueFromAddress () {
-  if (validateAddressStep()) activeStep.value = 'when'
+  if (!validateAddressStep()) return
+  activeStep.value = 'when'
+  // Endereço NOVO (não-salvo) em entrega: pergunta a etiqueta na hora. A escolha é
+  // guardada e aplicada quando o pedido fecha (o endereço só ganha ID na confirmação).
+  if (state.fulfillment_type === 'delivery' && !state.saved_address_id && state.delivery_address.trim() && !pendingAddressLabel.value) {
+    collectLabelOpen.value = true
+  }
 }
 
 function continueFromWhen () {
@@ -671,6 +682,23 @@ async function findNewlySavedAddress (): Promise<number | null> {
   }
 }
 
+// Aplica a etiqueta escolhida ao adicionar o endereço, agora que ele tem ID (pós-pedido).
+async function applyPendingLabel (addressId: number) {
+  const chosen = pendingAddressLabel.value
+  pendingAddressLabel.value = null
+  if (!chosen) return
+  try {
+    await $fetch(apiPath(`/api/v1/account/addresses/${encodeURIComponent(addressId)}/`), {
+      method: 'PATCH',
+      headers: await csrfHeaders(),
+      credentials: 'include',
+      body: labelPatchPayload(chosen.key, chosen.custom)
+    })
+  } catch {
+    // Etiqueta é açúcar — não trava a conclusão se o PATCH falhar.
+  }
+}
+
 async function finishAfterCheckout () {
   const target = pendingTrackingUrl.value
   pendingTrackingUrl.value = ''
@@ -701,7 +729,11 @@ async function submitCheckout () {
     // de fato fechou — fora-de-zona/abandonado nunca poluem o perfil). Se foi
     // um endereço novo, oferecemos a etiqueta nele antes de seguir.
     const newAddressId = await findNewlySavedAddress()
-    if (newAddressId) {
+    if (newAddressId && pendingAddressLabel.value) {
+      // Etiqueta já escolhida ao adicionar o endereço: aplica direto (sem perguntar de novo).
+      await applyPendingLabel(newAddressId)
+    } else if (newAddressId) {
+      // Sem etiqueta escolhida antes: oferece agora (fallback pós-pedido).
       savedAddressIdForLabel.value = newAddressId
       pendingTrackingUrl.value = trackingUrl
       addressLabelOpen.value = true
@@ -1151,8 +1183,11 @@ useSeoMeta({
               >
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-1">
-                    <UiFieldTitle>Cupom {{ cart.coupon_code }}</UiFieldTitle>
-                    <UiFieldDescription v-if="cart.coupon_discount_display">- {{ cart.coupon_discount_display }} aplicado</UiFieldDescription>
+                    <UiFieldTitle class="flex items-center gap-2">
+                      <Icon name="lucide:badge-check" class="size-5 shrink-0 text-cta" />
+                      Cupom {{ cart.coupon_code }} aplicado
+                    </UiFieldTitle>
+                    <UiFieldDescription v-if="cart.coupon_discount_display" class="font-semibold text-cta">Desconto de {{ cart.coupon_discount_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiButton
                     size="icon-sm"
@@ -1393,6 +1428,13 @@ useSeoMeta({
             v-model:open="addressLabelOpen"
             :address-id="savedAddressIdForLabel"
             @resolved="finishAfterCheckout"
+          />
+          <!-- Modo "coletar" (endereço novo, ainda sem ID): pergunta a etiqueta ao
+               adicionar; a escolha é guardada e aplicada quando o pedido fecha. -->
+          <AddressLabelSheet
+            v-model:open="collectLabelOpen"
+            :address-id="null"
+            @chosen="(key, custom) => { pendingAddressLabel = { key, custom } }"
           />
 
           <!-- Trocar telefone = entrar com outra conta: confirmação obrigatória. -->

@@ -13,6 +13,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   resolved: []
+  // Modo "coletar" (sem addressId — endereço ainda não salvo, ex.: durante o checkout):
+  // em vez de salvar, devolve a etiqueta escolhida pro pai aplicar depois.
+  chosen: [key: AddressLabelKey, custom: string]
 }>()
 
 const apiPath = useShopmanApiPath()
@@ -43,6 +46,9 @@ async function choose (key: AddressLabelKey) {
     } finally {
       saving.value = false
     }
+  } else {
+    // Modo coletar: endereço ainda sem ID — devolve a escolha pro pai guardar.
+    emit('chosen', key, custom.value)
   }
   close()
 }
@@ -85,7 +91,7 @@ watch(() => props.open, open => {
       data-address-label-sheet
     >
       <UiSheetHeader class="px-4 pt-4">
-        <UiSheetTitle title="Endereço salvo" />
+        <UiSheetTitle :title="addressId ? 'Endereço salvo' : 'Etiqueta do endereço'" />
         <UiSheetDescription description="Como você quer chamar este endereço?" />
       </UiSheetHeader>
       <div class="shop-stack-block px-4 pb-4 pt-3">
