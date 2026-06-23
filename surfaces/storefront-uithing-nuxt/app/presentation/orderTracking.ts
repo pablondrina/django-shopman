@@ -7,18 +7,20 @@ import { normalizeSearchText } from '~/utils/display'
 // Painel de status: acento na borda esquerda por tom (legível, sem virar um
 // banner cheio de cor). Mantém as classes exatas do design aprovado.
 export function trackingPanelClass (tone: string | null | undefined): string {
+  // Tons via TOKENS semânticos da paleta (não cores cruas do Tailwind): info=burgundy,
+  // warning=âmbar, success=verde, danger=vermelho — alinhados à marca.
   const base = 'border-l-4 border-border bg-card text-foreground shadow-sm'
   if (tone === 'danger') return 'border-l-4 border-border border-l-destructive bg-card text-foreground shadow-sm'
-  if (tone === 'warning') return 'border-l-4 border-border border-l-amber-500 bg-card text-foreground shadow-sm'
-  if (tone === 'success') return 'border-l-4 border-border border-l-emerald-500 bg-card text-foreground shadow-sm'
-  return base.replace('border-l-4 border-border', 'border-l-4 border-border border-l-blue-500')
+  if (tone === 'warning') return 'border-l-4 border-border border-l-warning bg-card text-foreground shadow-sm'
+  if (tone === 'success') return 'border-l-4 border-border border-l-success bg-card text-foreground shadow-sm'
+  return base.replace('border-l-4 border-border', 'border-l-4 border-border border-l-info')
 }
 
 export function trackingPanelIconClass (tone: string | null | undefined): string {
   if (tone === 'danger') return 'text-destructive'
-  if (tone === 'warning') return 'text-amber-600'
-  if (tone === 'success') return 'text-emerald-600'
-  return 'text-blue-600'
+  if (tone === 'warning') return 'text-warning'
+  if (tone === 'success') return 'text-success'
+  return 'text-info'
 }
 
 export function trackingPanelIcon (tone: string | null | undefined): string {

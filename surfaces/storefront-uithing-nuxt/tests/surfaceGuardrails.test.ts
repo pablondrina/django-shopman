@@ -661,7 +661,7 @@ describe('surface UX guardrails', () => {
     expect(checkout).toContain('data-checkout-coupon')
     // Cupom = toggle-card único: aplicado vira "Cupom XYZ aplicado" (toggle ON);
     // desligar o toggle remove (onCouponToggle → dropCoupon).
-    expect(checkout).toContain('Cupom ${cart.coupon_code} aplicado')
+    expect(checkout).toContain('{{ cart.coupon_code }}')
     expect(checkout).toContain('onCouponToggle')
     expect(checkout).toContain('await applyCoupon(coupon.value.trim())')
     expect(checkout).toContain('await refresh()')

@@ -26,10 +26,11 @@ function step (state: OrderProgressStepProjection['state'], key = state): OrderP
 
 describe('order tracking presentation — panel tone', () => {
   it('accents the left border by tone without a full red banner', () => {
+    // Tokens semânticos da paleta (não cores cruas do Tailwind).
     expect(trackingPanelClass('danger')).toContain('border-l-destructive')
-    expect(trackingPanelClass('warning')).toContain('border-l-amber-500')
-    expect(trackingPanelClass('success')).toContain('border-l-emerald-500')
-    expect(trackingPanelClass('info')).toContain('border-l-blue-500')
+    expect(trackingPanelClass('warning')).toContain('border-l-warning')
+    expect(trackingPanelClass('success')).toContain('border-l-success')
+    expect(trackingPanelClass('info')).toContain('border-l-info')
     // nunca um fundo vermelho preenchido
     expect(trackingPanelClass('danger')).toContain('bg-card')
   })
@@ -37,8 +38,8 @@ describe('order tracking presentation — panel tone', () => {
   it('maps tone to icon and icon color', () => {
     expect(trackingPanelIcon('danger')).toBe('lucide:triangle-alert')
     expect(trackingPanelIcon('success')).toBe('lucide:circle-check')
-    expect(trackingPanelIconClass('warning')).toBe('text-amber-600')
-    expect(trackingPanelIconClass('info')).toBe('text-blue-600')
+    expect(trackingPanelIconClass('warning')).toBe('text-warning')
+    expect(trackingPanelIconClass('info')).toBe('text-info')
   })
 })
 

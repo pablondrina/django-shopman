@@ -1192,7 +1192,12 @@ useSeoMeta({
               >
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-1">
-                    <UiFieldTitle>{{ cart?.coupon_code ? `Cupom ${cart.coupon_code} aplicado` : 'Cupom de desconto?' }}</UiFieldTitle>
+                    <UiFieldTitle>
+                      <template v-if="cart?.coupon_code">
+                        <span class="font-normal text-muted-foreground">Cupom</span> {{ cart.coupon_code }} <span class="font-normal text-muted-foreground">aplicado</span>
+                      </template>
+                      <template v-else>Cupom de desconto?</template>
+                    </UiFieldTitle>
                     <UiFieldDescription v-if="cart?.coupon_code && cart.coupon_discount_display">Desconto de {{ cart.coupon_discount_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-coupon-toggle" :model-value="couponSwitchOn" @update:model-value="onCouponToggle" />
