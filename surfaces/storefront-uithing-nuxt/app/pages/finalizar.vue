@@ -199,6 +199,14 @@ async function dropCoupon () {
     couponPending.value = false
   }
 }
+// Toggle único do cupom: ON quando o campo está aberto OU já há cupom aplicado.
+// Desligar = remover o cupom (se aplicado) ou só fechar o campo.
+const couponSwitchOn = computed(() => couponOpen.value || !!cart.value?.coupon_code)
+function onCouponToggle (on: boolean) {
+  if (on) { couponOpen.value = true; return }
+  if (cart.value?.coupon_code) void dropCoupon()
+  else couponOpen.value = false
+}
 const action = computed(() => checkout.value?.actions.find(candidate => candidate.ref === 'checkout') || null)
 const checkoutActionLabel = computed(() => action.value?.label || 'Confirmar pedido')
 const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
@@ -1174,44 +1182,22 @@ useSeoMeta({
                 </UiField>
               </UiFieldLabel>
 
-              <!-- Cupom: mesmo toggle-card dos demais campos. Aplicado → chip + remover;
-                   senão → toggle "Cupom de desconto?" que expande o campo (sem descrição). -->
+              <!-- Cupom: toggle-card único (igual fidelidade). Aplicado → título "Cupom
+                   XYZ aplicado" + desconto, toggle ON (desligar remove). Senão → toggle
+                   "Cupom de desconto?" que expande o campo. -->
               <UiFieldLabel
-                v-if="cart?.coupon_code"
-                class="bg-card has-data-[state=checked]:bg-card"
-                data-checkout-coupon
-              >
-                <UiField orientation="horizontal">
-                  <UiFieldContent class="gap-1">
-                    <UiFieldTitle class="flex items-center gap-2">
-                      <Icon name="lucide:badge-check" class="size-5 shrink-0 text-cta" />
-                      Cupom {{ cart.coupon_code }} aplicado
-                    </UiFieldTitle>
-                    <UiFieldDescription v-if="cart.coupon_discount_display" class="font-semibold text-cta">Desconto de {{ cart.coupon_discount_display }}</UiFieldDescription>
-                  </UiFieldContent>
-                  <UiButton
-                    size="icon-sm"
-                    variant="ghost"
-                    icon="lucide:x"
-                    aria-label="Remover cupom"
-                    :loading="couponPending"
-                    @click.prevent="dropCoupon"
-                  />
-                </UiField>
-              </UiFieldLabel>
-              <UiFieldLabel
-                v-else
                 for="checkout-coupon-toggle"
                 class="bg-card has-data-[state=checked]:bg-card"
                 data-checkout-coupon
               >
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-1">
-                    <UiFieldTitle>Cupom de desconto?</UiFieldTitle>
+                    <UiFieldTitle>{{ cart?.coupon_code ? `Cupom ${cart.coupon_code} aplicado` : 'Cupom de desconto?' }}</UiFieldTitle>
+                    <UiFieldDescription v-if="cart?.coupon_code && cart.coupon_discount_display">Desconto de {{ cart.coupon_discount_display }}</UiFieldDescription>
                   </UiFieldContent>
-                  <UiSwitch id="checkout-coupon-toggle" v-model="couponOpen" />
+                  <UiSwitch id="checkout-coupon-toggle" :model-value="couponSwitchOn" @update:model-value="onCouponToggle" />
                 </UiField>
-                <div v-if="couponOpen" class="flex items-center gap-2 px-4 pb-4">
+                <div v-if="couponOpen && !cart?.coupon_code" class="flex items-center gap-2 px-4 pb-4">
                   <UiInput
                     id="checkout-coupon-input"
                     v-model="coupon"

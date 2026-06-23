@@ -659,8 +659,10 @@ describe('surface UX guardrails', () => {
     // aplicar/remover via cart state + refresh() do payload do checkout.
     expect(cartPage).not.toContain('data-cart-coupon')
     expect(checkout).toContain('data-checkout-coupon')
-    expect(checkout).toContain('Cupom {{ cart.coupon_code }}')
-    expect(checkout).toContain('aria-label="Remover cupom"')
+    // Cupom = toggle-card único: aplicado vira "Cupom XYZ aplicado" (toggle ON);
+    // desligar o toggle remove (onCouponToggle → dropCoupon).
+    expect(checkout).toContain('Cupom ${cart.coupon_code} aplicado')
+    expect(checkout).toContain('onCouponToggle')
     expect(checkout).toContain('await applyCoupon(coupon.value.trim())')
     expect(checkout).toContain('await refresh()')
   })

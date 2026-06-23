@@ -87,7 +87,7 @@ watch(() => props.open, open => {
     <UiSheetContent
       side="bottom"
       variant="floating"
-      class="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 p-0"
+      class="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 bg-card p-0 text-card-foreground"
       data-address-label-sheet
     >
       <UiSheetHeader class="px-4 pt-4">
