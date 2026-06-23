@@ -650,8 +650,11 @@ describe('surface UX guardrails', () => {
 
     expect(summary).toContain("import type { CartProjection } from '~/types/shopman'")
     expect(summary).toContain('cart.has_discount')
+    // KISS: Subtotal = valor CHEIO (pré-desconto), sem risco. Descontos vêm depois
+    // como linhas assinadas; a conta fecha (Subtotal − Descontos = Total). Nada de
+    // strikethrough nem subtotal duplicado (confundia: desconto aparecia 2x).
     expect(summary).toContain('cart.original_subtotal_display')
-    expect(summary).toContain('line-through')
+    expect(summary).not.toContain('line-through')
     expect(summary).toContain('discountDisplay(discount.amount_display)')
     expect(summary).toContain("return value.startsWith('-') ? value : `- ${value}`")
     expect(cartPage).not.toContain('{{ cart.subtotal_display }}</span>')

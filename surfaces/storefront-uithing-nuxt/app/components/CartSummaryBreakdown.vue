@@ -17,12 +17,8 @@ function discountDisplay (amount: string) {
 <template>
   <UiDescriptionList :class="[flat ? '' : 'rounded-lg border bg-card px-3', compact ? 'text-sm' : '']">
     <UiDescriptionListTerm>Subtotal</UiDescriptionListTerm>
-    <UiDescriptionListDetails class="sm:text-right">
-      <span v-if="cart.has_discount" class="inline-flex flex-col items-start sm:items-end">
-        <span class="shop-meta line-through">{{ cart.original_subtotal_display }}</span>
-        <span class="tabular-nums">{{ cart.subtotal_display }}</span>
-      </span>
-      <span v-else class="tabular-nums">{{ cart.subtotal_display }}</span>
+    <UiDescriptionListDetails class="tabular-nums sm:text-right">
+      {{ cart.has_discount ? (cart.original_subtotal_display || cart.subtotal_display) : cart.subtotal_display }}
     </UiDescriptionListDetails>
 
     <template v-for="discount in cart.discount_lines" :key="discount.label">
