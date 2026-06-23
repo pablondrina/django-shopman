@@ -7,6 +7,7 @@ const session = useShopSession()
 const requestUrl = useRequestURL()
 const { setFromServer } = useCartState()
 const { performAction, pending: reorderPending } = useReorder()
+const { openSearch } = useSearchOverlay()
 
 const { data, pending, error, refresh } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include'
@@ -174,9 +175,9 @@ useHead({
 
             <UiButton
               variant="outline"
-              to="/busca"
               class="mt-4 h-11 w-full justify-start gap-2 rounded-full bg-card font-normal text-muted-foreground shadow-sm"
               data-home-search-shortcut
+              @click="openSearch()"
             >
               <Icon name="lucide:search" class="size-4" />
               Buscar no cardápio

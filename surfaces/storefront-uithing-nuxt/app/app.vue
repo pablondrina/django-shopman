@@ -63,6 +63,9 @@ useSeoMeta({
     </div>
     <ShopFooter v-if="!hideFooter" />
     <AppBottomNav />
+    <ClientOnly>
+      <SearchOverlay />
+    </ClientOnly>
     <UiSonner />
   </div>
 </template>

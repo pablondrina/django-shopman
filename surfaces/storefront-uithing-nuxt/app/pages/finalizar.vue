@@ -170,7 +170,11 @@ const coupon = ref('')
 const couponPending = ref(false)
 // Cupom: mesmo toggle-card dos demais campos. Desligar limpa o código digitado.
 const couponOpen = ref(false)
-watch(couponOpen, (open) => { if (!open) coupon.value = '' })
+watch(couponOpen, (open) => {
+  if (!open) { coupon.value = ''; return }
+  // Ao abrir o toggle, foca o campo do cupom (pós-render).
+  void nextTick(() => { (document.getElementById('checkout-coupon-input') as HTMLInputElement | null)?.focus() })
+})
 async function submitCoupon () {
   if (!coupon.value.trim() || couponPending.value) return
   couponPending.value = true
@@ -280,6 +284,43 @@ const steps = computed<Step[]>(() => checkoutSteps(state.fulfillment_type))
 const stepLabels = checkoutStepLabels
 const stepIcons = checkoutStepIcons
 
+// Rascunho do checkout: sair do navegador e voltar (ou o iOS recarregar a aba por
+// memória) NÃO pode perder o que já foi preenchido. Usa localStorage (sobrevive à aba
+// ser morta/recarregada — sessionStorage é apagado nesses casos). Restaura no onMounted
+// (pós-hidratação, p/ não divergir do HTML do servidor); o save só liga após restaurar,
+// pra não sobrescrever o rascunho antigo com os defaults desta carga. Validade 6h.
+const CHECKOUT_DRAFT_KEY = 'shopman-checkout-draft'
+const CHECKOUT_DRAFT_TTL = 6 * 60 * 60 * 1000
+let draftRestored = false
+function clearCheckoutDraft () {
+  if (import.meta.client) { try { localStorage.removeItem(CHECKOUT_DRAFT_KEY) } catch { /* noop */ } }
+}
+// SÍNCRONO no setup (client), ANTES do watch(checkout) e demais abaixo — assim eles
+// veem o rascunho restaurado e o respeitam (em onMounted já teriam rodado com o default
+// e sobrescrito). Há um leve mismatch de hidratação (estado é client-only), aceitável.
+if (import.meta.client) {
+  try {
+    const raw = localStorage.getItem(CHECKOUT_DRAFT_KEY)
+    if (raw) {
+      const draft = JSON.parse(raw)
+      const fresh = draft.savedAt && (Date.now() - draft.savedAt) < CHECKOUT_DRAFT_TTL
+      if (fresh && draft.state) {
+        Object.assign(state, draft.state)
+        if (draft.activeStep && checkoutSteps(state.fulfillment_type).includes(draft.activeStep)) activeStep.value = draft.activeStep
+      } else if (!fresh) {
+        clearCheckoutDraft()
+      }
+    }
+  } catch { /* rascunho corrompido: ignora */ }
+}
+draftRestored = true
+watch([state, activeStep], () => {
+  if (!import.meta.client || !draftRestored) return
+  try {
+    localStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ state, activeStep: activeStep.value, savedAt: Date.now() }))
+  } catch { /* quota/serialização: ignora */ }
+}, { deep: true })
+
 function pickDeliveryDate (value: string) {
   if (isCheckoutDateUnavailable(value, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) return
   const date = parseLocalDate(value)
@@ -299,6 +340,10 @@ function reconcileDeliverySlot () {
   if (nextSlotRef !== state.delivery_time_slot) state.delivery_time_slot = nextSlotRef
 }
 
+// Só na 1ª hidratação ajustamos o tipo de entrega ao que o servidor oferece. Em
+// refreshes seguintes (cupom, fidelidade, mudança de data/slot) a escolha do usuário é
+// SAGRADA — resetá-la mudava `steps` e fazia o `activeStep` "voltar sozinho" (fantasma).
+let checkoutHydrated = false
 watch(() => checkout.value, value => {
   if (!value) return
   const fulfillments = availableFulfillmentOptions(value)
@@ -315,9 +360,10 @@ watch(() => checkout.value, value => {
   if (!state.phone) state.phone = value.customer_phone || ''
   if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
   if (!state.delivery_time_slot) state.delivery_time_slot = value.earliest_slot_ref || projectedSlots.find(slot => slot.enabled)?.ref || ''
-  if (!fulfillments.includes(state.fulfillment_type)) {
+  if (!checkoutHydrated && !fulfillments.includes(state.fulfillment_type)) {
     state.fulfillment_type = fulfillments[0] || 'pickup'
   }
+  checkoutHydrated = true
   reconcileDeliverySlot()
 }, { immediate: true })
 
@@ -648,6 +694,7 @@ async function submitCheckout () {
       body: buildCheckoutPayload(state, idempotencyKey, useLoyalty.value)
     })
     clearCart()
+    clearCheckoutDraft()
     attemptKey.value = createCheckoutAttemptKey()
     const trackingUrl = localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref))
     // O Core já salvou o endereço de entrega ao confirmar (só em pedido que
@@ -1131,6 +1178,7 @@ useSeoMeta({
                 </UiField>
                 <div v-if="couponOpen" class="flex items-center gap-2 px-4 pb-4">
                   <UiInput
+                    id="checkout-coupon-input"
                     v-model="coupon"
                     placeholder="Código do cupom"
                     autocomplete="off"

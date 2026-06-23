@@ -10,6 +10,7 @@ import type { MenuResponse } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const { setFromServer } = useCartState()
+const { openSearch } = useSearchOverlay()
 const { data, pending, error, refresh } = await useFetch<MenuResponse>(apiPath('/api/v1/storefront/menu/'), {
   credentials: 'include'
 })
@@ -50,9 +51,6 @@ const hiddenByDietaryCount = computed(() => {
   }
   return hidden.size
 })
-const buscaTarget = computed(() => appliedFilterKeys.value.length
-  ? `/busca?filtro=${encodeURIComponent(appliedFilterKeys.value.join(','))}`
-  : '/busca')
 
 const filteredCount = computed(() => uniqueItemsBySku(activeSections.value.flatMap(section => [...section.items])).length)
 const sectionOptions = computed(() => {
@@ -311,7 +309,7 @@ useHead({
             icon="lucide:search"
             aria-label="Buscar no cardápio"
             class="shrink-0 rounded-full"
-            :to="buscaTarget"
+            @click="openSearch()"
           />
           <UiTabs v-model="activeSection" class="min-w-0 flex-1" @update:model-value="selectSection">
             <div data-menu-pillrail class="no-scrollbar overflow-x-auto scroll-smooth motion-reduce:scroll-auto">
