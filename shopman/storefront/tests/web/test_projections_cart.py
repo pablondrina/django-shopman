@@ -281,6 +281,28 @@ class TestDeliveryMinimumProgress:
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         assert proj.delivery_minimum_progress is None
 
+    def test_coupon_does_not_disqualify_delivery_minimum(self, cart_session):
+        # Cupom promocional NÃO pode tirar a elegibilidade de entrega: o mínimo olha
+        # o valor ANTES do cupom (subtotal + desconto do cupom). Bug "R$30 bloqueado".
+        session = Session.objects.get(channel_ref=STOREFRONT_CHANNEL_REF, state="open")
+        session.data = {**(session.data or {}), "coupon_code": "TESTE"}
+        session.pricing = {"coupon": {"discount_q": 1000}}
+        session.save(update_fields=["data", "pricing"])
+
+        request = _request_with_cart_session(cart_session)
+        subtotal_q = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF).subtotal_q
+
+        # Mínimo ENTRE o subtotal e (subtotal + cupom): sem o cupom contaria como abaixo,
+        # mas como o cupom é somado de volta, fica elegível (sem bloqueio).
+        _set_shop_rules(delivery_minimum_q=subtotal_q + 500)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.delivery_minimum_progress is None
+
+        # Acima do valor pré-cupom também → aí sim bloqueia (sanidade).
+        _set_shop_rules(delivery_minimum_q=subtotal_q + 5000)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.delivery_minimum_progress is not None
+
 
 class TestFreeDeliveryProgress:
     def test_progress_shown_when_below(self, cart_session):

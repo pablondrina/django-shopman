@@ -254,9 +254,14 @@ def build_cart(
     delivery_distance_km = float(delivery_distance_km) if delivery_distance_km is not None else None
     grand_total_q = subtotal_q + (delivery_fee_q or 0)
 
-    minimum_order = build_minimum_order_progress(subtotal_q, channel_ref)
-    delivery_minimum = build_delivery_minimum_progress(subtotal_q, channel_ref)
-    free_delivery = build_free_delivery_progress(subtotal_q, channel_ref)
+    # Cupom promocional NÃO conta pros thresholds (mínimo de pedido/entrega, frete
+    # grátis): aplicar uma cortesia não pode tirar a elegibilidade do cliente. O D-1
+    # continua contando — é o preço real de venda, não cortesia.
+    coupon_discount_q = coupon.discount_q if coupon else 0
+    threshold_base_q = subtotal_q + coupon_discount_q
+    minimum_order = build_minimum_order_progress(threshold_base_q, channel_ref)
+    delivery_minimum = build_delivery_minimum_progress(threshold_base_q, channel_ref)
+    free_delivery = build_free_delivery_progress(threshold_base_q, channel_ref)
     upsell = build_upsell_suggestion({line.sku for line in lines}, channel_ref=channel_ref)
 
     can_checkout, block_reason = _checkout_eligibility(

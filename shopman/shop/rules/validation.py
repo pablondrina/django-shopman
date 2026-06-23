@@ -168,7 +168,12 @@ class DeliveryZoneRule(BaseRule):
                 if item.get("sku") != "__DELIVERY_FEE__"
                 and (item.get("meta") or {}).get("type") != "delivery_fee"
             ]
-            total_q = sum(item.get("line_total_q", 0) for item in items)
+            # Cupom não conta pro mínimo (cortesia não tira elegibilidade de entrega) —
+            # mesmo critério do aviso ao vivo (build_delivery_minimum_progress).
+            coupon_discount_q = int(
+                ((getattr(session, "pricing", None) or {}).get("coupon") or {}).get("discount_q", 0) or 0
+            )
+            total_q = sum(item.get("line_total_q", 0) for item in items) + coupon_discount_q
             if total_q < minimum_q:
                 minimum_display = f"R$ {minimum_q / 100:.2f}".replace(".", ",")
                 raise OrderValidationError(

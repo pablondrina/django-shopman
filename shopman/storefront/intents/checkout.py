@@ -123,7 +123,9 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
 
         from shopman.shop.projections.cart import build_delivery_minimum_progress
 
-        warning = build_delivery_minimum_progress(cart.subtotal_q, channel_ref)
+        # Cupom não conta pro mínimo (cortesia não tira elegibilidade de entrega).
+        coupon_discount_q = cart.coupon.discount_q if cart.coupon else 0
+        warning = build_delivery_minimum_progress(cart.subtotal_q + coupon_discount_q, channel_ref)
         if warning:
             errors["minimum_order"] = (
                 f"Faltam R$ {format_money(warning.remaining_q)} para atingir o pedido "
