@@ -23,9 +23,10 @@ defineEmits<{
 
 const isExpanded = computed(() => props.state === 'current' || props.state === 'blocked' || props.state === 'error')
 
+// Ícone = IDENTIDADE da seção (mantém o ícone temático em "agora" e "depois");
+// só vira ícone de STATUS quando o status importa mais que a identidade.
 const stateIcon = computed(() => {
   if (props.state === 'done') return 'lucide:check'
-  if (props.state === 'current') return 'lucide:circle-dot'
   if (props.state === 'blocked') return 'lucide:lock'
   if (props.state === 'error') return 'lucide:triangle-alert'
   return props.icon
@@ -39,12 +40,14 @@ const stateLabel = computed(() => {
   return 'Depois'
 })
 
+// Cor = ESTADO. Burgundy = a única etapa ativa (foco). Família dourada = o resto:
+// feito = dourado vivo (cta), depois = dourado pálido (accent). âmbar/vermelho p/ status.
 const mediaClass = computed(() => {
-  if (props.state === 'done') return 'bg-primary text-primary-foreground'
   if (props.state === 'current') return 'bg-primary text-primary-foreground'
+  if (props.state === 'done') return 'bg-cta text-cta-foreground'
   if (props.state === 'error') return 'bg-destructive text-destructive-foreground'
   if (props.state === 'blocked') return 'bg-warning text-warning-foreground'
-  return 'border border-border text-muted-foreground'
+  return 'bg-accent text-accent-foreground'
 })
 
 const titleClass = computed(() => props.state === 'upcoming' ? 'text-muted-foreground' : 'text-foreground')
