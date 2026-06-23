@@ -1332,10 +1332,9 @@ useSeoMeta({
                     <UiAlertDescription>{{ serverError }}</UiAlertDescription>
                   </UiAlert>
 
-                  <div class="space-y-1 rounded-lg border bg-card p-4">
-                    <p class="shop-kicker">Total</p>
-                    <p class="shop-price-strong">{{ cart?.grand_total_display || 'R$ 0,00' }}</p>
-                    <p class="shop-muted">{{ confirmItemSummary }}</p>
+                  <div class="rounded-lg border bg-card p-4">
+                    <p class="mb-2 shop-muted">{{ confirmItemSummary }}</p>
+                    <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
                   </div>
 
                   <div class="divide-y rounded-md border bg-card text-sm">
