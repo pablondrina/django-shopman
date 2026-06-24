@@ -863,27 +863,29 @@ function onLabelResolved () {
     </template>
 
     <!-- ── Ajustar no mapa: bottom-sheet ~85%, pin arrastável ─────────── -->
-    <UiSheet v-model:open="mapOpen">
-      <UiSheetContent side="bottom" class="h-[85dvh] gap-0 p-0" data-address-map-sheet>
-        <UiSheetHeader class="border-b px-4 py-3 pr-12">
-          <UiSheetTitle title="Ajustar no mapa" />
-          <UiSheetDescription description="Arraste o pin até o ponto exato da entrega." />
-        </UiSheetHeader>
-        <div class="relative min-h-0 flex-1">
-          <div ref="mapEl" class="absolute inset-0" />
-          <div v-if="mapLoading" class="absolute inset-0 grid place-items-center bg-background/60">
-            <Icon name="lucide:loader-circle" class="size-6 animate-spin text-muted-foreground" />
-          </div>
-          <p v-if="mapIssue" class="absolute inset-x-4 top-3 rounded-md border bg-card px-3 py-2 text-sm text-destructive shadow-sm">
-            {{ mapIssue }}
-          </p>
+    <BottomSheet
+      v-model:open="mapOpen"
+      content-class="h-[85dvh]"
+      title="Ajustar no mapa"
+      description="Arraste o pin até o ponto exato da entrega."
+      data-address-map-sheet
+    >
+      <div class="relative h-full">
+        <div ref="mapEl" class="absolute inset-0" />
+        <div v-if="mapLoading" class="absolute inset-0 grid place-items-center bg-background/60">
+          <Icon name="lucide:loader-circle" class="size-6 animate-spin text-muted-foreground" />
         </div>
-        <UiSheetFooter class="grid grid-cols-2 gap-2 border-t bg-background p-4">
+        <p v-if="mapIssue" class="absolute inset-x-4 top-3 rounded-md border bg-card px-3 py-2 text-sm text-destructive shadow-sm">
+          {{ mapIssue }}
+        </p>
+      </div>
+      <template #footer>
+        <div class="grid grid-cols-2 gap-2">
           <UiButton variant="outline" class="w-full" @click="mapOpen = false">Cancelar</UiButton>
           <UiButton class="w-full" :loading="mapLoading" @click="confirmMapAdjust">Confirmar</UiButton>
-        </UiSheetFooter>
-      </UiSheetContent>
-    </UiSheet>
+        </div>
+      </template>
+    </BottomSheet>
 
     <!-- ── Etiqueta DEPOIS de salvar (conta) — componente compartilhado ── -->
     <AddressLabelSheet v-model:open="labelOpen" :address-id="pendingCreatedId" @resolved="onLabelResolved" />

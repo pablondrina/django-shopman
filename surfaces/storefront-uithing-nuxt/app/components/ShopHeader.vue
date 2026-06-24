@@ -59,22 +59,18 @@ onMounted(() => {
 // Fecha ao navegar.
 watch(() => route.fullPath, closeMenu)
 
-// Trava o scroll do corpo e fecha no Esc enquanto o menu está aberto (client-only).
-function onKeydown (event: KeyboardEvent) {
-  if (event.key === 'Escape') closeMenu()
-}
-
-watch(menuOpen, open => {
-  if (!import.meta.client) return
-  document.body.style.overflow = open ? 'hidden' : ''
-  if (open) window.addEventListener('keydown', onKeydown)
-  else window.removeEventListener('keydown', onKeydown)
+// Scroll-lock + Esc + trap de foco. A navbar (com o X) fica fora do inert de propósito:
+// a gaveta de navegação mantém o cabeçalho ativo; só o conteúdo/rodapé/bottom-nav
+// por trás ficam inertes. O painel recebe o foco ao abrir.
+const menuPanel = useTemplateRef<HTMLElement>('menuPanel')
+useOverlayLock(menuOpen, {
+  inert: ['#main-content', '.shop-footer', '.shop-bottomnav-bar'],
+  onEscape: closeMenu,
+  focus: menuPanel
 })
 
 onBeforeUnmount(() => {
   if (!import.meta.client) return
-  document.body.style.overflow = ''
-  window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('touchmove', onScroll)
 })
@@ -173,6 +169,7 @@ onBeforeUnmount(() => {
         <div
           v-if="menuOpen"
           id="shop-menu-panel"
+          ref="menuPanel"
           class="fixed inset-x-0 z-40 border-t border-border bg-background text-foreground shadow-xl"
           :style="{ top: chromeTop }"
           data-shop-menu-panel
@@ -292,12 +289,13 @@ onBeforeUnmount(() => {
       </Transition>
     </Teleport>
 
-    <!-- Scrim: escurece a página sob a navbar (z menor que o header). -->
+    <!-- Scrim: mesmo token das overlays Reka (bg-background/50 + blur). z menor que o
+         header (a navbar fica visível) e que os modais (z-50, abrem por cima). -->
     <Teleport to="body">
       <Transition name="shop-menu-fade">
         <div
           v-if="menuOpen"
-          class="fixed inset-0 z-30 bg-foreground/40 backdrop-blur-[2px]"
+          class="fixed inset-0 z-30 bg-background/50 backdrop-blur-sm"
           aria-hidden="true"
           @click="closeMenu"
         />

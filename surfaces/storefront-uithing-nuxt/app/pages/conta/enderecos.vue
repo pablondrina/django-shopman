@@ -165,23 +165,22 @@ useSeoMeta({ title: 'Endereços' })
         </li>
       </ul>
 
-      <UiSheet v-model:open="addressSheetOpen">
-        <UiSheetContent side="bottom" variant="floating" class="mx-auto max-h-[90dvh] max-w-2xl overflow-y-auto">
-          <UiSheetHeader>
-            <UiSheetTitle>{{ sheetTitle }}</UiSheetTitle>
-            <UiSheetDescription>{{ sheetDescription }}</UiSheetDescription>
-          </UiSheetHeader>
-          <div class="px-4 pb-4">
-            <AddressPicker
-              :key="addressEditing?.id ?? 'create'"
-              context="account"
-              :editing-address="addressEditing"
-              :initial-is-default="!(addresses || []).length"
-              @done="onAddressDone"
-            />
-          </div>
-        </UiSheetContent>
-      </UiSheet>
+      <BottomSheet
+        v-model:open="addressSheetOpen"
+        max-width="2xl"
+        :title="sheetTitle"
+        :description="sheetDescription"
+      >
+        <div class="px-4 py-4">
+          <AddressPicker
+            :key="addressEditing?.id ?? 'create'"
+            context="account"
+            :editing-address="addressEditing"
+            :initial-is-default="!(addresses || []).length"
+            @done="onAddressDone"
+          />
+        </div>
+      </BottomSheet>
 
       <UiAlertDialog v-model:open="addressDeleteOpen">
         <UiAlertDialogContent>

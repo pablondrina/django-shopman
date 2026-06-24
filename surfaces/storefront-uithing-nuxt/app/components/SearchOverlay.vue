@@ -39,23 +39,19 @@ function searchInputEl (): HTMLInputElement | null {
 }
 
 onMounted(() => registerInput(searchInputEl()))
-onBeforeUnmount(() => {
-  registerInput(null)
-  if (import.meta.client) {
-    document.body.style.overflow = ''
-    window.removeEventListener('keydown', onKeydown)
-  }
+onBeforeUnmount(() => registerInput(null))
+
+// Scroll-lock + Esc + trap de foco (inert no app inteiro; o painel é teleportado p/
+// o body, então fica ativo). A busca foca o próprio input dentro do gesto (iOS),
+// então não passamos `focus` aqui.
+useOverlayLock(open, {
+  inert: ['.shop-shell'],
+  onEscape: closeSearch
 })
 
-function onKeydown (e: KeyboardEvent) { if (e.key === 'Escape') closeSearch() }
-
-// Carrega o cardápio na 1ª abertura; trava o scroll do corpo; Esc fecha.
-watch(open, (v) => {
-  if (!import.meta.client) return
+// Carrega o cardápio na 1ª abertura.
+watch(open, v => {
   if (v) void loadMenu()
-  document.body.style.overflow = v ? 'hidden' : ''
-  if (v) window.addEventListener('keydown', onKeydown)
-  else window.removeEventListener('keydown', onKeydown)
 })
 
 // Fecha ao navegar (ex.: clicar num resultado).

@@ -343,14 +343,16 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('<UiTabsContent value="review">')
     expect(checkout).not.toContain('<UiTabs')
     expect(checkout).not.toContain('<UiStepper')
-    // Confirmação do PEDIDO é bottom-sheet (pinada abaixo). UiAlertDialog é
+    // Confirmação do PEDIDO é o bottom-sheet canônico (BottomSheet). UiAlertDialog é
     // permitido para confirmações destrutivas pontuais (trocar telefone).
     expect(checkout).toContain('changePhoneOpen')
     expect(checkout).toContain('confirmOpen')
     expect(checkout).toContain('openConfirmSheet')
-    expect(checkout).toContain('<UiSheet v-model:open="confirmOpen">')
-    expect(checkout).toContain('side="bottom"')
-    expect(checkout).toContain('variant="floating"')
+    expect(checkout).toContain('<BottomSheet')
+    expect(checkout).toContain('v-model:open="confirmOpen"')
+    const bottomSheet = read('app/components/BottomSheet.vue')
+    expect(bottomSheet).toContain('side="bottom"')
+    expect(bottomSheet).toContain('variant="floating"')
     expect(checkout).toContain('<CheckoutProgressSection')
     expect(checkout).toContain('stepState')
     expect(read('app/components/CheckoutProgressSection.vue')).toContain(':data-checkout-section-state="state"')
@@ -736,7 +738,8 @@ describe('surface UX guardrails', () => {
     expect(account).toContain('askDeleteAddress(address)')
     expect(account).toContain('deleteAddress')
     expect(account).toContain("method: 'DELETE'")
-    expect(account).toContain('<UiSheet v-model:open="addressSheetOpen">')
+    expect(account).toContain('<BottomSheet')
+    expect(account).toContain('v-model:open="addressSheetOpen"')
     expect(account).toContain('<UiAlertDialog v-model:open="addressDeleteOpen">')
     // ADDRESS-UX-PLAN: componente único — a conta não duplica formulário.
     expect(account).toContain('<AddressPicker')

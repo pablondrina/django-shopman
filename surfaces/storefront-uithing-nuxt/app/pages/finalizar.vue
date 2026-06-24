@@ -220,6 +220,13 @@ const freeDeliveryUpsell = computed(() =>
     ? cart.value?.free_delivery_progress || null
     : null
 )
+// Mínimo de entrega é FLAT por canal e o Core já preenche `delivery_minimum_progress`
+// no cart assim que o subtotal está abaixo dele — independente de endereço. Então a loja
+// barra a entrega CEDO (no passo de recebimento, quando "Entrega" é escolhida), em vez de
+// deixar o cliente atravessar o checkout e só tomar o erro no commit.
+const deliveryBelowMinimum = computed(() =>
+  state.fulfillment_type === 'delivery' && !!cart.value?.delivery_minimum_progress
+)
 const savedAddresses = computed(() => checkout.value?.saved_addresses || [])
 const paymentMethods = computed(() => checkout.value?.payment_methods || [])
 const slots = computed(() => checkout.value?.pickup_slots || [])
@@ -541,6 +548,12 @@ function validateFulfillmentStep (): boolean {
     activeStep.value = 'fulfillment'
     return false
   }
+  // Mínimo de entrega barra aqui, cedo — não no commit. O aviso (com adicionar
+  // itens / mudar p/ retirada) já está visível neste passo.
+  if (deliveryBelowMinimum.value) {
+    activeStep.value = 'fulfillment'
+    return false
+  }
   return true
 }
 
@@ -793,6 +806,12 @@ function switchToPickup () {
   activeStep.value = 'when'
 }
 
+// Sinal do desconto no resumo compacto da confirmação (espelha CartSummaryBreakdown).
+function discountSigned (display: string): string {
+  const value = (display || '').trim()
+  return value.startsWith('-') ? value : `- ${value}`
+}
+
 useSeoMeta({
   title: 'Checkout'
 })
@@ -952,9 +971,30 @@ useSeoMeta({
               <p v-if="availableFulfillment.length === 1" class="shop-muted">
                 Esta é a opção disponível para este pedido.
               </p>
+              <!-- Mínimo de entrega acusado JÁ aqui, no momento em que "Entrega" é escolhida
+                   (o valor é flat e conhecido sem endereço) — nunca no commit. Barra de
+                   progresso (mesmo idioma do frete grátis) + escape p/ retirada. -->
+              <UiAlert v-if="deliveryBelowMinimum && cart?.delivery_minimum_progress" variant="warning" data-checkout-delivery-minimum>
+                <UiAlertDescription>
+                  <p class="flex items-center gap-2 font-semibold text-foreground">
+                    <Icon name="lucide:truck" class="size-4 shrink-0" />
+                    Faltam {{ cart.delivery_minimum_progress.remaining_display }} para o mínimo de entrega
+                  </p>
+                  <UiProgress :model-value="cart.delivery_minimum_progress.percent" class="mt-2" />
+                  <UiButton
+                    v-if="availableFulfillment.includes('pickup')"
+                    variant="link"
+                    size="sm"
+                    class="mt-2 h-auto p-0"
+                    @click="state.fulfillment_type = 'pickup'"
+                  >
+                    Prefere retirar? Sem mínimo.
+                  </UiButton>
+                </UiAlertDescription>
+              </UiAlert>
               <template #footer>
                 <div class="mt-4">
-                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" @click="continueFromFulfillment">
+                  <UiButton class="w-full" size="lg" icon="lucide:arrow-right" icon-placement="right" :disabled="deliveryBelowMinimum" @click="continueFromFulfillment">
                     Continuar
                   </UiButton>
                 </div>
@@ -991,19 +1031,6 @@ useSeoMeta({
                 <Icon name="lucide:circle-check" class="size-4 shrink-0" />
                 Entregamos no seu endereço<span v-if="cart.delivery_distance_display" class="font-normal shop-muted">&nbsp;· a {{ cart.delivery_distance_display }}</span>
               </p>
-              <UiAlert
-                v-if="cart?.delivery_minimum_progress"
-                variant="warning"
-                class="mt-3"
-                data-checkout-delivery-minimum
-              >
-                <UiAlertTitle>
-                  Pedido mínimo para entrega {{ cart.delivery_minimum_progress.minimum_display }}
-                </UiAlertTitle>
-                <UiAlertDescription>
-                  Faltam {{ cart.delivery_minimum_progress.remaining_display }} para fechar a entrega.
-                </UiAlertDescription>
-              </UiAlert>
               <div v-if="freeDeliveryUpsell" class="mt-3" data-checkout-free-delivery>
                 <div class="mb-2 flex items-center justify-between gap-3 text-sm font-semibold">
                   <span class="flex items-center gap-2">
@@ -1319,98 +1346,125 @@ useSeoMeta({
             </CheckoutProgressSection>
           </div>
 
-          <UiSheet v-model:open="confirmOpen">
-            <UiSheetContent
-              side="bottom"
-              variant="floating"
-              class="mx-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0"
-            >
-              <UiSheetHeader class="border-b px-4 py-4 pr-12">
-                <UiSheetTitle title="Confirmar pedido" />
-                <UiSheetDescription :description="confirmSheetDescription" />
-              </UiSheetHeader>
+          <BottomSheet
+            v-model:open="confirmOpen"
+            max-width="md"
+            title="Confirmar pedido"
+            :description="confirmSheetDescription"
+          >
+            <!-- Superfície única, diagramação enxuta. O corpo rola; o rodapé fica
+                 mínimo (Total + 1 ação) e sempre visível — nada vaza da tela. -->
+            <div class="px-4 py-4">
+              <UiAlert v-if="serverError" variant="destructive" class="mb-4">
+                <UiAlertTitle>Não confirmado</UiAlertTitle>
+                <UiAlertDescription>{{ serverError }}</UiAlertDescription>
+              </UiAlert>
 
-              <div class="max-h-[calc(85dvh-10rem)] overflow-y-auto bg-background px-4 py-4">
-                <div class="space-y-4">
-                  <UiAlert v-if="serverError" variant="destructive">
-                    <UiAlertTitle>Não confirmado</UiAlertTitle>
-                    <UiAlertDescription>{{ serverError }}</UiAlertDescription>
-                  </UiAlert>
+              <!-- O quê: itens em linha única (qty + nome). Os valores vivem no resumo. -->
+              <ul class="space-y-1">
+                <li v-for="line in cart?.items || []" :key="line.line_id" class="shop-body">
+                  <span class="font-semibold tabular-nums">{{ line.qty }}×</span>
+                  {{ line.name }}
+                </li>
+              </ul>
 
-                  <div class="rounded-lg border bg-card p-4">
-                    <p class="mb-2 shop-muted">{{ confirmItemSummary }}</p>
-                    <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
-                  </div>
+              <UiSeparator class="my-3" />
 
-                  <div class="divide-y rounded-md border bg-card text-sm">
-                    <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                      <p class="text-muted-foreground">Recebimento</p>
-                      <p class="font-semibold">{{ fulfillmentSummary || fulfillmentLabel }}</p>
-                    </div>
-                    <div v-if="state.fulfillment_type === 'delivery'" class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                      <p class="text-muted-foreground">Endereço</p>
-                      <p class="font-semibold">{{ addressSummary }}</p>
-                    </div>
-                    <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                      <p class="text-muted-foreground">Pagamento</p>
-                      <p class="font-semibold">{{ paymentMethodLabel }}</p>
-                    </div>
-                    <div class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                      <p class="text-muted-foreground">Contato</p>
-                      <p class="font-semibold">{{ contactSummary }}</p>
-                    </div>
-                    <div v-if="state.is_gift" class="grid gap-1 p-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
-                      <p class="text-muted-foreground">Presente</p>
-                      <p class="font-semibold">{{ giftSummary }}</p>
-                    </div>
-                  </div>
-
-                  <p v-if="state.is_gift && state.gift_message" class="rounded-md border bg-card p-3 shop-muted">
-                    <span class="mb-0.5 block shop-kicker">Cartão do presente</span>
-                    “{{ state.gift_message }}”
-                  </p>
-
-                  <p v-if="state.notes" class="rounded-md border bg-card p-3 shop-muted">
-                    {{ state.notes }}
-                  </p>
+              <!-- Como/onde/pgto/contato: ícone + valor, sem rótulo (o valor já se explica). -->
+              <dl class="divide-y text-sm">
+                <div class="flex items-baseline gap-3 py-2 first:pt-0">
+                  <Icon :name="fulfillmentIcon" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  <dd class="min-w-0 flex-1">{{ fulfillmentSummary || fulfillmentLabel }}</dd>
                 </div>
-              </div>
+                <div v-if="state.fulfillment_type === 'delivery'" class="flex items-baseline gap-3 py-2">
+                  <Icon name="lucide:map-pin" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  <dd class="min-w-0 flex-1">{{ addressSummary }}</dd>
+                </div>
+                <div class="flex items-baseline gap-3 py-2">
+                  <Icon :name="paymentIcon(state.payment_method)" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  <dd class="min-w-0 flex-1">{{ paymentMethodLabel }}</dd>
+                </div>
+                <div class="flex items-baseline gap-3 py-2">
+                  <Icon name="lucide:user-round" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  <dd class="min-w-0 flex-1">{{ contactSummary }}</dd>
+                </div>
+                <div v-if="state.is_gift" class="flex items-baseline gap-3 py-2">
+                  <Icon name="lucide:gift" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  <dd class="min-w-0 flex-1">{{ giftSummary }}</dd>
+                </div>
+              </dl>
 
-              <UiSheetFooter class="grid grid-cols-1 gap-2 border-t bg-background p-4 sm:grid-cols-2">
-                <UiButton variant="outline" class="w-full" @click="confirmOpen = false">Voltar</UiButton>
-                <UiButton :loading="submitting" :disabled="submitDisabled" icon="lucide:check" size="lg" class="w-full" @click="submitCheckout">
+              <!-- Cartão do presente / observação: bilhete em superfície destacada (muted). -->
+              <p v-if="state.is_gift && state.gift_message" class="mt-3 rounded-lg bg-muted/50 p-3">
+                <span class="mb-0.5 block shop-kicker">Cartão do presente</span>
+                <span class="shop-body italic">“{{ state.gift_message }}”</span>
+              </p>
+              <p v-if="state.notes" class="mt-3 rounded-lg bg-muted/50 p-3">
+                <span class="mb-0.5 block shop-kicker">Observação</span>
+                <span class="shop-body">{{ state.notes }}</span>
+              </p>
+
+              <!-- Resumo de valores: compacto e inline (sem empilhar). O Total vai no rodapé. -->
+              <template v-if="cart">
+                <UiSeparator class="my-3" />
+                <dl class="space-y-1 text-sm">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <dt class="shop-muted">Subtotal</dt>
+                    <dd class="tabular-nums">{{ cart.has_discount ? (cart.original_subtotal_display || cart.subtotal_display) : cart.subtotal_display }}</dd>
+                  </div>
+                  <div v-for="discount in cart.discount_lines" :key="discount.label" class="flex items-baseline justify-between gap-3">
+                    <dt class="shop-muted">{{ discount.label }}</dt>
+                    <dd class="tabular-nums text-primary">{{ discountSigned(discount.amount_display) }}</dd>
+                  </div>
+                  <div v-if="cart.delivery_fee_display" class="flex items-baseline justify-between gap-3">
+                    <dt class="shop-muted">Entrega<span v-if="cart.delivery_distance_display"> · {{ cart.delivery_distance_display }}</span></dt>
+                    <dd class="tabular-nums">{{ cart.delivery_fee_display }}</dd>
+                  </div>
+                </dl>
+              </template>
+            </div>
+
+            <!-- Rodapé mínimo: Total em destaque + UM botão full-width. Sem botão amarelo,
+                 sem larguras diferentes, sem estourar. Fechar = X no topo. -->
+            <template #footer>
+              <div class="space-y-2">
+                <div class="flex items-baseline justify-between gap-3">
+                  <span class="shop-kicker">Total</span>
+                  <span class="shop-price-strong">{{ cart?.grand_total_display || 'R$ 0,00' }}</span>
+                </div>
+                <UiButton
+                  :loading="submitting"
+                  :disabled="submitDisabled"
+                  icon="lucide:check"
+                  size="lg"
+                  class="w-full"
+                  @click="submitCheckout"
+                >
                   {{ checkoutActionLabel }}
                 </UiButton>
-              </UiSheetFooter>
-            </UiSheetContent>
-          </UiSheet>
+              </div>
+            </template>
+          </BottomSheet>
 
-          <UiSheet v-model:open="receiptOpen">
-            <UiSheetContent
-              side="bottom"
-              variant="floating"
-              class="mx-auto max-h-[80dvh] w-[calc(100%-2rem)] max-w-xl overflow-hidden lg:hidden"
-            >
-              <UiSheetHeader>
-                <UiSheetTitle title="Seu pedido" />
-                <UiSheetDescription :description="confirmSheetDescription" />
-              </UiSheetHeader>
-              <UiScrollArea class="min-h-0 flex-1">
-                <div class="space-y-4 p-4 pt-0">
-                  <UiItemGroup class="gap-2">
-                    <UiItem v-for="line in cart?.items || []" :key="line.line_id" size="sm" class="items-start bg-transparent p-0">
-                      <UiItemContent>
-                        <UiItemTitle class="line-clamp-1">{{ line.qty }}× {{ line.name }}</UiItemTitle>
-                        <UiItemDescription>{{ line.price_display }} cada</UiItemDescription>
-                      </UiItemContent>
-                      <UiItemActions class="shop-price">{{ line.total_display }}</UiItemActions>
-                    </UiItem>
-                  </UiItemGroup>
-                  <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
-                </div>
-              </UiScrollArea>
-            </UiSheetContent>
-          </UiSheet>
+          <BottomSheet
+            v-model:open="receiptOpen"
+            content-class="lg:hidden"
+            title="Seu pedido"
+            :description="confirmSheetDescription"
+          >
+            <div class="space-y-4 p-4">
+              <UiItemGroup class="gap-2">
+                <UiItem v-for="line in cart?.items || []" :key="line.line_id" size="sm" class="items-start bg-transparent p-0">
+                  <UiItemContent>
+                    <UiItemTitle class="line-clamp-1">{{ line.qty }}× {{ line.name }}</UiItemTitle>
+                    <UiItemDescription>{{ line.price_display }} cada</UiItemDescription>
+                  </UiItemContent>
+                  <UiItemActions class="shop-price">{{ line.total_display }}</UiItemActions>
+                </UiItem>
+              </UiItemGroup>
+              <CartSummaryBreakdown v-if="cart" :cart="cart" compact />
+            </div>
+          </BottomSheet>
 
           <!-- Etiqueta do endereço novo — só APÓS o pedido confirmar; ao
                resolver (escolher/pular/fechar), segue para o acompanhamento. -->

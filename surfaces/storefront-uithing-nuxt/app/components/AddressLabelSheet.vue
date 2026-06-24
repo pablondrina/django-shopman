@@ -83,18 +83,15 @@ watch(() => props.open, open => {
 </script>
 
 <template>
-  <UiSheet :open="open" @update:open="value => emit('update:open', value)">
-    <UiSheetContent
-      side="bottom"
-      variant="floating"
-      class="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 bg-card p-0 text-card-foreground"
-      data-address-label-sheet
-    >
-      <UiSheetHeader class="px-4 pt-4">
-        <UiSheetTitle :title="addressId ? 'Endereço salvo' : 'Etiqueta do endereço'" />
-        <UiSheetDescription description="Como você quer chamar este endereço?" />
-      </UiSheetHeader>
-      <div class="shop-stack-block px-4 pb-4 pt-3">
+  <BottomSheet
+    :open="open"
+    max-width="md"
+    :title="addressId ? 'Endereço salvo' : 'Etiqueta do endereço'"
+    description="Como você quer chamar este endereço?"
+    data-address-label-sheet
+    @update:open="value => emit('update:open', value)"
+  >
+    <div class="shop-stack-block px-4 py-4">
         <div class="flex flex-wrap gap-2">
           <UiButton
             v-for="option in labelOptions"
@@ -116,6 +113,5 @@ watch(() => props.open, open => {
           Agora não
         </UiButton>
       </div>
-    </UiSheetContent>
-  </UiSheet>
+  </BottomSheet>
 </template>
