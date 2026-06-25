@@ -283,11 +283,14 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > gate, otp tables migradas no release sem quebrar boot), changelist de produtos 200,
 > `/admin/2fa/verify/` 200, apps+API de operador 200. 2FA fica OFF até enrollment.
 >
-> **Achado pré-existente (NÃO regressão; tarefa separada):** `/admin/orderman/order/`
-> 500 no staging — `TemplateDoesNotExist: orderman/admin/order_change_list.html`. Causa:
-> `packages/*` não declaram `package-data`, então `pip install ./packages/orderman`
-> (Dockerfile) não embarca `templates/`. Local é editável (mascara). Predata esta sessão
-> (não toquei orderman). Fix de packaging spawnado como tarefa própria.
+> **Achado pré-existente CORRIGIDO** (commit `e78bb933`, deploy `20af1892`): o 500 do
+> `/admin/orderman/order/` tinha 2 camadas. **(1) Curadoria:** o `change_list_template`
+> custom era chrome do console removido (botão→`admin_console_orders` morto) → removido;
+> o Admin de pedidos volta ao changelist Unfold padrão. **(2) Packaging:** `packages/*`
+> não declaravam `package-data` → o build não-editável (Dockerfile) não embarcava
+> `templates/`/`static/` (wheel do orderman tinha 0 .html). Adicionado package-data a
+> orderman/craftsman/doorman/guestman/payman/refs/utils (doorman: 6 templates de auth/OTP
+> que tb não embarcavam!). Filosofia: Admin convencional, customizar só onde agrega valor.
 > Feito (commit `c58c3f4e`): infra de 2FA TOTP **atrás da flag `SHOPMAN_ADMIN_REQUIRE_2FA`
 > (default OFF)** — no staging fica OFF até o enrollment (ligar tranca fora). `make test`
 > 2109 + `make admin` 247 + ruff verdes; fluxo ponta-a-ponta testado LOCAL (8 testes:
