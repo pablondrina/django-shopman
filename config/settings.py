@@ -828,6 +828,13 @@ SHOPMAN_KDS_BASE_URL = (
     os.environ.get("SHOPMAN_KDS_BASE_URL") or ""
 ).strip().rstrip("/")
 
+# Base URL pública da Produção (operador) — app Nuxt dedicado
+# (surfaces/production-uithing-nuxt). Vazio ⇒ o item "Produção ao vivo" some do nav
+# do Admin (sem link morto), e o operador acessa direto pelo subdomínio (fournil.).
+SHOPMAN_PRODUCTION_BASE_URL = (
+    os.environ.get("SHOPMAN_PRODUCTION_BASE_URL") or ""
+).strip().rstrip("/")
+
 # 2FA obrigatório no Admin (django-otp/TOTP) — gated por env. Default OFF para não
 # trancar fora antes do enrollment; ligar (env="true") só depois de cada superuser
 # ter um TOTPDevice confirmado (management command `setup_admin_totp`). Em PROD,

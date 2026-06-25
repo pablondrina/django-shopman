@@ -38,6 +38,11 @@ def _kds_base_url() -> str:
     return (getattr(settings, "SHOPMAN_KDS_BASE_URL", "") or "").rstrip("/")
 
 
+def _production_base_url() -> str:
+    """Base absoluta da Produção (surfaces/production-uithing-nuxt). Vazio ⇒ oculto."""
+    return (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").rstrip("/")
+
+
 def get_sidebar_navigation(request):
     """Return the canonical Admin sidebar for this Shopman installation.
 
@@ -82,6 +87,16 @@ def get_sidebar_navigation(request):
     kds_url = _kds_base_url()
     if kds_url:
         live_items.append(_item("KDS", "tv", kds_url, permission=_can_operate_kds))
+    production_url = _production_base_url()
+    if production_url:
+        live_items.append(
+            _item(
+                "Produção ao vivo",
+                "factory",
+                production_url,
+                permission=_can_operate_production,
+            )
+        )
     live_items.append(
         _item(
             "Alertas ativos",
@@ -256,6 +271,10 @@ def _can_operate_pos(request) -> bool:
 
 def _can_operate_kds(request) -> bool:
     return permissions.can_operate_kds(request.user)
+
+
+def _can_operate_production(request) -> bool:
+    return permissions.can_operate_production(request.user)
 
 
 def _can_view_operator_alerts(request) -> bool:
