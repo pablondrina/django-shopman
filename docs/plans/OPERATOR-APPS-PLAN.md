@@ -248,7 +248,10 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > follow-up); superfície Unfold `admin-console-orders` removida, projeções re-registradas
 > sob exceção `headless-operator-api`. RBAC/confirm/locust repointados p/ a API.
 > `make test` 2099 + `make admin` 245 + ruff verdes. `gestor/base.html` fica (Produção
-> usa até Fase 4). Verificação AO VIVO pós-deploy pendente.
+> usa até Fase 4). **✅ VERIFICADO AO VIVO** (deploy `cfffee75` ACTIVE): legados
+> `/admin/operacao/pedidos/`, `/operacao/kds/`, `/operacao/kds/cliente/`,
+> `/gestor/alertas/badge/` → 404; `/gestor/producao/kds/` → 200 (Produção intacta);
+> gestor./kds. apps + orders/alerts API → 200; nav do Admin linka gestor./kds./pos.
 
 ### WP-K2 (original) · Matar o KDS-HTMX (station + customer board)
 - Confirmar paridade AO VIVO em `kds.staging…` (estação write/SSE/expedição + board do
