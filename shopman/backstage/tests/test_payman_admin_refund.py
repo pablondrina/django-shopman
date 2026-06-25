@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.auth.models import User
-
 from shopman.payman.models import PaymentIntent
 from shopman.payman.service import PaymentService
+
 from shopman.shop.models import Shop
 
 

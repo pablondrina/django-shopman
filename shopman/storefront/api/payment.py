@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from django.conf import settings
 from django.http import Http404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache

@@ -17,8 +17,8 @@ import pytest
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.urls import NoReverseMatch, reverse
-
 from shopman.orderman.models import Order, OrderItem
+
 from shopman.shop.models import Shop
 
 # Built at import time — pytest-django has already run ``django.setup()`` (which
