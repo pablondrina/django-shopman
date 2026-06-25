@@ -136,7 +136,16 @@ compartilhados** usados pelo console Admin que FICA:
 cobre 100% das ações do chão + planejamento; operador com `operate_production` (não-superuser)
 acessa, sem → 403; escassez retorna envelope estruturado.
 
-## WP-P2 · Scaffold `surfaces/production-uithing-nuxt` + telas · ⏳
+## WP-P2 · Scaffold `surfaces/production-uithing-nuxt` + telas · ✅ CONCLUÍDO
+
+> Feito: surface copiada de `orders-uithing-nuxt`, parametrizada (name, porta 3005,
+> light, título). Telas: `index.vue` (Chão ao vivo = board de WO iniciadas: avançar
+> passo/concluir/estornar + modal de escassez com override `force`) + `planejamento.vue`
+> (matriz: totais planned/started/finished por SKU + sugestão + planejar/iniciar inline).
+> Camada `presentation/production.ts` PURA + `types/production.ts` + composables
+> `useProductionKds`/`useProductionBoard`. Lockfile regenerado do orders-uithing (npm ci
+> limpo). vitest 16 + `npm run build` verdes; smoke AO VIVO LOCAL (proxy 3005 → Django
+> 8000) ciclo plan→board→start→kds 200 ponta-a-ponta.
 
 Copiar a fundação de `orders-uithing-nuxt` (mais próxima: touch + light) e parametrizar.
 
@@ -163,7 +172,16 @@ Copiar a fundação de `orders-uithing-nuxt` (mais próxima: touch + light) e pa
 **Aceite:** `vitest` verde na `presentation/`; app sobe em `127.0.0.1:3005` consumindo
 `api.` local; console limpo; POSTs 200; modais de escassez funcionam.
 
-## WP-P3 · Deploy staging + verificação AO VIVO · ⏳
+## WP-P3 · Deploy staging + verificação AO VIVO · ✅ CONCLUÍDO
+
+> Feito (deploy `c311baa1` ACTIVE): spec do DO editado ADITIVAMENTE (via transform
+> Python p/ preservar os 12 secrets `EV[...]`) — componente `production-uithing` (mirror
+> de orders-uithing), domínio ALIAS `fournil.staging…`, ingress rule ANTES do catch-all
+> da loja, env global `SHOPMAN_PRODUCTION_BASE_URL`. Settings + nav (item "Produção ao
+> vivo" env-gated, gate `operate_production`). **Verificado AO VIVO autenticado** (login
+> pablo via proxy): `fournil.staging/` serve o app (200, ambas as rotas); board/kds via
+> proxy → 200 com a projeção real; write (plan) via proxy → 200 (CSRF auto), revertido
+> com void; gate unauth → 403; **zero regressão** (gestor./kds./pos./loja/api → 200).
 
 1. **Deploy aditivo** no app DO `shopman-staging` (`40b86e35-…`), `--context
    shopman-staging-deploy` (AUTODEPLOY OFF):
@@ -185,7 +203,18 @@ Copiar a fundação de `orders-uithing-nuxt` (mais próxima: touch + light) e pa
 **Aceite:** `fournil.staging…` no ar e verificado; nav linka; paridade com o HTMX
 confirmada AO VIVO.
 
-## WP-P4 · Aposentar o HTMX "KDS de produção" (padrão WP1, não delete cego) · ⏳
+## WP-P4 · Aposentar o HTMX "KDS de produção" (padrão WP1, não delete cego) · ✅ CONCLUÍDO (deploy em verificação)
+
+> Feito (commit `2d6cc5bc`): paridade AO VIVO confirmada (WP-P3) antes de deletar.
+> Removidas SÓ as 4 views HTMX do KDS + helpers/constantes exclusivos; MANTIDOS os
+> helpers compartilhados (handle_production_post/render_production_surface/
+> production_redirect) + constantes/templates de escassez (renderizados pelo console
+> Admin). Shell legado MORTO: gestor/base.html + 404.html + kds.html + kds_cards.html +
+> handler404 custom + views/errors.py. Atribuição de auditoria preservada (API usa actor
+> `production:<user>`). Cobertura migrada p/ API/e2e; gates religados (omotenashi-QA,
+> a11y skip-link/nav/producao_kds aposentados, canonical → `runtime-production-shortage-
+> modals`, locust → API). `make admin` 247 + framework 2118 + backstage 547 + ruff
+> verdes; zero residuals. **Deploy `3319adba` em verificação** (HTMX gone + fournil. íntegro).
 
 Só após paridade AO VIVO confirmada no WP-P3.
 
