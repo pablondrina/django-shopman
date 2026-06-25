@@ -7,12 +7,13 @@ from typing import Literal
 
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
+from shopman.craftsman.models import WorkOrder
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
 
-from shopman.backstage.models import CashShift, DayClosing, POSTab
-from shopman.shop.services import pos_links, storefront_links
+from shopman.backstage.models import CashShift, DayClosing, KDSTicket, POSTab
+from shopman.shop.services import operator_links, pos_links, storefront_links
 
 Status = Literal["ready", "missing"]
 
@@ -106,9 +107,13 @@ def build_omotenashi_qa_report() -> OmotenashiQAReport:
         _pix_pending_check(),
         _pix_expired_check(),
         _tracking_ready_check(),
-        # KDS station/customer board + fila de pedidos + produção (chão ao vivo) +
-        # edge-cases de pedido migraram p/ apps Nuxt (kds./gestor./fournil.); o
-        # browser-QA dessas superfícies Nuxt é follow-up (OPERATOR-APPS-PLAN Fases 2 e 4).
+        # Superfícies de operador = apps Nuxt dedicados (gestor./kds./fournil./pos.),
+        # apontados por base URL configurável. O gate browser-QA da loja não as serve
+        # → o harness as pula com "surface-not-served" (como o POS), mas a matriz fica
+        # completa e documenta a expectativa omotenashi de cada superfície.
+        _orders_check(),
+        _kds_check(),
+        _production_check(),
         _pos_check(),
         _day_closing_check(),
         _cash_register_check(),
@@ -205,6 +210,82 @@ def _tracking_ready_check() -> OmotenashiQACheck:
         evidence=_order_evidence(order),
         blocker="Rode make seed; nenhum pedido READY foi encontrado.",
         order_ref=order.ref if order else "",
+    )
+
+
+_ACTIVE_ORDER_STATUSES = (
+    Order.Status.NEW,
+    Order.Status.CONFIRMED,
+    Order.Status.PREPARING,
+    Order.Status.READY,
+    Order.Status.DISPATCHED,
+)
+
+
+def _orders_check() -> OmotenashiQACheck:
+    order = (
+        Order.objects.filter(status__in=_ACTIVE_ORDER_STATUSES)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    evidence = f"order={order.ref} status={order.status}" if order else ""
+    return _check(
+        id="desktop.orders.queue",
+        surface="orders",
+        viewport="desktop 1440x900",
+        persona="gerente acompanhando a fila de pedidos",
+        title="Gestor de Pedidos com fila viva e ações sem dead end",
+        url=operator_links.orders_url(),
+        expectation="Operador deve confirmar/avançar/recusar/acertar e ver alertas sem tocar em admin genérico.",
+        evidence=evidence,
+        blocker="Rode make seed; nenhum pedido ativo foi encontrado.",
+        auth_gated=True,
+    )
+
+
+def _kds_check() -> OmotenashiQACheck:
+    ticket = (
+        KDSTicket.objects.filter(status__in=["pending", "in_progress"])
+        .order_by("created_at", "id")
+        .first()
+    )
+    evidence = f"ticket={ticket.pk} status={ticket.status}" if ticket else ""
+    return _check(
+        id="tablet.kds.station",
+        surface="kds",
+        viewport="tablet/touch 1024x768",
+        persona="cozinha montando o pedido",
+        title="KDS com tickets vivos, toque e expedição",
+        url=operator_links.kds_url(),
+        expectation="Estação deve mostrar item, tempo e ação primária sem esconder atraso nem cancelamento.",
+        evidence=evidence,
+        blocker="Rode make seed; nenhum ticket KDS pendente/em andamento foi encontrado.",
+        auth_gated=True,
+    )
+
+
+def _production_check() -> OmotenashiQACheck:
+    work_order = (
+        WorkOrder.objects.filter(status__in=[WorkOrder.Status.STARTED, WorkOrder.Status.PLANNED])
+        .order_by("target_date", "id")
+        .first()
+    )
+    evidence = (
+        f"wo={work_order.ref} status={work_order.status} sku={work_order.output_sku}"
+        if work_order
+        else ""
+    )
+    return _check(
+        id="tablet.production.floor",
+        surface="production",
+        viewport="tablet/touch 1024x768",
+        persona="produção em lote no chão",
+        title="Produção (chão ao vivo) com passo, conclusão e escassez de insumo",
+        url=operator_links.production_url(),
+        expectation="Tela deve mostrar lote, passo, ação primária e bloqueio de insumo sem esconder risco.",
+        evidence=evidence,
+        blocker="Rode make seed; nenhuma WorkOrder planejada/iniciada foi encontrada.",
+        auth_gated=True,
     )
 
 
