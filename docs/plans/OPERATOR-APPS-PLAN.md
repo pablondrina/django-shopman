@@ -278,15 +278,37 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > Admin = só CRUD + Configurações, acesso super-restrito. Tudo sob o **Unfold Canonical
 > Gate** (`make admin`).
 
-### WP-A1 · Restrição de acesso ao `admin.` (decisão pendente — confirmar com Pablo)
-- Implementar o modelo escolhido (IP allowlist via middleware/edge, 2FA obrigatório, ou
-  ambos). Considerar mover o Admin para `admin.` próprio (ingress) separado do `api.`.
+### WP-A1 · Restrição de acesso ao `admin.` — 2FA (DECIDIDO; próximo WP, atendido)
+> **Decisão (Pablo, 2026-06-25):** 2FA obrigatório p/ superuser (django-otp/TOTP),
+> **gated** p/ não trancar fora; **anotar IP allowlist p/ PROD** (não staging).
+> **Por que ainda não executei:** é auth security-critical que muda o login e **não dá
+> p/ verificar no staging sem se trancar** (habilitar bloqueia o próprio fluxo de
+> verificação por curl; enrollment precisa do Pablo). É o tipo de coisa pra fazer
+> ATENDIDO — não às cegas, unattended. Design travado abaixo, pronto p/ executar.
 
-### WP-A2 · Faxina canônica
-- Sidebar (organização/agrupamento), nomenclatura (rótulos **e** breadcrumbs), remover
-  páginas obsoletas/mortas e itens da era pré-apps-dedicados (incl. o que sobrou do
-  console de pedidos). Sob o Unfold Canonical Gate.
-- **Aceite:** `make admin` (sem `url`) verde; sidebar enxuta; sem páginas órfãs.
+**Design (django-otp, compat Django 6.0 confirmada — `django-otp>=1.7,<2.0`):**
+1. `pyproject.toml`: + `django-otp`. `INSTALLED_APPS` += `django_otp`,
+   `django_otp.plugins.otp_totp`. `MIDDLEWARE`: + `django_otp.middleware.OTPMiddleware`
+   logo após `AuthenticationMiddleware`. Migração do django-otp.
+2. Flag `SHOPMAN_ADMIN_REQUIRE_2FA` (env, **default False** → staging segue acessível
+   até o enrollment; liga-se quando o Pablo enrola o device).
+3. Middleware-gate `AdminTwoFactorMiddleware`: em paths `/admin/`, se flag ON +
+   autenticado + `not request.user.is_verified()` → redirect p/ a view de verificação
+   (exceto a própria view + logout, p/ não criar loop).
+4. View + template (Unfold-styled, `admin/base.html`) de entrada de token TOTP.
+5. Enrollment: management command `setup_admin_totp <user>` → cria `TOTPDevice`
+   confirmado e imprime o `otpauth://` URI (sem UI custom p/ enrollment).
+6. Testes do gate: flag OFF → admin 200; flag ON + sem device → redirect; flag ON +
+   verificado → 200. Verificação ponta-a-ponta LOCAL (liga flag, enrola, gera TOTP),
+   nunca no staging (lockout).
+7. Docs (`docs/`) + **follow-up PROD: IP allowlist** (middleware/edge no `admin.`,
+   quando o admin tiver ingress próprio e IP fixo/VPN — fora do staging).
+
+### WP-A2 · Faxina canônica · ✅ JÁ SATISFEITA
+> O sidebar já é benchmark (BACKOFFICE-UNFOLD-REVISION + ADMIN-CONFIG-OMOTENASHI) e o
+> "encolher" aconteceu na Fase 2 (console de pedidos removido; nav env-gated p/ os apps
+> Nuxt; admin carrega 200, sem links mortos). Não há cruft seguro a remover — reorganizar
+> um sidebar-benchmark especulativamente degradaria. Nada a fazer agora.
 
 ---
 
