@@ -79,7 +79,17 @@ compartilhados** usados pelo console Admin que FICA:
 
 ---
 
-## WP-P1 · API headless de produção completa + permissão `operate_production` · ⏳
+## WP-P1 · API headless de produção completa + permissão `operate_production` · ✅ CONCLUÍDO
+
+> Feito: permissão `backstage.operate_production` (coarse, família operate_pos/kds) em
+> `DayClosing.Meta`; `can_operate_production()` + inclusão em `can_view_operator_alerts`;
+> migração de Meta (`0013`) + data migration aditiva (`0014`, concede a Cozinha+Gerente) +
+> `setup_groups`. Sistema granular (`resolve_production_access`/`*_production_*`) intacto p/
+> o Admin. Endpoints novos `production/plan/`, `production/<wo>/start/`,
+> `production/<wo>/finish/`; os 5 endpoints de produção migrados p/ o novo gate. Envelope de
+> escassez estruturado (`material_shortage`/`order_shortage`, 409) em finish/quick-finish/
+> plan. `test_api_production_surface.py` (12) + RBAC em `test_permissions`. `make backstage`
+> (553) + permissions (28) + lint + migrations-check verdes.
 
 **Backend, sem Nuxt. Reusar a facade `backstage/services/production.py`; NÃO tocar o Core
 (`packages/`).**
