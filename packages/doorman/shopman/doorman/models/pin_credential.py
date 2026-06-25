@@ -34,6 +34,16 @@ def hash_pin(raw_pin: str) -> str:
     return hmac.new(_pin_hmac_key(), raw_pin.strip().encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def hash_badge(raw_token: str) -> str:
+    """HMAC-SHA256 hex digest of a raw badge token (the barcode value).
+
+    The badge is an alternative, possession-based identifier for the same
+    principal — a long random token printed as a barcode on the operator's badge,
+    scanned in place of typing the PIN. Only the digest is stored, never the token.
+    """
+    return hmac.new(_pin_hmac_key(), (raw_token or "").strip().encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def pin_matches(stored_digest: str, raw_pin: str) -> bool:
     """Constant-time compare a raw PIN against a stored digest.
 
@@ -71,6 +81,16 @@ class PinCredential(models.Model):
         _("hash do PIN"),
         max_length=64,
         help_text=_("HMAC-SHA256 do PIN. Nunca armazena plaintext."),
+    )
+    badge_hash = models.CharField(
+        _("hash do crachá"),
+        max_length=64,
+        null=True,
+        blank=True,
+        default=None,
+        unique=True,
+        db_index=True,
+        help_text=_("HMAC-SHA256 do token do crachá (código de barras). Alternativa ao PIN. Nunca armazena plaintext."),
     )
 
     # Security / lockout
@@ -166,3 +186,48 @@ class PinCredential(models.Model):
         cred, _created = cls.objects.get_or_create(user=user, defaults={"pin_hash": ""})
         cred.set_pin(raw_pin)
         return cred
+
+    # ── Badge (barcode) — possession-based alternative to the PIN ────────────
+
+    def set_badge(self, raw_token: str) -> None:
+        """Store the digest of a badge token (already-minted barcode value)."""
+        self.badge_hash = hash_badge(raw_token)
+        if self.pk:
+            self.save(update_fields=["badge_hash", "updated_at"])
+
+    def clear_badge(self) -> None:
+        """Revoke the badge (e.g. lost crachá)."""
+        self.badge_hash = None
+        if self.pk:
+            self.save(update_fields=["badge_hash", "updated_at"])
+
+    @classmethod
+    def issue_badge(cls, user) -> str:
+        """Mint a fresh random badge token, store its digest, return the raw token.
+
+        The caller encodes the returned value as a Code-128 barcode on the badge.
+        24 hex chars (96 bits) — unguessable, and comfortably inside a barcode.
+        """
+        import secrets
+
+        cred, _created = cls.objects.get_or_create(user=user, defaults={"pin_hash": ""})
+        raw = secrets.token_hex(12)
+        cred.set_badge(raw)
+        return raw
+
+    @classmethod
+    def resolve_by_badge(cls, raw_token: str):
+        """Return the principal (User) whose badge matches, or None.
+
+        Possession-based: a 96-bit token is not brute-forceable, so this is not
+        coupled to the PIN lockout. Eligibility (active/staff/perm) is enforced by
+        the caller (operator service), not here.
+        """
+        token = (raw_token or "").strip()
+        if not token:
+            return None
+        try:
+            cred = cls.objects.select_related("user").get(badge_hash=hash_badge(token))
+        except cls.DoesNotExist:
+            return None
+        return cred.user

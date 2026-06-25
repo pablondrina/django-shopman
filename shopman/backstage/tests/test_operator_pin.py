@@ -7,6 +7,7 @@ from shopman.doorman.models import PinCredential
 
 from shopman.backstage.services.operator import (
     eligible_operators,
+    resolve_operator_by_badge,
     verify_manager_pin,
     verify_operator_pin,
 )
@@ -69,3 +70,52 @@ class OperatorPinTests(TestCase):
         usernames = set(eligible_operators().values_list("username", flat=True))
         self.assertIn("caixa", usernames)
         self.assertNotIn("sem_pin", usernames)
+
+
+class OperatorBadgeTests(TestCase):
+    """Badge (barcode) as a possession-based alternative to the PIN, plus the
+    permission-parametrised resolution used by the Opção C authorization layer."""
+
+    def setUp(self):
+        self.op = User.objects.create_user("padeiro", password="x", is_staff=True, first_name="Bia")
+        PinCredential.set_for(self.op, "4321")
+        self.op = _grant(self.op, "operate_production")
+
+    def test_issue_and_resolve_badge(self):
+        token = PinCredential.issue_badge(self.op)
+        assert token and len(token) >= 16
+        # resolves to the user (eligibility checked against the surface perm)
+        self.assertEqual(
+            resolve_operator_by_badge(token, required_perm="backstage.operate_production"),
+            User.objects.get(pk=self.op.pk),
+        )
+
+    def test_wrong_or_empty_badge_resolves_none(self):
+        PinCredential.issue_badge(self.op)
+        self.assertIsNone(resolve_operator_by_badge("not-a-real-token"))
+        self.assertIsNone(resolve_operator_by_badge(""))
+
+    def test_cleared_badge_stops_resolving(self):
+        token = PinCredential.issue_badge(self.op)
+        self.op.pin_credential.clear_badge()
+        self.assertIsNone(resolve_operator_by_badge(token, required_perm=None))
+
+    def test_badge_honours_permission_filter(self):
+        token = PinCredential.issue_badge(self.op)
+        # has operate_production but not operate_pos
+        self.assertIsNone(resolve_operator_by_badge(token, required_perm="backstage.operate_pos"))
+        self.assertIsNotNone(resolve_operator_by_badge(token, required_perm="backstage.operate_production"))
+
+    def test_pin_identity_only_decouples_from_pos(self):
+        # required_perm=None → identity-only verify (the per-action gate enforces perms)
+        self.assertTrue(verify_operator_pin(self.op, "4321", required_perm=None))
+        # default (POS) → blocked, this operator has no operate_pos
+        self.assertFalse(verify_operator_pin(self.op, "4321"))
+
+    def test_eligible_operators_perm_none_includes_any_credentialed_staff(self):
+        usernames = set(eligible_operators(perm=None).values_list("username", flat=True))
+        self.assertIn("padeiro", usernames)
+        usernames_prod = set(
+            eligible_operators(perm="backstage.operate_production").values_list("username", flat=True)
+        )
+        self.assertIn("padeiro", usernames_prod)
