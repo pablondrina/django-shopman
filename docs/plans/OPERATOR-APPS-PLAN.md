@@ -136,7 +136,12 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 - **Aceite:** `make test` verde; `/api/v1/backstage/orders/*` cobre 100% das ações do
   console; operador com `operate_orders` (não-superuser) acessa; sem `operate_orders` → 403.
 
-### WP-G2 · Scaffold `surfaces/orders-uithing-nuxt` + telas
+### WP-G2 · Scaffold `surfaces/orders-uithing-nuxt` + telas · ✅ CONCLUÍDO
+> Feito (commits `8a0a9907` + fix de lock): surface criada da fundação POS/KDS;
+> camada `presentation/` pura testada (vitest 12); board Entrada/Preparo/Saída
+> desktop-first responsivo + detalhe; `npm ci`/build/dev verdes. Gotcha resolvido:
+> o lock gerado por npm 11.5.1 omitia `commander@11.1.0` aninhado sob svgo →
+> regerado a partir do lock em-sync do kds-uithing.
 **Copiar a fundação do POS/KDS e parametrizar (ver checklist em
 [SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md) + análise).**
 1. **Copiar as-is:** `app/components/Ui/`, `app/assets/css/tailwind.css`,
@@ -158,7 +163,30 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 - **Aceite:** `npm run test` (vitest) verde na `presentation/`; app sobe em
   `127.0.0.1:3004` consumindo `api.` local; console limpo; POSTs 200.
 
-### WP-G3 · Deploy staging + cutover (aposentar o console de pedidos)
+### WP-G3 · Deploy staging + verificação AO VIVO · ✅ CONCLUÍDO
+> Feito (deploy `6ba69687` ACTIVE, 2026-06-25): spec do DO editado ADITIVAMENTE —
+> componente `orders-uithing` (mirror do kds), domínio ALIAS
+> `gestor.staging.nelsonboulangerie.com.br`, ingress rule ANTES do catch-all da loja;
+> 12 secrets `EV[...]` preservados. **Nenhuma mudança em ALLOWED_HOSTS/CSRF/CORS foi
+> necessária** — o proxy Nuxt reescreve Host/Origin p/ `api.staging` (mesmo padrão de
+> pos/kds). **Verificação AO VIVO autenticada (full stack):** `gestor.staging/` serve o
+> app (200, shell "Gestor de Pedidos", chunk `orders-uithing`); leitura autenticada via
+> proxy `GET /api/v1/backstage/orders/` → 200 com dados reais (25 pedidos ativos);
+> escrita via proxy (notes POST, CSRF auto pelo proxy) → 200, persistiu, revertido.
+> Gate `manage_orders` confirmado. 1º deploy falhou por lock npm fora de sync (ver WP-G2).
+
+### WP-G3b · Cutover (repointar nav + aposentar o console) → BUNDLE com Fase 2
+> **Decisão de sequenciamento (2026-06-25):** a remoção do console **não é um delete
+> simples** — reescreve o gate de browser-QA omotenashi (`_order_queue_check`,
+> `_late_payment_after_cancel_check`, `_ifood_stale_check` em `services/omotenashi_qa.py`
+> apontam p/ URLs do console), os gates de a11y (`test_a11y_dynamic`/`_keyboard`) e o
+> shell legado `gestor/base.html` — **exatamente os gates que a Fase 2 (kill-legacy-HTMX)
+> derruba**. Removê-lo agora obrigaria a religar esses gates DUAS vezes. Então: o app
+> Gestor já é o primário vivo em `gestor.staging`; o console fica como fallback inofensivo
+> e a remoção (nav→`SHOPMAN_ORDERS_BASE_URL`, delete de `admin_console/orders.py` +
+> rotas + templates + repoint do QA/a11y) entra na Fase 2, num passo coerente único.
+
+### WP-G3 (original) · Deploy staging + cutover (aposentar o console de pedidos)
 1. **Deploy aditivo** no app DO `shopman-staging` (`40b86e35-…`), via
    `--context shopman-staging-deploy` (AUTODEPLOY DESLIGADO):
    - Editar o spec (preservar secrets `EV[...]`): novo componente Nuxt service (build
