@@ -828,7 +828,8 @@ class PreorderFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(ModelAdmin):
-    change_list_template = "orderman/admin/order_change_list.html"
+    # Changelist Unfold padrão (history/auditoria). A operação de pedidos vive no app
+    # Nuxt dedicado (Gestor); o template custom anterior era chrome do console removido.
     list_display = (
         "ref",
         "channel_ref",

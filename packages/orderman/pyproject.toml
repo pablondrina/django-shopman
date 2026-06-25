@@ -21,6 +21,11 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["shopman.orderman*"]
 
+# Embarca templates/static/locale no build (pip install ./packages/orderman); sem isto
+# o setuptools instala só os .py e o Admin quebra com TemplateDoesNotExist no deploy.
+[tool.setuptools.package-data]
+"*" = ["templates/**/*", "static/**/*", "locale/**/*.mo"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "orderman_test_settings"
 pythonpath = [".", "../utils", "../refs"]

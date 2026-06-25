@@ -23,6 +23,10 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["shopman.doorman*"]
 
+# Embarca templates/static/locale no build (sem isto o setuptools instala só os .py).
+[tool.setuptools.package-data]
+"*" = ["templates/**/*", "static/**/*", "locale/**/*.mo"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "doorman_test_settings"
 pythonpath = [".", "../guestman", "../utils"]

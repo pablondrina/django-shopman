@@ -24,6 +24,10 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["shopman.payman*"]
 
+# Embarca templates/static/locale no build (sem isto o setuptools instala só os .py).
+[tool.setuptools.package-data]
+"*" = ["templates/**/*", "static/**/*", "locale/**/*.mo"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "payman_test_settings"
 pythonpath = ["."]
