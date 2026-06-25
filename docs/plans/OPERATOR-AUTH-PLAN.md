@@ -104,11 +104,17 @@ bloqueadas. O crachá é um token de POSSE (código de barras), alternativa ao P
 > `eligible_operators` parametrizados por permissão (default `operate_pos` preservado;
 > `perm=None`=identidade-só). Session key → `active_operator`. operator-pin 17 + doorman 266.
 
-### WP-AUTH-2b · Autorizar ações contra o operador ativo (gated) · ⏳ — NÚCLEO crítico
+### WP-AUTH-2b · Autorizar ações contra o operador ativo (gated) · ✅ CONCLUÍDO
 
-> Slice de backend de segurança. Feature-gated por `SHOPMAN_REQUIRE_ACTIVE_OPERATOR`
-> (default OFF = comportamento atual, sessão decide). Construir com cuidado + testes
-> exaustivos (risco = brecha de permissão).
+> Feito (commits `31420454` etc., main): gate + endpoints + atribuição, gated por
+> `SHOPMAN_REQUIRE_ACTIVE_OPERATOR` (default OFF). **Gate** (`HasBackstagePermission`):
+> flag ON → checa a perm contra o operador ativo (não a sessão do device), 403 travado/
+> sem-acesso, guarda `request.active_operator_user`; 6 testes blindando o no-bypass.
+> **Endpoints** `operator/session|eligible|unlock|lock/` (gated só pela sessão do device;
+> unlock por PIN ou crachá; perm-whitelist restringe quem destrava); `_actor`/`_username`
+> usam o operador ativo. 5 testes de contrato incl. fluxo ponta-a-ponta. backstage 564 +
+> make admin 247 + lint verdes. Follow-up: migrar o surface do POS dos endpoints
+> `pos/operator/*` p/ os genéricos (no WP-AUTH-2c).
 
 1. `HasBackstagePermission` ganha o ramo Opção C (flag ON): exige sessão staff (device) +
    **operador ativo** na sessão; carrega o User do operador e checa `required_permission`
