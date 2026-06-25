@@ -203,7 +203,7 @@ Copiar a fundação de `orders-uithing-nuxt` (mais próxima: touch + light) e pa
 **Aceite:** `fournil.staging…` no ar e verificado; nav linka; paridade com o HTMX
 confirmada AO VIVO.
 
-## WP-P4 · Aposentar o HTMX "KDS de produção" (padrão WP1, não delete cego) · ✅ CONCLUÍDO (deploy em verificação)
+## WP-P4 · Aposentar o HTMX "KDS de produção" (padrão WP1, não delete cego) · ✅ CONCLUÍDO + DEPLOYADO + VERIFICADO
 
 > Feito (commit `2d6cc5bc`): paridade AO VIVO confirmada (WP-P3) antes de deletar.
 > Removidas SÓ as 4 views HTMX do KDS + helpers/constantes exclusivos; MANTIDOS os
@@ -253,3 +253,17 @@ totalmente removido.
   por WP; mergear no `main` antes de deploy (spec builda do `main`).
 - Gotchas: Django cacheia `Shop.defaults` (restart do componente); preview Nuxt navega por
   `127.0.0.1:3005`, nunca `localhost` (IPv6→426).
+
+## Pós-Fase 4 — pendências (bloqueadas no Pablo)
+
+1. **Browser-QA AUTENTICADO das superfícies de operador** — a matriz omotenashi já foi
+   restaurada (orders/kds/production via `operator_links`; commit `b770e1f8`), mas o
+   browser-QA autenticado é bloqueado por um **gap pré-existente de auth cross-subdomínio**:
+   um browser fresco em `fournil.`/`gestor.`/`kds.` recebe 403 e não tem como logar (sem
+   rota de login no domínio do app, sem `SESSION_COOKIE_DOMAIN`). Decisão de arquitetura/
+   segurança do Pablo (cookie de domínio-pai compartilha sessão admin com a loja pública,
+   OU login dedicado por app, OU auth por token do doorman). Ver memória
+   `project_operator_apps_crosssubdomain_auth_gap`.
+2. **Ligar 2FA do Admin** — `setup_admin_totp pablo` (escanear QR) + `SHOPMAN_ADMIN_REQUIRE_2FA=true`
+   no spec + redeploy. Risco de lockout; precisa do Pablo.
+3. **IP allowlist do admin (PROD)** — ingress próprio + IP fixo/VPN; não existe no staging.
