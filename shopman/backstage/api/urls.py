@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.urls import path
 
+from .alerts import AlertAckView, AlertListView
 from .kds import (
     KDSBoardView,
     KDSCustomerStatusView,
@@ -79,6 +80,9 @@ urlpatterns = [
     path("orders/<str:ref>/settle-delivery-cash/", OrderSettleDeliveryCashView.as_view(), name="api-backstage-order-settle-delivery-cash"),
     path("orders/<str:ref>/requeue-fiscal/", OrderRequeueFiscalView.as_view(), name="api-backstage-order-requeue-fiscal"),
     path("orders/<str:ref>/notes/", OrderNotesView.as_view(), name="api-backstage-order-notes"),
+    # Operator alerts
+    path("alerts/", AlertListView.as_view(), name="api-backstage-alerts"),
+    path("alerts/<int:pk>/ack/", AlertAckView.as_view(), name="api-backstage-alert-ack"),
     # Production — work order actions
     path("production/<int:wo_id>/advance-step/", WorkOrderAdvanceStepView.as_view(), name="api-backstage-wo-advance"),
     path("production/quick-finish/", WorkOrderQuickFinishView.as_view(), name="api-backstage-wo-quick-finish"),

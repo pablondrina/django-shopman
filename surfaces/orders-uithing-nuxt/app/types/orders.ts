@@ -110,3 +110,19 @@ export interface OrderQueueResponse {
 export interface OrderDetailResponse {
   order: OperatorOrderProjection;
 }
+
+export interface AlertProjection {
+  pk: number;
+  type: string;
+  type_label: string;
+  severity: "warning" | "error" | "critical";
+  severity_label: string;
+  message: string;
+  order_ref: string;
+  created_at_display: string;
+}
+
+export interface AlertsResponse {
+  alerts: AlertProjection[];
+  counts: { active: number; critical: number };
+}

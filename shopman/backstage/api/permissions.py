@@ -35,3 +35,20 @@ class HasBackstagePermission(BasePermission):
         if perm is None:
             return True
         return user.has_perm(perm)
+
+
+class CanViewOperatorAlerts(BasePermission):
+    """Any operator persona that may see operator alerts.
+
+    Wraps the canonical ``can_view_operator_alerts`` predicate (staff + any
+    operator capability) so alert endpoints share the same rule as the sidebar
+    badge and the legacy HTMX panel.
+    """
+
+    message = "Acesso restrito a operadores."
+
+    def has_permission(self, request, view) -> bool:
+        from shopman.backstage.permissions import can_view_operator_alerts
+
+        user = getattr(request, "user", None)
+        return bool(user and user.is_authenticated and can_view_operator_alerts(user))

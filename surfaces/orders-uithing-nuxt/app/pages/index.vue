@@ -93,6 +93,7 @@ function onAction(ref_: string, action: AffordanceRef) {
             <Icon name="lucide:x" class="size-3.5" />
           </button>
         </div>
+        <AlertsBell />
         <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Atualizar" title="Atualizar" @click="refresh()">
           <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
         </button>
