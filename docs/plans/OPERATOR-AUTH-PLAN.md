@@ -25,17 +25,18 @@ para um **domínio registrável SEPARADO**, para o cookie de sessão ser fisicam
 de chegar à loja pública. String do domínio vive num único lugar (settings/env/spec) —
 trocar depois é barato.
 
-- **Agora (custo zero):** `boulangerie.com.br` (já à disposição; eTLD+1 distinto de
-  `nelsonboulangerie.com.br`).
-- **Ideal de longo prazo (opcional):** registrar `nelson.app.br` (`.app.br` = categoria de
-  app no Registro.br; hosts curtos e claros). Migração futura = trocar 1 valor + DNS.
+**Domínio escolhido (Pablo, 2026-06-25): `boulangerie.com.br`** (já registrado; eTLD+1
+distinto de `nelsonboulangerie.com.br` → isolamento físico do cookie). **Sem infixo
+`staging`** — é um domínio novo, dedicado a operador, zero clientes; quando produção chegar,
+usa-se outro domínio (ex.: `nelson.app.br`) ou move-se, barato (host = 1 valor no spec/env).
+Zona DNS já criada no DigitalOcean; falta só delegar os NS no Registro.br (ação do Pablo).
 
-Layout (exemplo com `boulangerie.com.br`):
+Layout:
 
 ```
 LOJA (cliente) — inalterada:
   nelsonboulangerie.com.br            Loja (Nuxt)      sessão cliente: host-only
-  api.nelsonboulangerie.com.br        API/BFF
+  api.staging.nelsonboulangerie.com.br  API/BFF (atual)
 
 OPERADOR — zona isolada, sessão = .boulangerie.com.br:
   boulangerie.com.br                  Entrar (login 1×) + hub
