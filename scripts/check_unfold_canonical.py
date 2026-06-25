@@ -257,6 +257,15 @@ RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
     ),
     # KDS station + customer board migraram p/ o app Nuxt dedicado (kds-uithing-nuxt)
     # via api/v1/backstage/kds/*; as views/templates HTMX foram removidas (Fase 2).
+    Surface(
+        id="runtime-admin-2fa",
+        kind="registered-runtime-backstage",
+        templates=(ROOT / "shopman/backstage/templates/two_factor",),
+        replacement=(
+            "Admin 2FA verify is a standalone auth interstitial (não é tela de gestão); "
+            "self-contained por design, fora do shell Unfold."
+        ),
+    ),
 )
 
 EXCEPTION_SURFACES: tuple[Surface, ...] = (

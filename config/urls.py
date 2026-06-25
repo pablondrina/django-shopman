@@ -18,6 +18,7 @@ from shopman.backstage.admin_console.production import (
     production_reports_view,
     production_weighing_view,
 )
+from shopman.backstage.views.two_factor import admin_2fa_verify
 from shopman.shop.views.health import HealthCheckView, ReadyCheckView
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ urlpatterns = [
         admin.site.admin_view(day_closing_console_view),
         name="admin_console_day_closing",
     ),
+    path("admin/2fa/verify/", admin_2fa_verify, name="admin_2fa_verify"),
     path("admin/", admin.site.urls),
     # OpenAPI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

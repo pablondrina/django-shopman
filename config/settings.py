@@ -160,6 +160,9 @@ INSTALLED_APPS = [
     "django_ratelimit",
     "django_eventstream",
     "simple_history",
+    # 2FA (django-otp) — TOTP devices for admin step-up (gated by SHOPMAN_ADMIN_REQUIRE_2FA)
+    "django_otp",
+    "django_otp.plugins.otp_totp",
     # Shopman core apps
     "shopman.refs",
     "shopman.utils",
@@ -209,12 +212,16 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # OTP verification state (request.user.is_verified()) — must follow auth.
+    "django_otp.middleware.OTPMiddleware",
     "shopman.doorman.middleware.AuthCustomerMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.storefront.middleware.ChannelParamMiddleware",
     "shopman.backstage.middleware.OnboardingMiddleware",
+    # Admin 2FA gate (no-op unless SHOPMAN_ADMIN_REQUIRE_2FA) — after OTPMiddleware.
+    "shopman.backstage.middleware_2fa.AdminTwoFactorMiddleware",
     "shopman.shop.middleware.APIVersionHeaderMiddleware",
 ]
 
@@ -820,6 +827,14 @@ SHOPMAN_ORDERS_BASE_URL = (
 SHOPMAN_KDS_BASE_URL = (
     os.environ.get("SHOPMAN_KDS_BASE_URL") or ""
 ).strip().rstrip("/")
+
+# 2FA obrigatório no Admin (django-otp/TOTP) — gated por env. Default OFF para não
+# trancar fora antes do enrollment; ligar (env="true") só depois de cada superuser
+# ter um TOTPDevice confirmado (management command `setup_admin_totp`). Em PROD,
+# combinar com IP allowlist no ingress do admin. (OPERATOR-APPS-PLAN Fase 3 · WP-A1.)
+SHOPMAN_ADMIN_REQUIRE_2FA = (os.environ.get("SHOPMAN_ADMIN_REQUIRE_2FA", "") or "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
 
 # Employee discount — configurable percentage
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
