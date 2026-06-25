@@ -12,6 +12,9 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/orders/<ref>/confirm/  → confirm pending order
   POST /api/v1/backstage/orders/<ref>/reject/   → reject pending order
   POST /api/v1/backstage/orders/<ref>/cancel/   → cancel order
+  POST /api/v1/backstage/orders/<ref>/settle-delivery-cash/ → settle COD cash
+  POST /api/v1/backstage/orders/<ref>/requeue-fiscal/ → requeue NFC-e emission
+  POST /api/v1/backstage/orders/<ref>/notes/    → save operator internal notes
   POST /api/v1/backstage/production/<wo_id>/advance-step/ → next step
   POST /api/v1/backstage/production/<wo_id>/finish/  → quick finish step (for KDS)
   POST /api/v1/backstage/production/<wo_id>/void/    → void work order
@@ -338,7 +341,7 @@ class DayClosingView(APIView):
 )
 class OrderDetailView(APIView):
     permission_classes = [HasBackstagePermission]
-    required_permission = "backstage.operate_orders"
+    required_permission = "shop.manage_orders"
 
     def get(self, request, ref: str):
         order = orders_service.find_order(ref)
@@ -357,7 +360,7 @@ class OrderDetailView(APIView):
 )
 class OrderQueueView(APIView):
     permission_classes = [HasBackstagePermission]
-    required_permission = "backstage.operate_orders"
+    required_permission = "shop.manage_orders"
 
     def get(self, request):
         queue = build_two_zone_queue()
@@ -371,7 +374,7 @@ class _OrderActionBase(APIView):
     """Shared base for order action endpoints (advance/confirm/reject/cancel)."""
 
     permission_classes = [HasBackstagePermission]
-    required_permission = "backstage.operate_orders"
+    required_permission = "shop.manage_orders"
 
     def _get_order(self, ref: str):
         order = orders_service.find_order(ref)
@@ -462,6 +465,66 @@ class OrderCancelView(_OrderActionBase):
             orders_service.cancel_order(order, reason=reason, actor=_actor(request))
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao cancelar."}, status=400)
+        return Response({"ok": True, "ref": ref})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Settle delivery cash-on-delivery into the operator's open shift",
+        responses={200: OpenApiResponse(description="Cash settled.")},
+    ),
+)
+class OrderSettleDeliveryCashView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        try:
+            amount_q = orders_service.settle_delivery_cash(
+                order,
+                operator=request.user,
+                amount_raw=str(request.data.get("amount", "")),
+                actor=_actor(request),
+            )
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Falha no acerto de dinheiro."}, status=400)
+        return Response({"ok": True, "ref": ref, "amount_q": amount_q})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Requeue fiscal (NFC-e) emission for an order",
+        responses={200: OpenApiResponse(description="Fiscal emission requeued.")},
+    ),
+)
+class OrderRequeueFiscalView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        try:
+            orders_service.requeue_fiscal_emission(order, actor=_actor(request))
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Falha ao reprocessar fiscal."}, status=400)
+        return Response({"ok": True, "ref": ref})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Save operator internal notes on an order",
+        responses={200: OpenApiResponse(description="Notes saved.")},
+    ),
+)
+class OrderNotesView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        notes = str(request.data.get("notes", "") or "")
+        orders_service.save_internal_notes(order, notes=notes)
         return Response({"ok": True, "ref": ref})
 
 

@@ -1,0 +1,276 @@
+# OPERATOR-APPS-PLAN — Operador em apps dedicados, Admin encolhido
+
+> Decisão arquitetural do Pablo (2026-06-25): cada superfície operacional vira app
+> Nuxt/UI-Thing dedicado, headless, no seu subdomínio; o Django Admin recua para
+> CRUD + Configurações com acesso super-restrito. Constrói sobre
+> [SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md) (mesmo princípio: um sistema
+> canônico por superfície) e os ADRs de superfície headless
+> ([adr-012](../decisions/adr-012-headless-surface-contract.md),
+> [adr-013](../decisions/adr-013-pos-offline-policy-and-surface-ownership.md),
+> [adr-014](../decisions/adr-014-surface-data-presentation-cut.md)).
+
+## Estado-alvo — mapa de subdomínios (Nelson)
+
+| Subdomínio público | Superfície | Stack | Estado hoje |
+|---|---|---|---|
+| `staging.` (apex) | Loja | Nuxt `storefront-uithing-nuxt` | ✅ no ar |
+| `pos.` | PDV | Nuxt `pos-uithing-nuxt` | ✅ no ar |
+| `kds.` | KDS | Nuxt `kds-uithing-nuxt` | ✅ no ar |
+| **`gestor.`** | **Gestor de Pedidos** | **Nuxt `orders-uithing-nuxt` (NOVO)** | ❌ hoje é tela Admin |
+| **`fournil.`** | **Produção / Chão de Fábrica** | Nuxt (fase posterior) | ❌ hoje Admin + HTMX |
+| `admin.` | Django Admin (CRUD + Config) | Unfold | em `api.…/admin/`, acesso amplo |
+| `api.` | API/BFF interno | Django REST | ✅ no ar |
+
+**Princípio de nomenclatura (desacoplar nome interno do subdomínio público).** O
+subdomínio de operador é interno (sem SEO/bookmark público) → barato renomear depois.
+Portanto: o nome de código é **estável e neutro pela função da tela** (segue
+`pos-uithing-nuxt`/`kds-uithing-nuxt`); `gestor.`/`fournil.` são SÓ o domínio público.
+A string de cada host vive num **único lugar** (settings/env/spec DO), nunca literal
+espalhado — trocar `fournil.→forno.` no futuro = editar 1 valor.
+
+## Decisões travadas (Pablo, 2026-06-25)
+
+1. **Nome da surface de pedidos:** `surfaces/orders-uithing-nuxt` (função, não persona,
+   coerente com pos/kds).
+2. **Gate de permissão do Gestor:** `backstage.operate_orders` (família operador, como
+   `operate_pos`/`operate_kds`, concedida via grupos/PIN do doorman). Gestão de pedido é
+   tarefa de chão, uso diário. Implica **criar `can_operate_orders()`** e **migrar o
+   console + a API** para esse gate (hoje o console usa `shop.manage_orders` e a API
+   referencia `backstage.operate_orders`, que **não existe** — ver Gap-1).
+3. **Form factor do Gestor:** desktop-first **mas responsivo** (board lado a lado no
+   desktop; degrada bem em tablet/celular — o dono acompanha pedidos pelo telefone).
+4. **Contexto doctl:** renomear `fix` → `shopman-staging-deploy` (housekeeping, WP-0).
+
+### Decisões adiadas (confirmar quando a fase chegar — aprovação por etapa)
+
+- **Fase 3** — modelo de restrição do `admin.` (IP allowlist? 2FA obrigatório? ambos?).
+- **Fase 4** — o que migra para `fournil.` (avanço de passo ao vivo no chão) vs o que
+  fica CRUD no Admin (planejamento/relatórios de produção).
+
+## Achados da análise (estado real do código)
+
+A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP supôs**:
+
+- **A API headless de pedidos já existe** em `shopman/backstage/api/operations.py` e
+  está roteada em `shopman/backstage/api/urls.py:69-75`:
+  - Leitura: `OrderQueueView` (`GET orders/`, two-zone), `OrderDetailView`
+    (`GET orders/<ref>/`).
+  - Escrita: `OrderAdvanceView`, `OrderConfirmView`, `OrderRejectView`,
+    `OrderCancelView` — **todas reusam `shopman/backstage/services/orders.py` →
+    `shopman/shop/services/operator_orders.py`** (mesma cadeia do console; zero regra
+    duplicada, Core respeitado).
+- **As projeções de pedido são read-only e reaproveitáveis** —
+  `shopman/backstage/projections/order_queue.py`: `build_two_zone_queue()`,
+  `build_operator_order()`, `build_order_card()` (dataclasses, serializadas por
+  `shopman/backstage/api/projections.py:projection_data`).
+- **A fundação Nuxt é copiável** — `surfaces/pos-uithing-nuxt` e `kds-uithing-nuxt`
+  compartilham `app/components/Ui/` (51 componentes), tokens em
+  `app/assets/css/tailwind.css`, o proxy Django em `server/utils/djangoProxy.ts` +
+  `server/api/v1/[...path].ts`, `useOperatorLock.ts`, e o setup vitest da camada
+  `presentation/` pura.
+
+### Gaps que a Fase 1 precisa fechar
+
+- **Gap-1 (permissão dangling):** `backstage.operate_orders` é referenciada por 4 views
+  da API (`operations.py:341,360,374`) mas **não é declarada em nenhum
+  `Meta.permissions`/migração nem concedida a grupo** → hoje **só superuser** acessa
+  `/api/v1/backstage/orders/*`. O console, por sua vez, gateia em `shop.manage_orders`
+  via `can_manage_orders()`. Inconsistência a resolver (decisão 2).
+- **Gap-2 (paridade de ações):** a API **não cobre** 3 ações do console:
+  `settle_delivery_cash` (acerto dinheiro entrega), `requeue_fiscal` (reprocessar NFC-e),
+  `save_internal_notes`. Precisam de endpoints novos reusando
+  `shopman/backstage/services/orders.py`.
+- **Gap-3 (alertas sem API):** `OperatorAlert` é **HTMX-only** (`views/alerts.py`); não
+  há `/api/v1/backstage/alerts/`. O Gestor é o consumidor natural do painel de alertas →
+  a API de alertas precede o kill do HTMX de alertas (Fase 2).
+
+---
+
+## FASE 0 — Housekeeping
+
+### WP-0 · Renomear contexto doctl `fix` → `shopman-staging-deploy` · ✅ CONCLUÍDO
+- Chave do auth-context renomeada no config do doctl (tokens preservados).
+- Referências no repo atualizadas (restava só `SURFACE-CONVERGENCE-PLAN.md`).
+- Verificado: `doctl --context shopman-staging-deploy apps get 40b86e35-…` responde.
+- **Pendente (memória):** atualizar `project_pos_staging_deploy` quando voltar ao deploy.
+
+---
+
+## FASE 1 — Gestor de Pedidos como app Nuxt (`gestor.` / `orders-uithing-nuxt`)
+
+> A API e as projeções já existem; o trabalho é **fechar os gaps**, **construir a
+> surface** e **fazer o cutover** tirando o console de pedidos do Admin.
+
+### WP-G1 · Completar a API headless de pedidos + permissão canônica · ✅ CONCLUÍDO
+> Feito (commit `15700620`): gate reconciliado p/ `shop.manage_orders` (a dangling
+> `backstage.operate_orders` foi removida; `manage_orders` já existe + é concedida a
+> Caixa/Gerente, então o operador de balcão já tem acesso — sem migração nem churn no
+> Core); 3 endpoints novos (`settle-delivery-cash`, `requeue-fiscal`, `notes`) reusando o
+> facade `backstage/services/orders.py`; teste de contrato `test_api_orders_surface.py`
+> (10 casos). `make` backstage (555) + lint verdes.
+**Backend, sem Nuxt ainda. Não tocar o Core (`packages/`) — reusar services do orquestrador.**
+
+1. **Permissão `operate_orders` (fecha Gap-1):**
+   - Declarar `("operate_orders", "Pode operar a gestão de pedidos …")` em
+     `Meta.permissions` de um model do app `backstage` (espelhar `operate_kds` em
+     `shopman/backstage/models/kds.py:92`; escolher o model âncora coerente —
+     recomendado: junto dos demais gates de operação). + migração.
+   - Adicionar `can_operate_orders(user)` em `shopman/backstage/permissions.py`
+     (`is_superuser(user) or user.has_perm("backstage.operate_orders")`).
+   - Conceder em `shopman/shop/management/commands/setup_groups.py` e
+     `migrations/0008_setup_default_groups.py` ao(s) grupo(s) de operador certos.
+   - Migrar o **console** (`admin_console/orders.py`) e a **API** para
+     `can_operate_orders` (a API troca a string `required_permission` por algo
+     consistente; idealmente passar a checar via predicado). Incluir `operate_orders`
+     em `can_view_operator_alerts`.
+2. **Endpoints faltantes (fecha Gap-2)** em `operations.py` + rotas em `api/urls.py`,
+   reusando `shopman/backstage/services/orders.py`:
+   - `POST orders/<ref>/settle-delivery-cash/` → `settle_delivery_cash(...)`.
+   - `POST orders/<ref>/requeue-fiscal/` → `requeue_fiscal_emission(...)`.
+   - `POST orders/<ref>/notes/` → `save_internal_notes(...)` (e/ou `PUT` no detail).
+3. **Testes:** migrar/espelhar a cobertura de ação do console para testes de API em
+   `shopman/backstage/tests/` (confirm/advance/reject/cancel/settle/requeue/notes +
+   gate 403 sem `operate_orders`, 200 com). Documentar quaisquer chaves novas de
+   `Order.data` em [docs/reference/data-schemas.md](../reference/data-schemas.md) (as
+   atuais — `payment`, `internal_notes` — já existem; verificar).
+- **Aceite:** `make test` verde; `/api/v1/backstage/orders/*` cobre 100% das ações do
+  console; operador com `operate_orders` (não-superuser) acessa; sem `operate_orders` → 403.
+
+### WP-G2 · Scaffold `surfaces/orders-uithing-nuxt` + telas
+**Copiar a fundação do POS/KDS e parametrizar (ver checklist em
+[SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md) + análise).**
+1. **Copiar as-is:** `app/components/Ui/`, `app/assets/css/tailwind.css`,
+   `server/utils/djangoProxy.ts`, `server/api/v1/[...path].ts`,
+   `composables/useOperatorLock.ts`, `vitest.config.ts`, `tsconfig.json`,
+   `ui-thing.config.ts`.
+2. **Parametrizar:** `package.json` (name `orders-uithing-nuxt`, porta dev **3004**),
+   `nuxt.config.ts` (`colorMode.storageKey`, `app.baseURL` ← `NUXT_APP_BASE_URL`,
+   título, `NUXT_ORDERS_LOGIN_NEXT_PATH`), favicon.
+3. **Camada `presentation/` pura (vitest):** view de card de pedido, board de duas zonas
+   (Entrada/Preparo/Saída), detalhe, e resolução de affordances de ação
+   (confirmar/avançar/rejeitar/cancelar/acerto-dinheiro/reprocessar-fiscal/notas) a
+   partir da projeção — espelhando `presentation/` do POS. Tipos em
+   `app/types/orders.ts` a partir das projeções do Django.
+4. **Telas (desktop-first, responsivo):** fila/board de pedidos (polling/SSE como o KDS),
+   detalhe do pedido com timeline + notas, ações com confirmação. Idioma neutro das
+   surfaces; acessibilidade/omotenashi first-class (heading grande, contraste, pt-BR).
+5. **Lock de operador:** reusar `useOperatorLock` (PIN doorman) como PDV/KDS.
+- **Aceite:** `npm run test` (vitest) verde na `presentation/`; app sobe em
+  `127.0.0.1:3004` consumindo `api.` local; console limpo; POSTs 200.
+
+### WP-G3 · Deploy staging + cutover (aposentar o console de pedidos)
+1. **Deploy aditivo** no app DO `shopman-staging` (`40b86e35-…`), via
+   `--context shopman-staging-deploy` (AUTODEPLOY DESLIGADO):
+   - Editar o spec (preservar secrets `EV[...]`): novo componente Nuxt service (build
+     `npm ci && npm run build`, run `node .output/server/index.mjs`, `http_port 3000`,
+     `source_dir /surfaces/orders-uithing-nuxt`, envs
+     `NUXT_DJANGO_BASE_URL=https://api.staging…` + `NUXT_APP_BASE_URL=/`), domain ALIAS
+     `gestor.staging.nelsonboulangerie.com.br` na zona gerenciada, ingress rule ANTES do
+     catch-all da loja.
+   - Atualizar Django `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` (e CORS se aplicável) para o
+     host `gestor.…` — **a string do host num único lugar** (settings via env).
+2. **Verificar AO VIVO** (`gestor.staging…`): board carrega, todas as ações executam
+   contra a API, lock de operador funciona, paridade com o console confirmada.
+3. **Só então aposentar o console de pedidos** (padrão WP1, não delete cego):
+   - Remover `shopman/backstage/admin_console/orders.py` + as rotas em `config/urls.py`
+     (`admin_console_orders*`) + templates `admin_console/` de pedidos + link no nav do
+     Admin (a string do host do Gestor sai de settings, oculto se vazio — como o POS fez
+     em `f175c6b6`).
+   - Migrar/triar os testes do console que ainda fizerem sentido (a cobertura de ação já
+     migrou no WP-G1); remover testes órfãos de view; zero residuals.
+- **Aceite:** `gestor.staging…` no ar e verificado; console de pedidos removido; `make
+  test`/`make admin`/`make lint` verdes; nenhum `NoReverseMatch`/link morto.
+
+---
+
+## FASE 2 — Matar os legados Django/HTMX do operador (padrão WP1)
+
+> Regra dura: as views HTMX são harness de teste. ANTES de deletar, **caracterizar e
+> migrar cobertura** (redundante→deletar, único→migrar p/ teste de API/projeção) e
+> **confirmar paridade Nuxt AO VIVO**. Caracterização já feita (ver análise): 14 testes
+> quebram na deleção (todos têm endpoint de API equivalente → migrar p/ teste de API);
+> 32 testes de projeção/serviço sobrevivem; 16 testes só-de-template morrem com o template.
+
+### WP-K1 · API de `OperatorAlert` + consumo no Gestor (fecha Gap-3, pré-requisito)
+- Criar `GET /api/v1/backstage/alerts/` (lista + contagem) e
+  `POST /api/v1/backstage/alerts/<pk>/ack/`, reusando
+  `shopman/backstage/services/alerts.py`; gate `can_view_operator_alerts`.
+- Consumir o painel/badge de alertas na surface `orders-uithing-nuxt` (o hub do operador
+  é a casa natural dos alertas).
+- Testes de API espelhando os do serviço.
+- **Aceite:** alertas visíveis no Gestor ao vivo; API testada.
+
+### WP-K2 · Matar o KDS-HTMX (station + customer board)
+- Confirmar paridade AO VIVO em `kds.staging…` (estação write/SSE/expedição + board do
+  cliente `/retirada`).
+- Migrar os ~14 testes view-specific de `kds_station`/`kds_customer` para testes da API
+  `/api/v1/backstage/kds/*` (endpoints já existem). Deletar templates `runtime/kds_*`,
+  views `kds_station.py`/`kds_customer.py`, rotas em `urls.py`, links de nav. Remover
+  testes só-de-template (`test_kds_audio`, partes de `test_a11y_*`).
+- **Aceite:** rotas `/operacao/kds/*` fora; `make test`/`make admin`/`make lint` verdes;
+  KDS Nuxt segue íntegro ao vivo; zero residuals.
+
+### WP-K3 · Matar o HTMX de alertas (depende de WP-K1)
+- Deletar `views/alerts.py`, templates `gestor/partials/alerts_*`, rotas; alertas agora
+  servidos pela API + Gestor.
+- **Aceite:** sem rotas `/gestor/alertas/*`; alertas ao vivo no Gestor; testes verdes.
+
+> **Nota:** `views/production.py` (`/gestor/producao/kds/*`) **NÃO** morre na Fase 2 — seu
+> destino é a Fase 4 (`fournil.`). Fica vivo até lá.
+
+---
+
+## FASE 3 — Encolher o Admin/Unfold + faxina
+
+> Admin = só CRUD + Configurações, acesso super-restrito. Tudo sob o **Unfold Canonical
+> Gate** (`make admin`).
+
+### WP-A1 · Restrição de acesso ao `admin.` (decisão pendente — confirmar com Pablo)
+- Implementar o modelo escolhido (IP allowlist via middleware/edge, 2FA obrigatório, ou
+  ambos). Considerar mover o Admin para `admin.` próprio (ingress) separado do `api.`.
+
+### WP-A2 · Faxina canônica
+- Sidebar (organização/agrupamento), nomenclatura (rótulos **e** breadcrumbs), remover
+  páginas obsoletas/mortas e itens da era pré-apps-dedicados (incl. o que sobrou do
+  console de pedidos). Sob o Unfold Canonical Gate.
+- **Aceite:** `make admin` (sem `url`) verde; sidebar enxuta; sem páginas órfãs.
+
+---
+
+## FASE 4 — Produção / Chão de Fábrica (`fournil.`) — fase posterior, escopo separado
+
+> Persona = Craftsman (WorkOrders / produção em LOTE — NÃO confundir com prep de pedido
+> do KDS). Já há Admin/Unfold (`/admin/operacao/producao/`) + HTMX
+> `/gestor/producao/kds/`. **Decisão pendente** (Pablo): o que migra para `fournil.`
+> (avanço de passo ao vivo no chão) vs o que fica CRUD no Admin
+> (planejamento/relatórios). Escopar em plano próprio quando chegar. Só aqui morre o
+> `views/production.py` HTMX (migrando seus testes de step/finish p/ a API
+> `/api/v1/backstage/production/*`, que já existe).
+
+---
+
+## Deploy + verificação (resumo operacional)
+
+- **App DO:** `shopman-staging`, id `40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f`, multi-componente.
+- **Autodeploy DESLIGADO** (spec sem `deploy_on_push`): push no main NÃO deploya.
+- **Contexto doctl:** `shopman-staging-deploy` (após WP-0; token full).
+  - Deploy: `doctl --context shopman-staging-deploy apps create-deployment 40b86e35-…`
+  - Monitorar: `… apps get-deployment <appid> <depid> --format Phase` até `ACTIVE`.
+  - Novo componente/subdomínio: `apps spec get` → editar (ADITIVO, preservar `EV[...]`) →
+    `apps update … --spec … --update-sources`.
+- **Verificar código novo:** assinatura única da feature nos chunks `/_nuxt/*.js` servidos.
+- **Gotchas:** Django cacheia `Shop.defaults` em memória (restart do componente p/
+  refletir DB); preview de surfaces Nuxt navega por `127.0.0.1:<porta>`, nunca
+  `localhost` (IPv6→426).
+
+## Gates por WP
+
+`make test`, `make admin` (sem `url` antes de PR), `make lint`, `vitest` nas surfaces
+tocadas, e **verificação AO VIVO no staging** após deploy. Sem gambiarras; zero
+residuals em renames/deleções; reusar services do orquestrador, nunca duplicar regra;
+não tocar `packages/` (Core).
+
+## Ordem de execução sugerida
+
+WP-0 → **Fase 1** (G1 → G2 → G3) → **Fase 2** (K1 → K2 → K3) → **Fase 3** (A1 → A2) →
+**Fase 4** (plano próprio). Aprovação do Pablo por etapa.

@@ -23,3 +23,7 @@ shopman/static/storefront/css/output.css
 staticfiles/*
 !staticfiles/.gitkeep
 .tools/
+
+# Local screen recordings (never commit)
+*.MP4
+*.mp4

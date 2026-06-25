@@ -102,7 +102,7 @@ ainda — pendente.)
 
 ### WP3 — KDS → Nuxt · ✅ DECIDIDO + ▶️ DEPLOY FEITO (2026-06-20); kill-HTMX pendente
 **Deploy (2026-06-20):** `kds-uithing` virou componente do app de staging
-(`kds.staging.nelsonboulangerie.com.br`) via `doctl apps update --spec … --context fix`.
+(`kds.staging.nelsonboulangerie.com.br`) via `doctl apps update --spec … --context shopman-staging-deploy`.
 URLs enxutas no ar: `/` (seletor), `/<ref>` (estação), `/retirada` (board do cliente);
 legados 301 (`/estacao/<ref>`→`/<ref>`, `/cliente`→`/retirada`). **Falta:** ratificar o
 contrato, migrar os testes que dependem das views gestor-HTMX e **matar o KDS-HTMX**
