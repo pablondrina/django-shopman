@@ -236,7 +236,21 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 - Testes de API espelhando os do serviço.
 - **Aceite:** alertas visíveis no Gestor ao vivo; API testada.
 
-### WP-K2 · Matar o KDS-HTMX (station + customer board)
+### WP-K2/K3 + cutover · ✅ EXECUTADO (commit `c96b02db`, deploy `cfffee75`)
+> Teardown único e coeso (arquivos compartilhados: urls/nav/omotenashi/base.html/gate
+> canônico). **KDS-HTMX**: views/templates/rotas removidos; cobertura migrada p/
+> `test_api_kds_surface.py` (9). **Alertas-HTMX**: views/partials/rotas removidos (API
+> WP-K1 + sino do Gestor + changelist Admin cobrem). **Console de pedidos**: removido;
+> nav "Pedidos"/"KDS"/"POS" → apps Nuxt via `SHOPMAN_*_BASE_URL` (oculto se vazio;
+> settings + spec staging setados). **Bug real corrigido** (achado na migração de testes):
+> `confirm_order` não envolvia `InvalidTransition`→`OrderError` → API confirmava com 500.
+> Gates omotenashi-QA/a11y das telas Django retiradas removidos (browser-QA Nuxt =
+> follow-up); superfície Unfold `admin-console-orders` removida, projeções re-registradas
+> sob exceção `headless-operator-api`. RBAC/confirm/locust repointados p/ a API.
+> `make test` 2099 + `make admin` 245 + ruff verdes. `gestor/base.html` fica (Produção
+> usa até Fase 4). Verificação AO VIVO pós-deploy pendente.
+
+### WP-K2 (original) · Matar o KDS-HTMX (station + customer board)
 - Confirmar paridade AO VIVO em `kds.staging…` (estação write/SSE/expedição + board do
   cliente `/retirada`).
 - Migrar os ~14 testes view-specific de `kds_station`/`kds_customer` para testes da API
