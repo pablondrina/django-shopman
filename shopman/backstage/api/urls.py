@@ -17,6 +17,10 @@ from .kds import (
 )
 from .operations import (
     DayClosingView,
+    OperatorEligibleView,
+    OperatorLockView,
+    OperatorSessionView,
+    OperatorUnlockView,
     OrderAdvanceView,
     OrderCancelView,
     OrderConfirmView,
@@ -70,6 +74,11 @@ urlpatterns = [
     path("pos/", POSView.as_view(), name="api-backstage-pos"),
     path("pos/operator/unlock/", POSOperatorUnlockView.as_view(), name="api-backstage-pos-operator-unlock"),
     path("pos/operator/lock/", POSOperatorLockView.as_view(), name="api-backstage-pos-operator-lock"),
+    # Operador (PIN/crachá) — genérico, compartilhado por todas as surfaces
+    path("operator/session/", OperatorSessionView.as_view(), name="api-backstage-operator-session"),
+    path("operator/eligible/", OperatorEligibleView.as_view(), name="api-backstage-operator-eligible"),
+    path("operator/unlock/", OperatorUnlockView.as_view(), name="api-backstage-operator-unlock"),
+    path("operator/lock/", OperatorLockView.as_view(), name="api-backstage-operator-lock"),
     path("production/", ProductionBoardView.as_view(), name="api-backstage-production"),
     path("production/kds/", ProductionKDSView.as_view(), name="api-backstage-production-kds"),
     path("closing/", DayClosingView.as_view(), name="api-backstage-closing"),

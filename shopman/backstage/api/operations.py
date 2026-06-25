@@ -71,7 +71,7 @@ from shopman.backstage.services.production import ProductionOrderShortError, Pro
 from shopman.shop.services import pos as pos_tabs_service
 from shopman.shop.services.pos_intent import PosIntentError
 
-from .permissions import HasBackstagePermission
+from .permissions import HasBackstagePermission, IsBackstageOperator
 from .projections import projection_data
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,12 @@ def _parse_date(raw: str | None) -> date | None:
 
 
 def _actor(request) -> str:
+    # Attribute to the active operator (PIN/badge) when present (Opção C, flag ON);
+    # otherwise the device session user. ``active_operator_user`` is set by the
+    # authorization gate only when SHOPMAN_REQUIRE_ACTIVE_OPERATOR is on.
+    operator = getattr(request, "active_operator_user", None)
+    if operator is not None:
+        return operator.get_username()
     user = getattr(request, "user", None)
     return getattr(user, "username", None) or "operator"
 
@@ -294,6 +300,113 @@ class POSOperatorUnlockView(APIView):
 class POSOperatorLockView(APIView):
     permission_classes = [HasBackstagePermission]
     required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        from shopman.backstage.services import operator as operator_service
+
+        operator_service.clear_active_operator(request)
+        return Response({"ok": True})
+
+
+# ── Generic operator identification (PIN / badge) — shared by all surfaces ──
+# The device session is the station trust (IsBackstageOperator); these establish
+# WHO is operating (active operator) for the Opção C authorization layer. They are
+# gated on the device session only — never on an active operator (chicken-egg).
+
+# Permissions a surface may ask the operator to satisfy at unlock (whitelist, so a
+# client can only restrict — never widen — who may unlock there).
+_OPERATOR_UNLOCK_PERMS = {
+    "backstage.operate_pos",
+    "backstage.operate_kds",
+    "backstage.operate_production",
+    "shop.manage_orders",
+}
+
+
+def _validated_unlock_perm(raw) -> tuple[str | None, bool]:
+    perm = (str(raw or "").strip()) or None
+    if perm is not None and perm not in _OPERATOR_UNLOCK_PERMS:
+        return None, False
+    return perm, True
+
+
+class OperatorSessionView(APIView):
+    """Terminal lock state: whether the gate is on and who (if anyone) is operating."""
+
+    permission_classes = [IsBackstageOperator]
+
+    def get(self, request):
+        from django.conf import settings
+
+        from shopman.backstage.services.operator import active_operator
+
+        operator = active_operator(request)
+        return Response({
+            "require_operator": bool(getattr(settings, "SHOPMAN_REQUIRE_ACTIVE_OPERATOR", False)),
+            "device_user": getattr(request.user, "username", ""),
+            "operator": operator,
+            "locked": operator is None,
+        })
+
+
+class OperatorEligibleView(APIView):
+    """Operators who may unlock this surface (the lock-screen picker)."""
+
+    permission_classes = [IsBackstageOperator]
+
+    def get(self, request):
+        from shopman.backstage.services.operator import eligible_operators, operator_card
+
+        perm, ok = _validated_unlock_perm(request.query_params.get("perm"))
+        if not ok:
+            return Response({"detail": "Permissão de operador inválida."}, status=400)
+        return Response({"operators": [operator_card(u) for u in eligible_operators(perm=perm)]})
+
+
+class OperatorUnlockView(APIView):
+    """Establish the active operator by PIN (operator_id + pin) or badge (token).
+
+    Optional ``perm`` (the surface's capability) restricts who may unlock here.
+    """
+
+    permission_classes = [IsBackstageOperator]
+
+    def post(self, request):
+        from django.contrib.auth import get_user_model
+
+        from shopman.backstage.services import operator as operator_service
+
+        body = request.data or {}
+        perm, ok = _validated_unlock_perm(body.get("perm"))
+        if not ok:
+            return Response({"detail": "Permissão de operador inválida."}, status=400)
+
+        badge = str(body.get("badge") or "").strip()
+        if badge:
+            operator = operator_service.resolve_operator_by_badge(badge, required_perm=perm)
+        else:
+            operator_id = str(body.get("operator_id") or "").strip()
+            pin = str(body.get("pin") or "")
+            operator = (
+                get_user_model().objects.filter(pk=operator_id, is_active=True).first()
+                if operator_id else None
+            )
+            if operator is not None and not operator_service.verify_operator_pin(operator, pin, required_perm=perm):
+                operator = None
+
+        if operator is None:
+            return Response(
+                {"detail": "Identificação inválida.", "error": {"code": "operator_unlock_invalid"}},
+                status=403,
+            )
+        card = operator_service.set_active_operator(request, operator)
+        return Response({"ok": True, "operator": card})
+
+
+class OperatorLockView(APIView):
+    """Lock the terminal (drop the active operator)."""
+
+    permission_classes = [IsBackstageOperator]
 
     def post(self, request):
         from shopman.backstage.services import operator as operator_service
@@ -872,7 +985,7 @@ def _actor_pos(request) -> str:
 
 
 def _username (request) -> str:
-    return getattr(request.user, "username", None) or "operator"
+    return _actor(request)
 
 
 @extend_schema_view(
