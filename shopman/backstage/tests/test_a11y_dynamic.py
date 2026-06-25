@@ -12,9 +12,7 @@ import re
 import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
-from shopman.orderman.models import Order, OrderItem
 
-from shopman.backstage.models import KDSInstance
 from shopman.shop.models import Shop
 
 HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>", re.IGNORECASE)
@@ -32,24 +30,6 @@ ROLE_DIALOG_RE = re.compile(r'<[^>]+role\s*=\s*"dialog"[^>]*>', re.IGNORECASE)
 def superuser(db):
     Shop.objects.create(name="Loja")
     return User.objects.create_superuser("a11y-admin", "a11y@test.com", "pw")
-
-
-@pytest.fixture
-def order(db):
-    order = Order.objects.create(
-        ref="A11Y-ORD",
-        channel_ref="web",
-        status="confirmed",
-        total_q=1500,
-        data={"customer": {"name": "Ana"}, "payment": {"method": "cash"}},
-    )
-    OrderItem.objects.create(order=order, line_id="1", sku="SKU", name="Produto", qty=1, unit_price_q=1500, line_total_q=1500)
-    return order
-
-
-@pytest.fixture
-def kds_station(db):
-    return KDSInstance.objects.create(ref="prep-a11y", name="Preparo", type="prep")
 
 
 def _heading_levels(html: str) -> list[int]:
@@ -136,41 +116,6 @@ def _has_main_landmark(html: str, surface: str) -> None:
 
 
 @pytest.mark.django_db
-def test_a11y_kds_picker(client, superuser, kds_station):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:kds_station_picker"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "KDS picker")
-    _buttons_have_accessible_name(html, "KDS picker")
-
-
-@pytest.mark.django_db
-def test_a11y_kds_station(client, superuser, kds_station):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:kds_station_runtime", args=[kds_station.ref]))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "KDS station")
-    _buttons_have_accessible_name(html, "KDS station")
-    # Live region for screen readers
-    assert 'aria-live="polite"' in html, "KDS station must announce new tickets via aria-live"
-
-
-@pytest.mark.django_db
-def test_a11y_pedidos_main(client, superuser, order):
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_orders"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "Pedidos")
-    _buttons_have_accessible_name(html, "Pedidos")
-
-
-@pytest.mark.django_db
 def test_a11y_producao_matriz(client, superuser):
     client.force_login(superuser)
     response = client.get(reverse("admin_console_production"))
@@ -229,30 +174,3 @@ def test_a11y_fechamento(client, superuser):
     _buttons_have_accessible_name(html, "Fechamento")
 
 
-@pytest.mark.django_db
-def test_a11y_pedidos_detail_partial_has_progressbar_when_awaiting(client, superuser, order):
-    """Sync produção↔pedidos progressbar must declare valuenow/min/max."""
-    order.data = dict(order.data, awaiting_wo_refs=["WO-NONE"])
-    order.save(update_fields=["data"])
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_order_detail", args=[order.ref]))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-    if 'role="progressbar"' in html:
-        assert "aria-valuenow" in html and "aria-valuemin" in html and "aria-valuemax" in html
-
-
-@pytest.mark.django_db
-def test_a11y_alerts_panel_announces_via_live_region(client, superuser, kds_station):
-    """The shell wrapper #operator-alerts-panel must declare a live region so
-    new alerts are announced by screen readers."""
-    client.force_login(superuser)
-    # Render a full operator surface (not the partial) so the shell with the live region is included
-    response = client.get(reverse("backstage:kds_station_runtime", args=[kds_station.ref]))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-    panel_pos = html.find('id="operator-alerts-panel"')
-    if panel_pos == -1:
-        pytest.skip("alerts panel not present in this surface variant")
-    panel_tag = html[panel_pos : panel_pos + 400]
-    assert 'aria-live=' in panel_tag or 'role="status"' in panel_tag

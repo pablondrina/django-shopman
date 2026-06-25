@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from django.contrib.auth.models import Permission, User
-from django.contrib.contenttypes.models import ContentType
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from shopman.orderman.models import Order, OrderItem
@@ -89,34 +87,8 @@ def test_build_expedition_board_uses_ready_orders(kds_setup):
     assert board.tickets[0].line_count == 1
 
 
-@pytest.mark.django_db
-def test_kds_views_render_picker_station_and_cards(client, kds_setup):
-    prep, expedition, _, _ = kds_setup
-    user = User.objects.create_user("kds-view", password="pw", is_staff=True)
-    permission = Permission.objects.get(
-        content_type=ContentType.objects.get_for_model(KDSTicket),
-        codename="operate_kds",
-    )
-    user.user_permissions.add(permission)
-    client.force_login(user)
-
-    picker = client.get(reverse("backstage:kds_station_picker"))
-    assert picker.status_code == 200
-    assert reverse("backstage:kds_station_runtime", args=[prep.ref]) in picker.content.decode()
-    assert reverse("backstage:kds_station_runtime", args=[expedition.ref]) in picker.content.decode()
-
-    prep_station = client.get(reverse("backstage:kds_station_runtime", args=[prep.ref]))
-    assert prep_station.status_code == 200
-    assert b"KDS-PROJ-1" in prep_station.content
-
-    expedition_station = client.get(reverse("backstage:kds_station_runtime", args=[expedition.ref]))
-    assert expedition_station.status_code == 200
-    assert b"KDS-READY" in expedition_station.content
-    assert b"Delivery" in expedition_station.content
-
-    cards = client.get(reverse("backstage:kds_station_runtime_cards", args=[prep.ref]))
-    assert cards.status_code == 200
-    assert b"KDS-PROJ-1" in cards.content
+# A renderização das telas KDS migrou p/ o app Nuxt (kds.) sobre a API headless
+# (api/v1/backstage/kds/*, ver test_api_kds_surface.py); as views HTMX foram removidas.
 
 
 def test_old_admin_console_kds_routes_are_not_registered():

@@ -12,7 +12,7 @@ from shopman.offerman.models import Product
 from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
 
-from shopman.backstage.models import CashShift, DayClosing, KDSInstance, OperatorAlert, POSTab
+from shopman.backstage.models import CashShift, DayClosing, POSTab
 from shopman.shop.services import pos_links, storefront_links
 
 Status = Literal["ready", "missing"]
@@ -106,12 +106,10 @@ def build_omotenashi_qa_report() -> OmotenashiQAReport:
         _checkout_intent_check(),
         _pix_pending_check(),
         _pix_expired_check(),
-        _late_payment_after_cancel_check(),
         _tracking_ready_check(),
-        _kds_station_check(),
-        _customer_board_check(),
-        _order_queue_check(),
-        _ifood_stale_check(),
+        # KDS station/customer board + fila de pedidos + edge-cases de pedido (payment-
+        # after-cancel, iFood stale) migraram p/ apps Nuxt (kds./gestor.); o browser-QA
+        # dessas superfícies Nuxt é follow-up (OPERATOR-APPS-PLAN Fase 2).
         _pos_check(),
         _production_kds_check(),
         _day_closing_check(),
@@ -196,25 +194,6 @@ def _pix_expired_check() -> OmotenashiQACheck:
     )
 
 
-def _late_payment_after_cancel_check() -> OmotenashiQACheck:
-    order = _edge_order("security:payment-after-cancel")
-    alert = OperatorAlert.objects.filter(type="payment_after_cancel", order_ref=getattr(order, "ref", "")).first()
-    evidence = _order_evidence(order)
-    if alert:
-        evidence = f"{evidence} alert={alert.type}:{alert.severity}"
-    return _check(
-        id="desktop.payment.after_cancel",
-        surface="backstage",
-        viewport="desktop 1440x900",
-        persona="suporte financeiro",
-        title="Pagamento capturado depois de cancelamento",
-        url=_order_url("admin_console_order_detail", order),
-        expectation="Operador deve ver alerta critico, pedido cancelado e pista clara para reembolso/comunicacao.",
-        evidence=evidence if alert else "",
-        blocker="Rode make seed; pedido/alerta payment_after_cancel ausente.",
-    )
-
-
 def _tracking_ready_check() -> OmotenashiQACheck:
     order = Order.objects.filter(status=Order.Status.READY).order_by("-created_at", "-id").first()
     return _check(
@@ -228,71 +207,6 @@ def _tracking_ready_check() -> OmotenashiQACheck:
         evidence=_order_evidence(order),
         blocker="Rode make seed; nenhum pedido READY foi encontrado.",
         order_ref=order.ref if order else "",
-    )
-
-
-def _kds_station_check() -> OmotenashiQACheck:
-    instance = KDSInstance.objects.filter(is_active=True).order_by("type", "ref").first()
-    evidence = f"kds={instance.ref} type={instance.type}" if instance else ""
-    return _check(
-        id="tablet.kds.station",
-        surface="kds",
-        viewport="tablet 1024x768",
-        persona="cozinha em pico de demanda",
-        title="KDS operacional por estacao",
-        url=_url("backstage:kds_station_runtime", instance.ref if instance else "cafes"),
-        expectation="Cards devem priorizar acao, tempo, foco de toque e feedback sem poluir a cozinha.",
-        evidence=evidence,
-        blocker="Rode make seed; nenhuma KDSInstance ativa foi encontrada.",
-    )
-
-
-def _customer_board_check() -> OmotenashiQACheck:
-    order = Order.objects.filter(status=Order.Status.READY).order_by("-created_at", "-id").first()
-    return _check(
-        id="tablet.kds.customer_board",
-        surface="kds",
-        viewport="tablet/display 1280x720",
-        persona="cliente olhando painel de retirada",
-        title="Painel de pedidos prontos para cliente",
-        url=_url("backstage:kds_customer_board"),
-        expectation="Painel deve revelar somente informacao necessaria, sem dados sensiveis nem ruido operacional.",
-        evidence=_order_evidence(order),
-        blocker="Rode make seed; painel precisa de pelo menos um pedido READY.",
-    )
-
-
-def _order_queue_check() -> OmotenashiQACheck:
-    order = Order.objects.filter(status=Order.Status.NEW).order_by("-created_at", "-id").first()
-    return _check(
-        id="desktop.orders.queue",
-        surface="backstage",
-        viewport="desktop 1440x900",
-        persona="gerente ou atendente",
-        title="Fila de pedidos com acao primaria",
-        url=_url("admin_console_orders"),
-        expectation="Fila deve separar urgencia, bloqueio, pagamento e proxima acao sem exigir interpretacao.",
-        evidence=_order_evidence(order),
-        blocker="Rode make seed; nenhum pedido NEW foi encontrado.",
-    )
-
-
-def _ifood_stale_check() -> OmotenashiQACheck:
-    order = _edge_order("security:ifood-stale-confirmation")
-    alert = OperatorAlert.objects.filter(type="stale_new_order", order_ref=getattr(order, "ref", "")).first()
-    evidence = _order_evidence(order)
-    if alert:
-        evidence = f"{evidence} alert={alert.type}:{alert.severity}"
-    return _check(
-        id="desktop.marketplace.ifood_stale",
-        surface="backstage",
-        viewport="desktop 1440x900",
-        persona="operador marketplace",
-        title="Pedido iFood parado aguardando confirmacao",
-        url=_order_url("admin_console_order_detail", order),
-        expectation="Detalhe deve preservar contexto externo, indicar atraso e oferecer acao operacional segura.",
-        evidence=evidence if alert else "",
-        blocker="Rode make seed; pedido/alerta security:ifood-stale-confirmation ausente.",
     )
 
 

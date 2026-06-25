@@ -28,17 +28,37 @@ def _pos_base_url() -> str:
     return (getattr(settings, "SHOPMAN_POS_BASE_URL", "") or "").rstrip("/")
 
 
+def _orders_base_url() -> str:
+    """Base absoluta do Gestor de Pedidos (surfaces/orders-uithing-nuxt). Vazio ⇒ oculto."""
+    return (getattr(settings, "SHOPMAN_ORDERS_BASE_URL", "") or "").rstrip("/")
+
+
+def _kds_base_url() -> str:
+    """Base absoluta do KDS (surfaces/kds-uithing-nuxt). Vazio ⇒ oculto."""
+    return (getattr(settings, "SHOPMAN_KDS_BASE_URL", "") or "").rstrip("/")
+
+
 def get_sidebar_navigation(request):
-    """Return the canonical Admin sidebar for this Shopman installation."""
-    live_items = [
-        _item(
-            "Pedidos",
-            "receipt_long",
-            _url("admin_console_orders"),
-            permission=_can_manage_orders,
-            badge="shopman.backstage.admin.navigation.badge_new_orders",
-            badge_variant="warning",
-        ),
+    """Return the canonical Admin sidebar for this Shopman installation.
+
+    Pedidos/POS/KDS são apps Nuxt headless dedicados (sem rota Django): só
+    aparecem quando a base URL do deployment está configurada (evita link morto).
+    O histórico/CRUD de pedidos segue no grupo "Pedidos e canais".
+    """
+    live_items = []
+    orders_url = _orders_base_url()
+    if orders_url:
+        live_items.append(
+            _item(
+                "Pedidos",
+                "receipt_long",
+                orders_url,
+                permission=_can_manage_orders,
+                badge="shopman.backstage.admin.navigation.badge_new_orders",
+                badge_variant="warning",
+            )
+        )
+    live_items.append(
         _item(
             "Produção",
             "manufacturing",
@@ -46,28 +66,22 @@ def get_sidebar_navigation(request):
             permission=_can_access_production,
             badge="shopman.backstage.admin.navigation.badge_started_work_orders",
             badge_variant="info",
-        ),
+        )
+    )
+    live_items.append(
         _item(
             "Fechamento",
             "fact_check",
             _url("admin_console_day_closing"),
             permission=_can_close_day,
-        ),
-    ]
-    # PDV é Nuxt headless: só mostra o link quando há URL configurada (sem rota
-    # Django, evita link morto). KDS segue com sua tela Django enquanto a decisão
-    # HTMX-vs-Nuxt do KDS não fecha (SURFACE-CONVERGENCE).
+        )
+    )
     pos_url = _pos_base_url()
     if pos_url:
         live_items.append(_item("POS", "point_of_sale", pos_url, permission=_can_operate_pos))
-    live_items.append(
-        _item(
-            "KDS",
-            "tv",
-            _url("backstage:kds_station_picker"),
-            permission=_can_operate_kds,
-        )
-    )
+    kds_url = _kds_base_url()
+    if kds_url:
+        live_items.append(_item("KDS", "tv", kds_url, permission=_can_operate_kds))
     live_items.append(
         _item(
             "Alertas ativos",

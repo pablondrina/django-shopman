@@ -36,10 +36,10 @@ class OperatorMarkPaidShortcutTests(TestCase):
     def test_operator_hot_path_surfaces_do_not_expose_mark_paid_action(self) -> None:
         files = (
             ROOT / "shopman/backstage/urls.py",
-            ROOT / "shopman/backstage/admin_console/orders.py",
+            ROOT / "shopman/backstage/api/operations.py",
             ROOT / "shopman/backstage/services/orders.py",
             ROOT / "shopman/shop/services/operator_orders.py",
-            ROOT / "shopman/backstage/templates/admin_console/orders/cells/actions.html",
+            ROOT / "surfaces/orders-uithing-nuxt/app/presentation/board.ts",
         )
 
         for path in files:

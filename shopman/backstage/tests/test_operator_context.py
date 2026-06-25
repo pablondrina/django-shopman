@@ -78,40 +78,8 @@ def test_operator_context_exposes_shop_scoped_event_channel(rf):
     assert context.event_scope == f"shop-{shop.pk}"
 
 
-@pytest.mark.django_db
-def test_alerts_badge_partial_uses_operator_context(client):
-    user = User.objects.create_user("badge", password="x", is_staff=True)
-    Shop.objects.create(name="Loja Teste")
-    OperatorAlert.objects.create(type="production_late", severity="critical", message="Produção atrasada")
-
-    client.force_login(user)
-    response = client.get("/gestor/alertas/badge/")
-
-    assert response.status_code == 200
-    assert b"notification_important" in response.content
-    assert b"1" in response.content
-
-
-@pytest.mark.django_db
-def test_alerts_panel_lists_and_acknowledges_active_alerts(client):
-    user = User.objects.create_user("alerts", password="x", is_staff=True)
-    Shop.objects.create(name="Loja Teste")
-    alert = OperatorAlert.objects.create(
-        type="production_stock_short",
-        severity="warning",
-        message="Insumo baixo",
-    )
-
-    client.force_login(user)
-    panel = client.get("/gestor/alertas/painel/")
-    assert panel.status_code == 200
-    assert b"Insumo baixo" in panel.content
-
-    ack = client.post(f"/gestor/alertas/{alert.pk}/ack/", HTTP_HX_REQUEST="true")
-    assert ack.status_code == 200
-    assert b"Insumo baixo" not in ack.content
-    alert.refresh_from_db()
-    assert alert.acknowledged is True
+# Os alertas migraram do HTMX (/gestor/alertas/*) p/ a API headless
+# (api/v1/backstage/alerts/*, ver test_api_alerts_surface.py) + o sino do app Gestor.
 
 
 @pytest.mark.django_db

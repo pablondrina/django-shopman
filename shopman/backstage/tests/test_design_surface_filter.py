@@ -86,26 +86,8 @@ def test_backstage_empty_states_and_icons_use_canonical_scale():
     assert "icon-md" in sources["gestor/base.html"]
 
 
-def test_backstage_order_queue_is_admin_unfold_surface():
-    index = (TEMPLATES / "admin_console" / "orders" / "index.html").read_text(encoding="utf-8")
-    detail = (TEMPLATES / "admin_console" / "orders" / "detail.html").read_text(encoding="utf-8")
-    actions = (TEMPLATES / "admin_console" / "orders" / "cells" / "actions.html").read_text(encoding="utf-8")
-    admin_console = Path("shopman/backstage/admin_console/orders.py").read_text(encoding="utf-8")
-
-    assert '{% extends "admin/base.html" %}' in index
-    assert 'include "unfold/helpers/tab_list.html"' in index
-    assert 'include "admin_console/orders/partials/sections.html"' in index
-    assert 'component "unfold/components/table.html"' in detail
-    assert 'include "unfold/helpers/field.html"' in detail
-    assert 'component "unfold/components/button.html"' in actions
-    assert "build_two_zone_queue" in admin_console
-    assert "_order_sections" in admin_console
-    assert "Entrada" in admin_console
-    assert "Preparo" in admin_console
-    assert "Saida" in admin_console
-    assert "order_service.confirm_order" in admin_console
-    assert "order_service.advance_order" in admin_console
-    assert "order_service.reject_order" in admin_console
+# A fila de pedidos virou app Nuxt dedicado (Gestor); deixou de ser superfície
+# Admin/Unfold, então o guardrail Unfold do console de pedidos foi removido (Fase 2).
 
 
 def test_backstage_production_uses_high_volume_matrix_surface():

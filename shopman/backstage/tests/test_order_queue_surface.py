@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from django.contrib.auth.models import Permission, User
-from django.contrib.contenttypes.models import ContentType
-from django.template.loader import render_to_string
 from django.test import TestCase
-from django.urls import reverse
 from django.utils.dateparse import parse_datetime
-from shopman.orderman.models import Directive, Order, OrderItem
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.projections.order_queue import build_order_card, build_two_zone_queue
-from shopman.shop.models import Shop
 
 
 def _order(ref: str, status: str, fulfillment_type: str = "pickup") -> Order:
@@ -107,24 +102,6 @@ class OrderQueueSurfaceTests(TestCase):
         self.assertFalse(card.payment_pending)
         self.assertTrue(card.can_confirm)
 
-    def test_order_card_does_not_expose_mark_paid_action(self) -> None:
-        card = build_order_card(_order("A-CASH-NO-MARK", "new"))
-
-        html = render_to_string(
-            "admin_console/orders/cells/actions.html",
-            {
-                "card": card,
-                "include_detail": True,
-                "detail_url": "/admin/operacao/pedidos/A-CASH-NO-MARK/",
-                "confirm_url": "/admin/operacao/pedidos/A-CASH-NO-MARK/confirmar/",
-                "advance_url": "/admin/operacao/pedidos/A-CASH-NO-MARK/avancar/",
-                "reject_url": "/admin/operacao/pedidos/A-CASH-NO-MARK/rejeitar/",
-            },
-        )
-
-        self.assertNotIn("Marcar como Pago", html)
-        self.assertNotIn("/mark-paid/", html)
-
     def test_captured_digital_payment_releases_confirm_button_gate(self) -> None:
         from shopman.payman import PaymentService
 
@@ -167,68 +144,6 @@ class OrderQueueSurfaceTests(TestCase):
 
         self.assertEqual(card.customer_name, "+14155552671")
 
-
-class OrderAdvanceSurfaceTests(TestCase):
-    def setUp(self) -> None:
-        Shop.objects.create(name="Test Shop", brand_name="Test Shop")
-        self.staff = User.objects.create_user("orders_staff", password="pw", is_staff=True)
-        ct = ContentType.objects.get(app_label="shop", model="shop")
-        perm = Permission.objects.get(content_type=ct, codename="manage_orders")
-        self.staff.user_permissions.add(perm)
-        self.client.force_login(self.staff)
-
-    def test_advance_button_endpoint_moves_confirmed_order_to_preparing(self) -> None:
-        order = _order("ADV-CONF", "confirmed")
-
-        response = self.client.post(reverse("admin_console_order_advance", args=[order.ref]))
-
-        self.assertEqual(response.status_code, 302)
-        order.refresh_from_db()
-        self.assertEqual(order.status, "preparing")
-
-    def test_advance_button_endpoint_moves_delivery_ready_order_to_dispatched(self) -> None:
-        order = _order("ADV-DELIVERY", "ready", "delivery")
-
-        response = self.client.post(reverse("admin_console_order_advance", args=[order.ref]))
-
-        self.assertEqual(response.status_code, 302)
-        order.refresh_from_db()
-        self.assertEqual(order.status, "dispatched")
-
-    def test_advance_endpoint_rejects_new_order_shortcut(self) -> None:
-        order = _order("ADV-NEW-BLOCKED", "new")
-
-        response = self.client.post(reverse("admin_console_order_advance", args=[order.ref]))
-
-        self.assertEqual(response.status_code, 422)
-        order.refresh_from_db()
-        self.assertEqual(order.status, "new")
-
-    def test_advance_endpoint_rejects_terminal_order_shortcut(self) -> None:
-        order = _order("ADV-DONE-BLOCKED", "completed")
-
-        response = self.client.post(reverse("admin_console_order_advance", args=[order.ref]))
-
-        self.assertEqual(response.status_code, 422)
-        order.refresh_from_db()
-        self.assertEqual(order.status, "completed")
-
-    def test_reject_endpoint_only_applies_to_new_orders(self) -> None:
-        order = _order("REJECT-CONF-BLOCKED", "confirmed")
-
-        response = self.client.post(
-            reverse("admin_console_order_reject", args=[order.ref]),
-            {"reason": "sem estoque"},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        order.refresh_from_db()
-        self.assertEqual(order.status, "confirmed")
-        self.assertNotIn("cancellation_reason", order.data)
-        self.assertFalse(
-            Directive.objects.filter(
-                topic="notification.send",
-                payload__order_ref=order.ref,
-                payload__template="order_rejected",
-            ).exists()
-        )
+# As ações do operador (advance/reject/confirm) agora são exercidas no contrato
+# headless em test_api_orders_surface.py; a semântica de lifecycle (new não avança,
+# terminal não avança, reject só em new) é coberta nos testes de shop/operator_orders.

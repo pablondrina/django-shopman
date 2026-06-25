@@ -5,21 +5,8 @@ def _read(path: str) -> str:
     return Path(path).read_text()
 
 
-def test_kds_realtime_region_has_aria_live_and_audio_labels():
-    html = _read("shopman/backstage/templates/runtime/kds_station/index.html")
-
-    assert 'aria-live="polite"' in html
-    assert "aria-relevant" in html
-    assert "Som ativo" in html
-    assert "Som desativado" in html
-
-
-def test_order_production_dependency_uses_progressbar():
-    controller = _read("shopman/backstage/admin_console/orders.py")
-
-    assert "build_operator_order" in controller
-    assert "awaiting_work_orders" in controller
-    assert "progress_pct" in controller
+# O KDS e o console de pedidos viraram apps Nuxt dedicados (a11y via vitest +
+# verificação ao vivo); seus checks de template Django foram removidos (Fase 2).
 
 
 def test_production_shortage_modal_is_accessible():

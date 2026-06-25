@@ -13,7 +13,10 @@ def find_order(ref: str):
 
 
 def confirm_order(order, *, actor: str):
-    return operator_orders.confirm_order(order, actor=actor)
+    try:
+        return operator_orders.confirm_order(order, actor=actor)
+    except (ValueError, InvalidTransition) as exc:
+        raise OrderError(str(exc) or "Não foi possível confirmar o pedido.") from exc
 
 
 def reject_order(order, *, reason: str, actor: str, rejected_by: str):

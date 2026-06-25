@@ -34,9 +34,9 @@ class OrderConfirmTests(TestCase):
             total_q=1500,
         )
 
-        resp = self.client.post(f"/admin/operacao/pedidos/{order.ref}/confirmar/")
+        resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.status_code, 400)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.NEW)
 
@@ -57,9 +57,9 @@ class OrderConfirmTests(TestCase):
             total_q=1500,
         )
 
-        resp = self.client.post(f"/admin/operacao/pedidos/{order.ref}/confirmar/")
+        resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
 
@@ -91,9 +91,9 @@ class OrderConfirmTests(TestCase):
         )
 
         with patch("shopman.shop.services.payment.get_payment_status", return_value="pending"):
-            resp = self.client.post(f"/admin/operacao/pedidos/{order.ref}/confirmar/")
+            resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.status_code, 400)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.NEW)
 
@@ -128,9 +128,9 @@ class OrderConfirmTests(TestCase):
             patch("shopman.shop.services.payment.get_payment_status", return_value="refunded"),
             patch("shopman.shop.services.payment._payman_captured_balance_q", return_value=0),
         ):
-            resp = self.client.post(f"/admin/operacao/pedidos/{order.ref}/confirmar/")
+            resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.status_code, 400)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.NEW)
 
@@ -151,8 +151,8 @@ class OrderConfirmTests(TestCase):
             total_q=1500,
         )
 
-        resp = self.client.post(f"/admin/operacao/pedidos/{order.ref}/confirmar/")
+        resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.status_code, 400)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)

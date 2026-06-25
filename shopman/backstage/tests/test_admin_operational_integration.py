@@ -34,10 +34,14 @@ from shopman.shop.models import Shop
 
 class AdminNavigationTests(TestCase):
     def test_sidebar_prioritizes_live_operation_and_backoffice_tools(self) -> None:
+        from django.test import override_settings
+
         request = RequestFactory().get("/admin/")
         request.user = User.objects.create_superuser("admin", "admin@example.com", "pw")
 
-        groups = admin.site.get_sidebar_list(request)
+        # Pedidos é app Nuxt headless (env-gated); configurado, lidera a operação ao vivo.
+        with override_settings(SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com"):
+            groups = admin.site.get_sidebar_list(request)
         titles = [group["title"] for group in groups]
 
         self.assertEqual(titles[0], "Operação ao vivo")
@@ -78,6 +82,27 @@ class AdminNavigationTests(TestCase):
         audit_group = next(group for group in groups if group["title"] == "Auditoria e acesso")
         audit_items = [item["title"] for item in audit_group["items"] if item["has_permission"]]
         self.assertIn("Pagamentos", audit_items)
+
+    def test_orders_and_kds_nav_items_are_env_gated(self) -> None:
+        """Pedidos e KDS são apps Nuxt headless: sem base URL somem (sem link morto);
+        configurados, apontam para a superfície Nuxt."""
+        from django.test import override_settings
+
+        request = RequestFactory().get("/admin/")
+        request.user = User.objects.create_superuser("opsnav", "opsnav@example.com", "pw")
+
+        with override_settings(SHOPMAN_ORDERS_BASE_URL="", SHOPMAN_KDS_BASE_URL=""):
+            live = {item["title"]: item for item in admin.site.get_sidebar_list(request)[0]["items"]}
+            self.assertNotIn("Pedidos", live)
+            self.assertNotIn("KDS", live)
+
+        with override_settings(
+            SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com",
+            SHOPMAN_KDS_BASE_URL="https://kds.example.com",
+        ):
+            live = {item["title"]: item for item in admin.site.get_sidebar_list(request)[0]["items"]}
+            self.assertEqual(live["Pedidos"]["link"], "https://gestor.example.com")
+            self.assertEqual(live["KDS"]["link"], "https://kds.example.com")
 
     def test_sidebar_groups_all_store_config_under_one_discoverable_group(self) -> None:
         """WP-2 — config da loja num grupo 'Configurações' descobrível."""

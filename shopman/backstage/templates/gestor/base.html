@@ -86,29 +86,8 @@
       {% comment %}Nav links{% endcomment %}
       <nav class="flex-1 py-3 flex flex-col items-center gap-1 overflow-y-auto scrollbar-hide" aria-label="Áreas operacionais">
 
-        {% url 'admin_console_orders' as url_pedidos %}
-        <a href="{{ url_pedidos }}"
-           class="rail-link relative {% block nav_active_pedidos %}{% endblock %}"
-           title="Pedidos"
-           aria-label="Pedidos">
-          <span class="material-symbols-rounded icon-md" aria-hidden="true">receipt_long</span>
-          {% if new_orders_count %}
-          <span class="absolute top-0.5 right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full
-                       bg-warning text-on-warning text-xs font-bold
-                       flex items-center justify-center leading-none"
-                aria-label="{{ new_orders_count }} pedidos novos">{{ new_orders_count }}</span>
-          {% endif %}
-        </a>
-
-        {% url 'backstage:kds_station_picker' as url_kds %}
-        <a href="{{ url_kds }}"
-           class="rail-link {% block nav_active_kds %}{% endblock %}"
-           title="KDS · Cozinha"
-           aria-label="KDS">
-          <span class="material-symbols-rounded icon-md" aria-hidden="true">kitchen</span>
-        </a>
-
-
+        {% comment %}Pedidos/KDS/alertas migraram para apps Nuxt dedicados (Gestor, KDS);
+           o rail aqui serve só a Produção (HTMX até a Fase 4).{% endcomment %}
         {% url 'admin_console_production' as url_producao %}
         <a href="{{ url_producao|default:'/admin/' }}"
            class="rail-link {% block nav_active_producao %}{% endblock %}"
@@ -177,42 +156,8 @@
           {% block navbar_actions %}{% endblock %}
         </div>
 
-        {% if operator.is_active %}
-        <div class="relative shrink-0" x-data="{ alertsOpen: false }" @keydown.escape.window="alertsOpen = false">
-          <div id="operator-alerts-badge"
-             hx-ext="sse"
-             sse-connect="{% if operator.event_scope %}{% url 'backstage:events_scoped' kind='alerts' scope=operator.event_scope %}{% else %}{% url 'backstage:events' kind='alerts' %}{% endif %}"
-             hx-get="{% url 'backstage:alerts_badge' %}"
-             hx-trigger="sse:backstage-alerts-update, every 30s"
-             hx-target="#operator-alerts-badge"
-             hx-swap="innerHTML"
-             class="shrink-0">
-            {% include "gestor/partials/alerts_badge.html" %}
-          </div>
-          <div x-show="alertsOpen"
-               x-cloak
-               x-transition
-               @click.outside="alertsOpen = false"
-               class="absolute right-0 z-[70] mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-outline bg-surface-alt shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
-            <div class="flex items-center justify-between gap-2 border-b border-outline px-3 py-2 dark:border-outline-dark">
-              <span class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Alertas</span>
-              <button type="button" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" @click="alertsOpen = false" title="Fechar" aria-label="Fechar alertas">
-                <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
-              </button>
-            </div>
-            <div id="operator-alerts-panel"
-                 role="status"
-                 aria-live="polite"
-                 aria-relevant="additions"
-                 hx-get="{% url 'backstage:alerts_panel' %}"
-                 hx-trigger="revealed, sse:backstage-alerts-update from:#operator-alerts-badge"
-                 hx-target="#operator-alerts-panel"
-                 hx-swap="innerHTML">
-              {% include "gestor/partials/alerts_panel.html" with alerts=alerts %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
+        {% comment %}Alertas migraram para o app Gestor (sino) + o changelist Admin de
+           OperatorAlert; o widget HTMX de alertas foi removido (Fase 2).{% endcomment %}
 
         {% if operator.is_active %}
         <span class="hidden md:inline-flex items-center gap-1 text-xs text-on-surface/50 dark:text-on-surface-dark/50 shrink-0"

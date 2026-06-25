@@ -43,6 +43,23 @@ def _create_shop():
     )
 
 
+# Operator RBAC is now exercised on the headless API the dedicated apps consume:
+#   orders → /api/v1/backstage/orders/   (gate: shop.manage_orders)
+#   KDS    → /api/v1/backstage/kds/<ref>/ (gate: backstage.operate_kds)
+#   POS    → /api/v1/backstage/pos/       (gate: backstage.operate_pos)
+# DRF returns 403 for unauthenticated/forbidden (no login redirect).
+ORDERS_URL = "/api/v1/backstage/orders/"
+POS_URL = "/api/v1/backstage/pos/"
+
+
+def _kds_board_url():
+    """Create a KDS station and return its operate_kds-gated board URL."""
+    from shopman.backstage.models import KDSInstance
+
+    inst = KDSInstance.objects.create(ref="perm-kds", name="Preparo", type="prep")
+    return f"/api/v1/backstage/kds/{inst.ref}/"
+
+
 class TestManageOrdersPerm(TestCase):
     def setUp(self):
         self.client = Client()
@@ -52,24 +69,25 @@ class TestManageOrdersPerm(TestCase):
     def test_staff_without_perm_gets_403(self):
         u = _staff("staff_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/pedidos/")
+        resp = self.client.get(ORDERS_URL)
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
         u = _staff("staff_with_perm", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/pedidos/")
+        resp = self.client.get(ORDERS_URL)
         self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/admin/operacao/pedidos/")
+        resp = self.client.get(ORDERS_URL)
         self.assertEqual(resp.status_code, 200)
 
-    def test_unauthenticated_redirects_to_login(self):
-        resp = self.client.get("/admin/operacao/pedidos/")
-        self.assertRedirects(resp, "/admin/login/?next=/admin/operacao/pedidos/", fetch_redirect_response=False)
+    def test_unauthenticated_is_blocked(self):
+        # DRF API gate returns 403 for unauthenticated (no login redirect).
+        resp = self.client.get(ORDERS_URL)
+        self.assertEqual(resp.status_code, 403)
 
 
 class TestOperateKdsPerm(TestCase):
@@ -79,23 +97,23 @@ class TestOperateKdsPerm(TestCase):
         _create_shop()
 
     def test_staff_without_perm_gets_403(self):
+        url = _kds_board_url()
         u = _staff("kds_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/operacao/kds/")
-        # KDS is operational like POS: the dedicated station requires operate_kds.
-        self.assertEqual(resp.status_code, 403)
+        # KDS board is operational like POS: requires operate_kds.
+        self.assertEqual(self.client.get(url).status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
+        url = _kds_board_url()
         u = _staff("kds_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/operacao/kds/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get(url).status_code, 200)
 
     def test_superuser_passes(self):
+        url = _kds_board_url()
         u = User.objects.create_superuser("super_kds", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/operacao/kds/")
-        self.assertNotEqual(resp.status_code, 403)
+        self.assertNotEqual(self.client.get(url).status_code, 403)
 
 
 class TestOperatePosPerm(TestCase):
@@ -136,19 +154,17 @@ class TestCashierGroup(TestCase):
 
     def test_cashier_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/pedidos/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get(ORDERS_URL).status_code, 200)
 
     def test_cashier_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/api/v1/backstage/pos/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get(POS_URL).status_code, 200)
 
     def test_cashier_cannot_access_kds(self):
+        url = _kds_board_url()
         self.client.force_login(self.user)
-        resp = self.client.get("/operacao/kds/")
         # Cashier lacks operate_kds; the KDS station is operator-only (like POS for kitchen).
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.client.get(url).status_code, 403)
 
 
 class TestKitchenGroup(TestCase):
@@ -163,19 +179,17 @@ class TestKitchenGroup(TestCase):
         _create_shop()
 
     def test_kitchen_can_access_kds(self):
+        url = _kds_board_url()
         self.client.force_login(self.user)
-        resp = self.client.get("/operacao/kds/")
-        self.assertNotEqual(resp.status_code, 403)
+        self.assertNotEqual(self.client.get(url).status_code, 403)
 
     def test_kitchen_cannot_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/api/v1/backstage/pos/")
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.client.get(POS_URL).status_code, 403)
 
     def test_kitchen_cannot_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/pedidos/")
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.client.get(ORDERS_URL).status_code, 403)
 
 
 class TestManagerGroup(TestCase):
@@ -191,19 +205,17 @@ class TestManagerGroup(TestCase):
 
     def test_manager_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/admin/operacao/pedidos/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get(ORDERS_URL).status_code, 200)
 
     def test_manager_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/api/v1/backstage/pos/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get(POS_URL).status_code, 200)
 
     def test_manager_cannot_access_kds(self):
+        url = _kds_board_url()
         self.client.force_login(self.user)
-        resp = self.client.get("/operacao/kds/")
         # Manager lacks operate_kds; the KDS station is operator-only (passive viewing via customer board).
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.client.get(url).status_code, 403)
 
 
 class TestDefaultGroupsExist(TestCase):

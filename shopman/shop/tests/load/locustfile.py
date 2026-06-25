@@ -257,7 +257,7 @@ class PaymentUser(HttpUser):
 
 
 class OperatorUser(HttpUser):
-    """Operators on the live Django order console."""
+    """Operators on the headless order API (Gestor de Pedidos app)."""
 
     weight = 10
     wait_time = between(2, 5)
@@ -266,16 +266,12 @@ class OperatorUser(HttpUser):
         _admin_login(self.client)
 
     @task(3)
-    def order_console(self):
-        self.client.get("/admin/operacao/pedidos/", name="/admin/operacao/pedidos/")
+    def order_queue(self):
+        self.client.get("/api/v1/backstage/orders/", name="/api/v1/backstage/orders/")
 
     @task(2)
-    def order_console_list_partial(self):
-        self.client.get(
-            "/admin/operacao/pedidos/lista/",
-            headers={"HX-Request": "true"},
-            name="/admin/operacao/pedidos/lista/ (HTMX)",
-        )
+    def order_queue_poll(self):
+        self.client.get("/api/v1/backstage/orders/", name="/api/v1/backstage/orders/ (poll)")
 
     @task(1)
     def admin_dashboard(self):
@@ -283,12 +279,12 @@ class OperatorUser(HttpUser):
 
 
 # ---------------------------------------------------------------------------
-# 5. KDS — Django kitchen display (weight=30, live post-headless)
+# 5. KDS — headless kitchen display API (weight=30, live post-headless)
 # ---------------------------------------------------------------------------
 
 
 class KDSUser(HttpUser):
-    """KDS stations on the live Django runtime."""
+    """KDS stations on the headless API (kds-uithing-nuxt app)."""
 
     weight = 30
     wait_time = between(1, 3)
@@ -297,15 +293,15 @@ class KDSUser(HttpUser):
         _admin_login(self.client)
 
     @task(3)
-    def kds_picker(self):
-        self.client.get("/operacao/kds/", name="/operacao/kds/")
+    def kds_index(self):
+        self.client.get("/api/v1/backstage/kds/", name="/api/v1/backstage/kds/")
 
     @task(5)
-    def kds_station(self):
+    def kds_board(self):
         ref = random.choice(["paes", "picking", "confeitaria"])
         with self.client.get(
-            f"/operacao/kds/estacao/{ref}/",
-            name="/operacao/kds/estacao/[ref]/",
+            f"/api/v1/backstage/kds/{ref}/",
+            name="/api/v1/backstage/kds/[ref]/",
             catch_response=True,
         ) as response:
             if response.status_code in (200, 404):

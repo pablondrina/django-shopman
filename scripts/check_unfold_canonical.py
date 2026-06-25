@@ -126,38 +126,10 @@ def _paths(*paths: str) -> tuple[Path, ...]:
     return tuple(ROOT / path for path in paths)
 
 
+# NOTA: a superfície `admin-console-orders` foi removida — a fila de pedidos virou
+# app Nuxt dedicado (Gestor, surfaces/orders-uithing-nuxt) via api/v1/backstage/orders/*
+# (OPERATOR-APPS-PLAN Fase 2). Deixou de ser superfície Admin/Unfold.
 CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
-    Surface(
-        id="admin-console-orders",
-        kind="canonical-admin-unfold-page",
-        templates=(ROOT / "shopman/backstage/templates/admin_console/orders",),
-        controllers=(ROOT / "shopman/backstage/admin_console/orders.py",),
-        projections=(ROOT / "shopman/backstage/projections/order_queue.py",),
-        url_prefixes=("/admin/operacao/pedidos/",),
-        requires_model_admin_view_mixin=True,
-        required_extends="admin/base.html",
-        required_template_markers=(
-            'include "unfold/helpers/messages.html"',
-            'include "unfold/helpers/tab_list.html"',
-            'include "unfold/helpers/field.html"',
-            'component "unfold/components/button.html"',
-            'component "unfold/components/container.html"',
-            'component "unfold/components/link.html"',
-            'component "unfold/components/table.html"',
-            'component "unfold/components/text.html"',
-            'component "unfold/components/title.html"',
-            'component "unfold/components/tracker.html"',
-        ),
-        required_controller_markers=(
-            "UnfoldAdminTextareaWidget",
-            "build_two_zone_queue",
-            "build_order_card",
-            "build_operator_order",
-            "order_service.confirm_order",
-            "order_service.advance_order",
-            "order_service.reject_order",
-        ),
-    ),
     Surface(
         id="admin-console-day-closing",
         kind="canonical-admin-unfold-page",
@@ -261,8 +233,6 @@ RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
         templates=_paths(
             "shopman/backstage/templates/gestor/404.html",
             "shopman/backstage/templates/gestor/base.html",
-            "shopman/backstage/templates/gestor/partials/alerts_badge.html",
-            "shopman/backstage/templates/gestor/partials/alerts_panel.html",
         ),
         replacement="Shared operator shell is registered runtime UI; management screens must use Admin/Unfold.",
     ),
@@ -285,20 +255,8 @@ RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
         projections=(ROOT / "shopman/backstage/projections/pos.py",),
         replacement="POS is registered runtime UI; management screens must use Admin/Unfold.",
     ),
-    Surface(
-        id="runtime-kds-customer",
-        kind="registered-runtime-backstage",
-        templates=(ROOT / "shopman/backstage/templates/runtime/kds_customer",),
-        projections=(ROOT / "shopman/backstage/projections/kds.py",),
-        replacement="Customer KDS board is registered runtime UI; KDS management screens must use Admin/Unfold.",
-    ),
-    Surface(
-        id="runtime-kds-station",
-        kind="registered-runtime-backstage",
-        templates=(ROOT / "shopman/backstage/templates/runtime/kds_station",),
-        projections=(ROOT / "shopman/backstage/projections/kds.py",),
-        replacement="KDS station runtime is registered touch-first operator UI; KDS management screens must use Admin/Unfold.",
-    ),
+    # KDS station + customer board migraram p/ o app Nuxt dedicado (kds-uithing-nuxt)
+    # via api/v1/backstage/kds/*; as views/templates HTMX foram removidas (Fase 2).
 )
 
 EXCEPTION_SURFACES: tuple[Surface, ...] = (
@@ -307,6 +265,19 @@ EXCEPTION_SURFACES: tuple[Surface, ...] = (
         kind="explicit-exception",
         templates=(ROOT / "shopman/storefront/templates", ROOT / "shopman/shop/templates/components"),
         exception_reason="Storefront is customer-facing and does not use the Admin shell.",
+    ),
+    Surface(
+        id="headless-operator-api",
+        kind="explicit-exception",
+        projections=(
+            ROOT / "shopman/backstage/projections/order_queue.py",
+            ROOT / "shopman/backstage/projections/kds.py",
+        ),
+        exception_reason=(
+            "Order queue + KDS projections feed dedicated headless Nuxt operator apps "
+            "(gestor./kds. via api/v1/backstage/*), not Admin/Unfold pages "
+            "(OPERATOR-APPS-PLAN Fase 2)."
+        ),
     ),
 )
 

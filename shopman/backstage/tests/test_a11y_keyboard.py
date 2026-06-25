@@ -42,7 +42,7 @@ def _no_positive_tabindex(html: str, surface: str) -> None:
 def test_skip_link_present_in_shell(client, superuser):
     """Pressing Tab once after page load must reveal a skip link to main content."""
     client.force_login(superuser)
-    response = client.get(reverse("backstage:kds_station_picker"))
+    response = client.get(reverse("backstage:production_kds"))
     html = response.content.decode("utf-8")
     assert 'href="#backstage-main"' in html, "skip link to main missing"
     assert "Pular para o conteúdo principal" in html
@@ -52,8 +52,6 @@ def test_skip_link_present_in_shell(client, superuser):
 @pytest.mark.django_db
 def test_no_positive_tabindex_anywhere(client, superuser):
     surfaces = [
-        ("backstage:kds_station_picker", []),
-        ("admin_console_orders", []),
         ("admin_console_production", []),
         ("admin_console_production_dashboard", []),
         ("backstage:production_kds", []),
@@ -100,7 +98,7 @@ def test_modals_use_aria_modal_when_role_dialog(client, superuser):
 @pytest.mark.django_db
 def test_navigation_landmark_labelled(client, superuser):
     client.force_login(superuser)
-    response = client.get(reverse("backstage:kds_station_picker"))
+    response = client.get(reverse("backstage:production_kds"))
     html = response.content.decode("utf-8")
     nav_match = re.search(r"<(?:nav|aside)[^>]*role=\"navigation\"[^>]*>", html)
     if not nav_match:

@@ -144,8 +144,6 @@ def test_core_models_use_unfold_admin(model):
 @pytest.mark.parametrize(
     "url_name",
     [
-        "admin_console_orders",
-        "admin_console_orders_list",
         "admin_console_production",
         "admin_console_production_planning",
         "admin_console_production_dashboard",

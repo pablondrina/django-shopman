@@ -9,16 +9,6 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from shopman.backstage.admin_console.closing import day_closing_console_view
-from shopman.backstage.admin_console.orders import (
-    order_advance_view,
-    order_confirm_view,
-    order_detail_view,
-    order_reject_view,
-    order_requeue_fiscal_view,
-    order_settle_delivery_cash_view,
-    orders_console_list_view,
-    orders_console_view,
-)
 from shopman.backstage.admin_console.production import (
     production_commitments_view,
     production_console_bulk_create_view,
@@ -48,46 +38,9 @@ urlpatterns = [
     # Health / readiness probes — público, sem auth, no topo para precedência.
     path("health/", HealthCheckView.as_view(), name="health"),
     path("ready/", ReadyCheckView.as_view(), name="ready"),
-    path(
-        "admin/operacao/pedidos/",
-        admin.site.admin_view(orders_console_view),
-        name="admin_console_orders",
-    ),
-    path(
-        "admin/operacao/pedidos/lista/",
-        admin.site.admin_view(orders_console_list_view),
-        name="admin_console_orders_list",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/",
-        admin.site.admin_view(order_detail_view),
-        name="admin_console_order_detail",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/confirmar/",
-        admin.site.admin_view(order_confirm_view),
-        name="admin_console_order_confirm",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/avancar/",
-        admin.site.admin_view(order_advance_view),
-        name="admin_console_order_advance",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/acerto-dinheiro-entrega/",
-        admin.site.admin_view(order_settle_delivery_cash_view),
-        name="admin_console_order_settle_delivery_cash",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/fiscal/reprocessar/",
-        admin.site.admin_view(order_requeue_fiscal_view),
-        name="admin_console_order_requeue_fiscal",
-    ),
-    path(
-        "admin/operacao/pedidos/<str:ref>/rejeitar/",
-        admin.site.admin_view(order_reject_view),
-        name="admin_console_order_reject",
-    ),
+    # Pedidos migraram p/ o app Nuxt dedicado (Gestor — surfaces/orders-uithing-nuxt)
+    # via api/v1/backstage/orders/*; o console Admin de pedidos foi removido
+    # (OPERATOR-APPS-PLAN Fase 2).
     path(
         "admin/operacao/producao/",
         admin.site.admin_view(production_console_view),
