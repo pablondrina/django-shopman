@@ -49,7 +49,10 @@ from .operations import (
     ProductionBoardView,
     ProductionKDSView,
     WorkOrderAdvanceStepView,
+    WorkOrderFinishView,
+    WorkOrderPlanView,
     WorkOrderQuickFinishView,
+    WorkOrderStartView,
     WorkOrderVoidView,
 )
 
@@ -84,6 +87,9 @@ urlpatterns = [
     path("alerts/", AlertListView.as_view(), name="api-backstage-alerts"),
     path("alerts/<int:pk>/ack/", AlertAckView.as_view(), name="api-backstage-alert-ack"),
     # Production — work order actions
+    path("production/plan/", WorkOrderPlanView.as_view(), name="api-backstage-wo-plan"),
+    path("production/<int:wo_id>/start/", WorkOrderStartView.as_view(), name="api-backstage-wo-start"),
+    path("production/<int:wo_id>/finish/", WorkOrderFinishView.as_view(), name="api-backstage-wo-finish"),
     path("production/<int:wo_id>/advance-step/", WorkOrderAdvanceStepView.as_view(), name="api-backstage-wo-advance"),
     path("production/quick-finish/", WorkOrderQuickFinishView.as_view(), name="api-backstage-wo-quick-finish"),
     path("production/<int:wo_id>/void/", WorkOrderVoidView.as_view(), name="api-backstage-wo-void"),

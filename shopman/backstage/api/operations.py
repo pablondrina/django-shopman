@@ -15,9 +15,12 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/orders/<ref>/settle-delivery-cash/ → settle COD cash
   POST /api/v1/backstage/orders/<ref>/requeue-fiscal/ → requeue NFC-e emission
   POST /api/v1/backstage/orders/<ref>/notes/    → save operator internal notes
+  POST /api/v1/backstage/production/plan/                 → plan/adjust matrix cell
+  POST /api/v1/backstage/production/<wo_id>/start/        → start a planned WO
+  POST /api/v1/backstage/production/<wo_id>/finish/       → finish a started WO
   POST /api/v1/backstage/production/<wo_id>/advance-step/ → next step
-  POST /api/v1/backstage/production/<wo_id>/finish/  → quick finish step (for KDS)
-  POST /api/v1/backstage/production/<wo_id>/void/    → void work order
+  POST /api/v1/backstage/production/quick-finish/         → plan + finish in one step
+  POST /api/v1/backstage/production/<wo_id>/void/         → void work order
   POST /api/v1/backstage/closing/                    → finalize day closing
   POST /api/v1/backstage/pos/cash/open/              -> open cash shift
   POST /api/v1/backstage/pos/cash/close/             -> close cash shift
@@ -64,6 +67,7 @@ from shopman.backstage.services import (
     production as production_service,
 )
 from shopman.backstage.services.exceptions import OrderError, POSError, ProductionError
+from shopman.backstage.services.production import ProductionOrderShortError, ProductionStockShortError
 from shopman.shop.services import pos as pos_tabs_service
 from shopman.shop.services.pos_intent import PosIntentError
 
@@ -85,6 +89,51 @@ def _parse_date(raw: str | None) -> date | None:
 def _actor(request) -> str:
     user = getattr(request, "user", None)
     return getattr(user, "username", None) or "operator"
+
+
+def _shortage_response(exc: ProductionError) -> Response | None:
+    """Structured error envelope for production shortage states.
+
+    The floor app reproduces the material/order shortage modals from this
+    payload (mirrors the POS error envelope shape ``{detail, error: {code,…}}``).
+    Returns ``None`` for non-shortage errors so callers fall through to the
+    generic 400 handling.
+    """
+    if isinstance(exc, ProductionStockShortError):
+        return Response(
+            {
+                "detail": str(exc),
+                "error": {
+                    "code": "material_shortage",
+                    "work_order_ref": exc.work_order_ref,
+                    "missing": [
+                        {
+                            "sku": item.sku,
+                            "needed": str(item.needed),
+                            "available": str(item.available),
+                            "shortage": str(item.shortage),
+                        }
+                        for item in exc.missing
+                    ],
+                },
+            },
+            status=409,
+        )
+    if isinstance(exc, ProductionOrderShortError):
+        return Response(
+            {
+                "detail": str(exc),
+                "error": {
+                    "code": "order_shortage",
+                    "work_order_ref": exc.work_order_ref,
+                    "required": str(exc.required),
+                    "requested": str(exc.requested),
+                    "order_refs": list(exc.order_refs),
+                },
+            },
+            status=409,
+        )
+    return None
 
 
 def _cash_shift_result(shift) -> dict:
@@ -256,7 +305,7 @@ class POSOperatorLockView(APIView):
 )
 class ProductionBoardView(APIView):
     permission_classes = [HasBackstagePermission]
-    required_permission = "craftsman.view_workorder"
+    required_permission = "backstage.operate_production"
 
     def get(self, request):
         selected = _parse_date(request.query_params.get("date"))
@@ -277,7 +326,7 @@ class ProductionBoardView(APIView):
 )
 class ProductionKDSView(APIView):
     permission_classes = [HasBackstagePermission]
-    required_permission = "craftsman.view_workorder"
+    required_permission = "backstage.operate_production"
 
     def get(self, request):
         selected = _parse_date(request.query_params.get("date"))
@@ -531,6 +580,110 @@ class OrderNotesView(_OrderActionBase):
 # ── Production action endpoints ───────────────────────────────────────
 
 
+class _ProductionActionBase(APIView):
+    """Shared gate for production action endpoints."""
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_production"
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Plan (or adjust) production for a recipe/date (matrix cell)",
+        responses={200: OpenApiResponse(description="Planned quantity set.")},
+    ),
+)
+class WorkOrderPlanView(_ProductionActionBase):
+    def post(self, request):
+        recipe_id = request.data.get("recipe_id") or request.data.get("recipe")
+        quantity = request.data.get("quantity")
+        target_date = request.data.get("target_date")
+        if not (recipe_id and target_date and quantity is not None):
+            return Response(
+                {"detail": "recipe_id, target_date e quantity são obrigatórios."},
+                status=400,
+            )
+        source = (request.data.get("source") or "").strip()
+        try:
+            output_sku, wo_ref, qty, result = production_service.apply_planned(
+                recipe_id=recipe_id,
+                quantity=str(quantity).strip(),
+                target_date_value=str(target_date).strip(),
+                position_ref=str(request.data.get("position_ref") or "").strip(),
+                operator_ref=str(request.data.get("operator_ref") or "").strip(),
+                reason=str(request.data.get("reason") or "").strip(),
+                actor=_actor(request),
+                force=bool(request.data.get("force")),
+                source_ref="formula:suggestion" if source == "suggested" else "production_matrix",
+            )
+        except ProductionError as exc:
+            shortage = _shortage_response(exc)
+            if shortage is not None:
+                return shortage
+            return Response({"detail": str(exc) or "Falha ao planejar produção."}, status=400)
+        except ValueError as exc:
+            return Response({"detail": str(exc) or "Dados de planejamento inválidos."}, status=400)
+        return Response({
+            "ok": True,
+            "result": result,
+            "output_sku": output_sku,
+            "wo_ref": wo_ref,
+            "quantity": str(qty),
+        })
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Start a planned work order",
+        responses={200: OpenApiResponse(description="Work order started.")},
+    ),
+)
+class WorkOrderStartView(_ProductionActionBase):
+    def post(self, request, wo_id: int):
+        try:
+            wo_ref, quantity = production_service.apply_start(
+                work_order_id=wo_id,
+                quantity=str(request.data.get("quantity") or "").strip(),
+                position_id=str(request.data.get("position_id") or "").strip(),
+                operator_ref=str(request.data.get("operator_ref") or "").strip(),
+                note=str(request.data.get("note") or "").strip(),
+                actor=_actor(request),
+            )
+        except ProductionError as exc:
+            return Response({"detail": str(exc) or "Falha ao iniciar produção."}, status=400)
+        except ValueError as exc:
+            return Response({"detail": str(exc) or "Dados inválidos."}, status=400)
+        return Response({"ok": True, "wo_ref": wo_ref, "quantity": str(quantity)})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Finish a started work order (force overrides material shortage)",
+        responses={200: OpenApiResponse(description="Work order finished.")},
+    ),
+)
+class WorkOrderFinishView(_ProductionActionBase):
+    def post(self, request, wo_id: int):
+        try:
+            wo_ref, quantity = production_service.apply_finish(
+                work_order_id=wo_id,
+                quantity=str(request.data.get("quantity") or "").strip(),
+                actor=_actor(request),
+                force=bool(request.data.get("force")),
+            )
+        except ProductionError as exc:
+            shortage = _shortage_response(exc)
+            if shortage is not None:
+                return shortage
+            return Response({"detail": str(exc) or "Falha ao concluir produção."}, status=400)
+        except ValueError as exc:
+            return Response({"detail": str(exc) or "Dados inválidos."}, status=400)
+        return Response({"ok": True, "wo_ref": wo_ref, "quantity": str(quantity)})
+
+
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
@@ -538,10 +691,7 @@ class OrderNotesView(_OrderActionBase):
         responses={200: OpenApiResponse(description="Step advanced.")},
     ),
 )
-class WorkOrderAdvanceStepView(APIView):
-    permission_classes = [HasBackstagePermission]
-    required_permission = "craftsman.change_workorder"
-
+class WorkOrderAdvanceStepView(_ProductionActionBase):
     def post(self, request, wo_id: int):
         try:
             new_index = production_service.apply_advance_step(
@@ -560,10 +710,7 @@ class WorkOrderAdvanceStepView(APIView):
         responses={200: OpenApiResponse(description="Work order finished.")},
     ),
 )
-class WorkOrderQuickFinishView(APIView):
-    permission_classes = [HasBackstagePermission]
-    required_permission = "craftsman.change_workorder"
-
+class WorkOrderQuickFinishView(_ProductionActionBase):
     def post(self, request):
         recipe_id = request.data.get("recipe_id")
         quantity = request.data.get("quantity")
@@ -581,6 +728,9 @@ class WorkOrderQuickFinishView(APIView):
                 actor=_actor(request),
             )
         except ProductionError as exc:
+            shortage = _shortage_response(exc)
+            if shortage is not None:
+                return shortage
             return Response({"detail": str(exc) or "Falha ao finalizar."}, status=400)
         return Response({"ok": True, "wo_ref": getattr(wo, "ref", None)})
 
@@ -592,10 +742,7 @@ class WorkOrderQuickFinishView(APIView):
         responses={200: OpenApiResponse(description="Work order voided.")},
     ),
 )
-class WorkOrderVoidView(APIView):
-    permission_classes = [HasBackstagePermission]
-    required_permission = "craftsman.change_workorder"
-
+class WorkOrderVoidView(_ProductionActionBase):
     def post(self, request, wo_id: int):
         reason = (request.data.get("reason") or "Estornado pelo operador").strip()
         try:

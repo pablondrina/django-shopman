@@ -61,6 +61,18 @@ def can_operate_kds(user) -> bool:
     return is_superuser(user) or user.has_perm("backstage.operate_kds")
 
 
+def can_operate_production(user) -> bool:
+    """Coarse operator gate for the dedicated production app (``fournil.``).
+
+    Sibling of ``operate_pos``/``operate_kds``: a single surface-entry grant for
+    the floor + planning app, granted to the Cozinha/Gerente groups. The
+    fine-grained column control (``resolve_production_access`` / the
+    ``*_production_*`` perms on ``shop.shop``) keeps governing the Admin console
+    and is intentionally left untouched.
+    """
+    return is_superuser(user) or user.has_perm("backstage.operate_production")
+
+
 def can_view_operator_alerts(user) -> bool:
     return is_staff(user) and (
         is_superuser(user)
@@ -68,4 +80,5 @@ def can_view_operator_alerts(user) -> bool:
         or can_access_production(user)
         or can_operate_pos(user)
         or can_operate_kds(user)
+        or can_operate_production(user)
     )

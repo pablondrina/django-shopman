@@ -31,6 +31,7 @@ class DayClosing(models.Model):
             ("perform_closing", "Pode executar fechamento do dia"),
             ("view_production_reports", "Pode ver relatórios de produção"),
             ("view_dayclosing_management", "Pode ver agregados gerenciais do fechamento"),
+            ("operate_production", "Pode operar a produção (chão + planejamento) no app dedicado"),
         ]
 
     def __str__(self):

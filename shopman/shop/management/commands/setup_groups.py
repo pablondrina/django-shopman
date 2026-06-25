@@ -37,6 +37,7 @@ class Command(BaseCommand):
             ],
             "Cozinha": [
                 shop_kdst("operate_kds"),
+                shop_dclo("operate_production"),
                 shop_shop("manage_production"),
                 shop_shop("view_production_planned"),
                 shop_shop("edit_production_planned"),
@@ -49,6 +50,7 @@ class Command(BaseCommand):
                 shop_shop("manage_orders"),
                 shop_cash("operate_pos"),
                 shop_dclo("perform_closing"),
+                shop_dclo("operate_production"),
                 shop_shop("view_reports"),
                 shop_shop("manage_customers"),
                 shop_shop("view_production_suggested"),
