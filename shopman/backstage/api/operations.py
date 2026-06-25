@@ -91,6 +91,12 @@ def _actor(request) -> str:
     return getattr(user, "username", None) or "operator"
 
 
+def _production_actor(request) -> str:
+    """Audit attribution for production actions, matching the retired HTMX floor
+    (``production:<username>``) so the event trail stays consistent post-cutover."""
+    return f"production:{_actor(request)}"
+
+
 def _shortage_response(exc: ProductionError) -> Response | None:
     """Structured error envelope for production shortage states.
 
@@ -613,7 +619,7 @@ class WorkOrderPlanView(_ProductionActionBase):
                 position_ref=str(request.data.get("position_ref") or "").strip(),
                 operator_ref=str(request.data.get("operator_ref") or "").strip(),
                 reason=str(request.data.get("reason") or "").strip(),
-                actor=_actor(request),
+                actor=_production_actor(request),
                 force=bool(request.data.get("force")),
                 source_ref="formula:suggestion" if source == "suggested" else "production_matrix",
             )
@@ -649,7 +655,7 @@ class WorkOrderStartView(_ProductionActionBase):
                 position_id=str(request.data.get("position_id") or "").strip(),
                 operator_ref=str(request.data.get("operator_ref") or "").strip(),
                 note=str(request.data.get("note") or "").strip(),
-                actor=_actor(request),
+                actor=_production_actor(request),
             )
         except ProductionError as exc:
             return Response({"detail": str(exc) or "Falha ao iniciar produção."}, status=400)
@@ -671,7 +677,7 @@ class WorkOrderFinishView(_ProductionActionBase):
             wo_ref, quantity = production_service.apply_finish(
                 work_order_id=wo_id,
                 quantity=str(request.data.get("quantity") or "").strip(),
-                actor=_actor(request),
+                actor=_production_actor(request),
                 force=bool(request.data.get("force")),
             )
         except ProductionError as exc:
@@ -696,7 +702,7 @@ class WorkOrderAdvanceStepView(_ProductionActionBase):
         try:
             new_index = production_service.apply_advance_step(
                 work_order_id=wo_id,
-                actor=_actor(request),
+                actor=_production_actor(request),
             )
         except ProductionError as exc:
             return Response({"detail": str(exc) or "Falha ao avançar passo."}, status=400)
@@ -725,7 +731,7 @@ class WorkOrderQuickFinishView(_ProductionActionBase):
                 recipe_id=recipe_id,
                 quantity=quantity,
                 position_id=position_id,
-                actor=_actor(request),
+                actor=_production_actor(request),
             )
         except ProductionError as exc:
             shortage = _shortage_response(exc)
@@ -747,7 +753,7 @@ class WorkOrderVoidView(_ProductionActionBase):
         reason = (request.data.get("reason") or "Estornado pelo operador").strip()
         try:
             ref = production_service.apply_void(
-                wo_id, actor=_actor(request), reason=reason,
+                wo_id, actor=_production_actor(request), reason=reason,
             )
         except ProductionError as exc:
             return Response({"detail": str(exc) or "Falha ao estornar."}, status=400)

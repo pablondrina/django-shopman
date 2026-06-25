@@ -1,5 +1,12 @@
 """Quick production registration + bulk create — operator backstage views.
 
+The live floor "KDS de produção" migrated to the dedicated Nuxt app
+(``surfaces/production-uithing-nuxt`` / ``fournil.``) over the headless API at
+``api/v1/backstage/production/*`` (OPERATOR-APPS-PLAN Fase 4). What remains here
+are the SHARED helpers consumed by the Admin/Unfold production console
+(``admin_console/production.py``): ``handle_production_post``,
+``render_production_surface``, ``production_redirect`` and their support.
+
 GET views consume projections from ``shopman.shop.projections.production``.
 POST actions mutate state, then redirect (PRG pattern).
 """
@@ -11,136 +18,27 @@ from datetime import date, timedelta
 from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.core.exceptions import ObjectDoesNotExist
 from django.http import (
-    Http404,
     HttpResponse,
-    HttpResponseForbidden,
     HttpResponseRedirect,
 )
-from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
 from shopman.backstage.projections.production import (
     build_production_board,
-    build_production_kds,
-    resolve_production_access,
 )
 from shopman.backstage.services import production as production_service
 from shopman.backstage.services.production import ProductionOrderShortError, ProductionStockShortError
 
 logger = logging.getLogger(__name__)
 
-KDS_TEMPLATE = "gestor/producao/kds.html"
-KDS_PARTIAL_TEMPLATE = "gestor/producao/partials/kds_cards.html"
+# Shortage modal partials rendered by ``handle_production_post`` on HX-Request
+# (the Admin/Unfold production console). The KDS floor templates moved to the
+# Nuxt app, but these stay — they back the console's material/order shortage UX.
 SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
 ORDER_SHORT_PARTIAL_TEMPLATE = "gestor/producao/partials/order_shortage.html"
-
-
-def production_kds_view(request):
-    """GET: production KDS for started work orders."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    access = resolve_production_access(request.user)
-    if not (access.can_view_started or access.can_edit_started or access.can_edit_finished):
-        messages.error(request, "Sem permissão para acessar produção em andamento.")
-        return HttpResponseRedirect(reverse("admin:index"))
-
-    selected_date = _selected_date(request)
-    position_ref = (request.GET.get("position_ref") or "").strip()
-    _check_late_started_orders(selected_date=selected_date)
-    kds = build_production_kds(
-        selected_date=selected_date,
-        position_ref=position_ref,
-        access=access,
-    )
-    return TemplateResponse(request, KDS_TEMPLATE, {
-        "title": "KDS de Produção",
-        "kds": kds,
-        "selected_date": selected_date,
-        "selected_position_ref": position_ref,
-    })
-
-
-def production_kds_cards_view(request):
-    """HTMX partial: production KDS cards for polling updates."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    access = resolve_production_access(request.user)
-    if not (access.can_view_started or access.can_edit_started or access.can_edit_finished):
-        return HttpResponse("", status=403)
-
-    selected_date = _selected_date(request)
-    position_ref = (request.GET.get("position_ref") or "").strip()
-    _check_late_started_orders(selected_date=selected_date)
-    kds = build_production_kds(
-        selected_date=selected_date,
-        position_ref=position_ref,
-        access=access,
-    )
-    return TemplateResponse(request, KDS_PARTIAL_TEMPLATE, {
-        "kds": kds,
-        "selected_date": selected_date,
-        "selected_position_ref": position_ref,
-    })
-
-
-def production_kds_finish_view(request):
-    """POST-only finish endpoint used by the production KDS runtime."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    if request.method != "POST":
-        return HttpResponse("Method not allowed", status=405)
-    if (request.POST.get("action") or "").strip() != "finish":
-        return HttpResponse("Invalid KDS action", status=400)
-
-    access = resolve_production_access(request.user)
-    if not (access.can_view_started or access.can_edit_started or access.can_edit_finished):
-        return HttpResponseForbidden("Sem permissão para acessar produção em andamento.")
-
-    return handle_production_post(request, access, redirect_url_name="backstage:production_kds")
-
-
-def production_advance_step_view(request, wo_id):
-    """POST: advance the KDS step pointer of a STARTED work order by one."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-    if request.method != "POST":
-        return HttpResponseRedirect(reverse("backstage:production_kds"))
-
-    access = resolve_production_access(request.user)
-    if not (access.can_manage_all or access.can_edit_started):
-        return HttpResponseForbidden("Sem permissão para avançar passo.")
-
-    try:
-        production_service.apply_advance_step(
-            work_order_id=wo_id,
-            actor=f"production:{request.user.username}",
-        )
-    except production_service.ProductionError as exc:
-        return HttpResponse(str(exc), status=422)
-    except ObjectDoesNotExist as exc:
-        raise Http404("Ordem de produção não encontrada.") from exc
-
-    if request.headers.get("HX-Request"):
-        return production_kds_cards_view(request)
-    return HttpResponseRedirect(reverse("backstage:production_kds"))
-
-
-def _staff_required(request):
-    """Redirect to login if not authenticated+staff."""
-    if not request.user.is_authenticated or not request.user.is_staff:
-        return redirect(f"/admin/login/?next={request.path}")
-    return None
 
 
 def _selected_date(request) -> date:
@@ -181,15 +79,6 @@ def _coerce_iso_date(raw: str, *, fallback: date) -> date:
         return date.fromisoformat(raw)
     except ValueError:
         return fallback
-
-
-def _check_late_started_orders(*, selected_date: date) -> None:
-    try:
-        from shopman.shop.handlers.production_alerts import check_late_started_orders
-
-        check_late_started_orders(selected_date=selected_date)
-    except Exception:
-        logger.exception("production_late_check_failed date=%s", selected_date)
 
 
 def handle_production_post(request, access, *, redirect_url_name: str = "admin_console_production"):

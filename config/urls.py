@@ -23,7 +23,10 @@ from shopman.shop.views.health import HealthCheckView, ReadyCheckView
 
 logger = logging.getLogger(__name__)
 
-handler404 = "shopman.backstage.views.errors.custom_404"
+# No custom handler404: the legacy operator shell (gestor/base.html + gestor/404.html)
+# was retired with the production app cutover (OPERATOR-APPS-PLAN Fase 4). Operator
+# surfaces are dedicated Nuxt apps; Django serves the API + Admin (which has its own
+# 404). Django's default handler covers the rest.
 
 
 def _include_optional(route: str, module: str):

@@ -22,7 +22,6 @@ from shopman.backstage.projections.production import (
     resolve_production_access,
 )
 from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
-from shopman.backstage.views.production import production_kds_view
 from shopman.shop.handlers.production_alerts import (
     check_late_started_orders,
     create_stock_short_alert,
@@ -108,18 +107,6 @@ def test_work_order_card_preserves_decimal_quantities(recipe):
 
 
 @pytest.mark.django_db
-def test_production_kds_view_renders(recipe, rf, superuser):
-    started = craft.plan(recipe, 12, date=date.today(), position_ref="forno")
-    craft.start(started, quantity=12, position_ref="forno", expected_rev=0)
-
-    kds_request = rf.get("/gestor/producao/kds/")
-    kds_request.user = superuser
-    kds_response = production_kds_view(kds_request)
-    assert kds_response.status_code == 200
-    assert kds_response.context_data["kds"].total_count == 1
-
-
-@pytest.mark.django_db
 def test_low_yield_alert_created_once(recipe):
     work_order = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
     craft.start(work_order, quantity=10, position_ref="forno", expected_rev=0)
@@ -185,6 +172,10 @@ def test_admin_bulk_create_work_orders_accepts_htmx_form(recipe, rf, superuser):
 
 @pytest.mark.django_db
 def test_finish_action_returns_material_shortage_partial(client, recipe, superuser, monkeypatch):
+    # The HX material-shortage partial is now rendered by the SHARED
+    # ``handle_production_post`` through the Admin/Unfold production console
+    # (the live floor moved to the fournil. Nuxt app, which gets the structured
+    # JSON envelope instead). This guards the console's shortage UX.
     Shop.objects.create(name="Loja Produção")
     work_order = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
     client.force_login(superuser)
@@ -201,7 +192,7 @@ def test_finish_action_returns_material_shortage_partial(client, recipe, superus
     )
 
     response = client.post(
-        reverse("backstage:production_kds_finish"),
+        reverse("admin_console_production"),
         {"action": "finish", "wo_id": work_order.pk, "quantity": "10"},
         HTTP_HX_REQUEST="true",
     )

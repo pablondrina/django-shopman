@@ -23,18 +23,10 @@ def _visible_source(source: str) -> str:
     return source
 
 
-def test_backstage_shell_keeps_accessible_viewport_and_canonical_css():
-    base = (TEMPLATES / "gestor" / "base.html").read_text(encoding="utf-8")
-    css = CSS_SOURCE.read_text(encoding="utf-8")
-
-    assert "maximum-scale" not in base
-    assert "output-gestor.css" in base
-    assert 'class="h-full md:flex"' in base
-    assert "md:w-[calc(100vw-3.5rem)]" in base
-    assert "overflow-x: clip" in css
-    assert "@media (max-width: 767px)" in css
-    assert "font-size: 16px" in css
-    assert ".htmx-indicator { display: none;" in css
+# The legacy operator shell (gestor/base.html) was retired with the production
+# app cutover (OPERATOR-APPS-PLAN Fase 4) — operator surfaces are dedicated Nuxt
+# apps. The CSS guardrail below stays: style-gestor.css still backs the production
+# shortage modals (surface-modal) rendered into the Admin/Unfold production console.
 
 
 def test_backstage_design_tokens_expose_canonical_components():
@@ -83,7 +75,6 @@ def test_backstage_empty_states_and_icons_use_canonical_scale():
     sources = _template_sources()
 
     assert 'component "unfold/components/table.html"' in sources["admin_console/closing/index.html"]
-    assert "icon-md" in sources["gestor/base.html"]
 
 
 # A fila de pedidos virou app Nuxt dedicado (Gestor); deixou de ser superfície

@@ -38,15 +38,10 @@ def _no_positive_tabindex(html: str, surface: str) -> None:
     assert not bad, f"{surface}: positive tabindex found (breaks natural order): {bad}"
 
 
-@pytest.mark.django_db
-def test_skip_link_present_in_shell(client, superuser):
-    """Pressing Tab once after page load must reveal a skip link to main content."""
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:production_kds"))
-    html = response.content.decode("utf-8")
-    assert 'href="#backstage-main"' in html, "skip link to main missing"
-    assert "Pular para o conteúdo principal" in html
-    assert 'id="backstage-main"' in html, "main landmark must have matching id"
+# The skip-link and nav-landmark shell tests covered the legacy gestor operator
+# shell (gestor/base.html), retired with the production app cutover (Fase 4). The
+# Admin/Unfold shell owns its own skip-link/landmark a11y; the Nuxt operator apps
+# own theirs (tested in their vitest/Playwright suites). Those two tests are gone.
 
 
 @pytest.mark.django_db
@@ -54,7 +49,6 @@ def test_no_positive_tabindex_anywhere(client, superuser):
     surfaces = [
         ("admin_console_production", []),
         ("admin_console_production_dashboard", []),
-        ("backstage:production_kds", []),
         ("admin_console_production_reports", []),
         ("admin_console_day_closing", []),
     ]
@@ -95,13 +89,7 @@ def test_modals_use_aria_modal_when_role_dialog(client, superuser):
         assert 'aria-modal="true"' in match.group(0), f"dialog without aria-modal: {match.group(0)[:120]}"
 
 
-@pytest.mark.django_db
-def test_navigation_landmark_labelled(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:production_kds"))
-    html = response.content.decode("utf-8")
-    nav_match = re.search(r"<(?:nav|aside)[^>]*role=\"navigation\"[^>]*>", html)
-    if not nav_match:
-        nav_match = re.search(r"<nav\b[^>]*>", html)
-    assert nav_match, "missing <nav> or role=navigation landmark"
-    assert "aria-label" in nav_match.group(0), "navigation landmark must have aria-label"
+# test_navigation_landmark_labelled was retired with the gestor shell (Fase 4):
+# it asserted the legacy operator shell's aria-labelled <nav>. The Admin/Unfold
+# shell owns its own navigation-landmark a11y (third-party markup we don't enforce
+# here); the Nuxt operator apps own theirs (tested in their suites).

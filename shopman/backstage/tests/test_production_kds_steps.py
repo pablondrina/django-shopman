@@ -5,7 +5,6 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
-from django.urls import reverse
 from django.utils import timezone
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
@@ -149,21 +148,8 @@ def test_apply_advance_step_rejects_recipe_without_steps(superuser):
         production_service.apply_advance_step(work_order_id=wo.pk, actor="op:test")
 
 
-@pytest.mark.django_db
-def test_advance_step_view_requires_post(client, superuser):
-    from shopman.shop.models import Shop
-
-    Shop.objects.create(name="Loja")
-    recipe = _recipe("view", meta={"steps": [
-        {"name": "A", "target_seconds": 60},
-        {"name": "B", "target_seconds": 60},
-    ]})
-    wo = _started(recipe, minutes_ago=1)
-    client.force_login(superuser)
-
-    url = reverse("backstage:production_advance_step", args=[wo.pk])
-    response = client.post(url, HTTP_HX_REQUEST="true")
-
-    assert response.status_code == 200
-    wo.refresh_from_db()
-    assert wo.meta["steps_progress"] == 1
+# The advance-step HTTP path moved to the headless API
+# (POST /api/v1/backstage/production/<pk>/advance-step/) consumed by the fournil.
+# Nuxt app; that contract is covered by test_api_production_surface and the
+# repointed test_backstage_e2e. The pure-service behaviour stays tested above
+# (test_apply_advance_step_*).

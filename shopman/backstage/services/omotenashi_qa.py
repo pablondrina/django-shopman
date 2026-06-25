@@ -7,7 +7,6 @@ from typing import Literal
 
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from shopman.craftsman.models import WorkOrder
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, Session
 from shopman.payman.models import PaymentIntent
@@ -107,11 +106,10 @@ def build_omotenashi_qa_report() -> OmotenashiQAReport:
         _pix_pending_check(),
         _pix_expired_check(),
         _tracking_ready_check(),
-        # KDS station/customer board + fila de pedidos + edge-cases de pedido (payment-
-        # after-cancel, iFood stale) migraram p/ apps Nuxt (kds./gestor.); o browser-QA
-        # dessas superfícies Nuxt é follow-up (OPERATOR-APPS-PLAN Fase 2).
+        # KDS station/customer board + fila de pedidos + produção (chão ao vivo) +
+        # edge-cases de pedido migraram p/ apps Nuxt (kds./gestor./fournil.); o
+        # browser-QA dessas superfícies Nuxt é follow-up (OPERATOR-APPS-PLAN Fases 2 e 4).
         _pos_check(),
-        _production_kds_check(),
         _day_closing_check(),
         _cash_register_check(),
     )
@@ -226,24 +224,6 @@ def _pos_check() -> OmotenashiQACheck:
         expectation="Operador deve vender, editar e fechar sem procurar funcao nem tocar em admin generico.",
         evidence=evidence,
         blocker="Rode make seed; POS tab ativa ou caixa aberto ausente.",
-    )
-
-
-def _production_kds_check() -> OmotenashiQACheck:
-    work_order = WorkOrder.objects.filter(status__in=[WorkOrder.Status.STARTED, WorkOrder.Status.PLANNED]).order_by(
-        "target_date", "id"
-    ).first()
-    evidence = f"wo={work_order.ref} status={work_order.status} sku={work_order.output_sku}" if work_order else ""
-    return _check(
-        id="tablet.production.kds",
-        surface="production",
-        viewport="tablet 1024x768",
-        persona="producao em lote",
-        title="KDS de producao com passo manual e falta de insumo",
-        url=_url("backstage:production_kds"),
-        expectation="Tela deve mostrar lote, passo, acao primaria e bloqueio de estoque sem esconder risco.",
-        evidence=evidence,
-        blocker="Rode make seed; nenhuma WorkOrder planejada/iniciada foi encontrada.",
     )
 
 

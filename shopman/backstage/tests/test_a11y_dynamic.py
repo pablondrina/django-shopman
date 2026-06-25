@@ -141,14 +141,9 @@ def test_a11y_producao_dashboard(client, superuser):
 
 
 @pytest.mark.django_db
-def test_a11y_producao_kds(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("backstage:production_kds"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "KDS produção")
-    _buttons_have_accessible_name(html, "KDS produção")
+# The production KDS (live floor) a11y is now owned by the fournil. Nuxt app and
+# tested in its suite — the Django HTMX screen was retired in Fase 4. The Admin
+# console production surfaces (matriz/dashboard/relatórios) remain covered above.
 
 
 @pytest.mark.django_db

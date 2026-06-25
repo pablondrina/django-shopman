@@ -228,25 +228,18 @@ CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
 
 RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
     Surface(
-        id="runtime-operator-shell",
+        id="runtime-production-shortage-modals",
         kind="registered-runtime-backstage",
         templates=_paths(
-            "shopman/backstage/templates/gestor/404.html",
-            "shopman/backstage/templates/gestor/base.html",
-        ),
-        replacement="Shared operator shell is registered runtime UI; management screens must use Admin/Unfold.",
-    ),
-    Surface(
-        id="runtime-production-kds",
-        kind="registered-runtime-backstage",
-        templates=_paths(
-            "shopman/backstage/templates/gestor/producao/kds.html",
-            "shopman/backstage/templates/gestor/producao/partials/kds_cards.html",
             "shopman/backstage/templates/gestor/producao/partials/material_shortage.html",
             "shopman/backstage/templates/gestor/producao/partials/order_shortage.html",
         ),
         projections=(ROOT / "shopman/backstage/projections/production.py",),
-        replacement="Production KDS is registered runtime UI; planning, reporting, and management screens must use Admin/Unfold.",
+        replacement=(
+            "Production shortage modals are registered runtime UI rendered by the "
+            "Admin/Unfold production console (handle_production_post). The live "
+            "production floor moved to the fournil. Nuxt app; planning/reporting use Admin/Unfold."
+        ),
     ),
     Surface(
         id="runtime-pos",

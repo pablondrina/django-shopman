@@ -309,4 +309,8 @@ class KDSUser(HttpUser):
 
     @task(2)
     def production_kds(self):
-        self.client.get("/gestor/producao/kds/", name="/gestor/producao/kds/")
+        # The production floor moved to the fournil. Nuxt app over the headless API.
+        self.client.get(
+            "/api/v1/backstage/production/kds/",
+            name="/api/v1/backstage/production/kds/",
+        )

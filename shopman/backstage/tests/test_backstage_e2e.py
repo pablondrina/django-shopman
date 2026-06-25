@@ -215,7 +215,9 @@ def test_e2e_advance_step_via_view_updates_meta(client, setup):
     craft.start(wo, quantity=10, expected_rev=0)
     client.force_login(setup)
 
-    response = client.post(f"/gestor/producao/kds/{wo.pk}/avancar-passo/", HTTP_HX_REQUEST="true")
+    # The production floor moved to the fournil. Nuxt app over the headless API;
+    # advancing a step is now POST /api/v1/backstage/production/<pk>/advance-step/.
+    response = client.post(f"/api/v1/backstage/production/{wo.pk}/advance-step/")
     assert response.status_code == 200
 
     wo.refresh_from_db()
