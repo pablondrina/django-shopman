@@ -205,6 +205,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "shopman.shop.middleware.AppPlatformHealthCheckHostMiddleware",
+    # Scopes session/CSRF cookies to the operator zone's parent domain (no-op
+    # unless SHOPMAN_OPERATOR_COOKIE_DOMAIN). High in the stack so its response
+    # phase runs AFTER Session/CSRF middleware set their cookies.
+    "shopman.shop.middleware.OperatorSessionDomainMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",
@@ -834,6 +838,19 @@ SHOPMAN_KDS_BASE_URL = (
 SHOPMAN_PRODUCTION_BASE_URL = (
     os.environ.get("SHOPMAN_PRODUCTION_BASE_URL") or ""
 ).strip().rstrip("/")
+
+# Zona de operador (OPERATOR-AUTH-PLAN, Opção A) — login único + sessão Django
+# escopada a um domínio-pai SEPARADO da loja pública. Os apps de operador
+# (gestor./kds./pos./fournil.) moram nesse domínio e proxeiam para o alias de API
+# abaixo; o `OperatorSessionDomainMiddleware` escopa o cookie de sessão/CSRF para
+# `SHOPMAN_OPERATOR_COOKIE_DOMAIN` SÓ quando o host servido é o de operador — assim
+# o login do cliente (host-only na loja) fica intocado.
+#   · SHOPMAN_OPERATOR_COOKIE_DOMAIN: ex. ".boulangerie.com.br" (com ponto). Vazio ⇒
+#     middleware é no-op (comportamento atual host-only para todos).
+#   · SHOPMAN_OPERATOR_API_HOST: host da API que os apps de operador proxeiam, ex.
+#     "api.boulangerie.com.br" (o proxy Nuxt reescreve o Host para esse alias).
+SHOPMAN_OPERATOR_COOKIE_DOMAIN = (os.environ.get("SHOPMAN_OPERATOR_COOKIE_DOMAIN") or "").strip()
+SHOPMAN_OPERATOR_API_HOST = (os.environ.get("SHOPMAN_OPERATOR_API_HOST") or "").strip()
 
 # 2FA obrigatório no Admin (django-otp/TOTP) — gated por env. Default OFF para não
 # trancar fora antes do enrollment; ligar (env="true") só depois de cada superuser
