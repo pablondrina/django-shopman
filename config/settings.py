@@ -808,6 +808,19 @@ SHOPMAN_POS_BASE_URL = (
     os.environ.get("SHOPMAN_POS_BASE_URL") or ""
 ).strip().rstrip("/")
 
+# Base URL pública do Gestor de Pedidos (operador) — app Nuxt dedicado
+# (surfaces/orders-uithing-nuxt). Vazio ⇒ o item "Pedidos" some do nav do Admin
+# (sem link morto), e o operador acessa direto pelo subdomínio (gestor.).
+SHOPMAN_ORDERS_BASE_URL = (
+    os.environ.get("SHOPMAN_ORDERS_BASE_URL") or ""
+).strip().rstrip("/")
+
+# Base URL pública do KDS (operador) — app Nuxt dedicado (surfaces/kds-uithing-nuxt).
+# Vazio ⇒ o item "KDS" some do nav do Admin (sem link morto).
+SHOPMAN_KDS_BASE_URL = (
+    os.environ.get("SHOPMAN_KDS_BASE_URL") or ""
+).strip().rstrip("/")
+
 # Employee discount — configurable percentage
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
