@@ -64,7 +64,20 @@ OPERADOR — zona isolada, sessão = .boulangerie.com.br:
 
 ---
 
-## WP-AUTH-1 · Escopo de cookie por host (o núcleo) · ⏳
+## Modelo de autorização — Opção C (Pablo, 2026-06-25)
+
+**Tudo compartilhado; as permissões são forçadas por operador via PIN/crachá.** O device
+tem uma sessão Django (confiança de estação, login 1× na zona de operador). O **operador
+ativo** — estabelecido por PIN ou crachá — é a identidade contra a qual a **autorização de
+cada ação** é checada e a quem a ação é atribuída. Sem operador ativo (travado) → ações
+bloqueadas. O crachá é um token de POSSE (código de barras), alternativa ao PIN.
+
+## WP-AUTH-1 · Escopo de cookie por host (o núcleo da sessão) · ✅ CONCLUÍDO
+
+> Feito (commit `ac7af659`, merge no main): `OperatorSessionDomainMiddleware` reescreve o
+> Domain de sessionid/csrftoken p/ `SHOPMAN_OPERATOR_COOKIE_DOMAIN` só no host de operador;
+> feature-gated (vazio=no-op); cliente intocado (achado: o cliente TAMBÉM usa sessão Django).
+> 5 testes; storefront-auth 18 + 2FA 8 + framework verdes.
 
 **Backend, sem deploy ainda. Não tocar o auth do cliente.**
 
@@ -81,17 +94,45 @@ OPERADOR — zona isolada, sessão = .boulangerie.com.br:
    host de cliente → cookie host-only (sem domain); login do cliente intacto.
 - **Aceite:** `make test` verde; cookie escopado só na zona de operador; cliente intocado.
 
-## WP-AUTH-2 · Generalizar PIN/crachá pros 4 apps (Camada 2) · ⏳
+## WP-AUTH-2 · PIN/crachá + autorização pelo operador ativo (Opção C)
 
-1. Endpoint genérico `POST /api/v1/backstage/operator/unlock/` + `.../lock/` (mover a lógica
-   do `POSOperatorUnlockView` para um base reusável; gate = qualquer permissão de operador).
-   `set_active_operator`/`clear_active_operator`/`verify_operator_pin` já existem.
-2. (Opcional) campo `badge_code` em `PinCredential` + lookup por crachá → mesmo `verify`.
-   Scan de código de barras vira só outro input.
-3. Composable `useOperatorLock` nas surfaces `orders-`/`kds-`/`production-uithing-nuxt`
-   (POS já tem); tela de trava/destrava (PIN ou crachá) reusando o componente do POS.
-4. Testes de contrato do unlock genérico (PIN válido/ inválido/ lockout).
-- **Aceite:** trocar operador por PIN/crachá em qualquer app, sem re-login; vitest + API verdes.
+### WP-AUTH-2a · Crachá + resolução de operador genérica · ✅ CONCLUÍDO
+
+> Feito (commit, branch `feat/operator-auth`): `PinCredential.badge_hash` (doorman; HMAC,
+> único; `issue_badge`/`resolve_by_badge`; migração `0003`) — crachá como alternativa de
+> posse ao PIN. `operator.py`: `resolve_operator_by_badge` + `verify_operator_pin`/
+> `eligible_operators` parametrizados por permissão (default `operate_pos` preservado;
+> `perm=None`=identidade-só). Session key → `active_operator`. operator-pin 17 + doorman 266.
+
+### WP-AUTH-2b · Autorizar ações contra o operador ativo (gated) · ⏳ — NÚCLEO crítico
+
+> Slice de backend de segurança. Feature-gated por `SHOPMAN_REQUIRE_ACTIVE_OPERATOR`
+> (default OFF = comportamento atual, sessão decide). Construir com cuidado + testes
+> exaustivos (risco = brecha de permissão).
+
+1. `HasBackstagePermission` ganha o ramo Opção C (flag ON): exige sessão staff (device) +
+   **operador ativo** na sessão; carrega o User do operador e checa `required_permission`
+   contra ELE (não o usuário da sessão); guarda `request.active_operator_user`. Sem operador
+   → 403 `operator_locked`; sem permissão → 403 `operator_forbidden`. Flag OFF → ramo atual.
+2. Endpoints genéricos (gated só pela sessão do device, NÃO pelo operador ativo — senão
+   chicken-egg): `GET operator/session/` (estado: device, travado?, operador, flag),
+   `GET operator/eligible/` (lista p/ o seletor, filtrada pela perm da surface),
+   `POST operator/unlock/` (`{operator_id, pin}` OU `{badge}` → `set_active_operator`),
+   `POST operator/lock/`. Migrar `POSOperator*` para reusar a base (zero-residuals).
+3. Actor/atribuição: `_actor`/`_production_actor`/`_actor_pos` usam `active_operator_user`
+   quando presente.
+4. Testes: sem sessão→403; sessão sem operador→403 locked; operador sem perm→403 forbidden;
+   operador com perm→200 + atribuição correta; unlock por PIN e por crachá; flag OFF=atual.
+- **Aceite:** `make test`/`make admin`/lint verdes; flag OFF não muda nada; flag ON força a
+  permissão pelo operador ativo; sem brecha.
+
+### WP-AUTH-2c · Tela de trava/destrava (PIN + crachá) nos 4 apps · ⏳
+
+1. Composable `useOperatorLock` nas surfaces `orders-`/`kds-`/`production-uithing-nuxt`
+   (POS já tem) consumindo os endpoints de 2b; tela de destrava com teclado de PIN +
+   leitura de crachá (scanner = entrada de texto que termina em Enter); trava por inatividade.
+2. 403 `operator_locked` → mostra a tela de destrava; `operator_forbidden` → "sem acesso".
+- **Aceite:** destravar por PIN ou crachá em qualquer app; trava por idle; vitest verde.
 
 ## WP-AUTH-3 · Porta de entrada do operador + gate 403 no front · ⏳
 
