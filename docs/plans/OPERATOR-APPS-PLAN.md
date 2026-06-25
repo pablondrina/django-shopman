@@ -291,6 +291,8 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > `templates/`/`static/` (wheel do orderman tinha 0 .html). Adicionado package-data a
 > orderman/craftsman/doorman/guestman/payman/refs/utils (doorman: 6 templates de auth/OTP
 > que tb não embarcavam!). Filosofia: Admin convencional, customizar só onde agrega valor.
+> **✅ VERIFICADO AO VIVO** (deploy `20af1892` ACTIVE): `/admin/orderman/order/?status__exact=
+> new&created_at__...` → 200 (era 500); changelists payman/guestman → 200; `/ready/` 200.
 > Feito (commit `c58c3f4e`): infra de 2FA TOTP **atrás da flag `SHOPMAN_ADMIN_REQUIRE_2FA`
 > (default OFF)** — no staging fica OFF até o enrollment (ligar tranca fora). `make test`
 > 2109 + `make admin` 247 + ruff verdes; fluxo ponta-a-ponta testado LOCAL (8 testes:
