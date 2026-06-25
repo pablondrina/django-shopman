@@ -278,13 +278,18 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > Admin = só CRUD + Configurações, acesso super-restrito. Tudo sob o **Unfold Canonical
 > Gate** (`make admin`).
 
-### WP-A1 · Restrição de acesso ao `admin.` — 2FA (DECIDIDO; próximo WP, atendido)
-> **Decisão (Pablo, 2026-06-25):** 2FA obrigatório p/ superuser (django-otp/TOTP),
-> **gated** p/ não trancar fora; **anotar IP allowlist p/ PROD** (não staging).
-> **Por que ainda não executei:** é auth security-critical que muda o login e **não dá
-> p/ verificar no staging sem se trancar** (habilitar bloqueia o próprio fluxo de
-> verificação por curl; enrollment precisa do Pablo). É o tipo de coisa pra fazer
-> ATENDIDO — não às cegas, unattended. Design travado abaixo, pronto p/ executar.
+### WP-A1 · Restrição de acesso ao `admin.` — 2FA · ✅ IMPLEMENTADO (gated OFF), deploy `d4002b49`
+> Feito (commit `c58c3f4e`): infra de 2FA TOTP **atrás da flag `SHOPMAN_ADMIN_REQUIRE_2FA`
+> (default OFF)** — no staging fica OFF até o enrollment (ligar tranca fora). `make test`
+> 2109 + `make admin` 247 + ruff verdes; fluxo ponta-a-ponta testado LOCAL (8 testes:
+> gate off→in, on→redirect, verify c/ token válido→in, etc.). Design implementado:
+> django_otp+otp_totp, OTPMiddleware, `AdminTwoFactorMiddleware`, view+template
+> `two_factor/verify.html`, command `setup_admin_totp`. Migrações do django-otp aplicam
+> no release (job roda migrate). **PARA LIGAR (atendido):** (1) `setup_admin_totp <user>`
+> p/ cada superuser (escaneia o QR), (2) setar `SHOPMAN_ADMIN_REQUIRE_2FA=true` no spec +
+> redeploy, (3) logar com token. **PROD:** + IP allowlist no ingress do admin.
+
+#### Design (referência — já implementado)
 
 **Design (django-otp, compat Django 6.0 confirmada — `django-otp>=1.7,<2.0`):**
 1. `pyproject.toml`: + `django-otp`. `INSTALLED_APPS` += `django_otp`,
