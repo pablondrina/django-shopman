@@ -53,8 +53,20 @@ def clear_active_operator(request) -> None:
 
 
 def active_operator(request) -> dict | None:
-    """The active operator bound to this terminal session, if any."""
+    """The active operator card bound to this terminal session, if any."""
     return request.session.get(ACTIVE_OPERATOR_SESSION_KEY)
+
+
+def resolve_active_operator_user(request):
+    """Load the active operator's User (still active staff), or None.
+
+    Used by the Opção C authorization layer to check permissions against the
+    operator who unlocked the terminal — not the device session user.
+    """
+    card = active_operator(request)
+    if not card or not card.get("id"):
+        return None
+    return User.objects.filter(pk=card["id"], is_active=True, is_staff=True).first()
 
 
 def eligible_operators(*, perm: str = OPERATE_POS):

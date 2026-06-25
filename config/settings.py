@@ -852,6 +852,14 @@ SHOPMAN_PRODUCTION_BASE_URL = (
 SHOPMAN_OPERATOR_COOKIE_DOMAIN = (os.environ.get("SHOPMAN_OPERATOR_COOKIE_DOMAIN") or "").strip()
 SHOPMAN_OPERATOR_API_HOST = (os.environ.get("SHOPMAN_OPERATOR_API_HOST") or "").strip()
 
+# Autorização Opção C: quando ON, as ações de backstage são autorizadas contra o
+# OPERADOR ATIVO (estabelecido por PIN/crachá), não o usuário da sessão do device.
+# Default OFF (a sessão do device decide — comportamento atual). Liga-se junto com a
+# tela de trava/destrava nos apps (WP-AUTH-2c) + a zona de operador no ar.
+SHOPMAN_REQUIRE_ACTIVE_OPERATOR = (
+    os.environ.get("SHOPMAN_REQUIRE_ACTIVE_OPERATOR", "false").strip().lower() == "true"
+)
+
 # 2FA obrigatório no Admin (django-otp/TOTP) — gated por env. Default OFF para não
 # trancar fora antes do enrollment; ligar (env="true") só depois de cada superuser
 # ter um TOTPDevice confirmado (management command `setup_admin_totp`). Em PROD,
