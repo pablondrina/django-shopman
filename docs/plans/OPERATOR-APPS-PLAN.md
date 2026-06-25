@@ -219,7 +219,15 @@ A análise reversa mostrou que **a Fase 1 está muito mais adiantada do que o WP
 > quebram na deleção (todos têm endpoint de API equivalente → migrar p/ teste de API);
 > 32 testes de projeção/serviço sobrevivem; 16 testes só-de-template morrem com o template.
 
-### WP-K1 · API de `OperatorAlert` + consumo no Gestor (fecha Gap-3, pré-requisito)
+### WP-K1 · API de `OperatorAlert` + consumo no Gestor (fecha Gap-3, pré-requisito) · ✅ CONCLUÍDO + DEPLOYADO + VERIFICADO
+> Feito (commit `1b14b2cb`, deploy `1ee0a83c` ACTIVE): `GET /api/v1/backstage/alerts/` +
+> `POST .../<pk>/ack/` reusando `services/alerts.py`; gate `CanViewOperatorAlerts`
+> (predicado canônico); 6 testes de contrato. Consumo no Gestor: `useAlerts` + `AlertsBell`
+> (sino+badge+painel ack) no header. Verificado AO VIVO: alerts API via proxy → 200, 42
+> alertas ativos (1 crítico) com dados reais. **Paridade do KDS Nuxt confirmada AO VIVO**
+> (index/board/customer board → 200 com dados reais) — pré-condição p/ matar o KDS-HTMX.
+
+### WP-K1 (original) · API de `OperatorAlert` + consumo no Gestor (fecha Gap-3, pré-requisito)
 - Criar `GET /api/v1/backstage/alerts/` (lista + contagem) e
   `POST /api/v1/backstage/alerts/<pk>/ack/`, reusando
   `shopman/backstage/services/alerts.py`; gate `can_view_operator_alerts`.
