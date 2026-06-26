@@ -701,7 +701,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Avisaremos você quando o pedido sair para entrega.")},
     },
     "TRACKING_PROMISE_DISPATCHED_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está a caminho. Avisamos você quando chegar.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está com o entregador, a caminho.")},
+    },
+    "TRACKING_PROMISE_DISPATCHED_MESSAGE_ETA": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está com o entregador, a caminho. Deve chegar por volta das {eta}.")},
+    },
+    "TRACKING_ACTION_CONFIRM_RECEIVED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Recebi meu pedido")},
     },
     "TRACKING_PROMISE_DISPATCHED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Quando for entregue, atualizaremos o pedido.")},

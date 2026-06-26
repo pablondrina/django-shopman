@@ -501,6 +501,51 @@ class TestStatusColours:
         assert proj.promise.active_notification == ""
         assert "Aviso ativo" not in [row.label for row in proj.promise_rows]
 
+    def test_dispatched_delivery_is_honest_no_arrival_promise(self, order):
+        """Trecho mais sensível: courier terceirizado, sem rastreio nem detecção
+        de chegada. Nunca prometer 'avisamos quando chegar'. Damos janela de ETA
+        + a ação 'Recebi' para o cliente fechar o loop."""
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status="dispatched", data={"fulfillment_type": "delivery"})
+        order.refresh_from_db()
+        order.emit_event(event_type="status_changed", actor="op", payload={"new_status": "dispatched"})
+
+        proj = build_order_tracking(order)
+
+        assert proj.promise.state == "dispatched"
+        assert proj.promise.title == "Saiu para entrega"
+        assert "com o entregador" in proj.promise.message
+        assert "por volta das" in proj.promise.message  # janela de ETA
+        # Nunca promete notificar a chegada — não há como saber.
+        assert "avisamos" not in proj.promise.message.lower()
+        assert "quando chegar" not in proj.promise.message.lower()
+        # Loop fechado pelo cliente, não dependente.
+        assert any(a.ref == "confirm_received" for a in proj.promise.actions)
+
+    def test_confirm_received_marks_delivery_done(self, order):
+        from shopman.storefront.services import orders as order_service
+        order.data = {"fulfillment_type": "delivery"}
+        order.save(update_fields=["data"])
+        for next_status in ("confirmed", "preparing", "ready", "dispatched"):
+            order.transition_status(next_status, actor="op")
+        order.refresh_from_db()
+        assert order.status == "dispatched"
+
+        assert order_service.confirm_received(order) is True
+        order.refresh_from_db()
+        assert order.status in {"delivered", "completed"}
+        # Idempotente: já não está em entrega → no-op.
+        assert order_service.confirm_received(order) is False
+
+    def test_confirm_received_rejects_non_delivery_or_wrong_status(self, order):
+        from shopman.orderman.models import Order as _Order
+
+        from shopman.storefront.services import orders as order_service
+        # pickup em dispatched não é entrega → não aplica
+        _Order.objects.filter(pk=order.pk).update(status="dispatched", data={"fulfillment_type": "pickup"})
+        order.refresh_from_db()
+        assert order_service.confirm_received(order) is False
+
     def test_new_pix_order_shows_payment_pending_label(self, order_with_payment):
         proj = build_order_tracking(order_with_payment)
 

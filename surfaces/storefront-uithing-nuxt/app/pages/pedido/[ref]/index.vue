@@ -50,7 +50,12 @@ const showPaymentStatusFallback = computed(() => Boolean(
   tracking.value?.requires_payment_gate &&
   !statusPanelActions.value.some(action => action.ref === 'pay_now' || action.ref.includes('payment'))
 ))
-const showSupportInStatusPanel = computed(() => Boolean(tracking.value?.whatsapp_url && promiseTone.value === 'danger'))
+// "Fale conosco" em destaque quando há risco (danger) e quando o pedido saiu para
+// entrega — o trecho mais sensível, com courier terceirizado e sem rastreio.
+const showSupportInStatusPanel = computed(() => Boolean(
+  tracking.value?.whatsapp_url &&
+  (promiseTone.value === 'danger' || tracking.value?.promise.state === 'dispatched')
+))
 const hasStatusPanelActions = computed(() => Boolean(
   statusPanelActions.value.length ||
   showPaymentStatusFallback.value ||
@@ -144,6 +149,7 @@ function actionRoute (action: Action) {
 function actionIcon (action: Action) {
   if (action.ref === 'reorder') return 'lucide:rotate-ccw'
   if (action.ref === 'pay_now' || action.ref.includes('payment')) return 'lucide:credit-card'
+  if (action.ref === 'confirm_received') return 'lucide:package-check'
   return 'lucide:arrow-right'
 }
 

@@ -112,6 +112,22 @@ def advance_order(order: Order, *, actor: str) -> str:
     return next_status
 
 
+def confirm_received(order: Order, *, actor: str = "customer") -> bool:
+    """Customer confirms a dispatched delivery arrived → mark delivered.
+
+    Same machinery as the operator "Marcar como Entregue" (fulfillment sync +
+    transition), so handlers/notifications fire exactly once. Only valid while
+    the order is out for delivery; idempotent (returns False) otherwise — couriers
+    são terceirizados, então o cliente fechando o loop é uma das vias legítimas
+    para o pedido virar "entregue" (junto do operador e da auto-conclusão).
+    """
+    if order.status != Order.Status.DISPATCHED or get_fulfillment_type(order) != "delivery":
+        return False
+    _sync_delivery_fulfillment(order, Order.Status.DELIVERED)
+    order.transition_status(Order.Status.DELIVERED, actor=actor)
+    return True
+
+
 def cancel_order(order: Order, *, reason: str, actor: str) -> None:
     """Cancel an order through the canonical cancellation service."""
     cancel(order, reason=reason, actor=actor)

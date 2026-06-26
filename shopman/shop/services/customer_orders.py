@@ -466,6 +466,13 @@ def cancel(order) -> None:
     cancel_order(order, reason="customer_requested", actor="customer.self_cancel")
 
 
+def confirm_received(order) -> bool:
+    """Customer confirms a dispatched delivery arrived → mark delivered."""
+    from shopman.shop.services import operator_orders
+
+    return operator_orders.confirm_received(order, actor="customer.self_confirm")
+
+
 def should_skip_confirmation(order) -> bool:
     """True when the channel auto-confirms and confirmation page should redirect."""
     if not order.channel_ref:

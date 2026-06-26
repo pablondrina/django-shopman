@@ -562,6 +562,26 @@ def _promise_copy(
             "",
         )
 
+    if state == "dispatched":
+        # Sem rastreio de courier: damos janela estimada, nunca "avisamos quando
+        # chegar" (não temos como saber). O botão "Recebi" (ação da promise) e o
+        # "Fale conosco" (destaque no painel) dão saída ao cliente.
+        eta_display = _eta_display(data.eta_at)
+        message = (
+            copy.message("TRACKING_PROMISE_DISPATCHED_MESSAGE_ETA",
+                         "Seu pedido está com o entregador, a caminho. Deve chegar por volta das {eta}.").replace("{eta}", eta_display)
+            if eta_display
+            else copy.message("TRACKING_PROMISE_DISPATCHED_MESSAGE",
+                              "Seu pedido está com o entregador, a caminho.")
+        )
+        return (
+            copy.title("TRACKING_STEP_DISPATCHED", "Saiu para entrega"),
+            message,
+            "",
+            "",
+            "",
+        )
+
     terminal = _TERMINAL_PROMISE_COPY.get(state)
     if terminal:
         copy_key, fallback, message_key, message_fb, next_key, next_fb = terminal
@@ -584,11 +604,7 @@ def _promise_copy(
 
 # state → (title_key, title_fb, message_key, message_fb, next_key, next_fb)
 _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
-    "dispatched": (
-        "TRACKING_STEP_DISPATCHED", "Saiu para entrega",
-        "TRACKING_PROMISE_DISPATCHED_MESSAGE", "Seu pedido está a caminho. Avisamos você quando chegar.",
-        "", "",
-    ),
+    # dispatched é tratado num ramo dedicado (ETA + ações) — não fica aqui.
     "delivered": (
         "TRACKING_STEP_DELIVERED", "Pedido entregue",
         "TRACKING_PROMISE_DELIVERED_MESSAGE", "Bom apetite! Esperamos você de novo em breve.",

@@ -48,7 +48,12 @@ from .surface import (
     StorefrontMenuView,
     StorefrontProductView,
 )
-from .tracking import OrderCancelView, OrderRateView, OrderTrackingView
+from .tracking import (
+    OrderCancelView,
+    OrderConfirmReceiptView,
+    OrderRateView,
+    OrderTrackingView,
+)
 
 urlpatterns = [
     # Storefront projections for API-first clients
@@ -83,6 +88,7 @@ urlpatterns = [
     # Tracking
     path("tracking/<str:ref>/", OrderTrackingView.as_view(), name="api-tracking"),
     path("orders/<str:ref>/cancel/", OrderCancelView.as_view(), name="api-order-cancel"),
+    path("orders/<str:ref>/confirm-received/", OrderConfirmReceiptView.as_view(), name="api-order-confirm-received"),
     path("orders/<str:ref>/rate/", OrderRateView.as_view(), name="api-order-rate"),
     path("orders/<str:ref>/conversation/", OrderConversationView.as_view(), name="api-order-conversation"),
     path("payment/<str:ref>/", OrderPaymentView.as_view(), name="api-payment"),

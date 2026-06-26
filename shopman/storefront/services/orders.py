@@ -112,6 +112,10 @@ def cancel(order) -> None:
     customer_orders.cancel(order)
 
 
+def confirm_received(order) -> bool:
+    return customer_orders.confirm_received(order)
+
+
 def should_skip_confirmation(order) -> bool:
     return customer_orders.should_skip_confirmation(order)
 

@@ -676,8 +676,39 @@ def _build_promise(
             ),
         )
 
+    if order.status == "dispatched":
+        # Trecho mais sensível: o produto saiu, com courier terceirizado, sem
+        # rastreio nem detecção de chegada. Não prometemos "avisamos quando
+        # chegar". Damos janela estimada + deixamos o cliente fechar o loop
+        # ("Recebi") — sem depender disso (operador/auto-conclusão também fecham).
+        actions: tuple[Action, ...] = ()
+        if is_delivery:
+            actions = (
+                _action(
+                    ref="confirm_received",
+                    kind="mutation",
+                    label=_copy_title("TRACKING_ACTION_CONFIRM_RECEIVED", "Recebi meu pedido"),
+                    priority="primary",
+                    href=f"/api/v1/orders/{order.ref}/confirm-received/",
+                    method="POST",
+                    payload_schema={
+                        "type": "object",
+                        "required": ["idempotency_key"],
+                        "properties": {"idempotency_key": {"type": "string"}},
+                    },
+                    idempotency="required",
+                ),
+            )
+        return _promise(
+            state="dispatched",
+            tone="info",
+            eta_at=eta_at,
+            requires_active_notification=True,
+            notification_topic="order_dispatched",
+            actions=actions,
+        )
+
     terminal_tone = {
-        "dispatched": "info",
         "delivered": "success",
         "completed": "success",
         "cancelled": "danger",
@@ -686,12 +717,8 @@ def _build_promise(
         return _promise(
             state=order.status,
             tone=terminal_tone[order.status],
-            requires_active_notification=order.status in {"dispatched", "delivered"},
-            notification_topic=(
-                "order_dispatched"
-                if order.status == "dispatched"
-                else "order_delivered" if order.status == "delivered" else None
-            ),
+            requires_active_notification=order.status == "delivered",
+            notification_topic="order_delivered" if order.status == "delivered" else None,
         )
 
     return _promise(state="received", tone="info")
@@ -1127,20 +1154,35 @@ def _confirmation_deadline(order) -> datetime | None:
 
 
 def _eta_at(order) -> str | None:
-    if order.status != "preparing":
-        return None
+    """ETA ISO for the two windows the customer cares about:
+
+    - ``preparing`` → quando o pedido fica pronto (prep_time).
+    - ``dispatched`` + delivery → janela estimada de CHEGADA (saída + tempo médio
+      de entrega). Couriers são terceirizados/sem rastreio, então é uma estimativa
+      honesta por configuração, não um horário rastreado.
+    """
     try:
         from shopman.shop.models import Shop
 
         shop = Shop.load()
-        prep_minutes = getattr(shop, "prep_time_minutes", None) or 30
-        baseline = getattr(order, "preparing_at", None)
-        if baseline is None:
-            event = _event_for_status(order, "preparing")
+        if order.status == "preparing":
+            minutes = getattr(shop, "prep_time_minutes", None) or 30
+            baseline = getattr(order, "preparing_at", None)
+            if baseline is None:
+                event = _event_for_status(order, "preparing")
+                baseline = event.created_at if event else None
+        elif order.status == "dispatched":
+            data = order.data or {}
+            if (data.get("fulfillment_type") or data.get("delivery_method", "")) != "delivery":
+                return None
+            minutes = ((shop.defaults or {}).get("delivery") or {}).get("estimated_minutes") or 40
+            event = _event_for_status(order, "dispatched")
             baseline = event.created_at if event else None
+        else:
+            return None
         if baseline is None:
             return None
-        eta = baseline + timezone.timedelta(minutes=prep_minutes)
+        eta = baseline + timezone.timedelta(minutes=int(minutes))
         return eta.isoformat()
     except Exception:
         logger.debug("order_tracking_eta_failed order=%s", order.ref, exc_info=True)

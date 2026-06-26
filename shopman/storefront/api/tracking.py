@@ -237,6 +237,85 @@ class OrderCancelView(APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["tracking"],
+        summary="Customer confirms a dispatched delivery arrived",
+        responses={
+            200: OrderTrackingSerializer,
+            404: DetailSerializer,
+            409: OpenApiResponse(description="Order is not out for delivery."),
+        },
+    ),
+)
+class OrderConfirmReceiptView(APIView):
+    """POST /api/v1/orders/{ref}/confirm-received/ — customer marks delivery received.
+
+    Couriers são terceirizados/sem rastreio, então o cliente pode fechar o loop
+    confirmando o recebimento. Idempotente; só vale enquanto o pedido está em
+    entrega (status dispatched). Mesma transição do operador → notifica uma vez.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+    serializer_class = OrderTrackingSerializer
+    throttle_classes = []
+
+    def post(self, request, ref: str):
+        if _request_is_rate_limited(
+            request,
+            group="storefront-api-order-confirm-received",
+            rate="20/m",
+            method="POST",
+        ):
+            return _rate_limited_response()
+        try:
+            order = order_service.get_accessible_order(request, ref)
+        except Http404:
+            return Response(
+                {
+                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    "detail": _copy_message(
+                        "TRACKING_NOT_FOUND_MESSAGE",
+                        "Confira o link do pedido ou fale com a equipe.",
+                    ),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        key = remote_mutations.idempotency_key_from_request(
+            request,
+            fallback=f"confirm-received:{ref}",
+        )
+
+        def execute_confirm() -> tuple[dict, int]:
+            if not order_service.confirm_received(order):
+                return (
+                    {
+                        "detail": "Este pedido não está em entrega.",
+                        "error_code": "order_not_in_delivery",
+                    },
+                    status.HTTP_409_CONFLICT,
+                )
+            data = _tracking_payload(order)
+            serializer = OrderTrackingSerializer(data)
+            return dict(serializer.data), status.HTTP_200_OK
+
+        try:
+            result = remote_mutations.run_idempotent_mutation(
+                scope=f"order-confirm-received:{ref}",
+                key=key,
+                execute=execute_confirm,
+                cache_response=lambda _body, code: code < 400,
+            )
+        except remote_mutations.RemoteMutationInProgress:
+            return Response(
+                {"detail": "Confirmação já está em andamento.", "error_code": "mutation_in_progress"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(result.response_body, status=result.response_code)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["tracking"],
         summary="Rate completed order by ref",
         responses={
             200: OpenApiResponse(description="Rating registered."),
