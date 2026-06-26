@@ -109,6 +109,30 @@ class POSMoveTabLinesTests(TestCase):
         target.refresh_from_db()
         self.assertEqual(len(target.items), 2)
 
+    def test_split_rollback_failure_does_not_mask_move_error(self) -> None:
+        # If the split target is created but the move fails, the cleanup
+        # (abandon_session) is best-effort: a cleanup failure must NOT mask the
+        # original move error the operator needs to see.
+        from unittest.mock import patch
+
+        source = self._open_with_item("00001007", sku="POS-A", qty=2)
+        line_id = source.items[0]["line_id"]
+
+        with (
+            patch.object(pos_service.session_service, "move_session_lines", side_effect=RuntimeError("kernel boom")),
+            patch.object(pos_service.session_service, "abandon_session", side_effect=RuntimeError("cleanup boom")),
+        ):
+            with self.assertRaises(PosIntentError) as ctx:
+                pos_service.move_pos_tab_lines(
+                    channel_ref="pdv",
+                    from_session_key=source.session_key,
+                    to_tab_ref="1009",
+                    line_ids=[line_id],
+                    actor="pos:alice", operator_username="alice",
+                )
+        # the original move error surfaces (move_failed), not the cleanup RuntimeError
+        self.assertEqual(ctx.exception.code, "move_failed")
+
     def test_split_to_occupied_ref_is_rejected(self) -> None:
         source = self._open_with_item("00001007", sku="POS-A", qty=2)
         self._open_with_item("00001008", sku="POS-B", qty=1)

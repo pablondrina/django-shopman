@@ -259,6 +259,66 @@ class TestBatchExpiry:
         assert refs == ["FRESH"]
 
 
+class TestShelflifeBatchPrecedence:
+    """Lock the precedence contract when BOTH validity signals exist.
+
+    ``Product.shelf_life_days`` (relative window) and ``Batch.expiry_date``
+    (absolute lot date) are applied as an AND: a quant is eligible only if it
+    passes both. The most restrictive wins — this removes the ambiguity noted
+    in the ROADMAP by making the rule explicit and tested.
+    """
+
+    def test_expired_batch_excludes_shelflife_valid_quant(
+        self, perishable_product, vitrine, today, perishable_validator,
+    ):
+        # Same-day quant passes the shelf_life_days=0 window, but its batch is
+        # expired → excluded. Batch expiry is the more restrictive signal here.
+        yesterday = today - timedelta(days=1)
+        Batch.objects.create(sku=perishable_product.sku, ref="OLD", expiry_date=yesterday)
+        Quant.objects.create(
+            sku=perishable_product.sku, position=vitrine, batch="OLD",
+            _quantity=Decimal("5"),
+        )
+
+        qs = quants_eligible_for(perishable_product.sku, target_date=today)
+
+        assert qs.count() == 0
+
+    def test_stale_shelflife_excludes_unexpired_batch_quant(
+        self, perishable_product, vitrine, today, perishable_validator,
+    ):
+        # Fresh (non-expired) batch, but the quant is older than the
+        # shelf_life_days=0 window → excluded. shelf_life is the more
+        # restrictive signal here.
+        next_week = today + timedelta(days=7)
+        Batch.objects.create(sku=perishable_product.sku, ref="FRESH", expiry_date=next_week)
+        quant = Quant.objects.create(
+            sku=perishable_product.sku, position=vitrine, batch="FRESH",
+            _quantity=Decimal("5"),
+        )
+        Quant.objects.filter(pk=quant.pk).update(
+            created_at=quant.created_at - timedelta(days=1),
+        )
+
+        qs = quants_eligible_for(perishable_product.sku, target_date=today)
+
+        assert qs.count() == 0
+
+    def test_both_valid_keeps_quant(
+        self, perishable_product, vitrine, today, perishable_validator,
+    ):
+        next_week = today + timedelta(days=7)
+        Batch.objects.create(sku=perishable_product.sku, ref="FRESH", expiry_date=next_week)
+        Quant.objects.create(
+            sku=perishable_product.sku, position=vitrine, batch="FRESH",
+            _quantity=Decimal("5"),
+        )
+
+        qs = quants_eligible_for(perishable_product.sku, target_date=today)
+
+        assert qs.count() == 1
+
+
 class TestCombinations:
     def test_denylist_plus_shelflife_plus_target(
         self, perishable_product, vitrine, ontem_position, today, tomorrow,

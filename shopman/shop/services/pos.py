@@ -689,7 +689,14 @@ def move_pos_tab_lines(
     except Exception as exc:  # noqa: BLE001 - surface kernel errors as a recoverable POS error
         if target_created:
             # Roll back the freshly-created split target so no empty comanda lingers.
-            session_service.abandon_session(session_key=target.session_key, channel_ref=channel.ref)
+            # Guard the cleanup: a failure abandoning the target must not mask the
+            # original move error the operator needs to see.
+            try:
+                session_service.abandon_session(session_key=target.session_key, channel_ref=channel.ref)
+            except Exception:  # noqa: BLE001 - cleanup is best-effort; original error wins
+                logger.exception(
+                    "pos_move_tab_lines_rollback_failed target=%s", target.session_key
+                )
         raise PosIntentError(
             code="move_failed",
             message=str(exc) or "Falha ao mover itens entre comandas.",

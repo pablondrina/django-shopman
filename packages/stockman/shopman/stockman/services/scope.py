@@ -74,6 +74,9 @@ def quants_eligible_for(
         excluded_positions = scope.get("excluded_positions")
 
     qs = Quant.objects.filter(sku=sku, _quantity__gt=0)
+    # Validity precedence: shelf_life_days (relative window) and Batch.expiry_date
+    # (absolute lot date) are applied as an AND — a quant must pass both. The most
+    # restrictive signal wins. Locked by TestShelflifeBatchPrecedence.
     qs = filter_valid_quants(qs, product_ns, target)
 
     if allowed_positions is not None:
