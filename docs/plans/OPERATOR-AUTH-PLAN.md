@@ -16,18 +16,19 @@ Domínio DO `40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f`, contexto doctl `shopman-stag
 PIN do pablo no staging = `1234`, crachá = `abcdef0123456789abcdef01` (re-setados pelo job
 bootstrap-staging em todo deploy). E-mail Google Workspace migrado p/ o DO sem queda.
 
+**CREDENCIAL DE LOGIN (staging):** usuário = **`pablo`** (NÃO `admin` — o seed `admin` foi
+DESATIVADO pelo `bootstrap_admin --deactivate-seed-admin`); senha = a gerada (43 chars) no
+arquivo local `~/.shopman/shopman-staging-admin-2026-05-06.txt` (env `SHOPMAN_ADMIN_PASSWORD`,
+inalterada). PIN do operador = `1234`, crachá = `abcdef0123456789abcdef01`. Verificado: pablo
++ senha-do-arquivo loga; `admin/admin` falha.
+
 **PRÓXIMAS TAREFAS (ordem):**
-1. **Verificar o fix do botão de login** (deploy `9238c2bc`, build-env `NUXT_PUBLIC_DJANGO_
-   BASE_URL=https://api.boulangerie.com.br` nos 4 apps de operador). Quando ACTIVE: navegar
-   `pos.boulangerie.com.br` (sem logar), clicar "Entrar no gestor" → deve ir p/
-   `api.boulangerie.com.br/admin/login/` (não mais `127.0.0.1:8000`). Conferir idem nas
-   outras surfaces (overlay OperatorLogin → botão Entrar). **Bug tinha 2 camadas:** link
-   relativo (corrigido) + URL pública não-bakeada no client (RUN_TIME não existe no build →
-   corrigido com env de build).
-2. **Pendência #2 — remover hosts nelson de operador defuntos** (`gestor./kds./pos./
-   fournil.staging.nelsonboulangerie.com.br`). Transform pronto: `/tmp/remove_nelson_operator.py`
-   (re-fetch spec → roda → `apps update`). PRESERVA loja (apex/api/admin nelson) + hosts
-   boulangerie + EV[...]. É spec-edit + deploy.
+1. ✅ **FEITO — fix do botão de login** (deploy `9238c2bc`): verificado AO VIVO no browser, o
+   href agora vai p/ `api.boulangerie.com.br/admin/login/` e renderiza o login Django real.
+   Bug de 2 camadas (link relativo + URL pública não-bakeada → build-env `NUXT_PUBLIC_DJANGO_
+   BASE_URL`).
+2. ✅ **FEITO — remover hosts nelson de operador defuntos** (deploy ACTIVE): gestor./kds./pos./
+   fournil.staging.nelson removidos; loja + api/admin nelson + zona boulangerie preservadas/OK.
 3. **Pendência #4 — QA visual da tela de trava** (precisa do Pablo): Pablo loga no browser
    conectado via o botão "Entrar" (eu não posso digitar senha) → eu navego + screenshot do
    overlay de PIN/crachá. Chip spawnado.
