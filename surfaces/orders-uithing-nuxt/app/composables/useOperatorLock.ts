@@ -12,6 +12,9 @@ export function useOperatorLock(perm: string) {
   });
 
   const session = computed<OperatorSession | null>(() => data.value ?? null);
+  // The device session exists when operator/session returned a device_user; when
+  // unauthenticated the endpoint 403s (data null) → not authenticated → login prompt.
+  const authenticated = computed(() => Boolean(session.value?.device_user));
   const locked = computed(() => isLocked(session.value));
   const operator = computed<OperatorCard | null>(() => session.value?.operator ?? null);
   const requireOperator = computed(() => Boolean(session.value?.require_operator));
@@ -57,5 +60,5 @@ export function useOperatorLock(perm: string) {
     }
   }
 
-  return { session, locked, operator, requireOperator, eligible, loadEligible, unlock, lock, refresh, busy };
+  return { session, authenticated, locked, operator, requireOperator, eligible, loadEligible, unlock, lock, refresh, busy };
 }

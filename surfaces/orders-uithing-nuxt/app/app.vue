@@ -5,7 +5,7 @@
 // lock overlay (Opção C): when the gate is ON and nobody unlocked, a PIN/badge is
 // required. Gated OFF → never shows.
 const OPERATOR_PERM = "shop.manage_orders";
-const { locked } = useOperatorLock(OPERATOR_PERM);
+const { authenticated, locked } = useOperatorLock(OPERATOR_PERM);
 
 useHead({ title: "Gestor de Pedidos" });
 </script>
@@ -14,7 +14,8 @@ useHead({ title: "Gestor de Pedidos" });
   <div class="min-h-screen bg-background text-foreground">
     <NuxtRouteAnnouncer />
     <NuxtPage />
-    <OperatorLock v-if="locked" :perm="OPERATOR_PERM" />
+    <OperatorLogin v-if="!authenticated" />
+    <OperatorLock v-else-if="locked" :perm="OPERATOR_PERM" />
     <UiSonner />
   </div>
 </template>

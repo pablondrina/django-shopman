@@ -14,12 +14,13 @@ function toggleColorMode() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 const runtimeConfig = useRuntimeConfig();
-// In prod the POS and Django share one domain (path-routed), so admin links are
-// relative and resolve against the current origin. Only dev needs the absolute
-// Django host (POS :3002 vs Django :8000).
-const djangoOrigin = computed(() => (import.meta.dev ? String(runtimeConfig.public.djangoPublicBaseUrl || "") : ""));
+// The Django admin (login) lives on its own operator host (api.<zona>), a different
+// subdomain from the POS — so the login link must be ABSOLUTE to that host, not
+// relative to the POS origin. After login the operator lands on the Admin home,
+// whose sidebar links back to the apps (POS/Produção/…).
+const djangoOrigin = computed(() => String(runtimeConfig.public.djangoPublicBaseUrl || ""));
 const loginUrl = computed(() => {
-  const next = String(runtimeConfig.public.operatorLoginNextPath || "/pos/");
+  const next = String(runtimeConfig.public.operatorLoginNextPath || "/admin/");
   return `${djangoOrigin.value}/admin/login/?next=${encodeURIComponent(next)}`;
 });
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
