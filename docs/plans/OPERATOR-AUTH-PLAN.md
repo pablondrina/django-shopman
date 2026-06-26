@@ -132,7 +132,15 @@ bloqueadas. O crachá é um token de POSSE (código de barras), alternativa ao P
 - **Aceite:** `make test`/`make admin`/lint verdes; flag OFF não muda nada; flag ON força a
   permissão pelo operador ativo; sem brecha.
 
-### WP-AUTH-2c · Tela de trava/destrava (PIN + crachá) nos 4 apps · ⏳
+### WP-AUTH-2c · Tela de trava/destrava (PIN + crachá) nos 4 apps · ✅ CONCLUÍDO
+
+> Feito: `OperatorLock.vue` + `useOperatorLock` + `presentation/operatorLock.ts` (puro,
+> testado) em production + orders + kds (perm por surface; no KDS o overlay pula o board
+> público `/retirada`); montado no `app.vue` (gated → só aparece quando `locked`). **POS
+> migrado** dos endpoints `pos/operator/*` p/ os genéricos (perm=operate_pos); views/rotas
+> POS-específicas removidas (zero-residual); lock screen/auto-lock do POS preservados.
+> `set_operator_pin` ganhou `--badge`. vitest production 24 / orders 20 / kds 21 / POS 67 +
+> backstage 565 + builds verdes. Verificado gated-OFF ao vivo (overlay invisível).
 
 1. Composable `useOperatorLock` nas surfaces `orders-`/`kds-`/`production-uithing-nuxt`
    (POS já tem) consumindo os endpoints de 2b; tela de destrava com teclado de PIN +
@@ -151,7 +159,24 @@ bloqueadas. O crachá é um token de POSSE (código de barras), alternativa ao P
 3. `operatorLoginNextPath` das surfaces aponta pro hub de login da zona.
 - **Aceite:** sessão expirada/sem perm → tela clara de entrada/negação; login 1× funciona.
 
-## WP-AUTH-4 · Deploy da zona de operador + browser-QA AUTENTICADO real · ⏳
+## WP-AUTH-4 · Deploy da zona de operador + browser-QA AUTENTICADO real
+
+### Passo 1 · Login único (cookie-scoping) · ✅ DEPLOYADO + VERIFICADO AO VIVO (2026-06-26)
+
+> Deploy `d620e5ed`: zona `boulangerie.com.br` (hosts gestor./kds./pos./fournil./api. ALIAS
+> + ingress), apps repontados p/ proxiar `api.boulangerie.com.br`, `SHOPMAN_OPERATOR_COOKIE_
+> DOMAIN=.boulangerie.com.br` + `SHOPMAN_OPERATOR_API_HOST` + ALLOWED_HOSTS/CSRF + nav.
+> **REQUIRE_ACTIVE_OPERATOR OFF.** **Verificado:** login em `api.boulangerie.com.br/admin` →
+> cookie `Domain=.boulangerie.com.br` → autentica em fournil/gestor (200) — **login único
+> cross-subdomínio**. E-mail (MX/SPF/DKIM/DMARC pré-migrados no DO; DMARC corrigido) intacto,
+> sem queda. Cliente (api.staging.nelson) host-only, intacto. **GAP ORIGINAL FECHADO.**
+
+### Passo 2 · Opção C ao vivo (require-operator) + QA · ⏳ EM EXECUÇÃO
+
+> `SHOPMAN_REQUIRE_ACTIVE_OPERATOR=true` + bootstrap setando PIN `1234` + crachá
+> `abcdef0123456789abcdef01` p/ pablo (sem lockout — pablo sempre destrava). Unlock por PIN
+> verificado ao vivo (flag OFF) via proxy → 200. Falta: verificar o fluxo gated (travado→
+> PIN/crachá→ação→lock) + browser-QA da tela de trava após o flag-flip deploy.
 
 1. DNS: criar os hosts da zona de operador (`gestor./kds./pos./fournil./api.` +
    apex) no domínio escolhido, apontando pro app DO.
