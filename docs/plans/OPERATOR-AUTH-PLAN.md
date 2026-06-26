@@ -7,6 +7,43 @@
 > existe. Constrói sobre a iniciativa [OPERATOR-APPS-PLAN](OPERATOR-APPS-PLAN.md)
 > (Fases 0–4 entregues).
 
+## 🟢 ESTADO ATUAL + PRÓXIMAS TAREFAS (handoff, 2026-06-26)
+
+**OPÇÃO C ESTÁ NO AR E VERIFICADA** no staging (`*.boulangerie.com.br`). Login único
+cross-subdomínio + autorização por operador ativo (PIN ou crachá) + tela de trava nas 4
+surfaces, tudo deployado e verificado AO VIVO. WP-AUTH-1/2a/2b/2c ✅, WP-AUTH-4 Passo 1+2 ✅.
+Domínio DO `40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f`, contexto doctl `shopman-staging-deploy`.
+PIN do pablo no staging = `1234`, crachá = `abcdef0123456789abcdef01` (re-setados pelo job
+bootstrap-staging em todo deploy). E-mail Google Workspace migrado p/ o DO sem queda.
+
+**PRÓXIMAS TAREFAS (ordem):**
+1. **Verificar o fix do botão de login** (deploy `9238c2bc`, build-env `NUXT_PUBLIC_DJANGO_
+   BASE_URL=https://api.boulangerie.com.br` nos 4 apps de operador). Quando ACTIVE: navegar
+   `pos.boulangerie.com.br` (sem logar), clicar "Entrar no gestor" → deve ir p/
+   `api.boulangerie.com.br/admin/login/` (não mais `127.0.0.1:8000`). Conferir idem nas
+   outras surfaces (overlay OperatorLogin → botão Entrar). **Bug tinha 2 camadas:** link
+   relativo (corrigido) + URL pública não-bakeada no client (RUN_TIME não existe no build →
+   corrigido com env de build).
+2. **Pendência #2 — remover hosts nelson de operador defuntos** (`gestor./kds./pos./
+   fournil.staging.nelsonboulangerie.com.br`). Transform pronto: `/tmp/remove_nelson_operator.py`
+   (re-fetch spec → roda → `apps update`). PRESERVA loja (apex/api/admin nelson) + hosts
+   boulangerie + EV[...]. É spec-edit + deploy.
+3. **Pendência #4 — QA visual da tela de trava** (precisa do Pablo): Pablo loga no browser
+   conectado via o botão "Entrar" (eu não posso digitar senha) → eu navego + screenshot do
+   overlay de PIN/crachá. Chip spawnado.
+4. **Pendência #3 — browser-QA omotenashi autenticado dos apps de operador** (follow-up
+   maior): a matriz já tem os checks (`operator_links` + `_orders/_kds/_production_check`);
+   falta o gate navegar autenticado (infra: subir os apps + sessão no headless).
+5. **Limpeza futura:** nav do Admin já aponta boulangerie; remover refs a NUXT_POS_LOGIN_NEXT_PATH
+   se sobrarem; avaliar hub "Entrar" dedicado (em vez de cair no /admin/).
+
+**Gotchas de deploy:** AUTODEPLOY OFF; `apps update --spec --update-sources` p/ mudança de
+spec, `apps create-deployment` p/ só rebuildar o main; preservar os 12 secrets `EV[...]`;
+cert TLS de host novo provisiona assíncrono (000 no resolver público por negative-cache —
+testar via `curl --resolve <host>:443:<app-ip>`).
+
+---
+
 ## Modelo (duas camadas, reusa Django)
 
 - **Camada 1 — estação logada (sessão Django).** Operador loga **1×** no hub da zona
