@@ -687,6 +687,10 @@ def move_pos_tab_lines(
             line_ids=line_ids,
         )
     except Exception as exc:  # noqa: BLE001 - surface kernel errors as a recoverable POS error
+        logger.warning(
+            "pos_move_tab_lines_failed from=%s to=%s: %s",
+            source.session_key, target.session_key, exc,
+        )
         if target_created:
             # Roll back the freshly-created split target so no empty comanda lingers.
             # Guard the cleanup: a failure abandoning the target must not mask the
