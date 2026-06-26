@@ -35,6 +35,7 @@ ALL_HANDLERS = [
     # Fulfillment
     "shopman.shop.handlers.fulfillment.FulfillmentCreateHandler",
     "shopman.shop.handlers.fulfillment.FulfillmentUpdateHandler",
+    "shopman.shop.handlers.delivery_auto_complete.DeliveryAutoCompleteHandler",
     # Notification
     "shopman.shop.handlers.notification.NotificationSendHandler",
     # Returns
@@ -78,6 +79,7 @@ def register_all() -> None:
     _register_accounting_handler()
     _register_return_handler()
     _register_fulfillment_handler()
+    _register_delivery_auto_complete_handler()
     _register_loyalty_handler()
     _register_pricing_modifiers()
     _register_validators()
@@ -185,6 +187,11 @@ def _register_fulfillment_handler() -> None:
     from shopman.shop.handlers.fulfillment import FulfillmentCreateHandler, FulfillmentUpdateHandler
     registry.register_directive_handler(FulfillmentCreateHandler())
     registry.register_directive_handler(FulfillmentUpdateHandler())
+
+
+def _register_delivery_auto_complete_handler() -> None:
+    from shopman.shop.handlers.delivery_auto_complete import DeliveryAutoCompleteHandler
+    registry.register_directive_handler(DeliveryAutoCompleteHandler())
 
 
 def _register_loyalty_handler() -> None:

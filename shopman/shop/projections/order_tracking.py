@@ -1163,6 +1163,7 @@ def _eta_at(order) -> str | None:
     """
     try:
         from shopman.shop.models import Shop
+        from shopman.shop.services.order_helpers import delivery_eta_minutes
 
         shop = Shop.load()
         round_to_5 = False
@@ -1176,7 +1177,7 @@ def _eta_at(order) -> str | None:
             data = order.data or {}
             if (data.get("fulfillment_type") or data.get("delivery_method", "")) != "delivery":
                 return None
-            minutes = _delivery_eta_minutes(shop, data)
+            minutes = delivery_eta_minutes(shop, data)
             round_to_5 = True
             event = _event_for_status(order, "dispatched")
             baseline = event.created_at if event else None
@@ -1196,26 +1197,6 @@ def _eta_at(order) -> str | None:
     except Exception:
         logger.debug("order_tracking_eta_failed order=%s", order.ref, exc_info=True)
         return None
-
-
-def _delivery_eta_minutes(shop, order_data: dict) -> float:
-    """Minutos estimados de entrega a partir da SAÍDA.
-
-    Algoritmo: tempo de percurso (distância ÷ velocidade urbana efetiva) + uma
-    folga fixa (saída, trânsito, achar o endereço, handoff). Tudo configurável
-    em ``Shop.defaults["delivery"]`` para calibrar com números reais da operação:
-      · ``avg_speed_kmh``           (default 18 — moto urbana c/ paradas/trânsito)
-      · ``handoff_buffer_minutes``  (default 12 — folga fixa)
-      · ``estimated_minutes``       (default 40 — fallback quando não há distância)
-    """
-    cfg = (shop.defaults or {}).get("delivery") or {}
-    distance_km = order_data.get("delivery_distance_km")
-    if distance_km:
-        speed = float(cfg.get("avg_speed_kmh") or 18)
-        buffer_minutes = float(cfg.get("handoff_buffer_minutes") or 12)
-        if speed > 0:
-            return buffer_minutes + (float(distance_km) / speed) * 60.0
-    return float(cfg.get("estimated_minutes") or 40)
 
 
 def _contact_and_share(order) -> tuple[str, str, str]:

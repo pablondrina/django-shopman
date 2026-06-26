@@ -109,7 +109,57 @@ def advance_order(order: Order, *, actor: str) -> str:
     next_status = next_status_for(order)
     _sync_delivery_fulfillment(order, next_status)
     order.transition_status(next_status, actor=actor)
+    if next_status == Order.Status.DISPATCHED and get_fulfillment_type(order) == "delivery":
+        schedule_delivery_auto_complete(order)
     return next_status
+
+
+def schedule_delivery_auto_complete(order: Order) -> None:
+    """Agenda a auto-conclusão de um pedido em entrega: ETA + folga após a saída.
+
+    Rede de segurança para o trecho sem rastreio — se nem o cliente ("Recebi")
+    nem o operador ("Marcar entregue") fecharem, o pedido não fica preso em
+    "saiu para entrega". Idempotente (reusa o directive enfileirado); respeita o
+    desligamento (folga <= 0). O handler revalida o status, então um pedido já
+    fechado quando o directive vence é um no-op.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+    from shopman.orderman.models import Directive
+
+    from shopman.shop.directives import DELIVERY_AUTO_COMPLETE
+    from shopman.shop.models import Shop
+    from shopman.shop.services.order_helpers import (
+        delivery_auto_complete_grace_minutes,
+        delivery_eta_minutes,
+    )
+
+    shop = Shop.load()
+    grace = delivery_auto_complete_grace_minutes(shop)
+    if grace <= 0:
+        return  # auto-conclusão desligada via config
+    minutes = delivery_eta_minutes(shop, order.data or {}) + grace
+    available_at = timezone.now() + timedelta(minutes=minutes)
+
+    existing = (
+        Directive.objects.filter(
+            topic=DELIVERY_AUTO_COMPLETE,
+            payload__order_ref=order.ref,
+            status=Directive.Status.QUEUED,
+        )
+        .order_by("available_at", "id")
+        .first()
+    )
+    if existing:
+        existing.available_at = available_at
+        existing.save(update_fields=["available_at", "updated_at"])
+        return
+    Directive.objects.create(
+        topic=DELIVERY_AUTO_COMPLETE,
+        payload={"order_ref": order.ref},
+        available_at=available_at,
+    )
 
 
 def confirm_received(order: Order, *, actor: str = "customer") -> bool:

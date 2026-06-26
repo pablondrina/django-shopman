@@ -1032,6 +1032,94 @@ class TestFulfillmentService:
         assert fulfillment.tracking_url == "https://custom.url/track"
 
 
+def _dispatched_delivery_order():
+    import uuid
+
+    from shopman.orderman.models import Order
+    ref = f"TEST-AC-{uuid.uuid4().hex[:6]}"
+    order = Order.objects.create(
+        ref=ref, channel_ref="delivery", session_key=f"sk-{ref}",
+        status="confirmed", total_q=2000,
+        data={"fulfillment_type": "delivery", "delivery_distance_km": 3.4},
+    )
+    for next_status in ("preparing", "ready", "dispatched"):
+        order.transition_status(next_status, actor="op")
+    order.refresh_from_db()
+    return order
+
+
+@pytest.mark.django_db
+class TestDeliveryAutoComplete:
+    """Rede de segurança: auto-conclui pedido em entrega após ETA + folga, se nem
+    o cliente nem o operador fecharem (trecho sem rastreio)."""
+
+    def test_dispatch_schedules_future_directive(self):
+        from django.utils import timezone
+        from shopman.orderman.models import Directive
+
+        from shopman.shop.services import operator_orders
+        order = _dispatched_delivery_order()
+        operator_orders.schedule_delivery_auto_complete(order)
+        directive = Directive.objects.filter(
+            topic="delivery.auto_complete", payload__order_ref=order.ref, status="queued",
+        ).first()
+        assert directive is not None
+        assert directive.available_at > timezone.now()  # ETA + folga no futuro
+
+    def test_resolve_closes_after_deadline_and_is_idempotent(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from shopman.orderman.models import Directive
+
+        from shopman.shop.services import operator_orders
+        from shopman.storefront.services import orders as order_service
+        order = _dispatched_delivery_order()
+        operator_orders.schedule_delivery_auto_complete(order)
+
+        # Antes do prazo: no-op.
+        assert order_service.resolve_delivery_auto_complete_if_due(order) is False
+        assert order.status == "dispatched"
+
+        Directive.objects.filter(
+            topic="delivery.auto_complete", payload__order_ref=order.ref,
+        ).update(available_at=timezone.now() - timedelta(minutes=1))
+
+        assert order_service.resolve_delivery_auto_complete_if_due(order) is True
+        order.refresh_from_db()
+        assert order.status in {"delivered", "completed"}
+        # Directive consumido → segunda chamada não faz nada.
+        assert order_service.resolve_delivery_auto_complete_if_due(order) is False
+
+    def test_eta_and_grace_config(self):
+        """Algoritmo do ETA (percurso + folga) e a folga de auto-conclusão são
+        config-driven em Shop.defaults["delivery"]; sem config, usam os defaults."""
+        from shopman.shop.services.order_helpers import (
+            delivery_auto_complete_grace_minutes,
+            delivery_eta_minutes,
+        )
+
+        class FakeShop:
+            defaults = {"delivery": {
+                "avg_speed_kmh": 20, "handoff_buffer_minutes": 10,
+                "auto_complete_grace_minutes": 0,
+            }}
+
+        shop = FakeShop()
+        # 4 km a 20 km/h (12 min) + 10 de folga = 22 min.
+        assert round(delivery_eta_minutes(shop, {"delivery_distance_km": 4.0})) == 22
+        # Sem distância → fallback (40).
+        assert delivery_eta_minutes(shop, {}) == 40.0
+        # Folga configurável (0 desliga a auto-conclusão).
+        assert delivery_auto_complete_grace_minutes(shop) == 0
+
+        class BareShop:
+            defaults: dict = {}
+
+        # Sem config → defaults (folga 30).
+        assert delivery_auto_complete_grace_minutes(BareShop()) == 30
+
+
 # ══════════════════════════════════════════════════════════════════════
 # services/loyalty.py
 # ══════════════════════════════════════════════════════════════════════

@@ -297,6 +297,19 @@ def resolve_confirmation_timeout_if_due(order) -> bool:
     )
 
 
+def resolve_delivery_auto_complete_if_due(order) -> bool:
+    """Fecha um pedido em entrega vencido sem exigir o worker (resolve no acesso)."""
+    from shopman.shop.directives import DELIVERY_AUTO_COMPLETE
+    from shopman.shop.handlers.delivery_auto_complete import DeliveryAutoCompleteHandler
+
+    return _resolve_due_directive_for_order(
+        order,
+        topic=DELIVERY_AUTO_COMPLETE,
+        handler=DeliveryAutoCompleteHandler(),
+        log_name="delivery_auto_complete",
+    )
+
+
 def _resolve_payment_timeout_directive_if_due(order) -> bool:
     from shopman.shop.directives import PAYMENT_TIMEOUT
     from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler

@@ -15,6 +15,9 @@ NOTIFICATION_SEND = "notification.send"
 # Fulfillment
 FULFILLMENT_CREATE = "fulfillment.create"
 FULFILLMENT_UPDATE = "fulfillment.update"
+# Rede de segurança: auto-conclui um pedido em entrega após ETA + folga, se nem
+# o cliente ("Recebi") nem o operador ("Marcar entregue") fecharem o loop.
+DELIVERY_AUTO_COMPLETE = "delivery.auto_complete"
 
 # Confirmation
 CONFIRMATION_TIMEOUT = "confirmation.timeout"
