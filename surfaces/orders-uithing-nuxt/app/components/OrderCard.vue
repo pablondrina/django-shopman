@@ -15,8 +15,13 @@ import {
   type AffordanceRef,
 } from "~/presentation/board";
 
-const props = defineProps<{ card: OrderCardProjection; busy?: boolean }>();
-const emit = defineEmits<{ (e: "action", ref: AffordanceRef): void }>();
+const props = defineProps<{ card: OrderCardProjection; busy?: boolean; error?: string; selected?: boolean }>();
+const emit = defineEmits<{
+  (e: "action", ref: AffordanceRef): void;
+  (e: "dismiss-error"): void;
+  (e: "toggle-select"): void;
+  (e: "toggle-assign"): void;
+}>();
 
 const code = computed(() => splitRef(props.card.ref));
 const affordances = computed(() => cardAffordances(props.card));
@@ -32,9 +37,22 @@ function buttonClass(priority: string): string {
 </script>
 
 <template>
-  <article class="flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 transition hover:border-primary/40">
+  <article
+    class="flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 transition hover:border-primary/40"
+    :class="selected ? 'border-primary ring-1 ring-primary' : ''"
+  >
     <!-- ref + timer -->
-    <div class="flex items-start justify-between gap-2">
+    <div class="flex items-start gap-2">
+      <button
+        type="button"
+        class="mt-0.5 grid size-4 shrink-0 place-items-center rounded border transition"
+        :class="selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary'"
+        :aria-label="selected ? 'Desmarcar pedido' : 'Selecionar pedido'"
+        :aria-pressed="selected"
+        @click="emit('toggle-select')"
+      >
+        <Icon v-if="selected" name="lucide:check" class="size-3" />
+      </button>
       <NuxtLink :to="`/${card.ref}`" class="group min-w-0" :aria-label="`Abrir pedido ${card.ref}`">
         <span class="flex items-center gap-1.5">
           <Icon :name="`lucide:${lucideIcon(card.channel_icon)}`" class="size-3.5 shrink-0 text-muted-foreground" />
@@ -42,6 +60,17 @@ function buttonClass(priority: string): string {
         </span>
         <span class="block truncate text-lg font-bold leading-tight tabular-nums group-hover:underline">{{ code.code }}</span>
       </NuxtLink>
+      <button
+        type="button"
+        class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition"
+        :class="card.assigned_operator ? 'border-primary/40 bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent'"
+        :aria-label="card.assigned_operator ? `Atendido por ${card.assigned_operator} — liberar` : 'Atender este pedido'"
+        :title="card.assigned_operator ? `${card.assigned_operator} — liberar` : 'Atender'"
+        @click="emit('toggle-assign')"
+      >
+        <Icon :name="card.assigned_operator ? 'lucide:user-check' : 'lucide:user-plus'" class="size-3.5" />
+        <span v-if="card.assigned_operator" class="max-w-20 truncate">{{ card.assigned_operator }}</span>
+      </button>
       <span
         class="inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums"
         :class="timerChip(tTone)"
@@ -90,6 +119,19 @@ function buttonClass(priority: string): string {
         <span class="truncate">{{ wo.output_sku }} · {{ wo.status_label }}</span>
         <span class="ml-auto tabular-nums">{{ wo.progress_pct }}%</span>
       </div>
+    </div>
+
+    <!-- action error: the backend's specific reason, inline and persistent -->
+    <div
+      v-if="error"
+      class="flex items-start gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
+      role="alert"
+    >
+      <Icon name="lucide:alert-triangle" class="mt-px size-3.5 shrink-0" />
+      <span class="min-w-0 flex-1">{{ error }}</span>
+      <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-red-500/20" aria-label="Dispensar aviso" @click="emit('dismiss-error')">
+        <Icon name="lucide:x" class="size-3.5" />
+      </button>
     </div>
 
     <!-- actions -->

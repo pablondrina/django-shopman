@@ -3,17 +3,121 @@
 // (SSE + 30s poll) via useOrdersBoard; renders Entrada / Preparo / Saída columns of
 // OrderCards; the gestures POST through the django proxy (CSRF handled there) and
 // reconcile. Desktop-first (3 columns), responsive (stacks on tablet/phone).
-import type { AffordanceRef, ZoneView } from "~/presentation/board";
-import { matchesQuery } from "~/presentation/board";
+import type { AffordanceRef, SortKey, ViewMode, ZoneView } from "~/presentation/board";
+import {
+  bulkableRefs,
+  cardAffordances,
+  channelLabel,
+  channelOptions,
+  elapsedLabel,
+  flattenZones,
+  lucideIcon,
+  nextSort,
+  resolveShortcut,
+  rowsToCsv,
+  SORT_OPTIONS,
+  splitRef,
+  statusTone,
+  timerChip,
+  timerTone,
+  toneBadge,
+  triageCards,
+} from "~/presentation/board";
 import type { OrderCardProjection } from "~/types/orders";
 
-const { zones, totalCount, pending, error, refresh, isBusy, confirm, advance, reject, settleCash } = useOrdersBoard();
+const { zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
 
-// search filters the cards; counts follow the full queue.
+// ── triage: search + channel filter + sort + view-mode (Arc 1) ──────────────
+// query/channel are transient; sort/view persist per operator (cookie, SSR-safe).
 const query = ref("");
-function filteredCards(zone: ZoneView): OrderCardProjection[] {
-  return zone.cards.filter((c) => matchesQuery(c, query.value));
+const channel = ref("all");
+const sort = useCookie<SortKey>("gestor-sort", { default: () => "arrival", sameSite: "lax" });
+const viewMode = useCookie<ViewMode>("gestor-view", { default: () => "board", sameSite: "lax" });
+
+const allCards = computed<OrderCardProjection[]>(() => zones.value.flatMap((z) => z.cards));
+const channels = computed(() => channelOptions(allCards.value));
+const sortLabel = computed(() => SORT_OPTIONS.find((o) => o.key === sort.value)?.label ?? "Chegada");
+
+function triaged(zone: ZoneView): OrderCardProjection[] {
+  return triageCards(zone.cards, { query: query.value, channel: channel.value, sort: sort.value });
 }
+// flat rows for the dense table view, honouring the same triage + zone order.
+const tableRows = computed(() =>
+  flattenZones(zones.value.map((z) => ({ ...z, cards: triaged(z) }))),
+);
+// how many cards survive the current filters (for the "no results" affordance).
+const visibleCount = computed(() => zones.value.reduce((n, z) => n + triaged(z).length, 0));
+const hasFilter = computed(() => query.value.trim() !== "" || channel.value !== "all");
+
+// ── bulk selection (Arc 4) ──────────────────────────────────────────────────
+const selected = ref<Set<string>>(new Set());
+const isSelected = (ref_: string) => selected.value.has(ref_);
+function toggleSelect(ref_: string) {
+  const next = new Set(selected.value);
+  next.has(ref_) ? next.delete(ref_) : next.add(ref_);
+  selected.value = next;
+}
+function clearSelection() {
+  selected.value = new Set();
+}
+// select-all over the currently visible (triaged) cards.
+const visibleRefs = computed(() => tableRows.value.map((r) => r.card.ref));
+const allVisibleSelected = computed(() => visibleRefs.value.length > 0 && visibleRefs.value.every((r) => selected.value.has(r)));
+function toggleSelectAll() {
+  selected.value = allVisibleSelected.value ? new Set() : new Set(visibleRefs.value);
+}
+const confirmableSel = computed(() => bulkableRefs(allCards.value, selected.value, "confirm"));
+const advanceableSel = computed(() => bulkableRefs(allCards.value, selected.value, "advance"));
+async function bulkConfirm() {
+  await confirmMany(confirmableSel.value);
+  clearSelection();
+}
+async function bulkAdvance() {
+  await advanceMany(advanceableSel.value);
+  clearSelection();
+}
+
+// sort menu (house pattern: button + backdrop + absolute panel).
+const sortOpen = ref(false);
+function pickSort(key: SortKey) {
+  sort.value = key;
+  sortOpen.value = false;
+}
+
+// keyboard shortcuts (Arc 3): / search · r refresh · v view · s sort · Esc clear.
+// Pure mapping in resolveShortcut; here we run the effects and skip while typing.
+const searchInput = ref<HTMLInputElement | null>(null);
+function onKeydown(e: KeyboardEvent) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const el = e.target as HTMLElement | null;
+  const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  const shortcut = resolveShortcut(e.key);
+  if (!shortcut) return;
+  // While typing, only Escape (clear-filters / blur) is honoured.
+  if (typing && shortcut !== "clear-filters") return;
+  switch (shortcut) {
+    case "focus-search":
+      e.preventDefault();
+      searchInput.value?.focus();
+      break;
+    case "refresh":
+      refresh();
+      break;
+    case "toggle-view":
+      viewMode.value = viewMode.value === "board" ? "table" : "board";
+      break;
+    case "cycle-sort":
+      sort.value = nextSort(sort.value);
+      break;
+    case "clear-filters":
+      query.value = "";
+      channel.value = "all";
+      if (typing) (el as HTMLElement).blur();
+      break;
+  }
+}
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
 const colorMode = useColorMode();
 function toggleTheme() {
@@ -58,11 +162,34 @@ function onAction(ref_: string, action: AffordanceRef) {
   else if (action === "reject") openReject(ref_);
   else if (action === "settle_cash") openSettle(ref_);
 }
+
+// claim/release an order ("estou atendendo").
+function onToggleAssign(card: OrderCardProjection) {
+  card.assigned_operator ? unassign(card.ref) : assign(card.ref);
+}
+
+// ── export / print (Arc 5) ───────────────────────────────────────────────
+// CSV of the current (triaged) queue for a shift handover; print uses the
+// browser dialog (the print stylesheet hides the chrome and shows the table).
+function exportCsv() {
+  const csv = rowsToCsv(tableRows.value);
+  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "h");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pedidos-${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function printQueue() {
+  window.print();
+}
 </script>
 
 <template>
   <main class="flex min-h-screen flex-col">
-    <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5">
+    <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5 print:hidden">
       <span class="grid size-9 shrink-0 place-items-center rounded-md border bg-card text-foreground">
         <Icon name="lucide:clipboard-list" class="size-4" />
       </span>
@@ -82,19 +209,20 @@ function onAction(ref_: string, action: AffordanceRef) {
         <div class="relative">
           <Icon name="lucide:search" class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
+            ref="searchInput"
             v-model="query"
             type="search"
             inputmode="search"
             placeholder="Buscar pedido…"
             class="h-9 w-36 rounded-md border bg-background pl-8 pr-7 text-sm outline-none transition focus:w-48 focus:ring-1 focus:ring-ring sm:w-44"
-            aria-label="Buscar por código, cliente ou item"
+            aria-label="Buscar por código, cliente ou item (atalho: /)"
           />
           <button v-if="query" type="button" class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:text-foreground" aria-label="Limpar busca" @click="query = ''">
             <Icon name="lucide:x" class="size-3.5" />
           </button>
         </div>
         <AlertsBell />
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Atualizar" title="Atualizar" @click="refresh()">
+        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Atualizar" title="Atualizar (atalho: r)" @click="refresh()">
           <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
         </button>
         <ClientOnly>
@@ -108,40 +236,295 @@ function onAction(ref_: string, action: AffordanceRef) {
       </div>
     </header>
 
+    <!-- triage bar: channel chips · sort · view-mode -->
+    <div v-if="allCards.length" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-card/60 px-4 py-2 print:hidden">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          class="rounded-full border px-2.5 py-1 text-xs font-medium transition"
+          :class="channel === 'all' ? 'border-transparent bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          @click="channel = 'all'"
+        >
+          Todos <span class="tabular-nums opacity-70">{{ allCards.length }}</span>
+        </button>
+        <button
+          v-for="opt in channels"
+          :key="opt.ref"
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition"
+          :class="channel === opt.ref ? 'border-transparent bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          @click="channel = opt.ref"
+        >
+          <Icon :name="`lucide:${lucideIcon(allCards.find((c) => c.channel_ref === opt.ref)?.channel_icon || '')}`" class="size-3.5" />
+          {{ opt.label }} <span class="tabular-nums opacity-70">{{ opt.count }}</span>
+        </button>
+      </div>
+
+      <div class="ml-auto flex items-center gap-1.5">
+        <!-- sort -->
+        <div class="relative">
+          <button
+            type="button"
+            class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            aria-haspopup="menu"
+            :aria-expanded="sortOpen"
+            title="Ordenar (atalho: s)"
+            @click="sortOpen = !sortOpen"
+          >
+            <Icon name="lucide:arrow-up-down" class="size-3.5" />
+            <span class="hidden sm:inline">{{ sortLabel }}</span>
+          </button>
+          <div v-if="sortOpen" class="fixed inset-0 z-40" @click="sortOpen = false" />
+          <div v-if="sortOpen" class="absolute right-0 z-50 mt-1 w-44 overflow-hidden rounded-md border bg-card py-1 shadow-lg" role="menu">
+            <button
+              v-for="opt in SORT_OPTIONS"
+              :key="opt.key"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="sort === opt.key"
+              class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition hover:bg-accent"
+              @click="pickSort(opt.key)"
+            >
+              {{ opt.label }}
+              <Icon v-if="sort === opt.key" name="lucide:check" class="size-3.5 text-primary" />
+            </button>
+          </div>
+        </div>
+
+        <!-- export / print -->
+        <button
+          type="button"
+          class="grid size-8 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          aria-label="Exportar CSV"
+          title="Exportar CSV"
+          @click="exportCsv"
+        >
+          <Icon name="lucide:download" class="size-4" />
+        </button>
+        <button
+          type="button"
+          class="grid size-8 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          aria-label="Imprimir fila"
+          title="Imprimir"
+          @click="printQueue"
+        >
+          <Icon name="lucide:printer" class="size-4" />
+        </button>
+
+        <!-- view-mode -->
+        <div class="inline-flex h-8 items-center rounded-md border p-0.5">
+          <button
+            type="button"
+            class="grid size-7 place-items-center rounded transition"
+            :class="viewMode === 'board' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            aria-label="Ver em colunas"
+            title="Colunas (atalho: v)"
+            @click="viewMode = 'board'"
+          >
+            <Icon name="lucide:columns-3" class="size-4" />
+          </button>
+          <button
+            type="button"
+            class="grid size-7 place-items-center rounded transition"
+            :class="viewMode === 'table' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            aria-label="Ver em tabela"
+            title="Tabela (atalho: v)"
+            @click="viewMode = 'table'"
+          >
+            <Icon name="lucide:table-2" class="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- bulk action bar -->
+    <div v-if="selected.size" class="flex shrink-0 flex-wrap items-center gap-2 border-b bg-primary/10 px-4 py-2 text-sm print:hidden">
+      <Icon name="lucide:check-square" class="size-4 text-primary" />
+      <span class="font-semibold">{{ selected.size }} selecionado{{ selected.size > 1 ? "s" : "" }}</span>
+      <div class="ml-auto flex items-center gap-1.5">
+        <button
+          v-if="confirmableSel.length"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+          @click="bulkConfirm"
+        >
+          <Icon name="lucide:check" class="size-3.5" /> Confirmar {{ confirmableSel.length }}
+        </button>
+        <button
+          v-if="advanceableSel.length"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition hover:bg-accent"
+          @click="bulkAdvance"
+        >
+          <Icon name="lucide:arrow-right" class="size-3.5" /> Avançar {{ advanceableSel.length }}
+        </button>
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent" @click="clearSelection">
+          Limpar
+        </button>
+      </div>
+    </div>
+
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <p v-if="pending && !zones.length" class="text-sm text-muted-foreground">Carregando…</p>
       <p v-else-if="error" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
         Falha ao carregar a fila. Reconectando…
       </p>
 
-      <div v-else class="grid gap-4 lg:grid-cols-3">
-        <section v-for="zone in zones" :key="zone.key" class="flex min-w-0 flex-col gap-3">
-          <div class="flex items-center gap-2 border-b pb-2">
-            <Icon :name="zone.icon" class="size-4 text-muted-foreground" />
-            <h2 class="text-sm font-bold uppercase tracking-wide">{{ zone.title }}</h2>
-            <span class="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-xs font-bold tabular-nums">{{ zone.count }}</span>
-            <span class="ml-auto hidden truncate text-xs text-muted-foreground sm:block">{{ zone.subtitle }}</span>
-          </div>
+      <template v-else>
+        <!-- no results across all zones for the active filters -->
+        <p v-if="hasFilter && !visibleCount" class="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Nenhum pedido para os filtros atuais.
+          <button type="button" class="ml-1 font-medium text-primary hover:underline" @click="query = ''; channel = 'all'">Limpar filtros</button>
+        </p>
 
-          <div v-if="!zone.cards.length" class="grid place-items-center gap-1.5 rounded-lg border border-dashed py-10 text-center text-muted-foreground">
-            <Icon name="lucide:check-circle-2" class="size-6" />
-            <p class="text-sm">Nada por aqui agora.</p>
-          </div>
+        <!-- board view (clean, default) -->
+        <div v-else-if="viewMode === 'board'" class="grid gap-4 lg:grid-cols-3">
+          <section v-for="zone in zones" :key="zone.key" class="flex min-w-0 flex-col gap-3">
+            <div class="flex items-center gap-2 border-b pb-2">
+              <Icon :name="zone.icon" class="size-4 text-muted-foreground" />
+              <h2 class="text-sm font-bold uppercase tracking-wide">{{ zone.title }}</h2>
+              <span class="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-xs font-bold tabular-nums">{{ triaged(zone).length }}</span>
+              <span class="ml-auto hidden truncate text-xs text-muted-foreground sm:block">{{ zone.subtitle }}</span>
+            </div>
 
-          <template v-else>
+            <div v-if="!triaged(zone).length" class="grid place-items-center gap-1.5 rounded-lg border border-dashed py-10 text-center text-muted-foreground">
+              <Icon name="lucide:check-circle-2" class="size-6" />
+              <p class="text-sm">Nada por aqui agora.</p>
+            </div>
+
             <OrderCard
-              v-for="card in filteredCards(zone)"
+              v-for="card in triaged(zone)"
+              v-else
               :key="card.ref"
               :card="card"
               :busy="isBusy(card.ref)"
+              :error="actionError(card.ref)"
+              :selected="isSelected(card.ref)"
               @action="(action) => onAction(card.ref, action)"
+              @dismiss-error="clearActionError(card.ref)"
+              @toggle-select="toggleSelect(card.ref)"
+              @toggle-assign="onToggleAssign(card)"
             />
-            <p v-if="query && !filteredCards(zone).length" class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-              Nenhum resultado para “{{ query.trim() }}”.
-            </p>
-          </template>
-        </section>
-      </div>
+          </section>
+        </div>
+
+        <!-- dense table view (power-user) -->
+        <div v-else class="overflow-x-auto rounded-lg border bg-card">
+          <table class="w-full border-collapse text-sm">
+            <thead>
+              <tr class="border-b text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                <th class="w-9 px-3 py-2">
+                  <button
+                    type="button"
+                    class="grid size-4 place-items-center rounded border transition"
+                    :class="allVisibleSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary'"
+                    :aria-label="allVisibleSelected ? 'Desmarcar todos' : 'Selecionar todos'"
+                    :aria-pressed="allVisibleSelected"
+                    @click="toggleSelectAll"
+                  >
+                    <Icon v-if="allVisibleSelected" name="lucide:check" class="size-3" />
+                  </button>
+                </th>
+                <th class="px-3 py-2">Código</th>
+                <th class="px-3 py-2">Etapa</th>
+                <th class="px-3 py-2">Canal</th>
+                <th class="px-3 py-2">Cliente</th>
+                <th class="hidden px-3 py-2 lg:table-cell">Itens</th>
+                <th class="px-3 py-2 text-right">Total</th>
+                <th class="px-3 py-2 text-right">Tempo</th>
+                <th class="px-3 py-2 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="row in tableRows" :key="row.card.ref">
+              <tr class="transition hover:bg-accent/40" :class="[actionError(row.card.ref) ? '' : 'border-b last:border-0', isSelected(row.card.ref) ? 'bg-primary/5' : '']">
+                <td class="px-3 py-2">
+                  <button
+                    type="button"
+                    class="grid size-4 place-items-center rounded border transition"
+                    :class="isSelected(row.card.ref) ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary'"
+                    :aria-label="isSelected(row.card.ref) ? 'Desmarcar pedido' : 'Selecionar pedido'"
+                    :aria-pressed="isSelected(row.card.ref)"
+                    @click="toggleSelect(row.card.ref)"
+                  >
+                    <Icon v-if="isSelected(row.card.ref)" name="lucide:check" class="size-3" />
+                  </button>
+                </td>
+                <td class="px-3 py-2">
+                  <NuxtLink :to="`/${row.card.ref}`" class="font-bold tabular-nums hover:underline" :aria-label="`Abrir pedido ${row.card.ref}`">
+                    {{ splitRef(row.card.ref).code }}
+                  </NuxtLink>
+                </td>
+                <td class="px-3 py-2">
+                  <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" :class="toneBadge(statusTone(row.card.status))">
+                    {{ row.card.status_label }}
+                  </span>
+                </td>
+                <td class="px-3 py-2">
+                  <span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Icon :name="`lucide:${lucideIcon(row.card.channel_icon)}`" class="size-3.5" />
+                    {{ channelLabel(row.card.channel_ref) }}
+                  </span>
+                </td>
+                <td class="max-w-40 px-3 py-2">
+                  <span class="block truncate">{{ row.card.customer_name }}</span>
+                  <span v-if="row.card.assigned_operator" class="mt-0.5 inline-flex items-center gap-1 text-[0.7rem] text-primary">
+                    <Icon name="lucide:user-check" class="size-3" />{{ row.card.assigned_operator }}
+                  </span>
+                </td>
+                <td class="hidden max-w-56 truncate px-3 py-2 text-muted-foreground lg:table-cell">{{ row.card.items_summary }}</td>
+                <td class="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums">{{ row.card.total_display }}</td>
+                <td class="px-3 py-2 text-right">
+                  <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-xs tabular-nums" :class="timerChip(timerTone(row.card.timer_class))">
+                    {{ elapsedLabel(row.card.elapsed_seconds) }}
+                  </span>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      :disabled="isBusy(row.card.ref)"
+                      class="grid size-7 place-items-center rounded border transition disabled:opacity-50"
+                      :class="row.card.assigned_operator ? 'border-primary/40 bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent'"
+                      :aria-label="row.card.assigned_operator ? `Atendido por ${row.card.assigned_operator} — liberar` : 'Atender'"
+                      :title="row.card.assigned_operator ? `${row.card.assigned_operator} — liberar` : 'Atender'"
+                      @click="onToggleAssign(row.card)"
+                    >
+                      <Icon :name="row.card.assigned_operator ? 'lucide:user-check' : 'lucide:user-plus'" class="size-3.5" />
+                    </button>
+                    <button
+                      v-for="a in cardAffordances(row.card)"
+                      :key="a.ref"
+                      type="button"
+                      :disabled="isBusy(row.card.ref)"
+                      class="grid size-7 place-items-center rounded border transition disabled:opacity-50"
+                      :class="a.priority === 'primary' ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90' : a.priority === 'danger' ? 'border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-300' : 'hover:bg-accent'"
+                      :aria-label="a.label"
+                      :title="a.label"
+                      @click="onAction(row.card.ref, a.ref)"
+                    >
+                      <Icon :name="a.icon" class="size-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <!-- action error sub-row: the backend's specific reason, inline -->
+              <tr v-if="actionError(row.card.ref)" class="border-b last:border-0">
+                <td colspan="9" class="px-3 pb-2">
+                  <div class="flex items-start gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-700 dark:text-red-300" role="alert">
+                    <Icon name="lucide:alert-triangle" class="mt-px size-3.5 shrink-0" />
+                    <span class="min-w-0 flex-1">{{ actionError(row.card.ref) }}</span>
+                    <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-red-500/20" aria-label="Dispensar aviso" @click="clearActionError(row.card.ref)">
+                      <Icon name="lucide:x" class="size-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
     </section>
 
     <!-- reject dialog -->

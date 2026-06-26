@@ -197,3 +197,168 @@ export function matchesQuery(card: OrderCardProjection, rawQuery: string): boole
   if (!q) return true;
   return [card.ref, card.customer_name, card.items_summary].join(" ").toLowerCase().includes(q);
 }
+
+// ── Triage: channel filter, sort, view-mode (Arc 1) ─────────────────────────
+
+/** Friendly channel labels. Unknown channels fall back to a capitalised ref so
+ *  a new channel never renders blank. */
+const CHANNEL_LABEL: Record<string, string> = {
+  web: "Web",
+  whatsapp: "WhatsApp",
+  ifood: "iFood",
+  pdv: "PDV",
+  pos: "PDV",
+};
+
+export function channelLabel(ref: string): string {
+  if (CHANNEL_LABEL[ref]) return CHANNEL_LABEL[ref];
+  return ref ? ref.charAt(0).toUpperCase() + ref.slice(1) : "—";
+}
+
+export interface ChannelOption {
+  ref: string;
+  label: string;
+  count: number;
+}
+
+/** Distinct channels present in the queue, with counts, for the filter control.
+ *  Derived from the data so the control only ever offers channels that exist. */
+export function channelOptions(cards: OrderCardProjection[]): ChannelOption[] {
+  const counts = new Map<string, number>();
+  for (const c of cards) counts.set(c.channel_ref, (counts.get(c.channel_ref) ?? 0) + 1);
+  return [...counts.entries()]
+    .map(([ref, count]) => ({ ref, label: channelLabel(ref), count }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+
+/** `"all"` (or empty) matches everything; otherwise exact channel match. */
+export function matchesChannel(card: OrderCardProjection, channel: string): boolean {
+  return !channel || channel === "all" || card.channel_ref === channel;
+}
+
+export type SortKey = "arrival" | "urgency" | "recent";
+
+export interface SortOption {
+  key: SortKey;
+  label: string;
+}
+
+export const SORT_OPTIONS: SortOption[] = [
+  { key: "arrival", label: "Chegada" },
+  { key: "urgency", label: "Urgência" },
+  { key: "recent", label: "Mais recentes" },
+];
+
+/** Order cards for display. `arrival` keeps the projection's own order (oldest
+ *  first, as the backend serves it); `urgency` puts the longest-waiting on top;
+ *  `recent` puts the newest arrivals on top. Pure — never mutates the input. */
+export function sortCards(cards: OrderCardProjection[], key: SortKey): OrderCardProjection[] {
+  const out = [...cards];
+  if (key === "urgency") {
+    out.sort((a, b) => b.elapsed_seconds - a.elapsed_seconds);
+  } else if (key === "recent") {
+    out.sort((a, b) => b.created_at_iso.localeCompare(a.created_at_iso));
+  }
+  return out;
+}
+
+/** Apply channel filter + free-text query + sort to one zone's cards. The board
+ *  and the table both render through this, so they always agree. */
+export function triageCards(
+  cards: OrderCardProjection[],
+  opts: { query: string; channel: string; sort: SortKey },
+): OrderCardProjection[] {
+  const filtered = cards.filter((c) => matchesChannel(c, opts.channel) && matchesQuery(c, opts.query));
+  return sortCards(filtered, opts.sort);
+}
+
+export type ViewMode = "board" | "table";
+
+export interface FlatRow {
+  card: OrderCardProjection;
+  zoneKey: ZoneView["key"];
+  zoneTitle: string;
+}
+
+/** Flatten the three zones into one list (with the zone each card belongs to)
+ *  for the dense table view. Preserves zone order, then per-zone order. */
+export function flattenZones(zones: ZoneView[]): FlatRow[] {
+  return zones.flatMap((z) => z.cards.map((card) => ({ card, zoneKey: z.key, zoneTitle: z.title })));
+}
+
+/** Serialise the (already triaged) queue rows to CSV — the operator's "saída"
+ *  for a shift handover or a quick print. Pure so the columns/escaping are
+ *  testable; the page owns the download. */
+export function rowsToCsv(rows: FlatRow[]): string {
+  const header = ["Codigo", "Etapa", "Canal", "Cliente", "Itens", "Total", "Tempo", "Atendente"];
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const body = rows.map((r) =>
+    [
+      r.card.ref,
+      r.zoneTitle,
+      channelLabel(r.card.channel_ref),
+      r.card.customer_name,
+      r.card.items_summary,
+      r.card.total_display,
+      elapsedLabel(r.card.elapsed_seconds),
+      r.card.assigned_operator,
+    ]
+      .map(esc)
+      .join(","),
+  );
+  return [header.map(esc).join(","), ...body].join("\n");
+}
+
+// ── Keyboard shortcuts (Arc 3) ──────────────────────────────────────────────
+
+export type BoardShortcut =
+  | "focus-search"
+  | "refresh"
+  | "toggle-view"
+  | "cycle-sort"
+  | "clear-filters";
+
+/** Map a keydown's `key` to a board shortcut, or null if none. Pure so the
+ *  mapping is testable; the page owns the side effects (focus, refresh, …) and
+ *  the "ignore while typing" guard. */
+export function resolveShortcut(key: string): BoardShortcut | null {
+  switch (key) {
+    case "/":
+      return "focus-search";
+    case "r":
+    case "R":
+      return "refresh";
+    case "v":
+    case "V":
+      return "toggle-view";
+    case "s":
+    case "S":
+      return "cycle-sort";
+    case "Escape":
+      return "clear-filters";
+    default:
+      return null;
+  }
+}
+
+/** Cycle the sort key in the order the control lists them. */
+export function nextSort(current: SortKey): SortKey {
+  const i = SORT_OPTIONS.findIndex((o) => o.key === current);
+  return SORT_OPTIONS[(i + 1) % SORT_OPTIONS.length]!.key;
+}
+
+// ── Bulk actions (Arc 4) ────────────────────────────────────────────────────
+
+export type BulkAction = "confirm" | "advance";
+
+/** Refs among the selected cards that can take the given bulk action right now,
+ *  read from the projection's pre-resolved flags (the backend owns the gate, as
+ *  always). Pure → the batch bar's enabled/count state is testable. */
+export function bulkableRefs(
+  cards: OrderCardProjection[],
+  selected: ReadonlySet<string>,
+  action: BulkAction,
+): string[] {
+  const can = action === "confirm" ? (c: OrderCardProjection) => c.can_confirm : (c: OrderCardProjection) => c.can_advance;
+  return cards.filter((c) => selected.has(c.ref) && can(c)).map((c) => c.ref);
+}

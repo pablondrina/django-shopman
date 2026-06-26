@@ -45,5 +45,11 @@ export function useOrderDetail(orderRef: string) {
     return ok;
   }
 
-  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes };
+  async function addComment(note: string): Promise<boolean> {
+    const ok = await act("comment", { note });
+    if (ok) useSonner.success("Comentário adicionado.");
+    return ok;
+  }
+
+  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes, addComment };
 }

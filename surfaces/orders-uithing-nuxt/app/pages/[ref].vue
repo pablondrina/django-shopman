@@ -12,8 +12,16 @@ import {
 const route = useRoute();
 const orderRef = computed(() => String(route.params.ref || ""));
 
-const { order, pending, error, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes } =
+const { order, pending, error, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes, addComment } =
   useOrderDetail(orderRef.value);
+
+// timeline comment composer
+const comment = ref("");
+async function submitComment() {
+  if (!comment.value.trim()) return;
+  const ok = await addComment(comment.value.trim());
+  if (ok) comment.value = "";
+}
 
 const code = computed(() => splitRef(orderRef.value));
 
@@ -154,17 +162,37 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
       </section>
 
       <!-- timeline -->
-      <section v-if="order.timeline.length" class="flex flex-col gap-2 rounded-lg border bg-card p-4">
+      <section class="flex flex-col gap-2 rounded-lg border bg-card p-4">
         <h2 class="text-sm font-bold uppercase tracking-wide">Histórico</h2>
-        <ol class="flex flex-col gap-2.5">
+        <ol v-if="order.timeline.length" class="flex flex-col gap-2.5">
           <li v-for="(ev, i) in order.timeline" :key="i" class="flex gap-3 text-sm">
-            <span class="mt-1 size-2 shrink-0 rounded-full bg-muted-foreground/40" />
+            <span class="mt-1 size-2 shrink-0 rounded-full" :class="ev.event_type === 'operator_comment' ? 'bg-primary' : 'bg-muted-foreground/40'" />
             <div class="min-w-0">
               <p class="font-medium">{{ ev.label }}</p>
               <p class="text-xs text-muted-foreground">{{ ev.timestamp_display }}<template v-if="ev.actor"> · {{ ev.actor }}</template><template v-if="ev.detail"> · {{ ev.detail }}</template></p>
             </div>
           </li>
         </ol>
+
+        <!-- comment composer -->
+        <div class="flex items-start gap-2 border-t pt-3">
+          <textarea
+            v-model="comment"
+            rows="1"
+            placeholder="Comentar no histórico…"
+            class="min-h-9 flex-1 resize-y rounded-md border bg-background p-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Comentar no histórico"
+            @keydown.enter.meta.prevent="submitComment"
+          />
+          <button
+            type="button"
+            :disabled="!comment.trim() || busy"
+            class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-transparent bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            @click="submitComment"
+          >
+            <Icon name="lucide:message-square-plus" class="size-4" /> Comentar
+          </button>
+        </div>
       </section>
     </template>
 

@@ -60,6 +60,7 @@ export interface OrderCardProjection {
   fiscal_status_label: string;
   fiscal_status: string;
   has_notes: boolean;
+  assigned_operator: string;
   awaiting_work_orders: AwaitingWorkOrderProjection[];
 }
 

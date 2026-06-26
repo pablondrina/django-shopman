@@ -1,14 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bulkableRefs,
   cardAffordances,
+  channelLabel,
+  channelOptions,
   elapsedLabel,
+  flattenZones,
   lucideIcon,
+  matchesChannel,
   matchesQuery,
+  nextSort,
+  resolveShortcut,
+  rowsToCsv,
+  sortCards,
   splitRef,
   statusTone,
   timerTone,
   toneBadge,
+  triageCards,
   zonesView,
 } from "../app/presentation/board";
 import type { OrderCardProjection, TwoZoneQueueProjection } from "../app/types/orders";
@@ -43,6 +53,7 @@ const card = (over: Partial<OrderCardProjection> = {}): OrderCardProjection => (
   fiscal_status_label: "",
   fiscal_status: "",
   has_notes: false,
+  assigned_operator: "",
   awaiting_work_orders: [],
   ...over,
 });
@@ -146,5 +157,144 @@ describe("matchesQuery", () => {
     expect(matchesQuery(c, "0007")).toBe(true);
     expect(matchesQuery(c, "café")).toBe(true);
     expect(matchesQuery(c, "pizza")).toBe(false);
+  });
+});
+
+describe("channelLabel", () => {
+  it("maps known channels and capitalises unknowns", () => {
+    expect(channelLabel("web")).toBe("Web");
+    expect(channelLabel("ifood")).toBe("iFood");
+    expect(channelLabel("pdv")).toBe("PDV");
+    expect(channelLabel("kiosk")).toBe("Kiosk");
+    expect(channelLabel("")).toBe("—");
+  });
+});
+
+describe("channelOptions", () => {
+  it("returns distinct channels with counts, sorted by label", () => {
+    const opts = channelOptions([
+      card({ channel_ref: "web" }),
+      card({ channel_ref: "web" }),
+      card({ channel_ref: "ifood" }),
+    ]);
+    expect(opts).toEqual([
+      { ref: "ifood", label: "iFood", count: 1 },
+      { ref: "web", label: "Web", count: 2 },
+    ]);
+  });
+});
+
+describe("matchesChannel", () => {
+  it("treats empty/all as match-all, else exact", () => {
+    const c = card({ channel_ref: "whatsapp" });
+    expect(matchesChannel(c, "")).toBe(true);
+    expect(matchesChannel(c, "all")).toBe(true);
+    expect(matchesChannel(c, "whatsapp")).toBe(true);
+    expect(matchesChannel(c, "web")).toBe(false);
+  });
+});
+
+describe("sortCards", () => {
+  const a = card({ ref: "A", elapsed_seconds: 10, created_at_iso: "2026-06-26T08:00:00Z" });
+  const b = card({ ref: "B", elapsed_seconds: 300, created_at_iso: "2026-06-26T07:00:00Z" });
+  const c = card({ ref: "C", elapsed_seconds: 60, created_at_iso: "2026-06-26T09:00:00Z" });
+
+  it("arrival keeps input order and does not mutate", () => {
+    const input = [a, b, c];
+    expect(sortCards(input, "arrival").map((x) => x.ref)).toEqual(["A", "B", "C"]);
+    expect(input.map((x) => x.ref)).toEqual(["A", "B", "C"]);
+  });
+  it("urgency puts the longest-waiting first", () => {
+    expect(sortCards([a, b, c], "urgency").map((x) => x.ref)).toEqual(["B", "C", "A"]);
+  });
+  it("recent puts the newest arrival first", () => {
+    expect(sortCards([a, b, c], "recent").map((x) => x.ref)).toEqual(["C", "A", "B"]);
+  });
+});
+
+describe("triageCards", () => {
+  it("composes channel filter + query + sort", () => {
+    const rows = [
+      card({ ref: "A", channel_ref: "web", customer_name: "Ana", elapsed_seconds: 10 }),
+      card({ ref: "B", channel_ref: "ifood", customer_name: "Ana", elapsed_seconds: 99 }),
+      card({ ref: "C", channel_ref: "web", customer_name: "Bia", elapsed_seconds: 50 }),
+    ];
+    const out = triageCards(rows, { query: "ana", channel: "web", sort: "urgency" });
+    expect(out.map((x) => x.ref)).toEqual(["A"]);
+  });
+});
+
+describe("resolveShortcut", () => {
+  it("maps keys to board shortcuts (case-insensitive for letters)", () => {
+    expect(resolveShortcut("/")).toBe("focus-search");
+    expect(resolveShortcut("r")).toBe("refresh");
+    expect(resolveShortcut("R")).toBe("refresh");
+    expect(resolveShortcut("v")).toBe("toggle-view");
+    expect(resolveShortcut("s")).toBe("cycle-sort");
+    expect(resolveShortcut("Escape")).toBe("clear-filters");
+    expect(resolveShortcut("x")).toBeNull();
+  });
+});
+
+describe("nextSort", () => {
+  it("cycles arrival → urgency → recent → arrival", () => {
+    expect(nextSort("arrival")).toBe("urgency");
+    expect(nextSort("urgency")).toBe("recent");
+    expect(nextSort("recent")).toBe("arrival");
+  });
+});
+
+describe("bulkableRefs", () => {
+  const rows = [
+    card({ ref: "A", can_confirm: true, can_advance: false }),
+    card({ ref: "B", can_confirm: false, can_advance: true }),
+    card({ ref: "C", can_confirm: true, can_advance: false }),
+  ];
+  it("returns selected refs eligible for confirm", () => {
+    expect(bulkableRefs(rows, new Set(["A", "B"]), "confirm")).toEqual(["A"]);
+  });
+  it("returns selected refs eligible for advance", () => {
+    expect(bulkableRefs(rows, new Set(["A", "B", "C"]), "advance")).toEqual(["B"]);
+  });
+  it("ignores unselected cards", () => {
+    expect(bulkableRefs(rows, new Set(["C"]), "confirm")).toEqual(["C"]);
+    expect(bulkableRefs(rows, new Set(), "confirm")).toEqual([]);
+  });
+});
+
+describe("rowsToCsv", () => {
+  it("writes a header + one row per card, escaping quotes", () => {
+    const rows = [
+      { card: card({ ref: "A", customer_name: 'Ana "Bela"', assigned_operator: "Léo" }), zoneKey: "entrada" as const, zoneTitle: "Entrada" },
+    ];
+    const csv = rowsToCsv(rows);
+    const [header, line] = csv.split("\n");
+    expect(header).toContain("Codigo");
+    expect(header).toContain("Atendente");
+    expect(line).toContain('"A"');
+    expect(line).toContain('"Ana ""Bela"""'); // doubled quotes
+    expect(line).toContain('"Léo"');
+  });
+  it("is just a header when there are no rows", () => {
+    expect(rowsToCsv([]).split("\n")).toHaveLength(1);
+  });
+});
+
+describe("flattenZones", () => {
+  it("flattens zones preserving order and tagging the zone", () => {
+    const zones = zonesView({
+      entrada: [card({ ref: "A", status: "new" })],
+      preparing_count: 1,
+      preparo: [card({ ref: "B" })],
+      saida_retirada: [card({ ref: "C", status: "ready" })],
+      saida_delivery: [],
+      saida_delivery_transit: [],
+      saida_delivery_count: 0,
+      saida_count: 1,
+      total_count: 3,
+    });
+    const flat = flattenZones(zones);
+    expect(flat.map((r) => r.card.ref)).toEqual(["A", "B", "C"]);
+    expect(flat.map((r) => r.zoneKey)).toEqual(["entrada", "preparo", "saida"]);
   });
 });

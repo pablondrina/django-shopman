@@ -59,8 +59,27 @@ export function useOrdersBoard() {
   const busy = ref<Set<string>>(new Set());
   const isBusy = (ref_: string) => busy.value.has(ref_);
 
+  // Per-ref action error: the backend's specific, operator-facing reason
+  // (e.g. "Pagamento ainda não foi confirmado…"). Kept inline on the card/row —
+  // a toast is transient and easy to miss; this persists until dismissed, the
+  // next attempt, or a refresh that drops the card.
+  const actionErrors = ref<Map<string, string>>(new Map());
+  const actionError = (ref_: string) => actionErrors.value.get(ref_) ?? "";
+  function setActionError(ref_: string, message: string) {
+    const next = new Map(actionErrors.value);
+    next.set(ref_, message);
+    actionErrors.value = next;
+  }
+  function clearActionError(ref_: string) {
+    if (!actionErrors.value.has(ref_)) return;
+    const next = new Map(actionErrors.value);
+    next.delete(ref_);
+    actionErrors.value = next;
+  }
+
   async function act(ref_: string, action: string, body?: Record<string, unknown>): Promise<boolean> {
     if (busy.value.has(ref_)) return false;
+    clearActionError(ref_); // a fresh attempt clears the previous reason
     busy.value = new Set(busy.value).add(ref_);
     try {
       await $fetch(`/api/v1/backstage/orders/${encodeURIComponent(ref_)}/${action}/`, {
@@ -70,7 +89,9 @@ export function useOrdersBoard() {
       await refresh();
       return true;
     } catch (err: any) {
-      useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+      const message = err?.data?.detail || "Falha na ação. Tente de novo.";
+      setActionError(ref_, message);
+      useSonner.error(message);
       return false;
     } finally {
       const next = new Set(busy.value);
@@ -83,6 +104,36 @@ export function useOrdersBoard() {
   const advance = (ref_: string) => act(ref_, "advance");
   const reject = (ref_: string, reason: string) => act(ref_, "reject", { reason });
   const settleCash = (ref_: string, amount: string) => act(ref_, "settle-delivery-cash", { amount });
+  const assign = (ref_: string) => act(ref_, "assign");
+  const unassign = (ref_: string) => act(ref_, "unassign");
 
-  return { queue, zones, totalCount, pending, error, refresh, isBusy, confirm, advance, reject, settleCash };
+  // Bulk action over many refs: fire all POSTs, capture per-ref failures inline,
+  // then refresh once (not per order). Returns how many failed.
+  async function actMany(refs: string[], action: string): Promise<number> {
+    const targets = refs.filter((r) => !busy.value.has(r));
+    if (!targets.length) return 0;
+    busy.value = new Set([...busy.value, ...targets]);
+    targets.forEach((r) => clearActionError(r));
+    let failures = 0;
+    await Promise.all(
+      targets.map(async (r) => {
+        try {
+          await $fetch(`/api/v1/backstage/orders/${encodeURIComponent(r)}/${action}/`, { method: "POST", body: {} });
+        } catch (err: any) {
+          failures += 1;
+          setActionError(r, err?.data?.detail || "Falha na ação.");
+        }
+      }),
+    );
+    const next = new Set(busy.value);
+    targets.forEach((r) => next.delete(r));
+    busy.value = next;
+    await refresh();
+    if (failures) useSonner.error(`${failures} pedido(s) não puderam ser atualizados.`);
+    return failures;
+  }
+  const confirmMany = (refs: string[]) => actMany(refs, "confirm");
+  const advanceMany = (refs: string[]) => actMany(refs, "advance");
+
+  return { queue, zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, settleCash, assign, unassign, confirmMany, advanceMany };
 }
