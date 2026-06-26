@@ -514,7 +514,7 @@ class TestStatusColours:
 
         assert proj.promise.state == "dispatched"
         assert proj.promise.title == "Saiu para entrega"
-        assert "com o entregador" in proj.promise.message
+        assert "a caminho" in proj.promise.message
         assert "por volta das" in proj.promise.message  # janela de ETA
         # Nunca promete notificar a chegada — não há como saber.
         assert "avisamos" not in proj.promise.message.lower()

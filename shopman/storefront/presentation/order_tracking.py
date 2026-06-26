@@ -569,10 +569,10 @@ def _promise_copy(
         eta_display = _eta_display(data.eta_at)
         message = (
             copy.message("TRACKING_PROMISE_DISPATCHED_MESSAGE_ETA",
-                         "Seu pedido está com o entregador, a caminho. Deve chegar por volta das {eta}.").replace("{eta}", eta_display)
+                         "Seu pedido está a caminho. Deve chegar por volta das {eta}.").replace("{eta}", eta_display)
             if eta_display
             else copy.message("TRACKING_PROMISE_DISPATCHED_MESSAGE",
-                              "Seu pedido está com o entregador, a caminho.")
+                              "Seu pedido está a caminho.")
         )
         return (
             copy.title("TRACKING_STEP_DISPATCHED", "Saiu para entrega"),
