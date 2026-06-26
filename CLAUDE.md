@@ -95,8 +95,8 @@ storefront ──imports──→ shop ←──imports── backstage
 - **`ref` not `code`**: Identificadores textuais são `ref`. Exceções deliberadas: `Product.sku`, `WorkOrder.code` (código sequencial auto-gerado, ex: `WO-001`).
 - **Centavos com `_q`**: Valores monetários são inteiros em centavos, sufixo `_q`. Ex: `price_q = 1500` → R$ 15,00.
 - **Confirmação otimista**: Pedido auto-confirma se operador não cancela dentro do prazo.
-- **Zero residuals em renames**: Ao renomear, zerar TUDO (variáveis, strings, comments, docstrings). Nada de `# formerly X`.
-- **Zero backward-compat aliases**: Projeto novo, do zero. Não há consumidores externos. Nunca criar aliases tipo `OldName = NewName`. Apagar o nome antigo completamente.
+- **Zero residuals em renames**: Ao renomear, zerar TUDO (variáveis, strings, comments, docstrings). Nada de `# formerly X`. ⚠️ **Vale até o go-live.** A partir do `git tag go-live-v1`, renames seguem expand-contract — ver [ADR-015](docs/decisions/adr-015-backward-compat-policy-post-prod.md) e [production-upgrades.md](docs/guides/production-upgrades.md).
+- **Zero backward-compat aliases**: Projeto novo, do zero. Não há consumidores externos. Nunca criar aliases tipo `OldName = NewName`. Apagar o nome antigo completamente. ⚠️ **Vale até o go-live.** Depois, aliases temporários são permitidos em janela explícita (1 sprint) com `# DEPRECATED(remove in v{version})` — ver [ADR-015](docs/decisions/adr-015-backward-compat-policy-post-prod.md).
 - **Offerman = somente produtos vendáveis**: Insumos ficam em Stockman/Craftsman, nunca no Offerman.
 - **Frontend: HTMX ↔ servidor, Alpine.js ↔ DOM**:
   - **HTMX**: toda comunicação com servidor (GET, POST, polling, swaps). Incluindo `hx-on::before-request`/`after-request` para estados visuais de loading atrelados a requests.
@@ -198,7 +198,7 @@ Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o pro
 - **Não alterar os packages do Core sem entender como eles já funcionam** — leia services, handlers, e testes primeiro.
 - **Não inventar features** durante migração ou refatoração.
 - **Não usar jargão inventado** — nomes devem ser descritivos e auto-explicativos.
-- **Não deixar resíduos** em renames (migrações serão resetadas no projeto novo).
+- **Não deixar resíduos** em renames (migrações serão resetadas no projeto novo). ⚠️ Até o go-live; depois migrations são append-only — ver [ADR-015](docs/decisions/adr-015-backward-compat-policy-post-prod.md).
 - **Não assumir problemas** sem consultar ADRs e estado atual do projeto.
 
 ## Referências

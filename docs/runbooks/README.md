@@ -20,3 +20,4 @@ operador nao executa Docker diretamente: use os wrappers `make`.
 - [Estoque divergente](estoque-divergente.md)
 - [Loja aberta/fechada em estado errado](loja-estado-incorreto.md)
 - [Pedido remoto preso](pedido-remoto-preso.md)
+- [Rollback de deploy quebrado](rollback-de-deploy.md)
