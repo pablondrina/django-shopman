@@ -43,14 +43,17 @@ def test_reject_order_validates_reason(monkeypatch):
     )
 
 
-def test_advance_order_wraps_value_error(monkeypatch):
+def test_advance_order_surfaces_specific_reason(monkeypatch):
+    # advance_order must surface the operator-facing reason (advance_block_reason),
+    # not swallow it into a generic "Ação inválida".
     def fail(*args, **kwargs):
-        raise ValueError("bad")
+        raise ValueError("Pagamento ainda não foi confirmado. Aguarde antes de iniciar o preparo.")
 
     monkeypatch.setattr(orders.operator_orders, "advance_order", fail)
 
-    with pytest.raises(OrderError):
+    with pytest.raises(OrderError) as exc_info:
         orders.advance_order("order", actor="operator:ana")
+    assert "Pagamento ainda não foi confirmado" in str(exc_info.value)
 
 
 def test_save_notes_and_history_delegate(monkeypatch):

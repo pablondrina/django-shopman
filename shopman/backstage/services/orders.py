@@ -37,7 +37,9 @@ def advance_order(order, *, actor: str):
     try:
         return operator_orders.advance_order(order, actor=actor)
     except (ValueError, InvalidTransition) as exc:
-        raise OrderError("Ação inválida") from exc
+        # Surface the specific, operator-facing reason (advance_block_reason),
+        # like confirm/reject do — never swallow it into a generic message.
+        raise OrderError(str(exc) or "Ação inválida") from exc
 
 
 def cancel_order(order, *, reason: str, actor: str):
@@ -97,6 +99,23 @@ def requeue_fiscal_emission(order, *, actor: str):
 
 def save_internal_notes(order, *, notes: str):
     return operator_orders.save_internal_notes(order, notes=notes)
+
+
+def assign_order(order, *, operator_id: int, operator_name: str, actor: str):
+    return operator_orders.assign_order(
+        order, operator_id=operator_id, operator_name=operator_name, actor=actor
+    )
+
+
+def unassign_order(order, *, actor: str):
+    return operator_orders.unassign_order(order, actor=actor)
+
+
+def add_comment(order, *, note: str, actor: str):
+    try:
+        return operator_orders.add_comment(order, note=note, actor=actor)
+    except ValueError as exc:
+        raise OrderError(str(exc) or "Comentário inválido") from exc
 
 
 def recent_history(*, limit: int = 20):

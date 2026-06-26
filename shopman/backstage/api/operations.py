@@ -649,6 +649,53 @@ class OrderNotesView(_OrderActionBase):
         return Response({"ok": True, "ref": ref})
 
 
+def _operator_identity(request) -> tuple[int, str]:
+    """The operator to credit a claim to: the active operator (PIN/badge) when
+    present, else the device session user."""
+    from shopman.backstage.services.operator import active_operator
+
+    card = active_operator(request)
+    if card and card.get("id"):
+        return int(card["id"]), str(card.get("name") or card.get("username") or "operador")
+    user = getattr(request, "user", None)
+    name = (user.get_full_name().strip() or user.get_username()) if user else "operador"
+    return (user.pk if user else 0), name
+
+
+class OrderAssignView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        operator_id, operator_name = _operator_identity(request)
+        orders_service.assign_order(
+            order, operator_id=operator_id, operator_name=operator_name, actor=_actor(request)
+        )
+        return Response({"ok": True, "ref": ref, "assigned_operator": operator_name})
+
+
+class OrderUnassignView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        orders_service.unassign_order(order, actor=_actor(request))
+        return Response({"ok": True, "ref": ref})
+
+
+class OrderCommentView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        note = str(request.data.get("note", "") or "")
+        try:
+            orders_service.add_comment(order, note=note, actor=_actor(request))
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Comentário inválido."}, status=400)
+        return Response({"ok": True, "ref": ref})
+
+
 # ── Production action endpoints ───────────────────────────────────────
 
 

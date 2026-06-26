@@ -112,6 +112,7 @@ class OrderCardProjection:
     fiscal_status_label: str
     fiscal_status: str
     has_notes: bool
+    assigned_operator: str
     awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
 
 
@@ -374,6 +375,7 @@ def _build_card(order: Order) -> OrderCardProjection:
         fiscal_status_label=fiscal_status_label,
         fiscal_status=fiscal_status,
         has_notes=bool(order.data.get("internal_notes")),
+        assigned_operator=str((order.data.get("assignment") or {}).get("operator_name") or ""),
         awaiting_work_orders=_awaiting_work_orders(order),
     )
 
@@ -562,6 +564,13 @@ def _status_counts(orders: list[Order]) -> dict[str, int]:
     return counts
 
 
+_EVENT_LABELS = {
+    "operator_comment": "Comentário",
+    "order_assigned": "Atendimento assumido",
+    "order_unassigned": "Atendimento liberado",
+}
+
+
 def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
     events = order.events.order_by("seq")
     result: list[TimelineEventProjection] = []
@@ -570,6 +579,8 @@ def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
         new_status = payload.get("new_status", "")
         if event.type == "status_changed" and new_status:
             label = order_status_label(new_status)
+        elif event.type in _EVENT_LABELS:
+            label = _EVENT_LABELS[event.type]
         else:
             label = event.type.replace("_", " ").title()
 

@@ -98,9 +98,56 @@ def test_all_action_endpoints_require_permission(client, plain_staff, order):
         reverse("api-backstage-order-settle-delivery-cash", args=[ref]),
         reverse("api-backstage-order-requeue-fiscal", args=[ref]),
         reverse("api-backstage-order-notes", args=[ref]),
+        reverse("api-backstage-order-assign", args=[ref]),
+        reverse("api-backstage-order-unassign", args=[ref]),
+        reverse("api-backstage-order-comment", args=[ref]),
     ]
     for url in action_urls:
         assert client.post(url).status_code == 403, url
+
+
+@pytest.mark.django_db
+def test_comment_appears_in_timeline(client, operator, order):
+    client.force_login(operator)
+    ref = order.ref
+
+    blank = client.post(reverse("api-backstage-order-comment", args=[ref]), data={"note": "  "})
+    assert blank.status_code == 400  # empty comment rejected
+
+    ok = client.post(
+        reverse("api-backstage-order-comment", args=[ref]),
+        data={"note": "Cliente vai retirar às 18h"},
+        content_type="application/json",
+    )
+    assert ok.status_code == 200
+
+    detail = client.get(reverse("api-backstage-order-detail", args=[ref])).json()["order"]
+    comments = [e for e in detail["timeline"] if e["event_type"] == "operator_comment"]
+    assert len(comments) == 1
+    assert comments[0]["label"] == "Comentário"
+    assert "18h" in comments[0]["detail"]
+
+
+@pytest.mark.django_db
+def test_assign_then_unassign_roundtrip(client, operator, order):
+    client.force_login(operator)
+    ref = order.ref
+
+    assign = client.post(reverse("api-backstage-order-assign", args=[ref]))
+    assert assign.status_code == 200
+    order.refresh_from_db()
+    assert order.data["assignment"]["operator_id"] == operator.pk
+
+    # the card projection surfaces the holder's name
+    queue = client.get(reverse("api-backstage-orders")).json()["queue"]
+    cards = [c for zone in queue.values() if isinstance(zone, list) for c in zone]
+    assigned = next(c for c in cards if c["ref"] == ref)
+    assert assigned["assigned_operator"] == (operator.get_full_name().strip() or operator.get_username())
+
+    unassign = client.post(reverse("api-backstage-order-unassign", args=[ref]))
+    assert unassign.status_code == 200
+    order.refresh_from_db()
+    assert "assignment" not in order.data
 
 
 # ── Read surface ──────────────────────────────────────────────────────────

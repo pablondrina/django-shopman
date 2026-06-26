@@ -258,6 +258,52 @@ def save_internal_notes(order: Order, *, notes: str) -> None:
     order.save(update_fields=["data", "updated_at"])
 
 
+def assign_order(order: Order, *, operator_id: int, operator_name: str, actor: str) -> None:
+    """Claim an order for an operator ("estou atendendo"), stored in Order.data.
+
+    Contextual, not structural → lives in the JSONField (no migration), per the
+    Core extensibility contract. Idempotent: re-claiming refreshes the holder.
+    """
+    from django.utils import timezone
+
+    data = dict(order.data or {})
+    data["assignment"] = {
+        "operator_id": operator_id,
+        "operator_name": operator_name,
+        "at": timezone.now().isoformat(),
+    }
+    order.data = data
+    order.save(update_fields=["data", "updated_at"])
+    order.emit_event(
+        event_type="order_assigned",
+        actor=actor,
+        payload={"operator_id": operator_id, "operator_name": operator_name},
+    )
+
+
+def unassign_order(order: Order, *, actor: str) -> None:
+    """Release an order's operator claim. No-op if it was not claimed."""
+    data = dict(order.data or {})
+    if data.pop("assignment", None) is None:
+        return
+    order.data = data
+    order.save(update_fields=["data", "updated_at"])
+    order.emit_event(event_type="order_unassigned", actor=actor)
+
+
+def add_comment(order: Order, *, note: str, actor: str) -> None:
+    """Append a timestamped operator comment to the order timeline (OrderEvent).
+
+    Distinct from ``internal_notes`` (a single editable blob): a comment is an
+    immutable, attributed entry that shows up in the timeline like any other
+    event — useful for a running operator log/handover.
+    """
+    text = (note or "").strip()
+    if not text:
+        raise ValueError("Comentário vazio")
+    order.emit_event(event_type="operator_comment", actor=actor, payload={"note": text})
+
+
 def _requires_captured_payment_for_work(order: Order) -> bool:
     payment = (order.data or {}).get("payment") or {}
     method = str(payment.get("method") or "").lower()
