@@ -33,8 +33,8 @@ export function useOperatorLock(opts: {
     error.value = "";
     try {
       const res = await action.call<UnlockResponse>(
-        "/api/v1/backstage/pos/operator/unlock/",
-        { body: unlockBody(operatorId, pin) },
+        "/api/v1/backstage/operator/unlock/",
+        { body: unlockBody(operatorId, pin, "backstage.operate_pos") },
       );
       if (res.ok && res.operator) {
         activeOperator.value = res.operator;
@@ -56,7 +56,7 @@ export function useOperatorLock(opts: {
 
   async function lock(): Promise<void> {
     try {
-      await action.call("/api/v1/backstage/pos/operator/lock/");
+      await action.call("/api/v1/backstage/operator/lock/");
     }
     catch {
       // Locking is local-first; a failed server call still locks the screen.

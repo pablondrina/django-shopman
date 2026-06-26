@@ -38,8 +38,6 @@ from .operations import (
     POSCustomerLookupView,
     POSCustomerResolveView,
     POSCustomerSearchView,
-    POSOperatorLockView,
-    POSOperatorUnlockView,
     POSReviewSaleView,
     POSTabClearView,
     POSTabCreateView,
@@ -72,9 +70,7 @@ urlpatterns = [
     path("kds/expedition/<int:order_pk>/action/", KDSExpeditionActionView.as_view(), name="api-backstage-kds-expedition"),
     # Operations — read views
     path("pos/", POSView.as_view(), name="api-backstage-pos"),
-    path("pos/operator/unlock/", POSOperatorUnlockView.as_view(), name="api-backstage-pos-operator-unlock"),
-    path("pos/operator/lock/", POSOperatorLockView.as_view(), name="api-backstage-pos-operator-lock"),
-    # Operador (PIN/crachá) — genérico, compartilhado por todas as surfaces
+    # Operador (PIN/crachá) — genérico, compartilhado por todas as surfaces (inclui POS)
     path("operator/session/", OperatorSessionView.as_view(), name="api-backstage-operator-session"),
     path("operator/eligible/", OperatorEligibleView.as_view(), name="api-backstage-operator-eligible"),
     path("operator/unlock/", OperatorUnlockView.as_view(), name="api-backstage-operator-unlock"),

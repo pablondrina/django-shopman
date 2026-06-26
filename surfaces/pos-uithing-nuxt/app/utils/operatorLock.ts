@@ -13,9 +13,11 @@ export function isIdleBeyond(lastActivityMs: number, nowMs: number, timeoutSec: 
   return nowMs - lastActivityMs >= timeoutSec * 1000;
 }
 
-/** Build the unlock request body. PIN is sent as-is (digits); server hashes/validates. */
-export function unlockBody(operatorId: number | string, pin: string): Record<string, unknown> {
-  return { operator_id: operatorId, pin };
+/** Build the unlock request body for the generic operator endpoint. PIN is sent
+ *  as-is (digits); the server hashes/validates. ``perm`` (the surface capability,
+ *  e.g. operate_pos) restricts who may unlock here. */
+export function unlockBody(operatorId: number | string, pin: string, perm?: string): Record<string, unknown> {
+  return { operator_id: operatorId, pin, ...(perm ? { perm } : {}) };
 }
 
 /** Append a digit to a PIN buffer, capped at maxLength. Ignores non-digits. */

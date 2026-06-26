@@ -259,56 +259,9 @@ class POSView(APIView):
         })
 
 
-@extend_schema_view(
-    post=extend_schema(
-        tags=["backstage"],
-        summary="POS operator unlock (PIN)",
-        responses={200: OpenApiResponse(description="Active operator bound to the terminal session.")},
-    ),
-)
-class POSOperatorUnlockView(APIView):
-    permission_classes = [HasBackstagePermission]
-    required_permission = "backstage.operate_pos"
-
-    def post(self, request):
-        from django.contrib.auth import get_user_model
-
-        from shopman.backstage.services import operator as operator_service
-
-        operator_id = str(request.data.get("operator_id", "")).strip()
-        pin = str(request.data.get("pin", ""))
-        operator = (
-            get_user_model().objects.filter(pk=operator_id, is_active=True).first()
-            if operator_id else None
-        )
-        if operator is None or not operator_service.verify_operator_pin(operator, pin):
-            return Response(
-                {"ok": False, "error": {"code": "operator_pin_invalid", "message": "PIN inválido."}},
-                status=403,
-            )
-        card = operator_service.set_active_operator(request, operator)
-        return Response({"ok": True, "operator": card})
-
-
-@extend_schema_view(
-    post=extend_schema(
-        tags=["backstage"],
-        summary="POS operator lock",
-        responses={200: OpenApiResponse(description="Terminal locked (active operator cleared).")},
-    ),
-)
-class POSOperatorLockView(APIView):
-    permission_classes = [HasBackstagePermission]
-    required_permission = "backstage.operate_pos"
-
-    def post(self, request):
-        from shopman.backstage.services import operator as operator_service
-
-        operator_service.clear_active_operator(request)
-        return Response({"ok": True})
-
-
 # ── Generic operator identification (PIN / badge) — shared by all surfaces ──
+# (The former POS-specific operator/unlock|lock views were folded into the generic
+#  endpoints below; the POS surface now uses them with perm=operate_pos.)
 # The device session is the station trust (IsBackstageOperator); these establish
 # WHO is operating (active operator) for the Opção C authorization layer. They are
 # gated on the device session only — never on an active operator (chicken-egg).
