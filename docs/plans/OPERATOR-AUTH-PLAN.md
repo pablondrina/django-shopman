@@ -16,11 +16,14 @@ Domínio DO `40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f`, contexto doctl `shopman-stag
 PIN do pablo no staging = `1234`, crachá = `abcdef0123456789abcdef01` (re-setados pelo job
 bootstrap-staging em todo deploy). E-mail Google Workspace migrado p/ o DO sem queda.
 
-**CREDENCIAL DE LOGIN (staging):** usuário = **`pablo`** (NÃO `admin` — o seed `admin` foi
-DESATIVADO pelo `bootstrap_admin --deactivate-seed-admin`); senha = a gerada (43 chars) no
-arquivo local `~/.shopman/shopman-staging-admin-2026-05-06.txt` (env `SHOPMAN_ADMIN_PASSWORD`,
-inalterada). PIN do operador = `1234`, crachá = `abcdef0123456789abcdef01`. Verificado: pablo
-+ senha-do-arquivo loga; `admin/admin` falha.
+**CREDENCIAIS DE LOGIN (staging) — DUAS opções:**
+- **`admin` / `admin`** (DEV — recriado em todo deploy pelo `ensure_dev_superuser` no job
+  bootstrap-staging). PIN `1234`, crachá `0123456789abcdef01234567`. ⚠️ Senha trivial num
+  admin público — staging-only, NUNCA produção (prod usa `bootstrap_admin` env-driven).
+- **`pablo`** + senha gerada (43 chars) em `~/.shopman/shopman-staging-admin-2026-05-06.txt`.
+  PIN `1234`, crachá `abcdef0123456789abcdef01`. (O seed `admin` tinha sido desativado;
+  reativado agora com senha `admin`.)
+Ambas verificadas AO VIVO: logam em `api.boulangerie.com.br/admin` e destravam por PIN.
 
 **PRÓXIMAS TAREFAS (ordem):**
 1. ✅ **FEITO — fix do botão de login** (deploy `9238c2bc`): verificado AO VIVO no browser, o
