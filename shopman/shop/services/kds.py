@@ -67,9 +67,19 @@ def fire_lines(*, session_key: str, lines: list[dict]) -> list:
 
     Idempotent per ``line_id``: a line already on a live (non-cancelled) ticket
     is skipped; a cancelled line may re-fire (reprint). Returns created tickets.
+
+    ``session_key`` is the durable key linking a ticket to its source (open
+    Session pre-commit, committed Order after). It is load-bearing and always
+    non-empty for a real source — an empty key is invalid data (it would key the
+    ticket to nothing and collide with every other empty-key ticket), so we
+    refuse to fire rather than create an unresolvable orphan ticket.
     """
     from shopman.shop.adapters import get_adapter
     from shopman.shop.adapters import kds as kds_adapter
+
+    if not session_key:
+        logger.error("kds.fire_lines: empty session_key — refusing to fire %d lines", len(lines))
+        return []
 
     already_fired = kds_adapter.fired_line_ids_for_session(session_key)
     pending = [

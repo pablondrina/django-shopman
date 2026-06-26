@@ -299,8 +299,15 @@ def _resolve_ticket_source(ticket):
     (comanda fired progressively before commit). Both expose ``data`` /
     ``handle_ref`` / ``channel_ref``; ``ref`` only exists on Order, so the
     pre-commit comanda falls back to its handle (tab label) for the heading.
+
+    An empty ``session_key`` is invalid (a real source always has one): it must
+    never resolve, or every empty-key ticket would collapse onto the same
+    arbitrary ``filter(session_key="").first()`` source.
     """
     from shopman.orderman.models import Session
+
+    if not ticket.session_key:
+        return None
 
     order = (
         Order.objects.filter(session_key=ticket.session_key)

@@ -39,6 +39,7 @@ def test_dispatch_prefers_collection_specific_station_before_picking_catchall():
     order = Order.objects.create(
         ref="ORD-KDS-CAFES-001",
         channel_ref="web",
+        session_key="sk-kds-cafes-001",
         status=Order.Status.PREPARING,
         total_q=1200,
     )
@@ -159,3 +160,42 @@ def test_cancelled_line_may_refire():
     )
     assert len(refired) == 1
     assert {it["line_id"] for it in refired[0].items} == {"1"}
+
+
+@pytest.mark.django_db
+def test_empty_session_key_never_fires():
+    """An empty session_key is invalid (a real source always has one): firing it
+    would create an unresolvable orphan ticket that collides with every other
+    empty-key ticket. fire_lines must refuse rather than create it."""
+    from shopman.backstage.models import KDSInstance, KDSTicket
+    from shopman.shop.services.kds import fire_lines
+
+    KDSInstance.objects.create(ref="cozinha", name="Cozinha", type="picking")
+
+    created = fire_lines(
+        session_key="",
+        lines=[{"line_id": "1", "sku": "PAO", "name": "Pão", "qty": 1, "notes": "", "meta": {}}],
+    )
+    assert created == []
+    assert KDSTicket.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_empty_session_key_ticket_never_resolves_to_a_random_order():
+    """A ticket with an empty session_key must not collapse onto an arbitrary
+    ``filter(session_key="").first()`` order — the root cause of tickets showing
+    under the wrong order_ref. _resolve_ticket_source returns None instead."""
+    from shopman.orderman.models import Order
+
+    from shopman.backstage.models import KDSInstance, KDSTicket
+    from shopman.backstage.projections.kds import _resolve_ticket_source
+
+    # An order that DOES carry the empty key (artificial/legacy data).
+    Order.objects.create(
+        ref="ORD-EMPTY-001", channel_ref="web", session_key="",
+        status=Order.Status.PREPARING, total_q=1000,
+    )
+    instance = KDSInstance.objects.create(ref="cozinha", name="Cozinha", type="picking")
+    ticket = KDSTicket.objects.create(session_key="", kds_instance=instance, items=[])
+
+    assert _resolve_ticket_source(ticket) is None

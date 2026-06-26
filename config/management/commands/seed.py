@@ -2515,6 +2515,7 @@ class Command(BaseCommand):
                 order = Order.objects.create(
                     ref=ref,
                     channel_ref=channel.ref,
+                    session_key=generate_session_key(),
                     status=status,
                     total_q=total_q,
                     handle_type="phone",
@@ -2620,6 +2621,7 @@ class Command(BaseCommand):
             order = Order.objects.create(
                 ref=ref,
                 channel_ref=channel.ref,
+                session_key=generate_session_key(),
                 status=live_status,
                 total_q=total_q,
                 handle_type="phone",
@@ -2699,6 +2701,7 @@ class Command(BaseCommand):
             sync_order = Order.objects.create(
                 ref=ref,
                 channel_ref=channel.ref,
+                session_key=generate_session_key(),
                 status=Order.Status.CONFIRMED,
                 total_q=produced_product.base_price_q * 3,
                 handle_type="phone",
@@ -2749,6 +2752,7 @@ class Command(BaseCommand):
             order_new = Order.objects.create(
                 ref=ref_new,
                 channel_ref=ifood_ch.ref,
+                session_key=generate_session_key(),
                 status="new",
                 total_q=prod_a.base_price_q * 2,
                 handle_type="phone",
@@ -2784,6 +2788,7 @@ class Command(BaseCommand):
             order_confirmed = Order.objects.create(
                 ref=ref_confirmed,
                 channel_ref=ifood_ch.ref,
+                session_key=generate_session_key(),
                 status="confirmed",
                 total_q=prod_b.base_price_q,
                 handle_type="phone",
