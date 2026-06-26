@@ -95,7 +95,7 @@ STEP_LABEL_COPY: dict[str, tuple[str, str]] = {
     "availability": ("TRACKING_STEP_AVAILABILITY_CONFIRMED", "Disponibilidade confirmada"),
     "payment": ("TRACKING_STEP_PAYMENT_CONFIRMED", "Pagamento confirmado"),
     "preparing": ("TRACKING_STEP_PREPARING", "Preparando seu pedido"),
-    "ready_delivery": ("TRACKING_STEP_READY_DELIVERY", "Saindo para entrega"),
+    "ready_delivery": ("TRACKING_STEP_READY_DELIVERY", "Pedido pronto"),
     "dispatched": ("TRACKING_STEP_DISPATCHED", "Saiu para entrega"),
     "delivered": ("TRACKING_STEP_DELIVERED", "Pedido entregue"),
     "completed": ("TRACKING_STEP_COMPLETED", "Pedido concluído"),
@@ -545,9 +545,12 @@ def _promise_copy(
         )
 
     if state == "ready_delivery":
+        # status=ready ≠ dispatched: a coleta só é pedida quando o operador marca
+        # "saída para entrega". Aqui o pedido está PRONTO, ainda não saiu nem foi
+        # coletado — não prometer o que não aconteceu.
         title, message = _pair(copy, "TRACKING_DELIVERY_WAITING_COURIER",
-                               "Saindo para entrega",
-                               "Já pedimos a coleta. Avisamos você assim que sair para entrega.")
+                               "Pedido pronto",
+                               "Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.")
         return title, message, "", "", ""
 
     if state == "ready_pickup":

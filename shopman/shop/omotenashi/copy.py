@@ -523,7 +523,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
     },
     "TRACKING_STEP_READY_DELIVERY": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Saindo para entrega")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido pronto")},
     },
     "TRACKING_STEP_READY_GENERIC": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedido pronto")},
@@ -531,8 +531,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_DELIVERY_WAITING_COURIER": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Saindo para entrega",
-                message="Já pedimos a coleta. Avisamos você assim que sair para entrega.",
+                title="Pedido pronto",
+                message="Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.",
             ),
         },
     },

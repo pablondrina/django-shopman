@@ -247,7 +247,7 @@ class TestOrderProgressSteps:
         proj = build_order_tracking(order_with_payment)
 
         labels = [step.label for step in proj.progress_steps]
-        assert "Saindo para entrega" in labels
+        assert "Pedido pronto" in labels
         assert "Saiu para entrega" in labels
         assert "Pedido entregue" in labels
         assert "Pronto para retirada" not in labels
@@ -266,7 +266,7 @@ class TestOrderProgressSteps:
         labels = [step.label for step in proj.progress_steps]
         states = {step.key: step.state for step in proj.progress_steps}
         assert proj.status_label == "Aguardando entregador"
-        assert "Saindo para entrega" in labels
+        assert "Pedido pronto" in labels
         assert "Saiu para entrega" not in labels
         assert states["ready_delivery"] == "current"
         assert "dispatched" not in states

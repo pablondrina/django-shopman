@@ -40,6 +40,35 @@ const maxWidthClass = computed(() => ({
 const surfaceClass = computed(() =>
   props.surface === 'card' ? 'bg-card text-card-foreground' : 'bg-muted'
 )
+// Gradiente de scroll: precisa desbotar PARA a cor da superfície (branco/cinza),
+// senão a borda do fade fica visível.
+const fadeFromClass = computed(() => props.surface === 'card' ? 'from-card' : 'from-muted')
+
+// Affordance "tem mais abaixo": um fade no rodapé do corpo rolável, visível só
+// enquanto o fim do conteúdo não está à vista. Um sentinela no fim + Intersection
+// Observer (sem cálculo de scroll; reage a resize/conteúdo dinâmico de graça).
+const scrollEl = ref<HTMLElement>()
+const sentinel = ref<HTMLElement>()
+const showBottomFade = ref(false)
+let io: IntersectionObserver | null = null
+function teardownObserver() {
+  io?.disconnect()
+  io = null
+}
+function setupObserver() {
+  teardownObserver()
+  if (!scrollEl.value || !sentinel.value) return
+  io = new IntersectionObserver(
+    entries => { showBottomFade.value = !entries[0]!.isIntersecting },
+    { root: scrollEl.value, threshold: 0.01 }
+  )
+  io.observe(sentinel.value)
+}
+watch(() => props.open, async open => {
+  if (open) { await nextTick(); setupObserver() } else teardownObserver()
+})
+onMounted(() => { if (props.open) nextTick(setupObserver) })
+onBeforeUnmount(teardownObserver)
 </script>
 
 <template>
@@ -71,8 +100,17 @@ const surfaceClass = computed(() =>
         </slot>
       </UiSheetHeader>
 
-      <div class="min-h-0 flex-1 overflow-y-auto">
-        <slot />
+      <div class="relative min-h-0 flex-1">
+        <div ref="scrollEl" class="h-full overflow-y-auto">
+          <slot />
+          <div ref="sentinel" aria-hidden="true" class="h-px w-full" />
+        </div>
+        <!-- Fade de "tem mais abaixo" — some quando o fim do conteúdo aparece. -->
+        <div
+          class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t to-transparent transition-opacity duration-200"
+          :class="[fadeFromClass, showBottomFade ? 'opacity-100' : 'opacity-0']"
+          aria-hidden="true"
+        />
       </div>
 
       <UiSheetFooter
