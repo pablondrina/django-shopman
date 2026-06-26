@@ -2,7 +2,15 @@
 // KDS surface shell (Arc 2). Thin shell — the KDS is a multi-display surface
 // (station picker, per-station board, customer pickup board), each opened at its
 // own URL on a physical kitchen screen, so it uses pages/ routing (unlike the POS
-// kiosk single-shell). The shell holds only the page outlet + global chrome.
+// kiosk single-shell). The shell holds the page outlet + chrome + the operator
+// lock overlay (Opção C). The overlay covers the OPERATOR screens only — never the
+// PUBLIC customer pickup board (/retirada), which has no auth. Gated OFF → never shows.
+const OPERATOR_PERM = "backstage.operate_kds";
+const { locked } = useOperatorLock(OPERATOR_PERM);
+
+const route = useRoute();
+const isCustomerBoard = computed(() => route.path.startsWith("/retirada"));
+
 useHead({ title: "Shopman KDS" });
 </script>
 
@@ -10,6 +18,7 @@ useHead({ title: "Shopman KDS" });
   <div class="min-h-screen bg-background text-foreground">
     <NuxtRouteAnnouncer />
     <NuxtPage />
+    <OperatorLock v-if="locked && !isCustomerBoard" :perm="OPERATOR_PERM" />
     <UiSonner />
   </div>
 </template>
