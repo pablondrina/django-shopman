@@ -10,6 +10,15 @@
 > (corte dado↔presentation). Pilar-mãe: `project_excellence_refactor_initiative`
 > (refazer TODAS as superfícies, 4 pilares) + `project_ui_apps_separation`.
 
+> **Atualização 2026-06-26**: o gestor de pedidos dedicado
+> (`surfaces/orders-uithing-nuxt`) alcançou **paridade v1** (redesign Arcs 1–5 —
+> ver [GESTOR-PEDIDOS-PLAN](GESTOR-PEDIDOS-PLAN.md)). Isso **destrava arquivar o
+> board de pedidos do `backstage-nuxt`** (`app/pages/pedidos/`), que vira
+> duplicata. **Não executado** (remoção de superfície merece execução
+> supervisionada: conferir rotas/nav/componentes compartilhados do
+> `backstage-nuxt`, que ainda hospeda outras telas). Confirmado também: **não há
+> POS-HTMX legado ativo** (ver [POS-FASE-C-REVISION](POS-FASE-C-REVISION.md)).
+
 ## 1. Inventário real (o que existe hoje)
 
 ### Superfícies Nuxt (`surfaces/`)
