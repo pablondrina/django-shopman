@@ -75,7 +75,7 @@ class KDSExpeditionCardProjection:
     """An order card in the expedition (dispatch) board."""
 
     pk: int
-    ref: str
+    order_ref: str
     channel_icon: str
     customer_name: str
     fulfillment_icon: str
@@ -420,7 +420,7 @@ def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:
 
     return KDSExpeditionCardProjection(
         pk=order.pk,
-        ref=order.ref,
+        order_ref=order.ref,
         channel_icon=CHANNEL_ICONS.get(order.channel_ref or "", _DEFAULT_CHANNEL_ICON),
         customer_name=customer_name,
         fulfillment_icon="local_shipping" if is_delivery else "storefront",

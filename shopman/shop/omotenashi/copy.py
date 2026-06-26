@@ -340,7 +340,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Dúvidas? Ou algum pedido especial?",
-                message="Fale com a gente direto pelo WhatsApp. Respondemos o mais rápido possível.",
+                message="Fale conosco direto pelo WhatsApp. Respondemos o mais rápido possível.",
             ),
         },
     },
@@ -1296,13 +1296,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Não encontrei esse CEP. Quer digitar o endereço?")},
     },
     "KINTSUGI_CANCEL_REFUSED": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido já está sendo preparado. Fale com a gente para ajustar.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido já está sendo preparado. Fale conosco para ajustar.")},
     },
     "KINTSUGI_RATE_LIMITED": {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Muitas tentativas",
-                message="Tente novamente em alguns minutos ou fale com a gente pelo WhatsApp.",
+                message="Tente novamente em alguns minutos ou fale conosco pelo WhatsApp.",
             ),
         },
     },
@@ -1313,7 +1313,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
     },
     "KINTSUGI_RATE_LIMITED_CONTACT": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Prefere falar com a gente?")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Prefere falar conosco?")},
     },
     "KINTSUGI_SHORTAGE_GENERIC": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ih, o último acabou de sair")},

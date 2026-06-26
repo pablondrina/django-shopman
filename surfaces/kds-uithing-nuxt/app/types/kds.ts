@@ -35,7 +35,7 @@ export interface KDSTicketProjection {
 
 export interface KDSExpeditionCardProjection {
   pk: number;
-  ref: string;
+  order_ref: string;
   channel_icon: string;
   customer_name: string;
   fulfillment_icon: string;

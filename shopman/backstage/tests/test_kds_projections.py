@@ -81,7 +81,7 @@ def test_build_expedition_board_uses_ready_orders(kds_setup):
     board = build_kds_board(expedition.ref)
 
     assert board.is_expedition is True
-    assert board.tickets[0].ref == ready.ref
+    assert board.tickets[0].order_ref == ready.ref
     assert board.tickets[0].is_delivery is True
     assert board.tickets[0].units_count == "2"
     assert board.tickets[0].line_count == 1

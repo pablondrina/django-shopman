@@ -13,7 +13,7 @@ const props = withDefaults(
 );
 defineEmits<{ action: [action: "dispatch" | "complete"] }>();
 
-const ref_ = computed(() => splitRef(props.card.ref));
+const ref_ = computed(() => splitRef(props.card.order_ref));
 // Conferência de itens na expedição: colapsado por padrão (board scannable),
 // expande pra conferir o que entregar/despachar.
 const showItems = ref(false);

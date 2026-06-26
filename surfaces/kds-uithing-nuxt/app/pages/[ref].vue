@@ -61,8 +61,7 @@ const gridStyle = computed(() => {
 // estação — a busca só filtra a grade.
 const query = ref("");
 function matchesQuery(card: KDSTicketProjection | KDSExpeditionCardProjection, q: string): boolean {
-  const ref_ = "order_ref" in card ? card.order_ref : card.ref;
-  const hay = [ref_, card.customer_name, ...("items" in card ? card.items.map((i) => i.name) : [])].join(" ").toLowerCase();
+  const hay = [card.order_ref, card.customer_name, ...("items" in card ? card.items.map((i) => i.name) : [])].join(" ").toLowerCase();
   return hay.includes(q);
 }
 const filteredCards = computed(() => {

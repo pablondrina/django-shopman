@@ -10,7 +10,7 @@ import {
   trackingStatusPanelActions,
   visibleTrackingPromiseRows
 } from '~/presentation/orderTracking'
-import { deadlineCountdown, serverClockOffsetMs } from '~/presentation/deadline'
+import { countdownPct, deadlineCountdown, isCountdownUrgent, serverClockOffsetMs } from '~/presentation/deadline'
 import { orderAccessErrorView } from '~/presentation/orderAccess'
 
 const route = useRoute()
@@ -78,6 +78,18 @@ const serverOffset = computed(() => serverClockOffsetMs(tracking.value?.server_n
 const nowMs = computed(() => clientNow.value + serverOffset.value)
 const deadlineLive = computed(() => tracking.value && hasLiveDeadline(tracking.value.promise))
 const deadlineCount = computed(() => deadlineLive.value ? deadlineCountdown(tracking.value!.promise.deadline_at, nowMs.value) : null)
+// Barra de tempo restante: a janela é ancorada no que sobra no primeiro render
+// (a projeção não expõe o início real) e a barra drena honestamente de cheia a
+// vazia. Re-ancora se o deadline mudar (ex.: novo prazo num novo estado).
+const deadlineWindowSeconds = ref(0)
+watch(() => tracking.value?.promise.deadline_at, () => { deadlineWindowSeconds.value = 0 })
+watch(deadlineCount, count => {
+  if (count && count.totalSeconds > 0 && deadlineWindowSeconds.value === 0) {
+    deadlineWindowSeconds.value = count.totalSeconds
+  }
+}, { immediate: true })
+const deadlinePct = computed(() => deadlineCount.value ? countdownPct(deadlineCount.value.totalSeconds, deadlineWindowSeconds.value) : 0)
+const deadlineUrgent = computed(() => isCountdownUrgent(deadlinePct.value))
 
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
@@ -211,10 +223,13 @@ useSeoMeta({
               <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
 
-                <div v-if="deadlineCount && !deadlineCount.isExpired" class="flex items-center gap-2 text-sm font-semibold" role="timer" aria-live="polite">
-                  <Icon name="lucide:timer" :size="18" :class="statusPanelIconClass" />
-                  <span class="text-muted-foreground">{{ tracking.promise_deadline_label || 'Tempo restante' }}</span>
-                  <span class="tabular-nums text-foreground">{{ deadlineCount.mmss }}</span>
+                <div v-if="deadlineCount && !deadlineCount.isExpired" class="space-y-2" role="timer" aria-live="polite">
+                  <div class="flex items-center gap-2 text-sm font-semibold">
+                    <Icon name="lucide:timer" :size="18" :class="deadlineUrgent ? 'text-destructive' : statusPanelIconClass" />
+                    <span class="text-muted-foreground">{{ tracking.promise_deadline_label || 'Tempo restante' }}</span>
+                    <span class="ml-auto tabular-nums" :class="deadlineUrgent ? 'text-destructive' : 'text-foreground'">{{ deadlineCount.mmss }}</span>
+                  </div>
+                  <UiProgress :model-value="deadlinePct" :class="deadlineUrgent ? '[&>div]:bg-destructive' : ''" />
                 </div>
 
                 <p class="shop-muted">{{ tracking.last_updated_display }}</p>

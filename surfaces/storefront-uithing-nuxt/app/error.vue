@@ -18,7 +18,7 @@ const title = computed(() =>
 const message = computed(() =>
   is404.value
     ? 'O item pode ter saído do cardápio ou o endereço está incorreto — vamos te levar de volta a um lugar seguro.'
-    : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale com a gente no WhatsApp.'
+    : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale conosco no WhatsApp.'
 )
 
 // Páginas de erro nunca devem ser indexadas (o status 404/5xx já sinaliza, isto é
@@ -69,7 +69,7 @@ function goHome () {
       rel="noreferrer noopener"
       class="text-muted-foreground"
     >
-      Prefere falar com a gente? WhatsApp
+      Prefere falar conosco? WhatsApp
     </UiButton>
   </div>
 </template>
