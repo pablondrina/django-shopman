@@ -46,7 +46,7 @@ import {
   kitchenLineState,
   unfiredCount,
 } from "../app/presentation/kitchen";
-import { pruneSelection, selectionView, toggleSelected } from "../app/presentation/selection";
+import { pruneSelection, selectedItems, selectionView, toggleSelected } from "../app/presentation/selection";
 import { receiptLineTotalQ, receiptLines, receiptPayments, type PosReceiptSnapshot } from "../app/presentation/receipt";
 import type { ActionAffordance } from "../app/presentation/actions";
 import { formatBRL } from "../app/utils/posIntent";
@@ -575,6 +575,12 @@ describe("presentation/selection — multi-select batch shaping", () => {
   it("prunes selected skus no longer in the cart", () => {
     const pruned = pruneSelection(new Set(["A", "Z"]), items);
     expect([...pruned]).toEqual(["A"]);
+  });
+
+  it("selectedItems returns the cart items whose sku is selected", () => {
+    expect(selectedItems(items, new Set(["A", "C"])).map((i) => i.sku)).toEqual(["A", "C"]);
+    expect(selectedItems(items, new Set())).toEqual([]);
+    expect(selectedItems(items, new Set(["Z"]))).toEqual([]);
   });
 });
 
