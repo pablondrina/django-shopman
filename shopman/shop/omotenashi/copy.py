@@ -508,59 +508,59 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
     },
     "TRACKING_STEP_RECEIVED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Recebemos seu pedido.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Recebemos seu pedido")},
     },
     "TRACKING_STEP_AVAILABILITY_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Confirmamos a disponibilidade.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Disponibilidade confirmada")},
     },
     "TRACKING_STEP_PAYMENT_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Reconhecemos o pagamento.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pagamento confirmado")},
     },
     "TRACKING_STEP_PREPARING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Estamos preparando seu pedido.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Preparando seu pedido")},
     },
     "TRACKING_STEP_READY_PICKUP": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu pedido está pronto para retirada.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
     },
     "TRACKING_STEP_READY_DELIVERY": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu pedido está pronto e aguardando entregador.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Saindo para entrega")},
     },
     "TRACKING_STEP_READY_GENERIC": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu pedido está pronto.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido pronto")},
     },
     "TRACKING_DELIVERY_WAITING_COURIER": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Aguardando entregador.",
-                message="Já solicitamos a coleta do seu pedido. Assim que sair para entrega avisamos.",
+                title="Saindo para entrega",
+                message="Já pedimos a coleta. Avisamos você assim que sair para entrega.",
             ),
         },
     },
     "TRACKING_STEP_DISPATCHED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu pedido saiu para entrega.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Saiu para entrega")},
     },
     "TRACKING_STEP_DELIVERED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Seu pedido foi entregue.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido entregue")},
     },
     "TRACKING_STEP_COMPLETED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="O pedido foi concluído.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido concluído")},
     },
     "TRACKING_STEP_CANCELLED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="O pedido foi cancelado.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido cancelado")},
     },
     "TRACKING_PAYMENT_PENDING": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Recebemos seu pedido.",
-                message="Aguardamos a confirmação do pagamento.",
+                title="Recebemos seu pedido",
+                message="Estamos só aguardando a confirmação do pagamento.",
             ),
         },
     },
     "TRACKING_PAYMENT_REQUESTED": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Disponibilidade confirmada.",
-                message="Para continuar, conclua o pagamento.",
+                title="Falta só o pagamento",
+                message="Confirme o PIX e já começamos a preparar.",
             ),
         },
     },
@@ -573,8 +573,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PAYMENT_EXPIRED": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="O prazo para pagamento expirou.",
-                message="O pedido foi automaticamente cancelado. Você pode repetir o pedido ou falar com o estabelecimento.",
+                title="O prazo do pagamento acabou",
+                message="Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva. Se quiser, é só repetir o pedido.",
             ),
         },
     },
@@ -598,8 +598,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_CARD_AUTHORIZED": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Pagamento autorizado.",
-                message="Você não precisa fazer nada agora.",
+                title="Pagamento autorizado",
+                message="Pronto! Não precisa fazer mais nada agora.",
             ),
         },
     },
@@ -616,7 +616,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Próximo passo:")},
     },
     "TRACKING_PROMISE_LABEL_RECOVERY": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Se algo mudar:")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Se o tempo acabar:")},
     },
     "TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Aviso:")},
@@ -647,13 +647,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Depois do pagamento, seguimos com o pedido.")},
     },
     "TRACKING_PROMISE_PAYMENT_RECOVERY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Se o prazo expirar, o pedido será cancelado automaticamente e o estoque reservado será liberado.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Se o tempo acabar, liberamos sua reserva e o pedido é cancelado.")},
     },
     "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Também avisamos por um canal ativo habilitado, porque o PIX depende da sua ação.")},
     },
     "TRACKING_PROMISE_AVAILABILITY_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento está conferindo a disponibilidade.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Estamos conferindo a disponibilidade dos itens.")},
     },
     "TRACKING_PROMISE_AVAILABILITY_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Se a disponibilidade for confirmada, liberamos o pagamento e avisamos você.")},
@@ -662,7 +662,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Se o estabelecimento não confirmar a tempo, atualizaremos o pedido aqui.")},
     },
     "TRACKING_PROMISE_CLOSED_HOURS_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Estamos fechados agora. Vamos conferir a disponibilidade quando abrirmos.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Estamos fechados agora. Conferimos a disponibilidade assim que abrirmos.")},
+    },
+    "TRACKING_PROMISE_CLOSED_HOURS_MESSAGE_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Estamos fechados agora. Conferimos a disponibilidade quando abrirmos, {next}.")},
     },
     "TRACKING_PROMISE_CLOSED_HOURS_NEXT_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="Próxima abertura:")},
@@ -698,7 +701,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Avisaremos você quando o pedido sair para entrega.")},
     },
     "TRACKING_PROMISE_DISPATCHED_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Estamos acompanhando a entrega.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está a caminho. Avisamos você quando chegar.")},
     },
     "TRACKING_PROMISE_DISPATCHED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Quando for entregue, atualizaremos o pedido.")},
