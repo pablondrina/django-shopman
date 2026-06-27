@@ -197,7 +197,7 @@ def fulfill_hold(hold_id: str, *, qty: Decimal | None = None) -> dict:
     Returns:
         {"success": bool, "error_code": str | None, "message": str | None}
     """
-    from shopman.stockman import Hold, HoldStatus, StockError
+    from shopman.stockman import Hold, HoldStatus, Move, StockError
     from shopman.stockman.service import Stock as stock
 
     pk = int(hold_id.split(":")[1])
@@ -222,7 +222,7 @@ def fulfill_hold(hold_id: str, *, qty: Decimal | None = None) -> dict:
                 if hold.status not in (HoldStatus.CONFIRMED, HoldStatus.FULFILLED):
                     raise
 
-        stock.fulfill(hold_id, quantity=qty)
+        stock.fulfill(hold_id, quantity=qty, kind=Move.Kind.SELL)
         return {"success": True, "error_code": None, "message": None}
     except StockError as e:
         return {
@@ -272,10 +272,11 @@ def receive_return(
     reason: str = "Devolução",
 ) -> None:
     """Receive returned stock back into inventory."""
+    from shopman.stockman import Move
     from shopman.stockman.services.movements import StockMovements
 
     full_reason = f"{reason} (ref: {reference})" if reference else reason
-    StockMovements.receive(quantity=qty, sku=sku, reason=full_reason)
+    StockMovements.receive(quantity=qty, sku=sku, reason=full_reason, kind=Move.Kind.RETURN)
 
 
 # ── Session hold queries ─────────────────────────────────────────────
