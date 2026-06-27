@@ -298,7 +298,8 @@ class StockHolds:
             return hold
 
     @classmethod
-    def fulfill(cls, hold_id, user=None, actor=None, *, quantity: Decimal | None = None):
+    def fulfill(cls, hold_id, user=None, actor=None, *, quantity: Decimal | None = None,
+                kind=Move.Kind.ADJUST):
         """
         Fulfill hold (deliver to customer).
 
@@ -346,6 +347,7 @@ class StockHolds:
                 quant=quant,
                 delta=-consume_qty,
                 reason=f"Entrega hold:{hold.pk}",
+                kind=kind,
                 user=user
             )
 
