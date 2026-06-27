@@ -424,10 +424,10 @@ def _create_stock_short_alert(*, work_order_id, error: str) -> None:
 def check_finish_materials(work_order) -> list[MissingMaterial]:
     """Validate materials needed to finish a specific WorkOrder.
 
-    Dormant guardrail: returns [] while INVENTORY_BACKEND is unset (the default).
-    ⚠️ Do NOT wire INVENTORY_BACKEND until ingredient stock is first-class (Buyman
-    WP-B5) — today ingredients have no quants, so a real backend returns 0 and
-    apply_finish() would block (or force-alert) on every finish. See ADR-001.
+    Active guardrail when INVENTORY_BACKEND is configured (Buyman WP-B5b): returns
+    the missing ingredients so apply_finish() can block (or alert with force=True).
+    Returns [] when no backend is configured (standalone). Ingredients carry real
+    Stockman stock via the seed.
     """
     backend_path = _craftsman_setting("INVENTORY_BACKEND")
     if not backend_path:

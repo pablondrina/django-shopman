@@ -1880,6 +1880,20 @@ class Command(BaseCommand):
             )
         self.stdout.write(f"  ✅ {len(INGREDIENT_PROFILES)} insumos (Material)")
 
+        # Saldo de abertura de insumo no depósito — estoque físico para a produção
+        # poder consumir (consume da untangle emite issue sobre estes quants) e para
+        # os guardrails de disponibilidade (Buyman WP-B5b) terem o que checar.
+        # kind default (ADJUST = saldo de abertura), igual ao estoque de produto.
+        deposito = Position.objects.filter(ref="deposito").first()
+        for sku in INGREDIENT_PROFILES:
+            stock.receive(
+                quantity=Decimal("500"),
+                sku=sku,
+                position=deposito,
+                reason="Saldo de abertura de insumo (seed)",
+            )
+        self.stdout.write(f"  ✅ estoque de abertura para {len(INGREDIENT_PROFILES)} insumos")
+
         for rd in recipes_data:
             product = Product.objects.filter(sku=rd["output_sku"]).first()
             shelf_life_days = product.shelf_life_days if product else None

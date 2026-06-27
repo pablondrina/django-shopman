@@ -164,18 +164,15 @@ não dá categoria queryable).
   provado: falha com Noop, passa com composto). framework 2149/craftsman 242/stockman 219.
   ⚠️ Seed cria o **master** de insumo (Material) mas NÃO recebe **estoque** (quants) de
   insumo → consume de produção loga "insuficiente" (graceful) e B5b segue travado.
-- **WP-B5b · Ativar guardrails de disponibilidade de insumo (DORMENTE hoje)** —
-  o seam read-only `INVENTORY_BACKEND` já tem 3 consumidores vivos e testados,
-  porém **dormentes**: `scheduling._validate_shared_ingredients` (gateia
-  `adjust`), `backstage.check_finish_materials` (gateia `apply_finish`),
-  `formula._material_availability` (status na sugestão). Estão desligados porque
-  insumo não tem quant no Stockman hoje — ligar agora **bloquearia adjust/finish**
-  (provado empiricamente 2026-06-27, FARINHA 0.0). Quando WP-B4/B5 derem estoque
-  real ao insumo: implementar um backend read-only `available()` (consulta
-  `stock.available`, + noop p/ teste standalone = 2 impls → conforme ADR-001 §3),
-  apontar `INVENTORY_BACKEND` a ele, e provar com teste que `adjust`/`finish`
-  passam **com** insumo estocado e barram **sem**. Até lá, NÃO ligar o setting
-  (comentário-guarda em `craftsman/conf.py` e nos 3 consumidores).
+- **WP-B5b ✅ (2026-06-27) · Guardrails de disponibilidade de insumo LIGADOS** —
+  seed passou a receber **estoque de abertura de insumo** (500 de cada, no depósito,
+  ADJUST); novo backend read-only `shop/adapters/inventory.InventoryAvailabilityBackend`
+  (`available()` consulta `stock.available` por MaterialNeed); `CRAFTSMAN["INVENTORY_BACKEND"]`
+  apontado p/ ele. Os 3 consumidores (scheduling adjust / backstage finish / formula
+  sugestão) saíram do dormente. Raio medido: só **1 teste** quebrou
+  (`test_adjust_updates_planned_quant` ajustava sem insumo) — o guardrail funcionando
+  como projetado; teste recebeu setup realista (insumo em mãos). Comentários-guarda
+  atualizados (de "NÃO ligar" → "ativo quando configurado"). framework 2149/craftsman 242.
 - **WP-B6 (encadeia VALIDITY)** — sobre essa base: FEFO de insumos, Batch+expiry
   no finish de produção, near-expiry gate (config). Ver
   [VALIDITY-SHELFLIFE-REVIEW](VALIDITY-SHELFLIFE-REVIEW.md).

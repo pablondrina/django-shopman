@@ -16,13 +16,13 @@ All settings have sensible defaults — zero configuration required.
 INVENTORY_BACKEND is a read-only seam for ingredient-availability guardrails
 (over-plan on adjust, missing-on-finish, shortage status on suggestions). Stock
 ledger writes are NOT done through it — they flow through the production_changed
-signal handlers in contrib.stockman. Default None: the guardrails stay dormant.
+signal handlers in contrib.stockman.
 
-⚠️  DO NOT wire INVENTORY_BACKEND until ingredient stock is first-class (Buyman
-    WP-B5, docs/plans/BUYMAN-PROCUREMENT-PLAN.md). Today ingredients carry no
-    Stockman quants, so any real available() returns 0 and would BLOCK adjust()
-    and finish() across the board. Activating these guardrails is a tracked
-    Buyman deliverable, not a drop-in setting.
+Default None here (standalone Craftsman = guardrails dormant). The orchestrator
+wires it to shopman.shop.adapters.inventory.InventoryAvailabilityBackend (Buyman
+WP-B5b), and the seed gives ingredients real Stockman stock so the guardrails
+have something to check. With a real backend, adjust()/finish() validate that the
+recipe's ingredients are on hand (insufficient → INSUFFICIENT_MATERIALS).
 """
 
 from decimal import Decimal

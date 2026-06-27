@@ -374,10 +374,9 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
     V2: Raise CraftError("INSUFFICIENT_MATERIALS") if shared ingredients are insufficient.
 
     Checks total ingredient consumption across all active WOs on the same date
-    against what's available. Dormant guardrail: skipped while INVENTORY_BACKEND is
-    unset (the default). ⚠️ Do NOT wire INVENTORY_BACKEND until ingredient stock is
-    first-class (Buyman WP-B5) — today ingredients have no quants, so a real backend
-    returns 0 and this would block every adjust(). See craftsman/conf.py + ADR-001.
+    against what's available. Active guardrail when INVENTORY_BACKEND is configured
+    (the orchestrator wires it — Buyman WP-B5b); skipped in standalone Craftsman.
+    Increasing planned production beyond available ingredients raises here.
     """
     try:
         from shopman.craftsman.conf import get_setting

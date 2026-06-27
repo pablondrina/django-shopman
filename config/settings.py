@@ -639,6 +639,7 @@ CRAFTSMAN = {
     # single canonical write path. INVENTORY_BACKEND is intentionally unset: it is
     # a read-only seam for ingredient-availability validation, to be implemented
     # by Buyman/Material (see docs/plans/BUYMAN-PROCUREMENT-PLAN.md).
+    "INVENTORY_BACKEND": "shopman.shop.adapters.inventory.InventoryAvailabilityBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     # Composed: Offerman (vendáveis) + Buyman (insumos/Material). Resolução-only
     # (unidade do insumo p/ cross-check de RecipeItem) — não toca disponibilidade.

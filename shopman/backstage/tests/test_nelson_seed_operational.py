@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from decimal import Decimal
 from io import StringIO
 
 import pytest
@@ -91,6 +92,14 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
     assert not unresolved, f"inputs de receita sem resolução: {unresolved}"
     # E os insumos crus de fato vêm do Material (interseção não-vazia).
     assert recipe_inputs & material_skus
+
+    # Estoque de abertura de insumo no depósito (físico, p/ consumir/checar).
+    from shopman.stockman import stock as stock_service
+    from shopman.stockman.models import Quant
+
+    deposito = Position.objects.get(ref="deposito")
+    assert Quant.objects.filter(sku="FARINHA-T65", position=deposito).exists()
+    assert stock_service.available("FARINHA-T65", position=deposito) == Decimal("500")
 
     suggestions = craft.suggest(date.today() + timedelta(days=1), output_skus=["CROISSANT"])
     assert suggestions

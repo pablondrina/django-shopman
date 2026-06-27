@@ -131,9 +131,16 @@ class TestProductionSignalCreatesPlannedQuant:
         assert quant._quantity == Decimal("50")
 
     def test_adjust_updates_planned_quant(
-        self, recipe, croissant, position_producao, tomorrow,
+        self, recipe, ingredient, croissant, position_producao, tomorrow,
     ):
         import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
+
+        # Increasing planned production validates ingredient availability (the
+        # WP-B5b guardrail, now wired): the recipe's ingredient must be on hand.
+        stock.receive(
+            quantity=Decimal("100"), sku=ingredient.sku,
+            position=position_producao, reason="Insumo disponível",
+        )
 
         wo = craft.plan(recipe, quantity=Decimal("50"), date=tomorrow)
 
