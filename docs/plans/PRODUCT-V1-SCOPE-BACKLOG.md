@@ -27,13 +27,13 @@
 
 | Frente | O que falta | Origem |
 |---|---|---|
-| **Gestor de pedidos ao estado da arte** | Aprofundar a superfície operacional de pedidos (board/fila) ao benchmark; o item central do operador | Pablo (2026-06-26) + [SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md) |
+| **Gestor de pedidos ao estado da arte** | ✅ **Arcs 1–5 entregues + DEPLOYADO no staging (2026-06-27, gestor.boulangerie.com.br)**. [GESTOR-PEDIDOS-PLAN](GESTOR-PEDIDOS-PLAN.md). Resta QA funcional autenticado | Pablo (2026-06-26) |
 | **Canal: Loja online (retirada)** | Base pronta; manter no escopo | existente |
 | **Canal: PDV / balcão** | Base pronta; manter no escopo | existente |
 | **Canal: Entrega / delivery** | Ativa a frente de **endereço canônico** (busca/geo/ajuste no mapa); taxa por distância já existe | [ADDRESS-UX-PLAN](ADDRESS-UX-PLAN.md) |
 | **Canal: WhatsApp conversacional (ManyChat)** | ~70% já existe; falta wirear webhook + endpoints de pedido inbound. Plano: [MANYCHAT-CONVERSACIONAL-PLAN](MANYCHAT-CONVERSACIONAL-PLAN.md) | ROADMAP "Dívida Viva" |
 | **Sincronização com catálogos externos** | Fundação pronta (CatalogProjectionBackend, padrão iFood); faltam adapters Google/Meta/WhatsApp + atributos de feed. Plano: [CATALOG-SYNC-EXTERNO-PLAN](CATALOG-SYNC-EXTERNO-PLAN.md) | Pablo (2026-06-26) |
-| **Media persistente (Spaces/S3)** | Operador sobe fotos em prod → storage durável; filesystem efêmero perde imagem em redeploy | ROADMAP "Dívida Viva" |
+| **Media persistente (Spaces/S3)** | ⏳ **Agendada para imediatamente ANTES do go-live** (decisão Pablo 2026-06-27) — storage durável p/ fotos; filesystem efêmero perde imagem em redeploy. Não desenvolver agora | ROADMAP "Dívida Viva" |
 | **Shelf life perecível** | ✅ precedência (shelf_life × batch expiry = AND) explícita + travada por teste (2026-06-26). Resta só decisão de onde validar consistência de lote. Ver ROADMAP | ROADMAP "Dívida Viva" |
 | **Revisão reversa do PDV (Fase C)** | ✅ auditoria feita: [POS-FASE-C-REVISION](POS-FASE-C-REVISION.md). POS é maduro; 1 fix aplicado, resto = itens a verificar/decisões | `project_storefront_gaps_review` |
 | **Surface convergence** | Matar POS-HTMX legado; definir alvo do KDS (Nuxt vs HTMX) | [SURFACE-CONVERGENCE-PLAN](SURFACE-CONVERGENCE-PLAN.md) |
