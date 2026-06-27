@@ -128,7 +128,12 @@ não dá categoria queryable).
 - **WP-B2 ✅ (2026-06-27) · `Supplier` + custo-por-fornecedor** — `Supplier` +
   `SupplierMaterialCost` (custo por par fornecedor×insumo, `is_preferred` =
   canônico). 5 testes verdes (unicidade sku/par, 1 preferencial).
-- **WP-B1b · Admin Unfold** — registrar Material/Supplier/Cost no admin (contrib).
+- **WP-B1b ✅ (2026-06-27) · Admin Unfold** — `buyman/contrib/admin_unfold/`
+  (apps + admin) registra Material/Supplier/SupplierMaterialCost com `BaseModelAdmin`
+  canônico: badges (validade perecível/não, custo preferencial canônico/alternativo),
+  inlines de custo cruzados (custos por fornecedor / por insumo), autocomplete,
+  `format_money` no custo. Sem admin core no buyman → sem dupla-registração. Em
+  INSTALLED_APPS. `make admin` (gate canônico) verde (253 testes).
 - **WP-B3 ✅ (2026-06-27) · Adapters compostos** — Buyman ganhou adapters próprios
   (`buyman/adapters/`): `MaterialSkuValidator` + `BuymanCatalogBackend` (resolvem
   insumo=Material via os contratos de Stockman/Craftsman, import lazy, ADR-001). O
