@@ -20,7 +20,7 @@ class StockMovements:
     @classmethod
     def receive(cls, quantity, sku, position=None,
                 target_date=None, batch='',
-                user=None, reason='Recebimento', **metadata):
+                user=None, reason='Recebimento', kind=Move.Kind.ADJUST, **metadata):
         """
         Stock entry.
 
@@ -52,6 +52,7 @@ class StockMovements:
                 quant=quant,
                 delta=quantity,
                 reason=reason,
+                kind=kind,
                 user=user,
                 metadata=metadata
             )
@@ -71,7 +72,7 @@ class StockMovements:
 
     @classmethod
     def issue(cls, quantity, quant,
-              user=None, reason='Saída'):
+              user=None, reason='Saída', kind=Move.Kind.ADJUST):
         """
         Stock exit.
 
@@ -101,6 +102,7 @@ class StockMovements:
                 quant=locked_quant,
                 delta=-quantity,
                 reason=reason,
+                kind=kind,
                 user=user
             )
             logger.info(
@@ -143,6 +145,7 @@ class StockMovements:
                 quant=locked_quant,
                 delta=delta,
                 reason=f"Ajuste: {reason}",
+                kind=Move.Kind.ADJUST,
                 user=user
             )
             logger.info(

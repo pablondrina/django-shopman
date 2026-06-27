@@ -52,10 +52,27 @@ class Move(models.Model):
         help_text=_('Positivo = entrada, Negativo = saída'),
     )
 
+    class Kind(models.TextChoices):
+        MAKE = "make", _("Produção")
+        BUY = "buy", _("Compra")
+        SELL = "sell", _("Venda")
+        ADJUST = "adjust", _("Ajuste")
+        TRANSFER = "transfer", _("Transferência")
+        RETURN = "return", _("Devolução")
+
+    kind = models.CharField(
+        max_length=12,
+        choices=Kind.choices,
+        default=Kind.ADJUST,
+        db_index=True,
+        verbose_name=_('Tipo'),
+        help_text=_('Evento econômico: produção, compra, venda, ajuste, transferência, devolução.'),
+    )
+
     reason = models.CharField(
         max_length=255,
         verbose_name=_('Motivo'),
-        help_text=_('Obrigatório. Ex: "Produção manhã", "Venda #123"'),
+        help_text=_('Detalhe livre. Ex: "Produção manhã", "Compra PO-001"'),
     )
     metadata = models.JSONField(
         default=dict, blank=True, verbose_name=_('Metadados'),
@@ -80,6 +97,7 @@ class Move(models.Model):
         indexes = [
             models.Index(fields=['quant', 'timestamp']),
             models.Index(fields=['timestamp']),
+            models.Index(fields=['kind', 'timestamp']),
         ]
 
     def save(self, *args, **kwargs):
