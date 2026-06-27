@@ -77,7 +77,9 @@ class StockQueries:
 
             product = SimpleNamespace(
                 sku=sku,
-                shelflife=profile["shelflife"],
+                # filter_valid_quants reads `.shelf_life_days` — o nome precisa bater,
+                # senão a validade NÃO é aplicada no caminho por sku-string.
+                shelf_life_days=profile["shelflife"],
                 availability_policy=profile["availability_policy"],
             )
 

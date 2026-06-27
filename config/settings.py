@@ -646,20 +646,15 @@ CRAFTSMAN = {
 }
 
 STOCKMAN = {
-    # NOTE: default stays Noop. Wiring the Offerman validator globally is NOT a
-    # safe drop-in: it reports the real is_sellable/shelf_life of every SKU, and
-    # ingredients are non-sellable Products → availability would treat them as
-    # "paused" and reject production holds (see test_production_stock). Turning
-    # shelf-life ON in prod needs a proper design (sellable-availability vs
-    # production holds) — tracked as the real "shelf life parcialmente ligado"
-    # debt. The lot-consistency check (Batch.clean) below activates whenever a
-    # real validator IS configured (e.g. STOCKMAN_SKU_VALIDATOR env).
-    # The composed validator (Offerman vendáveis + Buyman insumos) já existe em
-    # shopman.shop.adapters.sku_validator.ComposedSkuValidator — Buyman WP-B5 o
-    # ligará aqui, junto com o design de disponibilidade-de-venda vs holds-de-produção.
+    # Shelf-life LIGADO (Buyman WP-B5): validator composto resolve vendáveis pelo
+    # Offerman (is_sellable/shelf_life/pause reais) e insumos pelo Buyman (Material).
+    # Disponibilidade de VENDA filtra vencidos/pausados; holds de PRODUÇÃO
+    # (purpose="workorder") reservam estoque físico e ignoram o gate de venda
+    # (insumo é não-vendável por natureza) — ver StockHolds.hold + test_production_stock.
+    # A lot-consistency (Batch.clean) ativa com validator real configurado.
     "SKU_VALIDATOR": os.environ.get(
         "STOCKMAN_SKU_VALIDATOR",
-        "shopman.stockman.adapters.noop.NoopSkuValidator",
+        "shopman.shop.adapters.sku_validator.ComposedSkuValidator",
     ),
     # When on, a lot whose expiry exceeds the product's shelf_life window is
     # rejected at save; off (default) surfaces it as a non-blocking admin warning.

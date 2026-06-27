@@ -424,6 +424,20 @@ class TestPerishableProducts:
         # Not available tomorrow (expired)
         assert stock.available(croissant, target_date=tomorrow, position=position_loja) == Decimal("0")
 
+    def test_perishable_filtered_by_sku_string(
+        self, croissant, position_loja, today, tomorrow
+    ):
+        """B5 (shelf-life ligado): a validade é aplicada mesmo consultando por
+        SKU STRING — o validator composto resolve shelf_life_days. Antes (Noop)
+        a venda por sku NÃO filtrava vencidos; agora filtra. croissant=0 dias."""
+        stock.receive(
+            quantity=Decimal("20"), sku=croissant.sku,
+            position=position_loja, target_date=today, reason="Manhã",
+        )
+        # Consulta por STRING (caminho de venda do storefront), não pelo objeto.
+        assert stock.available(croissant.sku, target_date=today, position=position_loja) == Decimal("20")
+        assert stock.available(croissant.sku, target_date=tomorrow, position=position_loja) == Decimal("0")
+
     def test_extended_shelflife(
         self, bolo, position_loja, today
     ):

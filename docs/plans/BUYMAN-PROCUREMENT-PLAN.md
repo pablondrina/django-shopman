@@ -152,10 +152,18 @@ não dá categoria queryable).
   legítimo); (c) `ingredient` fixture vive em `CollectionItem` (exige Product). Só vale
   onde a semântica insumo=Material é o ponto do teste — reavaliar junto com B5. Sem
   conversão cega.
-- **WP-B5 · Ligar shelf-life** — apontar o validator composto; provar que
-  disponibilidade de venda filtra vencidos (produtos) e que holds de produção
-  (insumos) seguem ok (`test_production_stock`). `is_sellable=False` volta a
-  significar só "produto pausado".
+- **WP-B5 ✅ (2026-06-27) · Shelf-life LIGADO** — `STOCKMAN["SKU_VALIDATOR"]`
+  flipado p/ `ComposedSkuValidator`. Raio de explosão medido: só 3 testes (holds de
+  insumo), tudo de venda passou. Design "venda vs produção" resolvido em
+  `StockHolds.hold`: **hold de produção (`purpose="workorder"`) reserva estoque físico
+  e ignora o gate de venda** (pause/sellability/demanda) — insumo é não-vendável por
+  natureza, mas reservável p/ WO. **+ bugfix latente**: `StockQueries.available()`
+  montava `SimpleNamespace(shelflife=...)` mas `filter_valid_quants` lê `shelf_life_days`
+  → validade NUNCA filtrava no caminho por **sku-string** (escondido pelo Noop).
+  Corrigido → venda por sku filtra vencidos (teste novo `test_perishable_filtered_by_sku_string`,
+  provado: falha com Noop, passa com composto). framework 2149/craftsman 242/stockman 219.
+  ⚠️ Seed cria o **master** de insumo (Material) mas NÃO recebe **estoque** (quants) de
+  insumo → consume de produção loga "insuficiente" (graceful) e B5b segue travado.
 - **WP-B5b · Ativar guardrails de disponibilidade de insumo (DORMENTE hoje)** —
   o seam read-only `INVENTORY_BACKEND` já tem 3 consumidores vivos e testados,
   porém **dormentes**: `scheduling._validate_shared_ingredients` (gateia

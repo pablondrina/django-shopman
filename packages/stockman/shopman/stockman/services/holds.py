@@ -142,7 +142,18 @@ class StockHolds:
             approved = decision.approved
             available = decision.available_qty
 
-            if decision.is_paused:
+            # Production reservations (insumos for a WorkOrder) are NOT sales: the
+            # sale-availability gate — pause/sellability and demand/planned policy —
+            # does not apply. Reserve against physical stock only. An insumo is
+            # non-sellable by nature (is_paused would otherwise reject it).
+            is_production = metadata.get("purpose") == "workorder"
+
+            if is_production:
+                # The physical quant check below is the real gate (position-agnostic,
+                # no saleable-position filter, no pause). Sale availability does not
+                # apply to reserving insumos for a WorkOrder.
+                approved = True
+            elif decision.is_paused:
                 approved = False
                 available = Decimal("0")
             elif policy == 'demand_ok':
