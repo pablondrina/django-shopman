@@ -67,7 +67,7 @@ class Move(models.Model):
         default=Kind.ADJUST,
         db_index=True,
         verbose_name=_('Tipo'),
-        help_text=_('Evento econômico: produção, compra, venda, ajuste, transferência, devolução.'),
+        help_text=_('Evento econômico: produção, compra, venda, ajuste, transferência, devolução, perda/descarte.'),
     )
 
     reason = models.CharField(

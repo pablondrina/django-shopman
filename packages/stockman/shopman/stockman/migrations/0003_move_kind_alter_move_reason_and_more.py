@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='move',
             name='kind',
-            field=models.CharField(choices=[('make', 'Produção'), ('buy', 'Compra'), ('sell', 'Venda'), ('adjust', 'Ajuste'), ('transfer', 'Transferência'), ('return', 'Devolução')], db_index=True, default='adjust', help_text='Evento econômico: produção, compra, venda, ajuste, transferência, devolução.', max_length=12, verbose_name='Tipo'),
+            field=models.CharField(choices=[('make', 'Produção'), ('buy', 'Compra'), ('sell', 'Venda'), ('adjust', 'Ajuste'), ('transfer', 'Transferência'), ('return', 'Devolução'), ('waste', 'Perda/Descarte')], db_index=True, default='adjust', help_text='Evento econômico: produção, compra, venda, ajuste, transferência, devolução, perda/descarte.', max_length=12, verbose_name='Tipo'),
         ),
         migrations.AlterField(
             model_name='move',
