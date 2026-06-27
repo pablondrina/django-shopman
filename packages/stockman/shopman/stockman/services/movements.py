@@ -157,3 +157,51 @@ class StockMovements:
                 },
             )
             return move
+
+    @classmethod
+    def transfer(cls, quantity, sku, from_position, to_position,
+                 target_date=None, batch='', user=None, reason='Transferência'):
+        """
+        Relocate stock between positions (internal move, no economic in/out).
+
+        Two ledger legs, atomic: issue from source, receive into destination —
+        both ``kind=TRANSFER``. This is the canonical home for relocations
+        (e.g. depósito→vitrine, vitrine→"ontem"). Net stock unchanged; only the
+        position (and optionally target_date/batch) moves.
+
+        Raises:
+            StockError('INVALID_QUANTITY'): quantity <= 0
+            StockError('QUANT_NOT_FOUND'): source coordinate has no quant
+            StockError('INSUFFICIENT_QUANTITY'): source available < quantity
+        """
+        from shopman.stockman.services.queries import StockQueries
+
+        if quantity <= 0:
+            raise StockError('INVALID_QUANTITY', requested=quantity)
+        if from_position == to_position:
+            raise StockError('INVALID_TRANSFER', reason='origem == destino')
+
+        with transaction.atomic():
+            source = StockQueries.get_quant(
+                sku, target_date=target_date, position=from_position, batch=batch,
+            )
+            if source is None:
+                raise StockError('QUANT_NOT_FOUND', product=sku, position=str(from_position))
+
+            cls.issue(
+                quantity=quantity, quant=source, user=user,
+                reason=reason, kind=Move.Kind.TRANSFER,
+            )
+            dest = cls.receive(
+                quantity=quantity, sku=sku, position=to_position,
+                target_date=target_date, batch=batch, user=user,
+                reason=reason, kind=Move.Kind.TRANSFER,
+            )
+            logger.info(
+                "stock.transfer",
+                extra={
+                    "sku": sku, "qty": str(quantity),
+                    "from": str(from_position), "to": str(to_position),
+                },
+            )
+            return dest

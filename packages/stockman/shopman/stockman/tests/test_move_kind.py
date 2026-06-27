@@ -33,3 +33,17 @@ def test_adjust_is_always_adjust(product, vitrine):
     quant = stock.receive(quantity=Decimal("5"), sku=product.sku, position=vitrine)
     stock.adjust(quant=quant, new_quantity=Decimal("4"), reason="contagem")
     assert Move.objects.latest("timestamp").kind == Move.Kind.ADJUST
+
+
+def test_transfer_relocates_between_positions_with_transfer_kind(product, vitrine):
+    from shopman.stockman.models import Position, PositionKind, Quant
+
+    src = Position.objects.create(ref="dep-test", name="Depósito", kind=PositionKind.PHYSICAL)
+    stock.receive(quantity=Decimal("10"), sku=product.sku, position=src, kind=Move.Kind.BUY)
+
+    stock.transfer(quantity=Decimal("4"), sku=product.sku, from_position=src, to_position=vitrine)
+
+    assert Quant.objects.get(sku=product.sku, position=src, target_date=None, batch="")._quantity == Decimal("6")
+    assert Quant.objects.get(sku=product.sku, position=vitrine, target_date=None, batch="")._quantity == Decimal("4")
+    # both legs (issue from source + receive into dest) are TRANSFER
+    assert Move.objects.filter(kind=Move.Kind.TRANSFER).count() == 2
