@@ -10,14 +10,19 @@
 > (corte dado↔presentation). Pilar-mãe: `project_excellence_refactor_initiative`
 > (refazer TODAS as superfícies, 4 pilares) + `project_ui_apps_separation`.
 
-> **Atualização 2026-06-26**: o gestor de pedidos dedicado
-> (`surfaces/orders-uithing-nuxt`) alcançou **paridade v1** (redesign Arcs 1–5 —
-> ver [GESTOR-PEDIDOS-PLAN](GESTOR-PEDIDOS-PLAN.md)). Isso **destrava arquivar o
-> board de pedidos do `backstage-nuxt`** (`app/pages/pedidos/`), que vira
-> duplicata. **Não executado** (remoção de superfície merece execução
-> supervisionada: conferir rotas/nav/componentes compartilhados do
-> `backstage-nuxt`, que ainda hospeda outras telas). Confirmado também: **não há
-> POS-HTMX legado ativo** (ver [POS-FASE-C-REVISION](POS-FASE-C-REVISION.md)).
+> ## ✅ CONVERGÊNCIA COMPLETA (2026-06-27)
+> Todos os WPs entregues — **um sistema canônico por superfície, sem resíduo**:
+> - **WP1 POS-HTMX**: ✅ removido (views/templates/rotas; testes migrados pro headless).
+> - **WP3 KDS-HTMX**: ✅ removido (commit `c96b02db`, 25/06 — views `kds_station`/
+>   `kds_customer`, templates `runtime/kds_*`, rotas; testes migrados pra
+>   `api/v1/backstage/kds/`). O alvo Nuxt (`kds-uithing-nuxt`) é o único vivo.
+> - **WP4 storefront**: ✅ convergido pro `storefront-uithing-nuxt` + deployado.
+> - **WP5 back-office Unfold**: ✅ auditado (BACKOFFICE-UNFOLD-REVISION).
+> - **WP2 experimentos Nuxt mortos**: ✅ `storefront-nuxt` podado (f9b81cb7) e
+>   `backstage-nuxt` podado (2026-06-27) — `surfaces/` agora só tem os 5
+>   `*-uithing-nuxt` vivos (pos/kds/orders/production/storefront).
+>
+> Resíduo da convergência = **zero**. Seções abaixo = histórico do caminho.
 
 ## 1. Inventário real (o que existe hoje)
 
