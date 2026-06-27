@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman-buyman"
+version = "0.1.0"
+description = "Procurement / supply-side domain for the Shopman suite (material master, suppliers, cost; later: purchase orders, receiving, reorder)"
+license = "MIT"
+authors = [
+    {name = "Pablo Valentini", email = "pablondrina@gmail.com"}
+]
+keywords = ["django", "shopman", "buyman", "procurement", "purchasing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 6.0",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=6.0,<6.1",
+    "shopman-utils",
+    "shopman-refs",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-django"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shopman.buyman*"]
+
+[tool.setuptools.package-data]
+"*" = ["templates/**/*", "static/**/*", "locale/**/*.mo"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "buyman_test_settings"
+pythonpath = [".", "../utils", "../refs"]
