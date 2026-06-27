@@ -59,6 +59,7 @@ class Move(models.Model):
         ADJUST = "adjust", _("Ajuste")
         TRANSFER = "transfer", _("Transferência")
         RETURN = "return", _("Devolução")
+        WASTE = "waste", _("Perda/Descarte")
 
     kind = models.CharField(
         max_length=12,

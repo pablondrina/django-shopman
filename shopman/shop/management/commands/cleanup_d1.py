@@ -46,6 +46,7 @@ class Command(BaseCommand):
                 quantity=qty,
                 quant=quant,
                 reason=f"perda_d1_vencido:{date.today()}",
+                kind=Move.Kind.WASTE,
             )
             self.stdout.write(f"Removido: {quant.sku} x{qty}")
             removed_count += 1

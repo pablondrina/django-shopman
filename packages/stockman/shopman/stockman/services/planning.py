@@ -80,7 +80,7 @@ class StockPlanning:
     def realize(cls, product, target_date, actual_quantity,
                 to_position, from_position=None, from_batch='',
                 user=None,
-                reason='Produção realizada'):
+                reason='Produção realizada', kind=Move.Kind.MAKE):
         """
         Realize production (planned -> physical).
 
@@ -134,6 +134,7 @@ class StockPlanning:
                 quant=locked_quant,
                 delta=-actual_quantity,
                 reason=f"Transferência: {reason}",
+                kind=kind,
                 user=user
             )
 
@@ -141,6 +142,7 @@ class StockPlanning:
                 quant=physical_quant,
                 delta=actual_quantity,
                 reason=f"Recebido de produção: {reason}",
+                kind=kind,
                 user=user
             )
 
