@@ -640,7 +640,9 @@ CRAFTSMAN = {
     # a read-only seam for ingredient-availability validation, to be implemented
     # by Buyman/Material (see docs/plans/BUYMAN-PROCUREMENT-PLAN.md).
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
-    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OffermanCatalogBackend",
+    # Composed: Offerman (vendáveis) + Buyman (insumos/Material). Resolução-only
+    # (unidade do insumo p/ cross-check de RecipeItem) — não toca disponibilidade.
+    "CATALOG_BACKEND": "shopman.shop.adapters.catalog_backend.ComposedCatalogBackend",
 }
 
 STOCKMAN = {
@@ -652,6 +654,9 @@ STOCKMAN = {
     # production holds) — tracked as the real "shelf life parcialmente ligado"
     # debt. The lot-consistency check (Batch.clean) below activates whenever a
     # real validator IS configured (e.g. STOCKMAN_SKU_VALIDATOR env).
+    # The composed validator (Offerman vendáveis + Buyman insumos) já existe em
+    # shopman.shop.adapters.sku_validator.ComposedSkuValidator — Buyman WP-B5 o
+    # ligará aqui, junto com o design de disponibilidade-de-venda vs holds-de-produção.
     "SKU_VALIDATOR": os.environ.get(
         "STOCKMAN_SKU_VALIDATOR",
         "shopman.stockman.adapters.noop.NoopSkuValidator",

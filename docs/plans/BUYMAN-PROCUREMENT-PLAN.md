@@ -129,10 +129,16 @@ não dá categoria queryable).
   `SupplierMaterialCost` (custo por par fornecedor×insumo, `is_preferred` =
   canônico). 5 testes verdes (unicidade sku/par, 1 preferencial).
 - **WP-B1b · Admin Unfold** — registrar Material/Supplier/Cost no admin (contrib).
-- **WP-B3 · Adapters compostos no orquestrador** — `shopman/shop/adapters/`
-  implementando `SkuValidator` (Offerman p/ vendáveis + Buyman p/ insumos +
-  default neutro) e `CatalogBackend`/`CostBackend` análogos. Wiring por config
-  (`STOCKMAN_SKU_VALIDATOR` etc.).
+- **WP-B3 ✅ (2026-06-27) · Adapters compostos** — Buyman ganhou adapters próprios
+  (`buyman/adapters/`): `MaterialSkuValidator` + `BuymanCatalogBackend` (resolvem
+  insumo=Material via os contratos de Stockman/Craftsman, import lazy, ADR-001). O
+  orquestrador compõe Offerman→Buyman: `shop/adapters/catalog_backend.ComposedCatalogBackend`
+  (proxy: `get_product` Offerman→Buyman, resto delega) e `shop/adapters/sku_validator.ComposedSkuValidator`
+  (Offerman→Buyman→neutro). **`CRAFTSMAN["CATALOG_BACKEND"]`→composto JÁ (resolução de
+  unidade do insumo; seguro, não toca disponibilidade).** **`STOCKMAN["SKU_VALIDATOR"]`
+  segue Noop** — flipar p/ o composto é o WP-B5 (muda semântica de disponibilidade de
+  TODO sku). 14 testes (buyman 9, shop composed 5). framework 2148 / craftsman 242 verdes.
+  *CostBackend composto: adiado p/ quando houver consumidor real de custo (Fase 3 PO).*
 - **WP-B4 · Migração de dados + fixtures** — seed popula `Material` a partir de
   `INGREDIENT_PROFILES`; reescrever os fixtures de teste que criam
   `Product(is_sellable=False)` de insumo → `Material`. Suíte verde.
