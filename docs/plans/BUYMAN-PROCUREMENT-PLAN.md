@@ -78,15 +78,20 @@ Estudo dos pacotes maduros para o Buyman nascer no mesmo nível:
 
 ## WP-B0 — `Move.kind` no Stockman (fundacional, aprovado) ✅ infra / 🟡 callers
 
-Ledger categorizado por evento econômico: **MAKE/BUY/SELL/ADJUST/TRANSFER/RETURN**
-(decisão Pablo). Mudança aditiva no Core (Stockman) — justificada (kind é
-propriedade do Move; reason-string não dá categoria queryable).
-- ✅ **Infra (2026-06-27, commit `7d24784b`)**: `Move.Kind` + campo + índice;
-  `receive`/`issue` aceitam `kind`; migração + **backfill** (categoriza histórico
-  por padrão do reason); 4 testes; stockman 218 verde.
-- 🟡 **Pendente — fiação dos callers** (categorizar moves NOVOS): craftsman→MAKE,
-  venda (hold/fulfill)→SELL, planning(realize)→TRANSFER, devoluções→RETURN. E o
-  recebimento do Buyman emite **BUY** (Fase 3). Até wirar, moves novos = ADJUST.
+Ledger categorizado por evento econômico: **MAKE/BUY/SELL/ADJUST/TRANSFER/RETURN/
+WASTE** (decisão Pablo; WASTE adicionado após a provocação sobre planning). Mudança
+aditiva no Core (Stockman) — justificada (kind é propriedade do Move; reason-string
+não dá categoria queryable).
+- ✅ **Infra + correções (commits `7d24784b`, `42750716`)**: `Move.Kind` (7 kinds)
+  + campo + índice; `receive`/`issue`/`realize` aceitam `kind`; migrações
+  0003/0004(backfill)/0005(WASTE); testes; stockman 233 verde.
+- ✅ **Wiring inequívoco**: `planning.realize`→**MAKE** (era erro chamar de
+  TRANSFER); `cleanup_d1`→**WASTE** (descarte de D-1 vencido). **TRANSFER fica
+  reservado** (sem caller real hoje).
+- 🟡 **Pendente — wiring contextual** (moves NOVOS, passo focado): craftsman
+  receives→MAKE; **`fulfill`→derivar do `purpose` do hold** (consumo de produção=
+  MAKE, venda=SELL — não rotular consumo como venda!); devoluções→RETURN; buyman
+  recebimento→BUY (Fase 3). Até lá, esses moves novos caem em ADJUST.
 
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
