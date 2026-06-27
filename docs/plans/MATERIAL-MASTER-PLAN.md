@@ -5,7 +5,10 @@
 > Desbloqueia o shelf-life de verdade (ver [VALIDITY-SHELFLIFE-REVIEW](VALIDITY-SHELFLIFE-REVIEW.md)).
 > Decisão do Pablo (2026-06-27): **Opção A, investigando bem**.
 
-**Status**: 🟡 Design proposto — aguarda escolha do "lar" + go do Pablo. Não iniciado.
+**Status**: 🔀 **Absorvido por [BUYMAN-PROCUREMENT-PLAN](BUYMAN-PROCUREMENT-PLAN.md)** (2026-06-27).
+O Pablo reenquadrou (com razão): o material master é a fundação de um domínio de
+Compras maior. O master virou a **Fase 1 do Buyman** (novo pacote persona). Este
+doc fica como a investigação de origem; o plano vivo é o BUYMAN.
 
 ## O problema (o muddle)
 
