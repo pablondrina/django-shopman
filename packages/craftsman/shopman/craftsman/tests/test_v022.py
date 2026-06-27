@@ -131,46 +131,6 @@ class TestB1OldQuantityFix:
 
 
 # ══════════════════════════════════════════════════════════════
-# B2 FIX: receive() loop (stocking adapter)
-# ══════════════════════════════════════════════════════════════
-
-
-class TestB2ReceiveLoopFix:
-    """Verify StockingBackend.receive() processes all items, not just first."""
-
-    def test_receive_processes_multiple_items(self):
-        """receive() should process all MaterialProduced items."""
-        from shopman.craftsman.adapters.stock import StockingBackend
-        from shopman.craftsman.protocols.inventory import MaterialProduced
-
-        backend = StockingBackend()
-
-        items = [
-            MaterialProduced(sku="croissant", quantity=Decimal("50")),
-            MaterialProduced(sku="pain-au-chocolat", quantity=Decimal("30")),
-        ]
-
-        mock_stock = MagicMock()
-        mock_quant1 = MagicMock(pk=1)
-        mock_quant2 = MagicMock(pk=2)
-        mock_stock.receive.side_effect = [mock_quant1, mock_quant2]
-
-        mock_product1 = MagicMock()
-        mock_product2 = MagicMock()
-        mock_position = MagicMock()
-
-        with patch.object(backend, "_get_stock", return_value=mock_stock), \
-             patch.object(backend, "_get_product", side_effect=[mock_product1, mock_product2]), \
-             patch.object(backend, "_get_position", return_value=mock_position), \
-             patch("shopman.craftsman.adapters.stock._stockman_available", return_value=True):
-            result = backend.receive(items, ref="WO-2026-00001")
-
-        assert result.success is True
-        assert result.quant_id == "quant:2"  # last item's quant
-        assert mock_stock.receive.call_count == 2
-
-
-# ══════════════════════════════════════════════════════════════
 # HARDENING: CheckConstraints + clean/full_clean
 # ══════════════════════════════════════════════════════════════
 

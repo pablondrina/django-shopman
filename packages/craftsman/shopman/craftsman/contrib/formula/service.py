@@ -227,6 +227,10 @@ def _round_quantity(quantity: Decimal) -> Decimal:
 
 
 def _material_availability(*, recipe, quantity: Decimal) -> dict[str, Any]:
+    # Dormant guardrail: status="unknown" while INVENTORY_BACKEND is unset (default).
+    # ⚠️ Do NOT wire INVENTORY_BACKEND until ingredient stock is first-class (Buyman
+    # WP-B5) — ingredients have no quants today, so a real backend reports 0/short
+    # everywhere. See craftsman/conf.py + ADR-001.
     backend_path = get_setting("INVENTORY_BACKEND")
     needs = _material_needs(recipe=recipe, quantity=quantity)
     if not needs:

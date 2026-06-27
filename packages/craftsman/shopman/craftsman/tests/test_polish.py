@@ -86,69 +86,6 @@ class TestRecipeValidationI18n:
 
 
 # ══════════════════════════════════════════════════════════════
-# STOCKING ADAPTER LOGGING
-# ══════════════════════════════════════════════════════════════
-
-
-class TestStockmanAdapterLogging:
-    """Test that _get_product logs errors instead of silencing them."""
-
-    def test_get_product_logs_import_error(self):
-        """ImportError is logged at debug level (catalog not installed)."""
-        from shopman.craftsman.adapters.stock import StockingBackend
-
-        backend = StockingBackend()
-
-        with patch(
-            "shopman.craftsman.adapters.catalog.get_catalog_backend",
-            side_effect=ImportError("No module named 'offering'"),
-        ), patch("shopman.craftsman.adapters.stock.logger") as mock_logger:
-            result = backend._get_product("FARINHA")
-
-        assert result is None
-        # ImportError logged at debug level
-        mock_logger.debug.assert_any_call(
-            "Catalog backend not available for SKU resolution: %s",
-            "FARINHA",
-        )
-
-    def test_get_product_logs_runtime_error(self):
-        """Runtime errors are logged at warning level with traceback."""
-        from shopman.craftsman.adapters.stock import StockingBackend
-
-        backend = StockingBackend()
-
-        mock_catalog = MagicMock()
-        mock_catalog.resolve.side_effect = RuntimeError("Database connection lost")
-
-        with patch(
-            "shopman.craftsman.adapters.catalog.get_catalog_backend",
-            return_value=mock_catalog,
-        ), patch("shopman.craftsman.adapters.stock.logger") as mock_logger:
-            result = backend._get_product("FARINHA")
-
-        assert result is None
-        # Should have logged at warning level with exc_info
-        mock_logger.warning.assert_any_call(
-            "Failed to resolve SKU via catalog backend: %s",
-            "FARINHA",
-            exc_info=True,
-        )
-
-    def test_get_product_with_resolver(self):
-        """Custom product_resolver bypasses catalog backend entirely."""
-        from shopman.craftsman.adapters.stock import StockingBackend
-
-        resolver = MagicMock(return_value="product-object")
-        backend = StockingBackend(product_resolver=resolver)
-
-        result = backend._get_product("FARINHA")
-
-        assert result == "product-object"
-        resolver.assert_called_once_with("FARINHA")
-
-
-# ══════════════════════════════════════════════════════════════
 # PRODUCTION BACKEND EXCEPTION HANDLING
 # ══════════════════════════════════════════════════════════════
 

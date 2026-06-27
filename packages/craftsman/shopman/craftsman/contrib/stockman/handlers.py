@@ -2,11 +2,17 @@
 Stockman Signal Handlers for Craftsman (vNext).
 
 Listens to the single `production_changed` signal and dispatches
-to appropriate Stockman actions:
+to appropriate Stockman actions. This is the *single canonical* craftsman→
+stockman write path for the stock ledger (there is no InventoryProtocol write
+backend — that seam is read-only, for ingredient-availability validation).
 
 - planned: Create planned Quant (future stock) for finished goods
-- finished: No-op here (handled by InventoryProtocol in execution.py)
+- finished: Consume the recipe's ingredients (kind=MAKE) and realize the
+  planned output into the saleable position (kind=MAKE)
 - voided: Cancel planned Quant for the WorkOrder
+
+All output and ingredient moves are emitted with ``Move.Kind.MAKE`` — the two
+legs (ingredients out, finished goods in) of a single production event.
 
 Registered by CraftsmanStockmanConfig.ready().
 """
@@ -40,8 +46,8 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
 
     - planned: Create planned Quant in Stockman (future stock for finished goods)
     - adjusted: Update planned Quant quantity
-    - started: No-op (production already committed inside Craftsman)
-    - finished: No-op (stock receive handled by InventoryProtocol)
+    - started: Split planned vs expected supply
+    - finished: Consume ingredients (MAKE) + realize planned output (MAKE)
     - voided: Cancel (zero out) the planned Quant
     """
     action = kwargs.get("action")
@@ -302,19 +308,78 @@ def _handle_voided(work_order, product_ref, date):
         )
 
 
+def _consume_materials(work_order):
+    """Deduct a finished WorkOrder's ingredients from stock (kind=MAKE).
+
+    Reads the persisted CONSUMPTION ``WorkOrderItem`` rows and issues each
+    ingredient from available stock — the ingredients-out leg of the production
+    (MAKE) event. Greedy across the ingredient's quants, present stock first.
+
+    A shortfall is logged and left non-fatal (consistent with the other
+    handlers; pre-go-live ingredients are not yet first-class — FEFO and strict
+    near-expiry gating land with Buyman/Material, see BUYMAN-PROCUREMENT-PLAN).
+    """
+    from django.db.models import F
+    from shopman.craftsman.models import WorkOrderItem
+    from shopman.stockman.models.move import Move
+    from shopman.stockman.services.movements import StockMovements
+    from shopman.stockman.services.queries import StockQueries
+
+    for item in work_order.items.filter(kind=WorkOrderItem.Kind.CONSUMPTION):
+        remaining = item.quantity
+        if remaining <= 0:
+            continue
+
+        quants = StockQueries.list_quants(item.item_ref, include_empty=False).order_by(
+            F("target_date").asc(nulls_first=True), "pk",
+        )
+        for quant in quants:
+            if remaining <= 0:
+                break
+            take = min(remaining, quant.available)
+            if take <= 0:
+                continue
+            try:
+                StockMovements.issue(
+                    quantity=take,
+                    quant=quant,
+                    reason=f"Consumo de produção: {work_order.ref}",
+                    kind=Move.Kind.MAKE,
+                )
+                remaining -= take
+            except Exception:
+                logger.warning(
+                    "Failed to issue ingredient %s for %s (non-fatal)",
+                    item.item_ref, work_order.ref, exc_info=True,
+                )
+
+        if remaining > 0:
+            logger.warning(
+                "Insufficient stock to consume ingredient %s for %s: short by %s",
+                item.item_ref, work_order.ref, remaining,
+            )
+
+
 def _handle_finished(work_order, product_ref, date):
     """
-    Realize production: transfer planned stock → saleable position.
+    Realize production: consume ingredients, then transfer planned stock →
+    saleable position (both legs kind=MAKE).
 
-    Uses WO.position_ref to find the source (production) position.
-    Moves to the first saleable position (vitrine).
-    Holds are automatically migrated by stock.realize().
+    Ingredients are deducted from stock via _consume_materials. Output uses
+    WO.position_ref to find the source (production) position and moves to the
+    first saleable position (vitrine); holds are migrated by stock.realize().
     """
-    if not work_order or not date:
-        logger.warning(
-            "Cannot realize production: work_order=%s date=%s",
-            work_order,
-            date,
+    if not work_order:
+        logger.warning("Cannot realize production: no work_order provided")
+        return
+
+    # Ingredients-out leg — independent of planned-output target_date.
+    _consume_materials(work_order)
+
+    if not date:
+        logger.info(
+            "WorkOrder %s finished without target_date — no planned output to realize",
+            work_order.ref,
         )
         return
 

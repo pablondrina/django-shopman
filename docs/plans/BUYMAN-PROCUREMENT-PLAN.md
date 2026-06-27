@@ -93,15 +93,31 @@ não dá categoria queryable).
   venda (`fulfill_hold`)→**SELL**; devolução (`receive_return`)→**RETURN**;
   `realize`→MAKE; `cleanup_d1`→WASTE; `transfer`→TRANSFER. Buyman recebimento→BUY
   na Fase 3.
-- 🔴 **Bloqueado: consumo de insumo→MAKE → SESSÃO DEDICADA** (task `task_3e61f507`).
-  Investigação revelou dívida maior: a integração craftsman→stockman tem 2 caminhos —
-  signal `contrib/stockman` (VIVO, só saída) e InventoryProtocol `StockingBackend`
-  (MORTO por typo de import; `_stockman_available` sempre False). **Canônico decidido =
-  signal-path** (precedente: guestman.loyalty, stockman.alerts; InventoryProtocol sem
-  par vivo na suíte). Mas NÃO é delete: os tipos do protocol estão vivos em
-  execution/scheduling/formula/backstage → é **refactor** (rewire + fechar gap do
-  consumo de insumo, que é domínio Buyman/Material). Os bugs do consume (`hold.product`,
-  `qty`/`quantity`) são downstream. Feito em sessão própria; consumo cai em ADJUST até lá.
+- ✅ **Consumo de insumo→MAKE — SESSÃO DEDICADA CONCLUÍDA (2026-06-27)**. A
+  integração craftsman→stockman tinha 2 caminhos de escrita: signal
+  `contrib/stockman` (VIVO, só saída) e InventoryProtocol `StockingBackend`
+  (MORTO por typo de import — `from shopman.stockman.service import stock`
+  lowercase inexistente; `_stockman_available` sempre False → consume/receive/
+  release no-op). Riscos: insumo NUNCA era deduzido + dupla-contagem de saída se
+  o backend fosse "consertado" (receive duplicaria o signal). **Resolvido: signal-
+  path é o único caminho de escrita do ledger.**
+  - `StockingBackend` (write) **deletado**; `execution._call_inventory_on_finish/
+    _on_void` removidos; `CRAFTSMAN["INVENTORY_BACKEND"]` write desconfigurado.
+  - **Consumo de insumo migrado para o signal** (`_handle_finished` →
+    `_consume_materials`): lê os `WorkOrderItem` CONSUMPTION e emite
+    `StockMovements.issue(kind=MAKE)` por insumo (greedy, present-stock-first;
+    shortfall não-fatal — FEFO/near-expiry ficam p/ WP-B6). Saída continua via
+    plan/start/realize (MAKE), recebida **exatamente uma vez** (sem dobra).
+  - `InventoryProtocol` **emagrecido p/ contrato read-only de disponibilidade**
+    (`available()` + `MaterialNeed`/`MaterialStatus`/`AvailabilityResult`); DTOs
+    de escrita órfãos (`MaterialUsed`/`MaterialProduced`/`Consume/Receive/Reserve/
+    ReleaseResult`/`MaterialHold`/`MaterialAdjustment`) removidos. O seam
+    `INVENTORY_BACKEND` permanece **só p/ validação de disponibilidade** (V2
+    shared-ingredients em `scheduling`; `backstage.check_finish_materials`),
+    default None até um backend Buyman implementá-lo (WP-B3).
+  - Teste de integração novo (`test_production_app_integration`): finish deduz
+    insumo (1 Move MAKE -1) e recebe saída 1× (quant vendável = finished).
+    `make test-framework`+`craftsman`+`stockman` verdes (2143/242/219).
 
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
@@ -124,6 +140,18 @@ não dá categoria queryable).
   disponibilidade de venda filtra vencidos (produtos) e que holds de produção
   (insumos) seguem ok (`test_production_stock`). `is_sellable=False` volta a
   significar só "produto pausado".
+- **WP-B5b · Ativar guardrails de disponibilidade de insumo (DORMENTE hoje)** —
+  o seam read-only `INVENTORY_BACKEND` já tem 3 consumidores vivos e testados,
+  porém **dormentes**: `scheduling._validate_shared_ingredients` (gateia
+  `adjust`), `backstage.check_finish_materials` (gateia `apply_finish`),
+  `formula._material_availability` (status na sugestão). Estão desligados porque
+  insumo não tem quant no Stockman hoje — ligar agora **bloquearia adjust/finish**
+  (provado empiricamente 2026-06-27, FARINHA 0.0). Quando WP-B4/B5 derem estoque
+  real ao insumo: implementar um backend read-only `available()` (consulta
+  `stock.available`, + noop p/ teste standalone = 2 impls → conforme ADR-001 §3),
+  apontar `INVENTORY_BACKEND` a ele, e provar com teste que `adjust`/`finish`
+  passam **com** insumo estocado e barram **sem**. Até lá, NÃO ligar o setting
+  (comentário-guarda em `craftsman/conf.py` e nos 3 consumidores).
 - **WP-B6 (encadeia VALIDITY)** — sobre essa base: FEFO de insumos, Batch+expiry
   no finish de produção, near-expiry gate (config). Ver
   [VALIDITY-SHELFLIFE-REVIEW](VALIDITY-SHELFLIFE-REVIEW.md).

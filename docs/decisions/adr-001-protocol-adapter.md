@@ -139,6 +139,20 @@ Em todos os casos há duas ou mais implementações reais (não apenas
 "talvez-no-futuro"). O protocol descreve o contrato do ponto de substituição;
 o adapter é injetado via settings:
 
+> **Signal vs. Protocol/Adapter — o teste decisivo.** Um efeito cross-core
+> que o emissor **anuncia e não aguarda retorno** (consumir estoque ao finalizar
+> produção, notificar, projetar catálogo) é um **signal**, com o handler numa
+> ponte `contrib/<core>/` — nunca um backend. Use Protocol/Adapter só quando o
+> chamador **precisa do retorno síncrono ou sequenciar** a chamada (reservar
+> estoque e saber se deu, capturar pagamento antes de dar baixa, validar
+> disponibilidade antes de planejar). Não crie um backend "para o futuro": se não
+> há implementação real hoje, ele não nasce. Um seam pode existir **dormente**
+> (default `None`, ignorado graciosamente) apenas quando já tem consumidores reais
+> e dono com prazo — ver o caso de disponibilidade de insumo do Craftsman
+> (`INVENTORY_BACKEND`), cuja ativação é entrega rastreada do Buyman (WP-B5b) e
+> **não pode ser ligada antes** de o insumo ter estoque, sob pena de bloquear
+> `adjust`/`finish`.
+
 ```python
 # shopman/shop/protocols.py
 @runtime_checkable

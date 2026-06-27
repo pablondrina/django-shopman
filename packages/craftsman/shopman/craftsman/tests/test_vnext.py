@@ -921,15 +921,20 @@ class TestProtocols:
 
     def test_inventory_dataclasses(self):
         from shopman.craftsman.protocols.inventory import (
+            AvailabilityResult,
             MaterialNeed,
-            MaterialProduced,
+            MaterialStatus,
         )
         mn = MaterialNeed(sku="farinha", quantity=Decimal("10"))
         assert mn.sku == "farinha"
         assert mn.quantity == Decimal("10")
 
-        mp = MaterialProduced(sku="croissant", quantity=Decimal("50"))
-        assert mp.sku == "croissant"
+        status = MaterialStatus(sku="farinha", needed=Decimal("10"), available=Decimal("4"))
+        assert status.sufficient is False
+        assert status.shortage == Decimal("6")
+
+        result = AvailabilityResult(all_available=False, materials=[status])
+        assert result.all_available is False
 
     def test_catalog_dataclasses(self):
         from shopman.craftsman.protocols.catalog import ItemInfo
@@ -959,88 +964,21 @@ class TestProtocols:
 
 
 class TestInventoryWiring:
-    """Test the inventory protocol integration in finish/void."""
+    """Craftsman finish/void run standalone — stock ledger writes are owned by
+    the production_changed signal-path (contrib.stockman), not by craftsman core.
+    """
 
     def test_finish_standalone_mode(self, recipe_with_items):
-        """Without INVENTORY_BACKEND, finish succeeds (standalone)."""
+        """Without a stockman bridge, finish succeeds (standalone)."""
         wo = craft.plan(recipe_with_items, 10)
         craft.finish(wo, finished=9)
         assert wo.status == "finished"
 
     def test_void_standalone_mode(self, recipe_with_items):
-        """Without INVENTORY_BACKEND, void succeeds (standalone)."""
+        """Without a stockman bridge, void succeeds (standalone)."""
         wo = craft.plan(recipe_with_items, 10)
         craft.void(wo, reason="test")
         assert wo.status == "void"
-
-    def test_finish_with_mock_backend(self, recipe_with_items, settings):
-        """With configured backend, finish calls consume + receive."""
-        from unittest.mock import MagicMock, patch
-
-        mock_backend = MagicMock()
-        mock_backend_class = MagicMock(return_value=mock_backend)
-
-        settings.CRAFTSMAN = {
-            "INVENTORY_BACKEND": "test.MockBackend",
-        }
-
-        wo = craft.plan(recipe_with_items, 10)
-
-        with patch(
-            "django.utils.module_loading.import_string",
-            return_value=mock_backend_class,
-        ):
-            craft.finish(wo, finished=9)
-
-        assert wo.status == "finished"
-        assert mock_backend.consume.called
-        assert mock_backend.receive.called
-
-    def test_void_with_mock_backend(self, recipe_with_items, settings):
-        """With configured backend, void calls release."""
-        from unittest.mock import MagicMock, patch
-
-        mock_backend = MagicMock()
-        mock_backend_class = MagicMock(return_value=mock_backend)
-
-        settings.CRAFTSMAN = {
-            "INVENTORY_BACKEND": "test.MockBackend",
-        }
-
-        wo = craft.plan(recipe_with_items, 10)
-
-        with patch(
-            "django.utils.module_loading.import_string",
-            return_value=mock_backend_class,
-        ):
-            craft.void(wo, reason="test")
-
-        assert wo.status == "void"
-        assert mock_backend.release.called
-
-    def test_backend_failure_is_non_fatal(self, recipe_with_items, settings):
-        """If backend raises, finish still succeeds (graceful degradation)."""
-        from unittest.mock import MagicMock, patch
-
-        mock_backend = MagicMock()
-        mock_backend.consume.side_effect = RuntimeError("Stockman down")
-        mock_backend_class = MagicMock(return_value=mock_backend)
-
-        settings.CRAFTSMAN = {
-            "INVENTORY_BACKEND": "test.MockBackend",
-        }
-
-        wo = craft.plan(recipe_with_items, 10)
-
-        with patch(
-            "django.utils.module_loading.import_string",
-            return_value=mock_backend_class,
-        ):
-            # Should NOT raise — graceful degradation
-            craft.finish(wo, finished=9)
-
-        assert wo.status == "finished"
-        assert wo.finished == Decimal("9")
 
 
 # ══════════════════════════════════════════════════════════════

@@ -90,6 +90,15 @@ storefront ──imports──→ shop ←──imports── backstage
 - **Adapters** (`adapters/`): Swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
 - **Rules** (`rules/`): Regras configuráveis via admin com `RuleConfig` no DB. Engine avalia rules ativas por contexto.
 
+### Integração entre apps — signal vs adapter vs directive
+
+Cores nunca se importam. Para causar efeito em outro app, a **interação decide** a ferramenta (lei: [ADR-001](docs/decisions/adr-001-protocol-adapter.md), exemplos: [guia lifecycle](docs/guides/lifecycle.md)):
+
+- **Anunciar evento, sem esperar retorno** (consumir estoque ao finalizar produção, notificar) → **signal**; handler numa ponte `<core>/contrib/<alvo>/` (point-to-point) ou no shop (multi-app). Ex.: `production_changed` → `craftsman/contrib/stockman` escreve o ledger direto (`kind=MAKE`) — único escritor.
+- **Precisar de retorno síncrono / sequenciar** (reservar estoque e saber se deu; capturar pagamento antes da baixa) → **adapter/Protocol** via settings, **só com 2+ impls reais** (nunca "para o futuro").
+- **Comando async confiável** (retry/idempotência) → **Directive** ([ADR-003](docs/decisions/adr-003-directives-sem-celery.md)).
+- ⚠️ Nunca criar backend de **escrita** plugável quando um signal basta (foi a dívida do `InventoryProtocol` morto). Seam dormente só se já tem consumidores reais + dono/prazo (ex.: `INVENTORY_BACKEND` leitura → Buyman WP-B5b; **não ligar** antes de insumo ter estoque, senão `adjust`/`finish` bloqueiam).
+
 ## Convenções Ativas
 
 - **`ref` not `code`**: Identificadores textuais são `ref`. Exceções deliberadas: `Product.sku`, `WorkOrder.code` (código sequencial auto-gerado, ex: `WO-001`).

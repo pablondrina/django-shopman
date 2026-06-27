@@ -1,9 +1,14 @@
 """
-Integration tests for WP-B4: Craftsman ↔ App.
+Integration tests for the Craftsman → Stockman write path.
 
-Tests the full integration loop:
-- CraftService.finish() → InventoryProtocol.consume() → ingredients issued from stock
-- CraftService.finish() → InventoryProtocol.receive() → finished goods received in stock
+The `production_changed` signal handlers (craftsman.contrib.stockman) are the
+single canonical write path: finishing a WorkOrder both *consumes ingredients*
+and *realizes the finished output*, each leg emitted as Move.Kind.MAKE. There is
+no InventoryProtocol write backend (that seam is read-only).
+
+Tests:
+- finish() deducts the recipe's ingredients from stock (kind=MAKE)
+- finish() receives the finished output into the saleable position exactly once
 - CraftService.suggest() via management command
 - production_changed signal → planned quants → hold materialization
 """
@@ -18,33 +23,62 @@ from django.core.management import call_command
 from shopman.craftsman.models import WorkOrder
 from shopman.craftsman.service import CraftService as craft
 from shopman.stockman import stock
-from shopman.stockman.models import Quant
+from shopman.stockman.models import Move, Quant
 
 pytestmark = pytest.mark.django_db
 
 
 CRAFTING_WITH_BACKENDS = {
-    "INVENTORY_BACKEND": "shopman.craftsman.adapters.stock.StockingBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OffermanCatalogBackend",
 }
 
 
 # =============================================================================
-# CraftService.finish() → Inventory Protocol
+# CraftService.finish() → Stockman ledger (signal-path, kind=MAKE)
 # =============================================================================
 
 
-class TestFinishWorkOrderInventoryIntegration:
-    """CraftService.finish() should interact with stock via InventoryProtocol."""
+class TestFinishWorkOrderStockIntegration:
+    """finish() consumes ingredients and receives output via the signal-path."""
 
-    def test_finish_work_order_issues_ingredients(
-        self, settings, recipe, ingredient, croissant,
+    def test_finish_consumes_ingredients_as_make(
+        self, recipe, ingredient, croissant,
         position_producao, position_loja, today,
     ):
-        settings.CRAFTING = CRAFTING_WITH_BACKENDS
+        """Finishing a WO deducts its ingredients from stock (Move.Kind.MAKE)."""
+        # Ingredient stock on hand.
+        ingredient_quant = stock.receive(
+            quantity=Decimal("10"),
+            sku=ingredient.sku,
+            position=position_producao,
+            target_date=today,
+            reason="Ingredient stock",
+        )
+        assert stock.available(
+            ingredient, target_date=today, position=position_producao,
+        ) == Decimal("10")
 
-        # Add ingredient stock
+        # batch_size=10, 0.5kg flour/batch → qty 20 ⇒ coefficient 2 ⇒ 1kg consumed.
+        wo = craft.plan(recipe, quantity=Decimal("20"), date=today)
+        craft.finish(wo, finished=18, actor="test")
+
+        assert wo.status == WorkOrder.Status.FINISHED
+
+        # Ingredient was deducted, exactly once, as a MAKE move.
+        ingredient_quant.refresh_from_db()
+        assert ingredient_quant.quantity == Decimal("9")
+        make_issues = Move.objects.filter(
+            quant=ingredient_quant, kind=Move.Kind.MAKE, delta__lt=0,
+        )
+        assert make_issues.count() == 1
+        assert make_issues.first().delta == Decimal("-1")
+
+    def test_finish_receives_output_exactly_once(
+        self, recipe, ingredient, croissant,
+        position_producao, position_loja, today,
+    ):
+        """Finished output lands in the saleable position once (no double-count)."""
         stock.receive(
             quantity=Decimal("10"),
             sku=ingredient.sku,
@@ -53,29 +87,22 @@ class TestFinishWorkOrderInventoryIntegration:
             reason="Ingredient stock",
         )
 
-        initial_ingredient = stock.available(
-            ingredient, target_date=today, position=position_producao,
-        )
-        assert initial_ingredient == Decimal("10")
-
-        # Plan and finish work order via CraftService
         wo = craft.plan(recipe, quantity=Decimal("20"), date=today)
         craft.finish(wo, finished=18, actor="test")
 
-        # The InventoryProtocol.consume + receive should have been called
         assert wo.status == WorkOrder.Status.FINISHED
-        assert wo.finished == Decimal("18")
 
-    def test_finish_work_order_receives_finished_product(
-        self, settings, recipe, croissant, position_loja, today,
-    ):
-        settings.CRAFTING = CRAFTING_WITH_BACKENDS
+        # Exactly the finished quantity is saleable — not double-received.
+        saleable = Quant.objects.get(
+            sku=croissant.sku, position=position_loja, target_date=None, batch="",
+        )
+        assert saleable.quantity == Decimal("18")
 
-        wo = craft.plan(recipe, quantity=Decimal("10"), date=today)
-        craft.finish(wo, finished=9, actor="test")
-
-        assert wo.status == WorkOrder.Status.FINISHED
-        assert wo.finished == Decimal("9")
+        # The only positive moves on the saleable quant are the single realize leg.
+        positive_moves = Move.objects.filter(quant=saleable, delta__gt=0)
+        assert positive_moves.count() == 1
+        assert positive_moves.first().delta == Decimal("18")
+        assert positive_moves.first().kind == Move.Kind.MAKE
 
 
 # =============================================================================

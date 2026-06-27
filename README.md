@@ -126,6 +126,13 @@ O framework conecta os core apps para cenários de negócio concretos:
 - **Adapters:** Integrações externas swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
 - **Directive handlers:** Processamento assíncrono pós-commit (stock.hold, notification.send, payment.capture).
 
+**Como os apps conversam (3 ferramentas, a interação decide):** cores nunca se importam.
+*Anunciar evento sem esperar retorno* → **signal** (handler em `<core>/contrib/<alvo>/` ou no shop);
+*precisar de retorno síncrono / sequenciar* → **adapter/Protocol** (settings, só com 2+ impls reais);
+*comando async confiável* → **Directive**. Detalhe e exemplos no
+[guia de lifecycle](docs/guides/lifecycle.md#integração-entre-apps--qual-mecanismo-usar) e na
+[ADR-001](docs/decisions/adr-001-protocol-adapter.md).
+
 ## Features
 
 - **Storefront mobile-first** — HTMX + Alpine.js, PWA-ready

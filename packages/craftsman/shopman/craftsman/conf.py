@@ -5,13 +5,24 @@ Supports two formats (dict takes priority):
 
     # Option 1: Dict
     CRAFTSMAN = {
-        "INVENTORY_BACKEND": "shopman.craftsman.adapters.stock.StockingBackend",
+        "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     }
 
     # Option 2: Flat
-    CRAFTSMAN_INVENTORY_BACKEND = "shopman.craftsman.adapters.stock.StockingBackend"
+    CRAFTSMAN_DEMAND_BACKEND = "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend"
 
 All settings have sensible defaults — zero configuration required.
+
+INVENTORY_BACKEND is a read-only seam for ingredient-availability guardrails
+(over-plan on adjust, missing-on-finish, shortage status on suggestions). Stock
+ledger writes are NOT done through it — they flow through the production_changed
+signal handlers in contrib.stockman. Default None: the guardrails stay dormant.
+
+⚠️  DO NOT wire INVENTORY_BACKEND until ingredient stock is first-class (Buyman
+    WP-B5, docs/plans/BUYMAN-PROCUREMENT-PLAN.md). Today ingredients carry no
+    Stockman quants, so any real available() returns 0 and would BLOCK adjust()
+    and finish() across the board. Activating these guardrails is a tracked
+    Buyman deliverable, not a drop-in setting.
 """
 
 from decimal import Decimal

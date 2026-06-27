@@ -634,7 +634,11 @@ OFFERMAN = {
 # ── Craftsman (micro-MRP integration) ──────────────────────────────
 
 CRAFTSMAN = {
-    "INVENTORY_BACKEND": "shopman.craftsman.adapters.stock.StockingBackend",
+    # Stock ledger writes (consume ingredients + receive output) flow through the
+    # `production_changed` signal handlers in craftsman.contrib.stockman — the
+    # single canonical write path. INVENTORY_BACKEND is intentionally unset: it is
+    # a read-only seam for ingredient-availability validation, to be implemented
+    # by Buyman/Material (see docs/plans/BUYMAN-PROCUREMENT-PLAN.md).
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OffermanCatalogBackend",
 }

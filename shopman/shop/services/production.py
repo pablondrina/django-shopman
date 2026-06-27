@@ -1,8 +1,9 @@
 """
 Production service — coordenação em torno do WorkOrder (WP-S5).
 
-Reserva de insumos e movimentação física de estoque são integradas ao Core via
-`production_changed` → contrib/stockman e InventoryProtocol no `craft.finish()`.
+Movimentação física de estoque (consumo de insumos + entrada do acabado) é
+integrada ao Core via `production_changed` → contrib/stockman (caminho de escrita
+único e canônico).
 
 Este módulo é o gancho explícito do orquestrador: logging estruturado e pontos
 únicos para evoluir (alertas ao operador, integrações externas).
@@ -54,8 +55,8 @@ def reserve_materials(work_order) -> None:
 def emit_goods(work_order) -> None:
     """Ponto de coordenação ao encerrar produção com saída real.
 
-    Consumo de insumos e entrada do acabado ocorrem no `craft.finish()` via
-    InventoryProtocol quando configurado.
+    Consumo de insumos e entrada do acabado ocorrem via signal
+    `production_changed` → contrib/stockman (caminho de escrita único).
     """
     logger.info(
         "production.emit_goods: wo=%s finished=%s ref=%s",

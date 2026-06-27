@@ -35,6 +35,36 @@ shopman/
 
 ---
 
+## Integração entre apps — qual mecanismo usar
+
+Os cores (`packages/`) **não se importam**. Quando um app precisa causar efeito em
+outro, há exatamente três ferramentas, e a escolha **não é gosto** — é o tipo de
+interação que decide. Resumo (lei completa em [ADR-001](../decisions/adr-001-protocol-adapter.md)):
+
+| Você precisa de… | Ferramenta | Onde mora o handler/impl |
+|---|---|---|
+| **Anunciar um evento** e não esperar retorno (consumir estoque ao finalizar produção, notificar, projetar catálogo) | **Signal** (`django.dispatch`) | Ponte opt-in `<emissor>/contrib/<alvo>/handlers.py` (point-to-point) **ou** o orquestrador `shopman/shop/` (processo multi-app) |
+| **Resposta síncrona ou sequência** (reservar estoque e saber se deu; capturar pagamento *antes* de dar baixa; validar disponibilidade antes de planejar) | **Adapter/Protocol** (settings-wired) | `<core>/adapters/` ou `shopman/shop/adapters/` — só com **2+ impls reais**, nunca "para o futuro" |
+| **Comando assíncrono confiável** (com retry/idempotência: notificação, NF-e) | **Directive** (fila do Orderman) | handler em `shopman/shop/handlers/` ([ADR-003](../decisions/adr-003-directives-sem-celery.md)) |
+
+**Exemplos concretos:**
+- **Pedido → estoque**: `order_changed` (signal) dispara `lifecycle.dispatch`, que chama
+  `services.stock.hold/fulfill/release` via `get_adapter("stock")` — porque o orquestrador
+  **precisa** do retorno e **sequencia** (só dá baixa depois do pagamento). É processo
+  multi-app → mora no shop, via adapter.
+- **Produção → estoque**: `production_changed` (signal) → `craftsman/contrib/stockman/handlers.py`
+  escreve o ledger **direto** (`StockMovements`/`StockPlanning`, `kind=MAKE`). Efeito
+  intrínseco 1:1 sem retorno → ponte `contrib`, sem adapter (o módulo *é* a ligação Stockman).
+  **Esse é o único escritor do ledger de produção** — não há backend paralelo.
+
+⚠️ **Anti-padrão (já cometido e removido):** criar um *backend de escrita* plugável quando
+um signal basta. O craftsman tinha um `InventoryProtocol` de escrita (consume/receive) morto
+e redundante com o signal-path → foi eliminado. Sobrou só o lado **leitura** de disponibilidade
+(`INVENTORY_BACKEND`), **dormente** e com ativação rastreada (Buyman WP-B5b) — **não ligue**
+antes de o insumo ter estoque, ou `adjust`/`finish` bloqueiam.
+
+---
+
 ## Lifecycle — Dispatch Config-Driven
 
 O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem classes de lifecycle ou herança Python. `dispatch()` lê o config e chama os services corretos para cada fase.

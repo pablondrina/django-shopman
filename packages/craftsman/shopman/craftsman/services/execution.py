@@ -290,8 +290,9 @@ class CraftExecution:
                 idempotency_key=idempotency_key,
             )
 
-            cls._call_inventory_on_finish(order, requirements, finished_decimal)
-
+        # Stock ledger (consume insumos + receive output) is realized by the
+        # `production_changed` signal handlers in contrib/stockman — the single
+        # canonical craftsman→stockman write path. See _handle_finished.
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_sku,
@@ -335,9 +336,8 @@ class CraftExecution:
                 actor=actor or "",
             )
 
-            # InventoryProtocol.release (stub — Phase D)
-            cls._call_inventory_on_void(order)
-
+        # Voiding planned/started production cancels its planned/started quants
+        # via the `production_changed` (action=voided) signal handler.
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_sku,
@@ -348,82 +348,3 @@ class CraftExecution:
 
         logger.info("WorkOrder %s voided: %s", order.ref, reason)
         return order
-
-    @classmethod
-    def _call_inventory_on_finish(cls, order, requirements, produced_decimal):
-        """
-        Call InventoryProtocol.consume + receive if configured.
-
-        In MODE=graceful (default): logs warning on failure, does not raise.
-        In MODE=strict: re-raises the exception, aborting the operation.
-        """
-        from shopman.craftsman.conf import get_setting
-
-        backend_path = get_setting("INVENTORY_BACKEND")
-        if not backend_path:
-            return  # standalone mode
-
-        try:
-            from django.utils.module_loading import import_string
-            from shopman.craftsman.protocols.inventory import MaterialProduced, MaterialUsed
-
-            backend = import_string(backend_path)()
-
-            consumed = [
-                MaterialUsed(sku=r["item_ref"], quantity=r["quantity"])
-                for r in requirements
-            ]
-            backend.consume(consumed, ref=order.ref)
-
-            backend.receive(
-                [MaterialProduced(sku=order.output_sku, quantity=produced_decimal)],
-                ref=order.ref,
-            )
-
-        except Exception as e:
-            mode = get_setting("MODE")
-            if mode == "strict":
-                from shopman.craftsman.exceptions import CraftError
-                raise CraftError(
-                    code="inventory_backend_failed",
-                    message=f"InventoryProtocol.finish failed for {order.ref}: {e}",
-                    context={"order_ref": order.ref, "original_error": str(e)},
-                ) from e
-            logger.warning(
-                "InventoryProtocol.finish failed for %s: %s (non-fatal)",
-                order.ref, e, exc_info=True,
-            )
-
-    @classmethod
-    def _call_inventory_on_void(cls, order):
-        """
-        Call InventoryProtocol.release if configured.
-
-        In MODE=graceful (default): logs warning on failure, does not raise.
-        In MODE=strict: re-raises the exception, aborting the operation.
-        """
-        from shopman.craftsman.conf import get_setting
-
-        backend_path = get_setting("INVENTORY_BACKEND")
-        if not backend_path:
-            return  # standalone mode
-
-        try:
-            from django.utils.module_loading import import_string
-
-            backend = import_string(backend_path)()
-            backend.release(ref=order.ref)
-
-        except Exception as e:
-            mode = get_setting("MODE")
-            if mode == "strict":
-                from shopman.craftsman.exceptions import CraftError
-                raise CraftError(
-                    code="inventory_backend_failed",
-                    message=f"InventoryProtocol.release failed for {order.ref}: {e}",
-                    context={"order_ref": order.ref, "original_error": str(e)},
-                ) from e
-            logger.warning(
-                "InventoryProtocol.release failed for %s: %s (non-fatal)",
-                order.ref, e, exc_info=True,
-            )
