@@ -82,9 +82,10 @@ Ledger categorizado por evento econômico: **MAKE/BUY/SELL/ADJUST/TRANSFER/RETUR
 WASTE** (decisão Pablo; WASTE adicionado após a provocação sobre planning). Mudança
 aditiva no Core (Stockman) — justificada (kind é propriedade do Move; reason-string
 não dá categoria queryable).
-- ✅ **Infra + correções (commits `7d24784b`, `42750716`)**: `Move.Kind` (7 kinds)
-  + campo + índice; `receive`/`issue`/`realize` aceitam `kind`; migrações
-  0003/0004(backfill)/0005(WASTE); testes; stockman 233 verde.
+- ✅ **Infra + correções (commits `7d24784b`, `42750716`, `d647b7a8`)**: `Move.Kind`
+  (7 kinds) + campo + índice; `receive`/`issue`/`realize`/`transfer`/`fulfill` aceitam
+  `kind`; **UMA migração limpa (0003, 7 kinds) — backfill REMOVIDO** (dados fake/seed,
+  pré-go-live, sem legado; backfill era bridge provisório); testes; stockman 219 verde.
 - ✅ **Wiring inequívoco**: `planning.realize`→**MAKE** (era erro chamar de
   TRANSFER); `cleanup_d1`→**WASTE** (descarte de D-1 vencido). **TRANSFER fica
   reservado** (sem caller real hoje).
@@ -92,10 +93,15 @@ não dá categoria queryable).
   venda (`fulfill_hold`)→**SELL**; devolução (`receive_return`)→**RETURN**;
   `realize`→MAKE; `cleanup_d1`→WASTE; `transfer`→TRANSFER. Buyman recebimento→BUY
   na Fase 3.
-- 🔴 **Bloqueado: consumo de insumo (`StockingBackend.consume`)→MAKE** — o método
-  tem 2 bugs pré-existentes (`hold.product` inexistente + `qty` vs `quantity`) e é
-  sem teste. Flaggado em task dedicada (fora do escopo do kind). Até corrigir, o
-  consumo (se alcançado) cai em ADJUST.
+- 🔴 **Bloqueado: consumo de insumo→MAKE → SESSÃO DEDICADA** (task `task_3e61f507`).
+  Investigação revelou dívida maior: a integração craftsman→stockman tem 2 caminhos —
+  signal `contrib/stockman` (VIVO, só saída) e InventoryProtocol `StockingBackend`
+  (MORTO por typo de import; `_stockman_available` sempre False). **Canônico decidido =
+  signal-path** (precedente: guestman.loyalty, stockman.alerts; InventoryProtocol sem
+  par vivo na suíte). Mas NÃO é delete: os tipos do protocol estão vivos em
+  execution/scheduling/formula/backstage → é **refactor** (rewire + fechar gap do
+  consumo de insumo, que é domínio Buyman/Material). Os bugs do consume (`hold.product`,
+  `qty`/`quantity`) são downstream. Feito em sessão própria; consumo cai em ADJUST até lá.
 
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
