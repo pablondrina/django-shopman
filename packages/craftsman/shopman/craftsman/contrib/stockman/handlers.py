@@ -110,6 +110,7 @@ def _handle_planned(work_order, product_ref, date):
             position=position,
             target_date=date,
             reason=f"Produção planejada: {work_order.ref}",
+            kind="make",  # Move.Kind.MAKE — produção (saída produzida)
         )
         logger.info(
             "Planned quant created: sku=%s qty=%s target_date=%s position=%s ref=%s",
@@ -155,6 +156,7 @@ def _handle_adjusted(work_order, product_ref, date):
                 target_date=date,
                 reference=work_order.ref,
                 reason=f"Produção planejada (ajuste): {work_order.ref}",
+                kind="make",  # Move.Kind.MAKE
             )
         else:
             StockMovements.adjust(
@@ -219,6 +221,7 @@ def _handle_started(work_order, product_ref, date):
             target_date=date,
             batch=STARTED_BATCH,
             reason=f"Produção iniciada: {work_order.ref}",
+            kind="make",  # Move.Kind.MAKE
         )
         logger.info(
             "Started supply materialized: sku=%s started=%s target_date=%s position=%s ref=%s",
