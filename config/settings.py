@@ -639,10 +639,21 @@ CRAFTSMAN = {
 }
 
 STOCKMAN = {
+    # NOTE: default stays Noop. Wiring the Offerman validator globally is NOT a
+    # safe drop-in: it reports the real is_sellable/shelf_life of every SKU, and
+    # ingredients are non-sellable Products → availability would treat them as
+    # "paused" and reject production holds (see test_production_stock). Turning
+    # shelf-life ON in prod needs a proper design (sellable-availability vs
+    # production holds) — tracked as the real "shelf life parcialmente ligado"
+    # debt. The lot-consistency check (Batch.clean) below activates whenever a
+    # real validator IS configured (e.g. STOCKMAN_SKU_VALIDATOR env).
     "SKU_VALIDATOR": os.environ.get(
         "STOCKMAN_SKU_VALIDATOR",
         "shopman.stockman.adapters.noop.NoopSkuValidator",
     ),
+    # When on, a lot whose expiry exceeds the product's shelf_life window is
+    # rejected at save; off (default) surfaces it as a non-blocking admin warning.
+    "STRICT_SHELF_LIFE_WINDOW": _env_bool("STOCKMAN_STRICT_SHELF_LIFE_WINDOW", False),
 }
 
 # Cooldown between repeated stock alerts for the same SKU (minutes).

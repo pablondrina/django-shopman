@@ -109,6 +109,25 @@ class Batch(models.Model):
             models.Index(fields=['expiry_date'], name='stocking_ba_expiry_idx'),
         ]
 
+    def clean(self) -> None:
+        """Validate the lot's dates against the product's shelf life.
+
+        Impossible dates (expiry before production) always block. A lot that
+        claims a longer life than the product's ``shelf_life_days`` only blocks
+        when ``STOCKMAN['STRICT_SHELF_LIFE_WINDOW']`` is on — otherwise it's a
+        non-blocking warning surfaced by the admin (BatchAdmin.save_model).
+        Runs on ``full_clean()`` (admin forms); direct ``.save()`` (seed) skips it.
+        """
+        from django.conf import settings
+        from django.core.exceptions import ValidationError
+        from shopman.stockman.shelflife import batch_window_check
+
+        error, warning = batch_window_check(self.sku, self.production_date, self.expiry_date)
+        if error:
+            raise ValidationError({"expiry_date": error})
+        if warning and bool((getattr(settings, "STOCKMAN", {}) or {}).get("STRICT_SHELF_LIFE_WINDOW", False)):
+            raise ValidationError({"expiry_date": warning})
+
     @property
     def is_expired(self) -> bool:
         """Is this batch past its expiry date?"""

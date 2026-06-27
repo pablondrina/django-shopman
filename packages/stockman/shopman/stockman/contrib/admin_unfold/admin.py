@@ -482,6 +482,17 @@ class BatchAdmin(BaseModelAdmin):
     compressed_fields = True
     warn_unsaved_form = True
 
+    def save_model(self, request, obj, form, change):
+        """Surface a non-blocking shelf-life warning (lot exceeds the product's
+        window). Impossible dates are already blocked by Batch.clean()."""
+        super().save_model(request, obj, form, change)
+        from django.contrib import messages
+        from shopman.stockman.shelflife import batch_window_check
+
+        _, warning = batch_window_check(obj.sku, obj.production_date, obj.expiry_date)
+        if warning:
+            self.message_user(request, warning, level=messages.WARNING)
+
     @display(description=_('Produção'))
     def production_date_display(self, obj):
         return _format_date(obj.production_date)

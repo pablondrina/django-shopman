@@ -72,3 +72,47 @@ def filter_valid_quants(quants, product, target_date: date):
     return quants.filter(
         Q(target_date__isnull=True) | Q(target_date__lte=target_date)
     )
+
+
+# ── Lot consistency (Batch.expiry_date × Product.shelf_life_days) ────────────
+
+
+def shelf_life_days_for(sku: str) -> int | None:
+    """Resolve a SKU's ``shelf_life_days`` via the injected SkuValidator.
+
+    Uses the same dependency-injection seam as availability (no Offerman import —
+    Core packages stay independent). ``None`` = non-perishable or unknown.
+    """
+    from shopman.stockman.adapters.sku_validation import get_sku_validator
+
+    info = get_sku_validator().get_sku_info(sku)
+    return getattr(info, "shelflife_days", None) if info is not None else None
+
+
+def batch_window_check(sku: str, production_date, expiry_date) -> tuple[str | None, str | None]:
+    """Check a lot's dates against the product's shelf life.
+
+    Returns ``(error, warning)``:
+
+    - ``error`` — an impossible date (expiry before production). Always blocks.
+    - ``warning`` — the lot claims a longer life than ``shelf_life_days`` allows.
+      Surfaced as a non-blocking warning by default; escalated to an error only
+      when ``STOCKMAN['STRICT_SHELF_LIFE_WINDOW']`` is on.
+
+    No-op when either date is missing or the product is non-perishable
+    (``shelf_life_days is None``).
+    """
+    if not production_date or not expiry_date:
+        return None, None
+    if expiry_date < production_date:
+        return "Validade não pode ser anterior à data de produção.", None
+    shelf = shelf_life_days_for(sku)
+    if shelf is None:
+        return None, None
+    max_expiry = production_date + timedelta(days=shelf)
+    if expiry_date > max_expiry:
+        return None, (
+            f"Validade {expiry_date:%d/%m/%Y} excede a janela do produto "
+            f"(produção + {shelf}d = {max_expiry:%d/%m/%Y})."
+        )
+    return None, None
