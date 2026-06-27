@@ -1597,11 +1597,11 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-LEVAIN-CLARA",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T65", Decimal("5.000")),
-                    ("INS-AGUA", Decimal("3.500")),
-                    ("INS-FERMENTO-NAT", Decimal("1.500")),
-                    ("INS-SAL", Decimal("0.100")),
-                    ("INS-MALTE", Decimal("0.020")),
+                    ("FARINHA-T65", Decimal("5.000")),
+                    ("AGUA", Decimal("3.500")),
+                    ("FERMENTO-NAT", Decimal("1.500")),
+                    ("SAL", Decimal("0.100")),
+                    ("MALTE", Decimal("0.020")),
                 ],
             },
             {
@@ -1610,12 +1610,12 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-CAMPAGNE",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T65", Decimal("2.500")),
-                    ("INS-FARINHA-INT", Decimal("2.500")),
-                    ("INS-CENTEIO", Decimal("0.600")),
-                    ("INS-AGUA", Decimal("3.500")),
-                    ("INS-FERMENTO-NAT", Decimal("1.500")),
-                    ("INS-SAL", Decimal("0.100")),
+                    ("FARINHA-T65", Decimal("2.500")),
+                    ("FARINHA-INT", Decimal("2.500")),
+                    ("CENTEIO", Decimal("0.600")),
+                    ("AGUA", Decimal("3.500")),
+                    ("FERMENTO-NAT", Decimal("1.500")),
+                    ("SAL", Decimal("0.100")),
                 ],
             },
             {
@@ -1624,11 +1624,11 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-ALTA-HIDRATACAO",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T55", Decimal("5.000")),
-                    ("INS-AGUA", Decimal("4.000")),
-                    ("INS-FERMENTO-NAT", Decimal("1.500")),
-                    ("INS-AZEITE", Decimal("0.250")),
-                    ("INS-SAL", Decimal("0.100")),
+                    ("FARINHA-T55", Decimal("5.000")),
+                    ("AGUA", Decimal("4.000")),
+                    ("FERMENTO-NAT", Decimal("1.500")),
+                    ("AZEITE", Decimal("0.250")),
+                    ("SAL", Decimal("0.100")),
                 ],
             },
             {
@@ -1637,12 +1637,12 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-PAES-MACIOS",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T55", Decimal("5.000")),
-                    ("INS-LEITE", Decimal("2.000")),
-                    ("INS-MANTEIGA-FR", Decimal("0.700")),
-                    ("INS-ACUCAR", Decimal("0.350")),
-                    ("INS-FERMENTO-BIO", Decimal("0.150")),
-                    ("INS-SAL", Decimal("0.100")),
+                    ("FARINHA-T55", Decimal("5.000")),
+                    ("LEITE", Decimal("2.000")),
+                    ("MANTEIGA-FR", Decimal("0.700")),
+                    ("ACUCAR", Decimal("0.350")),
+                    ("FERMENTO-BIO", Decimal("0.150")),
+                    ("SAL", Decimal("0.100")),
                 ],
             },
             {
@@ -1651,13 +1651,13 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-FOLHADA",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T45", Decimal("4.800")),
-                    ("INS-MANTEIGA-FR", Decimal("2.400")),
-                    ("INS-LEITE", Decimal("1.200")),
-                    ("INS-ACUCAR", Decimal("0.450")),
-                    ("INS-FERMENTO-BIO", Decimal("0.180")),
-                    ("INS-SAL", Decimal("0.090")),
-                    ("INS-OVOS", Decimal("0.300")),
+                    ("FARINHA-T45", Decimal("4.800")),
+                    ("MANTEIGA-FR", Decimal("2.400")),
+                    ("LEITE", Decimal("1.200")),
+                    ("ACUCAR", Decimal("0.450")),
+                    ("FERMENTO-BIO", Decimal("0.180")),
+                    ("SAL", Decimal("0.090")),
+                    ("OVOS", Decimal("0.300")),
                 ],
             },
             {
@@ -1666,12 +1666,12 @@ class Command(BaseCommand):
                 "output_sku": "MASSA-BRIOCHE",
                 "batch_size": Decimal("10"),
                 "items": [
-                    ("INS-FARINHA-T45", Decimal("4.000")),
-                    ("INS-MANTEIGA-FR", Decimal("2.000")),
-                    ("INS-OVOS", Decimal("1.200")),
-                    ("INS-ACUCAR", Decimal("0.600")),
-                    ("INS-FERMENTO-BIO", Decimal("0.160")),
-                    ("INS-SAL", Decimal("0.080")),
+                    ("FARINHA-T45", Decimal("4.000")),
+                    ("MANTEIGA-FR", Decimal("2.000")),
+                    ("OVOS", Decimal("1.200")),
+                    ("ACUCAR", Decimal("0.600")),
+                    ("FERMENTO-BIO", Decimal("0.160")),
+                    ("SAL", Decimal("0.080")),
                 ],
             },
             {
@@ -1708,7 +1708,7 @@ class Command(BaseCommand):
                 "batch_size": Decimal("18"),
                 "items": [
                     ("MASSA-LEVAIN-CLARA", Decimal("7.500")),
-                    ("INS-AZEITE", Decimal("0.100")),
+                    ("AZEITE", Decimal("0.100")),
                 ],
             },
             {
@@ -1727,7 +1727,7 @@ class Command(BaseCommand):
                 "batch_size": Decimal("8"),
                 "items": [
                     ("MASSA-ALTA-HIDRATACAO", Decimal("5.200")),
-                    ("INS-ALECRIM", Decimal("0.030")),
+                    ("ALECRIM", Decimal("0.030")),
                 ],
             },
             {
@@ -1736,8 +1736,8 @@ class Command(BaseCommand):
                 "output_sku": "FOCACCIA-CEBOLA",
                 "batch_size": Decimal("6"),
                 "items": [
-                    ("INS-CEBOLA-ROXA", Decimal("0.400")),
-                    ("INS-AZEITONA", Decimal("0.200")),
+                    ("CEBOLA-ROXA", Decimal("0.400")),
+                    ("AZEITONA", Decimal("0.200")),
                     ("MASSA-ALTA-HIDRATACAO", Decimal("5.200")),
                 ],
             },
@@ -1757,9 +1757,9 @@ class Command(BaseCommand):
                 "batch_size": Decimal("8"),
                 "items": [
                     ("MASSA-PAES-MACIOS", Decimal("4.600")),
-                    ("INS-OVOS", Decimal("0.600")),
-                    ("INS-AZEITE", Decimal("0.200")),
-                    ("INS-GERGELIM", Decimal("0.050")),
+                    ("OVOS", Decimal("0.600")),
+                    ("AZEITE", Decimal("0.200")),
+                    ("GERGELIM", Decimal("0.050")),
                 ],
             },
             {
@@ -1778,7 +1778,7 @@ class Command(BaseCommand):
                 "batch_size": Decimal("36"),
                 "items": [
                     ("MASSA-FOLHADA", Decimal("6.500")),
-                    ("INS-CHOCOLATE-70", Decimal("0.720")),
+                    ("CHOCOLATE-70", Decimal("0.720")),
                 ],
             },
             {
@@ -1797,9 +1797,9 @@ class Command(BaseCommand):
                 "batch_size": Decimal("12"),
                 "items": [
                     ("MASSA-FOLHADA", Decimal("4.600")),
-                    ("INS-MACA", Decimal("0.600")),
-                    ("INS-ACUCAR", Decimal("0.200")),
-                    ("INS-CANELA", Decimal("0.010")),
+                    ("MACA", Decimal("0.600")),
+                    ("ACUCAR", Decimal("0.200")),
+                    ("CANELA", Decimal("0.010")),
                 ],
             },
             {
@@ -1808,11 +1808,11 @@ class Command(BaseCommand):
                 "output_sku": "MADELEINE",
                 "batch_size": Decimal("24"),
                 "items": [
-                    ("INS-FARINHA-T45", Decimal("0.500")),
-                    ("INS-MANTEIGA-FR", Decimal("0.500")),
-                    ("INS-OVOS", Decimal("0.400")),
-                    ("INS-ACUCAR", Decimal("0.300")),
-                    ("INS-LIMAO", Decimal("0.020")),
+                    ("FARINHA-T45", Decimal("0.500")),
+                    ("MANTEIGA-FR", Decimal("0.500")),
+                    ("OVOS", Decimal("0.400")),
+                    ("ACUCAR", Decimal("0.300")),
+                    ("LIMAO", Decimal("0.020")),
                 ],
             },
         ]
@@ -1824,30 +1824,61 @@ class Command(BaseCommand):
         #   alérgenos = união; vegano só se TODOS vegan; "sem X" se NENHUM tem X.
         # Ref: TACO / USDA simplificado — valores didáticos.
         INGREDIENT_PROFILES = {
-            "INS-FARINHA-T65":  {"label": "Farinha de trigo T65",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-T55":  {"label": "Farinha de trigo T55",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-T45":  {"label": "Farinha de trigo T45",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
-            "INS-FARINHA-INT":  {"label": "Farinha de trigo integral", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 340, "carbohydrates_g": 72, "sugars_g": 0.4, "proteins_g": 13, "total_fat_g": 2.5, "saturated_fat_g": 0.4, "trans_fat_g": 0, "fiber_g": 10.7, "sodium_mg": 2}},
-            "INS-CENTEIO":      {"label": "Farinha de centeio",     "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 338, "carbohydrates_g": 76, "sugars_g": 1.0, "proteins_g": 10, "total_fat_g": 1.7, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 15.0, "sodium_mg": 2}},
-            "INS-AGUA":         {"label": "Água",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 0}},
-            "INS-FERMENTO-NAT": {"label": "Fermento natural (levain)", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 220, "carbohydrates_g": 45, "sugars_g": 0.5, "proteins_g": 7,  "total_fat_g": 0.5, "saturated_fat_g": 0.1, "trans_fat_g": 0, "fiber_g": 1.8,  "sodium_mg": 5}},
-            "INS-FERMENTO-BIO": {"label": "Fermento biológico",     "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 105, "carbohydrates_g": 12, "sugars_g": 0,   "proteins_g": 13, "total_fat_g": 1.5, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 8.1,  "sodium_mg": 30}},
-            "INS-SAL":          {"label": "Sal marinho",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 38758}},
-            "INS-ACUCAR":       {"label": "Açúcar",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 387, "carbohydrates_g": 100, "sugars_g": 100, "proteins_g": 0, "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 1}},
-            "INS-MANTEIGA-FR":  {"label": "Manteiga francesa",      "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 717, "carbohydrates_g": 0.1, "sugars_g": 0.1, "proteins_g": 0.9, "total_fat_g": 81, "saturated_fat_g": 51,  "trans_fat_g": 3.3, "fiber_g": 0,  "sodium_mg": 11}},
-            "INS-LEITE":        {"label": "Leite integral",         "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 61,  "carbohydrates_g": 4.8, "sugars_g": 4.8, "proteins_g": 3.2, "total_fat_g": 3.3, "saturated_fat_g": 1.9, "trans_fat_g": 0.1, "fiber_g": 0,  "sodium_mg": 40}},
-            "INS-OVOS":         {"label": "Ovos",                   "allergens": ["ovos"], "diet": "vegetarian", "nutrition": {"energy_kcal": 155, "carbohydrates_g": 1.1, "sugars_g": 1.1, "proteins_g": 13,  "total_fat_g": 11,  "saturated_fat_g": 3.3, "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 124}},
-            "INS-AZEITE":       {"label": "Azeite extra virgem",    "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 884, "carbohydrates_g": 0,   "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 100, "saturated_fat_g": 14,  "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 2}},
-            "INS-MALTE":        {"label": "Malte",                  "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 360, "carbohydrates_g": 78, "sugars_g": 60,  "proteins_g": 10, "total_fat_g": 1.8, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 7,  "sodium_mg": 23}},
-            "INS-CHOCOLATE-70": {"label": "Chocolate amargo 70%",   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 598, "carbohydrates_g": 46, "sugars_g": 24,  "proteins_g": 7.8, "total_fat_g": 43, "saturated_fat_g": 24,  "trans_fat_g": 0,   "fiber_g": 11, "sodium_mg": 20}},
-            "INS-CEBOLA-ROXA":  {"label": "Cebola roxa",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 40,  "carbohydrates_g": 9,   "sugars_g": 4.2, "proteins_g": 1.1, "total_fat_g": 0.1, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 1.7, "sodium_mg": 4}},
-            "INS-AZEITONA":     {"label": "Azeitonas pretas",       "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 115, "carbohydrates_g": 6.3, "sugars_g": 0,   "proteins_g": 0.8, "total_fat_g": 10.7, "saturated_fat_g": 1.4, "trans_fat_g": 0,  "fiber_g": 3.2, "sodium_mg": 735}},
-            "INS-ALECRIM":      {"label": "Alecrim",                "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 131, "carbohydrates_g": 21, "sugars_g": 0,   "proteins_g": 3.3, "total_fat_g": 5.9, "saturated_fat_g": 2.8, "trans_fat_g": 0,   "fiber_g": 14, "sodium_mg": 26}},
-            "INS-GERGELIM":     {"label": "Gergelim",               "allergens": ["gergelim"], "diet": "vegan", "nutrition": {"energy_kcal": 573, "carbohydrates_g": 23, "sugars_g": 0.3, "proteins_g": 18,  "total_fat_g": 50, "saturated_fat_g": 7,   "trans_fat_g": 0,   "fiber_g": 12, "sodium_mg": 11}},
-            "INS-MACA":         {"label": "Maçã",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 52,  "carbohydrates_g": 14, "sugars_g": 10,  "proteins_g": 0.3, "total_fat_g": 0.2, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.4, "sodium_mg": 1}},
-            "INS-CANELA":       {"label": "Canela",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 247, "carbohydrates_g": 81, "sugars_g": 2.2, "proteins_g": 4,   "total_fat_g": 1.2, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 53, "sodium_mg": 10}},
-            "INS-LIMAO":        {"label": "Limão",                  "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 29,  "carbohydrates_g": 9,  "sugars_g": 2.5, "proteins_g": 1.1, "total_fat_g": 0.3, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.8, "sodium_mg": 2}},
+            "FARINHA-T65":  {"label": "Farinha de trigo T65",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "FARINHA-T55":  {"label": "Farinha de trigo T55",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "FARINHA-T45":  {"label": "Farinha de trigo T45",   "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "FARINHA-INT":  {"label": "Farinha de trigo integral", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 340, "carbohydrates_g": 72, "sugars_g": 0.4, "proteins_g": 13, "total_fat_g": 2.5, "saturated_fat_g": 0.4, "trans_fat_g": 0, "fiber_g": 10.7, "sodium_mg": 2}},
+            "CENTEIO":      {"label": "Farinha de centeio",     "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 338, "carbohydrates_g": 76, "sugars_g": 1.0, "proteins_g": 10, "total_fat_g": 1.7, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 15.0, "sodium_mg": 2}},
+            "AGUA":         {"label": "Água",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 0}},
+            "FERMENTO-NAT": {"label": "Fermento natural (levain)", "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 220, "carbohydrates_g": 45, "sugars_g": 0.5, "proteins_g": 7,  "total_fat_g": 0.5, "saturated_fat_g": 0.1, "trans_fat_g": 0, "fiber_g": 1.8,  "sodium_mg": 5}},
+            "FERMENTO-BIO": {"label": "Fermento biológico",     "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 105, "carbohydrates_g": 12, "sugars_g": 0,   "proteins_g": 13, "total_fat_g": 1.5, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 8.1,  "sodium_mg": 30}},
+            "SAL":          {"label": "Sal marinho",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 38758}},
+            "ACUCAR":       {"label": "Açúcar",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 387, "carbohydrates_g": 100, "sugars_g": 100, "proteins_g": 0, "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 1}},
+            "MANTEIGA-FR":  {"label": "Manteiga francesa",      "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 717, "carbohydrates_g": 0.1, "sugars_g": 0.1, "proteins_g": 0.9, "total_fat_g": 81, "saturated_fat_g": 51,  "trans_fat_g": 3.3, "fiber_g": 0,  "sodium_mg": 11}},
+            "LEITE":        {"label": "Leite integral",         "allergens": ["leite"], "diet": "vegetarian", "nutrition": {"energy_kcal": 61,  "carbohydrates_g": 4.8, "sugars_g": 4.8, "proteins_g": 3.2, "total_fat_g": 3.3, "saturated_fat_g": 1.9, "trans_fat_g": 0.1, "fiber_g": 0,  "sodium_mg": 40}},
+            "OVOS":         {"label": "Ovos",                   "allergens": ["ovos"], "diet": "vegetarian", "nutrition": {"energy_kcal": 155, "carbohydrates_g": 1.1, "sugars_g": 1.1, "proteins_g": 13,  "total_fat_g": 11,  "saturated_fat_g": 3.3, "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 124}},
+            "AZEITE":       {"label": "Azeite extra virgem",    "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 884, "carbohydrates_g": 0,   "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 100, "saturated_fat_g": 14,  "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 2}},
+            "MALTE":        {"label": "Malte",                  "allergens": ["glúten"], "diet": "vegan", "nutrition": {"energy_kcal": 360, "carbohydrates_g": 78, "sugars_g": 60,  "proteins_g": 10, "total_fat_g": 1.8, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 7,  "sodium_mg": 23}},
+            "CHOCOLATE-70": {"label": "Chocolate amargo 70%",   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 598, "carbohydrates_g": 46, "sugars_g": 24,  "proteins_g": 7.8, "total_fat_g": 43, "saturated_fat_g": 24,  "trans_fat_g": 0,   "fiber_g": 11, "sodium_mg": 20}},
+            "CEBOLA-ROXA":  {"label": "Cebola roxa",            "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 40,  "carbohydrates_g": 9,   "sugars_g": 4.2, "proteins_g": 1.1, "total_fat_g": 0.1, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 1.7, "sodium_mg": 4}},
+            "AZEITONA":     {"label": "Azeitonas pretas",       "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 115, "carbohydrates_g": 6.3, "sugars_g": 0,   "proteins_g": 0.8, "total_fat_g": 10.7, "saturated_fat_g": 1.4, "trans_fat_g": 0,  "fiber_g": 3.2, "sodium_mg": 735}},
+            "ALECRIM":      {"label": "Alecrim",                "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 131, "carbohydrates_g": 21, "sugars_g": 0,   "proteins_g": 3.3, "total_fat_g": 5.9, "saturated_fat_g": 2.8, "trans_fat_g": 0,   "fiber_g": 14, "sodium_mg": 26}},
+            "GERGELIM":     {"label": "Gergelim",               "allergens": ["gergelim"], "diet": "vegan", "nutrition": {"energy_kcal": 573, "carbohydrates_g": 23, "sugars_g": 0.3, "proteins_g": 18,  "total_fat_g": 50, "saturated_fat_g": 7,   "trans_fat_g": 0,   "fiber_g": 12, "sodium_mg": 11}},
+            "MACA":         {"label": "Maçã",                   "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 52,  "carbohydrates_g": 14, "sugars_g": 10,  "proteins_g": 0.3, "total_fat_g": 0.2, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.4, "sodium_mg": 1}},
+            "CANELA":       {"label": "Canela",                 "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 247, "carbohydrates_g": 81, "sugars_g": 2.2, "proteins_g": 4,   "total_fat_g": 1.2, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 53, "sodium_mg": 10}},
+            "LIMAO":        {"label": "Limão",                  "allergens": [], "diet": "vegan", "nutrition": {"energy_kcal": 29,  "carbohydrates_g": 9,  "sugars_g": 2.5, "proteins_g": 1.1, "total_fat_g": 0.3, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.8, "sodium_mg": 2}},
         }
+
+        # Buyman Material master — os insumos viram Material first-class (sku sem
+        # prefixo; identidade própria, não Product). unit + shelf-life conforme a
+        # tabela aprovada em docs/plans/BUYMAN-PROCUREMENT-PLAN.md (todos frescos
+        # mesmo). sku → (unit, shelf_life_days|None); None = não perecível.
+        from shopman.buyman.models import Material
+
+        material_attrs = {
+            "FARINHA-T65": ("kg", 180), "FARINHA-T55": ("kg", 180),
+            "FARINHA-T45": ("kg", 180), "FARINHA-INT": ("kg", 120),
+            "CENTEIO": ("kg", 120), "MALTE": ("kg", 365),
+            "ACUCAR": ("kg", None), "SAL": ("kg", None), "GERGELIM": ("kg", 180),
+            "AGUA": ("l", None), "LEITE": ("l", 7), "AZEITE": ("l", 540),
+            "FERMENTO-NAT": ("kg", 7), "FERMENTO-BIO": ("kg", 14),
+            "MANTEIGA-FR": ("kg", 60), "OVOS": ("un", 28),
+            "CHOCOLATE-70": ("kg", 365), "AZEITONA": ("kg", 180),
+            "CEBOLA-ROXA": ("kg", 30), "MACA": ("kg", 30), "LIMAO": ("un", 21),
+            "CANELA": ("g", 365), "ALECRIM": ("g", 14),
+        }
+        for sku, profile in INGREDIENT_PROFILES.items():
+            unit, shelf = material_attrs.get(sku, ("un", None))
+            Material.objects.update_or_create(
+                sku=sku,
+                defaults={
+                    "name": profile.get("label", sku),
+                    "unit": unit,
+                    "shelf_life_days": shelf,
+                    "metadata": {k: v for k, v in profile.items() if k != "label"},
+                },
+            )
+        self.stdout.write(f"  ✅ {len(INGREDIENT_PROFILES)} insumos (Material)")
 
         for rd in recipes_data:
             product = Product.objects.filter(sku=rd["output_sku"]).first()

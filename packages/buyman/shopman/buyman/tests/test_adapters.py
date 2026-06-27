@@ -10,8 +10,8 @@ class TestBuymanCatalogBackend:
     def test_get_product_resolves_material(self):
         from shopman.buyman.adapters.catalog_backend import BuymanCatalogBackend
 
-        Material.objects.create(sku="INS-FARINHA-T65", name="Farinha T65", unit="kg")
-        info = BuymanCatalogBackend().get_product("INS-FARINHA-T65")
+        Material.objects.create(sku="FARINHA-T65", name="Farinha T65", unit="kg")
+        info = BuymanCatalogBackend().get_product("FARINHA-T65")
         assert info is not None
         assert info.unit == "kg"
         assert info.is_bundle is False
@@ -20,7 +20,7 @@ class TestBuymanCatalogBackend:
     def test_get_product_unknown_returns_none(self):
         from shopman.buyman.adapters.catalog_backend import BuymanCatalogBackend
 
-        assert BuymanCatalogBackend().get_product("INS-NOPE") is None
+        assert BuymanCatalogBackend().get_product("NOPE") is None
 
 
 class TestMaterialSkuValidator:
@@ -31,9 +31,9 @@ class TestMaterialSkuValidator:
         from shopman.buyman.adapters.sku_validator import MaterialSkuValidator
 
         Material.objects.create(
-            sku="INS-FERMENTO-NAT", name="Levain", unit="kg", shelf_life_days=7,
+            sku="FERMENTO-NAT", name="Levain", unit="kg", shelf_life_days=7,
         )
-        info = MaterialSkuValidator().get_sku_info("INS-FERMENTO-NAT")
+        info = MaterialSkuValidator().get_sku_info("FERMENTO-NAT")
         assert info is not None
         assert info.unit == "kg"
         assert info.is_sellable is False
@@ -44,7 +44,7 @@ class TestMaterialSkuValidator:
         pytest.importorskip("shopman.stockman")
         from shopman.buyman.adapters.sku_validator import MaterialSkuValidator
 
-        Material.objects.create(sku="INS-SAL", name="Sal", unit="kg")
+        Material.objects.create(sku="SAL", name="Sal", unit="kg")
         v = MaterialSkuValidator()
-        assert v.validate_sku("INS-SAL").valid is True
-        assert v.validate_sku("INS-NOPE").valid is False
+        assert v.validate_sku("SAL").valid is True
+        assert v.validate_sku("NOPE").valid is False

@@ -139,9 +139,19 @@ não dá categoria queryable).
   segue Noop** — flipar p/ o composto é o WP-B5 (muda semântica de disponibilidade de
   TODO sku). 14 testes (buyman 9, shop composed 5). framework 2148 / craftsman 242 verdes.
   *CostBackend composto: adiado p/ quando houver consumidor real de custo (Fase 3 PO).*
-- **WP-B4 · Migração de dados + fixtures** — seed popula `Material` a partir de
-  `INGREDIENT_PROFILES`; reescrever os fixtures de teste que criam
-  `Product(is_sellable=False)` de insumo → `Material`. Suíte verde.
+- **WP-B4 ✅ (2026-06-27) · Seed Material + rename `INS-`** — o seed popula os 23
+  `Material` a partir de `INGREDIENT_PROFILES` (unit + shelf-life da tabela aprovada
+  pelo Pablo; "todos frescos" → fermento-bio/alecrim = 14d). **SKU de insumo perdeu o
+  prefixo `INS-`** (rename consistente: `INGREDIENT_PROFILES` + `input_sku` das receitas
+  + help_text + testes de insumo; **guestman `CUST-INS-` = "insights", intocado**).
+  Smoke test do seed assere 23 Materials + invariante "todo input de receita resolve
+  como insumo/intermediário(MASSA-*)/produto". framework 2148 / craftsman 242 / buyman 9.
+- **WP-B4b (repensado, opcional) · Converter fixtures `Product(insumo)→Material`** — a
+  conversão ampla NÃO se sustenta: (a) testes de CORE (offerman) não podem importar
+  buyman (independência); (b) nem todo `is_sellable=False` é insumo (produto pausado é
+  legítimo); (c) `ingredient` fixture vive em `CollectionItem` (exige Product). Só vale
+  onde a semântica insumo=Material é o ponto do teste — reavaliar junto com B5. Sem
+  conversão cega.
 - **WP-B5 · Ligar shelf-life** — apontar o validator composto; provar que
   disponibilidade de venda filtra vencidos (produtos) e que holds de produção
   (insumos) seguem ok (`test_production_stock`). `is_sellable=False` volta a

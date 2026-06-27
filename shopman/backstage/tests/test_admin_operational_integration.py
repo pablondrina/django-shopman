@@ -618,7 +618,7 @@ class WorkOrderAdminSemanticsTests(TestCase):
 
 class RecipeAdminSemanticsTests(TestCase):
     def test_recipe_admin_edits_ingredients_as_canonical_tabular_inline(self) -> None:
-        Product.objects.create(sku="INS-FARINHA-T65", name="Farinha T65", unit="kg")
+        Product.objects.create(sku="FARINHA-T65", name="Farinha T65", unit="kg")
         recipe = Recipe.objects.create(
             ref="massa-base",
             name="Massa Base",
@@ -656,16 +656,16 @@ class RecipeAdminSemanticsTests(TestCase):
         self.assertIn("requires_batch_tracking", flattened_fieldsets)
         self.assertNotIn("steps", flattened_fieldsets)
         self.assertNotIn("meta", flattened_fieldsets)
-        self.assertIn("INS-FARINHA-T65", sku_choices)
+        self.assertIn("FARINHA-T65", sku_choices)
         self.assertIn("MASSA-BASE", sku_choices)
         self.assertIn(("kg", "kg"), RecipeItem._meta.get_field("unit").choices)
         self.assertNotIn(("zufts", "zufts"), RecipeItem._meta.get_field("unit").choices)
 
-        item = RecipeItem(recipe=recipe, input_sku="INS-FARINHA-T65", quantity=Decimal("1"), unit="zufts")
+        item = RecipeItem(recipe=recipe, input_sku="FARINHA-T65", quantity=Decimal("1"), unit="zufts")
         with self.assertRaises(ValidationError):
             item.full_clean()
 
-        mismatched = RecipeItem(recipe=recipe, input_sku="INS-FARINHA-T65", quantity=Decimal("100"), unit="g")
+        mismatched = RecipeItem(recipe=recipe, input_sku="FARINHA-T65", quantity=Decimal("100"), unit="g")
         with self.assertRaises(ValidationError):
             mismatched.full_clean()
 

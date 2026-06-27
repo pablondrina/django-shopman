@@ -22,7 +22,7 @@ class Material(models.Model):
         ref_type="SKU",
         unique=True,
         verbose_name=_("SKU"),
-        help_text=_("Identificador do insumo (ex.: INS-FARINHA-T65)."),
+        help_text=_("Identificador do insumo (ex.: FARINHA-T65)."),
     )
     name = models.CharField(max_length=200, verbose_name=_("Nome"))
     unit = models.CharField(

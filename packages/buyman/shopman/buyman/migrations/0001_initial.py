@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             name='Material',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sku', models.CharField(db_index=True, help_text='Identificador do insumo (ex.: INS-FARINHA-T65).', max_length=64, unique=True, verbose_name='SKU')),
+                ('sku', models.CharField(db_index=True, help_text='Identificador do insumo (ex.: FARINHA-T65).', max_length=64, unique=True, verbose_name='SKU')),
                 ('name', models.CharField(max_length=200, verbose_name='Nome')),
                 ('unit', models.CharField(choices=[('un', 'unidade'), ('kg', 'quilograma'), ('g', 'grama'), ('l', 'litro'), ('ml', 'mililitro')], default='un', max_length=8, verbose_name='Unidade')),
                 ('shelf_life_days', models.IntegerField(blank=True, help_text='Validade padrão do insumo em dias. Vazio = não perecível.', null=True, verbose_name='Validade padrão (dias)')),

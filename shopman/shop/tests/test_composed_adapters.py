@@ -28,7 +28,7 @@ def croissant(db):
 @pytest.fixture
 def farinha(db):
     return Material.objects.create(
-        sku="INS-FARINHA-T65", name="Farinha T65", unit="kg", shelf_life_days=180,
+        sku="FARINHA-T65", name="Farinha T65", unit="kg", shelf_life_days=180,
     )
 
 
@@ -40,7 +40,7 @@ class TestComposedCatalogBackend:
         prod = backend.get_product("CROISSANT")
         assert prod is not None and prod.unit == "un"
 
-        ingredient = backend.get_product("INS-FARINHA-T65")
+        ingredient = backend.get_product("FARINHA-T65")
         assert ingredient is not None
         assert ingredient.unit == "kg"
         assert ingredient.is_bundle is False  # ingredient is never an output bundle
@@ -64,7 +64,7 @@ class TestComposedSkuValidator:
         prod = v.get_sku_info("CROISSANT")
         assert prod is not None and prod.is_sellable is True
 
-        ing = v.get_sku_info("INS-FARINHA-T65")
+        ing = v.get_sku_info("FARINHA-T65")
         assert ing is not None
         assert ing.is_sellable is False
         assert ing.unit == "kg"
@@ -75,9 +75,9 @@ class TestComposedSkuValidator:
     def test_validate_skus_mixed(self, croissant, farinha):
         from shopman.shop.adapters.sku_validator import ComposedSkuValidator
 
-        results = ComposedSkuValidator().validate_skus(["CROISSANT", "INS-FARINHA-T65", "NOPE"])
+        results = ComposedSkuValidator().validate_skus(["CROISSANT", "FARINHA-T65", "NOPE"])
         assert results["CROISSANT"].valid is True
-        assert results["INS-FARINHA-T65"].valid is True
+        assert results["FARINHA-T65"].valid is True
         assert results["NOPE"].valid is False
 
     def test_search_merges_and_dedups(self, croissant, farinha):
@@ -85,4 +85,4 @@ class TestComposedSkuValidator:
 
         hits = {i.sku for i in ComposedSkuValidator().search_skus("a", limit=50)}
         # "Farinha"/"Croissant"/"CROISSANT" all contain 'a' — both sources represented.
-        assert "INS-FARINHA-T65" in hits
+        assert "FARINHA-T65" in hits

@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
 from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 from shopman.guestman.models import Customer
 from shopman.offerman.models import Product
 from shopman.orderman.models import IdempotencyKey, Order, OrderItem, Session
@@ -70,6 +70,27 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
     assert recipe.meta["requires_batch_tracking"] is True
     assert recipe.meta["max_started_minutes"] > 0
     assert recipe.steps
+
+    # Buyman Material master (WP-B4): insumos viram Material first-class (sku sem
+    # prefixo INS-), com unit + shelf-life. Os input_sku das receitas resolvem.
+    from shopman.buyman.models import Material
+
+    assert Material.objects.count() == 23
+    farinha = Material.objects.get(sku="FARINHA-T65")
+    assert (farinha.unit, farinha.shelf_life_days) == ("kg", 180)
+    assert farinha.metadata["allergens"] == ["glúten"]
+    assert Material.objects.get(sku="AGUA").shelf_life_days is None  # não perecível
+    assert Material.objects.get(sku="FERMENTO-NAT").shelf_life_days == 7
+    # Todo input de receita resolve: insumo cru (Material), intermediário (output
+    # de outra receita, ex. MASSA-*) ou produto. Sem inputs órfãos pós-rename.
+    recipe_inputs = set(RecipeItem.objects.values_list("input_sku", flat=True))
+    material_skus = set(Material.objects.values_list("sku", flat=True))
+    intermediate_skus = set(Recipe.objects.values_list("output_sku", flat=True))
+    product_skus = set(Product.objects.values_list("sku", flat=True))
+    unresolved = recipe_inputs - material_skus - intermediate_skus - product_skus
+    assert not unresolved, f"inputs de receita sem resolução: {unresolved}"
+    # E os insumos crus de fato vêm do Material (interseção não-vazia).
+    assert recipe_inputs & material_skus
 
     suggestions = craft.suggest(date.today() + timedelta(days=1), output_skus=["CROISSANT"])
     assert suggestions
