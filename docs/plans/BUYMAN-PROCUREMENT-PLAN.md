@@ -76,6 +76,18 @@ Estudo dos pacotes maduros para o Buyman nascer no mesmo nível:
 - **Fase 4 — Reposição**: ponto de reposição/estoque mínimo → sugestão de compra
   (espelha o `suggest_production` do Craftsman).
 
+## WP-B0 — `Move.kind` no Stockman (fundacional, aprovado) ✅ infra / 🟡 callers
+
+Ledger categorizado por evento econômico: **MAKE/BUY/SELL/ADJUST/TRANSFER/RETURN**
+(decisão Pablo). Mudança aditiva no Core (Stockman) — justificada (kind é
+propriedade do Move; reason-string não dá categoria queryable).
+- ✅ **Infra (2026-06-27, commit `7d24784b`)**: `Move.Kind` + campo + índice;
+  `receive`/`issue` aceitam `kind`; migração + **backfill** (categoriza histórico
+  por padrão do reason); 4 testes; stockman 218 verde.
+- 🟡 **Pendente — fiação dos callers** (categorizar moves NOVOS): craftsman→MAKE,
+  venda (hold/fulfill)→SELL, planning(realize)→TRANSFER, devoluções→RETURN. E o
+  recebimento do Buyman emite **BUY** (Fase 3). Até wirar, moves novos = ADJUST.
+
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
 - **WP-B1 ✅ (2026-06-27) · Pacote `buyman` + `Material`** — scaffold do pacote pip
