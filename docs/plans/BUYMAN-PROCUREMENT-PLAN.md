@@ -88,10 +88,14 @@ não dá categoria queryable).
 - ✅ **Wiring inequívoco**: `planning.realize`→**MAKE** (era erro chamar de
   TRANSFER); `cleanup_d1`→**WASTE** (descarte de D-1 vencido). **TRANSFER fica
   reservado** (sem caller real hoje).
-- 🟡 **Pendente — wiring contextual** (moves NOVOS, passo focado): craftsman
-  receives→MAKE; **`fulfill`→derivar do `purpose` do hold** (consumo de produção=
-  MAKE, venda=SELL — não rotular consumo como venda!); devoluções→RETURN; buyman
-  recebimento→BUY (Fase 3). Até lá, esses moves novos caem em ADJUST.
+- ✅ **Wiring dos callers (quase 100%)**: craftsman produção (3 receives)→**MAKE**;
+  venda (`fulfill_hold`)→**SELL**; devolução (`receive_return`)→**RETURN**;
+  `realize`→MAKE; `cleanup_d1`→WASTE; `transfer`→TRANSFER. Buyman recebimento→BUY
+  na Fase 3.
+- 🔴 **Bloqueado: consumo de insumo (`StockingBackend.consume`)→MAKE** — o método
+  tem 2 bugs pré-existentes (`hold.product` inexistente + `qty` vs `quantity`) e é
+  sem teste. Flaggado em task dedicada (fora do escopo do kind). Até corrigir, o
+  consumo (se alcançado) cai em ADJUST.
 
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
