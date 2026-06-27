@@ -37,24 +37,55 @@ craftsman). Os **adapters compostos vivem no ORQUESTRADOR** (`shopman/shop/`), q
 lê Buyman (Material) + Offerman (Product) e implementa `SkuValidator`/
 `CatalogBackend`/`CostBackend` — exatamente o papel de wiring do shop.
 
+## Padrões herdados da suíte (verificado no código)
+
+Estudo dos pacotes maduros para o Buyman nascer no mesmo nível:
+- **Ledger-first** (Stockman `Move`/`Quant`; Payman `PaymentTransaction`): registro
+  append-only é a verdade; saldo/estado deriva. Aplicar ao **recebimento**
+  (append-only) e ao **histórico de custo** (futuro). Master data (Material/
+  Supplier/custo atual) é mutável — **não** é ledger.
+- **Immutability guards**: modelos append-only bloqueiam `.update()/.delete()`
+  (Move/Transaction). Aplicar ao `PurchaseReceipt`.
+- **Service `@classmethod`** (StockService/PaymentService): lógica centralizada,
+  testável. Buyman terá `ReceiptService`/`PurchaseService` no mesmo estilo.
+- **Desacoplamento por signal + contrib** (padrão Craftsman→Stockman): Buyman
+  **nunca importa Stockman**; um `buyman/contrib/stockman` (opt-in em
+  INSTALLED_APPS) escuta `receipt_created` e chama `stock.receive(...)` com import
+  lazy + fallback gracioso.
+- **Evitar over-engineering** (Orderman): sem Directives/fila async, sem snapshot
+  selado, sem event-sourcing — `PurchaseOrder.status` simples basta.
+
+> **Correção ao rascunho do outro agente**: não existe "StockEvent BUY" no
+> Stockman. O ledger do Stockman é o **`Move`**, e o "tipo" é um **`reason`**
+> string livre (+ metadata), não um enum. Recebimento de compra = `stock.receive`
+> → `Move(reason="Compra <PO> de <fornecedor>", metadata={po_ref, supplier_ref})`,
+> criando `Batch` com `expiry = recebimento + Material.shelf_life_days`. Mesmo
+> espírito ledger-first, mas via o mecanismo que já existe (sem inventar evento novo).
+
 ## Fases
 
-- **Fase 1 — Fundação (PRÉ go-live; desbloqueia shelf-life)**
-  Item master + Fornecedor + custo + validador composto. Detalhe nos WPs abaixo.
-- **Fase 2 — Pedido de Compra**: `PurchaseOrder` + linhas (material, qty, custo,
-  fornecedor), estados, catálogo de fornecedor.
-- **Fase 3 — Recebimento**: receber contra PO → cria `Batch`/`Quant` no Stockman
-  (expiry = recebimento/produção + validade-padrão); conferência (qty/custo).
+- **Fase 1 — Fundação (PRÉ go-live; desbloqueia shelf-life)** — master data
+  (mutável): Item master + Fornecedor + custo + validador composto. WPs abaixo.
+- **Fase 2 — Pedido de Compra**: `PurchaseOrder` (state-machine simples
+  draft→confirmed→received) + `PurchaseOrderLine` (material, qty, `unit_cost_q`
+  vindo de `SupplierMaterialCost`). Linhas seladas após confirmar.
+- **Fase 3 — Recebimento (ledger-first)**: `PurchaseReceipt` **append-only**
+  (correção = nova receipt, nunca edição) + `ReceiptService` que emite
+  `receipt_created` → handler em `buyman/contrib/stockman` chama `stock.receive`
+  (Move + Batch com expiry). Confere qty/custo.
 - **Fase 4 — Reposição**: ponto de reposição/estoque mínimo → sugestão de compra
   (espelha o `suggest_production` do Craftsman).
 
 ## Fase 1 — WPs (a entrega que destrava o go-live)
 
-- **WP-B1 · Pacote `buyman` + `Material`** — scaffold do pacote pip; model
-  `Material` (sku `INS-*`, name, unit, shelf_life_days, metadata JSON). Admin
-  Unfold. Testes do pacote.
-- **WP-B2 · `Supplier` + custo** — model `Supplier`; custo unitário do material
-  (`cost_q`, opcional por fornecedor). Contrato p/ alimentar `CostBackend`.
+- **WP-B1 ✅ (2026-06-27) · Pacote `buyman` + `Material`** — scaffold do pacote pip
+  (10º persona); model `Material` (sku RefField, name, unit, shelf_life_days,
+  metadata). Migração + testes. Registrado na suíte (INSTALLED_APPS, Makefile,
+  test-buyman). *(Admin Unfold = WP-B1b, pendente.)*
+- **WP-B2 ✅ (2026-06-27) · `Supplier` + custo-por-fornecedor** — `Supplier` +
+  `SupplierMaterialCost` (custo por par fornecedor×insumo, `is_preferred` =
+  canônico). 5 testes verdes (unicidade sku/par, 1 preferencial).
+- **WP-B1b · Admin Unfold** — registrar Material/Supplier/Cost no admin (contrib).
 - **WP-B3 · Adapters compostos no orquestrador** — `shopman/shop/adapters/`
   implementando `SkuValidator` (Offerman p/ vendáveis + Buyman p/ insumos +
   default neutro) e `CatalogBackend`/`CostBackend` análogos. Wiring por config
