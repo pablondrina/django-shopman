@@ -50,6 +50,7 @@ RUN python -m pip install --upgrade pip \
         ./packages/doorman \
         ./packages/orderman \
         ./packages/payman \
+        ./packages/buyman \
         .
 
 RUN mkdir -p /app/staticfiles /app/media \
