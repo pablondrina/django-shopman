@@ -31,7 +31,8 @@ fica em [`_quarantine/`](_quarantine/).
 | [`AVAILABILITY-ADMIN-PLAN.md`](AVAILABILITY-ADMIN-PLAN.md) | UI de calendário de funcionamento no Admin (WP-AV-1/2/3) — não iniciado. |
 | [`CATALOG-SYNC-EXTERNO-PLAN.md`](CATALOG-SYNC-EXTERNO-PLAN.md) | Adapters Google/Meta/WhatsApp; bloqueado em credenciais externas. |
 | [`MANYCHAT-CONVERSACIONAL-PLAN.md`](MANYCHAT-CONVERSACIONAL-PLAN.md) | Pedido conversacional inbound via ManyChat; proposto, bloqueado no Pablo. |
-| [`STOCK-UX-PLAN.md`](STOCK-UX-PLAN.md) | Spec "NUNCA PERDER" de alerta de estoque acionável; corpo HTMX precisa reescrita p/ Nuxt. |
+| [`STOCK-UX-PLAN.md`](STOCK-UX-PLAN.md) | Spec "NUNCA PERDER" de alerta de estoque acionável; corpo HTMX anotado como aposentado (realidade Nuxt). |
+| [`STOCK-SUBSTITUTE-1CLICK-PLAN.md`](STOCK-SUBSTITUTE-1CLICK-PLAN.md) | Arco pronto p/ sessão nova: tornar substituto do carrinho acionável em 1 toque (backend já pronto; fecha o princípio do STOCK-UX). |
 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Spec canônica de endereço iFood-style (ler antes de tocar qualquer tela de endereço). |
 | [`CHANGE-PHONE-NUMBER-PLAN.md`](CHANGE-PHONE-NUMBER-PLAN.md) | Mudar número (telefone=identidade); só executar se valer a pena (Pablo). |
 | [`SECURITY-ACCOUNT-NOTIFICATIONS.md`](SECURITY-ACCOUNT-NOTIFICATIONS.md) | Notificações de segurança de conta; não implementado. |

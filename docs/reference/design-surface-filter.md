@@ -23,9 +23,10 @@ passa quando parece inevitável, isto é, quando cada tamanho, espaçamento,
 - **WhatsApp-first quando cliente final**: telefone, status, recuperação e
   contato devem respeitar o WhatsApp como canal preferencial, sem bloquear SMS
   ou internacional quando o negócio exige.
-- **Penguin UI como meio canônico**: tokens, cores, radius, fontes, botões,
-  badges e surfaces vêm do design system. Classe avulsa só quando há lacuna
-  real e documentada.
+- **Design tokens canônicos como meio**: tokens, cores, radius, fontes, botões,
+  badges e surfaces vêm do design system da superfície (tokens Tailwind/CSS
+  custom das superfícies Nuxt; sem libs de componentes externas). Classe avulsa
+  só quando há lacuna real e documentada.
 - **Acessibilidade antes de decoração**: contraste, alvo de toque, labels,
   foco, leitura por teclado e semântica vencem efeito visual.
 - **Sem ornamento sem função**: remover textos, badges, ícones, cards,
@@ -100,7 +101,7 @@ Checklist:
 
 ## 5. Cor, Contraste e Estado
 
-- Usar tokens Penguin UI. Evitar paleta paralela por tela.
+- Usar os tokens de cor canônicos do design system. Evitar paleta paralela por tela.
 - Contraste de texto deve ser confortável e acessível antes de bonito.
 - Texto secundário não pode ficar claro demais. Ajuda e metadados devem ser
   discretos, mas legíveis.

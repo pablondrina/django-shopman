@@ -43,9 +43,10 @@ deve renderizar Action vinda da Projection em vez de derivar CTA por regra local
 | Conversa WhatsApp | `/api/v1/orders/{ref}/conversation/` | `RemoteConversationProjection`, consumida por adapter ManyChat |
 
 Tipos de superficie devem refletir esses contratos em
-`surfaces/storefront-nuxt/app/types/shopman.ts`. Uma futura superficie Ionic
-deve reutilizar os mesmos nomes e campos, adaptando apenas componentes,
-navegacao e storage local.
+`surfaces/storefront-uithing-nuxt/app/types/shopman.ts` (a superficie viva;
+o antigo `surfaces/storefront-nuxt` foi removido em 2026-06-12). Uma futura
+superficie Ionic deve reutilizar os mesmos nomes e campos, adaptando apenas
+componentes, navegacao e storage local.
 
 ## Regra de corte
 
