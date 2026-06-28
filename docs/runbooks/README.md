@@ -21,3 +21,7 @@ operador nao executa Docker diretamente: use os wrappers `make`.
 - [Loja aberta/fechada em estado errado](loja-estado-incorreto.md)
 - [Pedido remoto preso](pedido-remoto-preso.md)
 - [Rollback de deploy quebrado](rollback-de-deploy.md)
+
+## Procedimentos
+
+- [Go-live — checklist de cutover (staging → produção)](go-live-cutover.md)
