@@ -34,11 +34,10 @@ Mesma lógica para `short_description` (= meta description + og:description),
 > coleções. O conteúdo Django abaixo permanece como referência de paridade.
 
 ### Já existe
+> _Atualização 2026-06-28: o SEO técnico foi reimplementado em Nuxt (storefront headless). `sitemap.xml`/`robots.txt` hoje são `surfaces/storefront-uithing-nuxt/server/routes/sitemap.xml.ts` e `robots.txt.ts` (domain-aware), meta/OG/JSON-LD via `app/presentation/seo.ts`. As refs Django abaixo (`SitemapView`, `base.html`, `{% block %}`) são do baseline original; o `Product.keywords` no Core permanece._
 - ✅ `Product.keywords` (django-taggit) — curadoria por SKU.
-- ✅ `robots.txt` em `storefront/robots.txt` — básico.
-- ✅ `sitemap.xml` em `SitemapView` — lista URLs de home/menu/coleções/produtos, com priority/changefreq.
-- ✅ `<meta description>` via `{% block meta_description %}` em base.html.
-- ✅ Open Graph tags básicas (`og:title`, `og:description`, `og:type`, `og:locale`, `og:site_name`) em base.html.
+- ✅ `robots.txt` / `sitemap.xml` — hoje em `server/routes/*.ts` no Nuxt (antes `SitemapView` Django).
+- ✅ `<meta description>` / Open Graph / JSON-LD — hoje via `app/presentation/seo.ts` no Nuxt (antes `base.html`).
 - ✅ Favicons, theme-color, manifest PWA.
 
 ### Lacunas

@@ -3,6 +3,22 @@
 Data: 2026-04-13
 Base: Constituição Semântica, Matriz Executiva, Penguin UI (Tailwind + Alpine.js) + HTMX
 
+> **⚠️ ATUALIZAÇÃO 2026-06-28 — leia antes de usar este plano.** Ele tem duas metades com
+> validade oposta hoje:
+>
+> - ✅ **A CAMADA DE PROJECTIONS (§§1-2, 4, 6, 8) É LEI E ESTÁ REALIZADA.** As dataclasses, a
+>   estrutura `shopman/*/projections/` e as regras (preço dual `_q`+display, disponibilidade como
+>   enum e não bool, "projection é o contrato", projection ≠ serializer) são exatamente como o
+>   sistema funciona. A "futura API REST" que o plano antecipa **é** o BFF headless de hoje; o
+>   contrato tipado se estende ao Nuxt via camada `app/presentation/*.ts` (espelho TS das projections).
+> - 🗑️ **A METADE "UI" (§3 inventário de telas, §5 Penguin UI, §7 fases de migração de template,
+>   exemplos de template, `shopman/shop/web/templates/`) ESTÁ SUPERADA.** O storefront virou Nuxt
+>   headless (commit `37e34d12`); as rotas/telas Django listadas (`/menu/`, `storefront/menu.html`,
+>   `admin_console/orders/...`) foram deletadas; o operador roda em apps Nuxt dedicados. O item §9
+>   "Não abandonar HTMX em favor de client-side rendering" **foi deliberadamente revertido** — a
+>   decisão posterior foi Nuxt SPA por superfície. Não reviver Penguin/HTMX/templates Django a partir
+>   deste doc; consumir as projections pelo Nuxt.
+
 ## 1. Tese
 
 Hoje os templates consomem dados diretamente dos domain models, services e helpers.

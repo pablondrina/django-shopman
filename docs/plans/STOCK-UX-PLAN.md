@@ -5,6 +5,23 @@
 > e em `cart_warnings.html` histórico. Já foi perdido várias vezes — antes de tocar qualquer
 > código de alerta de estoque, **ler este arquivo**. Não reinventar.
 
+> **⚠️ ATUALIZAÇÃO 2026-06-28 — realidade Nuxt/headless (o PRINCÍPIO continua canônico; a
+> IMPLEMENTAÇÃO descrita abaixo é a versão Django/HTMX, hoje aposentada).** Desde a migração
+> headless (commit `37e34d12`), o storefront é Nuxt e os artefatos HTMX deste plano foram
+> deletados: `stock_error_modal.html`, `cart_warnings.html`, o dispatcher `X-Shopman-Error-UI` e os
+> headers `HX-Retarget`/`HX-Reswap` **não existem mais**. O contrato de backend sobrevive, renomeado:
+> - `offerman/contrib/suggestions/suggestions.py::find_alternatives` → **`offerman/contrib/substitutes/substitutes.py::find_substitutes`**.
+> - `CartUnavailableError.alternatives` → **`.substitutes`** (`shopman/storefront/cart.py`).
+> - Hoje o consumo é em **`surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts`**
+>   (`cartIssue.substitutes`) + **`app/pages/sacola.vue`** (banner "Alternativas disponíveis").
+>
+> **Lacuna real (não só doc):** em `sacola.vue` os substitutos são **listados mas NÃO acionáveis** —
+> dá pra ver "Pão integral · 3 disponíveis", mas não dá pra **adicionar em 1 toque**. O botão de
+> 1-clique que existe hoje é só o "ajustar para a qtd disponível" (`acceptAvailableQty`). O princípio
+> §10 ("Adicionar uma alternativa que já está em estoque, com 1 toque") está **parcialmente
+> implementado**. Trazer à atualidade = (1) reescrever este corpo em termos Nuxt/`substitutes`; (2)
+> tornar o substituto clicável (add-to-cart direto do banner). Decisão de produto pendente do Pablo.
+
 ## Princípio
 
 Alerta de estoque **nunca é apenas informacional**. É **acionável, omotenashi, e em 1 clique**.
