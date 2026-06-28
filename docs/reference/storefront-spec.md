@@ -249,7 +249,7 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 ### Produção (próximo passo, não é gap)
 - **Cutover no apex real** ainda não feito (staging-first). Falta pagamentos reais + secrets + desligar
   debug OTP; o apex hoje aponta p/ a landing `nb-site`. Trilha headless
-  ([`DJANGO-HEADLESS-PLAN.md`](../plans/DJANGO-HEADLESS-PLAN.md)).
+  ([`DJANGO-HEADLESS-PLAN.md`](../plans/completed/DJANGO-HEADLESS-PLAN.md)).
 
 ---
 
@@ -263,4 +263,4 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 - Auth: `shopman/storefront/api/auth.py`, `shopman/storefront/identity.py`, `shopman/shop/services/access*.py`,
   `packages/doorman/`.
 - Links de cliente / cutover: `shopman/shop/services/storefront_links.py`,
-  `docs/plans/DJANGO-HEADLESS-PLAN.md`, `.do/app.staging-subdomains.yaml`.
+  `do../plans/completed/DJANGO-HEADLESS-PLAN.md`, `.do/app.staging-subdomains.yaml`.

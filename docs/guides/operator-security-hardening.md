@@ -97,7 +97,7 @@ fallback, não o alvo.
 - [ ] Todos os superusers/staff com TOTP device confirmado.
 - [ ] `SHOPMAN_ADMIN_REQUIRE_2FA=true` no ambiente real.
 - [ ] Superusers triviais de staging (`admin/admin`) **removidos** em prod
-      (prod usa `bootstrap_admin` env-driven — ver [OPERATOR-AUTH-PLAN](../plans/OPERATOR-AUTH-PLAN.md)).
+      (prod usa `bootstrap_admin` env-driven — ver [OPERATOR-AUTH-PLAN](../plans/completed/OPERATOR-AUTH-PLAN.md)).
 - [ ] Cloudflare Access/WAF restringindo `admin.`/`pos.`/`kds.`/`gestor.`/`fournil.`.
 - [ ] `SESSION_COOKIE_DOMAIN` de produção configurado (auth cross-subdomínio).
 
@@ -106,5 +106,5 @@ fallback, não o alvo.
 ## Referências
 
 - [GO-LIVE-READINESS-PLAN](../plans/GO-LIVE-READINESS-PLAN.md) — Lote C
-- [OPERATOR-AUTH-PLAN](../plans/OPERATOR-AUTH-PLAN.md) — auth cross-subdomínio (Opção C)
+- [OPERATOR-AUTH-PLAN](../plans/completed/OPERATOR-AUTH-PLAN.md) — auth cross-subdomínio (Opção C)
 - [`middleware_2fa.py`](../../shopman/backstage/middleware_2fa.py) · [`setup_admin_totp`](../../shopman/backstage/management/commands/setup_admin_totp.py)

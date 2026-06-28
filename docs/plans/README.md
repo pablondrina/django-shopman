@@ -1,39 +1,54 @@
 # Planos Ativos
 
-> Atualizado em 2026-05-15.
+> Atualizado em 2026-06-28 (auditoria profunda de status — 28 planos arquivados em `completed/`).
 
 Este diretório deve conter apenas plano vivo, spec ativa ou backlog explícito.
 Planos concluídos ficam em [`completed/`](completed/). Material histórico incerto
 fica em [`_quarantine/`](_quarantine/).
 
-## Próxima Ordem Recomendada
+## Ativos / em andamento (⏳)
 
-| Ordem | Plano | Por quê |
-|-------|-------|---------|
-| 1 | [`REMOTE-MULTISURFACE-PLAN.md`](REMOTE-MULTISURFACE-PLAN.md) | Pedido remoto WhatsApp-first/mobile-first; começa por matriz E2E e channel policy interna para Projection com Actions, sem tratar Django/Penguin como cânon. |
-| 2 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline local concluído; continuar gateway sandbox/snapshot real quando houver credenciais. |
-| 3 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Gate browser CI existe; falta evidência física/staging antes de release real. |
-| 4 | [`OPERATION-DOMAIN-PLAN.md`](OPERATION-DOMAIN-PLAN.md) | Baseline de modelos/Admin/seed implementado; continuar superfície de execução e BI operacional. |
-| 5 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
-| 6 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Projections core estão implementadas; manter como spec de evolução e contratos de UI. |
-| 7 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
-
-## Backlog Planejado
-
-| Plano | Status |
+| Plano | Estado |
 |-------|--------|
-| [`BACKOFFICE-UI-PLAN.md`](BACKOFFICE-UI-PLAN.md) | Spec histórica útil; execução atual foi parcialmente absorvida por Admin/Unfold e runtime POS/KDS. |
-| [`OMOTENASHI-PLAN.md`](OMOTENASHI-PLAN.md) | Fundacional; manter como referência da camada de copy/contexto. |
-| [`PDP-DATA-FIELDS-PLAN.md`](PDP-DATA-FIELDS-PLAN.md) | Backlog de PDP: ingredientes, nutrição e dados derivados de receita. |
-| [`SEO-PLAN.md`](SEO-PLAN.md) | Backlog de storefront público. |
-| [`SECURITY-ACCOUNT-NOTIFICATIONS.md`](SECURITY-ACCOUNT-NOTIFICATIONS.md) | Backlog de notificações de segurança de conta. |
-| [`STOCK-UX-PLAN.md`](STOCK-UX-PLAN.md) | Spec de UX de estoque; sucessor operativo concluído em [`completed/AVAILABILITY-PLAN.md`](completed/AVAILABILITY-PLAN.md). |
+| [`GO-LIVE-READINESS-PLAN.md`](GO-LIVE-READINESS-PLAN.md) | Gate de go-live. Lotes A/B/C de engenharia em sua maioria feitos; corte v1 + QA + data bloqueados no Pablo. |
+| [`PRODUCT-V1-SCOPE-BACKLOG.md`](PRODUCT-V1-SCOPE-BACKLOG.md) | Índice-mestre de escopo do v1; gate de produto do go-live. |
+| [`BUYMAN-PROCUREMENT-PLAN.md`](BUYMAN-PROCUREMENT-PLAN.md) | Fase 1 (Material/Supplier/custo/shelf-life/admin) concluída e deployada; Fases 2–4 (PurchaseOrder, Recebimento, Reposição) pós-go-live. |
+| [`VALIDITY-SHELFLIFE-REVIEW.md`](VALIDITY-SHELFLIFE-REVIEW.md) | Referência viva do hardening de validade; P0 ligado (WP-B5), P1/P2 = WP-B6 pendente. |
+| [`OPERATION-DOMAIN-PLAN.md`](OPERATION-DOMAIN-PLAN.md) | Baseline de modelos/Admin implementado; próxima camada (superfície de execução, BI) aberta. |
+| [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline de runbooks/diagnose concluído; snapshot/smoke real de gateway bloqueado por credenciais. |
+| [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Algumas rodadas entregues; maioria dos WP-OF-* não executados. |
+| [`POS-FIRST-CLASS-PLAN.md`](POS-FIRST-CLASS-PLAN.md) | WP-0..8 entregues; WP-9+ (offline-first, analytics) roadmap; campos fiscais por produto pendentes. |
+| [`POS-FASE-C-REVISION.md`](POS-FASE-C-REVISION.md) | Auditoria do POS; 1 fix aplicado; achados abertos cruzam gate fiscal/go-live. |
+| [`POS-REDESIGN-PLAN.md`](POS-REDESIGN-PLAN.md) | Padronização A/B entregue; seção C (captura de crachá no POS) parcial. |
+| [`STOREFRONT-GAPS-ACTION-PLAN.md`](STOREFRONT-GAPS-ACTION-PLAN.md) | WP1–10 feitos; resta WP-11 slice 3 (teleporte, bloqueado no Pablo) + Fase C. |
+| [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Camada de projections largamente realizada; mantido como spec de contratos/evolução de UI. |
+| [`SEO-PLAN.md`](SEO-PLAN.md) | SEO técnico do storefront entregue; mantido como capítulo permanente (conteúdo/keywords futuros). |
+
+## Backlog / futuro (📋)
+
+| Plano | Estado |
+|-------|--------|
+| [`AVAILABILITY-ADMIN-PLAN.md`](AVAILABILITY-ADMIN-PLAN.md) | UI de calendário de funcionamento no Admin (WP-AV-1/2/3) — não iniciado. |
+| [`CATALOG-SYNC-EXTERNO-PLAN.md`](CATALOG-SYNC-EXTERNO-PLAN.md) | Adapters Google/Meta/WhatsApp; bloqueado em credenciais externas. |
+| [`MANYCHAT-CONVERSACIONAL-PLAN.md`](MANYCHAT-CONVERSACIONAL-PLAN.md) | Pedido conversacional inbound via ManyChat; proposto, bloqueado no Pablo. |
+| [`STOCK-UX-PLAN.md`](STOCK-UX-PLAN.md) | Spec "NUNCA PERDER" de alerta de estoque acionável; corpo HTMX precisa reescrita p/ Nuxt. |
+| [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Spec canônica de endereço iFood-style (ler antes de tocar qualquer tela de endereço). |
+| [`CHANGE-PHONE-NUMBER-PLAN.md`](CHANGE-PHONE-NUMBER-PLAN.md) | Mudar número (telefone=identidade); só executar se valer a pena (Pablo). |
+| [`SECURITY-ACCOUNT-NOTIFICATIONS.md`](SECURITY-ACCOUNT-NOTIFICATIONS.md) | Notificações de segurança de conta; não implementado. |
+| [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Gate dormant; dispara só às vésperas do primeiro deploy real. |
 
 ## Concluídos Recentemente
 
+Auditoria de 2026-06-28 arquivou 28 planos em [`completed/`](completed/) com evidência (commit/arquivo). Destaques:
+
 | Plano | Evidência |
 |-------|-----------|
-| [`completed/AVAILABILITY-PLAN.md`](completed/AVAILABILITY-PLAN.md) | WP-AV-01..14 concluídos e cobertos; Runtime Gate passou no PR #3 após o fechamento do plano. |
-| [`completed/BACKSTAGE-MATURITY-PLAN.md`](completed/BACKSTAGE-MATURITY-PLAN.md) | Higiene de exceções, a11y, E2E cross-area e polish final estavam concluídos no histórico do próprio plano; removido da fila ativa. |
-| [`completed/DJANGO-6-UPGRADE-PLAN.md`](completed/DJANGO-6-UPGRADE-PLAN.md) | Django 6 é o contrato canônico e o `Runtime Gate` passou no PR #3. |
-| [`completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](completed/POS-KDS-RUNTIME-SURFACE-PLAN.md) | POS tab/workbench, KDS Station Runtime e Customer Ready Board foram implementados. |
+| `completed/GESTOR-PEDIDOS-PLAN.md` | Gestor de pedidos v1 (Arcs 1–5) mergeado + deployado (`2a7c96da`, `58ba30cc`). |
+| `completed/OPERATOR-APPS-PLAN.md` | Apps Nuxt do operador (loja/pos/kds/gestor/fournil) no ar; Fases 0–4. |
+| `completed/OPERATOR-AUTH-PLAN.md` | Login cross-subdomínio + trava por operador; engenharia entregue (falta flag/QA do Pablo). |
+| `completed/POS-UITHING-REDESIGN-PLAN.md` + `completed/WP7-*` | POS Nuxt — 5 arcos do WP7 fechados (layout, multi-select, fire, print). |
+| `completed/ADMIN-CONFIG-OMOTENASHI-PLAN.md` | WP-1..8 em `main` (mergeado, ao contrário do marcador antigo). |
+| `completed/THEMING-PLAN.md`, `completed/HOME-HERO-NAVBAR-PLAN.md`, `completed/ARC8-*`, `completed/ARC9-*`, `completed/STOREFRONT-ARC6/7-*`, `completed/STOREFRONT-AUDIT-FIXES-PLAN.md` | Storefront Nuxt: theming, home/hero/navbar, tracking/pagamento, conta, auth, audit fixes. |
+| `completed/REMOTE-MULTISURFACE-PLAN.md` | 6/6 WPs concluídos (matriz E2E, contrato, runbook). |
+| `completed/DELIVERY-FEE-TOTAL-PLAN.md`, `completed/PDP-DATA-FIELDS-PLAN.md`, `completed/URL-STANDARDIZATION-PLAN.md`, `completed/OMOTENASHI-PLAN.md`, `completed/DJANGO-HEADLESS-PLAN.md` | Frentes de storefront/checkout/headless entregues. |
+| `completed/MATERIAL-MASTER-PLAN.md`, `completed/BACKOFFICE-UI-PLAN.md`, `completed/STOREFRONT-NUXT-PARITY-ACTION-PLAN-2026-05-14.md` | Absorvidos/superados (Buyman; Admin-Unfold + apps Nuxt; storefront-uithing). |
