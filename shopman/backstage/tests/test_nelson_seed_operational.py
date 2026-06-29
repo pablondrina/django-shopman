@@ -43,7 +43,7 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
         assert fiscal["ncm"]
         # CFOP/CSOSN são resolvidos do perfil fiscal na emissão (NFC-e intraestadual).
         resolved = resolve_fiscal_item(from_metadata(metadata))
-        assert resolved["cfop"] == "5101"
+        assert resolved["cfop"] == "5102"
         assert resolved["icms_situacao_tributaria"] == "102"
     croissant_history = [
         item

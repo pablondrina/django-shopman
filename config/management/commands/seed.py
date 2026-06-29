@@ -906,7 +906,7 @@ class Command(BaseCommand):
         # NCM por produto (validar com o contador — ver docs/plans/FISCALMAN-PLAN.md).
         # CFOP/CSOSN/origem/PIS/COFINS NÃO vivem aqui: são resolvidos na emissão
         # pelo perfil fiscal (Fiscalman), a partir de `profile`. Todo o catálogo
-        # atual é fabricação própria (perfil own_production, sem CEST).
+        # atual é não-ST (perfil own_production → CFOP 5102/CSOSN 102, sem CEST).
         breads = {
             "BAGUETE", "BAGUETE-CAMPAGNE", "BAGUETE-GERGELIM", "MINI-BAGUETE", "BATARD",
             "FENDU", "TABATIERE", "ITALIANO-RUSTICO", "CAMPAGNE-OVAL", "CAMPAGNE-REDONDO",

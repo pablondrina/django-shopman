@@ -21,8 +21,8 @@ class TestProfiles:
         p = FISCAL_PROFILES["own_production"]
         assert (p.csosn, p.cfop_internal, p.cfop_interstate, p.requires_cest) == (
             "102",
-            "5101",
-            "6101",
+            "5102",
+            "6102",
             False,
         )
 
@@ -72,17 +72,17 @@ class TestResolveFiscalItem:
         item = resolve_fiscal_item(c)
         assert item == {
             "ncm": "19059010",
-            "cfop": "5101",
+            "cfop": "5102",
             "unit": "UN",
             "icms_origem": "0",
             "icms_situacao_tributaria": "102",
-            "pis_situacao_tributaria": "49",
-            "cofins_situacao_tributaria": "49",
+            "pis_situacao_tributaria": "99",
+            "cofins_situacao_tributaria": "99",
         }
 
-    def test_own_production_interstate_uses_6101(self):
+    def test_own_production_interstate_uses_6102(self):
         c = ProductFiscalClassification(profile="own_production", ncm="19059010")
-        assert resolve_fiscal_item(c, interstate=True)["cfop"] == "6101"
+        assert resolve_fiscal_item(c, interstate=True)["cfop"] == "6102"
 
     def test_resale_intrastate_includes_cest(self):
         c = ProductFiscalClassification(profile="resale", ncm="22021000", cest="0300700")

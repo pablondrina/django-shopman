@@ -83,6 +83,8 @@ class FiscalBackend(Protocol):
     def cancel(self, *, reference: str, reason: str) -> FiscalCancellationResult:
         """Cancela documento fiscal.
 
-        Regras SEFAZ: só dentro de 30 min da autorização; motivo obrigatório (≥15 chars).
+        Regras SEFA-PR (NFC-e): só dentro de **24h** da autorização e enquanto a
+        mercadoria não circulou; motivo obrigatório (≥15 chars). O prazo é
+        enforçado pela SEFAZ/provider, não por este código.
         """
         ...

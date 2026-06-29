@@ -10,19 +10,20 @@ Design (decisions locked with the owner, 2026-06-28):
 
 - Regime: **Simples Nacional**. Document: **NFC-e (model 65)** intrastate; NF-e
   (model 55) interstate is future scope.
-- Two named profiles instead of copying CFOP/CSOSN into every product:
-    * ``own_production`` — bakery, pastry, savory and beverages prepared in-house.
-      CSOSN 102, CFOP 5101/6101, no CEST.
-    * ``resale`` — industrialized/bottled beverages bought under ICMS-ST.
+- Two named profiles instead of copying CFOP/CSOSN into every product. The real
+  fiscal axis (per the accountant's parametrization, SEFA-PR) is **ST vs não-ST**:
+    * ``own_production`` — não sujeito a ST: fabricação própria + revenda comum
+      (pães, salgados, doces, bebidas preparadas). CSOSN 102, **CFOP 5102/6102**,
+      no CEST.
+    * ``resale`` — sujeito a ST (refrigerantes, água, industrializados).
       CSOSN 500, CFOP 5405/6405, **CEST required** per product.
 - A product carries only what *varies per product*: ``profile`` + ``ncm`` +
   ``cest`` (resale only) + ``unit``. The profile supplies CFOP/CSOSN/origem and
   PIS/COFINS CST. ``resolve_fiscal_item`` merges both into the flat dict the
   fiscal adapter consumes.
 
-PIS/COFINS CST defaults to ``49`` (outras operações de saída) for Simples — this
-is pending accountant confirmation (49 vs 99 vs 07); it is a profile field, so a
-single edit changes it suite-wide.
+PIS/COFINS CST = ``99`` (outras operações) — conforme a parametrização do contador
+(doc "PROCEDIMENTO E PARAMETRIZAÇÃO", SEFA-PR, Simples Nacional CRT-01).
 """
 
 from __future__ import annotations
@@ -51,8 +52,8 @@ class FiscalProfile:
     cfop_internal: str     # Operação interna (mesmo estado), e.g. "5101".
     cfop_interstate: str   # Operação interestadual, e.g. "6101".
     icms_origem: str = "0"     # 0 = Nacional.
-    pis_cst: str = "49"        # Simples: pendente confirmação do contador (49/99/07).
-    cofins_cst: str = "49"
+    pis_cst: str = "99"        # Simples (CRT-01): 99 = outras operações (parametrização do contador).
+    cofins_cst: str = "99"
     requires_cest: bool = False
 
 
@@ -60,8 +61,8 @@ OWN_PRODUCTION = FiscalProfile(
     key="own_production",
     name="Fabricação própria",
     csosn="102",
-    cfop_internal="5101",
-    cfop_interstate="6101",
+    cfop_internal="5102",
+    cfop_interstate="6102",
     requires_cest=False,
 )
 

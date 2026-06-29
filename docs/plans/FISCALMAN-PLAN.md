@@ -2,8 +2,9 @@
 
 > **Status (2026-06-29):** ⏳ Ativo. **S0+S1+S2+S3+S4 CONCLUÍDOS e verdes** (test-framework 2161,
 > make admin 253, test-fiscalman 22, test-orderman 268). Resta só S5 (NF-e mod. 55 / itens resale,
-> pós-go-live). Regime: **Simples Nacional**. Decisões travadas com o Pablo. **Pendência humana:
-> validação dos NCMs + PIS/COFINS CST pelo contador.**
+> pós-go-live). Regime: **Simples Nacional (CRT-01)**. Decisões travadas com o Pablo + parametrização
+> do contador aplicada (2026-06-29: CFOP 5102/5405, CSOSN 102/500, PIS-COFINS 99). **Pendência humana:
+> validar NCMs + 5102-vs-5101 (se indústria) + CSC/IBPT na conta Focus NFe.**
 
 ## Decisão arquitetural
 
@@ -23,16 +24,31 @@ dois, os cores não. A emissão é orquestrada pelo shop (lê `product.metadata`
 
 ## Decisões de regime (travadas)
 
-- **Simples Nacional.** Documento: NFC-e (modelo 65) intraestadual; NF-e (modelo 55) interestadual = futuro.
-- **2 perfis nomeados** (não copiar CFOP/CSOSN em cada produto):
-  | Perfil | Membros | CSOSN | CFOP interno | CFOP interest. | Origem | CEST |
-  |---|---|---|---|---|---|---|
-  | `own_production` | pães, folhados, doces, salgados, **bebidas preparadas na loja** | **102** | **5101** | 6101 | 0 | — |
-  | `resale` | bebidas industrializadas/engarrafadas (**0 membros hoje**) | **500** | **5405** | 6405 | 0 | **obrigatório** |
+- **Simples Nacional (CRT-01).** Documento: NFC-e (modelo 65) intraestadual; NF-e (modelo 55) interestadual = futuro.
+- **2 perfis nomeados** — eixo fiscal real (parametrização do contador, SEFA-PR) é **ST vs não-ST**:
+  | Perfil | Membros | CSOSN | CFOP interno | CFOP interest. | Origem | CEST | PIS/COFINS CST |
+  |---|---|---|---|---|---|---|---|
+  | `own_production` (não-ST) | pães, folhados, doces, salgados, bebidas preparadas | **102** | **5102** | 6102 | 0 | — | **99 / 99** |
+  | `resale` (ST) | bebidas industrializadas/engarrafadas (**0 membros hoje**) | **500** | **5405** | 6405 | 0 | **obrigatório** | **99 / 99** |
 - **Revenda = com ST** → CSOSN 500, CFOP 5405/6405, CEST (7 dígitos) por produto.
 - **Interestadual raríssimo** → perfis carregam o 6xxx; emissão escolhe pela UF do destino. Ressalva:
   NFC-e é intraestadual; consumidor de outro estado exige NF-e (mod. 55) — futuro; tratar manual por ora.
-- **PIS/COFINS CST:** default **49** (outras operações de saída) — ⚠️ confirmar com contador (49/99/07; seed usava 07).
+- **CFOP 5102 (não 5101):** o doc do contador classifica "alimentação, salgados, doces" como
+  comercialização (5102/102), não produção própria (5101). Sob Simples o CFOP não muda o imposto (DAS).
+  ⚠️ Confirmar só se o estabelecimento for registrado como **indústria** (aí 5101); o doc diz 5102.
+- **PIS/COFINS CST = 99** (outras operações) — confirmado pelo doc do contador (não 49, não 07).
+
+### Validação contra o doc do contador (2026-06-29, "PROCEDIMENTO E PARAMETRIZAÇÃO", SEFA-PR)
+Itens que são **setup de conta/SEFAZ** (não código nosso), mas obrigatórios p/ go-live:
+- **CSC** (Código de Segurança do Contribuinte) — gerar na SEFA-PR (homolog. + produção); no Focus NFe
+  vive no painel da conta, não no nosso payload. **Credencial de go-live** (além de FOCUS_NFE_TOKEN/CNPJ).
+- **CRT-01** (Simples) — configurado na conta Focus NFe por CNPJ; não enviamos no request.
+- **Imposto aproximado** (Lei 12.741/12, IBPT "De Olho no Imposto") — obrigatório na NFC-e; o Focus NFe
+  preenche automaticamente via IBPT quando habilitado na conta. Verificar que está ligado.
+- **Cancelamento 24h** (PR) e só se a mercadoria não circulou — enforçado pela SEFAZ/Focus NFe (corrigido
+  no docstring do contrato, que dizia 30 min).
+- Operacional do usuário/contábil (fora do nosso código): credenciamento SEFA-PR (NPF.101/2014),
+  alimentar estoque e compras, **SPED Fiscal mensal (XML)** ao escritório.
 
 ## Tabela NCM por produto (catálogo atual — TODOS `own_production`, sem CEST)
 
@@ -84,7 +100,7 @@ bebidas / 17 alimentos), definido por item no cadastro e validado pelo contador.
 
 ### ✅ S3 — Emissão + seed por perfil (CONCLUÍDO)
 `shop/services/fiscal.py::_build_fiscal_items` resolve via `resolve_fiscal_item(from_metadata(...))`
-(NFC-e intraestadual; override por linha vence) — corrige CFOP 5102→5101. Seed grava `{profile, ncm,
+(NFC-e intraestadual; override por linha vence) — CFOP 5102/CSOSN 102 não-ST. Seed grava `{profile, ncm,
 unit}` com NCMs refinados; guardrail do seed valida via Fiscalman. Testes de fiação + seed atualizados.
 
 ### ✅ S4 — Contrato fiscal é dono da persona (CONCLUÍDO)
@@ -99,14 +115,15 @@ Protocol do fiscalman estruturalmente. Removida a classe-base `FiscalBackend` mo
 
 ## Critério de pronto (do domínio fiscal por produto)
 1. `ProductFiscalClassification` valida (NCM 8 díg.; CEST 7 díg. exigido/proibido por perfil). ✅
-2. Todo produto do seed resolve para fiscal válido (NCM presente, CFOP 5101, CSOSN 102). — S3
+2. Todo produto do seed resolve para fiscal válido (NCM presente, CFOP 5102, CSOSN 102). — S3
 3. Admin edita perfil/NCM/CEST por produto sem tocar JSON; `make admin` verde. — S2
 4. Emissão escolhe CFOP intra/inter pela UF; smoke local do adapter passa. — S3
 5. Checklist do contador validado.
 
 ## Checklist para o contador
+Resolvidos pelo doc "PROCEDIMENTO E PARAMETRIZAÇÃO" (2026-06-29): ✅ PIS/COFINS CST `99`;
+✅ CSOSN `102` (não-ST) / `500` (ST); ✅ CFOP `5102` (não-ST) / `5405` (ST). Resta validar:
 - [ ] NCMs da tabela (esp. salgados/tartines `19059090` vs `21069090`; café `2101.x`)?
-- [ ] PIS/COFINS CST sob Simples: `49`, `99` ou `07`?
-- [ ] CSOSN `102` (própria) / `500` (revenda ST)?
-- [ ] CFOP `5101`/`5405` (e `6101`/`6405` interestadual)?
-- [ ] Itens de revenda previstos? Quais NCM/CEST?
+- [ ] CFOP `5102` confirma, ou o estabelecimento é **indústria** (→ `5101` p/ produção própria)?
+- [ ] Imposto aproximado (IBPT) habilitado na conta Focus NFe? CSC gerado na SEFA-PR?
+- [ ] Itens de revenda (ST) previstos? Quais NCM/CEST?

@@ -1188,7 +1188,7 @@ class TestFiscalService:
 
         fiscal = _build_fiscal_items(order)[0]["fiscal"]
         assert fiscal["ncm"] == "19059010"
-        assert fiscal["cfop"] == "5101"  # own_production intrastate — not the old flat 5102
+        assert fiscal["cfop"] == "5102"  # não-ST intraestadual (parametrização do contador)
         assert fiscal["icms_situacao_tributaria"] == "102"
 
     @pytest.mark.django_db
@@ -1207,7 +1207,7 @@ class TestFiscalService:
 
         fiscal = _build_fiscal_items(order)[0]["fiscal"]
         assert fiscal["ncm"] == "99999999"  # override wins
-        assert fiscal["cfop"] == "5101"     # profile-resolved codes still present
+        assert fiscal["cfop"] == "5102"     # profile-resolved codes still present
 
     @pytest.mark.django_db
     @patch("shopman.shop.services.fiscal.fiscal_pool")
