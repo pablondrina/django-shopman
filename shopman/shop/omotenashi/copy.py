@@ -8,7 +8,7 @@ returns a `CopyEntry`.
 Keys follow UPPER_SNAKE_CASE; one key ⇒ one UX moment. A moment of "*" means
 "same copy in every moment"; an audience of "*" means "same copy for anyone".
 
-See docs/omotenashi.md and docs/plans/OMOTENASHI-PLAN.md.
+See docs/omotenashi.md and docs/plans/completed/OMOTENASHI-PLAN.md.
 """
 
 from __future__ import annotations
