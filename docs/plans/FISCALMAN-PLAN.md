@@ -24,6 +24,8 @@ dois, os cores não. A emissão é orquestrada pelo shop (lê `product.metadata`
 
 ## Decisões de regime (travadas)
 
+> Referência canônica destilada (doc do contador + decisões): [`docs/reference/fiscal-parametrizacao-nfce.md`](../reference/fiscal-parametrizacao-nfce.md).
+
 - **Simples Nacional (CRT-01).** Documento: NFC-e (modelo 65) intraestadual; NF-e (modelo 55) interestadual = futuro.
 - **2 perfis nomeados** — eixo fiscal real (parametrização do contador, SEFA-PR) é **ST vs não-ST**:
   | Perfil | Membros | CSOSN | CFOP interno | CFOP interest. | Origem | CEST | PIS/COFINS CST |
