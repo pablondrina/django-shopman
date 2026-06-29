@@ -5,14 +5,11 @@ import type { CartItemProjection, CartResponse, ProductMutationMeta } from '~/ty
 const apiPath = useShopmanApiPath()
 const {
   cart,
-  cartIssue,
   rateLimitRecovery,
   hasPendingMutations,
   setFromServer,
   setSkuQty,
-  refreshCart,
-  acceptAvailableQty,
-  retryLastMutation
+  refreshCart
 } = useCartState()
 const { data, pending, error, refresh } = await useFetch<CartResponse>(apiPath('/api/v1/storefront/cart/'), {
   credentials: 'include'
@@ -27,12 +24,6 @@ const continueAction = computed(() => cart.value.actions.find(action => action.r
 const checkoutTarget = computed(() => localRouteFromBackend(checkoutAction.value?.href || '/finalizar'))
 const checkoutDisabled = computed(() => !checkoutAction.value?.enabled)
 const checkoutReason = computed(() => checkoutAction.value?.reason || '')
-const cartIssueQtyAction = computed(() => cartIssue.value?.actions.find(action => action.ref === 'set_available_qty' && action.enabled) || null)
-const cartIssueQtyLabel = computed(() => {
-  if (cartIssueQtyAction.value?.label) return cartIssueQtyAction.value.label
-  const qty = cartIssue.value?.available_qty
-  return qty != null ? `Usar ${formatCount(qty, 'unidade disponível', 'unidades disponíveis')}` : ''
-})
 
 // Timeout transparente: deadline explícito + countdown vivo enquanto há
 // itens planejados; o estado é re-sincronizado a cada 30s (materialização
@@ -93,6 +84,14 @@ async function adjustToAvailable (line: CartItemProjection) {
   }
 }
 
+// Teto de estoque transparente: quando a linha já está no limite disponível, o
+// "+" desabilita — mas não em silêncio. Mostramos quanto temos hoje, para o
+// cliente entender o porquê (e, se faltar, os substitutos aparecem no 409).
+function availabilityCeiling (line: CartItemProjection): number | null {
+  if (!line.is_available || line.available_qty == null) return null
+  return line.qty >= line.available_qty ? line.available_qty : null
+}
+
 useSeoMeta({
   title: 'Sacola'
 })
@@ -140,33 +139,8 @@ useSeoMeta({
       </UiAlert>
 
       <template v-else>
-        <UiAlert v-if="cartIssue" variant="destructive">
-          <UiAlertTitle>{{ cartIssue.title }}</UiAlertTitle>
-          <UiAlertDescription>
-            <p>{{ cartIssue.detail }}</p>
-            <div v-if="cartIssue.substitutes.length" class="mt-3 space-y-2">
-              <p class="shop-kicker">Alternativas disponíveis</p>
-              <UiItemGroup class="gap-2">
-                <UiItem v-for="substitute in cartIssue.substitutes.slice(0, 3)" :key="substitute.sku || substitute.name" variant="outline" size="sm">
-                  <UiItemContent>
-                    <UiItemTitle>{{ substitute.name || substitute.sku }}</UiItemTitle>
-                    <UiItemDescription v-if="substitute.reason">{{ substitute.reason }}</UiItemDescription>
-                    <UiItemDescription v-else-if="substitute.available_qty != null">
-                      {{ formatCount(substitute.available_qty, 'unidade disponível', 'unidades disponíveis') }}
-                    </UiItemDescription>
-                  </UiItemContent>
-                </UiItem>
-              </UiItemGroup>
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <UiButton v-if="cartIssue.available_qty != null" size="sm" variant="outline" @click="acceptAvailableQty">
-                {{ cartIssueQtyLabel }}
-              </UiButton>
-              <UiButton size="sm" variant="ghost" @click="retryLastMutation">Tentar novamente</UiButton>
-            </div>
-          </UiAlertDescription>
-        </UiAlert>
-
+        <!-- Indisponibilidade (esgotou/qtd) sobe no SubstituteSheet global, no
+             momento do 409 — não como banner inline aqui. -->
         <UiAlert v-if="rateLimitRecovery">
           <UiAlertTitle>Aguarde um instante</UiAlertTitle>
           <UiAlertDescription>{{ rateLimitRecovery.detail }}</UiAlertDescription>
@@ -287,6 +261,15 @@ useSeoMeta({
                     </UiButton>
                     <p class="ml-auto shop-price" :class="cart.summary_pending ? 'opacity-60' : ''">{{ line.total_display }}</p>
                   </div>
+                  <p
+                    v-if="availabilityCeiling(line) !== null"
+                    class="mt-1 flex items-center gap-1 text-xs text-muted-foreground"
+                    aria-live="polite"
+                    data-cart-line-ceiling
+                  >
+                    <Icon name="lucide:info" class="size-3.5 shrink-0" />
+                    Por hoje, temos {{ formatCount(availabilityCeiling(line)!, 'unidade', 'unidades') }} deste item.
+                  </p>
                 </div>
               </div>
             </div>
@@ -371,7 +354,7 @@ useSeoMeta({
           size="lg"
           variant="default"
           icon="lucide:clipboard-check"
-          class="w-full"
+          class="w-full shop-action-inverted"
           :disabled="checkoutDisabled"
         >
           {{ checkoutAction?.label || 'Finalizar pedido' }}
