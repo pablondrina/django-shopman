@@ -2272,6 +2272,8 @@ class Command(BaseCommand):
         return 120
 
     def _assert_catalog_remote_purchase_data(self):
+        from shopman.fiscalman.classification import from_metadata
+
         missing = []
         required_metadata = ("allergens", "dietary_info", "serves")
         listed_skus = ListingItem.objects.filter(
@@ -2294,9 +2296,13 @@ class Command(BaseCommand):
             if not fiscal:
                 gaps.append("metadata.fiscal")
             else:
-                for key in ("ncm", "cfop", "unit", "icms_situacao_tributaria"):
-                    if not fiscal.get(key):
-                        gaps.append(f"metadata.fiscal.{key}")
+                # CFOP/CSOSN/origem/PIS-COFINS vêm do perfil fiscal (Fiscalman) na
+                # emissão; por produto validamos só perfil + NCM (+ CEST se ST).
+                classification = from_metadata(metadata)
+                if classification.fiscal_profile is None:
+                    gaps.append("metadata.fiscal.profile")
+                for message in classification.errors():
+                    gaps.append(f"metadata.fiscal ({message})")
             if product.unit_weight_g and not metadata.get("approx_dimensions"):
                 gaps.append("metadata.approx_dimensions")
             if not product.keywords.exists():
