@@ -1,8 +1,9 @@
 # FISCALMAN-PLAN — 11ª persona: domínio fiscal (NFC-e/NF-e, classificação, perfis)
 
-> **Status (2026-06-28):** ⏳ Ativo. **Fundação criada e testada nesta sessão** (pacote +
-> classificação + perfis + validação + resolução, 19 vitests verdes). Resta integração (install +
-> admin + religação de emissão + seed). Regime: **Simples Nacional**. Decisões travadas com o Pablo.
+> **Status (2026-06-28):** ⏳ Ativo. **S0 fundação + S1 integração + S2 admin + S3 emissão/seed
+> CONCLUÍDOS e verdes** (test-framework 2161, make admin 253, test-fiscalman 19). Resta S4 (migrar o
+> fiscal do shop → persona) e S5 (NF-e mod. 55 / itens resale). Regime: **Simples Nacional**.
+> Decisões travadas com o Pablo. **Pendência humana: validação dos NCMs + PIS/COFINS CST pelo contador.**
 
 ## Decisão arquitetural
 
@@ -72,17 +73,21 @@ bebidas / 17 alimentos), definido por item no cadastro e validado pelo contador.
   `to_metadata_fiscal`; **`resolve_fiscal_item(classification, interstate=...)`** → dict que o adapter consome.
 - `tests/test_classification.py` — 19 testes (perfis, validação NCM/CEST, resolução intra/inter, round-trip). **Verdes.**
 
-### Slices restantes (próxima sessão / coordenado)
-- **S1 — Integração de pacote:** adicionar `shopman-fiscalman` ao `pyproject.toml` raiz (deps +
-  `packages.find` já cobre `shopman*`), `make install` (editable), e `shopman.fiscalman` em
-  `INSTALLED_APPS`. (Fazer junto, senão `make test`/`run` quebram por import.)
-- **S2 — Admin via ponte:** `fiscalman/contrib/offerman/` com segmento "Fiscal" dataclass-driven no
-  admin de Product (dropdown de perfil + NCM + CEST condicional). Seguir o Unfold Canonical Gate
-  (`.codex/skills/unfold-admin-canonical/SKILL.md`); `make admin` verde. Operador edita sem JSON.
-- **S3 — Religar emissão + seed (coordenado, num só PR):** o ponto que monta `item["fiscal"]` passa a
-  chamar `resolve_fiscal_item(from_metadata(product.metadata), interstate=dest_uf!=emit_uf)`; o seed
-  (`config/.../seed.py::fiscal_metadata_for_sku`) passa a gravar só `{profile, ncm, [cest]}` da tabela
-  acima (CFOP 5101, não 5102). ⚠️ Devem ir juntos: hoje o adapter lê `csosn`/`cfop` direto do metadata.
+### ✅ S1 — Integração de pacote (CONCLUÍDO)
+`shopman-fiscalman` no `pyproject.toml` raiz; `shopman.fiscalman` em `INSTALLED_APPS`; Makefile
+(install editable, `test-fiscalman`, agregado `test`). Editable instalado no `.venv`. `manage.py check` verde.
+
+### ✅ S2 — Admin via ponte (CONCLUÍDO)
+`fiscalman/contrib/offerman/` re-registra Product com `FiscalProductAdmin` + `FiscalProductAdminForm`
+(segmento "Fiscal (NFC-e)": perfil dropdown + NCM + CEST; validação por perfil; grava em
+`metadata["fiscal"]`). One-way (Fiscalman→Offerman). `make admin` verde (253).
+
+### ✅ S3 — Emissão + seed por perfil (CONCLUÍDO)
+`shop/services/fiscal.py::_build_fiscal_items` resolve via `resolve_fiscal_item(from_metadata(...))`
+(NFC-e intraestadual; override por linha vence) — corrige CFOP 5102→5101. Seed grava `{profile, ncm,
+unit}` com NCMs refinados; guardrail do seed valida via Fiscalman. Testes de fiação + seed atualizados.
+
+### Slices restantes
 - **S4 — Migrar o fiscal do shop → Fiscalman:** `shop/fiscal.py`, `services/fiscal.py`, `handlers/fiscal.py`
   e o port `fiscal_focusnfe` migram para a persona (emissão = domínio do Fiscalman); o shop fica só com
   wiring (directive/adapter/signal). Incremental, pós-go-live ok.
