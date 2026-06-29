@@ -9,10 +9,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# ── Fiscal, Accounting ── (vivem no orderman core, re-export)
+# ── Fiscal ── (vive na persona Fiscalman, re-export)
+from shopman.fiscalman.contracts import (  # noqa: F401
+    FiscalBackend,
+)
+
+# ── Accounting ── (vive no orderman core, re-export)
 from shopman.orderman.protocols import (  # noqa: F401
     AccountingBackend,
-    FiscalBackend,
 )
 
 # ── Payment ── (vivem no payments core, re-export)
