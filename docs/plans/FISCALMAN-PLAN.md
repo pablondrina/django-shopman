@@ -1,9 +1,9 @@
 # FISCALMAN-PLAN — 11ª persona: domínio fiscal (NFC-e/NF-e, classificação, perfis)
 
-> **Status (2026-06-28):** ⏳ Ativo. **S0 fundação + S1 integração + S2 admin + S3 emissão/seed
-> CONCLUÍDOS e verdes** (test-framework 2161, make admin 253, test-fiscalman 19). Resta S4 (migrar o
-> fiscal do shop → persona) e S5 (NF-e mod. 55 / itens resale). Regime: **Simples Nacional**.
-> Decisões travadas com o Pablo. **Pendência humana: validação dos NCMs + PIS/COFINS CST pelo contador.**
+> **Status (2026-06-29):** ⏳ Ativo. **S0+S1+S2+S3+S4 CONCLUÍDOS e verdes** (test-framework 2161,
+> make admin 253, test-fiscalman 22, test-orderman 268). Resta só S5 (NF-e mod. 55 / itens resale,
+> pós-go-live). Regime: **Simples Nacional**. Decisões travadas com o Pablo. **Pendência humana:
+> validação dos NCMs + PIS/COFINS CST pelo contador.**
 
 ## Decisão arquitetural
 
@@ -87,10 +87,14 @@ bebidas / 17 alimentos), definido por item no cadastro e validado pelo contador.
 (NFC-e intraestadual; override por linha vence) — corrige CFOP 5102→5101. Seed grava `{profile, ncm,
 unit}` com NCMs refinados; guardrail do seed valida via Fiscalman. Testes de fiação + seed atualizados.
 
+### ✅ S4 — Contrato fiscal é dono da persona (CONCLUÍDO)
+O contrato (`FiscalBackend` Protocol + `FiscalDocumentResult` + `FiscalCancellationResult`) saiu de
+`orderman.protocols` (onde estava estacionado, sem uso interno) para `shopman.fiscalman.contracts`.
+**Pool + adapter FocusNFe + emissão FICAM no shop** — adapters de provider são orchestrator-level por
+convenção (igual `payment_efi`/`payment_stripe` vivem no shop, não no payman); o adapter implementa o
+Protocol do fiscalman estruturalmente. Removida a classe-base `FiscalBackend` morta do `shop/fiscal.py`.
+
 ### Slices restantes
-- **S4 — Migrar o fiscal do shop → Fiscalman:** `shop/fiscal.py`, `services/fiscal.py`, `handlers/fiscal.py`
-  e o port `fiscal_focusnfe` migram para a persona (emissão = domínio do Fiscalman); o shop fica só com
-  wiring (directive/adapter/signal). Incremental, pós-go-live ok.
 - **S5 — Futuro:** NF-e (modelo 55) interestadual a consumidor; cadastro de itens `resale` com CEST.
 
 ## Critério de pronto (do domínio fiscal por produto)
