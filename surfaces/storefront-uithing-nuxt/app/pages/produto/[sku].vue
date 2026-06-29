@@ -130,15 +130,23 @@ useHead({
              (sangra até as bordas, sem cantos/laterais). Desktop: card 2-col contido. -->
         <article class="-mx-4 overflow-hidden border-b bg-card sm:-mx-6 lg:mx-0 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch lg:rounded-lg lg:border">
           <section class="min-w-0">
-            <img
-              v-if="product.image_url"
-              :src="product.image_url"
-              :alt="product.name"
-              class="aspect-[4/3] w-full object-cover"
-              fetchpriority="high"
-            >
-            <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground">
-              <Icon name="lucide:croissant" class="size-10" />
+            <div class="relative">
+              <img
+                v-if="product.image_url"
+                :src="product.image_url"
+                :alt="product.name"
+                class="aspect-[4/3] w-full object-cover"
+                :class="product.availability === 'unavailable' ? 'shop-photo-unavailable' : ''"
+                fetchpriority="high"
+              >
+              <div v-else class="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground">
+                <Icon name="lucide:croissant" class="size-10" />
+              </div>
+              <!-- Indisponível: etiqueta de VIDRO translúcida em tokens da marca (cream +
+                   marrom), harmonizando com a sépia, consistente com os cards. -->
+              <div v-if="product.availability === 'unavailable'" class="absolute bottom-3 left-3 z-10">
+                <UiBadge class="border-transparent bg-background/75 font-normal text-foreground shadow-sm backdrop-blur-sm">Indisponível</UiBadge>
+              </div>
             </div>
 
             <div v-if="product.gallery.length" class="grid grid-cols-3 gap-3 p-4 pb-0 lg:p-6 lg:pb-0">
@@ -155,8 +163,8 @@ useHead({
 
           <div class="min-w-0 p-4 sm:p-6">
 
-            <div v-if="badge || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
-              <UiBadge v-if="badge" :variant="badge.variant" class="font-normal">{{ badge.label }}</UiBadge>
+            <div v-if="(badge && product.availability !== 'unavailable') || product.promotion_label" class="mb-2 flex flex-wrap gap-2">
+              <UiBadge v-if="badge && product.availability !== 'unavailable'" :variant="badge.variant" class="font-normal">{{ badge.label }}</UiBadge>
               <UiBadge v-if="product.promotion_label" variant="default" class="font-normal">{{ product.promotion_label }}</UiBadge>
             </div>
 
@@ -181,7 +189,7 @@ useHead({
                 </div>
               </div>
               <div class="hidden md:block">
-                <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" />
+                <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" :name="product.name" :subscribed="product.is_notify_subscribed" />
                 <CartQuantityAction
                   v-else
                   :meta="meta"
@@ -270,13 +278,14 @@ useHead({
                 {{ compactUnitWeightLabel(product.unit_weight_label) }}
               </p>
             </div>
-            <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" compact />
+            <StockNotifyButton v-if="product.is_notifiable" :sku="product.sku" :name="product.name" :subscribed="product.is_notify_subscribed" compact inverted />
             <CartQuantityAction
               v-else
               :meta="meta"
               :qty="currentQty"
               :disabled="!product.can_add_to_cart"
               :max-qty="product.available_qty ?? product.max_qty"
+              tone="inverted"
             />
           </div>
         </div>

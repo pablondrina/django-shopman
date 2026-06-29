@@ -49,18 +49,22 @@ async function addOne () {
   />
   <UiButton
     v-else-if="addIconOnly"
-    :variant="tone === 'inverted' ? 'secondary' : 'default'"
+    variant="default"
     size="icon"
     icon="lucide:plus"
-    class="size-10 rounded-full shadow-sm"    :aria-label="`Adicionar ${meta.name}`"
+    class="size-10 rounded-full shadow-sm"
+    :class="tone === 'inverted' ? 'shop-action-inverted' : ''"
+    :aria-label="`Adicionar ${meta.name}`"
     :disabled="!hydrated || disabled || pending"
     @click="addOne"
   />
   <UiButton
     v-else
-    :variant="tone === 'inverted' ? 'secondary' : 'default'"
+    variant="default"
     :size="compact ? 'sm' : 'default'"
-    icon="lucide:shopping-bag"    :disabled="!hydrated || disabled || pending"
+    icon="lucide:shopping-bag"
+    :class="tone === 'inverted' ? 'shop-action-inverted' : ''"
+    :disabled="!hydrated || disabled || pending"
     :loading="pending"
     @click="addOne"
   >

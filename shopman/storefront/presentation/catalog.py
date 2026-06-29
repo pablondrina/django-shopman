@@ -101,6 +101,11 @@ class CatalogItemProjection:
     is_paused: bool = False
     is_notifiable: bool = False
 
+    # "Me avise" já assinado por este viewer (cliente logado por customer_ref, ou
+    # anônimo via sessão). PERSISTE o estado do sino entre reloads. Só faz sentido
+    # quando is_notifiable; False caso contrário.
+    is_notify_subscribed: bool = False
+
     # Estado do coração (favorito do cliente logado). Populado quando o builder
     # recebe um request autenticado; False p/ anônimo.
     is_favorite: bool = False
@@ -233,6 +238,7 @@ def build_catalog(
         low_stock_threshold=low_stock_threshold,
         qty_in_cart_by_sku=qty_in_cart_by_sku,
         favorite_skus=_favorite_skus(request),
+        subscribed_skus=_notify_subscribed_skus(request),
         active_food_prefs=_active_food_prefs(request),
     )
 
@@ -334,6 +340,7 @@ def build_catalog_items_for_skus(
             qty_in_cart_by_sku=qty_in_cart_by_sku,
             freshness_by_sku=freshness_by_sku,
             favorite_skus=_favorite_skus(request),
+            subscribed_skus=_notify_subscribed_skus(request),
             active_food_prefs=_active_food_prefs(request),
         )
     )
@@ -350,11 +357,13 @@ def _build_items(
     qty_in_cart_by_sku: dict[str, int] | None = None,
     freshness_by_sku: dict[str, str] | None = None,
     favorite_skus: set[str] | None = None,
+    subscribed_skus: set[str] | None = None,
     active_food_prefs=frozenset(),
 ) -> list[CatalogItemProjection]:
     qty_in_cart_by_sku = qty_in_cart_by_sku or {}
     freshness_by_sku = freshness_by_sku or {}
     favorite_skus = favorite_skus or set()
+    subscribed_skus = subscribed_skus or set()
     skus = [p.sku for p in products]
 
     # Batch: collections per SKU (used as `category` and for pricing context).
@@ -459,6 +468,7 @@ def _build_items(
                 can_add_to_cart=can_add,
                 is_paused=is_paused,
                 is_notifiable=is_notifiable,
+                is_notify_subscribed=is_notifiable and p.sku in subscribed_skus,
                 available_qty=available_qty,
                 dietary_info=tuple(str(d) for d in dietary),
                 is_new=bool(meta.get("is_new", False)),
@@ -626,6 +636,32 @@ def _favorite_skus(request: HttpRequest | None) -> set[str]:
         return favorites.favorite_sku_set(customer.ref)
     except Exception:
         logger.debug("catalog._favorite_skus failed", exc_info=True)
+        return set()
+
+
+def _notify_subscribed_skus(request: HttpRequest | None) -> set[str]:
+    """SKUs com 'Me avise' já pedido por este viewer — persiste o estado do sino.
+
+    Logado: por customer_ref/telefone da conta. Anônimo: SKUs gravados na sessão
+    Django pelo endpoint de inscrição (mesma sessão que serve o cardápio).
+    """
+    if request is None:
+        return set()
+    try:
+        from shopman.storefront.identity import get_authenticated_customer
+        from shopman.storefront.services import stock_alerts
+
+        skus: set[str] = set()
+        customer = get_authenticated_customer(request)
+        if customer is not None:
+            skus |= stock_alerts.subscribed_skus(customer=customer)
+        session = getattr(request, "session", None)
+        session_skus = session.get("stock_alert_skus") if session is not None else None
+        if isinstance(session_skus, (list, tuple, set)):
+            skus |= {str(s) for s in session_skus}
+        return skus
+    except Exception:
+        logger.debug("catalog._notify_subscribed_skus failed", exc_info=True)
         return set()
 
 

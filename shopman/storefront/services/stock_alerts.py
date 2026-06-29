@@ -22,6 +22,32 @@ def has_pending(sku: str) -> bool:
     return StockAlertSubscription.objects.filter(sku=sku, notified_at__isnull=True).exists()
 
 
+def subscribed_skus(*, customer=None, phone: str = "") -> set[str]:
+    """SKUs com inscrição PENDENTE para este viewer (cliente logado e/ou telefone).
+
+    Usado pela projeção para persistir o estado do sino "Me avise" entre reloads.
+    """
+    from django.db.models import Q
+
+    from shopman.storefront.models import StockAlertSubscription
+
+    customer_ref = (getattr(customer, "ref", "") or "").strip()
+    contact = (phone or getattr(customer, "phone", "") or "").strip()
+    if not customer_ref and not contact:
+        return set()
+
+    cond = Q()
+    if customer_ref:
+        cond |= Q(customer_ref=customer_ref)
+    if contact:
+        cond |= Q(contact_phone=contact)
+    return set(
+        StockAlertSubscription.objects.filter(notified_at__isnull=True)
+        .filter(cond)
+        .values_list("sku", flat=True)
+    )
+
+
 def subscribe(sku: str, *, channel_ref: str = "web", customer=None, phone: str = ""):
     """Register a pending stock-back alert. Returns the subscription or None.
 

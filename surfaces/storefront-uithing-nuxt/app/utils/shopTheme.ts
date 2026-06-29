@@ -197,6 +197,16 @@ export function shopThemeCss (
       `.shop-qty.shop-qty { background-color: var(--primary); color: var(--primary-foreground); border-color: color-mix(in srgb, var(--primary-foreground) 28%, transparent); --foreground: var(--primary-foreground); --accent: color-mix(in srgb, var(--primary) 82%, #000); --accent-foreground: var(--primary-foreground); }`
     )
 
+    // Ação SOBRE o card escuro flutuante (CTA fixo mobile, fundo ink): inverte pra
+    // manter a ação clara e legível sobre o vinho. Fundo Faubourg (--shop-bottomnav) +
+    // texto Brass escurecido — alto contraste, ainda dentro da paleta. Consumido por
+    // botões (.shop-action-inverted) e pela pílula de quantidade (.shop-qty-inverted).
+    blocks.push(
+      `.shop-action-inverted.shop-action-inverted { background-color: var(--shop-bottomnav); color: color-mix(in srgb, var(--shop-cta), #000 40%); border-color: transparent; }`,
+      `.shop-action-inverted.shop-action-inverted:hover { background-color: color-mix(in srgb, var(--shop-bottomnav) 90%, #000); color: color-mix(in srgb, var(--shop-cta), #000 40%); }`,
+      `.shop-qty-inverted.shop-qty-inverted { background-color: var(--shop-bottomnav); color: color-mix(in srgb, var(--shop-cta), #000 40%); border-color: color-mix(in srgb, var(--shop-cta) 30%, transparent); --foreground: color-mix(in srgb, var(--shop-cta), #000 40%); --accent: color-mix(in srgb, var(--shop-bottomnav) 84%, #000); --accent-foreground: color-mix(in srgb, var(--shop-cta), #000 40%); }`
+    )
+
     // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o
     // banner de pedido e os CTAs que também são Brass sólido.
     blocks.push(
