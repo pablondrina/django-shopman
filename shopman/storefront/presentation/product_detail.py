@@ -36,6 +36,7 @@ from .catalog import (
     _active_food_prefs,
     _cart_qty_by_sku,
     _favorite_skus,
+    _notify_subscribed_skus,
     _resolve_availability,
     build_catalog_items_for_skus,
 )
@@ -142,6 +143,8 @@ class ProductDetailProjection:
     # "Me avise quando disponível" na PDP (WP-3).
     is_paused: bool
     is_notifiable: bool
+    # "Me avise" já assinado por este viewer — persiste o estado do sino na PDP.
+    is_notify_subscribed: bool
     is_favorite: bool
     dietary_warnings: tuple[str, ...]
     max_qty: int
@@ -292,6 +295,7 @@ def build_product_detail(
 
     qty_in_cart = int(_cart_qty_by_sku(request).get(product.sku, 0))
     is_favorite = product.sku in _favorite_skus(request)
+    is_notify_subscribed = is_notifiable and product.sku in _notify_subscribed_skus(request)
     _meta = product.metadata if isinstance(product.metadata, dict) else {}
     dietary_warns = _dietary_warnings(
         _active_food_prefs(request),
@@ -324,6 +328,7 @@ def build_product_detail(
         available_qty=available_qty,
         is_paused=is_paused,
         is_notifiable=is_notifiable,
+        is_notify_subscribed=is_notify_subscribed,
         is_favorite=is_favorite,
         dietary_warnings=dietary_warns,
         max_qty=99,  # storefront cap; matches v1 <input max="99">

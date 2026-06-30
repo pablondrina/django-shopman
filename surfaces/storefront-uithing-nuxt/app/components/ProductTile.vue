@@ -38,6 +38,7 @@ function productRoute (sku: string) {
               loading="lazy"
               decoding="async"
               class="size-full object-cover"
+              :class="item.availability === 'unavailable' ? 'shop-photo-unavailable' : ''"
             >
             <div v-else class="flex size-full items-center justify-center text-muted-foreground">
               <Icon name="lucide:image" class="size-7" />
@@ -50,7 +51,12 @@ function productRoute (sku: string) {
             >
               <span class="sr-only">Ver detalhes de {{ item.name }}</span>
             </UiButton>
-            <div v-if="badge" class="absolute left-2 top-2 z-20">
+            <!-- Indisponível: etiqueta de VIDRO translúcida em tokens da marca (cream +
+                 marrom), harmonizando com a sépia; demais estados seguem o tileBadge. -->
+            <div v-if="item.availability === 'unavailable'" class="absolute left-2 top-2 z-20">
+              <UiBadge class="border-transparent bg-background/75 font-normal text-foreground shadow-sm backdrop-blur-sm">Indisponível</UiBadge>
+            </div>
+            <div v-else-if="badge" class="absolute left-2 top-2 z-20">
               <UiBadge :variant="badge.variant" class="font-normal shadow-sm">{{ badge.label }}</UiBadge>
             </div>
           </UiAspectRatio>
@@ -88,7 +94,7 @@ function productRoute (sku: string) {
           </div>
 
           <div class="ml-auto shrink-0">
-            <StockNotifyButton v-if="item.is_notifiable" :sku="item.sku" compact />
+            <StockNotifyButton v-if="item.is_notifiable" :sku="item.sku" :name="item.name" :subscribed="item.is_notify_subscribed" compact />
             <CartQuantityAction
               v-else
               :meta="meta"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdCountdown, isOptimisticLine, lineHoldState } from '~/presentation/cart'
-import type { CartItemProjection, CartProjection, ProductMutationMeta } from '~/types/shopman'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdCountdown, isOptimisticLine, lineHoldState, substituteSwapPlan } from '~/presentation/cart'
+import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
   return {
@@ -116,6 +116,63 @@ describe('cart presentation — applySkuQty', () => {
     expect(previous.items[0]!.qty).toBe(2)
     expect(previous.items_count).toBe(2)
     expect(previous.summary_pending).toBe(false)
+  })
+})
+
+describe('cart presentation — substituteSwapPlan', () => {
+  function sub (overrides: Partial<SubstituteProjection> = {}): SubstituteProjection {
+    return {
+      sku: 'CROIS-002',
+      name: 'Croissant de amêndoas',
+      price_q: 1400,
+      price_display: 'R$ 14,00',
+      image_url: null,
+      available_qty: 5,
+      can_order: true,
+      target_qty: null,
+      ...overrides
+    }
+  }
+
+  it('uses target_qty when the backend provides it', () => {
+    const plan = substituteSwapPlan(sub({ target_qty: 3, available_qty: 5 }), 8)
+    expect(plan?.qty).toBe(3)
+  })
+
+  it('falls back to min(requested, available) with a floor of 1', () => {
+    expect(substituteSwapPlan(sub({ target_qty: null, available_qty: 2 }), 5)?.qty).toBe(2)
+    expect(substituteSwapPlan(sub({ target_qty: null, available_qty: 9 }), 4)?.qty).toBe(4)
+    expect(substituteSwapPlan(sub({ target_qty: null, available_qty: 0 }), 5)?.qty).toBe(1)
+  })
+
+  it('defaults to 1 when neither target_qty nor available_qty is known', () => {
+    expect(substituteSwapPlan(sub({ target_qty: null, available_qty: null }), null)?.qty).toBe(1)
+    expect(substituteSwapPlan(sub({ target_qty: null, available_qty: null }), 7)?.qty).toBe(7)
+  })
+
+  it('returns null when the substitute is not orderable', () => {
+    expect(substituteSwapPlan(sub({ can_order: false }), 1)).toBeNull()
+  })
+
+  it('returns null when the substitute has no sku', () => {
+    expect(substituteSwapPlan(sub({ sku: '' }), 1)).toBeNull()
+  })
+
+  it('builds the mutation meta from the substitute (image_url passed through)', () => {
+    const plan = substituteSwapPlan(sub({ target_qty: 2, image_url: 'https://cdn/x.jpg' }), 1)
+    expect(plan?.meta).toEqual({
+      sku: 'CROIS-002',
+      name: 'Croissant de amêndoas',
+      price_q: 1400,
+      price_display: 'R$ 14,00',
+      image_url: 'https://cdn/x.jpg'
+    })
+  })
+
+  it('tolerates a null price_display by emitting an empty string', () => {
+    const plan = substituteSwapPlan(sub({ target_qty: 1, price_display: null }), 1)
+    expect(plan?.meta.price_display).toBe('')
+    expect(plan?.meta.image_url).toBeNull()
   })
 })
 

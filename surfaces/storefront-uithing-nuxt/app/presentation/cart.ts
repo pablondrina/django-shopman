@@ -1,4 +1,4 @@
-import type { CartItemProjection, CartProjection, ProductMutationMeta } from '~/types/shopman'
+import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 // Transforms puros para escrita otimista do carrinho. Linhas (qty, total da linha,
 // contagem) mudam na hora; o resumo (subtotal, descontos, total geral) é
@@ -101,6 +101,37 @@ export function cartHoldBanner (cart: Pick<CartProjection, 'has_ready_for_confir
   }
   if (cart.has_awaiting_confirmation_items) return { kind: 'awaiting' }
   return null
+}
+
+// Swap de substituto em 1 toque: traduz a alternativa numa escrita de carrinho.
+// Espelha o docstring do backend (substitutes.py::_target_qty): a quantidade é
+// target_qty quando vier; senão min(pedido, disponível); piso 1 para o botão
+// sempre fazer algo útil. Retorna null quando não há ação (não-ordenável/sem sku).
+export function substituteSwapPlan (
+  sub: SubstituteProjection,
+  requestedQty: number | null
+): { meta: ProductMutationMeta, qty: number } | null {
+  if (!sub?.can_order || !sub.sku) return null
+
+  let qty: number
+  if (sub.target_qty != null && sub.target_qty > 0) {
+    qty = sub.target_qty
+  } else {
+    const ceiling = sub.available_qty != null ? sub.available_qty : Infinity
+    qty = Math.min(requestedQty ?? 1, ceiling)
+  }
+  qty = Math.max(1, Math.floor(qty))
+
+  return {
+    meta: {
+      sku: sub.sku,
+      name: sub.name,
+      price_q: sub.price_q,
+      price_display: sub.price_display ?? '',
+      image_url: sub.image_url ?? null
+    },
+    qty
+  }
 }
 
 export function applySkuQty (cart: CartProjection, meta: ProductMutationMeta, qty: number): CartProjection {

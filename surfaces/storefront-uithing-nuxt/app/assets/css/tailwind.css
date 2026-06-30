@@ -525,6 +525,13 @@
   .shop-photo-mat-sm {
     @apply border-4 border-white outline-4 outline-white outline-offset-1 ring-4 ring-inset ring-white;
   }
+  /* Foto de item indisponível: SÉPIA (não P&B frio) — casa com a paleta quente da
+     marca (creme/brass/burgundy). Fonte única do tratamento; ajuste a intensidade
+     aqui. Levemente esmaecida p/ recuar sem apagar. */
+  .shop-photo-unavailable {
+    filter: sepia(1) saturate(1.4) brightness(0.92) contrast(1.02);
+    opacity: 0.95;
+  }
 }
 
 @utility no-scrollbar {

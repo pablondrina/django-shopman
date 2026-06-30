@@ -1,5 +1,5 @@
-import { applySkuQty } from '~/presentation/cart'
-import type { CartMutationResponse, CartProjection, ProductMutationMeta, Action } from '~/types/shopman'
+import { applySkuQty, substituteSwapPlan } from '~/presentation/cart'
+import type { CartMutationResponse, CartProjection, ProductMutationMeta, Action, SubstituteProjection } from '~/types/shopman'
 
 interface CartIssue {
   title: string
@@ -11,7 +11,7 @@ interface CartIssue {
   available_qty: number | null
   is_paused: boolean
   is_planned: boolean
-  substitutes: Array<{ sku?: string, name?: string, reason?: string, available_qty?: number, target_qty?: number, can_order?: boolean }>
+  substitutes: SubstituteProjection[]
   actions: Action[]
   items: Array<{
     sku: string
@@ -96,6 +96,23 @@ function numberOrNull (value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+function normalizeSubstitutes (raw: unknown): SubstituteProjection[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((sub: any) => sub && typeof sub.sku === 'string' && sub.sku)
+    .map((sub: any) => ({
+      sku: String(sub.sku),
+      name: String(sub.name || sub.sku),
+      price_q: numberOrNull(sub.price_q) ?? 0,
+      price_display: typeof sub.price_display === 'string' ? sub.price_display : null,
+      image_url: typeof sub.image_url === 'string' && sub.image_url ? sub.image_url : null,
+      available_qty: numberOrNull(sub.available_qty),
+      can_order: !!sub.can_order,
+      target_qty: numberOrNull(sub.target_qty),
+      reason: typeof sub.reason === 'string' && sub.reason ? sub.reason : undefined
+    }))
+}
+
 function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
   const fallbackName = String(data?.name || meta.name || data?.sku || meta.sku)
   const rawItems = Array.isArray(data?.items) ? data.items : []
@@ -128,7 +145,7 @@ function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
     available_qty: numberOrNull(data?.available_qty),
     is_paused: !!data?.is_paused,
     is_planned: !!data?.is_planned,
-    substitutes: Array.isArray(data?.substitutes) ? data.substitutes : [],
+    substitutes: normalizeSubstitutes(data?.substitutes),
     actions: Array.isArray(data?.actions) ? data.actions : [],
     items
   }
@@ -169,8 +186,17 @@ export function useCartState () {
     pendingCountBySku.value = next
   }
 
-  function applyServerCart (next: CartProjection) {
+  // Atualiza só a projeção do carrinho. NÃO mexe em cartIssue/rateLimitRecovery:
+  // esses avisos têm ciclo de vida próprio (limpos por mutação bem-sucedida ou
+  // pelo início da próxima mutação), e precisam sobreviver a fetches passivos.
+  function setCartProjection (next: CartProjection) {
     cart.value = { ...next, summary_pending: false }
+  }
+
+  // Caminho de mutação bem-sucedida: a verdade do servidor chegou e qualquer
+  // aviso pendente (issue/rate-limit) está resolvido — pode limpar.
+  function applyServerCart (next: CartProjection) {
+    setCartProjection(next)
     cartIssue.value = null
     rateLimitRecovery.value = null
   }
@@ -180,7 +206,11 @@ export function useCartState () {
     // Snapshots passivos (shell, projeções de página) não podem atropelar o
     // estado otimista enquanto há mutações em voo; a verdade chega no drain da fila.
     if (queueDepth > 0) return
-    applyServerCart(next)
+    // PRESERVA cartIssue: um 409 (ex.: adicionar item esgotado pelo menu/PDP)
+    // navega pra /sacola, e é justamente o fetch desta página que chegaria aqui.
+    // Se limpasse o aviso, o cliente cairia numa sacola vazia muda — sem os
+    // substitutos. O banner só some quando uma mutação de fato dá certo.
+    setCartProjection(next)
   }
 
   function clearCart () {
@@ -202,7 +232,9 @@ export function useCartState () {
     const response = await $fetch<{ cart: CartProjection }>(apiPath('/api/v1/storefront/cart/'), {
       credentials: 'include'
     })
-    applyServerCart(response.cart)
+    // Reconciliação passiva (revert do otimista no catch, poll de holds): preserva
+    // cartIssue para o banner de substitutos não sumir enquanto o cliente decide.
+    setCartProjection(response.cart)
     return response.cart
   }
 
@@ -239,9 +271,10 @@ export function useCartState () {
       const status = error?.response?.status
       const data = error?.data
       if (status === 409 && data) {
+        // Não navega: o SubstituteSheet global sobe no lugar (em qualquer
+        // superfície — menu/PDP/sacola), no momento exato do problema.
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
-        if (import.meta.client) await navigateTo('/sacola')
       } else if (status === 429) {
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {
@@ -300,6 +333,21 @@ export function useCartState () {
     return setSkuQty(mutation.meta, availableQty)
   }
 
+  function dismissCartIssue () {
+    cartIssue.value = null
+  }
+
+  // Swap em 1 toque: troca o item que faltou por uma alternativa em estoque.
+  // Reusa setSkuQty (otimista + fila + 409/429); no sucesso, applyServerCart
+  // zera cartIssue e o banner some sozinho.
+  async function addSubstitute (sub: SubstituteProjection) {
+    const plan = substituteSwapPlan(sub, cartIssue.value?.requested_qty ?? null)
+    if (!plan) return null
+    const res = await setSkuQty(plan.meta, plan.qty)
+    if (import.meta.client) useSonner.success(`Adicionamos ${sub.name} à sua sacola.`)
+    return res
+  }
+
   return {
     cart,
     hasPendingMutations,
@@ -317,6 +365,8 @@ export function useCartState () {
     applyCoupon,
     removeCoupon,
     retryLastMutation,
-    acceptAvailableQty
+    acceptAvailableQty,
+    addSubstitute,
+    dismissCartIssue
   }
 }

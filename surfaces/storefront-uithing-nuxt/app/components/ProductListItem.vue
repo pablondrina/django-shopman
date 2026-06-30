@@ -33,23 +33,20 @@ const badge = computed(() => tileBadge(props.item))
       <p v-if="item.short_description" class="mt-2 line-clamp-2 shop-meta">
         {{ item.short_description }}
       </p>
-      <UiBadge v-if="badge" :variant="badge.variant" class="mt-2 font-normal">{{ badge.label }}</UiBadge>
+      <UiBadge v-if="badge && item.availability !== 'unavailable'" :variant="badge.variant" class="mt-2 font-normal">{{ badge.label }}</UiBadge>
       <DietaryWarningBadges :warnings="item.dietary_warnings" class="mt-2" />
       <p class="mt-2 flex flex-wrap items-baseline gap-x-2">
         <span v-if="item.original_price_display" class="shop-meta line-through">{{ item.original_price_display }}</span>
         <span class="shop-price">{{ item.price_display }}</span>
         <span v-if="item.unit_weight_label" class="shop-meta">{{ compactUnitWeightLabel(item.unit_weight_label) }}</span>
       </p>
-      <div v-if="item.is_notifiable" class="relative z-10 mt-2">
-        <StockNotifyButton :sku="item.sku" compact />
-      </div>
     </div>
 
     <div class="pointer-events-none relative shrink-0 self-start">
       <div :class="framed ? 'shop-photo-frame shop-photo-frame-sm drop-shadow-md' : ''">
         <div
           class="size-28 overflow-hidden bg-muted"
-          :class="[framed ? 'shop-photo-mat-sm' : 'rounded-lg', item.availability === 'unavailable' ? 'opacity-60 grayscale' : '']"
+          :class="[framed ? 'shop-photo-mat-sm' : 'rounded-lg', item.availability === 'unavailable' ? 'shop-photo-unavailable' : '']"
         >
           <img
             v-if="item.image_url"
@@ -64,7 +61,23 @@ const badge = computed(() => tileBadge(props.item))
           </div>
         </div>
       </div>
-      <div v-if="!item.is_notifiable" class="pointer-events-auto absolute bottom-1 right-1 z-10">
+      <!-- Indisponível: etiqueta de VIDRO translúcida em tokens da marca (cream + marrom),
+           harmonizando com a foto em sépia. Centralizada no topo, descolada da borda. -->
+      <div v-if="item.availability === 'unavailable'" class="absolute inset-x-0 top-3 z-10 flex justify-center">
+        <UiBadge class="max-w-full border-transparent bg-background/75 font-normal text-foreground shadow-sm backdrop-blur-sm">Indisponível</UiBadge>
+      </div>
+      <!-- Notificável: pill "Me avise"/"Anotado" ocupa TODA a largura da foto (centrado),
+           no rodapé — sem extravasar. -->
+      <div v-if="item.is_notifiable" class="pointer-events-auto absolute inset-x-1 bottom-1 z-10">
+        <StockNotifyButton
+          :sku="item.sku"
+          :name="item.name"
+          :subscribed="item.is_notify_subscribed"
+          pill
+        />
+      </div>
+      <!-- Disponível: "+"/pílula de quantidade na quina. -->
+      <div v-else-if="item.availability !== 'unavailable'" class="pointer-events-auto absolute bottom-1 right-1 z-10">
         <CartQuantityAction
           :meta="meta"
           :qty="currentQty"

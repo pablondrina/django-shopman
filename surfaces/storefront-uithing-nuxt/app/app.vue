@@ -65,6 +65,7 @@ useSeoMeta({
     <AppBottomNav />
     <ClientOnly>
       <SearchOverlay />
+      <SubstituteSheet />
     </ClientOnly>
     <UiSonner />
   </div>

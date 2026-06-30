@@ -33,6 +33,8 @@ export interface CatalogItemProjection {
   // operador" de "esgotado honesto". is_notifiable habilita o CTA "Me avise" (WP-3).
   is_paused: boolean
   is_notifiable: boolean
+  // "Me avise" já assinado por este viewer — persiste o estado do sino entre reloads.
+  is_notify_subscribed: boolean
   // Favorito do cliente logado (WP-4); false p/ anônimo.
   is_favorite: boolean
   // Avisos de preferência alimentar (WP-5), ex.: "Contém glúten". Vazio sem conflito.
@@ -124,6 +126,8 @@ export interface ProductDetailProjection {
   // Disponibilidade fina (WP-2/WP-3) + favorito (WP-4) + avisos dietéticos (WP-5).
   is_paused: boolean
   is_notifiable: boolean
+  // "Me avise" já assinado por este viewer — persiste o estado do sino na PDP.
+  is_notify_subscribed: boolean
   is_favorite: boolean
   dietary_warnings: string[]
   is_bundle: boolean
@@ -506,6 +510,21 @@ export interface ProductMutationMeta {
   price_q: number
   price_display: string
   image_url: string | null
+}
+
+// Alternativa em estoque oferecida quando o item escolhido falta. O backend
+// (shop/services/substitutes.py::find) já entrega tudo o que o swap em 1 toque
+// precisa: target_qty é a quantidade a adicionar; can_order decide se a ação age.
+export interface SubstituteProjection {
+  sku: string
+  name: string
+  price_q: number
+  price_display: string | null
+  image_url: string | null
+  available_qty: number | null
+  can_order: boolean
+  target_qty: number | null
+  reason?: string
 }
 
 export interface PaymentMethodProjection {

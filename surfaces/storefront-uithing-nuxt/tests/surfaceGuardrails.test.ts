@@ -208,7 +208,9 @@ describe('surface UX guardrails', () => {
     expect(productTile).toContain(':to="productRoute(item.sku)"')
     expect(productTile).toContain(':aria-label="`Ver detalhes de ${item.name}`"')
     expect(productTile).toContain("import { tileBadge } from '~/presentation/menu'")
-    expect(productTile).toContain('v-if="badge"')
+    // Indisponível = etiqueta neutra na foto (P&B); demais estados seguem tileBadge.
+    expect(productTile).toContain('v-if="item.availability === \'unavailable\'"')
+    expect(productTile).toContain('v-else-if="badge"')
     expect(productTile).not.toContain('<UiPopover')
     expect(productTile).not.toContain('availabilityVariant')
     expect(productTile).not.toContain('item.allergens.length || item.available_qty')
@@ -400,7 +402,10 @@ describe('surface UX guardrails', () => {
     expect(types).toContain('actions: Action[]')
     expect(app).not.toContain('<CartDrawer')
     expect(cartState).not.toContain('drawerOpen')
-    expect(cartState).toContain("await navigateTo('/sacola')")
+    // Indisponibilidade (409) NÃO navega: o SubstituteSheet global sobe no lugar,
+    // no momento exato do problema (menu/PDP/sacola). Reorder ainda navega (sucesso).
+    expect(cartState).not.toContain("navigateTo('/sacola')")
+    expect(app).toContain('<SubstituteSheet')
     expect(reorder).not.toContain('drawerOpen')
     expect(reorder).toContain("await navigateTo('/sacola')")
     expect(bottomNav).not.toContain("label: 'Finalizar'")
@@ -442,10 +447,17 @@ describe('surface UX guardrails', () => {
     expect(cartPage).toContain("checkoutAction?.label || 'Finalizar pedido'")
     expect(cartPage).toContain('<CartSummaryBreakdown :cart="cart" flat />')
     expect(cartPage).toContain('sticky bottom-20')
-    expect(cartPage).toContain('cartIssue')
     expect(cartPage).toContain('rateLimitRecovery')
-    expect(cartPage).toContain('acceptAvailableQty')
-    expect(cartPage).toContain('retryLastMutation')
+    // Indisponibilidade + substitutos saíram do banner inline da sacola e viraram
+    // o SubstituteSheet global (bottom-sheet canônico, 1 toque, dispensável).
+    const substituteSheet = read('app/components/SubstituteSheet.vue')
+    expect(substituteSheet).toContain('data-substitute-sheet')
+    expect(substituteSheet).toContain('<BottomSheet')
+    expect(substituteSheet).toContain('addSubstitute')
+    expect(substituteSheet).toContain('acceptAvailableQty')
+    expect(substituteSheet).toContain('retryLastMutation')
+    expect(substituteSheet).toContain('dismissCartIssue')
+    expect(substituteSheet).toContain('Agora não')
     expect(cartPage).not.toContain(':disabled="cart.is_empty || cart.has_unavailable_items"')
   })
 
@@ -459,17 +471,19 @@ describe('surface UX guardrails', () => {
     expect(action).toContain('addTargetQty')
     expect(action).toContain("tone?: 'default' | 'inverted'")
     expect(action).toContain("const nextQty = props.addTargetQty ?? 1")
-    expect(action).toContain("tone === 'inverted' ? 'secondary' : 'default'")
+    // tone="inverted" = ação SOBRE o card escuro flutuante (CTA fixo mobile) → botão
+    // Faubourg + texto Brass escuro (.shop-action-inverted), em vez do secondary/kraft.
+    expect(action).toContain("tone === 'inverted' ? 'shop-action-inverted' : ''")
     // Pílula opaca (padrão iFood): nunca campo de form transparente sobre foto/CTA.
     expect(quantity).toContain('rounded-full border bg-background text-foreground shadow-sm')
+    expect(quantity).toContain("tone === 'inverted' ? 'shop-qty-inverted' : ''")
     expect(quantity).not.toContain('<UiNumberField')
     // CTA sticky honesto: pílula com a qty real do carrinho, sem estado fantasma.
     expect(productRoute).not.toContain('mobileCtaTouched')
+    // CTA flutuante mobile = card ink (burgundy escuro) + ação invertida (Faubourg/Brass escuro).
     expect(productRoute).toContain('sticky bottom-20 z-30 mt-4 rounded-lg border border-ink bg-ink p-3 text-ink-foreground shadow-lg md:hidden')
     expect(productRoute).toContain(':qty="currentQty"')
-    // CTA de commit usa o Brass canônico (mesma cor de "Adicionar" no resto do site),
-    // não o secondary/kraft invertido — conformidade com o design system.
-    expect(productRoute).not.toContain('tone="inverted"')
+    expect(productRoute).toContain('tone="inverted"')
     expect(cartState).not.toContain('drawerOpen')
     expect(smoke).toContain('cart page entry point should remain visible after add')
   })

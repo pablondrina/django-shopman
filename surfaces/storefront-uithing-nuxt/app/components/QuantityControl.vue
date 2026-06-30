@@ -37,7 +37,7 @@ function commit (value: number) {
     role="group"
     :aria-label="`Quantidade de ${meta.name}`"
     class="shop-qty inline-flex h-10 items-center rounded-full border bg-background text-foreground shadow-sm"
-    :class="compact ? '' : 'px-1'"
+    :class="[compact ? '' : 'px-1', tone === 'inverted' ? 'shop-qty-inverted' : '']"
   >
     <UiButton
       variant="ghost"
