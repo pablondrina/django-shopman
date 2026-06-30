@@ -461,6 +461,13 @@ class NotificationTemplate(models.Model):
         "mensagem",
         help_text="Texto principal da notificação (WhatsApp-first). Suporta {placeholders}.",
     )
+    whatsapp_flow_ns = models.CharField(
+        "flow do WhatsApp (ManyChat)", max_length=120, blank=True,
+        help_text=(
+            "Namespace do flow no ManyChat p/ este evento "
+            "(ex: content20250401120000_123456). Vazio = envia a 'mensagem' como texto direto."
+        ),
+    )
     is_active = models.BooleanField("ativo", default=True)
 
     class Meta:

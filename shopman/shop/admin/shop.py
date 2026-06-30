@@ -1488,9 +1488,9 @@ class ShopIntegrationsAdmin(_ShopSingletonAdmin):
 
 @admin.register(NotificationTemplate)
 class NotificationTemplateAdmin(ModelAdmin):
-    list_display = ("event", "subject", "is_active")
+    list_display = ("event", "subject", "whatsapp_flow_ns", "is_active")
     list_filter = ("is_active",)
     search_fields = ("event", "subject", "body")
     list_editable = ("is_active",)
-    fields = ("event", "subject", "body", "is_active")
+    fields = ("event", "subject", "body", "whatsapp_flow_ns", "is_active")
     readonly_fields = ("event",)
