@@ -26,6 +26,26 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.lower() in ("true", "1", "yes")
 
 
+def _json_env(name: str, default):
+    """Parse a JSON env var into a dict/list; fall back to `default` if unset/invalid.
+
+    Lets map-shaped config (MANYCHAT_FLOW_MAP, WHATSAPP_TEMPLATES) be set per
+    environment (ex.: DigitalOcean App env) sem editar código nem fazer deploy.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    import json
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        import logging
+
+        logging.getLogger("config.settings").warning("Env %s não é JSON válido — usando default", name)
+        return default
+
+
 def _materialized_secret_file(*, content: str, filename: str) -> str:
     secret_dir = Path(os.environ.get("SHOPMAN_RUNTIME_SECRET_DIR", "/tmp/shopman-secrets"))
     secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -392,13 +412,11 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 # ── Manychat (WhatsApp via ManyChat) ────────────────────────────────
 MANYCHAT_API_TOKEN = os.environ.get("MANYCHAT_API_TOKEN", "")
 MANYCHAT_WEBHOOK_SECRET = os.environ.get("MANYCHAT_WEBHOOK_SECRET", "")
-MANYCHAT_FLOW_MAP = {
-    # Mapeia eventos de notificação → ManyChat flow namespace.
-    # Se vazio, ManychatBackend envia mensagem texto direta (sem flow).
-    # Para usar flows, configure no ManyChat e mapeie aqui:
-    # "order_confirmed": "content20250401120000_123456",
-    # "payment_confirmed": "content20250401120000_234567",
-}
+# Mapeia eventos de notificação → ManyChat flow namespace. Carregável por env (JSON)
+# p/ configurar no DigitalOcean SEM editar código nem deploy. Ex.:
+#   MANYCHAT_FLOW_MAP='{"order_confirmed":"content20250401120000_123456","payment_confirmed":"content20250401120000_234567"}'
+# Vazio → ManychatBackend envia mensagem texto direta (sem flow).
+MANYCHAT_FLOW_MAP = _json_env("MANYCHAT_FLOW_MAP", {})
 try:
     MANYCHAT_API_TIMEOUT = int(os.environ.get("MANYCHAT_API_TIMEOUT", "15"))
 except ValueError:
@@ -426,10 +444,10 @@ SHOPMAN_WHATSAPP = {
     "GRAPH_VERSION": os.environ.get("WHATSAPP_GRAPH_VERSION", "v21.0"),
     "DEFAULT_LANG": os.environ.get("WHATSAPP_TEMPLATE_LANG", "pt_BR"),
     "timeout": MANYCHAT_API_TIMEOUT,
-    # event → Meta template config. Vazio = manda texto (só dentro da janela 24h).
-    # Preencher com os templates Utility/Auth aprovados na Meta:
-    #   "order_confirmed": {"name": "pedido_confirmado", "body": ["order_ref", "total"]},
-    "templates": {},
+    # event → Meta template config. Carregável por env (JSON) p/ configurar no DO sem deploy.
+    # Vazio = manda texto (só dentro da janela 24h). Ex. com templates aprovados na Meta:
+    #   WHATSAPP_TEMPLATES='{"order_confirmed":{"name":"pedido_confirmado","body":["order_ref","total"]}}'
+    "templates": _json_env("WHATSAPP_TEMPLATES", {}),
 }
 
 # ── iFood (Marketplace F16) ────────────────────────────────────────
