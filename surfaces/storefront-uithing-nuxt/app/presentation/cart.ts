@@ -103,6 +103,14 @@ export function cartHoldBanner (cart: Pick<CartProjection, 'has_ready_for_confir
   return null
 }
 
+// Cor segue a semântica do estado (semáforo): "tudo pronto" é positivo (success);
+// "aguardando confirmação" é um estado de espera/atenção (warning). Sem hardcode
+// de variant no template — a cor é derivada do kind.
+export function holdBannerVariant (banner: CartHoldBanner | null): 'success' | 'warning' | null {
+  if (!banner) return null
+  return banner.kind === 'ready' ? 'success' : 'warning'
+}
+
 // Swap de substituto em 1 toque: traduz a alternativa numa escrita de carrinho.
 // Espelha o docstring do backend (substitutes.py::_target_qty): a quantidade é
 // target_qty quando vier; senão min(pedido, disponível); piso 1 para o botão

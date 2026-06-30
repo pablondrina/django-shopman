@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdCountdown, isOptimisticLine, lineHoldState, substituteSwapPlan } from '~/presentation/cart'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, substituteSwapPlan } from '~/presentation/cart'
 import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
@@ -208,5 +208,16 @@ describe('cart presentation — planned hold', () => {
     expect(awaiting).toEqual({ kind: 'awaiting' })
 
     expect(cartHoldBanner(cart([line()]))).toBeNull()
+  })
+})
+
+describe('cart presentation — holdBannerVariant', () => {
+  it('derives the alert color from the hold kind (semáforo)', () => {
+    expect(holdBannerVariant({ kind: 'ready', deadlineIso: null, deadlineDisplay: null })).toBe('success')
+    expect(holdBannerVariant({ kind: 'awaiting' })).toBe('warning')
+  })
+
+  it('returns null when there is no banner', () => {
+    expect(holdBannerVariant(null)).toBeNull()
   })
 })
