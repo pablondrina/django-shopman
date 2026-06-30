@@ -449,14 +449,18 @@ SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
     # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }
 
-# ── SMS (Twilio — OTP por SMS) ──────────────────────────────────────
+# ── SMS (Comtele — OTP por SMS) ─────────────────────────────────────
 # WhatsApp OTP não é viável (ManyChat não tem categoria Authentication; o número único da marca
 # não fica em ManyChat + Cloud API ao mesmo tempo). O código de login vai por SMS — canal padrão
-# de OTP. Inerte até as credenciais Twilio. Ver docs/plans/WHATSAPP-TRANSACTIONAL-CHANNEL-PLAN.md.
+# de OTP. Inerte até api_key + route. Ver docs/plans/WHATSAPP-TRANSACTIONAL-CHANNEL-PLAN.md.
+# API NOVA (portal.comtele.com.br): header `x-api-key` no endpoint api.comtele.com.br/messages/sms/send.
+# A chave vem do portal (Configurações → Chaves de API). route = ID da rota de envio da conta
+# (GET api.comtele.com.br/routes lista; use a transacional/Premium p/ OTP, não a Marketing).
 SHOPMAN_SMS = {
-    # Comtele (provedor BR — sender ativo). auth_key do painel; sender_label é só rótulo interno.
-    "auth_key": os.environ.get("COMTELE_AUTH_KEY", ""),
-    "sender_label": os.environ.get("COMTELE_SENDER", "shopman-otp"),
+    # Comtele (provedor BR — sender ativo). .strip() evita 401 por '\n'/espaço colado na env.
+    "api_key": os.environ.get("COMTELE_API_KEY", "").strip(),
+    "route": os.environ.get("COMTELE_ROUTE", "").strip(),
+    "tag": os.environ.get("COMTELE_TAG", "shopman-otp"),
     # Twilio (fallback pronto — trocar o sender em DELIVERY_SENDERS['sms'] p/ usar).
     "account_sid": os.environ.get("TWILIO_ACCOUNT_SID", ""),
     "auth_token": os.environ.get("TWILIO_AUTH_TOKEN", ""),

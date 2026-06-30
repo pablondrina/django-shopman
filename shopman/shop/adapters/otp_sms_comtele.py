@@ -5,8 +5,11 @@ US-number provider for native carrier delivery in Brazil and lower per-message c
 Implements the Doorman ``send_code(target, code, method) -> bool`` contract behind the
 ``sms`` sender seam; swap the class in DOORMAN['DELIVERY_SENDERS']['sms'] to change provider.
 
-Config in settings.SHOPMAN_SMS (env-driven). Inert (returns False) until COMTELE_AUTH_KEY is set.
-API: POST https://sms.comtele.com.br/api/v2/send, header ``auth-key``, JSON Sender/Receivers/Content.
+Config in settings.SHOPMAN_SMS (env-driven). Inert (returns False) until api_key + route are set.
+API (portal novo): POST https://api.comtele.com.br/messages/sms/send, header ``x-api-key``,
+JSON {receivers:[...], message, route}. A ``route`` é o ID da rota de envio da conta
+(``GET https://api.comtele.com.br/routes`` lista; use a rota transacional/Premium para OTP).
+Sucesso = HTTP 200 com ``{"hasError": false, ...}``.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from ._sms import render_message, to_digits
 
 logger = logging.getLogger(__name__)
 
-_COMTELE_SEND_URL = "https://sms.comtele.com.br/api/v2/send"
+_COMTELE_SEND_URL = "https://api.comtele.com.br/messages/sms/send"
 
 
 def _get_config() -> dict:
@@ -34,30 +37,36 @@ class ComteleSMSSender:
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         cfg = _get_config()
-        auth_key = cfg.get("auth_key")
-        if not auth_key:
-            logger.warning("Comtele SMS not configured (auth_key) — cannot send OTP via %s", method)
+        api_key = cfg.get("api_key")
+        route = str(cfg.get("route") or "").strip()
+        if not api_key:
+            logger.warning("Comtele SMS not configured (api_key) — cannot send OTP via %s", method)
+            return False
+        if not route:
+            logger.warning("Comtele SMS not configured (route) — cannot send OTP via %s", method)
             return False
 
         payload = {
-            "Sender": str(cfg.get("sender_label") or "shopman-otp"),
-            "Receivers": to_digits(target),
-            "Content": render_message(cfg, code),
+            "receivers": [to_digits(target)],
+            "contactGroups": [],
+            "message": render_message(cfg, code),
+            "route": route,
+            "tag": str(cfg.get("tag") or "otp"),
         }
         request = Request(
             _COMTELE_SEND_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"auth-key": auth_key, "content-type": "application/json"},
+            headers={"x-api-key": api_key, "content-type": "application/json"},
             method="POST",
         )
         try:
             with urlopen(request, timeout=cfg.get("timeout", 15)) as response:
                 body = json.loads(response.read().decode("utf-8"))
-                # Comtele returns HTTP 200 with {"Success": true/false, ...}; trust the flag.
-                if body.get("Success") is True:
+                # Comtele returns HTTP 200 with {"hasError": true/false, ...}; trust the flag.
+                if body.get("hasError") is False:
                     logger.info("Comtele SMS OTP sent to %s", target)
                     return True
-                logger.warning("Comtele SMS rejected: %s", str(body.get("Message"))[:300])
+                logger.warning("Comtele SMS rejected: %s", str(body.get("message"))[:300])
                 return False
         except HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""
