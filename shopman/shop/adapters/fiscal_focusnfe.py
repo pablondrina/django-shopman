@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.utils import timezone
-from shopman.orderman.protocols import FiscalCancellationResult, FiscalDocumentResult
+from shopman.fiscalman.contracts import FiscalCancellationResult, FiscalDocumentResult
 
 logger = logging.getLogger(__name__)
 

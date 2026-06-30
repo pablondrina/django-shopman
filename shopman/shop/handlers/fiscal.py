@@ -10,7 +10,8 @@ import logging
 
 from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
-from shopman.orderman.protocols import FiscalBackend
+
+from shopman.fiscalman.contracts import FiscalBackend
 
 from shopman.shop.directives import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 

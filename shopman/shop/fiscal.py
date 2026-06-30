@@ -1,51 +1,24 @@
 """
-Fiscal backends — Pool pattern (Salesman-inspired).
+Fiscal backend pool (orchestrator-level).
 
-Base class + lazy pool. Instance provides concrete backends
-(e.g., Focus NFe for NFC-e, mock).
+Lazy registry of fiscal provider backends loaded from settings. The fiscal
+*contract* (``FiscalBackend`` Protocol + result dataclasses) lives in the
+Fiscalman persona (``shopman.fiscalman.contracts``); concrete provider adapters
+(e.g. Focus NFe) live in ``shopman/shop/adapters/`` — same convention as the
+payment adapters — and implement that Protocol structurally.
 
 Usage:
     from shopman.shop.fiscal import fiscal_pool
 
     backend = fiscal_pool.get_backend()
     if backend:
-        backend.emit(order_ref, items, payment, customer)
+        backend.emit(reference=..., items=..., payment=..., customer=...)
 
 Settings:
     SHOPMAN_FISCAL_ADAPTER = "shopman.shop.adapters.fiscal_focusnfe.FocusNFeBackend"
 """
 
 from __future__ import annotations
-
-
-class FiscalBackend:
-    """
-    Base fiscal backend. Subclass in instance code.
-
-    Fiscal backends emit and cancel tax documents (NFC-e, NF-e, etc.).
-    """
-
-    identifier: str = ""
-    label: str = ""
-
-    def emit(self, *, order_ref, items, payment, customer):
-        """
-        Emit fiscal document.
-
-        Returns dict with at least:
-            success (bool)
-            access_key (str): The fiscal document access key
-        """
-        raise NotImplementedError
-
-    def cancel(self, *, order_ref, access_key, reason=""):
-        """
-        Cancel fiscal document.
-
-        Returns dict with at least:
-            success (bool)
-        """
-        raise NotImplementedError
 
 
 class FiscalPool:

@@ -33,12 +33,18 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
     monkeypatch.setenv("ADMIN_PASSWORD", "strong-seed-admin-password")
     call_command("seed", "--flush", stdout=StringIO())
 
+    from shopman.fiscalman.classification import from_metadata, resolve_fiscal_item
+
     assert not Product.objects.filter(sku__startswith="DEMO-").exists()
     for sku in ("BAGUETE", "ESPRESSO", "COMBO-PETIT-DEJ"):
-        fiscal = Product.objects.get(sku=sku).metadata["fiscal"]
+        metadata = Product.objects.get(sku=sku).metadata
+        fiscal = metadata["fiscal"]
+        assert fiscal["profile"] == "own_production"
         assert fiscal["ncm"]
-        assert fiscal["cfop"] == "5102"
-        assert fiscal["icms_situacao_tributaria"] == "102"
+        # CFOP/CSOSN são resolvidos do perfil fiscal na emissão (NFC-e intraestadual).
+        resolved = resolve_fiscal_item(from_metadata(metadata))
+        assert resolved["cfop"] == "5102"
+        assert resolved["icms_situacao_tributaria"] == "102"
     croissant_history = [
         item
         for item in OrderItem.objects.filter(sku="CROISSANT").select_related("order")

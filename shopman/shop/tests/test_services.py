@@ -1175,6 +1175,41 @@ class TestFiscalService:
         assert directive.topic == "fiscal.emit_nfce"
 
     @pytest.mark.django_db
+    def test_build_fiscal_items_resolves_codes_from_profile(self):
+        """Fiscalman resolves CFOP/CSOSN from the product's fiscal profile."""
+        from shopman.offerman.models import Product
+        from shopman.shop.services.fiscal import _build_fiscal_items
+
+        Product.objects.create(
+            sku="PAO-FISCAL", name="Pão", base_price_q=500,
+            metadata={"fiscal": {"profile": "own_production", "ncm": "19059010"}},
+        )
+        order = _make_order(items_list=[_make_item(sku="PAO-FISCAL")])
+
+        fiscal = _build_fiscal_items(order)[0]["fiscal"]
+        assert fiscal["ncm"] == "19059010"
+        assert fiscal["cfop"] == "5102"  # não-ST intraestadual (parametrização do contador)
+        assert fiscal["icms_situacao_tributaria"] == "102"
+
+    @pytest.mark.django_db
+    def test_build_fiscal_items_line_override_wins(self):
+        """A per-line item.meta['fiscal'] override beats the resolved profile."""
+        from shopman.offerman.models import Product
+        from shopman.shop.services.fiscal import _build_fiscal_items
+
+        Product.objects.create(
+            sku="PAO-OV", name="Pão", base_price_q=500,
+            metadata={"fiscal": {"profile": "own_production", "ncm": "19059010"}},
+        )
+        order = _make_order(
+            items_list=[_make_item(sku="PAO-OV", meta={"fiscal": {"ncm": "99999999"}})]
+        )
+
+        fiscal = _build_fiscal_items(order)[0]["fiscal"]
+        assert fiscal["ncm"] == "99999999"  # override wins
+        assert fiscal["cfop"] == "5102"     # profile-resolved codes still present
+
+    @pytest.mark.django_db
     @patch("shopman.shop.services.fiscal.fiscal_pool")
     def test_emit_noop_without_fiscal_intent(self, mock_pool):
         from shopman.shop.services.fiscal import emit

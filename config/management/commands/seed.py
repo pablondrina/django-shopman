@@ -903,14 +903,27 @@ class Command(BaseCommand):
             },
         }
 
+        # NCM por produto (validar com o contador — ver docs/plans/FISCALMAN-PLAN.md).
+        # CFOP/CSOSN/origem/PIS/COFINS NÃO vivem aqui: são resolvidos na emissão
+        # pelo perfil fiscal (Fiscalman), a partir de `profile`. Todo o catálogo
+        # atual é não-ST (perfil own_production → CFOP 5102/CSOSN 102, sem CEST).
+        breads = {
+            "BAGUETE", "BAGUETE-CAMPAGNE", "BAGUETE-GERGELIM", "MINI-BAGUETE", "BATARD",
+            "FENDU", "TABATIERE", "ITALIANO-RUSTICO", "CAMPAGNE-OVAL", "CAMPAGNE-REDONDO",
+            "CAMPAGNE-PASSAS", "CIABATTA", "PAO-FORMA", "CHALLAH", "PAO-HAMBURGER",
+            "BRIOCHE", "BRIOCHE-BURGER", "PAO-HOTDOG", "FOCACCIA-ALECRIM", "FOCACCIA-CEBOLA",
+            "FOCACCIA-BACON", "MINI-FOCACCIA-ALECRIM", "MINI-FOCACCIA-CEBOLA", "MINI-FOCACCIA-BACON",
+        }
         fiscal_ncm_by_sku = {
-            # Produtos de padaria, pastelaria e panificação em geral.
+            # Folhados, doces e salgados de panificação/pastelaria (default).
             "default": "19059090",
-            # Bebidas/itens não panificados. Revisar com contabilidade antes de produção.
+            # Pães (NCM 1905.90.10).
+            **{sku: "19059010" for sku in breads},
+            # Bebidas preparadas na loja.
             "ESPRESSO": "21011110",
             "ESPRESSO-DUPLO": "21011110",
-            "CAPPUCCINO": "21011110",
-            "LATTE": "21011110",
+            "CAPPUCCINO": "21011200",
+            "LATTE": "21011200",
             "CHOCOLATE-QUENTE": "18069000",
             "CHA-EARL-GREY": "09024000",
             "SUCO-LARANJA": "20091200",
@@ -918,13 +931,9 @@ class Command(BaseCommand):
 
         def fiscal_metadata_for_sku(sku: str) -> dict:
             return {
+                "profile": "own_production",
                 "ncm": fiscal_ncm_by_sku.get(sku, fiscal_ncm_by_sku["default"]),
-                "cfop": "5102",
                 "unit": "UN",
-                "icms_origem": "0",
-                "icms_situacao_tributaria": "102",
-                "pis_situacao_tributaria": "07",
-                "cofins_situacao_tributaria": "07",
             }
 
         products = {}
@@ -2263,6 +2272,8 @@ class Command(BaseCommand):
         return 120
 
     def _assert_catalog_remote_purchase_data(self):
+        from shopman.fiscalman.classification import from_metadata
+
         missing = []
         required_metadata = ("allergens", "dietary_info", "serves")
         listed_skus = ListingItem.objects.filter(
@@ -2285,9 +2296,13 @@ class Command(BaseCommand):
             if not fiscal:
                 gaps.append("metadata.fiscal")
             else:
-                for key in ("ncm", "cfop", "unit", "icms_situacao_tributaria"):
-                    if not fiscal.get(key):
-                        gaps.append(f"metadata.fiscal.{key}")
+                # CFOP/CSOSN/origem/PIS-COFINS vêm do perfil fiscal (Fiscalman) na
+                # emissão; por produto validamos só perfil + NCM (+ CEST se ST).
+                classification = from_metadata(metadata)
+                if classification.fiscal_profile is None:
+                    gaps.append("metadata.fiscal.profile")
+                for message in classification.errors():
+                    gaps.append(f"metadata.fiscal ({message})")
             if product.unit_weight_g and not metadata.get("approx_dimensions"):
                 gaps.append("metadata.approx_dimensions")
             if not product.keywords.exists():

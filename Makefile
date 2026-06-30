@@ -53,12 +53,13 @@ install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install -e packages/orderman
 	$(PYTHON) -m pip install -e packages/payman
 	$(PYTHON) -m pip install -e packages/buyman
+	$(PYTHON) -m pip install -e packages/fiscalman
 	$(PYTHON) -m pip install -e .
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-framework ## Roda todos os testes
+test: test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-fiscalman test-framework ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-refs: ## Testes do shopman.refs
@@ -100,6 +101,10 @@ test-doorman: ## Testes do shopman.auth
 test-buyman: ## Testes do shopman.buyman (compras)
 	@echo "── Buyman ──"
 	cd packages/buyman && $(PYTHON) -m pytest -x -q
+
+test-fiscalman: ## Testes do shopman.fiscalman (fiscal)
+	@echo "── Fiscalman ──"
+	cd packages/fiscalman && $(PYTHON) -m pytest -x -q
 
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"

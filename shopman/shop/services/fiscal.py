@@ -75,13 +75,24 @@ def cancel(order) -> None:
 
 
 def _build_fiscal_items(order) -> list[dict]:
-    """Build item list for fiscal emission from order items."""
+    """Build item list for fiscal emission from order items.
+
+    Fiscal codes are resolved by Fiscalman from each product's classification
+    (``Product.metadata['fiscal']`` → profile + NCM/CEST → CFOP/CSOSN/origem/
+    PIS/COFINS). NFC-e is intrastate, so ``interstate=False``. A per-line
+    override in ``item.meta['fiscal']`` still wins (rare).
+    """
+    from shopman.fiscalman.classification import from_metadata, resolve_fiscal_item
+
     items = []
     products_by_sku = _products_by_sku([item.sku for item in order.items.all()])
     for item in order.items.all():
         product = products_by_sku.get(item.sku)
         metadata = dict(getattr(product, "metadata", None) or {})
-        fiscal = dict((item.meta or {}).get("fiscal") or metadata.get("fiscal") or {})
+        fiscal = resolve_fiscal_item(from_metadata(metadata))
+        override = (item.meta or {}).get("fiscal")
+        if override:
+            fiscal = {**fiscal, **dict(override)}
         items.append({
             "sku": item.sku,
             "name": item.name,
