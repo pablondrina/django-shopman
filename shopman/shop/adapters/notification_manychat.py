@@ -192,6 +192,19 @@ def _load_db_template(event: str) -> str | None:
     return None
 
 
+def _load_db_flow_ns(event: str) -> str | None:
+    """Return the ManyChat flow namespace configured in the Admin (NotificationTemplate), or None."""
+    try:
+        from shopman.shop.models import NotificationTemplate
+
+        obj = NotificationTemplate.objects.filter(event=event, is_active=True).first()
+        if obj and (obj.whatsapp_flow_ns or "").strip():
+            return obj.whatsapp_flow_ns.strip()
+    except Exception:
+        logger.debug("manychat._load_db_flow_ns: lookup failed for event=%s", event, exc_info=True)
+    return None
+
+
 def send(recipient: str, template: str, context: dict | None = None, **config) -> bool:
     """
     Send a notification via ManyChat (WhatsApp).
@@ -215,8 +228,9 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         logger.warning("Could not resolve subscriber for: %s", recipient)
         return False
 
-    flow_map = mc_config.get("flow_map", {})
-    flow_ns = flow_map.get(template)
+    # Flow configurado no Admin (NotificationTemplate.whatsapp_flow_ns) tem precedência;
+    # cai no settings flow_map como fallback de bootstrap.
+    flow_ns = _load_db_flow_ns(template) or mc_config.get("flow_map", {}).get(template)
 
     if flow_ns:
         payload = {

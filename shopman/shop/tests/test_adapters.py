@@ -11,6 +11,7 @@ import inspect
 from importlib import import_module
 from unittest.mock import patch
 
+import pytest
 from django.test import override_settings
 
 # ── Contract definitions ──
@@ -201,6 +202,55 @@ class TestOTPManychatSender:
         assert payload["subscriber_id"] == 123456
         assert "flow_ns" not in payload
         assert "flow_token" not in payload
+
+
+@pytest.mark.django_db
+class TestManychatFlowFromAdmin:
+    """O flow do WhatsApp configurado no Admin (NotificationTemplate.whatsapp_flow_ns)
+    tem precedência sobre o settings flow_map e dispara /sending/sendFlow."""
+
+    @override_settings(SHOPMAN_MANYCHAT={
+        "api_token": "token",
+        "resolver": "shopman.shop.tests.test_adapters._manychat_test_resolver",
+        "flow_map": {},
+    })
+    def test_admin_flow_ns_drives_send_flow(self):
+        from shopman.shop.models import NotificationTemplate
+
+        NotificationTemplate.objects.create(
+            event="order_confirmed", subject="Pedido confirmado", body="oi",
+            whatsapp_flow_ns="content_admin_999", is_active=True,
+        )
+        mod = import_module("shopman.shop.adapters.notification_manychat")
+
+        with patch.object(mod, "_api_call", return_value={"success": True}) as api_call:
+            ok = mod.send("+5543999998888", "order_confirmed", {"order_ref": "A1"})
+
+        assert ok is True
+        endpoint, payload, _cfg = api_call.call_args.args
+        assert endpoint == "/sending/sendFlow"
+        assert payload["flow_ns"] == "content_admin_999"
+
+    @override_settings(SHOPMAN_MANYCHAT={
+        "api_token": "token",
+        "resolver": "shopman.shop.tests.test_adapters._manychat_test_resolver",
+        "flow_map": {},
+    })
+    def test_no_flow_ns_falls_back_to_text(self):
+        from shopman.shop.models import NotificationTemplate
+
+        NotificationTemplate.objects.create(
+            event="order_confirmed", subject="x", body="Pedido {order_ref} confirmado", is_active=True,
+        )
+        mod = import_module("shopman.shop.adapters.notification_manychat")
+
+        with patch.object(mod, "_api_call", return_value={"success": True}) as api_call:
+            ok = mod.send("+5543999998888", "order_confirmed", {"order_ref": "A1"})
+
+        assert ok is True
+        endpoint, payload, _cfg = api_call.call_args.args
+        assert endpoint == "/sending/sendContent"
+        assert "flow_ns" not in payload
 
 
 class TestDottedAdapterImport:
