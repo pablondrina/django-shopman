@@ -51,6 +51,7 @@ RUN python -m pip install --upgrade pip \
         ./packages/orderman \
         ./packages/payman \
         ./packages/buyman \
+        ./packages/fiscalman \
         .
 
 RUN mkdir -p /app/staticfiles /app/media \
