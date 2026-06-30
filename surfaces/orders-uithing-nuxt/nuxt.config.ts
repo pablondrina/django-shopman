@@ -79,6 +79,10 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // Dev-only: permite acesso pelo túnel Cloudflare (teste no celular).
+    server: {
+      allowedHosts: ['.trycloudflare.com']
+    }
   }
 })

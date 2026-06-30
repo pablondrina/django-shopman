@@ -96,6 +96,11 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: ['reka-ui', 'tailwind-variants', 'v-calendar']
+    },
+    // Dev-only: permite acesso pelo túnel Cloudflare (teste no celular). O Vite 7
+    // bloqueia hosts desconhecidos por padrão; libera só os domínios de túnel.
+    server: {
+      allowedHosts: ['.trycloudflare.com']
     }
   }
 })
