@@ -123,7 +123,7 @@ packages/                            framework/
 |-----------|-----------|
 | [ROADMAP.md](ROADMAP.md) | Roadmap executivo vivo e dívidas técnicas atuais |
 | [plans/README.md](plans/README.md) | Índice dos planos ativos e backlog planejado |
-| [plans/REMOTE-MULTISURFACE-PLAN.md](plans/REMOTE-MULTISURFACE-PLAN.md) | WPs de pedido remoto multi-superfície, WhatsApp-first/mobile-first, com Django/Penguin apenas como referência madura |
+| [plans/completed/REMOTE-MULTISURFACE-PLAN.md](plans/completed/REMOTE-MULTISURFACE-PLAN.md) | WPs de pedido remoto multi-superfície, WhatsApp-first/mobile-first, com Django/Penguin apenas como referência madura |
 | [plans/completed/](plans/completed/) | Planos de execução concluídos e evidências históricas arquivadas |
 
 ---

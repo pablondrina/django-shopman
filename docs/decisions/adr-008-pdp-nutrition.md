@@ -2,7 +2,7 @@
 
 **Status:** Aceito
 **Data:** 2026-04-17
-**Contexto:** O storefront precisa exibir "Ingredientes" e "Informações Nutricionais" no PDP. Havia dúvida entre armazenar em `Offerman.Product` (simples, duplica) ou derivar em tempo real de `Craftsman.Recipe` (fonte única, caro). Referência: [`docs/plans/PDP-DATA-FIELDS-PLAN.md`](../plans/PDP-DATA-FIELDS-PLAN.md).
+**Contexto:** O storefront precisa exibir "Ingredientes" e "Informações Nutricionais" no PDP. Havia dúvida entre armazenar em `Offerman.Product` (simples, duplica) ou derivar em tempo real de `Craftsman.Recipe` (fonte única, caro). Referência: [`do../plans/completed/PDP-DATA-FIELDS-PLAN.md`](../plans/completed/PDP-DATA-FIELDS-PLAN.md).
 
 ---
 
@@ -121,7 +121,7 @@ A expansão recursiva do BOM (cycle-detection, itens opcionais) foi extraída pa
 
 ## Referências
 
-- [`docs/plans/PDP-DATA-FIELDS-PLAN.md`](../plans/PDP-DATA-FIELDS-PLAN.md)
+- [`do../plans/completed/PDP-DATA-FIELDS-PLAN.md`](../plans/completed/PDP-DATA-FIELDS-PLAN.md)
 - [`packages/offerman/shopman/offerman/nutrition.py`](../../packages/offerman/shopman/offerman/nutrition.py) — dataclass `NutritionFacts`
 - [`shopman/shop/services/nutrition_from_recipe.py`](../../shopman/shop/services/nutrition_from_recipe.py) — derivação
 - [`shopman/shop/projections/product_detail.py`](../../shopman/shop/projections/product_detail.py) — leitura

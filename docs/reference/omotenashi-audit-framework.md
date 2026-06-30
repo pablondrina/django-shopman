@@ -270,12 +270,12 @@ ficar abaixo de 40% do seu peso máximo, é bloqueante independente da nota tota
 
 ### E. Elegância — Checklist
 
-- [ ] Toda operação HTMX tem indicador de loading (hx-indicator ou Alpine state)
+- [ ] Toda operação assíncrona tem indicador de loading (estado de pending da superfície)
 - [ ] Skeleton/spinner em toda requisição assíncrona visível ao usuário
-- [ ] `x-transition` em todo elemento que aparece/desaparece via Alpine
+- [ ] Transição suave em todo elemento que aparece/desaparece
 - [ ] Sem flash de conteúdo não-estilizado (FOUC) no carregamento inicial
 - [ ] Sem layout shift quando conteúdo dinâmico carrega
-- [ ] Toda string de interface usa `resolve_copy()` ou `{% omotenashi_copy %}`, não hardcoded
+- [ ] Toda string de interface vem da projection/copy canônica (`resolve_copy()`), não hardcoded na superfície
 - [ ] Copy é objetiva: verbos de ação, sem adjetivos supérfluos, sem emojis
 - [ ] Contraste WCAG AAA (7:1) em texto principal, AA (4.5:1) em texto secundário
 - [ ] Labels `aria-label` / `aria-describedby` em inputs, botões, e componentes dinâmicos
@@ -294,7 +294,7 @@ atenção dividida.
 ### Velocidade
 
 - [ ] Resposta percebida < 200ms para ações primárias (confirmar, avançar, marcar pronto)
-- [ ] HTMX swaps com `hx-swap="innerHTML"` ou `outerHTML` sem full page reload
+- [ ] Atualizações de estado sem full page reload (swap parcial/reatividade da superfície)
 - [ ] Ações de um toque: confirmar pedido, avançar status, marcar item pronto
 - [ ] Sem modais desnecessários em fluxo primário (modal só para ações destrutivas)
 - [ ] Shortcuts de teclado para ações frequentes quando em desktop

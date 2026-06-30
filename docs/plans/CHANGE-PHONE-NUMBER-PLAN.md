@@ -45,4 +45,4 @@
 
 ## Relacionados
 - Copy do "trocar de conta" já corrigida no Lote 3 da auditoria (deixar honesto que é entrar com outra conta).
-- [[project_storefront_audit_fixes]] · `docs/plans/STOREFRONT-AUDIT-FIXES-PLAN.md`.
+- [[project_storefront_audit_fixes]] · `docs/plans/completed/STOREFRONT-AUDIT-FIXES-PLAN.md`.

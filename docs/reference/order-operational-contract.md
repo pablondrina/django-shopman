@@ -117,8 +117,8 @@ Esse fluxo, quando existir, deve:
 - Escrita direta em `order.status` fora de `Order.transition_status()` em
   fluxo operacional.
 - Timer baseado só no relógio local do navegador.
-- Partial HTMX que atualiza apenas um pedaço do estado e deixa banner/timer
-  antigo vivo.
+- Atualização parcial de superfície que renova só um pedaço do estado e deixa
+  banner/timer antigo vivo.
 - Mock que pula o mesmo caminho de webhook/captura usado em produção.
 
 ## Política de testes
@@ -127,7 +127,7 @@ Todo fluxo operacional relevante precisa de pelo menos uma cobertura em cada
 camada abaixo:
 
 1. Serviço: precondições e transições canônicas.
-2. HTTP/HTMX: o mesmo endpoint que operador ou cliente usa.
+2. HTTP/API: o mesmo endpoint/projection que operador ou cliente usa.
 3. Projection/template: botões, bloqueios, labels e timers visíveis.
 4. Mock/dev: simular a parte externa sem alterar o caminho de negócio.
 5. Invariante negativa: provar que atalhos proibidos não existem mais.

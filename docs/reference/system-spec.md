@@ -2,6 +2,23 @@
 
 > Documento de engenharia reversa do Django Shopman, extraído com fidelidade para que outro agente consiga reproduzir o sistema sem equívoco. Estrutura: Meta → Pacotes → Orquestrador → Instância → E2E por POV → Transversais → Invariantes → Checklist de fidelidade.
 
+> _Atualização 2026-06-28: este spec foi escrito em 2026-04-18 e precede duas
+> viradas arquiteturais. A **camada de domínio (seção 1, Cores)** continua fiel e
+> canônica. Já as partes de **superfície/UI e instância foram superadas**:_
+> _1. **Superfícies são Nuxt headless.** Storefront, POS, KDS, pedidos e produção
+> vivem em `surfaces/*-uithing-nuxt` consumindo projections/BFF do backend; o
+> Admin/Unfold é a superfície de operador para CRUD/config. Os templates Django
+> de cliente, o HTMX e o design system Penguin UI foram aposentados. Onde este
+> spec disser "HTMX↔server / Alpine↔DOM", "Penguin UI", "templates", "modal HTMX"
+> ou "iframe de storefront_preview", leia "superfície Nuxt consome Projection com
+> Actions" — ver `docs/reference/headless-surface-contract.md`._
+> _2. **Não há pacote de instância.** `instances/nelson/` foi dissolvido: tenant =
+> config (Shop singleton + Channel/RuleConfig/OmotenashiCopy) + dados (seed no app
+> `config`) + marca. Onde o spec disser `instances/nelson/` ou
+> `SHOPMAN_INSTANCE_APPS`, leia "configuração no DB + seed em `config/`"._
+> _3. O contrato de substitutos é `offerman/contrib/substitutes/substitutes.py::find_substitutes`
+> e `CartUnavailableError.substitutes` (já refletido na seção 1.2)._
+
 ---
 
 ## 0. META
