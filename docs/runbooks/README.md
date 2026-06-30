@@ -21,6 +21,8 @@ operador nao executa Docker diretamente: use os wrappers `make`.
 - [Loja aberta/fechada em estado errado](loja-estado-incorreto.md)
 - [Pedido remoto preso](pedido-remoto-preso.md)
 - [Rollback de deploy quebrado](rollback-de-deploy.md)
+- [Ativar Focus NFe (NFC-e): homologação → produção](ativar-focus-nfe.md)
+- [Pré-flight de go-live (switches antes do alpha/produção)](go-live-preflight.md)
 
 ## Procedimentos
 

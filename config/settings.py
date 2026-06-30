@@ -414,14 +414,22 @@ SHOPMAN_MANYCHAT = {
     "flow_map": MANYCHAT_FLOW_MAP,
 }
 
-# ── WhatsApp (Meta Cloud API + Bot F15) ─────────────────────────────
+# ── WhatsApp (Meta Cloud API direto — spike/avaliação) ──────────────
+# Seam para o adapter notification_whatsapp (Meta Cloud API direto, sem ManyChat).
+# Inerte enquanto PHONE_NUMBER_ID/ACCESS_TOKEN vazios. Decisão ManyChat-vs-direto:
+# docs/plans/WHATSAPP-TRANSACTIONAL-CHANNEL-PLAN.md.
 SHOPMAN_WHATSAPP = {
     "VERIFY_TOKEN": os.environ.get("WHATSAPP_VERIFY_TOKEN", ""),
     "STOREFRONT_URL": os.environ.get("WHATSAPP_STOREFRONT_URL", ""),
-    # Meta Cloud API (opcional — ManyChat é o backend primário)
-    # "PHONE_NUMBER_ID": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", ""),
-    # "ACCESS_TOKEN": os.environ.get("WHATSAPP_ACCESS_TOKEN", ""),
-    # "MODE": "text",
+    "PHONE_NUMBER_ID": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", ""),
+    "ACCESS_TOKEN": os.environ.get("WHATSAPP_ACCESS_TOKEN", ""),
+    "GRAPH_VERSION": os.environ.get("WHATSAPP_GRAPH_VERSION", "v21.0"),
+    "DEFAULT_LANG": os.environ.get("WHATSAPP_TEMPLATE_LANG", "pt_BR"),
+    "timeout": MANYCHAT_API_TIMEOUT,
+    # event → Meta template config. Vazio = manda texto (só dentro da janela 24h).
+    # Preencher com os templates Utility/Auth aprovados na Meta:
+    #   "order_confirmed": {"name": "pedido_confirmado", "body": ["order_ref", "total"]},
+    "templates": {},
 }
 
 # ── iFood (Marketplace F16) ────────────────────────────────────────
@@ -441,22 +449,39 @@ SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
     # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }
 
-# ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
+# ── SMS (Twilio — OTP por SMS) ──────────────────────────────────────
+# WhatsApp OTP não é viável (ManyChat não tem categoria Authentication; o número único da marca
+# não fica em ManyChat + Cloud API ao mesmo tempo). O código de login vai por SMS — canal padrão
+# de OTP. Inerte até as credenciais Twilio. Ver docs/plans/WHATSAPP-TRANSACTIONAL-CHANNEL-PLAN.md.
+SHOPMAN_SMS = {
+    # Comtele (provedor BR — sender ativo). auth_key do painel; sender_label é só rótulo interno.
+    "auth_key": os.environ.get("COMTELE_AUTH_KEY", ""),
+    "sender_label": os.environ.get("COMTELE_SENDER", "shopman-otp"),
+    # Twilio (fallback pronto — trocar o sender em DELIVERY_SENDERS['sms'] p/ usar).
+    "account_sid": os.environ.get("TWILIO_ACCOUNT_SID", ""),
+    "auth_token": os.environ.get("TWILIO_AUTH_TOKEN", ""),
+    "from_number": os.environ.get("TWILIO_FROM_NUMBER", ""),
+    "messaging_service_sid": os.environ.get("TWILIO_MESSAGING_SERVICE_SID", ""),
+    "code_message": os.environ.get("SHOPMAN_SMS_CODE_MESSAGE", ""),
+    "timeout": MANYCHAT_API_TIMEOUT,
+}
+
+# ── OTP Delivery Chain ───────────────────────────────────────────────
+# SMS primário (Twilio), email como fallback. WhatsApp fica mapeado mas FORA da cadeia
+# (ManyChat não emite template de Authentication). Debug usa console para ver o código.
+DOORMAN["DELIVERY_SENDERS"] = {
+    "sms": "shopman.shop.adapters.otp_sms_comtele.ComteleSMSSender",
+    "email": "shopman.doorman.senders.EmailSender",
+    "whatsapp": "shopman.shop.adapters.otp_manychat.ManychatOTPSender",
+    "console": "shopman.doorman.senders.ConsoleSender",
+}
 if SHOPMAN_EXPOSE_DEBUG_OTP and SHOPMAN_ENVIRONMENT == "staging":
     DOORMAN.update({
         "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
         "DELIVERY_CHAIN": [],
     })
-elif MANYCHAT_API_TOKEN:
-    DOORMAN.update({
-        "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
-        "DELIVERY_SENDERS": {
-            "whatsapp": "shopman.shop.adapters.otp_manychat.ManychatOTPSender",
-            "sms": "shopman.doorman.senders.SMSSender",
-            "email": "shopman.doorman.senders.EmailSender",
-            "console": "shopman.doorman.senders.ConsoleSender",
-        },
-    })
+else:
+    DOORMAN["DELIVERY_CHAIN"] = ["sms", "email"] if not DEBUG else ["sms", "console"]
 
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
