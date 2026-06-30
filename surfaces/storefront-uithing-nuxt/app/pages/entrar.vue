@@ -368,7 +368,7 @@ useSeoMeta({
           </p>
         </header>
 
-        <UiAlert v-if="error && error.kind === 'rate_limit'" id="login-error" role="alert" icon="lucide:clock">
+        <UiAlert v-if="error && error.kind === 'rate_limit'" id="login-error" role="alert" icon="lucide:clock" variant="warning">
           <UiAlertTitle>{{ error.title }}</UiAlertTitle>
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
