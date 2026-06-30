@@ -36,6 +36,17 @@ ser HMAC):
 A troca seria mudar [ifood.py:70](../../shopman/shop/webhooks/ifood.py) de
 `HTTP_403_FORBIDDEN` para `HTTP_401_UNAUTHORIZED` (+ ajustar o teste e o docstring).
 
-⚠️ **Não alterar sem confirmar** se o painel/expectativa do iFood depende do 403. É escolha
-de contrato com o gateway, não de código. Se confirmado que o iFood não se importa, abrir
-um ADR curto e padronizar.
+## ✅ Verificado na doc oficial do iFood (2026-06-30)
+
+A [doc do iFood](https://developer.ifood.com.br/pt-BR/docs/guides/modules/events/webhook-signature/)
+é explícita: o webhook do iFood é autenticado por **assinatura HMAC-SHA256 no header
+`X-IFood-Signature`** (HMAC do corpo bruto com o `client_secret`, hex), e **assinatura inválida
+deve ser rejeitada com `401`**. Semântica do iFood: 401 = credencial inválida; 403 = merchant
+sem autorização.
+
+Ou seja: o webhook iFood **real** não usa token compartilhado (nosso stub atual) nem 403 — usa
+**assinatura HMAC + 401**. Essa correção entra junto com a integração direta (WP-5), não isolada,
+porque o webhook atual é um stub de hub que será reformulado. Ver
+[IFOOD-DIRECT-INTEGRATION-PLAN](../plans/IFOOD-DIRECT-INTEGRATION-PLAN.md).
+
+**Decisão resolvida:** quando houver webhook iFood, usar `X-IFood-Signature` HMAC + **401**.
