@@ -15,7 +15,7 @@ def ttl_minutes() -> int:
         from shopman.doorman.conf import doorman_settings
 
         return int(doorman_settings.ACCESS_CODE_TTL_MINUTES)
-    except Exception:
+    except (ImportError, AttributeError, ValueError, TypeError):
         return 10
 
 
