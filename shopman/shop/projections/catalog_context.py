@@ -194,6 +194,22 @@ def breadcrumb_collection(product):
     return item.collection if item else None
 
 
+def filter_by_collection(qs, collection_ref: str):
+    """Filtra um queryset de Product por ref de coleção.
+
+    Smart collections (com ``rule``) resolvem por regra; manuais usam
+    ``CollectionItem``. Coleção inexistente/inativa → queryset vazio.
+    """
+    from shopman.offerman.models import Collection
+
+    coll = Collection.objects.filter(ref=collection_ref, is_active=True).first()
+    if coll is None:
+        return qs.none()
+    if coll.is_smart:
+        return qs.filter(pk__in=coll.product_queryset().values("pk"))
+    return qs.filter(collection_items__collection=coll)
+
+
 def published_products_by_collection(
     *,
     listing_ref: str,

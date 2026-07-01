@@ -229,6 +229,33 @@ ao Django Shopman** — uma **superfície display** alimentada por coleção, at
 coleção, com layout "chalkboard" fiel à marca Nelson. Adapter `menuboard` = mais um
 `CatalogProjectionBackend`/consumidor de eventos.
 
+## Frente 2 — ✅ FEITO (2026-07-01): primitivo Superfície + coleções por regra
+
+Decisões (aprovadas): **Shape 1** (formalizar sobre o modelo atual, zero migração no Core para a
+Superfície) + **`rule` JSONField em Collection**. Verificado no código antes: Channel não tem campo
+de tipo/capacidade (classifica por convenção de `ref`); Listing/Channel ligam por convenção
+`ref==ref`; a registry canônica (Frente 1) já é keyed por `listing_ref` → o **Listing já é a espinha
+da superfície**. O que faltava era só a **capacidade** e a **fonte-coleção**.
+
+- **WP-2a (shop, zero migração Core)** — `capability` (`transactional|display|feed`, default
+  `transactional`) + aspecto `content` (`source: listing|collection` + `collection` ref) no
+  `ChannelConfig`. Vivem em `Channel.config` (JSON), como os outros 8 aspectos; cascata + validação.
+  Os 5 canais seedados permanecem `transactional`/`content=listing` por default. 12 testes.
+- **WP-2b (offerman Core, migração `0006_collection_rule`)** — `rule` JSONField em `Collection` +
+  resolver `offerman/smart_collection.py`. Schema `{match: all|any, conditions:[{field,op,value}]}`;
+  campos keyword/sku/name/unit/base_price_q/is_published/is_sellable/collection; ops
+  eq/ne/lt/lte/gt/gte/in/contains. `Collection.is_smart` + `Collection.product_queryset()` (regra se
+  smart, senão CollectionItems). Smart vs manual é **exclusivo** (Shopify-style). `clean()` valida a
+  regra. 18 testes.
+- **WP-2c (não-dormente)** — smart collections resolvem de verdade nos dois consumidores canônicos de
+  "produtos numa coleção": `CatalogService.search(collection=…)` e a API de catálogo do storefront
+  (página de coleção do cliente). Ambos via `Collection.product_queryset()`.
+
+**Fora do escopo da Frente 2 (deliberado):** UI de admin para editar `rule`/`capability` (Admin/Unfold
+Canonical Gate) e o **materializador coleção→ListingItems** vão para a **Frente 3** (matriz + bulk).
+Nesta frente o motor está pronto e consumido; a criação de smart collection é via seed/shell/API até a
+UI da Frente 3.
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
