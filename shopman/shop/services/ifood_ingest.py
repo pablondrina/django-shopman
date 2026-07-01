@@ -93,7 +93,12 @@ def ingest(payload: dict, *, channel_ref: str = IFOOD_CHANNEL_REF) -> Order:
         ) from e
 
     items = _normalize_items(payload["items"])
-    total_q = sum(int(item["line_total_q"]) for item in items)
+    items_subtotal_q = sum(int(item["line_total_q"]) for item in items)
+    # Marketplace orders are pre-priced by iFood: the authoritative total is the
+    # grand total (orderAmount = subtotal + delivery fee + service fees − benefits).
+    # Fall back to the items subtotal when totals are absent (dev simulation).
+    order_amount_q = int((payload.get("totals") or {}).get("order_amount_q") or 0)
+    total_q = order_amount_q or items_subtotal_q
 
     order_code = payload["order_code"]
 

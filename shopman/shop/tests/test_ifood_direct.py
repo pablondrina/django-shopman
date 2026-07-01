@@ -198,6 +198,28 @@ def test_map_order_handles_string_phone_and_missing_external_code():
     assert payload["items"][0]["sku"] == "line-9"
 
 
+def test_ingest_real_order_uses_order_amount_as_total(db):
+    """End-to-end: mapping + ingest of the real order → total_q == orderAmount
+    (grand total: subtotal 21,00 + entrega 5,00 + taxa 1,00 = 27,00).
+    """
+    import json
+    from pathlib import Path
+
+    from shopman.shop.models import Channel
+    from shopman.shop.services import ifood_ingest, ifood_orders
+
+    Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood", "is_active": True})
+    raw = json.loads(
+        (Path(__file__).parent / "fixtures" / "ifood_order_real.json").read_text()
+    )
+    order = ifood_ingest.ingest(ifood_orders.map_order(raw))
+
+    assert order.total_q == 2700  # orderAmount, not the 2100 items subtotal
+    assert order.data["ifood"]["is_test"] is True
+    assert order.data["ifood"]["totals"]["order_amount_q"] == 2700
+    assert order.data["ifood"]["pickup_code"] == "4157"
+
+
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_fetch_order_success(fake_headers):
     from shopman.shop.services import ifood_orders
