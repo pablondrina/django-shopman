@@ -71,18 +71,20 @@ export function availableAnywhere(row: CatalogRowProjection): boolean {
 }
 
 export interface RowStatus {
-  off: boolean; // esmaecer a linha + foto em P&B
+  off: boolean; // esmaecer a linha + foto P&B + nome tachado
   label: string; // selo (vazio = ativo)
-  tone: "" | "muted" | "amber";
+  tone: "" | "muted" | "amber" | "danger";
 }
 
+// Escala de estados "fora", do mais deliberado ao mais urgente:
+// Despublicado (cinza) · Pausado (âmbar) · Esgotado (vermelho/danger).
 export function rowStatus(row: CatalogRowProjection): RowStatus {
   if (!row.is_published) return { off: true, label: "Despublicado", tone: "muted" };
   if (!row.is_sellable) return { off: true, label: "Pausado", tone: "amber" };
-  // Esgotado = fato de ESTOQUE, ortogonal à pausa. Tom neutro: é ciclo normal
-  // (repõe na próxima fornada), não erro. Vem antes de "Indisponível" porque o
-  // gate de pausa das células não enxerga estoque.
-  if (row.sold_out) return { off: true, label: "Esgotado", tone: "muted" };
+  // Esgotado = fato de ESTOQUE, ortogonal à pausa. Danger pra saltar à vista (cliente
+  // não consegue comprar agora) e diferenciar do Pausado — mesmo repondo na fornada.
+  // Vem antes de "Indisponível" porque o gate de pausa das células não enxerga estoque.
+  if (row.sold_out) return { off: true, label: "Esgotado", tone: "danger" };
   const listed = row.cells.some((c) => c.in_listing);
   if (listed && !availableAnywhere(row)) return { off: true, label: "Indisponível", tone: "amber" };
   return { off: false, label: "", tone: "" };

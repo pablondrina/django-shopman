@@ -217,11 +217,15 @@ useHead({ title: "Catálogo · Gestor" });
                   <div v-else class="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Icon name="lucide:image-off" class="size-4" /></div>
                   <div class="flex min-w-0 flex-col">
                     <span class="flex items-center gap-1.5 truncate font-medium" :class="rowStatuses[row.sku]?.off ? 'text-muted-foreground' : 'text-foreground'">
-                      <span class="truncate">{{ row.name }}</span>
+                      <span class="truncate" :class="rowStatuses[row.sku]?.off ? 'line-through decoration-1' : ''">{{ row.name }}</span>
                       <span
                         v-if="rowStatuses[row.sku]?.label"
                         class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                        :class="rowStatuses[row.sku]?.tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'"
+                        :class="{
+                          'bg-destructive/10 text-destructive': rowStatuses[row.sku]?.tone === 'danger',
+                          'bg-amber-500/15 text-amber-600 dark:text-amber-400': rowStatuses[row.sku]?.tone === 'amber',
+                          'bg-muted text-muted-foreground': rowStatuses[row.sku]?.tone === 'muted',
+                        }"
                       >{{ rowStatuses[row.sku]?.label }}</span>
                       <!-- esgotado que repõe por produção: a próxima fornada reativa sozinha -->
                       <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-[10px] font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>

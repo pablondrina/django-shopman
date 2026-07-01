@@ -167,14 +167,14 @@ describe("rowStatus (esmaecer quando 'fora')", () => {
     expect(rowStatus(r).off).toBe(false);
   });
 
-  it("Esgotado (estoque) — ortogonal à pausa, tom neutro", () => {
+  it("Esgotado (estoque) — ortogonal à pausa, tom danger p/ diferenciar", () => {
     const r = row({
       is_published: true,
       is_sellable: true,
       sold_out: true,
       cells: cells([{ in_listing: true, available: true }]), // switch ligado, mas sem estoque
     });
-    expect(rowStatus(r)).toEqual({ off: true, label: "Esgotado", tone: "muted" });
+    expect(rowStatus(r)).toEqual({ off: true, label: "Esgotado", tone: "danger" });
   });
 
   it("Pausado tem precedência sobre Esgotado", () => {
