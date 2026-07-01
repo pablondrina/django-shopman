@@ -22,13 +22,11 @@ def _money(value_q: int) -> str:
 
 @dataclass(frozen=True)
 class SurfaceProjection:
-    """Uma superfície (canal) — coluna da matriz."""
+    """Um canal (de venda) — coluna da matriz."""
 
     ref: str
     name: str
-    capability: str  # transactional | display | feed
-    content_source: str  # ref da coleção-fonte, ou "" (ListingItems explícitos)
-    is_projection_target: bool  # tem backend na registry canônica (Frente 1)
+    is_projection_target: bool  # tem backend na registry canônica (Frente 1) — ex.: iFood
     sync_status: str  # ok | error | never | na
 
 
@@ -98,7 +96,6 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
     from shopman.offerman.conf import get_projection_backend
     from shopman.offerman.models import Listing, ListingItem
 
-    from shopman.shop.config import ChannelConfig
     from shopman.shop.models import Channel
 
     channels = list(Channel.objects.filter(is_active=True).order_by("display_order", "id"))
@@ -117,14 +114,11 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
 
     surfaces: list[SurfaceProjection] = []
     for ch in channels:
-        cfg = ChannelConfig.for_channel(ch)
         is_target = get_projection_backend(ch.ref) is not None
         surfaces.append(
             SurfaceProjection(
                 ref=ch.ref,
                 name=ch.name or ch.ref,
-                capability=cfg.capability,
-                content_source=cfg.content.collection or "",
                 is_projection_target=is_target,
                 sync_status=_surface_sync_status(listings.get(ch.ref), is_target),
             )

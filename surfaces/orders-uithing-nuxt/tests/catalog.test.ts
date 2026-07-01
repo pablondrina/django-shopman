@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  capabilityLabel,
   cellDot,
   cellState,
   cellTint,
@@ -105,10 +104,6 @@ describe("heatmap chrome", () => {
 });
 
 describe("surface metadata", () => {
-  it("labels capabilities", () => {
-    expect(capabilityLabel("transactional")).toBe("Transacional");
-    expect(capabilityLabel("display")).toBe("Display");
-  });
   it("no sync badge for non-projection surfaces", () => {
     expect(syncBadge("na")).toBeNull();
     expect(syncBadge("ok")?.label).toBe("sincronizado");

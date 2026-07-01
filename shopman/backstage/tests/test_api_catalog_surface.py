@@ -74,7 +74,6 @@ def catalog(db):
 MATRIX_URL = "/api/v1/backstage/catalog/"
 CELL_URL = "/api/v1/backstage/catalog/cell/"
 BULK_URL = "/api/v1/backstage/catalog/bulk/"
-MATERIALIZE_URL = "/api/v1/backstage/catalog/materialize/"
 
 
 # ── gate ────────────────────────────────────────────────────────────────────
@@ -100,7 +99,6 @@ def test_matrix_shape(client, operator, catalog):
 
     refs = [s["ref"] for s in matrix["surfaces"]]
     assert refs == ["web", "ifood"]  # por display_order
-    assert all(s["capability"] == "transactional" for s in matrix["surfaces"])
 
     rows = {r["sku"]: r for r in matrix["rows"]}
     assert set(rows) == {"PAO", "BOLO"}
@@ -245,56 +243,3 @@ def test_bulk_requires_field(client, operator, catalog):
         content_type="application/json",
     )
     assert resp.status_code == 400  # nem is_published nem is_sellable
-
-
-# ── materialize: superfície alimentada por coleção ─────────────────────────────
-
-
-def test_materialize_syncs_listing_to_collection(client, operator, catalog):
-    """web alimentada por 'doces' → membership vira exatamente os produtos da coleção."""
-    web = Channel.objects.get(ref="web")
-    web.config = {"content": {"source": "collection", "collection": "doces"}}
-    web.save()
-
-    client.force_login(operator)
-    resp = client.post(
-        MATERIALIZE_URL, data={"surface_ref": "web"}, content_type="application/json"
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["removed"] == 1  # PAO sai (não é de Doces)
-    assert body["total"] == 1  # só BOLO
-
-    skus = set(ListingItem.objects.filter(listing__ref="web").values_list("product__sku", flat=True))
-    assert skus == {"BOLO"}
-
-
-def test_materialize_adds_missing_members(client, operator, catalog):
-    """Produto novo em Doces é adicionado à listing na materialização."""
-    from shopman.offerman.models import CollectionItem, Product
-
-    novo = Product.objects.create(
-        sku="TORTA", name="Torta", unit="un", base_price_q=3000, is_published=True, is_sellable=True
-    )
-    CollectionItem.objects.create(collection=catalog["coll"], product=novo)
-
-    web = Channel.objects.get(ref="web")
-    web.config = {"content": {"source": "collection", "collection": "doces"}}
-    web.save()
-
-    client.force_login(operator)
-    resp = client.post(
-        MATERIALIZE_URL, data={"surface_ref": "web"}, content_type="application/json"
-    )
-    assert resp.status_code == 200
-    item = ListingItem.objects.get(listing__ref="web", product__sku="TORTA")
-    assert item.price_q == 3000  # preço = base_price_q do produto
-
-
-def test_materialize_rejects_non_collection_surface(client, operator, catalog):
-    """Superfície com content=listing (default) não é materializável."""
-    client.force_login(operator)
-    resp = client.post(
-        MATERIALIZE_URL, data={"surface_ref": "web"}, content_type="application/json"
-    )
-    assert resp.status_code == 400

@@ -2,14 +2,13 @@
 // (shopman/backstage/projections/catalog.py), serialised by backstage/api/projections.py.
 // Kept in lockstep — the surface renders intent, the backend owns rules.
 
-export type SurfaceCapability = "transactional" | "display" | "feed";
 export type SurfaceSyncStatus = "ok" | "error" | "never" | "na";
 
+// Uma coluna da matriz é um CANAL de venda (transacional). Exibição/feed (menuboard,
+// Google, Meta) são Expositores, geridos no Admin — não aparecem aqui.
 export interface SurfaceProjection {
   ref: string;
   name: string;
-  capability: SurfaceCapability;
-  content_source: string; // collection ref, or "" (explicit ListingItems)
   is_projection_target: boolean;
   sync_status: SurfaceSyncStatus;
 }

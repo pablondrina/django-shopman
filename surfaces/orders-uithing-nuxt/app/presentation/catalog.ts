@@ -4,7 +4,6 @@
 // something: green = available, amber = paused, muted = absent/unpublished).
 import type {
   CatalogRowProjection,
-  SurfaceCapability,
   SurfaceCellProjection,
   SurfaceSyncStatus,
 } from "~/types/catalog";
@@ -85,16 +84,6 @@ export function cellDot(state: CellState): string {
 }
 
 // ── surface metadata ─────────────────────────────────────────────────────────
-
-const CAPABILITY_LABELS: Record<SurfaceCapability, string> = {
-  transactional: "Transacional",
-  display: "Display",
-  feed: "Feed",
-};
-
-export function capabilityLabel(cap: SurfaceCapability): string {
-  return CAPABILITY_LABELS[cap] ?? cap;
-}
 
 const SYNC: Record<SurfaceSyncStatus, { label: string; toneClass: string } | null> = {
   ok: { label: "sincronizado", toneClass: "text-emerald-600 dark:text-emerald-400" },

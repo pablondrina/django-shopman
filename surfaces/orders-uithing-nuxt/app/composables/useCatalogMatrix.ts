@@ -91,35 +91,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
-  // Materialize a collection-fed surface: sync its ListingItems to the source
-  // collection (add missing, remove non-members). Server owns the resolution.
-  const materializing = ref<Set<string>>(new Set());
-  const isMaterializing = (surface: string) => materializing.value.has(surface);
-  async function materialize(surface: string): Promise<boolean> {
-    if (materializing.value.has(surface)) return false;
-    clearError();
-    materializing.value = new Set(materializing.value).add(surface);
-    try {
-      const res = await $fetch<{ added: number; removed: number; total: number }>(
-        "/api/v1/backstage/catalog/materialize/",
-        { method: "POST", body: { surface_ref: surface } },
-      );
-      await refresh();
-      useSonner.success(`Sincronizado: +${res.added} / −${res.removed} (${res.total} itens).`);
-      return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao sincronizar da coleção.";
-      useSonner.error(errorMsg.value);
-      return false;
-    } finally {
-      const next = new Set(materializing.value);
-      next.delete(surface);
-      materializing.value = next;
-    }
-  }
-
   return {
     matrix, pending, error, refresh, isBusy, cellKey, errorMsg, clearError,
-    setCell, bulkSet, bulkBusy, materialize, isMaterializing,
+    setCell, bulkSet, bulkBusy,
   };
 }

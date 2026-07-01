@@ -23,14 +23,9 @@ class ChannelConfig:
     pricing       — como o preço é definido? (internal/external)
     editing       — itens podem ser editados? (open/locked)
     rules         — quais validators/modifiers ativar?
-    capability    — a superfície transaciona ou só exibe? (transactional/display/feed)
-    content       — de onde vem o conteúdo da superfície? (listing explícito / coleção)
 
-    ``capability`` e ``content`` generalizam o canal para o primitivo SUPERFÍCIE:
-    qualquer alvo onde um recorte do catálogo é projetado/renderizado. Uma
-    superfície ``transactional`` aceita pedido (iFood/web/PDV/WhatsApp); ``display``
-    (menuboard) e ``feed`` (Google/Meta) só mostram/anunciam. O conteúdo pode vir
-    dos ``ListingItem`` explícitos (default) ou ser alimentado por uma ``Collection``.
+    Um Channel é um canal de VENDA (transacional). Exibição/feed (menuboard, Google,
+    Meta) NÃO são canais — vivem em ``shop.Showcase`` (Expositor).
     """
 
     # ── 1. Confirmação ──
@@ -142,22 +137,6 @@ class ChannelConfig:
         modifiers: list[str] | None = None
         checks: list[str] = field(default_factory=list)
 
-    # ── 9. Conteúdo (fonte da superfície) ──
-
-    @dataclass
-    class Content:
-        """De onde a superfície tira o QUE aparece.
-
-        - source="listing"    — os ``ListingItem`` explícitos deste ref (default,
-          comportamento atual). ``collection`` é ignorado.
-        - source="collection" — a superfície é alimentada por uma ``Collection``
-          (manual ou por regra). ``collection`` é o ref da coleção-fonte. A
-          materialização (coleção → ListingItems) é uma operação de gestão.
-        """
-
-        source: str = "listing"
-        collection: str | None = None  # ref da Collection quando source="collection"
-
     # ── Campos ──
 
     confirmation: Confirmation = field(default_factory=Confirmation)
@@ -168,14 +147,6 @@ class ChannelConfig:
     pricing: Pricing = field(default_factory=Pricing)
     editing: Editing = field(default_factory=Editing)
     rules: Rules = field(default_factory=Rules)
-
-    # ── Superfície: capacidade + fonte de conteúdo ──
-
-    capability: str = "transactional"
-    # "transactional" — aceita pedido (iFood/web/PDV/WhatsApp/delivery)
-    # "display"       — só exibe in-loco (menuboard)
-    # "feed"          — só anuncia (Google Merchant, Meta/IG catalog)
-    content: Content = field(default_factory=Content)
 
     # ── Lifecycle ──
 
@@ -209,8 +180,6 @@ class ChannelConfig:
             pricing=_safe_init(cls.Pricing, data.get("pricing", {})),
             editing=_safe_init(cls.Editing, data.get("editing", {})),
             rules=_safe_init(cls.Rules, data.get("rules", {})),
-            capability=data.get("capability", cls.capability),
-            content=_safe_init(cls.Content, data.get("content", {})),
             lifecycle=data.get("lifecycle", {}),
             handle_label=data.get("handle_label", cls.handle_label),
             handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
@@ -309,12 +278,6 @@ class ChannelConfig:
             raise ValueError("rules.modifiers deve ser uma lista ou null")
         if not isinstance(self.rules.checks, list):
             raise ValueError("rules.checks deve ser uma lista")
-        if self.capability not in ("transactional", "display", "feed"):
-            raise ValueError(f"capability inválida: {self.capability}")
-        if self.content.source not in ("listing", "collection"):
-            raise ValueError(f"content.source inválido: {self.content.source}")
-        if self.content.source == "collection" and not (self.content.collection or "").strip():
-            raise ValueError("content.collection é obrigatório quando content.source='collection'")
 
 
 def _safe_init(cls, data: dict):

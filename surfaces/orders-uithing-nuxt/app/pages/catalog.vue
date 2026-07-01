@@ -4,13 +4,12 @@
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
-import { cellDot, cellState, cellTint, cellView, filterRows, capabilityLabel, syncBadge } from "~/presentation/catalog";
+import { cellDot, cellState, cellTint, cellView, filterRows, syncBadge } from "~/presentation/catalog";
 import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
 const {
   matrix, pending, error, refresh, isBusy, cellKey, setCell, bulkSet, bulkBusy,
-  materialize, isMaterializing,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -144,26 +143,10 @@ useHead({ title: "Catálogo · Gestor" });
             </th>
             <th v-for="s in surfaces" :key="s.ref" class="min-w-[132px] border-b border-l border-border px-3 py-2.5 text-left align-top">
               <div class="flex flex-col gap-1">
-                <div class="flex items-center justify-between gap-1">
-                  <span class="font-medium text-foreground">{{ s.name }}</span>
-                  <button
-                    v-if="s.content_source" class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                    :disabled="isMaterializing(s.ref)"
-                    :title="`Sincronizar itens a partir da coleção ${s.content_source}`"
-                    @click="materialize(s.ref)"
-                  >
-                    <Icon :name="isMaterializing(s.ref) ? 'lucide:loader-circle' : 'lucide:refresh-cw'" class="size-3.5" :class="{ 'animate-spin': isMaterializing(s.ref) }" />
-                  </button>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide"
-                    :class="s.capability === 'transactional' ? 'bg-muted text-muted-foreground' : 'bg-foreground/10 text-foreground'">
-                    {{ capabilityLabel(s.capability) }}
-                  </span>
-                  <span v-if="syncBadge(s.sync_status)" class="text-[10px] font-medium" :class="syncBadge(s.sync_status)!.toneClass">
-                    ● {{ syncBadge(s.sync_status)!.label }}
-                  </span>
-                </div>
+                <span class="font-medium text-foreground">{{ s.name }}</span>
+                <span v-if="syncBadge(s.sync_status)" class="text-[10px] font-medium" :class="syncBadge(s.sync_status)!.toneClass">
+                  ● {{ syncBadge(s.sync_status)!.label }}
+                </span>
               </div>
             </th>
           </tr>
