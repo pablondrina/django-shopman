@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Catalog matrix — produto × superfície. The catalog side of the Gestor hub.
+// Catalog matrix — produto × canal. The catalog side of the Gestor hub.
 // Design: a glanceable availability heatmap (tinted cells) with one-click pause and
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
@@ -87,6 +87,15 @@ async function commitPrice(row: CatalogRowProjection, cell: SurfaceCellProjectio
   await setCell(row.sku, cell.surface_ref, { price_q });
 }
 
+// nome do canal (para o rótulo do popover de preço) + tooltip do valor no ícone $.
+const surfaceName = (ref: string) => surfaces.value.find((s) => s.ref === ref)?.name ?? ref;
+function priceTitle(row: CatalogRowProjection, cell: SurfaceCellProjection): string {
+  const p = cellPrice(row, cell);
+  return p.differs
+    ? `${cell.price_display} · ${p.delta === "up" ? "acima" : "abaixo"} do base`
+    : cell.price_display;
+}
+
 useHead({ title: "Catálogo · Gestor" });
 </script>
 
@@ -115,7 +124,7 @@ useHead({ title: "Catálogo · Gestor" });
         <p class="hidden text-xs text-muted-foreground sm:block">
           <span class="tabular-nums">{{ rows.length }}</span> produto{{ rows.length === 1 ? "" : "s" }}
           <span class="text-muted-foreground/50">·</span>
-          <span class="tabular-nums">{{ surfaces.length }}</span> superfície{{ surfaces.length === 1 ? "" : "s" }}
+          <span class="tabular-nums">{{ surfaces.length }}</span> {{ surfaces.length === 1 ? "canal" : "canais" }}
         </p>
         <UiIconButton icon="lucide:refresh-cw" label="Atualizar" :spinning="pending" @click="refresh()" />
       </template>
@@ -233,10 +242,9 @@ useHead({ title: "Catálogo · Gestor" });
             <td v-for="cell in row.cells" :key="cell.surface_ref" class="border-b border-l border-border px-1.5 py-1.5 group-hover:bg-muted/20">
               <div
                 v-if="cell.in_listing"
-                class="group/cell flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors"
-                :class="cell.is_sellable ? 'bg-emerald-500/5 hover:bg-emerald-500/10' : 'bg-amber-500/10 hover:bg-amber-500/15'"
+                class="flex h-10 items-center justify-center gap-2 px-1"
               >
-                <!-- disponibilidade do canal = switch claro (verde ligado / cinza pausado) -->
+                <!-- ÁREA 1 — toggle: disponibilidade (verde ligado / cinza pausado) -->
                 <button
                   type="button" role="switch" :aria-checked="cell.is_sellable"
                   class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
@@ -248,28 +256,52 @@ useHead({ title: "Catálogo · Gestor" });
                 >
                   <span class="inline-block size-3 rounded-full bg-white shadow-sm transition-transform" :class="cell.is_sellable ? 'translate-x-3.5' : 'translate-x-0.5'"></span>
                 </button>
-                <input
-                  v-if="isEditing(row.sku, cell.surface_ref)"
-                  v-model="priceInput" type="text" inputmode="decimal" autofocus
-                  class="h-7 w-full rounded border border-ring bg-background px-1.5 text-xs tabular-nums outline-none"
-                  @keyup.enter="commitPrice(row, cell)" @blur="commitPrice(row, cell)"
-                />
-                <!-- preço só quando DIFERE do base (com ↑/↓); senão aparece no hover p/ editar -->
-                <button
-                  v-else
-                  class="ml-auto inline-flex items-center gap-0.5 rounded px-1 text-xs tabular-nums transition-colors hover:bg-background/60"
-                  :class="[
-                    cellPrice(row, cell).differs ? 'font-semibold text-foreground' : 'text-muted-foreground opacity-0 group-hover/cell:opacity-100',
-                    !cell.is_sellable ? 'text-muted-foreground line-through' : '',
-                  ]"
-                  :title="cellPrice(row, cell).differs ? 'Preço próprio deste canal — clique para editar' : 'Clique para editar o preço'"
-                  @click="startEdit(row, cell)"
-                >
-                  <Icon v-if="cellPrice(row, cell).differs" :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'" class="size-3 opacity-60" />
-                  {{ cell.price_display }}
-                </button>
+
+                <!-- divisória: deixa claro que toggle e preço são controles distintos -->
+                <div class="h-5 w-px shrink-0 bg-border"></div>
+
+                <!-- ÁREA 2 — preço: base = ícone $ apagado; ALTERADO = duas linhas alinhadas à esquerda
+                     (linha 1: R$ + seta ↑/↓ colorida · linha 2: valor). title = valor; clique = popover. -->
+                <UiPopover :open="isEditing(row.sku, cell.surface_ref)" @update:open="(v) => { if (!v) editing = null }">
+                  <UiPopoverAnchor as-child>
+                    <button
+                      type="button"
+                      class="flex items-center rounded px-1 py-0.5 transition hover:bg-muted disabled:opacity-40"
+                      :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
+                      :title="priceTitle(row, cell)"
+                      :aria-label="`Preço em ${surfaceName(cell.surface_ref)}: ${cell.price_display} — editar`"
+                      @click="startEdit(row, cell)"
+                    >
+                      <span v-if="cellPrice(row, cell).differs" class="flex flex-col items-start gap-0.5 leading-none">
+                        <span class="flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground">
+                          R$
+                          <Icon
+                            :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'"
+                            class="size-2.5"
+                            :class="cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
+                          />
+                        </span>
+                        <span class="text-xs font-semibold tabular-nums" :class="cell.is_sellable ? 'text-foreground' : 'text-muted-foreground line-through'">{{ cell.price_display.replace("R$ ", "") }}</span>
+                      </span>
+                      <Icon v-else name="lucide:circle-dollar-sign" class="size-4 text-muted-foreground/40" />
+                    </button>
+                  </UiPopoverAnchor>
+                  <UiPopoverContent align="center" :side-offset="6" class="w-52 p-3">
+                    <p class="mb-2 text-xs font-medium text-muted-foreground">Preço · {{ surfaceName(cell.surface_ref) }}</p>
+                    <input
+                      v-model="priceInput" type="text" inputmode="decimal" autofocus
+                      class="h-9 w-full rounded-md border bg-background px-2.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                      @keyup.enter="commitPrice(row, cell)" @keyup.esc="editing = null"
+                    />
+                    <p class="mt-1 text-[11px] text-muted-foreground">Base do produto: {{ row.base_price_display }}</p>
+                    <div class="mt-2.5 flex justify-end gap-1.5">
+                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition hover:bg-accent" @click="editing = null">Cancelar</button>
+                      <button type="button" class="rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90" @click="commitPrice(row, cell)">Salvar</button>
+                    </div>
+                  </UiPopoverContent>
+                </UiPopover>
               </div>
-              <div v-else class="grid h-9 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
+              <div v-else class="grid h-10 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
             </td>
           </tr>
         </tbody>
