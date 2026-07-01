@@ -256,7 +256,7 @@ Canonical Gate) e o **materializador coleção→ListingItems** vão para a **Fr
 Nesta frente o motor está pronto e consumido; a criação de smart collection é via seed/shell/API até a
 UI da Frente 3.
 
-## Frente 3 — EM ANDAMENTO (2026-07-01): matriz produto×superfície
+## Frente 3 — ✅ COMPLETA (2026-07-01): matriz produto×superfície
 
 **Decisão de arquitetura (aprovada): SPLIT.** A **matriz operacional** (pausa/preço/bulk/sync) vive no
 **Gestor Nuxt** (`orders-uithing-nuxt`); a **edição de config** (`Collection.rule`, `capability`/

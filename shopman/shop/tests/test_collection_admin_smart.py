@@ -1,4 +1,9 @@
-"""Collection admin — editor JSON da regra (smart collection)."""
+"""Collection admin — editor JSON da regra (smart collection).
+
+Vive na suíte orquestrador (não em offerman/tests) porque a camada admin/unfold +
+import_export só está instalada com o settings completo; a fatia test-offerman roda
+o kernel isolado, sem django.contrib.admin.
+"""
 
 from __future__ import annotations
 
