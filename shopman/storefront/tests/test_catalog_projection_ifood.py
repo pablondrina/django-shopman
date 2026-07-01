@@ -105,7 +105,8 @@ def test_adapter_builds_correct_ifood_payload(ifood_item):
     assert product["name"] == "Pão Francês"
     assert product["description"] == "Pão crocante"
     assert product["externalCode"] == "PAO-FRANCES"
-    assert product["image"]["url"] == "https://cdn.test/pao.jpg"
+    # No inline image — iFood v2.0 rejects it with 500 (uses a separate upload flow).
+    assert "image" not in product
 
 
 def test_adapter_ids_are_deterministic_per_merchant_and_sku(ifood_item):
@@ -121,12 +122,14 @@ def test_adapter_ids_are_deterministic_per_merchant_and_sku(ifood_item):
     assert other["item"]["id"] != a["item"]["id"]
 
 
-def test_adapter_omits_image_when_none():
+def test_adapter_never_sends_inline_image():
+    """iFood v2.0 rejects an inline image URL (500) — the item PUT never carries one."""
     from shopman.shop.adapters.catalog_projection_ifood import _item_payload
 
     item = ProjectedItem(
         sku="X", name="X", description="", unit="un",
         price_q=100, is_published=True, is_sellable=True,
+        image_url="https://cdn.test/x.jpg",
     )
     payload = _item_payload(item, merchant_id="m", category_id="c")
     assert "image" not in payload["products"][0]

@@ -128,7 +128,9 @@ def _item_payload(item: ProjectedItem, *, merchant_id: str, category_id: str) ->
                 "name": item.name,
                 "description": item.description,
                 "externalCode": item.sku,
-                **({"image": {"url": item.image_url}} if item.image_url else {}),
+                # NOTE: no inline image. iFood catalog v2.0 rejects an inline
+                # image URL here with 500 (verified live 2026-07-01); product
+                # images use a separate upload flow (imagePath), out of scope.
             }
         ],
     }
