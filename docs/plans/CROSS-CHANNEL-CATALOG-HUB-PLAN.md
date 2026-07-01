@@ -170,6 +170,47 @@ Pontos a resolver no design:
 **Fontes primárias**: Shopify Catalogs/Markets/Collections/Product-Sync docs; Toast partner-visibility
 + integration-limitations; Square item-availability; Uber Eats menu-hours + pause-orders.
 
+## ⭐ Refinamento decisivo: SUPERFÍCIE, não só "canal" (Pablo 2026-07-01)
+
+Insight do Pablo: nem todo alvo de projeção é "canal de vendas". Google Merchant, Meta/IG e um
+**menuboard** (TV) mostram um recorte de produtos, mas **não é ali que a venda transaciona**. O
+primitivo certo é mais geral e unifica tudo:
+
+**SUPERFÍCIE** (generaliza "canal") = qualquer alvo onde um recorte do catálogo é projetado/renderizado.
+Três atributos:
+- **tipo/adapter**: iFood API · web storefront · PDV · WhatsApp · Google feed · Meta catalog · **menuboard** · KDS…
+- **capacidade**: `transacional` (aceita pedido) | `display/feed` (só mostra/anuncia).
+- **fonte de conteúdo = uma COLEÇÃO** (ou regra/conjunto de coleções) define **o QUE aparece**; +
+  overrides por superfície (preço/disponibilidade/layout).
+
+Classificação das superfícies:
+- **Transacionais**: iFood, web próprio, PDV, WhatsApp/delivery próprio.
+- **Feed/anúncio**: Google Merchant (feed = coleção "vendáveis online"; `custom_label` = sub-recortes),
+  Meta/IG catalog (catalog = coleção; **sets** = sub-coleções p/ targeting), TikTok.
+- **Display in-loco**: **menuboard** (TV) — cada tela é uma superfície display alimentada por uma
+  coleção ("Café da manhã", "Pães & padaria"), renderizada **em tempo real**.
+
+**Por que é a abordagem mais simples/robusta/elegante:**
+- **Um só primitivo de projeção** (Superfície) + **um `CatalogProjectionBackend` por tipo** — iFood/
+  Google/Meta/menuboard viram adapters. O protocolo já existe em offerman.
+- A **coleção como fonte de conteúdo universal** resolve o eixo CANAL×COLEÇÃO naturalmente: "esta
+  superfície mostra esta coleção". Bulk ops = por coleção; disponibilidade/preço = por (item×superfície).
+- Os **signals + motor de projeção (auto-trigger) que já entregamos servem TODAS as superfícies** —
+  inclusive o menuboard, via o **SSE que já existe** (django-eventstream + daphne;
+  ver [[project_sse_push_active]]).
+- Distingue honestamente `transacional` de `display/feed` — a UI mostra **capacidades reais** por
+  superfície (aprendizado do Toast: nunca prometer paridade cega).
+- Alinha com a pesquisa: Shopify separa *Publication* (o que é visível) de *transacionar*; Google/Meta
+  são publication surfaces alimentadas por um recorte. Nossa "Superfície" é essa generalização honesta.
+
+### 📺 Menuboard dinâmico (PROJETO NOVO — anotado)
+Hoje: **2 TVs** estilo "quadro-negro pintado à mão", **estáticas**. Meta: **menuboard dinâmico ligado
+ao Django Shopman** — uma **superfície display** alimentada por coleção, atualizada **em tempo real**
+(pausar item / mudar preço / esgotar reflete na TV na hora). Reusa 100% o motor de projeção + push
+(SSE) que já existe. Provável **nova superfície Nuxt** (`surfaces/menuboard-*`) assinando o stream da
+coleção, com layout "chalkboard" fiel à marca Nelson. Adapter `menuboard` = mais um
+`CatalogProjectionBackend`/consumidor de eventos.
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
