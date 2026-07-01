@@ -1,14 +1,10 @@
 """
-Menuboard projection — a superfície DISPLAY (quadro-negro) alimentada por coleção.
+Menuboard projection — o 📺 Expositor de tipo ``menuboard`` numa TV.
 
-Um menuboard é um Channel com ``capability == "display"`` e ``content.source ==
-"collection"``: mostra o recorte do catálogo daquela coleção (manual ou por regra),
-com preço e disponibilidade, agrupado por coleção primária. Dado público (é um
-cardápio numa TV) — sem estado de operador.
-
-Preço/disponibilidade vêm do ListingItem da superfície quando existe (após
-materializar); senão caem no nível do produto (base_price_q). Itens indisponíveis
-não somem — aparecem como "Esgotado" (honestidade/omotenashi).
+Um Expositor (``shop.Showcase``) compõe N coleções; no menuboard cada coleção é uma
+SEÇÃO (Pães, Doces, Bebidas…). Mostra o estado CANÔNICO do produto (base_price +
+is_published/is_sellable) — pausar o produto tira do quadro. Dado público (é um
+cardápio numa TV) — sem estado de operador, sem override por-superfície.
 """
 
 from __future__ import annotations
@@ -20,7 +16,7 @@ from dataclasses import dataclass, field
 class MenuboardItem:
     sku: str
     name: str
-    price_q: int  # centavos — a superfície formata (appearance fica na apresentação)
+    price_q: int  # centavos — a superfície formata (appearance na apresentação)
     available: bool
     description: str
 
@@ -33,7 +29,7 @@ class MenuboardGroup:
 
 @dataclass(frozen=True)
 class MenuboardProjection:
-    surface_ref: str
+    ref: str
     title: str
     subtitle: str
     groups: tuple[MenuboardGroup, ...] = field(default_factory=tuple)
@@ -42,76 +38,54 @@ class MenuboardProjection:
 
 
 class MenuboardError(Exception):
-    """Raised when a surface is not a valid menuboard (display + collection-fed)."""
+    """Raised when a ref is not a valid, active menuboard Showcase."""
 
 
-def resolve_menuboard_config(surface_ref: str):
-    """Valida que a superfície é um menuboard e devolve (channel, collection_ref)."""
-    from shopman.shop.config import ChannelConfig
-    from shopman.shop.models import Channel
+def resolve_menuboard(ref: str):
+    """Valida que ``ref`` é um Expositor menuboard ativo e o devolve."""
+    from shopman.shop.models import Showcase
 
-    channel = Channel.objects.filter(ref=surface_ref, is_active=True).first()
-    if channel is None:
-        raise MenuboardError(f"Superfície '{surface_ref}' não encontrada ou inativa.")
-    cfg = ChannelConfig.for_channel(channel)
-    if cfg.capability != "display":
-        raise MenuboardError(f"Superfície '{surface_ref}' não é um menuboard (capability != display).")
-    if cfg.content.source != "collection" or not cfg.content.collection:
-        raise MenuboardError(f"Menuboard '{surface_ref}' não tem coleção-fonte (content.collection).")
-    return channel, cfg.content.collection
+    sc = Showcase.objects.filter(ref=ref, is_active=True, kind=Showcase.KIND_MENUBOARD).first()
+    if sc is None:
+        raise MenuboardError(f"Menuboard '{ref}' não encontrado ou inativo.")
+    return sc
 
 
-def build_menuboard(surface_ref: str) -> MenuboardProjection:
-    """Monta o quadro do menuboard a partir da coleção-fonte da superfície."""
-    from shopman.offerman.models import Collection, ListingItem
+def build_menuboard(ref: str) -> MenuboardProjection:
+    """Monta o quadro: uma seção por coleção do expositor, na ordem das coleções."""
+    from shopman.offerman.models import Collection
 
-    channel, collection_ref = resolve_menuboard_config(surface_ref)
-    coll = Collection.objects.filter(ref=collection_ref).first()
-    if coll is None:
-        raise MenuboardError(f"Coleção-fonte '{collection_ref}' não encontrada.")
+    showcase = resolve_menuboard(ref)
+    # Coleções na ordem do expositor; ordenação de exibição = sort_order da coleção.
+    colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
 
-    products = list(
-        coll.product_queryset().prefetch_related("collection_items__collection")
-    )
-
-    # Overrides da superfície (preço/disponibilidade por item), quando materializado.
-    items_by_sku = {
-        item.product.sku: item
-        for item in ListingItem.objects.filter(listing__ref=surface_ref).select_related("product")
-    }
-
-    # Agrupa por coleção primária (dá seções naturais: "Pães", "Doces"…).
-    groups: dict[str, list[MenuboardItem]] = {}
-    order: list[str] = []
+    groups: list[MenuboardGroup] = []
     available_count = 0
-    for product in sorted(products, key=lambda p: p.name):
-        item = items_by_sku.get(product.sku)
-        price_q = item.price_q if item is not None else product.base_price_q
-        available = product.is_published and product.is_sellable
-        if item is not None:
-            available = available and item.is_published and item.is_sellable
-        if available:
-            available_count += 1
-
-        primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
-        section = primary.collection.name if primary else coll.name
-        if section not in groups:
-            groups[section] = []
-            order.append(section)
-        groups[section].append(
-            MenuboardItem(
-                sku=product.sku,
-                name=product.name,
-                price_q=price_q,
-                available=available,
-                description=product.short_description or "",
+    for coll_ref in showcase.collection_refs():
+        coll = colls.get(coll_ref)
+        if coll is None:
+            continue
+        items: list[MenuboardItem] = []
+        for product in coll.product_queryset().order_by("name"):
+            available = product.is_published and product.is_sellable
+            if available:
+                available_count += 1
+            items.append(
+                MenuboardItem(
+                    sku=product.sku,
+                    name=product.name,
+                    price_q=product.base_price_q,
+                    available=available,
+                    description=product.short_description or "",
+                )
             )
-        )
+        if items:
+            groups.append(MenuboardGroup(title=coll.name, items=tuple(items)))
 
     return MenuboardProjection(
-        surface_ref=surface_ref,
-        title=channel.name or coll.name,
-        subtitle=coll.name,
-        groups=tuple(MenuboardGroup(title=s, items=tuple(groups[s])) for s in order),
+        ref=ref,
+        title=showcase.name,
+        subtitle="",
+        groups=tuple(groups),
         available_count=available_count,
     )

@@ -77,6 +77,9 @@ def _emit_for_sku(sku: str, *, event_type: str, extra: dict | None = None) -> No
             cache.delete(f"availability:{sku}:{ref}")
             send_event(f"stock-{ref}", event_type, payload)
         cache.delete(f"availability:{sku}:default")
+        # Canal global p/ Expositores (menuboard): não são canais, mas refletem o
+        # estado canônico do produto — qualquer mudança de disponibilidade os atualiza.
+        send_event("stock-catalog", event_type, payload)
     except Exception:
         logger.warning(
             "SSE emit failed sku=%s type=%s", sku, event_type, exc_info=True,

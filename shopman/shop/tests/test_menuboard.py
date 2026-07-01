@@ -1,105 +1,93 @@
-"""Menuboard — superfície display pública alimentada por coleção, tempo real."""
+"""Menuboard — Expositor (Showcase) de tipo menuboard, público e em tempo real."""
 
 from __future__ import annotations
 
 import pytest
-from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
+from shopman.offerman.models import Collection, CollectionItem, Product
 
-from shopman.shop.models import Channel
+from shopman.shop.models import Showcase
 from shopman.shop.projections.menuboard import MenuboardError, build_menuboard
 
 
 @pytest.fixture
 def menuboard(db):
-    Channel.objects.create(
-        ref="tv-balcao",
-        name="Quadro do Balcão",
-        is_active=True,
-        config={"capability": "display", "content": {"source": "collection", "collection": "cafe"}},
+    Showcase.objects.create(
+        ref="tv-balcao", name="Quadro do Balcão", kind="menuboard", collections=["paes", "doces"]
     )
-    Listing.objects.create(ref="tv-balcao", name="TV Balcão", is_active=True)
-    cafe = Collection.objects.create(ref="cafe", name="Café da Manhã", is_active=True)
-    paes = Collection.objects.create(ref="paes", name="Pães", is_active=True)
-
+    paes = Collection.objects.create(ref="paes", name="Pães", is_active=True, sort_order=1)
+    doces = Collection.objects.create(ref="doces", name="Doces", is_active=True, sort_order=2)
     pao = Product.objects.create(
-        sku="PAO", name="Pão na Chapa", unit="un", base_price_q=800, is_published=True, is_sellable=True,
-        short_description="Na manteiga",
+        sku="PAO", name="Pão na Chapa", unit="un", base_price_q=800,
+        is_published=True, is_sellable=True, short_description="Na manteiga",
     )
-    cafe_prod = Product.objects.create(
-        sku="CAFE", name="Café Coado", unit="un", base_price_q=500, is_published=True, is_sellable=True,
+    bolo = Product.objects.create(
+        sku="BOLO", name="Bolo", unit="un", base_price_q=1200, is_published=True, is_sellable=True,
     )
-    CollectionItem.objects.create(collection=cafe, product=pao)
-    CollectionItem.objects.create(collection=cafe, product=cafe_prod)
-    CollectionItem.objects.create(collection=paes, product=pao, is_primary=True)
-    return {"pao": pao, "cafe": cafe_prod}
+    CollectionItem.objects.create(collection=paes, product=pao)
+    CollectionItem.objects.create(collection=doces, product=bolo)
+    return {"pao": pao, "bolo": bolo}
 
 
-# ── projection ────────────────────────────────────────────────────────────────
-
-
-def test_build_groups_and_prices(menuboard):
+def test_sections_are_showcase_collections(menuboard):
     board = build_menuboard("tv-balcao")
     assert board.title == "Quadro do Balcão"
-    assert board.subtitle == "Café da Manhã"
+    assert [g.title for g in board.groups] == ["Pães", "Doces"]  # ordem do expositor
     assert board.available_count == 2
-    # Pão agrupado sob a coleção primária "Pães"; café sob a fonte "Café da Manhã".
-    sections = {g.title: [i.name for i in g.items] for g in board.groups}
-    assert "Pães" in sections and "Pão na Chapa" in sections["Pães"]
-    pao_item = next(i for g in board.groups for i in g.items if i.sku == "PAO")
-    assert pao_item.price_q == 800
-    assert pao_item.available is True
-    assert pao_item.description == "Na manteiga"
+    pao = next(i for g in board.groups for i in g.items if i.sku == "PAO")
+    assert pao.price_q == 800 and pao.available is True and pao.description == "Na manteiga"
 
 
-def test_listing_override_price_and_pause(menuboard):
-    # override de preço e pausa na superfície (via ListingItem)
-    ListingItem.objects.create(
-        listing=Listing.objects.get(ref="tv-balcao"),
-        product=menuboard["pao"],
-        price_q=950,
-        is_sellable=False,
-    )
+def test_paused_product_drops_from_available(menuboard):
+    menuboard["pao"].is_sellable = False
+    menuboard["pao"].save()
     board = build_menuboard("tv-balcao")
-    pao_item = next(i for g in board.groups for i in g.items if i.sku == "PAO")
-    assert pao_item.price_q == 950  # preço da superfície
-    assert pao_item.available is False  # pausado nesta superfície
-    assert board.available_count == 1  # só o café
+    pao = next(i for g in board.groups for i in g.items if i.sku == "PAO")
+    assert pao.available is False
+    assert board.available_count == 1  # só o bolo
 
 
-def test_rejects_non_display_surface(db):
-    Channel.objects.create(ref="web", name="Web", is_active=True)  # capability default = transactional
-    with pytest.raises(MenuboardError):
-        build_menuboard("web")
-
-
-def test_rejects_display_without_collection(db):
-    Channel.objects.create(
-        ref="tv-x", name="TV", is_active=True, config={"capability": "display"}
+def test_smart_collection_section(db):
+    Showcase.objects.create(ref="tv", name="TV", kind="menuboard", collections=["caros"])
+    Collection.objects.create(
+        ref="caros", name="Caros", is_active=True,
+        rule={"match": "all", "conditions": [{"field": "base_price_q", "op": "gte", "value": 1000}]},
     )
+    Product.objects.create(sku="BOLO", name="Bolo", base_price_q=4500, is_published=True, is_sellable=True)
+    Product.objects.create(sku="PAO", name="Pão", base_price_q=500, is_published=True, is_sellable=True)
+    board = build_menuboard("tv")
+    assert [i.sku for g in board.groups for i in g.items] == ["BOLO"]  # regra resolve a seção
+
+
+def test_rejects_feed_showcase(db):
+    Showcase.objects.create(ref="google", name="G", kind="google", collections=["x"])
     with pytest.raises(MenuboardError):
-        build_menuboard("tv-x")
+        build_menuboard("google")
 
 
-# ── views (públicas, sem auth — uma TV só abre a URL) ───────────────────────────
+def test_rejects_missing(db):
+    with pytest.raises(MenuboardError):
+        build_menuboard("fantasma")
+
+
+# ── views públicas ──────────────────────────────────────────────────────────────
 
 
 def test_page_public_200(client, menuboard):
     resp = client.get("/menuboard/tv-balcao/")
     assert resp.status_code == 200
-    assert "Quadro do Balcão".encode() in resp.content  # título embutido p/ paint imediato
-    assert b"menuboard()" in resp.content  # componente Alpine
+    assert "Quadro do Balcão".encode() in resp.content
+    assert b"menuboard()" in resp.content
 
 
 def test_data_public_json(client, menuboard):
     resp = client.get("/menuboard/tv-balcao/data/")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["surface_ref"] == "tv-balcao"
+    assert body["ref"] == "tv-balcao"
     assert body["available_count"] == 2
-    assert any(g["title"] == "Pães" for g in body["groups"])
+    assert [g["title"] for g in body["groups"]] == ["Pães", "Doces"]
 
 
-def test_page_404_for_non_display(client, db):
-    Channel.objects.create(ref="web", name="Web", is_active=True)
-    assert client.get("/menuboard/web/").status_code == 404
-    assert client.get("/menuboard/web/data/").status_code == 404
+def test_page_404_for_unknown(client, db):
+    assert client.get("/menuboard/fantasma/").status_code == 404
+    assert client.get("/menuboard/fantasma/data/").status_code == 404

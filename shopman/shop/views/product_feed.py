@@ -1,20 +1,15 @@
 """
-Product feed — superfície FEED (Google Merchant / Meta) alimentada por coleção.
+Product feed — o 🛰 Expositor de tipo ``google``/``meta`` (feed RSS 2.0 público).
 
-Seam de feed PULL: uma superfície com ``capability == "feed"`` e ``content.source
-== "collection"`` expõe um feed RSS 2.0 (namespace ``g:`` do Google) público que o
-Google Merchant Center e o Meta Commerce Manager buscam por agendamento (ambos
-aceitam o XML Google-compatível). Sem credenciais — o parceiro só cola a URL e
-verifica o domínio no painel. O push near-real-time (Content API / Catalog Batch
-API) é credential-gated e fica para depois (ver docs/plans).
+Um Expositor (``shop.Showcase``) de feed compõe N coleções; cada coleção vira o
+``custom_label_0`` do produto (o análogo das smart collections p/ anúncios — Google
+custom_labels, Meta product sets). Pull: Google Merchant e Meta buscam a URL agendado
+(ambos aceitam o XML ``g:``). O único campo que diverge é ``availability`` — Google usa
+underscore, Meta usa espaço; o ``kind`` do Expositor decide.
 
-Spec verificada (support.google.com/merchants/answer/7052112 + 6324448 + 6324371):
-- Namespace: ``http://base.google.com/ns/1.0`` (prefixo ``g:``).
-- Obrigatórios: id, title, description, link, image_link, availability, price.
-- availability: ``in_stock`` | ``out_of_stock``. price: ``12.00 BRL`` (ponto decimal).
-- Padaria artesanal sem GTIN/marca de fabricante → ``identifier_exists = no``
-  (escape sancionado); mantemos ``brand`` = nome da loja quando houver.
-- ``custom_label_0`` = coleção primária → análogo das smart collections p/ anúncios.
+Spec verificada (2026-07-01): support.google.com/merchants/answer/7052112 (Google) +
+facebook.com/business/help/120325381656392 (Meta). Detalhes em
+docs/plans/CATALOG-FEEDS-GOOGLE-META.md.
 """
 
 from __future__ import annotations
@@ -28,94 +23,75 @@ from django.views import View
 
 logger = logging.getLogger(__name__)
 
-
-class ProductFeedError(Exception):
-    pass
-
-
-def _resolve_feed_surface(surface_ref: str):
-    from shopman.shop.config import ChannelConfig
-    from shopman.shop.models import Channel
-
-    channel = Channel.objects.filter(ref=surface_ref, is_active=True).first()
-    if channel is None:
-        raise ProductFeedError("surface not found")
-    cfg = ChannelConfig.for_channel(channel)
-    if cfg.capability != "feed":
-        raise ProductFeedError("surface is not a feed")
-    if cfg.content.source != "collection" or not cfg.content.collection:
-        raise ProductFeedError("feed has no source collection")
-    return channel, cfg.content.collection
-
-
-def _storefront_base(request) -> str:
-    base = getattr(settings, "SHOPMAN_STOREFRONT_URL", "") or ""
-    if base:
-        return base.rstrip("/")
-    return request.build_absolute_uri("/").rstrip("/")
-
-
-# availability diverge entre plataformas (pesquisa verificada 2026-07-01):
-# Google usa underscore, Meta usa espaço. É o ÚNICO campo que precisa de
-# serialização por plataforma; o resto do XML g: é idêntico e serve os dois.
+# availability diverge por plataforma (verificado): Google underscore, Meta espaço.
 _AVAILABILITY = {
     "google": {True: "in_stock", False: "out_of_stock"},
     "meta": {True: "in stock", False: "out of stock"},
 }
 
 
-def build_feed_items(surface_ref: str, request, platform: str = "google") -> list[dict]:
-    """Itens do feed (dicts prontos p/ o template). Formatação = camada de view."""
-    from shopman.offerman.models import Collection, ListingItem
+class ProductFeedError(Exception):
+    pass
 
-    _channel, collection_ref = _resolve_feed_surface(surface_ref)
-    coll = Collection.objects.filter(ref=collection_ref).first()
-    if coll is None:
-        raise ProductFeedError("source collection not found")
 
-    avail_map = _AVAILABILITY.get(platform, _AVAILABILITY["google"])
+def _resolve_feed_showcase(ref: str):
+    from shopman.shop.models import Showcase
+
+    sc = Showcase.objects.filter(ref=ref, is_active=True).first()
+    if sc is None or not sc.is_feed:
+        raise ProductFeedError("not a feed showcase")
+    return sc
+
+
+def _storefront_base(request) -> str:
+    base = getattr(settings, "SHOPMAN_STOREFRONT_URL", "") or ""
+    return (base or request.build_absolute_uri("/")).rstrip("/")
+
+
+def build_feed_items(ref: str, request) -> list[dict]:
+    """Itens do feed a partir das coleções do Expositor. Formatação = camada de view."""
+    from shopman.offerman.models import Collection
+
+    showcase = _resolve_feed_showcase(ref)
+    platform = "meta" if showcase.kind == "meta" else "google"
+    avail = _AVAILABILITY[platform]
     base = _storefront_base(request)
-    overrides = {
-        i.product.sku: i
-        for i in ListingItem.objects.filter(listing__ref=surface_ref).select_related("product")
-    }
+
+    colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
 
     items: list[dict] = []
-    for product in coll.product_queryset().prefetch_related("collection_items__collection"):
-        # image_link é obrigatório no Google/Meta — itens sem imagem seriam
-        # reprovados; omitimos do feed (feed continua válido).
-        if not product.image_url:
+    seen: set[str] = set()
+    for coll_ref in showcase.collection_refs():
+        coll = colls.get(coll_ref)
+        if coll is None:
             continue
-        override = overrides.get(product.sku)
-        price_q = override.price_q if override is not None else product.base_price_q
-        available = product.is_published and product.is_sellable
-        if override is not None:
-            available = available and override.is_published and override.is_sellable
-
-        primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
-        items.append({
-            "id": product.sku,
-            "title": product.name[:150],
-            "description": (product.long_description or product.short_description or product.name)[:5000],
-            "link": f"{base}/produto/{product.sku}",
-            "image_link": product.image_url,
-            "availability": avail_map[available],
-            "price": f"{price_q / 100:.2f} BRL",
-            "product_type": primary.collection.name if primary else coll.name,
-            "custom_label_0": primary.collection.ref if primary else coll.ref,
-        })
+        for product in coll.product_queryset():
+            if product.sku in seen or not product.image_url:
+                # dedupe (1ª coleção do expositor vence o custom_label); item sem
+                # imagem é omitido (image_link é obrigatório — seria reprovado).
+                continue
+            seen.add(product.sku)
+            available = product.is_published and product.is_sellable
+            items.append({
+                "id": product.sku,
+                "title": product.name[:150],
+                "description": (product.long_description or product.short_description or product.name)[:5000],
+                "link": f"{base}/produto/{product.sku}",
+                "image_link": product.image_url,
+                "availability": avail[available],
+                "price": f"{product.base_price_q / 100:.2f} BRL",
+                "product_type": coll.name,
+                "custom_label_0": coll.ref,
+            })
     return items
 
 
 class ProductFeedView(View):
-    """Feed RSS 2.0 público (Google/Meta) de uma superfície feed."""
+    """Feed RSS 2.0 público (Google/Meta) de um Expositor de feed."""
 
     def get(self, request, ref: str):
-        # ?platform=meta usa "in stock"/"out of stock" (espaço); default google
-        # usa "in_stock"/"out_of_stock" (underscore). Mesmo XML g: nos dois.
-        platform = "meta" if request.GET.get("platform") == "meta" else "google"
         try:
-            items = build_feed_items(ref, request, platform)
+            items = build_feed_items(ref, request)
         except ProductFeedError as exc:
             raise Http404(str(exc)) from exc
 
