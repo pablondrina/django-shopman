@@ -275,8 +275,14 @@ existe; backstage já lê offerman direto nas projections.
   - `backstage/api/catalog.py` + urls: `GET catalog/` (matriz), `POST catalog/cell/`,
     `POST catalog/bulk/` (por skus ou coleção, inclusive smart). Gate `shop.manage_catalog`.
   - 11 testes de contrato. `make test` 2259; `make admin` verde.
+- **WP-3c ✅ FEITO** — Gestor Nuxt (`orders-uithing-nuxt`): nova aba **Catálogo** (nav Pedidos↔Catálogo).
+  `pages/catalog.vue` (matriz produto×superfície, chips do eixo coleção com filtro server-side via
+  `?collection` smart-aware, barra de bulk scoped à coleção, pausa 1-clique + preço inline por célula,
+  capability/sync por coluna, "—" onde não ofertado), `useCatalogMatrix` (fetch+setCell/bulkSet+poll),
+  `presentation/catalog.ts` (18 testes vitest), `types/catalog.ts`. **Verificado ao vivo** com os dados
+  do Nelson (51 produtos × 5 superfícies; eixo coleção E2E). Backend ganhou o param `?collection`
+  (build_catalog_matrix via product_queryset). make test 2261; vitest 48.
 - **WP-3a ⏭️** — Admin/Unfold: editor de `rule` no Collection admin + `capability`/`content` no Channel.
-- **WP-3c ⏭️** — Gestor Nuxt: `pages/catalog.vue` + composable + presentation + nav Pedidos↔Catálogo.
 - **WP-3d ⏭️** — materializador coleção→ListingItems (superfície alimentada por coleção).
 
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
