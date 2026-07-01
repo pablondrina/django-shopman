@@ -256,6 +256,29 @@ Canonical Gate) e o **materializador coleção→ListingItems** vão para a **Fr
 Nesta frente o motor está pronto e consumido; a criação de smart collection é via seed/shell/API até a
 UI da Frente 3.
 
+## Frente 3 — EM ANDAMENTO (2026-07-01): matriz produto×superfície
+
+**Decisão de arquitetura (aprovada): SPLIT.** A **matriz operacional** (pausa/preço/bulk/sync) vive no
+**Gestor Nuxt** (`orders-uithing-nuxt`); a **edição de config** (`Collection.rule`, `capability`/
+`content` da superfície) vive no **Admin/Unfold**. Espelha o precedente da produção (console Admin +
+app Nuxt) e honra tanto o Canonical Gate (config→Unfold) quanto o plano (matriz→Gestor). Verificado:
+API backstage = `APIView`+`HasBackstagePermission`+projection dataclass; `shop.manage_catalog` já
+existe; backstage já lê offerman direto nas projections.
+
+- **WP-3b ✅ FEITO** — backend do catálogo (frontend-agnóstico):
+  - `backstage/projections/catalog.py`: matriz (superfícies com capability/content/sync-status +
+    linhas produto com célula por superfície = ListingItem + eixo coleção com `is_smart`/count).
+    Registrada na exceção `headless-operator-api` do gate canônico.
+  - `backstage/services/catalog.py`: `set_cell` (célula → `ListingItem.save()` → auto-trigger),
+    `bulk_set`/`bulk_set_collection` (`queryset.update()` + **reconcile via `project_listing` só se a
+    superfície é alvo de projeção** — a ponte da Frente 1). `CatalogError` no facade.
+  - `backstage/api/catalog.py` + urls: `GET catalog/` (matriz), `POST catalog/cell/`,
+    `POST catalog/bulk/` (por skus ou coleção, inclusive smart). Gate `shop.manage_catalog`.
+  - 11 testes de contrato. `make test` 2259; `make admin` verde.
+- **WP-3a ⏭️** — Admin/Unfold: editor de `rule` no Collection admin + `capability`/`content` no Channel.
+- **WP-3c ⏭️** — Gestor Nuxt: `pages/catalog.vue` + composable + presentation + nav Pedidos↔Catálogo.
+- **WP-3d ⏭️** — materializador coleção→ListingItems (superfície alimentada por coleção).
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
