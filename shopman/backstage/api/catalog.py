@@ -43,7 +43,8 @@ class CatalogMatrixView(_CatalogBase):
     def get(self, request):
         from shopman.backstage.projections.catalog import build_catalog_matrix
 
-        matrix = build_catalog_matrix()
+        collection_ref = (request.query_params.get("collection") or "").strip()
+        matrix = build_catalog_matrix(collection_ref)
         return Response({"matrix": projection_data(matrix)})
 
 

@@ -132,8 +132,13 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
     return surfaces, cells_index
 
 
-def build_catalog_matrix() -> CatalogMatrixProjection:
-    """Monta a matriz produto × superfície com o eixo coleção."""
+def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
+    """Monta a matriz produto × superfície com o eixo coleção.
+
+    ``collection_ref`` (opcional) filtra as linhas aos produtos daquela coleção,
+    resolvida por ``product_queryset()`` (smart-aware) — funciona para coleções
+    manuais e por regra.
+    """
     from shopman.offerman.models import Collection, Product
 
     surfaces, cells_index = _build_surfaces()
@@ -143,6 +148,9 @@ def build_catalog_matrix() -> CatalogMatrixProjection:
         .order_by("name")
         .prefetch_related("keywords", "collection_items__collection")
     )
+    if collection_ref:
+        coll = Collection.objects.filter(ref=collection_ref).first()
+        products = products.filter(pk__in=coll.product_queryset().values("pk")) if coll else products.none()
 
     rows: list[CatalogRowProjection] = []
     for product in products:

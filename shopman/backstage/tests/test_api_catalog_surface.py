@@ -117,6 +117,29 @@ def test_matrix_shape(client, operator, catalog):
     assert colls["doces"]["product_count"] == 1
 
 
+def test_matrix_filtered_by_collection(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.get(MATRIX_URL, {"collection": "doces"})
+    assert resp.status_code == 200
+    rows = resp.json()["matrix"]["rows"]
+    assert [r["sku"] for r in rows] == ["BOLO"]  # só o membro de Doces
+    # coleções (chips) permanecem completas, não filtradas
+    assert {c["ref"] for c in resp.json()["matrix"]["collections"]} == {"doces"}
+
+
+def test_matrix_filtered_by_smart_collection(client, operator, catalog):
+    Collection.objects.create(
+        ref="caros",
+        name="Caros",
+        is_active=True,
+        rule={"match": "all", "conditions": [{"field": "base_price_q", "op": "gte", "value": 1000}]},
+    )
+    client.force_login(operator)
+    resp = client.get(MATRIX_URL, {"collection": "caros"})
+    assert resp.status_code == 200
+    assert [r["sku"] for r in resp.json()["matrix"]["rows"]] == ["BOLO"]
+
+
 # ── write: célula ─────────────────────────────────────────────────────────────
 
 
