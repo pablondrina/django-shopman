@@ -83,18 +83,12 @@ class ChannelForm(forms.ModelForm):
         initial="transactional",
         help_text="O que esta superfície faz com o catálogo.",
     )
-    content_source = forms.ChoiceField(
-        choices=[
-            ("listing", "ListingItems explícitos (padrão)"),
-            ("collection", "Alimentada por uma coleção"),
-        ],
+    content_collection = forms.ChoiceField(
         required=False,
-        initial="listing",
-        help_text="De onde vem o conteúdo desta superfície.",
-    )
-    content_collection = forms.CharField(
-        required=False,
-        help_text="Ref da coleção-fonte (obrigatório quando 'Alimentada por uma coleção').",
+        help_text=(
+            "Coleção-fonte: o que aparece nesta superfície. Vazio = usa os ListingItems "
+            "explícitos deste canal. Menuboard e Feed exigem uma coleção."
+        ),
     )
 
     class Meta:
@@ -108,6 +102,9 @@ class ChannelForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Dropdown de coleções (mais amigável que digitar o ref). Populado no init
+        # p/ evitar acesso ao DB em tempo de import.
+        self.fields["content_collection"].choices = self._collection_choices()
         if self.instance and self.instance.pk:
             data = self.instance.config or {}
             for aspect in self._ASPECTS:
@@ -115,16 +112,27 @@ class ChannelForm(forms.ModelForm):
                 self.fields[aspect].initial = json.dumps(value, indent=2, ensure_ascii=False) if value else ""
             self.fields["capability"].initial = data.get("capability", "transactional")
             content = data.get("content", {}) or {}
-            self.fields["content_source"].initial = content.get("source", "listing")
             self.fields["content_collection"].initial = content.get("collection") or ""
 
+    @staticmethod
+    def _collection_choices():
+        choices = [("", "— sem coleção (ListingItems explícitos) —")]
+        try:
+            from shopman.offerman.models import Collection
+
+            choices += [
+                (c.ref, f"{c.name} ({c.ref})")
+                for c in Collection.objects.filter(is_active=True).order_by("sort_order", "name")
+            ]
+        except Exception:
+            logger.debug("channel_form.collection_choices_failed", exc_info=True)
+        return choices
+
     def _surface_config(self, source: dict) -> dict:
-        """Monta os aspectos de superfície (capability + content) a partir de ``source``."""
+        """Monta os aspectos de superfície. ``source`` é inferido: coleção → collection."""
         capability = source.get("capability") or "transactional"
-        content = {"source": source.get("content_source") or "listing"}
         coll = (source.get("content_collection") or "").strip()
-        if coll:
-            content["collection"] = coll
+        content = {"source": "collection", "collection": coll} if coll else {"source": "listing"}
         return {"capability": capability, "content": content}
 
     def clean(self):
@@ -142,6 +150,9 @@ class ChannelForm(forms.ModelForm):
                 continue
             config[aspect] = cleaned[aspect]
         config.update(self._surface_config(cleaned))
+        # Menuboard (display) e Feed (feed) precisam de uma coleção-fonte.
+        if cleaned.get("capability") in ("display", "feed") and not (cleaned.get("content_collection") or "").strip():
+            self.add_error("content_collection", "Menuboard/Feed exige uma coleção-fonte.")
         try:
             resolved = ChannelConfig.from_dict(
                 deep_merge(ChannelConfig.defaults(), config)
@@ -175,11 +186,17 @@ class ChannelAdmin(ModelAdmin):
     # Ordem de exibição dos canais = lista arrastável (Unfold).
     ordering_field = "display_order"
     hide_ordering_field = True
-    list_display = ("ref", "name", "is_active")
+    list_display = ("ref", "name", "capability_badge", "is_active")
     list_filter = ("is_active",)
     search_fields = ("ref", "name")
     ordering = ("display_order", "ref")
     actions = ("inject_simulated_ifood_order",)
+
+    @admin.display(description="Capacidade")
+    def capability_badge(self, obj):
+        cap = ChannelConfig.for_channel(obj).capability
+        labels = {"transactional": "Transacional", "display": "📺 Display", "feed": "🛰 Feed"}
+        return labels.get(cap, cap)
 
     @admin.action(description="Injetar pedido iFood simulado (DEV)")
     def inject_simulated_ifood_order(self, request, queryset):
@@ -285,16 +302,37 @@ class ChannelAdmin(ModelAdmin):
         ("Editing", {"fields": ("editing",), "classes": ("tab",)}),
         ("Regras", {"fields": ("rules",), "classes": ("tab",)}),
         ("Superfície", {
-            "fields": ("capability", "content_source", "content_collection"),
+            "fields": ("capability", "content_collection", "surface_links"),
             "classes": ("tab",),
             "description": (
-                "Generaliza o canal para o primitivo Superfície: capacidade "
-                "(transacional/display/feed) e fonte de conteúdo (ListingItems ou uma coleção)."
+                "Generaliza o canal para o primitivo Superfície. Escolha a capacidade e a "
+                "coleção-fonte — Display vira um 📺 menuboard, Feed vira um 🛰 feed Google/Meta. "
+                "Os links abaixo abrem/apontam a superfície pronta."
             ),
         }),
         ("Config resolvida", {"fields": ("resolved_config_display",), "classes": ("tab",)}),
     )
-    readonly_fields = ("resolved_config_display",)
+    readonly_fields = ("resolved_config_display", "surface_links")
+
+    @admin.display(description="Superfície pronta")
+    def surface_links(self, obj):
+        if not obj or not obj.pk:
+            return "Salve o canal para ver os links."
+        cap = ChannelConfig.for_channel(obj).capability
+        if cap == "display":
+            return format_html(
+                'Menuboard: <a class="text-primary-600 underline" href="/menuboard/{}/" target="_blank">'
+                '/menuboard/{}/</a>',
+                obj.ref, obj.ref,
+            )
+        if cap == "feed":
+            return format_html(
+                'Feed Google: <a class="text-primary-600 underline" href="/feed/{}.xml" target="_blank">'
+                '/feed/{}.xml</a><br>Feed Meta: <a class="text-primary-600 underline" '
+                'href="/feed/{}.xml?platform=meta" target="_blank">/feed/{}.xml?platform=meta</a>',
+                obj.ref, obj.ref, obj.ref, obj.ref,
+            )
+        return "Superfície transacional (sem link de display/feed)."
 
     @admin.display(description="Config resolvida (cascata)")
     def resolved_config_display(self, obj):
