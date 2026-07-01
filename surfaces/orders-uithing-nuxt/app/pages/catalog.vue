@@ -253,11 +253,12 @@ useHead({ title: "Catálogo · Gestor" });
                 v-if="cell.in_listing"
                 class="flex h-10 items-center justify-center gap-2 px-1"
               >
-                <!-- ÁREA 1 — toggle: disponibilidade (verde ligado / cinza pausado) -->
+                <!-- ÁREA 1 — toggle: verde=ligado&disponível · cinza=pausado (posição off) OU
+                     linha "fora" (esgotado/etc.: mantém a POSIÇÃO ligada, mas dessatura p/ cinza). -->
                 <button
                   type="button" role="switch" :aria-checked="cell.is_sellable"
                   class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
-                  :class="cell.is_sellable ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
+                  :class="cell.is_sellable && !rowStatuses[row.sku]?.off ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
                   :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
                   :aria-label="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste canal` : 'Reativar neste canal'"
                   :title="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste canal` : 'Pausado — reativar neste canal'"
@@ -287,7 +288,9 @@ useHead({ title: "Catálogo · Gestor" });
                           <Icon
                             :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'"
                             class="size-2.5"
-                            :class="cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
+                            :class="rowStatuses[row.sku]?.off
+                              ? 'text-muted-foreground/60'
+                              : (cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400')"
                           />
                         </span>
                         <span class="text-xs font-semibold tabular-nums" :class="cell.is_sellable ? 'text-foreground' : 'text-muted-foreground line-through'">{{ cell.price_display.replace("R$ ", "") }}</span>
