@@ -83,6 +83,42 @@ export function cellDot(state: CellState): string {
   return CELL_DOTS[state];
 }
 
+// ── preço por célula: só mostra quando DIFERE do base ──────────────────────────
+// O preço-base já vive na linha do produto. Repetir "R$ 13,00" em toda célula
+// (markup 0) é ruído — a matriz vira um mapa de calor. Quando há override, o preço
+// aparece com o sentido do delta (↑ acima / ↓ abaixo do base).
+
+export type PriceDelta = "same" | "up" | "down";
+
+export interface CellPriceView {
+  delta: PriceDelta;
+  differs: boolean; // preço da célula ≠ base do produto
+  display: string; // "R$ 15,00"
+}
+
+export function cellPrice(
+  row: CatalogRowProjection,
+  cell: SurfaceCellProjection,
+): CellPriceView {
+  const price = cell.price_q ?? row.base_price_q;
+  const base = row.base_price_q;
+  const delta: PriceDelta = price > base ? "up" : price < base ? "down" : "same";
+  return { delta, differs: delta !== "same", display: cell.price_display };
+}
+
+// ── ícone do canal (por ref) — header compacto da coluna ───────────────────────
+const SURFACE_ICONS: Record<string, string> = {
+  pdv: "lucide:store",
+  web: "lucide:globe",
+  whatsapp: "lucide:message-circle",
+  ifood: "lucide:bike",
+  delivery: "lucide:truck",
+};
+
+export function surfaceIcon(ref: string): string {
+  return SURFACE_ICONS[ref] ?? "lucide:radio-tower";
+}
+
 // ── surface metadata ─────────────────────────────────────────────────────────
 
 const SYNC: Record<SurfaceSyncStatus, { label: string; toneClass: string } | null> = {

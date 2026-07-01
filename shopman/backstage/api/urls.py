@@ -9,6 +9,7 @@ from .catalog import (
     CatalogBulkView,
     CatalogCellView,
     CatalogMatrixView,
+    CatalogProductView,
 )
 from .kds import (
     KDSBoardView,
@@ -91,6 +92,7 @@ urlpatterns = [
     # Catalog matrix (produto × superfície)
     path("catalog/", CatalogMatrixView.as_view(), name="api-backstage-catalog"),
     path("catalog/cell/", CatalogCellView.as_view(), name="api-backstage-catalog-cell"),
+    path("catalog/product/", CatalogProductView.as_view(), name="api-backstage-catalog-product"),
     path("catalog/bulk/", CatalogBulkView.as_view(), name="api-backstage-catalog-bulk"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),

@@ -81,6 +81,39 @@ class CatalogCellView(_CatalogBase):
         )
 
 
+class CatalogProductView(_CatalogBase):
+    """Pausa/publica o produto em TODOS os canais de uma vez ("globalzinho")."""
+
+    def post(self, request):
+        sku = (request.data.get("sku") or "").strip()
+        if not sku:
+            return Response({"detail": "sku é obrigatório."}, status=400)
+
+        is_published = request.data.get("is_published")
+        is_sellable = request.data.get("is_sellable")
+        if is_published is None and is_sellable is None:
+            return Response({"detail": "Informe is_published e/ou is_sellable."}, status=400)
+
+        try:
+            product = catalog_service.set_product(
+                sku,
+                is_published=is_published,
+                is_sellable=is_sellable,
+                actor=_actor(request),
+            )
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response(
+            {
+                "ok": True,
+                "sku": sku,
+                "is_published": product.is_published,
+                "is_sellable": product.is_sellable,
+            }
+        )
+
+
 class CatalogBulkView(_CatalogBase):
     """Bulk pausa/publica scoped a superfície + (coleção | seleção de skus)."""
 

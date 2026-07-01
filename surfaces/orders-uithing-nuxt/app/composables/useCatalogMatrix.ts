@@ -63,6 +63,35 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // Product-level pause/publish ("globalzinho") — flips the produto-level switch,
+  // which gates every channel at once. Busy key namespaced apart from cell keys.
+  const productKey = (sku: string) => `product@${sku}`;
+  async function setProduct(
+    sku: string,
+    patch: Pick<CellPatch, "is_published" | "is_sellable">,
+  ): Promise<boolean> {
+    const key = productKey(sku);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch("/api/v1/backstage/catalog/product/", {
+        method: "POST",
+        body: { sku, ...patch },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao atualizar. Tente de novo.";
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
   // Bulk over a surface, scoped by collection ref OR an explicit sku list.
   const bulkBusy = ref(false);
   async function bulkSet(
@@ -92,7 +121,7 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
   }
 
   return {
-    matrix, pending, error, refresh, isBusy, cellKey, errorMsg, clearError,
-    setCell, bulkSet, bulkBusy,
+    matrix, pending, error, refresh, isBusy, cellKey, productKey, errorMsg, clearError,
+    setCell, setProduct, bulkSet, bulkBusy,
   };
 }

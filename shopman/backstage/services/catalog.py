@@ -77,6 +77,37 @@ def set_cell(
     return item
 
 
+def set_product(
+    sku: str,
+    *,
+    is_published: bool | None = None,
+    is_sellable: bool | None = None,
+    actor: str = "",
+):
+    """Pausa/publica o produto em TODOS os canais de uma vez ("globalzinho").
+
+    Escreve no switch produto-level (``Product.is_sellable`` / ``is_published``),
+    que gateia toda superfície. ``save()`` emite ``product_updated`` → o auto-trigger
+    re-projeta o produto em cada listing alvo (retract-aware). Um único ponto de
+    verdade; não itera célula por célula.
+    """
+    from shopman.offerman.models import Product
+
+    product = Product.objects.filter(sku=sku).first()
+    if product is None:
+        raise CatalogError(f"Produto '{sku}' não encontrado.")
+
+    if is_published is None and is_sellable is None:
+        raise CatalogError("Nada a atualizar (informe is_published e/ou is_sellable).")
+    if is_published is not None:
+        product.is_published = is_published
+    if is_sellable is not None:
+        product.is_sellable = is_sellable
+
+    product.save()
+    return product
+
+
 def bulk_set(
     skus: list[str],
     surface_ref: str,

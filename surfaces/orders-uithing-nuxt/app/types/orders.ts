@@ -48,6 +48,7 @@ export interface OrderCardProjection {
   total_display: string;
   fulfillment_icon: string;
   fulfillment_label: string;
+  fulfillment_type: "delivery" | "pickup";
   can_confirm: boolean;
   can_advance: boolean;
   next_status: string;

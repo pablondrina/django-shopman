@@ -141,7 +141,7 @@ def _catalog_check() -> OmotenashiQACheck:
 
 
 def _checkout_intent_check() -> OmotenashiQACheck:
-    session = Session.objects.filter(state="open", channel_ref__in=["web", "delivery", "whatsapp"]).order_by("-id").first()
+    session = Session.objects.filter(state="open", channel_ref__in=["web", "whatsapp"]).order_by("-id").first()
     evidence = f"session={session.session_key} channel={session.channel_ref}" if session else ""
     return _check(
         id="mobile.checkout.intent",

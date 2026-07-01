@@ -11,27 +11,10 @@ useHead({ title: "Gestor de Pedidos" });
 </script>
 
 <template>
-  <div class="min-h-screen bg-background text-foreground">
+  <div class="flex min-h-screen flex-col bg-background text-foreground">
     <NuxtRouteAnnouncer />
-    <!-- Slim hub nav: switch between the two Gestor faces (pedidos + catálogo). -->
-    <nav class="flex items-center gap-1 border-b border-border bg-card px-4 py-2">
-      <span class="mr-3 text-sm font-semibold">Gestor</span>
-      <NuxtLink
-        to="/"
-        class="h-9 rounded-md px-3 text-sm leading-9 transition-colors"
-        active-class="bg-primary/5 text-foreground"
-        exact-active-class="bg-primary/10 font-medium text-foreground"
-      >
-        Pedidos
-      </NuxtLink>
-      <NuxtLink
-        to="/catalog"
-        class="h-9 rounded-md px-3 text-sm leading-9 text-muted-foreground transition-colors hover:text-foreground"
-        active-class="bg-primary/10 font-medium text-foreground"
-      >
-        Catálogo
-      </NuxtLink>
-    </nav>
+    <!-- Hub chrome: one identity + section-switch + global-tools bar for both boards. -->
+    <GestorTopBar />
     <NuxtPage />
     <OperatorLogin v-if="!authenticated" />
     <OperatorLock v-else-if="locked" :perm="OPERATOR_PERM" />

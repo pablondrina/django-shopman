@@ -10,7 +10,7 @@ como lista de refs (``["featured", "fresh_from_oven"]``).
 
 **Uso**:
     from shopman.shop import dynamic_collections as dyn
-    section = dyn.resolve("featured", channel_ref="delivery")
+    section = dyn.resolve("featured", channel_ref="web")
     # Retorna DynamicSection(meta, products) ou None se ref desconhecido
     # ou produtos vazios.
 """

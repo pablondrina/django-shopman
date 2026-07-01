@@ -3,7 +3,7 @@
 // (SSE + 30s poll) via useOrdersBoard; renders Entrada / Preparo / Saída columns of
 // OrderCards; the gestures POST through the django proxy (CSRF handled there) and
 // reconcile. Desktop-first (3 columns), responsive (stacks on tablet/phone).
-import type { AffordanceRef, SortKey, ViewMode, ZoneView } from "~/presentation/board";
+import type { AffordanceRef, FulfillmentFilter, SortKey, ViewMode, ZoneView } from "~/presentation/board";
 import {
   bulkableRefs,
   cardAffordances,
@@ -11,6 +11,7 @@ import {
   channelOptions,
   elapsedLabel,
   flattenZones,
+  fulfillmentCounts,
   lucideIcon,
   nextSort,
   resolveShortcut,
@@ -26,21 +27,23 @@ import {
 import type { OrderCardProjection } from "~/types/orders";
 import type { CancellationReason } from "~/composables/useOrdersBoard";
 
-const { zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+const { zones, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
 
 // ── triage: search + channel filter + sort + view-mode (Arc 1) ──────────────
 // query/channel are transient; sort/view persist per operator (cookie, SSR-safe).
 const query = ref("");
 const channel = ref("all");
+const fulfillment = ref<FulfillmentFilter>("all");
 const sort = useCookie<SortKey>("gestor-sort", { default: () => "arrival", sameSite: "lax" });
 const viewMode = useCookie<ViewMode>("gestor-view", { default: () => "board", sameSite: "lax" });
 
 const allCards = computed<OrderCardProjection[]>(() => zones.value.flatMap((z) => z.cards));
 const channels = computed(() => channelOptions(allCards.value));
+const fulfillment_ = computed(() => fulfillmentCounts(allCards.value));
 const sortLabel = computed(() => SORT_OPTIONS.find((o) => o.key === sort.value)?.label ?? "Chegada");
 
 function triaged(zone: ZoneView): OrderCardProjection[] {
-  return triageCards(zone.cards, { query: query.value, channel: channel.value, sort: sort.value });
+  return triageCards(zone.cards, { query: query.value, channel: channel.value, sort: sort.value, fulfillment: fulfillment.value });
 }
 // flat rows for the dense table view, honouring the same triage + zone order.
 const tableRows = computed(() =>
@@ -48,7 +51,7 @@ const tableRows = computed(() =>
 );
 // how many cards survive the current filters (for the "no results" affordance).
 const visibleCount = computed(() => zones.value.reduce((n, z) => n + triaged(z).length, 0));
-const hasFilter = computed(() => query.value.trim() !== "" || channel.value !== "all");
+const hasFilter = computed(() => query.value.trim() !== "" || channel.value !== "all" || fulfillment.value !== "all");
 
 // ── bulk selection (Arc 4) ──────────────────────────────────────────────────
 const selected = ref<Set<string>>(new Set());
@@ -87,7 +90,7 @@ function pickSort(key: SortKey) {
 
 // keyboard shortcuts (Arc 3): / search · r refresh · v view · s sort · Esc clear.
 // Pure mapping in resolveShortcut; here we run the effects and skip while typing.
-const searchInput = ref<HTMLInputElement | null>(null);
+const searchInput = ref<{ focus: () => void } | null>(null);
 function onKeydown(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const el = e.target as HTMLElement | null;
@@ -113,27 +116,13 @@ function onKeydown(e: KeyboardEvent) {
     case "clear-filters":
       query.value = "";
       channel.value = "all";
+      fulfillment.value = "all";
       if (typing) (el as HTMLElement).blur();
       break;
   }
 }
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
-
-const colorMode = useColorMode();
-function toggleTheme() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
-
-// realtime clock (client-only; new Date() on SSR would mismatch).
-const now = ref<Date | null>(null);
-let clockTimer: ReturnType<typeof setInterval> | null = null;
-const clockTime = computed(() => (now.value ? now.value.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""));
-onMounted(() => {
-  now.value = new Date();
-  clockTimer = setInterval(() => (now.value = new Date()), 30_000);
-});
-onBeforeUnmount(() => { if (clockTimer) clearInterval(clockTimer); });
 
 // reject dialog (needs a reason). For marketplace (iFood) orders the reason is a
 // coded pick from the provider's live list; other channels use free text.
@@ -213,84 +202,55 @@ function printQueue() {
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col">
-    <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5 print:hidden">
-      <span class="grid size-9 shrink-0 place-items-center rounded-md border bg-card text-foreground">
-        <Icon name="lucide:clipboard-list" class="size-4" />
-      </span>
-      <div class="mr-auto min-w-0">
-        <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">Gestor</p>
-        <h1 class="truncate text-lg font-bold leading-tight">Pedidos</h1>
-      </div>
-
-      <ClientOnly>
-        <div v-if="now" class="hidden flex-col items-end leading-none sm:flex">
-          <span class="text-lg font-bold tabular-nums">{{ clockTime }}</span>
-          <span class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">{{ totalCount }} ativos</span>
-        </div>
-      </ClientOnly>
-
-      <div class="flex items-center gap-1.5">
-        <div class="relative">
-          <Icon name="lucide:search" class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            ref="searchInput"
-            v-model="query"
-            type="search"
-            inputmode="search"
-            placeholder="Buscar pedido…"
-            class="h-9 w-36 rounded-md border bg-background pl-8 pr-7 text-sm outline-none transition focus:w-48 focus:ring-1 focus:ring-ring sm:w-44"
-            aria-label="Buscar por código, cliente ou item (atalho: /)"
-          />
-          <button v-if="query" type="button" class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:text-foreground" aria-label="Limpar busca" @click="query = ''">
-            <Icon name="lucide:x" class="size-3.5" />
-          </button>
-        </div>
-        <AlertsBell />
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Atualizar" title="Atualizar (atalho: r)" @click="refresh()">
-          <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
-        </button>
-        <ClientOnly>
-          <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="colorMode.value === 'dark' ? 'Tema claro' : 'Tema escuro'" title="Tema" @click="toggleTheme">
-            <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
-          </button>
-          <template #fallback>
-            <span class="grid size-9 place-items-center rounded-md border text-muted-foreground"><Icon name="lucide:moon" class="size-4" /></span>
-          </template>
-        </ClientOnly>
-      </div>
-    </header>
-
-    <!-- triage bar: channel chips · sort · view-mode -->
-    <div v-if="allCards.length" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-card/60 px-4 py-2 print:hidden">
-      <div class="flex flex-wrap items-center gap-1.5">
-        <button
-          type="button"
-          class="rounded-full border px-2.5 py-1 text-xs font-medium transition"
-          :class="channel === 'all' ? 'border-transparent bg-primary text-primary-foreground' : 'hover:bg-accent'"
-          @click="channel = 'all'"
-        >
-          Todos <span class="tabular-nums opacity-70">{{ allCards.length }}</span>
-        </button>
-        <button
+  <main class="flex min-h-0 flex-1 flex-col">
+    <!-- work toolbar: search · channel chips · sort/view/actions -->
+    <UiToolbar>
+      <UiSearchInput
+        ref="searchInput"
+        :model-value="query"
+        placeholder="Buscar pedido…"
+        aria-label="Buscar por código, cliente ou item (atalho: /)"
+        @update:model-value="(v) => (query = v)"
+      />
+      <div v-if="allCards.length" class="flex flex-wrap items-center gap-1.5">
+        <UiFilterChip :active="channel === 'all'" :count="allCards.length" @click="channel = 'all'">
+          Todos
+        </UiFilterChip>
+        <UiFilterChip
           v-for="opt in channels"
           :key="opt.ref"
-          type="button"
-          class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition"
-          :class="channel === opt.ref ? 'border-transparent bg-primary text-primary-foreground' : 'hover:bg-accent'"
+          :active="channel === opt.ref"
+          :count="opt.count"
           @click="channel = opt.ref"
         >
-          <Icon :name="`lucide:${lucideIcon(allCards.find((c) => c.channel_ref === opt.ref)?.channel_icon || '')}`" class="size-3.5" />
-          {{ opt.label }} <span class="tabular-nums opacity-70">{{ opt.count }}</span>
-        </button>
+          <template #icon>
+            <Icon :name="`lucide:${lucideIcon(allCards.find((c) => c.channel_ref === opt.ref)?.channel_icon || '')}`" class="size-3.5" />
+          </template>
+          {{ opt.label }}
+        </UiFilterChip>
       </div>
 
-      <div class="ml-auto flex items-center gap-1.5">
+      <!-- fulfillment axis: o que muda o FLUXO (rota vs balcão) -->
+      <div v-if="allCards.length" class="flex items-center gap-1.5">
+        <div class="h-5 w-px bg-border"></div>
+        <UiFilterChip :active="fulfillment === 'delivery'" :count="fulfillment_.delivery" @click="fulfillment = fulfillment === 'delivery' ? 'all' : 'delivery'">
+          <template #icon><Icon name="lucide:bike" class="size-3.5" /></template>
+          Entrega
+        </UiFilterChip>
+        <UiFilterChip :active="fulfillment === 'pickup'" :count="fulfillment_.pickup" @click="fulfillment = fulfillment === 'pickup' ? 'all' : 'pickup'">
+          <template #icon><Icon name="lucide:shopping-bag" class="size-3.5" /></template>
+          Retirada
+        </UiFilterChip>
+      </div>
+
+      <template #end>
+        <AlertsBell />
+
         <!-- sort -->
         <div class="relative">
           <button
             type="button"
-            class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            class="inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
             aria-haspopup="menu"
             :aria-expanded="sortOpen"
             title="Ordenar (atalho: s)"
@@ -316,31 +276,14 @@ function printQueue() {
           </div>
         </div>
 
-        <!-- export / print -->
-        <button
-          type="button"
-          class="grid size-8 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
-          aria-label="Exportar CSV"
-          title="Exportar CSV"
-          @click="exportCsv"
-        >
-          <Icon name="lucide:download" class="size-4" />
-        </button>
-        <button
-          type="button"
-          class="grid size-8 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
-          aria-label="Imprimir fila"
-          title="Imprimir"
-          @click="printQueue"
-        >
-          <Icon name="lucide:printer" class="size-4" />
-        </button>
+        <UiIconButton icon="lucide:download" label="Exportar CSV" @click="exportCsv" />
+        <UiIconButton icon="lucide:printer" label="Imprimir fila" @click="printQueue" />
 
         <!-- view-mode -->
-        <div class="inline-flex h-8 items-center rounded-md border p-0.5">
+        <div class="inline-flex h-9 items-center rounded-md border p-0.5">
           <button
             type="button"
-            class="grid size-7 place-items-center rounded transition"
+            class="grid size-8 place-items-center rounded transition"
             :class="viewMode === 'board' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
             aria-label="Ver em colunas"
             title="Colunas (atalho: v)"
@@ -350,7 +293,7 @@ function printQueue() {
           </button>
           <button
             type="button"
-            class="grid size-7 place-items-center rounded transition"
+            class="grid size-8 place-items-center rounded transition"
             :class="viewMode === 'table' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
             aria-label="Ver em tabela"
             title="Tabela (atalho: v)"
@@ -359,8 +302,10 @@ function printQueue() {
             <Icon name="lucide:table-2" class="size-4" />
           </button>
         </div>
-      </div>
-    </div>
+
+        <UiIconButton icon="lucide:refresh-cw" label="Atualizar (atalho: r)" :spinning="pending" @click="refresh()" />
+      </template>
+    </UiToolbar>
 
     <!-- bulk action bar -->
     <div v-if="selected.size" class="flex shrink-0 flex-wrap items-center gap-2 border-b bg-primary/10 px-4 py-2 text-sm print:hidden">
@@ -399,7 +344,7 @@ function printQueue() {
         <!-- no results across all zones for the active filters -->
         <p v-if="hasFilter && !visibleCount" class="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           Nenhum pedido para os filtros atuais.
-          <button type="button" class="ml-1 font-medium text-primary hover:underline" @click="query = ''; channel = 'all'">Limpar filtros</button>
+          <button type="button" class="ml-1 font-medium text-primary hover:underline" @click="query = ''; channel = 'all'; fulfillment = 'all'">Limpar filtros</button>
         </p>
 
         <!-- board view (clean, default) -->

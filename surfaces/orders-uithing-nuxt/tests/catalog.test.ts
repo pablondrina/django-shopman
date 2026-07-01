@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   cellDot,
+  cellPrice,
   cellState,
   cellTint,
   cellView,
   filterRows,
+  surfaceIcon,
   syncBadge,
 } from "../app/presentation/catalog";
 import type { CatalogRowProjection, SurfaceCellProjection } from "../app/types/catalog";
@@ -107,5 +109,39 @@ describe("surface metadata", () => {
   it("no sync badge for non-projection surfaces", () => {
     expect(syncBadge("na")).toBeNull();
     expect(syncBadge("ok")?.label).toBe("sincronizado");
+  });
+});
+
+describe("cellPrice (preço só no delta)", () => {
+  it("same when cell price equals the product base", () => {
+    const view = cellPrice(row({ base_price_q: 500 }), cell({ price_q: 500 }));
+    expect(view.delta).toBe("same");
+    expect(view.differs).toBe(false);
+  });
+  it("up when the channel price is above base", () => {
+    const view = cellPrice(row({ base_price_q: 500 }), cell({ price_q: 600 }));
+    expect(view.delta).toBe("up");
+    expect(view.differs).toBe(true);
+  });
+  it("down when the channel price is below base", () => {
+    const view = cellPrice(row({ base_price_q: 500 }), cell({ price_q: 450 }));
+    expect(view.delta).toBe("down");
+    expect(view.differs).toBe(true);
+  });
+  it("falls back to base when the cell has no price (no false delta)", () => {
+    const view = cellPrice(row({ base_price_q: 500 }), cell({ price_q: null }));
+    expect(view.delta).toBe("same");
+    expect(view.differs).toBe(false);
+  });
+});
+
+describe("surfaceIcon", () => {
+  it("maps known channels to distinct icons", () => {
+    expect(surfaceIcon("pdv")).toContain("store");
+    expect(surfaceIcon("ifood")).toContain("bike");
+    expect(surfaceIcon("web")).toContain("globe");
+  });
+  it("falls back for unknown refs", () => {
+    expect(surfaceIcon("tiktok")).toBe("lucide:radio-tower");
   });
 });

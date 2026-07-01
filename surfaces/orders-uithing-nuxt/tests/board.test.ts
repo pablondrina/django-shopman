@@ -8,7 +8,9 @@ import {
   elapsedLabel,
   flattenZones,
   lucideIcon,
+  fulfillmentCounts,
   matchesChannel,
+  matchesFulfillment,
   matchesQuery,
   nextSort,
   resolveShortcut,
@@ -41,6 +43,7 @@ const card = (over: Partial<OrderCardProjection> = {}): OrderCardProjection => (
   total_display: "R$ 15,00",
   fulfillment_icon: "storefront",
   fulfillment_label: "Retirada",
+  fulfillment_type: "pickup",
   can_confirm: false,
   can_advance: true,
   next_status: "preparing",
@@ -296,5 +299,32 @@ describe("flattenZones", () => {
     const flat = flattenZones(zones);
     expect(flat.map((r) => r.card.ref)).toEqual(["A", "B", "C"]);
     expect(flat.map((r) => r.zoneKey)).toEqual(["entrada", "preparo", "saida"]);
+  });
+});
+
+describe("fulfillment axis", () => {
+  it("matchesFulfillment: 'all' passa tudo; senão bate o tipo", () => {
+    const del = card({ fulfillment_type: "delivery" });
+    const pick = card({ fulfillment_type: "pickup" });
+    expect(matchesFulfillment(del, "all")).toBe(true);
+    expect(matchesFulfillment(del, "delivery")).toBe(true);
+    expect(matchesFulfillment(del, "pickup")).toBe(false);
+    expect(matchesFulfillment(pick, "pickup")).toBe(true);
+  });
+  it("fulfillmentCounts conta entrega vs retirada", () => {
+    const cards = [
+      card({ fulfillment_type: "delivery" }),
+      card({ fulfillment_type: "delivery" }),
+      card({ fulfillment_type: "pickup" }),
+    ];
+    expect(fulfillmentCounts(cards)).toEqual({ delivery: 2, pickup: 1 });
+  });
+});
+
+describe("elapsedLabel — dias", () => {
+  it("cap em dias em vez de horas gigantes", () => {
+    expect(elapsedLabel(3600 * 25)).toBe("1d 1h");
+    expect(elapsedLabel(3600 * 24 * 4 + 3600 * 23)).toBe("4d 23h");
+    expect(elapsedLabel(3600 * 48)).toBe("2d");
   });
 });

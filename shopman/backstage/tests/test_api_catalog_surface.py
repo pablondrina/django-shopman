@@ -73,6 +73,7 @@ def catalog(db):
 
 MATRIX_URL = "/api/v1/backstage/catalog/"
 CELL_URL = "/api/v1/backstage/catalog/cell/"
+PRODUCT_URL = "/api/v1/backstage/catalog/product/"
 BULK_URL = "/api/v1/backstage/catalog/bulk/"
 
 
@@ -184,6 +185,70 @@ def test_cell_negative_price_rejected(client, operator, catalog):
         content_type="application/json",
     )
     assert resp.status_code == 400
+
+
+# ── write: produto ("globalzinho") ─────────────────────────────────────────────
+
+
+def test_product_pause_gates_every_surface(client, operator, catalog):
+    """Pausar no nível produto derruba a disponibilidade em TODOS os canais."""
+    client.force_login(operator)
+    resp = client.post(
+        PRODUCT_URL,
+        data={"sku": "PAO", "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_sellable"] is False
+
+    pao = Product.objects.get(sku="PAO")
+    assert pao.is_sellable is False
+    # As células (listing-level) ficam intactas; o gate é produto-level.
+    for item in ListingItem.objects.filter(product__sku="PAO"):
+        assert item.is_sellable is True
+    # E a matriz reflete indisponível em toda superfície do produto.
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    pao_row = next(r for r in matrix["rows"] if r["sku"] == "PAO")
+    assert pao_row["is_sellable"] is False
+    assert all(not c["available"] for c in pao_row["cells"] if c["in_listing"])
+
+
+def test_product_reactivate(client, operator, catalog):
+    Product.objects.filter(sku="PAO").update(is_sellable=False)
+    client.force_login(operator)
+    resp = client.post(
+        PRODUCT_URL,
+        data={"sku": "PAO", "is_sellable": True},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert Product.objects.get(sku="PAO").is_sellable is True
+
+
+def test_product_requires_field(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(PRODUCT_URL, data={"sku": "PAO"}, content_type="application/json")
+    assert resp.status_code == 400
+
+
+def test_product_unknown_returns_400(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(
+        PRODUCT_URL,
+        data={"sku": "NOPE", "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+def test_product_requires_manage_catalog(client, plain_staff, catalog):
+    client.force_login(plain_staff)
+    resp = client.post(
+        PRODUCT_URL,
+        data={"sku": "PAO", "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 403
 
 
 # ── write: bulk ───────────────────────────────────────────────────────────────
