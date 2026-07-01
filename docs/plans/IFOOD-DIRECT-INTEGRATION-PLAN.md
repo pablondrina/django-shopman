@@ -119,9 +119,27 @@ Contra o ambiente real do iFood (não mais teórico):
   `509` Dificuldades internas · `511` Área de risco · `512` Abrirá mais tarde · `523` Erro na promoção.
   `requestCancellation` é config-driven (`cancellation_default_code`), nunca chutado;
   **default setado = `501`** (env `IFOOD_CANCELLATION_CODE`, neutro). Staging/prod precisam do env var.
-- **Callbacks WP-4 VERIFICADOS AO VIVO (2026-07-01)**: num pedido de teste real, `confirm` →
-  `readyToPickup` → `dispatch` todos retornaram `202`. O caminho de callback funciona ponta-a-ponta
-  contra o iFood real (só `requestCancellation` não foi exercido ao vivo — mesma mecânica).
+- **Callbacks WP-4 VERIFICADOS AO VIVO (2026-07-01)**: `confirm` → `readyToPickup` → `dispatch` →
+  `requestCancellation` todos `202` contra pedidos de teste reais. Caminho de callback ponta-a-ponta OK.
+- **🐛 BUG pego no e2e ao vivo (corrigido)**: `requestCancellation` com `reason` vazio → `400
+  "Field 'reason' is required"`. Fix: `reason` nunca vazio (config `cancellation_default_reason`,
+  default "Problemas de sistema na loja"). Reverificado `202`.
+
+## ✅ E2E AO VIVO — pedido real → gestor → KDS (2026-07-01)
+
+Stack local (Django :8000 + `ifood_poll --watch` + `process_directives --watch` + gestor Nuxt :3004 +
+KDS Nuxt :3003). Gerado pedido de teste no Portal → `ifood_poll` ingeriu ao vivo:
+- **Dados corretos**: `total_q=2700` (orderAmount), combo `line_total_q=1600` (opções+customizações),
+  `is_test=True`, financeiro/pickupCode preservados. ✅
+- **Gestor + KDS renderizam pedidos iFood ao vivo**; confirmar no gestor move o pedido pra PREPARO e
+  cria ticket no KDS. ✅
+- **⚠️ ACHADO IMPORTANTE (decisão p/ homologação)**: os pedidos **auto-gerados** do Portal usam SKUs
+  **aleatórios** (ex.: 4994/1437, depois 4341/9274) que **não existem no nosso listing** → o
+  `lifecycle.on_commit` **rejeita** (`not_in_listing`) e auto-cancela, disparando `requestCancellation`
+  ao iFood. Em produção os pedidos referenciam o **nosso catálogo empurrado** (WP-Catalog), então
+  batem. Mas **rever se auto-rejeitar+cancelar um pedido de marketplace já pago é o comportamento
+  desejado** — talvez aceitar + alertar o operador seja melhor. Para demo do happy-path, usar pedido
+  manual com produto do nosso catálogo empurrado (não o auto-gerado).
 - **Schema do pedido VALIDADO AO VIVO (2026-07-01)** — capturei um pedido de teste real gerado pelo
   Developer Portal (`GET /orders/{id}` → `200`), fixture em `shopman/shop/tests/fixtures/ifood_order_real.json`.
   Descobertas que os mocks não pegavam e foram corrigidas no `map_order`:
