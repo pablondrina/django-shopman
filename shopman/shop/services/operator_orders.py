@@ -63,16 +63,24 @@ def reject_order(
     reason: str,
     actor: str,
     rejected_by: str,
+    cancellation_code: str = "",
 ) -> None:
-    """Reject an order and queue the customer notification directive."""
+    """Reject an order and queue the customer notification directive.
+
+    ``cancellation_code`` is the marketplace (iFood) cancellation code the
+    operator picked; it rides ``order.data`` to the status-callback handler.
+    """
     if order.status != Order.Status.NEW:
         raise ValueError("Pedido só pode ser rejeitado enquanto aguarda confirmação")
 
+    extra_data = {"rejected_by": rejected_by}
+    if cancellation_code:
+        extra_data["ifood_cancellation_code"] = cancellation_code
     cancel(
         order,
         reason=reason,
         actor=actor,
-        extra_data={"rejected_by": rejected_by},
+        extra_data=extra_data,
     )
     from shopman.shop.services import notification
 
@@ -178,9 +186,13 @@ def confirm_received(order: Order, *, actor: str = "customer") -> bool:
     return True
 
 
-def cancel_order(order: Order, *, reason: str, actor: str) -> None:
-    """Cancel an order through the canonical cancellation service."""
-    cancel(order, reason=reason, actor=actor)
+def cancel_order(order: Order, *, reason: str, actor: str, cancellation_code: str = "") -> None:
+    """Cancel an order through the canonical cancellation service.
+
+    ``cancellation_code`` (iFood) rides ``order.data`` to the status-callback handler.
+    """
+    extra_data = {"ifood_cancellation_code": cancellation_code} if cancellation_code else None
+    cancel(order, reason=reason, actor=actor, extra_data=extra_data)
 
 
 def settle_delivery_cash(order: Order, *, cash_shift, actor: str, amount_q: int | None = None) -> int:

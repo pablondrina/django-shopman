@@ -40,6 +40,7 @@ def test_reject_order_validates_reason(monkeypatch):
         reason="sem estoque",
         actor="operator:ana",
         rejected_by="ana",
+        cancellation_code="",
     )
 
 
@@ -75,4 +76,4 @@ def test_cancel_order_delegates(monkeypatch):
 
     orders.cancel_order("order", reason="cliente pediu", actor="admin:ana")
 
-    cancel_order.assert_called_once_with("order", reason="cliente pediu", actor="admin:ana")
+    cancel_order.assert_called_once_with("order", reason="cliente pediu", actor="admin:ana", cancellation_code="")

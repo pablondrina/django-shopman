@@ -145,13 +145,19 @@ def request_cancellation(order_id: str, *, code: str = "", description: str = ""
     )
 
 
-def send_for_status(order_id: str, status: str, *, cancellation_reason: str = "") -> bool:
+def send_for_status(
+    order_id: str,
+    status: str,
+    *,
+    cancellation_reason: str = "",
+    cancellation_code: str = "",
+) -> bool:
     """Send the callback matching an internal status. Returns False if no action maps."""
     action = action_for_status(status)
     if not action:
         return False
     if action == "requestCancellation":
-        request_cancellation(order_id, description=cancellation_reason)
+        request_cancellation(order_id, code=cancellation_code, description=cancellation_reason)
     else:
         send_action(order_id, action)
     return True

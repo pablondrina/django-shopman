@@ -437,6 +437,63 @@ def test_cancellation_reason_uses_configured_default(fake_headers):
         assert mock_post.call_args[1]["json"]["reason"] == "Loja fechada"
 
 
+@override_settings(SHOPMAN_IFOOD={**IFOOD_CFG, "cancellation_default_code": "501"})
+def test_send_for_status_uses_operator_chosen_code(fake_headers):
+    """The operator's picked code overrides the default."""
+    from shopman.shop.services import ifood_callbacks
+
+    with patch("requests.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=202)
+        ifood_callbacks.send_for_status(
+            "o1", "cancelled", cancellation_reason="Sem entregador", cancellation_code="504"
+        )
+        body = mock_post.call_args[1]["json"]
+        assert body["cancellationCode"] == "504"  # chosen, not the 501 default
+        assert body["reason"] == "Sem entregador"
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_signal_receiver_carries_operator_cancellation_code(db):
+    from shopman.orderman.models import Directive
+
+    from shopman.shop.directives import IFOOD_STATUS_CALLBACK
+    from shopman.shop.handlers.ifood_status import on_order_status_changed
+
+    order = MagicMock(
+        channel_ref="ifood", status="cancelled", ref="ORD-9", external_ref="ifd-9",
+        data={"cancellation_reason": "Item em falta", "ifood_cancellation_code": "503"},
+    )
+    on_order_status_changed(sender=None, order=order, event_type="status_changed", actor="op")
+
+    d = Directive.objects.filter(topic=IFOOD_STATUS_CALLBACK).first()
+    assert d.payload["cancellation_code"] == "503"
+    assert d.payload["cancellation_reason"] == "Item em falta"
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_cancellation_reasons_service(db, fake_headers):
+    from shopman.orderman.models import Order
+
+    from shopman.backstage.services import orders as orders_service
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood", "is_active": True})
+    # non-iFood order → empty
+    web = Order.objects.create(ref="ORD-WEB", channel_ref="web", status="new")
+    assert orders_service.cancellation_reasons(web) == []
+    # iFood order → mapped {code, description}
+    ifd = Order.objects.create(
+        ref="ORD-IFD", channel_ref="ifood", status="new", external_ref="ifd-x"
+    )
+    reasons = [{"cancelCodeId": "503", "description": "Item indisponível"}]
+    with patch(
+        "shopman.shop.services.ifood_callbacks.fetch_cancellation_reasons",
+        return_value=reasons,
+    ):
+        out = orders_service.cancellation_reasons(ifd)
+    assert out == [{"code": "503", "description": "Item indisponível"}]
+
+
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_request_cancellation_without_code_raises(fake_headers):
     """No configured code → loud failure, never a guessed code."""

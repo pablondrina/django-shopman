@@ -557,12 +557,14 @@ class OrderRejectView(_OrderActionBase):
         reason = (request.data.get("reason") or "").strip() if hasattr(request, "data") else ""
         if not reason:
             return Response({"detail": "Motivo da recusa é obrigatório."}, status=400)
+        cancellation_code = (request.data.get("cancellation_code") or "").strip()
         try:
             orders_service.reject_order(
                 order,
                 reason=reason,
                 actor=_actor(request),
                 rejected_by="operator",
+                cancellation_code=cancellation_code,
             )
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao recusar."}, status=400)
@@ -582,11 +584,29 @@ class OrderCancelView(_OrderActionBase):
         if err:
             return err
         reason = (request.data.get("reason") or "Cancelado pelo operador").strip()
+        cancellation_code = (request.data.get("cancellation_code") or "").strip()
         try:
-            orders_service.cancel_order(order, reason=reason, actor=_actor(request))
+            orders_service.cancel_order(
+                order, reason=reason, actor=_actor(request), cancellation_code=cancellation_code
+            )
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao cancelar."}, status=400)
         return Response({"ok": True, "ref": ref})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Valid cancellation reasons for an order (marketplace-aware)",
+        responses={200: OpenApiResponse(description="Reason list.")},
+    ),
+)
+class OrderCancellationReasonsView(_OrderActionBase):
+    def get(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        return Response({"reasons": orders_service.cancellation_reasons(order)})
 
 
 @extend_schema_view(

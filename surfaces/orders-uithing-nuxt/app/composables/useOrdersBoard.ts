@@ -7,6 +7,11 @@
 import type { OrderQueueResponse, TwoZoneQueueProjection } from "~/types/orders";
 import { zonesView, type ZoneView } from "~/presentation/board";
 
+export interface CancellationReason {
+  code: string;
+  description: string;
+}
+
 export function useOrdersBoard() {
   const config = useRuntimeConfig();
   const path = "/api/v1/backstage/orders/";
@@ -102,8 +107,24 @@ export function useOrdersBoard() {
 
   const confirm = (ref_: string) => act(ref_, "confirm");
   const advance = (ref_: string) => act(ref_, "advance");
-  const reject = (ref_: string, reason: string) => act(ref_, "reject", { reason });
+  // Marketplace (iFood) rejects carry the operator-picked cancellation code so the
+  // backend calls requestCancellation with a valid code; empty for other channels.
+  const reject = (ref_: string, reason: string, cancellation_code = "") =>
+    act(ref_, "reject", { reason, cancellation_code });
   const settleCash = (ref_: string, amount: string) => act(ref_, "settle-delivery-cash", { amount });
+
+  // Valid cancellation reasons for a ref: for iFood, the live per-order list
+  // ({code, description}); empty for channels without reason codes.
+  async function fetchCancellationReasons(ref_: string): Promise<CancellationReason[]> {
+    try {
+      const res = await $fetch<{ reasons: CancellationReason[] }>(
+        `/api/v1/backstage/orders/${encodeURIComponent(ref_)}/cancellation-reasons/`,
+      );
+      return res?.reasons ?? [];
+    } catch {
+      return [];
+    }
+  }
   const assign = (ref_: string) => act(ref_, "assign");
   const unassign = (ref_: string) => act(ref_, "unassign");
 
@@ -135,5 +156,5 @@ export function useOrdersBoard() {
   const confirmMany = (refs: string[]) => actMany(refs, "confirm");
   const advanceMany = (refs: string[]) => actMany(refs, "advance");
 
-  return { queue, zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, settleCash, assign, unassign, confirmMany, advanceMany };
+  return { queue, zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany };
 }
