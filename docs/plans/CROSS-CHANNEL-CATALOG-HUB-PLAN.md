@@ -69,6 +69,148 @@ Estrutura em abas: **Cardápio | Produtos | Complementos | PDV**.
   fila de pedidos + confirmar/despachar/pronto + cancelar com **motivo coded** (já replicamos os
   callbacks + o seletor de motivo).
 
+## Dois eixos de gestão: CANAL × COLEÇÃO (requisito do Pablo, 2026-07-01)
+
+O gerenciamento do cardápio deve ser natural pelos **dois eixos**, não só por canal:
+
+- **Por CANAL** (onde vende): iFood, web, PDV, WhatsApp, delivery próprio… — disponibilidade/preço/
+  publicação por canal (o que já temos em `ListingItem`).
+- **Por COLEÇÃO** (como agrupa): Pães rústicos, Folhados, Veganos, Promoções, Natal… — operar a
+  **coleção inteira**: pausar/publicar/reprecificar/sincronizar todos os itens de uma coleção (num
+  canal, ou em todos). Base já existe: `Collection` + `collection_items` (`is_primary`) no Offerman.
+
+**Omotenashi para o operador**: a UI deve deixar trivial alternar entre "estou olhando o canal X" e
+"estou olhando a coleção Y", e agir em lote em qualquer um dos recortes — sem fricção, sem duplicar
+trabalho. Pense numa **matriz produto × canal** filtrável/agrupável por coleção, com ações em lote
+scoped ao recorte ativo (coleção, canal, ou seleção).
+
+Pontos a resolver no design:
+- Ação em lote por coleção → itera os `ListingItem` dos produtos da coleção no(s) canal(is) alvo →
+  dispara os signals já existentes (`availability_changed` etc.) → projeção por canal. Reusa o motor.
+- Coleção pode ser **transversal a canais** (uma coleção "Veganos" existe conceitualmente; a projeção
+  respeita quais itens estão em quais listings/canais).
+- Evitar explosão combinatória na UI: agrupar, colapsar, e usar seleção + ação em lote.
+
+## Benchmarks da indústria — síntese de pesquisa (2026-07-01)
+
+> Deep-research verificado (24 claims confirmadas por voto adversarial, fontes primárias/vendor
+> docs). Cobertura forte: **Shopify, Toast, Square, Uber Eats**. NÃO verificado (tratar como aberto):
+> Google Merchant Center, Meta Commerce Manager, TikTok/IG, Odoo, Rappi, Deliveroo.
+
+### O princípio convergente (o padrão-ouro a seguir — Shopify)
+- **Produto canônico único + objeto de junção por contexto.** No Shopify, um `Catalog` = `Publication`
+  (o que é visível) + `PriceList` (a que preço), atrelado a um contexto (Market/Location/App-canal).
+  **Desacopla "o quê é visível" de "a que preço"**, ambos scoped ao canal.
+  → **Nós já temos isso**: `ListingItem` (produto × listing) É esse objeto de junção — carrega
+  `is_published`/`is_sellable`/`price_q` por canal. Confirma nossa arquitetura; não inventar campos de
+  canal no `Product`.
+- **Visibilidade NUNCA é flag global** — é registro de publicação por contexto. Estar no catálogo não
+  basta; o produto precisa ser **explicitamente publicado no canal**. → disponibilidade = par
+  (item × canal), nunca um booleano "ativo" único. A projeção p/ iFood/Google/Meta é um ato de
+  publicação por canal (é o que o auto-trigger já faz).
+- **Anti-explosão combinatória**: decompor em catálogos **só-preço** (1 por lista de preço) + catálogos
+  **só-publicação** (1 por sortimento) e **compô-los**, em vez de 1 por combinação (Shopify: ~97% menos
+  config). → **Separar PREÇO de SORTIMENTO/DISPONIBILIDADE** como dimensões independentes componíveis
+  por canal. (Hoje ambos vivem juntos no `ListingItem`; avaliar separar preço-por-canal de
+  disponibilidade-por-canal quando escalar.)
+
+### O eixo COLEÇÃO (o que o Pablo pediu) — como os líderes resolvem
+- **Smart collections por CONDIÇÕES** (Shopify): até 60 condições (tag, tipo, preço, estoque,
+  metafield…) com lógica **all/any (AND/OR)**, auto-populadas, sem atribuição manual. Servem de **alça
+  natural para bulk ops e saved views**: "todos os pães", "em promoção", "esgotáveis do dia" viram
+  escopos VIVOS que se atualizam sozinhos. → nossas `Collection` são manuais; **coleções por regra**
+  são um upgrade forte para o eixo coleção.
+- **Disponibilidade da coleção é ela mesma per-canal** (Shopify: checkbox por sales channel no editor
+  da coleção). **Esse é o cruzamento direto CANAL × COLEÇÃO**: a coleção existe canonicamente e
+  projeta-se por canal. → materializar como **matriz operável**: escopo = (coleção), alvo = (canal);
+  a ação em lote itera os `ListingItem` dos produtos da coleção no(s) canal(is) alvo e dispara os
+  signals que já temos (`availability_changed`) → projeção. **Reusa 100% o motor.**
+
+### Fricções a EVITAR (aprendendo com food/delivery — e superando)
+- **Toast**: visibilidade por parceiro só no nível do **MENU inteiro** (não item/grupo/modifier) →
+  força multiplicar menus por parceiro. **Nós devemos ter targeting de canal por ITEM e por COLEÇÃO**
+  — já supera todos os POS de restaurante.
+- **Parceiro tem a palavra final** (Uber/DoorDash): visibilidade/86/timed-pricing frequentemente NÃO
+  honrados; capacidades assimétricas por canal. → a UI deve mostrar **o que cada canal SUPORTA** e o
+  **último estado sincronizado**, nunca prometer paridade cega (vale p/ a integração DIRETA iFood).
+- **Pausa operacional ≠ disponibilidade de catálogo.** Uber Eats "pause new orders" = loja inteira,
+  time-boxed, com motivo e retomada. É um **kill-switch operacional**, distinto do "esgotado" por item.
+  → tratar como **primitivas diferentes** (nossa `feedback_transparent_timeouts` já pede TTL+UI+notif).
+- **Cascata de disponibilidade explícita, não silenciosa** (Uber: horário do menu envelopa o item).
+  Se um envelope (canal/coleção) corta o item, mostrar **por quê** — evita "por que meu item sumiu".
+
+### Sync cross-channel (o padrão canônico)
+- **Full sync (bootstrap) + incremental/delta (deltas)**, com **publicação por canal como filtro de
+  projeção** (Shopify Product Feeds API: `PRODUCT_FEEDS_FULL_SYNC` + `incremental_sync`). Square:
+  **um único estado canônico** de disponibilidade propaga a todos os canais integrados (fonte da
+  verdade interna; canais são projeções). → alinha com a lei do projeto: **signal** anuncia mudança,
+  **directive** faz o comando async confiável (retry/idempotência). É exatamente o que temos; falta o
+  **full-sync idempotente** por canal (reconciliação) além do delta por-SKU já entregue.
+
+### Recomendações concretas p/ Offerman (destilado)
+1. **Manter o `ListingItem` como o "channel projection"** (já é o padrão Shopify) — validar.
+2. **Coleções por regra** (condições AND/OR sobre atributos) como alça de bulk + saved views vivas.
+3. **Matriz produto × canal** filtrável/agrupável por coleção; ações em lote scoped a (coleção|canal|
+   seleção); estado de sync por célula (último estado + o que o canal suporta).
+4. **Separar pausa operacional (loja/canal, time-boxed, c/ motivo) de disponibilidade de catálogo.**
+5. **Full-sync idempotente por canal** (reconciliar via `project_listing`) + delta por evento (feito).
+6. **Consolidar as duas registries** (pré-requisito já registrado) antes de escalar canais.
+
+### Perguntas em aberto (resolver no design)
+- **Conflito canal↔canônico**: quando o iFood muda um item por fora — last-write-wins, fonte interna
+  sempre vence, ou merge por campo? (nenhum benchmark verificado deu política além de "parceiro manda").
+- **Google Merchant (supplemental feeds + `custom_label_0..4`) e Meta (catalog sets)**: análogos das
+  smart collections p/ ads — **mapear antes** de desenhar as projeções Offerman→Google/Meta.
+- **Multi-coleção com disponibilidades conflitantes** projetadas em canais diferentes: precedência,
+  união ou interseção?
+- **Ergonomia da matriz** item×canal (grid editável, filtros, saved views): benchmarks confirmam
+  checkbox-por-canal + coleções-por-regra, mas não a UX de alternar eixos sem fricção — é onde vamos
+  inovar (omotenashi).
+
+**Fontes primárias**: Shopify Catalogs/Markets/Collections/Product-Sync docs; Toast partner-visibility
++ integration-limitations; Square item-availability; Uber Eats menu-hours + pause-orders.
+
+## ⭐ Refinamento decisivo: SUPERFÍCIE, não só "canal" (Pablo 2026-07-01)
+
+Insight do Pablo: nem todo alvo de projeção é "canal de vendas". Google Merchant, Meta/IG e um
+**menuboard** (TV) mostram um recorte de produtos, mas **não é ali que a venda transaciona**. O
+primitivo certo é mais geral e unifica tudo:
+
+**SUPERFÍCIE** (generaliza "canal") = qualquer alvo onde um recorte do catálogo é projetado/renderizado.
+Três atributos:
+- **tipo/adapter**: iFood API · web storefront · PDV · WhatsApp · Google feed · Meta catalog · **menuboard** · KDS…
+- **capacidade**: `transacional` (aceita pedido) | `display/feed` (só mostra/anuncia).
+- **fonte de conteúdo = uma COLEÇÃO** (ou regra/conjunto de coleções) define **o QUE aparece**; +
+  overrides por superfície (preço/disponibilidade/layout).
+
+Classificação das superfícies:
+- **Transacionais**: iFood, web próprio, PDV, WhatsApp/delivery próprio.
+- **Feed/anúncio**: Google Merchant (feed = coleção "vendáveis online"; `custom_label` = sub-recortes),
+  Meta/IG catalog (catalog = coleção; **sets** = sub-coleções p/ targeting), TikTok.
+- **Display in-loco**: **menuboard** (TV) — cada tela é uma superfície display alimentada por uma
+  coleção ("Café da manhã", "Pães & padaria"), renderizada **em tempo real**.
+
+**Por que é a abordagem mais simples/robusta/elegante:**
+- **Um só primitivo de projeção** (Superfície) + **um `CatalogProjectionBackend` por tipo** — iFood/
+  Google/Meta/menuboard viram adapters. O protocolo já existe em offerman.
+- A **coleção como fonte de conteúdo universal** resolve o eixo CANAL×COLEÇÃO naturalmente: "esta
+  superfície mostra esta coleção". Bulk ops = por coleção; disponibilidade/preço = por (item×superfície).
+- Os **signals + motor de projeção (auto-trigger) que já entregamos servem TODAS as superfícies** —
+  inclusive o menuboard, via o **SSE que já existe** (django-eventstream + daphne;
+  ver [[project_sse_push_active]]).
+- Distingue honestamente `transacional` de `display/feed` — a UI mostra **capacidades reais** por
+  superfície (aprendizado do Toast: nunca prometer paridade cega).
+- Alinha com a pesquisa: Shopify separa *Publication* (o que é visível) de *transacionar*; Google/Meta
+  são publication surfaces alimentadas por um recorte. Nossa "Superfície" é essa generalização honesta.
+
+### 📺 Menuboard dinâmico (PROJETO NOVO — anotado)
+Hoje: **2 TVs** estilo "quadro-negro pintado à mão", **estáticas**. Meta: **menuboard dinâmico ligado
+ao Django Shopman** — uma **superfície display** alimentada por coleção, atualizada **em tempo real**
+(pausar item / mudar preço / esgotar reflete na TV na hora). Reusa 100% o motor de projeção + push
+(SSE) que já existe. Provável **nova superfície Nuxt** (`surfaces/menuboard-*`) assinando o stream da
+coleção, com layout "chalkboard" fiel à marca Nelson. Adapter `menuboard` = mais um
+`CatalogProjectionBackend`/consumidor de eventos.
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
