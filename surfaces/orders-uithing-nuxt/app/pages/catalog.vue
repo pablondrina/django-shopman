@@ -22,6 +22,9 @@ const rowStatuses = computed(() => Object.fromEntries(rows.value.map((r) => [r.s
 const activeCollection = computed(() => collections.value.find((c) => c.ref === collectionRef.value) ?? null);
 const loading = computed(() => pending.value && !matrix.value);
 
+// zoom da foto (clique na thumbnail amplia num lightbox)
+const zoom = ref<{ url: string; name: string } | null>(null);
+
 // ── reordenar coleções (pills arrastáveis) ─────────────────────────────────────
 // Override = null → ordem do servidor (determinístico p/ SSR); só é setado durante o
 // drag otimista, e zerado após o POST+refresh (que já vem reordenado).
@@ -281,11 +284,12 @@ useHead({ title: "Catálogo · Gestor" });
                 </button>
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
-                  <!-- thumbnail esmaece + P&B quando o produto está "fora" (sem canal disponível) -->
+                  <!-- thumbnail: esmaece + P&B quando "fora"; clique amplia a foto -->
                   <img
                     v-if="row.image_url" :src="row.image_url" :alt="row.name"
-                    class="size-10 shrink-0 rounded-md object-cover ring-1 ring-border transition"
+                    class="size-10 shrink-0 cursor-zoom-in rounded-md object-cover ring-1 ring-border transition hover:ring-2 hover:ring-primary/50"
                     :class="rowStatuses[row.sku]?.off ? 'opacity-50 grayscale' : ''"
+                    @click.stop.prevent="zoom = { url: row.image_url, name: row.name }"
                   />
                   <div v-else class="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Icon name="lucide:image-off" class="size-4" /></div>
                   <div class="flex min-w-0 flex-col">
@@ -495,6 +499,19 @@ useHead({ title: "Catálogo · Gestor" });
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-background/80 transition hover:bg-background/10 hover:text-background disabled:opacity-50" @click="bulk({ is_published: false })">Despublicar</button>
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-background/80 transition hover:bg-background/10 hover:text-background disabled:opacity-50" @click="bulk({ is_published: true })">Publicar</button>
         <button class="grid size-9 place-items-center rounded-md text-background/70 transition hover:bg-background/10 hover:text-background" title="Limpar seleção" @click="clearSelection"><Icon name="lucide:x" class="size-4" /></button>
+      </div>
+    </Transition>
+
+    <!-- lightbox: foto ampliada (clique em qualquer lugar fecha) -->
+    <Transition
+      enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100"
+      leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0"
+    >
+      <div v-if="zoom" class="fixed inset-0 z-50 grid cursor-zoom-out place-items-center bg-black/70 p-8" role="dialog" aria-modal="true" @click="zoom = null" @keydown.esc="zoom = null">
+        <figure class="flex flex-col items-center gap-3">
+          <img :src="zoom.url" :alt="zoom.name" class="max-h-[80vh] max-w-[85vw] rounded-xl object-contain shadow-2xl" />
+          <figcaption class="rounded-full bg-black/40 px-3 py-1 text-sm font-medium text-white">{{ zoom.name }}</figcaption>
+        </figure>
       </div>
     </Transition>
   </main>

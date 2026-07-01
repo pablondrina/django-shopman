@@ -275,11 +275,12 @@ EXCEPTION_SURFACES: tuple[Surface, ...] = (
             ROOT / "shopman/backstage/projections/order_queue.py",
             ROOT / "shopman/backstage/projections/kds.py",
             ROOT / "shopman/backstage/projections/catalog.py",
+            ROOT / "shopman/backstage/projections/showcase.py",
         ),
         exception_reason=(
-            "Order queue + KDS + catalog-matrix projections feed dedicated headless "
-            "Nuxt operator apps (gestor./kds. via api/v1/backstage/*), not Admin/Unfold "
-            "pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN Frente 3 — "
+            "Order queue + KDS + catalog-matrix + expositores projections feed dedicated "
+            "headless Nuxt operator apps (gestor./kds. via api/v1/backstage/*), not Admin/"
+            "Unfold pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN Frente 3 — "
             "config de rule/capability fica no Admin/Unfold, a matriz operacional no Gestor)."
         ),
     ),

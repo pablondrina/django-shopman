@@ -70,6 +70,11 @@ from .operations import (
     WorkOrderStartView,
     WorkOrderVoidView,
 )
+from .showcase import (
+    ShowcaseActiveView,
+    ShowcaseBoardView,
+    ShowcaseCollectionsView,
+)
 
 urlpatterns = [
     # KDS
@@ -100,6 +105,10 @@ urlpatterns = [
     path("catalog/bulk-price/", CatalogBulkPriceView.as_view(), name="api-backstage-catalog-bulk-price"),
     path("catalog/reorder-collections/", CatalogReorderCollectionsView.as_view(), name="api-backstage-catalog-reorder-collections"),
     path("catalog/reorder-items/", CatalogReorderItemsView.as_view(), name="api-backstage-catalog-reorder-items"),
+    # Expositores (display: menuboard/feeds)
+    path("showcases/", ShowcaseBoardView.as_view(), name="api-backstage-showcases"),
+    path("showcases/active/", ShowcaseActiveView.as_view(), name="api-backstage-showcases-active"),
+    path("showcases/collections/", ShowcaseCollectionsView.as_view(), name="api-backstage-showcases-collections"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),
     path("orders/<str:ref>/advance/", OrderAdvanceView.as_view(), name="api-backstage-order-advance"),
