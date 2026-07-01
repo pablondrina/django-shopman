@@ -66,6 +66,27 @@ ver [webhook-auth-status-codes](../reference/webhook-auth-status-codes.md)).
 4. **Homologação** — passar a certificação do iFood (eles testam o fluxo). É o gate de produção.
 5. (Se webhook) registrar a URL HTTPS — hoje `https://api.staging.nelsonboulangerie.com.br/api/webhooks/ifood/`.
 
+## ✅ Verificado AO VIVO (2026-06-30) — app de teste + loja "Teste - Nelson Boulangerie"
+
+Contra o ambiente real do iFood (não mais teórico):
+
+- **⚠️ User-Agent próprio é OBRIGATÓRIO** — o WAF do iFood devolve `403` (corpo gzipado) para
+  User-Agent genérico (python-requests/urllib). Usar um UA próprio em TODAS as chamadas.
+- **OAuth ✅ (WP-1 feito, PR #24)**: `POST /authentication/v1.0/oauth/token`, form-urlencoded
+  **camelCase** `grantType=client_credentials` + `clientId` + `clientSecret` → `{accessToken, expiresIn ~21599}`.
+  Implementado em `shopman/shop/services/ifood_auth.py`.
+- **Merchant ✅**: `GET /merchant/v1.0/merchants` (lista) e `/merchants/{id}` (detalhe). Loja de
+  teste: `f36a17d0-e10b-4fdd-a16d-c8ffd866e59b` (status `DISABLED`).
+- **Catalog leitura ✅**: `GET /catalog/v2.0/merchants/{mid}/catalogs` → catálogo
+  `343e3649-18eb-4c08-99b4-4302df1cdf5e` (context `DEFAULT`, `AVAILABLE`);
+  `GET .../catalogs/{catalogId}/categories` → categorias (ex.: "Categoria Item Normal"
+  `1d097d39-0ce0-47a6-ad6b-1ab9f4d9692a", "Categoria Pizza"), com `items:[]`.
+- **Estrutura real do catálogo**: Merchant → Catálogos → Categorias → Itens.
+- **⚠️ `catalog_projection_ifood` tem CONTRATO ERRADO** (`PUT .../items/{sku}` não existe assim,
+  é stub). **WP-Catalog**: reescrever p/ o v2.0 (itens dentro de categorias, payload rico:
+  produto + item + categoria). Verificar o endpoint exato de ingestão de item na doc/ao vivo.
+- Credenciais de teste no `.env` local (`IFOOD_CLIENT_ID/SECRET/MERCHANT_ID`) — funcionando.
+
 ## Contratos (confirmar na doc oficial durante a implementação — o portal bloqueia bots)
 
 - OAuth: `POST merchant-api.ifood.com.br/authentication/v1.0/oauth/token` (`grant_type=client_credentials`).
