@@ -438,6 +438,11 @@ SHOPMAN_WHATSAPP = {
 SHOPMAN_IFOOD = {
     "webhook_token": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
     "merchant_id": os.environ.get("IFOOD_MERCHANT_ID", ""),
+    # API direta (OAuth client_credentials) — app no Portal do Desenvolvedor iFood.
+    "client_id": os.environ.get("IFOOD_CLIENT_ID", "").strip(),
+    "client_secret": os.environ.get("IFOOD_CLIENT_SECRET", "").strip(),
+    "api_base": os.environ.get("IFOOD_API_BASE", "https://merchant-api.ifood.com.br"),
+    "timeout": int(os.environ.get("IFOOD_TIMEOUT", "30")),
     "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
     "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
 }
