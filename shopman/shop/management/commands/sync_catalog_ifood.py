@@ -4,9 +4,15 @@ Management command: sync_catalog_ifood
 Syncs the iFood listing to the iFood Merchant API.
 
 Usage:
-    python manage.py sync_catalog_ifood           # incremental upsert
-    python manage.py sync_catalog_ifood --full    # full catalog replace
+    python manage.py sync_catalog_ifood           # incremental, retract-aware
+    python manage.py sync_catalog_ifood --full    # full upsert (no retract)
     python manage.py sync_catalog_ifood --dry-run # preview items, no API call
+
+Routes through CatalogService.project_listing() — the canonical, retract-aware
+projection engine. Incremental mode reconciles: published+sellable items are
+upserted, and items no longer published/sellable (or dropped from the listing)
+are retracted via the backend. Both resolve the iFood backend through the
+canonical registry (OFFERMAN["PROJECTION_BACKENDS"]).
 """
 
 from django.core.management.base import BaseCommand, CommandError
@@ -30,9 +36,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from shopman.offerman.exceptions import CatalogError
         from shopman.offerman.service import CatalogService
 
-        from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
         from shopman.shop.models import Channel
 
         try:
@@ -65,9 +71,15 @@ class Command(BaseCommand):
         mode = "full" if options["full"] else "incremental"
         self.stdout.write(f"Syncing {len(items)} item(s) to iFood ({mode})…")
 
-        backend = IFoodCatalogProjection()
         try:
-            result = backend.project(items, channel="ifood", full_sync=options["full"])
+            result = CatalogService.project_listing("ifood", full_sync=options["full"])
+        except CatalogError as exc:
+            if exc.code == "PROJECTION_BACKEND_NOT_CONFIGURED":
+                raise CommandError(
+                    "iFood projection backend not configured. Set "
+                    "IFOOD_CATALOG_PROJECTION=1 (with iFood OAuth creds) to enable."
+                ) from exc
+            raise CommandError(f"iFood sync error: {exc}") from exc
         except Exception as exc:
             raise CommandError(f"iFood API error: {exc}") from exc
 

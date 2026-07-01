@@ -21,7 +21,11 @@
   (PATCH status UNAVAILABLE) — **verificados AO VIVO**. Sem imagem inline (iFood 500).
 - **Nutrição/dietético**: Craftsman deriva alergênicos/dieta/nutrição das receitas (recipe derivation).
 
-### O gap de wiring (por que pausar não chega ao iFood hoje)
+### O gap de wiring (histórico — estado ANTES do auto-trigger + Frente 1)
+> Registro do gap original. **1-2 resolvidos pelo auto-trigger (PR #25)**; **4-5 resolvidos pela
+> Frente 1** (ver follow-ups abaixo). **3 permanece parcial**: `project_listing` já tem caller de
+> produção (o comando `sync_catalog_ifood`), mas ainda não há gatilho de reconciliação para bulk/
+> deleção — é a ponte para a Frente 3.
 1. Toggle de `is_sellable`/`is_published` **não dispara signal** (`ListingItem.save()` só emite
    `price_changed`, e só em mudança de preço). Ações de produto usam `queryset.update()` (nem `save()`).
 2. O handler de projeção só escuta `product_created` + `price_changed`.
@@ -40,13 +44,27 @@ Fatia entregue (commit no PR #25), reaproveitando a infra existente:
 - **Verificado ao vivo**: pausar `is_sellable=False` → iFood UNAVAILABLE; reativar → AVAILABLE.
 
 ### ⚠️ Follow-ups descobertos (para o hub, decisão deliberada — NÃO ramar às cegas)
-1. **Duas registries divergentes para projeção**: `SHOPMAN_CATALOG_PROJECTION_ADAPTERS` (usada pelo
-   handler/signals, shop) vs `OFFERMAN["PROJECTION_BACKENDS"]` (usada por `project_listing`/
-   `project_catalogs`/`get_projection_backend`, offerman). Unificar numa só (canônica) é pré-requisito
-   pra rotear tudo pelo `project_listing`.
-2. **`sync_catalog_ifood` não é retract-aware** — instancia `IFoodCatalogProjection` e chama
-   `project()` cru (não retrata). Depois de unificar (1), roteá-lo por `project_listing`.
+1. ✅ **FEITO (Frente 1, 2026-07-01)** — **Registry de projeção unificada.** A canônica é a do
+   **Offerman** (`OFFERMAN["PROJECTION_BACKENDS"]` + `get_projection_backend()`); o kernel é dono do
+   contrato, o adapter concreto fica no shop, alcançado por dotted-path (sem import cruzado). O
+   `SHOPMAN_CATALOG_PROJECTION_ADAPTERS` foi **aposentado**: o handler/signals do shop
+   (`_register_catalog_projection_handler`, `_projection_listing_refs`) agora resolvem via offerman.
+   O env-gate `IFOOD_CATALOG_PROJECTION` passou a popular a registry canônica (default-off preservado).
+   Achado que mudou o desenho: **não havia adapter iFood duplicado no offerman** (era só exemplo de
+   docstring). Os dois retracts são **complementares, não redundantes**: per-SKU (handler, delta
+   event-driven) vs per-listing (`project_listing`, reconciliação por diff de `last_projected_skus`).
+2. ✅ **FEITO (Frente 1, 2026-07-01)** — **`sync_catalog_ifood` retract-aware.** Roteado por
+   `CatalogService.project_listing("ifood", full_sync=…)`: incremental reconcilia (upsert dos
+   publicáveis + retract dos despublicados/removidos + persiste `last_projected_skus`); `--full` faz
+   upsert-all sem retract. Sem backend configurado → `CommandError` claro. Testes novos cobrindo
+   full/incremental-retract/not-configured. `make test` verde.
 3. **Imagem**: projeção não sincroniza foto (iFood exige upload separado/`imagePath`). Fluxo à parte.
+
+> **Ponte para a Frente 3 (deixada de propósito):** bulk actions do admin e deleções de
+> `ListingItem`/`Product` usam `queryset.update()`/`delete()` → **não chamam `save()` → não emitem
+> signal** → o delta per-SKU (handler) não os vê. Quem os pega é a reconciliação per-listing
+> (`project_listing`, via diff). Portanto as **ações em lote da matriz (Frente 3)** devem rotear por
+> `project_listing` (reconciliação), não emitir N signals. O resolver unificado já é o seam pronto.
 
 ## Referência — Cardápio do iFood (Portal do Parceiro, verificado ao vivo 2026-07-01)
 
