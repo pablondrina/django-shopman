@@ -453,6 +453,10 @@ SHOPMAN_IFOOD = {
     # list. Discover valid codes per order via ifood_callbacks.fetch_cancellation_reasons.
     # Empty → a cancellation callback fails loudly (must be set post-homologação).
     "cancellation_default_code": os.environ.get("IFOOD_CANCELLATION_CODE", ""),
+    # iFood requires a non-empty `reason` alongside the code (400 otherwise).
+    "cancellation_default_reason": os.environ.get(
+        "IFOOD_CANCELLATION_REASON", "Problemas de sistema na loja"
+    ),
     # Webhook push (WP-5, optional): HMAC-SHA256 secret for X-IFood-Signature.
     # Defaults to client_secret (per plan). Set from the portal's webhook section
     # if iFood provisions a distinct signing secret.

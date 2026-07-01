@@ -411,6 +411,32 @@ def test_send_for_status_cancellation_uses_configured_code(fake_headers):
         assert body["reason"] == "sem estoque"
 
 
+@override_settings(SHOPMAN_IFOOD={**IFOOD_CFG, "cancellation_default_code": "501"})
+def test_cancellation_reason_never_empty(fake_headers):
+    """iFood 400s when `reason` is empty (caught live 2026-07-01): with no
+    reason and no configured default, fall back to a non-empty text.
+    """
+    from shopman.shop.services import ifood_callbacks
+
+    with patch("requests.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=202)
+        ifood_callbacks.request_cancellation("o1")  # no description
+        assert mock_post.call_args[1]["json"]["reason"] == "Cancelado pela loja"
+
+
+@override_settings(SHOPMAN_IFOOD={
+    **IFOOD_CFG, "cancellation_default_code": "501",
+    "cancellation_default_reason": "Loja fechada",
+})
+def test_cancellation_reason_uses_configured_default(fake_headers):
+    from shopman.shop.services import ifood_callbacks
+
+    with patch("requests.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=202)
+        ifood_callbacks.request_cancellation("o1")
+        assert mock_post.call_args[1]["json"]["reason"] == "Loja fechada"
+
+
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_request_cancellation_without_code_raises(fake_headers):
     """No configured code → loud failure, never a guessed code."""
