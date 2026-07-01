@@ -164,6 +164,24 @@ KDS Nuxt :3003). Gerado pedido de teste no Portal → `ifood_poll` ingeriu ao vi
 - Confirmar: `POST .../order/v1.0/orders/{id}/confirm` → 202. (idem dispatch/readyToPickup/requestCancellation)
 - Webhook (se usado): header `X-IFood-Signature` = HMAC-SHA256(raw body, client_secret) hex.
 
+## ✅ UI de cancelamento (a) + gestão de cardápio (b) — 2026-07-01
+
+- **(a) Seletor de motivo de cancelamento no gestor**: ao recusar/cancelar pedido iFood, o operador
+  escolhe o motivo da lista real (`GET orders/<ref>/cancellation-reasons/` → live do iFood); o código
+  trafega por `order.data.ifood_cancellation_code` até o `requestCancellation`. Outros canais = texto
+  livre. Frontend em `orders-uithing-nuxt` (dialog condicional). Backend testado.
+- **(b) Cardápio → iFood VERIFICADO AO VIVO**: editar no nosso sistema reflete no iFood — **preço**
+  (R$15,90 refletiu), **pausar** (retract → UNAVAILABLE), **reativar** (→ AVAILABLE), **criar**.
+  Nome/descrição vão no mesmo PUT (projetam junto).
+  - **🐛 BUG pego no (b)**: `products[].image` inline (URL) → iFood **500**. Removido (v2.0 usa upload
+    de imagem separado/`imagePath` — fora de escopo). Sem imagem: 200.
+  - **⚠️ GAP (auto-trigger)**: hoje só `product_created` + `price_changed` disparam projeção
+    automática. Editar **nome/descrição** ou **pausar** no admin NÃO re-projeta sozinho — falta um
+    signal `product_updated` + wiring de disponibilidade→retract. Capability existe (projection
+    empurra tudo); falta o gatilho. Follow-up.
+  - **Eventual-consistency**: escritas de catálogo do iFood não são imediatas — PUT logo após criar
+    pode dar 400 transitório; re-tentar resolve (o directive já dá retry).
+
 ## Ordem sugerida
 WP-1 → WP-3 → WP-2 → WP-4 (esqueleto testável com mocks antes das credenciais) → WP-6 (com Pablo).
 WP-5 só se optar por webhook.
