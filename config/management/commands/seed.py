@@ -1433,24 +1433,20 @@ class Command(BaseCommand):
             ref="pdv",
             defaults={"name": "PDV", "is_active": True, "priority": 10},
         )
-        delivery, _ = Listing.objects.update_or_create(
-            ref="delivery",
-            defaults={"name": "Delivery Proprio", "is_active": True, "priority": 5},
-        )
         ifood, _ = Listing.objects.update_or_create(
             ref="ifood",
             defaults={"name": "iFood", "is_active": True, "priority": 3},
         )
         web, _ = Listing.objects.update_or_create(
             ref="web",
-            defaults={"name": "E-commerce", "is_active": True, "priority": 7},
+            defaults={"name": "Loja online", "is_active": True, "priority": 7},
         )
 
         # Listing items (all products in all listings)
         # iFood uses pricing.policy="external": the marketplace controls final prices,
         # so listing prices are reference-only — no markup stored on our side.
-        markup_map = {"pdv": 0, "delivery": 0, "ifood": 0, "web": 0}
-        for listing_obj in [pdv, delivery, ifood, web]:
+        markup_map = {"pdv": 0, "ifood": 0, "web": 0}
+        for listing_obj in [pdv, ifood, web]:
             ListingItem.objects.filter(listing=listing_obj).delete()
             markup = Decimal(markup_map[listing_obj.ref]) / 100
             for _sku, product in products.items():
@@ -2277,7 +2273,7 @@ class Command(BaseCommand):
         missing = []
         required_metadata = ("allergens", "dietary_info", "serves")
         listed_skus = ListingItem.objects.filter(
-            listing__ref__in=("pdv", "delivery", "ifood", "web"),
+            listing__ref__in=("pdv", "ifood", "web"),
             listing__is_active=True,
             is_published=True,
         ).values_list("product__sku", flat=True).distinct()
@@ -2462,23 +2458,27 @@ class Command(BaseCommand):
         }
         channels_data = [
             # (ref, name, config_overrides)
-            ("pdv", "PDV", _pos_config),
-            ("delivery", "Delivery Proprio", _remote_config),
-            ("ifood", "iFood", {
+            # Canal = ORIGEM do pedido (por onde entra). Entrega/retirada é fulfillment
+            # (ortogonal, por pedido) — não um canal. Por isso não há "Delivery Próprio":
+            # um pedido para nossa entrega origina de PDV (telefone), WhatsApp ou Loja online.
+            # display_order = ordem canônica das colunas no Gestor: PDV · Loja online · iFood · WhatsApp.
+            ("pdv", "PDV", 1, _pos_config),
+            ("web", "Loja online", 2, _remote_config),
+            ("ifood", "iFood", 3, {
                 **_marketplace_config,
                 "pricing": {"policy": "external"},
                 "editing": {"policy": "locked"},
             }),
-            ("whatsapp", "WhatsApp", _whatsapp_config),
-            ("web", "E-commerce", _remote_config),
+            ("whatsapp", "WhatsApp", 4, _whatsapp_config),
         ]
 
-        for ref, name, config_data in channels_data:
+        for ref, name, display_order, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
                     "is_active": True,
+                    "display_order": display_order,
                     "config": config_data,
                 },
             )
@@ -2498,7 +2498,7 @@ class Command(BaseCommand):
         order_count = 0
         customer_list = list(customers.values())
         product_list = list(products.values())
-        channel_list = [channels["pdv"], channels["delivery"], channels["whatsapp"]]
+        channel_list = [channels["pdv"], channels["web"], channels["whatsapp"]]
 
         # Seasonal demand multiplier based on current month
         current_month = now.month
@@ -3317,7 +3317,7 @@ class Command(BaseCommand):
                 {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Tradicional", "qty": 2, "unit_price_q": 1300, "line_total_q": 2600},
                 {"line_id": uuid.uuid4().hex[:8], "sku": "PAIN-CHOCOLAT", "name": "Pain au Chocolat", "qty": 1, "unit_price_q": 1500, "line_total_q": 1500},
             ]),
-            ("delivery", [
+            ("web", [
                 {"line_id": uuid.uuid4().hex[:8], "sku": "BAGUETE", "name": "Baguete Francesa", "qty": 3, "unit_price_q": 1300, "line_total_q": 3900},
                 {"line_id": uuid.uuid4().hex[:8], "sku": "FOCACCIA-ALECRIM", "name": "Focaccia Alecrim & Sal Grosso", "qty": 1, "unit_price_q": 3100, "line_total_q": 3100},
             ]),
@@ -3699,7 +3699,7 @@ class Command(BaseCommand):
             if Fulfillment.objects.filter(order=order).exists():
                 continue
 
-            is_delivery = order.channel_ref in ("delivery", "whatsapp", "web")
+            is_delivery = order.channel_ref in ("whatsapp", "web")
 
             if is_delivery:
                 tracking_code = f"BR{uuid.uuid4().hex[:12].upper()}"
@@ -3736,7 +3736,7 @@ class Command(BaseCommand):
             if Fulfillment.objects.filter(order=order).exists():
                 continue
 
-            is_delivery = order.channel_ref in ("delivery", "whatsapp", "web")
+            is_delivery = order.channel_ref in ("whatsapp", "web")
 
             fulfillment = Fulfillment(
                 order=order,

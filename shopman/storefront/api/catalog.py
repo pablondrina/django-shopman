@@ -47,13 +47,10 @@ class ProductListView(APIView):
         listing_ref = get_channel_listing_ref()
         qs = catalog_service.published_products(listing_ref).order_by("name").distinct()
 
-        # Filter by collection ref
+        # Filter by collection ref (smart collections resolve por regra)
         collection_slug = (request.query_params.get("collection") or "").strip()[:80]
         if collection_slug:
-            qs = qs.filter(
-                collection_items__collection__ref=collection_slug,
-                collection_items__collection__is_active=True,
-            )
+            qs = catalog_service.filter_by_collection(qs, collection_slug)
 
         # Search by name
         search = (request.query_params.get("search") or "").strip()[:80]

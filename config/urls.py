@@ -114,6 +114,9 @@ urlpatterns += _include_optional(
 urlpatterns += _include_optional("api/v1/", "shopman.storefront.api.urls")
 urlpatterns += _include_optional("api/v1/backstage/", "shopman.backstage.api.urls")
 
+# Menuboard — superfície display pública (quadro-negro numa TV), tempo real via SSE.
+urlpatterns += _include_optional("", "shopman.shop.menuboard_urls")
+
 # ── Media files (dev only) ────────────────────────────────────────
 
 if settings.DEBUG:

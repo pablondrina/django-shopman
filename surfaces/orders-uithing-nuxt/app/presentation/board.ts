@@ -103,14 +103,17 @@ export function splitRef(ref: string): { prefix: string; code: string } {
 }
 
 /** Elapsed seconds → compact label. Seconds only in the first minute, then whole
- *  minutes, then "1h 5m" — calmer and glanceable. */
+ *  minutes, then "1h 5m", then days ("4d 23h") — calmer and glanceable. Capar em
+ *  dias evita o "119h" que grita sem informar. */
 export function elapsedLabel(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
+  if (h < 24) return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
+  const d = Math.floor(h / 24);
+  return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
 }
 
 // ── Zones (Entrada / Preparo / Saída) ──────────────────────────────────────
@@ -203,7 +206,7 @@ export function matchesQuery(card: OrderCardProjection, rawQuery: string): boole
 /** Friendly channel labels. Unknown channels fall back to a capitalised ref so
  *  a new channel never renders blank. */
 const CHANNEL_LABEL: Record<string, string> = {
-  web: "Web",
+  web: "Loja online",
   whatsapp: "WhatsApp",
   ifood: "iFood",
   pdv: "PDV",
@@ -236,6 +239,23 @@ export function matchesChannel(card: OrderCardProjection, channel: string): bool
   return !channel || channel === "all" || card.channel_ref === channel;
 }
 
+// Fulfillment é o eixo que muda o FLUXO (rota vs balcão) — por isso é filtro de
+// primeira classe no board, ao lado do canal (que é só a origem).
+export type FulfillmentFilter = "all" | "delivery" | "pickup";
+
+/** `"all"` matches everything; senão bate o fulfillment_type do card. */
+export function matchesFulfillment(card: OrderCardProjection, mode: FulfillmentFilter): boolean {
+  return mode === "all" || card.fulfillment_type === mode;
+}
+
+/** Contagem por fulfillment na fila corrente (para os selos dos filtros). */
+export function fulfillmentCounts(cards: OrderCardProjection[]): { delivery: number; pickup: number } {
+  let delivery = 0;
+  let pickup = 0;
+  for (const c of cards) c.fulfillment_type === "delivery" ? delivery++ : pickup++;
+  return { delivery, pickup };
+}
+
 export type SortKey = "arrival" | "urgency" | "recent";
 
 export interface SortOption {
@@ -266,9 +286,12 @@ export function sortCards(cards: OrderCardProjection[], key: SortKey): OrderCard
  *  and the table both render through this, so they always agree. */
 export function triageCards(
   cards: OrderCardProjection[],
-  opts: { query: string; channel: string; sort: SortKey },
+  opts: { query: string; channel: string; sort: SortKey; fulfillment?: FulfillmentFilter },
 ): OrderCardProjection[] {
-  const filtered = cards.filter((c) => matchesChannel(c, opts.channel) && matchesQuery(c, opts.query));
+  const fulfillment = opts.fulfillment ?? "all";
+  const filtered = cards.filter(
+    (c) => matchesChannel(c, opts.channel) && matchesFulfillment(c, fulfillment) && matchesQuery(c, opts.query),
+  );
   return sortCards(filtered, opts.sort);
 }
 

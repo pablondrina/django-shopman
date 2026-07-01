@@ -275,17 +275,24 @@ def _register_production_order_sync() -> None:
 
 
 def _register_catalog_projection_handler() -> None:
-    """Register CatalogProjectHandler for each configured projection adapter."""
-    adapter_map = getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {})
-    if not adapter_map:
-        return
+    """Register CatalogProjectHandler for each configured projection backend.
+
+    Backends resolve through Offerman's canonical registry
+    (OFFERMAN["PROJECTION_BACKENDS"]) via get_projection_backend() — the same
+    registry the manual sync command reconciles through.
+    """
+    from shopman.offerman.conf import (
+        get_projection_backend,
+        get_projection_backend_channels,
+    )
+
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
 
-    for listing_ref, dotted_path in adapter_map.items():
-        module_path, class_name = dotted_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        backend_cls = getattr(module, class_name)
-        registry.register_directive_handler(CatalogProjectHandler(backend=backend_cls()))
+    for listing_ref in get_projection_backend_channels():
+        backend = get_projection_backend(listing_ref)
+        if backend is None:
+            continue
+        registry.register_directive_handler(CatalogProjectHandler(backend=backend))
         logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
 
 

@@ -5,6 +5,15 @@ from __future__ import annotations
 from django.urls import path
 
 from .alerts import AlertAckView, AlertListView
+from .catalog import (
+    CatalogBulkPriceView,
+    CatalogBulkView,
+    CatalogCellView,
+    CatalogMatrixView,
+    CatalogProductView,
+    CatalogReorderCollectionsView,
+    CatalogReorderItemsView,
+)
 from .kds import (
     KDSBoardView,
     KDSCustomerStatusView,
@@ -61,6 +70,11 @@ from .operations import (
     WorkOrderStartView,
     WorkOrderVoidView,
 )
+from .showcase import (
+    ShowcaseActiveView,
+    ShowcaseBoardView,
+    ShowcaseCollectionsView,
+)
 
 urlpatterns = [
     # KDS
@@ -83,6 +97,18 @@ urlpatterns = [
     path("production/kds/", ProductionKDSView.as_view(), name="api-backstage-production-kds"),
     path("closing/", DayClosingView.as_view(), name="api-backstage-closing"),
     path("orders/", OrderQueueView.as_view(), name="api-backstage-orders"),
+    # Catalog matrix (produto × superfície)
+    path("catalog/", CatalogMatrixView.as_view(), name="api-backstage-catalog"),
+    path("catalog/cell/", CatalogCellView.as_view(), name="api-backstage-catalog-cell"),
+    path("catalog/product/", CatalogProductView.as_view(), name="api-backstage-catalog-product"),
+    path("catalog/bulk/", CatalogBulkView.as_view(), name="api-backstage-catalog-bulk"),
+    path("catalog/bulk-price/", CatalogBulkPriceView.as_view(), name="api-backstage-catalog-bulk-price"),
+    path("catalog/reorder-collections/", CatalogReorderCollectionsView.as_view(), name="api-backstage-catalog-reorder-collections"),
+    path("catalog/reorder-items/", CatalogReorderItemsView.as_view(), name="api-backstage-catalog-reorder-items"),
+    # Expositores (display: menuboard/feeds)
+    path("showcases/", ShowcaseBoardView.as_view(), name="api-backstage-showcases"),
+    path("showcases/active/", ShowcaseActiveView.as_view(), name="api-backstage-showcases-active"),
+    path("showcases/collections/", ShowcaseCollectionsView.as_view(), name="api-backstage-showcases-collections"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),
     path("orders/<str:ref>/advance/", OrderAdvanceView.as_view(), name="api-backstage-order-advance"),

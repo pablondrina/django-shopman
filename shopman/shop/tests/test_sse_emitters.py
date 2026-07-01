@@ -95,7 +95,7 @@ def test_emit_targets_every_channel_listing_the_sku(
     _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
-    assert channels_called == ["stock-pdv", "stock-web"]
+    assert channels_called == ["stock-catalog", "stock-pdv", "stock-web"]
     for call in mock_send.call_args_list:
         assert call.args[1] == "stock-update"
         assert call.args[2] == {"sku": "BAGUETE"}
@@ -112,7 +112,7 @@ def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
     _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
-    assert channels_called == ["stock-pdv", "stock-web"]
+    assert channels_called == ["stock-catalog", "stock-pdv", "stock-web"]
 
 
 @pytest.mark.django_db

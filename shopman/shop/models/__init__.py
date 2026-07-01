@@ -14,10 +14,12 @@ from .settings_proxies import (
     ShopProduction,
 )
 from .shop import NotificationTemplate, Shop
+from .showcase import Showcase
 
 __all__ = [
     "Shop",
     "Channel",
+    "Showcase",
     "NotificationTemplate",
     "RuleConfig",
     "OmotenashiCopy",

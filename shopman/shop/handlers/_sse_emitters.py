@@ -77,10 +77,31 @@ def _emit_for_sku(sku: str, *, event_type: str, extra: dict | None = None) -> No
             cache.delete(f"availability:{sku}:{ref}")
             send_event(f"stock-{ref}", event_type, payload)
         cache.delete(f"availability:{sku}:default")
+        # Canal global p/ Expositores (menuboard): não são canais, mas refletem o
+        # estado canônico do produto — qualquer mudança de disponibilidade os atualiza.
+        send_event("stock-catalog", event_type, payload)
     except Exception:
         logger.warning(
             "SSE emit failed sku=%s type=%s", sku, event_type, exc_info=True,
         )
+
+
+def emit_surface_changed(surface_ref: str) -> None:
+    """Publica um evento no canal público ``stock-{ref}`` da superfície.
+
+    Para mutações em lote (queryset.update, que não disparam post_save): o
+    menuboard e consumidores do stream refazem a leitura. Coarse por design.
+    """
+    if not surface_ref:
+        return
+    try:
+        from django_eventstream import send_event
+    except ImportError:
+        return
+    try:
+        send_event(f"stock-{surface_ref}", "listing-changed", {"surface_ref": surface_ref})
+    except Exception:
+        logger.warning("SSE surface emit failed ref=%s", surface_ref, exc_info=True)
 
 
 # ── Signal receivers ────────────────────────────────────────────────
@@ -392,25 +413,29 @@ def _track_listing_item_state(sender, instance, **kwargs):
     if not instance.pk:
         instance._sse_was_published = None
         instance._sse_was_sellable = None
+        instance._sse_was_price_q = None
         return
     try:
-        old = sender.objects.only("is_published", "is_sellable").get(pk=instance.pk)
+        old = sender.objects.only("is_published", "is_sellable", "price_q").get(pk=instance.pk)
         instance._sse_was_published = old.is_published
         instance._sse_was_sellable = old.is_sellable
+        instance._sse_was_price_q = old.price_q
     except sender.DoesNotExist:
         instance._sse_was_published = None
         instance._sse_was_sellable = None
+        instance._sse_was_price_q = None
 
 
 def _on_listing_item_saved(sender, instance, created, **kwargs):
     prev_pub = getattr(instance, "_sse_was_published", None)
     prev_sell = getattr(instance, "_sse_was_sellable", None)
+    prev_price = getattr(instance, "_sse_was_price_q", None)
     if created:
         return
     changed = (
-        prev_pub is not None and prev_pub != instance.is_published
-    ) or (
-        prev_sell is not None and prev_sell != instance.is_sellable
+        (prev_pub is not None and prev_pub != instance.is_published)
+        or (prev_sell is not None and prev_sell != instance.is_sellable)
+        or (prev_price is not None and prev_price != instance.price_q)
     )
     if not changed:
         return

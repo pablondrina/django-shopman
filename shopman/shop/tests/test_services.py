@@ -1038,7 +1038,7 @@ def _dispatched_delivery_order():
     from shopman.orderman.models import Order
     ref = f"TEST-AC-{uuid.uuid4().hex[:6]}"
     order = Order.objects.create(
-        ref=ref, channel_ref="delivery", session_key=f"sk-{ref}",
+        ref=ref, channel_ref="web", session_key=f"sk-{ref}",
         status="confirmed", total_q=2000,
         data={"fulfillment_type": "delivery", "delivery_distance_km": 3.4},
     )

@@ -15,6 +15,11 @@ def published_products(listing_ref: str | None):
     return catalog_context.published_products(listing_ref)
 
 
+def filter_by_collection(qs, collection_ref: str):
+    """Filtra produtos por coleção (smart collections resolvem por regra)."""
+    return catalog_context.filter_by_collection(qs, collection_ref)
+
+
 def ensure_active_collection(collection_ref: str):
     collection = catalog_context.get_active_collection(collection_ref)
     if collection is None:

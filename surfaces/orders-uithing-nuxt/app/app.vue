@@ -11,8 +11,10 @@ useHead({ title: "Gestor de Pedidos" });
 </script>
 
 <template>
-  <div class="min-h-screen bg-background text-foreground">
+  <div class="flex min-h-screen flex-col bg-background text-foreground">
     <NuxtRouteAnnouncer />
+    <!-- Hub chrome: one identity + section-switch + global-tools bar for both boards. -->
+    <GestorTopBar />
     <NuxtPage />
     <OperatorLogin v-if="!authenticated" />
     <OperatorLock v-else-if="locked" :perm="OPERATOR_PERM" />

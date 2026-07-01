@@ -194,6 +194,22 @@ def breadcrumb_collection(product):
     return item.collection if item else None
 
 
+def filter_by_collection(qs, collection_ref: str):
+    """Filtra um queryset de Product por ref de coleção.
+
+    Smart collections (com ``rule``) resolvem por regra; manuais usam
+    ``CollectionItem``. Coleção inexistente/inativa → queryset vazio.
+    """
+    from shopman.offerman.models import Collection
+
+    coll = Collection.objects.filter(ref=collection_ref, is_active=True).first()
+    if coll is None:
+        return qs.none()
+    if coll.is_smart:
+        return qs.filter(pk__in=coll.product_queryset().values("pk"))
+    return qs.filter(collection_items__collection=coll)
+
+
 def published_products_by_collection(
     *,
     listing_ref: str,
@@ -372,6 +388,40 @@ def availability_for_skus(skus: list[str], *, channel_ref: str) -> dict[str, dic
         )
     except Exception as exc:
         logger.warning("batch_availability_failed channel=%s: %s", channel_ref, exc, exc_info=True)
+        return {}
+
+
+def planned_supply_for_skus(skus: list[str], *, horizon_days: int = 2) -> dict[str, int]:
+    """Suprimento planejado (fornadas futuras) por SKU até ``horizon_days`` dias.
+
+    Produção planejada vira **quant com ``target_date`` futura** (o que ``craft.plan``
+    materializa). Isto é uma consulta SEPARADA da disponibilidade-agora: aqui só o que
+    está a caminho pela produção — sem contaminar ``sold_out`` com o que ainda não chegou.
+    Batch, silencioso sem Stockman.
+    """
+    if not skus:
+        return {}
+    try:
+        from datetime import date, timedelta
+
+        from django.db.models import Sum
+
+        from shopman.stockman.models import Quant
+
+        today = date.today()
+        rows = (
+            Quant.objects.filter(
+                sku__in=skus,
+                target_date__gt=today,
+                target_date__lte=today + timedelta(days=max(horizon_days, 1)),
+                _quantity__gt=0,
+            )
+            .values("sku")
+            .annotate(total=Sum("_quantity"))
+        )
+        return {r["sku"]: int(r["total"] or 0) for r in rows}
+    except Exception as exc:
+        logger.warning("planned_supply_failed: %s", exc, exc_info=True)
         return {}
 
 

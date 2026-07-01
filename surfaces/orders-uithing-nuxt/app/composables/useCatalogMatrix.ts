@@ -1,0 +1,189 @@
+// Catalog matrix read/write. Single source for the produto × superfície grid:
+//   - useFetch the canonical matrix projection (GET /api/v1/backstage/catalog/);
+//   - poll every 60s as a light fallback (catalog changes less often than orders);
+//   - cell + bulk mutations POST through the django proxy (CSRF handled there),
+//     then reconcile via refresh (the backend owns the availability rules).
+import type { CatalogMatrixProjection, CatalogMatrixResponse } from "~/types/catalog";
+
+export interface CellPatch {
+  is_published?: boolean;
+  is_sellable?: boolean;
+  price_q?: number;
+}
+
+export function useCatalogMatrix(collectionRef?: Ref<string>) {
+  const path = "/api/v1/backstage/catalog/";
+  // Reactive collection filter → server-side row scoping (smart-aware via
+  // product_queryset). Changing the ref refetches the matrix.
+  const collection = collectionRef ?? ref("");
+  const { data, pending, error, refresh } = useFetch<CatalogMatrixResponse>(path, {
+    key: "catalog-matrix",
+    server: true,
+    query: { collection },
+  });
+
+  const matrix = computed<CatalogMatrixProjection | null>(() => data.value?.matrix ?? null);
+
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  onMounted(() => {
+    pollTimer = setInterval(() => refresh(), 60_000);
+  });
+  onBeforeUnmount(() => {
+    if (pollTimer) clearInterval(pollTimer);
+  });
+
+  // Per-cell in-flight guard: a cell key is `${sku}@${surface}`.
+  const busy = ref<Set<string>>(new Set());
+  const isBusy = (key: string) => busy.value.has(key);
+  const cellKey = (sku: string, surface: string) => `${sku}@${surface}`;
+
+  const errorMsg = ref("");
+  const clearError = () => (errorMsg.value = "");
+
+  async function setCell(sku: string, surface: string, patch: CellPatch): Promise<boolean> {
+    const key = cellKey(sku, surface);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch("/api/v1/backstage/catalog/cell/", {
+        method: "POST",
+        body: { sku, surface_ref: surface, ...patch },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao atualizar. Tente de novo.";
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
+  // Product-level pause/publish ("globalzinho") — flips the produto-level switch,
+  // which gates every channel at once. Busy key namespaced apart from cell keys.
+  const productKey = (sku: string) => `product@${sku}`;
+  async function setProduct(
+    sku: string,
+    patch: Pick<CellPatch, "is_published" | "is_sellable">,
+  ): Promise<boolean> {
+    const key = productKey(sku);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch("/api/v1/backstage/catalog/product/", {
+        method: "POST",
+        body: { sku, ...patch },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao atualizar. Tente de novo.";
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
+  // Bulk over a surface, scoped by collection ref OR an explicit sku list.
+  const bulkBusy = ref(false);
+  async function bulkSet(
+    surface: string,
+    scope: { collection_ref?: string; skus?: string[] },
+    patch: Pick<CellPatch, "is_published" | "is_sellable">,
+  ): Promise<number> {
+    if (bulkBusy.value) return 0;
+    clearError();
+    bulkBusy.value = true;
+    try {
+      const res = await $fetch<{ count: number }>("/api/v1/backstage/catalog/bulk/", {
+        method: "POST",
+        body: { surface_ref: surface, ...scope, ...patch },
+      });
+      await refresh();
+      const count = res?.count ?? 0;
+      useSonner.success(`${count} item(ns) atualizado(s).`);
+      return count;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha na ação em lote.";
+      useSonner.error(errorMsg.value);
+      return 0;
+    } finally {
+      bulkBusy.value = false;
+    }
+  }
+
+  // Reprecificação em lote: op set|pct|delta, value em centavos (set/delta) ou
+  // pontos percentuais (pct). Escopo por coleção OU lista de skus.
+  async function bulkPrice(
+    surface: string,
+    scope: { collection_ref?: string; skus?: string[] },
+    patch: { op: "set" | "pct" | "delta"; value: number },
+  ): Promise<number> {
+    if (bulkBusy.value) return 0;
+    clearError();
+    bulkBusy.value = true;
+    try {
+      const res = await $fetch<{ count: number }>("/api/v1/backstage/catalog/bulk-price/", {
+        method: "POST",
+        body: { surface_ref: surface, ...scope, ...patch },
+      });
+      await refresh();
+      const count = res?.count ?? 0;
+      useSonner.success(`${count} preço(s) atualizado(s).`);
+      return count;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reprecificar.";
+      useSonner.error(errorMsg.value);
+      return 0;
+    } finally {
+      bulkBusy.value = false;
+    }
+  }
+
+  // ── reordenação (curadoria) ────────────────────────────────────────────────
+  async function reorderCollections(orderedRefs: string[]): Promise<boolean> {
+    clearError();
+    try {
+      await $fetch("/api/v1/backstage/catalog/reorder-collections/", {
+        method: "POST",
+        body: { ordered_refs: orderedRefs },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+      useSonner.error(errorMsg.value);
+      await refresh(); // reverte o otimista
+      return false;
+    }
+  }
+  async function reorderItems(collectionRef_: string, orderedSkus: string[]): Promise<boolean> {
+    clearError();
+    try {
+      await $fetch("/api/v1/backstage/catalog/reorder-items/", {
+        method: "POST",
+        body: { collection_ref: collectionRef_, ordered_skus: orderedSkus },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+      useSonner.error(errorMsg.value);
+      await refresh();
+      return false;
+    }
+  }
+
+  return {
+    matrix, pending, error, refresh, isBusy, cellKey, productKey, errorMsg, clearError,
+    setCell, setProduct, bulkSet, bulkPrice, reorderCollections, reorderItems, bulkBusy,
+  };
+}

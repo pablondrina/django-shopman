@@ -1,0 +1,112 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ ref }} · Menuboard</title>
+  <style>
+    /* Quadro-negro "pintado à mão" — marca Nelson (moss-black + giz creme + dourado).
+       Kiosk display: EventSource (API do browser) para tempo real; Alpine para o
+       estado/render local (convenção do projeto). Fallback de poll a cada 30s. */
+    :root {
+      --board: #16241b; --board-2: #1c2d22; --chalk: #f3ead3; --gold: #d8b24a;
+      --dim: rgba(243, 234, 211, 0.38); --rule: rgba(243, 234, 211, 0.22);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(120% 120% at 50% 0%, var(--board-2), var(--board));
+      color: var(--chalk);
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      -webkit-font-smoothing: antialiased;
+      padding: clamp(1.5rem, 4vw, 4rem); min-height: 100%;
+    }
+    [x-cloak] { display: none !important; }
+    .board { max-width: 1400px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: clamp(1.5rem, 4vh, 3rem); }
+    h1 { font-size: clamp(2.2rem, 6vw, 4.5rem); margin: 0; letter-spacing: 0.04em; text-shadow: 0 1px 0 rgba(0,0,0,0.4); }
+    .subtitle { color: var(--dim); font-size: clamp(1rem, 2vw, 1.4rem); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 0.4rem; }
+    .cols { columns: 2; column-gap: clamp(2rem, 5vw, 5rem); }
+    @media (max-width: 720px) { .cols { columns: 1; } }
+    section { break-inside: avoid; margin-bottom: clamp(1.4rem, 3vh, 2.4rem); }
+    .section-title { color: var(--gold); font-size: clamp(1.3rem, 2.6vw, 2rem); letter-spacing: 0.06em; border-bottom: 2px solid var(--rule); padding-bottom: 0.3rem; margin-bottom: 0.7rem; }
+    .row { display: flex; align-items: baseline; gap: 0.6rem; margin: 0.55rem 0; }
+    .name { font-size: clamp(1.05rem, 2vw, 1.5rem); white-space: nowrap; }
+    .leader { flex: 1; border-bottom: 2px dotted var(--rule); transform: translateY(-0.35rem); }
+    .price { font-size: clamp(1.05rem, 2vw, 1.5rem); color: var(--gold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .desc { color: var(--dim); font-size: clamp(0.8rem, 1.4vw, 1rem); margin: -0.2rem 0 0.2rem; }
+    .row.out .name, .row.out .price { color: var(--dim); text-decoration: line-through; text-decoration-thickness: 1px; }
+    .tag-out { color: var(--board); background: var(--dim); border-radius: 999px; font-size: 0.7em; padding: 0.05em 0.6em; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+    footer { text-align: center; color: var(--dim); font-size: 0.85rem; letter-spacing: 0.12em; margin-top: 2rem; }
+    .live-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--gold); margin-right: 0.4rem; vertical-align: middle; }
+    .live-dot.stale { background: var(--dim); }
+    .empty { text-align: center; color: var(--dim); padding: 4rem 0; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <div class="board" x-data="menuboard()" x-init="init()" x-cloak>
+    <header>
+      <h1 x-text="board.title">…</h1>
+      <div class="subtitle" x-text="board.subtitle"></div>
+    </header>
+    <div class="cols">
+      <template x-for="group in board.groups" :key="group.title">
+        <section>
+          <div class="section-title" x-text="group.title"></div>
+          <template x-for="it in group.items" :key="it.sku">
+            <div>
+              <div class="row" :class="{ out: !it.available }">
+                <span class="name" x-text="it.name"></span>
+                <span class="leader"></span>
+                <span class="price" x-show="it.available" x-text="brl(it.price_q)"></span>
+                <span class="tag-out" x-show="!it.available">Esgotado</span>
+              </div>
+              <div class="desc" x-show="it.description" x-text="it.description"></div>
+            </div>
+          </template>
+        </section>
+      </template>
+    </div>
+    <div class="empty" x-show="totalItems === 0">Sem itens no momento.</div>
+    <footer>
+      <span class="live-dot" :class="{ stale: !live }"></span>
+      <span x-text="live ? 'ao vivo' : 'reconectando…'"></span>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+  <script>
+    // Componente Alpine do quadro. Estado inicial embutido (paint imediato); SSE no
+    // canal público stock-{ref} que o motor de disponibilidade já emite ao pausar/
+    // reprecificar; poll de fallback a cada 30s.
+    function menuboard() {
+      var ref = "{{ ref|escapejs }}";
+      return {
+        board: {{ initial|safe }},
+        live: true,
+        get totalItems() { return (this.board.groups || []).reduce(function (n, g) { return n + (g.items || []).length; }, 0); },
+        brl: function (q) { return "R$ " + ((q || 0) / 100).toFixed(2).replace(".", ","); },
+        refresh: function () {
+          var self = this;
+          fetch("/menuboard/" + ref + "/data/", { headers: { accept: "application/json" }, credentials: "same-origin" })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (b) { if (b) { self.board = b; self.live = true; } })
+            .catch(function () { self.live = false; });
+        },
+        init: function () {
+          var self = this;
+          try {
+            var es = new EventSource("/menuboard/" + ref + "/events/");
+            var onEvt = function () { self.refresh(); };
+            es.onmessage = onEvt;
+            ["listing-changed", "product-paused", "stock-update"].forEach(function (t) { es.addEventListener(t, onEvt); });
+            es.onopen = function () { self.live = true; };
+            es.onerror = function () { self.live = false; };
+          } catch (e) { self.live = false; }
+          setInterval(function () { self.refresh(); }, 30000);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

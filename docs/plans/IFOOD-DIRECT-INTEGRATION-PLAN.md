@@ -151,9 +151,9 @@ KDS Nuxt :3003). Gerado pedido de teste no Portal → `ifood_poll` ingeriu ao vi
 - **Como abrir a loja de teste**: ela fica `CLOSED` só por não estar conectada (`is-connected`); o
   horário já é 24/7. Basta o `ifood_poll --watch` rodando (mantém conectada) + botão "Gerar pedido de
   teste" no Portal (Menu Testes). O pedido cai no polling. Endereço da loja teste = Bujari/AC.
-- ⚠️ **Decisão em aberto (Pablo/homologação):** `Order.total_q` do pedido iFood hoje = subtotal dos
-  itens (com opções). Taxa de entrega + taxa de serviço ficam em `data.ifood.totals`, não somadas ao
-  `total_q`. Confirmar se o total interno deve ser o `orderAmount` (grand total) ou o subtotal.
+- ✅ **DECIDIDO + IMPLEMENTADO:** `Order.total_q` do pedido iFood = **`orderAmount` (grand total)**.
+  `ifood_ingest.py`: `total_q = order_amount_q or items_subtotal_q` (fallback ao subtotal se ausente).
+  Verificado ao vivo (`total_q=2700` = orderAmount). Taxas/breakdown ficam em `data.ifood.totals`.
 
 ## Contratos (confirmar na doc oficial durante a implementação — o portal bloqueia bots)
 

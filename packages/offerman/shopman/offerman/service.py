@@ -288,7 +288,14 @@ class CatalogService:
             ).distinct()
 
         if collection:
-            qs = qs.filter(collection_items__collection__ref=collection)
+            from shopman.offerman.models import Collection
+
+            coll = Collection.objects.filter(ref=collection).first()
+            if coll and coll.is_smart:
+                # Smart collection: membership computada por regra.
+                qs = qs.filter(pk__in=coll.product_queryset().values("pk"))
+            else:
+                qs = qs.filter(collection_items__collection__ref=collection)
         if keywords:
             qs = qs.filter(keywords__name__in=keywords).distinct()
 

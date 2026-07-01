@@ -3,9 +3,12 @@ Offerman Admin with Unfold theme.
 """
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
+from django import forms
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportMixin, ImportExportModelAdmin
@@ -30,6 +33,7 @@ from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularI
 from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
 from unfold.contrib.import_export.forms import ExportForm, ImportForm
 from unfold.decorators import display
+from unfold.widgets import UnfoldAdminTextareaWidget
 
 # Unregister basic admins
 for model in [Collection, Listing, Product]:
@@ -54,8 +58,52 @@ class CollectionItemInline(BaseTabularInline):
     hide_ordering_field = True
 
 
+_RULE_HELP = (
+    "Coleção por regra (smart collection). Vazio = coleção manual (usa os itens abaixo). "
+    'JSON: {"match": "all"|"any", "conditions": [{"field", "op", "value"}]}. '
+    "Campos: keyword, sku, name, unit, base_price_q, is_published, is_sellable, collection. "
+    "Operadores: eq, ne, lt, lte, gt, gte, in, contains."
+)
+
+
+class CollectionAdminForm(forms.ModelForm):
+    """Form com editor JSON validado da regra (smart collection)."""
+
+    rule = forms.CharField(
+        widget=UnfoldAdminTextareaWidget(attrs={"rows": 6}),
+        required=False,
+        help_text=_RULE_HELP,
+    )
+
+    class Meta:
+        model = Collection
+        fields = (
+            "ref", "name", "description", "parent",
+            "valid_from", "valid_until", "sort_order", "is_active", "rule",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.rule:
+            self.fields["rule"].initial = json.dumps(self.instance.rule, indent=2, ensure_ascii=False)
+
+    def clean_rule(self):
+        raw = (self.cleaned_data.get("rule") or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"JSON inválido: {e}") from e
+        from shopman.offerman.smart_collection import validate_rule
+
+        validate_rule(parsed)  # levanta ValidationError em regra malformada
+        return parsed
+
+
 @admin.register(Collection)
 class CollectionAdmin(BaseModelAdmin):
+    form = CollectionAdminForm
     # Ordem das coleções = lista arrastável (Unfold). O Unfold reatribui
     # sort_order pela posição (topo→base), por isso a lista ordena ascendente.
     ordering_field = "sort_order"
@@ -65,6 +113,7 @@ class CollectionAdmin(BaseModelAdmin):
         "name",
         "parent",
         "is_active_badge",
+        "is_smart_badge",
         "valid_from",
         "valid_until",
         "products_count",
@@ -80,15 +129,28 @@ class CollectionAdmin(BaseModelAdmin):
         ("Hierarquia", {"fields": ("parent",)}),
         ("Validade", {"fields": ("valid_from", "valid_until")}),
         ("Configurações", {"fields": ("sort_order", "is_active")}),
+        ("Regra (smart collection)", {
+            "fields": ("rule",),
+            "classes": ("tab",),
+            "description": (
+                "Preencha para tornar a coleção por regra (membros computados dos atributos "
+                "do produto). Vazia = coleção manual (itens explícitos)."
+            ),
+        }),
     ]
 
     @display(description="Ativo", boolean=True)
     def is_active_badge(self, obj):
         return obj.is_active
 
+    @display(description="Regra", boolean=True)
+    def is_smart_badge(self, obj):
+        return obj.is_smart
+
     @display(description="Produtos")
     def products_count(self, obj):
-        return obj.items.count()
+        # smart-aware: regra resolve a membership; manual conta os itens explícitos.
+        return obj.product_queryset().count()
 
 
 # =============================================================================

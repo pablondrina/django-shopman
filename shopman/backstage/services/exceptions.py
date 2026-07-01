@@ -25,3 +25,7 @@ class POSError(BackstageServiceError):
 
 class ProductionError(BackstageServiceError):
     """Raised when a production mutation cannot be applied."""
+
+
+class CatalogError(BackstageServiceError):
+    """Raised when a catalog mutation cannot be applied."""

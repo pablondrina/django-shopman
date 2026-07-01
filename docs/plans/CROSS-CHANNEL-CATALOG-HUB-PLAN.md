@@ -21,7 +21,11 @@
   (PATCH status UNAVAILABLE) — **verificados AO VIVO**. Sem imagem inline (iFood 500).
 - **Nutrição/dietético**: Craftsman deriva alergênicos/dieta/nutrição das receitas (recipe derivation).
 
-### O gap de wiring (por que pausar não chega ao iFood hoje)
+### O gap de wiring (histórico — estado ANTES do auto-trigger + Frente 1)
+> Registro do gap original. **1-2 resolvidos pelo auto-trigger (PR #25)**; **4-5 resolvidos pela
+> Frente 1** (ver follow-ups abaixo). **3 permanece parcial**: `project_listing` já tem caller de
+> produção (o comando `sync_catalog_ifood`), mas ainda não há gatilho de reconciliação para bulk/
+> deleção — é a ponte para a Frente 3.
 1. Toggle de `is_sellable`/`is_published` **não dispara signal** (`ListingItem.save()` só emite
    `price_changed`, e só em mudança de preço). Ações de produto usam `queryset.update()` (nem `save()`).
 2. O handler de projeção só escuta `product_created` + `price_changed`.
@@ -40,13 +44,27 @@ Fatia entregue (commit no PR #25), reaproveitando a infra existente:
 - **Verificado ao vivo**: pausar `is_sellable=False` → iFood UNAVAILABLE; reativar → AVAILABLE.
 
 ### ⚠️ Follow-ups descobertos (para o hub, decisão deliberada — NÃO ramar às cegas)
-1. **Duas registries divergentes para projeção**: `SHOPMAN_CATALOG_PROJECTION_ADAPTERS` (usada pelo
-   handler/signals, shop) vs `OFFERMAN["PROJECTION_BACKENDS"]` (usada por `project_listing`/
-   `project_catalogs`/`get_projection_backend`, offerman). Unificar numa só (canônica) é pré-requisito
-   pra rotear tudo pelo `project_listing`.
-2. **`sync_catalog_ifood` não é retract-aware** — instancia `IFoodCatalogProjection` e chama
-   `project()` cru (não retrata). Depois de unificar (1), roteá-lo por `project_listing`.
+1. ✅ **FEITO (Frente 1, 2026-07-01)** — **Registry de projeção unificada.** A canônica é a do
+   **Offerman** (`OFFERMAN["PROJECTION_BACKENDS"]` + `get_projection_backend()`); o kernel é dono do
+   contrato, o adapter concreto fica no shop, alcançado por dotted-path (sem import cruzado). O
+   `SHOPMAN_CATALOG_PROJECTION_ADAPTERS` foi **aposentado**: o handler/signals do shop
+   (`_register_catalog_projection_handler`, `_projection_listing_refs`) agora resolvem via offerman.
+   O env-gate `IFOOD_CATALOG_PROJECTION` passou a popular a registry canônica (default-off preservado).
+   Achado que mudou o desenho: **não havia adapter iFood duplicado no offerman** (era só exemplo de
+   docstring). Os dois retracts são **complementares, não redundantes**: per-SKU (handler, delta
+   event-driven) vs per-listing (`project_listing`, reconciliação por diff de `last_projected_skus`).
+2. ✅ **FEITO (Frente 1, 2026-07-01)** — **`sync_catalog_ifood` retract-aware.** Roteado por
+   `CatalogService.project_listing("ifood", full_sync=…)`: incremental reconcilia (upsert dos
+   publicáveis + retract dos despublicados/removidos + persiste `last_projected_skus`); `--full` faz
+   upsert-all sem retract. Sem backend configurado → `CommandError` claro. Testes novos cobrindo
+   full/incremental-retract/not-configured. `make test` verde.
 3. **Imagem**: projeção não sincroniza foto (iFood exige upload separado/`imagePath`). Fluxo à parte.
+
+> **Ponte para a Frente 3 (deixada de propósito):** bulk actions do admin e deleções de
+> `ListingItem`/`Product` usam `queryset.update()`/`delete()` → **não chamam `save()` → não emitem
+> signal** → o delta per-SKU (handler) não os vê. Quem os pega é a reconciliação per-listing
+> (`project_listing`, via diff). Portanto as **ações em lote da matriz (Frente 3)** devem rotear por
+> `project_listing` (reconciliação), não emitir N signals. O resolver unificado já é o seam pronto.
 
 ## Referência — Cardápio do iFood (Portal do Parceiro, verificado ao vivo 2026-07-01)
 
@@ -210,6 +228,109 @@ ao Django Shopman** — uma **superfície display** alimentada por coleção, at
 (SSE) que já existe. Provável **nova superfície Nuxt** (`surfaces/menuboard-*`) assinando o stream da
 coleção, com layout "chalkboard" fiel à marca Nelson. Adapter `menuboard` = mais um
 `CatalogProjectionBackend`/consumidor de eventos.
+
+## Frente 2 — ✅ FEITO (2026-07-01): primitivo Superfície + coleções por regra
+
+Decisões (aprovadas): **Shape 1** (formalizar sobre o modelo atual, zero migração no Core para a
+Superfície) + **`rule` JSONField em Collection**. Verificado no código antes: Channel não tem campo
+de tipo/capacidade (classifica por convenção de `ref`); Listing/Channel ligam por convenção
+`ref==ref`; a registry canônica (Frente 1) já é keyed por `listing_ref` → o **Listing já é a espinha
+da superfície**. O que faltava era só a **capacidade** e a **fonte-coleção**.
+
+- **WP-2a (shop, zero migração Core)** — `capability` (`transactional|display|feed`, default
+  `transactional`) + aspecto `content` (`source: listing|collection` + `collection` ref) no
+  `ChannelConfig`. Vivem em `Channel.config` (JSON), como os outros 8 aspectos; cascata + validação.
+  Os 5 canais seedados permanecem `transactional`/`content=listing` por default. 12 testes.
+- **WP-2b (offerman Core, migração `0006_collection_rule`)** — `rule` JSONField em `Collection` +
+  resolver `offerman/smart_collection.py`. Schema `{match: all|any, conditions:[{field,op,value}]}`;
+  campos keyword/sku/name/unit/base_price_q/is_published/is_sellable/collection; ops
+  eq/ne/lt/lte/gt/gte/in/contains. `Collection.is_smart` + `Collection.product_queryset()` (regra se
+  smart, senão CollectionItems). Smart vs manual é **exclusivo** (Shopify-style). `clean()` valida a
+  regra. 18 testes.
+- **WP-2c (não-dormente)** — smart collections resolvem de verdade nos dois consumidores canônicos de
+  "produtos numa coleção": `CatalogService.search(collection=…)` e a API de catálogo do storefront
+  (página de coleção do cliente). Ambos via `Collection.product_queryset()`.
+
+**Fora do escopo da Frente 2 (deliberado):** UI de admin para editar `rule`/`capability` (Admin/Unfold
+Canonical Gate) e o **materializador coleção→ListingItems** vão para a **Frente 3** (matriz + bulk).
+Nesta frente o motor está pronto e consumido; a criação de smart collection é via seed/shell/API até a
+UI da Frente 3.
+
+## Frente 3 — ✅ COMPLETA (2026-07-01): matriz produto×superfície
+
+**Decisão de arquitetura (aprovada): SPLIT.** A **matriz operacional** (pausa/preço/bulk/sync) vive no
+**Gestor Nuxt** (`orders-uithing-nuxt`); a **edição de config** (`Collection.rule`, `capability`/
+`content` da superfície) vive no **Admin/Unfold**. Espelha o precedente da produção (console Admin +
+app Nuxt) e honra tanto o Canonical Gate (config→Unfold) quanto o plano (matriz→Gestor). Verificado:
+API backstage = `APIView`+`HasBackstagePermission`+projection dataclass; `shop.manage_catalog` já
+existe; backstage já lê offerman direto nas projections.
+
+- **WP-3b ✅ FEITO** — backend do catálogo (frontend-agnóstico):
+  - `backstage/projections/catalog.py`: matriz (superfícies com capability/content/sync-status +
+    linhas produto com célula por superfície = ListingItem + eixo coleção com `is_smart`/count).
+    Registrada na exceção `headless-operator-api` do gate canônico.
+  - `backstage/services/catalog.py`: `set_cell` (célula → `ListingItem.save()` → auto-trigger),
+    `bulk_set`/`bulk_set_collection` (`queryset.update()` + **reconcile via `project_listing` só se a
+    superfície é alvo de projeção** — a ponte da Frente 1). `CatalogError` no facade.
+  - `backstage/api/catalog.py` + urls: `GET catalog/` (matriz), `POST catalog/cell/`,
+    `POST catalog/bulk/` (por skus ou coleção, inclusive smart). Gate `shop.manage_catalog`.
+  - 11 testes de contrato. `make test` 2259; `make admin` verde.
+- **WP-3c ✅ FEITO** — Gestor Nuxt (`orders-uithing-nuxt`): nova aba **Catálogo** (nav Pedidos↔Catálogo).
+  `pages/catalog.vue` (matriz produto×superfície, chips do eixo coleção com filtro server-side via
+  `?collection` smart-aware, barra de bulk scoped à coleção, pausa 1-clique + preço inline por célula,
+  capability/sync por coluna, "—" onde não ofertado), `useCatalogMatrix` (fetch+setCell/bulkSet+poll),
+  `presentation/catalog.ts` (18 testes vitest), `types/catalog.ts`. **Verificado ao vivo** com os dados
+  do Nelson (51 produtos × 5 superfícies; eixo coleção E2E). Backend ganhou o param `?collection`
+  (build_catalog_matrix via product_queryset). make test 2261; vitest 48.
+- **WP-3a ⏭️** — Admin/Unfold: editor de `rule` no Collection admin + `capability`/`content` no Channel.
+- **WP-3d ⏭️** — materializador coleção→ListingItems (superfície alimentada por coleção).
+
+## Frente 4 — ✅ COMPLETA (2026-07-01): 📺 menuboard display tempo real
+
+Superfície **display** (`capability=display`) alimentada por coleção, renderizada como quadro-negro
+"pintado à mão" (marca Nelson) numa TV, **atualizada em tempo real** (pausar/reprecificar reflete na
+hora). Reusa 100% o primitivo Superfície + o motor de SSE existente.
+- `shop/projections/menuboard.py` (semântica, price_q int — R-B) + `views/menuboard.py` (página kiosk
+  pública + JSON + stream SSE) + `menuboard_urls.py`. Template chalkboard Alpine (`x-for`/`x-text`, sem
+  getElementById) + EventSource no canal público `stock-{ref}` + poll 30s.
+- `_sse_emitters` passou a emitir também em mudança de **preço** do ListingItem + `emit_surface_changed`
+  para bulk (queryset.update). **Verificado ao vivo** (quadro Nelson, dados reais). Commit `f5b301d2`.
+
+## Frente 5 — ✅ FEED PULL (2026-07-01); push credencial-gated (Pablo)
+
+Superfícies **feed** (`capability=feed`) → **feed RSS 2.0 público** (`GET /feed/<ref>.xml`, namespace
+`g:` do Google) que Google Merchant e Meta buscam por agendamento — **ambos aceitam o mesmo XML**.
+Pull = **sem credenciais**: o Pablo só cola a URL nos painéis. `custom_label_0` = coleção primária (o
+análogo das smart collections p/ anúncios). Pesquisa Google **verificada** (fontes primárias);
+`identifier_exists=no` para padaria sem GTIN. 5 testes; verificado ao vivo. Detalhes + o que falta
+(push near-real-time via Merchant API / Meta Catalog Batch API — credencial do Pablo) em
+[docs/plans/CATALOG-FEEDS-GOOGLE-META.md](CATALOG-FEEDS-GOOGLE-META.md). ⚠️ Pesquisa Meta ficou parcial.
+
+## ⭐ Refactor decisivo — EXPOSITOR (Showcase), não "Superfície" (Pablo, 2026-07-01)
+
+O Pablo apontou (com razão) que enfiar menuboard/feed no `Channel` com uma flag `capability` misturava
+conceitos: (1) poluía o espaço transacional (menuboard virava "canal" e vazava em pedido/POS/regra),
+(2) prendia a exibição a UMA coleção-fonte (não dava pra compor/organizar por várias), (3) "Superfície"
+é nome ambíguo (não é canal de venda). Modelo novo, mais simples/robusto/elegante — **três conceitos,
+cada um com um papel**:
+
+- **Coleção** (já existe) = conteúdo/organização (manual ou por regra). Unidade universal.
+- **Canal** (`Channel`, voltou a ser só transacional) = ponto de VENDA. iFood/web/PDV/WhatsApp.
+- **Expositor** (`shop.Showcase`, UI "Expositor") = exibe N coleções PARA FORA, sem transacionar:
+  `kind` (menuboard/google/meta) + `collections` (lista de refs). No menuboard as coleções viram
+  SEÇÕES; no feed, os `custom_label_0`/Product Sets. Nome de código = `Showcase` (o "expositor" em
+  inglês é falso cognato). Verbose_name PT trocável numa linha.
+
+Resolve tudo: sem poluição (Expositor não é Channel), multi-coleção nativo (compõe as coleções reais,
+sem guarda-chuva), nome honesto. E **simplifica**: matriz volta a ser produto×Canal; menuboard/feed
+leem o estado CANÔNICO do produto (dispensa materializador e override por-superfície).
+
+**Feito (R1–R3, 2026-07-01):** model `Showcase`+admin Unfold (multi-seleção de coleções, links prontos);
+menuboard+feed resolvem por Showcase (SSE via canal global `stock-catalog`); `capability`/`content`
+removidos do ChannelConfig+admin+matriz; materializador removido. make test 2274; make admin 255.
+**Verificado ao vivo**: menuboard "Quadro Nelson" com 4 seções (Rústicos/Folhados/Doces/Bebidas quentes,
+37 itens); feed com `custom_label_0`=coleção. As Frentes 4/5 acima descrevem o comportamento; o modelo
+que as sustenta é o Expositor.
 
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 

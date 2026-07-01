@@ -94,8 +94,8 @@ def _get_projected_item(sku: str, listing_ref: str) -> ProjectedItem | None:
 
 
 def _projection_listing_refs() -> list[str]:
-    from django.conf import settings
-    return list(getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {}).keys())
+    from shopman.offerman.conf import get_projection_backend_channels
+    return get_projection_backend_channels()
 
 
 # ── Signal receivers ──────────────────────────────────────────────────────────

@@ -23,6 +23,9 @@ class ChannelConfig:
     pricing       — como o preço é definido? (internal/external)
     editing       — itens podem ser editados? (open/locked)
     rules         — quais validators/modifiers ativar?
+
+    Um Channel é um canal de VENDA (transacional). Exibição/feed (menuboard, Google,
+    Meta) NÃO são canais — vivem em ``shop.Showcase`` (Expositor).
     """
 
     # ── 1. Confirmação ──
@@ -145,7 +148,7 @@ class ChannelConfig:
     editing: Editing = field(default_factory=Editing)
     rules: Rules = field(default_factory=Rules)
 
-    # ── 9. Lifecycle ──
+    # ── Lifecycle ──
 
     lifecycle: dict = field(default_factory=dict)
     # Status transition map and terminal statuses baked into Order.snapshot at commit.

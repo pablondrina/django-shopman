@@ -25,6 +25,18 @@ from shopman.orderman.models import Directive
 
 from shopman.shop.directives import CATALOG_PROJECT_SKU
 
+# ── Canonical projection registry (OFFERMAN["PROJECTION_BACKENDS"]) ─────────────
+# Mirrors config/settings.py OFFERMAN so override_settings preserves the other
+# keys (pricing backend) while toggling the iFood projection backend.
+_IFOOD_BACKEND = "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"
+_OFFERMAN_BASE = {
+    "COST_BACKEND": None,
+    "PRICING_BACKEND": "shopman.shop.adapters.pricing.StorefrontPricingBackend",
+}
+_OFFERMAN_IFOOD = {**_OFFERMAN_BASE, "PROJECTION_BACKENDS": {"ifood": _IFOOD_BACKEND}}
+_OFFERMAN_NONE = {**_OFFERMAN_BASE, "PROJECTION_BACKENDS": {}}
+
+
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -62,6 +74,16 @@ def fake_oauth():
         return_value="fake-token-xyz",
     ):
         yield
+
+
+@pytest.fixture
+def reset_projection_registry():
+    """Clear the offerman projection-backend instance cache around a test."""
+    from shopman.offerman.conf import reset_projection_backends
+
+    reset_projection_backends()
+    yield
+    reset_projection_backends()
 
 
 @pytest.fixture
@@ -356,7 +378,7 @@ def test_handler_schedules_retry_on_rate_limit(db, ifood_channel, ifood_directiv
 # ── Signal receivers + idempotency ────────────────────────────────────────────
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_on_product_created_enqueues_directive(db):
     """product_created signal → catalog.project_sku Directive created."""
     from shopman.shop.handlers.catalog_projection import on_product_created
@@ -371,7 +393,7 @@ def test_on_product_created_enqueues_directive(db):
     assert d.dedupe_key.startswith("catalog.project_sku:ifood:BAGUETE:")
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_on_product_updated_enqueues_directive(db):
     """product_updated (name/description/publish) → catalog.project_sku Directive."""
     from shopman.shop.handlers.catalog_projection import on_product_updated
@@ -383,7 +405,7 @@ def test_on_product_updated_enqueues_directive(db):
     assert directives.first().payload["sku"] == "BAGUETE"
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_on_availability_changed_enqueues_directive(db):
     """availability_changed (per-channel pause/resume) → catalog.project_sku Directive."""
     from shopman.shop.handlers.catalog_projection import on_availability_changed
@@ -395,7 +417,7 @@ def test_on_availability_changed_enqueues_directive(db):
     assert directives.first().payload["sku"] == "CROISSANT"
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={})
+@override_settings(OFFERMAN=_OFFERMAN_NONE)
 def test_availability_signal_noop_without_adapter(db):
     """No adapter configured → availability receiver creates no directive (safe no-op)."""
     from shopman.shop.handlers.catalog_projection import on_availability_changed
@@ -404,7 +426,7 @@ def test_availability_signal_noop_without_adapter(db):
     assert Directive.objects.filter(topic=CATALOG_PROJECT_SKU).count() == 0
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_on_price_changed_enqueues_directive(db):
     """price_changed signal → catalog.project_sku Directive created."""
     from shopman.shop.handlers.catalog_projection import on_price_changed
@@ -423,7 +445,7 @@ def test_on_price_changed_enqueues_directive(db):
     assert directives.first().payload["sku"] == "CROISSANT"
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_idempotency_same_price_signal_twice(db):
     """Same price_changed event fired twice → only 1 Directive (dedupe)."""
     from shopman.shop.handlers.catalog_projection import on_price_changed
@@ -443,7 +465,7 @@ def test_idempotency_same_price_signal_twice(db):
     assert count == 1, f"Expected 1 directive (idempotent), got {count}"
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
 def test_different_prices_create_different_directives(db):
     """Different prices → different dedupe_keys → 2 Directives."""
     from shopman.shop.handlers.catalog_projection import on_price_changed
@@ -463,9 +485,9 @@ def test_different_prices_create_different_directives(db):
     assert count == 2
 
 
-@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={})
+@override_settings(OFFERMAN=_OFFERMAN_NONE)
 def test_signal_noop_when_no_adapters_configured(db):
-    """With empty SHOPMAN_CATALOG_PROJECTION_ADAPTERS, receivers create no directives."""
+    """With no projection backend configured, receivers create no directives."""
     from shopman.shop.handlers.catalog_projection import on_product_created
 
     on_product_created(sender=None, instance=None, sku="BAGUETE")
@@ -501,13 +523,16 @@ def test_sync_catalog_ifood_dry_run(db, capsys):
     assert "dry run" in out.lower()
 
 
-def test_sync_catalog_ifood_full_sync(db, ifood_settings, fake_oauth):
-    """--full calls backend.project(full_sync=True) and reports success."""
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
+def test_sync_catalog_ifood_full_sync(db, ifood_settings, fake_oauth, reset_projection_registry):
+    """--full routes through project_listing → upserts all, no retract."""
     from django.core.management import call_command
+    from shopman.offerman.models import Listing
 
     from shopman.shop.models import Channel
 
     Channel.objects.create(ref="ifood", name="iFood", is_active=True)
+    Listing.objects.create(ref="ifood", name="iFood")
 
     items = [
         ProjectedItem(
@@ -518,9 +543,76 @@ def test_sync_catalog_ifood_full_sync(db, ifood_settings, fake_oauth):
 
     with patch("shopman.offerman.service.CatalogService.get_projection_items", return_value=items):
         with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=ifood_settings):
-            with patch("requests.put") as mock_put:
+            with patch("requests.put") as mock_put, patch("requests.patch") as mock_patch:
                 mock_put.return_value = MagicMock(status_code=200, headers={})
                 mock_put.return_value.raise_for_status = MagicMock()
                 call_command("sync_catalog_ifood", full=True)
 
     mock_put.assert_called_once()
+    mock_patch.assert_not_called()  # full sync never retracts
+
+    # last_projected_skus persisted for the next incremental diff.
+    listing = Listing.objects.get(ref="ifood")
+    assert listing.projection_metadata["last_projected_skus"] == ["PAO"]
+
+
+@override_settings(OFFERMAN=_OFFERMAN_IFOOD)
+def test_sync_catalog_ifood_incremental_retracts(db, ifood_settings, fake_oauth, reset_projection_registry):
+    """Incremental sync upserts sellable items and retracts unavailable ones."""
+    from django.core.management import call_command
+    from shopman.offerman.models import Listing
+
+    from shopman.shop.models import Channel
+
+    Channel.objects.create(ref="ifood", name="iFood", is_active=True)
+    Listing.objects.create(ref="ifood", name="iFood")
+
+    items = [
+        ProjectedItem(
+            sku="PAO", name="Pão", description="", unit="un",
+            price_q=350, is_published=True, is_sellable=True, category="paes",
+        ),
+        ProjectedItem(
+            sku="CROISSANT", name="Croissant", description="", unit="un",
+            price_q=800, is_published=True, is_sellable=False, category="paes",
+        ),
+    ]
+
+    with patch("shopman.offerman.service.CatalogService.get_projection_items", return_value=items):
+        with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=ifood_settings):
+            with patch("requests.put") as mock_put, patch("requests.patch") as mock_patch:
+                mock_put.return_value = MagicMock(status_code=200, headers={})
+                mock_put.return_value.raise_for_status = MagicMock()
+                mock_patch.return_value = MagicMock(status_code=202, headers={})
+                mock_patch.return_value.raise_for_status = MagicMock()
+                call_command("sync_catalog_ifood")
+
+    mock_put.assert_called_once()  # PAO upserted
+    mock_patch.assert_called_once()  # CROISSANT (not sellable) retracted
+
+    listing = Listing.objects.get(ref="ifood")
+    assert listing.projection_metadata["last_projected_skus"] == ["PAO"]
+
+
+@override_settings(OFFERMAN=_OFFERMAN_NONE)
+def test_sync_catalog_ifood_backend_not_configured(db, reset_projection_registry):
+    """No projection backend configured → clear CommandError, no API calls."""
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+    from shopman.offerman.models import Listing
+
+    from shopman.shop.models import Channel
+
+    Channel.objects.create(ref="ifood", name="iFood", is_active=True)
+    Listing.objects.create(ref="ifood", name="iFood")
+
+    items = [
+        ProjectedItem(
+            sku="PAO", name="Pão", description="", unit="un",
+            price_q=350, is_published=True, is_sellable=True,
+        )
+    ]
+
+    with patch("shopman.offerman.service.CatalogService.get_projection_items", return_value=items):
+        with pytest.raises(CommandError, match="IFOOD_CATALOG_PROJECTION"):
+            call_command("sync_catalog_ifood")

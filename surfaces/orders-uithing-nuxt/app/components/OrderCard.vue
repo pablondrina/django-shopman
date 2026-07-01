@@ -37,9 +37,14 @@ function buttonClass(priority: string): string {
 </script>
 
 <template>
+  <!-- foco: pedidos NOVOS (aguardando confirmar/recusar) ganham um filete âmbar à
+       esquerda — a decisão pendente do operador salta à vista sem poluir o resto. -->
   <article
     class="flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 transition hover:border-primary/40"
-    :class="selected ? 'border-primary ring-1 ring-primary' : ''"
+    :class="[
+      selected ? 'border-primary ring-1 ring-primary' : '',
+      card.can_confirm && !selected ? 'border-l-2 border-l-amber-500' : '',
+    ]"
   >
     <!-- ref + timer -->
     <div class="flex items-start gap-2">

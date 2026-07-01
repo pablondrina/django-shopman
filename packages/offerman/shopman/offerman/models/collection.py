@@ -38,6 +38,13 @@ class Collection(models.Model):
     sort_order = models.IntegerField(default=0, verbose_name=_("ordem"))
     is_active = models.BooleanField(default=True, verbose_name=_("ativo"))
 
+    # Smart collection: quando ``rule`` está preenchida, a membership é COMPUTADA
+    # a partir de atributos do produto (estilo smart collection do Shopify) em vez
+    # de ``CollectionItem`` explícitos. Vazia (default) = coleção manual.
+    # Schema: {"match": "all"|"any", "conditions": [{"field","op","value"}, ...]}.
+    # Campos/operadores suportados e o resolver vivem em ``offerman.smart_collection``.
+    rule = models.JSONField(default=dict, blank=True, verbose_name=_("regra"))
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("criado em"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("atualizado em"))
 
@@ -60,9 +67,28 @@ class Collection(models.Model):
             return False
         return True
 
+    @property
+    def is_smart(self) -> bool:
+        """True quando a membership é computada por regra (vs CollectionItems)."""
+        return bool(self.rule and self.rule.get("conditions"))
+
+    def product_queryset(self):
+        """Produtos desta coleção — resolvidos por regra se smart, senão explícitos."""
+        from shopman.offerman.models import Product
+        from shopman.offerman.smart_collection import resolve_products
+
+        if self.is_smart:
+            return resolve_products(self.rule)
+        return Product.objects.filter(collection_items__collection=self).distinct()
+
     def clean(self):
-        """Validate no circular parent reference and enforce max depth."""
+        """Validate no circular parent reference, max depth, and smart rule."""
         from shopman.offerman.conf import offerman_settings
+
+        if self.rule:
+            from shopman.offerman.smart_collection import validate_rule
+
+            validate_rule(self.rule)
 
         if self.parent_id:
             visited = {self.pk}

@@ -1,0 +1,22 @@
+{% spaceless %}<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+<channel>
+<title>{{ brand|default:ref }}</title>
+<link>{{ link }}</link>
+<description>Catálogo — {{ ref }}</description>
+{% for item in items %}<item>
+<g:id>{{ item.id }}</g:id>
+<g:title>{{ item.title }}</g:title>
+<g:description>{{ item.description }}</g:description>
+<g:link>{{ item.link }}</g:link>
+<g:image_link>{{ item.image_link }}</g:image_link>
+<g:availability>{{ item.availability }}</g:availability>
+<g:price>{{ item.price }}</g:price>
+<g:condition>new</g:condition>
+{% if brand %}<g:brand>{{ brand }}</g:brand>
+{% endif %}<g:identifier_exists>no</g:identifier_exists>
+<g:product_type>{{ item.product_type }}</g:product_type>
+<g:custom_label_0>{{ item.custom_label_0 }}</g:custom_label_0>
+</item>
+{% endfor %}</channel>
+</rss>{% endspaceless %}

@@ -465,14 +465,18 @@ SHOPMAN_IFOOD = {
     ).strip(),
 }
 
-# Catalog projection adapters — project catalog changes (create/update/price/
-# availability) to external channels. Missing key → handler + signals no-op.
-# Present but broken path → raises at boot (configured-but-wrong).
+# Catalog projection backends — project catalog changes (create/update/price/
+# availability) to external channels. This is the *canonical* registry, owned by
+# Offerman (OFFERMAN["PROJECTION_BACKENDS"], resolved by get_projection_backend()).
+# Both the signal-driven auto-trigger (CatalogProjectHandler, per-SKU delta) and
+# the manual sync_catalog_ifood command (CatalogService.project_listing, per-listing
+# reconciliation) resolve their backend through this single registry.
+# Missing key → handler + signals no-op. Present but broken path → raises at boot.
 # Enabled per-environment via env flag so no deployment pushes to iFood until
 # explicitly turned on (requires the iFood OAuth config to be present).
-SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {}
+_CATALOG_PROJECTION_BACKENDS: dict[str, str] = {}
 if os.environ.get("IFOOD_CATALOG_PROJECTION", "").strip().lower() in ("1", "true", "yes"):
-    SHOPMAN_CATALOG_PROJECTION_ADAPTERS["ifood"] = (
+    _CATALOG_PROJECTION_BACKENDS["ifood"] = (
         "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"
     )
 
@@ -687,7 +691,8 @@ OFFERMAN = {
     # TODO WP-R2: restore cost backend adapter
     "COST_BACKEND": None,
     "PRICING_BACKEND": "shopman.shop.adapters.pricing.StorefrontPricingBackend",
-    "PROJECTION_BACKENDS": {},
+    # Canonical catalog projection registry (env-gated above).
+    "PROJECTION_BACKENDS": _CATALOG_PROJECTION_BACKENDS,
 }
 
 # ── Craftsman (micro-MRP integration) ──────────────────────────────

@@ -100,6 +100,7 @@ class OrderCardProjection:
     total_display: str
     fulfillment_icon: str  # Material Symbol ligature
     fulfillment_label: str
+    fulfillment_type: str  # "delivery" | "pickup" — eixo de triagem no board
     can_confirm: bool
     can_advance: bool
     next_status: str
@@ -363,6 +364,7 @@ def _build_card(order: Order) -> OrderCardProjection:
         total_display=_money(order.total_q),
         fulfillment_icon=fulfillment_icon,
         fulfillment_label=fulfillment_label,
+        fulfillment_type="delivery" if is_delivery else "pickup",
         can_confirm=order.status == "new",
         can_advance=bool(next_status),
         next_status=next_status,
