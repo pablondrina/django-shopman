@@ -306,6 +306,32 @@ análogo das smart collections p/ anúncios). Pesquisa Google **verificada** (fo
 (push near-real-time via Merchant API / Meta Catalog Batch API — credencial do Pablo) em
 [docs/plans/CATALOG-FEEDS-GOOGLE-META.md](CATALOG-FEEDS-GOOGLE-META.md). ⚠️ Pesquisa Meta ficou parcial.
 
+## ⭐ Refactor decisivo — EXPOSITOR (Showcase), não "Superfície" (Pablo, 2026-07-01)
+
+O Pablo apontou (com razão) que enfiar menuboard/feed no `Channel` com uma flag `capability` misturava
+conceitos: (1) poluía o espaço transacional (menuboard virava "canal" e vazava em pedido/POS/regra),
+(2) prendia a exibição a UMA coleção-fonte (não dava pra compor/organizar por várias), (3) "Superfície"
+é nome ambíguo (não é canal de venda). Modelo novo, mais simples/robusto/elegante — **três conceitos,
+cada um com um papel**:
+
+- **Coleção** (já existe) = conteúdo/organização (manual ou por regra). Unidade universal.
+- **Canal** (`Channel`, voltou a ser só transacional) = ponto de VENDA. iFood/web/PDV/WhatsApp.
+- **Expositor** (`shop.Showcase`, UI "Expositor") = exibe N coleções PARA FORA, sem transacionar:
+  `kind` (menuboard/google/meta) + `collections` (lista de refs). No menuboard as coleções viram
+  SEÇÕES; no feed, os `custom_label_0`/Product Sets. Nome de código = `Showcase` (o "expositor" em
+  inglês é falso cognato). Verbose_name PT trocável numa linha.
+
+Resolve tudo: sem poluição (Expositor não é Channel), multi-coleção nativo (compõe as coleções reais,
+sem guarda-chuva), nome honesto. E **simplifica**: matriz volta a ser produto×Canal; menuboard/feed
+leem o estado CANÔNICO do produto (dispensa materializador e override por-superfície).
+
+**Feito (R1–R3, 2026-07-01):** model `Showcase`+admin Unfold (multi-seleção de coleções, links prontos);
+menuboard+feed resolvem por Showcase (SSE via canal global `stock-catalog`); `capability`/`content`
+removidos do ChannelConfig+admin+matriz; materializador removido. make test 2274; make admin 255.
+**Verificado ao vivo**: menuboard "Quadro Nelson" com 4 seções (Rústicos/Folhados/Doces/Bebidas quentes,
+37 itens); feed com `custom_label_0`=coleção. As Frentes 4/5 acima descrevem o comportamento; o modelo
+que as sustenta é o Expositor.
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
