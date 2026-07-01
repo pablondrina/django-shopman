@@ -1,11 +1,12 @@
-// Drag-to-reorder por POINTER events (não HTML5 DnD — que é notoriamente instável).
-// Funciona igual em todo browser: pointerdown no item → move além de um limiar inicia
-// o arraste → o item sob o ponteiro vira o alvo → pointerup grava a nova ordem.
+// Drag-to-reorder por POINTER events + POINTER CAPTURE (não HTML5 DnD, que é instável).
+// A captura prende o ponteiro ao elemento: todos os move/up chegam nele mesmo se o
+// cursor sair — sem isso, um drag de mouse real dispara seleção/drag nativo que engole
+// os eventos. Limiar de 5px deixa o clique puro passar (seleção). O alvo é o item sob o
+// ponteiro (elementFromPoint → `[data-dragkey]`).
 //
-// `getKeys()` devolve a ordem exibida atual; `commit(novaOrdem)` persiste (o pai faz
-// otimista + POST). Cada item arrastável precisa de `data-dragkey="<chave>"` no DOM.
+// `getKeys()` = ordem exibida atual; `commit(novaOrdem)` persiste (otimista + POST no pai).
 const DRAG_ATTR = "data-dragkey";
-const THRESHOLD = 5; // px antes de virar arraste (deixa o clique puro passar = seleção)
+const THRESHOLD = 5;
 
 export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: string[]) => void) {
   const dragKey = ref<string | null>(null);
@@ -14,6 +15,8 @@ export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: st
   let pendingKey: string | null = null;
   let startX = 0;
   let startY = 0;
+  let captureEl: HTMLElement | null = null;
+  let pointerId = -1;
 
   function keyAt(x: number, y: number): string | null {
     const el = document.elementFromPoint(x, y);
@@ -25,24 +28,21 @@ export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: st
     if (dragKey.value === null) {
       if (pendingKey === null) return;
       if (Math.hypot(e.clientX - startX, e.clientY - startY) < THRESHOLD) return;
-      // limiar cruzado → inicia o arraste
-      dragKey.value = pendingKey;
+      dragKey.value = pendingKey; // limiar cruzado → começa o arraste
       overKey.value = pendingKey;
       document.body.style.userSelect = "none";
     }
+    e.preventDefault(); // agora que é arraste, bloqueia seleção/scroll nativo
     const k = keyAt(e.clientX, e.clientY);
     if (k && k !== overKey.value) overKey.value = k;
   }
 
   function onUp(e: PointerEvent) {
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    document.body.style.userSelect = "";
     const from = dragKey.value;
     const to = overKey.value ?? keyAt(e.clientX, e.clientY);
-    pendingKey = null;
+    detach();
     reset();
-    if (from === null || !to || from === to) return; // clique puro OU sem alvo → nada
+    if (from === null || !to || from === to) return; // clique puro ou sem alvo → nada
     const keys = [...getKeys()];
     const fromIdx = keys.indexOf(from);
     const toIdx = keys.indexOf(to);
@@ -52,13 +52,42 @@ export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: st
     commit(keys);
   }
 
+  function onCancel() {
+    detach();
+    reset();
+  }
+
+  function detach() {
+    if (captureEl) {
+      captureEl.removeEventListener("pointermove", onMove);
+      captureEl.removeEventListener("pointerup", onUp);
+      captureEl.removeEventListener("pointercancel", onCancel);
+      try {
+        captureEl.releasePointerCapture(pointerId);
+      } catch {
+        /* já solto */
+      }
+    }
+    document.body.style.userSelect = "";
+    captureEl = null;
+    pendingKey = null;
+  }
+
   function onPointerDown(key: string, e: PointerEvent) {
-    if (e.button !== 0) return; // só botão esquerdo
+    if (e.pointerType === "mouse" && e.button !== 0) return; // só botão esquerdo do mouse
     pendingKey = key;
     startX = e.clientX;
     startY = e.clientY;
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+    captureEl = e.currentTarget as HTMLElement;
+    pointerId = e.pointerId;
+    try {
+      captureEl.setPointerCapture(pointerId);
+    } catch {
+      /* navegadores antigos: cai no fluxo sem captura */
+    }
+    captureEl.addEventListener("pointermove", onMove);
+    captureEl.addEventListener("pointerup", onUp);
+    captureEl.addEventListener("pointercancel", onCancel);
   }
 
   function reset() {
