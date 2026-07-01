@@ -2,6 +2,7 @@
 Django settings for the Shopman project.
 """
 
+import json
 import os
 from base64 import b64decode
 from pathlib import Path
@@ -443,8 +444,11 @@ SHOPMAN_IFOOD = {
     "client_secret": os.environ.get("IFOOD_CLIENT_SECRET", "").strip(),
     "api_base": os.environ.get("IFOOD_API_BASE", "https://merchant-api.ifood.com.br"),
     "timeout": int(os.environ.get("IFOOD_TIMEOUT", "30")),
-    "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
-    "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
+    # Catalog projection (v2.0): maps internal collection refs → iFood category
+    # UUIDs. Items whose collection is unmapped fall back to the default; with
+    # neither, the projection fails loudly (an item needs a target category).
+    "catalog_category_map": json.loads(os.environ.get("IFOOD_CATALOG_CATEGORY_MAP", "{}")),
+    "catalog_default_category": os.environ.get("IFOOD_CATALOG_DEFAULT_CATEGORY", ""),
 }
 
 # Catalog projection adapters — enable by uncommenting the desired backend.

@@ -89,6 +89,7 @@ def register_all() -> None:
     _register_sse_emitters()
     _register_catalog_projection_handler()
     _register_catalog_signals()
+    _register_ifood_status_callbacks()
 
 
 # ── Individual registrations ──
@@ -286,6 +287,26 @@ def _register_catalog_projection_handler() -> None:
         backend_cls = getattr(module, class_name)
         registry.register_directive_handler(CatalogProjectHandler(backend=backend_cls()))
         logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
+
+
+def _register_ifood_status_callbacks() -> None:
+    """Register the iFood status callback handler + order_changed receiver.
+
+    Gated on iFood *direct* being configured (OAuth client_id present). Without
+    it, iFood runs in simulation-only mode and no callbacks should fire.
+    """
+    cfg = getattr(settings, "SHOPMAN_IFOOD", {}) or {}
+    if not str(cfg.get("client_id") or "").strip():
+        return
+    from shopman.orderman.signals import order_changed
+
+    from shopman.shop.handlers.ifood_status import (
+        IFoodStatusCallbackHandler,
+        on_order_status_changed,
+    )
+    registry.register_directive_handler(IFoodStatusCallbackHandler())
+    order_changed.connect(on_order_status_changed, weak=False)
+    logger.info("shopman.handlers: registered iFood status callbacks.")
 
 
 def _register_catalog_signals() -> None:

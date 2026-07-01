@@ -82,10 +82,36 @@ Contra o ambiente real do iFood (não mais teórico):
   `GET .../catalogs/{catalogId}/categories` → categorias (ex.: "Categoria Item Normal"
   `1d097d39-0ce0-47a6-ad6b-1ab9f4d9692a", "Categoria Pizza"), com `items:[]`.
 - **Estrutura real do catálogo**: Merchant → Catálogos → Categorias → Itens.
-- **⚠️ `catalog_projection_ifood` tem CONTRATO ERRADO** (`PUT .../items/{sku}` não existe assim,
-  é stub). **WP-Catalog**: reescrever p/ o v2.0 (itens dentro de categorias, payload rico:
-  produto + item + categoria). Verificar o endpoint exato de ingestão de item na doc/ao vivo.
+- **Catalog escrita ✅ (WP-Catalog feito)** — verificado AO VIVO empurrando 2 itens de teste p/
+  "Categoria Item Normal":
+  - **Upsert item**: `PUT /catalog/v2.0/merchants/{mid}/items` → `200`. Body = *FullItemDto*
+    `{item:{id,productId,status,price:{value,originalValue},categoryId,externalCode,index,shifts},
+    products:[{id,name,description,externalCode}]}`. `item.id`, `item.productId` e `products[0].id`
+    **são UUIDs**; `item.productId == products[0].id`. UUIDs derivados por `uuid5(merchant_id, sku)`
+    → upsert idempotente. `externalCode = sku` interno; `categoryId` mapeado por config
+    (`catalog_category_map` + `catalog_default_category`).
+  - **Disponibilidade/retract**: `PATCH /catalog/v2.0/merchants/{mid}/items/status` → `200`, body
+    objeto único `{itemId:<uuid do item>, status:"AVAILABLE"|"UNAVAILABLE"}`.
+  - Reescrito em `catalog_projection_ifood.py` usando `ifood_auth` (OAuth). `catalog_api_token`
+    removido (era stub).
 - Credenciais de teste no `.env` local (`IFOOD_CLIENT_ID/SECRET/MERCHANT_ID`) — funcionando.
+
+## ✅ Order Module — paths verificados AO VIVO (2026-06-30)
+
+⚠️ Os contratos abaixo **corrigem** a seção "Contratos" (que tinha `orders:polling` /
+`orders:acknowledgment` — **não existem**, retornam `404 "no Route matched"`).
+
+- **Polling de eventos**: `GET /order/v1.0/events:polling` → `200` (lista de eventos) ou `204`
+  (nenhum). Header opcional `x-polling-merchants: <merchantId>` p/ filtrar. (Loja DISABLED →
+  `204` ao vivo.)
+- **Ack**: `POST /order/v1.0/events/acknowledgment`, body `[{"id": "<eventId>"}, ...]` → `202`.
+  Body vazio → `400 "No events in request body"` (rota existe).
+- **Detalhe**: `GET /order/v1.0/orders/{id}` (rota existe; id fake → `404 OrderNotFound`).
+- **Status**: `POST /order/v1.0/orders/{id}/confirm` (e `/dispatch`, `/readyToPickup`,
+  `/requestCancellation`) — rotas existem (id fake → `404 OrderNotFound`).
+- ⚠️ Schema completo do pedido (GET /orders/{id}) **não** foi obtido ao vivo (loja DISABLED, sem
+  pedidos). O mapeamento WP-3 usa o schema documentado do iFood v1.0 — **revalidar com 1 pedido
+  real** na homologação.
 
 ## Contratos (confirmar na doc oficial durante a implementação — o portal bloqueia bots)
 
