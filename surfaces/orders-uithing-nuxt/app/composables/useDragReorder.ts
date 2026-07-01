@@ -1,40 +1,70 @@
-// Drag-to-reorder genérico (HTML5 drag nativo — sem lib externa). O componente
-// possui a lista de chaves (na ordem exibida); no drop calculamos a nova ordem e
-// chamamos ``commit(newKeys)`` para o pai persistir (otimista + POST).
-export function useDragReorder(commit: (orderedKeys: string[]) => void) {
+// Drag-to-reorder por POINTER events (não HTML5 DnD — que é notoriamente instável).
+// Funciona igual em todo browser: pointerdown no item → move além de um limiar inicia
+// o arraste → o item sob o ponteiro vira o alvo → pointerup grava a nova ordem.
+//
+// `getKeys()` devolve a ordem exibida atual; `commit(novaOrdem)` persiste (o pai faz
+// otimista + POST). Cada item arrastável precisa de `data-dragkey="<chave>"` no DOM.
+const DRAG_ATTR = "data-dragkey";
+const THRESHOLD = 5; // px antes de virar arraste (deixa o clique puro passar = seleção)
+
+export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: string[]) => void) {
   const dragKey = ref<string | null>(null);
   const overKey = ref<string | null>(null);
 
-  function onDragStart(key: string, e: DragEvent) {
-    dragKey.value = key;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", key); // Firefox exige um payload
+  let pendingKey: string | null = null;
+  let startX = 0;
+  let startY = 0;
+
+  function keyAt(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y);
+    const item = el && "closest" in el ? (el as Element).closest(`[${DRAG_ATTR}]`) : null;
+    return item?.getAttribute(DRAG_ATTR) ?? null;
+  }
+
+  function onMove(e: PointerEvent) {
+    if (dragKey.value === null) {
+      if (pendingKey === null) return;
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < THRESHOLD) return;
+      // limiar cruzado → inicia o arraste
+      dragKey.value = pendingKey;
+      overKey.value = pendingKey;
+      document.body.style.userSelect = "none";
     }
+    const k = keyAt(e.clientX, e.clientY);
+    if (k && k !== overKey.value) overKey.value = k;
   }
-  function onDragOver(key: string, e: DragEvent) {
-    if (dragKey.value === null) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    if (key !== overKey.value) overKey.value = key;
-  }
-  function onDrop(keys: string[]) {
+
+  function onUp(e: PointerEvent) {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    document.body.style.userSelect = "";
     const from = dragKey.value;
-    const to = overKey.value;
+    const to = overKey.value ?? keyAt(e.clientX, e.clientY);
+    pendingKey = null;
     reset();
-    if (!from || !to || from === to) return;
-    const next = [...keys];
-    const fromIdx = next.indexOf(from);
-    const toIdx = next.indexOf(to);
+    if (from === null || !to || from === to) return; // clique puro OU sem alvo → nada
+    const keys = [...getKeys()];
+    const fromIdx = keys.indexOf(from);
+    const toIdx = keys.indexOf(to);
     if (fromIdx < 0 || toIdx < 0) return;
-    next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, from);
-    commit(next);
+    keys.splice(fromIdx, 1);
+    keys.splice(toIdx, 0, from);
+    commit(keys);
   }
+
+  function onPointerDown(key: string, e: PointerEvent) {
+    if (e.button !== 0) return; // só botão esquerdo
+    pendingKey = key;
+    startX = e.clientX;
+    startY = e.clientY;
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
   function reset() {
     dragKey.value = null;
     overKey.value = null;
   }
 
-  return { dragKey, overKey, onDragStart, onDragOver, onDrop, reset };
+  return { dragKey, overKey, onPointerDown, reset };
 }

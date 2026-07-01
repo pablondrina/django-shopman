@@ -42,13 +42,14 @@ const orderedCollections = computed(
   () => reorderView<CollectionProjection>(collections.value, collectionOverride.value, (c) => c.ref),
 );
 const {
-  dragKey: collDragKey, overKey: collOverKey,
-  onDragStart: collDragStart, onDragOver: collDragOver, onDrop: collDropRaw, reset: collDragReset,
-} = useDragReorder((order) => {
-  collectionOverride.value = order;
-  reorderCollections(order).finally(() => { collectionOverride.value = null; });
-});
-const collDrop = () => collDropRaw(orderedCollections.value.map((c) => c.ref));
+  dragKey: collDragKey, overKey: collOverKey, onPointerDown: collPointerDown,
+} = useDragReorder(
+  () => orderedCollections.value.map((c) => c.ref),
+  (order) => {
+    collectionOverride.value = order;
+    reorderCollections(order).finally(() => { collectionOverride.value = null; });
+  },
+);
 
 // ── reordenar produtos (handle na linha) — só numa coleção MANUAL, sem busca ────
 const canReorderRows = computed(
@@ -60,13 +61,14 @@ const orderedRows = computed(
 );
 const displayRows = computed(() => (canReorderRows.value ? orderedRows.value : rows.value));
 const {
-  dragKey: rowDragKey, overKey: rowOverKey,
-  onDragStart: rowDragStart, onDragOver: rowDragOver, onDrop: rowDropRaw, reset: rowDragReset,
-} = useDragReorder((order) => {
-  rowOverride.value = order;
-  reorderItems(collectionRef.value, order).finally(() => { rowOverride.value = null; });
-});
-const rowDrop = () => rowDropRaw(displayRows.value.map((r) => r.sku));
+  dragKey: rowDragKey, overKey: rowOverKey, onPointerDown: rowPointerDown,
+} = useDragReorder(
+  () => displayRows.value.map((r) => r.sku),
+  (order) => {
+    rowOverride.value = order;
+    reorderItems(collectionRef.value, order).finally(() => { rowOverride.value = null; });
+  },
+);
 
 // ── selection + floating bulk bar (acts on the active recorte) ─────────────────
 const selected = ref<Set<string>>(new Set());
@@ -101,7 +103,8 @@ const priceOps = [
   { k: "delta", l: "Ajustar R$" },
 ] as const;
 const priceInputBulk = ref("");
-const surfaceLabel = (ref_: string) => surfaces.value.find((s) => s.ref === ref_)?.name ?? ref_;
+const surfaceLabel = (ref_: string) =>
+  ref_ === "*" ? "Todos os canais" : (surfaces.value.find((s) => s.ref === ref_)?.name ?? ref_);
 // número digitado (aceita vírgula/percentual/negativo); em centavos p/ set/delta.
 function parsedPriceValue(): number | null {
   const raw = priceInputBulk.value.replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", ".");
@@ -183,29 +186,26 @@ useHead({ title: "Catálogo · Gestor" });
     <!-- work toolbar: search · collection chips · counts/refresh -->
     <UiToolbar>
       <UiSearchInput v-model="query" placeholder="Buscar produto ou SKU…" aria-label="Buscar produto ou SKU" />
-      <!-- coleções: arrastáveis para reordenar as seções da vitrine (Collection.sort_order) -->
-      <div v-if="collections.length" class="flex flex-wrap items-center gap-1.5">
-        <UiFilterChip :active="collectionRef === ''" @click="collectionRef = ''">Todas</UiFilterChip>
+      <!-- coleções: arraste os chips para reordenar as seções da vitrine (Collection.sort_order) -->
+      <TransitionGroup v-if="collections.length" name="chip" tag="div" class="flex flex-wrap items-center gap-1.5">
+        <UiFilterChip key="__all" :active="collectionRef === ''" @click="collectionRef = ''">Todas</UiFilterChip>
         <UiFilterChip
           v-for="c in orderedCollections"
           :key="c.ref"
-          draggable="true"
-          class="cursor-grab active:cursor-grabbing"
-          :class="collDragKey === c.ref ? 'opacity-40' : collOverKey === c.ref ? 'ring-2 ring-primary ring-offset-1' : ''"
+          :data-dragkey="c.ref"
+          class="cursor-grab touch-none transition-[opacity,box-shadow,transform] active:cursor-grabbing"
+          :class="collDragKey === c.ref ? 'scale-95 opacity-40' : (collDragKey && collOverKey === c.ref ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : '')"
           :active="collectionRef === c.ref"
           :count="c.product_count"
           @click="collectionRef = c.ref"
-          @dragstart="collDragStart(c.ref, $event)"
-          @dragover="collDragOver(c.ref, $event)"
-          @drop="collDrop()"
-          @dragend="collDragReset()"
+          @pointerdown="collPointerDown(c.ref, $event)"
         >
           <template v-if="c.is_smart" #icon>
             <Icon name="lucide:sparkles" class="size-3.5 opacity-70" title="Coleção por regra" />
           </template>
           {{ c.name }}
         </UiFilterChip>
-      </div>
+      </TransitionGroup>
 
       <template #end>
         <p class="hidden text-xs text-muted-foreground sm:block">
@@ -260,28 +260,28 @@ useHead({ title: "Catálogo · Gestor" });
           <tr
             v-for="row in displayRows"
             :key="row.sku"
-            class="group"
-            :class="canReorderRows && rowOverKey === row.sku ? 'outline-2 -outline-offset-2 outline-primary' : ''"
-            @dragover="canReorderRows ? rowDragOver(row.sku, $event) : null"
-            @drop="canReorderRows ? rowDrop() : null"
+            :data-dragkey="row.sku"
+            class="group transition-[opacity,box-shadow]"
+            :class="[
+              rowDragKey === row.sku ? 'opacity-40' : '',
+              rowDragKey && rowOverKey === row.sku && rowDragKey !== row.sku ? 'shadow-[inset_0_2px_0_0_var(--color-primary)]' : '',
+            ]"
           >
             <!-- product -->
             <td class="sticky left-0 z-10 border-b border-border bg-card px-4 py-2.5 group-hover:bg-muted/40" :class="{ 'bg-muted/40': isSelected(row.sku) }">
               <div class="flex items-center gap-3">
-                <!-- handle de arrastar: aparece só quando a coleção ativa é reordenável (manual, sem busca) -->
-                <button
+                <!-- handle de arrastar (pointer events): aparece só quando a coleção ativa é reordenável -->
+                <span
                   v-if="canReorderRows"
-                  type="button" draggable="true"
-                  class="-ml-1 grid size-6 shrink-0 cursor-grab place-items-center rounded text-muted-foreground/50 transition hover:text-foreground active:cursor-grabbing"
-                  :class="rowDragKey === row.sku ? 'opacity-40' : ''"
+                  role="button" tabindex="0"
+                  class="-ml-1 grid size-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded text-muted-foreground/50 transition hover:text-foreground active:cursor-grabbing"
                   aria-label="Arrastar para reordenar"
                   title="Arrastar para reordenar nesta coleção"
-                  @dragstart="rowDragStart(row.sku, $event)"
-                  @dragend="rowDragReset()"
+                  @pointerdown="rowPointerDown(row.sku, $event)"
                   @click.stop
                 >
                   <Icon name="lucide:grip-vertical" class="size-4" />
-                </button>
+                </span>
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
                   <!-- thumbnail: esmaece + P&B quando "fora"; clique amplia a foto -->
@@ -452,6 +452,7 @@ useHead({ title: "Catálogo · Gestor" });
         <div class="flex items-center gap-1 rounded-lg bg-background/10 px-2 py-1 text-sm">
           <span class="text-xs opacity-70">em</span>
           <select v-model="bulkSurface" class="bg-transparent text-sm font-medium text-background outline-none [&>option]:text-foreground">
+            <option value="*">Todos os canais</option>
             <option v-for="s in surfaces" :key="s.ref" :value="s.ref">{{ s.name }}</option>
           </select>
         </div>
@@ -516,3 +517,11 @@ useHead({ title: "Catálogo · Gestor" });
     </Transition>
   </main>
 </template>
+
+<style>
+/* FLIP: os chips deslizam suavemente para a nova posição ao reordenar (não é um
+   "pulo") — dá o feedback de que a intenção do operador está acontecendo. */
+.chip-move {
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
+}
+</style>

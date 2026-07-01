@@ -388,6 +388,31 @@ def test_bulk_price_set_negative_rejected(client, operator, catalog):
     assert resp.status_code == 400
 
 
+def test_bulk_all_channels_pause(client, operator, catalog):
+    """surface_ref='*' aplica em todos os canais ativos."""
+    client.force_login(operator)
+    resp = client.post(
+        BULK_URL,
+        data={"surface_ref": "*", "skus": ["PAO"], "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    # PAO está em web + ifood → ambos pausados
+    assert not ListingItem.objects.filter(product__sku="PAO", is_sellable=True).exists()
+
+
+def test_bulk_price_all_channels(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "*", "skus": ["PAO"], "op": "set", "value": 1234},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert ListingItem.objects.get(listing__ref="web", product__sku="PAO").price_q == 1234
+    assert ListingItem.objects.get(listing__ref="ifood", product__sku="PAO").price_q == 1234
+
+
 def test_bulk_price_requires_manage_catalog(client, plain_staff, catalog):
     client.force_login(plain_staff)
     resp = client.post(

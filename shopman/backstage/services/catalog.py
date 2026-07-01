@@ -43,6 +43,16 @@ def _notify_surface(surface_ref: str) -> None:
     emit_surface_changed(surface_ref)
 
 
+# Sentinela "todos os canais" para as ações em lote (barra flutuante).
+ALL_SURFACES = "*"
+
+
+def _all_channel_refs() -> list[str]:
+    from shopman.shop.models import Channel
+
+    return list(Channel.objects.filter(is_active=True).order_by("display_order", "id").values_list("ref", flat=True))
+
+
 def set_cell(
     sku: str,
     surface_ref: str,
@@ -124,6 +134,11 @@ def bulk_set(
 
     if not skus:
         return 0
+    if surface_ref == ALL_SURFACES:
+        return sum(
+            bulk_set(skus, ref, is_published=is_published, is_sellable=is_sellable, actor=actor)
+            for ref in _all_channel_refs()
+        )
     updates: dict[str, bool] = {}
     if is_published is not None:
         updates["is_published"] = is_published
@@ -206,6 +221,8 @@ def bulk_price(
         raise CatalogError("Preço não pode ser negativo.")
     if not skus:
         return 0
+    if surface_ref == ALL_SURFACES:
+        return sum(bulk_price(skus, ref, op=op, value=value, actor=actor) for ref in _all_channel_refs())
 
     # tier base (menor min_qty) por SKU — 1 célula por produto, como a matriz mostra.
     items = (
