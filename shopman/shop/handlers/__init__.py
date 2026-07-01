@@ -89,6 +89,7 @@ def register_all() -> None:
     _register_sse_emitters()
     _register_catalog_projection_handler()
     _register_catalog_signals()
+    _register_ifood_status_callbacks()
 
 
 # ── Individual registrations ──
@@ -288,14 +289,46 @@ def _register_catalog_projection_handler() -> None:
         logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
 
 
+def _register_ifood_status_callbacks() -> None:
+    """Register the iFood status callback handler + order_changed receiver.
+
+    Gated on iFood *direct* being configured (OAuth client_id present). Without
+    it, iFood runs in simulation-only mode and no callbacks should fire.
+    """
+    cfg = getattr(settings, "SHOPMAN_IFOOD", {}) or {}
+    if not str(cfg.get("client_id") or "").strip():
+        return
+    from shopman.orderman.signals import order_changed
+
+    from shopman.shop.handlers.ifood_status import (
+        IFoodStatusCallbackHandler,
+        on_order_status_changed,
+    )
+    registry.register_directive_handler(IFoodStatusCallbackHandler())
+    order_changed.connect(on_order_status_changed, weak=False)
+    logger.info("shopman.handlers: registered iFood status callbacks.")
+
+
 def _register_catalog_signals() -> None:
     """Wire Offerman product_created / price_changed → catalog projection directives."""
     try:
-        from shopman.offerman.signals import price_changed, product_created
+        from shopman.offerman.signals import (
+            availability_changed,
+            price_changed,
+            product_created,
+            product_updated,
+        )
 
-        from shopman.shop.handlers.catalog_projection import on_price_changed, on_product_created
+        from shopman.shop.handlers.catalog_projection import (
+            on_availability_changed,
+            on_price_changed,
+            on_product_created,
+            on_product_updated,
+        )
         product_created.connect(on_product_created, weak=False)
+        product_updated.connect(on_product_updated, weak=False)
         price_changed.connect(on_price_changed, weak=False)
+        availability_changed.connect(on_availability_changed, weak=False)
         logger.info("shopman.handlers: connected offerman catalog projection signals.")
     except ImportError:
         pass

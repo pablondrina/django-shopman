@@ -135,11 +135,19 @@ class ListingItem(models.Model):
 
     def save(self, *args, **kwargs):
         old_price_q = None
+        availability_changed_flag = False
         if not self._state.adding:
             try:
-                old = ListingItem.objects.filter(pk=self.pk).values_list("price_q", flat=True).first()
-                if old is not None and old != self.price_q:
-                    old_price_q = old
+                old = (
+                    ListingItem.objects.filter(pk=self.pk)
+                    .values("price_q", "is_published", "is_sellable")
+                    .first()
+                )
+                if old is not None:
+                    if old["price_q"] != self.price_q:
+                        old_price_q = old["price_q"]
+                    if old["is_published"] != self.is_published or old["is_sellable"] != self.is_sellable:
+                        availability_changed_flag = True
             except Exception:
                 pass
         super().save(*args, **kwargs)
@@ -153,6 +161,15 @@ class ListingItem(models.Model):
                 sku=self.product.sku,
                 old_price_q=old_price_q,
                 new_price_q=self.price_q,
+            )
+        if availability_changed_flag:
+            from shopman.offerman.signals import availability_changed
+
+            availability_changed.send(
+                sender=self.__class__,
+                instance=self,
+                listing_ref=self.listing.ref,
+                sku=self.product.sku,
             )
 
     @property

@@ -2,6 +2,7 @@
 Django settings for the Shopman project.
 """
 
+import json
 import os
 from base64 import b64decode
 from pathlib import Path
@@ -443,16 +444,37 @@ SHOPMAN_IFOOD = {
     "client_secret": os.environ.get("IFOOD_CLIENT_SECRET", "").strip(),
     "api_base": os.environ.get("IFOOD_API_BASE", "https://merchant-api.ifood.com.br"),
     "timeout": int(os.environ.get("IFOOD_TIMEOUT", "30")),
-    "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
-    "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
+    # Catalog projection (v2.0): maps internal collection refs → iFood category
+    # UUIDs. Items whose collection is unmapped fall back to the default; with
+    # neither, the projection fails loudly (an item needs a target category).
+    "catalog_category_map": json.loads(os.environ.get("IFOOD_CATALOG_CATEGORY_MAP", "{}")),
+    "catalog_default_category": os.environ.get("IFOOD_CATALOG_DEFAULT_CATEGORY", ""),
+    # Order cancellation (WP-4): iFood requires a cancellationCode from its fixed
+    # list. Discover valid codes per order via ifood_callbacks.fetch_cancellation_reasons.
+    # Empty → a cancellation callback fails loudly (must be set post-homologação).
+    "cancellation_default_code": os.environ.get("IFOOD_CANCELLATION_CODE", ""),
+    # iFood requires a non-empty `reason` alongside the code (400 otherwise).
+    "cancellation_default_reason": os.environ.get(
+        "IFOOD_CANCELLATION_REASON", "Problemas de sistema na loja"
+    ),
+    # Webhook push (WP-5, optional): HMAC-SHA256 secret for X-IFood-Signature.
+    # Defaults to client_secret (per plan). Set from the portal's webhook section
+    # if iFood provisions a distinct signing secret.
+    "webhook_hmac_secret": os.environ.get(
+        "IFOOD_WEBHOOK_HMAC_SECRET", os.environ.get("IFOOD_CLIENT_SECRET", "")
+    ).strip(),
 }
 
-# Catalog projection adapters — enable by uncommenting the desired backend.
-# Missing key → handler not registered (silent skip).
+# Catalog projection adapters — project catalog changes (create/update/price/
+# availability) to external channels. Missing key → handler + signals no-op.
 # Present but broken path → raises at boot (configured-but-wrong).
-SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
-    # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
-}
+# Enabled per-environment via env flag so no deployment pushes to iFood until
+# explicitly turned on (requires the iFood OAuth config to be present).
+SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {}
+if os.environ.get("IFOOD_CATALOG_PROJECTION", "").strip().lower() in ("1", "true", "yes"):
+    SHOPMAN_CATALOG_PROJECTION_ADAPTERS["ifood"] = (
+        "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"
+    )
 
 # ── SMS (Comtele — OTP por SMS) ─────────────────────────────────────
 # WhatsApp OTP não é viável (ManyChat não tem categoria Authentication; o número único da marca

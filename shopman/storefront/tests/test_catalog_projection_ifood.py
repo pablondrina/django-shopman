@@ -14,6 +14,7 @@ Coverage:
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -47,9 +48,20 @@ def ifood_settings():
     return {
         "webhook_token": "wh-tok",
         "merchant_id": "merchant-abc",
-        "catalog_api_token": "cat-tok-xyz",
-        "catalog_api_base": "https://mock-ifood.test",
+        "api_base": "https://mock-ifood.test",
+        "catalog_category_map": {"paes": "cat-paes-uuid"},
+        "catalog_default_category": "cat-default-uuid",
     }
+
+
+@pytest.fixture
+def fake_oauth():
+    """Patch ifood_auth so authorized_headers() yields a real Bearer header."""
+    with patch(
+        "shopman.shop.services.ifood_auth.get_access_token",
+        return_value="fake-token-xyz",
+    ):
+        yield
 
 
 @pytest.fixture
@@ -73,31 +85,54 @@ def ifood_directive(db):
 # ── Adapter: payload construction ─────────────────────────────────────────────
 
 
-def test_adapter_builds_correct_ifood_payload(ifood_item, ifood_settings):
-    """IFoodCatalogProjection builds a valid PUT payload with price in BRL float."""
+def test_adapter_builds_correct_ifood_payload(ifood_item):
+    """_item_payload builds a valid FullItemDto with price in BRL float."""
     from shopman.shop.adapters.catalog_projection_ifood import _item_payload
 
-    payload = _item_payload(ifood_item)
+    payload = _item_payload(ifood_item, merchant_id="merchant-abc", category_id="cat-uuid")
 
-    assert payload["externalCode"] == "PAO-FRANCES"
-    assert payload["name"] == "Pão Francês"
-    assert payload["description"] == "Pão crocante"
-    assert payload["price"]["value"] == pytest.approx(3.50)
-    assert payload["price"]["originalValue"] == pytest.approx(3.50)
-    assert payload["available"] is True
-    assert payload["image"]["url"] == "https://cdn.test/pao.jpg"
-    assert payload["externalCategoryCode"] == "paes"
+    item = payload["item"]
+    product = payload["products"][0]
+    assert item["externalCode"] == "PAO-FRANCES"
+    assert item["price"]["value"] == pytest.approx(3.50)
+    assert item["price"]["originalValue"] == pytest.approx(3.50)
+    assert item["status"] == "AVAILABLE"
+    assert item["categoryId"] == "cat-uuid"
+    # item.productId must equal products[0].id, and both must be UUIDs.
+    assert item["productId"] == product["id"]
+    uuid.UUID(item["id"])
+    uuid.UUID(item["productId"])
+    assert product["name"] == "Pão Francês"
+    assert product["description"] == "Pão crocante"
+    assert product["externalCode"] == "PAO-FRANCES"
+    # No inline image — iFood v2.0 rejects it with 500 (uses a separate upload flow).
+    assert "image" not in product
 
 
-def test_adapter_omits_image_when_none():
+def test_adapter_ids_are_deterministic_per_merchant_and_sku(ifood_item):
+    """Same (merchant, sku) → same item/product UUIDs (idempotent upsert)."""
+    from shopman.shop.adapters.catalog_projection_ifood import _item_payload
+
+    a = _item_payload(ifood_item, merchant_id="m", category_id="c")
+    b = _item_payload(ifood_item, merchant_id="m", category_id="c")
+    assert a["item"]["id"] == b["item"]["id"]
+    assert a["item"]["productId"] == b["item"]["productId"]
+    # Different merchant → different ids.
+    other = _item_payload(ifood_item, merchant_id="other", category_id="c")
+    assert other["item"]["id"] != a["item"]["id"]
+
+
+def test_adapter_never_sends_inline_image():
+    """iFood v2.0 rejects an inline image URL (500) — the item PUT never carries one."""
     from shopman.shop.adapters.catalog_projection_ifood import _item_payload
 
     item = ProjectedItem(
         sku="X", name="X", description="", unit="un",
         price_q=100, is_published=True, is_sellable=True,
+        image_url="https://cdn.test/x.jpg",
     )
-    payload = _item_payload(item)
-    assert "image" not in payload
+    payload = _item_payload(item, merchant_id="m", category_id="c")
+    assert "image" not in payload["products"][0]
 
 
 def test_adapter_marks_unavailable_when_not_sellable():
@@ -107,15 +142,15 @@ def test_adapter_marks_unavailable_when_not_sellable():
         sku="X", name="X", description="", unit="un",
         price_q=100, is_published=True, is_sellable=False,
     )
-    payload = _item_payload(item)
-    assert payload["available"] is False
+    payload = _item_payload(item, merchant_id="m", category_id="c")
+    assert payload["item"]["status"] == "UNAVAILABLE"
 
 
 # ── Adapter: project() ────────────────────────────────────────────────────────
 
 
-def test_adapter_project_calls_ifood_put(ifood_item, ifood_settings):
-    """project() PUT each item to the iFood catalog API."""
+def test_adapter_project_calls_ifood_put(ifood_item, ifood_settings, fake_oauth):
+    """project() PUTs each item to the merchant-level /items endpoint."""
     from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
 
     with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=ifood_settings):
@@ -131,25 +166,80 @@ def test_adapter_project_calls_ifood_put(ifood_item, ifood_settings):
     assert result.errors == []
     mock_put.assert_called_once()
     url, kwargs = mock_put.call_args[0][0], mock_put.call_args[1]
-    assert "PAO-FRANCES" in url
-    assert kwargs["json"]["externalCode"] == "PAO-FRANCES"
-    assert "Authorization" in kwargs["headers"]
-    assert "cat-tok-xyz" in kwargs["headers"]["Authorization"]
+    assert url == "https://mock-ifood.test/catalog/v2.0/merchants/merchant-abc/items"
+    assert kwargs["json"]["item"]["externalCode"] == "PAO-FRANCES"
+    # "paes" is mapped in catalog_category_map.
+    assert kwargs["json"]["item"]["categoryId"] == "cat-paes-uuid"
+    assert kwargs["headers"]["Authorization"] == "Bearer fake-token-xyz"
 
 
-def test_adapter_project_returns_failure_without_token(ifood_item):
+def test_adapter_project_uses_default_category_when_unmapped(ifood_settings, fake_oauth):
+    """An item whose collection is not in the map falls back to the default category."""
     from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
 
-    cfg = {"merchant_id": "x", "catalog_api_token": ""}
+    item = ProjectedItem(
+        sku="Y", name="Y", description="", unit="un",
+        price_q=100, is_published=True, is_sellable=True, category="bebidas",
+    )
+    with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=ifood_settings):
+        with patch("requests.put") as mock_put:
+            mock_put.return_value = MagicMock(status_code=200, headers={})
+            mock_put.return_value.raise_for_status = MagicMock()
+            result = IFoodCatalogProjection().project([item], channel="ifood")
+
+    assert result.success is True
+    assert mock_put.call_args[1]["json"]["item"]["categoryId"] == "cat-default-uuid"
+
+
+def test_adapter_project_errors_when_no_category(fake_oauth):
+    """No mapped collection and no default → per-item error, no PUT."""
+    from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
+
+    cfg = {"merchant_id": "m", "catalog_category_map": {}, "catalog_default_category": ""}
+    item = ProjectedItem(
+        sku="Z", name="Z", description="", unit="un",
+        price_q=100, is_published=True, is_sellable=True, category="unknown",
+    )
     with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=cfg):
-        backend = IFoodCatalogProjection()
-        result = backend.project([ifood_item], channel="ifood")
+        with patch("requests.put") as mock_put:
+            result = IFoodCatalogProjection().project([item], channel="ifood")
 
+    mock_put.assert_not_called()
     assert result.success is False
-    assert "catalog_api_token" in result.errors[0]
+    assert "category" in result.errors[0].lower()
 
 
-def test_adapter_raises_rate_limit_on_429(ifood_item, ifood_settings):
+def test_adapter_project_returns_failure_without_oauth(ifood_item):
+    """No OAuth credentials → authorized_headers() is None → loud failure, no PUT."""
+    from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
+
+    with patch("shopman.shop.services.ifood_auth.get_access_token", return_value=None):
+        with patch("requests.put") as mock_put:
+            result = IFoodCatalogProjection().project([ifood_item], channel="ifood")
+
+    mock_put.assert_not_called()
+    assert result.success is False
+    assert "OAuth" in result.errors[0]
+
+
+def test_adapter_retract_patches_item_status(ifood_settings, fake_oauth):
+    """retract() sets item status UNAVAILABLE via PATCH /items/status."""
+    from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
+
+    with patch("shopman.shop.adapters.catalog_projection_ifood._get_config", return_value=ifood_settings):
+        with patch("requests.patch") as mock_patch:
+            mock_patch.return_value = MagicMock(status_code=200, headers={})
+            mock_patch.return_value.raise_for_status = MagicMock()
+            result = IFoodCatalogProjection().retract(["PAO-FRANCES"], channel="ifood")
+
+    assert result.success is True
+    url, kwargs = mock_patch.call_args[0][0], mock_patch.call_args[1]
+    assert url == "https://mock-ifood.test/catalog/v2.0/merchants/merchant-abc/items/status"
+    assert kwargs["json"]["status"] == "UNAVAILABLE"
+    uuid.UUID(kwargs["json"]["itemId"])
+
+
+def test_adapter_raises_rate_limit_on_429(ifood_item, ifood_settings, fake_oauth):
     """429 with Retry-After header raises IFoodRateLimitError."""
     from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection, IFoodRateLimitError
 
@@ -187,6 +277,40 @@ def test_handler_marks_done_on_success(db, ifood_channel, ifood_directive):
     backend.project.assert_called_once()
 
 
+def test_handler_retracts_when_item_paused(db, ifood_channel, ifood_directive):
+    """Retract-aware: an unsellable SKU is retracted, not projected."""
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    backend = MagicMock()
+    backend.retract.return_value = ProjectionResult(success=True, projected=1, channel="ifood")
+    handler = CatalogProjectHandler(backend=backend)
+
+    with patch("shopman.shop.handlers.catalog_projection._get_projected_item") as mock_get:
+        mock_get.return_value = ProjectedItem(
+            sku="PAO-FRANCES", name="Pão", description="", unit="un",
+            price_q=350, is_published=True, is_sellable=False,  # paused
+        )
+        handler.handle(message=ifood_directive, ctx={})
+
+    backend.retract.assert_called_once_with(["PAO-FRANCES"], channel="ifood")
+    backend.project.assert_not_called()
+
+
+def test_handler_retracts_when_item_dropped_from_listing(db, ifood_channel, ifood_directive):
+    """A SKU no longer in the listing (item is None) is retracted."""
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    backend = MagicMock()
+    backend.retract.return_value = ProjectionResult(success=True, projected=1, channel="ifood")
+    handler = CatalogProjectHandler(backend=backend)
+
+    with patch("shopman.shop.handlers.catalog_projection._get_projected_item", return_value=None):
+        handler.handle(message=ifood_directive, ctx={})
+
+    backend.retract.assert_called_once_with(["PAO-FRANCES"], channel="ifood")
+    backend.project.assert_not_called()
+
+
 def test_handler_skips_when_channel_inactive(db, ifood_directive):
     """Handler skips API call when iFood channel is inactive."""
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
@@ -195,19 +319,6 @@ def test_handler_skips_when_channel_inactive(db, ifood_directive):
     handler = CatalogProjectHandler(backend=backend)
 
     with patch("shopman.shop.handlers.catalog_projection._ifood_channel_active", return_value=False):
-        handler.handle(message=ifood_directive, ctx={})
-
-    backend.project.assert_not_called()
-
-
-def test_handler_skips_when_sku_not_in_listing(db, ifood_channel, ifood_directive):
-    """Handler skips when SKU is not found in the listing."""
-    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
-
-    backend = MagicMock()
-    handler = CatalogProjectHandler(backend=backend)
-
-    with patch("shopman.shop.handlers.catalog_projection._get_projected_item", return_value=None):
         handler.handle(message=ifood_directive, ctx={})
 
     backend.project.assert_not_called()
@@ -258,6 +369,39 @@ def test_on_product_created_enqueues_directive(db):
     assert d.payload["sku"] == "BAGUETE"
     assert d.payload["listing_ref"] == "ifood"
     assert d.dedupe_key.startswith("catalog.project_sku:ifood:BAGUETE:")
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+def test_on_product_updated_enqueues_directive(db):
+    """product_updated (name/description/publish) → catalog.project_sku Directive."""
+    from shopman.shop.handlers.catalog_projection import on_product_updated
+
+    on_product_updated(sender=None, instance=None, sku="BAGUETE")
+
+    directives = Directive.objects.filter(topic=CATALOG_PROJECT_SKU)
+    assert directives.count() == 1
+    assert directives.first().payload["sku"] == "BAGUETE"
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+def test_on_availability_changed_enqueues_directive(db):
+    """availability_changed (per-channel pause/resume) → catalog.project_sku Directive."""
+    from shopman.shop.handlers.catalog_projection import on_availability_changed
+
+    on_availability_changed(sender=None, instance=None, listing_ref="ifood", sku="CROISSANT")
+
+    directives = Directive.objects.filter(topic=CATALOG_PROJECT_SKU)
+    assert directives.count() == 1
+    assert directives.first().payload["sku"] == "CROISSANT"
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={})
+def test_availability_signal_noop_without_adapter(db):
+    """No adapter configured → availability receiver creates no directive (safe no-op)."""
+    from shopman.shop.handlers.catalog_projection import on_availability_changed
+
+    on_availability_changed(sender=None, instance=None, listing_ref="ifood", sku="X")
+    assert Directive.objects.filter(topic=CATALOG_PROJECT_SKU).count() == 0
 
 
 @override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
@@ -357,7 +501,7 @@ def test_sync_catalog_ifood_dry_run(db, capsys):
     assert "dry run" in out.lower()
 
 
-def test_sync_catalog_ifood_full_sync(db, ifood_settings):
+def test_sync_catalog_ifood_full_sync(db, ifood_settings, fake_oauth):
     """--full calls backend.project(full_sync=True) and reports success."""
     from django.core.management import call_command
 
@@ -368,7 +512,7 @@ def test_sync_catalog_ifood_full_sync(db, ifood_settings):
     items = [
         ProjectedItem(
             sku="PAO", name="Pão", description="", unit="un",
-            price_q=350, is_published=True, is_sellable=True,
+            price_q=350, is_published=True, is_sellable=True, category="paes",
         )
     ]
 

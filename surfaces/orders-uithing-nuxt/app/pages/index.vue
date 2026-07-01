@@ -24,8 +24,9 @@ import {
   triageCards,
 } from "~/presentation/board";
 import type { OrderCardProjection } from "~/types/orders";
+import type { CancellationReason } from "~/composables/useOrdersBoard";
 
-const { zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+const { zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
 
 // ── triage: search + channel filter + sort + view-mode (Arc 1) ──────────────
 // query/channel are transient; sort/view persist per operator (cookie, SSR-safe).
@@ -134,14 +135,38 @@ onMounted(() => {
 });
 onBeforeUnmount(() => { if (clockTimer) clearInterval(clockTimer); });
 
-// reject dialog (needs a reason).
+// reject dialog (needs a reason). For marketplace (iFood) orders the reason is a
+// coded pick from the provider's live list; other channels use free text.
 const rejectRef = ref<string | null>(null);
 const rejectReason = ref("");
-function openReject(ref_: string) { rejectRef.value = ref_; rejectReason.value = ""; }
+const rejectReasons = ref<CancellationReason[]>([]);
+const rejectCode = ref("");
+const rejectReasonsLoading = ref(false);
+const isMarketplaceReject = computed(() => rejectReasons.value.length > 0);
+const canConfirmReject = computed(() =>
+  isMarketplaceReject.value ? rejectCode.value !== "" : rejectReason.value.trim() !== "",
+);
+async function openReject(ref_: string) {
+  rejectRef.value = ref_;
+  rejectReason.value = "";
+  rejectCode.value = "";
+  rejectReasons.value = [];
+  rejectReasonsLoading.value = true;
+  try {
+    rejectReasons.value = await fetchCancellationReasons(ref_);
+  } finally {
+    rejectReasonsLoading.value = false;
+  }
+}
+function onRejectCodeChange() {
+  // Mirror the picked reason's text into the customer-facing reason.
+  const picked = rejectReasons.value.find((r) => r.code === rejectCode.value);
+  if (picked) rejectReason.value = picked.description;
+}
 async function confirmReject() {
   const ref_ = rejectRef.value;
-  if (!ref_ || !rejectReason.value.trim()) return;
-  const ok = await reject(ref_, rejectReason.value.trim());
+  if (!ref_ || !canConfirmReject.value) return;
+  const ok = await reject(ref_, rejectReason.value.trim() || "Pedido recusado", rejectCode.value);
   if (ok) rejectRef.value = null;
 }
 
@@ -532,9 +557,25 @@ function printQueue() {
       <UiDialogContent class="sm:max-w-md">
         <UiDialogHeader>
           <UiDialogTitle>Recusar pedido {{ rejectRef }}</UiDialogTitle>
-          <UiDialogDescription>Informe o motivo — o cliente é avisado.</UiDialogDescription>
+          <UiDialogDescription>
+            {{ isMarketplaceReject ? "Escolha o motivo exigido pelo iFood — ele é enviado ao marketplace." : "Informe o motivo — o cliente é avisado." }}
+          </UiDialogDescription>
         </UiDialogHeader>
+        <p v-if="rejectReasonsLoading" class="text-sm text-muted-foreground">Carregando motivos do iFood…</p>
+        <!-- Marketplace (iFood): coded reason picker from the provider's live list -->
+        <select
+          v-else-if="isMarketplaceReject"
+          v-model="rejectCode"
+          class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+          aria-label="Motivo do cancelamento (iFood)"
+          @change="onRejectCodeChange"
+        >
+          <option value="" disabled>Selecione o motivo…</option>
+          <option v-for="r in rejectReasons" :key="r.code" :value="r.code">{{ r.description }}</option>
+        </select>
+        <!-- Other channels: free-text reason -->
         <textarea
+          v-else
           v-model="rejectReason"
           rows="3"
           placeholder="Motivo da recusa…"
@@ -545,7 +586,7 @@ function printQueue() {
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="rejectRef = null">Cancelar</button>
           <button
             type="button"
-            :disabled="!rejectReason.trim()"
+            :disabled="!canConfirmReject"
             class="rounded-md border border-transparent bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
             @click="confirmReject"
           >

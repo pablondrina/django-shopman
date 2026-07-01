@@ -215,6 +215,92 @@ class TestPriceChangedSignal:
             price_changed.disconnect(handler)
 
 
+class TestProductUpdatedSignal:
+    """product_updated emitted when a projectable field changes on an existing Product."""
+
+    def test_emitted_on_name_change(self, db):
+        from shopman.offerman.signals import product_updated
+
+        product = Product.objects.create(sku="PU-1", name="Old")
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product.name = "New"
+            product.save()
+            assert received == ["PU-1"]
+        finally:
+            product_updated.disconnect(h)
+
+    def test_emitted_on_availability_and_description(self, db):
+        from shopman.offerman.signals import product_updated
+
+        product = Product.objects.create(sku="PU-2", name="X", short_description="a")
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product.is_sellable = False
+            product.save()
+            product.short_description = "b"
+            product.save()
+            assert received == ["PU-2", "PU-2"]
+        finally:
+            product_updated.disconnect(h)
+
+    def test_not_emitted_on_create_or_irrelevant_change(self, db):
+        from shopman.offerman.signals import product_updated
+
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product = Product.objects.create(sku="PU-3", name="X")  # create → no update signal
+            assert received == []
+            # Saving with no projectable-field change → no signal.
+            product.save()
+            assert received == []
+        finally:
+            product_updated.disconnect(h)
+
+
+class TestAvailabilityChangedSignal:
+    """availability_changed emitted when a ListingItem is paused/resumed on a channel."""
+
+    def test_emitted_on_toggle(self, db):
+        from shopman.offerman.signals import availability_changed
+
+        listing = Listing.objects.create(ref="av-listing", name="T")
+        product = Product.objects.create(sku="AV-1", name="P")
+        item = ListingItem.objects.create(listing=listing, product=product, price_q=500)
+        received = []
+        h = lambda sender, listing_ref, sku, **k: received.append((listing_ref, sku))  # noqa: E731
+        availability_changed.connect(h)
+        try:
+            item.is_sellable = False
+            item.save()
+            assert received == [("av-listing", "AV-1")]
+        finally:
+            availability_changed.disconnect(h)
+
+    def test_not_emitted_on_create_or_price_only(self, db):
+        from shopman.offerman.signals import availability_changed
+
+        listing = Listing.objects.create(ref="av-listing2", name="T")
+        product = Product.objects.create(sku="AV-2", name="P")
+        received = []
+        h = lambda sender, **k: received.append(True)  # noqa: E731
+        availability_changed.connect(h)
+        try:
+            item = ListingItem.objects.create(listing=listing, product=product, price_q=500)
+            assert received == []  # no signal on create
+            item.price_q = 700
+            item.save()
+            assert received == []  # price-only change → no availability signal
+        finally:
+            availability_changed.disconnect(h)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # O2: CostBackend Protocol
 # ═══════════════════════════════════════════════════════════════════

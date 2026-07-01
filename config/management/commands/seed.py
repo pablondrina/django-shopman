@@ -918,7 +918,7 @@ class Command(BaseCommand):
             # Folhados, doces e salgados de panificação/pastelaria (default).
             "default": "19059090",
             # Pães (NCM 1905.90.10).
-            **{sku: "19059010" for sku in breads},
+            **dict.fromkeys(breads, "19059010"),
             # Bebidas preparadas na loja.
             "ESPRESSO": "21011110",
             "ESPRESSO-DUPLO": "21011110",
@@ -2448,7 +2448,11 @@ class Command(BaseCommand):
         _marketplace_config = {
             "confirmation": {"mode": "manual", "stale_new_alert_minutes": 30},
             "payment": {"method": "external", "timing": "external"},
-            "stock": {**_remote_stock, "check_on_commit": True},
+            # Marketplace: o pedido já foi comitado e PAGO no iFood. Não rejeitar
+            # localmente por estoque/listing — aceitar e deixar o operador tratar
+            # eventual falta (reserva o que der, best-effort). Rejeitar aqui
+            # cancelaria um pedido de marketplace já pago.
+            "stock": {**_remote_stock, "check_on_commit": False},
         }
         _whatsapp_config = {
             "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},

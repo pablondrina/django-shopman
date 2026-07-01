@@ -203,13 +203,23 @@ class Product(models.Model):
     def __str__(self):
         return f"{self.sku} - {self.name}"
 
+    # Fields whose change should re-project the product to external channels.
+    _PROJECTABLE_FIELDS = ("name", "short_description", "long_description", "is_published", "is_sellable")
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
+        old = None
+        if not is_new:
+            old = Product.objects.filter(pk=self.pk).values(*self._PROJECTABLE_FIELDS).first()
         super().save(*args, **kwargs)
         if is_new:
             from shopman.offerman.signals import product_created
 
             product_created.send(sender=self.__class__, instance=self, sku=self.sku)
+        elif old is not None and any(old[f] != getattr(self, f) for f in self._PROJECTABLE_FIELDS):
+            from shopman.offerman.signals import product_updated
+
+            product_updated.send(sender=self.__class__, instance=self, sku=self.sku)
 
     def clean(self):
         """Validate ANVISA invariants on ``nutrition_facts``.

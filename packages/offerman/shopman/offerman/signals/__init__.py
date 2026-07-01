@@ -38,9 +38,30 @@ Signals:
                 logger.info("Price for %s changed: %d -> %d", sku, old_price_q, new_price_q)
 
             price_changed.connect(on_price_changed)
+
+    product_updated:
+        Sent after an existing Product's projectable fields change
+        (name, short/long description, is_published, is_sellable).
+
+        Kwargs:
+            sender: Product class
+            instance: The Product instance
+            sku: str — the product SKU
+
+    availability_changed:
+        Sent after a ListingItem's availability changes on a channel
+        (is_published or is_sellable) — a per-channel pause/resume.
+
+        Kwargs:
+            sender: ListingItem class
+            instance: The ListingItem instance
+            listing_ref: str — the listing code (channel)
+            sku: str — the product SKU
 """
 
 from django.dispatch import Signal
 
 product_created = Signal()
+product_updated = Signal()
 price_changed = Signal()
+availability_changed = Signal()

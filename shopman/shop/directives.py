@@ -44,6 +44,9 @@ RETURN_PROCESS = "return.process"
 # Catalog projection
 CATALOG_PROJECT_SKU = "catalog.project_sku"
 
+# iFood status callback (push internal lifecycle → iFood order actions)
+IFOOD_STATUS_CALLBACK = "ifood.status_callback"
+
 
 # ── Queue helper ──
 

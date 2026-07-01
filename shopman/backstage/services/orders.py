@@ -19,7 +19,7 @@ def confirm_order(order, *, actor: str):
         raise OrderError(str(exc) or "Não foi possível confirmar o pedido.") from exc
 
 
-def reject_order(order, *, reason: str, actor: str, rejected_by: str):
+def reject_order(order, *, reason: str, actor: str, rejected_by: str, cancellation_code: str = ""):
     if not reason.strip():
         raise OrderError("Motivo obrigatório")
     try:
@@ -28,6 +28,7 @@ def reject_order(order, *, reason: str, actor: str, rejected_by: str):
             reason=reason.strip(),
             actor=actor,
             rejected_by=rejected_by,
+            cancellation_code=cancellation_code,
         )
     except (ValueError, InvalidTransition) as exc:
         raise OrderError(str(exc)) from exc
@@ -42,11 +43,39 @@ def advance_order(order, *, actor: str):
         raise OrderError(str(exc) or "Ação inválida") from exc
 
 
-def cancel_order(order, *, reason: str, actor: str):
+def cancel_order(order, *, reason: str, actor: str, cancellation_code: str = ""):
     try:
-        return operator_orders.cancel_order(order, reason=reason, actor=actor)
+        return operator_orders.cancel_order(
+            order, reason=reason, actor=actor, cancellation_code=cancellation_code
+        )
     except InvalidTransition as exc:
         raise OrderError(str(exc)) from exc
+
+
+def cancellation_reasons(order) -> list[dict]:
+    """Valid cancellation reasons for an order.
+
+    For iFood orders, the live per-order list from the marketplace
+    (``code`` + ``description``); empty for channels without reason codes.
+    """
+    if (order.channel_ref or "") != "ifood":
+        return []
+    ifood_order_id = (order.external_ref or "").strip() or (order.data or {}).get(
+        "external_order_code", ""
+    )
+    if not ifood_order_id:
+        return []
+    from shopman.shop.services import ifood_callbacks
+
+    try:
+        reasons = ifood_callbacks.fetch_cancellation_reasons(ifood_order_id)
+    except ifood_callbacks.IFoodCallbackError:
+        return []
+    return [
+        {"code": str(r.get("cancelCodeId", "")), "description": r.get("description", "")}
+        for r in reasons
+        if r.get("cancelCodeId")
+    ]
 
 
 def settle_delivery_cash(order, *, operator, amount_raw: str = "", actor: str):
