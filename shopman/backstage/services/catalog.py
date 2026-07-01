@@ -36,6 +36,13 @@ def _reconcile_if_projected(surface_ref: str) -> None:
         raise CatalogError(f"Mudança aplicada, mas a sincronização falhou: {exc}") from exc
 
 
+def _notify_surface(surface_ref: str) -> None:
+    """Empurra o evento SSE da superfície (bulk não dispara post_save → menuboard)."""
+    from shopman.shop.handlers._sse_emitters import emit_surface_changed
+
+    emit_surface_changed(surface_ref)
+
+
 def set_cell(
     sku: str,
     surface_ref: str,
@@ -99,6 +106,7 @@ def bulk_set(
     )
     if count:
         _reconcile_if_projected(surface_ref)
+        _notify_surface(surface_ref)
     return count
 
 
@@ -174,6 +182,7 @@ def materialize_surface(surface_ref: str, *, actor: str = "") -> dict:
         ListingItem.objects.filter(listing=listing, product__sku__in=to_remove).delete()
 
     _reconcile_if_projected(surface_ref)
+    _notify_surface(surface_ref)
     return {"added": len(to_add), "removed": len(to_remove), "total": len(target)}
 
 
