@@ -53,9 +53,12 @@ ver [webhook-auth-status-codes](../reference/webhook-auth-status-codes.md)).
   de pedido real do iFood.
 - **WP-4 — Callbacks de status.** Mapear lifecycle interno → `confirm`/`dispatch`/`readyToPickup`/
   `requestCancellation`. Handler que, em transições do Order, chama a API do iFood. Testes.
-- **WP-5 — Webhook assinado (opcional).** Se quiser push: validar `X-IFood-Signature`
-  (HMAC-SHA256(raw body, client_secret) hex, `compare_digest`, **401** se inválido); trocar o
-  token compartilhado atual. Senão, manter só polling.
+- **WP-5 — Webhook assinado (opcional) ✅ CONSTRUÍDO** (não verificado ao vivo — o portal bloqueia
+  bots; revalidar o esquema exato de assinatura na homologação). `IFoodEventsWebhookView` em
+  `webhooks/ifood_events.py`, rota `POST /api/webhooks/ifood/events/`: valida `X-IFood-Signature` =
+  HMAC-SHA256(raw body, `webhook_hmac_secret` [default=client_secret]) hex via `compare_digest`,
+  **401** se inválido/sem secret; reusa `ifood_events.process_events()` (mesmo caminho do polling).
+  A view de simulação legada (`IFoodWebhookView`) fica intacta. Inerte até o secret ser setado.
 - **WP-6 — Homologação.** Rodar os cenários de teste do iFood, ajustar, submeter à certificação.
 
 ## O que depende do Pablo (fora do código)
@@ -109,6 +112,10 @@ Contra o ambiente real do iFood (não mais teórico):
 - **Detalhe**: `GET /order/v1.0/orders/{id}` (rota existe; id fake → `404 OrderNotFound`).
 - **Status**: `POST /order/v1.0/orders/{id}/confirm` (e `/dispatch`, `/readyToPickup`,
   `/requestCancellation`) — rotas existem (id fake → `404 OrderNotFound`).
+- **Motivos de cancelamento**: `GET /order/v1.0/orders/{id}/cancellationReasons` — rota existe
+  (id fake alheio → `403 Forbidden`; num pedido real devolve `[{cancelCodeId, description}]`).
+  `requestCancellation` exige um `cancellationCode` dessa lista — no código é config-driven
+  (`cancellation_default_code`), nunca chutado; `fetch_cancellation_reasons()` descobre os válidos.
 - ⚠️ Schema completo do pedido (GET /orders/{id}) **não** foi obtido ao vivo (loja DISABLED, sem
   pedidos). O mapeamento WP-3 usa o schema documentado do iFood v1.0 — **revalidar com 1 pedido
   real** na homologação.

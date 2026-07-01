@@ -132,6 +132,27 @@ def test_map_order_composes_address_without_formatted():
     assert payload["delivery"]["address"] == "Rua A, 5, Londrina"
 
 
+def test_map_order_passes_through_indoor_type():
+    from shopman.shop.services import ifood_orders
+
+    payload = ifood_orders.map_order({"id": "x", "orderType": "INDOOR", "items": []})
+    assert payload["delivery"]["type"] == "INDOOR"
+
+
+def test_map_order_handles_string_phone_and_missing_external_code():
+    from shopman.shop.services import ifood_orders
+
+    order = {
+        "id": "x",
+        "customer": {"name": "A", "phone": "+554399"},
+        "items": [{"id": "line-9", "name": "Item", "quantity": 1, "unitPrice": 1.0}],
+    }
+    payload = ifood_orders.map_order(order)
+    assert payload["customer"]["phone"] == "+554399"
+    # No externalCode → falls back to the line id so ingest still has a sku.
+    assert payload["items"][0]["sku"] == "line-9"
+
+
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_fetch_order_success(fake_headers):
     from shopman.shop.services import ifood_orders
@@ -309,16 +330,42 @@ def test_send_action_non_2xx_raises(fake_headers):
             ifood_callbacks.dispatch("o1")
 
 
-@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
-def test_send_for_status_cancellation_sends_body(fake_headers):
+@override_settings(SHOPMAN_IFOOD={**IFOOD_CFG, "cancellation_default_code": "501"})
+def test_send_for_status_cancellation_uses_configured_code(fake_headers):
     from shopman.shop.services import ifood_callbacks
 
     with patch("requests.post") as mock_post:
         mock_post.return_value = MagicMock(status_code=202)
-        sent = ifood_callbacks.send_for_status("o1", "cancelled")
+        sent = ifood_callbacks.send_for_status("o1", "cancelled", cancellation_reason="sem estoque")
         assert sent is True
         assert mock_post.call_args[0][0].endswith("/requestCancellation")
-        assert "cancellationCode" in mock_post.call_args[1]["json"]
+        body = mock_post.call_args[1]["json"]
+        assert body["cancellationCode"] == "501"
+        assert body["reason"] == "sem estoque"
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_request_cancellation_without_code_raises(fake_headers):
+    """No configured code → loud failure, never a guessed code."""
+    from shopman.shop.services import ifood_callbacks
+
+    with patch("requests.post") as mock_post:
+        with pytest.raises(ifood_callbacks.IFoodCallbackError):
+            ifood_callbacks.request_cancellation("o1")
+        mock_post.assert_not_called()
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_fetch_cancellation_reasons(fake_headers):
+    from shopman.shop.services import ifood_callbacks
+
+    reasons = [{"cancelCodeId": "501", "description": "Item indisponível"}]
+    with patch("requests.get") as mock_get:
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = reasons
+        mock_get.return_value = resp
+        assert ifood_callbacks.fetch_cancellation_reasons("o1") == reasons
+        assert mock_get.call_args[0][0].endswith("/order/v1.0/orders/o1/cancellationReasons")
 
 
 def test_send_for_status_unmapped_returns_false():
@@ -375,3 +422,76 @@ def test_signal_receiver_ignores_non_ifood_orders(db):
                       external_ref="", data={})
     on_order_status_changed(sender=None, order=order, event_type="status_changed", actor="auto")
     assert Directive.objects.filter(topic=IFOOD_STATUS_CALLBACK).count() == 0
+
+
+# ── WP-5: signed event webhook ───────────────────────────────────────────────────
+
+import hashlib  # noqa: E402
+import hmac  # noqa: E402
+import json  # noqa: E402
+
+WEBHOOK_CFG = {**IFOOD_CFG, "webhook_hmac_secret": "sign-secret"}
+EVENTS_URL = "/api/webhooks/ifood/events/"
+
+
+def _sign(raw: bytes, secret: str = "sign-secret") -> str:
+    return hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+
+
+@override_settings(SHOPMAN_IFOOD=WEBHOOK_CFG)
+def test_events_webhook_valid_signature_processes(db):
+    from rest_framework.test import APIClient
+
+    events = [{"id": "e1", "fullCode": "CONFIRMED", "orderId": "o1"}]
+    raw = json.dumps(events).encode()
+
+    with patch("shopman.shop.services.ifood_events.process_events", return_value={"polled": 1}) as mock_proc:
+        resp = APIClient().post(
+            EVENTS_URL, data=raw, content_type="application/json",
+            HTTP_X_IFOOD_SIGNATURE=_sign(raw),
+        )
+
+    assert resp.status_code == 200
+    mock_proc.assert_called_once_with(events)
+
+
+@override_settings(SHOPMAN_IFOOD=WEBHOOK_CFG)
+def test_events_webhook_invalid_signature_401(db):
+    from rest_framework.test import APIClient
+
+    raw = json.dumps([{"id": "e1"}]).encode()
+    with patch("shopman.shop.services.ifood_events.process_events") as mock_proc:
+        resp = APIClient().post(
+            EVENTS_URL, data=raw, content_type="application/json",
+            HTTP_X_IFOOD_SIGNATURE="deadbeef",
+        )
+
+    assert resp.status_code == 401
+    mock_proc.assert_not_called()
+
+
+@override_settings(SHOPMAN_IFOOD={**IFOOD_CFG, "webhook_hmac_secret": ""})
+def test_events_webhook_unconfigured_secret_401(db):
+    from rest_framework.test import APIClient
+
+    raw = json.dumps([{"id": "e1"}]).encode()
+    resp = APIClient().post(
+        EVENTS_URL, data=raw, content_type="application/json",
+        HTTP_X_IFOOD_SIGNATURE=_sign(raw),
+    )
+    assert resp.status_code == 401
+
+
+@override_settings(SHOPMAN_IFOOD=WEBHOOK_CFG)
+def test_events_webhook_accepts_single_event_object(db):
+    from rest_framework.test import APIClient
+
+    event = {"id": "e1", "fullCode": "PLACED", "orderId": "o1"}
+    raw = json.dumps(event).encode()
+    with patch("shopman.shop.services.ifood_events.process_events", return_value={"polled": 1}) as mock_proc:
+        resp = APIClient().post(
+            EVENTS_URL, data=raw, content_type="application/json",
+            HTTP_X_IFOOD_SIGNATURE=_sign(raw),
+        )
+    assert resp.status_code == 200
+    mock_proc.assert_called_once_with([event])

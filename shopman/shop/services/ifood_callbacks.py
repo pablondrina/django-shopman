@@ -45,9 +45,6 @@ STATUS_ACTION = {
     "cancelled": "requestCancellation",
 }
 
-# Placeholder — validate the real code/reason during homologação.
-_DEFAULT_CANCELLATION = {"reason": "PROBLEMAS DE SISTEMA", "cancellationCode": "506"}
-
 
 def _cfg() -> dict:
     return getattr(settings, "SHOPMAN_IFOOD", {}) or {}
@@ -94,17 +91,60 @@ def dispatch(order_id: str) -> None:
     send_action(order_id, "dispatch")
 
 
-def request_cancellation(order_id: str, *, reason: dict | None = None) -> None:
-    send_action(order_id, "requestCancellation", body=reason or _DEFAULT_CANCELLATION)
+def fetch_cancellation_reasons(order_id: str) -> list[dict]:
+    """Fetch the cancellation codes iFood accepts for a specific order.
+
+    ``GET /order/v1.0/orders/{id}/cancellationReasons`` → list of
+    ``{"cancelCodeId": "...", "description": "..."}``. Use it to discover the
+    valid codes to configure ``cancellation_default_code``.
+    """
+    headers = ifood_auth.authorized_headers()
+    if not headers:
+        raise IFoodCallbackError("iFood OAuth is not configured (client_id/client_secret)")
+    url = f"{_base_url()}/order/v1.0/orders/{order_id}/cancellationReasons"
+    try:
+        resp = requests.get(url, headers=headers, timeout=int(_cfg().get("timeout") or 30))
+    except requests.RequestException as exc:
+        raise IFoodCallbackError(f"iFood cancellationReasons request failed: {exc}") from exc
+    if resp.status_code != 200:
+        raise IFoodCallbackError(
+            f"iFood cancellationReasons HTTP {resp.status_code}: {resp.text[:200]}"
+        )
+    try:
+        reasons = resp.json()
+    except ValueError as exc:
+        raise IFoodCallbackError("iFood cancellationReasons response was not JSON") from exc
+    return reasons if isinstance(reasons, list) else []
 
 
-def send_for_status(order_id: str, status: str) -> bool:
+def request_cancellation(order_id: str, *, code: str = "", description: str = "") -> None:
+    """Ask iFood to cancel an order with a valid cancellation code.
+
+    The code must come from iFood's fixed list (see
+    :func:`fetch_cancellation_reasons`). It is config-driven
+    (``cancellation_default_code``) rather than guessed — sending a wrong code
+    is worse than failing loudly.
+    """
+    code = str(code or _cfg().get("cancellation_default_code") or "").strip()
+    if not code:
+        raise IFoodCallbackError(
+            "no iFood cancellation code — set SHOPMAN_IFOOD['cancellation_default_code'] "
+            "(discover valid codes with fetch_cancellation_reasons)"
+        )
+    send_action(
+        order_id,
+        "requestCancellation",
+        body={"reason": description or "", "cancellationCode": code},
+    )
+
+
+def send_for_status(order_id: str, status: str, *, cancellation_reason: str = "") -> bool:
     """Send the callback matching an internal status. Returns False if no action maps."""
     action = action_for_status(status)
     if not action:
         return False
     if action == "requestCancellation":
-        request_cancellation(order_id)
+        request_cancellation(order_id, description=cancellation_reason)
     else:
         send_action(order_id, action)
     return True
@@ -115,6 +155,7 @@ __all__ = [
     "ready_to_pickup",
     "dispatch",
     "request_cancellation",
+    "fetch_cancellation_reasons",
     "send_action",
     "send_for_status",
     "action_for_status",

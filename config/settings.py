@@ -449,6 +449,16 @@ SHOPMAN_IFOOD = {
     # neither, the projection fails loudly (an item needs a target category).
     "catalog_category_map": json.loads(os.environ.get("IFOOD_CATALOG_CATEGORY_MAP", "{}")),
     "catalog_default_category": os.environ.get("IFOOD_CATALOG_DEFAULT_CATEGORY", ""),
+    # Order cancellation (WP-4): iFood requires a cancellationCode from its fixed
+    # list. Discover valid codes per order via ifood_callbacks.fetch_cancellation_reasons.
+    # Empty → a cancellation callback fails loudly (must be set post-homologação).
+    "cancellation_default_code": os.environ.get("IFOOD_CANCELLATION_CODE", ""),
+    # Webhook push (WP-5, optional): HMAC-SHA256 secret for X-IFood-Signature.
+    # Defaults to client_secret (per plan). Set from the portal's webhook section
+    # if iFood provisions a distinct signing secret.
+    "webhook_hmac_secret": os.environ.get(
+        "IFOOD_WEBHOOK_HMAC_SECRET", os.environ.get("IFOOD_CLIENT_SECRET", "")
+    ).strip(),
 }
 
 # Catalog projection adapters — enable by uncommenting the desired backend.

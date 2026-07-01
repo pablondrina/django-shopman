@@ -109,8 +109,10 @@ def _map_customer(customer: dict) -> dict:
 
 
 def _map_delivery(order: dict) -> dict:
+    # iFood order types: DELIVERY, TAKEOUT, INDOOR. ingest treats anything other
+    # than DELIVERY as pickup, so INDOOR (dine-in) is passed through unchanged.
     kind = str(order.get("orderType", "DELIVERY")).upper()
-    if kind not in ("DELIVERY", "TAKEOUT"):
+    if kind not in ("DELIVERY", "TAKEOUT", "INDOOR"):
         kind = "DELIVERY"
     delivery = order.get("delivery") or {}
     address = delivery.get("deliveryAddress") or {}

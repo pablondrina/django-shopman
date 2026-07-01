@@ -35,7 +35,9 @@ class IFoodStatusCallbackHandler:
             return
 
         try:
-            sent = ifood_callbacks.send_for_status(order_id, status)
+            sent = ifood_callbacks.send_for_status(
+                order_id, status, cancellation_reason=payload.get("cancellation_reason", "")
+            )
         except ifood_callbacks.IFoodCallbackError as exc:
             raise DirectiveTransientError(str(exc)) from exc
 
@@ -74,6 +76,8 @@ def on_order_status_changed(sender, order, event_type, actor, **kwargs) -> None:
             "order_ref": order.ref,
             "ifood_order_id": ifood_order_id,
             "status": order.status,
+            # cancellation.cancel writes this to order.data before the signal fires.
+            "cancellation_reason": (order.data or {}).get("cancellation_reason", ""),
         },
         dedupe_key=dedupe_key,
     )
