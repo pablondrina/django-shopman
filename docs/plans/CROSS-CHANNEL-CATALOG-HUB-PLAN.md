@@ -285,6 +285,27 @@ existe; backstage já lê offerman direto nas projections.
 - **WP-3a ⏭️** — Admin/Unfold: editor de `rule` no Collection admin + `capability`/`content` no Channel.
 - **WP-3d ⏭️** — materializador coleção→ListingItems (superfície alimentada por coleção).
 
+## Frente 4 — ✅ COMPLETA (2026-07-01): 📺 menuboard display tempo real
+
+Superfície **display** (`capability=display`) alimentada por coleção, renderizada como quadro-negro
+"pintado à mão" (marca Nelson) numa TV, **atualizada em tempo real** (pausar/reprecificar reflete na
+hora). Reusa 100% o primitivo Superfície + o motor de SSE existente.
+- `shop/projections/menuboard.py` (semântica, price_q int — R-B) + `views/menuboard.py` (página kiosk
+  pública + JSON + stream SSE) + `menuboard_urls.py`. Template chalkboard Alpine (`x-for`/`x-text`, sem
+  getElementById) + EventSource no canal público `stock-{ref}` + poll 30s.
+- `_sse_emitters` passou a emitir também em mudança de **preço** do ListingItem + `emit_surface_changed`
+  para bulk (queryset.update). **Verificado ao vivo** (quadro Nelson, dados reais). Commit `f5b301d2`.
+
+## Frente 5 — ✅ FEED PULL (2026-07-01); push credencial-gated (Pablo)
+
+Superfícies **feed** (`capability=feed`) → **feed RSS 2.0 público** (`GET /feed/<ref>.xml`, namespace
+`g:` do Google) que Google Merchant e Meta buscam por agendamento — **ambos aceitam o mesmo XML**.
+Pull = **sem credenciais**: o Pablo só cola a URL nos painéis. `custom_label_0` = coleção primária (o
+análogo das smart collections p/ anúncios). Pesquisa Google **verificada** (fontes primárias);
+`identifier_exists=no` para padaria sem GTIN. 5 testes; verificado ao vivo. Detalhes + o que falta
+(push near-real-time via Merchant API / Meta Catalog Batch API — credencial do Pablo) em
+[docs/plans/CATALOG-FEEDS-GOOGLE-META.md](CATALOG-FEEDS-GOOGLE-META.md). ⚠️ Pesquisa Meta ficou parcial.
+
 ## Direção de arquitetura (rascunho — validar na próxima sessão)
 
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
