@@ -148,8 +148,42 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // ── reordenação (curadoria) ────────────────────────────────────────────────
+  async function reorderCollections(orderedRefs: string[]): Promise<boolean> {
+    clearError();
+    try {
+      await $fetch("/api/v1/backstage/catalog/reorder-collections/", {
+        method: "POST",
+        body: { ordered_refs: orderedRefs },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+      useSonner.error(errorMsg.value);
+      await refresh(); // reverte o otimista
+      return false;
+    }
+  }
+  async function reorderItems(collectionRef_: string, orderedSkus: string[]): Promise<boolean> {
+    clearError();
+    try {
+      await $fetch("/api/v1/backstage/catalog/reorder-items/", {
+        method: "POST",
+        body: { collection_ref: collectionRef_, ordered_skus: orderedSkus },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+      useSonner.error(errorMsg.value);
+      await refresh();
+      return false;
+    }
+  }
+
   return {
     matrix, pending, error, refresh, isBusy, cellKey, productKey, errorMsg, clearError,
-    setCell, setProduct, bulkSet, bulkPrice, bulkBusy,
+    setCell, setProduct, bulkSet, bulkPrice, reorderCollections, reorderItems, bulkBusy,
   };
 }

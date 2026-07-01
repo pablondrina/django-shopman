@@ -5,11 +5,12 @@
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
 import { cellPrice, cellView, filterRows, rowStatus, surfaceIcon, syncBadge } from "~/presentation/catalog";
-import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalog";
+import type { CatalogRowProjection, CollectionProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
 const {
-  matrix, pending, error, refresh, isBusy, cellKey, productKey, setCell, setProduct, bulkSet, bulkPrice, bulkBusy,
+  matrix, pending, error, refresh, isBusy, cellKey, productKey, setCell, setProduct, bulkSet, bulkPrice,
+  reorderCollections, reorderItems, bulkBusy,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -20,6 +21,49 @@ const rows = computed<CatalogRowProjection[]>(() => filterRows(matrix.value?.row
 const rowStatuses = computed(() => Object.fromEntries(rows.value.map((r) => [r.sku, rowStatus(r)])));
 const activeCollection = computed(() => collections.value.find((c) => c.ref === collectionRef.value) ?? null);
 const loading = computed(() => pending.value && !matrix.value);
+
+// ── reordenar coleções (pills arrastáveis) ─────────────────────────────────────
+// Override = null → ordem do servidor (determinístico p/ SSR); só é setado durante o
+// drag otimista, e zerado após o POST+refresh (que já vem reordenado).
+function reorderView<T extends { ref?: string; sku?: string }>(
+  server: T[], override: string[] | null, key: (t: T) => string,
+): T[] {
+  if (!override) return server;
+  const byKey = new Map(server.map((t) => [key(t), t]));
+  const out = override.map((k) => byKey.get(k)).filter(Boolean) as T[];
+  return out.length === server.length ? out : server;
+}
+
+const collectionOverride = ref<string[] | null>(null);
+const orderedCollections = computed(
+  () => reorderView<CollectionProjection>(collections.value, collectionOverride.value, (c) => c.ref),
+);
+const {
+  dragKey: collDragKey, overKey: collOverKey,
+  onDragStart: collDragStart, onDragOver: collDragOver, onDrop: collDropRaw, reset: collDragReset,
+} = useDragReorder((order) => {
+  collectionOverride.value = order;
+  reorderCollections(order).finally(() => { collectionOverride.value = null; });
+});
+const collDrop = () => collDropRaw(orderedCollections.value.map((c) => c.ref));
+
+// ── reordenar produtos (handle na linha) — só numa coleção MANUAL, sem busca ────
+const canReorderRows = computed(
+  () => collectionRef.value !== "" && !activeCollection.value?.is_smart && query.value.trim() === "",
+);
+const rowOverride = ref<string[] | null>(null);
+const orderedRows = computed(
+  () => reorderView<CatalogRowProjection>(rows.value, rowOverride.value, (r) => r.sku),
+);
+const displayRows = computed(() => (canReorderRows.value ? orderedRows.value : rows.value));
+const {
+  dragKey: rowDragKey, overKey: rowOverKey,
+  onDragStart: rowDragStart, onDragOver: rowDragOver, onDrop: rowDropRaw, reset: rowDragReset,
+} = useDragReorder((order) => {
+  rowOverride.value = order;
+  reorderItems(collectionRef.value, order).finally(() => { rowOverride.value = null; });
+});
+const rowDrop = () => rowDropRaw(displayRows.value.map((r) => r.sku));
 
 // ── selection + floating bulk bar (acts on the active recorte) ─────────────────
 const selected = ref<Set<string>>(new Set());
@@ -136,14 +180,22 @@ useHead({ title: "Catálogo · Gestor" });
     <!-- work toolbar: search · collection chips · counts/refresh -->
     <UiToolbar>
       <UiSearchInput v-model="query" placeholder="Buscar produto ou SKU…" aria-label="Buscar produto ou SKU" />
+      <!-- coleções: arrastáveis para reordenar as seções da vitrine (Collection.sort_order) -->
       <div v-if="collections.length" class="flex flex-wrap items-center gap-1.5">
         <UiFilterChip :active="collectionRef === ''" @click="collectionRef = ''">Todas</UiFilterChip>
         <UiFilterChip
-          v-for="c in collections"
+          v-for="c in orderedCollections"
           :key="c.ref"
+          draggable="true"
+          class="cursor-grab active:cursor-grabbing"
+          :class="collDragKey === c.ref ? 'opacity-40' : collOverKey === c.ref ? 'ring-2 ring-primary ring-offset-1' : ''"
           :active="collectionRef === c.ref"
           :count="c.product_count"
           @click="collectionRef = c.ref"
+          @dragstart="collDragStart(c.ref, $event)"
+          @dragover="collDragOver(c.ref, $event)"
+          @drop="collDrop()"
+          @dragend="collDragReset()"
         >
           <template v-if="c.is_smart" #icon>
             <Icon name="lucide:sparkles" class="size-3.5 opacity-70" title="Coleção por regra" />
@@ -202,10 +254,31 @@ useHead({ title: "Catálogo · Gestor" });
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in rows" :key="row.sku" class="group">
+          <tr
+            v-for="row in displayRows"
+            :key="row.sku"
+            class="group"
+            :class="canReorderRows && rowOverKey === row.sku ? 'outline-2 -outline-offset-2 outline-primary' : ''"
+            @dragover="canReorderRows ? rowDragOver(row.sku, $event) : null"
+            @drop="canReorderRows ? rowDrop() : null"
+          >
             <!-- product -->
             <td class="sticky left-0 z-10 border-b border-border bg-card px-4 py-2.5 group-hover:bg-muted/40" :class="{ 'bg-muted/40': isSelected(row.sku) }">
               <div class="flex items-center gap-3">
+                <!-- handle de arrastar: aparece só quando a coleção ativa é reordenável (manual, sem busca) -->
+                <button
+                  v-if="canReorderRows"
+                  type="button" draggable="true"
+                  class="-ml-1 grid size-6 shrink-0 cursor-grab place-items-center rounded text-muted-foreground/50 transition hover:text-foreground active:cursor-grabbing"
+                  :class="rowDragKey === row.sku ? 'opacity-40' : ''"
+                  aria-label="Arrastar para reordenar"
+                  title="Arrastar para reordenar nesta coleção"
+                  @dragstart="rowDragStart(row.sku, $event)"
+                  @dragend="rowDragReset()"
+                  @click.stop
+                >
+                  <Icon name="lucide:grip-vertical" class="size-4" />
+                </button>
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
                   <!-- thumbnail esmaece + P&B quando o produto está "fora" (sem canal disponível) -->

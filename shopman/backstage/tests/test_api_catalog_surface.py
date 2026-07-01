@@ -76,6 +76,8 @@ CELL_URL = "/api/v1/backstage/catalog/cell/"
 PRODUCT_URL = "/api/v1/backstage/catalog/product/"
 BULK_URL = "/api/v1/backstage/catalog/bulk/"
 BULK_PRICE_URL = "/api/v1/backstage/catalog/bulk-price/"
+REORDER_COLLECTIONS_URL = "/api/v1/backstage/catalog/reorder-collections/"
+REORDER_ITEMS_URL = "/api/v1/backstage/catalog/reorder-items/"
 
 
 # ── gate ────────────────────────────────────────────────────────────────────
@@ -394,3 +396,53 @@ def test_bulk_price_requires_manage_catalog(client, plain_staff, catalog):
         content_type="application/json",
     )
     assert resp.status_code == 403
+
+
+# ── reordenação ────────────────────────────────────────────────────────────────
+
+
+def test_reorder_collections(client, operator, catalog):
+    Collection.objects.create(ref="paes", name="Pães", is_active=True, sort_order=0)
+    Collection.objects.filter(ref="doces").update(sort_order=9)
+    client.force_login(operator)
+    resp = client.post(
+        REORDER_COLLECTIONS_URL,
+        data={"ordered_refs": ["doces", "paes"]},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert Collection.objects.get(ref="doces").sort_order == 0
+    assert Collection.objects.get(ref="paes").sort_order == 1
+
+
+def test_reorder_items_manual(client, operator, catalog):
+    coll = Collection.objects.get(ref="doces")
+    CollectionItem.objects.create(
+        collection=coll, product=Product.objects.get(sku="PAO"), sort_order=0
+    )
+    CollectionItem.objects.filter(collection=coll, product__sku="BOLO").update(sort_order=9)
+    client.force_login(operator)
+    resp = client.post(
+        REORDER_ITEMS_URL,
+        data={"collection_ref": "doces", "ordered_skus": ["BOLO", "PAO"]},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert CollectionItem.objects.get(collection=coll, product__sku="BOLO").sort_order == 0
+    assert CollectionItem.objects.get(collection=coll, product__sku="PAO").sort_order == 1
+
+
+def test_reorder_items_smart_rejected(client, operator, catalog):
+    Collection.objects.create(
+        ref="caros",
+        name="Caros",
+        is_active=True,
+        rule={"match": "all", "conditions": [{"field": "base_price_q", "op": "gte", "value": 1000}]},
+    )
+    client.force_login(operator)
+    resp = client.post(
+        REORDER_ITEMS_URL,
+        data={"collection_ref": "caros", "ordered_skus": ["BOLO"]},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400  # coleção por regra não tem ordem manual

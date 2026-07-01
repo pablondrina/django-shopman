@@ -199,6 +199,38 @@ class CatalogBulkPriceView(_CatalogBase):
         return Response({"ok": True, "surface_ref": surface_ref, "count": count})
 
 
+class CatalogReorderCollectionsView(_CatalogBase):
+    """Ordena as coleções (seções da vitrine) na sequência recebida."""
+
+    def post(self, request):
+        ordered = request.data.get("ordered_refs")
+        if not isinstance(ordered, list) or not ordered:
+            return Response({"detail": "ordered_refs (lista) é obrigatório."}, status=400)
+        count = catalog_service.reorder_collections(
+            [str(r).strip() for r in ordered], actor=_actor(request)
+        )
+        return Response({"ok": True, "count": count})
+
+
+class CatalogReorderItemsView(_CatalogBase):
+    """Ordena os produtos dentro de uma coleção manual."""
+
+    def post(self, request):
+        collection_ref = (request.data.get("collection_ref") or "").strip()
+        ordered = request.data.get("ordered_skus")
+        if not collection_ref:
+            return Response({"detail": "collection_ref é obrigatório."}, status=400)
+        if not isinstance(ordered, list) or not ordered:
+            return Response({"detail": "ordered_skus (lista) é obrigatório."}, status=400)
+        try:
+            count = catalog_service.reorder_collection_items(
+                collection_ref, [str(s).strip() for s in ordered], actor=_actor(request)
+            )
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"ok": True, "count": count})
+
+
 def _as_int(value):
     if value is None or value == "":
         return None

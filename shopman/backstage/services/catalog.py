@@ -250,3 +250,56 @@ def bulk_price_collection(
     return bulk_price(skus, surface_ref, op=op, value=value, actor=actor)
 
 
+# ── reordenação (curadoria da vitrine) ─────────────────────────────────────────
+# A ordem do cardápio vive em Collection.sort_order (seções) e CollectionItem.sort_order
+# (produtos dentro da coleção). Storefront, menuboard e feeds usam essa ordem.
+
+
+def reorder_collections(ordered_refs: list[str], *, actor: str = "") -> int:
+    """Grava a ordem das coleções (Collection.sort_order) na sequência recebida."""
+    from shopman.offerman.models import Collection
+
+    if not ordered_refs:
+        return 0
+    colls = {c.ref: c for c in Collection.objects.filter(ref__in=ordered_refs)}
+    changed = []
+    for index, ref in enumerate(ordered_refs):
+        coll = colls.get(ref)
+        if coll is not None and coll.sort_order != index:
+            coll.sort_order = index
+            changed.append(coll)
+    if changed:
+        Collection.objects.bulk_update(changed, ["sort_order"])
+    return len(changed)
+
+
+def reorder_collection_items(collection_ref: str, ordered_skus: list[str], *, actor: str = "") -> int:
+    """Grava a ordem dos produtos dentro de uma coleção MANUAL (CollectionItem.sort_order).
+
+    Coleção por regra (smart) não tem ordem manual — a pertinência é por condição.
+    """
+    from shopman.offerman.models import Collection, CollectionItem
+
+    coll = Collection.objects.filter(ref=collection_ref).first()
+    if coll is None:
+        raise CatalogError(f"Coleção '{collection_ref}' não encontrada.")
+    if coll.is_smart:
+        raise CatalogError("Coleção por regra não tem ordem manual.")
+    if not ordered_skus:
+        return 0
+
+    items = {
+        ci.product.sku: ci
+        for ci in CollectionItem.objects.filter(collection=coll).select_related("product")
+    }
+    changed = []
+    for index, sku in enumerate(ordered_skus):
+        ci = items.get(sku)
+        if ci is not None and ci.sort_order != index:
+            ci.sort_order = index
+            changed.append(ci)
+    if changed:
+        CollectionItem.objects.bulk_update(changed, ["sort_order"])
+    return len(changed)
+
+

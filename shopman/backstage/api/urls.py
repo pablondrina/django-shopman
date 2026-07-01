@@ -11,6 +11,8 @@ from .catalog import (
     CatalogCellView,
     CatalogMatrixView,
     CatalogProductView,
+    CatalogReorderCollectionsView,
+    CatalogReorderItemsView,
 )
 from .kds import (
     KDSBoardView,
@@ -96,6 +98,8 @@ urlpatterns = [
     path("catalog/product/", CatalogProductView.as_view(), name="api-backstage-catalog-product"),
     path("catalog/bulk/", CatalogBulkView.as_view(), name="api-backstage-catalog-bulk"),
     path("catalog/bulk-price/", CatalogBulkPriceView.as_view(), name="api-backstage-catalog-bulk-price"),
+    path("catalog/reorder-collections/", CatalogReorderCollectionsView.as_view(), name="api-backstage-catalog-reorder-collections"),
+    path("catalog/reorder-items/", CatalogReorderItemsView.as_view(), name="api-backstage-catalog-reorder-items"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),
     path("orders/<str:ref>/advance/", OrderAdvanceView.as_view(), name="api-backstage-order-advance"),
