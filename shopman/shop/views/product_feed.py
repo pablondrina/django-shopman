@@ -55,7 +55,16 @@ def _storefront_base(request) -> str:
     return request.build_absolute_uri("/").rstrip("/")
 
 
-def build_feed_items(surface_ref: str, request) -> list[dict]:
+# availability diverge entre plataformas (pesquisa verificada 2026-07-01):
+# Google usa underscore, Meta usa espaço. É o ÚNICO campo que precisa de
+# serialização por plataforma; o resto do XML g: é idêntico e serve os dois.
+_AVAILABILITY = {
+    "google": {True: "in_stock", False: "out_of_stock"},
+    "meta": {True: "in stock", False: "out of stock"},
+}
+
+
+def build_feed_items(surface_ref: str, request, platform: str = "google") -> list[dict]:
     """Itens do feed (dicts prontos p/ o template). Formatação = camada de view."""
     from shopman.offerman.models import Collection, ListingItem
 
@@ -64,6 +73,7 @@ def build_feed_items(surface_ref: str, request) -> list[dict]:
     if coll is None:
         raise ProductFeedError("source collection not found")
 
+    avail_map = _AVAILABILITY.get(platform, _AVAILABILITY["google"])
     base = _storefront_base(request)
     overrides = {
         i.product.sku: i
@@ -89,7 +99,7 @@ def build_feed_items(surface_ref: str, request) -> list[dict]:
             "description": (product.long_description or product.short_description or product.name)[:5000],
             "link": f"{base}/produto/{product.sku}",
             "image_link": product.image_url,
-            "availability": "in_stock" if available else "out_of_stock",
+            "availability": avail_map[available],
             "price": f"{price_q / 100:.2f} BRL",
             "product_type": primary.collection.name if primary else coll.name,
             "custom_label_0": primary.collection.ref if primary else coll.ref,
@@ -101,8 +111,11 @@ class ProductFeedView(View):
     """Feed RSS 2.0 público (Google/Meta) de uma superfície feed."""
 
     def get(self, request, ref: str):
+        # ?platform=meta usa "in stock"/"out of stock" (espaço); default google
+        # usa "in_stock"/"out_of_stock" (underscore). Mesmo XML g: nos dois.
+        platform = "meta" if request.GET.get("platform") == "meta" else "google"
         try:
-            items = build_feed_items(ref, request)
+            items = build_feed_items(ref, request, platform)
         except ProductFeedError as exc:
             raise Http404(str(exc)) from exc
 

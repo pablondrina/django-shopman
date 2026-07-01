@@ -75,6 +75,16 @@ def test_paused_product_is_out_of_stock(client, feed_surface):
     assert item.find(f"{G}availability").text == "out_of_stock"
 
 
+def test_meta_platform_uses_spaced_availability(client, feed_surface):
+    # Meta usa "in stock" (espaço); Google usa "in_stock" (underscore). Verificado.
+    item = _items(client.get("/feed/google.xml?platform=meta").content)[0]
+    assert item.find(f"{G}availability").text == "in stock"
+    feed_surface["com_foto"].is_sellable = False
+    feed_surface["com_foto"].save()
+    item = _items(client.get("/feed/google.xml?platform=meta").content)[0]
+    assert item.find(f"{G}availability").text == "out of stock"
+
+
 def test_smart_collection_feed(client, db):
     Channel.objects.create(
         ref="meta",
