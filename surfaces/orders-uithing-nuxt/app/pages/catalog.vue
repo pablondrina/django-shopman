@@ -13,8 +13,10 @@ import {
 import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
-const { matrix, pending, error, refresh, isBusy, cellKey, setCell, bulkSet, bulkBusy } =
-  useCatalogMatrix(collectionRef);
+const {
+  matrix, pending, error, refresh, isBusy, cellKey, setCell, bulkSet, bulkBusy,
+  materialize, isMaterializing,
+} = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
 const collections = computed(() => matrix.value?.collections ?? []);
@@ -163,6 +165,17 @@ useHead({ title: "Catálogo · Gestor" });
                 >
                   {{ syncBadge(s.sync_status)!.label }}
                 </span>
+                <UiButton
+                  v-if="s.content_source"
+                  variant="outline"
+                  size="xs"
+                  class="mt-1 w-fit font-normal"
+                  :loading="isMaterializing(s.ref)"
+                  :title="`Sincronizar itens a partir da coleção ${s.content_source}`"
+                  @click="materialize(s.ref)"
+                >
+                  Sincronizar da coleção
+                </UiButton>
               </div>
             </th>
           </tr>

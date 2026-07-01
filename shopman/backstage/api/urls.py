@@ -5,7 +5,12 @@ from __future__ import annotations
 from django.urls import path
 
 from .alerts import AlertAckView, AlertListView
-from .catalog import CatalogBulkView, CatalogCellView, CatalogMatrixView
+from .catalog import (
+    CatalogBulkView,
+    CatalogCellView,
+    CatalogMaterializeView,
+    CatalogMatrixView,
+)
 from .kds import (
     KDSBoardView,
     KDSCustomerStatusView,
@@ -88,6 +93,7 @@ urlpatterns = [
     path("catalog/", CatalogMatrixView.as_view(), name="api-backstage-catalog"),
     path("catalog/cell/", CatalogCellView.as_view(), name="api-backstage-catalog-cell"),
     path("catalog/bulk/", CatalogBulkView.as_view(), name="api-backstage-catalog-bulk"),
+    path("catalog/materialize/", CatalogMaterializeView.as_view(), name="api-backstage-catalog-materialize"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),
     path("orders/<str:ref>/advance/", OrderAdvanceView.as_view(), name="api-backstage-order-advance"),

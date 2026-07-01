@@ -123,3 +123,64 @@ def bulk_set_collection(
     return bulk_set(
         skus, surface_ref, is_published=is_published, is_sellable=is_sellable, actor=actor
     )
+
+
+def materialize_surface(surface_ref: str, *, actor: str = "") -> dict:
+    """Sincroniza os ListingItems de uma superfície a partir da coleção-fonte.
+
+    Para superfícies com ``content.source == "collection"`` (definido no
+    ChannelConfig): o conteúdo passa a ser exatamente os produtos da coleção
+    (manual ou por regra). Adiciona células faltantes (preço = base_price_q do
+    produto) e remove as que não pertencem mais à coleção; preços/disponibilidade
+    das células que permanecem ficam intactos. Reconcilia a projeção ao final.
+
+    Retorna ``{"added": n, "removed": m, "total": t}``.
+    """
+    from shopman.offerman.models import Collection, ListingItem
+
+    from shopman.shop.config import ChannelConfig
+
+    cfg = ChannelConfig.for_channel(surface_ref)
+    if cfg.content.source != "collection" or not cfg.content.collection:
+        raise CatalogError(
+            f"Superfície '{surface_ref}' não é alimentada por coleção "
+            "(defina content.source='collection' no canal)."
+        )
+
+    coll = Collection.objects.filter(ref=cfg.content.collection).first()
+    if coll is None:
+        raise CatalogError(f"Coleção-fonte '{cfg.content.collection}' não encontrada.")
+
+    listing = _get_listing(surface_ref)
+
+    target = {p.sku: p for p in coll.product_queryset()}
+    existing = {
+        item.product.sku: item
+        for item in ListingItem.objects.filter(listing=listing).select_related("product")
+    }
+
+    to_add = [sku for sku in target if sku not in existing]
+    to_remove = [sku for sku in existing if sku not in target]
+
+    for sku in to_add:
+        product = target[sku]
+        ListingItem.objects.get_or_create(
+            listing=listing,
+            product=product,
+            min_qty=1,
+            defaults={"price_q": product.base_price_q},
+        )
+    if to_remove:
+        ListingItem.objects.filter(listing=listing, product__sku__in=to_remove).delete()
+
+    _reconcile_if_projected(surface_ref)
+    return {"added": len(to_add), "removed": len(to_remove), "total": len(target)}
+
+
+def _get_listing(surface_ref: str):
+    from shopman.offerman.models import Listing
+
+    listing = Listing.objects.filter(ref=surface_ref).first()
+    if listing is None:
+        raise CatalogError(f"Listing '{surface_ref}' não existe para esta superfície.")
+    return listing

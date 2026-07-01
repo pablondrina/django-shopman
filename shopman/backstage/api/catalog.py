@@ -126,6 +126,20 @@ class CatalogBulkView(_CatalogBase):
         return Response({"ok": True, "surface_ref": surface_ref, "count": count})
 
 
+class CatalogMaterializeView(_CatalogBase):
+    """Sincroniza os ListingItems de uma superfície a partir da coleção-fonte."""
+
+    def post(self, request):
+        surface_ref = (request.data.get("surface_ref") or "").strip()
+        if not surface_ref:
+            return Response({"detail": "surface_ref é obrigatório."}, status=400)
+        try:
+            result = catalog_service.materialize_surface(surface_ref, actor=_actor(request))
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"ok": True, "surface_ref": surface_ref, **result})
+
+
 def _as_int(value):
     if value is None or value == "":
         return None
