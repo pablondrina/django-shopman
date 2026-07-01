@@ -112,10 +112,16 @@ Contra o ambiente real do iFood (não mais teórico):
 - **Detalhe**: `GET /order/v1.0/orders/{id}` (rota existe; id fake → `404 OrderNotFound`).
 - **Status**: `POST /order/v1.0/orders/{id}/confirm` (e `/dispatch`, `/readyToPickup`,
   `/requestCancellation`) — rotas existem (id fake → `404 OrderNotFound`).
-- **Motivos de cancelamento**: `GET /order/v1.0/orders/{id}/cancellationReasons` — rota existe
-  (id fake alheio → `403 Forbidden`; num pedido real devolve `[{cancelCodeId, description}]`).
-  `requestCancellation` exige um `cancellationCode` dessa lista — no código é config-driven
-  (`cancellation_default_code`), nunca chutado; `fetch_cancellation_reasons()` descobre os válidos.
+- **Motivos de cancelamento VERIFICADOS AO VIVO (2026-07-01)**: `GET /order/v1.0/orders/{id}/cancellationReasons`
+  num pedido real devolve `[{cancelCodeId, description}]`. Lista válida capturada:
+  `501` Problemas de sistema · `502` Duplicado · `503` Item indisponível/desatualizado ·
+  `504` Sem entregadores · `506` Fora da área · `507` Golpe/trote · `508` Fora do horário ·
+  `509` Dificuldades internas · `511` Área de risco · `512` Abrirá mais tarde · `523` Erro na promoção.
+  `requestCancellation` é config-driven (`cancellation_default_code`), nunca chutado;
+  **default setado = `501`** (env `IFOOD_CANCELLATION_CODE`, neutro). Staging/prod precisam do env var.
+- **Callbacks WP-4 VERIFICADOS AO VIVO (2026-07-01)**: num pedido de teste real, `confirm` →
+  `readyToPickup` → `dispatch` todos retornaram `202`. O caminho de callback funciona ponta-a-ponta
+  contra o iFood real (só `requestCancellation` não foi exercido ao vivo — mesma mecânica).
 - **Schema do pedido VALIDADO AO VIVO (2026-07-01)** — capturei um pedido de teste real gerado pelo
   Developer Portal (`GET /orders/{id}` → `200`), fixture em `shopman/shop/tests/fixtures/ifood_order_real.json`.
   Descobertas que os mocks não pegavam e foram corrigidas no `map_order`:
