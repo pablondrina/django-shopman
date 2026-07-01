@@ -61,6 +61,29 @@ export function cellView(row: CatalogRowProjection, cell: SurfaceCellProjection)
   return { state, label: CELL_LABELS[state], toneClass: CELL_TONES[state] };
 }
 
+// Heatmap tints — a matriz vira um mapa glanceável de disponibilidade.
+const CELL_TINTS: Record<CellState, string> = {
+  available: "bg-emerald-500/10 hover:bg-emerald-500/20",
+  paused: "bg-amber-500/10 hover:bg-amber-500/20",
+  unpublished: "bg-muted hover:bg-muted/80",
+  absent: "hover:bg-muted/40",
+};
+
+const CELL_DOTS: Record<CellState, string> = {
+  available: "bg-emerald-500",
+  paused: "bg-amber-500",
+  unpublished: "bg-muted-foreground/50",
+  absent: "bg-transparent",
+};
+
+export function cellTint(state: CellState): string {
+  return CELL_TINTS[state];
+}
+
+export function cellDot(state: CellState): string {
+  return CELL_DOTS[state];
+}
+
 // ── surface metadata ─────────────────────────────────────────────────────────
 
 const CAPABILITY_LABELS: Record<SurfaceCapability, string> = {

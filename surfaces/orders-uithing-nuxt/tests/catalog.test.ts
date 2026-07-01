@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   capabilityLabel,
+  cellDot,
   cellState,
+  cellTint,
   cellView,
   filterRows,
   syncBadge,
@@ -86,6 +88,19 @@ describe("filterRows", () => {
   });
   it("matches keyword", () => {
     expect(filterRows(rows, "doce").map((r) => r.sku)).toEqual(["BOLO"]);
+  });
+});
+
+describe("heatmap chrome", () => {
+  it("tints available cells green and paused amber", () => {
+    expect(cellTint("available")).toContain("emerald");
+    expect(cellTint("paused")).toContain("amber");
+    expect(cellTint("absent")).not.toContain("emerald");
+  });
+  it("dots match the state", () => {
+    expect(cellDot("available")).toContain("emerald");
+    expect(cellDot("paused")).toContain("amber");
+    expect(cellDot("absent")).toContain("transparent");
   });
 });
 
