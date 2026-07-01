@@ -391,6 +391,40 @@ def availability_for_skus(skus: list[str], *, channel_ref: str) -> dict[str, dic
         return {}
 
 
+def planned_supply_for_skus(skus: list[str], *, horizon_days: int = 2) -> dict[str, int]:
+    """Suprimento planejado (fornadas futuras) por SKU até ``horizon_days`` dias.
+
+    Produção planejada vira **quant com ``target_date`` futura** (o que ``craft.plan``
+    materializa). Isto é uma consulta SEPARADA da disponibilidade-agora: aqui só o que
+    está a caminho pela produção — sem contaminar ``sold_out`` com o que ainda não chegou.
+    Batch, silencioso sem Stockman.
+    """
+    if not skus:
+        return {}
+    try:
+        from datetime import date, timedelta
+
+        from django.db.models import Sum
+
+        from shopman.stockman.models import Quant
+
+        today = date.today()
+        rows = (
+            Quant.objects.filter(
+                sku__in=skus,
+                target_date__gt=today,
+                target_date__lte=today + timedelta(days=max(horizon_days, 1)),
+                _quantity__gt=0,
+            )
+            .values("sku")
+            .annotate(total=Sum("_quantity"))
+        )
+        return {r["sku"]: int(r["total"] or 0) for r in rows}
+    except Exception as exc:
+        logger.warning("planned_supply_failed: %s", exc, exc_info=True)
+        return {}
+
+
 def availability_with_own_hold(raw_avail: dict | None, own_hold: int) -> dict | None:
     if raw_avail is None or own_hold <= 0:
         return raw_avail

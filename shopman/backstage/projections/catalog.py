@@ -110,45 +110,45 @@ _EMPTY_STOCK = {
 }
 
 
-def _stock_view(info: dict | None, low_stock_threshold: int) -> dict:
+def _stock_view(info: dict | None, low_stock_threshold: int, replenish_qty: int) -> dict:
     """Deriva o estado de estoque da linha a partir do dict canônico de availability.
 
-    Esgotado = rastreado e sem promissível (nem físico nem fornada, conforme a
-    política). ``replenish_qty`` = o que vem por produção (planejado + em produção).
+    Esgotado = rastreado e sem promissível AGORA. ``replenish_qty`` vem de uma consulta
+    SEPARADA (fornadas futuras) — não do promissível-agora — pra não mascarar o esgotado.
     """
     if not info or not info.get("is_tracked", True):
-        return dict(_EMPTY_STOCK)
+        return {**_EMPTY_STOCK, "replenish_qty": max(int(replenish_qty or 0), 0)}
     promisable = int(info.get("total_promisable") or 0)
-    planned = int(info.get("planned") or 0)
-    in_production = int((info.get("breakdown") or {}).get("in_production") or 0)
     sold_out = promisable <= 0
     return {
         "stock_tracked": True,
         "stock_qty": promisable,
         "sold_out": sold_out,
         "low_stock": (not sold_out) and promisable <= max(int(low_stock_threshold or 0), 0),
-        "replenish_qty": max(planned + in_production, 0),
+        "replenish_qty": max(int(replenish_qty or 0), 0),
     }
 
 
-def _stock_for(skus: list[str]) -> tuple[dict[str, dict | None], int]:
-    """Availability em lote (canal representante) + threshold de estoque baixo.
+def _stock_for(skus: list[str]) -> tuple[dict[str, dict | None], int, dict[str, int]]:
+    """Availability-agora (canal representante) + threshold + suprimento planejado.
 
     Estoque é físico/produto-level; usa o scope de UM canal representante (o de menor
-    ``display_order``). Diferenças de scope entre canais (D-1) são de borda pro Gestor.
-    Degrada em silêncio (sem Stockman → dict vazio → tudo untracked → como hoje).
+    ``display_order``). ``planned`` é uma consulta separada (fornadas futuras próximas).
+    Degrada em silêncio (sem Stockman → vazio → tudo untracked → como hoje).
     """
     from shopman.shop.config import ChannelConfig
     from shopman.shop.models import Channel
 
     rep = Channel.objects.filter(is_active=True).order_by("display_order", "id").first()
     if rep is None or not skus:
-        return {}, 0
+        return {}, 0, {}
     threshold = int(getattr(ChannelConfig.for_channel(rep).stock, "low_stock_threshold", 0) or 0)
 
     from shopman.shop.projections import catalog_context
 
-    return catalog_context.availability_for_skus(skus, channel_ref=rep.ref), threshold
+    availability = catalog_context.availability_for_skus(skus, channel_ref=rep.ref)
+    planned = catalog_context.planned_supply_for_skus(skus)
+    return availability, threshold, planned
 
 
 def _surface_sync_status(listing, is_projection_target: bool) -> str:
@@ -218,7 +218,7 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
         products = products.filter(pk__in=coll.product_queryset().values("pk")) if coll else products.none()
 
     products = list(products)
-    stock_by_sku, low_stock_threshold = _stock_for([p.sku for p in products])
+    stock_by_sku, low_stock_threshold, planned_by_sku = _stock_for([p.sku for p in products])
 
     rows: list[CatalogRowProjection] = []
     for product in products:
@@ -260,7 +260,9 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                 )
             )
 
-        stock = _stock_view(stock_by_sku.get(product.sku), low_stock_threshold)
+        stock = _stock_view(
+            stock_by_sku.get(product.sku), low_stock_threshold, planned_by_sku.get(product.sku, 0)
+        )
         rows.append(
             CatalogRowProjection(
                 sku=product.sku,
