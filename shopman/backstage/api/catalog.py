@@ -159,6 +159,46 @@ class CatalogBulkView(_CatalogBase):
         return Response({"ok": True, "surface_ref": surface_ref, "count": count})
 
 
+class CatalogBulkPriceView(_CatalogBase):
+    """Reprecificação em lote scoped a superfície + (coleção | seleção de skus)."""
+
+    def post(self, request):
+        surface_ref = (request.data.get("surface_ref") or "").strip()
+        op = (request.data.get("op") or "").strip()
+        value = _as_int(request.data.get("value"))
+        if not surface_ref:
+            return Response({"detail": "surface_ref é obrigatório."}, status=400)
+        if op not in ("set", "pct", "delta"):
+            return Response({"detail": "op deve ser set, pct ou delta."}, status=400)
+        if value is None:
+            return Response({"detail": "value é obrigatório."}, status=400)
+
+        collection_ref = (request.data.get("collection_ref") or "").strip()
+        skus = request.data.get("skus") or []
+
+        try:
+            if collection_ref:
+                count = catalog_service.bulk_price_collection(
+                    collection_ref, surface_ref, op=op, value=value, actor=_actor(request)
+                )
+            elif isinstance(skus, list) and skus:
+                count = catalog_service.bulk_price(
+                    [str(s).strip() for s in skus],
+                    surface_ref,
+                    op=op,
+                    value=value,
+                    actor=_actor(request),
+                )
+            else:
+                return Response(
+                    {"detail": "Informe collection_ref ou uma lista skus."}, status=400
+                )
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response({"ok": True, "surface_ref": surface_ref, "count": count})
+
+
 def _as_int(value):
     if value is None or value == "":
         return None

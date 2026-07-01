@@ -120,8 +120,36 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // Reprecificação em lote: op set|pct|delta, value em centavos (set/delta) ou
+  // pontos percentuais (pct). Escopo por coleção OU lista de skus.
+  async function bulkPrice(
+    surface: string,
+    scope: { collection_ref?: string; skus?: string[] },
+    patch: { op: "set" | "pct" | "delta"; value: number },
+  ): Promise<number> {
+    if (bulkBusy.value) return 0;
+    clearError();
+    bulkBusy.value = true;
+    try {
+      const res = await $fetch<{ count: number }>("/api/v1/backstage/catalog/bulk-price/", {
+        method: "POST",
+        body: { surface_ref: surface, ...scope, ...patch },
+      });
+      await refresh();
+      const count = res?.count ?? 0;
+      useSonner.success(`${count} preço(s) atualizado(s).`);
+      return count;
+    } catch (err: any) {
+      errorMsg.value = err?.data?.detail || "Falha ao reprecificar.";
+      useSonner.error(errorMsg.value);
+      return 0;
+    } finally {
+      bulkBusy.value = false;
+    }
+  }
+
   return {
     matrix, pending, error, refresh, isBusy, cellKey, productKey, errorMsg, clearError,
-    setCell, setProduct, bulkSet, bulkBusy,
+    setCell, setProduct, bulkSet, bulkPrice, bulkBusy,
   };
 }

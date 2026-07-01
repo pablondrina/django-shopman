@@ -6,6 +6,7 @@ from django.urls import path
 
 from .alerts import AlertAckView, AlertListView
 from .catalog import (
+    CatalogBulkPriceView,
     CatalogBulkView,
     CatalogCellView,
     CatalogMatrixView,
@@ -94,6 +95,7 @@ urlpatterns = [
     path("catalog/cell/", CatalogCellView.as_view(), name="api-backstage-catalog-cell"),
     path("catalog/product/", CatalogProductView.as_view(), name="api-backstage-catalog-product"),
     path("catalog/bulk/", CatalogBulkView.as_view(), name="api-backstage-catalog-bulk"),
+    path("catalog/bulk-price/", CatalogBulkPriceView.as_view(), name="api-backstage-catalog-bulk-price"),
     # Orders — operator actions
     path("orders/<str:ref>/", OrderDetailView.as_view(), name="api-backstage-order-detail"),
     path("orders/<str:ref>/advance/", OrderAdvanceView.as_view(), name="api-backstage-order-advance"),

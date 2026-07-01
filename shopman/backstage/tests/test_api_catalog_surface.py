@@ -75,6 +75,7 @@ MATRIX_URL = "/api/v1/backstage/catalog/"
 CELL_URL = "/api/v1/backstage/catalog/cell/"
 PRODUCT_URL = "/api/v1/backstage/catalog/product/"
 BULK_URL = "/api/v1/backstage/catalog/bulk/"
+BULK_PRICE_URL = "/api/v1/backstage/catalog/bulk-price/"
 
 
 # ── gate ────────────────────────────────────────────────────────────────────
@@ -308,3 +309,88 @@ def test_bulk_requires_field(client, operator, catalog):
         content_type="application/json",
     )
     assert resp.status_code == 400  # nem is_published nem is_sellable
+
+
+# ── write: preço em lote ───────────────────────────────────────────────────────
+
+
+def test_bulk_price_set(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO", "BOLO"], "op": "set", "value": 999},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 2
+    assert ListingItem.objects.get(listing__ref="web", product__sku="PAO").price_q == 999
+    assert ListingItem.objects.get(listing__ref="web", product__sku="BOLO").price_q == 999
+
+
+def test_bulk_price_pct_rounds(client, operator, catalog):
+    client.force_login(operator)
+    # PAO web = 600 → +10% = 660
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO"], "op": "pct", "value": 10},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert ListingItem.objects.get(listing__ref="web", product__sku="PAO").price_q == 660
+
+
+def test_bulk_price_delta_clamps_at_zero(client, operator, catalog):
+    client.force_login(operator)
+    # PAO web = 600; delta -1000 → clamp 0 (nunca negativo)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO"], "op": "delta", "value": -1000},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert ListingItem.objects.get(listing__ref="web", product__sku="PAO").price_q == 0
+
+
+def test_bulk_price_by_collection(client, operator, catalog):
+    client.force_login(operator)
+    # BOLO web = 4800; coleção Doces só tem BOLO; +50% = 7200
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "collection_ref": "doces", "op": "pct", "value": 50},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 1
+    assert ListingItem.objects.get(listing__ref="web", product__sku="BOLO").price_q == 7200
+    # PAO (fora da coleção) intacto
+    assert ListingItem.objects.get(listing__ref="web", product__sku="PAO").price_q == 600
+
+
+def test_bulk_price_invalid_op(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO"], "op": "multiply", "value": 2},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+def test_bulk_price_set_negative_rejected(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO"], "op": "set", "value": -1},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+def test_bulk_price_requires_manage_catalog(client, plain_staff, catalog):
+    client.force_login(plain_staff)
+    resp = client.post(
+        BULK_PRICE_URL,
+        data={"surface_ref": "web", "skus": ["PAO"], "op": "set", "value": 100},
+        content_type="application/json",
+    )
+    assert resp.status_code == 403

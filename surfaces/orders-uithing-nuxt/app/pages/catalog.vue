@@ -9,7 +9,7 @@ import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalo
 
 const collectionRef = ref("");
 const {
-  matrix, pending, error, refresh, isBusy, cellKey, productKey, setCell, setProduct, bulkSet, bulkBusy,
+  matrix, pending, error, refresh, isBusy, cellKey, productKey, setCell, setProduct, bulkSet, bulkPrice, bulkBusy,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -42,6 +42,36 @@ watchEffect(() => { if (!bulkSurface.value && surfaces.value.length) bulkSurface
 async function bulk(patch: { is_sellable?: boolean; is_published?: boolean }) {
   if (!bulkSurface.value || selected.value.size === 0) return;
   await bulkSet(bulkSurface.value, { skus: [...selected.value] }, patch);
+  clearSelection();
+}
+
+// ── reprecificação em lote (popover) ───────────────────────────────────────────
+const priceOpen = ref(false);
+const priceOp = ref<"set" | "pct" | "delta">("pct");
+const priceOps = [
+  { k: "set", l: "Definir" },
+  { k: "pct", l: "Ajustar %" },
+  { k: "delta", l: "Ajustar R$" },
+] as const;
+const priceInputBulk = ref("");
+const surfaceLabel = (ref_: string) => surfaces.value.find((s) => s.ref === ref_)?.name ?? ref_;
+// número digitado (aceita vírgula/percentual/negativo); em centavos p/ set/delta.
+function parsedPriceValue(): number | null {
+  const raw = priceInputBulk.value.replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", ".");
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) return null;
+  return priceOp.value === "pct" ? Math.round(n) : Math.round(n * 100);
+}
+const priceValid = computed(() => {
+  const v = parsedPriceValue();
+  return v !== null && (priceOp.value !== "set" || v >= 0);
+});
+async function applyBulkPrice() {
+  const value = parsedPriceValue();
+  if (value === null || !bulkSurface.value || selected.value.size === 0) return;
+  await bulkPrice(bulkSurface.value, { skus: [...selected.value] }, { op: priceOp.value, value });
+  priceOpen.value = false;
+  priceInputBulk.value = "";
   clearSelection();
 }
 
@@ -347,6 +377,44 @@ useHead({ title: "Catálogo · Gestor" });
         <div class="h-5 w-px bg-background/20"></div>
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-background/25 px-3 text-sm font-medium transition hover:bg-background/10 disabled:opacity-50" @click="bulk({ is_sellable: false })"><Icon name="lucide:pause" class="size-3.5" /> Pausar</button>
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-background/25 px-3 text-sm font-medium transition hover:bg-background/10 disabled:opacity-50" @click="bulk({ is_sellable: true })"><Icon name="lucide:play" class="size-3.5" /> Reativar</button>
+
+        <!-- reprecificação em lote: popover ancorado (superfície normal, legível sobre a barra invertida) -->
+        <UiPopover :open="priceOpen" @update:open="(v) => (priceOpen = v)">
+          <UiPopoverTrigger as-child>
+            <button :disabled="bulkBusy" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-background/25 px-3 text-sm font-medium transition hover:bg-background/10 disabled:opacity-50">
+              <Icon name="lucide:tag" class="size-3.5" /> Preço…
+            </button>
+          </UiPopoverTrigger>
+          <UiPopoverContent align="center" :side-offset="10" class="w-64 p-3">
+            <p class="mb-2 text-xs font-medium text-muted-foreground"><span class="tabular-nums">{{ selected.size }}</span> selecionado{{ selected.size === 1 ? "" : "s" }} em {{ surfaceLabel(bulkSurface) }}</p>
+            <div class="mb-2 inline-flex w-full rounded-md border p-0.5 text-xs">
+              <button
+                v-for="o in priceOps" :key="o.k" type="button"
+                class="flex-1 rounded px-2 py-1 font-medium transition"
+                :class="priceOp === o.k ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="priceOp = o.k"
+              >{{ o.l }}</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 shrink-0 text-center text-sm text-muted-foreground">{{ priceOp === "pct" ? "%" : "R$" }}</span>
+              <input
+                v-model="priceInputBulk" type="text" inputmode="decimal" autofocus
+                :placeholder="priceOp === 'set' ? '15,00' : priceOp === 'pct' ? '+10 ou -20' : '+1,00 ou -0,50'"
+                class="h-9 w-full rounded-md border bg-background px-2.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                @keyup.enter="applyBulkPrice"
+              />
+            </div>
+            <p class="mt-1.5 text-[11px] leading-tight text-muted-foreground">
+              {{ priceOp === "set" ? "Define o preço de todos os selecionados." : priceOp === "pct" ? "Aumenta (+) ou reduz (−) por porcentagem." : "Soma (+) ou subtrai (−) do preço atual." }}
+              Permanente — para promo, use as regras.
+            </p>
+            <div class="mt-2.5 flex justify-end gap-1.5">
+              <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition hover:bg-accent" @click="priceOpen = false">Cancelar</button>
+              <button type="button" :disabled="!priceValid || bulkBusy" class="rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50" @click="applyBulkPrice">Aplicar</button>
+            </div>
+          </UiPopoverContent>
+        </UiPopover>
+
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-background/80 transition hover:bg-background/10 hover:text-background disabled:opacity-50" @click="bulk({ is_published: false })">Despublicar</button>
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-background/80 transition hover:bg-background/10 hover:text-background disabled:opacity-50" @click="bulk({ is_published: true })">Publicar</button>
         <button class="grid size-9 place-items-center rounded-md text-background/70 transition hover:bg-background/10 hover:text-background" title="Limpar seleção" @click="clearSelection"><Icon name="lucide:x" class="size-4" /></button>

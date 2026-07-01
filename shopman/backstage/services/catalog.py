@@ -164,3 +164,89 @@ def bulk_set_collection(
     )
 
 
+_PRICE_OPS = ("set", "pct", "delta")
+
+
+def _apply_price_op(old_q: int, op: str, value: int) -> int:
+    """Aplica a operação de preço a um valor em centavos (nunca negativo)."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    if op == "set":
+        new_q = int(value)
+    elif op == "pct":
+        factor = Decimal(1) + (Decimal(value) / Decimal(100))
+        new_q = int((Decimal(old_q) * factor).to_integral_value(rounding=ROUND_HALF_UP))
+    else:  # delta
+        new_q = old_q + int(value)
+    return max(new_q, 0)
+
+
+def bulk_price(
+    skus: list[str],
+    surface_ref: str,
+    *,
+    op: str,
+    value: int,
+    actor: str = "",
+) -> int:
+    """Reprecifica em lote o tier base de cada produto numa superfície.
+
+    ``op``: ``set`` (preço absoluto, centavos) · ``pct`` (ajuste percentual, pontos
+    +/-) · ``delta`` (ajuste absoluto, centavos +/-). Calcula em Python (arredonda),
+    grava num único ``bulk_update`` e reconcilia uma vez (padrão do bulk).
+
+    Reprecificação é PERMANENTE (muda o cardápio). Para promoção temporária, use o
+    motor de regras (Happy Hour/D-1), não isto.
+    """
+    from shopman.offerman.models import ListingItem
+
+    if op not in _PRICE_OPS:
+        raise CatalogError(f"Operação de preço inválida: {op!r}.")
+    if op == "set" and value < 0:
+        raise CatalogError("Preço não pode ser negativo.")
+    if not skus:
+        return 0
+
+    # tier base (menor min_qty) por SKU — 1 célula por produto, como a matriz mostra.
+    items = (
+        ListingItem.objects.filter(listing__ref=surface_ref, product__sku__in=skus)
+        .select_related("product")
+        .order_by("product__sku", "min_qty")
+    )
+    seen: set[str] = set()
+    changed: list = []
+    for item in items:
+        sku = item.product.sku
+        if sku in seen:
+            continue
+        seen.add(sku)
+        new_q = _apply_price_op(item.price_q, op, value)
+        if new_q != item.price_q:
+            item.price_q = new_q
+            changed.append(item)
+
+    if changed:
+        ListingItem.objects.bulk_update(changed, ["price_q"])
+        _reconcile_if_projected(surface_ref)
+        _notify_surface(surface_ref)
+    return len(changed)
+
+
+def bulk_price_collection(
+    collection_ref: str,
+    surface_ref: str,
+    *,
+    op: str,
+    value: int,
+    actor: str = "",
+) -> int:
+    """Reprecificação em lote scoped a uma COLEÇÃO (manual ou smart)."""
+    from shopman.offerman.models import Collection
+
+    coll = Collection.objects.filter(ref=collection_ref).first()
+    if coll is None:
+        raise CatalogError(f"Coleção '{collection_ref}' não encontrada.")
+    skus = list(coll.product_queryset().values_list("sku", flat=True))
+    return bulk_price(skus, surface_ref, op=op, value=value, actor=actor)
+
+
