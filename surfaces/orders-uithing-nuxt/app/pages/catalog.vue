@@ -4,7 +4,7 @@
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
-import { cellPrice, cellView, filterRows, surfaceIcon, syncBadge } from "~/presentation/catalog";
+import { cellPrice, cellView, filterRows, rowStatus, surfaceIcon, syncBadge } from "~/presentation/catalog";
 import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
@@ -16,6 +16,8 @@ const surfaces = computed(() => matrix.value?.surfaces ?? []);
 const collections = computed(() => matrix.value?.collections ?? []);
 const query = ref("");
 const rows = computed<CatalogRowProjection[]>(() => filterRows(matrix.value?.rows ?? [], query.value));
+// status por linha (esmaecer/foto P&B/selo) computado uma vez por refresh.
+const rowStatuses = computed(() => Object.fromEntries(rows.value.map((r) => [r.sku, rowStatus(r)])));
 const activeCollection = computed(() => collections.value.find((c) => c.ref === collectionRef.value) ?? null);
 const loading = computed(() => pending.value && !matrix.value);
 
@@ -176,18 +178,21 @@ useHead({ title: "Catálogo · Gestor" });
               <div class="flex items-center gap-3">
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
-                  <!-- thumbnail esmaece + PB quando o produto está pausado/despublicado -->
+                  <!-- thumbnail esmaece + P&B quando o produto está "fora" (sem canal disponível) -->
                   <img
                     v-if="row.image_url" :src="row.image_url" :alt="row.name"
                     class="size-10 shrink-0 rounded-md object-cover ring-1 ring-border transition"
-                    :class="row.is_sellable && row.is_published ? '' : 'opacity-50 grayscale'"
+                    :class="rowStatuses[row.sku]?.off ? 'opacity-50 grayscale' : ''"
                   />
                   <div v-else class="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Icon name="lucide:image-off" class="size-4" /></div>
                   <div class="flex min-w-0 flex-col">
-                    <span class="flex items-center gap-1.5 truncate font-medium" :class="row.is_sellable && row.is_published ? 'text-foreground' : 'text-muted-foreground'">
+                    <span class="flex items-center gap-1.5 truncate font-medium" :class="rowStatuses[row.sku]?.off ? 'text-muted-foreground' : 'text-foreground'">
                       <span class="truncate">{{ row.name }}</span>
-                      <span v-if="!row.is_published" class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Despublicado</span>
-                      <span v-else-if="!row.is_sellable" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">Pausado</span>
+                      <span
+                        v-if="rowStatuses[row.sku]?.label"
+                        class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                        :class="rowStatuses[row.sku]?.tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'"
+                      >{{ rowStatuses[row.sku]?.label }}</span>
                     </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>

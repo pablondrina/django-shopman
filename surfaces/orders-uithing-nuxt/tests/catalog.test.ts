@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  availableAnywhere,
   cellPrice,
   cellState,
   cellView,
   filterRows,
+  rowStatus,
   surfaceIcon,
   syncBadge,
 } from "../app/presentation/catalog";
@@ -117,6 +119,46 @@ describe("cellPrice (preço só no delta)", () => {
     const view = cellPrice(row({ base_price_q: 500 }), cell({ price_q: null }));
     expect(view.delta).toBe("same");
     expect(view.differs).toBe(false);
+  });
+});
+
+describe("rowStatus (esmaecer quando 'fora')", () => {
+  const cells = (over: Partial<SurfaceCellProjection>[] = []) =>
+    over.map((o) => cell(o));
+
+  it("ativo quando disponível em ao menos um canal", () => {
+    const r = row({ cells: cells([{ available: true }, { available: false }]) });
+    expect(availableAnywhere(r)).toBe(true);
+    expect(rowStatus(r).off).toBe(false);
+    expect(rowStatus(r).label).toBe("");
+  });
+
+  it("Despublicado quando o produto está despublicado (nível-produto)", () => {
+    const r = row({ is_published: false, cells: cells([{ available: false }]) });
+    expect(rowStatus(r)).toEqual({ off: true, label: "Despublicado", tone: "muted" });
+  });
+
+  it("Pausado quando o produto está pausado (globalzinho)", () => {
+    const r = row({ is_sellable: false, cells: cells([{ available: false }]) });
+    expect(rowStatus(r)).toEqual({ off: true, label: "Pausado", tone: "amber" });
+  });
+
+  it("Indisponível quando cada canal foi pausado individualmente (sem pausa global)", () => {
+    const r = row({
+      is_published: true,
+      is_sellable: true,
+      cells: cells([
+        { in_listing: true, available: false },
+        { in_listing: true, available: false },
+      ]),
+    });
+    expect(availableAnywhere(r)).toBe(false);
+    expect(rowStatus(r)).toEqual({ off: true, label: "Indisponível", tone: "amber" });
+  });
+
+  it("não marca 'Indisponível' um produto sem nenhuma listing", () => {
+    const r = row({ cells: cells([{ in_listing: false, available: false }]) });
+    expect(rowStatus(r).off).toBe(false);
   });
 });
 

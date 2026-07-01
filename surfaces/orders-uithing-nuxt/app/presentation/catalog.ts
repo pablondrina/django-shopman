@@ -60,6 +60,30 @@ export function cellView(row: CatalogRowProjection, cell: SurfaceCellProjection)
   return { state, label: CELL_LABELS[state], toneClass: CELL_TONES[state] };
 }
 
+// ── status do produto (linha) — esmaecer + foto P&B quando está "fora" ─────────
+// Um produto está fora quando NÃO está disponível em nenhum canal. `cell.available`
+// já cruza produto × listing, então um único predicado cobre os três caminhos:
+// despublicado, pausado no nível-produto (globalzinho), OU pausado célula a célula
+// em todos os canais. Fonte única do esmaecimento/foto P&B (sem casos especiais).
+
+export function availableAnywhere(row: CatalogRowProjection): boolean {
+  return row.cells.some((c) => c.in_listing && c.available);
+}
+
+export interface RowStatus {
+  off: boolean; // esmaecer a linha + foto em P&B
+  label: string; // selo (vazio = ativo)
+  tone: "" | "muted" | "amber";
+}
+
+export function rowStatus(row: CatalogRowProjection): RowStatus {
+  if (!row.is_published) return { off: true, label: "Despublicado", tone: "muted" };
+  if (!row.is_sellable) return { off: true, label: "Pausado", tone: "amber" };
+  const listed = row.cells.some((c) => c.in_listing);
+  if (listed && !availableAnywhere(row)) return { off: true, label: "Indisponível", tone: "amber" };
+  return { off: false, label: "", tone: "" };
+}
+
 // ── preço por célula: só mostra quando DIFERE do base ──────────────────────────
 // O preço-base já vive na linha do produto. Repetir "R$ 13,00" em toda célula
 // (markup 0) é ruído — a matriz vira um mapa de calor. Quando há override, o preço
