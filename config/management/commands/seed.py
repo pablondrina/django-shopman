@@ -1439,7 +1439,7 @@ class Command(BaseCommand):
         )
         web, _ = Listing.objects.update_or_create(
             ref="web",
-            defaults={"name": "E-commerce", "is_active": True, "priority": 7},
+            defaults={"name": "Loja online", "is_active": True, "priority": 7},
         )
 
         # Listing items (all products in all listings)
@@ -2461,22 +2461,24 @@ class Command(BaseCommand):
             # Canal = ORIGEM do pedido (por onde entra). Entrega/retirada é fulfillment
             # (ortogonal, por pedido) — não um canal. Por isso não há "Delivery Próprio":
             # um pedido para nossa entrega origina de PDV (telefone), WhatsApp ou Loja online.
-            ("pdv", "PDV", _pos_config),
-            ("ifood", "iFood", {
+            # display_order = ordem canônica das colunas no Gestor: PDV · Loja online · iFood · WhatsApp.
+            ("pdv", "PDV", 1, _pos_config),
+            ("web", "Loja online", 2, _remote_config),
+            ("ifood", "iFood", 3, {
                 **_marketplace_config,
                 "pricing": {"policy": "external"},
                 "editing": {"policy": "locked"},
             }),
-            ("whatsapp", "WhatsApp", _whatsapp_config),
-            ("web", "E-commerce", _remote_config),
+            ("whatsapp", "WhatsApp", 4, _whatsapp_config),
         ]
 
-        for ref, name, config_data in channels_data:
+        for ref, name, display_order, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
                     "is_active": True,
+                    "display_order": display_order,
                     "config": config_data,
                 },
             )

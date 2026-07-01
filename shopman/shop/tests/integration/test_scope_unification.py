@@ -43,7 +43,7 @@ def web_channel(db):
     channel, _ = Channel.objects.update_or_create(
         ref="web",
         defaults={
-            "name": "E-commerce",
+            "name": "Loja online",
             "is_active": True,
             "config": {"stock": {"excluded_positions": ["ontem"]}},
         },

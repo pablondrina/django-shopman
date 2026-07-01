@@ -4,7 +4,7 @@
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
-import { cellDot, cellPrice, cellState, cellTint, cellView, filterRows, surfaceIcon, syncBadge } from "~/presentation/catalog";
+import { cellPrice, cellView, filterRows, surfaceIcon, syncBadge } from "~/presentation/catalog";
 import type { CatalogRowProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
@@ -43,10 +43,24 @@ async function bulk(patch: { is_sellable?: boolean; is_published?: boolean }) {
   clearSelection();
 }
 
-// ── product-level pause ("globalzinho") — pausa/reativa em TODOS os canais ──────
+// ── product-level actions ("globalzinho" + publish) — via menu ⋯ da linha ───────
 function toggleProduct(row: CatalogRowProjection) {
   setProduct(row.sku, { is_sellable: !row.is_sellable });
+  menuOpen.value = null;
 }
+function toggleProductPublish(row: CatalogRowProjection) {
+  setProduct(row.sku, { is_published: !row.is_published });
+  menuOpen.value = null;
+}
+
+// row actions menu (⋯) — casa das ações menos corriqueiras (editar, pausar tudo,
+// (des)publicar). Um menu por vez; keyed por sku.
+const menuOpen = ref<string | null>(null);
+const toggleMenu = (sku: string) => (menuOpen.value = menuOpen.value === sku ? null : sku);
+
+// deep-link para a edição do produto no Admin (host do Django, não o do Gestor).
+const djangoBase = useRuntimeConfig().public.djangoPublicBaseUrl as string;
+const editHref = (row: CatalogRowProjection) => (row.edit_url ? `${djangoBase}${row.edit_url}` : "");
 
 // ── cell pause/resume + inline reprice ─────────────────────────────────────────
 function toggleCell(row: CatalogRowProjection, cell: SurfaceCellProjection) {
@@ -153,54 +167,86 @@ useHead({ title: "Catálogo · Gestor" });
               <div class="flex items-center gap-3">
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
-                  <img v-if="row.image_url" :src="row.image_url" :alt="row.name" class="size-10 shrink-0 rounded-md object-cover ring-1 ring-border" />
+                  <!-- thumbnail esmaece + PB quando o produto está pausado/despublicado -->
+                  <img
+                    v-if="row.image_url" :src="row.image_url" :alt="row.name"
+                    class="size-10 shrink-0 rounded-md object-cover ring-1 ring-border transition"
+                    :class="row.is_sellable && row.is_published ? '' : 'opacity-50 grayscale'"
+                  />
                   <div v-else class="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Icon name="lucide:image-off" class="size-4" /></div>
                   <div class="flex min-w-0 flex-col">
-                    <span class="truncate font-medium text-foreground">{{ row.name }}</span>
+                    <span class="flex items-center gap-1.5 truncate font-medium" :class="row.is_sellable && row.is_published ? 'text-foreground' : 'text-muted-foreground'">
+                      <span class="truncate">{{ row.name }}</span>
+                      <span v-if="!row.is_published" class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Despublicado</span>
+                      <span v-else-if="!row.is_sellable" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">Pausado</span>
+                    </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>
                       <span class="text-muted-foreground/40">·</span>
                       <span class="tabular-nums">{{ row.base_price_display }}</span>
                       <span v-if="row.primary_collection_name" class="truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{{ row.primary_collection_name }}</span>
                     </span>
-                    <span v-if="!row.is_sellable || !row.is_published" class="mt-0.5 inline-flex w-fit items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
-                      <Icon name="lucide:triangle-alert" class="size-3" />
-                      {{ !row.is_published ? "produto despublicado" : "produto pausado" }} — afeta todas
-                    </span>
                   </div>
                 </label>
-                <!-- globalzinho: pausa/reativa o produto em TODOS os canais de uma vez.
-                     Escondido até o hover quando ativo; sempre visível (âmbar) quando pausado. -->
-                <button
-                  type="button"
-                  class="grid size-8 shrink-0 place-items-center rounded-md border transition disabled:opacity-40"
-                  :class="row.is_sellable
-                    ? 'text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'"
-                  :disabled="isBusy(productKey(row.sku))"
-                  :aria-label="row.is_sellable ? 'Pausar em todos os canais' : 'Reativar em todos os canais'"
-                  :title="row.is_sellable ? 'Pausar em todos os canais' : 'Reativar em todos os canais'"
-                  @click="toggleProduct(row)"
-                >
-                  <Icon :name="row.is_sellable ? 'lucide:pause' : 'lucide:play'" class="size-4" />
-                </button>
+                <!-- menu ⋯ da linha: casa das ações menos corriqueiras (editar, pausar tudo, publicar) -->
+                <UiPopover :open="menuOpen === row.sku" @update:open="(v) => (menuOpen = v ? row.sku : null)">
+                  <UiPopoverTrigger as-child>
+                    <button
+                      type="button"
+                      class="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                      :class="menuOpen === row.sku ? 'bg-accent text-foreground' : ''"
+                      :aria-label="`Ações de ${row.name}`"
+                    >
+                      <Icon name="lucide:ellipsis-vertical" class="size-4" />
+                    </button>
+                  </UiPopoverTrigger>
+                  <UiPopoverContent align="end" :side-offset="4" class="w-56 p-1">
+                    <a
+                      v-if="editHref(row)" :href="editHref(row)" target="_blank" rel="noopener"
+                      class="flex items-center gap-2 rounded px-3 py-2 text-sm transition hover:bg-accent"
+                      @click="menuOpen = null"
+                    >
+                      <Icon name="lucide:pencil" class="size-4 text-muted-foreground" /> Editar detalhes
+                      <Icon name="lucide:external-link" class="ml-auto size-3.5 text-muted-foreground/60" />
+                    </a>
+                    <button
+                      type="button" :disabled="isBusy(productKey(row.sku))"
+                      class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent disabled:opacity-50"
+                      @click="toggleProduct(row)"
+                    >
+                      <Icon :name="row.is_sellable ? 'lucide:pause' : 'lucide:play'" class="size-4 text-muted-foreground" />
+                      {{ row.is_sellable ? "Pausar em todos os canais" : "Reativar em todos os canais" }}
+                    </button>
+                    <button
+                      type="button" :disabled="isBusy(productKey(row.sku))"
+                      class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent disabled:opacity-50"
+                      @click="toggleProductPublish(row)"
+                    >
+                      <Icon :name="row.is_published ? 'lucide:eye-off' : 'lucide:eye'" class="size-4 text-muted-foreground" />
+                      {{ row.is_published ? "Despublicar do catálogo" : "Publicar no catálogo" }}
+                    </button>
+                  </UiPopoverContent>
+                </UiPopover>
               </div>
             </td>
             <!-- cells (heatmap) -->
             <td v-for="cell in row.cells" :key="cell.surface_ref" class="border-b border-l border-border px-1.5 py-1.5 group-hover:bg-muted/20">
               <div
                 v-if="cell.in_listing"
-                class="group/cell flex h-9 items-center gap-1.5 rounded-md px-1.5 transition-colors"
-                :class="cellTint(cellState(row, cell))"
+                class="group/cell flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors"
+                :class="cell.is_sellable ? 'bg-emerald-500/5 hover:bg-emerald-500/10' : 'bg-amber-500/10 hover:bg-amber-500/15'"
               >
+                <!-- disponibilidade do canal = switch claro (verde ligado / cinza pausado) -->
                 <button
-                  class="group/t relative inline-flex size-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-background/60 disabled:opacity-40"
+                  type="button" role="switch" :aria-checked="cell.is_sellable"
+                  class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
+                  :class="cell.is_sellable ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
                   :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
-                  :title="cell.is_sellable ? `${cellView(row, cell).label} — clique para pausar` : `${cellView(row, cell).label} — clique para reativar`"
+                  :aria-label="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste canal` : 'Reativar neste canal'"
+                  :title="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste canal` : 'Pausado — reativar neste canal'"
                   @click="toggleCell(row, cell)"
                 >
-                  <span class="size-2 rounded-full transition-opacity group-hover/t:opacity-0" :class="cellDot(cellState(row, cell))"></span>
-                  <Icon :name="cell.is_sellable ? 'lucide:pause' : 'lucide:play'" class="absolute size-3.5 text-foreground opacity-0 transition-opacity group-hover/t:opacity-100" />
+                  <span class="inline-block size-3 rounded-full bg-white shadow-sm transition-transform" :class="cell.is_sellable ? 'translate-x-3.5' : 'translate-x-0.5'"></span>
                 </button>
                 <input
                   v-if="isEditing(row.sku, cell.surface_ref)"

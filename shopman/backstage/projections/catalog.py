@@ -20,6 +20,19 @@ def _money(value_q: int) -> str:
     return f"R$ {format_money(int(value_q))}"
 
 
+def _edit_url(product) -> str:
+    """Deep-link canônico p/ a edição do produto no Admin/Unfold."""
+    from django.urls import NoReverseMatch, reverse
+
+    try:
+        return reverse(
+            f"admin:{product._meta.app_label}_{product._meta.model_name}_change",
+            args=[product.pk],
+        )
+    except NoReverseMatch:
+        return ""
+
+
 @dataclass(frozen=True)
 class SurfaceProjection:
     """Um canal (de venda) — coluna da matriz."""
@@ -56,6 +69,7 @@ class CatalogRowProjection:
     is_sellable: bool  # produto-level
     base_price_q: int
     base_price_display: str
+    edit_url: str  # deep-link p/ a página de edição do produto (Admin/Unfold)
     keywords: tuple[str, ...]
     cells: tuple[SurfaceCellProjection, ...]  # alinhado à ordem de ``surfaces``
 
@@ -197,6 +211,7 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                 is_sellable=product.is_sellable,
                 base_price_q=product.base_price_q,
                 base_price_display=_money(product.base_price_q),
+                edit_url=_edit_url(product),
                 keywords=tuple(product.keywords.names()),
                 cells=tuple(cells),
             )

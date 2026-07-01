@@ -49,7 +49,7 @@ def plain_staff(db, shop):
 @pytest.fixture
 def catalog(db):
     """Duas superfícies (web, ifood), dois produtos, células e uma coleção."""
-    Channel.objects.create(ref="web", name="E-commerce", is_active=True, display_order=1)
+    Channel.objects.create(ref="web", name="Loja online", is_active=True, display_order=1)
     Channel.objects.create(ref="ifood", name="iFood", is_active=True, display_order=2)
     web = Listing.objects.create(ref="web", name="Web", is_active=True)
     ifood = Listing.objects.create(ref="ifood", name="iFood", is_active=True)

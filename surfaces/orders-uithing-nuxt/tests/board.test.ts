@@ -165,7 +165,7 @@ describe("matchesQuery", () => {
 
 describe("channelLabel", () => {
   it("maps known channels and capitalises unknowns", () => {
-    expect(channelLabel("web")).toBe("Web");
+    expect(channelLabel("web")).toBe("Loja online");
     expect(channelLabel("ifood")).toBe("iFood");
     expect(channelLabel("pdv")).toBe("PDV");
     expect(channelLabel("kiosk")).toBe("Kiosk");
@@ -182,7 +182,7 @@ describe("channelOptions", () => {
     ]);
     expect(opts).toEqual([
       { ref: "ifood", label: "iFood", count: 1 },
-      { ref: "web", label: "Web", count: 2 },
+      { ref: "web", label: "Loja online", count: 2 },
     ]);
   });
 });

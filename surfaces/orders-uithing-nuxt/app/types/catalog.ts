@@ -33,6 +33,7 @@ export interface CatalogRowProjection {
   is_sellable: boolean;
   base_price_q: number;
   base_price_display: string;
+  edit_url: string;
   keywords: string[];
   cells: SurfaceCellProjection[];
 }

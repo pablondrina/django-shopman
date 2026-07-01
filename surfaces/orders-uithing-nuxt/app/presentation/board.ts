@@ -206,7 +206,7 @@ export function matchesQuery(card: OrderCardProjection, rawQuery: string): boole
 /** Friendly channel labels. Unknown channels fall back to a capitalised ref so
  *  a new channel never renders blank. */
 const CHANNEL_LABEL: Record<string, string> = {
-  web: "Web",
+  web: "Loja online",
   whatsapp: "WhatsApp",
   ifood: "iFood",
   pdv: "PDV",
