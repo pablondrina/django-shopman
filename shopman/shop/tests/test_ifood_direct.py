@@ -139,6 +139,51 @@ def test_map_order_passes_through_indoor_type():
     assert payload["delivery"]["type"] == "INDOOR"
 
 
+def test_map_order_against_real_captured_order():
+    """Lock the mapping against a REAL Developer-Portal test order (captured live
+    2026-07-01). This is the schema validation WP-3 needed and mocks can't give.
+    """
+    import json
+    from pathlib import Path
+
+    from shopman.shop.services import ifood_orders
+
+    raw = json.loads(
+        (Path(__file__).parent / "fixtures" / "ifood_order_real.json").read_text()
+    )
+    payload = ifood_orders.map_order(raw)
+
+    assert payload["order_code"] == "12e51038-0f2a-4ff0-8608-48733a861489"
+    assert payload["display_id"] == "5800"
+    assert payload["is_test"] is True
+    assert payload["order_timing"] == "IMMEDIATE"
+
+    # Combo pricing: line total must include options + customizations.
+    simple, combo = payload["items"]
+    assert simple["sku"] == "4994"
+    assert simple["unit_price_q"] == 500
+    assert simple["line_total_q"] == 500
+    assert combo["sku"] == "1437"
+    assert combo["unit_price_q"] == 500        # base unitPrice
+    assert combo["line_total_q"] == 1600       # totalPrice (incl. options+customizations)
+    assert combo["meta"]["item_type"] == "COMBO_V2"
+    # 3rd-level customizations captured under the MAIN option.
+    main_opt = next(o for o in combo["meta"]["options"] if o["group"] == "Meu sanduíche favorito")
+    assert len(main_opt["customizations"]) == 3
+
+    # Financial breakdown preserved (centavos).
+    assert payload["totals"]["order_amount_q"] == 2700
+    assert payload["totals"]["delivery_fee_q"] == 500
+    assert payload["totals"]["additional_fees_q"] == 100
+    assert payload["payments"]["prepaid_q"] == 2700
+    assert len(payload["payments"]["methods"]) == 2
+
+    # Delivery / customer specifics.
+    assert payload["delivery"]["pickup_code"] == "4157"
+    assert payload["customer"]["phone_localizer"] == "89338721"
+    assert "gerado automaticamente" in payload["notes"]
+
+
 def test_map_order_handles_string_phone_and_missing_external_code():
     from shopman.shop.services import ifood_orders
 

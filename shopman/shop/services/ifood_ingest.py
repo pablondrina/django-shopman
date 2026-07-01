@@ -114,6 +114,12 @@ def ingest(payload: dict, *, channel_ref: str = IFOOD_CHANNEL_REF) -> Order:
             "order_code": order_code,
             "merchant_id": payload.get("merchant_id", ""),
             "created_at": payload.get("created_at"),
+            "display_id": payload.get("display_id", ""),
+            "is_test": bool(payload.get("is_test", False)),
+            "order_timing": payload.get("order_timing", ""),
+            "totals": payload.get("totals") or {},
+            "payments": payload.get("payments") or {},
+            "pickup_code": (payload.get("delivery") or {}).get("pickup_code", ""),
         },
     }
 

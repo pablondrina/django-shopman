@@ -116,9 +116,20 @@ Contra o ambiente real do iFood (não mais teórico):
   (id fake alheio → `403 Forbidden`; num pedido real devolve `[{cancelCodeId, description}]`).
   `requestCancellation` exige um `cancellationCode` dessa lista — no código é config-driven
   (`cancellation_default_code`), nunca chutado; `fetch_cancellation_reasons()` descobre os válidos.
-- ⚠️ Schema completo do pedido (GET /orders/{id}) **não** foi obtido ao vivo (loja DISABLED, sem
-  pedidos). O mapeamento WP-3 usa o schema documentado do iFood v1.0 — **revalidar com 1 pedido
-  real** na homologação.
+- **Schema do pedido VALIDADO AO VIVO (2026-07-01)** — capturei um pedido de teste real gerado pelo
+  Developer Portal (`GET /orders/{id}` → `200`), fixture em `shopman/shop/tests/fixtures/ifood_order_real.json`.
+  Descobertas que os mocks não pegavam e foram corrigidas no `map_order`:
+  - **Combos**: `item.unitPrice` (base) ≠ `item.totalPrice` (inclui `optionsPrice`+`customizationPrice`).
+    Usar `totalPrice` como `line_total_q`, senão subfatura. Opções têm `customizations` no 3º nível.
+  - **`isTest: true`** — marcar (não entregar de verdade). Guardado em `order.data.ifood.is_test`.
+  - **Financeiro** (`total.{subTotal,deliveryFee,additionalFees,benefits,orderAmount}`, `payments`)
+    e `delivery.pickupCode` — preservados em `order.data.ifood.{totals,payments,pickup_code}`.
+- **Como abrir a loja de teste**: ela fica `CLOSED` só por não estar conectada (`is-connected`); o
+  horário já é 24/7. Basta o `ifood_poll --watch` rodando (mantém conectada) + botão "Gerar pedido de
+  teste" no Portal (Menu Testes). O pedido cai no polling. Endereço da loja teste = Bujari/AC.
+- ⚠️ **Decisão em aberto (Pablo/homologação):** `Order.total_q` do pedido iFood hoje = subtotal dos
+  itens (com opções). Taxa de entrega + taxa de serviço ficam em `data.ifood.totals`, não somadas ao
+  `total_q`. Confirmar se o total interno deve ser o `orderAmount` (grand total) ou o subtotal.
 
 ## Contratos (confirmar na doc oficial durante a implementação — o portal bloqueia bots)
 
