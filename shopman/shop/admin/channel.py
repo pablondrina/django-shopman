@@ -72,6 +72,31 @@ class ChannelForm(forms.ModelForm):
         help_text=f"Quais validators/modifiers ativar. JSON: validators, modifiers, checks. {_INHERIT}",
     )
 
+    # ── Superfície: capacidade + fonte de conteúdo (primitivo SUPERFÍCIE) ──
+    capability = forms.ChoiceField(
+        choices=[
+            ("transactional", "Transacional (aceita pedido)"),
+            ("display", "Display (só exibe — menuboard)"),
+            ("feed", "Feed (anúncio — Google/Meta)"),
+        ],
+        required=False,
+        initial="transactional",
+        help_text="O que esta superfície faz com o catálogo.",
+    )
+    content_source = forms.ChoiceField(
+        choices=[
+            ("listing", "ListingItems explícitos (padrão)"),
+            ("collection", "Alimentada por uma coleção"),
+        ],
+        required=False,
+        initial="listing",
+        help_text="De onde vem o conteúdo desta superfície.",
+    )
+    content_collection = forms.CharField(
+        required=False,
+        help_text="Ref da coleção-fonte (obrigatório quando 'Alimentada por uma coleção').",
+    )
+
     class Meta:
         model = Channel
         fields = ("ref", "name", "shop", "display_order", "is_active")
@@ -88,6 +113,19 @@ class ChannelForm(forms.ModelForm):
             for aspect in self._ASPECTS:
                 value = data.get(aspect, {})
                 self.fields[aspect].initial = json.dumps(value, indent=2, ensure_ascii=False) if value else ""
+            self.fields["capability"].initial = data.get("capability", "transactional")
+            content = data.get("content", {}) or {}
+            self.fields["content_source"].initial = content.get("source", "listing")
+            self.fields["content_collection"].initial = content.get("collection") or ""
+
+    def _surface_config(self, source: dict) -> dict:
+        """Monta os aspectos de superfície (capability + content) a partir de ``source``."""
+        capability = source.get("capability") or "transactional"
+        content = {"source": source.get("content_source") or "listing"}
+        coll = (source.get("content_collection") or "").strip()
+        if coll:
+            content["collection"] = coll
+        return {"capability": capability, "content": content}
 
     def clean(self):
         cleaned = super().clean()
@@ -103,6 +141,7 @@ class ChannelForm(forms.ModelForm):
                 self.add_error(aspect, f"JSON inválido: {e}")
                 continue
             config[aspect] = cleaned[aspect]
+        config.update(self._surface_config(cleaned))
         try:
             resolved = ChannelConfig.from_dict(
                 deep_merge(ChannelConfig.defaults(), config)
@@ -121,6 +160,7 @@ class ChannelForm(forms.ModelForm):
                 config[aspect] = value
             else:
                 config.pop(aspect, None)
+        config.update(self._surface_config(self.cleaned_data))
         instance.config = config
         if commit:
             instance.save()
@@ -244,6 +284,14 @@ class ChannelAdmin(ModelAdmin):
         ("Pricing", {"fields": ("pricing",), "classes": ("tab",)}),
         ("Editing", {"fields": ("editing",), "classes": ("tab",)}),
         ("Regras", {"fields": ("rules",), "classes": ("tab",)}),
+        ("Superfície", {
+            "fields": ("capability", "content_source", "content_collection"),
+            "classes": ("tab",),
+            "description": (
+                "Generaliza o canal para o primitivo Superfície: capacidade "
+                "(transacional/display/feed) e fonte de conteúdo (ListingItems ou uma coleção)."
+            ),
+        }),
         ("Config resolvida", {"fields": ("resolved_config_display",), "classes": ("tab",)}),
     )
     readonly_fields = ("resolved_config_display",)
