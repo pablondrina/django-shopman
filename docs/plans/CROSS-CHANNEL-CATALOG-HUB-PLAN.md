@@ -29,12 +29,24 @@
 4. O comando `sync_catalog_ifood` usa `backend.project()` cru — **não retrata**.
 5. Adapter iFood **desligado** em settings (`SHOPMAN_CATALOG_PROJECTION_ADAPTERS` comentado).
 
-### Auto-trigger mínimo (o "resto" já aprovado, se não for absorvido pelo hub)
-Reaproveitar o que existe, simples/robusto/elegante:
-- emitir signal em mudança de disponibilidade (`is_sellable`/`is_published`) — o gap real;
-- rotear a projeção pelo **`project_listing`** (que já retrata), não pelo `project()` cru;
-- adicionar signal `product_updated` (nome/descrição) → re-projeta;
-- habilitar o adapter.
+### Auto-trigger — ✅ FEITO (2026-07-01, verificado ao vivo)
+Fatia entregue (commit no PR #25), reaproveitando a infra existente:
+- Signals novos no Offerman: `product_updated` (nome/desc/publish) + `availability_changed`
+  (pausa por canal), emitidos de `save()` como os já existentes.
+- `CatalogProjectHandler` agora **retract-aware**: lê estado atual → `project()` (publicado+vendável)
+  ou `retract()` (pausado/removido). Directive idempotente ao estado final.
+- Receivers `on_product_updated`/`on_availability_changed` → mesmo directive `catalog.project_sku`.
+- Adapter habilitável por env `IFOOD_CATALOG_PROJECTION` (off por padrão; no-op sem adapter).
+- **Verificado ao vivo**: pausar `is_sellable=False` → iFood UNAVAILABLE; reativar → AVAILABLE.
+
+### ⚠️ Follow-ups descobertos (para o hub, decisão deliberada — NÃO ramar às cegas)
+1. **Duas registries divergentes para projeção**: `SHOPMAN_CATALOG_PROJECTION_ADAPTERS` (usada pelo
+   handler/signals, shop) vs `OFFERMAN["PROJECTION_BACKENDS"]` (usada por `project_listing`/
+   `project_catalogs`/`get_projection_backend`, offerman). Unificar numa só (canônica) é pré-requisito
+   pra rotear tudo pelo `project_listing`.
+2. **`sync_catalog_ifood` não é retract-aware** — instancia `IFoodCatalogProjection` e chama
+   `project()` cru (não retrata). Depois de unificar (1), roteá-lo por `project_listing`.
+3. **Imagem**: projeção não sincroniza foto (iFood exige upload separado/`imagePath`). Fluxo à parte.
 
 ## Referência — Cardápio do iFood (Portal do Parceiro, verificado ao vivo 2026-07-01)
 
