@@ -79,6 +79,10 @@ export interface RowStatus {
 export function rowStatus(row: CatalogRowProjection): RowStatus {
   if (!row.is_published) return { off: true, label: "Despublicado", tone: "muted" };
   if (!row.is_sellable) return { off: true, label: "Pausado", tone: "amber" };
+  // Esgotado = fato de ESTOQUE, ortogonal à pausa. Tom neutro: é ciclo normal
+  // (repõe na próxima fornada), não erro. Vem antes de "Indisponível" porque o
+  // gate de pausa das células não enxerga estoque.
+  if (row.sold_out) return { off: true, label: "Esgotado", tone: "muted" };
   const listed = row.cells.some((c) => c.in_listing);
   if (listed && !availableAnywhere(row)) return { off: true, label: "Indisponível", tone: "amber" };
   return { off: false, label: "", tone: "" };

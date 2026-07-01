@@ -34,6 +34,11 @@ export interface CatalogRowProjection {
   base_price_q: number;
   base_price_display: string;
   edit_url: string;
+  stock_tracked: boolean;
+  stock_qty: number | null;
+  sold_out: boolean;
+  low_stock: boolean;
+  replenish_qty: number;
   keywords: string[];
   cells: SurfaceCellProjection[];
 }

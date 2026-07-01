@@ -193,6 +193,10 @@ useHead({ title: "Catálogo · Gestor" });
                         class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                         :class="rowStatuses[row.sku]?.tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'"
                       >{{ rowStatuses[row.sku]?.label }}</span>
+                      <!-- esgotado que repõe por produção: a próxima fornada reativa sozinha -->
+                      <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-[10px] font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>
+                      <!-- estoque baixo (produto ainda ativo): aviso discreto -->
+                      <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
                     </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>

@@ -70,6 +70,13 @@ class CatalogRowProjection:
     base_price_q: int
     base_price_display: str
     edit_url: str  # deep-link p/ a página de edição do produto (Admin/Unfold)
+    # estoque (produto-level, do loop produção→estoque→disponibilidade). Esgotado é
+    # ortogonal a Pausado: não mexe no switch; a próxima fornada repõe sozinho.
+    stock_tracked: bool  # há controle de estoque para este SKU?
+    stock_qty: int | None  # promissível agora (None = sem controle)
+    sold_out: bool  # rastreado e sem estoque para vender
+    low_stock: bool  # rastreado, pouco estoque (≤ threshold do canal)
+    replenish_qty: int  # vindo por produção (planejado + em produção) — "fornada"
     keywords: tuple[str, ...]
     cells: tuple[SurfaceCellProjection, ...]  # alinhado à ordem de ``surfaces``
 
@@ -92,6 +99,56 @@ class CatalogMatrixProjection:
 
 
 # ── builders ────────────────────────────────────────────────────────────────
+
+
+_EMPTY_STOCK = {
+    "stock_tracked": False,
+    "stock_qty": None,
+    "sold_out": False,
+    "low_stock": False,
+    "replenish_qty": 0,
+}
+
+
+def _stock_view(info: dict | None, low_stock_threshold: int) -> dict:
+    """Deriva o estado de estoque da linha a partir do dict canônico de availability.
+
+    Esgotado = rastreado e sem promissível (nem físico nem fornada, conforme a
+    política). ``replenish_qty`` = o que vem por produção (planejado + em produção).
+    """
+    if not info or not info.get("is_tracked", True):
+        return dict(_EMPTY_STOCK)
+    promisable = int(info.get("total_promisable") or 0)
+    planned = int(info.get("planned") or 0)
+    in_production = int((info.get("breakdown") or {}).get("in_production") or 0)
+    sold_out = promisable <= 0
+    return {
+        "stock_tracked": True,
+        "stock_qty": promisable,
+        "sold_out": sold_out,
+        "low_stock": (not sold_out) and promisable <= max(int(low_stock_threshold or 0), 0),
+        "replenish_qty": max(planned + in_production, 0),
+    }
+
+
+def _stock_for(skus: list[str]) -> tuple[dict[str, dict | None], int]:
+    """Availability em lote (canal representante) + threshold de estoque baixo.
+
+    Estoque é físico/produto-level; usa o scope de UM canal representante (o de menor
+    ``display_order``). Diferenças de scope entre canais (D-1) são de borda pro Gestor.
+    Degrada em silêncio (sem Stockman → dict vazio → tudo untracked → como hoje).
+    """
+    from shopman.shop.config import ChannelConfig
+    from shopman.shop.models import Channel
+
+    rep = Channel.objects.filter(is_active=True).order_by("display_order", "id").first()
+    if rep is None or not skus:
+        return {}, 0
+    threshold = int(getattr(ChannelConfig.for_channel(rep).stock, "low_stock_threshold", 0) or 0)
+
+    from shopman.shop.projections import catalog_context
+
+    return catalog_context.availability_for_skus(skus, channel_ref=rep.ref), threshold
 
 
 def _surface_sync_status(listing, is_projection_target: bool) -> str:
@@ -160,6 +217,9 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
         coll = Collection.objects.filter(ref=collection_ref).first()
         products = products.filter(pk__in=coll.product_queryset().values("pk")) if coll else products.none()
 
+    products = list(products)
+    stock_by_sku, low_stock_threshold = _stock_for([p.sku for p in products])
+
     rows: list[CatalogRowProjection] = []
     for product in products:
         primary_ref = ""
@@ -200,6 +260,7 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                 )
             )
 
+        stock = _stock_view(stock_by_sku.get(product.sku), low_stock_threshold)
         rows.append(
             CatalogRowProjection(
                 sku=product.sku,
@@ -212,6 +273,11 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                 base_price_q=product.base_price_q,
                 base_price_display=_money(product.base_price_q),
                 edit_url=_edit_url(product),
+                stock_tracked=stock["stock_tracked"],
+                stock_qty=stock["stock_qty"],
+                sold_out=stock["sold_out"],
+                low_stock=stock["low_stock"],
+                replenish_qty=stock["replenish_qty"],
                 keywords=tuple(product.keywords.names()),
                 cells=tuple(cells),
             )

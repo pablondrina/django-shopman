@@ -33,6 +33,12 @@ const row = (over: Partial<CatalogRowProjection> = {}): CatalogRowProjection => 
   is_sellable: true,
   base_price_q: 500,
   base_price_display: "R$ 5,00",
+  edit_url: "",
+  stock_tracked: true,
+  stock_qty: 10,
+  sold_out: false,
+  low_stock: false,
+  replenish_qty: 0,
   keywords: ["padaria"],
   cells: [],
   ...over,
@@ -159,6 +165,21 @@ describe("rowStatus (esmaecer quando 'fora')", () => {
   it("não marca 'Indisponível' um produto sem nenhuma listing", () => {
     const r = row({ cells: cells([{ in_listing: false, available: false }]) });
     expect(rowStatus(r).off).toBe(false);
+  });
+
+  it("Esgotado (estoque) — ortogonal à pausa, tom neutro", () => {
+    const r = row({
+      is_published: true,
+      is_sellable: true,
+      sold_out: true,
+      cells: cells([{ in_listing: true, available: true }]), // switch ligado, mas sem estoque
+    });
+    expect(rowStatus(r)).toEqual({ off: true, label: "Esgotado", tone: "muted" });
+  });
+
+  it("Pausado tem precedência sobre Esgotado", () => {
+    const r = row({ is_sellable: false, sold_out: true, cells: cells([{ available: false }]) });
+    expect(rowStatus(r).label).toBe("Pausado");
   });
 });
 
