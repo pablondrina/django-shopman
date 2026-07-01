@@ -47,14 +47,18 @@ class CatalogProjectHandler:
         if not _ifood_channel_active(listing_ref):
             return
 
-        item = _get_projected_item(sku, listing_ref)
-        if item is None:
-            return
-
         from shopman.shop.adapters.catalog_projection_ifood import IFoodRateLimitError
 
+        # Retract-aware: read the SKU's CURRENT state and either upsert it (when
+        # published + sellable) or retract it (paused, unpublished, or dropped
+        # from the listing). Reading state at handle time makes the directive
+        # idempotent to the final state, so rapid pause→resume converges.
+        item = _get_projected_item(sku, listing_ref)
         try:
-            result = self.backend.project([item], channel=listing_ref)
+            if item is not None and item.is_published and item.is_sellable:
+                result = self.backend.project([item], channel=listing_ref)
+            else:
+                result = self.backend.retract([sku], channel=listing_ref)
         except IFoodRateLimitError as exc:
             # Rate limit: defer with Retry-After from API response
             message.status = "queued"
@@ -102,6 +106,12 @@ def on_product_created(sender, instance, sku: str, **kwargs) -> None:
         _enqueue_project(sku, listing_ref, trigger="product_created", extra={})
 
 
+def on_product_updated(sender, instance, sku: str, **kwargs) -> None:
+    """Product data changed (name/description/publish) → re-project everywhere."""
+    for listing_ref in _projection_listing_refs():
+        _enqueue_project(sku, listing_ref, trigger="product_updated", extra={})
+
+
 def on_price_changed(
     sender,
     instance,
@@ -119,6 +129,13 @@ def on_price_changed(
         trigger="price_changed",
         extra={"old_price_q": old_price_q, "new_price_q": new_price_q},
     )
+
+
+def on_availability_changed(sender, instance, listing_ref: str, sku: str, **kwargs) -> None:
+    """Per-channel pause/resume → re-project (handler upserts or retracts)."""
+    if listing_ref not in _projection_listing_refs():
+        return
+    _enqueue_project(sku, listing_ref, trigger="availability_changed", extra={})
 
 
 def _enqueue_project(sku: str, listing_ref: str, trigger: str, extra: dict) -> None:

@@ -312,11 +312,23 @@ def _register_ifood_status_callbacks() -> None:
 def _register_catalog_signals() -> None:
     """Wire Offerman product_created / price_changed → catalog projection directives."""
     try:
-        from shopman.offerman.signals import price_changed, product_created
+        from shopman.offerman.signals import (
+            availability_changed,
+            price_changed,
+            product_created,
+            product_updated,
+        )
 
-        from shopman.shop.handlers.catalog_projection import on_price_changed, on_product_created
+        from shopman.shop.handlers.catalog_projection import (
+            on_availability_changed,
+            on_price_changed,
+            on_product_created,
+            on_product_updated,
+        )
         product_created.connect(on_product_created, weak=False)
+        product_updated.connect(on_product_updated, weak=False)
         price_changed.connect(on_price_changed, weak=False)
+        availability_changed.connect(on_availability_changed, weak=False)
         logger.info("shopman.handlers: connected offerman catalog projection signals.")
     except ImportError:
         pass

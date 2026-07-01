@@ -465,12 +465,16 @@ SHOPMAN_IFOOD = {
     ).strip(),
 }
 
-# Catalog projection adapters — enable by uncommenting the desired backend.
-# Missing key → handler not registered (silent skip).
+# Catalog projection adapters — project catalog changes (create/update/price/
+# availability) to external channels. Missing key → handler + signals no-op.
 # Present but broken path → raises at boot (configured-but-wrong).
-SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
-    # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
-}
+# Enabled per-environment via env flag so no deployment pushes to iFood until
+# explicitly turned on (requires the iFood OAuth config to be present).
+SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {}
+if os.environ.get("IFOOD_CATALOG_PROJECTION", "").strip().lower() in ("1", "true", "yes"):
+    SHOPMAN_CATALOG_PROJECTION_ADAPTERS["ifood"] = (
+        "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"
+    )
 
 # ── SMS (Comtele — OTP por SMS) ─────────────────────────────────────
 # WhatsApp OTP não é viável (ManyChat não tem categoria Authentication; o número único da marca

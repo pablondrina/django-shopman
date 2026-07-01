@@ -277,6 +277,40 @@ def test_handler_marks_done_on_success(db, ifood_channel, ifood_directive):
     backend.project.assert_called_once()
 
 
+def test_handler_retracts_when_item_paused(db, ifood_channel, ifood_directive):
+    """Retract-aware: an unsellable SKU is retracted, not projected."""
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    backend = MagicMock()
+    backend.retract.return_value = ProjectionResult(success=True, projected=1, channel="ifood")
+    handler = CatalogProjectHandler(backend=backend)
+
+    with patch("shopman.shop.handlers.catalog_projection._get_projected_item") as mock_get:
+        mock_get.return_value = ProjectedItem(
+            sku="PAO-FRANCES", name="Pão", description="", unit="un",
+            price_q=350, is_published=True, is_sellable=False,  # paused
+        )
+        handler.handle(message=ifood_directive, ctx={})
+
+    backend.retract.assert_called_once_with(["PAO-FRANCES"], channel="ifood")
+    backend.project.assert_not_called()
+
+
+def test_handler_retracts_when_item_dropped_from_listing(db, ifood_channel, ifood_directive):
+    """A SKU no longer in the listing (item is None) is retracted."""
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    backend = MagicMock()
+    backend.retract.return_value = ProjectionResult(success=True, projected=1, channel="ifood")
+    handler = CatalogProjectHandler(backend=backend)
+
+    with patch("shopman.shop.handlers.catalog_projection._get_projected_item", return_value=None):
+        handler.handle(message=ifood_directive, ctx={})
+
+    backend.retract.assert_called_once_with(["PAO-FRANCES"], channel="ifood")
+    backend.project.assert_not_called()
+
+
 def test_handler_skips_when_channel_inactive(db, ifood_directive):
     """Handler skips API call when iFood channel is inactive."""
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
@@ -285,19 +319,6 @@ def test_handler_skips_when_channel_inactive(db, ifood_directive):
     handler = CatalogProjectHandler(backend=backend)
 
     with patch("shopman.shop.handlers.catalog_projection._ifood_channel_active", return_value=False):
-        handler.handle(message=ifood_directive, ctx={})
-
-    backend.project.assert_not_called()
-
-
-def test_handler_skips_when_sku_not_in_listing(db, ifood_channel, ifood_directive):
-    """Handler skips when SKU is not found in the listing."""
-    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
-
-    backend = MagicMock()
-    handler = CatalogProjectHandler(backend=backend)
-
-    with patch("shopman.shop.handlers.catalog_projection._get_projected_item", return_value=None):
         handler.handle(message=ifood_directive, ctx={})
 
     backend.project.assert_not_called()
@@ -348,6 +369,39 @@ def test_on_product_created_enqueues_directive(db):
     assert d.payload["sku"] == "BAGUETE"
     assert d.payload["listing_ref"] == "ifood"
     assert d.dedupe_key.startswith("catalog.project_sku:ifood:BAGUETE:")
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+def test_on_product_updated_enqueues_directive(db):
+    """product_updated (name/description/publish) → catalog.project_sku Directive."""
+    from shopman.shop.handlers.catalog_projection import on_product_updated
+
+    on_product_updated(sender=None, instance=None, sku="BAGUETE")
+
+    directives = Directive.objects.filter(topic=CATALOG_PROJECT_SKU)
+    assert directives.count() == 1
+    assert directives.first().payload["sku"] == "BAGUETE"
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
+def test_on_availability_changed_enqueues_directive(db):
+    """availability_changed (per-channel pause/resume) → catalog.project_sku Directive."""
+    from shopman.shop.handlers.catalog_projection import on_availability_changed
+
+    on_availability_changed(sender=None, instance=None, listing_ref="ifood", sku="CROISSANT")
+
+    directives = Directive.objects.filter(topic=CATALOG_PROJECT_SKU)
+    assert directives.count() == 1
+    assert directives.first().payload["sku"] == "CROISSANT"
+
+
+@override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={})
+def test_availability_signal_noop_without_adapter(db):
+    """No adapter configured → availability receiver creates no directive (safe no-op)."""
+    from shopman.shop.handlers.catalog_projection import on_availability_changed
+
+    on_availability_changed(sender=None, instance=None, listing_ref="ifood", sku="X")
+    assert Directive.objects.filter(topic=CATALOG_PROJECT_SKU).count() == 0
 
 
 @override_settings(SHOPMAN_CATALOG_PROJECTION_ADAPTERS={"ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"})
