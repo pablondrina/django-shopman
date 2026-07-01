@@ -193,8 +193,8 @@ useHead({ title: "Catálogo · Gestor" });
           v-for="c in orderedCollections"
           :key="c.ref"
           :data-dragkey="c.ref"
-          class="cursor-grab touch-none transition-[opacity,box-shadow,transform] active:cursor-grabbing"
-          :class="collDragKey === c.ref ? 'scale-95 opacity-40' : (collDragKey && collOverKey === c.ref ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : '')"
+          class="cursor-grab touch-none transition-[opacity,box-shadow] active:cursor-grabbing"
+          :class="collDragKey === c.ref ? 'opacity-50 shadow-md' : ''"
           :active="collectionRef === c.ref"
           :count="c.product_count"
           @click="collectionRef = c.ref"
@@ -280,7 +280,7 @@ useHead({ title: "Catálogo · Gestor" });
                   @pointerdown="rowPointerDown(row.sku, $event)"
                   @click.stop
                 >
-                  <Icon name="lucide:grip-vertical" class="size-4" />
+                  <Icon name="lucide:grip-vertical" class="pointer-events-none size-4" />
                 </span>
                 <label class="flex min-w-0 flex-1 items-center gap-3">
                   <input type="checkbox" :checked="isSelected(row.sku)" class="size-4 shrink-0 rounded border-border accent-foreground" @change="toggleSelect(row.sku)" />
@@ -522,6 +522,6 @@ useHead({ title: "Catálogo · Gestor" });
 /* FLIP: os chips deslizam suavemente para a nova posição ao reordenar (não é um
    "pulo") — dá o feedback de que a intenção do operador está acontecendo. */
 .chip-move {
-  transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>

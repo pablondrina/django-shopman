@@ -78,7 +78,11 @@ export function useDragReorder(getKeys: () => string[], commit: (orderedKeys: st
     pendingKey = key;
     startX = e.clientX;
     startY = e.clientY;
-    captureEl = e.currentTarget as HTMLElement;
+    // Captura no ELEMENTO do item (o que tem data-dragkey) — grande e confiável —,
+    // não no handle minúsculo (span/svg), onde setPointerCapture falhava e o drag de
+    // mouse real perdia os eventos ao sair do handle.
+    const trigger = e.currentTarget as HTMLElement;
+    captureEl = (trigger.closest(`[${DRAG_ATTR}]`) as HTMLElement) ?? trigger;
     pointerId = e.pointerId;
     try {
       captureEl.setPointerCapture(pointerId);

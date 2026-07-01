@@ -50,6 +50,16 @@ useHead({ title: "Expositores · Gestor" });
         <p class="hidden text-xs text-muted-foreground sm:block">
           <span class="tabular-nums">{{ showcases.length }}</span> expositor{{ showcases.length === 1 ? "" : "es" }}
         </p>
+        <!-- criar/configurar a fundo (novo expositor, opções) é no Admin -->
+        <a
+          :href="`${djangoBase}/admin/shop/showcase/`" target="_blank" rel="noopener"
+          class="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          title="Criar / configurar expositores no Admin"
+        >
+          <Icon name="lucide:settings" class="size-4" />
+          <span class="hidden sm:inline">Admin</span>
+          <Icon name="lucide:external-link" class="size-3.5 opacity-60" />
+        </a>
         <UiIconButton icon="lucide:refresh-cw" label="Atualizar" :spinning="pending" @click="refresh()" />
       </template>
     </UiToolbar>
