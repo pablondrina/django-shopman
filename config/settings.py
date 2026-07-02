@@ -800,11 +800,15 @@ SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 SHOPMAN_FISCAL_ADAPTER = os.environ.get("SHOPMAN_FISCAL_ADAPTER") or None
 
 # Resolver(es) plugáveis que decidem SE a NFC-e é emitida por pedido: caminho pontilhado
-# para um callable(order) -> bool. VÁRIOS separados por vírgula = OR. Vazio = fallback
-# padrão (emite se o operador optou: order.data['fiscal']['issue_document']). Motor em
+# para um callable(order) -> bool. VÁRIOS separados por vírgula = OR. Motor em
 # fiscal.emission_resolver; exemplos + combinadores (any_of/all_of/not_) em
-# shopman.shop.fiscal_resolvers (ex.: ...on_request_or_tax_id,...card_payment).
-SHOPMAN_FISCAL_EMISSION_RESOLVER = os.environ.get("SHOPMAN_FISCAL_EMISSION_RESOLVER") or ""
+# shopman.shop.fiscal_resolvers.
+# PADRÃO PRÁTICO (Nelson): on_request_or_tax_id — emite se o operador pediu OU o cliente
+# informou CPF/CNPJ ("CPF na nota"). Pablo redefine no go-live via env.
+SHOPMAN_FISCAL_EMISSION_RESOLVER = (
+    os.environ.get("SHOPMAN_FISCAL_EMISSION_RESOLVER")
+    or "shopman.shop.fiscal_resolvers.on_request_or_tax_id"
+)
 SHOPMAN_FOCUS_NFE = {
     "environment": os.environ.get("FOCUS_NFE_ENVIRONMENT", "homologacao").strip().lower() or "homologacao",
     "token": os.environ.get("FOCUS_NFE_TOKEN", ""),

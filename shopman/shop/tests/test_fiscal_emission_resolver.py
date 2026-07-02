@@ -39,10 +39,18 @@ def resolver_boom(order):
 _HERE = "shopman.shop.tests.test_fiscal_emission_resolver"
 
 
+@override_settings(SHOPMAN_FISCAL_EMISSION_RESOLVER="")
 def test_fallback_without_resolver_uses_issue_document():
     assert emission_resolver(_order(fiscal={"issue_document": True})) is True
     assert emission_resolver(_order(fiscal={"issue_document": False})) is False
     assert emission_resolver(_order(fiscal={})) is False
+
+
+def test_default_resolver_is_on_request_or_tax_id():
+    # Padrão do settings (sem override): emite se pediu OU se há CPF/CNPJ.
+    assert emission_resolver(_order(fiscal={"issue_document": True})) is True
+    assert emission_resolver(_order(customer={"tax_id": "12345678909"})) is True
+    assert emission_resolver(_order(fiscal={}, customer={})) is False
 
 
 @override_settings(SHOPMAN_FISCAL_EMISSION_RESOLVER=f"{_HERE}.resolver_always_true")
