@@ -28,6 +28,7 @@ from .operations import (
     DayClosingView,
     OperatorEligibleView,
     OperatorLockView,
+    OperatorLoginView,
     OperatorSessionView,
     OperatorUnlockView,
     OrderAdvanceView,
@@ -89,6 +90,7 @@ urlpatterns = [
     # Operations — read views
     path("pos/", POSView.as_view(), name="api-backstage-pos"),
     # Operador (PIN/crachá) — genérico, compartilhado por todas as surfaces (inclui POS)
+    path("operator/login/", OperatorLoginView.as_view(), name="api-backstage-operator-login"),
     path("operator/session/", OperatorSessionView.as_view(), name="api-backstage-operator-session"),
     path("operator/eligible/", OperatorEligibleView.as_view(), name="api-backstage-operator-eligible"),
     path("operator/unlock/", OperatorUnlockView.as_view(), name="api-backstage-operator-unlock"),

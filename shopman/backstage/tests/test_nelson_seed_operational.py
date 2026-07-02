@@ -133,12 +133,14 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
 
     edge_orders = list(Order.objects.filter(snapshot__seed_namespace="security_reliability_edges"))
     edge_keys = {order.snapshot["seed_key"] for order in edge_orders}
+    # O edge "ifood-stale-confirmation" (pedido NEW parado) foi removido de propósito:
+    # a coluna Entrada nasce vazia para testar a chegada de pedidos novos ao vivo.
     assert edge_keys >= {
         "security:payment-pending-near-expiry",
         "security:payment-expired-low-attention",
         "security:payment-after-cancel",
-        "security:ifood-stale-confirmation",
     }
+    assert "security:ifood-stale-confirmation" not in edge_keys
 
     edge_order_refs = {order.ref for order in edge_orders}
     assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.PENDING).count() >= 2
@@ -147,9 +149,8 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
         order = Order.objects.get(ref=intent.order_ref)
         assert ((order.data or {}).get("payment") or {}).get("intent_ref") == intent.ref
     assert OperatorAlert.objects.filter(type="payment_after_cancel", severity="critical", acknowledged=False).exists()
-    assert OperatorAlert.objects.filter(type="stale_new_order", severity="error", acknowledged=False).exists()
+    # (alerta stale_new_order + webhook:ifood saíram junto com o edge iFood parado — Entrada vazia)
     assert IdempotencyKey.objects.filter(scope="webhook:efi-pix", status="done").exists()
-    assert IdempotencyKey.objects.filter(scope="webhook:ifood", status="done").exists()
 
     low_attention = Customer.objects.get(ref="CLI-001")
     assert low_attention.metadata["seed_persona"] == "low_attention"

@@ -35,6 +35,7 @@ import logging
 from datetime import date
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.utils.monetary import format_money
@@ -302,6 +303,37 @@ class OperatorSessionView(APIView):
             "operator": operator,
             "locked": operator is None,
         })
+
+
+class OperatorLoginView(APIView):
+    """Login de operador NO PRÓPRIO app (sem bounce pro Django admin).
+
+    Reusa a auth do Django (mesma credencial do admin): valida usuário+senha e abre a
+    sessão de dispositivo (o cookie é escopado ao domínio de operador pelo middleware).
+    O front mostra um formulário e já entra — uma tela, um submit, sem sair do app. Só
+    concede sessão a staff. NÃO faz 2FA/rate-limit aqui — se o deploy exigir, tratar na
+    frente de hardening (go-live).
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth import authenticate, login
+
+        body = request.data or {}
+        username = str(body.get("username") or "").strip()
+        password = str(body.get("password") or "")
+        if not username or not password:
+            return Response({"detail": "Informe usuário e senha."}, status=400)
+
+        user = authenticate(request, username=username, password=password)
+        if user is None or not user.is_staff:
+            return Response(
+                {"detail": "Usuário ou senha inválidos.", "error": {"code": "operator_login_invalid"}},
+                status=403,
+            )
+        login(request, user)
+        return Response({"ok": True, "device_user": user.get_username()})
 
 
 class OperatorEligibleView(APIView):

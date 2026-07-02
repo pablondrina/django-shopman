@@ -19,11 +19,29 @@ const runtimeConfig = useRuntimeConfig();
 // relative to the POS origin. After login the operator lands on the Admin home,
 // whose sidebar links back to the apps (POS/Produção/…).
 const djangoOrigin = computed(() => String(runtimeConfig.public.djangoPublicBaseUrl || ""));
-const loginUrl = computed(() => {
-  const next = String(runtimeConfig.public.operatorLoginNextPath || "/admin/");
-  return `${djangoOrigin.value}/admin/login/?next=${encodeURIComponent(next)}`;
-});
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
+
+// Login NO PRÓPRIO caixa (sem bounce pro Django admin): usuário+senha → sessão de
+// dispositivo (cookie .<zona>) → recarrega já operando. Uma tela, um submit.
+const loginUser = ref("");
+const loginPass = ref("");
+const loginPending = ref(false);
+const loginError = ref("");
+async function submitLogin() {
+  if (loginPending.value) return;
+  loginError.value = "";
+  loginPending.value = true;
+  try {
+    await $fetch("/api/v1/backstage/operator/login/", {
+      method: "POST",
+      body: { username: loginUser.value.trim(), password: loginPass.value },
+    });
+    if (import.meta.client) window.location.reload();
+  } catch (err: any) {
+    loginError.value = err?.data?.detail || "Não foi possível entrar. Confira usuário e senha.";
+    loginPending.value = false;
+  }
+}
 
 const { data, pos, shift, tabs, operators, actions, pending, error, refresh } = await usePosTerminal();
 
@@ -353,28 +371,44 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
       <div class="flex-1 md:min-h-0 md:overflow-hidden">
       <div v-if="error" class="grid h-full place-items-center p-4">
-        <div class="grid max-w-sm gap-4 text-center">
+        <form class="grid w-full max-w-sm gap-4 text-center" @submit.prevent="submitLogin">
           <div class="mx-auto grid size-14 place-items-center rounded-full border bg-muted">
             <Icon name="lucide:lock-keyhole" class="size-7 text-muted-foreground" />
           </div>
           <div class="grid gap-1.5">
             <h2 class="text-2xl font-semibold">Entre para operar o caixa</h2>
             <p class="text-sm text-muted-foreground">
-              Faça login no gestor com uma conta autorizada a operar o POS e volte para esta tela.
+              Acesse com sua conta autorizada a operar o caixa.
             </p>
           </div>
-          <a
-            :href="loginUrl"
-            class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-base font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            <Icon name="lucide:log-in" class="size-5" />
-            Entrar no gestor
-          </a>
-          <UiButton variant="outline" :disabled="pending" @click="refresh()">
-            <Icon name="lucide:refresh-cw" class="size-4" :class="pending ? 'animate-spin' : ''" />
-            Já entrei — atualizar
+          <div class="grid gap-2.5 text-left">
+            <input
+              v-model="loginUser"
+              type="text"
+              autocomplete="username"
+              autocapitalize="none"
+              autocorrect="off"
+              placeholder="Usuário"
+              aria-label="Usuário"
+              :disabled="loginPending"
+              class="h-12 w-full rounded-md border bg-background px-3 text-base outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+            >
+            <input
+              v-model="loginPass"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Senha"
+              aria-label="Senha"
+              :disabled="loginPending"
+              class="h-12 w-full rounded-md border bg-background px-3 text-base outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+            >
+            <p v-if="loginError" class="text-sm text-destructive" role="alert">{{ loginError }}</p>
+          </div>
+          <UiButton type="submit" size="lg" :disabled="loginPending || !loginUser.trim() || !loginPass">
+            <Icon :name="loginPending ? 'line-md:loading-loop' : 'lucide:log-in'" class="size-5" />
+            {{ loginPending ? "Entrando…" : "Entrar" }}
           </UiButton>
-        </div>
+        </form>
       </div>
       <div v-else-if="checkoutMode" class="h-full md:overflow-y-auto">
       <PosPaymentWorkspace
