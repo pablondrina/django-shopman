@@ -5,6 +5,7 @@ Tests for shopman.refs.generators — all 5 generators + generate_value().
 import pytest
 
 from shopman.refs.generators import (
+    AlphaDigitGenerator,
     AlphaNumericGenerator,
     ChecksumGenerator,
     DateSequenceGenerator,
@@ -149,6 +150,52 @@ class TestAlphaNumericGenerator:
         scope = {"channel_ref": "POS", "business_date": "2026-04-20"}
         val = self.gen.next(rt, scope)
         assert val == "POS-260420-AA00"
+
+
+# ── AlphaDigitGenerator (1 letra + 2 dígitos) ─────────────────────────────────
+
+class TestAlphaDigitGenerator:
+    def setup_method(self):
+        self.gen = AlphaDigitGenerator()
+
+    def _rt(self, fmt="{code}"):
+        return make_ref_type(slug="AD_TEST", generator="alpha_digit", generator_format=fmt)
+
+    def test_first_code_is_a00(self):
+        assert self.gen._encode(0) == "A00"
+
+    def test_second_code_is_a01(self):
+        assert self.gen._encode(1) == "A01"
+
+    def test_rollover_digits_before_letter(self):
+        # 100 sequências enchem os 100 dígitos de uma letra → próxima letra
+        assert self.gen._encode(100) == "B00"
+
+    def test_wraps_within_space(self):
+        # estoura o espaço (2400) e dá a volta para A00
+        assert self.gen._encode(self.gen.SPACE) == "A00"
+
+    def test_no_i_or_o(self):
+        assert "I" not in self.gen.LETTERS and "O" not in self.gen.LETTERS
+
+    def test_next_is_letter_and_two_digits(self):
+        import re
+        code = self.gen.next(self._rt(), SCOPE_A)
+        assert re.fullmatch(r"[A-Z]\d{2}", code)
+
+    def test_next_increments(self):
+        rt = self._rt()
+        assert self.gen.next(rt, SCOPE_A) != self.gen.next(rt, SCOPE_A)
+
+    def test_independent_scopes_restart(self):
+        rt = self._rt()
+        assert self.gen.next(rt, SCOPE_A) == "A00"
+        assert self.gen.next(rt, SCOPE_B) == "A00"
+
+    def test_format_with_channel_and_date(self):
+        rt = self._rt(fmt="{channel_ref}-{date:%y%m%d}-{code}")
+        val = self.gen.next(rt, {"channel_ref": "WEB", "business_date": "2026-06-30"})
+        assert val == "WEB-260630-A00"
 
 
 # ── ShortUUIDGenerator ────────────────────────────────────────────────────────

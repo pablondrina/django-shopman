@@ -636,28 +636,40 @@ class DeliveryFeeModifier:
 
     @staticmethod
     def _resolve(postal_code: str, neighborhood: str, lat, lng) -> tuple[int, float | None, bool]:
-        """Resolve (taxa_base_q, distância_km, bloqueado) pela ordem distância+exceção."""
+        """Resolve (taxa_base_q, distância_km, bloqueado) pela ordem zona → faixa → fallback.
+
+        Regra-chave: só bloqueia quando a distância é CONHECIDA e cai fora de toda faixa
+        (genuinamente longe demais). Quando a distância é DESCONHECIDA — loja sem
+        coordenada OU endereço não geocodificado (fallback ViaCEP sem lat/lng) — NÃO
+        rejeita um endereço válido: cobra a taxa-padrão (``default_delivery_fee_q``) e
+        deixa o operador ajustar. Bloquear um cliente real por falha de geocode é o pior
+        dos mundos (omotenashi).
+        """
         from shopman.shop.adapters import get_adapter
+        from shopman.shop.projections.cart import shop_rule_q
         from shopman.shop.services import delivery_distance
 
         adapter = get_adapter("promotion")
         if adapter is None:
-            return (0, None, True)
+            return (shop_rule_q("default_delivery_fee_q"), None, False)
 
         distance_km = delivery_distance.store_distance_km(lat, lng)
 
         zone = adapter.match_delivery_zone(postal_code, neighborhood)
         if zone is not None:
             if getattr(zone, "mode", "") == _ZONE_MODE_EXCLUDE:
-                return (0, distance_km, True)  # não entregamos aqui
+                return (0, distance_km, True)  # zona de exclusão: não entregamos aqui
             return (zone.fee_q, distance_km, False)  # override: taxa fixa da zona
 
         if distance_km is not None:
             band = adapter.match_distance_band(distance_km)
             if band is not None:
                 return (band.fee_q, distance_km, False)
+            # Distância conhecida e além de toda faixa → genuinamente fora de área.
+            return (0, distance_km, True)
 
-        return (0, distance_km, True)  # sem faixa/cobertura → fora da área
+        # Distância DESCONHECIDA e nenhuma zona casou: fail-open com a taxa-padrão.
+        return (shop_rule_q("default_delivery_fee_q"), None, False)
 
     @staticmethod
     def _effective_fee_q(base_fee_q: int, session: Any) -> int:

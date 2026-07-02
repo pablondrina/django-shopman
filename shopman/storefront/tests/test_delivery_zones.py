@@ -208,8 +208,10 @@ class TestDeliveryFeeModifier(TestCase):
         self.assertEqual(session.data.get("delivery_fee_q"), 600)
         self.assertNotIn("delivery_zone_error", session.data)
 
-    def test_sets_delivery_zone_error_when_no_zone(self):
-        # No zones in DB
+    def test_no_zone_no_coords_fails_open(self):
+        # Regressão: endereço VÁLIDO sem zona e SEM coordenada (fallback ViaCEP) NÃO é
+        # bloqueado — cai na taxa-padrão (0 aqui, pois não configurada) e deixa passar.
+        # Bloquear um cliente real por falha de geocode é o pior dos mundos (omotenashi).
         session = self._make_session({
             "fulfillment_type": "delivery",
             "delivery_address_structured": {
@@ -219,8 +221,8 @@ class TestDeliveryFeeModifier(TestCase):
         })
         self.modifier.apply(channel=None, session=session, ctx={})
         session.save.assert_called_once()
-        self.assertTrue(session.data.get("delivery_zone_error"))
-        self.assertNotIn("delivery_fee_q", session.data)
+        self.assertNotIn("delivery_zone_error", session.data)
+        self.assertEqual(session.data.get("delivery_fee_q"), 0)
 
     def test_clears_previous_error_on_match(self):
         _make_zone(

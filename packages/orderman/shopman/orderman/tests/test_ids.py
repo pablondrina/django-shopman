@@ -1,9 +1,14 @@
 import re
 from datetime import date
 
+import pytest
+
 from shopman.orderman.contrib.refs.types import ORDER_REF
 from shopman.orderman.ids import generate_order_ref
 from shopman.refs.registry import get_ref_type, register_ref_type
+
+# O gerador canônico de ORDER_REF é SEQUENCIAL (RefSequence) → precisa de banco.
+pytestmark = pytest.mark.django_db
 
 
 def test_generate_order_ref_uses_yymmdd_business_date():
@@ -12,7 +17,7 @@ def test_generate_order_ref_uses_yymmdd_business_date():
 
     ref = generate_order_ref(channel_ref="pdv", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"PDV-260504-[A-Z0-9]{4}", ref)
+    assert re.fullmatch(r"PDV-260504-[A-Z]\d{2}", ref)
 
 
 def test_generate_order_ref_accepts_real_channel_refs():
@@ -21,7 +26,7 @@ def test_generate_order_ref_accepts_real_channel_refs():
 
     ref = generate_order_ref(channel_ref="delivery", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"DELIVERY-260504-[A-Z0-9]{4}", ref)
+    assert re.fullmatch(r"DELIVERY-260504-[A-Z]\d{2}", ref)
 
 
 def test_generate_order_ref_fallback_keeps_channel_and_yymmdd(monkeypatch):
@@ -31,4 +36,4 @@ def test_generate_order_ref_fallback_keeps_channel_and_yymmdd(monkeypatch):
     monkeypatch.setattr("shopman.refs.generators.generate_value", unavailable)
     ref = generate_order_ref(channel_ref="web", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"WEB-260504-[A-Z0-9]{4}", ref)
+    assert re.fullmatch(r"WEB-260504-[A-Z]\d{2}", ref)

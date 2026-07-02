@@ -31,9 +31,11 @@ ORDER_REF = RefType(
     scope_keys=("channel_ref", "business_date"),
     unique_scope="all",
     normalizer="upper_strip",
-    validator=r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z0-9]{4}$",
-    generator="short_uuid",
-    generator_format="{channel_ref}-{date:%y%m%d}-{code:4}",
+    # Sufixo curto e memorável: 1 letra + 2 dígitos (ex.: WEB-260630-A17). Fácil de
+    # visualizar, memorizar e falar. Sequencial por (canal, dia) → collision-free.
+    validator=r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z]\d{2}$",
+    generator="alpha_digit",
+    generator_format="{channel_ref}-{date:%y%m%d}-{code}",
 )
 
 EXTERNAL_ORDER = RefType(

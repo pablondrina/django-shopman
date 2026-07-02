@@ -23,9 +23,10 @@ def _generate_id(prefix: str, length: int = 8) -> str:
 def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime | str | None = None) -> str:
     """Generate order ref via shopman.refs library.
 
-    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} e.g. WEB-260421-AB09.
-    Falls back to {CHANNEL_REF}-{YYMMDD}-XXXX if the refs library is unavailable
-    (standalone orderman tests, fresh installs before ORDER_REF is registered).
+    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} — código curto e memorável de 1 letra + 2
+    dígitos, ex. WEB-260421-A17. O caminho canônico (refs) é SEQUENCIAL por (canal, dia),
+    logo sem colisão. Fallback local (lib refs indisponível: testes standalone / instalação
+    nova antes de ORDER_REF) usa 1 letra + 2 dígitos ALEATÓRIOS.
     """
     channel_ref = channel_ref.upper()
     if business_date is None:
@@ -45,8 +46,9 @@ def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime 
         return generate_value("ORDER_REF", scope)
     except (ImportError, LookupError):
         date_part = business_day.strftime("%y%m%d")
-        random_part = "".join(secrets.choice(_SAFE_CHARS) for _ in range(4))
-        return f"{channel_ref}-{date_part}-{random_part}"
+        letter = secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ")  # sem I/O
+        code = f"{letter}{secrets.randbelow(100):02d}"
+        return f"{channel_ref}-{date_part}-{code}"
 
 
 def generate_session_key() -> str:

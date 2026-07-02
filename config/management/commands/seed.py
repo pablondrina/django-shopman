@@ -161,6 +161,9 @@ class Command(BaseCommand):
             defaults={
                 "name": "Nelson Boulangerie",
                 "legal_name": "N.H.K. Panificadora Ltda.",
+                # CNPJ emitente da NFC-e: o adapter fiscal (Focus NFe) lê de Shop.document
+                # como default (sem precisar de FOCUS_NFE_CNPJ_EMITENTE no ambiente).
+                "document": "02119381000158",
                 "brand_name": "Nelson Boulangerie",
                 "short_name": "Nelson",
                 "tagline": "Padaria Artesanal",
@@ -216,6 +219,9 @@ class Command(BaseCommand):
                         "minimum_order_q": 0,        # sem mínimo geral (ticket baixo)
                         "delivery_minimum_q": 2500,  # R$ 25,00 mínimo só p/ entrega
                         "free_delivery_above_q": 0,  # frete grátis desligado
+                        # Taxa de entrega quando a distância não pôde ser calculada (endereço
+                        # sem geocode / loja sem coordenada): fallback em vez de bloquear.
+                        "default_delivery_fee_q": 800,  # R$ 8,00 (faixa do meio)
                     },
                     "pickup_slots": [
                         {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
@@ -361,6 +367,12 @@ class Command(BaseCommand):
 
         def hard_delete(model):
             return model._base_manager.all()._raw_delete(model._base_manager.db)
+
+        # Sequências de refs (ORDER_REF etc.): zerar para os pedidos recomeçarem do A00
+        # a cada seed em vez de continuar de onde pararam num re-seed no mesmo dia.
+        from shopman.refs.models import RefSequence
+
+        RefSequence.objects.all().delete()
 
         # Audit tables are data too in local seeds; keep --flush actually clean.
         for model in [

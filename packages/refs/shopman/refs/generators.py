@@ -173,6 +173,32 @@ class AlphaNumericGenerator:
         return self.LETTERS[l1] + self.LETTERS[l2] + self.DIGITS[d1] + self.DIGITS[d2]
 
 
+class AlphaDigitGenerator:
+    """
+    Código curto e memorável: 1 letra maiúscula + 2 dígitos. Ex.: "A17", "X94", "Z02".
+
+    Sequencial por escopo (usa RefSequence) — collision-free por construção, sem retry.
+    Alfabeto sem I/O (confusão visual): 24 letras × 100 = 2.400 por escopo (ex.: canal ×
+    dia). Curto o bastante para falar/lembrar; ideal para refs de pedido.
+
+    Saída típica com generator_format "{channel_ref}-{date:%y%m%d}-{code}": "WEB-260630-A17".
+    """
+
+    slug = "alpha_digit"
+    LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"  # 24 chars, no I/O
+    SPACE = 24 * 100
+
+    def next(self, ref_type: Any, scope: dict) -> str:
+        seq = _increment_sequence(ref_type.slug, scope)
+        code = self._encode(seq - 1)
+        return _apply_format(ref_type.generator_format, code, scope)
+
+    def _encode(self, n: int) -> str:
+        n %= self.SPACE  # dá a volta dentro do espaço (2.400) se estourar o dia
+        letter = self.LETTERS[n // 100]
+        return f"{letter}{n % 100:02d}"
+
+
 class ShortUUIDGenerator:
     """
     6-8 random alphanumeric characters (uppercase + digits, no I/O).
@@ -236,6 +262,7 @@ _GENERATORS: dict[str, Any] = {
         SequenceGenerator,
         DateSequenceGenerator,
         AlphaNumericGenerator,
+        AlphaDigitGenerator,
         ShortUUIDGenerator,
         ChecksumGenerator,
     )

@@ -100,7 +100,17 @@ def test_switching_to_pickup_removes_fee_line_and_data(channel):
     assert "delivery_fee_q" not in (session.data or {})
 
 
-def test_blocked_zone_has_no_fee_line(channel):
+def test_excluded_zone_has_no_fee_line(channel):
+    # Bloqueio LEGÍTIMO: zona de exclusão explícita (não entregamos ali) → sem linha de taxa.
+    # (Sem coordenada e sem zona NÃO bloqueia mais — ver test_no_zone_no_coords_fails_open.)
+    shop = Shop.objects.first()
+    DeliveryZone.objects.create(
+        shop=shop,
+        name="Fora da área",
+        zone_type=DeliveryZone.ZONE_TYPE_CEP_PREFIX,
+        match_value="870",
+        mode=DeliveryZone.MODE_EXCLUDE,
+    )
     session = _session_with_delivery_cart(
         channel, address={"postal_code": "87000-000", "neighborhood": "Outra Cidade"}
     )
