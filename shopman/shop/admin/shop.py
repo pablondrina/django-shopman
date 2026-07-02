@@ -331,6 +331,15 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             "0 = todo desconto exige aprovação. Em branco = usa o padrão do sistema."
         ),
     )
+    fields["defaults_pos_fiscal_toggle"] = forms.BooleanField(
+        label="Oferecer emissão de NFC-e no PDV",
+        required=False,
+        help_text=(
+            "Mostra a opção 'Nota fiscal' no PDV (o operador decide emitir por venda). "
+            "Desligado = o recurso não aparece, mesmo com o Focus configurado. "
+            "Também depende do adapter fiscal estar pronto."
+        ),
+    )
     tier_help = {
         "silver": "Pontos acumulados (na vida toda) para o cliente chegar ao nível Prata.",
         "gold": "Pontos acumulados para chegar ao nível Ouro.",
@@ -683,6 +692,10 @@ class ShopForm(forms.ModelForm):
                     Decimal(int(threshold_q)) / 100
                 )
 
+        if self._has("defaults_pos_fiscal_toggle"):
+            pos_cfg = defaults.get("pos") if isinstance(defaults.get("pos"), dict) else {}
+            self.fields["defaults_pos_fiscal_toggle"].initial = bool(pos_cfg.get("fiscal_toggle", False))
+
         if self._has("defaults_stock_alert_cooldown_minutes"):
             stock_alerts = defaults.get("stock_alerts") if isinstance(defaults.get("stock_alerts"), dict) else {}
             cooldown = stock_alerts.get("cooldown_minutes")
@@ -978,16 +991,19 @@ class ShopForm(forms.ModelForm):
                 rules[key] = _reais_to_q(self.cleaned_data.get(field_name))
             defaults["rules"] = rules
 
-        if self._has("defaults_pos_discount_approval_threshold_q"):
+        if self._has("defaults_pos_discount_approval_threshold_q") or self._has("defaults_pos_fiscal_toggle"):
             pos_cfg = defaults.get("pos") if isinstance(defaults.get("pos"), dict) else {}
             pos_cfg = dict(pos_cfg)
-            threshold = self.cleaned_data.get("defaults_pos_discount_approval_threshold_q")
-            if threshold is None:
-                pos_cfg.pop("discount_approval_threshold_q", None)
-            else:
-                pos_cfg["discount_approval_threshold_q"] = int(
-                    (Decimal(threshold) * 100).to_integral_value()
-                )
+            if self._has("defaults_pos_discount_approval_threshold_q"):
+                threshold = self.cleaned_data.get("defaults_pos_discount_approval_threshold_q")
+                if threshold is None:
+                    pos_cfg.pop("discount_approval_threshold_q", None)
+                else:
+                    pos_cfg["discount_approval_threshold_q"] = int(
+                        (Decimal(threshold) * 100).to_integral_value()
+                    )
+            if self._has("defaults_pos_fiscal_toggle"):
+                pos_cfg["fiscal_toggle"] = bool(self.cleaned_data.get("defaults_pos_fiscal_toggle"))
             if pos_cfg:
                 defaults["pos"] = pos_cfg
             else:
@@ -1202,10 +1218,11 @@ _LOYALTY_FIELDSETS = (
 
 _POS_FIELDSETS = (
     ("Ponto de venda (PDV)", {
-        "fields": ("defaults_pos_discount_approval_threshold_q",),
+        "fields": ("defaults_pos_discount_approval_threshold_q", "defaults_pos_fiscal_toggle"),
         "description": (
             "Políticas do balcão. O limite de aprovação vale para descontos "
-            "manuais aplicados no PDV — acima dele, é preciso o PIN do gerente."
+            "manuais aplicados no PDV — acima dele, é preciso o PIN do gerente. "
+            "A emissão de NFC-e só aparece se ligada aqui E com o Focus configurado."
         ),
     }),
     ("Alertas de estoque", {

@@ -1105,6 +1105,8 @@ def _checkout_contract(
             "fiscal_document": fiscal_status,
             "fiscal_label": fiscal_label,
             "fiscal_message": fiscal_message,
+            # O toggle 'Nota fiscal' só aparece com adapter configurado E flag da loja on.
+            "supports_fiscal_document": _supports_fiscal_document(),
             "delivery_minimum_q": delivery_minimum_q,
             "delivery_minimum_display": f"R$ {format_money(delivery_minimum_q)}" if delivery_minimum_q else "",
             "requires_manager_approval_above_q": _discount_approval_threshold_q(),
@@ -1454,6 +1456,24 @@ def _discount_approval_threshold_q() -> int:
     except Exception:
         logger.debug("pos_discount_threshold_lookup_failed", exc_info=True)
     return max(0, int(getattr(settings, "SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", 0) or 0))
+
+
+def _pos_fiscal_toggle_enabled() -> bool:
+    """A loja OFEROU emissão de NFC-e no PDV? (flag de negócio, editável no Admin em
+    ``Shop.defaults['pos']['fiscal_toggle']``). Decisão por-estabelecimento, não por
+    operador. Combina com o adapter pronto para liberar o toggle 'Nota fiscal'."""
+    from shopman.shop.models import Shop
+
+    shop = Shop.load()
+    defaults = (getattr(shop, "defaults", None) or {}) if shop else {}
+    pos_cfg = defaults.get("pos") if isinstance(defaults, dict) else {}
+    return bool((pos_cfg or {}).get("fiscal_toggle", False))
+
+
+def _supports_fiscal_document() -> bool:
+    """O toggle 'Nota fiscal' deve aparecer no PDV? Adapter fiscal configurado E flag da
+    loja ligado. Sem adapter OU flag desligado → recurso não aparece."""
+    return bool(getattr(settings, "SHOPMAN_FISCAL_ADAPTER", None)) and _pos_fiscal_toggle_enabled()
 
 
 def _fiscal_runtime() -> tuple[str, str, str]:

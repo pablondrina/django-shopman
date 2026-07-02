@@ -223,6 +223,11 @@ class Command(BaseCommand):
                         # sem geocode / loja sem coordenada): fallback em vez de bloquear.
                         "default_delivery_fee_q": 800,  # R$ 8,00 (faixa do meio)
                     },
+                    "pos": {
+                        # Nelson oferece NFC-e no balcão. O toggle 'Nota fiscal' aparece no
+                        # PDV quando isto está on E o adapter fiscal está configurado.
+                        "fiscal_toggle": True,
+                    },
                     "pickup_slots": [
                         {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
                         {"ref": "slot-12", "label": "A partir das 12h", "starts_at": "12:00"},

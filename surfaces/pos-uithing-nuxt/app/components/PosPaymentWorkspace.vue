@@ -133,6 +133,9 @@ const emit = defineEmits<{
 }>();
 
 const interimTotalDisplay = computed(() => formatBRL(cartTotalQ(props.items)));
+// Nota fiscal é SECUNDÁRIA: mora no modal do Cliente (não é botãozão no grid) e só
+// aparece quando a loja ofereceu NFC-e no PDV E o adapter fiscal está configurado.
+const supportsFiscalDocument = computed(() => !!props.checkoutContract?.capabilities?.supports_fiscal_document);
 const receiptModes = computed(() => props.checkoutContract?.receipt_modes || [
   { ref: "none", label: "Sem comprovante", description: "" },
   { ref: "print", label: "Imprimir", description: "" },
@@ -306,15 +309,8 @@ function onAddressSelected(address: StructuredAddressProjection) {
             <Icon name="lucide:tag" class="size-4" :class="hasDiscount ? 'text-foreground' : 'text-muted-foreground'" />
             <span class="min-w-0 truncate">{{ hasDiscount ? `Desconto ${discountSummary}` : "Desconto" }}</span>
           </button>
-          <button
-            type="button"
-            class="flex h-11 items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm font-medium transition hover:bg-accent active:translate-y-px"
-            :class="issueFiscalDocument ? 'border-primary bg-primary/5' : ''"
-            @click="$emit('update:issueFiscalDocument', !issueFiscalDocument)"
-          >
-            <Icon :name="issueFiscalDocument ? 'lucide:check-square' : 'lucide:file-text'" class="size-4" :class="issueFiscalDocument ? 'text-foreground' : 'text-muted-foreground'" />
-            <span>Nota fiscal</span>
-          </button>
+          <!-- 'Nota fiscal' NÃO fica aqui como botão principal: é secundária, dentro do
+               modal do Cliente (abre pelo botão 'Cliente'), e só quando habilitada. -->
           <button
             v-for="collection in (deliveryCollections.length > 1 ? deliveryCollections : [])"
             :key="collection.ref"
@@ -541,7 +537,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
   <!-- Cliente & fiscal — shared full-screen picker (showFiscal rides the receipt) -->
   <PosCustomerModal
     v-model:open="customerSheetOpen"
-    show-fiscal
+    :show-fiscal="supportsFiscalDocument"
     :customer-name="customerName"
     :customer-phone="customerPhone"
     :customer-tax-id="customerTaxId"
