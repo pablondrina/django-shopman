@@ -169,38 +169,59 @@ def _check_stripe_payment_credentials(*, method: str):
 
 @register(deploy=True)
 def check_webhook_tokens(app_configs, **kwargs):
-    """Require a webhook token for every inbound integration.
+    """Validate inbound-integration webhook tokens.
 
-    The runtime rejects unauthenticated requests in every environment already
-    (there is no ``SKIP_SIGNATURE`` bypass). This check exists to fail early
-    at ``manage.py check --deploy`` time with a clear message, so prod deploys
-    do not ship with a silently broken webhook.
+    Every endpoint already fails CLOSED without a token (rejects all requests —
+    there is no bypass). The severity here reflects the CONSEQUENCE of a missing
+    token, not a security risk:
+
+    - EFI (``critical=True``) → **Error**: the PIX confirmation webhook is in
+      active use; without the token real payments silently never confirm. Block
+      the deploy.
+    - iFood-legado (``critical=False``) → **Warning**: fail-closed AND optional —
+      the direct integration uses ``X-IFood-Signature`` (HMAC via
+      ``IFOOD_CLIENT_SECRET``), not this legacy token. Missing token just means
+      the legacy endpoint is inert, which is safe. Don't block the deploy.
     """
-    errors = []
+    messages = []
     if settings.DEBUG:
-        return errors
+        return messages
 
-    # (settings_attr, persona, env_var)
+    # (settings_attr, persona, env_var, critical)
     integrations = [
-        ("SHOPMAN_EFI_WEBHOOK", "EFI", "EFI_WEBHOOK_TOKEN"),
-        ("SHOPMAN_IFOOD", "iFood", "IFOOD_WEBHOOK_TOKEN"),
+        ("SHOPMAN_EFI_WEBHOOK", "EFI", "EFI_WEBHOOK_TOKEN", True),
+        ("SHOPMAN_IFOOD", "iFood", "IFOOD_WEBHOOK_TOKEN", False),
     ]
-    for attr, name, env_var in integrations:
+    for attr, name, env_var, critical in integrations:
         cfg = getattr(settings, attr, {}) or {}
-        if not cfg.get("webhook_token"):
-            errors.append(
+        if cfg.get("webhook_token"):
+            continue
+        if critical:
+            messages.append(
                 Error(
                     f"{attr}['webhook_token'] não está configurado em produção.",
                     hint=(
-                        f"{name} authentication uses the same code path in "
-                        f"dev and prod. Defina {env_var} via variável de "
-                        f"ambiente — mesmo em dev, para que o caminho de "
-                        f"verificação seja exercitado localmente."
+                        f"{name} confirma pagamento real via webhook; sem o token "
+                        f"a confirmação nunca chega e o pagamento trava. Defina "
+                        f"{env_var} via variável de ambiente."
                     ),
                     id="SHOPMAN_E004",
                 )
             )
-    return errors
+        else:
+            messages.append(
+                Warning(
+                    f"{attr}['webhook_token'] não configurado — endpoint {name} "
+                    f"legado inativo (rejeita tudo).",
+                    hint=(
+                        f"Opcional. A integração {name} direta usa X-IFood-Signature "
+                        f"(HMAC via IFOOD_CLIENT_SECRET), não este token legado. "
+                        f"Defina {env_var} apenas se usar o endpoint legado."
+                    ),
+                    id="SHOPMAN_W008",
+                )
+            )
+    return messages
 
 
 @register()
@@ -249,18 +270,30 @@ def check_notification_backend(app_configs, **kwargs):
 
 @register(deploy=True)
 def check_guestman_webhook_secret(app_configs, **kwargs):
-    errors = []
+    """ManyChat inbound webhook secret.
+
+    O endpoint falha FECHADO sem a secret (rejeita payloads não assinados — ver
+    guestman Gates.provider_event_authenticity com allow_unsigned=DEBUG). Logo,
+    faltar a secret NÃO é insegurança: só desativa o sync inbound de assinantes.
+    Warning (não bloqueia o deploy) — configure só se usar o fluxo inbound.
+    """
+    messages = []
     if not settings.DEBUG:
         secret = getattr(settings, "MANYCHAT_WEBHOOK_SECRET", "")
         if not secret:
-            errors.append(
-                Error(
-                    "MANYCHAT_WEBHOOK_SECRET não está configurado em produção.",
-                    hint="Defina MANYCHAT_WEBHOOK_SECRET via variável de ambiente. O endpoint Manychat rejeita webhooks sem assinatura HMAC válida.",
-                    id="SHOPMAN_E005",
+            messages.append(
+                Warning(
+                    "MANYCHAT_WEBHOOK_SECRET não configurado — webhook inbound do "
+                    "ManyChat inativo (rejeita tudo).",
+                    hint=(
+                        "Sem a secret o endpoint falha fechado (seguro). Defina "
+                        "MANYCHAT_WEBHOOK_SECRET (mesmo valor no webhook do ManyChat) "
+                        "apenas se usar o sync inbound de assinantes."
+                    ),
+                    id="SHOPMAN_W009",
                 )
             )
-    return errors
+    return messages
 
 
 @register(deploy=True)

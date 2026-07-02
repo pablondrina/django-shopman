@@ -50,6 +50,45 @@ def test_efi_certificate_can_be_materialized_from_base64_env(tmp_path, monkeypat
 
 @override_settings(
     DEBUG=False,
+    SHOPMAN_EFI_WEBHOOK={"webhook_token": ""},
+    SHOPMAN_IFOOD={"webhook_token": ""},
+)
+def test_webhook_tokens_efi_blocks_ifood_warns():
+    # EFI (pagamento real) → Error bloqueante; iFood-legado (fail-closed) → Warning.
+    messages = checks.check_webhook_tokens(None)
+    by_id = {m.id: type(m).__name__ for m in messages}
+    assert by_id.get("SHOPMAN_E004") == "Error"      # EFI bloqueia
+    assert by_id.get("SHOPMAN_W008") == "Warning"    # iFood só avisa
+    from django.core.checks import Error as CheckError
+
+    assert not any(m.id == "SHOPMAN_W008" and isinstance(m, CheckError) for m in messages)
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_EFI_WEBHOOK={"webhook_token": "efi-tok"},
+    SHOPMAN_IFOOD={"webhook_token": "ifood-tok"},
+)
+def test_webhook_tokens_all_set_no_messages():
+    assert checks.check_webhook_tokens(None) == []
+
+
+@override_settings(DEBUG=False, MANYCHAT_WEBHOOK_SECRET="")
+def test_manychat_webhook_secret_missing_is_warning_not_error():
+    from django.core.checks import Error as CheckError
+
+    messages = checks.check_guestman_webhook_secret(None)
+    assert [m.id for m in messages] == ["SHOPMAN_W009"]
+    assert not any(isinstance(m, CheckError) for m in messages)  # não bloqueia
+
+
+@override_settings(DEBUG=False, MANYCHAT_WEBHOOK_SECRET="a-secret")
+def test_manychat_webhook_secret_set_no_messages():
+    assert checks.check_guestman_webhook_secret(None) == []
+
+
+@override_settings(
+    DEBUG=False,
     CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
 )
 def test_shared_cache_backend_requires_redis_outside_debug():
