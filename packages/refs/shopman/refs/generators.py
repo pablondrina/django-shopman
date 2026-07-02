@@ -177,26 +177,21 @@ class AlphaDigitGenerator:
     """
     Código curto e memorável: 1 letra maiúscula + 2 dígitos. Ex.: "A17", "X94", "Z02".
 
-    Sequencial por escopo (usa RefSequence) — collision-free por construção, sem retry.
-    Alfabeto sem I/O (confusão visual): 24 letras × 100 = 2.400 por escopo (ex.: canal ×
-    dia). Curto o bastante para falar/lembrar; ideal para refs de pedido.
+    ALEATÓRIO (secrets), sem estado — fácil de visualizar/memorizar/falar e não revela o
+    volume de pedidos (A17 não diz que é o 17º). Alfabeto sem I/O (confusão visual): 24
+    letras × 100 = 2.400 por escopo. Em 2.400 há chance de colisão (paradoxo do
+    aniversário) → a UNICIDADE é do chamador: ``orderman.generate_order_ref`` sorteia de
+    novo se o ref já existe, e o INSERT tem o índice único como guarda final.
 
     Saída típica com generator_format "{channel_ref}-{date:%y%m%d}-{code}": "WEB-260630-A17".
     """
 
     slug = "alpha_digit"
     LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"  # 24 chars, no I/O
-    SPACE = 24 * 100
 
     def next(self, ref_type: Any, scope: dict) -> str:
-        seq = _increment_sequence(ref_type.slug, scope)
-        code = self._encode(seq - 1)
+        code = f"{secrets.choice(self.LETTERS)}{secrets.randbelow(100):02d}"
         return _apply_format(ref_type.generator_format, code, scope)
-
-    def _encode(self, n: int) -> str:
-        n %= self.SPACE  # dá a volta dentro do espaço (2.400) se estourar o dia
-        letter = self.LETTERS[n // 100]
-        return f"{letter}{n % 100:02d}"
 
 
 class ShortUUIDGenerator:

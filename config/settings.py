@@ -798,6 +798,11 @@ if DEBUG or os.environ.get("SHOPMAN_ENABLE_CONSOLE_NOTIFICATION_ADAPTER", "").lo
 SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 
 SHOPMAN_FISCAL_ADAPTER = os.environ.get("SHOPMAN_FISCAL_ADAPTER") or None
+
+# Resolver plugável que decide SE a NFC-e é emitida por pedido: caminho pontilhado para
+# um callable(order) -> bool. Vazio = fallback padrão (emite se o operador optou:
+# order.data['fiscal']['issue_document']). Ver shopman.shop.services.fiscal.should_emit.
+SHOPMAN_FISCAL_EMISSION_RESOLVER = os.environ.get("SHOPMAN_FISCAL_EMISSION_RESOLVER") or ""
 SHOPMAN_FOCUS_NFE = {
     "environment": os.environ.get("FOCUS_NFE_ENVIRONMENT", "homologacao").strip().lower() or "homologacao",
     "token": os.environ.get("FOCUS_NFE_TOKEN", ""),

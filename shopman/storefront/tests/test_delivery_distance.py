@@ -13,7 +13,7 @@ Cobertura:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -133,6 +133,24 @@ class TestDeliveryFeeModifierByDistance(TestCase):
         self.assertNotIn("delivery_fee_q", session.data)
         # Distância ainda é exposta, mesmo bloqueado (transparência).
         self.assertAlmostEqual(session.data.get("delivery_distance_km"), 15.0, delta=0.5)
+
+    @patch("shopman.shop.services.geocoding.forward_geocode")
+    def test_geocodes_address_without_coords_then_prices_by_band(self, mock_geo):
+        # Caminho feliz p/ ViaCEP/manual: endereço SEM coordenada → geocode resolve → faixa.
+        mock_geo.return_value = DEST_2KM
+        session = MagicMock()
+        session.data = {
+            "fulfillment_type": "delivery",
+            "delivery_address_structured": {
+                "route": "Rua Teste", "street_number": "10", "neighborhood": "Centro",
+                "city": "Londrina", "state_code": "PR", "postal_code": "86050-000",
+            },  # sem latitude/longitude
+        }
+        session.items = []
+        self.modifier.apply(channel=None, session=session, ctx={})
+        mock_geo.assert_called_once()
+        self.assertEqual(session.data.get("delivery_fee_q"), 500)  # faixa de 2 km
+        self.assertNotIn("delivery_zone_error", session.data)
 
     def test_override_zone_wins_over_distance(self):
         DeliveryZone.objects.create(

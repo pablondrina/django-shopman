@@ -527,7 +527,10 @@
   }
   /* Foto de item indisponível: SÉPIA (não P&B frio) — casa com a paleta quente da
      marca (creme/brass/burgundy). Fonte única do tratamento; ajuste a intensidade
-     aqui. Levemente esmaecida p/ recuar sem apagar. */
+     aqui. Levemente esmaecida p/ recuar sem apagar.
+     ⚠️ APLICAR SÓ NA <img>, NUNCA no elemento que tem a moldura (.shop-photo-mat*):
+     `filter` tinge o elemento inteiro, então a borda BRANCA sairia amarelada. A moldura
+     é sempre branca; só a foto vira sépia. */
   .shop-photo-unavailable {
     filter: sepia(1) saturate(1.4) brightness(0.92) contrast(1.02);
     opacity: 0.95;

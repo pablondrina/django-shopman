@@ -20,13 +20,33 @@ def _generate_id(prefix: str, length: int = 8) -> str:
     return f"{prefix}-{random_part}"
 
 
-def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime | str | None = None) -> str:
-    """Generate order ref via shopman.refs library.
+# Sufixo curto (1 letra + 2 dígitos) é ALEATÓRIO num espaço de 24×100 = 2.400 por
+# (canal, dia). Aleatório pode repetir (aniversário), então sorteamos de novo se o ref
+# já existe. O índice único de Order.ref é a guarda final (corrida rara → o commit
+# regenera; ver services/commit.py).
+_ORDER_REF_MAX_TRIES = 30
 
-    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} — código curto e memorável de 1 letra + 2
-    dígitos, ex. WEB-260421-A17. O caminho canônico (refs) é SEQUENCIAL por (canal, dia),
-    logo sem colisão. Fallback local (lib refs indisponível: testes standalone / instalação
-    nova antes de ORDER_REF) usa 1 letra + 2 dígitos ALEATÓRIOS.
+
+def _order_ref_candidate(channel_ref: str, business_day: date) -> str:
+    """Um candidato a ref (via refs lib; fallback local se indisponível)."""
+    try:
+        from shopman.refs.generators import generate_value
+
+        return generate_value("ORDER_REF", {
+            "channel_ref": channel_ref,
+            "business_date": business_day.isoformat(),
+        })
+    except (ImportError, LookupError):
+        date_part = business_day.strftime("%y%m%d")
+        letter = secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ")  # sem I/O
+        return f"{channel_ref}-{date_part}-{letter}{secrets.randbelow(100):02d}"
+
+
+def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime | str | None = None) -> str:
+    """Gera um ref de pedido único: {CHANNEL_REF}-{YYMMDD}-{L##} (ex. WEB-260421-A17).
+
+    Código ALEATÓRIO (curto, memorável, não revela volume). Sorteia de novo enquanto o
+    ref colidir com um já existente; o índice único no INSERT é a guarda final.
     """
     channel_ref = channel_ref.upper()
     if business_date is None:
@@ -37,18 +57,15 @@ def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime 
         business_day = date.fromisoformat(business_date)
     else:
         business_day = business_date
-    try:
-        from shopman.refs.generators import generate_value
-        scope = {
-            "channel_ref": channel_ref,
-            "business_date": business_day.isoformat(),
-        }
-        return generate_value("ORDER_REF", scope)
-    except (ImportError, LookupError):
-        date_part = business_day.strftime("%y%m%d")
-        letter = secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ")  # sem I/O
-        code = f"{letter}{secrets.randbelow(100):02d}"
-        return f"{channel_ref}-{date_part}-{code}"
+
+    from shopman.orderman.models import Order
+
+    candidate = _order_ref_candidate(channel_ref, business_day)
+    for _ in range(_ORDER_REF_MAX_TRIES):
+        if not Order.objects.filter(ref=candidate).exists():
+            return candidate
+        candidate = _order_ref_candidate(channel_ref, business_day)
+    return candidate  # esgotou as tentativas (dia lotadíssimo) → índice único decide
 
 
 def generate_session_key() -> str:

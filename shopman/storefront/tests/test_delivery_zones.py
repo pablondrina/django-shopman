@@ -17,7 +17,7 @@ Coverage:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 from shopman.orderman.exceptions import ValidationError as OrderingValidationError
@@ -208,10 +208,10 @@ class TestDeliveryFeeModifier(TestCase):
         self.assertEqual(session.data.get("delivery_fee_q"), 600)
         self.assertNotIn("delivery_zone_error", session.data)
 
-    def test_no_zone_no_coords_fails_open(self):
-        # Regressão: endereço VÁLIDO sem zona e SEM coordenada (fallback ViaCEP) NÃO é
-        # bloqueado — cai na taxa-padrão (0 aqui, pois não configurada) e deixa passar.
-        # Bloquear um cliente real por falha de geocode é o pior dos mundos (omotenashi).
+    @patch("shopman.shop.services.geocoding.forward_geocode", return_value=None)
+    def test_no_zone_no_coords_geocode_fails_uses_fallback(self, _geo):
+        # Último recurso: sem zona, sem coordenada E o geocode também não resolveu →
+        # NÃO bloqueia um endereço válido; cai na taxa-padrão (0 aqui, não configurada).
         session = self._make_session({
             "fulfillment_type": "delivery",
             "delivery_address_structured": {

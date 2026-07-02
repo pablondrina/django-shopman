@@ -19,7 +19,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
 from django.shortcuts import render
 from django.views import View
-
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
@@ -123,8 +122,8 @@ def _shop_address(shop) -> str:
 def build_danfe(order_ref: str) -> DanfeDocument | None:
     """Monta o DANFE de um pedido. ``None`` se o pedido não existe."""
     from django.conf import settings
-
     from shopman.orderman.models import Order
+
     from shopman.shop.models import Shop
 
     order = Order.objects.filter(ref=order_ref).prefetch_related("items").first()

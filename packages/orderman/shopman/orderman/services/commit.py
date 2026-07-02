@@ -10,12 +10,17 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from shopman.orderman import registry
 from shopman.orderman.exceptions import CommitError, IdempotencyCacheHit, SessionError, ValidationError
 from shopman.orderman.ids import generate_order_ref
 from shopman.orderman.models import Directive, IdempotencyKey, Order, OrderItem, Session
+
+# Ref de pedido é aleatório (1 letra + 2 dígitos). generate_order_ref já sorteia de novo
+# se o ref existe; sob CORRIDA (dois commits pegando o mesmo código no mesmo instante) o
+# índice único ainda pode bater — aqui o savepoint regenera sem derrubar a transação.
+_ORDER_CREATE_MAX_TRIES = 5
 from shopman.utils.monetary import monetary_mult
 
 logger = logging.getLogger(__name__)
@@ -324,15 +329,14 @@ class CommitService:
             except (ValueError, TypeError):
                 pass
 
-        # Create Order + OrderItems
-        order = Order.objects.create(
-            ref=generate_order_ref(channel_ref=channel_ref),
-            channel_ref=channel_ref,
-            session_key=session_key,
-            handle_type=session.handle_type,
-            handle_ref=session.handle_ref,
-            status=Order.Status.NEW,
-            snapshot={
+        # Create Order + OrderItems. Ref aleatório → savepoint + retry na corrida de índice.
+        order_fields = {
+            "channel_ref": channel_ref,
+            "session_key": session_key,
+            "handle_type": session.handle_type,
+            "handle_ref": session.handle_ref,
+            "status": Order.Status.NEW,
+            "snapshot": {
                 "items": session.items,
                 "data": session.data,
                 "pricing": session.pricing,
@@ -340,9 +344,22 @@ class CommitService:
                 "commitment": commitment_snapshot,
                 "lifecycle": effective_config.get("lifecycle", {}),
             },
-            data=order_data,
-            total_q=CommitService._calculate_total(session.items),
-        )
+            "data": order_data,
+            "total_q": CommitService._calculate_total(session.items),
+        }
+        order = None
+        last_exc: IntegrityError | None = None
+        for _attempt in range(_ORDER_CREATE_MAX_TRIES):
+            try:
+                with transaction.atomic():
+                    order = Order.objects.create(
+                        ref=generate_order_ref(channel_ref=channel_ref), **order_fields
+                    )
+                break
+            except IntegrityError as exc:
+                last_exc = exc
+        if order is None:  # 5 colisões seguidas de ref: praticamente impossível
+            raise last_exc  # type: ignore[misc]
 
         for item in session.items:
             # Usa line_total_q existente ou calcula se não existir

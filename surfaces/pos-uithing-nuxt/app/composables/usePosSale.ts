@@ -102,7 +102,7 @@ export function usePosSale(deps: PosSaleDeps) {
     toast.error(message);
     serverError.value = "";
   });
-  const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot } | null>(null);
+  const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot; issueFiscalDocument: boolean } | null>(null);
   const checkoutMode = ref(false);
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
@@ -1004,6 +1004,7 @@ export function usePosSale(deps: PosSaleDeps) {
           nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
           payment: paymentProofView(response.payment),
           receipt,
+          issueFiscalDocument: cart.issueFiscalDocument,
         };
         resetCart();
         await refresh();

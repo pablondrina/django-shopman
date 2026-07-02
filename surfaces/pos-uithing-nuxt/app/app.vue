@@ -338,6 +338,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
                 <Icon name="lucide:printer" class="size-4" />
                 Imprimir recibo
               </UiButton>
+              <a
+                v-if="result.issueFiscalDocument"
+                class="inline-flex h-8 items-center gap-1.5 rounded-md border border-green-600/40 px-3 text-sm font-medium text-green-800 transition hover:bg-green-500/10"
+                :href="`${djangoOrigin}/fiscal/danfe/${encodeURIComponent(result.orderRef)}/`"
+                target="_blank" rel="noopener"
+              >
+                <Icon name="lucide:receipt-text" class="size-4" />
+                DANFE
+              </a>
               <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
             </div>
             <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">

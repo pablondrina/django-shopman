@@ -155,47 +155,41 @@ class TestAlphaNumericGenerator:
 # ── AlphaDigitGenerator (1 letra + 2 dígitos) ─────────────────────────────────
 
 class TestAlphaDigitGenerator:
+    """1 letra + 2 dígitos, ALEATÓRIO (secrets). Unicidade é do chamador (retry)."""
+
     def setup_method(self):
         self.gen = AlphaDigitGenerator()
 
     def _rt(self, fmt="{code}"):
         return make_ref_type(slug="AD_TEST", generator="alpha_digit", generator_format=fmt)
 
-    def test_first_code_is_a00(self):
-        assert self.gen._encode(0) == "A00"
-
-    def test_second_code_is_a01(self):
-        assert self.gen._encode(1) == "A01"
-
-    def test_rollover_digits_before_letter(self):
-        # 100 sequências enchem os 100 dígitos de uma letra → próxima letra
-        assert self.gen._encode(100) == "B00"
-
-    def test_wraps_within_space(self):
-        # estoura o espaço (2400) e dá a volta para A00
-        assert self.gen._encode(self.gen.SPACE) == "A00"
-
     def test_no_i_or_o(self):
         assert "I" not in self.gen.LETTERS and "O" not in self.gen.LETTERS
 
+    def test_alphabet_length(self):
+        assert len(self.gen.LETTERS) == 24  # 24 × 100 = 2400 combos
+
     def test_next_is_letter_and_two_digits(self):
         import re
-        code = self.gen.next(self._rt(), SCOPE_A)
-        assert re.fullmatch(r"[A-Z]\d{2}", code)
 
-    def test_next_increments(self):
-        rt = self._rt()
-        assert self.gen.next(rt, SCOPE_A) != self.gen.next(rt, SCOPE_A)
+        for _ in range(50):
+            code = self.gen.next(self._rt(), SCOPE_A)
+            assert re.fullmatch(r"[A-Z]\d{2}", code)
+            assert code[0] in self.gen.LETTERS
 
-    def test_independent_scopes_restart(self):
+    def test_covers_the_space_over_many_draws(self):
+        # Aleatório: muitas amostras devem variar tanto a letra quanto os dígitos.
         rt = self._rt()
-        assert self.gen.next(rt, SCOPE_A) == "A00"
-        assert self.gen.next(rt, SCOPE_B) == "A00"
+        codes = {self.gen.next(rt, SCOPE_A) for _ in range(400)}
+        assert len({c[0] for c in codes}) > 5  # várias letras diferentes
+        assert len(codes) > 50  # boa dispersão (não é constante)
 
     def test_format_with_channel_and_date(self):
+        import re
+
         rt = self._rt(fmt="{channel_ref}-{date:%y%m%d}-{code}")
         val = self.gen.next(rt, {"channel_ref": "WEB", "business_date": "2026-06-30"})
-        assert val == "WEB-260630-A00"
+        assert re.fullmatch(r"WEB-260630-[A-Z]\d{2}", val)
 
 
 # ── ShortUUIDGenerator ────────────────────────────────────────────────────────

@@ -46,8 +46,10 @@ const badge = computed(() => tileBadge(props.item))
       <div :class="framed ? 'shop-photo-frame shop-photo-frame-sm drop-shadow-md' : ''">
         <div
           class="size-28 overflow-hidden bg-muted"
-          :class="[framed ? 'shop-photo-mat-sm' : 'rounded-lg', item.availability === 'unavailable' ? 'shop-photo-unavailable' : '']"
+          :class="framed ? 'shop-photo-mat-sm' : 'rounded-lg'"
         >
+          <!-- A sépia (indisponível) vai SÓ na foto, nunca no <div> com a moldura —
+               senão o filtro amarela a borda branca. -->
           <img
             v-if="item.image_url"
             :src="item.image_url"
@@ -55,6 +57,7 @@ const badge = computed(() => tileBadge(props.item))
             loading="lazy"
             decoding="async"
             class="size-full object-cover"
+            :class="item.availability === 'unavailable' ? 'shop-photo-unavailable' : ''"
           >
           <div v-else class="flex size-full items-center justify-center text-muted-foreground">
             <Icon name="lucide:croissant" class="size-6" />

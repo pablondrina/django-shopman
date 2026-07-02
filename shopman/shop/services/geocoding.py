@@ -8,6 +8,7 @@ that key is domain-restricted in Google Cloud Console.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import urllib.parse
@@ -138,3 +139,46 @@ def reverse_geocode(lat: float, lng: float) -> ReverseGeocodeResult:
     parsed = _parse_result(results[0], lat, lng)
     cache.set(key, parsed.to_dict(), CACHE_TTL_SECONDS)
     return parsed
+
+
+def forward_geocode(address: str) -> tuple[float, float] | None:
+    """Geocode um endereço em TEXTO → (lat, lng). Devolve None em qualquer falha.
+
+    Caminho feliz da entrega: quando o endereço chega SEM coordenada (fallback ViaCEP /
+    digitação manual), resolve lat/lng para o motor de distância — assim o cálculo por
+    faixa funciona e a taxa-padrão fica como último recurso. Cache 24h por endereço
+    normalizado (inclui cache negativo p/ não martelar o Google). Reusa GOOGLE_MAPS_API_KEY.
+    NUNCA levanta: o chamador cai no fallback se vier None.
+    """
+    address = " ".join((address or "").split()).strip()
+    if not address:
+        return None
+    api_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "")
+    if not api_key:
+        return None
+
+    key = "geocode:fwd:" + hashlib.sha1(address.lower().encode("utf-8")).hexdigest()
+    cached = cache.get(key)
+    if cached is not None:
+        return (float(cached[0]), float(cached[1])) if cached else None  # [] = negativo
+
+    params = {"address": address, "key": api_key, "language": "pt-BR", "region": "br"}
+    url = f"{GEOCODE_URL}?{urllib.parse.urlencode(params)}"
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001 — rede falha vira "sem coordenada" (fallback)
+        logger.warning("forward_geocode_http_failed addr=%s err=%s", address, exc)
+        return None
+
+    results = payload.get("results") or []
+    location = ((results[0].get("geometry") or {}).get("location") or {}) if results else {}
+    lat, lng = location.get("lat"), location.get("lng")
+    if payload.get("status") != "OK" or lat is None or lng is None:
+        cache.set(key, [], CACHE_TTL_SECONDS)  # cache negativo
+        return None
+
+    coords = (float(lat), float(lng))
+    cache.set(key, [coords[0], coords[1]], CACHE_TTL_SECONDS)
+    return coords
