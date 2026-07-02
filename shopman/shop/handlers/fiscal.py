@@ -75,6 +75,7 @@ class NFCeEmitHandler:
             reference=order_ref, items=payload["items"],
             customer=payload.get("customer"), payment=payload["payment"],
             additional_info=payload.get("additional_info"),
+            delivery=payload.get("delivery"),
         )
 
         if result.success:

@@ -38,11 +38,16 @@ def emit(order) -> None:
     payment = dict(data.get("payment", {}) or {})
     payment.setdefault("amount_q", order.total_q)
 
+    delivery = None
+    if data.get("fulfillment_type") == "delivery":
+        delivery = {"address": dict(data.get("delivery_address_structured") or {})}
+
     directives.queue(
         FISCAL_EMIT_NFCE, order,
         items=_build_fiscal_items(order),
         payment=payment,
         customer=data.get("customer", {}),
+        delivery=delivery,
     )
 
     logger.info("fiscal.emit: queued for order %s", order.ref)
