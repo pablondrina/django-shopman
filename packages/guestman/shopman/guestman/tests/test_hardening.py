@@ -205,9 +205,14 @@ class TestG4ProviderEventAuthenticity:
         with pytest.raises(GateError, match="Missing signature"):
             Gates.provider_event_authenticity(b"body", "", "secret")
 
-    def test_no_secret_skips_validation(self):
-        """No secret configured means skip (dev mode)."""
-        result = Gates.provider_event_authenticity(b"body", "anything", "")
+    def test_no_secret_fails_closed_by_default(self):
+        """No secret + default (allow_unsigned=False) → rejeita (staging/prod)."""
+        with pytest.raises(GateError, match="secret not configured"):
+            Gates.provider_event_authenticity(b"body", "anything", "")
+
+    def test_no_secret_allow_unsigned_skips(self):
+        """No secret + allow_unsigned=True → pula validação (dev local)."""
+        result = Gates.provider_event_authenticity(b"body", "anything", "", allow_unsigned=True)
         assert result.passed
 
     def test_old_timestamp_raises(self):

@@ -193,6 +193,7 @@ class Gates:
         secret: str,
         timestamp: int | None = None,
         max_age_seconds: int = 300,
+        allow_unsigned: bool = False,
     ) -> GateResult:
         """
         G4: Webhook is authentic (HMAC + timestamp validation).
@@ -207,21 +208,34 @@ class Gates:
             secret: Webhook secret
             timestamp: Unix timestamp from header (optional)
             max_age_seconds: Maximum age of request (default 5 minutes)
+            allow_unsigned: When no secret is configured, whether to ACCEPT the
+                payload without validation. Default ``False`` = FAIL CLOSED (reject).
+                Callers pass ``settings.DEBUG`` so local dev keeps the convenience
+                of testing without HMAC, while staging/prod stay secure by default.
 
         Raises:
-            GateError: If signature is invalid or timestamp is too old
+            GateError: If signature is invalid, timestamp is too old, or no secret
+                is configured and ``allow_unsigned`` is False.
         """
         if not secret:
-            # No secret configured = skip validation (dev mode)
             import logging
 
-            logging.getLogger(__name__).warning(
-                "G4_ProviderEventAuthenticity: webhook secret is empty — "
-                "all payloads are accepted without signature validation. "
-                "Set the webhook secret before deploying to production."
-            )
-            return GateResult(
-                True, "G4_ProviderEventAuthenticity", "No secret configured (skipped)"
+            log = logging.getLogger(__name__)
+            if allow_unsigned:
+                # Dev-only convenience: no secret → skip HMAC (testing without signing).
+                log.warning(
+                    "G4_ProviderEventAuthenticity: webhook secret is empty and "
+                    "allow_unsigned is set — accepting WITHOUT signature validation "
+                    "(dev only). Never enable this in staging/production."
+                )
+                return GateResult(
+                    True, "G4_ProviderEventAuthenticity", "No secret configured (dev skip)"
+                )
+            # Fail CLOSED: unsigned endpoint must reject rather than accept forged
+            # payloads. Configure the webhook secret to enable this endpoint.
+            raise GateError(
+                "G4_ProviderEventAuthenticity",
+                "Webhook secret not configured — rejecting unsigned payload.",
             )
 
         if not signature:

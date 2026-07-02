@@ -47,10 +47,13 @@ class ManychatWebhookView(View):
             or request.headers.get("X-Manychat-Signature", "")
         )
 
-        # G4: Authenticity
+        # G4: Authenticity. Sem secret configurada, aceita SÓ em DEBUG (dev); em
+        # staging/prod falha fechado (rejeita payloads não assinados).
         secret = getattr(settings, "MANYCHAT_WEBHOOK_SECRET", "")
         try:
-            Gates.provider_event_authenticity(body, signature, secret)
+            Gates.provider_event_authenticity(
+                body, signature, secret, allow_unsigned=bool(getattr(settings, "DEBUG", False))
+            )
         except GateError as exc:
             logger.warning("Manychat webhook: G4 failed — %s", exc.message)
             return JsonResponse({"error": exc.message}, status=401)

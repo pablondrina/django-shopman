@@ -105,9 +105,10 @@ urlpatterns += _include_optional("auth/", "shopman.doorman.urls")
 urlpatterns += _include_optional("api/payments/", "shopman.payman.api.urls")
 
 urlpatterns += _include_optional("api/webhooks/", "shopman.shop.webhooks.urls")
-# ManyChat inbound webhook (subscriber sync). HMAC + replay gated; fails closed
-# without MANYCHAT_WEBHOOK_SECRET. The conversational ORDER flow (intent/confirm
-# endpoints) is owned by MANYCHAT-CONVERSACIONAL-PLAN, not this route.
+# ManyChat inbound webhook (subscriber sync). HMAC + replay gated; without
+# MANYCHAT_WEBHOOK_SECRET it fails CLOSED outside DEBUG (rejects unsigned payloads);
+# only local dev (DEBUG) skips the signature. The conversational ORDER flow
+# (intent/confirm endpoints) is owned by MANYCHAT-CONVERSACIONAL-PLAN, not this route.
 urlpatterns += _include_optional(
     "api/webhooks/manychat/", "shopman.guestman.contrib.manychat.urls"
 )
