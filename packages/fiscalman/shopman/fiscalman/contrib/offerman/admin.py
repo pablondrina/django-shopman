@@ -10,9 +10,6 @@ at emission time (see ``shopman.fiscalman.classification``).
 from __future__ import annotations
 
 from django import forms
-from shopman.offerman.contrib.admin_unfold.admin import ProductAdmin
-from shopman.offerman.contrib.admin_unfold.nutrition_form import ProductAdminForm
-
 from shopman.fiscalman.classification import (
     DEFAULT_PROFILE_KEY,
     FISCAL_PROFILES,
@@ -20,6 +17,8 @@ from shopman.fiscalman.classification import (
     from_metadata,
     to_metadata_fiscal,
 )
+from shopman.offerman.contrib.admin_unfold.admin import ProductAdmin
+from shopman.offerman.contrib.admin_unfold.nutrition_form import ProductAdminForm
 
 FISCAL_FORM_FIELDS = ("fiscal_profile", "fiscal_ncm", "fiscal_cest")
 

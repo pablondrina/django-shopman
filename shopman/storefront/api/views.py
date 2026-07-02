@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 
 from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -40,7 +38,9 @@ def _cart_data(request):
     return build_cart(request.session.get("cart_session_key"), CHANNEL_REF)
 
 
-@method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
+# Rate-limit MANUAL (is_ratelimited): só a tentativa que chega ao commit
+# incrementa o contador — cliente corrigindo erro de formulário não pode
+# tomar 429 no momento mais crítico do pedido.
 class CheckoutView(APIView):
     """
     POST /api/v1/checkout/
@@ -63,16 +63,8 @@ class CheckoutView(APIView):
         },
     )
     def post(self, request):
-        if getattr(request, "limited", False):
-            return Response(
-                {
-                    "detail": "Muitas tentativas. Aguarde alguns minutos.",
-                    "error_code": "rate_limited",
-                    "retry_after_seconds": CHECKOUT_RATE_LIMIT_RETRY_SECONDS,
-                },
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-                headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
-            )
+        if self._rate_limited(request, increment=False):
+            return self._rate_limited_response()
 
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -144,6 +136,20 @@ class CheckoutView(APIView):
                         {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        if fulfillment_type == "delivery" and delivery_time_slot and delivery_date:
+            # Aba antiga do checkout: slot de entrega de HOJE que já passou
+            # não vira pedido impossível para a operação.
+            slot_error = _delivery_slot_in_past_error(delivery_time_slot, delivery_date)
+            if slot_error:
+                return Response(
+                    {
+                        "detail": slot_error,
+                        "field": "delivery_time_slot",
+                        "errors": {"delivery_time_slot": slot_error},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if fulfillment_type == "pickup":
             from shopman.storefront.services.pickup_slots import validate_pickup_slot_selection
@@ -222,6 +228,16 @@ class CheckoutView(APIView):
             checkout_data["delivery_time_slot"] = delivery_time_slot
         if payment_method in {"pix", "card"}:
             checkout_data["payment"] = {"method": payment_method}
+        elif payment_method == "cash":
+            # Dinheiro também é método de pagamento: sem isso o operador não
+            # sabe como cobrar — e o troco pedido pelo cliente se perdia.
+            from shopman.storefront.intents.checkout import parse_change_for
+
+            payment_data = {"method": "cash"}
+            change_for_q = parse_change_for(serializer.validated_data.get("change_for", ""))
+            if fulfillment_type == "delivery" and change_for_q:
+                payment_data["change_for_q"] = change_for_q
+            checkout_data["payment"] = payment_data
 
         # Presente (entrega para terceiro) — integridade antes do commit.
         from shopman.storefront.intents.gift import build_gift_data
@@ -243,6 +259,10 @@ class CheckoutView(APIView):
         if gift_data:
             checkout_data.update(gift_data)
 
+        # Sempre gravar a chave: desmarcar o toggle precisa LIMPAR um resgate
+        # aplicado numa tentativa anterior da mesma sessão (senão o desconto
+        # stale sobrevive ao commit).
+        checkout_data["loyalty"] = {}
         if use_loyalty:
             try:
                 from shopman.shop.projections import checkout_context
@@ -257,12 +277,17 @@ class CheckoutView(APIView):
                 logger.debug("views.post degraded; using fallback", exc_info=True)
                 pass
 
+        # Passou por todas as validações: agora sim a tentativa CONTA.
+        if self._rate_limited(request, increment=True):
+            return self._rate_limited_response()
+
         try:
             result = checkout_service.process(
                 session_key=session_key,
                 channel_ref=CHANNEL_REF,
                 data=checkout_data,
                 idempotency_key=idempotency_key,
+                expected_total_q=serializer.validated_data.get("expected_total_q"),
             )
         except Exception as exc:
             logger.debug("views.post degraded; using fallback", exc_info=True)
@@ -302,6 +327,56 @@ class CheckoutView(APIView):
             }
         ).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _rate_limited(request, *, increment: bool) -> bool:
+        from django_ratelimit.core import is_ratelimited
+
+        return is_ratelimited(
+            request,
+            group="storefront.checkout",
+            key="user_or_ip",
+            rate="3/m",
+            method="POST",
+            increment=increment,
+        )
+
+    @staticmethod
+    def _rate_limited_response() -> Response:
+        return Response(
+            {
+                "detail": "Muitas tentativas. Aguarde alguns minutos.",
+                "error_code": "rate_limited",
+                "retry_after_seconds": CHECKOUT_RATE_LIMIT_RETRY_SECONDS,
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
+        )
+
+
+def _delivery_slot_in_past_error(slot: str, delivery_date: str) -> str | None:
+    """Slot "HH:MM-HH:MM" de HOJE cujo fim já passou → erro acionável."""
+    import re
+    from datetime import date as _date
+
+    match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})\s*$", slot or "")
+    if not match:
+        return None  # formato livre (ex.: "manhã") — sem eixo de hora para validar
+    try:
+        if _date.fromisoformat(delivery_date) != timezone.localdate():
+            return None
+    except ValueError:
+        return None
+    start = (int(match.group(1)), int(match.group(2)))
+    end = (int(match.group(3)), int(match.group(4)))
+    if end <= start:
+        # Slot cruza a meia-noite (ex.: 22:00-02:00): o fim é amanhã, então
+        # nunca "já passou" hoje. Sem eixo confiável — não bloquear.
+        return None
+    now_local = timezone.localtime()
+    if (now_local.hour, now_local.minute) >= end:
+        return "Esse horário já passou. Escolha outro horário de entrega."
+    return None
 
 
 _STRUCTURED_ADDRESS_FIELDS = (

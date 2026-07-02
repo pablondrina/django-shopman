@@ -6,11 +6,24 @@ from shopman.backstage.services.exceptions import POSError
 
 
 def parse_money_to_q(raw) -> int:
-    try:
-        normalized = str(raw or "0").strip().replace(",", ".")
-        return round(float(normalized) * 100)
-    except (TypeError, ValueError):
+    """Converte entrada do operador ("120", "120,50", "-10") em centavos.
+
+    Entrada ilegível levanta POSError — devolver 0 silencioso num fechamento
+    CEGO transformaria um typo ("12,,30") numa diferença gigante sem aviso.
+    """
+    from decimal import InvalidOperation
+
+    from shopman.utils.monetary import brl_to_q
+
+    text = str(raw or "").strip().replace("R$", "").replace(" ", "").replace(",", ".")
+    if not text:
         return 0
+    try:
+        # brl_to_q usa ROUND_HALF_UP (não banker's rounding), consistente com
+        # o resto do sistema.
+        return brl_to_q(text)
+    except InvalidOperation as exc:
+        raise POSError("Valor inválido.") from exc
 
 
 def open_cash_shift(*, operator, opening_amount_raw="0", terminal_ref: str = ""):
@@ -50,7 +63,12 @@ def register_cash_movement(
 
     normalized_type = movement_type if movement_type in {"sangria", "suprimento", "ajuste"} else "sangria"
     amount_q = parse_money_to_q(amount_raw)
-    if amount_q <= 0:
+    # Ajuste aceita valor negativo (falta/quebra na conferência); sangria e
+    # suprimento continuam estritamente positivos.
+    if normalized_type == "ajuste":
+        if amount_q == 0:
+            raise POSError("Valor inválido.")
+    elif amount_q <= 0:
         raise POSError("Valor inválido.")
 
     return CashMovement.objects.create(

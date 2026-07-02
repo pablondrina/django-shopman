@@ -108,16 +108,11 @@ def _register_notification_handlers() -> None:
 
         register_backend("console", notification_console)
 
-    sms_path = getattr(settings, "SHOPMAN_SMS_ADAPTER", None)
-    if sms_path:
-        from shopman.shop.adapters import notification_sms
-        register_backend("sms", notification_sms)
-    else:
-        try:
-            from shopman.shop.adapters import notification_sms
-            register_backend("sms", notification_sms)
-        except ImportError:
-            pass
+    # SMS de notificação = Comtele (mesma conta/config do OTP, SHOPMAN_SMS).
+    # O adapter é inerte (is_available False) sem api_key+route.
+    from shopman.shop.adapters import notification_sms
+
+    register_backend("sms", notification_sms)
 
 
 def _register_confirmation_handler() -> None:
@@ -179,9 +174,8 @@ def _register_accounting_handler() -> None:
 
 
 def _register_return_handler() -> None:
-    fiscal_backend = _load_optional_backend("SHOPMAN_FISCAL_ADAPTER", "fiscal")
     from shopman.shop.handlers.returns import ReturnHandler
-    registry.register_directive_handler(ReturnHandler(fiscal_backend=fiscal_backend))
+    registry.register_directive_handler(ReturnHandler())
 
 
 def _register_fulfillment_handler() -> None:

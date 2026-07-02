@@ -305,8 +305,13 @@ class SessionApiTests(TestCase):
         self.assertEqual(r2.data["status"], "committed")
         self.assertEqual(r2.data["order_ref"], r1.data["order_ref"])
 
-        # Confirma que guardou o response no idem
-        self.assertTrue(IdempotencyKey.objects.filter(scope="commit:pos", key=idem).exists())
+        # Confirma que guardou o response no idem — escopo inclui a sessão
+        # (chave do cliente não pode colidir/vazar resultado de outra sessão).
+        self.assertTrue(
+            IdempotencyKey.objects.filter(
+                scope=f"commit:pos:{sess.session_key}", key=idem
+            ).exists()
+        )
 
     def test_resolve_delegates_by_source_and_applies_ops(self) -> None:
         c = self._mk_channel(ref="pos")

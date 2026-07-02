@@ -740,7 +740,7 @@ async function submitCheckout () {
         'x-idempotency-key': idempotencyKey
       },
       credentials: 'include',
-      body: buildCheckoutPayload(state, idempotencyKey, useLoyalty.value)
+      body: buildCheckoutPayload(state, idempotencyKey, useLoyalty.value, cart.value?.grand_total_q ?? null)
     })
     clearCart()
     clearCheckoutDraft()

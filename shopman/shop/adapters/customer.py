@@ -274,6 +274,17 @@ def redeem_points(
     )
 
 
+def has_loyalty_transaction(customer_ref: str, *, reference: str, transaction_type: str) -> bool:
+    """True se já existe transação com esta referência (guarda de idempotência)."""
+    from shopman.guestman.contrib.loyalty.models import LoyaltyTransaction
+
+    return LoyaltyTransaction.objects.filter(
+        account__customer__ref=customer_ref,
+        reference=reference,
+        transaction_type=transaction_type,
+    ).exists()
+
+
 # ── helpers ──────────────────────────────────────────────────────────
 
 

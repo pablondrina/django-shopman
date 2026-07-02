@@ -73,7 +73,7 @@ def test_external_marketplace_does_not_require_shopman_payment_gate():
             "fulfillment": {"timing": "external"},
             "pricing": {"policy": "external"},
             "editing": {"policy": "locked"},
-            "notifications": {"backend": "webhook", "fallback_chain": []},
+            "notifications": {"backend": "none", "fallback_chain": []},
         },
     )
 

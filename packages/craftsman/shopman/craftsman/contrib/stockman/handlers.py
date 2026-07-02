@@ -360,6 +360,43 @@ def _consume_materials(work_order):
             )
 
 
+def _write_off_yield_shortfall(work_order, product_ref, date, finished_qty):
+    """Rendimento MENOR que o iniciado: lançar a perda como WASTE no ledger.
+
+    Sem isso o resíduo fica eterno no quant ``batch='started'`` — a
+    availability o classifica como ``in_production`` e ele continua
+    PROMETÍVEL sob ``planned_ok``, vendendo unidades que nunca existirão.
+    Só baixa o que restou de fato no quant (o planejado pode agregar outras WOs).
+    """
+    from decimal import Decimal
+
+    from shopman.stockman.models.move import Move
+    from shopman.stockman.services.queries import StockQueries
+
+    started_qty = work_order.started_qty or work_order.quantity
+    shortfall = Decimal(str(started_qty)) - Decimal(str(finished_qty))
+    if shortfall <= 0:
+        return
+
+    quant = StockQueries.get_quant(product_ref, target_date=date, batch=STARTED_BATCH)
+    if quant is None:
+        return
+    write_off = min(shortfall, Decimal(str(quant.quantity)))
+    if write_off <= 0:
+        return
+
+    Move.objects.create(
+        quant=quant,
+        delta=-write_off,
+        reason=f"Perda de rendimento: {work_order.ref} (iniciado {started_qty}, rendeu {finished_qty})",
+        kind="waste",  # Move.Kind.WASTE
+    )
+    logger.info(
+        "Yield shortfall written off: sku=%s qty=%s (WO %s)",
+        product_ref, write_off, work_order.ref,
+    )
+
+
 def _handle_finished(work_order, product_ref, date):
     """
     Realize production: consume ingredients, then transfer planned stock →
@@ -441,6 +478,8 @@ def _handle_finished(work_order, product_ref, date):
             to_position.ref,
             work_order.ref,
         )
+
+        _write_off_yield_shortfall(work_order, product_ref, date, finished_qty)
     except Exception:
         logger.warning(
             "Failed to realize production for %s (non-fatal)",

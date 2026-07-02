@@ -73,7 +73,9 @@ class CommitService:
             SessionError: Se sessão não encontrada
         """
         ctx = ctx or {}
-        idem_scope = f"commit:{channel_ref}"
+        # Escopo inclui a sessão: chave fornecida pelo cliente não pode
+        # colidir/vazar o CommitResult de OUTRA sessão do mesmo canal.
+        idem_scope = f"commit:{channel_ref}:{session_key}"
 
         # 1. Check/create idempotency key (outside main transaction)
         try:
@@ -299,7 +301,7 @@ class CommitService:
             "customer", "customer_ref", "fulfillment_type", "delivery_address",
             "delivery_address_structured", "delivery_date",
             "delivery_time_slot", "order_notes",
-            "origin_channel", "payment",
+            "origin_channel", "payment", "loyalty",
             "delivery_fee_q", "delivery_distance_km",
             "is_gift", "recipient", "gift_message", "gift_hide_values",
         ):

@@ -52,6 +52,16 @@ class PaymentTimeoutHandler:
         if status in _UNCERTAIN_STATUSES:
             return
 
+        # Última linha contra webhook perdido: perguntar ao gateway antes de
+        # cancelar um PIX possivelmente pago.
+        from shopman.orderman.exceptions import DirectiveTransientError
+
+        gateway_state = payment_service.verify_gateway_before_timeout_cancel(order)
+        if gateway_state == "paid":
+            return
+        if gateway_state == "indeterminate":
+            raise DirectiveTransientError("gateway indisponível para verificar PIX antes do cancel")
+
         payment_service.cancel(order, reason="payment_timeout")
         cancelled = cancel(
             order,

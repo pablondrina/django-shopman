@@ -267,6 +267,14 @@ def resolve_payment_timeout_if_due(order) -> bool:
     if method == "card" and status == "authorized":
         return False
 
+    # Última linha contra webhook perdido: perguntar ao gateway antes de
+    # cancelar um PIX possivelmente pago. Incerto = não cancelar nesta rodada.
+    gateway_state = payment_service.verify_gateway_before_timeout_cancel(order)
+    if gateway_state != "unpaid":
+        if gateway_state == "paid":
+            order.refresh_from_db()
+        return False
+
     payment_service.cancel(order, reason="payment_timeout")
 
     from shopman.shop.services import notification

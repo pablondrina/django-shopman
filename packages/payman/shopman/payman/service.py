@@ -353,6 +353,16 @@ class PaymentService:
         """
         intent = cls._get_for_update(ref)
 
+        # Idempotência por gateway_id: um retry (worker morto, at-least-once)
+        # que reapresenta o MESMO id de refund do gateway não pode criar uma
+        # segunda transação de reembolso — devolve a existente.
+        if gateway_id:
+            existing = intent.transactions.filter(
+                type=PaymentTransaction.Type.REFUND, gateway_id=gateway_id
+            ).first()
+            if existing is not None:
+                return existing
+
         if intent.status not in (PaymentIntent.Status.CAPTURED, PaymentIntent.Status.REFUNDED):
             raise PaymentError(
                 code="invalid_transition",

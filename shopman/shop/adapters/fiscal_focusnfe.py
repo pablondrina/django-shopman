@@ -56,6 +56,7 @@ class FocusNFeBackend:
         customer: dict | None = None,
         payment: dict,
         additional_info: str | None = None,
+        delivery: dict | None = None,
     ) -> FiscalDocumentResult:
         config = _get_config()
         missing = _missing_config(config)
@@ -75,6 +76,7 @@ class FocusNFeBackend:
                 customer=customer or {},
                 payment=payment,
                 additional_info=additional_info,
+                delivery=delivery,
             )
             response = _request("POST", _nfce_path(reference, config), payload, config)
         except FocusNFePayloadError as exc:
@@ -213,14 +215,30 @@ def _build_nfce_payload(
     customer: dict,
     payment: dict,
     additional_info: str | None,
+    delivery: dict | None = None,
 ) -> dict:
-    if not items:
+    # Taxa de entrega na NFC-e (MOC + validação em homologação SEFAZ-PR):
+    # frete SÓ é aceito como ENTREGA A DOMICÍLIO — indPres=4, destinatário
+    # identificado (CPF + endereço) e grupo transportador (rejeições 753/787/
+    # 786). Com tudo isso, vFrete entra no item e no total. Sem CPF/endereço,
+    # a taxa fica FORA do documento (nota só de mercadorias, pagamento
+    # reduzido na mesma medida) — nunca emitir um XML incoerente.
+    fee_items = [item for item in items if _is_delivery_fee_item(item)]
+    merchandise = [item for item in items if not _is_delivery_fee_item(item)]
+    freight_q = sum(int(item.get("total_q") or 0) for item in fee_items)
+
+    if not merchandise:
         raise FocusNFePayloadError("NFC-e exige ao menos um item.")
 
-    mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(items, start=1)]
+    home_delivery = _home_delivery_fields(config, customer, delivery) if freight_q > 0 else None
+
+    mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(merchandise, start=1)]
     product_total_q = _sum_focus_money_q(mapped_items, "valor_bruto")
+    if home_delivery is None:
+        payment = _payment_without_fee(payment, freight_q)
+        freight_q = 0
     payment_total_q = _payment_total_q(payment)
-    note_total_q = payment_total_q or product_total_q
+    note_total_q = payment_total_q or (product_total_q + freight_q)
 
     payload = {
         "cnpj_emitente": _focus_cnpj_emitente(config),
@@ -237,8 +255,22 @@ def _build_nfce_payload(
         "items": mapped_items,
         "formas_pagamento": _payment_forms(payment),
     }
-    if product_total_q > note_total_q:
-        payload["valor_desconto"] = _money_q(product_total_q - note_total_q)
+    if home_delivery is not None:
+        # Entrega a domicílio: indPres=4, frete no item (I15) e no total (W08),
+        # modFrete próprio (3) e transportador = o emitente.
+        payload["presenca_comprador"] = "4"
+        payload["modalidade_frete"] = str(config.get("modalidade_frete_delivery") or "3")
+        payload["valor_frete"] = _money_q(freight_q)
+        _apportion_over_items(mapped_items, freight_q, field="valor_frete")
+        payload.update(home_delivery)
+
+    # SEFAZ valida vDesc do TOTAL contra o somatório dos itens (confirmado em
+    # homologação): o desconto é rateado por item, proporcional ao valor
+    # bruto, com o resíduo do arredondamento no último item.
+    discount_q = product_total_q + freight_q - note_total_q
+    if discount_q > 0:
+        payload["valor_desconto"] = _money_q(discount_q)
+        _apportion_over_items(mapped_items, discount_q, field="valor_desconto")
     if config.get("serie_nfce"):
         payload["serie"] = str(config["serie_nfce"])
     if additional_info:
@@ -248,6 +280,108 @@ def _build_nfce_payload(
         payload.get("informacoes_adicionais_contribuinte") or f"Pedido {reference}"
     )
     return payload
+
+
+def _home_delivery_fields(config: dict, customer: dict, delivery: dict | None) -> dict | None:
+    """Campos de entrega a domicílio (MOC): destinatário + endereço + transportador.
+
+    Retorna ``None`` quando faltam CPF/CNPJ ou endereço — nesse caso a taxa
+    fica fora do documento (fallback coerente, nunca XML rejeitável).
+    """
+    from shopman.utils.documents import is_valid_tax_id
+
+    address = dict((delivery or {}).get("address") or {})
+    tax_id = _digits(customer.get("tax_id") or customer.get("cpf") or customer.get("cnpj"))
+    street = str(address.get("route") or "").strip()
+    city = str(address.get("city") or "").strip()
+    state = str(address.get("state_code") or "").strip()
+    cep = _digits(address.get("postal_code"))
+    if not (tax_id and is_valid_tax_id(tax_id) and street and city and state and cep):
+        return None
+
+    fields = {
+        "logradouro_destinatario": street[:60],
+        "numero_destinatario": str(address.get("street_number") or "S/N")[:60],
+        "bairro_destinatario": str(address.get("neighborhood") or "")[:60] or "Centro",
+        "municipio_destinatario": city[:60],
+        "uf_destinatario": state[:2].upper(),
+        "cep_destinatario": cep,
+        # Entrega própria: o transportador é o próprio emitente (rejeição 786
+        # exige o grupo transporta em entrega a domicílio).
+        "cnpj_transportador": _focus_cnpj_emitente(config),
+        "nome_transportador": (_shop_name() or "Emitente")[:60],
+    }
+    return fields
+
+
+def _shop_name() -> str:
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        return str(getattr(shop, "legal_name", "") or getattr(shop, "name", "") or "")
+    except Exception:
+        logger.debug("focus_nfe_shop_name_lookup_failed", exc_info=True)
+        return ""
+
+
+def _payment_without_fee(payment: dict, freight_q: int) -> dict:
+    """Reduz a taxa de entrega do pagamento declarado na nota.
+
+    A taxa fica fora do documento; o dinheiro/PIX que a cobre também. A
+    redução sai do tender em dinheiro primeiro (mesma regra do caixa) e do
+    último tender em último caso.
+    """
+    if freight_q <= 0:
+        return payment
+    adjusted = dict(payment or {})
+    if adjusted.get("amount_q"):
+        adjusted["amount_q"] = max(int(adjusted["amount_q"]) - freight_q, 0)
+    tenders = adjusted.get("tenders")
+    if isinstance(tenders, list) and tenders:
+        tenders = [dict(t) for t in tenders]
+        remaining = freight_q
+        ordered = [t for t in reversed(tenders) if str(t.get("method") or "").lower() == "cash"] + [
+            t for t in reversed(tenders) if str(t.get("method") or "").lower() != "cash"
+        ]
+        for tender in ordered:
+            if remaining <= 0:
+                break
+            current = int(tender.get("amount_q") or 0)
+            cut = min(current, remaining)
+            tender["amount_q"] = current - cut
+            remaining -= cut
+        adjusted["tenders"] = [t for t in tenders if int(t.get("amount_q") or 0) > 0]
+    return adjusted
+
+
+def _apportion_over_items(mapped_items: list[dict], total_q: int, *, field: str) -> None:
+    """Rateia ``total_q`` (centavos) pelos itens, proporcional ao valor bruto.
+
+    O resíduo do arredondamento vai no último item — a soma dos rateios bate
+    EXATAMENTE com o total da nota, que é o que a SEFAZ valida.
+    """
+    weights = [_money_to_q(item.get("valor_bruto")) for item in mapped_items]
+    weight_sum = sum(weights) or len(mapped_items)
+    allocated = 0
+    for idx, item in enumerate(mapped_items):
+        if idx == len(mapped_items) - 1:
+            share = total_q - allocated
+        else:
+            share = (total_q * weights[idx]) // weight_sum
+        allocated += share
+        if share > 0:
+            item[field] = _money_q(share)
+
+
+def _money_to_q(value) -> int:
+    """"10.00" (formato Focus) → 1000 centavos."""
+    return int((Decimal(str(value or "0")) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _is_delivery_fee_item(item: dict) -> bool:
+    meta = item.get("meta") or {}
+    return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") == "delivery_fee"
 
 
 def _map_item(number: int, item: dict, config: dict) -> dict:
@@ -339,8 +473,15 @@ def _payment_code(method: object) -> str:
 
 
 def _customer_fields(customer: dict) -> dict:
+    from shopman.utils.documents import is_valid_tax_id
+
     customer = dict(customer or {})
     tax_id = _digits(customer.get("tax_id") or customer.get("cpf") or customer.get("cnpj"))
+    if tax_id and not is_valid_tax_id(tax_id):
+        # Melhor falhar aqui (claro, acionável) que rejeição assíncrona da SEFAZ.
+        raise FocusNFePayloadError(
+            f"CPF/CNPJ do cliente inválido ({tax_id[:4]}…): confira os dígitos."
+        )
     fields = {}
     if len(tax_id) == 11:
         fields["cpf_destinatario"] = tax_id
@@ -379,7 +520,21 @@ def _shop_document() -> str:
 def _document_result(response: dict, config: dict | None = None) -> FiscalDocumentResult:
     status = _norm(response.get("status"))
     access_key = _first(response, "chave_nfe", "chave_nfce", "chave_acesso", "chave")
-    success = status in {"autorizado", "authorized", "emitido", "emitida"} or bool(access_key)
+    # Chave presente NÃO significa autorizada: o Focus devolve chave também em
+    # "processando_autorizacao" e em consultas de notas rejeitadas. Sucesso
+    # exige status autorizado; chave sozinha só vale em resposta sem status.
+    success = status in {"autorizado", "authorized", "emitido", "emitida"} or (
+        not status and bool(access_key)
+    )
+    if not success and status in {"processando_autorizacao", "processando", "processing"}:
+        return FiscalDocumentResult(
+            success=False,
+            document_id=_first(response, "ref", "id"),
+            access_key=str(access_key) if access_key else None,
+            status="processing",
+            error_code="focus_nfe_processing",
+            error_message="NFC-e em processamento na SEFAZ — consultar novamente.",
+        )
     return FiscalDocumentResult(
         success=success,
         document_id=_first(response, "ref", "id"),

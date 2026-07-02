@@ -212,7 +212,7 @@ class TestManychatMessageSuffixes:
 
         ctx = {"order_ref": "ORD-042", "customer_name": "Ana", "total": "R$ 30,00"}
         ctx.update(extra_ctx)
-        with patch("shopman.shop.adapters.notification_manychat._load_db_template", return_value=None):
+        with patch("shopman.shop.adapters._notification_templates.db_template", return_value=(None, None)):
             return _build_message(template, ctx)
 
     def test_tracking_suffix_appended_when_url_present(self):

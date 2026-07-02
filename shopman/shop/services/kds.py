@@ -74,6 +74,8 @@ def fire_lines(*, session_key: str, lines: list[dict]) -> list:
     ticket to nothing and collide with every other empty-key ticket), so we
     refuse to fire rather than create an unresolvable orphan ticket.
     """
+    from django.db import transaction
+
     from shopman.shop.adapters import get_adapter
     from shopman.shop.adapters import kds as kds_adapter
 
@@ -81,6 +83,23 @@ def fire_lines(*, session_key: str, lines: list[dict]) -> list:
         logger.error("kds.fire_lines: empty session_key — refusing to fire %d lines", len(lines))
         return []
 
+    # Serializa fires concorrentes da mesma comanda (double-tap, dois devices,
+    # on_confirmed × on_paid): o dedupe por line_id é check-then-create — sem
+    # o lock na Session, dois fires leem o ledger vazio e a cozinha produz 2×.
+    with transaction.atomic():
+        from shopman.orderman.models import Session
+
+        Session.objects.select_for_update().filter(session_key=session_key).first()
+
+        return _fire_lines_locked(
+            session_key=session_key,
+            lines=lines,
+            get_adapter=get_adapter,
+            kds_adapter=kds_adapter,
+        )
+
+
+def _fire_lines_locked(*, session_key: str, lines: list[dict], get_adapter, kds_adapter) -> list:
     already_fired = kds_adapter.fired_line_ids_for_session(session_key)
     pending = [
         ln for ln in lines
@@ -135,9 +154,23 @@ def fire_lines(*, session_key: str, lines: list[dict]) -> list:
         )
 
         if not matched:
+            # Item que a cozinha NUNCA verá: com estações mal configuradas o
+            # pedido pode ir a READY sem este item ser preparado — alertar.
             logger.warning(
                 "kds.fire_lines: no KDS instance for sku=%s type=%s col=%s parent=%s - skipped",
                 sku, item_type, col_id, item.get("parent_sku") or "-",
+            )
+            from shopman.shop.services.observability import create_operator_alert
+
+            create_operator_alert(
+                type="kds_unrouted_item",
+                severity="warning",
+                message=(
+                    f"Item {item['qty']}× {item['name'] or sku} da comanda {session_key} "
+                    "NÃO foi roteado para nenhuma estação KDS — a cozinha não vai vê-lo. "
+                    "Confira as estações ativas e suas coleções."
+                ),
+                dedupe_key=f"kds_unrouted:{session_key}:{sku}",
             )
             continue
 
@@ -323,9 +356,13 @@ def on_all_tickets_done(order, *, actor: str = "kds.all_done") -> bool:
     if not tickets.exists():
         return False
 
-    all_done = not tickets.exclude(status="done").exists()
+    # Cancelled não conta: um ticket cancelado (reprint/unfire, item retirado)
+    # jamais será concluído — incluí-lo travaria o auto-READY para sempre.
+    all_done = not tickets.exclude(status__in=["done", "cancelled"]).exists()
     if not all_done:
         return False
+    if not tickets.filter(status="done").exists():
+        return False  # só cancelados = nada foi produzido; nada a avançar
 
     if order.status == Order.Status.READY:
         return False
@@ -372,12 +409,21 @@ def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
 
 
 def complete_ticket(ticket, *, actor: str) -> bool:
-    """Mark a KDS ticket done and move the order to ready when all tickets finish."""
+    """Mark a KDS ticket done; advance the order as a best-effort side effect.
+
+    Retorna True quando o BUMP aconteceu (ticket salvo como done) — nunca
+    conflar com "o pedido avançou": num pedido de várias estações o primeiro
+    bump é sucesso com o pedido ainda em preparo; num ticket recalled o pedido
+    pode já estar READY/DISPATCHED e o bump continua válido; comanda
+    pré-commit nem tem pedido ainda.
+    """
     if ticket.status not in OPEN_TICKET_STATUSES:
         return False
     order = _ticket_order(ticket)
-    if order is not None and not _ensure_order_preparing_for_work(order, actor=actor):
-        return False
+    if order is not None and order.status in (Order.Status.NEW, Order.Status.CONFIRMED):
+        # Gate de pagamento: trabalho físico só começa quando o lifecycle deixa.
+        if not _ensure_order_preparing_for_work(order, actor=actor):
+            return False
     for item in ticket.items:
         item["checked"] = True
     ticket.status = "done"
@@ -385,9 +431,9 @@ def complete_ticket(ticket, *, actor: str) -> bool:
     ticket.save(update_fields=["items", "status", "completed_at"])
 
     logger.info("kds_done ticket=%d session=%s", ticket.pk, ticket.session_key)
-    if order is None:
-        return False
-    return on_all_tickets_done(order, actor=actor)
+    if order is not None:
+        on_all_tickets_done(order, actor=actor)
+    return True
 
 
 def reopen_ticket(ticket, *, actor: str) -> bool:

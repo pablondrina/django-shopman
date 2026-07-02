@@ -210,7 +210,7 @@ class POSTabSessionTests(TestCase):
         ))
         payload = _payload(tab_session_key=opened["tab_session_key"], customer_phone="43999990000")
         payload.update({
-            "customer_tax_id": "12345678901",
+            "customer_tax_id": "52998224725",
             "tendered_amount_q": 5000,
             "issue_fiscal_document": True,
             "receipt_mode": "email",
@@ -225,10 +225,10 @@ class POSTabSessionTests(TestCase):
         )
 
         order = Order.objects.get(ref=result.order_ref)
-        self.assertEqual(order.data["customer"]["tax_id"], "12345678901")
+        self.assertEqual(order.data["customer"]["tax_id"], "52998224725")
         self.assertEqual(order.data["payment"]["method"], "cash")
         self.assertEqual(order.data["payment"]["tendered_q"], 5000)
-        self.assertEqual(order.data["fiscal"], {"issue_document": True, "tax_id": "12345678901"})
+        self.assertEqual(order.data["fiscal"], {"issue_document": True, "tax_id": "52998224725"})
         self.assertEqual(order.data["receipt"], {"mode": "email", "email": "ana@example.com"})
 
     def test_closing_tab_can_create_delivery_with_payment_on_delivery(self) -> None:

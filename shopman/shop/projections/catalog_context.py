@@ -405,7 +405,6 @@ def planned_supply_for_skus(skus: list[str], *, horizon_days: int = 2) -> dict[s
         from datetime import date, timedelta
 
         from django.db.models import Sum
-
         from shopman.stockman.models import Quant
 
         today = date.today()

@@ -214,6 +214,7 @@ def _on_commit(order, config: ChannelConfig) -> None:
     )
 
     loyalty.redeem(order)
+    _record_coupon_use(order)
 
     if _should_initiate_payment_on_commit(order, config):
         payment.initiate(order)
@@ -228,6 +229,70 @@ def _on_commit(order, config: ChannelConfig) -> None:
         notification.send(order, "order_received")
 
     _handle_confirmation(order, config)
+
+
+def _record_coupon_use(order) -> None:
+    """Conta o uso do cupom no commit — senão ``max_uses`` é decorativo.
+
+    Marca ``order.data['coupon_use_recorded']`` quando conta, para o cancel
+    devolver o uso EXATO (e nunca decrementar o de outro pedido).
+    """
+    coupon = ((order.snapshot or {}).get("pricing") or {}).get("coupon") or {}
+    code = str(coupon.get("code") or "").strip()
+    if not code or int(coupon.get("discount_q") or 0) <= 0:
+        return
+    try:
+        from shopman.shop.adapters import get_adapter
+
+        adapter = get_adapter("promotion")
+        if adapter is None:
+            return
+        if adapter.record_coupon_use(code):
+            data = dict(order.data or {})
+            data["coupon_use_recorded"] = code
+            order.data = data
+            order.save(update_fields=["data", "updated_at"])
+        else:
+            # Cupom esgotou entre o carrinho e o commit (corrida): a venda
+            # já saiu com o desconto. Contador fica no teto (não estoura),
+            # mas o operador precisa saber do resgate acima do limite.
+            _alert_coupon_over_redeemed(order, code)
+    except Exception:
+        logger.warning("lifecycle.coupon_use_count_failed order=%s code=%s", order.ref, code, exc_info=True)
+
+
+def _release_coupon_use(order) -> None:
+    """Devolve o uso do cupom quando o pedido é cancelado/expira."""
+    code = str((order.data or {}).get("coupon_use_recorded") or "").strip()
+    if not code:
+        return
+    try:
+        from shopman.shop.adapters import get_adapter
+
+        adapter = get_adapter("promotion")
+        if adapter is not None:
+            adapter.release_coupon_use(code)
+        data = dict(order.data or {})
+        data.pop("coupon_use_recorded", None)
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
+    except Exception:
+        logger.warning("lifecycle.coupon_use_release_failed order=%s code=%s", order.ref, code, exc_info=True)
+
+
+def _alert_coupon_over_redeemed(order, code: str) -> None:
+    from shopman.shop.services.observability import create_operator_alert
+
+    create_operator_alert(
+        type="coupon_over_redeemed",
+        severity="warning",
+        message=(
+            f"Cupom {code} foi aplicado no pedido {order.ref} mas já tinha "
+            "atingido o limite de usos (corrida entre carrinhos). Conferir."
+        ),
+        order_ref=order.ref,
+        dedupe_key=f"coupon_over_redeemed:{order.ref}",
+    )
 
 
 def _on_confirmed(order, config: ChannelConfig) -> None:
@@ -325,6 +390,11 @@ def _on_cancelled(order, config: ChannelConfig) -> None:
     except ImportError:
         pass
     stock.release(order)
+    # Canais com fulfill no ato (PDV) já baixaram o estoque quando o cancel
+    # chega — release é no-op em hold FULFILLED. Devolver ao ledger, senão o
+    # sistema fica abaixo do físico a cada erro de digitação cancelado.
+    stock.revert_fulfilled(order)
+    _release_coupon_use(order)
     _settle_cancelled_payment(order)
     fiscal.cancel(order)
     notification.send(order, "order_cancelled")

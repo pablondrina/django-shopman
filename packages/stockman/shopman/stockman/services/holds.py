@@ -88,6 +88,7 @@ class StockHolds:
              actor=None,
              allowed_positions: list[str] | None = None,
              excluded_positions: list[str] | None = None,
+             safety_margin: int = 0,
              **metadata):
         """
         Create quantity hold.
@@ -133,10 +134,13 @@ class StockHolds:
         sku = profile["sku"]
 
         with transaction.atomic():
+            # safety_margin: a ESCRITA usa a mesma margem do read — senão a
+            # margem do canal protege a vitrine mas não a reserva.
             decision = promise_decision_for_sku(
                 sku, quantity, target_date=target,
                 allowed_positions=allowed_positions,
                 excluded_positions=excluded_positions,
+                safety_margin=safety_margin,
             )
             policy = profile["availability_policy"] or decision.availability_policy
             approved = decision.approved
@@ -448,6 +452,23 @@ class StockHolds:
         return Hold.objects.filter(
             metadata__reference=reference,
         ).active().order_by("pk")
+
+    @staticmethod
+    def extend(hold_id: str, *, expires_at=None) -> bool:
+        """Redefine a expiração de um hold ativo (``None`` = nunca expira).
+
+        Usado quando um hold de carrinho é adotado por um pedido commitado:
+        o dono passa a ser o pedido e o ciclo termina por fulfill/release,
+        nunca por relógio.
+
+        Returns:
+            True se o hold foi atualizado, False se não encontrado/terminal.
+        """
+        pk = _parse_hold_id(hold_id)
+        updated = Hold.objects.filter(
+            pk=pk, status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED]
+        ).update(expires_at=expires_at)
+        return bool(updated)
 
     @staticmethod
     def retag_reference(hold_id: str, new_reference: str) -> bool:

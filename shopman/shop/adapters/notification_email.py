@@ -31,6 +31,7 @@ SUBJECT_TEMPLATES: dict[str, str] = {
     "payment_requested": "Pedido {order_ref}: pagamento liberado",
     "payment_expired": "Pagamento do pedido {order_ref} expirado",
     "payment_failed": "Falha ao preparar pagamento do pedido {order_ref}",
+    "preorder_reminder": "Lembrete: pedido {order_ref} agendado para amanhã",
     "stock_alert": "Alerta de estoque: {sku}",
 }
 
@@ -107,6 +108,10 @@ BODY_TEMPLATES: dict[str, str] = {
         "Produto: {sku}\nQuantidade atual: {available}\n"
         "Minimo configurado: {min_quantity}\n\nProvidencie reposicao.\n"
     ),
+    "preorder_reminder": (
+        "Lembrete: seu pedido {order_ref} esta agendado para amanha.\n"
+        "Ja estamos preparando tudo!"
+    ),
 }
 
 
@@ -147,26 +152,26 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
     Returns:
         True if sent successfully, False otherwise.
     """
+    from shopman.shop.adapters._notification_templates import (
+        db_template,
+        render_message,
+        render_template,
+    )
+
     ctx = _enrich_context(context or {})
 
-    subject_tpl = SUBJECT_TEMPLATES.get(template, f"Notificacao: {template}")
-    try:
-        subject = subject_tpl.format(**ctx)
-    except KeyError:
-        subject = subject_tpl
+    # Assunto e corpo editados no Admin (NotificationTemplate) valem para
+    # e-mail também; os dicts hardcoded são o fallback. render_template protege
+    # contra chave malformada no template do Admin (não suprime o e-mail).
+    db_subject, _ = db_template(template)
+    subject_tpl = db_subject or SUBJECT_TEMPLATES.get(template, f"Notificacao: {template}")
+    subject = render_template(subject_tpl, ctx)
 
     subject_prefix = config.get("subject_prefix", "")
     if subject_prefix:
         subject = f"{subject_prefix} {subject}"
 
-    body_tpl = BODY_TEMPLATES.get(template)
-    if body_tpl:
-        try:
-            body = body_tpl.format(**ctx)
-        except KeyError:
-            body = f"Evento: {template}\nPedido: {ctx.get('order_ref', 'N/A')}"
-    else:
-        body = f"Evento: {template}\nPedido: {ctx.get('order_ref', 'N/A')}"
+    body = render_message(template, ctx, BODY_TEMPLATES)
 
     try:
         html_body = _render_html(template, context or {})

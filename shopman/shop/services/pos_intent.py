@@ -133,6 +133,19 @@ def parse_pos_sale_intent(raw: dict, *, for_commit: bool = True) -> PosSaleInten
     payload["customer_ref"] = _text(payload.get("customer_ref"), limit=80)
     payload["customer_phone"] = _text(payload.get("customer_phone"), limit=80)
     payload["customer_tax_id"] = _text(payload.get("customer_tax_id"), limit=32)
+    if payload["customer_tax_id"]:
+        from shopman.utils.documents import is_valid_tax_id
+
+        if not is_valid_tax_id(payload["customer_tax_id"]):
+            # Acusar na digitação: rejeição assíncrona da SEFAZ chega depois
+            # que o cliente já foi embora.
+            raise PosIntentError(
+                code="invalid_customer_tax_id",
+                message="CPF/CNPJ inválido: confira os dígitos.",
+                field="customer_tax_id",
+                focus="customer_tax_id",
+                recovery="Corrija o documento ou remova para emitir sem CPF.",
+            )
     payload["customer_email"] = _emailish(payload.get("customer_email"), field="customer_email")
     payload["customer_memory_action"] = _text(payload.get("customer_memory_action"), limit=80)
 

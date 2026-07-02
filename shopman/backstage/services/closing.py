@@ -12,6 +12,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from shopman.stockman import Position, Quant
 from shopman.stockman.services.movements import StockMovements
 
@@ -26,7 +27,7 @@ def perform_day_closing(
     closing_date: date | None = None,
 ) -> date:
     """Execute day closing and return the closing date."""
-    closing_date = closing_date or date.today()
+    closing_date = closing_date or timezone.localdate()
     if DayClosing.objects.filter(date=closing_date).exists():
         raise ValueError("Fechamento de hoje já foi realizado.")
 

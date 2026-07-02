@@ -92,12 +92,17 @@ def unfire_session_lines(session_key: str, line_ids: list[str]) -> dict:
 
 def cancel_open_tickets(order) -> int:
     """Cancel all open tickets for order. Returns count cancelled."""
+    return cancel_open_tickets_for_session(order.session_key)
+
+
+def cancel_open_tickets_for_session(session_key: str) -> int:
+    """Cancel all open tickets for a session (comanda descartada sem venda)."""
     from django.utils import timezone
 
     from shopman.backstage.models import KDSTicket
 
     tickets = list(KDSTicket.objects.filter(
-        session_key=order.session_key, status__in=["pending", "in_progress"]
+        session_key=session_key, status__in=["pending", "in_progress"]
     ))
     cancelled_at = timezone.now()
     for ticket in tickets:

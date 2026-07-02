@@ -127,16 +127,21 @@ class StockPlanning:
                 defaults={'metadata': {}}
             )
 
-            # Transfer actual_quantity from planned → physical.
-            # The planned Quant may hold more stock (from multiple WOs),
-            # so we only debit what was actually finished.
-            Move.objects.create(
-                quant=locked_quant,
-                delta=-actual_quantity,
-                reason=f"Transferência: {reason}",
-                kind=kind,
-                user=user
-            )
+            # Transfer from planned → physical. The planned Quant may hold
+            # more stock (from multiple WOs) — debit only what was finished.
+            # Rendimento MAIOR que o planejado (forno rendeu 55 de 50): o
+            # débito é limitado ao saldo planejado e o físico recebe o total
+            # real — o excedente é ganho de produção, nunca perda do lote.
+            planned_balance = Decimal(str(locked_quant.quantity))
+            planned_debit = min(actual_quantity, max(planned_balance, Decimal('0')))
+            if planned_debit > 0:
+                Move.objects.create(
+                    quant=locked_quant,
+                    delta=-planned_debit,
+                    reason=f"Transferência: {reason}",
+                    kind=kind,
+                    user=user
+                )
 
             Move.objects.create(
                 quant=physical_quant,

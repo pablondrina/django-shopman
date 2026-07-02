@@ -32,6 +32,13 @@ _EFI_TOKEN_CACHE_KEY = "efi_access_token"
 _EFI_TOKEN_TTL = 3300  # 55 min — EFI tokens last 1h
 
 
+def _brl_to_q(valor: str | float) -> int:
+    """Converte valor decimal da EFI ("4.35") em centavos (canônico em utils)."""
+    from shopman.utils.monetary import brl_to_q
+
+    return brl_to_q(valor)
+
+
 def _get_config() -> dict:
     """Read EFI configuration from settings."""
     return getattr(settings, "SHOPMAN_EFI", {})
@@ -250,7 +257,7 @@ def capture(
         status = response.get("status", "")
 
         if status == "CONCLUIDA":
-            amount_q = int(float(response["valor"]["original"]) * 100)
+            amount_q = _brl_to_q(response["valor"]["original"])
             PaymentService.reconcile_gateway_status(
                 intent_ref,
                 gateway_status="captured",
@@ -289,9 +296,18 @@ def refund(
     *,
     amount_q: int | None = None,
     reason: str = "",
+    idempotency_key: str = "",
     **config,
 ) -> PaymentResult:
-    """Process PIX refund via Efi gateway + PaymentService."""
+    """Process PIX refund via Efi gateway + PaymentService.
+
+    Quando ``idempotency_key`` é dado, o ``dev_id`` da devolução EFI é
+    DETERMINÍSTICO por chave — a devolução PIX da EFI é idempotente por
+    ``{dev_id}`` na URL, então um retry reapresenta a mesma devolução (não
+    estorna duas vezes) e o mesmo ``id`` volta como gateway_id p/ o Payman.
+    """
+    import hashlib
+
     from shopman.payman import PaymentError, PaymentService
 
     try:
@@ -324,11 +340,14 @@ def refund(
 
         e2eid = pix_list[0].get("endToEndId", "")
         valor = f"{amount_q / 100:.2f}" if amount_q else cob["valor"]["original"]
-        dev_id = uuid.uuid4().hex[:35]
+        if idempotency_key:
+            dev_id = hashlib.sha256(idempotency_key.encode()).hexdigest()[:35]
+        else:
+            dev_id = uuid.uuid4().hex[:35]
 
         response = _request("PUT", f"/v2/pix/{e2eid}/devolucao/{dev_id}", {"valor": valor})
 
-        refund_amount = int(float(valor) * 100)
+        refund_amount = _brl_to_q(valor)
         try:
             PaymentService.refund(
                 intent_ref,
@@ -336,8 +355,28 @@ def refund(
                 reason=reason,
                 gateway_id=response.get("id", dev_id),
             )
-        except PaymentError:
-            pass
+        except PaymentError as exc:
+            # O dinheiro JÁ saiu no gateway. Sem o registro local, o Payman
+            # continua mostrando saldo reembolsável e um trigger futuro faria
+            # um SEGUNDO refund real — falha tem que ser visível, nunca muda.
+            logger.error(
+                "payment_efi.refund: gateway devolveu %sq mas o registro local falhou (%s) intent=%s",
+                refund_amount, exc, intent_ref,
+            )
+            from shopman.shop.services.observability import create_operator_alert
+
+            create_operator_alert(
+                type="payment_ledger_drift",
+                severity="critical",
+                message=(
+                    f"Refund PIX de {refund_amount} centavos executado no gateway "
+                    f"mas NÃO registrado no Payman (intent {intent_ref}). "
+                    "Conciliar manualmente antes de qualquer novo estorno."
+                ),
+                dedupe_key=f"refund_drift:{intent_ref}",
+                intent_ref=intent_ref,
+                gateway_refund_id=response.get("id", dev_id),
+            )
 
         return PaymentResult(
             success=True,

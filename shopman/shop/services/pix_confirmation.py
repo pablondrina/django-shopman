@@ -20,7 +20,7 @@ explicit dev action, or an opt-in mock directive in tests.
 from __future__ import annotations
 
 import logging
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from django.utils import timezone
@@ -141,6 +141,8 @@ def _apply_order_payment(order: Order, *, e2e_id: str, valor: str) -> None:
 
 
 def _amount_to_q(valor: str, *, default: int | None = None) -> int:
+    from shopman.utils.monetary import brl_to_q
+
     if valor in ("", None):
         if default is None:
             raise ValueError("PIX amount is required")
@@ -151,7 +153,7 @@ def _amount_to_q(valor: str, *, default: int | None = None) -> int:
         raise ValueError("PIX amount must be decimal") from exc
     if amount <= 0:
         raise ValueError("PIX amount must be positive")
-    return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return brl_to_q(amount)
 
 
 def _cancel_stale_intents(order: Order, *, keep_intent_ref: str) -> None:

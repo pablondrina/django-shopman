@@ -433,8 +433,11 @@ class DiscountModifier:
     @staticmethod
     def _calc_discount(promo: Any, price_q: int) -> int:
         if promo.type == "percent":
-            return monetary_div(price_q * promo.value, 100)
-        return min(promo.value, price_q)
+            # Clamp 0-100: percentual digitado errado no admin (ex.: 150)
+            # jamais pode produzir preço negativo.
+            value = min(max(int(promo.value or 0), 0), 100)
+            return monetary_div(price_q * value, 100)
+        return max(0, min(promo.value, price_q))
 
     @staticmethod
     def _calc_manual(manual: dict, price_q: int) -> int:
@@ -539,6 +542,15 @@ class DeliveryFeeModifier:
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
         data = session.data or {}
         if data.get("fulfillment_type", "") != "delivery":
+            # Mudou para retirada: taxa e linha de uma passagem anterior saem.
+            new_data = dict(data)
+            new_data.pop("delivery_fee_q", None)
+            new_data.pop("delivery_zone_error", None)
+            new_data.pop("delivery_distance_km", None)
+            if new_data != data:
+                session.data = new_data
+                session.save(update_fields=["data"])
+            self._sync_fee_line(session, None)
             return
 
         addr = data.get("delivery_address_structured") or {}
@@ -548,6 +560,7 @@ class DeliveryFeeModifier:
 
         if not postal_code and not neighborhood and lat in (None, "") and lng in (None, ""):
             # Endereço ainda não preenchido (pré-checkout) — não calcular taxa.
+            self._sync_fee_line(session, None)
             return
 
         base_fee_q, distance_km, blocked = self._resolve(postal_code, neighborhood, lat, lng)
@@ -558,16 +571,68 @@ class DeliveryFeeModifier:
         else:
             new_data.pop("delivery_distance_km", None)
 
+        fee_q: int | None
         if blocked:
             new_data["delivery_zone_error"] = True
             new_data.pop("delivery_fee_q", None)
+            fee_q = None
         else:
-            new_data["delivery_fee_q"] = self._effective_fee_q(base_fee_q, session)
+            fee_q = self._effective_fee_q(base_fee_q, session)
+            new_data["delivery_fee_q"] = fee_q
             new_data.pop("delivery_zone_error", None)
 
         if new_data != data:  # evita save redundante a cada passagem dos modifiers
             session.data = new_data
             session.save(update_fields=["data"])
+
+        self._sync_fee_line(session, fee_q)
+
+    # Marca de propriedade da linha de taxa criada por este modifier. Uma linha
+    # de taxa SEM esta marca (ex.: POS, taxa manual do operador) nunca é tocada.
+    FEE_LINE_SOURCE = "shop.delivery_fee"
+
+    @classmethod
+    def _sync_fee_line(cls, session: Any, fee_q: int | None) -> None:
+        """Mantém a linha ``__DELIVERY_FEE__`` em sincronia com a taxa resolvida.
+
+        ``Order.total_q`` é a soma das linhas — só o que vira linha é cobrado
+        (PIX/cartão/fiscal/caixa). A taxa em ``session.data`` é exibição; a
+        linha é a cobrança.
+        """
+        items = list(session.items or [])
+        manual = [
+            i for i in items
+            if _is_non_merchandise_line(i)
+            and (i.get("meta") or {}).get("source") != cls.FEE_LINE_SOURCE
+        ]
+        if manual:
+            return  # taxa manual (POS) tem precedência total
+
+        ours = [
+            i for i in items
+            if (i.get("meta") or {}).get("source") == cls.FEE_LINE_SOURCE
+        ]
+        others = [i for i in items if i not in ours]
+        has_merchandise = any(not _is_non_merchandise_line(i) for i in others)
+
+        if not fee_q or fee_q <= 0 or not has_merchandise:
+            if ours:
+                session.update_items(others)
+            return
+
+        if len(ours) == 1 and int(ours[0].get("unit_price_q", 0)) == int(fee_q):
+            return  # já em sincronia
+
+        line = {
+            "sku": "__DELIVERY_FEE__",
+            "name": "Taxa de entrega",
+            "qty": 1,
+            "unit_price_q": int(fee_q),
+            "meta": {"type": "delivery_fee", "non_production": True, "source": cls.FEE_LINE_SOURCE},
+        }
+        if ours:
+            line["line_id"] = ours[0].get("line_id")
+        session.update_items(others + [line])
 
     @staticmethod
     def _resolve(postal_code: str, neighborhood: str, lat, lng) -> tuple[int, float | None, bool]:
@@ -632,6 +697,7 @@ class LoyaltyRedeemModifier:
                 pricing.pop("loyalty_redeem", None)
                 session.pricing = pricing
                 session.save(update_fields=["pricing"])
+            self._record_applied(session, 0)
             return
 
         items = session.items or []
@@ -644,19 +710,28 @@ class LoyaltyRedeemModifier:
         # Clamp: never redeem more than the order total
         redeem_q = min(redeem_q, subtotal_q)
         if redeem_q <= 0:
+            self._record_applied(session, 0)
             return
+
+        # O resíduo do rateio (dust do arredondamento) vai no ÚLTIMO item
+        # ELEGÍVEL — nunca no último ÍNDICE, que pode ser a linha
+        # __DELIVERY_FEE__ (pulada). Senão o resíduo some e o débito de pontos
+        # fica maior que o desconto de fato aplicado.
+        eligible = [
+            i for i, item in enumerate(items)
+            if not _is_non_merchandise_line(item)
+            and not _price_is_frozen(item)
+            and item.get("line_total_q", 0) > 0
+        ]
+        last_eligible = eligible[-1] if eligible else None
 
         # Distribute the redemption proportionally across items
         remaining = redeem_q
         modified = False
-        for i, item in enumerate(items):
-            if _is_non_merchandise_line(item) or _price_is_frozen(item):
-                continue
+        for i in eligible:
+            item = items[i]
             line_total = item.get("line_total_q", 0)
-            if line_total <= 0:
-                continue
-            is_last = i == len(items) - 1
-            if is_last:
+            if i == last_eligible:
                 item_share = remaining
             else:
                 item_share = monetary_div(redeem_q * line_total, subtotal_q)
@@ -672,14 +747,36 @@ class LoyaltyRedeemModifier:
         if modified:
             session.update_items(items)
 
-        # Persist for cart transparency
+        # Débito e transparência seguem o desconto REALMENTE aplicado
+        # (redeem_q menos o que sobrou), nunca o saldo pedido — invariante:
+        # pontos debitados == desconto dado.
+        applied_q = redeem_q - remaining
+
         pricing = session.pricing or {}
         pricing["loyalty_redeem"] = {
-            "total_discount_q": redeem_q,
+            "total_discount_q": applied_q,
             "label": "Resgate de pontos",
         }
         session.pricing = pricing
         session.save(update_fields=["pricing"])
+
+        self._record_applied(session, applied_q)
+
+    @staticmethod
+    def _record_applied(session: Any, applied_q: int) -> None:
+        data = session.data or {}
+        loyalty_data = data.get("loyalty") or {}
+        if int(loyalty_data.get("applied_discount_q") or 0) == applied_q:
+            return
+        new_loyalty = dict(loyalty_data)
+        if applied_q > 0:
+            new_loyalty["applied_discount_q"] = applied_q
+        else:
+            new_loyalty.pop("applied_discount_q", None)
+        new_data = dict(data)
+        new_data["loyalty"] = new_loyalty
+        session.data = new_data
+        session.save(update_fields=["data"])
 
 
 class ManualDiscountModifier:

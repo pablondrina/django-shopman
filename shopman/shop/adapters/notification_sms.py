@@ -1,22 +1,25 @@
-"""
-SMS notification adapter — sends via Twilio (or any SMS provider).
+"""SMS notification adapter — envia via Comtele (provedor BR, mesma conta do OTP).
 
-Configure via settings:
-    TWILIO_ACCOUNT_SID = "ACxxxxx"
-    TWILIO_AUTH_TOKEN = "xxxxx"
-    TWILIO_FROM_NUMBER = "+15551234567"
+Config em ``settings.SHOPMAN_SMS`` (env-driven, compartilhada com o OTP do
+Doorman): ``api_key`` (header ``x-api-key``), ``route`` (ID da rota de envio da
+conta — usar a transacional/Premium) e ``timeout``. Inerte (``is_available``
+False) até api_key + route estarem setados.
+
+API: POST https://api.comtele.com.br/messages/sms/send com JSON
+``{receivers: [...], message, route, tag}``. Sucesso = HTTP 200 com
+``{"hasError": false, ...}``.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from base64 import b64encode
-from urllib.error import HTTPError
-from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+
+from ._sms import to_digits
 
 logger = logging.getLogger(__name__)
 
@@ -34,35 +37,29 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "payment_requested": "Pedido {order_ref}: disponibilidade confirmada. Pague aqui: {payment_url}",
     "payment_expired": "Pedido {order_ref} cancelado: o prazo de pagamento expirou.",
     "payment_failed": "Nao conseguimos preparar o pagamento do pedido {order_ref}. Tente novamente: {payment_url}",
+    "preorder_reminder": "Lembrete: seu pedido {order_ref} esta agendado para amanha. Ja estamos preparando tudo!",
 }
 
-_TWILIO_API_URL = "https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+_COMTELE_SEND_URL = "https://api.comtele.com.br/messages/sms/send"
 
 
 def _get_config() -> dict:
-    return {
-        "account_sid": getattr(settings, "TWILIO_ACCOUNT_SID", ""),
-        "auth_token": getattr(settings, "TWILIO_AUTH_TOKEN", ""),
-        "from_number": getattr(settings, "TWILIO_FROM_NUMBER", ""),
-    }
+    return getattr(settings, "SHOPMAN_SMS", {}) or {}
 
 
 def _build_message(template: str, context: dict) -> str:
-    tpl = MESSAGE_TEMPLATES.get(template)
-    if tpl:
-        try:
-            return tpl.format(**context)
-        except KeyError:
-            pass
-    return f"Shopman: {template} - {context.get('order_ref', 'N/A')}"
+    # O texto editado no Admin (NotificationTemplate) vale para SMS também.
+    from shopman.shop.adapters._notification_templates import render_message
+
+    return render_message(template, context, MESSAGE_TEMPLATES)
 
 
 def send(recipient: str, template: str, context: dict | None = None, **config) -> bool:
     """
-    Send an SMS notification via Twilio.
+    Send an SMS notification via Comtele.
 
     Args:
-        recipient: Phone number in E.164 format (+5511999999999).
+        recipient: Phone number (E.164 ou dígitos).
         template: Event template name (e.g. "order_confirmed").
         context: Template variables.
 
@@ -70,37 +67,41 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         True if sent successfully, False otherwise.
     """
     cfg = _get_config()
-    account_sid = cfg["account_sid"]
-    auth_token = cfg["auth_token"]
-    from_number = cfg["from_number"]
-
-    if not account_sid or not from_number:
-        logger.warning("SMS adapter: Twilio not configured")
+    api_key = cfg.get("api_key")
+    route = str(cfg.get("route") or "").strip()
+    if not api_key or not route:
+        logger.warning("SMS adapter: Comtele não configurado (api_key/route)")
         return False
 
     message = _build_message(template, context or {})
-    url = _TWILIO_API_URL.format(sid=account_sid)
-    payload = urlencode({"To": recipient, "From": from_number, "Body": message}).encode("utf-8")
-    credentials = b64encode(f"{account_sid}:{auth_token}".encode()).decode("ascii")
-
+    payload = {
+        "receivers": [to_digits(recipient)],
+        "contactGroups": [],
+        "message": message,
+        "route": route,
+        "tag": str(cfg.get("notification_tag") or "notification"),
+    }
+    request = Request(
+        _COMTELE_SEND_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"x-api-key": api_key, "content-type": "application/json"},
+        method="POST",
+    )
     try:
-        request = Request(
-            url,
-            data=payload,
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": f"Basic {credentials}",
-            },
-            method="POST",
-        )
-        with urlopen(request, timeout=30) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            message_sid = data.get("sid", "")
-            logger.info("SMS sent: %s -> %s (sid=%s)", template, recipient, message_sid)
-            return True
+        with urlopen(request, timeout=cfg.get("timeout", 15)) as response:
+            body = json.loads(response.read().decode("utf-8"))
+            # Comtele responde HTTP 200 com {"hasError": true/false}; confiar na flag.
+            if body.get("hasError") is False:
+                logger.info("SMS sent via Comtele: %s -> %s", template, recipient)
+                return True
+            logger.warning("Comtele SMS rejected: %s", str(body.get("message"))[:300])
+            return False
     except HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else ""
-        logger.error("Twilio HTTP error: %s - %s", e.code, error_body)
+        logger.warning("Comtele SMS HTTP error: %s - %s", e.code, error_body[:300])
+        return False
+    except URLError as e:
+        logger.warning("Comtele SMS URL error: %s", e.reason)
         return False
     except Exception:
         logger.exception("SMS send error")
@@ -110,4 +111,4 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
 def is_available(recipient: str | None = None, **config) -> bool:
     """Check if SMS adapter is configured and available."""
     cfg = _get_config()
-    return bool(cfg["account_sid"] and cfg["from_number"])
+    return bool(cfg.get("api_key") and str(cfg.get("route") or "").strip())

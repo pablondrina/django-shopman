@@ -19,10 +19,8 @@ class FiscalmanOffermanConfig(AppConfig):
         # Runs after django.contrib.admin autodiscover (Offerman already
         # registered Product), so unregister + re-register is safe.
         from django.contrib import admin
-
-        from shopman.offerman.models import Product
-
         from shopman.fiscalman.contrib.offerman.admin import FiscalProductAdmin
+        from shopman.offerman.models import Product
 
         try:
             admin.site.unregister(Product)

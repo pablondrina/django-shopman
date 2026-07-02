@@ -161,6 +161,21 @@ class DeliveryZoneRule(BaseRule):
                 message="Não entregamos neste endereço ainda.",
             )
 
+        # Sem taxa resolvida = zona nunca foi verificada (endereço só-texto,
+        # sem CEP/bairro/coordenada). Delivery não commita sem cobertura
+        # comprovada — senão a taxa sai zero e a zona vira opcional via API.
+        if "delivery_fee_q" not in session_data:
+            raise OrderValidationError(
+                code="delivery_zone_unverified",
+                message="Confirme o endereço com CEP para calcularmos a entrega.",
+            )
+
+        if not _coordinates_match_claimed_address(session_data):
+            raise OrderValidationError(
+                code="delivery_address_mismatch",
+                message="O endereço e a localização não conferem. Confirme o endereço no mapa.",
+            )
+
         minimum_q = _delivery_minimum_q()
         if minimum_q:
             items = [
@@ -180,6 +195,68 @@ class DeliveryZoneRule(BaseRule):
                     code="below_delivery_minimum",
                     message=f"Pedido mínimo para entrega: {minimum_display}.",
                 )
+
+
+def _normalize_city(value) -> str:
+    """Cidade comparável: sem acento, minúscula, sem espaços nas pontas.
+
+    'São Paulo' e 'Sao Paulo' (digitado à mão vs autocomplete do Google) têm
+    de casar — senão o antifraude bloqueia entrega legítima.
+    """
+    import unicodedata
+
+    text = str(value or "").strip().lower()
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
+def _coordinates_match_claimed_address(session_data: dict) -> bool:
+    """Coerência antifraude: coordenadas alegadas × endereço alegado.
+
+    A taxa por DISTÂNCIA confia em lat/lng vindos do browser — coordenada
+    forjada "perto da loja" com CEP distante pagaria a menor taxa. Quando a
+    precificação usou distância (sem zona por CEP/bairro), o servidor faz o
+    reverse geocode das coordenadas e exige CEP (prefixo) ou cidade iguais aos
+    alegados. Google indisponível NÃO bloqueia o pedido (hardening, fail-open).
+    """
+    addr = session_data.get("delivery_address_structured") or {}
+    lat, lng = addr.get("latitude"), addr.get("longitude")
+    claimed_cep = "".join(c for c in str(addr.get("postal_code") or "") if c.isdigit())
+    claimed_city = str(addr.get("city") or "").strip().lower()
+    if lat in (None, "") or lng in (None, "") or not (claimed_cep or claimed_city):
+        return True  # sem coordenada ou sem alegação comparável — nada a checar
+
+    # Zona por CEP/bairro decidiu a taxa? Coordenada não influenciou — skip.
+    try:
+        from shopman.shop.adapters import get_adapter
+
+        adapter = get_adapter("promotion")
+        if adapter is not None and adapter.match_delivery_zone(
+            str(addr.get("postal_code") or ""), str(addr.get("neighborhood") or "")
+        ) is not None:
+            return True
+    except Exception:
+        logger.debug("delivery_zone_rule: zone lookup failed", exc_info=True)
+        return True
+
+    try:
+        from shopman.shop.services.geocoding import reverse_geocode
+
+        resolved = reverse_geocode(float(lat), float(lng))
+    except Exception:
+        logger.warning("delivery_zone_rule: reverse geocode indisponível — coerência não verificada")
+        return True
+
+    resolved_cep = "".join(c for c in str(getattr(resolved, "postal_code", "") or "") if c.isdigit())
+    resolved_city = _normalize_city(getattr(resolved, "city", ""))
+    if claimed_cep and resolved_cep and claimed_cep[:5] == resolved_cep[:5]:
+        return True
+    if claimed_city and resolved_city and _normalize_city(claimed_city) == resolved_city:
+        return True
+    logger.warning(
+        "delivery_zone_rule: coordenadas não conferem com o endereço (cep %s×%s, cidade %s×%s)",
+        claimed_cep, resolved_cep, claimed_city, resolved_city,
+    )
+    return False
 
 
 def _delivery_minimum_q() -> int:

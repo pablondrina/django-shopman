@@ -202,9 +202,15 @@ def refund(
     *,
     amount_q: int | None = None,
     reason: str = "",
+    idempotency_key: str = "",
     **config,
 ) -> PaymentResult:
-    """Process refund via Stripe + PaymentService."""
+    """Process refund via Stripe + PaymentService.
+
+    ``idempotency_key`` é repassado ao Stripe (``Refund.create`` é idempotente
+    por essa chave), então um retry devolve o MESMO refund em vez de criar um
+    segundo — e o id estável volta como gateway_id p/ o Payman.
+    """
     from shopman.payman import PaymentError, PaymentService
 
     try:
@@ -220,6 +226,8 @@ def refund(
             refund_params["amount"] = amount_q
         if reason:
             refund_params["reason"] = "requested_by_customer"
+        if idempotency_key:
+            refund_params["idempotency_key"] = idempotency_key
 
         stripe_refund = stripe.Refund.create(**refund_params)
 
@@ -231,8 +239,28 @@ def refund(
                 reason=reason,
                 gateway_id=stripe_refund.id,
             )
-        except PaymentError:
-            pass
+        except PaymentError as exc:
+            # O dinheiro JÁ saiu no gateway. Sem o registro local, o Payman
+            # continua mostrando saldo reembolsável e um trigger futuro faria
+            # um SEGUNDO refund real — falha tem que ser visível, nunca muda.
+            logger.error(
+                "payment_stripe.refund: gateway devolveu %sq mas o registro local falhou (%s) intent=%s",
+                refund_amount, exc, intent_ref,
+            )
+            from shopman.shop.services.observability import create_operator_alert
+
+            create_operator_alert(
+                type="payment_ledger_drift",
+                severity="critical",
+                message=(
+                    f"Refund Stripe de {refund_amount} centavos executado no gateway "
+                    f"mas NÃO registrado no Payman (intent {intent_ref}). "
+                    "Conciliar manualmente antes de qualquer novo estorno."
+                ),
+                dedupe_key=f"refund_drift:{intent_ref}",
+                intent_ref=intent_ref,
+                gateway_refund_id=stripe_refund.id,
+            )
 
         return PaymentResult(
             success=True,

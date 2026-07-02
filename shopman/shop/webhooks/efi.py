@@ -85,10 +85,11 @@ class EfiPixWebhookView(APIView):
         replays = 0
         in_progress = 0
         errors = 0
+        invalid = 0
 
         for pix_item in pix_list:
             if not isinstance(pix_item, dict):
-                errors += 1
+                invalid += 1
                 continue
 
             txid = str(pix_item.get("txid") or "").strip()
@@ -96,7 +97,7 @@ class EfiPixWebhookView(APIView):
             valor = str(pix_item.get("valor") or "").strip()
 
             if not txid:
-                errors += 1
+                invalid += 1
                 continue
 
             claim = webhook_idempotency.claim(
@@ -125,7 +126,7 @@ class EfiPixWebhookView(APIView):
                 observability.record_webhook_failure(
                     provider="efi-pix",
                     reason="processing_failed",
-                    status_code=status.HTTP_200_OK,
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     external_ref=txid,
                     exc=exc,
                     context={"txid": txid, "e2e_id": e2e_id},
@@ -133,14 +134,23 @@ class EfiPixWebhookView(APIView):
                 logger.exception("EfiPixWebhook: error processing txid=%s", txid)
                 errors += 1
 
-        response_status = status.HTTP_409_CONFLICT if in_progress else status.HTTP_200_OK
+        # Falha de processamento → 5xx: a EFI só reentrega em não-2xx. O guard
+        # de idempotência torna o replay dos itens já processados um no-op.
+        # Itens malformados (invalid) não entram: reentrega nunca vai curá-los.
+        if errors:
+            response_status = status.HTTP_500_INTERNAL_SERVER_ERROR
+        elif in_progress:
+            response_status = status.HTTP_409_CONFLICT
+        else:
+            response_status = status.HTTP_200_OK
         return Response(
             {
-                "status": "ok",
+                "status": "ok" if not errors else "retry",
                 "processed": processed,
                 "replays": replays,
                 "in_progress": in_progress,
                 "errors": errors,
+                "invalid": invalid,
             },
             status=response_status,
         )

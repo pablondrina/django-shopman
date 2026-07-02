@@ -26,7 +26,12 @@ class CheckoutSerializer(serializers.Serializer):
     delivery_date = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     delivery_time_slot = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     payment_method = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
+    # Troco para entrega em dinheiro ("50", "50,00") — o entregador precisa saber.
+    change_for = serializers.CharField(required=False, default="", allow_blank=True, max_length=32)
     use_loyalty = serializers.BooleanField(required=False, default=False)
+    # Total (centavos) que o cliente VIU ao confirmar — o servidor rejeita o
+    # commit se a repricing final divergir (cupom expirou, preço mudou).
+    expected_total_q = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     # Omotenashi: lembrar endereço/escolhas é o default; o cliente desmarca o toggle
     # "Salvar para a próxima vez" → save_as_default=false. (O endereço novo salva sempre.)
     save_as_default = serializers.BooleanField(required=False, default=True)

@@ -76,6 +76,13 @@ def focus_nfe_readiness(*, mode: ReadinessMode = "runtime") -> ProviderReadiness
     elif _requires_production_safety(mode) and not _is_production_name(environment):
         unsafe.append("FOCUS_NFE_ENVIRONMENT_producao")
 
+    # Gate de catálogo: vendável sem NCM = primeira venda fiscal dele falha.
+    # Só cobra quando a configuração base existe (senão o ruído esconde o resto).
+    if not missing:
+        ncm_gap = _sellable_products_without_ncm()
+        if ncm_gap:
+            missing.append(f"NCM_faltando_em_{ncm_gap}_produtos")
+
     issues = tuple(missing + unsafe)
     status = _status(missing=missing, unsafe=unsafe)
     return ProviderReadiness(
@@ -92,6 +99,22 @@ def focus_nfe_readiness(*, mode: ReadinessMode = "runtime") -> ProviderReadiness
         ),
         missing=issues,
     )
+
+
+def _sellable_products_without_ncm() -> int:
+    """Quantos produtos vendáveis/publicados não têm NCM em metadata.fiscal."""
+    try:
+        from shopman.offerman.models import Product
+
+        count = 0
+        for product in Product.objects.filter(is_sellable=True, is_published=True).only("metadata"):
+            fiscal = (product.metadata or {}).get("fiscal") or {}
+            if not str(fiscal.get("ncm") or "").strip():
+                count += 1
+        return count
+    except Exception:
+        logger.debug("focus_nfe_readiness: ncm scan failed", exc_info=True)
+        return 0
 
 
 def efi_pix_readiness(*, mode: ReadinessMode = "runtime") -> ProviderReadiness:

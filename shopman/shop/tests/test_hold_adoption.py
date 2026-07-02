@@ -129,7 +129,12 @@ class TestHoldAdoptionByQuantity:
     def test_overshoot_hold_adopted_whole(
         self, mock_get_adapter, mock_load, mock_retag,
     ):
-        """Overshoot hold is adopted whole — over-reservation is benign."""
+        """Overshoot hold is adopted whole, mas a qty registrada é a do PEDIDO.
+
+        A sobre-reserva é benigna; o sobre-CONSUMO não — o fulfill baixa
+        exatamente o que está em hold_ids, então registrar a qty do hold
+        baixaria mais estoque que a venda.
+        """
         from shopman.shop.services.stock import hold
 
         adapter = MagicMock()
@@ -151,7 +156,7 @@ class TestHoldAdoptionByQuantity:
 
         entries = order.data["hold_ids"]
         assert {e["hold_id"] for e in entries} == {"hold:A", "hold:B"}
-        assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("5")
+        assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("4")
 
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")

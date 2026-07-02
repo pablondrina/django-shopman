@@ -212,3 +212,127 @@ def test_focus_nfe_request_uses_homologation_basic_auth_and_json():
     assert captured["accept"] == "application/json"
     assert captured["payload"] == {"cnpj_emitente": "12345678000199"}
     assert captured["timeout"] == 10
+
+
+@override_settings(SHOPMAN_FOCUS_NFE=_settings())
+def test_focus_nfe_delivery_fee_stays_out_of_the_document():
+    from shopman.shop.adapters.fiscal_focusnfe import FocusNFeBackend
+
+    captured = {}
+
+    def fake_request(method, path, payload, config):
+        captured.update(payload=payload)
+        return {"status": "autorizado", "chave_nfe": "KEY"}
+
+    with patch("shopman.shop.adapters.fiscal_focusnfe._request", side_effect=fake_request):
+        result = FocusNFeBackend().emit(
+            reference="ORD-2",
+            items=[
+                {
+                    "sku": "SKU-1", "name": "Pao", "qty": "2", "unit": "un",
+                    "unit_price_q": 500, "total_q": 1000,
+                    "fiscal": {"ncm": "19059090", "cfop": "5102"},
+                },
+                {
+                    # Taxa de entrega do POS/web: sem NCM, não pode virar item.
+                    "sku": "__DELIVERY_FEE__", "name": "Taxa de entrega", "qty": "1",
+                    "unit": "UN", "unit_price_q": 600, "total_q": 600,
+                    "meta": {"type": "delivery_fee"}, "fiscal": {},
+                },
+            ],
+            customer={},
+            payment={"method": "pix", "amount_q": 1600},
+        )
+
+    assert result.success is True
+    payload = captured["payload"]
+    # SEFAZ-PR rejeita NFC-e com frete ("NFC-e com Frete", homologação
+    # 2026-07-02): a taxa fica FORA do documento — nota e pagamento cobrem
+    # só as mercadorias.
+    assert len(payload["items"]) == 1  # taxa NÃO é item
+    assert "valor_frete" not in payload
+    assert payload["valor_produtos"] == "10.00"
+    assert payload["valor_total"] == "10.00"
+    assert payload["formas_pagamento"] == [{"forma_pagamento": "17", "valor_pagamento": "10.00"}]
+    assert payload["modalidade_frete"] == "9"  # sem ocorrência de transporte
+
+
+@override_settings(SHOPMAN_FOCUS_NFE=_settings())
+def test_focus_nfe_rejects_invalid_cpf_before_http():
+    from shopman.shop.adapters.fiscal_focusnfe import FocusNFeBackend
+
+    with patch("shopman.shop.adapters.fiscal_focusnfe._request") as request:
+        result = FocusNFeBackend().emit(
+            reference="ORD-3",
+            items=[{
+                "sku": "SKU-1", "name": "Pao", "qty": "1", "unit": "un",
+                "unit_price_q": 500, "total_q": 500,
+                "fiscal": {"ncm": "19059090", "cfop": "5102"},
+            }],
+            customer={"name": "Ana", "tax_id": "123.456.789-00"},  # dígito errado
+            payment={"method": "cash", "amount_q": 500},
+        )
+
+    assert result.success is False
+    assert result.error_code == "focus_nfe_invalid_payload"
+    assert "CPF/CNPJ" in (result.error_message or "")
+    request.assert_not_called()
+
+
+def test_document_result_key_without_authorized_status_is_not_success():
+    from shopman.shop.adapters.fiscal_focusnfe import _document_result
+
+    processing = _document_result(
+        {"status": "processando_autorizacao", "chave_nfe": "KEY"}, None
+    )
+    assert processing.success is False
+    assert processing.error_code == "focus_nfe_processing"
+
+    rejected = _document_result({"status": "erro_autorizacao", "chave_nfe": "KEY"}, None)
+    assert rejected.success is False
+
+
+@override_settings(SHOPMAN_FOCUS_NFE=_settings())
+def test_focus_nfe_home_delivery_freight_with_identified_recipient():
+    """Com CPF + endereço: entrega a domicílio (indPres=4) com frete documentado.
+
+    Receita do MOC validada em homologação SEFAZ-PR (nota autorizada
+    2026-07-02): vFrete no item (I15) e no total (W08), modFrete=3 e grupo
+    transportador = emitente. Sem identificação, cai no fallback fora-da-nota.
+    """
+    from shopman.shop.adapters.fiscal_focusnfe import FocusNFeBackend
+
+    captured = {}
+
+    def fake_request(method, path, payload, config):
+        captured.update(payload=payload)
+        return {"status": "autorizado", "chave_nfe": "KEY"}
+
+    with patch("shopman.shop.adapters.fiscal_focusnfe._request", side_effect=fake_request):
+        result = FocusNFeBackend().emit(
+            reference="ORD-DOM-1",
+            items=[
+                {"sku": "SKU-1", "name": "Pao", "qty": "2", "unit": "un",
+                 "unit_price_q": 500, "total_q": 1000,
+                 "fiscal": {"ncm": "19059090", "cfop": "5102"}},
+                {"sku": "__DELIVERY_FEE__", "name": "Taxa de entrega", "qty": "1",
+                 "unit": "UN", "unit_price_q": 600, "total_q": 600,
+                 "meta": {"type": "delivery_fee"}, "fiscal": {}},
+            ],
+            customer={"name": "Ana", "tax_id": "529.982.247-25"},
+            payment={"method": "pix", "amount_q": 1600},
+            delivery={"address": {"route": "Rua X", "street_number": "1",
+                                  "neighborhood": "Centro", "city": "Londrina",
+                                  "state_code": "PR", "postal_code": "86010-000"}},
+        )
+
+    assert result.success is True
+    payload = captured["payload"]
+    assert payload["presenca_comprador"] == "4"
+    assert payload["modalidade_frete"] == "3"
+    assert payload["valor_frete"] == "6.00"
+    assert payload["valor_total"] == "16.00"
+    assert payload["items"][0]["valor_frete"] == "6.00"
+    assert payload["cnpj_transportador"] == "12345678000199"
+    assert payload["cep_destinatario"] == "86010000"
+    assert payload["formas_pagamento"] == [{"forma_pagamento": "17", "valor_pagamento": "16.00"}]

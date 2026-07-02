@@ -25,6 +25,8 @@ import logging
 from datetime import date
 from decimal import Decimal
 
+from django.utils import timezone
+
 from shopman.shop.adapters import get_adapter
 from shopman.shop.services.order_helpers import get_commitment_date
 
@@ -107,17 +109,23 @@ def hold(order) -> None:
                 continue
 
             # 2) Fallback: create a fresh hold via the adapter for the remainder.
+            # channel_ref aplica o escopo de POSIÇÕES do canal (excluded_positions,
+            # ex.: D-1 staff-only). apply_safety_margin=False: a margem é buffer
+            # de vitrine — um pedido JÁ commitado pode consumi-la.
             result = adapter.create_hold(
                 sku=comp_sku,
                 qty=unmet_qty,
                 reference=f"order:{order.ref}",
                 target_date=target_date,
+                channel_ref=getattr(order, "channel_ref", None),
+                apply_safety_margin=False,
             )
             if not result.get("success"):
                 logger.warning(
                     "stock.hold: create_hold failed sku=%s qty=%s code=%s",
                     comp_sku, unmet_qty, result.get("error_code"),
                 )
+                _alert_hold_gap(order, comp_sku, unmet_qty, result.get("error_code"))
                 continue
 
             hold_ids.append({
@@ -155,6 +163,7 @@ def fulfill(order) -> None:
 
     adapter = get_adapter("stock")
     errors = 0
+    failed_skus: list[str] = []
     for entry in hold_ids:
         hold_id = entry.get("hold_id")
         if not hold_id:
@@ -163,13 +172,29 @@ def fulfill(order) -> None:
         result = adapter.fulfill_hold(hold_id, qty=qty)
         if not result.get("success"):
             errors += 1
+            failed_skus.append(str(entry.get("sku") or hold_id))
             logger.warning(
                 "stock.fulfill: failed for %s: %s",
                 hold_id, result.get("message"),
             )
 
     if errors:
+        # Pedido pago/confirmado sem baixa de estoque é exatamente o drift que
+        # o fechamento não enxerga — fail-loud, nunca só log.
         logger.error("stock.fulfill: %d errors for order %s", errors, order.ref)
+        from shopman.shop.services.observability import create_operator_alert
+
+        create_operator_alert(
+            type="stock_fulfill_failed",
+            severity="critical",
+            message=(
+                f"Baixa de estoque FALHOU para o pedido {order.ref} "
+                f"({errors} item(ns): {', '.join(failed_skus) or 'ver logs'}). "
+                "O estoque do sistema está acima do físico — conferir e ajustar."
+            ),
+            order_ref=order.ref,
+            dedupe_key=f"stock_fulfill_failed:{order.ref}",
+        )
 
 
 def release(order) -> None:
@@ -186,6 +211,51 @@ def release(order) -> None:
     ids = [entry.get("hold_id") for entry in hold_ids if entry.get("hold_id")]
     if ids:
         adapter.release_holds(ids)
+
+
+def revert_fulfilled(order) -> None:
+    """Devolve ao ledger o estoque de holds já FULFILLED (cancelamento tardio).
+
+    PDV baixa estoque no ato da venda; um cancel na janela de arrependimento
+    chega DEPOIS do fulfill — ``release`` é no-op e o sistema ficaria abaixo
+    do físico. Devolve exatamente as quantidades baixadas via RETURN move.
+
+    SYNC — roda no on_cancelled. IDEMPOTENTE: marca os holds já revertidos em
+    ``order.data['reverted_hold_ids']`` para nunca devolver o mesmo estoque
+    duas vezes (o RETURN move não muda o status do hold, então sem essa marca
+    um on_cancelled re-disparado creditaria o estoque de novo).
+    """
+    hold_ids = (order.data or {}).get("hold_ids", [])
+    if not hold_ids:
+        return
+
+    already = set((order.data or {}).get("reverted_hold_ids") or [])
+    adapter = get_adapter("stock")
+    reverted: list[str] = []
+    for entry in hold_ids:
+        hold_id = entry.get("hold_id")
+        qty = entry.get("qty")
+        if not hold_id or not qty or hold_id in already:
+            continue
+        try:
+            if adapter.return_fulfilled_hold(
+                hold_id,
+                Decimal(str(qty)),
+                reference=f"cancel:{order.ref}",
+                reason=f"Cancelamento pós-baixa do pedido {order.ref}",
+            ):
+                reverted.append(hold_id)
+        except Exception as exc:
+            logger.warning(
+                "stock.revert_fulfilled: failed sku=%s order=%s: %s",
+                entry.get("sku"), order.ref, exc,
+            )
+
+    if reverted:
+        data = dict(order.data or {})
+        data["reverted_hold_ids"] = list(already | set(reverted))
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
 
 
 def revert(order) -> None:
@@ -215,6 +285,22 @@ def revert(order) -> None:
 
 
 # ── helpers ──
+
+
+def _alert_hold_gap(order, sku: str, qty, error_code) -> None:
+    """Pedido commitado sem reserva para um item — operador precisa saber."""
+    from shopman.shop.services.observability import create_operator_alert
+
+    create_operator_alert(
+        type="stock_hold_gap",
+        severity="warning",
+        message=(
+            f"Pedido {order.ref} ficou SEM reserva de estoque para {qty}× {sku} "
+            f"({error_code or 'sem código'}). O item pode faltar na separação."
+        ),
+        order_ref=order.ref,
+        dedupe_key=f"stock_hold_gap:{order.ref}:{sku}",
+    )
 
 
 def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict]:
@@ -272,8 +358,10 @@ def _adopt_holds_for_qty(
             adopted.append((hid, hqty))
             remaining -= hqty
         else:
-            # Hold exceeds remaining — adopt it whole (benign over-reservation).
-            adopted.append((hid, hqty))
+            # Hold exceeds remaining — adopt it whole (benign over-reservation),
+            # mas registrar SÓ a qty do pedido: é ela que o fulfill baixa.
+            # Registrar a qty do hold baixaria mais estoque que a venda.
+            adopted.append((hid, remaining))
             remaining = Decimal("0")
             # Release any subsequent holds — they're surplus.
             while bucket:
@@ -285,14 +373,29 @@ def _adopt_holds_for_qty(
     return adopted, unmet, overshoot_ids
 
 
+# TTL de backstop do hold adotado por um pedido: longo o bastante para o PIX
+# mais lento (e a confirmação do operador) NÃO expirar a reserva, mas finito —
+# um pedido que trava sem fulfill/release (worker morto, canal manual
+# abandonado) não pode reter estoque para sempre. release_expired reclama depois.
+_ORDER_HOLD_BACKSTOP_HOURS = 48
+
+
 def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     """Update Hold.metadata.reference from session_key to order ref.
 
     This is bookkeeping so the hold can be discovered later via
     `release_holds_for_reference("order:<ref>")` if needed.
+
+    Estende o TTL de carrinho para um backstop longo (não ``None``): o dono
+    passa a ser o pedido e o ciclo normal termina por fulfill/release; mas se
+    o pedido travar sem resolução, o hold ainda expira e devolve o estoque.
     """
+    from datetime import timedelta
+
     adapter = get_adapter("stock")
     adapter.retag_hold_reference(hold_id, f"order:{order_ref}")
+    backstop = timezone.now() + timedelta(hours=_ORDER_HOLD_BACKSTOP_HOURS)
+    adapter.extend_hold(hold_id, expires_at=backstop)
 
 
 def _is_untracked(sku: str, prior_decisions: dict[str, dict], adapter) -> bool:
