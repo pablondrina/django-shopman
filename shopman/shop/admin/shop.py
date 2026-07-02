@@ -1003,7 +1003,12 @@ class ShopForm(forms.ModelForm):
                         (Decimal(threshold) * 100).to_integral_value()
                     )
             if self._has("defaults_pos_fiscal_toggle"):
-                pos_cfg["fiscal_toggle"] = bool(self.cleaned_data.get("defaults_pos_fiscal_toggle"))
+                if self.cleaned_data.get("defaults_pos_fiscal_toggle"):
+                    pos_cfg["fiscal_toggle"] = True
+                else:
+                    # Desligado = ausente (mesma semântica de _pos_fiscal_toggle_enabled,
+                    # que trata a chave faltando como False) — mantém defaults compactos.
+                    pos_cfg.pop("fiscal_toggle", None)
             if pos_cfg:
                 defaults["pos"] = pos_cfg
             else:
