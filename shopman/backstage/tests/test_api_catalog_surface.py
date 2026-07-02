@@ -19,7 +19,7 @@ from shopman.offerman.models import (
     Product,
 )
 
-from shopman.shop.models import Channel, Shop
+from shopman.shop.models import Channel, Shop, Showcase
 
 
 def _manage_catalog_perm() -> Permission:
@@ -455,6 +455,110 @@ def test_reorder_items_manual(client, operator, catalog):
     assert resp.status_code == 200
     assert CollectionItem.objects.get(collection=coll, product__sku="BOLO").sort_order == 0
     assert CollectionItem.objects.get(collection=coll, product__sku="PAO").sort_order == 1
+
+
+# ── expositores como colunas (superfície display/feed, não-transacional) ────────
+
+
+@pytest.fixture
+def catalog_with_showcase(catalog):
+    """Um Expositor menuboard exibindo a coleção Doces (só BOLO é membro)."""
+    Showcase.objects.create(
+        ref="tv-salao", name="TV do Salão", kind="menuboard", collections=["doces"], is_active=True
+    )
+    return catalog
+
+
+def test_matrix_includes_showcase_column(client, operator, catalog_with_showcase):
+    """O expositor entra como coluna à direita dos canais, marcada não-transacional."""
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    surfaces = {s["ref"]: s for s in matrix["surfaces"]}
+    assert [s["ref"] for s in matrix["surfaces"]] == ["web", "ifood", "tv-salao"]
+    tv = surfaces["tv-salao"]
+    assert tv["kind"] == "display"
+    assert tv["transactional"] is False
+    assert tv["is_active"] is True
+    assert tv["output_path"] == "/menuboard/tv-salao/"
+
+
+def test_showcase_cell_membership_and_no_price(client, operator, catalog_with_showcase):
+    """Célula de expositor: membro (via coleção) disponível, sem preço; não-membro N/A."""
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    rows = {r["sku"]: r for r in matrix["rows"]}
+
+    bolo_tv = next(c for c in rows["BOLO"]["cells"] if c["surface_ref"] == "tv-salao")
+    assert bolo_tv["in_listing"] is True  # BOLO está em Doces → no expositor
+    assert bolo_tv["available"] is True
+    assert bolo_tv["price_q"] is None  # expositor não transaciona
+
+    pao_tv = next(c for c in rows["PAO"]["cells"] if c["surface_ref"] == "tv-salao")
+    assert pao_tv["in_listing"] is False  # PAO não está em Doces → fora deste expositor
+
+
+def test_showcase_cell_pause_routes_to_showcase(client, operator, catalog_with_showcase):
+    """Pausar a célula do expositor grava em Showcase.options[paused_skus] (sem tocar listings)."""
+    client.force_login(operator)
+    resp = client.post(
+        CELL_URL,
+        data={"sku": "BOLO", "surface_ref": "tv-salao", "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_sellable"] is False
+    assert Showcase.objects.get(ref="tv-salao").paused_skus() == {"BOLO"}
+
+    # e a matriz reflete indisponível só nesta coluna
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    bolo_tv = next(
+        c for r in matrix["rows"] if r["sku"] == "BOLO" for c in r["cells"] if c["surface_ref"] == "tv-salao"
+    )
+    assert bolo_tv["available"] is False
+
+    # reativar remove da lista
+    resp = client.post(
+        CELL_URL,
+        data={"sku": "BOLO", "surface_ref": "tv-salao", "is_sellable": True},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert Showcase.objects.get(ref="tv-salao").paused_skus() == set()
+
+
+def test_showcase_cell_price_rejected(client, operator, catalog_with_showcase):
+    """Expositor não aceita preço/publicação — só pausar/reativar."""
+    client.force_login(operator)
+    resp = client.post(
+        CELL_URL,
+        data={"sku": "BOLO", "surface_ref": "tv-salao", "price_q": 100},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+def test_global_pause_gates_showcase_column(client, operator, catalog_with_showcase):
+    """A pausa global do produto atinge o expositor (cada um é um)."""
+    client.force_login(operator)
+    client.post(PRODUCT_URL, data={"sku": "BOLO", "is_sellable": False}, content_type="application/json")
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    bolo_tv = next(
+        c for r in matrix["rows"] if r["sku"] == "BOLO" for c in r["cells"] if c["surface_ref"] == "tv-salao"
+    )
+    assert bolo_tv["available"] is False  # global gateia o expositor mesmo sem pausa local
+
+
+def test_showcase_bulk_pause(client, operator, catalog_with_showcase):
+    """Bulk numa coluna de expositor pausa os itens (options[paused_skus])."""
+    client.force_login(operator)
+    resp = client.post(
+        BULK_URL,
+        data={"surface_ref": "tv-salao", "skus": ["BOLO"], "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 1
+    assert Showcase.objects.get(ref="tv-salao").paused_skus() == {"BOLO"}
 
 
 def test_reorder_items_smart_rejected(client, operator, catalog):

@@ -35,6 +35,9 @@ const trustedDevice = ref(false)
 const devConsoleHint = ref(false)
 const debugOtpCode = ref('')
 const debugOtpExpiresAt = ref('')
+const showDebugOtp = ref(true)
+const debugOtpCopied = ref(false)
+let debugCopiedTimer: ReturnType<typeof setTimeout> | null = null
 const verified = ref(false)
 const welcomeNeeded = ref(false)
 const welcomeName = ref('')
@@ -86,6 +89,7 @@ const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'nu
 const regionToggleLabel = computed(() => phoneRegion.value === 'INTL' ? 'Usar número do Brasil' : 'Usar número internacional')
 const resendState = computed(() => resendCooldown(lastSentAtMs.value, nowMs.value))
 const debugOtpValidUntil = computed(() => otpValidUntilDisplay(debugOtpExpiresAt.value))
+const debugOtpDigits = computed(() => debugOtpCode.value.split(''))
 const codeValidUntil = computed(() => otpValidUntilDisplay(codeExpiresAt.value))
 const requestedPhoneDisplay = computed(() => phoneDisplay(requestedPhone.value))
 const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
@@ -106,6 +110,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
+  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
 })
 
 // Confirmação automática ao completar os 6 dígitos (o copy do servidor promete).
@@ -184,8 +189,26 @@ function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryM
   codeExpiresAt.value = response.code_expires_at || ''
   debugOtpCode.value = response.debug_otp_code || ''
   debugOtpExpiresAt.value = response.debug_otp_expires_at || ''
+  showDebugOtp.value = true
+  debugOtpCopied.value = false
   lastDeliveryMethod.value = method
   lastSentAtMs.value = Date.now()
+}
+
+async function copyDebugOtp () {
+  if (!debugOtpCode.value || !import.meta.client) return
+  await navigator.clipboard.writeText(debugOtpCode.value)
+  useSonner.success('Código copiado.')
+  debugOtpCopied.value = true
+  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
+  debugCopiedTimer = setTimeout(() => { debugOtpCopied.value = false }, 1500)
+}
+
+// Preenche o campo com o código de teste; o watcher de `code` confirma sozinho.
+function useDebugOtp () {
+  if (debugOtpCode.value.length !== 6 || step.value !== 'code') return
+  error.value = null
+  codeDigits.value = debugOtpCode.value.split('').map(Number)
 }
 
 async function celebrateAndGo (kind: 'recognized' | 'confirmed') {
@@ -431,23 +454,56 @@ useSeoMeta({
             <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
 
-          <UiAlert v-if="debugOtpCode" variant="warning" data-testid="debug-otp-alert">
-            <UiAlertTitle>Código de teste</UiAlertTitle>
+          <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert">
+            <div class="flex items-start justify-between gap-2">
+              <UiAlertTitle class="flex items-center gap-1.5">
+                <UiBadge variant="secondary" class="text-[0.65rem] uppercase tracking-wide">Ambiente de teste</UiBadge>
+                Código para entrar
+              </UiAlertTitle>
+              <UiButton
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                icon="lucide:x"
+                aria-label="Ocultar código de teste"
+                @click="showDebugOtp = false"
+              />
+            </div>
             <UiAlertDescription>
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  Use <UiBadge variant="secondary" class="font-mono text-sm tabular-nums">{{ debugOtpCode }}</UiBadge>
-                  para entrar neste ambiente.
-                </p>
-                <UiButton type="button" size="sm" variant="ghost" icon="lucide:x" @click="debugOtpCode = ''">
-                  Ocultar
-                </UiButton>
+              <div class="mt-2 flex flex-col gap-3">
+                <div
+                  class="flex justify-center gap-1 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-2xl font-semibold tabular-nums tracking-[0.35em]"
+                  data-testid="debug-otp-code"
+                >
+                  <span v-for="(digit, index) in debugOtpDigits" :key="index">{{ digit }}</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <UiButton
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    icon="lucide:wand-sparkles"
+                    class="grow"
+                    @click="useDebugOtp"
+                  >
+                    Usar código de teste
+                  </UiButton>
+                  <UiButton
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    :icon="debugOtpCopied ? 'lucide:check' : 'lucide:copy'"
+                    @click="copyDebugOtp"
+                  >
+                    {{ debugOtpCopied ? 'Copiado' : 'Copiar' }}
+                  </UiButton>
+                </div>
               </div>
               <p v-if="debugOtpValidUntil" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
             </UiAlertDescription>
           </UiAlert>
 
-          <UiAlert v-else-if="devConsoleHint" variant="warning">
+          <UiAlert v-else-if="devConsoleHint && !debugOtpCode" variant="warning">
             <UiAlertTitle>Código no terminal local</UiAlertTitle>
             <UiAlertDescription>Leia o código no terminal onde o projeto está rodando.</UiAlertDescription>
           </UiAlert>

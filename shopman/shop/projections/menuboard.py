@@ -58,6 +58,7 @@ def build_menuboard(ref: str) -> MenuboardProjection:
     showcase = resolve_menuboard(ref)
     # Coleções na ordem do expositor; ordenação de exibição = sort_order da coleção.
     colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
+    paused = showcase.paused_skus()  # pausa LOCAL do expositor (a global é do produto)
 
     groups: list[MenuboardGroup] = []
     available_count = 0
@@ -67,7 +68,7 @@ def build_menuboard(ref: str) -> MenuboardProjection:
             continue
         items: list[MenuboardItem] = []
         for product in coll.product_queryset().order_by("name"):
-            available = product.is_published and product.is_sellable
+            available = product.is_published and product.is_sellable and product.sku not in paused
             if available:
                 available_count += 1
             items.append(

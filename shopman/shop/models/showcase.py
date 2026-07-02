@@ -57,3 +57,18 @@ class Showcase(models.Model):
     def collection_refs(self) -> list[str]:
         """Lista limpa de refs de coleção (ignora entradas vazias)."""
         return [str(r).strip() for r in (self.collections or []) if str(r).strip()]
+
+    # ── disponibilidade por item ────────────────────────────────────────────────
+    # Um Expositor não transaciona, mas o operador pode PAUSAR um item nele (tirá-lo
+    # da TV/feed) do mesmo jeito que pausa num canal — só que aqui não há preço nem
+    # venda. A pausa por-expositor vive em ``options["paused_skus"]`` (JSONField, sem
+    # migração). A pausa GLOBAL do produto (Product.is_sellable/is_published) continua
+    # gateando por cima: item globalmente pausado some de todo expositor, esteja ou não
+    # na lista local de pausados.
+
+    def paused_skus(self) -> set[str]:
+        """SKUs pausados NESTE expositor (só a pausa local; a global é do produto)."""
+        return {str(s).strip() for s in (self.options or {}).get("paused_skus", []) if str(s).strip()}
+
+    def is_item_paused(self, sku: str) -> bool:
+        return str(sku).strip() in self.paused_skus()

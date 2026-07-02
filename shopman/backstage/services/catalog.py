@@ -53,6 +53,13 @@ def _all_channel_refs() -> list[str]:
     return list(Channel.objects.filter(is_active=True).order_by("display_order", "id").values_list("ref", flat=True))
 
 
+def _is_showcase(surface_ref: str) -> bool:
+    """A superfície é um Expositor (display/feed) e não um Canal transacional?"""
+    from shopman.shop.models import Showcase
+
+    return Showcase.objects.filter(ref=surface_ref).exists()
+
+
 def set_cell(
     sku: str,
     surface_ref: str,
@@ -62,7 +69,22 @@ def set_cell(
     price_q: int | None = None,
     actor: str = "",
 ):
-    """Edita uma célula (produto × superfície). save() dispara o auto-trigger."""
+    """Edita uma célula (produto × superfície). save() dispara o auto-trigger.
+
+    Superfície de EXPOSITOR (display/feed) só aceita pausar/reativar: ``is_sellable``
+    vira a pausa local do item (não há preço nem publicação — expositor não transaciona).
+    """
+    if _is_showcase(surface_ref):
+        from types import SimpleNamespace
+
+        from shopman.backstage.services import showcase as showcase_service
+
+        if is_sellable is None:
+            raise CatalogError("Expositor aceita apenas pausar/reativar (is_sellable).")
+        showcase_service.set_item_paused(surface_ref, sku, paused=not is_sellable)
+        # Duck-type com o que a API lê: expositor está sempre "publicado", sem preço.
+        return SimpleNamespace(is_published=True, is_sellable=bool(is_sellable), price_q=None)
+
     from shopman.offerman.models import ListingItem
 
     item = (
@@ -139,6 +161,13 @@ def bulk_set(
             bulk_set(skus, ref, is_published=is_published, is_sellable=is_sellable, actor=actor)
             for ref in _all_channel_refs()
         )
+    if _is_showcase(surface_ref):
+        # Expositor: bulk só pausa/reativa (is_sellable). Sem preço/publicação.
+        if is_sellable is None:
+            raise CatalogError("Expositor aceita apenas pausar/reativar (is_sellable).")
+        from shopman.backstage.services import showcase as showcase_service
+
+        return showcase_service.set_items_paused(surface_ref, skus, paused=not is_sellable)
     updates: dict[str, bool] = {}
     if is_published is not None:
         updates["is_published"] = is_published

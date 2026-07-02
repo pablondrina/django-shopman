@@ -35,12 +35,17 @@ def _edit_url(product) -> str:
 
 @dataclass(frozen=True)
 class SurfaceProjection:
-    """Um canal (de venda) — coluna da matriz."""
+    """Uma superfície — coluna da matriz. Canal (transaciona) ou Expositor (só exibe)."""
 
     ref: str
     name: str
     is_projection_target: bool  # tem backend na registry canônica (Frente 1) — ex.: iFood
     sync_status: str  # ok | error | never | na
+    kind: str = "channel"  # channel (transacional) | display (menuboard) | feed (Google/Meta)
+    transactional: bool = True  # canal vende (preço/publicação); expositor só exibe (pausa)
+    icon: str = ""  # dica de ícone p/ expositores (tv/rss)
+    is_active: bool = True  # expositor ligado/desligado (canal sempre ativo aqui)
+    output_path: str = ""  # saída pública do expositor (abrir/prever); vazio p/ canal
 
 
 @dataclass(frozen=True)
@@ -192,9 +197,63 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
                 name=ch.name or ch.ref,
                 is_projection_target=is_target,
                 sync_status=_surface_sync_status(listings.get(ch.ref), is_target),
+                kind="channel",
+                transactional=True,
             )
         )
     return surfaces, cells_index
+
+
+# capability/ícone por tipo de expositor (espelha backstage.projections.showcase)
+_SHOWCASE_META = {
+    "menuboard": {"capability": "display", "icon": "tv", "path": "/menuboard/{ref}/"},
+    "google": {"capability": "feed", "icon": "rss", "path": "/feed/{ref}.xml"},
+    "meta": {"capability": "feed", "icon": "rss", "path": "/feed/{ref}.xml?platform=meta"},
+}
+
+
+def _build_showcase_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
+    """Expositores como colunas + índice {ref: {"members": set, "paused": set}}.
+
+    ``members`` = SKUs presentes no expositor (união dos produtos das suas coleções).
+    ``paused`` = pausa LOCAL do item no expositor (a global é do produto, gate por cima).
+    """
+    from shopman.offerman.models import Collection
+
+    from shopman.shop.models import Showcase
+
+    showcases = list(Showcase.objects.all().order_by("name"))
+    if not showcases:
+        return [], {}
+
+    # resolve os SKUs de cada coleção uma única vez (reuso entre expositores)
+    needed_refs = {r for sc in showcases for r in sc.collection_refs()}
+    members_by_coll: dict[str, set[str]] = {}
+    for coll in Collection.objects.filter(ref__in=needed_refs):
+        members_by_coll[coll.ref] = set(coll.product_queryset().values_list("sku", flat=True))
+
+    surfaces: list[SurfaceProjection] = []
+    index: dict[str, dict] = {}
+    for sc in showcases:
+        meta = _SHOWCASE_META.get(sc.kind, {"capability": "display", "icon": "monitor", "path": ""})
+        members: set[str] = set()
+        for r in sc.collection_refs():
+            members |= members_by_coll.get(r, set())
+        index[sc.ref] = {"members": members, "paused": sc.paused_skus()}
+        surfaces.append(
+            SurfaceProjection(
+                ref=sc.ref,
+                name=sc.name or sc.ref,
+                is_projection_target=False,
+                sync_status="na",
+                kind=meta["capability"],
+                transactional=False,
+                icon=meta["icon"],
+                is_active=sc.is_active,
+                output_path=meta["path"].format(ref=sc.ref),
+            )
+        )
+    return surfaces, index
 
 
 def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
@@ -207,6 +266,8 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
     from shopman.offerman.models import Collection, Product
 
     surfaces, cells_index = _build_surfaces()
+    showcase_surfaces, showcase_index = _build_showcase_surfaces()
+    surfaces = surfaces + showcase_surfaces
 
     products = (
         Product.objects.all()
@@ -231,6 +292,30 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
 
         cells: list[SurfaceCellProjection] = []
         for surface in surfaces:
+            # Expositor (display/feed): célula = pertence ao expositor (via coleções) e
+            # pausa local; sem preço/publicação. A pausa global do produto gateia por cima.
+            if surface.ref in showcase_index:
+                sc = showcase_index[surface.ref]
+                in_showcase = product.sku in sc["members"]
+                paused_here = product.sku in sc["paused"]
+                cells.append(
+                    SurfaceCellProjection(
+                        surface_ref=surface.ref,
+                        in_listing=in_showcase,
+                        is_published=in_showcase,
+                        is_sellable=in_showcase and not paused_here,
+                        available=(
+                            in_showcase
+                            and not paused_here
+                            and product.is_published
+                            and product.is_sellable
+                        ),
+                        price_q=None,
+                        price_display="",
+                    )
+                )
+                continue
+
             item = cells_index.get(surface.ref, {}).get(product.sku)
             if item is None:
                 cells.append(

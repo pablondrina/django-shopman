@@ -382,7 +382,7 @@ function printQueue() {
         <div v-else class="overflow-x-auto rounded-lg border bg-card">
           <table class="w-full border-collapse text-sm">
             <thead>
-              <tr class="border-b text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr class="text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:border-b [&>th]:bg-card">
                 <th class="w-9 px-3 py-2">
                   <button
                     type="button"

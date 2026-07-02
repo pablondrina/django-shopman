@@ -1,0 +1,146 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DANFE NFC-e · {{ d.order_ref }}</title>
+  <style>
+    /* Cupom DANFE NFC-e — largura de bobina (~80mm), monoespaçado, imprimível.
+       Não é a UI transacional (Alpine/HTMX): é um documento fiscal renderizado no
+       servidor, como o menuboard. O botão de impressão é ligado por addEventListener
+       (sem onclick inline). window.print() é API do browser (exceção prevista). */
+    :root { --ink: #16130f; --dim: #6b6357; --rule: #d9d2c4; --paper: #faf7f0; --warn: #b23b2e; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #ece7dc; color: var(--ink); }
+    body { font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; padding: 24px 12px; }
+    .cupom {
+      max-width: 320px; margin: 0 auto; background: var(--paper); padding: 18px 16px 22px;
+      border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,.12); font-size: 12px; line-height: 1.5;
+    }
+    .center { text-align: center; }
+    .muted { color: var(--dim); }
+    .rule { border: 0; border-top: 1px dashed var(--rule); margin: 10px 0; }
+    .homolog {
+      margin: 0 0 14px; padding: 8px 10px; text-align: center; font-weight: 700; letter-spacing: .04em;
+      color: #fff; background: var(--warn); border-radius: 4px; font-size: 11px; line-height: 1.35;
+    }
+    .emit-name { font-weight: 700; font-size: 13px; }
+    .doc-title { font-weight: 700; margin: 8px 0 2px; }
+    table.items { width: 100%; border-collapse: collapse; margin: 4px 0; }
+    table.items th { text-align: left; font-weight: 600; color: var(--dim); font-size: 10px; padding: 2px 0; }
+    table.items td { padding: 2px 0; vertical-align: top; }
+    table.items td.r, table.items th.r { text-align: right; }
+    .line-name { font-size: 11px; }
+    .totrow { display: flex; justify-content: space-between; }
+    .totrow.big { font-weight: 700; font-size: 14px; }
+    .chave { word-break: break-all; font-size: 11px; letter-spacing: .02em; }
+    .qr { display: flex; justify-content: center; margin: 12px 0 4px; }
+    .qr svg { width: 148px; height: 148px; }
+    .status-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em; background: #1f7a4d1a; color: #1f7a4d;
+    }
+    .empty { text-align: center; color: var(--dim); padding: 20px 0; }
+    .toolbar { max-width: 320px; margin: 0 auto 12px; display: flex; justify-content: flex-end; }
+    .print-btn {
+      font: inherit; font-size: 12px; cursor: pointer; border: 1px solid var(--rule); background: #fff;
+      color: var(--ink); padding: 7px 14px; border-radius: 6px;
+    }
+    .print-btn:hover { background: var(--paper); }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      .cupom { box-shadow: none; border-radius: 0; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar" x-data>
+    <button type="button" class="print-btn" @click="window.print()">🖨 Imprimir</button>
+  </div>
+
+  <div class="cupom">
+    {% if d.is_homolog %}
+    <p class="homolog">EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO<br />SEM VALOR FISCAL</p>
+    {% endif %}
+
+    <!-- Emitente -->
+    <div class="center">
+      <div class="emit-name">{{ d.shop_name|default:"—" }}</div>
+      {% if d.shop_legal_name %}<div class="muted">{{ d.shop_legal_name }}</div>{% endif %}
+      {% if d.shop_cnpj %}<div class="muted">CNPJ {{ d.shop_cnpj }}</div>{% endif %}
+      {% if d.shop_address %}<div class="muted">{{ d.shop_address }}</div>{% endif %}
+    </div>
+
+    <hr class="rule" />
+    <div class="center">
+      <div class="doc-title">DANFE NFC-e</div>
+      <div class="muted">Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica</div>
+      <div class="muted">Pedido {{ d.order_ref }}</div>
+    </div>
+
+    {% if d.emitted %}
+    <hr class="rule" />
+    <!-- Itens -->
+    <table class="items">
+      <thead>
+        <tr><th>#</th><th>Item</th><th class="r">Qtd</th><th class="r">Vl.Un</th><th class="r">Total</th></tr>
+      </thead>
+      <tbody>
+        {% for it in d.items %}
+        <tr>
+          <td>{{ it.seq }}</td>
+          <td class="line-name">{{ it.name }}<br /><span class="muted">{{ it.sku }}</span></td>
+          <td class="r">{{ it.qty }}{{ it.unit|lower }}</td>
+          <td class="r">{{ it.unit_price_display }}</td>
+          <td class="r">{{ it.total_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <hr class="rule" />
+    <div class="totrow"><span class="muted">Qtd. total de itens</span><span>{{ d.item_count }}</span></div>
+    <div class="totrow big"><span>Valor total</span><span>{{ d.total_display }}</span></div>
+    <div class="totrow"><span class="muted">Forma de pagamento</span><span>{{ d.payment_label }}</span></div>
+    <div class="totrow"><span class="muted">Valor pago</span><span>{{ d.total_display }}</span></div>
+
+    <hr class="rule" />
+    <div class="center muted" style="font-size:11px">
+      Consulte pela chave de acesso em<br />
+      {% if d.consult_url %}{{ d.consult_url }}{% else %}portal da SEFAZ{% endif %}
+    </div>
+    <div class="center chave" style="margin-top:6px">{{ d.chave_grouped }}</div>
+
+    {% if d.qr_svg %}
+    <div class="qr">{{ d.qr_svg|safe }}</div>
+    {% endif %}
+
+    <hr class="rule" />
+    <div class="center">
+      <div class="muted" style="font-size:11px">
+        Consumidor: {{ d.customer_name|default:"não identificado" }}
+      </div>
+      {% if d.number %}<div class="muted" style="font-size:11px">NFC-e nº {{ d.number }} · série {{ d.series }}</div>{% endif %}
+      {% if d.protocol %}<div class="muted" style="font-size:11px">Protocolo de autorização: {{ d.protocol }}</div>{% endif %}
+      <div style="margin-top:8px"><span class="status-badge">{{ d.status }} · {{ d.environment_label }}</span></div>
+    </div>
+
+    {% if d.danfe_url %}
+    <div class="center" style="margin-top:10px">
+      <a class="muted" href="{{ d.danfe_url }}" target="_blank" rel="noopener" style="font-size:11px">Abrir DANFE oficial (Focus NFe) ↗</a>
+    </div>
+    {% endif %}
+    {% else %}
+    <hr class="rule" />
+    <div class="empty">
+      <p>NFC-e ainda não emitida para este pedido.</p>
+      <p style="font-size:11px">Emita em homologação com<br /><code>manage.py fiscal_emit --order {{ d.order_ref }}</code></p>
+      <div style="margin-top:8px"><span class="status-badge" style="background:#6b63571a;color:#6b6357">{{ d.status }} · {{ d.environment_label }}</span></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+</body>
+</html>

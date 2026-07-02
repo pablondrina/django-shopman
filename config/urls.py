@@ -117,6 +117,9 @@ urlpatterns += _include_optional("api/v1/backstage/", "shopman.backstage.api.url
 # Menuboard — superfície display pública (quadro-negro numa TV), tempo real via SSE.
 urlpatterns += _include_optional("", "shopman.shop.menuboard_urls")
 
+# Fiscal — DANFE NFC-e (cupom de operador, imprimível). Gated a staff na view.
+urlpatterns += _include_optional("", "shopman.shop.fiscal_urls")
+
 # ── Media files (dev only) ────────────────────────────────────────
 
 if settings.DEBUG:

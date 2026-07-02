@@ -75,7 +75,7 @@ from shopman.backstage.services.operations import (
     start_checklist_run,
     supervise_task_run,
 )
-from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
+from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop, Showcase
 from shopman.shop.services.dietary_from_recipe import aggregate_dietary_from_recipe
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
 from shopman.storefront.models import Coupon, Promotion
@@ -111,11 +111,13 @@ class Command(BaseCommand):
         customers = self._seed_customers()
         self._seed_addresses(customers)
         channels = self._seed_channels()
+        self._seed_showcases()
         self._assert_storefront_products_orderable()
         self._seed_kds()
         self._seed_pos_tabs()
         self._seed_orders(products, customers, channels)
         self._seed_security_reliability_edges(products, customers, channels)
+        self._seed_fiscal_example()
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
         self._seed_operator_alerts()
@@ -138,6 +140,22 @@ class Command(BaseCommand):
     # ────────────────────────────────────────────────────────────────
 
     def _seed_shop(self):
+        # Feriados de fechamento SEMPRE à frente da data de hoje (próxima ocorrência do
+        # dia fixo). Assim o seed nunca nasce com data passada — relativo a "hoje".
+        today = timezone.localdate()
+
+        def _next_occurrence(month: int, day: int) -> str:
+            candidate = date(today.year, month, day)
+            if candidate < today:
+                candidate = date(today.year + 1, month, day)
+            return candidate.isoformat()
+
+        closed_dates = [
+            {"date": _next_occurrence(12, 25), "label": "Natal"},
+            {"date": _next_occurrence(12, 31), "label": "Réveillon"},
+            {"date": _next_occurrence(1, 1), "label": "Confraternização Universal"},
+        ]
+
         _, created = Shop.objects.update_or_create(
             pk=1,
             defaults={
@@ -210,11 +228,7 @@ class Command(BaseCommand):
                         "fallback_slot": "slot-09",
                     },
                     "max_preorder_days": 30,
-                    "closed_dates": [
-                        {"date": "2026-12-25", "label": "Natal"},
-                        {"date": "2026-12-31", "label": "Réveillon"},
-                        {"date": "2026-01-01", "label": "Confraternização Universal"},
-                    ],
+                    "closed_dates": closed_dates,
                     "seasons": {
                         "hot":  [10, 11, 12, 1, 2, 3],
                         "mild": [4, 5, 9],
@@ -420,6 +434,7 @@ class Command(BaseCommand):
         # Shop
         Coupon.objects.all().delete()
         Promotion.objects.all().delete()
+        Showcase.objects.all().delete()
         Shop.objects.all().delete()
 
         self.stdout.write("  ✅ Dados limpos")
@@ -2487,6 +2502,59 @@ class Command(BaseCommand):
         self.stdout.write(f"  ✅ {len(channels)} canais")
         return channels
 
+    def _seed_showcases(self):
+        """Expositores (Showcase): superfícies que EXIBEM o catálogo sem transacionar.
+
+        📺 Menuboards (TVs no salão) + 🛰 feeds (Google/Meta). Cada um compõe coleções
+        reais (viram as seções/segmentos). São colunas não-transacionais no Gestor de
+        Catálogo: a pausa global do produto cascateia sobre eles e o operador pode pausar
+        um item em UM expositor (options[paused_skus]). Acoplamento frouxo por ref de
+        coleção — não exige coleção-guarda-chuva.
+        """
+        self.stdout.write("  📺 Expositores...")
+
+        showcases_data = [
+            # (ref, name, kind, [collection_refs])
+            (
+                "tv-salao",
+                "TV do Salão",
+                Showcase.KIND_MENUBOARD,
+                ["rusticos", "macios", "folhados", "doces"],
+            ),
+            (
+                "tv-cafe",
+                "TV do Café",
+                Showcase.KIND_MENUBOARD,
+                ["bebidas-quentes", "bebidas-geladas", "doces", "salgados"],
+            ),
+            (
+                "google-shopping",
+                "Google Shopping",
+                Showcase.KIND_GOOGLE,
+                ["rusticos", "macios", "folhados", "doces", "salgados"],
+            ),
+            (
+                "meta-catalog",
+                "Catálogo Meta",
+                Showcase.KIND_META,
+                ["rusticos", "macios", "folhados", "doces", "salgados"],
+            ),
+        ]
+
+        for ref, name, kind, collections in showcases_data:
+            Showcase.objects.update_or_create(
+                ref=ref,
+                defaults={
+                    "name": name,
+                    "kind": kind,
+                    "collections": collections,
+                    "is_active": True,
+                    "options": {},
+                },
+            )
+
+        self.stdout.write(f"  ✅ {len(showcases_data)} expositores")
+
     # ────────────────────────────────────────────────────────────────
     # Pedidos (Orderman)
     # ────────────────────────────────────────────────────────────────
@@ -2528,7 +2596,10 @@ class Command(BaseCommand):
             else:
                 day_mult = 1.0
 
-            num_orders = max(1, int(base_orders * day_mult * season_multiplier))
+            # Volume de exemplos reduzido à metade (0.5): o board de pedidos fica legível
+            # para demo/QA sem inflar a tela. O histórico segue representativo dos padrões
+            # de dia/estação — só menos denso.
+            num_orders = max(1, int(base_orders * day_mult * season_multiplier * 0.5))
 
             for _ in range(num_orders):
                 channel = random.choice(channel_list)
@@ -2642,18 +2713,17 @@ class Command(BaseCommand):
         # These represent what's happening RIGHT NOW in the kitchen/counter.
         from shopman.shop.handlers.production_order_sync import link_order_to_work_orders
 
+        # Coluna "Entrada" (status new) fica VAZIA de propósito: assim dá para testar a
+        # CHEGADA de pedidos novos ao vivo sem ruído. O board nasce com o que já está em
+        # andamento (em preparo / confirmado / pronto). Cenários determinísticos de borda
+        # (ex.: iFood parado) continuam em _seed_security_reliability_edges.
         live_specs = [
             ("preparing", random.randint(5, 15)),
             ("preparing", random.randint(5, 15)),
             ("confirmed",  random.randint(2, 5)),
             ("confirmed",  random.randint(2, 5)),
-            ("new",        random.randint(1, 3)),
-            ("new",        random.randint(1, 4)),
             ("ready",      1),
         ]
-        # 50% chance of a pending PIX order
-        if random.random() < 0.5:
-            live_specs.append(("new", random.randint(3, 5)))
 
         for live_status, minutes_ago in live_specs:
             channel = random.choice(channel_list)
@@ -2808,46 +2878,10 @@ class Command(BaseCommand):
         # ── iFood operational orders ──────────────────────────────────────────
         if "ifood" in channels:
             ifood_ch = channels["ifood"]
-            prod_a = product_list[0]
             prod_b = product_list[1] if len(product_list) > 1 else product_list[0]
 
-            # Order 1: new iFood order (just arrived, awaiting confirmation)
-            ref_new = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=2)).date())
-            order_new = Order.objects.create(
-                ref=ref_new,
-                channel_ref=ifood_ch.ref,
-                session_key=generate_session_key(),
-                status="new",
-                total_q=prod_a.base_price_q * 2,
-                handle_type="phone",
-                handle_ref="",
-                created_at=now - timedelta(minutes=2),
-                data={
-                    "customer": {"name": "Camila iFood"},
-                    "payment": {"method": "external", "timing": "external"},
-                    "fulfillment_type": "delivery",
-                    "availability_decision": {"approved": True, "source": "seed", "decisions": []},
-                },
-            )
-            self._stamp_order(order_new, now - timedelta(minutes=2))
-            OrderItem.objects.create(
-                order=order_new,
-                line_id=f"L-{uuid.uuid4().hex[:8]}",
-                sku=prod_a.sku,
-                name=prod_a.name,
-                qty=Decimal("2"),
-                unit_price_q=prod_a.base_price_q,
-                line_total_q=prod_a.base_price_q * 2,
-            )
-            OrderEvent.objects.create(
-                order=order_new,
-                type="status_change",
-                seq=0,
-                payload={"new_status": "new"},
-                created_at=now - timedelta(minutes=2),
-            )
-
-            # Order 2: confirmed iFood order (in queue, being handled)
+            # iFood order: confirmed (in queue, being handled). Nenhum pedido "new" aqui —
+            # a coluna Entrada nasce vazia para testar a chegada de pedidos ao vivo.
             ref_confirmed = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=9)).date())
             order_confirmed = Order.objects.create(
                 ref=ref_confirmed,
@@ -2891,8 +2925,8 @@ class Command(BaseCommand):
             )
             link_order_to_work_orders(order=order_confirmed, event_type="status_changed", actor="seed")
 
-            order_count += 2
-            self.stdout.write("  ✅ 2 pedidos iFood operacionais adicionados")
+            order_count += 1
+            self.stdout.write("  ✅ 1 pedido iFood operacional adicionado")
 
         production_history_count = self._seed_production_demand_history(products, channels, now)
         order_count += production_history_count
@@ -2900,6 +2934,53 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  ✅ {order_count} pedidos (35 dias + live + iFood + historico producao)"
         )
+
+    def _seed_fiscal_example(self):
+        """Um pedido concluído com NFC-e de HOMOLOGAÇÃO já 'emitida' (exemplo ilustrativo).
+
+        Serve de "lampejo": o cupom aparece em /fiscal/danfe/<ref>/ logo após o seed, sem
+        depender de rede. É explicitamente HOMOLOGAÇÃO ("SEM VALOR FISCAL"). Para uma
+        emissão REAL de ponta a ponta, configure FOCUS_NFE_CNPJ_EMITENTE e rode
+        `manage.py fiscal_emit` — que sobrescreve com a nota autorizada de verdade.
+        """
+        from shopman.orderman.models import Order
+
+        order = (
+            Order.objects.filter(status="completed")
+            .exclude(items=None)
+            .order_by("-created_at")
+            .first()
+        )
+        if order is None:
+            return
+
+        # Chave de acesso NFC-e (44 dígitos): cUF(41=PR)+AAMM+CNPJ+mod(65)+série+nNF+
+        # tpEmis(2=homolog)+cNF+cDV. Formato realista; exemplo de homologação.
+        now = timezone.now()
+        chave = f"41{now:%y%m}99999999000191650010000012342{'87654321'}0"
+        chave = "".join(ch for ch in chave if ch.isdigit())[:44].ljust(44, "0")
+        qr_consulta = (
+            "http://www.fazenda.pr.gov.br/nfce/qrcode?p="
+            f"{chave}|2|2|1|A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0"
+        )
+
+        data = order.data or {}
+        data.setdefault("fiscal", {})["issue_document"] = True
+        data.setdefault("customer", {}).setdefault("name", "Consumidor Final")
+        data.setdefault("payment", {})["method"] = data.get("payment", {}).get("method") or "pix"
+        data.update({
+            "nfce_access_key": chave,
+            "nfce_number": 1234,
+            "nfce_series": "1",
+            "nfce_protocol": f"141{now:%y}0000012345",
+            "nfce_status": "autorizado",
+            "nfce_danfe_url": f"https://homologacao.focusnfe.com.br/danfe/nfce/{chave}.pdf",
+            "nfce_qrcode_url": qr_consulta,
+            "nfce_xml_url": f"https://homologacao.focusnfe.com.br/notas/nfce/{chave}.xml",
+        })
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
+        self.stdout.write(f"  🧾 NFC-e exemplo (homologação) no pedido {order.ref} — /fiscal/danfe/{order.ref}/")
 
     def _seed_security_reliability_edges(self, products, customers, channels):
         """Deterministic edge scenarios for adversarial QA and Omotenashi drills."""

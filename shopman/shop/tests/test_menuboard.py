@@ -46,6 +46,17 @@ def test_paused_product_drops_from_available(menuboard):
     assert board.available_count == 1  # só o bolo
 
 
+def test_local_pause_drops_item_on_this_showcase(menuboard):
+    """Pausa por-expositor (options[paused_skus]) tira o item DESTE quadro."""
+    sc = Showcase.objects.get(ref="tv-balcao")
+    sc.options = {"paused_skus": ["PAO"]}
+    sc.save(update_fields=["options"])
+    board = build_menuboard("tv-balcao")
+    pao = next(i for g in board.groups for i in g.items if i.sku == "PAO")
+    assert pao.available is False
+    assert board.available_count == 1  # só o bolo; PAO segue globalmente vendável
+
+
 def test_smart_collection_section(db):
     Showcase.objects.create(ref="tv", name="TV", kind="menuboard", collections=["caros"])
     Collection.objects.create(

@@ -58,6 +58,7 @@ def build_feed_items(ref: str, request) -> list[dict]:
     base = _storefront_base(request)
 
     colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
+    paused = showcase.paused_skus()  # pausa LOCAL do expositor (a global é do produto)
 
     items: list[dict] = []
     seen: set[str] = set()
@@ -71,7 +72,7 @@ def build_feed_items(ref: str, request) -> list[dict]:
                 # imagem é omitido (image_link é obrigatório — seria reprovado).
                 continue
             seen.add(product.sku)
-            available = product.is_published and product.is_sellable
+            available = product.is_published and product.is_sellable and product.sku not in paused
             items.append({
                 "id": product.sku,
                 "title": product.name[:150],

@@ -3,14 +3,22 @@
 // Kept in lockstep — the surface renders intent, the backend owns rules.
 
 export type SurfaceSyncStatus = "ok" | "error" | "never" | "na";
+export type SurfaceKind = "channel" | "display" | "feed";
 
-// Uma coluna da matriz é um CANAL de venda (transacional). Exibição/feed (menuboard,
-// Google, Meta) são Expositores, geridos no Admin — não aparecem aqui.
+// Uma coluna da matriz é uma SUPERFÍCIE: um Canal de venda (transacional) OU um
+// Expositor que só EXIBE (📺 menuboard / 🛰 feed Google/Meta). Expositor não vende:
+// a célula só pausa/reativa o item, sem preço nem publicação. A pausa global do
+// produto gateia canais E expositores.
 export interface SurfaceProjection {
   ref: string;
   name: string;
   is_projection_target: boolean;
   sync_status: SurfaceSyncStatus;
+  kind: SurfaceKind;
+  transactional: boolean; // canal vende (preço/publicação); expositor só exibe (pausa)
+  icon: string; // dica de ícone p/ expositores (tv/rss); vazio p/ canal
+  is_active: boolean; // expositor ligado/desligado (canal sempre ativo aqui)
+  output_path: string; // saída pública do expositor (abrir/prever); vazio p/ canal
 }
 
 export interface SurfaceCellProjection {

@@ -63,6 +63,18 @@ def test_paused_is_out_of_stock(client, feed):
     assert item.find(f"{G}availability").text == "out_of_stock"
 
 
+def test_local_pause_is_out_of_stock(client, feed):
+    """Pausa por-expositor (options[paused_skus]) marca out_of_stock só neste feed."""
+    sc = Showcase.objects.get(ref="google")
+    sc.options = {"paused_skus": ["BAGUETE"]}
+    sc.save(update_fields=["options"])
+    item = _items(client.get("/feed/google.xml").content)[0]
+    assert item.find(f"{G}availability").text == "out_of_stock"
+    # o feed Meta (sem pausa local) segue in stock
+    item_meta = _items(client.get("/feed/meta.xml").content)[0]
+    assert item_meta.find(f"{G}availability").text == "in stock"
+
+
 def test_smart_collection_feed(client, db):
     Showcase.objects.create(ref="caros", name="Caros", kind="google", collections=["regra"])
     Collection.objects.create(

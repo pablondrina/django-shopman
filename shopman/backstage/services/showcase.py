@@ -52,3 +52,62 @@ def set_collections(ref: str, collection_refs: list[str]) -> None:
         sc.collections = ordered
         sc.save(update_fields=["collections", "updated_at"])
         _notify(ref)
+
+
+def set_item_paused(ref: str, sku: str, *, paused: bool) -> bool:
+    """Pausa/reativa UM item neste expositor (equivalente a pausar num canal).
+
+    Grava em ``Showcase.options["paused_skus"]`` (JSONField, sem migração). Retorna o
+    estado final ``paused``. A pausa global do produto continua gateando por cima.
+    """
+    from shopman.shop.models import Showcase
+
+    sku = str(sku).strip()
+    if not sku:
+        raise CatalogError("sku é obrigatório.")
+    sc = Showcase.objects.filter(ref=ref).first()
+    if sc is None:
+        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+
+    current = sc.paused_skus()
+    if paused and sku not in current:
+        current.add(sku)
+    elif not paused and sku in current:
+        current.discard(sku)
+    else:
+        return paused  # sem mudança
+
+    options = dict(sc.options or {})
+    options["paused_skus"] = sorted(current)
+    sc.options = options
+    sc.save(update_fields=["options", "updated_at"])
+    _notify(ref)
+    return paused
+
+
+def set_items_paused(ref: str, skus: list[str], *, paused: bool) -> int:
+    """Pausa/reativa em lote vários itens neste expositor. Retorna quantos mudaram."""
+    from shopman.shop.models import Showcase
+
+    cleaned = [str(s).strip() for s in skus if str(s).strip()]
+    if not cleaned:
+        return 0
+    sc = Showcase.objects.filter(ref=ref).first()
+    if sc is None:
+        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+
+    current = sc.paused_skus()
+    before = set(current)
+    if paused:
+        current.update(cleaned)
+    else:
+        current.difference_update(cleaned)
+    if current == before:
+        return 0
+
+    options = dict(sc.options or {})
+    options["paused_skus"] = sorted(current)
+    sc.options = options
+    sc.save(update_fields=["options", "updated_at"])
+    _notify(ref)
+    return len(current ^ before)

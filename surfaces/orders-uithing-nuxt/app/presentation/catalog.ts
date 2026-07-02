@@ -5,6 +5,7 @@
 import type {
   CatalogRowProjection,
   SurfaceCellProjection,
+  SurfaceProjection,
   SurfaceSyncStatus,
 } from "~/types/catalog";
 
@@ -124,6 +125,26 @@ const SURFACE_ICONS: Record<string, string> = {
 
 export function surfaceIcon(ref: string): string {
   return SURFACE_ICONS[ref] ?? "lucide:radio-tower";
+}
+
+// Ícone da coluna considerando o tipo: expositor traz a própria dica (tv/rss); canal
+// resolve por ref. Fonte única do ícone de cabeçalho da matriz.
+const SHOWCASE_ICONS: Record<string, string> = {
+  tv: "lucide:tv",
+  rss: "lucide:rss",
+  monitor: "lucide:monitor",
+};
+
+export function surfaceDisplayIcon(surface: SurfaceProjection): string {
+  if (!surface.transactional) return SHOWCASE_ICONS[surface.icon] ?? "lucide:tv";
+  return surfaceIcon(surface.ref);
+}
+
+// Rótulo curto do papel da superfície (chip no cabeçalho). Canal não recebe chip
+// (é o caso comum); expositor deixa explícito que EXIBE e não vende.
+export function surfaceKindLabel(surface: SurfaceProjection): string {
+  if (surface.transactional) return "";
+  return surface.kind === "feed" ? "Feed" : "Expositor";
 }
 
 // ── surface metadata ─────────────────────────────────────────────────────────
