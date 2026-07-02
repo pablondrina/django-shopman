@@ -2988,7 +2988,6 @@ class Command(BaseCommand):
 
         now = timezone.now()
         web = channels.get("web")
-        ifood = channels.get("ifood")
         product = products.get("CROISSANT") or next(iter(products.values()), None)
         if web is None or product is None:
             self.stdout.write("  ⏭️  Sem canal web/produto para cenários de borda")
@@ -3125,41 +3124,9 @@ class Command(BaseCommand):
             )
             created += 1
 
-        if ifood is not None:
-            stale = self._create_edge_order(
-                seed_key="security:ifood-stale-confirmation",
-                channel_ref=ifood.ref,
-                status=Order.Status.NEW,
-                product=product,
-                qty=Decimal("1"),
-                customer=None,
-                created_at=now - timedelta(minutes=46),
-                external_ref="IFOOD-EDGE-STALE-001",
-                data={
-                    "customer": {"name": "Pedido iFood parado"},
-                    "payment": {"method": "external", "timing": "external"},
-                    "fulfillment_type": "delivery",
-                    "edge_case": "marketplace_stale_confirmation",
-                    "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
-                },
-            )
-            if stale:
-                OperatorAlert.objects.get_or_create(
-                    type="stale_new_order",
-                    order_ref=stale.ref,
-                    defaults={
-                        "severity": "error",
-                        "message": f"Pedido marketplace {stale.ref} parado aguardando confirmação.",
-                    },
-                )
-                self._mark_edge_webhook_replay(
-                    scope="webhook:ifood",
-                    source="order",
-                    source_id="IFOOD-EDGE-STALE-001",
-                    response_body={"status": "already_processed", "order_ref": stale.ref},
-                    now=now,
-                )
-                created += 1
+        # Cenário "iFood parado" (pedido NEW há 46min + alerta stale) foi omitido de
+        # propósito: a coluna Entrada nasce 100% vazia para testar a chegada de pedidos
+        # novos ao vivo. O comportamento do alerta stale_new_order segue coberto em testes.
 
         self.stdout.write(f"  ✅ {created} cenários determinísticos de borda")
 
