@@ -921,14 +921,14 @@ SHOPMAN_KDS_BASE_URL = (
 
 # Base URL pública da Produção (operador) — app Nuxt dedicado
 # (surfaces/production-uithing-nuxt). Vazio ⇒ o item "Produção ao vivo" some do nav
-# do Admin (sem link morto), e o operador acessa direto pelo subdomínio (fournil.).
+# do Admin (sem link morto), e o operador acessa direto pelo subdomínio (prod.).
 SHOPMAN_PRODUCTION_BASE_URL = (
     os.environ.get("SHOPMAN_PRODUCTION_BASE_URL") or ""
 ).strip().rstrip("/")
 
 # Zona de operador (OPERATOR-AUTH-PLAN, Opção A) — login único + sessão Django
 # escopada a um domínio-pai SEPARADO da loja pública. Os apps de operador
-# (gestor./kds./pos./fournil.) moram nesse domínio e proxeiam para o alias de API
+# (gestor./kds./pdv./prod.) moram nesse domínio e proxeiam para o alias de API
 # abaixo; o `OperatorSessionDomainMiddleware` escopa o cookie de sessão/CSRF para
 # `SHOPMAN_OPERATOR_COOKIE_DOMAIN` SÓ quando o host servido é o de operador — assim
 # o login do cliente (host-only na loja) fica intocado.

@@ -8,7 +8,7 @@
 #   STORE_DOMAIN            → thing-storefront (loja Nuxt)        [apex, PRIMARY]
 #   api.STORE_DOMAIN        → web (Django headless: /api, webhooks, health)
 #   admin.STORE_DOMAIN      → web (Django admin/operador)
-#   pos.STORE_DOMAIN        → pos-uithing (PDV Nuxt)
+#   pdv.STORE_DOMAIN        → pos-uithing (PDV Nuxt)
 #
 # COMO USAR:
 #   1. Troque TODAS as ocorrências de `STORE_DOMAIN` pelo seu domínio real
@@ -40,7 +40,7 @@ domains:
   - domain: admin.STORE_DOMAIN
     type: ALIAS
     zone: STORE_DOMAIN
-  - domain: pos.STORE_DOMAIN
+  - domain: pdv.STORE_DOMAIN
     type: ALIAS
     zone: STORE_DOMAIN
 
@@ -62,10 +62,10 @@ ingress:
           prefix: /
       component:
         name: web
-    # PDV Nuxt — host pos.
+    # PDV Nuxt — host pdv.
     - match:
         authority:
-          exact: pos.STORE_DOMAIN
+          exact: pdv.STORE_DOMAIN
         path:
           prefix: /
       component:

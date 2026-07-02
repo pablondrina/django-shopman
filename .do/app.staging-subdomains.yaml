@@ -53,10 +53,10 @@ domains:
   - domain: kds.boulangerie.com.br
     type: ALIAS
     zone: boulangerie.com.br
-  - domain: pos.boulangerie.com.br
+  - domain: pdv.boulangerie.com.br
     type: ALIAS
     zone: boulangerie.com.br
-  - domain: fournil.boulangerie.com.br
+  - domain: prod.boulangerie.com.br
     type: ALIAS
     zone: boulangerie.com.br
   - domain: api.boulangerie.com.br
@@ -102,14 +102,14 @@ ingress:
         name: kds-uithing
     - match:
         authority:
-          exact: pos.boulangerie.com.br
+          exact: pdv.boulangerie.com.br
         path:
           prefix: /
       component:
         name: pos-uithing
     - match:
         authority:
-          exact: fournil.boulangerie.com.br
+          exact: prod.boulangerie.com.br
         path:
           prefix: /
       component:
@@ -135,7 +135,7 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: CSRF_TRUSTED_ORIGINS
-    value: "https://api.staging.nelsonboulangerie.com.br,https://admin.staging.nelsonboulangerie.com.br,https://api.boulangerie.com.br,https://gestor.boulangerie.com.br,https://kds.boulangerie.com.br,https://pos.boulangerie.com.br,https://fournil.boulangerie.com.br"
+    value: "https://api.staging.nelsonboulangerie.com.br,https://admin.staging.nelsonboulangerie.com.br,https://api.boulangerie.com.br,https://gestor.boulangerie.com.br,https://kds.boulangerie.com.br,https://pdv.boulangerie.com.br,https://prod.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: DJANGO_TRUST_X_FORWARDED_PROTO
@@ -182,11 +182,11 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: SHOPMAN_POS_BASE_URL
-    value: "https://pos.boulangerie.com.br"
+    value: "https://pdv.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: SHOPMAN_PRODUCTION_BASE_URL
-    value: "https://fournil.boulangerie.com.br"
+    value: "https://prod.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: WHATSAPP_STOREFRONT_URL
