@@ -36,6 +36,8 @@ alerts:
   - rule: DOMAIN_FAILED
 
 domains:
+  # Loja (cliente) no domínio de staging; operadores nos subdomínios de
+  # boulangerie.com.br (cross-subdomain auth via cookie .boulangerie.com.br).
   - domain: staging.nelsonboulangerie.com.br
     type: PRIMARY
     zone: nelsonboulangerie.com.br
@@ -45,9 +47,21 @@ domains:
   - domain: admin.staging.nelsonboulangerie.com.br
     type: ALIAS
     zone: nelsonboulangerie.com.br
-  - domain: pos.staging.nelsonboulangerie.com.br
+  - domain: gestor.boulangerie.com.br
     type: ALIAS
-    zone: nelsonboulangerie.com.br
+    zone: boulangerie.com.br
+  - domain: kds.boulangerie.com.br
+    type: ALIAS
+    zone: boulangerie.com.br
+  - domain: pos.boulangerie.com.br
+    type: ALIAS
+    zone: boulangerie.com.br
+  - domain: fournil.boulangerie.com.br
+    type: ALIAS
+    zone: boulangerie.com.br
+  - domain: api.boulangerie.com.br
+    type: ALIAS
+    zone: boulangerie.com.br
 
 ingress:
   rules:
@@ -67,11 +81,39 @@ ingress:
         name: web
     - match:
         authority:
-          exact: pos.staging.nelsonboulangerie.com.br
+          exact: api.boulangerie.com.br
+        path:
+          prefix: /
+      component:
+        name: web
+    - match:
+        authority:
+          exact: gestor.boulangerie.com.br
+        path:
+          prefix: /
+      component:
+        name: orders-uithing
+    - match:
+        authority:
+          exact: kds.boulangerie.com.br
+        path:
+          prefix: /
+      component:
+        name: kds-uithing
+    - match:
+        authority:
+          exact: pos.boulangerie.com.br
         path:
           prefix: /
       component:
         name: pos-uithing
+    - match:
+        authority:
+          exact: fournil.boulangerie.com.br
+        path:
+          prefix: /
+      component:
+        name: production-uithing
     # Catch-all do domínio primário (apex de staging) = a loja.
     - match:
         path:
@@ -89,11 +131,11 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: DJANGO_ALLOWED_HOSTS
-    value: "api.staging.nelsonboulangerie.com.br,admin.staging.nelsonboulangerie.com.br"
+    value: "api.staging.nelsonboulangerie.com.br,admin.staging.nelsonboulangerie.com.br,api.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: CSRF_TRUSTED_ORIGINS
-    value: "https://api.staging.nelsonboulangerie.com.br,https://admin.staging.nelsonboulangerie.com.br"
+    value: "https://api.staging.nelsonboulangerie.com.br,https://admin.staging.nelsonboulangerie.com.br,https://api.boulangerie.com.br,https://gestor.boulangerie.com.br,https://kds.boulangerie.com.br,https://pos.boulangerie.com.br,https://fournil.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: DJANGO_TRUST_X_FORWARDED_PROTO
@@ -115,6 +157,36 @@ envs:
     type: GENERAL
   - key: AUTH_DEFAULT_DOMAIN
     value: "staging.nelsonboulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  # Superfícies de operador (subdomínios .boulangerie.com.br) — cookie de sessão
+  # compartilhado no domínio-pai, host da API e origens dos apps Nuxt.
+  - key: SHOPMAN_OPERATOR_API_HOST
+    value: "api.boulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_OPERATOR_COOKIE_DOMAIN
+    value: ".boulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_REQUIRE_ACTIVE_OPERATOR
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_ORDERS_BASE_URL
+    value: "https://gestor.boulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_KDS_BASE_URL
+    value: "https://kds.boulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_POS_BASE_URL
+    value: "https://pos.boulangerie.com.br"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_PRODUCTION_BASE_URL
+    value: "https://fournil.boulangerie.com.br"
     scope: RUN_TIME
     type: GENERAL
   - key: WHATSAPP_STOREFRONT_URL
@@ -255,6 +327,8 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
+  # Superfícies de operador (Nuxt). Ficam em *.boulangerie.com.br e apontam
+  # para a API em api.boulangerie.com.br (SHOPMAN_OPERATOR_API_HOST).
   - name: pos-uithing
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
@@ -267,12 +341,121 @@ services:
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
       - key: NUXT_DJANGO_BASE_URL
-        value: "https://api.staging.nelsonboulangerie.com.br"
+        value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
         type: GENERAL
       - key: NUXT_APP_BASE_URL
         value: /
         scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_PUBLIC_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+    health_check:
+      http_path: /
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+  - name: kds-uithing
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
+      branch: main
+    source_dir: /surfaces/kds-uithing-nuxt
+    build_command: npm ci && npm run build
+    run_command: node .output/server/index.mjs
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: NUXT_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_APP_BASE_URL
+        value: /
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_PUBLIC_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+    health_check:
+      http_path: /
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+  - name: orders-uithing
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
+      branch: main
+    source_dir: /surfaces/orders-uithing-nuxt
+    build_command: npm ci && npm run build
+    run_command: node .output/server/index.mjs
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: NUXT_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_APP_BASE_URL
+        value: /
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_PUBLIC_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+    health_check:
+      http_path: /
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+  - name: production-uithing
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
+      branch: main
+    source_dir: /surfaces/production-uithing-nuxt
+    build_command: npm ci && npm run build
+    run_command: node .output/server/index.mjs
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: NUXT_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_APP_BASE_URL
+        value: /
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_PUBLIC_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
         type: GENERAL
     health_check:
       http_path: /
