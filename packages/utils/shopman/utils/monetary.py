@@ -51,6 +51,16 @@ def monetary_div(total_q: int, divisor: int) -> int:
     return int((Decimal(total_q) / Decimal(divisor)).quantize(ONE, rounding=ROUND_HALF_UP))
 
 
+def brl_to_q(value: str | float | int) -> int:
+    """Converte um decimal BRL ("4.35" / 4.35 / "10") em centavos, ROUND_HALF_UP.
+
+    Canônico para parse de valores decimais → centavos (gateway EFI, entrada de
+    caixa). NUNCA use ``int(float(x) * 100)``: ``float("4.35")*100 == 434.999…``
+    truncaria para 434. Sem tratamento de vazio/erro — o chamador valida antes.
+    """
+    return int((Decimal(str(value)) * 100).quantize(ONE, rounding=ROUND_HALF_UP))
+
+
 def format_money(value_q: int) -> str:
     """
     Format centavos as currency string with 2 decimal places.

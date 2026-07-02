@@ -713,17 +713,25 @@ class LoyaltyRedeemModifier:
             self._record_applied(session, 0)
             return
 
+        # O resíduo do rateio (dust do arredondamento) vai no ÚLTIMO item
+        # ELEGÍVEL — nunca no último ÍNDICE, que pode ser a linha
+        # __DELIVERY_FEE__ (pulada). Senão o resíduo some e o débito de pontos
+        # fica maior que o desconto de fato aplicado.
+        eligible = [
+            i for i, item in enumerate(items)
+            if not _is_non_merchandise_line(item)
+            and not _price_is_frozen(item)
+            and item.get("line_total_q", 0) > 0
+        ]
+        last_eligible = eligible[-1] if eligible else None
+
         # Distribute the redemption proportionally across items
         remaining = redeem_q
         modified = False
-        for i, item in enumerate(items):
-            if _is_non_merchandise_line(item) or _price_is_frozen(item):
-                continue
+        for i in eligible:
+            item = items[i]
             line_total = item.get("line_total_q", 0)
-            if line_total <= 0:
-                continue
-            is_last = i == len(items) - 1
-            if is_last:
+            if i == last_eligible:
                 item_share = remaining
             else:
                 item_share = monetary_div(redeem_q * line_total, subtotal_q)
@@ -739,18 +747,20 @@ class LoyaltyRedeemModifier:
         if modified:
             session.update_items(items)
 
-        # Persist for cart transparency
+        # Débito e transparência seguem o desconto REALMENTE aplicado
+        # (redeem_q menos o que sobrou), nunca o saldo pedido — invariante:
+        # pontos debitados == desconto dado.
+        applied_q = redeem_q - remaining
+
         pricing = session.pricing or {}
         pricing["loyalty_redeem"] = {
-            "total_discount_q": redeem_q,
+            "total_discount_q": applied_q,
             "label": "Resgate de pontos",
         }
         session.pricing = pricing
         session.save(update_fields=["pricing"])
 
-        # O débito de pontos segue o desconto APLICADO (clampado), nunca o
-        # saldo pedido — o service de resgate lê esta chave no commit.
-        self._record_applied(session, redeem_q)
+        self._record_applied(session, applied_q)
 
     @staticmethod
     def _record_applied(session: Any, applied_q: int) -> None:

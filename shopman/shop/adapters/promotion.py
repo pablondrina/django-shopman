@@ -42,13 +42,31 @@ def get_coupon_promotion(code: str, now) -> Any | None:
     return None
 
 
-def record_coupon_use(code: str) -> None:
-    """Incrementa o contador de usos do cupom — atômico via F()."""
+def record_coupon_use(code: str) -> bool:
+    """Incrementa o uso do cupom, respeitando ``max_uses`` atomicamente.
+
+    O UPDATE é condicional (``max_uses==0`` ilimitado OU ``uses_count<max_uses``),
+    então dois commits concorrentes do mesmo cupom single-use nunca passam do
+    teto: o banco serializa e o segundo não incrementa. Retorna True se contou.
+    """
+    from django.db.models import F, Q
+
+    from shopman.storefront.models import Coupon
+
+    updated = Coupon.objects.filter(
+        Q(max_uses=0) | Q(uses_count__lt=F("max_uses")),
+        code=code,
+    ).update(uses_count=F("uses_count") + 1)
+    return bool(updated)
+
+
+def release_coupon_use(code: str) -> None:
+    """Devolve um uso do cupom (pedido cancelado/expirado) — nunca abaixo de 0."""
     from django.db.models import F
 
     from shopman.storefront.models import Coupon
 
-    Coupon.objects.filter(code=code).update(uses_count=F("uses_count") + 1)
+    Coupon.objects.filter(code=code, uses_count__gt=0).update(uses_count=F("uses_count") - 1)
 
 
 def match_delivery_zone(postal_code: str, neighborhood: str) -> Any | None:

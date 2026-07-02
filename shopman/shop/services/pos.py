@@ -895,7 +895,7 @@ def cancel_recent_order(
     order_ref: str,
     actor: str,
     max_age_minutes: int = 5,
-    channel_ref: str = "pdv",
+    channel_ref: str | None = None,
 ) -> None:
     """Cancel the last POS order if it is still inside the operator window.
 
@@ -904,7 +904,15 @@ def cancel_recent_order(
     ``cancellation_code`` — a janela de 5 min do PDV não é um atalho.
     Venda cujo turno de caixa JÁ FECHOU também não: o ``expected_amount_q``
     do fechamento ficaria mentindo, sem movimento de devolução.
+
+    ``channel_ref=None`` resolve o canal POS do deployment
+    (``SHOPMAN_POS_CHANNEL_REF``) — nunca hardcodar "pdv", senão um deployment
+    que renomeia o canal rejeita todo cancelamento legítimo.
     """
+    if channel_ref is None:
+        from django.conf import settings
+
+        channel_ref = getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "pdv")
     try:
         order = Order.objects.get(ref=order_ref)
     except Order.DoesNotExist as exc:

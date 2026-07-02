@@ -153,18 +153,19 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         True if sent successfully, False otherwise.
     """
     from shopman.shop.adapters._notification_templates import (
-        SafeFormatMap,
         db_template,
         render_message,
+        render_template,
     )
 
     ctx = _enrich_context(context or {})
 
     # Assunto e corpo editados no Admin (NotificationTemplate) valem para
-    # e-mail também; os dicts hardcoded são o fallback.
+    # e-mail também; os dicts hardcoded são o fallback. render_template protege
+    # contra chave malformada no template do Admin (não suprime o e-mail).
     db_subject, _ = db_template(template)
     subject_tpl = db_subject or SUBJECT_TEMPLATES.get(template, f"Notificacao: {template}")
-    subject = subject_tpl.format_map(SafeFormatMap(ctx))
+    subject = render_template(subject_tpl, ctx)
 
     subject_prefix = config.get("subject_prefix", "")
     if subject_prefix:

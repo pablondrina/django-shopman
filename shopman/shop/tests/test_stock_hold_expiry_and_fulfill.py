@@ -93,7 +93,7 @@ def test_expired_session_hold_is_not_adopted(_=None):
     assert _sell_moves_total() == Decimal("2")
 
 
-def test_adopted_hold_stops_expiring(_=None):
+def test_adopted_hold_gets_long_backstop_ttl(_=None):
     _setup_world()
     hold_id = _make_session_hold(2)
 
@@ -101,9 +101,11 @@ def test_adopted_hold_stops_expiring(_=None):
     stock_service.hold(order)
 
     adopted = Hold.objects.get(pk=int(hold_id.split(":")[1]))
-    # Dono agora é o pedido: TTL de carrinho não pode matar o hold no meio
-    # de um PIX lento. Ele termina por fulfill ou release, nunca por relógio.
-    assert adopted.expires_at is None
+    # Dono agora é o pedido: o TTL vira um backstop LONGO (não None) — o PIX
+    # lento não expira a reserva, mas um pedido travado sem fulfill/release
+    # ainda é reclamado eventualmente (não fica órfão para sempre).
+    assert adopted.expires_at is not None
+    assert adopted.expires_at > timezone.now() + timedelta(hours=24)
 
 
 def test_overshoot_adoption_consumes_order_qty_not_hold_qty(_=None):
@@ -147,6 +149,8 @@ def test_cancel_after_fulfill_returns_stock_to_ledger(_=None):
 
     # Cancelamento tardio (janela de arrependimento do PDV): devolve ao ledger.
     stock_service.release(order)          # no-op em hold FULFILLED
+    stock_service.revert_fulfilled(order)
+    # IDEMPOTENTE: um on_cancelled re-disparado NÃO credita o estoque de novo.
     stock_service.revert_fulfilled(order)
 
     returns = Move.objects.filter(kind=Move.Kind.RETURN)

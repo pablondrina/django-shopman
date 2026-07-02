@@ -11,13 +11,17 @@ def parse_money_to_q(raw) -> int:
     Entrada ilegível levanta POSError — devolver 0 silencioso num fechamento
     CEGO transformaria um typo ("12,,30") numa diferença gigante sem aviso.
     """
-    from decimal import Decimal, InvalidOperation
+    from decimal import InvalidOperation
+
+    from shopman.utils.monetary import brl_to_q
 
     text = str(raw or "").strip().replace("R$", "").replace(" ", "").replace(",", ".")
     if not text:
         return 0
     try:
-        return int((Decimal(text) * 100).to_integral_value())
+        # brl_to_q usa ROUND_HALF_UP (não banker's rounding), consistente com
+        # o resto do sistema.
+        return brl_to_q(text)
     except InvalidOperation as exc:
         raise POSError("Valor inválido.") from exc
 

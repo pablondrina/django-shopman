@@ -256,3 +256,27 @@ def test_coherent_coordinates_pass(channel, monkeypatch):
     }
     session = SimpleNamespace(data=session_data, items=[], pricing={})
     validation_module.DeliveryZoneRule().validate(channel=None, session=session, ctx={})
+
+
+def test_city_accent_difference_does_not_block(channel, monkeypatch):
+    from types import SimpleNamespace
+
+    from shopman.shop.rules import validation as validation_module
+
+    # Google resolve "São Paulo" (com acento); o cliente digitou "Sao Paulo".
+    monkeypatch.setattr(
+        "shopman.shop.services.geocoding.reverse_geocode",
+        lambda lat, lng: SimpleNamespace(postal_code="01310-100", city="São Paulo"),
+    )
+    session_data = {
+        "fulfillment_type": "delivery",
+        "delivery_fee_q": 600,
+        "delivery_address_structured": {
+            "postal_code": "99999-000",  # CEP diverge de propósito
+            "city": "Sao Paulo",         # sem acento
+            "latitude": -23.56, "longitude": -46.65,
+        },
+    }
+    session = SimpleNamespace(data=session_data, items=[], pricing={})
+    # Não levanta: a cidade casa após normalizar acento.
+    validation_module.DeliveryZoneRule().validate(channel=None, session=session, ctx={})

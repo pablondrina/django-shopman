@@ -106,3 +106,71 @@ def test_redeem_handler_debits_once_even_on_retry(channel, customer, django_capt
 
     account = LoyaltyService.get_account(CUSTOMER_REF)
     assert account.points_balance == 10_000 - 2000
+
+
+def test_loyalty_remainder_goes_to_last_merch_item_not_fee_line():
+    """Resíduo do rateio vai no último item de MERCADORIA, não na linha de taxa.
+
+    Regressão do code-review: com __DELIVERY_FEE__ como último item, o
+    `is_last` caía na linha de taxa (pulada) e o resíduo sumia — débito de
+    pontos ficava maior que o desconto aplicado. Invariante: débito == desconto.
+    """
+    from types import SimpleNamespace
+
+    from shopman.shop.modifiers import LoyaltyRedeemModifier
+
+    items = [
+        {"sku": "PAO", "name": "Pão", "qty": 1, "unit_price_q": 1000, "line_total_q": 1000, "meta": {}},
+        {"sku": "CROISSANT", "name": "Croissant", "qty": 1, "unit_price_q": 700, "line_total_q": 700, "meta": {}},
+        {"sku": "__DELIVERY_FEE__", "name": "Taxa", "qty": 1, "unit_price_q": 600,
+         "line_total_q": 600, "meta": {"type": "delivery_fee", "non_production": True}},
+    ]
+    saved = {}
+    session = SimpleNamespace(
+        items=items,
+        data={"loyalty": {"redeem_points_q": 1000}},
+        pricing={},
+    )
+    session.update_items = lambda new: setattr(session, "items", new)
+    session.save = lambda **kw: saved.update(kw)
+
+    LoyaltyRedeemModifier().apply(channel=None, session=session, ctx={})
+
+    applied = session.data["loyalty"]["applied_discount_q"]
+    # Todo o resgate (1000) foi aplicado a mercadoria.
+    assert applied == 1000
+    fee = next(i for i in session.items if i["sku"] == "__DELIVERY_FEE__")
+    assert fee["line_total_q"] == 600  # taxa intocada
+    merch_discount = (1000 - session.items[0]["line_total_q"]) + (700 - session.items[1]["line_total_q"])
+    assert merch_discount == applied  # desconto real == débito
+
+
+def test_insufficient_points_at_debit_alerts_operator(channel, customer):
+    """Saldo abaixo do resgate na hora do débito: terminal + alerta (desconto
+    foi dado no commit, ninguém debitou — operador precisa conciliar)."""
+    import pytest as _pytest
+    from shopman.guestman.contrib.loyalty.service import LoyaltyService
+    from shopman.orderman.exceptions import DirectiveTerminalError
+    from shopman.orderman.models import Directive, Order
+
+    from shopman.backstage.models import OperatorAlert
+    from shopman.shop.handlers.loyalty import LoyaltyRedeemHandler
+
+    # Cliente fica com só 100; o pedido pede débito de 2000 (saldo caiu na corrida).
+    acct = LoyaltyService.get_account(CUSTOMER_REF)
+    LoyaltyService.redeem_points(CUSTOMER_REF, points=acct.points_balance - 100, description="dreno", reference="dreno")
+
+    order = Order.objects.create(
+        ref="ORD-LOYAL-INSUF", channel_ref=channel.ref, total_q=3000,
+        data={"customer_ref": CUSTOMER_REF, "loyalty": {"applied_discount_q": 2000}},
+    )
+    directive = Directive.objects.create(
+        topic="loyalty.redeem", payload={"order_ref": order.ref, "points": 2000},
+    )
+
+    with _pytest.raises(DirectiveTerminalError):
+        LoyaltyRedeemHandler().handle(message=directive, ctx={})
+
+    alert = OperatorAlert.objects.filter(type="loyalty_redeem_uncovered").first()
+    assert alert is not None
+    assert order.ref in alert.message

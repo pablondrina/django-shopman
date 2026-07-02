@@ -198,20 +198,27 @@ def refund(
     *,
     amount_q: int | None = None,
     reason: str = "",
+    idempotency_key: str = "",
     **config,
 ) -> PaymentResult:
-    """Process mock refund via PaymentService."""
+    """Process mock refund via PaymentService.
+
+    Espelha o contrato real: ``idempotency_key`` vira gateway_id determinístico,
+    então o Payman deduplica um retry (não estorna duas vezes).
+    """
     from shopman.payman import PaymentError, PaymentService
 
+    gateway_id = f"mock_refund_{idempotency_key}" if idempotency_key else f"mock_refund_{uuid4().hex[:8]}"
     try:
         txn = PaymentService.refund(
             intent_ref,
             amount_q=amount_q,
             reason=reason,
+            gateway_id=gateway_id,
         )
         return PaymentResult(
             success=True,
-            transaction_id=f"mock_refund_{uuid4().hex[:8]}",
+            transaction_id=gateway_id,
             amount_q=txn.amount_q,
         )
     except PaymentError as e:

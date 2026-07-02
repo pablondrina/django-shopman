@@ -207,7 +207,7 @@ def capture(order) -> None:
         logger.info("payment.capture: captured %s for order %s", intent_ref, order.ref)
 
 
-def refund(order, *, amount_q: int | None = None) -> None:
+def refund(order, *, amount_q: int | None = None, idempotency_key: str | None = None) -> None:
     """
     Refund payment for the order.
 
@@ -217,6 +217,11 @@ def refund(order, *, amount_q: int | None = None) -> None:
     ``amount_q`` limita o estorno (devolução PARCIAL); ``None`` estorna o saldo
     reembolsável inteiro. O valor nunca excede o saldo do Payman.
 
+    ``idempotency_key`` torna o estorno idempotente ponta a ponta: o gateway
+    reapresenta a MESMA devolução num retry e o Payman deduplica por gateway_id.
+    Default: ``order-refund:{order.ref}`` (bom p/ o estorno total do cancel);
+    a devolução PARCIAL passa uma chave por-devolução (return:{ref}:{idx}).
+
     SYNC — direct refund.
     """
     payment_data = (order.data or {}).get("payment", {})
@@ -225,6 +230,9 @@ def refund(order, *, amount_q: int | None = None) -> None:
     if not intent_ref:
         # Smart no-op: no payment to refund (cash, external, etc.)
         return
+
+    if idempotency_key is None:
+        idempotency_key = f"order-refund:{order.ref}"
 
     refundable_q = _payman_refundable_amount(intent_ref)
 
@@ -251,6 +259,7 @@ def refund(order, *, amount_q: int | None = None) -> None:
             intent_ref,
             amount_q=requested_q,
             reason="order_cancelled",
+            idempotency_key=idempotency_key,
         )
         if result.success:
             logger.info("payment.refund: refunded %s for order %s", intent_ref, order.ref)
@@ -423,16 +432,27 @@ def verify_gateway_before_timeout_cancel(order) -> str:
         # "error" = transporte/gateway indisponível — estado incerto, adiar.
         return "indeterminate" if result.error_code == "error" else "unpaid"
 
-    # Pagou e o webhook se perdeu: seguir o caminho do pagamento, não o do
-    # cancelamento (mesma sequência do webhook/mock_confirm).
-    payment_data = dict((order.data or {}).get("payment", {}))
-    payment_data["transaction_id"] = result.transaction_id
-    if not payment_data.get("captured_at"):
-        payment_data["captured_at"] = timezone.now().isoformat()
-    data = dict(order.data or {})
-    data["payment"] = payment_data
-    order.data = data
-    order.save(update_fields=["data", "updated_at"])
+    # Pagou e o webhook se perdeu: promover ao caminho de pago. SOB LOCK +
+    # re-check de captured_at — dois resolvers concorrentes (handler do
+    # directive + resolve lazy no acesso) não podem despachar on_paid duas
+    # vezes. Só quem carimba captured_at primeiro segue para o dispatch.
+    from django.db import transaction
+    from shopman.orderman.models import Order
+
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        locked_payment = dict((locked.data or {}).get("payment") or {})
+        if locked_payment.get("captured_at"):
+            order.refresh_from_db()
+            return "paid"  # outro resolver já promoveu — não duplicar
+        locked_payment["transaction_id"] = result.transaction_id
+        locked_payment["captured_at"] = timezone.now().isoformat()
+        locked_data = dict(locked.data or {})
+        locked_data["payment"] = locked_payment
+        locked.data = locked_data
+        locked.save(update_fields=["data", "updated_at"])
+
+    order.refresh_from_db()
     cancel_stale_intents(order, keep_intent_ref=intent_ref)
     order.emit_event(
         event_type="payment.captured",

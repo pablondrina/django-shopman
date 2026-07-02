@@ -77,6 +77,7 @@ def create_hold(
     target_date: date | None = None,
     reference: str | None = None,
     channel_ref: str | None = None,
+    apply_safety_margin: bool = True,
     **metadata,
 ) -> dict:
     """
@@ -86,6 +87,11 @@ def create_hold(
     (``allowed_positions`` / ``excluded_positions`` from ``ChannelConfig.stock``)
     is resolved and passed through to the Stockman hold so eligibility matches
     the availability read.
+
+    ``apply_safety_margin`` liga a margem de segurança do canal. É True na
+    RESERVA de carrinho (a margem protege a vitrine do oversell), mas deve ser
+    False no hold de COMMIT: um pedido já colocado pode consumir o buffer —
+    bloqueá-lo sub-reservaria uma venda real.
 
     Returns:
         {"success": bool, "hold_id": str | None, "error_code": str | None,
@@ -115,7 +121,7 @@ def create_hold(
     scope = get_channel_scope(channel_ref) if channel_ref else {}
     allowed_positions = scope.get("allowed_positions")
     excluded_positions = scope.get("excluded_positions")
-    safety_margin = int(scope.get("safety_margin") or 0)
+    safety_margin = int(scope.get("safety_margin") or 0) if apply_safety_margin else 0
 
     try:
         hold_id = stock.hold(

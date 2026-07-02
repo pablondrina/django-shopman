@@ -359,7 +359,7 @@ def _delivery_slot_in_past_error(slot: str, delivery_date: str) -> str | None:
     import re
     from datetime import date as _date
 
-    match = re.match(r"^\s*\d{1,2}:\d{2}\s*[-–]\s*(\d{1,2}):(\d{2})\s*$", slot or "")
+    match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})\s*$", slot or "")
     if not match:
         return None  # formato livre (ex.: "manhã") — sem eixo de hora para validar
     try:
@@ -367,9 +367,14 @@ def _delivery_slot_in_past_error(slot: str, delivery_date: str) -> str | None:
             return None
     except ValueError:
         return None
-    end_hour, end_minute = int(match.group(1)), int(match.group(2))
+    start = (int(match.group(1)), int(match.group(2)))
+    end = (int(match.group(3)), int(match.group(4)))
+    if end <= start:
+        # Slot cruza a meia-noite (ex.: 22:00-02:00): o fim é amanhã, então
+        # nunca "já passou" hoje. Sem eixo confiável — não bloquear.
+        return None
     now_local = timezone.localtime()
-    if (now_local.hour, now_local.minute) >= (end_hour, end_minute):
+    if (now_local.hour, now_local.minute) >= end:
         return "Esse horário já passou. Escolha outro horário de entrega."
     return None
 

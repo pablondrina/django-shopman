@@ -123,14 +123,31 @@ class LoyaltyRedeemHandler:
             logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer_ref, order_ref)
 
         except Exception as exc:
-            raise _redeem_directive_error(exc) from exc
+            raise _redeem_directive_error(exc, order_ref=order_ref, points=points) from exc
 
 
-def _redeem_directive_error(exc: Exception):
-    """Saldo insuficiente nunca se cura com retry → terminal; resto é transiente."""
+def _redeem_directive_error(exc: Exception, *, order_ref: str, points: int):
+    """Saldo insuficiente nunca se cura com retry → terminal; resto é transiente.
+
+    Mas o desconto de pontos JÁ foi aplicado ao total no commit — um terminal
+    silencioso é receita perdida invisível. Alertar o operador para conciliar.
+    """
     from shopman.guestman.exceptions import CustomerError
 
     if isinstance(exc, CustomerError) and getattr(exc, "code", "") == "LOYALTY_INSUFFICIENT_POINTS":
+        from shopman.shop.services.observability import create_operator_alert
+
+        create_operator_alert(
+            type="loyalty_redeem_uncovered",
+            severity="critical",
+            message=(
+                f"Pedido {order_ref} recebeu desconto de {points} pontos, mas o "
+                "saldo do cliente ficou insuficiente na hora de debitar (corrida "
+                "de resgate). O desconto foi dado sem baixa de pontos — conciliar."
+            ),
+            order_ref=order_ref,
+            dedupe_key=f"loyalty_redeem_uncovered:{order_ref}",
+        )
         return DirectiveTerminalError(str(exc))
     return DirectiveTransientError(str(exc))
 

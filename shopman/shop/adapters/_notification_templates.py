@@ -33,23 +33,30 @@ def db_template(event: str) -> tuple[str | None, str | None]:
     return (None, None)
 
 
+def render_template(tpl: str, context: dict) -> str:
+    """Renderiza um template com SafeFormatMap, degradando ao template cru.
+
+    ``str.format_map`` levanta ValueError/IndexError em chave malformada
+    (chave solta, ``{0}`` posicional, spec inválido) — e SafeFormatMap só
+    resgata chave AUSENTE. Um typo do lojista num assunto/corpo do Admin não
+    pode suprimir a mensagem inteira; melhor o template cru que silêncio.
+    """
+    try:
+        return tpl.format_map(SafeFormatMap(context or {}))
+    except Exception:
+        logger.debug("notification_templates: template render failed, using raw", exc_info=True)
+        return tpl
+
+
 def render_message(event: str, context: dict, fallback_templates: dict[str, str]) -> str:
     """Corpo da mensagem: Admin (DB) → fallback hardcoded do canal → genérico."""
-    ctx = SafeFormatMap(context or {})
-
     _, body = db_template(event)
     if body:
-        try:
-            return body.format_map(ctx)
-        except Exception:
-            logger.debug("notification_templates: DB body format failed for %s", event, exc_info=True)
+        return render_template(body, context)
 
     tpl = fallback_templates.get(event)
     if tpl:
-        try:
-            return tpl.format_map(ctx)
-        except Exception:
-            logger.debug("notification_templates: fallback format failed for %s", event, exc_info=True)
+        return render_template(tpl, context)
 
     order_ref = (context or {}).get("order_ref", "")
     return f"Notificacao: {event} — Pedido {order_ref}" if order_ref else f"Notificacao: {event}"

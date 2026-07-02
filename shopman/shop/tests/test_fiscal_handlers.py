@@ -94,11 +94,24 @@ def test_5xx_is_transient_and_4xx_is_terminal(order):
         )
 
 
-def test_retry_queries_before_reposting_and_adopts_orphan(order):
-    # 1ª tentativa deu timeout DEPOIS da SEFAZ autorizar. O retry deve
-    # consultar e adotar a nota existente — nunca re-POSTar (422 eterno).
-    backend = FakeBackend(query_result=AUTHORIZED)
+def test_first_emit_does_not_query_status(order):
+    # O dispatcher entrega a 1ª execução já com attempts=1. Ela NÃO pode
+    # gastar um query_status (custo/latência à toa) — emite direto.
+    backend = FakeBackend(emit_result=AUTHORIZED)
     NFCeEmitHandler(backend).handle(message=_emit_directive(order, attempts=1), ctx={})
+
+    assert backend.query_calls == 0
+    assert backend.emit_calls == 1
+    order.refresh_from_db()
+    assert order.data["nfce_access_key"] == AUTHORIZED.access_key
+
+
+def test_retry_queries_before_reposting_and_adopts_orphan(order):
+    # RETRY de verdade (attempts=2, re-claim após transiente): o POST anterior
+    # pode ter emitido e a resposta se perdido. Consulta e adota — nunca
+    # re-POSTa (422 eterno).
+    backend = FakeBackend(query_result=AUTHORIZED)
+    NFCeEmitHandler(backend).handle(message=_emit_directive(order, attempts=2), ctx={})
 
     assert backend.query_calls == 1
     assert backend.emit_calls == 0

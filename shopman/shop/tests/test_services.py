@@ -727,6 +727,7 @@ class TestPaymentService:
             "INT-PARTIAL",
             amount_q=3000,
             reason="order_cancelled",
+            idempotency_key="order-refund:ORD-001",
         )
 
     @patch("shopman.shop.services.payment._payman_refundable_amount", return_value=0)

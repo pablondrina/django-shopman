@@ -67,7 +67,10 @@ class NFCeEmitHandler:
 
         # Retry: o POST anterior pode ter emitido e a resposta se perdido
         # (timeout/worker morto). Consultar antes de re-POSTar com o mesmo ref.
-        if int(getattr(message, "attempts", 0) or 0) > 0:
+        # attempts > 1 (não > 0): o dispatcher incrementa attempts para 1 ANTES
+        # de chamar o handler, então a PRIMEIRA execução já chega com attempts=1;
+        # só a partir da 2ª (re-claim após transiente) é retry de verdade.
+        if int(getattr(message, "attempts", 0) or 0) > 1:
             if self._adopt_existing(order, order_ref):
                 return
 

@@ -81,3 +81,21 @@ def test_gateway_confirms_unpaid_allows_cancel(overdue_pix_order):
     assert cancelled is True
     overdue_pix_order.refresh_from_db()
     assert overdue_pix_order.status == Order.Status.CANCELLED
+
+
+def test_paid_promotion_dispatches_on_paid_once_under_double_resolve(overdue_pix_order):
+    """Dois resolvers concorrentes veem 'paid' mas on_paid dispara UMA vez
+    (lock + re-check de captured_at)."""
+    from unittest.mock import patch
+
+    paid = SimpleNamespace(success=True, transaction_id="txid-1", amount_q=5000, error_code="")
+    calls = []
+    with patch.object(payment_service, "get_adapter", return_value=_stub_adapter(paid)), \
+         patch("shopman.shop.lifecycle.dispatch", side_effect=lambda o, p: calls.append(p)):
+        s1 = payment_service.verify_gateway_before_timeout_cancel(overdue_pix_order)
+        # Segundo resolver, mesmo pedido, já promovido.
+        overdue_pix_order.refresh_from_db()
+        s2 = payment_service.verify_gateway_before_timeout_cancel(overdue_pix_order)
+
+    assert s1 == "paid" and s2 == "paid"
+    assert calls.count("on_paid") == 1  # nunca duplica

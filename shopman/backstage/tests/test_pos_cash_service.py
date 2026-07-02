@@ -214,3 +214,73 @@ def test_mixed_tender_change_comes_from_cash_not_electronic():
 
     assert tenders[0]["amount_q"] == 4000  # cash absorve o troco de 10
     assert tenders[1]["amount_q"] == 2000  # pix intocado
+
+
+@pytest.mark.django_db
+def test_cod_cash_counted_by_collecting_shift_not_creating_shift(operator):
+    """COD coletado por um turno diferente do que criou a venda é contado pelo
+    turno que COLETOU (regressão do code-review: o guard pos_shift_id cegava o
+    ramo COD e o dinheiro sumia dos dois fechamentos)."""
+    from shopman.orderman.models import Order
+
+    other_op = User.objects.create_user(username="cod-op-2", password="x", is_staff=True)
+    terminal_a = POSTerminal.default()
+    terminal_b = POSTerminal.objects.create(ref="pos-cod-2", label="POS 2", channel_ref=terminal_a.channel_ref)
+    shift_a = CashShift.objects.create(operator=operator, terminal=terminal_a, opening_amount_q=0)
+    shift_b = CashShift.objects.create(operator=other_op, terminal=terminal_b, opening_amount_q=0)
+
+    # Venda criada no turno A, COD coletado (settle) pelo turno B.
+    Order.objects.create(
+        ref="POS-COD-DIFF-SHIFT",
+        channel_ref=terminal_a.channel_ref,
+        session_key="pos-cod-diff",
+        total_q=3000,
+        data={
+            "pos": {"cash_shift_id": shift_a.pk},
+            "payment": {
+                "method": "cash",
+                "collection": "on_delivery",
+                "cash_received_q": 3000,
+                "cod_cash_shift_id": shift_b.pk,
+            },
+        },
+    )
+
+    shift_b.close(blind_closing_amount_q=3000)
+    assert shift_b.expected_amount_q == 3000  # B conta o que coletou
+
+    shift_a.close(blind_closing_amount_q=0)
+    assert shift_a.expected_amount_q == 0  # A não conta (não coletou)
+
+
+@pytest.mark.django_db
+def test_close_is_atomic_rolls_back_adoption_on_failure(operator, monkeypatch):
+    """Se o save final do turno falhar, as adoções de vendas órfãs revertem
+    (nenhum pedido fica carimbado a um turno que não fechou)."""
+    from shopman.orderman.models import Order
+
+    terminal = POSTerminal.default()
+    shift = CashShift.objects.create(operator=operator, terminal=terminal, opening_amount_q=0)
+    order = Order.objects.create(
+        ref="POS-ATOMIC-1",
+        channel_ref=terminal.channel_ref,
+        session_key="pos-atomic-1",
+        total_q=1000,
+        data={"payment": {"method": "cash", "collection": "terminal", "cash_received_q": 1000}},
+    )
+
+    # Falha no save final do turno (após o laço de adoção).
+    original_save = CashShift.save
+
+    def boom(self, *args, **kwargs):
+        if "expected_amount_q" in (kwargs.get("update_fields") or []):
+            raise RuntimeError("disco cheio")
+        return original_save(self, *args, **kwargs)
+
+    monkeypatch.setattr(CashShift, "save", boom)
+    with pytest.raises(RuntimeError):
+        shift.close(blind_closing_amount_q=1000)
+
+    # A adoção do pedido reverteu junto — não ficou carimbado.
+    order.refresh_from_db()
+    assert (order.data.get("pos") or {}).get("cash_shift_id") != shift.pk

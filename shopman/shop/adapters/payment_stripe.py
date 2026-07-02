@@ -202,9 +202,15 @@ def refund(
     *,
     amount_q: int | None = None,
     reason: str = "",
+    idempotency_key: str = "",
     **config,
 ) -> PaymentResult:
-    """Process refund via Stripe + PaymentService."""
+    """Process refund via Stripe + PaymentService.
+
+    ``idempotency_key`` é repassado ao Stripe (``Refund.create`` é idempotente
+    por essa chave), então um retry devolve o MESMO refund em vez de criar um
+    segundo — e o id estável volta como gateway_id p/ o Payman.
+    """
     from shopman.payman import PaymentError, PaymentService
 
     try:
@@ -220,6 +226,8 @@ def refund(
             refund_params["amount"] = amount_q
         if reason:
             refund_params["reason"] = "requested_by_customer"
+        if idempotency_key:
+            refund_params["idempotency_key"] = idempotency_key
 
         stripe_refund = stripe.Refund.create(**refund_params)
 

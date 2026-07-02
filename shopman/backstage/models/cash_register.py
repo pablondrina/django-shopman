@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 _POS_CHANNEL_REF: str = getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "pdv")
@@ -134,13 +134,19 @@ class CashShift(models.Model):
     def get_open_for_terminal(cls, terminal) -> CashShift | None:
         return cls.objects.filter(terminal=terminal, status=cls.Status.OPEN).first()
 
+    @transaction.atomic
     def close(
         self,
         *,
         blind_closing_amount_q: int | None = None,
         notes: str = "",
     ) -> None:
-        """Close the shift and compute expected_amount_q / difference_q."""
+        """Close the shift and compute expected_amount_q / difference_q.
+
+        Atômico: a adoção de vendas órfãs (order.save por venda no laço) e a
+        gravação do fechamento (expected/status) são tudo-ou-nada. Um crash no
+        meio não pode deixar pedidos carimbados a um turno que nunca fechou.
+        """
         from django.db.models import Sum
         from shopman.orderman.models import Order
 
@@ -161,20 +167,25 @@ class CashShift(models.Model):
             data = order.data or {}
             payment = (order.data or {}).get("payment") or {}
             pos_shift_id = _int_or_none((data.get("pos") or {}).get("cash_shift_id"))
-            # Venda de OUTRO turno nunca entra aqui — com dois terminais
-            # abertos no mesmo canal, o catch-all por created_at contaria a
-            # mesma venda nos dois fechamentos.
-            if pos_shift_id and pos_shift_id != self.pk:
-                continue
+            # Um dinheiro tagueado a OUTRO turno de criação (pos_shift_id) só é
+            # pulado no ramo SEM tag específica de coleta. COD e tenders trazem
+            # a tag de QUEM RECEBEU o dinheiro (cod_cash_shift_id / tender
+            # cash_shift_id) — essa tag decide, independente de quem criou a
+            # venda (senão o dinheiro coletado por B numa venda de A some).
+            created_by_other_shift = bool(pos_shift_id and pos_shift_id != self.pk)
+
             cash_received_q = payment.get("cash_received_q")
             if cash_received_q is not None:
                 cod_shift_id = _int_or_none(payment.get("cod_cash_shift_id"))
                 if cod_shift_id:
+                    # COD: conta o turno que COLETOU, não o que criou.
                     if cod_shift_id == self.pk:
                         cash_sales_q += int(cash_received_q or 0)
-                else:
-                    cash_sales_q += int(cash_received_q or 0)
-                    self._adopt_orphan_sale(order, pos_shift_id)
+                    continue
+                if created_by_other_shift:
+                    continue
+                cash_sales_q += int(cash_received_q or 0)
+                self._adopt_orphan_sale(order, pos_shift_id)
                 continue
             tenders = payment.get("tenders") or []
             if tenders:
@@ -183,16 +194,22 @@ class CashShift(models.Model):
                     if tender.get("method") != "cash" or tender.get("collection", "terminal") != "terminal":
                         continue
                     tender_shift_id = _int_or_none(tender.get("cash_shift_id"))
-                    if tender_shift_id and tender_shift_id != self.pk:
-                        continue
-                    if not tender_shift_id and order.created_at < self.opened_at:
-                        continue
+                    if tender_shift_id:
+                        # Tender com tag de coleta: só conta se for deste turno.
+                        if tender_shift_id != self.pk:
+                            continue
+                    else:
+                        # Tender sem tag pertence ao turno que criou a venda.
+                        if created_by_other_shift or order.created_at < self.opened_at:
+                            continue
                     cash_sales_q += int(tender.get("amount_q") or 0)
                     adopted = adopted or not tender_shift_id
                 if adopted:
                     self._adopt_orphan_sale(order, pos_shift_id)
                 continue
             if payment.get("method") == "cash" and payment.get("collection", "terminal") != "on_delivery":
+                if created_by_other_shift:
+                    continue
                 cash_sales_q += int(order.total_q or 0)
                 self._adopt_orphan_sale(order, pos_shift_id)
 

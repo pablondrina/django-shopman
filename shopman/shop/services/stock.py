@@ -25,6 +25,8 @@ import logging
 from datetime import date
 from decimal import Decimal
 
+from django.utils import timezone
+
 from shopman.shop.adapters import get_adapter
 from shopman.shop.services.order_helpers import get_commitment_date
 
@@ -107,14 +109,16 @@ def hold(order) -> None:
                 continue
 
             # 2) Fallback: create a fresh hold via the adapter for the remainder.
-            # channel_ref aplica o escopo do canal (excluded_positions, ex.: D-1
-            # staff-only) — sem ele o hold de resto ancoraria em posição vetada.
+            # channel_ref aplica o escopo de POSIÇÕES do canal (excluded_positions,
+            # ex.: D-1 staff-only). apply_safety_margin=False: a margem é buffer
+            # de vitrine — um pedido JÁ commitado pode consumi-la.
             result = adapter.create_hold(
                 sku=comp_sku,
                 qty=unmet_qty,
                 reference=f"order:{order.ref}",
                 target_date=target_date,
                 channel_ref=getattr(order, "channel_ref", None),
+                apply_safety_margin=False,
             )
             if not result.get("success"):
                 logger.warning(
@@ -216,30 +220,42 @@ def revert_fulfilled(order) -> None:
     chega DEPOIS do fulfill — ``release`` é no-op e o sistema ficaria abaixo
     do físico. Devolve exatamente as quantidades baixadas via RETURN move.
 
-    SYNC — roda no on_cancelled, uma única vez por pedido (fase de lifecycle).
+    SYNC — roda no on_cancelled. IDEMPOTENTE: marca os holds já revertidos em
+    ``order.data['reverted_hold_ids']`` para nunca devolver o mesmo estoque
+    duas vezes (o RETURN move não muda o status do hold, então sem essa marca
+    um on_cancelled re-disparado creditaria o estoque de novo).
     """
     hold_ids = (order.data or {}).get("hold_ids", [])
     if not hold_ids:
         return
 
+    already = set((order.data or {}).get("reverted_hold_ids") or [])
     adapter = get_adapter("stock")
+    reverted: list[str] = []
     for entry in hold_ids:
         hold_id = entry.get("hold_id")
         qty = entry.get("qty")
-        if not hold_id or not qty:
+        if not hold_id or not qty or hold_id in already:
             continue
         try:
-            adapter.return_fulfilled_hold(
+            if adapter.return_fulfilled_hold(
                 hold_id,
                 Decimal(str(qty)),
                 reference=f"cancel:{order.ref}",
                 reason=f"Cancelamento pós-baixa do pedido {order.ref}",
-            )
+            ):
+                reverted.append(hold_id)
         except Exception as exc:
             logger.warning(
                 "stock.revert_fulfilled: failed sku=%s order=%s: %s",
                 entry.get("sku"), order.ref, exc,
             )
+
+    if reverted:
+        data = dict(order.data or {})
+        data["reverted_hold_ids"] = list(already | set(reverted))
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
 
 
 def revert(order) -> None:
@@ -357,19 +373,29 @@ def _adopt_holds_for_qty(
     return adopted, unmet, overshoot_ids
 
 
+# TTL de backstop do hold adotado por um pedido: longo o bastante para o PIX
+# mais lento (e a confirmação do operador) NÃO expirar a reserva, mas finito —
+# um pedido que trava sem fulfill/release (worker morto, canal manual
+# abandonado) não pode reter estoque para sempre. release_expired reclama depois.
+_ORDER_HOLD_BACKSTOP_HOURS = 48
+
+
 def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     """Update Hold.metadata.reference from session_key to order ref.
 
     This is bookkeeping so the hold can be discovered later via
     `release_holds_for_reference("order:<ref>")` if needed.
 
-    Também remove o TTL de carrinho: o dono do hold agora é o pedido — ele
-    termina por fulfill/release, nunca por relógio (PIX lento não pode
-    devolver a unidade à vitrine com o pedido vivo).
+    Estende o TTL de carrinho para um backstop longo (não ``None``): o dono
+    passa a ser o pedido e o ciclo normal termina por fulfill/release; mas se
+    o pedido travar sem resolução, o hold ainda expira e devolve o estoque.
     """
+    from datetime import timedelta
+
     adapter = get_adapter("stock")
     adapter.retag_hold_reference(hold_id, f"order:{order_ref}")
-    adapter.extend_hold(hold_id, expires_at=None)
+    backstop = timezone.now() + timedelta(hours=_ORDER_HOLD_BACKSTOP_HOURS)
+    adapter.extend_hold(hold_id, expires_at=backstop)
 
 
 def _is_untracked(sku: str, prior_decisions: dict[str, dict], adapter) -> bool:

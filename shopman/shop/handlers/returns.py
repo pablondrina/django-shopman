@@ -110,7 +110,7 @@ class ReturnService:
 
     @classmethod
     @transaction.atomic
-    def process_refund(cls, order: Order, amount_q: int, actor: str) -> dict:
+    def process_refund(cls, order: Order, amount_q: int, actor: str, *, refund_reference: str = "") -> dict:
         from shopman.shop.services import payment as payment_service
 
         result = {"refund": None, "fiscal": None}
@@ -118,8 +118,14 @@ class ReturnService:
         if (order.data.get("payment") or {}).get("intent_ref"):
             try:
                 # Devolução PARCIAL estorna só o valor devolvido — nunca o
-                # saldo capturado inteiro.
-                payment_service.refund(order, amount_q=amount_q)
+                # saldo capturado inteiro. ``refund_reference`` (por índice de
+                # devolução) torna o estorno idempotente: um retry após crash
+                # entre o gateway e o save da flag NÃO estorna de novo.
+                payment_service.refund(
+                    order,
+                    amount_q=amount_q,
+                    idempotency_key=refund_reference or f"return:{order.ref}",
+                )
                 result["refund"] = {"success": True, "amount_q": amount_q}
                 order.emit_event(
                     event_type="refund_processed",
@@ -176,7 +182,12 @@ class ReturnHandler:
                     logger.exception("ReturnHandler: Failed to reverse stock for sku=%s order=%s", item["sku"], order_ref)
 
         try:
-            ReturnService.process_refund(order=order, amount_q=refund_total_q, actor="return.process")
+            ReturnService.process_refund(
+                order=order,
+                amount_q=refund_total_q,
+                actor="return.process",
+                refund_reference=f"return:{order_ref}:{return_index}",
+            )
         except Exception as exc:
             raise DirectiveTerminalError(f"Refund processing failed: {exc}") from exc
 

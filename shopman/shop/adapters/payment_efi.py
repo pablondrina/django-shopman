@@ -13,7 +13,6 @@ import ssl
 import uuid
 from base64 import b64encode
 from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -34,11 +33,10 @@ _EFI_TOKEN_TTL = 3300  # 55 min — EFI tokens last 1h
 
 
 def _brl_to_q(valor: str | float) -> int:
-    """Converte valor decimal da EFI ("4.35") em centavos SEM float.
+    """Converte valor decimal da EFI ("4.35") em centavos (canônico em utils)."""
+    from shopman.utils.monetary import brl_to_q
 
-    float("4.35") * 100 == 434.999… → int() truncaria para 434.
-    """
-    return int((Decimal(str(valor)) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return brl_to_q(valor)
 
 
 def _get_config() -> dict:
@@ -298,9 +296,18 @@ def refund(
     *,
     amount_q: int | None = None,
     reason: str = "",
+    idempotency_key: str = "",
     **config,
 ) -> PaymentResult:
-    """Process PIX refund via Efi gateway + PaymentService."""
+    """Process PIX refund via Efi gateway + PaymentService.
+
+    Quando ``idempotency_key`` é dado, o ``dev_id`` da devolução EFI é
+    DETERMINÍSTICO por chave — a devolução PIX da EFI é idempotente por
+    ``{dev_id}`` na URL, então um retry reapresenta a mesma devolução (não
+    estorna duas vezes) e o mesmo ``id`` volta como gateway_id p/ o Payman.
+    """
+    import hashlib
+
     from shopman.payman import PaymentError, PaymentService
 
     try:
@@ -333,7 +340,10 @@ def refund(
 
         e2eid = pix_list[0].get("endToEndId", "")
         valor = f"{amount_q / 100:.2f}" if amount_q else cob["valor"]["original"]
-        dev_id = uuid.uuid4().hex[:35]
+        if idempotency_key:
+            dev_id = hashlib.sha256(idempotency_key.encode()).hexdigest()[:35]
+        else:
+            dev_id = uuid.uuid4().hex[:35]
 
         response = _request("PUT", f"/v2/pix/{e2eid}/devolucao/{dev_id}", {"valor": valor})
 

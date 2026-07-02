@@ -197,6 +197,18 @@ class DeliveryZoneRule(BaseRule):
                 )
 
 
+def _normalize_city(value) -> str:
+    """Cidade comparável: sem acento, minúscula, sem espaços nas pontas.
+
+    'São Paulo' e 'Sao Paulo' (digitado à mão vs autocomplete do Google) têm
+    de casar — senão o antifraude bloqueia entrega legítima.
+    """
+    import unicodedata
+
+    text = str(value or "").strip().lower()
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
 def _coordinates_match_claimed_address(session_data: dict) -> bool:
     """Coerência antifraude: coordenadas alegadas × endereço alegado.
 
@@ -235,10 +247,10 @@ def _coordinates_match_claimed_address(session_data: dict) -> bool:
         return True
 
     resolved_cep = "".join(c for c in str(getattr(resolved, "postal_code", "") or "") if c.isdigit())
-    resolved_city = str(getattr(resolved, "city", "") or "").strip().lower()
+    resolved_city = _normalize_city(getattr(resolved, "city", ""))
     if claimed_cep and resolved_cep and claimed_cep[:5] == resolved_cep[:5]:
         return True
-    if claimed_city and resolved_city and claimed_city == resolved_city:
+    if claimed_city and resolved_city and _normalize_city(claimed_city) == resolved_city:
         return True
     logger.warning(
         "delivery_zone_rule: coordenadas não conferem com o endereço (cep %s×%s, cidade %s×%s)",
