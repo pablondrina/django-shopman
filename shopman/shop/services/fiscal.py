@@ -16,25 +16,26 @@ from shopman.shop.fiscal import fiscal_pool
 logger = logging.getLogger(__name__)
 
 
-def _default_should_emit(order) -> bool:
+def _default_emission_decision(order) -> bool:
     """Fallback quando não há resolver configurado: emite se o operador optou por emitir
     (``order.data['fiscal']['issue_document']``)."""
     return bool(((order.data or {}).get("fiscal") or {}).get("issue_document"))
 
 
-def should_emit(order) -> bool:
+def emission_resolver(order) -> bool:
     """Decide SE a NFC-e deve ser emitida para este pedido.
 
     Delega a um resolver Python plugável (``settings.SHOPMAN_FISCAL_EMISSION_RESOLVER``,
     caminho pontilhado para ``callable(order) -> bool``). O resolver centraliza a regra
     de negócio (ex.: emitir só acima de X, só em certos canais, só com CPF na nota…) sem
     tocar no fluxo. AUSENTE (ou com erro) → cai no fallback padrão (opt-in do operador).
+    Exemplos prontos em ``shopman.shop.fiscal_resolvers``.
     """
     from django.conf import settings
 
     path = getattr(settings, "SHOPMAN_FISCAL_EMISSION_RESOLVER", "") or ""
     if not path:
-        return _default_should_emit(order)
+        return _default_emission_decision(order)
     try:
         from django.utils.module_loading import import_string
 
@@ -42,8 +43,8 @@ def should_emit(order) -> bool:
         return bool(resolver(order))
     except Exception:
         # Resolver quebrado NÃO deve travar o pedido — cai no fallback e registra.
-        logger.warning("fiscal.should_emit: resolver %s falhou; usando fallback", path, exc_info=True)
-        return _default_should_emit(order)
+        logger.warning("fiscal.emission_resolver: %s falhou; usando fallback", path, exc_info=True)
+        return _default_emission_decision(order)
 
 
 def emit(order) -> None:
@@ -62,7 +63,7 @@ def emit(order) -> None:
     if data.get("nfce_access_key"):
         return
 
-    if not should_emit(order):
+    if not emission_resolver(order):
         return
 
     payment = dict(data.get("payment", {}) or {})

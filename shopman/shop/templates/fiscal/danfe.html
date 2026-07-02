@@ -41,12 +41,18 @@
       text-transform: uppercase; letter-spacing: .04em; background: #1f7a4d1a; color: #1f7a4d;
     }
     .empty { text-align: center; color: var(--dim); padding: 20px 0; }
-    .toolbar { max-width: 320px; margin: 0 auto 12px; display: flex; justify-content: flex-end; }
+    .toolbar { max-width: 320px; margin: 0 auto 12px; display: flex; justify-content: flex-end; gap: 8px; }
     .print-btn {
       font: inherit; font-size: 12px; cursor: pointer; border: 1px solid var(--rule); background: #fff;
-      color: var(--ink); padding: 7px 14px; border-radius: 6px;
+      color: var(--ink); padding: 7px 14px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center;
     }
     .print-btn:hover { background: var(--paper); }
+    .print-btn.primary { border-color: #1f7a4d; background: #1f7a4d; color: #fff; font-weight: 700; }
+    .print-btn.primary:hover { background: #1a6a43; }
+    .preview-note {
+      margin: 0 0 12px; padding: 7px 10px; text-align: center; font-size: 10.5px; line-height: 1.35;
+      color: var(--dim); background: #6b63570f; border-radius: 4px;
+    }
     @media print {
       body { background: #fff; padding: 0; }
       .toolbar { display: none; }
@@ -56,10 +62,17 @@
 </head>
 <body>
   <div class="toolbar" x-data>
-    <button type="button" class="print-btn" @click="window.print()">🖨 Imprimir</button>
+    {% if d.danfe_url %}
+    <!-- O DANFE oficial é o que o Focus/SEFAZ entregam — ação primária quando existe. -->
+    <a class="print-btn primary" href="{{ d.danfe_url }}" target="_blank" rel="noopener">📄 DANFE oficial (Focus)</a>
+    {% endif %}
+    <button type="button" class="print-btn" @click="window.print()">🖨 Imprimir prévia</button>
   </div>
 
   <div class="cupom">
+    {% if d.danfe_url %}
+    <p class="preview-note">Prévia interna. O documento oficial é o <strong>DANFE do Focus/SEFAZ</strong> (botão acima).</p>
+    {% endif %}
     {% if d.is_homolog %}
     <p class="homolog">EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO<br />SEM VALOR FISCAL</p>
     {% endif %}
@@ -125,12 +138,6 @@
       {% if d.protocol %}<div class="muted" style="font-size:11px">Protocolo de autorização: {{ d.protocol }}</div>{% endif %}
       <div style="margin-top:8px"><span class="status-badge">{{ d.status }} · {{ d.environment_label }}</span></div>
     </div>
-
-    {% if d.danfe_url %}
-    <div class="center" style="margin-top:10px">
-      <a class="muted" href="{{ d.danfe_url }}" target="_blank" rel="noopener" style="font-size:11px">Abrir DANFE oficial (Focus NFe) ↗</a>
-    </div>
-    {% endif %}
     {% else %}
     <hr class="rule" />
     <div class="empty">
