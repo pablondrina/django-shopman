@@ -25,25 +25,30 @@ def _default_emission_decision(order) -> bool:
 def emission_resolver(order) -> bool:
     """Decide SE a NFC-e deve ser emitida para este pedido.
 
-    Delega a um resolver Python plugável (``settings.SHOPMAN_FISCAL_EMISSION_RESOLVER``,
-    caminho pontilhado para ``callable(order) -> bool``). O resolver centraliza a regra
-    de negócio (ex.: emitir só acima de X, só em certos canais, só com CPF na nota…) sem
-    tocar no fluxo. AUSENTE (ou com erro) → cai no fallback padrão (opt-in do operador).
-    Exemplos prontos em ``shopman.shop.fiscal_resolvers``.
+    Delega a resolver(es) Python plugáveis (``settings.SHOPMAN_FISCAL_EMISSION_RESOLVER``,
+    caminho pontilhado para ``callable(order) -> bool``). Centraliza a regra de negócio
+    (acima de X, certos canais, com CPF na nota, forma de pagamento, ambiente…) sem tocar
+    no fluxo. AUSENTE (ou com erro) → fallback padrão (opt-in do operador).
+
+    **Vários resolvers**: separe por vírgula → combinados por OR (emite se QUALQUER um
+    disser sim), ex.: ``"...on_request_or_tax_id,...card_payment"``. Para AND/NOT ou
+    lógica composta, use os combinadores (``any_of``/``all_of``/``not_``) num resolver
+    próprio. Exemplos prontos em ``shopman.shop.fiscal_resolvers``.
     """
     from django.conf import settings
 
-    path = getattr(settings, "SHOPMAN_FISCAL_EMISSION_RESOLVER", "") or ""
-    if not path:
+    raw = getattr(settings, "SHOPMAN_FISCAL_EMISSION_RESOLVER", "") or ""
+    paths = [p.strip() for p in str(raw).split(",") if p.strip()]
+    if not paths:
         return _default_emission_decision(order)
     try:
         from django.utils.module_loading import import_string
 
-        resolver = import_string(path)
-        return bool(resolver(order))
+        resolvers = [import_string(p) for p in paths]
+        return any(bool(r(order)) for r in resolvers)  # múltiplos = OR
     except Exception:
         # Resolver quebrado NÃO deve travar o pedido — cai no fallback e registra.
-        logger.warning("fiscal.emission_resolver: %s falhou; usando fallback", path, exc_info=True)
+        logger.warning("fiscal.emission_resolver: %s falhou; usando fallback", raw, exc_info=True)
         return _default_emission_decision(order)
 
 
