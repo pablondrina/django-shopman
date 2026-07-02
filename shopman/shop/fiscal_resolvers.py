@@ -105,6 +105,14 @@ def card_payment(order) -> bool:
     return method in {"card", "credit", "debit"}
 
 
+def eletronic_payment(order) -> bool:
+    """Emite quando o pagamento é ELETRÔNICO (PIX ou cartão) — deixa rastro, então nota.
+    Dinheiro/externo ficam de fora. Pronto p/ apontar direto (bom em OR com
+    on_request_or_tax_id)."""
+    method = str(((order.data or {}).get("payment") or {}).get("method") or "").lower()
+    return method in {"pix", "card", "credit", "debit"}
+
+
 def payment_methods(*methods: str):
     """Fábrica: emite quando a forma de pagamento está no conjunto.
 

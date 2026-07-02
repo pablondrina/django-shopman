@@ -46,11 +46,19 @@ def test_fallback_without_resolver_uses_issue_document():
     assert emission_resolver(_order(fiscal={})) is False
 
 
+@override_settings(SHOPMAN_FISCAL_EMISSION_RESOLVER="shopman.shop.fiscal_resolvers.on_request_or_tax_id")
 def test_default_resolver_is_on_request_or_tax_id():
-    # Padrão do settings (sem override): emite se pediu OU se há CPF/CNPJ.
+    # Padrão do código: emite se pediu OU se há CPF/CNPJ (respeita o toggle do PDV).
     assert emission_resolver(_order(fiscal={"issue_document": True})) is True
     assert emission_resolver(_order(customer={"tax_id": "12345678909"})) is True
     assert emission_resolver(_order(fiscal={}, customer={})) is False
+
+
+def test_example_eletronic_payment():
+    r = fiscal_resolvers.eletronic_payment
+    assert r(_order(payment={"method": "pix"})) is True
+    assert r(_order(payment={"method": "credit"})) is True
+    assert r(_order(payment={"method": "cash"})) is False
 
 
 @override_settings(SHOPMAN_FISCAL_EMISSION_RESOLVER=f"{_HERE}.resolver_always_true")
