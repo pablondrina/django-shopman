@@ -214,7 +214,10 @@ def _build_nfce_payload(
     payment: dict,
     additional_info: str | None,
 ) -> dict:
-    # Taxa de entrega não é produto: sai dos itens e entra como frete da nota.
+    # Taxa de entrega fica FORA do documento fiscal: a SEFAZ-PR rejeita
+    # NFC-e com frete ("NFC-e com Frete", validado em homologação) e a taxa
+    # não é produto. A nota cobre só as mercadorias; o pagamento declarado é
+    # reduzido na mesma medida (formas_pagamento deve bater com valor_total).
     fee_items = [item for item in items if _is_delivery_fee_item(item)]
     merchandise = [item for item in items if not _is_delivery_fee_item(item)]
     freight_q = sum(int(item.get("total_q") or 0) for item in fee_items)
@@ -224,8 +227,9 @@ def _build_nfce_payload(
 
     mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(merchandise, start=1)]
     product_total_q = _sum_focus_money_q(mapped_items, "valor_bruto")
+    payment = _payment_without_fee(payment, freight_q)
     payment_total_q = _payment_total_q(payment)
-    note_total_q = payment_total_q or (product_total_q + freight_q)
+    note_total_q = payment_total_q or product_total_q
 
     payload = {
         "cnpj_emitente": _focus_cnpj_emitente(config),
@@ -242,14 +246,13 @@ def _build_nfce_payload(
         "items": mapped_items,
         "formas_pagamento": _payment_forms(payment),
     }
-    if freight_q > 0:
-        payload["valor_frete"] = _money_q(freight_q)
-        # Com frete, "sem ocorrência de transporte" (9) é inválido; o default
-        # vira transporte próprio do emitente (0). Validar em homologação.
-        if payload["modalidade_frete"] == "9":
-            payload["modalidade_frete"] = str(config.get("modalidade_frete_com_taxa") or "0")
-    if product_total_q + freight_q > note_total_q:
-        payload["valor_desconto"] = _money_q(product_total_q + freight_q - note_total_q)
+    # SEFAZ valida vDesc do TOTAL contra o somatório dos itens (confirmado em
+    # homologação): o desconto é rateado por item, proporcional ao valor
+    # bruto, com o resíduo do arredondamento no último item.
+    discount_q = product_total_q - note_total_q
+    if discount_q > 0:
+        payload["valor_desconto"] = _money_q(discount_q)
+        _apportion_over_items(mapped_items, discount_q, field="valor_desconto")
     if config.get("serie_nfce"):
         payload["serie"] = str(config["serie_nfce"])
     if additional_info:
@@ -259,6 +262,60 @@ def _build_nfce_payload(
         payload.get("informacoes_adicionais_contribuinte") or f"Pedido {reference}"
     )
     return payload
+
+
+def _payment_without_fee(payment: dict, freight_q: int) -> dict:
+    """Reduz a taxa de entrega do pagamento declarado na nota.
+
+    A taxa fica fora do documento; o dinheiro/PIX que a cobre também. A
+    redução sai do tender em dinheiro primeiro (mesma regra do caixa) e do
+    último tender em último caso.
+    """
+    if freight_q <= 0:
+        return payment
+    adjusted = dict(payment or {})
+    if adjusted.get("amount_q"):
+        adjusted["amount_q"] = max(int(adjusted["amount_q"]) - freight_q, 0)
+    tenders = adjusted.get("tenders")
+    if isinstance(tenders, list) and tenders:
+        tenders = [dict(t) for t in tenders]
+        remaining = freight_q
+        ordered = [t for t in reversed(tenders) if str(t.get("method") or "").lower() == "cash"] + [
+            t for t in reversed(tenders) if str(t.get("method") or "").lower() != "cash"
+        ]
+        for tender in ordered:
+            if remaining <= 0:
+                break
+            current = int(tender.get("amount_q") or 0)
+            cut = min(current, remaining)
+            tender["amount_q"] = current - cut
+            remaining -= cut
+        adjusted["tenders"] = [t for t in tenders if int(t.get("amount_q") or 0) > 0]
+    return adjusted
+
+
+def _apportion_over_items(mapped_items: list[dict], total_q: int, *, field: str) -> None:
+    """Rateia ``total_q`` (centavos) pelos itens, proporcional ao valor bruto.
+
+    O resíduo do arredondamento vai no último item — a soma dos rateios bate
+    EXATAMENTE com o total da nota, que é o que a SEFAZ valida.
+    """
+    weights = [_money_to_q(item.get("valor_bruto")) for item in mapped_items]
+    weight_sum = sum(weights) or len(mapped_items)
+    allocated = 0
+    for idx, item in enumerate(mapped_items):
+        if idx == len(mapped_items) - 1:
+            share = total_q - allocated
+        else:
+            share = (total_q * weights[idx]) // weight_sum
+        allocated += share
+        if share > 0:
+            item[field] = _money_q(share)
+
+
+def _money_to_q(value) -> int:
+    """"10.00" (formato Focus) → 1000 centavos."""
+    return int((Decimal(str(value or "0")) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _is_delivery_fee_item(item: dict) -> bool:

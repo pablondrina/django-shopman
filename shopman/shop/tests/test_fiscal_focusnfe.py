@@ -215,7 +215,7 @@ def test_focus_nfe_request_uses_homologation_basic_auth_and_json():
 
 
 @override_settings(SHOPMAN_FOCUS_NFE=_settings())
-def test_focus_nfe_delivery_fee_becomes_freight_not_item():
+def test_focus_nfe_delivery_fee_stays_out_of_the_document():
     from shopman.shop.adapters.fiscal_focusnfe import FocusNFeBackend
 
     captured = {}
@@ -246,11 +246,15 @@ def test_focus_nfe_delivery_fee_becomes_freight_not_item():
 
     assert result.success is True
     payload = captured["payload"]
+    # SEFAZ-PR rejeita NFC-e com frete ("NFC-e com Frete", homologação
+    # 2026-07-02): a taxa fica FORA do documento — nota e pagamento cobrem
+    # só as mercadorias.
     assert len(payload["items"]) == 1  # taxa NÃO é item
-    assert payload["valor_frete"] == "6.00"
+    assert "valor_frete" not in payload
     assert payload["valor_produtos"] == "10.00"
-    assert payload["valor_total"] == "16.00"
-    assert payload["modalidade_frete"] != "9"  # frete presente exige modalidade
+    assert payload["valor_total"] == "10.00"
+    assert payload["formas_pagamento"] == [{"forma_pagamento": "17", "valor_pagamento": "10.00"}]
+    assert payload["modalidade_frete"] == "9"  # sem ocorrência de transporte
 
 
 @override_settings(SHOPMAN_FOCUS_NFE=_settings())
