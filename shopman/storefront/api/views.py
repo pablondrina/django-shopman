@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 
 from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
@@ -40,7 +38,9 @@ def _cart_data(request):
     return build_cart(request.session.get("cart_session_key"), CHANNEL_REF)
 
 
-@method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
+# Rate-limit MANUAL (is_ratelimited): só a tentativa que chega ao commit
+# incrementa o contador — cliente corrigindo erro de formulário não pode
+# tomar 429 no momento mais crítico do pedido.
 class CheckoutView(APIView):
     """
     POST /api/v1/checkout/
@@ -63,16 +63,8 @@ class CheckoutView(APIView):
         },
     )
     def post(self, request):
-        if getattr(request, "limited", False):
-            return Response(
-                {
-                    "detail": "Muitas tentativas. Aguarde alguns minutos.",
-                    "error_code": "rate_limited",
-                    "retry_after_seconds": CHECKOUT_RATE_LIMIT_RETRY_SECONDS,
-                },
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-                headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
-            )
+        if self._rate_limited(request, increment=False):
+            return self._rate_limited_response()
 
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -285,6 +277,10 @@ class CheckoutView(APIView):
                 logger.debug("views.post degraded; using fallback", exc_info=True)
                 pass
 
+        # Passou por todas as validações: agora sim a tentativa CONTA.
+        if self._rate_limited(request, increment=True):
+            return self._rate_limited_response()
+
         try:
             result = checkout_service.process(
                 session_key=session_key,
@@ -331,6 +327,31 @@ class CheckoutView(APIView):
             }
         ).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _rate_limited(request, *, increment: bool) -> bool:
+        from django_ratelimit.core import is_ratelimited
+
+        return is_ratelimited(
+            request,
+            group="storefront.checkout",
+            key="user_or_ip",
+            rate="3/m",
+            method="POST",
+            increment=increment,
+        )
+
+    @staticmethod
+    def _rate_limited_response() -> Response:
+        return Response(
+            {
+                "detail": "Muitas tentativas. Aguarde alguns minutos.",
+                "error_code": "rate_limited",
+                "retry_after_seconds": CHECKOUT_RATE_LIMIT_RETRY_SECONDS,
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
+        )
 
 
 def _delivery_slot_in_past_error(slot: str, delivery_date: str) -> str | None:

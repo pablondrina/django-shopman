@@ -153,47 +153,9 @@ def _build_message(template: str, context: dict) -> str:
         f"\nPeca de novo: {ctx['reorder_url']}" if ctx.get("reorder_url") else ""
     )
 
-    # 1. Try DB template
-    tpl_body = _load_db_template(template)
-    if tpl_body:
-        try:
-            return tpl_body.format_map(_SafeFormatMap(ctx))
-        except Exception:
-            logger.debug("manychat._build_message: DB template format failed for %s", template, exc_info=True)
+    from shopman.shop.adapters._notification_templates import render_message
 
-    # 2. Hardcoded fallback
-    tpl = MESSAGE_TEMPLATES.get(template)
-    if tpl:
-        try:
-            return tpl.format_map(_SafeFormatMap(ctx))
-        except Exception:
-            logger.debug("manychat._build_message: hardcoded template format failed for %s", template, exc_info=True)
-
-    # 3. Generic fallback
-    order_ref = context.get("order_ref", "")
-    if order_ref:
-        return f"Notificacao: {template} — Pedido {order_ref}"
-    return f"Notificacao: {template}"
-
-
-class _SafeFormatMap(dict):
-    """dict subclass that returns '{key}' for missing keys instead of raising KeyError."""
-
-    def __missing__(self, key: str) -> str:
-        return f"{{{key}}}"
-
-
-def _load_db_template(event: str) -> str | None:
-    """Return the body of an active NotificationTemplate for the given event, or None."""
-    try:
-        from shopman.shop.models import NotificationTemplate
-
-        obj = NotificationTemplate.objects.filter(event=event, is_active=True).first()
-        if obj:
-            return obj.body
-    except Exception:
-        logger.debug("manychat._load_db_template: lookup failed for event=%s", event, exc_info=True)
-    return None
+    return render_message(template, ctx, MESSAGE_TEMPLATES)
 
 
 def _load_db_flow_ns(event: str) -> str | None:

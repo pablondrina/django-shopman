@@ -200,3 +200,59 @@ def test_commit_rejects_when_total_drifted_from_display(channel):
         expected_total_q=shown_total_q,
     )
     assert result.total_q == shown_total_q
+
+
+def test_spoofed_coordinates_blocked_at_commit(channel, monkeypatch):
+    """Antifraude: lat/lng "perto da loja" com CEP de outra cidade não commita.
+
+    A taxa por distância confia na coordenada do browser; o servidor agora
+    reverte a coordenada (geocode server-side) e exige coerência com o CEP/
+    cidade alegados.
+    """
+    from types import SimpleNamespace
+
+    from shopman.orderman.exceptions import ValidationError as OrderingValidationError
+
+    from shopman.shop.rules import validation as validation_module
+
+    monkeypatch.setattr(
+        "shopman.shop.services.geocoding.reverse_geocode",
+        lambda lat, lng: SimpleNamespace(postal_code="86010-000", city="Londrina"),
+    )
+
+    session_data = {
+        "fulfillment_type": "delivery",
+        "delivery_fee_q": 100,  # menor taxa, "conquistada" com coordenada forjada
+        "delivery_address_structured": {
+            "postal_code": "01310-100",  # alegou Av. Paulista, SP
+            "city": "São Paulo",
+            "latitude": -23.31, "longitude": -51.16,  # mas a coordenada é Londrina
+        },
+    }
+    session = SimpleNamespace(data=session_data, items=[], pricing={})
+
+    with pytest.raises(OrderingValidationError) as exc_info:
+        validation_module.DeliveryZoneRule().validate(channel=None, session=session, ctx={})
+    assert exc_info.value.code == "delivery_address_mismatch"
+
+
+def test_coherent_coordinates_pass(channel, monkeypatch):
+    from types import SimpleNamespace
+
+    from shopman.shop.rules import validation as validation_module
+
+    monkeypatch.setattr(
+        "shopman.shop.services.geocoding.reverse_geocode",
+        lambda lat, lng: SimpleNamespace(postal_code="86050-270", city="Londrina"),
+    )
+    session_data = {
+        "fulfillment_type": "delivery",
+        "delivery_fee_q": 600,
+        "delivery_address_structured": {
+            "postal_code": "86050-999",  # mesmo prefixo de 5 dígitos
+            "city": "Londrina",
+            "latitude": -23.31, "longitude": -51.16,
+        },
+    }
+    session = SimpleNamespace(data=session_data, items=[], pricing={})
+    validation_module.DeliveryZoneRule().validate(channel=None, session=session, ctx={})

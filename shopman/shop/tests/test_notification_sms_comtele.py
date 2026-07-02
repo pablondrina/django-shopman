@@ -12,6 +12,7 @@ import io
 import json
 from unittest.mock import patch
 
+import pytest
 from django.test import override_settings
 
 from shopman.shop.adapters import notification_sms
@@ -70,3 +71,22 @@ def test_send_returns_false_when_comtele_flags_error():
 
     with patch("shopman.shop.adapters.notification_sms.urlopen", side_effect=fake_urlopen):
         assert notification_sms.send("+5543999990001", "order_confirmed", {}) is False
+
+
+@pytest.mark.django_db
+@override_settings(SHOPMAN_SMS=COMTELE_SETTINGS)
+def test_admin_template_wins_over_hardcoded_for_sms():
+    """O texto editado no Admin (NotificationTemplate) vale para SMS e e-mail —
+    não só para WhatsApp/ManyChat (regressão do audit)."""
+    from shopman.shop.models import NotificationTemplate
+
+    NotificationTemplate.objects.create(
+        event="order_confirmed",
+        subject="Pedido {order_ref} confirmado",
+        body="Oi! Seu pedido {order_ref} está confirmado. Obrigado!",
+        is_active=True,
+    )
+
+    assert notification_sms._build_message(
+        "order_confirmed", {"order_ref": "ORD-9"}
+    ) == "Oi! Seu pedido ORD-9 está confirmado. Obrigado!"

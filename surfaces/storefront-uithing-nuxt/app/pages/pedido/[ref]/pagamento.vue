@@ -51,16 +51,26 @@ const pixUrgent = computed(() => isCountdownUrgent(pixPct.value))
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
 let expiryHandled = false
+// Sinal de offline: 3 polls seguidos falhando (~24s) = o countdown do PIX
+// está rodando às cegas — o cliente precisa saber que estamos sem conexão.
+const failedPolls = ref(0)
+const connectionLost = computed(() => failedPolls.value >= 3)
 onMounted(() => {
   tick = setInterval(() => { clientNow.value = Date.now() }, 1000)
   poll = setInterval(async () => {
     if (!shouldPollPayment(payment.value)) return
     const status = await $fetch<PaymentStatusResponse>(apiPath(`/api/v1/payment/${encodeURIComponent(orderRef.value)}/status/`), {
-      credentials: 'include'
+      credentials: 'include',
+      timeout: 7000
     }).catch(() => null)
-    if (status?.should_redirect) {
+    if (status === null) {
+      failedPolls.value += 1
+      return
+    }
+    failedPolls.value = 0
+    if (status.should_redirect) {
       await navigateTo(localRouteFromBackend(status.redirect_url))
-    } else if (status) {
+    } else {
       await refresh()
     }
   }, 8000)
@@ -218,6 +228,9 @@ useSeoMeta({
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
                   <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
 
+                  <p v-if="connectionLost" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400" role="status">
+                    Sem conexão no momento — se você já pagou, a confirmação chega assim que a internet voltar.
+                  </p>
                   <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer" aria-live="polite">
                     <div class="flex items-center justify-between shop-body">
                       <span class="text-muted-foreground">Tempo para pagar</span>

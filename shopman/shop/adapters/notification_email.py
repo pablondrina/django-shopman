@@ -152,26 +152,25 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
     Returns:
         True if sent successfully, False otherwise.
     """
+    from shopman.shop.adapters._notification_templates import (
+        SafeFormatMap,
+        db_template,
+        render_message,
+    )
+
     ctx = _enrich_context(context or {})
 
-    subject_tpl = SUBJECT_TEMPLATES.get(template, f"Notificacao: {template}")
-    try:
-        subject = subject_tpl.format(**ctx)
-    except KeyError:
-        subject = subject_tpl
+    # Assunto e corpo editados no Admin (NotificationTemplate) valem para
+    # e-mail também; os dicts hardcoded são o fallback.
+    db_subject, _ = db_template(template)
+    subject_tpl = db_subject or SUBJECT_TEMPLATES.get(template, f"Notificacao: {template}")
+    subject = subject_tpl.format_map(SafeFormatMap(ctx))
 
     subject_prefix = config.get("subject_prefix", "")
     if subject_prefix:
         subject = f"{subject_prefix} {subject}"
 
-    body_tpl = BODY_TEMPLATES.get(template)
-    if body_tpl:
-        try:
-            body = body_tpl.format(**ctx)
-        except KeyError:
-            body = f"Evento: {template}\nPedido: {ctx.get('order_ref', 'N/A')}"
-    else:
-        body = f"Evento: {template}\nPedido: {ctx.get('order_ref', 'N/A')}"
+    body = render_message(template, ctx, BODY_TEMPLATES)
 
     try:
         html_body = _render_html(template, context or {})

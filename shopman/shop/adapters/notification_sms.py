@@ -48,13 +48,10 @@ def _get_config() -> dict:
 
 
 def _build_message(template: str, context: dict) -> str:
-    tpl = MESSAGE_TEMPLATES.get(template)
-    if tpl:
-        try:
-            return tpl.format(**context)
-        except KeyError:
-            pass
-    return f"Shopman: {template} - {context.get('order_ref', 'N/A')}"
+    # O texto editado no Admin (NotificationTemplate) vale para SMS também.
+    from shopman.shop.adapters._notification_templates import render_message
+
+    return render_message(template, context, MESSAGE_TEMPLATES)
 
 
 def send(recipient: str, template: str, context: dict | None = None, **config) -> bool:
