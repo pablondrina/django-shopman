@@ -807,7 +807,7 @@ SHOPMAN_FISCAL_ADAPTER = os.environ.get("SHOPMAN_FISCAL_ADAPTER") or None
 # informou CPF/CNPJ ("CPF na nota"). Pablo redefine no go-live via env.
 SHOPMAN_FISCAL_EMISSION_RESOLVER = (
     os.environ.get("SHOPMAN_FISCAL_EMISSION_RESOLVER")
-    or "shopman.shop.fiscal_resolvers.always"
+    or "shopman.shop.fiscal_resolvers.on_request_or_tax_id"
 )
 SHOPMAN_FOCUS_NFE = {
     "environment": os.environ.get("FOCUS_NFE_ENVIRONMENT", "homologacao").strip().lower() or "homologacao",
