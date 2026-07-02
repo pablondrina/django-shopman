@@ -237,6 +237,14 @@ envs:
     value: "true"
     scope: RUN_TIME
     type: GENERAL
+  # Fiscal (NFC-e) — resolver replicado do .env local (composição em OR: emite se o
+  # operador pediu/CPF na nota OU o pagamento foi eletrônico). SHOPMAN_FISCAL_ADAPTER
+  # segue SEM valor aqui de propósito — sem adapter, fiscal.emit() é no-op e o resolver
+  # não roda ainda. Ligar o adapter (+ FOCUS_NFE_TOKEN/CNPJ) é decisão separada do Pablo.
+  - key: SHOPMAN_FISCAL_EMISSION_RESOLVER
+    value: "shopman.shop.fiscal_resolvers.on_request_or_tax_id,shopman.shop.fiscal_resolvers.eletronic_payment"
+    scope: RUN_TIME
+    type: GENERAL
   - key: STRIPE_CAPTURE_METHOD
     value: manual
     scope: RUN_TIME
