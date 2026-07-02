@@ -109,6 +109,8 @@ def requeue_fiscal_emission(order, *, actor: str):
         raise OrderError("NFC-e já autorizada.")
     if not ((order.data or {}).get("fiscal") or {}).get("issue_document"):
         raise OrderError("Pedido não solicitou documento fiscal.")
+    if str(order.status) in ("cancelled", "returned"):
+        raise OrderError("Pedido cancelado/devolvido não emite NFC-e.")
 
     directive = (
         Directive.objects.filter(topic=FISCAL_EMIT_NFCE, payload__order_ref=order.ref)

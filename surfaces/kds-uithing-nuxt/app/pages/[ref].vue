@@ -194,10 +194,15 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <p v-if="pending && !view" class="text-sm text-muted-foreground">Carregando…</p>
-      <p v-else-if="error" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
+      <!-- Erro com dados em cache NUNCA apaga o board: um blip de 1 poll não
+           pode esconder os tickets da cozinha — banner acima, cards embaixo. -->
+      <p v-if="error && !view" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
         Falha ao carregar o board. Reconectando…
       </p>
-      <template v-else-if="view">
+      <p v-else-if="error && view" class="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+        Sem conexão — mostrando o último estado. Reconectando…
+      </p>
+      <template v-if="view">
         <!-- cancelled (loud — único lugar onde o vermelho é alerta de verdade) -->
         <div v-if="view.cancelled.length" class="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4">

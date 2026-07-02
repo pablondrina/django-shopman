@@ -54,12 +54,20 @@ class LoyaltyEarnHandler:
             # Enroll if not yet enrolled (idempotent)
             adapter.enroll_loyalty(customer_ref)
 
+            reference = f"order:{order.ref}"
+            # At-least-once: retry da directive não pode creditar duas vezes.
+            if adapter.has_loyalty_transaction(
+                customer_ref, reference=reference, transaction_type="earn"
+            ):
+                logger.info("loyalty.earn: already credited for %s, skipping", reference)
+                return
+
             # Award points
             adapter.earn_points(
                 customer_ref=customer_ref,
                 points=points,
                 description=f"Pedido {order.ref}",
-                reference=f"order:{order.ref}",
+                reference=reference,
                 created_by="system",
             )
 
@@ -95,18 +103,36 @@ class LoyaltyRedeemHandler:
 
         try:
             adapter = get_adapter("customer")
+
+            reference = f"order:{order_ref}"
+            # At-least-once: retry da directive não pode debitar duas vezes.
+            if adapter.has_loyalty_transaction(
+                customer_ref, reference=reference, transaction_type="redeem"
+            ):
+                logger.info("loyalty.redeem: already debited for %s, skipping", reference)
+                return
+
             adapter.redeem_points(
                 customer_ref=customer_ref,
                 points=points,
                 description=f"Resgate pedido {order_ref}",
-                reference=f"order:{order_ref}",
+                reference=reference,
                 created_by="system",
             )
 
             logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer_ref, order_ref)
 
         except Exception as exc:
-            raise DirectiveTransientError(str(exc)) from exc
+            raise _redeem_directive_error(exc) from exc
+
+
+def _redeem_directive_error(exc: Exception):
+    """Saldo insuficiente nunca se cura com retry → terminal; resto é transiente."""
+    from shopman.guestman.exceptions import CustomerError
+
+    if isinstance(exc, CustomerError) and getattr(exc, "code", "") == "LOYALTY_INSUFFICIENT_POINTS":
+        return DirectiveTerminalError(str(exc))
+    return DirectiveTransientError(str(exc))
 
 
 def _customer_ref_for_order(order) -> str:

@@ -21,3 +21,14 @@ def ensure_tab(*, ref: str, display: str) -> str:
 
     tab, _ = POSTab.objects.get_or_create(ref=ref, defaults={"label": display})
     return tab.display_ref
+
+
+def cash_shift_is_closed(shift_id) -> bool:
+    """True se o turno de caixa referido já foi fechado (ou não existe mais)."""
+    from shopman.backstage.models import CashShift
+
+    try:
+        shift = CashShift.objects.filter(pk=int(shift_id)).first()
+    except (TypeError, ValueError):
+        return False
+    return bool(shift and shift.closed_at is not None)

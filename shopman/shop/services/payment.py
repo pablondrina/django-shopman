@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -208,12 +207,15 @@ def capture(order) -> None:
         logger.info("payment.capture: captured %s for order %s", intent_ref, order.ref)
 
 
-def refund(order) -> None:
+def refund(order, *, amount_q: int | None = None) -> None:
     """
     Refund payment for the order.
 
     Smart no-op: if order has no payment intent, does nothing.
     Uses Payman (PaymentService) as idempotency source.
+
+    ``amount_q`` limita o estorno (devolução PARCIAL); ``None`` estorna o saldo
+    reembolsável inteiro. O valor nunca excede o saldo do Payman.
 
     SYNC — direct refund.
     """
@@ -233,6 +235,12 @@ def refund(order) -> None:
     if refundable_q is None and _payman_intent_refunded(intent_ref):
         return
 
+    requested_q = refundable_q
+    if amount_q is not None:
+        requested_q = amount_q if refundable_q is None else min(int(amount_q), refundable_q)
+        if requested_q <= 0:
+            return
+
     method = payment_data.get("method", "pix")
     adapter = get_adapter("payment", method=method)
     if not adapter:
@@ -241,7 +249,7 @@ def refund(order) -> None:
     try:
         result = adapter.refund(
             intent_ref,
-            amount_q=refundable_q,
+            amount_q=requested_q,
             reason="order_cancelled",
         )
         if result.success:
@@ -384,6 +392,60 @@ def can_cancel(order) -> bool:
     return True
 
 
+def verify_gateway_before_timeout_cancel(order) -> str:
+    """Consulta o gateway ANTES de auto-cancelar um PIX por timeout.
+
+    Um webhook perdido deixa o pedido "não pago" localmente com o dinheiro
+    capturado na EFI — cancelar seria perda real do cliente. Retorna:
+
+      ``"paid"``          — gateway mostra captura; o Payman foi reconciliado
+                            e o caminho de pago (on_paid) foi disparado;
+      ``"unpaid"``        — gateway respondeu e não há pagamento (cancelar ok);
+      ``"indeterminate"`` — sem resposta confiável (NÃO cancelar nesta rodada).
+    """
+    payment_data = (order.data or {}).get("payment") or {}
+    method = str(payment_data.get("method") or "").lower()
+    intent_ref = payment_data.get("intent_ref")
+    if method != "pix" or not intent_ref:
+        return "unpaid"
+
+    adapter = get_adapter("payment", method="pix")
+    if adapter is None:
+        return "unpaid"
+
+    try:
+        result = adapter.capture(intent_ref)
+    except Exception:
+        logger.warning("payment.timeout_gateway_check_failed order=%s", order.ref, exc_info=True)
+        return "indeterminate"
+
+    if not result.success:
+        # "error" = transporte/gateway indisponível — estado incerto, adiar.
+        return "indeterminate" if result.error_code == "error" else "unpaid"
+
+    # Pagou e o webhook se perdeu: seguir o caminho do pagamento, não o do
+    # cancelamento (mesma sequência do webhook/mock_confirm).
+    payment_data = dict((order.data or {}).get("payment", {}))
+    payment_data["transaction_id"] = result.transaction_id
+    if not payment_data.get("captured_at"):
+        payment_data["captured_at"] = timezone.now().isoformat()
+    data = dict(order.data or {})
+    data["payment"] = payment_data
+    order.data = data
+    order.save(update_fields=["data", "updated_at"])
+    cancel_stale_intents(order, keep_intent_ref=intent_ref)
+    order.emit_event(
+        event_type="payment.captured",
+        actor="payment.timeout_gateway_check",
+        payload={"method": "pix", "amount_q": result.amount_q or order.total_q},
+    )
+
+    from shopman.shop.lifecycle import dispatch
+
+    dispatch(order, "on_paid")
+    return "paid"
+
+
 def mock_confirm(order) -> bool:
     """DEV helper: simulate capture for local payment testing.
 
@@ -476,7 +538,13 @@ def _ensure_payment_idempotency_key(
     ):
         return existing
 
-    key = f"order-payment:{order.ref}:{method}:{amount_q}:{uuid.uuid4().hex[:16]}"
+    # Chave DETERMINÍSTICA (sem uuid): dois initiates concorrentes calculam a
+    # mesma chave e convergem no MESMO intent via constraint do Payman — o
+    # sufixo aleatório criava duas cobranças "irmãs" e o pedido apontava para
+    # a que o cliente talvez não pagasse. A geração só avança quando a
+    # tentativa anterior morreu (failed/cancelled), preservando o re-attempt.
+    generation = _burned_intent_generations(order, method=method)
+    key = f"order-payment:{order.ref}:{method}:{amount_q}:g{generation}"
     payment_data["idempotency_key"] = key
     data = dict(order.data or {})
     data["payment"] = payment_data
@@ -486,6 +554,21 @@ def _ensure_payment_idempotency_key(
     except Exception:
         logger.warning("payment.idempotency_key_persist_failed order=%s", order.ref, exc_info=True)
     return key
+
+
+def _burned_intent_generations(order, *, method: str) -> int:
+    """Quantas tentativas de pagamento deste pedido/método já morreram."""
+    try:
+        from shopman.payman import PaymentIntent as PaymanIntent
+
+        return PaymanIntent.objects.filter(
+            order_ref=order.ref,
+            method=method,
+            status__in=[PaymanIntent.Status.FAILED, PaymanIntent.Status.CANCELLED],
+        ).count()
+    except Exception:
+        logger.debug("payment.generation_lookup_failed order=%s", order.ref, exc_info=True)
+        return 0
 
 
 def _payment_idempotency_key_reusable(

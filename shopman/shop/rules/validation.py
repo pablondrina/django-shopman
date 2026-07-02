@@ -161,6 +161,15 @@ class DeliveryZoneRule(BaseRule):
                 message="Não entregamos neste endereço ainda.",
             )
 
+        # Sem taxa resolvida = zona nunca foi verificada (endereço só-texto,
+        # sem CEP/bairro/coordenada). Delivery não commita sem cobertura
+        # comprovada — senão a taxa sai zero e a zona vira opcional via API.
+        if "delivery_fee_q" not in session_data:
+            raise OrderValidationError(
+                code="delivery_zone_unverified",
+                message="Confirme o endereço com CEP para calcularmos a entrega.",
+            )
+
         minimum_q = _delivery_minimum_q()
         if minimum_q:
             items = [

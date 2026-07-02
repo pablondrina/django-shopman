@@ -55,7 +55,9 @@ class Order(models.Model):
         Status.NEW: [Status.CONFIRMED, Status.CANCELLED],
         Status.CONFIRMED: [Status.PREPARING, Status.READY, Status.CANCELLED],
         Status.PREPARING: [Status.READY, Status.CANCELLED],
-        Status.READY: [Status.DISPATCHED, Status.COMPLETED],
+        # READY→PREPARING é o recall da cozinha (un-bump do último ticket):
+        # o pedido volta ao preparo e some da expedição.
+        Status.READY: [Status.PREPARING, Status.DISPATCHED, Status.COMPLETED],
         Status.DISPATCHED: [Status.DELIVERED, Status.RETURNED],
         Status.DELIVERED: [Status.COMPLETED, Status.RETURNED],
         Status.COMPLETED: [Status.RETURNED],

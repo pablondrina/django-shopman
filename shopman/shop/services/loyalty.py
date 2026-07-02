@@ -22,24 +22,25 @@ def redeem(order) -> None:
     """
     Schedule loyalty points redemption for the order, if applicable.
 
-    Reads order.data["loyalty"]["redeem_points_q"]. If >0, creates a Directive
-    with topic="loyalty.redeem". Handler calls LoyaltyService.redeem_points().
+    Reads order.data["loyalty"]["applied_discount_q"] — o desconto efetivamente
+    aplicado pelo LoyaltyRedeemModifier (clampado ao subtotal), nunca o saldo
+    pedido. If >0, creates a Directive with topic="loyalty.redeem".
 
     ASYNC — dispatched on on_commit so points are deducted immediately after order creation.
     """
-    redeem_q = (order.data or {}).get("loyalty", {}).get("redeem_points_q", 0)
-    if not redeem_q or redeem_q <= 0:
+    applied_q = int((order.data or {}).get("loyalty", {}).get("applied_discount_q") or 0)
+    if applied_q <= 0:
         return
 
     Directive.objects.create(
         topic=REDEEM_TOPIC,
         payload={
             "order_ref": order.ref,
-            "points": int(redeem_q),
+            "points": applied_q,
         },
     )
 
-    logger.info("loyalty.redeem: queued %d points for order %s", redeem_q, order.ref)
+    logger.info("loyalty.redeem: queued %d points for order %s", applied_q, order.ref)
 
 
 def earn(order) -> None:

@@ -215,7 +215,14 @@ def build_cart(
     if session is None:
         return _empty_cart()
 
-    raw_items = [dict(item) for item in (session.items or [])]
+    # A linha __DELIVERY_FEE__ é cobrança (entra em Order.total_q), não item do
+    # carrinho: fica fora de lines/subtotal — a taxa aparece via delivery_fee_q.
+    raw_items = [
+        dict(item)
+        for item in (session.items or [])
+        if item.get("sku") != "__DELIVERY_FEE__"
+        and (item.get("meta") or {}).get("type") != "delivery_fee"
+    ]
     if not raw_items:
         return _empty_cart(session_key)
 

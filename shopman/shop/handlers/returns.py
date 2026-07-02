@@ -110,14 +110,16 @@ class ReturnService:
 
     @classmethod
     @transaction.atomic
-    def process_refund(cls, order: Order, amount_q: int, actor: str, *, fiscal_backend=None) -> dict:
+    def process_refund(cls, order: Order, amount_q: int, actor: str) -> dict:
         from shopman.shop.services import payment as payment_service
 
         result = {"refund": None, "fiscal": None}
 
         if (order.data.get("payment") or {}).get("intent_ref"):
             try:
-                payment_service.refund(order)
+                # Devolução PARCIAL estorna só o valor devolvido — nunca o
+                # saldo capturado inteiro.
+                payment_service.refund(order, amount_q=amount_q)
                 result["refund"] = {"success": True, "amount_q": amount_q}
                 order.emit_event(
                     event_type="refund_processed",
@@ -128,11 +130,12 @@ class ReturnService:
                 logger.exception("process_refund: payment refund failed for %s", order.ref)
                 result["refund"] = {"success": False, "error": str(exc)}
 
-        if order.data.get("nfce_access_key") and fiscal_backend:
-            cancel_result = fiscal_backend.cancel(reference=order.ref, reason="Devolução de mercadoria")
-            result["fiscal"] = {"success": cancel_result.success, "protocol_number": cancel_result.protocol_number}
-            order.emit_event(event_type="fiscal_cancelled", actor=actor, payload={"success": cancel_result.success, "protocol_number": cancel_result.protocol_number})
-
+        # Fiscal NÃO é cancelado aqui. Devolução TOTAL transiciona o pedido a
+        # RETURNED e o lifecycle (_on_returned → fiscal.cancel) enfileira o
+        # cancelamento idempotente — um único caminho, com retry e alerta.
+        # Cancelar a nota inteira numa devolução PARCIAL seria fiscalmente
+        # errado (venda parcialmente mantida): o operador é alertado para
+        # tratar com o contador (o instrumento correto é outro).
         return result
 
 
@@ -140,9 +143,6 @@ class ReturnHandler:
     """Directive handler para processamento de devoluções. Topic: return.process"""
 
     topic = RETURN_PROCESS
-
-    def __init__(self, *, fiscal_backend=None):
-        self.fiscal_backend = fiscal_backend
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.shop.adapters import get_adapter
@@ -176,10 +176,7 @@ class ReturnHandler:
                     logger.exception("ReturnHandler: Failed to reverse stock for sku=%s order=%s", item["sku"], order_ref)
 
         try:
-            ReturnService.process_refund(
-                order=order, amount_q=refund_total_q, actor="return.process",
-                fiscal_backend=self.fiscal_backend,
-            )
+            ReturnService.process_refund(order=order, amount_q=refund_total_q, actor="return.process")
         except Exception as exc:
             raise DirectiveTerminalError(f"Refund processing failed: {exc}") from exc
 
@@ -189,6 +186,31 @@ class ReturnHandler:
             returns[return_index]["refund_processed"] = True
             order.data["returns"] = returns
             order.save(update_fields=["data", "updated_at"])
+
+        self._alert_partial_return_fiscal(order, returns, return_index)
+
+    @staticmethod
+    def _alert_partial_return_fiscal(order, returns: list, return_index: int) -> None:
+        """Devolução parcial com NFC-e emitida: decisão fiscal é humana."""
+        if return_index >= len(returns):
+            return
+        if returns[return_index].get("type") != "partial":
+            return
+        if not order.data.get("nfce_access_key") or order.data.get("nfce_cancelled"):
+            return
+        from shopman.shop.services.observability import create_operator_alert
+
+        create_operator_alert(
+            type="fiscal_partial_return",
+            severity="warning",
+            message=(
+                f"Devolução PARCIAL no pedido {order.ref} com NFC-e autorizada. "
+                "A nota NÃO foi cancelada (venda parcialmente mantida) — avaliar "
+                "com o contador o instrumento fiscal da devolução."
+            ),
+            order_ref=order.ref,
+            dedupe_key=f"fiscal_partial_return:{order.ref}:{return_index}",
+        )
 
 
 __all__ = ["ReturnHandler", "ReturnService", "ReturnResult"]

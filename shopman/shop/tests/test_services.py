@@ -1178,6 +1178,7 @@ class TestFiscalService:
     def test_build_fiscal_items_resolves_codes_from_profile(self):
         """Fiscalman resolves CFOP/CSOSN from the product's fiscal profile."""
         from shopman.offerman.models import Product
+
         from shopman.shop.services.fiscal import _build_fiscal_items
 
         Product.objects.create(
@@ -1195,6 +1196,7 @@ class TestFiscalService:
     def test_build_fiscal_items_line_override_wins(self):
         """A per-line item.meta['fiscal'] override beats the resolved profile."""
         from shopman.offerman.models import Product
+
         from shopman.shop.services.fiscal import _build_fiscal_items
 
         Product.objects.create(

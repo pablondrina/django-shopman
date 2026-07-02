@@ -214,6 +214,7 @@ def _on_commit(order, config: ChannelConfig) -> None:
     )
 
     loyalty.redeem(order)
+    _record_coupon_use(order)
 
     if _should_initiate_payment_on_commit(order, config):
         payment.initiate(order)
@@ -228,6 +229,22 @@ def _on_commit(order, config: ChannelConfig) -> None:
         notification.send(order, "order_received")
 
     _handle_confirmation(order, config)
+
+
+def _record_coupon_use(order) -> None:
+    """Conta o uso do cupom no commit — senão ``max_uses`` é decorativo."""
+    coupon = ((order.snapshot or {}).get("pricing") or {}).get("coupon") or {}
+    code = str(coupon.get("code") or "").strip()
+    if not code or int(coupon.get("discount_q") or 0) <= 0:
+        return
+    try:
+        from shopman.shop.adapters import get_adapter
+
+        adapter = get_adapter("promotion")
+        if adapter is not None:
+            adapter.record_coupon_use(code)
+    except Exception:
+        logger.warning("lifecycle.coupon_use_count_failed order=%s code=%s", order.ref, code, exc_info=True)
 
 
 def _on_confirmed(order, config: ChannelConfig) -> None:
@@ -325,6 +342,10 @@ def _on_cancelled(order, config: ChannelConfig) -> None:
     except ImportError:
         pass
     stock.release(order)
+    # Canais com fulfill no ato (PDV) já baixaram o estoque quando o cancel
+    # chega — release é no-op em hold FULFILLED. Devolver ao ledger, senão o
+    # sistema fica abaixo do físico a cada erro de digitação cancelado.
+    stock.revert_fulfilled(order)
     _settle_cancelled_payment(order)
     fiscal.cancel(order)
     notification.send(order, "order_cancelled")

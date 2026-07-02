@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from shopman.storefront.intents.checkout import _parse_change_for
+from shopman.storefront.intents.checkout import parse_change_for
 
 
 @pytest.mark.parametrize(
@@ -24,4 +24,4 @@ from shopman.storefront.intents.checkout import _parse_change_for
     ],
 )
 def test_parse_change_for(raw, expected):
-    assert _parse_change_for(raw) == expected
+    assert parse_change_for(raw) == expected

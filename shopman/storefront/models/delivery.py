@@ -110,11 +110,15 @@ class DeliveryZone(models.Model):
         postal_digits = "".join(c for c in (postal_code or "") if c.isdigit())
         neighborhood_lower = (neighborhood or "").strip().lower()
 
-        # 1. CEP prefix
-        for zone in zones.filter(zone_type=cls.ZONE_TYPE_CEP_PREFIX):
-            prefix = zone.match_value.strip()
-            if postal_digits and postal_digits.startswith(prefix):
-                return zone
+        # 1. CEP prefix — o prefixo MAIS LONGO vence (zona "860" e "8605"
+        # sobrepostas: a mais específica decide), desempate por sort_order.
+        cep_matches = [
+            zone
+            for zone in zones.filter(zone_type=cls.ZONE_TYPE_CEP_PREFIX)
+            if postal_digits and postal_digits.startswith(zone.match_value.strip())
+        ]
+        if cep_matches:
+            return max(cep_matches, key=lambda z: len(z.match_value.strip()))
 
         # 2. Neighborhood
         for zone in zones.filter(zone_type=cls.ZONE_TYPE_NEIGHBORHOOD):

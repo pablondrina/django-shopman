@@ -328,3 +328,50 @@ class DirectiveRollbackTests(TransactionTestCase):
         self.assertEqual(Directive.objects.count(), 0)
         # Handler was never called
         self.assertEqual(self.success_handler.calls, 0)
+
+
+class DirectiveClaimTests(TestCase):
+    """Claim atômico: dispatcher por signal × worker nunca executam 2×."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        registry.clear()
+        self.success_handler = SuccessHandler()
+        registry.register_directive_handler(self.success_handler)
+
+    def tearDown(self) -> None:
+        registry.clear()
+        super().tearDown()
+
+    def test_process_directive_skips_when_already_claimed(self) -> None:
+        from shopman.orderman.dispatch import _process_directive
+
+        with transaction.atomic():
+            directive = Directive.objects.create(topic="test.success", payload={})
+        # O worker "chegou primeiro" (marcou running fora do nosso lock).
+        Directive.objects.filter(pk=directive.pk).update(status="running")
+        directive.refresh_from_db()
+        directive.status = "queued"  # estado stale em memória, como no callback
+
+        calls_before = self.success_handler.calls
+        _process_directive(directive)
+
+        assert self.success_handler.calls == calls_before  # não executou de novo
+
+    def test_process_directive_claims_and_increments_attempts_once(self) -> None:
+        from shopman.orderman.dispatch import _process_directive
+
+        with transaction.atomic():
+            directive = Directive.objects.create(topic="test.success", payload={})
+        directive.refresh_from_db()
+        calls_before = self.success_handler.calls
+
+        _process_directive(directive)
+        directive.refresh_from_db()
+        assert directive.status == "done"
+        first_attempts = directive.attempts
+
+        _process_directive(directive)  # replay: status não é queued → no-op
+        directive.refresh_from_db()
+        assert self.success_handler.calls == calls_before + 1
+        assert directive.attempts == first_attempts

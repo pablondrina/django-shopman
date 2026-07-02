@@ -475,6 +475,24 @@ def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> dict | bool:
     return item
 
 
+def _channel_hold_ttl_minutes(channel_ref: str | None) -> int:
+    """TTL de hold de carrinho do canal (config) — default seguro de 30 min."""
+    if not channel_ref:
+        return 30
+    try:
+        from shopman.shop.config import ChannelConfig
+        from shopman.shop.models import Channel
+
+        channel = Channel.objects.filter(ref=channel_ref).first()
+        if channel is None:
+            return 30
+        configured = ChannelConfig.for_channel(channel).stock.hold_ttl_minutes
+        return int(configured) if configured else 30
+    except Exception:
+        logger.debug("availability.hold_ttl_lookup_failed channel=%s", channel_ref, exc_info=True)
+        return 30
+
+
 def reserve(
     sku: str,
     qty: Decimal,
@@ -482,10 +500,13 @@ def reserve(
     session_key: str,
     channel_ref: str | None = None,
     target_date: date | None = None,
-    ttl_minutes: int = 30,
+    ttl_minutes: int | None = None,
 ) -> dict:
     """
     Inline check + hold creation for the storefront/POS/marketplace flows.
+
+    ``ttl_minutes=None`` resolve o TTL configurado no canal
+    (``ChannelConfig.stock.hold_ttl_minutes``); sem configuração, 30 minutos.
 
     On success: creates a Stockman hold tagged with `reference=session_key` so
     the eventual CommitService can adopt the holds when the order is created.
@@ -504,6 +525,8 @@ def reserve(
         }
     """
     qty_d = Decimal(str(qty))
+    if ttl_minutes is None:
+        ttl_minutes = _channel_hold_ttl_minutes(channel_ref)
 
     listing_error = _reserve_listing_gate_error(
         sku,

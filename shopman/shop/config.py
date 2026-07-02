@@ -81,7 +81,7 @@ class ChannelConfig:
 
     @dataclass
     class Stock:
-        hold_ttl_minutes: int | None = None  # None = sem expiração
+        hold_ttl_minutes: int | None = None  # None = default seguro (30 min)
         safety_margin: int = 0
         planned_hold_ttl_hours: int = 48  # TTL applied to planned holds after materialization
         allowed_positions: list[str] | None = None  # None = all saleable positions
@@ -96,7 +96,7 @@ class ChannelConfig:
     @dataclass
     class Notifications:
         backend: str = "manychat"
-        # "manychat" | "email" | "console" | "sms" | "webhook" | "none"
+        # "manychat" | "email" | "console" | "sms" | "none"
         # Prioridade phone-first (Brasil): manychat (WhatsApp) > sms > email > console
         fallback_chain: list[str] = field(default_factory=lambda: ["sms", "email"])
         routing: dict[str, str] | None = None
@@ -264,7 +264,9 @@ class ChannelConfig:
             raise ValueError("stock.allowed_positions deve ser uma lista ou null")
         if not isinstance(self.stock.excluded_positions, list):
             raise ValueError("stock.excluded_positions deve ser uma lista")
-        if self.notifications.backend not in {"manychat", "email", "console", "sms", "webhook", "none"}:
+        # Só backends REGISTRADOS no registry — "webhook"/"push" validavam mas
+        # nunca existiram, quebrando em runtime com "Backend not found".
+        if self.notifications.backend not in {"manychat", "email", "console", "sms", "none"}:
             raise ValueError(f"notifications.backend inválido: {self.notifications.backend}")
         if not isinstance(self.notifications.fallback_chain, list):
             raise ValueError("notifications.fallback_chain deve ser uma lista")

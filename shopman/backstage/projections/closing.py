@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from django.db.models import Sum
+from django.utils import timezone
 from shopman.offerman.models import Product
 from shopman.stockman import Move, Position, Quant
 
@@ -93,7 +94,7 @@ class DayClosingProjection:
 
 def build_day_closing() -> DayClosingProjection:
     """Build the day closing projection for today."""
-    today = date.today()
+    today = timezone.localdate()
     existing = DayClosing.objects.filter(date=today).first()
 
     items = _build_items()
@@ -201,7 +202,7 @@ def _has_old_d1_stock() -> bool:
     if not old_quants.exists():
         return False
 
-    threshold = date.today() - timedelta(days=1)
+    threshold = timezone.localdate() - timedelta(days=1)
     for quant in old_quants:
         last_move = (
             Move.objects.filter(quant=quant, reason__startswith="d1:")

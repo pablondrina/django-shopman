@@ -214,13 +214,18 @@ def _build_nfce_payload(
     payment: dict,
     additional_info: str | None,
 ) -> dict:
-    if not items:
+    # Taxa de entrega não é produto: sai dos itens e entra como frete da nota.
+    fee_items = [item for item in items if _is_delivery_fee_item(item)]
+    merchandise = [item for item in items if not _is_delivery_fee_item(item)]
+    freight_q = sum(int(item.get("total_q") or 0) for item in fee_items)
+
+    if not merchandise:
         raise FocusNFePayloadError("NFC-e exige ao menos um item.")
 
-    mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(items, start=1)]
+    mapped_items = [_map_item(idx, item, config) for idx, item in enumerate(merchandise, start=1)]
     product_total_q = _sum_focus_money_q(mapped_items, "valor_bruto")
     payment_total_q = _payment_total_q(payment)
-    note_total_q = payment_total_q or product_total_q
+    note_total_q = payment_total_q or (product_total_q + freight_q)
 
     payload = {
         "cnpj_emitente": _focus_cnpj_emitente(config),
@@ -237,8 +242,14 @@ def _build_nfce_payload(
         "items": mapped_items,
         "formas_pagamento": _payment_forms(payment),
     }
-    if product_total_q > note_total_q:
-        payload["valor_desconto"] = _money_q(product_total_q - note_total_q)
+    if freight_q > 0:
+        payload["valor_frete"] = _money_q(freight_q)
+        # Com frete, "sem ocorrência de transporte" (9) é inválido; o default
+        # vira transporte próprio do emitente (0). Validar em homologação.
+        if payload["modalidade_frete"] == "9":
+            payload["modalidade_frete"] = str(config.get("modalidade_frete_com_taxa") or "0")
+    if product_total_q + freight_q > note_total_q:
+        payload["valor_desconto"] = _money_q(product_total_q + freight_q - note_total_q)
     if config.get("serie_nfce"):
         payload["serie"] = str(config["serie_nfce"])
     if additional_info:
@@ -248,6 +259,11 @@ def _build_nfce_payload(
         payload.get("informacoes_adicionais_contribuinte") or f"Pedido {reference}"
     )
     return payload
+
+
+def _is_delivery_fee_item(item: dict) -> bool:
+    meta = item.get("meta") or {}
+    return item.get("sku") == "__DELIVERY_FEE__" or meta.get("type") == "delivery_fee"
 
 
 def _map_item(number: int, item: dict, config: dict) -> dict:
@@ -339,8 +355,15 @@ def _payment_code(method: object) -> str:
 
 
 def _customer_fields(customer: dict) -> dict:
+    from shopman.utils.documents import is_valid_tax_id
+
     customer = dict(customer or {})
     tax_id = _digits(customer.get("tax_id") or customer.get("cpf") or customer.get("cnpj"))
+    if tax_id and not is_valid_tax_id(tax_id):
+        # Melhor falhar aqui (claro, acionável) que rejeição assíncrona da SEFAZ.
+        raise FocusNFePayloadError(
+            f"CPF/CNPJ do cliente inválido ({tax_id[:4]}…): confira os dígitos."
+        )
     fields = {}
     if len(tax_id) == 11:
         fields["cpf_destinatario"] = tax_id
@@ -379,7 +402,21 @@ def _shop_document() -> str:
 def _document_result(response: dict, config: dict | None = None) -> FiscalDocumentResult:
     status = _norm(response.get("status"))
     access_key = _first(response, "chave_nfe", "chave_nfce", "chave_acesso", "chave")
-    success = status in {"autorizado", "authorized", "emitido", "emitida"} or bool(access_key)
+    # Chave presente NÃO significa autorizada: o Focus devolve chave também em
+    # "processando_autorizacao" e em consultas de notas rejeitadas. Sucesso
+    # exige status autorizado; chave sozinha só vale em resposta sem status.
+    success = status in {"autorizado", "authorized", "emitido", "emitida"} or (
+        not status and bool(access_key)
+    )
+    if not success and status in {"processando_autorizacao", "processando", "processing"}:
+        return FiscalDocumentResult(
+            success=False,
+            document_id=_first(response, "ref", "id"),
+            access_key=str(access_key) if access_key else None,
+            status="processing",
+            error_code="focus_nfe_processing",
+            error_message="NFC-e em processamento na SEFAZ — consultar novamente.",
+        )
     return FiscalDocumentResult(
         success=success,
         document_id=_first(response, "ref", "id"),

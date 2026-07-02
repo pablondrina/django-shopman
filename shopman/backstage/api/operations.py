@@ -170,8 +170,10 @@ def _pos_payload_with_runtime(request, body: dict) -> dict:
     payload = dict(body or {})
     cash_shift = _open_cash_shift_for_request(request)
     if cash_shift:
-        payload.setdefault("cash_shift_id", cash_shift.pk)
-        payload.setdefault("pos_terminal_ref", cash_shift.terminal.ref)
+        # O servidor CONHECE o turno do operador — o browser nunca decide a
+        # atribuição de caixa (um id forjado/null desviaria a venda do turno).
+        payload["cash_shift_id"] = cash_shift.pk
+        payload["pos_terminal_ref"] = cash_shift.terminal.ref
     return payload
 
 

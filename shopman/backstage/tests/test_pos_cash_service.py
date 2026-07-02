@@ -18,7 +18,16 @@ def operator(db):
 def test_parse_money_to_q_accepts_common_operator_inputs():
     assert pos.parse_money_to_q("12,34") == 1234
     assert pos.parse_money_to_q("12.34") == 1234
-    assert pos.parse_money_to_q("bad") == 0
+    assert pos.parse_money_to_q("-10") == -1000  # ajuste de falta
+    assert pos.parse_money_to_q("") == 0
+
+
+def test_parse_money_to_q_rejects_garbage_loudly():
+    # Fechamento CEGO: typo virar 0 silencioso = diferença gigante sem aviso.
+    with pytest.raises(POSError):
+        pos.parse_money_to_q("bad")
+    with pytest.raises(POSError):
+        pos.parse_money_to_q("12,,30")
 
 
 @pytest.mark.django_db
@@ -148,3 +157,60 @@ def test_close_cash_shift_counts_terminal_cash_not_delivery_cash(operator):
 
     assert shift.expected_amount_q == 3000
     assert shift.difference_q == 0
+
+
+@pytest.mark.django_db
+def test_two_open_shifts_do_not_double_count_untagged_sale(operator):
+    """Venda cash sem tag de turno é ADOTADA pelo 1º fechamento que a conta.
+
+    Regressão do audit: com dois terminais abertos no mesmo canal, o
+    catch-all por created_at somava a mesma venda no expected dos DOIS turnos.
+    """
+    from shopman.orderman.models import Order
+
+    other_op = User.objects.create_user(username="cash-op-2", password="x", is_staff=True)
+    terminal_a = POSTerminal.default()
+    terminal_b = POSTerminal.objects.create(ref="pos-2", label="POS 2", channel_ref=terminal_a.channel_ref)
+    shift_a = CashShift.objects.create(operator=operator, terminal=terminal_a, opening_amount_q=0)
+    shift_b = CashShift.objects.create(operator=other_op, terminal=terminal_b, opening_amount_q=0)
+
+    Order.objects.create(
+        ref="POS-CASH-ORPHAN",
+        channel_ref=terminal_a.channel_ref,
+        session_key="pos-cash-orphan",
+        total_q=2000,
+        data={"payment": {"method": "cash", "collection": "terminal", "cash_received_q": 2000}},
+    )
+
+    shift_a.close(blind_closing_amount_q=2000)
+    assert shift_a.expected_amount_q == 2000
+
+    shift_b.close(blind_closing_amount_q=0)
+    # O turno B NÃO conta a venda adotada pelo A.
+    assert shift_b.expected_amount_q == 0
+
+
+@pytest.mark.django_db
+def test_negative_adjustment_reduces_expected(operator):
+    shift = CashShift.objects.create(operator=operator, terminal=POSTerminal.default(), opening_amount_q=1000)
+    pos.register_cash_movement(
+        operator=operator, movement_type="ajuste", amount_raw="-5,00", reason="falta na conferência"
+    )
+
+    shift.close(blind_closing_amount_q=500)
+    assert shift.expected_amount_q == 500
+    assert shift.difference_q == 0
+
+
+def test_mixed_tender_change_comes_from_cash_not_electronic():
+    """Troco de venda mista sai do dinheiro — a maquininha capturou inteiro."""
+    from shopman.shop.services.pos import _reconcile_tenders_to_total
+
+    tenders = [
+        {"method": "cash", "amount_q": 5000, "collection": "terminal"},
+        {"method": "pix", "amount_q": 2000, "collection": "terminal"},
+    ]
+    _reconcile_tenders_to_total(tenders, 6000)
+
+    assert tenders[0]["amount_q"] == 4000  # cash absorve o troco de 10
+    assert tenders[1]["amount_q"] == 2000  # pix intocado

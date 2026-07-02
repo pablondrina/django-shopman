@@ -200,7 +200,7 @@ class TestDeliveryZoneRule:
         monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 2000)
         rule = DeliveryZoneRule()
         session = MagicMock()
-        session.data = {"fulfillment_type": "delivery"}
+        session.data = {"fulfillment_type": "delivery", "delivery_fee_q": 600}
         session.items = [{"line_total_q": 500}]
 
         with pytest.raises(OrderValidationError, match="Pedido mínimo para entrega"):
@@ -212,7 +212,7 @@ class TestDeliveryZoneRule:
         monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 1000)
         rule = DeliveryZoneRule()
         session = MagicMock()
-        session.data = {"fulfillment_type": "delivery"}
+        session.data = {"fulfillment_type": "delivery", "delivery_fee_q": 600}
         session.items = [{"line_total_q": 1500}]
 
         rule.validate(channel=None, session=session, ctx={})
@@ -234,7 +234,7 @@ class TestDeliveryZoneRule:
         monkeypatch.setattr(validation, "_delivery_minimum_q", lambda: 0)
         rule = DeliveryZoneRule()
         session = MagicMock()
-        session.data = {"fulfillment_type": "delivery"}
+        session.data = {"fulfillment_type": "delivery", "delivery_fee_q": 600}
         session.items = [{"line_total_q": 1}]
 
         rule.validate(channel=None, session=session, ctx={})

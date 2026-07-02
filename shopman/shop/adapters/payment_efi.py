@@ -13,6 +13,7 @@ import ssl
 import uuid
 from base64 import b64encode
 from datetime import timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -30,6 +31,14 @@ PRODUCTION_URL = "https://pix.api.efipay.com.br"
 
 _EFI_TOKEN_CACHE_KEY = "efi_access_token"
 _EFI_TOKEN_TTL = 3300  # 55 min — EFI tokens last 1h
+
+
+def _brl_to_q(valor: str | float) -> int:
+    """Converte valor decimal da EFI ("4.35") em centavos SEM float.
+
+    float("4.35") * 100 == 434.999… → int() truncaria para 434.
+    """
+    return int((Decimal(str(valor)) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _get_config() -> dict:
@@ -250,7 +259,7 @@ def capture(
         status = response.get("status", "")
 
         if status == "CONCLUIDA":
-            amount_q = int(float(response["valor"]["original"]) * 100)
+            amount_q = _brl_to_q(response["valor"]["original"])
             PaymentService.reconcile_gateway_status(
                 intent_ref,
                 gateway_status="captured",
@@ -328,7 +337,7 @@ def refund(
 
         response = _request("PUT", f"/v2/pix/{e2eid}/devolucao/{dev_id}", {"valor": valor})
 
-        refund_amount = int(float(valor) * 100)
+        refund_amount = _brl_to_q(valor)
         try:
             PaymentService.refund(
                 intent_ref,
@@ -336,8 +345,28 @@ def refund(
                 reason=reason,
                 gateway_id=response.get("id", dev_id),
             )
-        except PaymentError:
-            pass
+        except PaymentError as exc:
+            # O dinheiro JÁ saiu no gateway. Sem o registro local, o Payman
+            # continua mostrando saldo reembolsável e um trigger futuro faria
+            # um SEGUNDO refund real — falha tem que ser visível, nunca muda.
+            logger.error(
+                "payment_efi.refund: gateway devolveu %sq mas o registro local falhou (%s) intent=%s",
+                refund_amount, exc, intent_ref,
+            )
+            from shopman.shop.services.observability import create_operator_alert
+
+            create_operator_alert(
+                type="payment_ledger_drift",
+                severity="critical",
+                message=(
+                    f"Refund PIX de {refund_amount} centavos executado no gateway "
+                    f"mas NÃO registrado no Payman (intent {intent_ref}). "
+                    "Conciliar manualmente antes de qualquer novo estorno."
+                ),
+                dedupe_key=f"refund_drift:{intent_ref}",
+                intent_ref=intent_ref,
+                gateway_refund_id=response.get("id", dev_id),
+            )
 
         return PaymentResult(
             success=True,

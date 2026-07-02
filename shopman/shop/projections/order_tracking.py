@@ -962,6 +962,8 @@ def _payment_confirmed_timestamp(order) -> str | None:
 
 
 def _build_items(order) -> tuple[TrackingItemData, ...]:
+    # A linha __DELIVERY_FEE__ é cobrança, não item: a taxa aparece no campo
+    # próprio (delivery_fee_q), nunca duplicada na lista de itens.
     return tuple(
         TrackingItemData(
             sku=item.sku,
@@ -971,6 +973,7 @@ def _build_items(order) -> tuple[TrackingItemData, ...]:
             line_total_q=int(item.line_total_q),
         )
         for item in order.items.all()
+        if item.sku != "__DELIVERY_FEE__"
     )
 
 

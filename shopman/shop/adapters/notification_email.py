@@ -31,6 +31,7 @@ SUBJECT_TEMPLATES: dict[str, str] = {
     "payment_requested": "Pedido {order_ref}: pagamento liberado",
     "payment_expired": "Pagamento do pedido {order_ref} expirado",
     "payment_failed": "Falha ao preparar pagamento do pedido {order_ref}",
+    "preorder_reminder": "Lembrete: pedido {order_ref} agendado para amanhã",
     "stock_alert": "Alerta de estoque: {sku}",
 }
 
@@ -106,6 +107,10 @@ BODY_TEMPLATES: dict[str, str] = {
         "Alerta de estoque\n\n"
         "Produto: {sku}\nQuantidade atual: {available}\n"
         "Minimo configurado: {min_quantity}\n\nProvidencie reposicao.\n"
+    ),
+    "preorder_reminder": (
+        "Lembrete: seu pedido {order_ref} esta agendado para amanha.\n"
+        "Ja estamos preparando tudo!"
     ),
 }
 

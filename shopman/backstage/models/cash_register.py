@@ -148,28 +148,37 @@ class CashShift(models.Model):
         now = timezone.now()
 
         channel_ref = self.terminal.channel_ref or _POS_CHANNEL_REF
-        orders_qs = Order.objects.filter(channel_ref=channel_ref, created_at__lte=now).filter(
+        # O braço com tag explícita deste turno NÃO leva teto de created_at:
+        # uma venda em voo no instante do fechamento pertence a este turno.
+        orders_qs = Order.objects.filter(channel_ref=channel_ref).filter(
             models.Q(data__pos__cash_shift_id=self.pk)
             | models.Q(data__payment__cod_cash_shift_id=self.pk)
-            | models.Q(created_at__gte=self.opened_at)
+            | models.Q(created_at__gte=self.opened_at, created_at__lte=now)
         )
 
         cash_sales_q = 0
         for order in orders_qs.exclude(status="cancelled"):
             data = order.data or {}
             payment = (order.data or {}).get("payment") or {}
+            pos_shift_id = _int_or_none((data.get("pos") or {}).get("cash_shift_id"))
+            # Venda de OUTRO turno nunca entra aqui — com dois terminais
+            # abertos no mesmo canal, o catch-all por created_at contaria a
+            # mesma venda nos dois fechamentos.
+            if pos_shift_id and pos_shift_id != self.pk:
+                continue
             cash_received_q = payment.get("cash_received_q")
             if cash_received_q is not None:
                 cod_shift_id = _int_or_none(payment.get("cod_cash_shift_id"))
-                pos_shift_id = _int_or_none((data.get("pos") or {}).get("cash_shift_id"))
                 if cod_shift_id:
                     if cod_shift_id == self.pk:
                         cash_sales_q += int(cash_received_q or 0)
-                elif pos_shift_id is None or pos_shift_id == self.pk:
+                else:
                     cash_sales_q += int(cash_received_q or 0)
+                    self._adopt_orphan_sale(order, pos_shift_id)
                 continue
             tenders = payment.get("tenders") or []
             if tenders:
+                adopted = False
                 for tender in tenders:
                     if tender.get("method") != "cash" or tender.get("collection", "terminal") != "terminal":
                         continue
@@ -179,9 +188,13 @@ class CashShift(models.Model):
                     if not tender_shift_id and order.created_at < self.opened_at:
                         continue
                     cash_sales_q += int(tender.get("amount_q") or 0)
+                    adopted = adopted or not tender_shift_id
+                if adopted:
+                    self._adopt_orphan_sale(order, pos_shift_id)
                 continue
             if payment.get("method") == "cash" and payment.get("collection", "terminal") != "on_delivery":
                 cash_sales_q += int(order.total_q or 0)
+                self._adopt_orphan_sale(order, pos_shift_id)
 
         movements = self.movements.aggregate(
             suprimentos=Sum("amount_q", filter=models.Q(movement_type="suprimento")),
@@ -204,6 +217,21 @@ class CashShift(models.Model):
             "blind_closing_amount_q", "expected_amount_q", "difference_q",
             "notes", "closed_at", "status",
         ])
+
+    def _adopt_orphan_sale(self, order, pos_shift_id) -> None:
+        """Carimba a venda sem turno com este turno ao contá-la no fechamento.
+
+        Sem a adoção, uma venda cash não-tagueada seria somada de novo pelo
+        fechamento de OUTRO terminal aberto no mesmo canal.
+        """
+        if pos_shift_id == self.pk:
+            return
+        data = dict(order.data or {})
+        pos_data = dict(data.get("pos") or {})
+        pos_data["cash_shift_id"] = self.pk
+        data["pos"] = pos_data
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
 
 
 def _int_or_none(value) -> int | None:
@@ -244,8 +272,12 @@ class CashMovement(models.Model):
         verbose_name = "Movimentação de Caixa"
         verbose_name_plural = "Movimentações de Caixa"
         constraints = [
+            # Ajuste registra sobra (+) ou falta (−) da conferência; sangria e
+            # suprimento são estritamente positivos.
             models.CheckConstraint(
-                condition=models.Q(amount_q__gt=0),
+                condition=models.Q(amount_q__gt=0) | (
+                    models.Q(movement_type="ajuste") & ~models.Q(amount_q=0)
+                ),
                 name="backstage_cashmovement_amount_positive",
             ),
         ]

@@ -27,3 +27,6 @@ staticfiles/*
 # Local screen recordings (never commit)
 *.MP4
 *.mp4
+
+# Local scratch/temp files (never commit)
+temp/

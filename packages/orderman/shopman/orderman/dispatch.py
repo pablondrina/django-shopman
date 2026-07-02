@@ -54,10 +54,25 @@ def _process_directive(directive) -> None:
         return
 
     now = timezone.now()
-    directive.status = "running"
-    directive.attempts += 1
-    directive.started_at = now
-    directive.save(update_fields=["status", "attempts", "started_at", "updated_at"])
+    # Claim ATÔMICO: dispatcher por signal e worker (--watch) rodam juntos em
+    # produção — sem o UPDATE condicional, ambos executariam o mesmo handler
+    # (notificação em dobro, efeitos duplicados em janela de milissegundos).
+    from django.db.models import F
+    from shopman.orderman.models import Directive
+
+    claimed = Directive.objects.filter(pk=directive.pk, status="queued").update(
+        status="running",
+        attempts=F("attempts") + 1,
+        started_at=now,
+        updated_at=now,
+    )
+    if not claimed:
+        logger.debug(
+            "Directive #%s already claimed elsewhere (status changed), skipping.",
+            directive.pk,
+        )
+        return
+    directive.refresh_from_db()
 
     from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 

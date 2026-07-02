@@ -508,6 +508,16 @@ def clear_pos_tab(*, channel_ref: str, session_key: str, operator_username: str)
             "items": discarded, "item_count": len(discarded), "was_fired": fired,
         })
         cleared = session_service.abandon_session(session_key=session.session_key, channel_ref=channel_ref)
+        if cleared and fired:
+            # A cozinha não pode continuar produzindo uma comanda descartada.
+            from shopman.shop.adapters import kds as kds_adapter
+
+            cancelled = kds_adapter.cancel_open_tickets_for_session(session.session_key)
+            if cancelled:
+                logger.info(
+                    "pos_clear_tab: %d ticket(s) de cozinha cancelados session=%s",
+                    cancelled, session.session_key,
+                )
     if cleared:
         logger.info("pos_clear_tab tab=%s session=%s operator=%s", _session_tab_ref(session), session.session_key, operator_username)
     return cleared
@@ -885,12 +895,25 @@ def cancel_recent_order(
     order_ref: str,
     actor: str,
     max_age_minutes: int = 5,
+    channel_ref: str = "pdv",
 ) -> None:
-    """Cancel the last POS order if it is still inside the operator window."""
+    """Cancel the last POS order if it is still inside the operator window.
+
+    Escopo: SÓ vendas do canal POS. Pedido de outro canal (web/iFood) tem
+    fluxo próprio no gestor, com permissão ``manage_orders`` e, no iFood,
+    ``cancellation_code`` — a janela de 5 min do PDV não é um atalho.
+    Venda cujo turno de caixa JÁ FECHOU também não: o ``expected_amount_q``
+    do fechamento ficaria mentindo, sem movimento de devolução.
+    """
     try:
         order = Order.objects.get(ref=order_ref)
     except Order.DoesNotExist as exc:
         raise ValueError(f"Pedido {order_ref} não encontrado") from exc
+
+    if channel_ref and order.channel_ref != channel_ref:
+        raise ValueError(
+            f"Pedido {order_ref} não é do PDV — cancele pelo gestor de pedidos."
+        )
 
     age = timezone.now() - order.created_at
     if age > timedelta(minutes=max_age_minutes):
@@ -899,9 +922,22 @@ def cancel_recent_order(
         )
     if order.status not in (Order.Status.NEW, Order.Status.CONFIRMED):
         raise ValueError(f"Pedido {order_ref} não pode ser cancelado (status: {order.status})")
+    if _order_cash_shift_closed(order):
+        raise ValueError(
+            f"O caixa da venda {order_ref} já foi fechado — registre a devolução pelo gestor."
+        )
 
     cancel(order, reason="pos_operator", actor=actor)
     logger.info("pos_cancel_last order=%s actor=%s", order_ref, actor)
+
+
+def _order_cash_shift_closed(order) -> bool:
+    shift_id = ((order.data or {}).get("pos") or {}).get("cash_shift_id")
+    if not shift_id:
+        return False
+    from shopman.shop.adapters import pos as pos_adapter
+
+    return pos_adapter.cash_shift_is_closed(shift_id)
 
 
 def reopen_recent_order_for_correction(
@@ -1579,7 +1615,20 @@ def _reconcile_tenders_to_total(tenders: list[dict], final_total_q: int) -> None
         return
 
     remaining_delta_q = final_total_q - sum(_int_q(tender.get("amount_q")) for tender in tenders)
-    for tender in reversed(tenders):
+    if remaining_delta_q == 0:
+        return
+
+    # Troco/ajuste sai do DINHEIRO: numa venda mista [cash 50, pix 20] p/ 60,
+    # o excedente é o troco da nota de 50 — a maquininha capturou os 20
+    # inteiros. Descontar da tender eletrônica erraria o caixa (falta falsa
+    # no turno) e os totais do fechamento. Eletrônicas só em último caso.
+    def _is_cash(tender: dict) -> bool:
+        return str(tender.get("method") or "").lower() == "cash"
+
+    ordered = [t for t in reversed(tenders) if _is_cash(t)] + [
+        t for t in reversed(tenders) if not _is_cash(t)
+    ]
+    for tender in ordered:
         if remaining_delta_q == 0:
             return
         current_q = _int_q(tender.get("amount_q"))

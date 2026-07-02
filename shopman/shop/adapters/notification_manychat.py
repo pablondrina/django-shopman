@@ -70,6 +70,10 @@ MESSAGE_TEMPLATES: dict[str, str] = {
         "Nao conseguimos preparar o pagamento do pedido {order_ref}. "
         "Abra o link do pedido para tentar novamente: {payment_url}"
     ),
+    "preorder_reminder": (
+        "Lembrete: seu pedido {order_ref} esta agendado para amanha. "
+        "Ja estamos preparando tudo!"
+    ),
 }
 
 

@@ -506,6 +506,24 @@ class TestStockRealize:
 
         assert physical._quantity == Decimal('40')
 
+    def test_realize_over_yield_credits_full_actual(self, product, vitrine, friday):
+        """Rendimento MAIOR que o planejado credita o total real ao físico.
+
+        Regressão do audit pré-go-live: o débito cego de ``actual`` no quant
+        planejado (saldo 50) estourava INSUFFICIENT_QUANTITY para actual=55 e
+        o realize inteiro revertia — NADA entrava na vitrine, com os insumos
+        já consumidos.
+        """
+        from shopman.stockman.services.queries import StockQueries
+
+        stock.plan(Decimal('50'), product, friday, reason='Produção')
+
+        physical = stock.realize(product, friday, Decimal('55'), vitrine)
+
+        assert physical._quantity == Decimal('55')
+        planned = StockQueries.get_quant(product.sku, target_date=friday)
+        assert planned is None or planned.quantity == Decimal('0')
+
     def test_realize_transfers_holds(self, product, vitrine, friday):
         """Realize migrates active holds from planned to physical quant."""
         stock.plan(Decimal('50'), product, friday, reason='Produção')

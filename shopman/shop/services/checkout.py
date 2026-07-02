@@ -41,6 +41,7 @@ def process(
     *,
     idempotency_key: str,
     ctx: dict | None = None,
+    expected_total_q: int | None = None,
 ) -> CheckoutResult:
     """Convert checkout data to session operations and commit."""
     customer = data.get("customer") or {}
@@ -57,6 +58,7 @@ def process(
         ops=_build_ops_from_data(data),
         idempotency_key=idempotency_key,
         ctx=ctx,
+        expected_total_q=expected_total_q,
     )
     _apply_post_commit_side_effects(data, channel_ref, order_ref=result.order_ref)
     return result
@@ -69,6 +71,7 @@ def process_ops(
     ops: list[dict],
     idempotency_key: str,
     ctx: dict | None = None,
+    expected_total_q: int | None = None,
 ) -> CheckoutResult:
     """Apply already-built session operations and commit."""
     ctx = ctx or {}
@@ -83,6 +86,12 @@ def process_ops(
             ctx=ctx,
             channel_config=resolved_config,
         )
+
+    # O total que o cliente VIU é o total cobrado. A repricing final (preço de
+    # catálogo, cupom expirado) pode ter mudado o valor — commitar um total
+    # diferente do exibido, sem confirmação, é cobrança surpresa.
+    if expected_total_q is not None:
+        _ensure_total_matches(session_key, channel_ref, int(expected_total_q))
 
     commit = sessions.commit_session(
         session_key=session_key,
@@ -101,13 +110,34 @@ def process_ops(
     )
 
 
+def _ensure_total_matches(session_key: str, channel_ref: str, expected_total_q: int) -> None:
+    from shopman.orderman.exceptions import ValidationError as OrderingValidationError
+    from shopman.orderman.models import Session
+    from shopman.utils.monetary import format_money
+
+    session = Session.objects.filter(session_key=session_key, channel_ref=channel_ref).first()
+    if session is None:
+        return
+    current_total_q = sum(int(item.get("line_total_q") or 0) for item in (session.items or []))
+    if current_total_q == expected_total_q:
+        return
+    raise OrderingValidationError(
+        code="total_changed",
+        message=(
+            f"O total do pedido mudou para R$ {format_money(current_total_q)} "
+            "(preço ou cupom atualizado). Confira e confirme novamente."
+        ),
+    )
+
+
 def map_checkout_error(exc: Exception) -> dict[str, str] | None:
     """Map domain validation exceptions to checkout form errors."""
     from django.core.exceptions import ValidationError as DjangoValidationError
     from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 
     if isinstance(exc, OrderingValidationError):
-        field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
+        address_codes = {"delivery_zone_not_covered", "delivery_zone_unverified"}
+        field = "delivery_address" if exc.code in address_codes else "checkout"
         return {field: exc.message}
     if isinstance(exc, DjangoValidationError):
         msgs = exc.messages if hasattr(exc, "messages") else [str(exc)]

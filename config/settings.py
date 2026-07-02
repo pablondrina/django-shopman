@@ -645,6 +645,12 @@ _ANON_THROTTLE_RATE = os.environ.get("SHOPMAN_API_ANON_THROTTLE_RATE", "120/minu
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Só sessão — NUNCA BasicAuth: o default do DRF habilitaria user:senha em
+    # toda a API, abrindo brute-force de senha staff sem lockout e contornando
+    # o 2FA do Admin e o CSRF nos endpoints de operador.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],

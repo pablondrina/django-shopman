@@ -76,7 +76,6 @@ def create_hold(
     *,
     target_date: date | None = None,
     reference: str | None = None,
-    planned_hold_ttl_hours: int = 48,
     channel_ref: str | None = None,
     **metadata,
 ) -> dict:
@@ -116,6 +115,7 @@ def create_hold(
     scope = get_channel_scope(channel_ref) if channel_ref else {}
     allowed_positions = scope.get("allowed_positions")
     excluded_positions = scope.get("excluded_positions")
+    safety_margin = int(scope.get("safety_margin") or 0)
 
     try:
         hold_id = stock.hold(
@@ -125,6 +125,7 @@ def create_hold(
             expires_at=expires_at,
             allowed_positions=allowed_positions,
             excluded_positions=excluded_positions,
+            safety_margin=safety_margin,
             **hold_kwargs,
         )
 
@@ -288,18 +289,19 @@ def find_holds_by_reference(
     sku: str | None = None,
     metadata_filters: dict[str, object] | None = None,
 ) -> list[tuple[str, str, Decimal]]:
-    """Find active holds (PENDING/CONFIRMED) tagged with `reference`.
+    """Find active holds (PENDING/CONFIRMED, não expirados) tagged with `reference`.
+
+    Um hold expirado não protege mais nada — adotá-lo no commit criaria um
+    pedido "coberto" por uma reserva que outro cliente já pode ter consumido.
 
     Returns:
         List of (hold_id, sku, qty) tuples ordered by pk (FIFO).
     """
-    from shopman.stockman import HoldStatus, StockHolds
+    from shopman.stockman import StockHolds
 
-    holds = StockHolds.find_by_reference(
-        reference,
-        sku=sku,
-        status_in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
-    )
+    holds = StockHolds.find_active_by_reference(reference)
+    if sku:
+        holds = holds.filter(sku=sku)
     for key, value in (metadata_filters or {}).items():
         holds = holds.filter(**{f"metadata__{key}": value})
     return [(h.hold_id, h.sku, Decimal(str(h.quantity))) for h in holds]
@@ -313,6 +315,47 @@ def retag_hold_reference(hold_id: str, new_reference: str) -> bool:
     from shopman.stockman import StockHolds
 
     return StockHolds.retag_reference(hold_id, new_reference)
+
+
+def extend_hold(hold_id: str, *, expires_at=None) -> bool:
+    """Redefine a expiração de um hold ativo (``None`` = nunca expira)."""
+    from shopman.stockman import StockHolds
+
+    return StockHolds.extend(hold_id, expires_at=expires_at)
+
+
+def return_fulfilled_hold(hold_id: str, qty: Decimal, *, reference: str, reason: str) -> bool:
+    """Devolve ao ledger o estoque de um hold FULFILLED (cancelamento tardio).
+
+    A devolução entra na MESMA posição de onde o fulfill baixou — devolver
+    "sem posição" sumiria da vitrine.
+
+    Returns:
+        True se devolveu; False se o hold não está FULFILLED.
+    """
+    from shopman.stockman import Hold, HoldStatus, Move
+    from shopman.stockman.services.movements import StockMovements
+
+    try:
+        pk = int(hold_id.split(":")[1])
+    except (IndexError, ValueError):
+        return False
+    hold = (
+        Hold.objects.select_related("quant__position")
+        .filter(pk=pk, status=HoldStatus.FULFILLED)
+        .first()
+    )
+    if hold is None:
+        return False
+
+    StockMovements.receive(
+        quantity=qty,
+        sku=hold.sku,
+        position=hold.quant.position if hold.quant else None,
+        reason=f"{reason} (ref: {reference})",
+        kind=Move.Kind.RETURN,
+    )
+    return True
 
 
 # ── Availability queries ─────────────────────────────────────────────

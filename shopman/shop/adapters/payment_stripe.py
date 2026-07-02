@@ -231,8 +231,28 @@ def refund(
                 reason=reason,
                 gateway_id=stripe_refund.id,
             )
-        except PaymentError:
-            pass
+        except PaymentError as exc:
+            # O dinheiro JÁ saiu no gateway. Sem o registro local, o Payman
+            # continua mostrando saldo reembolsável e um trigger futuro faria
+            # um SEGUNDO refund real — falha tem que ser visível, nunca muda.
+            logger.error(
+                "payment_stripe.refund: gateway devolveu %sq mas o registro local falhou (%s) intent=%s",
+                refund_amount, exc, intent_ref,
+            )
+            from shopman.shop.services.observability import create_operator_alert
+
+            create_operator_alert(
+                type="payment_ledger_drift",
+                severity="critical",
+                message=(
+                    f"Refund Stripe de {refund_amount} centavos executado no gateway "
+                    f"mas NÃO registrado no Payman (intent {intent_ref}). "
+                    "Conciliar manualmente antes de qualquer novo estorno."
+                ),
+                dedupe_key=f"refund_drift:{intent_ref}",
+                intent_ref=intent_ref,
+                gateway_refund_id=stripe_refund.id,
+            )
 
         return PaymentResult(
             success=True,

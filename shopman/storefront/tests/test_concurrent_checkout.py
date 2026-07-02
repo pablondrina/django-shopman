@@ -138,7 +138,7 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
         session = _make_open_session(self.channel, "IDEM-SS-003")
         IdempotencyKey.objects.create(
-            scope=f"commit:{self.channel.ref}",
+            scope=f"commit:{self.channel.ref}:{session.session_key}",
             key="IDEM-KEY-IN-PROGRESS",
             status="in_progress",
         )

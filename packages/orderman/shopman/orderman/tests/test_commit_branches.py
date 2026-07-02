@@ -34,7 +34,7 @@ class CommitIdempotencyTests(TestCase):
         """Should raise CommitError when commit is already in progress."""
         # Create an in-progress idempotency key with correct scope
         IdempotencyKey.objects.create(
-            scope=f"commit:{self.channel.ref}",
+            scope=f"commit:{self.channel.ref}:{self.session.session_key}",
             key="in-progress-key",
             status="in_progress",
         )
@@ -57,7 +57,7 @@ class CommitIdempotencyTests(TestCase):
             "items_count": 2,
         }
         IdempotencyKey.objects.create(
-            scope=f"commit:{self.channel.ref}",
+            scope=f"commit:{self.channel.ref}:{self.session.session_key}",
             key="done-key",
             status="done",
             response_body=cached_response,

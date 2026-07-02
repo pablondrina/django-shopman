@@ -1466,6 +1466,9 @@ def _fiscal_runtime() -> tuple[str, str, str]:
         readiness = focus_nfe_readiness(mode="runtime")
         return (readiness.status, readiness.label, readiness.message)
 
+    # Adapter fiscal desconhecido: informar, nunca quebrar a projection do POS.
+    return ("warning", "Fiscal", "adapter sem verificação de prontidão")
+
 
 # ── Open-comanda read-model ──────────────────────────────────────────────
 # The read shape the POS surface renders for an open Session (its lines,

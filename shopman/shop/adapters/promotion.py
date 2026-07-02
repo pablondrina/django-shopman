@@ -42,6 +42,15 @@ def get_coupon_promotion(code: str, now) -> Any | None:
     return None
 
 
+def record_coupon_use(code: str) -> None:
+    """Incrementa o contador de usos do cupom — atômico via F()."""
+    from django.db.models import F
+
+    from shopman.storefront.models import Coupon
+
+    Coupon.objects.filter(code=code).update(uses_count=F("uses_count") + 1)
+
+
 def match_delivery_zone(postal_code: str, neighborhood: str) -> Any | None:
     """Retorna a DeliveryZone ativa de maior prioridade, ou None."""
     from shopman.storefront.models import DeliveryZone

@@ -100,6 +100,7 @@ def _build_fiscal_items(order) -> list[dict]:
             "unit": getattr(product, "unit", "") or fiscal.get("unit") or "UN",
             "unit_price_q": item.unit_price_q,
             "total_q": item.line_total_q,
+            "meta": dict(item.meta or {}),
             "fiscal": fiscal,
         })
     return items

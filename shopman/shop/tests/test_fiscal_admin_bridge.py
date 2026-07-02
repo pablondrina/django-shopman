@@ -7,7 +7,6 @@ the per-product fiscal segment (profile + NCM + CEST), backed by
 
 import pytest
 from django.contrib import admin
-
 from shopman.fiscalman.contrib.offerman.admin import (
     FiscalProductAdmin,
     FiscalProductAdminForm,
@@ -37,10 +36,7 @@ def test_form_initial_reads_metadata():
     assert form.fields["fiscal_cest"].initial == ""
 
 
-@pytest.mark.django_db
 def test_form_rejects_cest_on_own_production():
-    product = Product.objects.create(sku="PAO-BRIDGE2", name="Pão", base_price_q=500)
-    form = FiscalProductAdminForm(instance=product)
     cleaned = {"fiscal_profile": "own_production", "fiscal_ncm": "19059010", "fiscal_cest": "0300700"}
     classification_errors = _classification_errors(cleaned)
     assert any("CEST não se aplica" in e for e in classification_errors)

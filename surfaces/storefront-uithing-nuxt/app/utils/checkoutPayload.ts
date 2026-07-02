@@ -30,6 +30,9 @@ export interface CheckoutFormState {
 export interface CheckoutSubmitPayload extends CheckoutFormState {
   idempotency_key: string
   use_loyalty: boolean
+  // Total (centavos) exibido ao cliente no momento do confirmar — o servidor
+  // rejeita o commit se a repricing final divergir (cobrança surpresa, nunca).
+  expected_total_q: number | null
 }
 
 export function createCheckoutAttemptKey (): string {
@@ -39,7 +42,8 @@ export function createCheckoutAttemptKey (): string {
 export function buildCheckoutPayload (
   state: CheckoutFormState,
   idempotencyKey: string,
-  useLoyalty: boolean
+  useLoyalty: boolean,
+  expectedTotalQ: number | null = null
 ): CheckoutSubmitPayload {
   return {
     idempotency_key: idempotencyKey,
@@ -65,6 +69,7 @@ export function buildCheckoutPayload (
     gift_message: state.is_gift ? state.gift_message.trim() : '',
     gift_hide_values: state.is_gift ? state.gift_hide_values : false,
     save_as_default: state.save_as_default,
-    use_loyalty: useLoyalty
+    use_loyalty: useLoyalty,
+    expected_total_q: expectedTotalQ
   }
 }
