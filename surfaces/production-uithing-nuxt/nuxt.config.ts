@@ -79,6 +79,12 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    server: {
+      // Dev-only: permite espiar o dev server por um quick tunnel do
+      // Cloudflare (QA remoto antes de publicar). Produção não passa por
+      // aqui (build Nitro, sem dev server).
+      allowedHosts: isProduction ? [] : [".trycloudflare.com"],
+    },
   }
 })
