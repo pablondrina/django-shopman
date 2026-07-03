@@ -93,6 +93,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Dado sintético nunca notifica gente de verdade — em NENHUM ambiente.
+        # (O staging roda DEBUG=False com credenciais reais; sem isto, as
+        # directives de notificação dos pedidos seedados disparariam SMS.)
+        from shopman.shop.adapters._external import suppress
+
+        suppress("seed")
+
         admin_password = self._resolve_admin_password()
 
         if options["flush"]:

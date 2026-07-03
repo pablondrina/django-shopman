@@ -73,6 +73,15 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         logger.warning("SMS adapter: Comtele não configurado (api_key/route)")
         return False
 
+    from ._external import inert
+
+    if inert("SHOPMAN_SMS_ALLOW_IN_DEBUG"):
+        logger.info(
+            "SMS externo inerte (trava dev/seed): %s -> %s",
+            template, recipient,
+        )
+        return True
+
     message = _build_message(template, context or {})
     payload = {
         "receivers": [to_digits(recipient)],

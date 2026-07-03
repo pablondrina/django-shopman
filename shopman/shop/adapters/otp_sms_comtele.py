@@ -46,6 +46,15 @@ class ComteleSMSSender:
             logger.warning("Comtele SMS not configured (route) — cannot send OTP via %s", method)
             return False
 
+        from ._external import inert
+
+        if inert("SHOPMAN_SMS_ALLOW_IN_DEBUG"):
+            # Inerte em DEBUG → devolve False para a cadeia do Doorman cair no
+            # console (o código de OTP já é exposto em dev). Opt-in real:
+            # SHOPMAN_SMS_ALLOW_IN_DEBUG=true.
+            logger.info("OTP SMS externo inerte (trava dev/seed) para %s — caindo para o próximo sender (console)", target)
+            return False
+
         payload = {
             "receivers": [to_digits(target)],
             "contactGroups": [],

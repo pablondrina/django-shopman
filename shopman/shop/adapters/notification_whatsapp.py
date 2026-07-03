@@ -92,6 +92,15 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         logger.warning("WhatsApp Cloud API not configured (PHONE_NUMBER_ID/ACCESS_TOKEN)")
         return False
 
+    from ._external import inert
+
+    if inert("SHOPMAN_WHATSAPP_ALLOW_IN_DEBUG"):
+        logger.info(
+            "WhatsApp externo inerte (trava dev/seed): %s -> %s",
+            template, recipient,
+        )
+        return True
+
     ctx = context or {}
     to = _to_number(recipient)
     if not to:
