@@ -1,7 +1,8 @@
 """O PAINEL — previsão da produção (build_production_forecast).
 
-Escada de status estilo aeroporto, ETA pela mediana histórica e a coluna
-LIVRE (prevista − comprometida) para a equipe de vendas.
+O status É a escada de confiança (Planejado → Previsto → Confirmado;
+Atrasado quando o horário estoura a margem), horários pela mediana
+histórica e TTL do Confirmado (depois o pão é assunto da gôndola).
 """
 
 from __future__ import annotations
@@ -68,11 +69,10 @@ def test_planned_row_gets_eta_from_historical_finish_time(recipe):
     assert len(forecast.rows) == 1
     row = forecast.rows[0]
     assert row.status == "scheduled"
-    assert row.status_label == "Programado"
+    assert row.status_label == "Planejado"
     assert row.eta_display == "08:00"
     assert row.eta_is_actual is False
-    assert row.forecast_qty == "12"
-    assert row.qty_firm is False
+    assert row.qty == "12"
     assert row.history_days == 5
 
 
@@ -89,8 +89,8 @@ def test_started_row_eta_is_start_plus_median_duration(recipe):
     )
     row = build_production_forecast(target).rows[0]
     assert row.status == "in_progress"
+    assert row.status_label == "Previsto"
     assert row.eta_display == "09:30"
-    assert row.qty_firm is True
 
 
 def test_started_row_without_history_falls_back_to_recipe_sla(recipe):
@@ -108,8 +108,9 @@ def test_started_row_without_history_falls_back_to_recipe_sla(recipe):
     assert row.history_days == 0
 
 
-def test_finished_row_is_arrived_with_real_time_and_qty(recipe):
+def test_finished_row_is_confirmed_with_real_time_and_qty(recipe):
     target = timezone.localdate()
+    finished_at = timezone.now() - timedelta(minutes=5)  # dentro do TTL de 30
     WorkOrder.objects.create(
         recipe=recipe,
         output_sku=recipe.output_sku,
@@ -117,16 +118,49 @@ def test_finished_row_is_arrived_with_real_time_and_qty(recipe):
         finished=Decimal("10"),
         status=WorkOrder.Status.FINISHED,
         target_date=target,
-        started_at=_at(target, 5, 0),
-        finished_at=_at(target, 7, 45),
+        started_at=finished_at - timedelta(hours=2),
+        finished_at=finished_at,
     )
     row = build_production_forecast(target).rows[0]
     assert row.status == "arrived"
-    assert row.status_label == "Na vitrine"
-    assert row.eta_display == "07:45"
+    assert row.status_label == "Confirmado"
+    assert row.eta_display == timezone.localtime(finished_at).strftime("%H:%M")
     assert row.eta_is_actual is True
-    assert row.forecast_qty == "10"
-    assert row.qty_firm is True
+    assert row.qty == "10"
+
+
+def test_confirmed_leaves_the_board_after_ttl(recipe):
+    target = timezone.localdate()
+    finished_at = timezone.now() - timedelta(minutes=45)  # além do TTL de 30
+    WorkOrder.objects.create(
+        recipe=recipe,
+        output_sku=recipe.output_sku,
+        quantity=Decimal("12"),
+        finished=Decimal("10"),
+        status=WorkOrder.Status.FINISHED,
+        target_date=target,
+        started_at=finished_at - timedelta(hours=2),
+        finished_at=finished_at,
+    )
+    assert build_production_forecast(target).rows == ()
+
+
+def test_confirmed_ttl_only_applies_to_the_current_date(recipe):
+    yesterday = timezone.localdate() - timedelta(days=1)
+    WorkOrder.objects.create(
+        recipe=recipe,
+        output_sku=recipe.output_sku,
+        quantity=Decimal("12"),
+        finished=Decimal("10"),
+        status=WorkOrder.Status.FINISHED,
+        target_date=yesterday,
+        started_at=_at(yesterday, 5, 0),
+        finished_at=_at(yesterday, 7, 45),
+    )
+    # Olhando um dia passado, o quadro é o registro do dia inteiro.
+    row = build_production_forecast(yesterday).rows[0]
+    assert row.status == "arrived"
+    assert row.eta_display == "07:45"
 
 
 def test_planned_past_eta_today_is_delayed(recipe):

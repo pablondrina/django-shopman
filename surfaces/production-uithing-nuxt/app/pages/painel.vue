@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // O PAINEL — previsão da produção estilo aeroporto, para a equipe da loja
 // (vendas/encomendas) saber o que pode ser prometido para a data. Uma linha
-// por fornada (= voo): PREVISTO honesto em três níveis (~estimativa → firme
-// no start → real no finish), CHEGADA pela mediana histórica, LIVRE =
-// prevista − comprometida. Desenhado para ficar aberto numa tela da loja:
-// chrome mínimo, tipografia à distância, relógio vivo, poll de 30s.
-import type { ForecastRowProjection, ForecastStatus } from "~/types/production";
+// por fornada (= voo), 4 colunas: o STATUS é a escada de confiança
+// (Planejado → Previsto → Confirmado; Atrasado quando o horário estoura a
+// margem). Confirmado permanece 30 min (config) e sai — pão materializado é
+// assunto da gôndola. Desenhado para ficar aberto numa tela da loja: chrome
+// mínimo, tipografia à distância, relógio vivo, poll de 30s.
+import type { ForecastStatus } from "~/types/production";
 import { fullDateLabel, weekdayLabel } from "~/presentation/production";
 
 const { forecast, rows, selectedDate, pending, error } = useProductionForecast();
@@ -49,10 +50,6 @@ const STATUS_CHIP: Record<ForecastStatus, string> = {
   delayed: "animate-pulse border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   arrived: "border-green-600/40 bg-green-600/10 text-green-700 dark:text-green-400",
 };
-
-function forecastDisplay(row: ForecastRowProjection): string {
-  return row.qty_firm ? row.forecast_qty : `~${row.forecast_qty}`;
-}
 </script>
 
 <template>
@@ -128,10 +125,8 @@ function forecastDisplay(row: ForecastRowProjection): string {
           <thead class="bg-muted/50 text-left text-xs uppercase tracking-widest text-muted-foreground">
             <tr>
               <th class="px-4 py-3 font-semibold">Produto</th>
-              <th class="px-4 py-3 text-right font-semibold">Planejado</th>
-              <th class="px-4 py-3 text-right font-semibold">Previsto</th>
-              <th class="px-4 py-3 text-right font-semibold">Chegada</th>
-              <th class="px-4 py-3 text-right font-semibold">Livre</th>
+              <th class="px-4 py-3 text-right font-semibold">Quantidade</th>
+              <th class="px-4 py-3 text-right font-semibold">Horário</th>
               <th class="px-4 py-3 text-right font-semibold">Status</th>
             </tr>
           </thead>
@@ -146,23 +141,14 @@ function forecastDisplay(row: ForecastRowProjection): string {
                 <p class="text-lg font-bold leading-tight">{{ row.output_sku }}</p>
                 <p class="truncate text-sm text-muted-foreground">{{ row.recipe_name }}</p>
               </td>
-              <td class="px-4 py-3 text-right text-lg tabular-nums text-muted-foreground">{{ row.planned_qty }}</td>
               <td class="px-4 py-3 text-right">
-                <span class="text-lg font-semibold tabular-nums" :title="row.qty_firm ? 'Quantidade firme' : 'Estimativa'">
-                  {{ forecastDisplay(row) }}
-                </span>
+                <span class="text-xl font-bold tabular-nums">{{ row.qty }}</span>
               </td>
               <td class="px-4 py-3 text-right">
                 <span class="inline-flex items-center gap-1.5 text-xl font-bold tabular-nums" :class="row.status === 'delayed' ? 'text-amber-700 dark:text-amber-300' : ''">
                   {{ row.eta_display }}
                   <Icon v-if="row.eta_is_actual" name="lucide:check" class="size-4 text-green-700 dark:text-green-400" />
                 </span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <span class="text-lg font-bold tabular-nums" :class="row.promisable_qty === '0' ? 'text-muted-foreground' : ''">
-                  {{ row.promisable_qty }}
-                </span>
-                <span v-if="row.committed_qty !== '0'" class="block text-xs text-muted-foreground">{{ row.committed_qty }} c/ dono</span>
               </td>
               <td class="px-4 py-3 text-right">
                 <span class="inline-flex items-center rounded-md border px-2.5 py-1 text-sm font-semibold uppercase tracking-wide" :class="STATUS_CHIP[row.status]">
@@ -175,7 +161,7 @@ function forecastDisplay(row: ForecastRowProjection): string {
       </div>
 
       <p v-if="rows.length" class="mt-3 text-xs text-muted-foreground">
-        Chegadas previstas pela mediana dos últimos 28 dias de produção · quantidades com ~ são estimativas até o lote entrar em processo · LIVRE = previsto − encomendas com dono.
+        Horários pela média histórica (28 dias) até a confirmação — depois, hora real (✓) · confirmados saem do painel 30 min após a chegada.
       </p>
     </section>
   </main>

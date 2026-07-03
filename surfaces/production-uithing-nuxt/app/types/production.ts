@@ -182,17 +182,14 @@ export interface ProductionBoardResponse {
 
 // ── O PAINEL — previsão da produção (estilo aeroporto) ──────────────────────
 // Mirrors backstage/projections/production.py ForecastRowProjection.
+// O status É a escada de confiança: Planejado → Previsto → Confirmado.
 
 export type ForecastStatus = "scheduled" | "in_progress" | "delayed" | "arrived";
 
 export interface ForecastRowProjection {
   output_sku: string;
   recipe_name: string;
-  planned_qty: string;
-  forecast_qty: string;
-  qty_firm: boolean;
-  committed_qty: string;
-  promisable_qty: string;
+  qty: string;
   eta_display: string;
   eta_is_actual: boolean;
   status: ForecastStatus;

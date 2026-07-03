@@ -25,6 +25,7 @@ class ProductionConfig:
     alerts        — quando o operador é avisado na tela?
     notifications — quais alertas também viram notificação (email/console)?
     order_match   — como pedidos confirmados se vinculam a WorkOrders?
+    panel         — o painel de previsão (aeroporto) da equipe de loja.
     """
 
     # ── 1. Sugestão ──
@@ -87,11 +88,23 @@ class ProductionConfig:
         # (estoque insuficiente); ampliar para ["error", "warning"] cobre
         # atraso/yield/esquecimento.
 
+    # ── 4. Painel de previsão ──
+
+    @dataclass
+    class Panel:
+        delay_tolerance_minutes: int = 15
+        # Margem além do horário previsto antes de marcar ATRASADO. 15 avisa
+        # a equipe antes do cliente perguntar; 30 esconde o problema demais.
+        confirmed_ttl_minutes: int = 30
+        # Quanto tempo um lote CONFIRMADO permanece no painel após a chegada
+        # (depois disso o pão é assunto da gôndola, não do quadro).
+
     # ── Campos ──
 
     suggestion: Suggestion = field(default_factory=Suggestion)
     alerts: Alerts = field(default_factory=Alerts)
     notifications: Notifications = field(default_factory=Notifications)
+    panel: Panel = field(default_factory=Panel)
     order_match: str = "first_planned"
     # "first_planned" | "earliest_target" | "manual" — estratégia de vínculo
     # pedido confirmado → WorkOrder (production_order_sync).
@@ -107,6 +120,7 @@ class ProductionConfig:
             suggestion=_safe_init(cls.Suggestion, data.get("suggestion", {})),
             alerts=_safe_init(cls.Alerts, data.get("alerts", {})),
             notifications=_safe_init(cls.Notifications, data.get("notifications", {})),
+            panel=_safe_init(cls.Panel, data.get("panel", {})),
             order_match=data.get("order_match", cls.order_match),
         )
 
@@ -177,6 +191,11 @@ class ProductionConfig:
                 "production.notifications.severities deve ser lista de "
                 "info|warning|error|critical"
             )
+
+        if self.panel.delay_tolerance_minutes < 0:
+            raise ValueError("production.panel.delay_tolerance_minutes deve ser >= 0")
+        if self.panel.confirmed_ttl_minutes < 0:
+            raise ValueError("production.panel.confirmed_ttl_minutes deve ser >= 0")
 
         if self.order_match not in ("first_planned", "earliest_target", "manual"):
             raise ValueError(f"production.order_match inválido: {self.order_match}")

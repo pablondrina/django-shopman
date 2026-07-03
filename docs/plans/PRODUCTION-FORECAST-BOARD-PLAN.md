@@ -4,29 +4,31 @@
 > pode ser prometido para uma data, com quantidades e horários previstos a
 > partir da HISTÓRIA real do ledger de produção. Uma fornada = um voo.
 
-## v1 — ✅ entregue (2026-07-03)
+## v1 — ✅ entregue (2026-07-03, refinada com Pablo no mesmo dia)
 
-- **Projection** `build_production_forecast(date)` em
-  `shopman/backstage/projections/production.py`: uma linha por WorkOrder da
-  data (void fora), ordenada por ETA.
-  - **PREVISTO em três níveis de confiança**: planejada = estimativa (`~N`);
-    iniciada = quantidade firme (o start trava); concluída = real.
-  - **CHEGADA**: mediana dos últimos 28 dias — hora-do-dia de `finished_at`
-    para quem não começou; `started_at + mediana(duração start→finish)` para
-    quem está em processo (fallback: `Recipe.meta.max_started_minutes`);
-    hora real para quem chegou. `history_days` expõe a amostra.
-  - **LIVRE = prevista − comprometida** (encomendas com dono) — a coluna da
-    equipe de vendas.
-  - **Status**: `scheduled` Programado · `in_progress` Em produção ·
-    `delayed` Atrasado (só para a data corrente, tolerância 10 min) ·
-    `arrived` Na vitrine. Linguagem interna genérica; rótulos pt na projection.
-- **API** `GET /api/v1/backstage/production/forecast/?date=` (mesma permissão
-  do board de produção).
-- **Fournil** `/painel` (aba "Painel", ícone tower-control): chrome de
-  display (relógio vivo, sem ferramentas de operador), chips Hoje·Amanhã·dia
-  da semana, poll 30s, legenda das convenções. Testes:
-  `shopman/backstage/tests/test_production_forecast.py` (escada, medianas,
-  fallbacks, ordenação).
+`PRODUTO | QUANTIDADE | HORÁRIO | STATUS` — uma linha por WorkOrder da data
+(void fora), ordenada por horário. Uma quantidade só (a relevante do
+momento); **o STATUS é a escada de confiança**:
+
+- `scheduled` **Planejado** — só planejado; horário = mediana histórica
+  (28 dias) da hora-do-dia de `finished_at` da receita;
+- `in_progress` **Previsto** — entrou em produção (start trava a
+  quantidade); horário = `started_at + mediana(duração start→finish)`
+  (fallback `Recipe.meta.max_started_minutes`);
+- `arrived` **Confirmado** — expedido: quantidade e hora REAIS (✓);
+  permanece no painel por `confirmed_ttl_minutes` (30) e sai — pão
+  materializado é assunto da gôndola. Em data passada o quadro é o
+  registro do dia inteiro (TTL não se aplica);
+- `delayed` **Atrasado** — estourou `delay_tolerance_minutes` (15) do
+  horário previsto, só na data corrente.
+
+Knobs em `ProductionConfig.panel` (Shop.defaults["production"]["panel"]).
+`history_days` expõe a amostra da estimativa. API
+`GET /api/v1/backstage/production/forecast/?date=` (permissão do board).
+Fournil `/painel` (aba "Painel", tower-control): chrome de display (relógio
+vivo, sem ferramentas de operador), chips Hoje·Amanhã·dia da semana, poll
+30s, legenda. Testes: `shopman/backstage/tests/test_production_forecast.py`
+(escada, medianas, fallbacks, TTL, ordenação).
 
 ## v2 — backlog (em ordem de valor)
 

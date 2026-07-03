@@ -1975,21 +1975,25 @@ def _format_datetime(dt) -> str:
 
 
 # ── Painel de previsão da produção (estilo "painel de aeroporto") ──────
-# Uma linha por fornada (WO = voo): quantidade prevista, horário de chegada
-# estimado pela HISTÓRIA (mediana dos últimos 28 dias no ledger) e status.
-# Público: equipe de loja/vendas — "o que posso prometer para esta data?".
-# A previsão é honesta em três níveis: planejado = estimativa histórica;
-# iniciado = quantidade firme (o start trava) + ETA pela duração mediana;
-# concluído = quantidade e horário REAIS.
+# Uma linha por fornada (WO = voo), 4 colunas: PRODUTO | QUANTIDADE |
+# HORÁRIO | STATUS. O status É a escada de confiança (refino Pablo):
+#   PLANEJADO  — só planejado; quantidade e horário são estimativa histórica;
+#   PREVISTO   — entrou em produção (start trava a quantidade; horário =
+#                started_at + duração mediana);
+#   CONFIRMADO — expedido (estoque físico): quantidade e horário REAIS.
+#                Permanece no painel por um TTL (config) e sai — pão
+#                materializado é assunto da gôndola, não do quadro;
+#   ATRASADO   — horário previsto estourou a margem (config) na data corrente.
+# Horários pela mediana dos últimos 28 dias do ledger (robusta a dias
+# atípicos); margem e TTL em ProductionConfig.panel.
 
 _FORECAST_HISTORY_DAYS = 28
-_FORECAST_DELAY_TOLERANCE_MIN = 10
 
 _FORECAST_STATUS_LABELS = {
-    "scheduled": "Programado",
-    "in_progress": "Em produção",
+    "scheduled": "Planejado",
+    "in_progress": "Previsto",
     "delayed": "Atrasado",
-    "arrived": "Na vitrine",
+    "arrived": "Confirmado",
 }
 
 
@@ -1997,15 +2001,11 @@ _FORECAST_STATUS_LABELS = {
 class ForecastRowProjection:
     output_sku: str
     recipe_name: str
-    planned_qty: str
-    forecast_qty: str
-    qty_firm: bool  # True quando o start/finish travou a quantidade
-    committed_qty: str  # unidades já com dono (encomendas confirmadas)
-    promisable_qty: str  # prevista − comprometida (nunca negativa)
+    qty: str  # a quantidade RELEVANTE do momento (planejada→iniciada→real)
     eta_display: str  # "HH:MM" ou "—" (sem história e sem SLA)
-    eta_is_actual: bool  # True = horário real de conclusão
+    eta_is_actual: bool  # True = horário real da confirmação
     status: str  # scheduled | in_progress | delayed | arrived
-    status_label: str
+    status_label: str  # Planejado | Previsto | Atrasado | Confirmado
     history_days: int  # amostra por trás da estimativa (transparência)
 
 
@@ -2066,6 +2066,9 @@ def build_production_forecast(selected_date: date | None = None) -> ProductionFo
     from datetime import datetime
     from datetime import time as dt_time
 
+    from shopman.shop.production_config import ProductionConfig
+
+    panel = ProductionConfig.load().panel
     target = selected_date or timezone.localdate()
     now = timezone.localtime()
     tz_info = timezone.get_current_timezone()
@@ -2081,24 +2084,29 @@ def build_production_forecast(selected_date: date | None = None) -> ProductionFo
     rows: list[tuple[tuple, ForecastRowProjection]] = []
     for wo in orders:
         finish_tod, duration_min, sample = history.get(wo.recipe_id, (None, None, 0))
-        started_qty = _wo_started_qty(wo)
-        commitments = _order_commitments_for_work_order(wo)
-        committed = sum((_decimal_value(item.qty_required) for item in commitments), Decimal("0"))
 
         if wo.status == WorkOrder.Status.FINISHED and wo.finished is not None:
-            forecast = wo.finished
+            # Confirmado sai do painel após o TTL — só na data corrente
+            # (olhando um dia passado, o quadro é o registro do dia inteiro).
+            if (
+                target == now.date()
+                and wo.finished_at is not None
+                and now > wo.finished_at + timedelta(minutes=panel.confirmed_ttl_minutes)
+            ):
+                continue
+            qty = wo.finished
             eta = wo.finished_at
             status = "arrived"
             eta_actual = True
         elif wo.status == WorkOrder.Status.STARTED:
-            forecast = started_qty or wo.quantity
+            qty = _wo_started_qty(wo) or wo.quantity
             if duration_min is None:
                 duration_min = int((wo.recipe.meta or {}).get("max_started_minutes") or 0) or None
             eta = wo.started_at + timedelta(minutes=duration_min) if (wo.started_at and duration_min) else None
             status = "in_progress"
             eta_actual = False
         else:  # planned
-            forecast = wo.quantity
+            qty = wo.quantity
             eta = (
                 datetime.combine(target, dt_time(finish_tod // 60, finish_tod % 60), tzinfo=tz_info)
                 if finish_tod is not None
@@ -2108,18 +2116,13 @@ def build_production_forecast(selected_date: date | None = None) -> ProductionFo
             eta_actual = False
 
         if status in ("scheduled", "in_progress") and eta is not None and target == now.date():
-            if now > eta + timedelta(minutes=_FORECAST_DELAY_TOLERANCE_MIN):
+            if now > eta + timedelta(minutes=panel.delay_tolerance_minutes):
                 status = "delayed"
 
-        promisable = max(forecast - committed, Decimal("0"))
         row = ForecastRowProjection(
             output_sku=wo.output_sku,
             recipe_name=wo.recipe.name,
-            planned_qty=_qty(wo.quantity),
-            forecast_qty=_qty(forecast),
-            qty_firm=wo.status in (WorkOrder.Status.STARTED, WorkOrder.Status.FINISHED),
-            committed_qty=_qty(committed),
-            promisable_qty=_qty(promisable),
+            qty=_qty(qty),
             eta_display=_forecast_eta_display(eta),
             eta_is_actual=eta_actual,
             status=status,
