@@ -798,8 +798,11 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
     simples com retry só na colisão; a alocação persiste em ``BlindPrepCode``
     (estável o dia todo, reimpressão sempre bate). Regras anticonfusão:
 
-    - NO DIA, letra e número nunca repetem entre códigos (Z7 veta Z9 e S7) —
-      teto de 8 preparos/dia (8 dígitos válidos), estouro falha explícito;
+    - NO DIA, a letra NUNCA repete entre códigos (Z7 veta Z9) — teto de 24
+      preparos/dia, estouro falha explícito;
+    - os 8 primeiros do dia saem ESTRITOS: número também não repete (Z7 veta
+      S7) — máxima distinção enquanto os dígitos duram; do 9º em diante o
+      número pode repetir (a letra continua mandando);
     - na JANELA de expediente (dia útil anterior · dia · próximo dia útil,
       domingo/feriado pulam via calendário da loja) o código completo não
       repete: etiquetas de dias adjacentes convivendo na cozinha nunca se
@@ -826,17 +829,19 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
         )
         day_letters = {code[0] for code in day_codes}
         day_digits = {code[1] for code in day_codes}
-        free = [
+        by_letter = [
             code
             for code in space
-            if code not in window_taken
-            and code[0] not in day_letters
-            and code[1] not in day_digits
+            if code not in window_taken and code[0] not in day_letters
         ]
+        # Fase estrita (8 primeiros): número também único — máxima distinção.
+        # Esgotados os dígitos, relaxa só o número; a letra nunca repete.
+        strict = [code for code in by_letter if code[1] not in day_digits]
+        free = strict or by_letter
         if not free:
             raise RuntimeError(
-                "Sem código cego disponível: no dia, letra e número não repetem "
-                "(máx. 8 preparos/dia) e o código não pode ter saído nos dias "
+                "Sem código cego disponível: a letra não repete no dia "
+                "(máx. 24 preparos/dia) e o código não pode ter saído nos dias "
                 "úteis vizinhos. Reduza os preparos do dia ou revise refs duplicadas."
             )
         candidate = secrets.choice(free)
@@ -859,9 +864,9 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
         earlier_day_codes = BlindPrepCode.objects.filter(
             date=selected_date, pk__lt=row.pk
         ).values_list("code", flat=True)
-        day_clash = any(
-            code[0] == candidate[0] or code[1] == candidate[1] for code in earlier_day_codes
-        )
+        # Regra dura numa corrida = só a LETRA (número repetido pós-8º é
+        # permitido; perder a distinção estrita numa corrida não é violação).
+        day_clash = any(code[0] == candidate[0] for code in earlier_day_codes)
         window_clash = (
             BlindPrepCode.objects.filter(date__in=window, code=candidate)
             .exclude(pk=row.pk)

@@ -2,10 +2,11 @@
 
 Formato "B7" (1 letra + 1 número, sem 0/1/O/I — ultra legível): sorteio com
 retry só na colisão, alocação persistida em BlindPrepCode (estável o dia
-todo). Regras anticonfusão: NO DIA, letra e número nunca repetem entre
-códigos (Z7 veta Z9 e S7 — teto 8 preparos/dia); na JANELA de expediente
-(dia útil anterior · dia · próximo dia útil; domingo/feriado pulam) o código
-completo não repete. Mapa código↔preparo = gestor.
+todo). Regras anticonfusão: NO DIA a letra nunca repete (teto 24/dia); os 8
+primeiros saem estritos (número também único — Z7 veta Z9 E S7); do 9º em
+diante o número pode repetir. Na JANELA de expediente (dia útil anterior ·
+dia · próximo dia útil; domingo/feriado pulam) o código completo não repete.
+Mapa código↔preparo = gestor.
 """
 
 from __future__ import annotations
@@ -39,8 +40,8 @@ class TestBlindPrepCode:
         blind_prep_code("massa-folhada", today)
         assert blind_prep_code("massa-brioche", today) == first
 
-    def test_no_letter_nor_digit_repeats_within_day(self):
-        """Z7 veta Z9 (letra) e S7 (número): confusão zero entre códigos do dia."""
+    def test_first_eight_are_strict_letters_and_digits_unique(self):
+        """Os 8 primeiros do dia: Z7 veta Z9 (letra) e S7 (número) — máxima distinção."""
         today = date.today()
         codes = [blind_prep_code(f"preparo-{i}", today) for i in range(8)]
         letters = [code[0] for code in codes]
@@ -48,13 +49,23 @@ class TestBlindPrepCode:
         assert len(set(letters)) == 8
         assert len(set(digits)) == 8
 
-    def test_ninth_prep_in_a_day_fails_explicitly(self):
-        """8 dígitos válidos ⇒ teto de 8 preparos/dia — estouro acusa, não confunde."""
+    def test_ninth_onward_may_repeat_digit_never_letter(self):
+        """Antes de estourar, repete NÚMERO — a letra continua única no dia."""
         today = date.today()
-        for i in range(8):
+        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(24)]
+        letters = [code[0] for code in codes]
+        assert len(codes) == 24
+        assert len(set(letters)) == 24  # todas as letras, nenhuma repetida
+        # Dígitos necessariamente repetem após o 8º (só 8 válidos) — permitido.
+        assert len({code[1] for code in codes}) == 8
+
+    def test_twenty_fifth_prep_fails_explicitly(self):
+        """24 letras ⇒ teto de 24 preparos/dia — estouro acusa, não confunde."""
+        today = date.today()
+        for i in range(24):
             blind_prep_code(f"preparo-{i}", today)
-        with pytest.raises(RuntimeError, match="8 preparos"):
-            blind_prep_code("nono-preparo", today)
+        with pytest.raises(RuntimeError, match="24 preparos"):
+            blind_prep_code("vigesimo-quinto", today)
 
     def test_format_is_one_letter_one_digit_no_ambiguous_chars(self):
         """1 letra + 1 número, sem 0/1/O/I — ultra legível e memorizável."""
