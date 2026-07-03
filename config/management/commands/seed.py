@@ -22,10 +22,11 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
+from shopman.doorman.models import PinCredential
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 from shopman.offerman.models import (
     AvailabilityPolicy,
@@ -100,6 +101,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("\n🥐 Populando Nelson Boulangerie...\n"))
 
         self._create_superuser(admin_password)
+        self._seed_operators()
         self._seed_shop()
         self._seed_delivery_distance_bands()
         self._seed_delivery_zones()
@@ -362,6 +364,64 @@ class Command(BaseCommand):
             self.stdout.write("  ✅ Superuser 'admin' criado")
         else:
             self.stdout.write("  ⏭️  Superuser 'admin' ja existe")
+
+    def _seed_operators(self):
+        """Operadores (staff) com PIN para as superfícies operacionais.
+
+        O gate de operador ativo (``SHOPMAN_REQUIRE_ACTIVE_OPERATOR``, ligado no
+        staging) só destrava uma tela de backstage para um staff que tenha
+        ``PinCredential`` **e** a permissão da superfície (POS/KDS/produção). Sem
+        isto, o backstage nasce inacessível após um ``--flush``.
+
+        PIN ``1234`` é conveniência de dev/staging — **trocar no go-live** (via
+        Admin ou ``set_operator_pin``). Os operadores nomeados são identidades
+        só-PIN (senha inutilizável): a confiança do dispositivo entra pelo
+        ``admin``; a identidade que opera é estabelecida pelo PIN (Opção C).
+        """
+        dev_pin = "1234"
+
+        def grant(user, *perms: str) -> None:
+            for perm in perms:
+                app_label, codename = perm.split(".", 1)
+                user.user_permissions.add(
+                    Permission.objects.get(content_type__app_label=app_label, codename=codename)
+                )
+
+        # O superuser 'admin' também opera: como superuser satisfaz qualquer
+        # permissão, um PIN nele destrava toda superfície com a conta que já existe.
+        admin = User.objects.get(username="admin")
+        PinCredential.set_for(admin, dev_pin)
+
+        # Operadores nomeados para o seletor da tela de bloqueio parecer real.
+        operators = [
+            ("ana", "Ana", "Costa", ["backstage.operate_pos", "backstage.operate_kds"]),
+            ("joao", "João", "Silva", ["backstage.operate_kds", "backstage.operate_production"]),
+            (
+                "marina",
+                "Marina",
+                "Dias",
+                [
+                    "backstage.operate_pos",
+                    "backstage.operate_kds",
+                    "backstage.operate_production",
+                    "backstage.perform_closing",
+                    "backstage.adjust_cashshift",
+                    "shop.manage_orders",
+                ],
+            ),
+        ]
+        for username, first, last, perms in operators:
+            user, _ = User.objects.update_or_create(
+                username=username,
+                defaults={"first_name": first, "last_name": last, "is_staff": True, "is_active": True},
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+            user.user_permissions.clear()
+            grant(user, *perms)
+            PinCredential.set_for(user, dev_pin)
+
+        self.stdout.write(f"  ✅ Operadores com PIN {dev_pin}: admin, ana, joão, marina (gerente)")
 
     # ────────────────────────────────────────────────────────────────
     # Flush

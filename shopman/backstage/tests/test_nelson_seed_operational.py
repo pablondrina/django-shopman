@@ -162,6 +162,41 @@ def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch
 
 
 @pytest.mark.django_db
+def test_nelson_seed_provisions_operators_with_pins(monkeypatch):
+    """Backstage exige operador ativo: staff + PinCredential + permissão da superfície.
+
+    Com ``SHOPMAN_REQUIRE_ACTIVE_OPERATOR`` ligado (staging), nenhuma tela destrava
+    sem um operador provisionado. O seed provisiona operadores com PIN 1234 para
+    POS/KDS/produção — senão o backstage nasce inacessível após um ``--flush``.
+    """
+    monkeypatch.setenv("ADMIN_PASSWORD", "strong-seed-admin-password")
+    call_command("seed", "--flush", stdout=StringIO())
+
+    from django.contrib.auth.models import User
+
+    from shopman.backstage.services.operator import eligible_operators, verify_operator_pin
+
+    for perm in (
+        "backstage.operate_pos",
+        "backstage.operate_kds",
+        "backstage.operate_production",
+    ):
+        operators = list(eligible_operators(perm=perm))
+        assert operators, f"nenhum operador elegível para {perm}"
+        assert any(verify_operator_pin(u, "1234", required_perm=perm) for u in operators), (
+            f"PIN 1234 não destrava {perm}"
+        )
+
+    # O superuser 'admin' também opera — PIN destrava qualquer superfície.
+    admin = User.objects.get(username="admin")
+    assert verify_operator_pin(admin, "1234", required_perm="backstage.operate_pos")
+    assert verify_operator_pin(admin, "1234", required_perm="backstage.operate_kds")
+
+    # PIN errado nunca destrava.
+    assert not verify_operator_pin(admin, "0000", required_perm="backstage.operate_pos")
+
+
+@pytest.mark.django_db
 def test_nelson_seed_rejects_default_admin_password_when_not_debug(monkeypatch):
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
 
