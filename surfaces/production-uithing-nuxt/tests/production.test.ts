@@ -3,50 +3,18 @@ import { describe, expect, it } from "vitest";
 import {
   alertTarget,
   elapsedLabel,
-  kdsCardAffordances,
-  matchesKdsQuery,
   matchesRowQuery,
   parseShortage,
   rowCommitments,
   rowHasActivity,
-  splitRef,
   startableWorkOrder,
-  statusTone,
-  timerBar,
   timerChip,
   timerTone,
-  toneBadge,
 } from "../app/presentation/production";
 import type {
-  ProductionKDSCardProjection,
   ProductionMatrixRowProjection,
   WorkOrderCardProjection,
 } from "../app/types/production";
-
-const kdsCard = (over: Partial<ProductionKDSCardProjection> = {}): ProductionKDSCardProjection => ({
-  pk: 1,
-  ref: "WO-001",
-  output_sku: "PAO-FRANCES",
-  recipe_name: "Pão Francês",
-  started_qty: "100",
-  operator_ref: "user:ana",
-  position_ref: "forno",
-  started_at_display: "08:00",
-  elapsed_seconds: 120,
-  elapsed_minutes: 2,
-  target_seconds: 1800,
-  timer_class: "timer-ok",
-  current_step: "Mistura",
-  current_step_index: 1,
-  total_steps: 2,
-  current_step_name: "Mistura",
-  step_progress_pct: 40,
-  next_step_name: "Forno",
-  time_remaining_min: 5,
-  can_finish: true,
-  order_refs: [],
-  ...over,
-});
 
 const wo = (over: Partial<WorkOrderCardProjection> = {}): WorkOrderCardProjection => ({
   pk: 10,
@@ -98,33 +66,13 @@ describe("timerTone / chips", () => {
     expect(timerTone("timer-warning")).toBe("warning");
     expect(timerTone("timer-late")).toBe("late");
   });
-  it("timerChip/timerBar carry saturated meaning only when late/warning", () => {
+  it("timerChip carries saturated meaning only when late/warning", () => {
     expect(timerChip("late")).toContain("red");
     expect(timerChip("ok")).toContain("muted");
-    expect(timerBar("warning")).toContain("amber");
-    expect(timerBar("ok")).toContain("primary");
   });
 });
 
-describe("statusTone", () => {
-  it("maps WorkOrder lifecycle to tones", () => {
-    expect(statusTone("planned")).toBe("info");
-    expect(statusTone("started")).toBe("warning");
-    expect(statusTone("finished")).toBe("success");
-    expect(statusTone("void")).toBe("danger");
-    expect(statusTone("whatever")).toBe("neutral");
-  });
-  it("toneBadge returns a class per tone", () => {
-    expect(toneBadge("success")).toContain("green");
-    expect(toneBadge("neutral")).toContain("muted");
-  });
-});
-
-describe("splitRef / elapsedLabel", () => {
-  it("splits a WO ref into prefix + code", () => {
-    expect(splitRef("WO-001")).toEqual({ prefix: "WO-", code: "001" });
-    expect(splitRef("ABC")).toEqual({ prefix: "", code: "ABC" });
-  });
+describe("elapsedLabel", () => {
   it("formats elapsed compactly", () => {
     expect(elapsedLabel(45)).toBe("45s");
     expect(elapsedLabel(90)).toBe("1m");
@@ -133,33 +81,7 @@ describe("splitRef / elapsedLabel", () => {
   });
 });
 
-describe("kdsCardAffordances", () => {
-  it("offers advance + finish + void for a started WO with steps", () => {
-    const refs = kdsCardAffordances(kdsCard()).map((a) => a.ref);
-    expect(refs).toEqual(["advance_step", "finish", "void"]);
-  });
-  it("drops advance when there is no next step", () => {
-    const refs = kdsCardAffordances(kdsCard({ total_steps: 0, next_step_name: "" })).map((a) => a.ref);
-    expect(refs).toEqual(["finish", "void"]);
-  });
-  it("drops finish when the operator cannot finish", () => {
-    const refs = kdsCardAffordances(kdsCard({ can_finish: false })).map((a) => a.ref);
-    expect(refs).toEqual(["advance_step", "void"]);
-  });
-});
-
-describe("matchesKdsQuery", () => {
-  it("matches on ref, sku, recipe, operator; empty matches all", () => {
-    const c = kdsCard();
-    expect(matchesKdsQuery(c, "")).toBe(true);
-    expect(matchesKdsQuery(c, "pao")).toBe(true);
-    expect(matchesKdsQuery(c, "ana")).toBe(true);
-    expect(matchesKdsQuery(c, "001")).toBe(true);
-    expect(matchesKdsQuery(c, "croissant")).toBe(false);
-  });
-});
-
-describe("matrix helpers", () => {
+describe("grid helpers", () => {
   it("rowHasActivity is true with orders or a suggestion", () => {
     expect(rowHasActivity(row())).toBe(false);
     expect(rowHasActivity(row({ planned_orders: [wo()] }))).toBe(true);
@@ -183,7 +105,7 @@ describe("matrix helpers", () => {
   it("alertTarget routes production alerts to the right board", () => {
     expect(alertTarget({ type: "production_late", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
     expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
-    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/planejamento", q: "WO-2" });
+    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/", q: "WO-2" });
     expect(alertTarget({ type: "production_low_yield", order_ref: "WO-3" })).toBeNull();
     expect(alertTarget({ type: "stock_low", order_ref: "" })).toBeNull();
   });

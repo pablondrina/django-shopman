@@ -142,6 +142,20 @@ export interface ProductionMatrixRowProjection {
   loss_qty: string;
 }
 
+export interface ProductionSurfaceAccess {
+  can_manage_all: boolean;
+  can_view_suggested: boolean;
+  can_edit_suggested: boolean;
+  can_view_planned: boolean;
+  can_edit_planned: boolean;
+  can_view_started: boolean;
+  can_edit_started: boolean;
+  can_view_finished: boolean;
+  can_edit_finished: boolean;
+  can_view_unsold: boolean;
+  can_edit_unsold: boolean;
+}
+
 export interface ProductionBoardProjection {
   selected_date: string;
   selected_date_display: string;
@@ -159,6 +173,7 @@ export interface ProductionBoardProjection {
   suggestions: ProductionSuggestionProjection[];
   matrix_rows: ProductionMatrixRowProjection[];
   default_position_pk: number | null;
+  access: ProductionSurfaceAccess;
 }
 
 export interface ProductionBoardResponse {

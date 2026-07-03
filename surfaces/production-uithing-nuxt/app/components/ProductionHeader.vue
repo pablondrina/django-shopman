@@ -12,11 +12,11 @@ function toggleTheme() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 
-// Ordem = o fluxo do dia do padeiro: planeja → separa/pesa → produz.
+// A GRADE de Produção absorveu o planejamento e o chão (decisão Pablo
+// 2026-07-03); a Preparação segue como estação própria de pesagem/separação.
 const tabs = [
-  { to: "/planejamento", label: "Planejamento", icon: "lucide:layout-grid" },
+  { to: "/", label: "Produção", icon: "lucide:layout-grid" },
   { to: "/preparacao", label: "Preparação", icon: "lucide:scale" },
-  { to: "/", label: "Produção", icon: "lucide:flame" },
 ];
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);
