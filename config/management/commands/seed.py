@@ -3337,11 +3337,30 @@ class Command(BaseCommand):
     def _seed_production_demand_history(self, products, channels, now) -> int:
         """Stable same-weekday demand rows for Craftsman production suggestions."""
         pdv = channels["pdv"]
+        # Demanda semanal ≈ produção típica de cada SKU (QA Pablo: o Sugerido
+        # nasce de histórico + encomendas — deve sair PRÓXIMO do planejado,
+        # nunca zerado/baixinho). 4 semanas com variação realista por SKU.
+        def weeks(base: int) -> list[Decimal]:
+            return [
+                Decimal(str(max(1, round(base * factor))))
+                for factor in (1.05, 1.15, 0.9, 1.1)
+            ]
+
         history = {
-            "BAGUETE": [Decimal("34"), Decimal("38"), Decimal("31"), Decimal("36")],
-            "CROISSANT": [Decimal("44"), Decimal("48"), Decimal("41"), Decimal("46")],
-            "PAIN-CHOCOLAT": [Decimal("24"), Decimal("28"), Decimal("22"), Decimal("26")],
-            "CIABATTA": [Decimal("18"), Decimal("21"), Decimal("17"), Decimal("20")],
+            "BAGUETE": weeks(28),
+            "BAGUETE-CAMPAGNE": weeks(14),
+            "CAMPAGNE-OVAL": weeks(10),
+            "ITALIANO-RUSTICO": weeks(18),
+            "CIABATTA": weeks(20),
+            "PAO-FORMA": weeks(12),
+            "CHALLAH": weeks(8),
+            "CROISSANT": weeks(48),
+            "PAIN-CHOCOLAT": weeks(36),
+            "BRIOCHE": weeks(12),
+            "FOCACCIA-ALECRIM": weeks(8),
+            "FOCACCIA-CEBOLA": weeks(6),
+            "CHAUSSON": weeks(12),
+            "MADELEINE": weeks(24),
         }
         created_or_updated = 0
         for sku, quantities in history.items():

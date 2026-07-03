@@ -1,22 +1,20 @@
 <script setup lang="ts">
-// A GRADE por etapa — um motor, três lentes (refino Pablo 2026-07-03):
-//   · plan      (Planejamento): Sugerido · Planejado — decidir quantidades;
-//   · produce   (Produção):     Planejado · Iniciado — o trabalho vivo
-//                               (iniciar, avançar etapa, estornar);
-//   · expedite  (Expedição):    Iniciado · Expedido — a SAÍDA da produção:
-//                               a quantidade final (pós-conferência/QC) que
-//                               segue para a vitrine. No kernel é o `finish`
-//                               — que já despacha e registra tudo no ledger.
-// Guardrails do OPERATION-DOMAIN-PLAN: colunas por permissão, célula é BOTÃO
-// (overlay com confirmação — à prova de toque enfarinhado), cada informe vira
-// evento imutável (actor + timestamp → BI). Nomenclatura interna do sistema
-// intacta (planned/started/finished) — as abas são linguagem de UI.
+// A GRADE por etapa — um motor, três lentes (refinos Pablo 2026-07-03):
+//   PRODUTO | leitura | AÇÃO — cada lente tem UMA coluna de leitura e UMA de
+//   ação com verbo no cabeçalho:
+//   · plan     (Planejamento): SUGERIDO   | PLANEJAR   — todos os SKUs;
+//   · produce  (Produção):     PLANEJADO  | PROCESSAR  — só linhas com número;
+//   · expedite (Expedição):    PROCESSADO | EXPEDIR    — só linhas com número.
+// A ação abre overlay com quantidade em stepper touch (+/−) e confirmação
+// explícita; cada informe vira evento imutável (actor + timestamp → BI).
+// Instruções específicas do SKU (peso de corte etc.) terão casa neste overlay
+// (estudo de notação de pâtonnage pendente). Nomenclatura interna do sistema
+// intacta (planned/started/finished) — as lentes são linguagem de UI.
 import {
   elapsedLabel,
   matchesRowQuery,
   rowCommitments,
   rowCommittedUnits,
-  rowHasActivity,
   startableWorkOrder,
   timerChip,
   timerTone,
@@ -40,48 +38,71 @@ const route = useRoute();
 const query = ref(typeof route.query.q === "string" ? route.query.q : "");
 watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
 
-// Horizonte: hoje / amanhã / qualquer data.
+// ── Data: Hoje · Amanhã · Outra data (chip com o picker embutido) ───────────
 function isoFor(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-const dateChips = [
-  { iso: isoFor(0), label: "Hoje" },
-  { iso: isoFor(1), label: "Amanhã" },
-];
+const todayISO = isoFor(0);
+const tomorrowISO = isoFor(1);
+const isCustomDate = computed(() => selectedDate.value !== todayISO && selectedDate.value !== tomorrowISO);
+const customDateInput = ref<HTMLInputElement | null>(null);
+function openCustomDate() {
+  customDateInput.value?.showPicker?.();
+  customDateInput.value?.focus();
+}
 
-// Colunas da lente (sempre cruzadas com a permissão do usuário).
-const cols = computed(() => ({
-  suggested: props.stage === "plan" && !!access.value?.can_view_suggested,
-  planned: (props.stage === "plan" || props.stage === "produce") && !!access.value?.can_view_planned,
-  started: (props.stage === "produce" || props.stage === "expedite") && !!access.value?.can_view_started,
-  finished: props.stage === "expedite" && !!access.value?.can_view_finished,
-}));
+// ── Filtro por ficha-base (higiene visual por grupo de massa) ───────────────
+const baseFilter = ref("");
+const baseOptions = computed(() => board.value?.base_recipes ?? []);
 
-const showAll = ref(false);
-const stageRows = computed<ProductionMatrixRowProjection[]>(() => {
-  const base = rows.value.filter((r) => matchesRowQuery(r, query.value));
-  if (showAll.value) return base;
+// ── Papéis de coluna por lente (cruzados com a permissão) ───────────────────
+const lens = computed(() => {
+  if (props.stage === "plan") {
+    return {
+      read: { key: "suggested", label: "Sugerido", visible: !!access.value?.can_view_suggested },
+      action: { key: "planned", label: "Planejar", visible: !!access.value?.can_view_planned, editable: !!access.value?.can_edit_planned },
+    } as const;
+  }
   if (props.stage === "produce") {
-    return base.filter((r) => r.planned_orders.length || r.started_orders.length);
+    return {
+      read: { key: "planned", label: "Planejado", visible: !!access.value?.can_view_planned },
+      action: { key: "started", label: "Processar", visible: !!access.value?.can_view_started, editable: !!access.value?.can_edit_started },
+    } as const;
+  }
+  return {
+    read: { key: "started", label: "Processado", visible: !!access.value?.can_view_started },
+    action: { key: "finished", label: "Expedir", visible: !!access.value?.can_view_finished, editable: !!access.value?.can_edit_finished },
+  } as const;
+});
+
+// Linhas por lente: Planejamento vê TODOS os SKUs; Produção/Expedição só quem
+// tem número relevante (higiene de foco na bancada).
+const stageRows = computed<ProductionMatrixRowProjection[]>(() => {
+  let base = rows.value.filter((r) => matchesRowQuery(r, query.value));
+  if (baseFilter.value) {
+    base = base.filter((r) => r.base_usages.some((usage) => usage.output_sku === baseFilter.value));
+  }
+  if (props.stage === "produce") {
+    return base.filter((r) => r.planned_qty !== "0" || r.started_qty !== "0");
   }
   if (props.stage === "expedite") {
-    return base.filter((r) => r.started_orders.length || r.finished_qty !== "0");
+    return base.filter((r) => r.started_qty !== "0" || r.finished_qty !== "0");
   }
-  return base.filter((r) => rowHasActivity(r));
+  return base;
 });
 
 const emptyCopy = computed(() =>
   props.stage === "plan"
-    ? { text: "Nada planejado nesta data.", cta: "Ver todas as receitas para planejar" }
+    ? { text: "Nenhuma receita ativa.", cta: "", to: "" }
     : props.stage === "produce"
-      ? { text: "Nada para produzir nesta data.", cta: "Planejar produção", to: "/planejamento" }
-      : { text: "Nada para expedir nesta data.", cta: "Ver produção", to: "/" },
+      ? { text: "Nada planejado para processar nesta data.", cta: "Ir para o Planejamento", to: "/planejamento" }
+      : { text: "Nada processado para expedir nesta data.", cta: "Ir para a Produção", to: "/" },
 );
 
-// ── Overlays (um por intenção; a célula só declara o que quer) ─────────────
+// ── Overlays ────────────────────────────────────────────────────────────────
 const explaining = ref<ProductionSuggestionProjection | null>(null);
 const planRow = ref<ProductionMatrixRowProjection | null>(null);
 const planQty = ref("");
@@ -99,16 +120,26 @@ const commitmentsList = computed(() =>
   commitmentsRow.value ? rowCommitments(commitmentsRow.value) : [],
 );
 
-// Card vivo do KDS para o lote iniciado da linha (timer/etapa/ações).
 const startedCard = computed<ProductionKDSCardProjection | null>(() => {
   const wo = startedRow.value?.started_orders[0];
   if (!wo) return null;
   return kds.cards.value.find((c) => c.pk === wo.pk) ?? null;
 });
 
+// Stepper touch: quantidade sempre editável com +/− generosos.
+// (Recebe o NOME do campo — no template o Vue desembrulha refs, então passar
+// `planQty` entregaria a string, não o ref.)
+const qtyFields = { plan: planQty, start: startQty, finish: finishQty } as const;
+function bump(field: keyof typeof qtyFields, delta: number) {
+  const target = qtyFields[field];
+  const current = parseFloat(target.value.replace(",", ".")) || 0;
+  const next = Math.max(0, current + delta);
+  target.value = Number.isInteger(next) ? String(next) : next.toFixed(3).replace(/\.?0+$/, "");
+}
+
 function openPlan(row: ProductionMatrixRowProjection) {
   planRow.value = row;
-  planQty.value = row.planned_qty !== "0" ? row.planned_qty : (row.suggestion?.quantity ?? "");
+  planQty.value = row.planned_qty !== "0" ? row.planned_qty : (row.suggestion?.quantity ?? "0");
 }
 
 async function confirmPlan() {
@@ -143,7 +174,7 @@ async function confirmStart() {
   if (res.ok) {
     startRow.value = null;
     kds.refresh();
-    useSonner.success(`Iniciado: ${row.output_sku} × ${startQty.value.trim()}`);
+    useSonner.success(`Em processo: ${row.output_sku} × ${startQty.value.trim()}`);
   }
 }
 
@@ -202,24 +233,44 @@ async function advanceStep() {
   refresh();
 }
 
+function onAction(row: ProductionMatrixRowProjection) {
+  if (props.stage === "plan") return openPlan(row);
+  if (props.stage === "produce") {
+    if (row.started_orders.length) {
+      startedRow.value = row;
+      voidConfirming.value = false;
+      kds.refresh();
+      return;
+    }
+    return openStart(row);
+  }
+  return openFinish(row);
+}
+
+function rowValue(row: ProductionMatrixRowProjection, key: string): string {
+  if (key === "suggested") return row.suggestion?.quantity ?? "0";
+  if (key === "planned") return row.planned_qty;
+  if (key === "started") return row.started_qty;
+  return row.finished_qty;
+}
+
+function actionEnabled(row: ProductionMatrixRowProjection): boolean {
+  if (!lens.value.action.editable) return false;
+  if (props.stage === "plan") return row.recipe_pk != null;
+  if (props.stage === "produce") return !!row.started_orders.length || !!startableWorkOrder(row);
+  return !!row.started_orders.length;
+}
+
+const ACTION_VERB: Record<string, string> = { plan: "Planejar", produce: "Processar", expedite: "Expedir" };
+
 function cellQty(value: string): string {
   return value === "0" ? "—" : value;
 }
 
-// ── Anatomia única de célula: mesmo corpo para tudo; só o papel muda ────────
-const CELL = "inline-flex h-9 min-w-16 items-center justify-end gap-1 rounded-md px-2.5 font-semibold tabular-nums transition";
+// ── Anatomia única de célula (números neutros; cor não codifica coluna) ─────
+const CELL = "inline-flex h-10 min-w-20 items-center justify-end gap-1.5 rounded-md px-2.5 font-semibold tabular-nums transition";
 const CELL_ACTION = `${CELL} border hover:bg-accent disabled:opacity-50`;
 const CELL_READ = `${CELL} border border-transparent`;
-
-const COLUMN_TONE: Record<string, string> = {
-  suggested: "text-muted-foreground",
-  planned: "text-blue-700 dark:text-blue-300",
-  started: "text-amber-700 dark:text-amber-300",
-  finished: "text-green-700 dark:text-green-300",
-};
-function cellTone(column: keyof typeof COLUMN_TONE, value: string): string {
-  return value !== "0" ? COLUMN_TONE[column]! : "text-muted-foreground";
-}
 
 // Progresso do dia: noção visual do quanto falta (expedido ÷ total do dia).
 const dayProgress = computed(() => {
@@ -232,7 +283,7 @@ const dayProgress = computed(() => {
 
 const headerCount = computed(() => {
   if (props.stage === "plan") return { count: counts.value?.planned ?? 0, label: "planejados" };
-  if (props.stage === "produce") return { count: counts.value?.started ?? 0, label: "em produção" };
+  if (props.stage === "produce") return { count: counts.value?.started ?? 0, label: "em processo" };
   return { count: counts.value?.finished ?? 0, label: "expedidos" };
 });
 </script>
@@ -252,24 +303,42 @@ const headerCount = computed(() => {
       <div class="mb-3 flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Data">
           <button
-            v-for="chip in dateChips"
-            :key="chip.iso"
             type="button"
             class="rounded-md px-2.5 py-1.5 text-sm font-medium transition"
-            :class="selectedDate === chip.iso ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
-            :aria-pressed="selectedDate === chip.iso"
-            @click="selectedDate = chip.iso"
+            :class="selectedDate === todayISO ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+            :aria-pressed="selectedDate === todayISO"
+            @click="selectedDate = todayISO"
           >
-            {{ chip.label }}
+            Hoje
           </button>
-          <input
-            v-model="selectedDate"
-            type="date"
-            class="h-8 rounded-md border-0 bg-transparent px-1.5 text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
-            aria-label="Outra data"
-          />
+          <button
+            type="button"
+            class="rounded-md px-2.5 py-1.5 text-sm font-medium transition"
+            :class="selectedDate === tomorrowISO ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+            :aria-pressed="selectedDate === tomorrowISO"
+            @click="selectedDate = tomorrowISO"
+          >
+            Amanhã
+          </button>
+          <button
+            type="button"
+            class="relative rounded-md px-2.5 py-1.5 text-sm font-medium transition"
+            :class="isCustomDate ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+            :aria-pressed="isCustomDate"
+            @click="openCustomDate()"
+          >
+            {{ isCustomDate ? dateDisplay : "Outra data" }}
+            <input
+              ref="customDateInput"
+              v-model="selectedDate"
+              type="date"
+              class="absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Escolher outra data"
+              tabindex="-1"
+            />
+          </button>
         </div>
-        <span class="text-sm text-muted-foreground">{{ dateDisplay }}</span>
+        <span v-if="!isCustomDate" class="text-sm text-muted-foreground">{{ dateDisplay }}</span>
         <div
           v-if="dayProgress"
           class="inline-flex items-center gap-2"
@@ -285,10 +354,17 @@ const headerCount = computed(() => {
           </div>
           <span class="text-xs tabular-nums text-muted-foreground">{{ dayProgress.pct }}%</span>
         </div>
-        <label v-if="stage === 'plan'" class="ml-auto inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-          <input v-model="showAll" type="checkbox" class="size-4 rounded border" />
-          Mostrar todas as receitas
-        </label>
+        <select
+          v-if="baseOptions.length"
+          v-model="baseFilter"
+          class="ml-auto h-9 rounded-md border bg-background px-2 text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
+          aria-label="Filtrar por ficha-base"
+        >
+          <option value="">Todas as massas</option>
+          <option v-for="base in baseOptions" :key="base.output_sku" :value="base.output_sku">
+            {{ base.name }} ({{ base.count }})
+          </option>
+        </select>
       </div>
 
       <p v-if="pending && !rows.length" class="text-sm text-muted-foreground">Carregando…</p>
@@ -302,9 +378,6 @@ const headerCount = computed(() => {
         <NuxtLink v-if="emptyCopy.to" :to="emptyCopy.to" class="text-sm text-primary underline-offset-2 hover:underline">
           {{ emptyCopy.cta }}
         </NuxtLink>
-        <button v-else type="button" class="text-sm text-primary underline-offset-2 hover:underline" @click="showAll = true">
-          {{ emptyCopy.cta }}
-        </button>
       </div>
 
       <div v-else class="overflow-hidden rounded-lg border">
@@ -312,10 +385,8 @@ const headerCount = computed(() => {
           <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th class="px-3 py-2 font-semibold">Produto</th>
-              <th v-if="cols.suggested" class="px-3 py-2 text-right font-semibold">Sugerido</th>
-              <th v-if="cols.planned" class="px-3 py-2 text-right font-semibold">Planejado</th>
-              <th v-if="cols.started" class="px-3 py-2 text-right font-semibold">Iniciado</th>
-              <th v-if="cols.finished" class="px-3 py-2 text-right font-semibold">Expedido</th>
+              <th v-if="lens.read.visible" class="px-3 py-2 text-right font-semibold">{{ lens.read.label }}</th>
+              <th v-if="lens.action.visible" class="px-3 py-2 text-right font-semibold">{{ lens.action.label }}</th>
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -337,10 +408,10 @@ const headerCount = computed(() => {
                 </p>
               </td>
 
-              <!-- Sugerido (só no Planejamento): leitura + "por que este número?" -->
-              <td v-if="cols.suggested" class="px-3 py-1.5 text-right">
+              <!-- Coluna de LEITURA -->
+              <td v-if="lens.read.visible" class="px-3 py-1.5 text-right">
                 <button
-                  v-if="row.suggestion"
+                  v-if="stage === 'plan' && row.suggestion"
                   type="button"
                   :class="[CELL_ACTION, 'text-muted-foreground']"
                   :aria-label="`Por que ${row.suggestion.quantity} de ${row.recipe_name}?`"
@@ -349,67 +420,32 @@ const headerCount = computed(() => {
                   {{ row.suggestion.quantity }}
                   <Icon name="lucide:info" class="size-3.5 opacity-60" />
                 </button>
-                <span v-else :class="[CELL_READ, 'text-muted-foreground']">—</span>
-              </td>
-
-              <!-- Planejado: ação no Planejamento, leitura na Produção -->
-              <td v-if="cols.planned" class="px-3 py-1.5 text-right">
-                <button
-                  v-if="stage === 'plan' && access?.can_edit_planned && row.recipe_pk != null"
-                  type="button"
-                  :class="[CELL_ACTION, cellTone('planned', row.planned_qty)]"
-                  :disabled="isBusy(row.output_sku)"
-                  :aria-label="`Planejar ${row.output_sku} (atual: ${row.planned_qty})`"
-                  @click="openPlan(row)"
-                >
-                  {{ cellQty(row.planned_qty) }}
-                </button>
-                <span v-else :class="[CELL_READ, cellTone('planned', row.planned_qty)]">
-                  {{ cellQty(row.planned_qty) }}
+                <span v-else :class="[CELL_READ, rowValue(row, lens.read.key) !== '0' ? 'text-foreground' : 'text-muted-foreground']">
+                  {{ cellQty(rowValue(row, lens.read.key)) }}
                 </span>
               </td>
 
-              <!-- Iniciado: ação na Produção (iniciar/gerir), leitura na Expedição -->
-              <td v-if="cols.started" class="px-3 py-1.5 text-right">
+              <!-- Coluna de AÇÃO (verbo no cabeçalho; valor atual + gesto) -->
+              <td v-if="lens.action.visible" class="px-3 py-1.5 text-right">
                 <button
-                  v-if="stage === 'produce' && row.started_orders.length"
+                  v-if="actionEnabled(row)"
                   type="button"
-                  :class="[CELL_ACTION, cellTone('started', row.started_qty)]"
-                  :aria-label="`Gerir lote iniciado de ${row.output_sku}`"
-                  @click="startedRow = row; voidConfirming = false; kds.refresh()"
-                >
-                  {{ cellQty(row.started_qty) }}
-                  <Icon name="lucide:settings-2" class="size-3.5 opacity-60" />
-                </button>
-                <button
-                  v-else-if="stage === 'produce' && access?.can_edit_started && startableWorkOrder(row)"
-                  type="button"
-                  :class="[CELL_ACTION, 'text-foreground']"
+                  :class="[CELL_ACTION, rowValue(row, lens.action.key) !== '0' ? 'text-foreground' : 'text-muted-foreground']"
                   :disabled="isBusy(row.output_sku)"
-                  :aria-label="`Iniciar produção de ${row.output_sku}`"
-                  @click="openStart(row)"
+                  :aria-label="`${ACTION_VERB[stage]} ${row.output_sku}`"
+                  @click="onAction(row)"
                 >
-                  <Icon name="lucide:play" class="size-3.5" />
+                  <template v-if="rowValue(row, lens.action.key) !== '0'">
+                    {{ rowValue(row, lens.action.key) }}
+                    <Icon :name="stage === 'produce' && row.started_orders.length ? 'lucide:settings-2' : 'lucide:pencil'" class="size-3.5 opacity-60" />
+                  </template>
+                  <template v-else>
+                    <span class="text-sm font-medium">{{ ACTION_VERB[stage] }}</span>
+                    <Icon name="lucide:chevron-right" class="size-3.5 opacity-60" />
+                  </template>
                 </button>
-                <span v-else :class="[CELL_READ, cellTone('started', row.started_qty)]">
-                  {{ cellQty(row.started_qty) }}
-                </span>
-              </td>
-
-              <!-- Expedido (só na Expedição): a saída da produção, pós-conferência -->
-              <td v-if="cols.finished" class="px-3 py-1.5 text-right">
-                <button
-                  v-if="access?.can_edit_finished && row.started_orders.length"
-                  type="button"
-                  :class="[CELL_ACTION, cellTone('finished', row.finished_qty)]"
-                  :aria-label="`Expedir ${row.output_sku}`"
-                  @click="openFinish(row)"
-                >
-                  {{ cellQty(row.finished_qty) }}
-                  <Icon name="lucide:package-check" class="size-3.5 opacity-60" />
-                </button>
-                <span v-else :class="[CELL_READ, cellTone('finished', row.finished_qty)]">
-                  {{ cellQty(row.finished_qty) }}
+                <span v-else :class="[CELL_READ, rowValue(row, lens.action.key) !== '0' ? 'text-foreground' : 'text-muted-foreground']">
+                  {{ cellQty(rowValue(row, lens.action.key)) }}
                 </span>
               </td>
             </tr>
@@ -431,14 +467,17 @@ const headerCount = computed(() => {
             <template v-if="planRow?.suggestion"> · sugestão {{ planRow.suggestion.quantity }}</template>
           </UiDialogDescription>
         </UiDialogHeader>
-        <input
-          v-model="planQty"
-          type="text"
-          inputmode="decimal"
-          placeholder="Quantidade"
-          class="w-full rounded-md border bg-background p-2.5 text-lg font-semibold tabular-nums outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Quantidade planejada"
-        />
+        <div class="flex items-center gap-2">
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('plan', -1)">−</button>
+          <input
+            v-model="planQty"
+            type="text"
+            inputmode="decimal"
+            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Quantidade planejada"
+          />
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Aumentar" @click="bump('plan', 1)">+</button>
+        </div>
         <UiDialogFooter>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="planRow = null">Cancelar</button>
           <button
@@ -453,21 +492,24 @@ const headerCount = computed(() => {
       </UiDialogContent>
     </UiDialog>
 
-    <!-- iniciar -->
+    <!-- processar (iniciar) -->
     <UiDialog :open="startRow != null" @update:open="(v) => { if (!v) startRow = null }">
       <UiDialogContent class="sm:max-w-sm">
         <UiDialogHeader>
-          <UiDialogTitle>Iniciar {{ startRow?.output_sku }}</UiDialogTitle>
-          <UiDialogDescription>Quantidade que entra em produção agora.</UiDialogDescription>
+          <UiDialogTitle>Processar {{ startRow?.output_sku }}</UiDialogTitle>
+          <UiDialogDescription>Quantidade que entra em processo agora — registra o início e materializa o lote.</UiDialogDescription>
         </UiDialogHeader>
-        <input
-          v-model="startQty"
-          type="text"
-          inputmode="decimal"
-          placeholder="Quantidade"
-          class="w-full rounded-md border bg-background p-2.5 text-lg font-semibold tabular-nums outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Quantidade iniciada"
-        />
+        <div class="flex items-center gap-2">
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('start', -1)">−</button>
+          <input
+            v-model="startQty"
+            type="text"
+            inputmode="decimal"
+            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Quantidade em processo"
+          />
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Aumentar" @click="bump('start', 1)">+</button>
+        </div>
         <UiDialogFooter>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="startRow = null">Cancelar</button>
           <button
@@ -476,19 +518,19 @@ const headerCount = computed(() => {
             class="rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
             @click="confirmStart()"
           >
-            Iniciar produção
+            Iniciar
           </button>
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>
 
-    <!-- lote iniciado (gerir: etapa, timer, estornar) -->
+    <!-- lote em processo (gerir: etapa, timer, estornar) -->
     <UiDialog :open="startedRow != null" @update:open="(v) => { if (!v) { startedRow = null; voidConfirming = false } }">
       <UiDialogContent class="sm:max-w-md">
         <UiDialogHeader>
-          <UiDialogTitle>{{ startedRow?.output_sku }} em produção</UiDialogTitle>
+          <UiDialogTitle>{{ startedRow?.output_sku }} em processo</UiDialogTitle>
           <UiDialogDescription>
-            #{{ startedRow?.started_orders[0]?.ref }} · {{ startedRow?.started_qty }} un. iniciadas
+            #{{ startedRow?.started_orders[0]?.ref }} · {{ startedRow?.started_qty }} un. em processo
           </UiDialogDescription>
         </UiDialogHeader>
 
@@ -498,7 +540,7 @@ const headerCount = computed(() => {
               <template v-if="startedCard.total_steps > 0 && startedCard.current_step_index">
                 {{ startedCard.current_step_index }}/{{ startedCard.total_steps }} · {{ startedCard.current_step_name || startedCard.current_step }}
               </template>
-              <template v-else>{{ startedCard.current_step || "Produção" }}</template>
+              <template v-else>{{ startedCard.current_step || "Em processo" }}</template>
             </span>
             <span class="shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums" :class="timerChip(timerTone(startedCard.timer_class))">
               {{ elapsedLabel(startedCard.elapsed_seconds) }}
@@ -522,7 +564,7 @@ const headerCount = computed(() => {
         <div v-if="voidConfirming" class="flex flex-col gap-2">
           <p class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-sm text-amber-700 dark:text-amber-300">
             <Icon name="lucide:triangle-alert" class="mt-0.5 size-4 shrink-0" />
-            <span>A ordem sai da produção e o vínculo com pedidos é desfeito.</span>
+            <span>A ordem sai do processo e o vínculo com pedidos é desfeito.</span>
           </p>
           <textarea
             v-model="voidReason"
@@ -551,10 +593,7 @@ const headerCount = computed(() => {
             Confirmar estorno
           </button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="startedRow = null; voidConfirming = false">Fechar</button>
-          <NuxtLink
-            to="/expedicao"
-            class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent"
-          >
+          <NuxtLink to="/expedicao" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent">
             Expedição →
           </NuxtLink>
         </UiDialogFooter>
@@ -570,14 +609,17 @@ const headerCount = computed(() => {
             Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — segue para a vitrine.
           </UiDialogDescription>
         </UiDialogHeader>
-        <input
-          v-model="finishQty"
-          type="text"
-          inputmode="decimal"
-          placeholder="Ex.: 100"
-          class="w-full rounded-md border bg-background p-2.5 text-lg font-semibold tabular-nums outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Quantidade expedida"
-        />
+        <div class="flex items-center gap-2">
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('finish', -1)">−</button>
+          <input
+            v-model="finishQty"
+            type="text"
+            inputmode="decimal"
+            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Quantidade expedida"
+          />
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Aumentar" @click="bump('finish', 1)">+</button>
+        </div>
         <UiDialogFooter>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="finishRow = null">Cancelar</button>
           <button
