@@ -70,8 +70,8 @@ def poll() -> list[dict]:
         if resp.status_code == 400 and merchant_id:
             logger.warning(
                 "ifood_events.poll: iFood rejeitou x-polling-merchants (400) — "
-                "IFOOD_MERCHANT_ID provavelmente inválido. Pollando sem filtro; "
-                "corrija p/ o UUID do merchant no portal iFood."
+                "IFOOD_MERCHANT_ID provavelmente errado. Pollando sem filtro; "
+                "confira o Merchant ID no portal iFood."
             )
             resp = requests.get(url, headers=headers, timeout=timeout)
     except requests.RequestException as exc:
