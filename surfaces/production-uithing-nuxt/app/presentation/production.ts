@@ -73,18 +73,15 @@ export function matchesRowQuery(row: ProductionMatrixRowProjection, rawQuery: st
 // ── Alert deep-links ───────────────────────────────────────────────────────
 
 /** Where an operator alert resolves, if anywhere in this app.
- *  Late/stock_short/forgotten all land on the production GRID (a grade cobre
- *  planejamento e chão) with the search preset to the WO ref;
- *  low_yield/others have no target (the WO already left the grid). */
+ *  - late → Produção (o lote vivo está lá);
+ *  - stock_short → Expedição (a falha aconteceu ao expedir);
+ *  - forgotten → Planejamento (a WO nunca saiu do planejado);
+ *  - low_yield/others → sem destino (a WO já saiu das grades). */
 export function alertTarget(alert: { type: string; order_ref: string }): { to: string; q: string } | null {
   if (!alert.order_ref) return null;
-  if (
-    alert.type === "production_late" ||
-    alert.type === "production_stock_short" ||
-    alert.type === "production_forgotten"
-  ) {
-    return { to: "/", q: alert.order_ref };
-  }
+  if (alert.type === "production_late") return { to: "/", q: alert.order_ref };
+  if (alert.type === "production_stock_short") return { to: "/expedicao", q: alert.order_ref };
+  if (alert.type === "production_forgotten") return { to: "/planejamento", q: alert.order_ref };
   return null;
 }
 
@@ -94,7 +91,7 @@ export function startableWorkOrder(row: ProductionMatrixRowProjection): WorkOrde
 }
 
 /** Order commitments across a row's open WOs, deduped by order ref.
- *  The matrix chip ("N pedidos") and its detail list render from this. */
+ *  The committed-units chip and its detail list render from this. */
 export function rowCommitments(row: ProductionMatrixRowProjection): OrderCommitmentProjection[] {
   const seen = new Set<string>();
   const out: OrderCommitmentProjection[] = [];
@@ -106,6 +103,15 @@ export function rowCommitments(row: ProductionMatrixRowProjection): OrderCommitm
     }
   }
   return out;
+}
+
+/** UNIDADES da SKU comprometidas com pedidos (o que importa na bancada —
+ *  "quantas dessas já têm dono"), somadas sobre os pedidos vinculados. */
+export function rowCommittedUnits(row: ProductionMatrixRowProjection): number {
+  return rowCommitments(row).reduce(
+    (total, commitment) => total + (parseFloat(commitment.qty_required.replace(",", ".")) || 0),
+    0,
+  );
 }
 
 // ── Shortage envelope parsing ──────────────────────────────────────────────

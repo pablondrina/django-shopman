@@ -6,6 +6,7 @@ import {
   matchesRowQuery,
   parseShortage,
   rowCommitments,
+  rowCommittedUnits,
   rowHasActivity,
   startableWorkOrder,
   timerChip,
@@ -102,12 +103,21 @@ describe("grid helpers", () => {
     expect(rowCommitments(r).map((c) => c.ref)).toEqual(["O-1", "O-2"]);
     expect(rowCommitments(row())).toEqual([]);
   });
-  it("alertTarget routes production alerts to the right board", () => {
+  it("alertTarget routes production alerts to the stage where they resolve", () => {
     expect(alertTarget({ type: "production_late", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
-    expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
-    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/", q: "WO-2" });
+    expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/expedicao", q: "WO-1" });
+    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/planejamento", q: "WO-2" });
     expect(alertTarget({ type: "production_low_yield", order_ref: "WO-3" })).toBeNull();
     expect(alertTarget({ type: "stock_low", order_ref: "" })).toBeNull();
+  });
+  it("rowCommittedUnits sums committed quantities across linked orders", () => {
+    const commitment = (ref: string, qty: string) => ({ ref, status: "confirmed", status_label: "Confirmado", qty_required: qty });
+    const r = row({
+      planned_orders: [wo({ order_commitments: [commitment("O-1", "4"), commitment("O-2", "2,5")] })],
+      started_orders: [wo({ pk: 11, ref: "WO-011", order_commitments: [commitment("O-1", "4")] })],
+    });
+    expect(rowCommittedUnits(r)).toBe(6.5);
+    expect(rowCommittedUnits(row())).toBe(0);
   });
   it("startableWorkOrder returns the first planned WO or null", () => {
     expect(startableWorkOrder(row())).toBeNull();

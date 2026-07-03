@@ -12,11 +12,14 @@ function toggleTheme() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 
-// A GRADE de Produção absorveu o planejamento e o chão (decisão Pablo
-// 2026-07-03); a Preparação segue como estação própria de pesagem/separação.
+// O fluxo do dia em abas-etapa (refino Pablo 2026-07-03): decide → separa/
+// pesa → produz → expede. As três grades são lentes do mesmo motor; a
+// Preparação é a estação de pesagem/separação.
 const tabs = [
-  { to: "/", label: "Produção", icon: "lucide:layout-grid" },
+  { to: "/planejamento", label: "Planejamento", icon: "lucide:layout-grid" },
   { to: "/preparacao", label: "Preparação", icon: "lucide:scale" },
+  { to: "/", label: "Produção", icon: "lucide:flame" },
+  { to: "/expedicao", label: "Expedição", icon: "lucide:package-check" },
 ];
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);
