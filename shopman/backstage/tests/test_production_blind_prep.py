@@ -74,13 +74,13 @@ class TestBlindPrepCode:
         # Dígitos necessariamente repetem após o 8º (só 8 válidos) — permitido.
         assert len({code[1] for code in codes}) == 8
 
-    def test_twenty_fifth_prep_fails_explicitly(self):
-        """24 letras ⇒ teto de 24 preparos/dia — estouro acusa, não confunde."""
+    def test_beyond_24_accepts_less_elegant_codes_without_blocking(self):
+        """25º+ pode repetir letra — a escada degrada, nunca bloqueia (ps Pablo)."""
         today = date.today()
-        for i in range(24):
-            blind_prep_code(f"preparo-{i}", today)
-        with pytest.raises(RuntimeError, match="24 preparos"):
-            blind_prep_code("vigesimo-quinto", today)
+        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(30)]
+        assert len(set(codes)) == 30  # código completo único no dia, sempre
+        letters = [code[0] for code in codes]
+        assert len(set(letters[:24])) == 24  # até o 24º, letra nunca repetiu
 
     def test_format_is_one_letter_one_digit_no_ambiguous_chars(self):
         """1 letra + 1 número, sem 0/1/O/I — ultra legível e memorizável."""

@@ -179,6 +179,32 @@ async function advanceStep() {
 function cellQty(value: string): string {
   return value === "0" ? "—" : value;
 }
+
+// ── Anatomia única de célula: mesmo corpo para tudo; só o papel muda ────────
+// (padronização pedida pelo Pablo: valor, ação e vazio compartilham a mesma
+// caixa — a grade respira em ritmo constante.)
+const CELL = "inline-flex h-9 min-w-16 items-center justify-end gap-1 rounded-md px-2.5 font-semibold tabular-nums transition";
+const CELL_ACTION = `${CELL} border hover:bg-accent disabled:opacity-50`;
+const CELL_READ = `${CELL} border border-transparent`;
+
+const COLUMN_TONE: Record<string, string> = {
+  suggested: "text-muted-foreground",
+  planned: "text-blue-700 dark:text-blue-300",
+  started: "text-amber-700 dark:text-amber-300",
+  finished: "text-green-700 dark:text-green-300",
+};
+function cellTone(column: keyof typeof COLUMN_TONE, value: string): string {
+  return value !== "0" ? COLUMN_TONE[column]! : "text-muted-foreground";
+}
+
+// Progresso do dia: noção visual do quanto falta (concluído ÷ planejado).
+const dayProgress = computed(() => {
+  const parse = (v?: string) => parseFloat((v ?? "0").replace(",", ".")) || 0;
+  const planned = parse(counts.value?.planned_qty) + parse(counts.value?.started_qty) + parse(counts.value?.finished_qty);
+  const finished = parse(counts.value?.finished_qty);
+  if (!planned) return null;
+  return { pct: Math.min(100, Math.round((finished / planned) * 100)), finished, planned };
+});
 </script>
 
 <template>
@@ -214,9 +240,21 @@ function cellQty(value: string): string {
           />
         </div>
         <span class="text-sm text-muted-foreground">{{ dateDisplay }}</span>
-        <span v-if="counts" class="text-sm tabular-nums text-muted-foreground">
-          Plan {{ counts.planned_qty }} · Inic {{ counts.started_qty }} · Concl {{ counts.finished_qty }}
-        </span>
+        <div
+          v-if="dayProgress"
+          class="inline-flex items-center gap-2"
+          :title="`${dayProgress.finished} de ${dayProgress.planned} un. concluídas`"
+          role="progressbar"
+          :aria-valuenow="dayProgress.pct"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label="Progresso do dia"
+        >
+          <div class="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+            <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${dayProgress.pct}%` }" />
+          </div>
+          <span class="text-xs tabular-nums text-muted-foreground">{{ dayProgress.pct }}%</span>
+        </div>
         <label class="ml-auto inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
           <input v-model="showAll" type="checkbox" class="size-4 rounded border" />
           Mostrar todas as receitas
@@ -267,77 +305,74 @@ function cellQty(value: string): string {
               </td>
 
               <!-- Sugerido: leitura + explicação ("por que este número?") -->
-              <td v-if="access?.can_view_suggested" class="px-3 py-2 text-right">
+              <td v-if="access?.can_view_suggested" class="px-3 py-1.5 text-right">
                 <button
                   v-if="row.suggestion"
                   type="button"
-                  class="group inline-flex flex-col items-end rounded-md px-1.5 py-0.5 transition hover:bg-accent"
+                  :class="[CELL_ACTION, 'text-muted-foreground']"
                   :aria-label="`Por que ${row.suggestion.quantity} de ${row.recipe_name}?`"
                   @click="explaining = row.suggestion"
                 >
-                  <span class="inline-flex items-center gap-1 tabular-nums text-muted-foreground">
-                    {{ row.suggestion.quantity }}
-                    <Icon name="lucide:info" class="size-3 text-muted-foreground/60 transition group-hover:text-foreground" />
-                  </span>
+                  {{ row.suggestion.quantity }}
+                  <Icon name="lucide:info" class="size-3.5 opacity-60" />
                 </button>
-                <span v-else class="text-muted-foreground">—</span>
+                <span v-else :class="[CELL_READ, 'text-muted-foreground']">—</span>
               </td>
 
               <!-- Planejado: botão → overlay de quantidade -->
-              <td v-if="access?.can_view_planned" class="px-3 py-2 text-right">
+              <td v-if="access?.can_view_planned" class="px-3 py-1.5 text-right">
                 <button
                   v-if="access?.can_edit_planned && row.recipe_pk != null"
                   type="button"
-                  class="min-w-14 rounded-md border px-2 py-1 text-right font-semibold tabular-nums transition hover:bg-accent disabled:opacity-50"
-                  :class="row.planned_qty !== '0' ? 'text-blue-700 dark:text-blue-300' : 'text-muted-foreground'"
+                  :class="[CELL_ACTION, cellTone('planned', row.planned_qty)]"
                   :disabled="isBusy(row.output_sku)"
                   :aria-label="`Planejar ${row.output_sku} (atual: ${row.planned_qty})`"
                   @click="openPlan(row)"
                 >
                   {{ cellQty(row.planned_qty) }}
                 </button>
-                <span v-else class="font-semibold tabular-nums" :class="row.planned_qty !== '0' ? 'text-blue-700 dark:text-blue-300' : 'text-muted-foreground'">
+                <span v-else :class="[CELL_READ, cellTone('planned', row.planned_qty)]">
                   {{ cellQty(row.planned_qty) }}
                 </span>
               </td>
 
               <!-- Iniciado: iniciar (se há planejado) ou gerir o lote vivo -->
-              <td v-if="access?.can_view_started" class="px-3 py-2 text-right">
+              <td v-if="access?.can_view_started" class="px-3 py-1.5 text-right">
                 <button
                   v-if="row.started_orders.length"
                   type="button"
-                  class="min-w-14 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-right font-semibold tabular-nums text-amber-700 transition hover:bg-amber-500/10 dark:text-amber-300"
+                  :class="[CELL_ACTION, cellTone('started', row.started_qty)]"
                   :aria-label="`Gerir lote iniciado de ${row.output_sku}`"
                   @click="startedRow = row; voidConfirming = false; kds.refresh()"
                 >
                   {{ cellQty(row.started_qty) }}
+                  <Icon name="lucide:settings-2" class="size-3.5 opacity-60" />
                 </button>
                 <button
                   v-else-if="access?.can_edit_started && startableWorkOrder(row)"
                   type="button"
-                  class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-medium transition hover:bg-accent disabled:opacity-50"
+                  :class="[CELL_ACTION, 'text-foreground']"
                   :disabled="isBusy(row.output_sku)"
                   :aria-label="`Iniciar produção de ${row.output_sku}`"
                   @click="openStart(row)"
                 >
-                  <Icon name="lucide:play" class="size-3.5" /> Iniciar
+                  <Icon name="lucide:play" class="size-3.5" />
                 </button>
-                <span v-else class="text-muted-foreground">—</span>
+                <span v-else :class="[CELL_READ, 'text-muted-foreground']">—</span>
               </td>
 
               <!-- Concluído: informar produzido -->
-              <td v-if="access?.can_view_finished" class="px-3 py-2 text-right">
+              <td v-if="access?.can_view_finished" class="px-3 py-1.5 text-right">
                 <button
                   v-if="access?.can_edit_finished && row.started_orders.length"
                   type="button"
-                  class="min-w-14 rounded-md border px-2 py-1 text-right font-semibold tabular-nums transition hover:bg-accent"
-                  :class="row.finished_qty !== '0' ? 'text-green-700 dark:text-green-300' : 'text-muted-foreground'"
+                  :class="[CELL_ACTION, cellTone('finished', row.finished_qty)]"
                   :aria-label="`Concluir produção de ${row.output_sku}`"
                   @click="openFinish(row)"
                 >
                   {{ cellQty(row.finished_qty) }}
                 </button>
-                <span v-else class="font-semibold tabular-nums" :class="row.finished_qty !== '0' ? 'text-green-700 dark:text-green-300' : 'text-muted-foreground'">
+                <span v-else :class="[CELL_READ, cellTone('finished', row.finished_qty)]">
                   {{ cellQty(row.finished_qty) }}
                 </span>
               </td>
