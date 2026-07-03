@@ -374,8 +374,12 @@ staging.
   preparo"** (tickets da pesagem via novo endpoint
   `production/weighing/` — insumo escalado POR preparo, que é o que se pesa) ao
   lado do agregado "Insumos" (provisionamento), com chips Hoje/Amanhã.
-  **Pesagem cega**: `blind_prep_code(ref, date)` — HMAC do SECRET_KEY em
-  base32 (P-XXXXXX), determinístico no dia, sem tabela/migração; etiquetas
+  **Pesagem cega**: `blind_prep_code(ref, date)` — formato "B7" (1 letra +
+  1 número, sem 0/1/O/I — pedido do Pablo: ultra legível/memorizável). Num
+  espaço de 192, unicidade vem por CONSTRAINT: alocação do dia persistida em
+  `BlindPrepCode` (backstage, migração 0016), candidatos em ordem semeada
+  pelo SECRET_KEY — estável o dia todo mesmo com preparo entrando de manhã;
+  etiquetas
   imprimíveis (print CSS: só as etiquetas saem — código, ingrediente, peso,
   data, NUNCA o nome da receita); mapa código↔preparo é bloco só-gestor
   (`can_manage_all`) na pesagem do Admin, com o código também no header de

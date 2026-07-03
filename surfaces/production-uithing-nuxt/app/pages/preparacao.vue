@@ -274,7 +274,7 @@ function refreshAll() {
                 <p class="text-xs text-muted-foreground">{{ ticket.output_quantity_display }} · {{ ticket.output_sku }}</p>
               </div>
               <span
-                class="shrink-0 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-xs font-semibold text-primary"
+                class="shrink-0 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-sm font-bold tracking-wide text-primary"
                 title="Código cego do dia — vai nas etiquetas no lugar do nome"
               >{{ ticket.blind_code }}</span>
             </header>
@@ -306,7 +306,7 @@ function refreshAll() {
           class="flex break-inside-avoid flex-col gap-0.5 rounded border border-black p-2"
         >
           <div class="flex items-baseline justify-between gap-2">
-            <span class="font-mono text-base font-bold">{{ label.code }}</span>
+            <span class="font-mono text-2xl font-bold tracking-widest">{{ label.code }}</span>
             <span class="text-[0.65rem]">{{ label.date }}</span>
           </div>
           <span class="text-sm">{{ label.ingredient }}</span>

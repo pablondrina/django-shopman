@@ -1,9 +1,10 @@
 """Pesagem cega (QA Pablo 2026-07-03) — código por (preparo, dia).
 
-Cada preparo ganha um código diário aleatório-parecido (HMAC do SECRET_KEY,
-sem tabela): estável o dia todo (reimpressão bate), muda a cada dia, e não
-revela a receita. As etiquetas circulam só com o código; o mapa código↔preparo
-é visão de gestor.
+Formato "B7" (1 letra + 1 número, sem 0/1/O/I — ultra legível): num espaço de
+192, unicidade vem por CONSTRAINT (alocação persistida em BlindPrepCode), com
+ordem de candidatos semeada pelo SECRET_KEY. Estável o dia todo mesmo com
+preparos entrando no meio da manhã; as etiquetas circulam só com o código e o
+mapa código↔preparo é visão de gestor.
 """
 
 from __future__ import annotations
@@ -25,21 +26,49 @@ pytestmark = pytest.mark.django_db
 
 
 class TestBlindPrepCode:
-    def test_deterministic_within_day(self):
+    def test_stable_within_day(self):
         today = date.today()
         assert blind_prep_code("massa-brioche", today) == blind_prep_code("massa-brioche", today)
 
-    def test_changes_across_days_and_refs(self):
+    def test_stable_even_when_new_preps_join_midday(self):
+        """Reimpressão às 10h bate com a etiqueta das 6h, sempre."""
         today = date.today()
-        assert blind_prep_code("massa-brioche", today) != blind_prep_code(
-            "massa-brioche", today + timedelta(days=1)
-        )
+        first = blind_prep_code("massa-brioche", today)
+        blind_prep_code("massa-campagne", today)  # preparo novo no meio da manhã
+        blind_prep_code("massa-folhada", today)
+        assert blind_prep_code("massa-brioche", today) == first
+
+    def test_unique_within_day(self):
+        today = date.today()
+        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(40)]
+        assert len(set(codes)) == 40
+
+    def test_format_is_one_letter_one_digit_no_ambiguous_chars(self):
+        """1 letra + 1 número, sem 0/1/O/I — ultra legível e memorizável."""
+        today = date.today()
+        for i in range(40):
+            code = blind_prep_code(f"preparo-{i}", today)
+            assert re.fullmatch(r"[A-HJ-NP-Z][2-9]", code), code
+
+    def test_refs_differ_within_day(self):
+        today = date.today()
         assert blind_prep_code("massa-brioche", today) != blind_prep_code("massa-campagne", today)
 
-    def test_format_is_opaque(self):
-        code = blind_prep_code("massa-brioche", date.today())
-        assert re.fullmatch(r"P-[A-Z2-7]{6}", code)
-        assert "brioche" not in code.lower()
+    def test_days_allocate_independently(self):
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        # Amanhã realoca do zero (códigos reciclam por dia) — só garante que a
+        # alocação de amanhã também é válida e estável.
+        code_tomorrow = blind_prep_code("massa-brioche", tomorrow)
+        assert re.fullmatch(r"[A-HJ-NP-Z][2-9]", code_tomorrow)
+        assert blind_prep_code("massa-brioche", tomorrow) == code_tomorrow
+
+    def test_space_exhaustion_raises_clearly(self):
+        today = date.today()
+        for i in range(192):
+            blind_prep_code(f"lotação-{i}", today)
+        with pytest.raises(RuntimeError, match="esgotado"):
+            blind_prep_code("um-a-mais", today)
 
 
 class TestWeighingAPI:
@@ -73,7 +102,7 @@ class TestWeighingAPI:
         assert resp.status_code == 200
         tickets = resp.json()["weighing"]["tickets"]
         ticket = next(t for t in tickets if t["recipe_ref"] == "massa-pao")
-        assert ticket["blind_code"].startswith("P-")
+        assert re.fullmatch(r"[A-HJ-NP-Z][2-9]", ticket["blind_code"])
         assert ticket["ingredients"][0]["sku"] == "FARINHA"
         assert ticket["ingredients"][0]["quantity_display"] == "4,2 kg"
 

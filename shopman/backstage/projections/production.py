@@ -785,26 +785,82 @@ def build_production_mise_en_place(
     )
 
 
+# Alfabeto do código cego: ultra legível e memorizável (pedido do Pablo) —
+# 1 letra + 1 número, sem 0/1/O/I. Espaço = 24×8 = 192 códigos/dia.
+_BLIND_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+_BLIND_DIGITS = "23456789"
+
+
 def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
     """Código cego diário de um preparo — pesagem sem revelar a receita.
 
-    HMAC(SECRET_KEY, ref+data) truncado em base32: determinístico dentro do
-    dia (reimprimir etiqueta bate com a da manhã), muda a cada dia, e é
-    computado — nenhuma tabela, nenhum estado. O mapa código↔preparo é uma
-    visão de gestor que recomputa sob demanda.
+    Formato "B7": 1 letra + 1 número (sem 0/1/O/I). Num espaço de 192, hash
+    puro colidiria; a unicidade vem por CONSTRAINT — a alocação do dia
+    persiste em ``BlindPrepCode``, então o código não muda se um preparo novo
+    entrar no meio da manhã (reimpressão sempre bate). A ordem dos candidatos
+    é semeada pelo SECRET_KEY: imprevisível para quem pesa, e o mapa
+    código↔preparo continua sendo visão de gestor.
     """
-    import base64
+    from django.db import IntegrityError, transaction
+
+    from shopman.backstage.models import BlindPrepCode
+
+    existing = BlindPrepCode.objects.filter(date=selected_date, recipe_ref=recipe_ref).first()
+    if existing:
+        return existing.code
+
+    taken = set(BlindPrepCode.objects.filter(date=selected_date).values_list("code", flat=True))
+    for candidate in _blind_candidates(recipe_ref, selected_date):
+        if candidate in taken:
+            continue
+        try:
+            with transaction.atomic():
+                BlindPrepCode.objects.create(
+                    date=selected_date, recipe_ref=recipe_ref, code=candidate
+                )
+            return candidate
+        except IntegrityError:
+            # Corrida: outro processo levou o código (ou já alocou este ref).
+            existing = BlindPrepCode.objects.filter(
+                date=selected_date, recipe_ref=recipe_ref
+            ).first()
+            if existing:
+                return existing.code
+            taken.add(candidate)
+    raise RuntimeError(
+        "Espaço de códigos cegos esgotado para o dia (192 preparos) — "
+        "impossível numa operação real; verifique duplicação de refs."
+    )
+
+
+def _blind_candidates(recipe_ref: str, selected_date: date) -> list[str]:
+    """Permutação diária do espaço de códigos, rotacionada pelo preparo.
+
+    Semeada por HMAC(SECRET_KEY, data) — determinística no dia, imprevisível
+    sem o segredo. A rotação por ref espalha os pontos de partida para reduzir
+    corrida entre alocações concorrentes.
+    """
     import hashlib
     import hmac
+    import random
 
     from django.conf import settings
 
-    digest = hmac.new(
+    space = [letter + digit for letter in _BLIND_LETTERS for digit in _BLIND_DIGITS]
+    day_seed = hmac.new(
         settings.SECRET_KEY.encode(),
-        f"blind-prep:{recipe_ref}:{selected_date.isoformat()}".encode(),
+        f"blind-prep-day:{selected_date.isoformat()}".encode(),
         hashlib.sha256,
     ).digest()
-    return "P-" + base64.b32encode(digest).decode()[:6]
+    random.Random(day_seed).shuffle(space)
+
+    offset_digest = hmac.new(
+        settings.SECRET_KEY.encode(),
+        f"blind-prep-ref:{recipe_ref}:{selected_date.isoformat()}".encode(),
+        hashlib.sha256,
+    ).digest()
+    offset = int.from_bytes(offset_digest[:4], "big") % len(space)
+    return space[offset:] + space[:offset]
 
 
 def _ingredient_availability(skus: set[str]) -> dict[str, Decimal]:
