@@ -1332,15 +1332,19 @@ useSeoMeta({
                       <p class="truncate shop-meta">{{ confirmItemSummary }}</p>
                     </div>
                   </div>
-                  <UiButton
-                    v-if="bagIsEmpty"
-                    icon="lucide:utensils"
-                    size="lg"
-                    class="w-full"
-                    @click="navigateTo('/menu')"
-                  >
-                    Adicionar itens
-                  </UiButton>
+                  <template v-if="bagIsEmpty">
+                    <!-- Texto explicativo (barato e ajuda a entender o estado)
+                         ACIMA do CTA que resolve — nunca o botão morto sozinho. -->
+                    <p class="text-center shop-muted">Sacola vazia.</p>
+                    <UiButton
+                      icon="lucide:utensils"
+                      size="lg"
+                      class="w-full"
+                      @click="navigateTo('/menu')"
+                    >
+                      Adicionar itens
+                    </UiButton>
+                  </template>
                   <template v-else>
                     <UiButton
                       :loading="submitting"
