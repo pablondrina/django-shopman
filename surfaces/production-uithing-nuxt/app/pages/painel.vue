@@ -1,17 +1,22 @@
 <script setup lang="ts">
-// O PAINEL — agora com alma de Solari: fundo noturno, palhetas que giram
-// (SplitFlap), cascata na carga, "clac" opcional, linhas que entram/saem
-// animadas. Ordenação de aeroporto: estritamente cronológica pelo horário
-// (status muda a COR, nunca a posição); confirmados saem pelo TTL.
-// Responsivo de TV a celular: em telas largas é uma linha por fornada; no
-// celular o produto ocupa a primeira linha e os mostradores a segunda.
+// FORNADAS — o painel Solari em modo KIOSK (refino Pablo):
+// · página à parte, sem o chrome do backstage (o link de entrada vive na
+//   aba "Painel" da UI normal); botão de tela cheia para a TV;
+// · tipografia Oswald (grotesca condensada de painel), DUAS escalas apenas:
+//   display (título · relógio) e linha (todas as palhetas);
+// · NOME do produto nas palhetas (SKU saiu); quantidade com UN embutido
+//   ("12 UN" — doze o quê? unidades); horário como estava;
+// · atrasado não pisca: as palhetas RE-GIRAM periodicamente até o mesmo
+//   valor, como os painéis mecânicos reais fazem;
+// · ordem de aeroporto: cronológica pelo horário — status muda cor, nunca
+//   posição; confirmados saem pelo TTL.
 import type { ForecastStatus } from "~/types/production";
 import { fullDateLabel, weekdayLabel } from "~/presentation/production";
 
-const { forecast, rows, selectedDate, pending, error } = useProductionForecast();
+const { rows, selectedDate, pending, error } = useProductionForecast();
 const sound = useFlapClack();
 
-// ── Data: Hoje · Amanhã · dia escolhido ─────────────────────────────────────
+// ── Data: seletor discreto (a TV vive em Hoje; o vendedor consulta Amanhã) ──
 function isoFor(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -28,11 +33,16 @@ function openCustomDate() {
   customDateInput.value?.focus();
 }
 
-// ── Relógio vivo em palhetas ────────────────────────────────────────────────
+// ── Relógio vivo ────────────────────────────────────────────────────────────
 const clock = ref("--:--");
 let clockTimer: ReturnType<typeof setInterval> | null = null;
+
+// ── O tique do atraso: re-gira as palhetas do status a cada 25s ────────────
+const respinTick = ref(0);
+let respinTimer: ReturnType<typeof setInterval> | null = null;
+
 onMounted(() => {
-  sound.unlock(); // se o browser deixar; senão, destrava no primeiro toque
+  sound.unlock();
   const tick = () => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -40,228 +50,220 @@ onMounted(() => {
   };
   tick();
   clockTimer = setInterval(tick, 1000);
+  respinTimer = setInterval(() => {
+    respinTick.value++;
+  }, 25_000);
 });
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer);
+  if (respinTimer) clearInterval(respinTimer);
 });
 
-// ── Status → cor (uma cor, um significado; atrasado pisca) ────────────────
+// ── Tela cheia (kiosk de verdade na TV) ─────────────────────────────────────
+const isFullscreen = ref(false);
+function toggleFullscreen() {
+  sound.unlock();
+  if (document.fullscreenElement) {
+    void document.exitFullscreen();
+  } else {
+    void document.documentElement.requestFullscreen?.();
+  }
+}
+onMounted(() => {
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+});
+onUnmounted(() => {
+  document.removeEventListener("fullscreenchange", onFullscreenChange);
+});
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement;
+}
+
+// ── Status → cor (uma cor, um significado) ─────────────────────────────────
 const STATUS_TONE: Record<ForecastStatus, string> = {
   scheduled: "tone-neutral",
   in_progress: "tone-cyan",
-  delayed: "tone-amber blink",
+  delayed: "tone-amber",
   arrived: "tone-green",
 };
 
-const PRODUCT_CHARS = 17; // maior SKU atual: BAGUETE-CAMPAGNE (16)
+const NAME_CHARS = 22; // maior nome atual: "Pão de Forma Artesanal"
+const QTY_CHARS = 6; // "999 UN"
 const STATUS_CHARS = 10; // CONFIRMADO
 </script>
 
 <template>
   <main class="board flex min-h-screen flex-col">
-    <header class="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-4 md:px-8">
-      <NuxtLink to="/" class="board-control grid size-10 shrink-0 place-items-center rounded-md" aria-label="Voltar para a Produção">
-        <Icon name="lucide:croissant" class="size-5" />
-      </NuxtLink>
+    <header class="flex flex-wrap items-end gap-x-6 gap-y-3 px-4 pb-2 pt-5 md:px-8">
       <div class="min-w-0">
-        <p class="board-eyebrow">Fournil · Chegadas da produção</p>
-        <h1 class="board-date">{{ fullDateLabel(selectedDate) }}</h1>
+        <h1 class="board-title">Fornadas</h1>
+        <div class="board-labels mt-1 flex items-center gap-3">
+          <span>{{ fullDateLabel(selectedDate) }}</span>
+          <span aria-hidden="true">·</span>
+          <div class="flex items-center gap-2.5" role="group" aria-label="Data">
+            <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === todayISO }" :aria-pressed="selectedDate === todayISO" @click="sound.unlock(); selectedDate = todayISO">Hoje</button>
+            <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === tomorrowISO }" :aria-pressed="selectedDate === tomorrowISO" @click="sound.unlock(); selectedDate = tomorrowISO">Amanhã</button>
+            <button type="button" class="board-datekey relative" :class="{ 'board-datekey--active': isCustomDate }" :aria-pressed="isCustomDate" @click="openCustomDate()">
+              {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra" }}
+              <input
+                ref="customDateInput"
+                v-model="selectedDate"
+                type="date"
+                class="absolute inset-0 cursor-pointer opacity-0"
+                aria-label="Escolher outra data"
+                tabindex="-1"
+              />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="board-chips flex items-center gap-1 rounded-lg p-0.5" role="group" aria-label="Data">
+      <div class="ml-auto flex items-center gap-2.5">
         <button
           type="button"
-          class="board-chip"
-          :class="{ 'board-chip--active': selectedDate === todayISO }"
-          :aria-pressed="selectedDate === todayISO"
-          @click="sound.unlock(); selectedDate = todayISO"
-        >
-          Hoje
-        </button>
-        <button
-          type="button"
-          class="board-chip"
-          :class="{ 'board-chip--active': selectedDate === tomorrowISO }"
-          :aria-pressed="selectedDate === tomorrowISO"
-          @click="sound.unlock(); selectedDate = tomorrowISO"
-        >
-          Amanhã
-        </button>
-        <button
-          type="button"
-          class="board-chip relative"
-          :class="{ 'board-chip--active': isCustomDate }"
-          :aria-pressed="isCustomDate"
-          @click="openCustomDate()"
-        >
-          {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra data" }}
-          <input
-            ref="customDateInput"
-            v-model="selectedDate"
-            type="date"
-            class="absolute inset-0 cursor-pointer opacity-0"
-            aria-label="Escolher outra data"
-            tabindex="-1"
-          />
-        </button>
-      </div>
-
-      <div class="ml-auto flex items-center gap-3">
-        <button
-          type="button"
-          class="board-control grid size-10 place-items-center rounded-md"
+          class="board-key"
           :aria-label="sound.enabled.value ? 'Silenciar palhetas' : 'Ativar som das palhetas'"
-          :title="sound.enabled.value ? 'Som ligado' : 'Som desligado'"
           @click="sound.toggle()"
         >
           <Icon :name="sound.enabled.value ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
         </button>
+        <button
+          type="button"
+          class="board-key"
+          :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
+          @click="toggleFullscreen()"
+        >
+          <Icon :name="isFullscreen ? 'lucide:minimize' : 'lucide:maximize'" class="size-4" />
+        </button>
         <ClientOnly>
-          <SplitFlap :value="clock" :chars="5" class="board-clock" />
+          <SplitFlap :value="clock" :chars="5" class="board-display ml-2" />
         </ClientOnly>
       </div>
     </header>
 
-    <section class="min-h-0 flex-1 overflow-auto px-4 pb-6 md:px-8">
-      <p v-if="pending && !rows.length" class="board-dim py-8 text-sm">Carregando…</p>
-      <p v-else-if="error" class="board-dim py-8 text-sm">Sinal perdido — reconectando…</p>
+    <section class="min-h-0 flex-1 overflow-auto px-4 pb-8 pt-4 md:px-8">
+      <p v-if="pending && !rows.length" class="board-labels py-8">Carregando…</p>
+      <p v-else-if="error" class="board-labels py-8">Sinal perdido — reconectando…</p>
 
-      <div v-else-if="!rows.length" class="board-dim grid place-items-center gap-2 py-24 text-center">
+      <div v-else-if="!rows.length" class="board-labels grid place-items-center gap-2 py-24 text-center">
         <Icon name="lucide:tower-control" class="size-9" />
-        <p class="text-base">Nenhuma fornada programada para esta data.</p>
+        <p>Nenhuma fornada programada para esta data.</p>
       </div>
 
-      <template v-else>
-        <div class="board-headrow" aria-hidden="true">
-          <span>Produto</span>
-          <span class="text-right">Qtd</span>
-          <span class="text-right">Horário</span>
-          <span class="text-right">Status</span>
-        </div>
-
-        <TransitionGroup tag="div" name="board-row" class="flex flex-col gap-1.5">
-          <article v-for="row in rows" :key="row.ref" class="board-row" :aria-label="`${row.output_sku}: ${row.qty} às ${row.eta_display}, ${row.status_label}`">
-            <div class="board-produto min-w-0">
-              <SplitFlap :value="row.output_sku" :chars="PRODUCT_CHARS" class="board-flap" />
-              <p class="board-dim mt-1 truncate text-xs">{{ row.recipe_name }}</p>
-            </div>
-            <SplitFlap :value="row.qty" :chars="3" align="right" class="board-flap board-num" />
-            <SplitFlap :value="row.eta_display" :chars="5" align="right" class="board-flap board-num" :class="row.status === 'delayed' ? 'tone-amber' : row.eta_is_actual ? 'tone-green' : ''" />
-            <SplitFlap :value="row.status_label" :chars="STATUS_CHARS" align="right" class="board-flap board-status" :class="STATUS_TONE[row.status]" />
-          </article>
-        </TransitionGroup>
-
-        <p class="board-dim mt-4 text-xs">
-          Ordem cronológica pelo horário previsto · horários pela média histórica até a confirmação (hora real depois) · confirmados saem do painel 30 min após a chegada.
-        </p>
-      </template>
+      <TransitionGroup v-else tag="div" name="board-row" class="relative flex flex-col gap-1.5">
+        <article
+          v-for="row in rows"
+          :key="row.ref"
+          class="board-row"
+          :aria-label="`${row.recipe_name}: ${row.qty} unidades às ${row.eta_display}, ${row.status_label}`"
+        >
+          <SplitFlap :value="row.recipe_name" :chars="NAME_CHARS" class="board-flap min-w-0" />
+          <SplitFlap :value="`${row.qty} UN`" :chars="QTY_CHARS" align="right" class="board-flap" />
+          <SplitFlap :value="row.eta_display" :chars="5" align="right" class="board-flap" :class="row.status === 'delayed' ? 'tone-amber' : row.eta_is_actual ? 'tone-green' : ''" />
+          <SplitFlap
+            :value="row.status_label"
+            :chars="STATUS_CHARS"
+            align="right"
+            class="board-flap"
+            :class="STATUS_TONE[row.status]"
+            :pulse="row.status === 'delayed' ? respinTick : 0"
+          />
+        </article>
+      </TransitionGroup>
     </section>
   </main>
 </template>
 
 <style scoped>
-/* ── A pele do Solari: noturna por natureza, independente do tema do app ── */
+/* ── A pele do Solari: noturna por natureza, alheia ao tema do app ── */
 .board {
   --board-bg: #0b0d10;
   --board-panel: #121417;
   --board-line: #23262b;
-  --board-text: #e9e6dc;
-  --board-dim: #8b8f96;
+  --board-text: #ece9df;
+  --board-dim: #82868d;
   --board-green: #45d98a;
   --board-amber: #ffb02e;
   --board-cyan: #5cc9f5;
+
+  /* DUAS escalas, e só: display (título · relógio) e linha (palhetas). */
+  --scale-display: clamp(1.9rem, 4vw, 2.6rem);
+  --scale-row: clamp(1.05rem, 2vw, 1.5rem);
 
   background:
     radial-gradient(120% 90% at 50% 0%, #14171b 0%, var(--board-bg) 55%),
     var(--board-bg);
   color: var(--board-text);
-  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-family: Oswald, "Arial Narrow", "Helvetica Neue", sans-serif;
+  letter-spacing: 0.02em;
 }
 
-.board-eyebrow {
-  font-size: 0.68rem;
+.board-title {
+  font-size: var(--scale-display);
   font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--board-dim);
-}
-.board-date {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  line-height: 1;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-.board-dim {
+.board-display {
+  font-size: var(--scale-display);
+  font-weight: 600;
+}
+.board-flap {
+  font-size: var(--scale-row);
+  font-weight: 500;
+}
+
+.board-labels {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--board-dim);
 }
 
-.board-control {
+.board-datekey {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--board-dim);
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: color 150ms, border-color 150ms;
+}
+.board-datekey:hover {
+  color: var(--board-text);
+}
+.board-datekey--active {
+  color: var(--board-text);
+  border-color: var(--board-text);
+}
+
+.board-key {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
   border: 1px solid var(--board-line);
   background: var(--board-panel);
   color: var(--board-dim);
   transition: color 150ms, border-color 150ms;
 }
-.board-control:hover {
+.board-key:hover {
   color: var(--board-text);
   border-color: #3a3e45;
 }
 
-.board-chips {
-  border: 1px solid var(--board-line);
-  background: var(--board-panel);
-}
-.board-chip {
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--board-dim);
-  transition: color 150ms, background 150ms;
-}
-.board-chip:hover {
-  color: var(--board-text);
-}
-.board-chip--active {
-  background: var(--board-text);
-  color: #101216;
-}
-
-.board-clock {
-  font-size: clamp(1.6rem, 4vw, 2.4rem);
-  font-weight: 700;
-}
-
-/* ── Grade: TV = uma linha; celular = produto em cima, mostradores embaixo ── */
-.board-headrow,
+/* ── Grade: TV = uma linha; celular = nome em cima, mostradores embaixo ── */
 .board-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 1.25rem;
   align-items: center;
-}
-.board-headrow {
-  padding: 0 1rem 0.5rem;
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--board-dim);
-}
-.board-row {
   border: 1px solid var(--board-line);
   border-radius: 0.5rem;
   background: linear-gradient(180deg, #14171b 0%, var(--board-panel) 100%);
   padding: 0.7rem 1rem;
-}
-
-.board-flap {
-  font-size: clamp(1rem, 2.1vw, 1.5rem);
-  font-weight: 700;
-}
-.board-status {
-  font-size: clamp(0.8rem, 1.5vw, 1.05rem);
 }
 
 .tone-green :deep(.flap-cell) {
@@ -276,16 +278,8 @@ const STATUS_CHARS = 10; // CONFIRMADO
 .tone-neutral :deep(.flap-cell) {
   color: var(--board-text);
 }
-.blink {
-  animation: board-blink 1.6s steps(2, start) infinite;
-}
-@keyframes board-blink {
-  50% {
-    opacity: 0.45;
-  }
-}
 
-/* Entrada/saída de fornadas (chegou lote novo; confirmado expirou o TTL). */
+/* Entrada/saída de fornadas (lote novo; confirmado expirou o TTL). */
 .board-row-enter-active,
 .board-row-leave-active {
   transition: opacity 400ms ease, transform 400ms ease;
@@ -303,20 +297,17 @@ const STATUS_CHARS = 10; // CONFIRMADO
   width: 100%;
 }
 
-@media (max-width: 640px) {
-  .board-headrow {
-    display: none;
-  }
+@media (max-width: 700px) {
   .board-row {
     grid-template-columns: auto auto auto;
     grid-template-areas:
-      "produto produto produto"
+      "nome nome nome"
       "qtd horario status";
     justify-content: space-between;
     row-gap: 0.6rem;
   }
-  .board-produto {
-    grid-area: produto;
+  .board-row > :nth-child(1) {
+    grid-area: nome;
   }
   .board-row > :nth-child(2) {
     grid-area: qtd;
@@ -327,8 +318,8 @@ const STATUS_CHARS = 10; // CONFIRMADO
   .board-row > :nth-child(4) {
     grid-area: status;
   }
-  .board-flap {
-    font-size: 0.95rem;
+  .board {
+    --scale-row: 0.92rem;
   }
 }
 </style>

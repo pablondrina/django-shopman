@@ -10,8 +10,10 @@ const props = withDefaults(
     value: string;
     chars?: number;
     align?: "left" | "right";
+    pulse?: number; // incrementar re-gira as palhetas até o MESMO valor —
+    // o tique periódico dos painéis reais (mais honesto que piscar).
   }>(),
-  { chars: 0, align: "left" },
+  { chars: 0, align: "left", pulse: 0 },
 );
 
 const FLAP_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -92,6 +94,16 @@ watch(
   () => [props.value, props.chars],
   () => {
     if (mounted) applyValue(1);
+  },
+);
+
+watch(
+  () => props.pulse,
+  () => {
+    if (!mounted) return;
+    cells.value.forEach((cell, index) => {
+      if (cell.shown !== " ") spin(index, cell.shown, 1, index * 28);
+    });
   },
 );
 
