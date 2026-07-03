@@ -667,7 +667,9 @@ def build_production_weighing(
             item for item in items
             if item.input_sku in active_recipes and active_recipes[item.input_sku].pk != recipe.pk
         ]
-        source = f"{work_order.output_sku} {_measure(Decimal(str(work_order.quantity)), 'un.')}"
+        # Copy de objetivo: quantidade primeiro ("25 un. CIABATTA") — é a meta
+        # de produção que este preparo alimenta, não um "destino" físico.
+        source = f"{_measure(Decimal(str(work_order.quantity)), 'un.')} {work_order.output_sku}"
 
         if base_items:
             for item in base_items:

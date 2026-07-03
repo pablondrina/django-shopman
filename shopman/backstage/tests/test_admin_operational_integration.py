@@ -352,7 +352,9 @@ class AdminProductionConsoleTests(TestCase):
         self.assertContains(response, "10 kg")
         self.assertContains(response, "FARINHA")
         self.assertContains(response, "6 kg")
-        self.assertContains(response, "CIABATTA 20 un.")
+        # Copy de objetivo: quantidade primeiro ("20 un. CIABATTA").
+        self.assertContains(response, "Objetivo:")
+        self.assertContains(response, "20 un. CIABATTA")
         self.assertNotContains(response, "planejado aprovado")
         self.assertEqual(len(response.context["production_weighing"].tickets), 1)
 

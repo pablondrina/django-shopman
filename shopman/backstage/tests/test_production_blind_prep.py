@@ -140,13 +140,19 @@ class TestBlindPrepCode:
         )
 
     def test_full_window_still_allocates_every_day(self):
-        """8+8+8 na janela: dias vizinhos lotados não travam o dia corrente."""
+        """8+8+8 na janela: dias vizinhos lotados não travam o dia corrente.
+
+        A garantia de código único é entre dias ADJACENTES — ontem↔amanhã não
+        são vizinhos (há dois passos), então podem repetir por design.
+        """
         today = date.today()
-        all_codes = []
+        by_day: dict[str, set[str]] = {}
         for offset, prefix in ((-1, "ontem"), (0, "hoje"), (1, "amanha")):
             day = today + timedelta(days=offset)
-            all_codes.extend(blind_prep_code(f"{prefix}-{i}", day) for i in range(8))
-        assert len(set(all_codes)) == 24  # código completo único na janela
+            by_day[prefix] = {blind_prep_code(f"{prefix}-{i}", day) for i in range(8)}
+        assert all(len(codes) == 8 for codes in by_day.values())
+        assert not (by_day["ontem"] & by_day["hoje"])
+        assert not (by_day["hoje"] & by_day["amanha"])
 
 
 class TestWeighingAPI:

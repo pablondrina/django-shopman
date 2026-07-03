@@ -285,7 +285,7 @@ function refreshAll() {
               </li>
             </ul>
             <footer v-if="ticket.sources_display" class="text-xs text-muted-foreground">
-              Destino: {{ ticket.sources_display }}
+              Objetivo: {{ ticket.sources_display }}
             </footer>
           </article>
         </div>
