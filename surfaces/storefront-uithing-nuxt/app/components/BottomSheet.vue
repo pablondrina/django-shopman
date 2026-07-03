@@ -100,8 +100,12 @@ onBeforeUnmount(teardownObserver)
         </slot>
       </UiSheetHeader>
 
-      <div class="relative min-h-0 flex-1">
-        <div ref="scrollEl" class="h-full overflow-y-auto">
+      <!-- Corpo rolável: flex até o fim (nunca `h-full`/altura %). A altura do
+           wrapper vem do flex-grow do pai; uma altura percentual não resolve
+           contra base flex e desaba para a altura do conteúdo — o corpo deixaria
+           de recortar/rolar e vazaria POR CIMA do rodapé. -->
+      <div class="relative flex min-h-0 flex-1 flex-col">
+        <div ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto">
           <slot />
           <div ref="sentinel" aria-hidden="true" class="h-px w-full" />
         </div>
