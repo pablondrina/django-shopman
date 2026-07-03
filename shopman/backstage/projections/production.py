@@ -1999,6 +1999,7 @@ _FORECAST_STATUS_LABELS = {
 
 @dataclass(frozen=True)
 class ForecastRowProjection:
+    ref: str  # identidade estável da fornada (anima entrada/saída na UI)
     output_sku: str
     recipe_name: str
     qty: str  # a quantidade RELEVANTE do momento (planejada→iniciada→real)
@@ -2120,6 +2121,7 @@ def build_production_forecast(selected_date: date | None = None) -> ProductionFo
                 status = "delayed"
 
         row = ForecastRowProjection(
+            ref=wo.ref,
             output_sku=wo.output_sku,
             recipe_name=wo.recipe.name,
             qty=_qty(qty),

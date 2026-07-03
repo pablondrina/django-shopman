@@ -187,6 +187,7 @@ export interface ProductionBoardResponse {
 export type ForecastStatus = "scheduled" | "in_progress" | "delayed" | "arrived";
 
 export interface ForecastRowProjection {
+  ref: string;
   output_sku: string;
   recipe_name: string;
   qty: string;
