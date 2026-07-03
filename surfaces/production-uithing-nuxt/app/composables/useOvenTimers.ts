@@ -89,7 +89,7 @@ function chime() {
       osc.type = "triangle";
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, at);
-      gain.gain.linearRampToValueAtTime(0.22, at + 0.02);
+      gain.gain.linearRampToValueAtTime(0.4, at + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
       osc.connect(gain).connect(ctx.destination);
       osc.start(at);
