@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   alertTarget,
+  countdownLabel,
   elapsedLabel,
+  fullDateLabel,
   matchesRowQuery,
   parseShortage,
   rowCommitments,
@@ -11,6 +13,7 @@ import {
   startableWorkOrder,
   timerChip,
   timerTone,
+  weekdayLabel,
 } from "../app/presentation/production";
 import type {
   ProductionMatrixRowProjection,
@@ -79,6 +82,24 @@ describe("elapsedLabel", () => {
     expect(elapsedLabel(90)).toBe("1m");
     expect(elapsedLabel(65 * 60)).toBe("1h 5m");
     expect(elapsedLabel(120 * 60)).toBe("2h");
+  });
+});
+
+describe("date + countdown labels", () => {
+  it("weekdayLabel names the day for hand-picked dates", () => {
+    expect(weekdayLabel("2026-07-04")).toBe("Sábado");
+    expect(weekdayLabel("2026-07-06")).toBe("Segunda");
+    expect(weekdayLabel("not-a-date")).toBe("");
+  });
+  it("fullDateLabel renders the always-visible full date", () => {
+    expect(fullDateLabel("2026-07-04")).toBe("04 jul 2026");
+    expect(fullDateLabel("2026-12-25")).toBe("25 dez 2026");
+    expect(fullDateLabel("")).toBe("");
+  });
+  it("countdownLabel formats remaining oven time", () => {
+    expect(countdownLabel(754)).toBe("12:34");
+    expect(countdownLabel(59)).toBe("0:59");
+    expect(countdownLabel(-5)).toBe("0:00");
   });
 });
 

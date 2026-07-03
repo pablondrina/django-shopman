@@ -12,12 +12,14 @@
 // intacta (planned/started/finished) — as lentes são linguagem de UI.
 import {
   elapsedLabel,
+  fullDateLabel,
   matchesRowQuery,
   rowCommitments,
   rowCommittedUnits,
   startableWorkOrder,
   timerChip,
   timerTone,
+  weekdayLabel,
 } from "~/presentation/production";
 import type {
   ProductionKDSCardProjection,
@@ -28,7 +30,7 @@ import type {
 
 const props = defineProps<{ stage: "plan" | "produce" | "expedite"; title: string }>();
 
-const { board, rows, counts, dateDisplay, selectedDate, pending, error, refresh, isBusy, plan, start } =
+const { board, rows, counts, selectedDate, pending, error, refresh, isBusy, plan, start } =
   useProductionBoard();
 const kds = useProductionKds();
 
@@ -152,27 +154,42 @@ const startedCard = computed<ProductionKDSCardProjection | null>(() => {
   return kds.cards.value.find((c) => c.pk === wo.pk) ?? null;
 });
 
-// Timer por SKU no forno (Expedição): o lote em processo já carrega o relógio
-// vivo do KDS (elapsed + tom vs. max_started_minutes da receita) — aqui ele
-// aparece na linha, para o forneiro ver de relance o que está estourando.
-function rowTimer(row: ProductionMatrixRowProjection): { label: string; tone: ReturnType<typeof timerTone> } | null {
-  const wo = row.started_orders[0];
-  if (!wo) return null;
-  const card = kds.cards.value.find((c) => c.pk === wo.pk);
-  if (!card) return null;
-  return { label: elapsedLabel(card.elapsed_seconds), tone: timerTone(card.timer_class) };
+// Timer do forno (Expedição): lembrete armado por fornada — a ferramenta do
+// forneiro para conferir/retirar, com som. Não confundir com o relógio de
+// idade do lote (guardrail de esquecimento, que vive nos alertas).
+const oven = useOvenTimers();
+const ovenRow = ref<ProductionMatrixRowProjection | null>(null);
+const ovenMinutes = ref("15");
+function ovenKey(row: ProductionMatrixRowProjection): string {
+  return String(row.started_orders[0]?.pk ?? "");
 }
-
-const finishCard = computed<ProductionKDSCardProjection | null>(() => {
-  const wo = finishRow.value?.started_orders[0];
-  if (!wo) return null;
-  return kds.cards.value.find((c) => c.pk === wo.pk) ?? null;
-});
+function openOven(row: ProductionMatrixRowProjection) {
+  const key = ovenKey(row);
+  if (!key) return;
+  if (oven.isRinging(key)) {
+    oven.clear(key);
+    return;
+  }
+  ovenRow.value = row;
+  ovenMinutes.value = String(oven.get(key)?.minutes ?? 15);
+}
+function confirmOven() {
+  const row = ovenRow.value;
+  const minutes = parseFloat(ovenMinutes.value.replace(",", "."));
+  if (!row || Number.isNaN(minutes) || minutes < 1) return;
+  oven.arm(ovenKey(row), minutes);
+  ovenRow.value = null;
+}
+function cancelOven() {
+  const row = ovenRow.value;
+  if (row) oven.clear(ovenKey(row));
+  ovenRow.value = null;
+}
 
 // Stepper touch: quantidade sempre editável com +/− generosos.
 // (Recebe o NOME do campo — no template o Vue desembrulha refs, então passar
 // `planQty` entregaria a string, não o ref.)
-const qtyFields = { plan: planQty, start: startQty, finish: finishQty } as const;
+const qtyFields = { plan: planQty, start: startQty, finish: finishQty, oven: ovenMinutes } as const;
 function bump(field: keyof typeof qtyFields, delta: number) {
   const target = qtyFields[field];
   const current = parseFloat(target.value.replace(",", ".")) || 0;
@@ -390,7 +407,7 @@ const headerCount = computed(() => {
             :aria-pressed="isCustomDate"
             @click="openCustomDate()"
           >
-            {{ isCustomDate ? dateDisplay : "Outra data" }}
+            {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra data" }}
             <input
               ref="customDateInput"
               v-model="selectedDate"
@@ -401,7 +418,7 @@ const headerCount = computed(() => {
             />
           </button>
         </div>
-        <span v-if="!isCustomDate" class="text-sm text-muted-foreground">{{ dateDisplay }}</span>
+        <span class="text-sm text-muted-foreground">{{ fullDateLabel(selectedDate) }}</span>
         <div
           v-if="dayProgress"
           class="inline-flex items-center gap-2"
@@ -458,15 +475,23 @@ const headerCount = computed(() => {
                 <p class="font-bold">{{ row.output_sku }}</p>
                 <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span class="truncate">{{ row.recipe_name }}</span>
-                  <span
-                    v-if="stage === 'expedite' && rowTimer(row)"
-                    class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums"
-                    :class="timerChip(rowTimer(row)!.tone)"
-                    :aria-label="`${row.output_sku} em processo há ${rowTimer(row)!.label}`"
+                  <button
+                    v-if="stage === 'expedite' && ovenKey(row)"
+                    type="button"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums transition"
+                    :class="oven.isRinging(ovenKey(row))
+                      ? 'animate-pulse border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                      : oven.get(ovenKey(row))
+                        ? 'border-border bg-muted text-foreground'
+                        : 'border-dashed text-muted-foreground hover:bg-accent hover:text-foreground'"
+                    :aria-label="oven.isRinging(ovenKey(row)) ? `Conferir ${row.output_sku} no forno` : `Timer do forno para ${row.output_sku}`"
+                    @click="openOven(row)"
                   >
-                    <Icon name="lucide:timer" class="size-3" />
-                    {{ rowTimer(row)!.label }}
-                  </span>
+                    <Icon name="lucide:alarm-clock" class="size-3" />
+                    <template v-if="oven.isRinging(ovenKey(row))">Conferir!</template>
+                    <template v-else-if="oven.get(ovenKey(row))">{{ oven.remainingLabel(ovenKey(row)) }}</template>
+                    <template v-else>Timer</template>
+                  </button>
                   <button
                     v-if="rowCommittedUnits(row) > 0"
                     type="button"
@@ -535,20 +560,15 @@ const headerCount = computed(() => {
         <UiDialogHeader>
           <UiDialogTitle>{{ PLAN_TITLE[planMode] }} · {{ planRow?.output_sku }}</UiDialogTitle>
           <UiDialogDescription>
-            {{ planRow?.recipe_name }} · {{ dateDisplay }}
+            {{ planRow?.recipe_name }} · {{ fullDateLabel(selectedDate) }}
             <template v-if="planRow?.suggestion"> · sugestão {{ planRow.suggestion.quantity }}</template>
           </UiDialogDescription>
         </UiDialogHeader>
         <p v-if="planMode === 'adjust'" class="text-sm text-muted-foreground">
-          Substitui a quantidade planejada ({{ planRow?.planned_qty }}) — 0 remove o planejado.
+          Substitui o planejado atual ({{ planRow?.planned_qty }}) — 0 remove.
         </p>
-        <p v-else-if="planMode === 'new-batch'" class="flex items-start gap-2 rounded-md border p-2.5 text-sm">
-          <Icon name="lucide:layers" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <span>
-            A produção já assumiu este dia
-            (<template v-if="planRow?.started_qty !== '0'">{{ planRow?.started_qty }} em processo</template><template v-if="planRow?.started_qty !== '0' && planRow?.finished_qty !== '0'"> · </template><template v-if="planRow?.finished_qty !== '0'">{{ planRow?.finished_qty }} concluídas</template>).
-            Esta quantidade cria um <strong>novo lote</strong>, somando ao dia.
-          </span>
+        <p v-else-if="planMode === 'new-batch'" class="text-sm text-muted-foreground">
+          Soma ao dia<template v-if="planRow?.started_qty !== '0'"> · {{ planRow?.started_qty }} em processo</template><template v-if="planRow?.finished_qty !== '0'"> · {{ planRow?.finished_qty }} concluídas</template>.
         </p>
         <div class="flex items-center gap-2">
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('plan', -1)">−</button>
@@ -639,11 +659,6 @@ const headerCount = computed(() => {
           </button>
         </div>
 
-        <div v-if="startedRow && rowCommittedUnits(startedRow) > 0" class="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-2.5 text-sm">
-          <Icon name="lucide:shopping-bag" class="mt-0.5 size-4 shrink-0 text-primary" />
-          <span>{{ rowCommittedUnits(startedRow) }} un. deste lote já têm dono (pedidos confirmados).</span>
-        </div>
-
         <div v-if="voidConfirming" class="flex flex-col gap-2">
           <p class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-sm text-amber-700 dark:text-amber-300">
             <Icon name="lucide:triangle-alert" class="mt-0.5 size-4 shrink-0" />
@@ -692,15 +707,6 @@ const headerCount = computed(() => {
             Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — sai da produção e segue para a vitrine.
           </UiDialogDescription>
         </UiDialogHeader>
-        <p v-if="finishCard" class="flex items-center gap-2 text-sm text-muted-foreground">
-          <span class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums" :class="timerChip(timerTone(finishCard.timer_class))">
-            <Icon name="lucide:timer" class="size-3" />
-            {{ elapsedLabel(finishCard.elapsed_seconds) }}
-          </span>
-          <span v-if="finishRow?.started_orders[0]?.started_at_display">
-            em processo desde {{ finishRow.started_orders[0].started_at_display }}
-          </span>
-        </p>
         <div class="flex items-center gap-2">
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('finish', -1)">−</button>
           <input
@@ -721,6 +727,49 @@ const headerCount = computed(() => {
             @click="confirmFinish(false)"
           >
             Confirmar conclusão
+          </button>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
+
+    <!-- timer do forno (lembrete por fornada, com som) -->
+    <UiDialog :open="ovenRow != null" @update:open="(v) => { if (!v) ovenRow = null }">
+      <UiDialogContent class="sm:max-w-sm">
+        <UiDialogHeader>
+          <UiDialogTitle>Timer do forno · {{ ovenRow?.output_sku }}</UiDialogTitle>
+          <UiDialogDescription>Minutos até o lembrete de conferir/retirar. Toca neste aparelho.</UiDialogDescription>
+        </UiDialogHeader>
+        <div class="flex items-center gap-2">
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('oven', -1)">−</button>
+          <div class="relative w-full">
+            <input
+              v-model="ovenMinutes"
+              type="text"
+              inputmode="numeric"
+              class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+              aria-label="Minutos do timer"
+            />
+            <span class="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-sm text-muted-foreground">min</span>
+          </div>
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Aumentar" @click="bump('oven', 1)">+</button>
+        </div>
+        <UiDialogFooter>
+          <button
+            v-if="ovenRow && oven.get(ovenKey(ovenRow))"
+            type="button"
+            class="mr-auto rounded-md border px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-500/10 dark:text-red-300"
+            @click="cancelOven()"
+          >
+            Cancelar timer
+          </button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="ovenRow = null">Fechar</button>
+          <button
+            type="button"
+            :disabled="!(parseFloat(ovenMinutes.replace(',', '.')) >= 1)"
+            class="rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            @click="confirmOven()"
+          >
+            Iniciar timer
           </button>
         </UiDialogFooter>
       </UiDialogContent>

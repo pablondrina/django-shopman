@@ -49,6 +49,36 @@ export function elapsedLabel(seconds: number): string {
   return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
 }
 
+// ── Datas (chips Hoje · Amanhã · dia-da-semana + data cheia fixa) ──────────
+
+const WEEKDAYS_PT = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+function parseISODate(iso: string): Date | null {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+/** "2026-07-04" → "Sábado" — rótulo do chip quando a data foi escolhida à mão. */
+export function weekdayLabel(iso: string): string {
+  const date = parseISODate(iso);
+  return date ? WEEKDAYS_PT[date.getDay()]! : "";
+}
+
+/** "2026-07-04" → "04 jul 2026" — a data cheia, sempre no mesmo lugar. */
+export function fullDateLabel(iso: string): string {
+  const date = parseISODate(iso);
+  if (!date) return "";
+  return `${String(date.getDate()).padStart(2, "0")} ${MONTHS_PT[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/** Segundos restantes → "12:34" (contagem regressiva do timer do forno). */
+export function countdownLabel(secondsLeft: number): string {
+  const s = Math.max(0, Math.round(secondsLeft));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 // ── Production grid shaping ────────────────────────────────────────────────
 
 /** Whether a matrix row has anything actionable/visible (avoids empty noise). */
