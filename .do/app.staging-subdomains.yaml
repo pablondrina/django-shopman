@@ -509,6 +509,25 @@ workers:
         value: 2
         window: TEN_MINUTES
 
+  # Ingestão de pedidos iFood — polling (método primário na doc do iFood; o
+  # webhook /api/webhooks/ifood/ é o canal alternativo). Inerte sem
+  # IFOOD_CLIENT_ID/SECRET (só loga "OAuth não configurado" e fica ocioso).
+  # Roda ao lado do directive-worker, que entrega os callbacks de status.
+  - name: ifood-poll-worker
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
+      branch: main
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: python manage.py ifood_poll --watch --interval 30
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+
 jobs:
   - name: release
     kind: PRE_DEPLOY

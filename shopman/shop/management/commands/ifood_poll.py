@@ -13,12 +13,15 @@ worker (``process_directives --watch``) which delivers the status callbacks.
 
 from __future__ import annotations
 
+import logging
 import signal
 import time
 
 from django.core.management.base import BaseCommand
 
 from shopman.shop.services import ifood_events
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -57,7 +60,12 @@ class Command(BaseCommand):
 
         self.stdout.write(f"ifood_poll: watching (every {interval}s). Ctrl-C to stop.")
         while not self._stop:
-            self._tick()
+            # Um tick que falha (rede, iFood fora do ar) loga e NUNCA derruba o
+            # loop — senão o worker crash-loopa e dispara o alerta de restart.
+            try:
+                self._tick()
+            except Exception:
+                logger.exception("ifood_poll: tick falhou (loop continua)")
             for _ in range(interval):
                 if self._stop:
                     break
