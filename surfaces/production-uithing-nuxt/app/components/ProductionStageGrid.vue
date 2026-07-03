@@ -4,7 +4,7 @@
 //   ação com verbo no cabeçalho:
 //   · plan     (Planejamento): SUGERIDO   | PLANEJAR   — todos os SKUs;
 //   · produce  (Produção):     PLANEJADO  | PROCESSAR  — só linhas com número;
-//   · expedite (Expedição):    PROCESSADO | EXPEDIR    — só linhas com número.
+//   · expedite (Expedição):    PROCESSADO | CONCLUIR   — só linhas com número.
 // A ação abre overlay com quantidade em stepper touch (+/−) e confirmação
 // explícita; cada informe vira evento imutável (actor + timestamp → BI).
 // Instruções específicas do SKU (peso de corte etc.) terão casa neste overlay
@@ -74,7 +74,7 @@ const lens = computed(() => {
   }
   return {
     read: { key: "started", label: "Processado", visible: !!access.value?.can_view_started },
-    action: { key: "finished", label: "Expedir", visible: !!access.value?.can_view_finished, editable: !!access.value?.can_edit_finished },
+    action: { key: "finished", label: "Concluir", visible: !!access.value?.can_view_finished, editable: !!access.value?.can_edit_finished },
   } as const;
 });
 
@@ -99,13 +99,39 @@ const emptyCopy = computed(() =>
     ? { text: "Nenhuma receita ativa.", cta: "", to: "" }
     : props.stage === "produce"
       ? { text: "Nada planejado para processar nesta data.", cta: "Ir para o Planejamento", to: "/planejamento" }
-      : { text: "Nada processado para expedir nesta data.", cta: "Ir para a Produção", to: "/" },
+      : { text: "Nada processado para concluir nesta data.", cta: "Ir para a Produção", to: "/" },
 );
 
 // ── Overlays ────────────────────────────────────────────────────────────────
 const explaining = ref<ProductionSuggestionProjection | null>(null);
 const planRow = ref<ProductionMatrixRowProjection | null>(null);
 const planQty = ref("");
+
+// O gesto de planejar tem TRÊS sentidos, e o operador precisa saber qual está
+// fazendo (o kernel já distingue: set_planned_quantity ajusta a WO planejada;
+// depois do start ela sai do "planejado" e um novo plano cria OUTRO lote):
+//   · plan      — nada na data ainda: planeja a primeira quantidade;
+//   · adjust    — existe WO planejada: SUBSTITUI a quantidade (0 remove);
+//   · new-batch — a produção já assumiu (iniciado/concluído): cria lote que
+//                 SOMA ao dia — explícito, nunca silencioso.
+type PlanMode = "plan" | "adjust" | "new-batch";
+const planMode = computed<PlanMode>(() => {
+  const row = planRow.value;
+  if (!row) return "plan";
+  if (row.planned_qty !== "0") return "adjust";
+  if (row.started_qty !== "0" || row.finished_qty !== "0") return "new-batch";
+  return "plan";
+});
+function rowPlanMode(row: ProductionMatrixRowProjection): PlanMode {
+  if (row.planned_qty !== "0") return "adjust";
+  if (row.started_qty !== "0" || row.finished_qty !== "0") return "new-batch";
+  return "plan";
+}
+const PLAN_TITLE: Record<PlanMode, string> = {
+  plan: "Planejar",
+  adjust: "Ajustar planejado",
+  "new-batch": "Planejar novo lote",
+};
 const startRow = ref<ProductionMatrixRowProjection | null>(null);
 const startQty = ref("");
 const startedRow = ref<ProductionMatrixRowProjection | null>(null);
@@ -139,7 +165,12 @@ function bump(field: keyof typeof qtyFields, delta: number) {
 
 function openPlan(row: ProductionMatrixRowProjection) {
   planRow.value = row;
-  planQty.value = row.planned_qty !== "0" ? row.planned_qty : (row.suggestion?.quantity ?? "0");
+  const mode = rowPlanMode(row);
+  // Novo lote parte de 0 — a sugestão era para o dia inteiro e a produção já
+  // assumiu parte dela; pré-preencher aqui dobraria o dia sem querer.
+  if (mode === "new-batch") planQty.value = "0";
+  else if (mode === "adjust") planQty.value = row.planned_qty;
+  else planQty.value = row.suggestion?.quantity ?? "0";
 }
 
 async function confirmPlan() {
@@ -153,8 +184,9 @@ async function confirmPlan() {
     source: row.suggestion && planQty.value.trim() === row.suggestion.quantity ? "suggested" : undefined,
   });
   if (res.ok) {
+    const label = planMode.value === "new-batch" ? "Novo lote planejado" : "Planejado";
     planRow.value = null;
-    useSonner.success(`Planejado: ${row.output_sku} × ${planQty.value.trim()}`);
+    useSonner.success(`${label}: ${row.output_sku} × ${planQty.value.trim()}`);
   } else if (res.shortage) {
     planRow.value = null;
     shortage.value = res.shortage;
@@ -192,7 +224,7 @@ async function confirmFinish(force = false) {
   if (res.ok) {
     finishRow.value = null;
     refresh();
-    useSonner.success(`Expedido: ${row.output_sku} × ${finishQty.value.trim()}`);
+    useSonner.success(`Concluído: ${row.output_sku} × ${finishQty.value.trim()}`);
   } else if (res.shortage) {
     finishRow.value = null;
     shortage.value = res.shortage;
@@ -261,7 +293,21 @@ function actionEnabled(row: ProductionMatrixRowProjection): boolean {
   return !!row.started_orders.length;
 }
 
-const ACTION_VERB: Record<string, string> = { plan: "Planejar", produce: "Processar", expedite: "Expedir" };
+const ACTION_VERB: Record<string, string> = { plan: "Planejar", produce: "Processar", expedite: "Concluir" };
+
+// Verbo da célula de plano: quando a produção já assumiu a quantidade do dia,
+// o gesto disponível é somar um lote — e a célula diz isso antes do modal.
+function planCellVerb(row: ProductionMatrixRowProjection): string {
+  return rowPlanMode(row) === "new-batch" ? "Novo lote" : "Planejar";
+}
+
+const planQtyValid = computed(() => {
+  const qty = parseFloat(planQty.value.replace(",", "."));
+  if (Number.isNaN(qty) || qty < 0) return false;
+  // Zerar só faz sentido quando há planejado a remover; num lote novo, 0 é no-op.
+  if (qty === 0) return planMode.value === "adjust";
+  return true;
+});
 
 function cellQty(value: string): string {
   return value === "0" ? "—" : value;
@@ -284,7 +330,7 @@ const dayProgress = computed(() => {
 const headerCount = computed(() => {
   if (props.stage === "plan") return { count: counts.value?.planned ?? 0, label: "planejados" };
   if (props.stage === "produce") return { count: counts.value?.started ?? 0, label: "em processo" };
-  return { count: counts.value?.finished ?? 0, label: "expedidos" };
+  return { count: counts.value?.finished ?? 0, label: "concluídos" };
 });
 </script>
 
@@ -342,7 +388,7 @@ const headerCount = computed(() => {
         <div
           v-if="dayProgress"
           class="inline-flex items-center gap-2"
-          :title="`${dayProgress.finished} de ${dayProgress.planned} un. expedidas`"
+          :title="`${dayProgress.finished} de ${dayProgress.planned} un. concluídas`"
           role="progressbar"
           :aria-valuenow="dayProgress.pct"
           aria-valuemin="0"
@@ -360,7 +406,7 @@ const headerCount = computed(() => {
           class="ml-auto h-9 rounded-md border bg-background px-2 text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
           aria-label="Filtrar por ficha-base"
         >
-          <option value="">Todas as massas</option>
+          <option value="">Todas as bases</option>
           <option v-for="base in baseOptions" :key="base.output_sku" :value="base.output_sku">
             {{ base.name }} ({{ base.count }})
           </option>
@@ -413,11 +459,11 @@ const headerCount = computed(() => {
                 <button
                   v-if="stage === 'plan' && row.suggestion"
                   type="button"
-                  :class="[CELL_ACTION, 'text-muted-foreground']"
+                  :class="[CELL_READ, row.suggestion.quantity !== '0' ? 'text-foreground' : 'text-muted-foreground', 'hover:bg-accent']"
                   :aria-label="`Por que ${row.suggestion.quantity} de ${row.recipe_name}?`"
                   @click="explaining = row.suggestion"
                 >
-                  {{ row.suggestion.quantity }}
+                  {{ cellQty(row.suggestion.quantity) }}
                   <Icon name="lucide:info" class="size-3.5 opacity-60" />
                 </button>
                 <span v-else :class="[CELL_READ, rowValue(row, lens.read.key) !== '0' ? 'text-foreground' : 'text-muted-foreground']">
@@ -440,7 +486,7 @@ const headerCount = computed(() => {
                     <Icon :name="stage === 'produce' && row.started_orders.length ? 'lucide:settings-2' : 'lucide:pencil'" class="size-3.5 opacity-60" />
                   </template>
                   <template v-else>
-                    <span class="text-sm font-medium">{{ ACTION_VERB[stage] }}</span>
+                    <span class="whitespace-nowrap text-sm font-medium">{{ stage === "plan" ? planCellVerb(row) : ACTION_VERB[stage] }}</span>
                     <Icon name="lucide:chevron-right" class="size-3.5 opacity-60" />
                   </template>
                 </button>
@@ -461,12 +507,23 @@ const headerCount = computed(() => {
     <UiDialog :open="planRow != null" @update:open="(v) => { if (!v) planRow = null }">
       <UiDialogContent class="sm:max-w-sm">
         <UiDialogHeader>
-          <UiDialogTitle>Planejar {{ planRow?.output_sku }}</UiDialogTitle>
+          <UiDialogTitle>{{ PLAN_TITLE[planMode] }} · {{ planRow?.output_sku }}</UiDialogTitle>
           <UiDialogDescription>
             {{ planRow?.recipe_name }} · {{ dateDisplay }}
             <template v-if="planRow?.suggestion"> · sugestão {{ planRow.suggestion.quantity }}</template>
           </UiDialogDescription>
         </UiDialogHeader>
+        <p v-if="planMode === 'adjust'" class="text-sm text-muted-foreground">
+          Substitui a quantidade planejada ({{ planRow?.planned_qty }}) — 0 remove o planejado.
+        </p>
+        <p v-else-if="planMode === 'new-batch'" class="flex items-start gap-2 rounded-md border p-2.5 text-sm">
+          <Icon name="lucide:layers" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span>
+            A produção já assumiu este dia
+            (<template v-if="planRow?.started_qty !== '0'">{{ planRow?.started_qty }} em processo</template><template v-if="planRow?.started_qty !== '0' && planRow?.finished_qty !== '0'"> · </template><template v-if="planRow?.finished_qty !== '0'">{{ planRow?.finished_qty }} concluídas</template>).
+            Esta quantidade cria um <strong>novo lote</strong>, somando ao dia.
+          </span>
+        </p>
         <div class="flex items-center gap-2">
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('plan', -1)">−</button>
           <input
@@ -482,11 +539,11 @@ const headerCount = computed(() => {
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="planRow = null">Cancelar</button>
           <button
             type="button"
-            :disabled="!planQty.trim()"
+            :disabled="!planQty.trim() || !planQtyValid"
             class="rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
             @click="confirmPlan()"
           >
-            Salvar planejado
+            {{ planMode === "new-batch" ? "Salvar novo lote" : "Salvar planejado" }}
           </button>
         </UiDialogFooter>
       </UiDialogContent>
@@ -600,13 +657,13 @@ const headerCount = computed(() => {
       </UiDialogContent>
     </UiDialog>
 
-    <!-- expedir (a saída da produção — quantidade final, pós-conferência) -->
+    <!-- concluir (a saída da produção — quantidade final, pós-conferência) -->
     <UiDialog :open="finishRow != null" @update:open="(v) => { if (!v) finishRow = null }">
       <UiDialogContent class="sm:max-w-sm">
         <UiDialogHeader>
-          <UiDialogTitle>Expedir {{ finishRow?.output_sku }}</UiDialogTitle>
+          <UiDialogTitle>Concluir {{ finishRow?.output_sku }}</UiDialogTitle>
           <UiDialogDescription>
-            Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — segue para a vitrine.
+            Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — sai da produção e segue para a vitrine.
           </UiDialogDescription>
         </UiDialogHeader>
         <div class="flex items-center gap-2">
@@ -616,7 +673,7 @@ const headerCount = computed(() => {
             type="text"
             inputmode="decimal"
             class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
-            aria-label="Quantidade expedida"
+            aria-label="Quantidade concluída"
           />
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Aumentar" @click="bump('finish', 1)">+</button>
         </div>
@@ -628,7 +685,7 @@ const headerCount = computed(() => {
             class="rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
             @click="confirmFinish(false)"
           >
-            Confirmar expedição
+            Confirmar conclusão
           </button>
         </UiDialogFooter>
       </UiDialogContent>

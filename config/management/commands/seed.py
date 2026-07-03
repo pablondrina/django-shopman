@@ -1776,6 +1776,20 @@ class Command(BaseCommand):
                 ],
             },
             {
+                # Preparo-base não-massa: a produção real tem recheios, cremes
+                # e infusões prontos ANTES da montagem — não só massas.
+                "ref": "recheio-maca",
+                "name": "Recheio de Maçã",
+                "output_sku": "RECHEIO-MACA",
+                "batch_size": Decimal("5"),
+                "items": [
+                    ("MACA", Decimal("3.800")),
+                    ("ACUCAR", Decimal("1.100")),
+                    ("CANELA", Decimal("0.060")),
+                    ("LIMAO", Decimal("0.120")),
+                ],
+            },
+            {
                 "ref": "baguete",
                 "name": "Baguete Francesa",
                 "output_sku": "BAGUETE",
@@ -1898,9 +1912,7 @@ class Command(BaseCommand):
                 "batch_size": Decimal("12"),
                 "items": [
                     ("MASSA-FOLHADA", Decimal("4.600")),
-                    ("MACA", Decimal("0.600")),
-                    ("ACUCAR", Decimal("0.200")),
-                    ("CANELA", Decimal("0.010")),
+                    ("RECHEIO-MACA", Decimal("0.810")),
                 ],
             },
             {
@@ -2352,6 +2364,8 @@ class Command(BaseCommand):
             return ["Mistura", "Descanso", "Forno"]
         if ref.startswith("massa-"):
             return ["Pesagem", "Mistura", "Fermentação"]
+        if ref.startswith("recheio-"):
+            return ["Pesagem", "Cocção", "Resfriamento"]
         return ["Mistura", "Fermentação", "Modelagem", "Forno"]
 
     def _max_started_minutes_for_recipe(self, ref: str) -> int:
@@ -2361,6 +2375,8 @@ class Command(BaseCommand):
             return 240
         if ref.startswith("massa-"):
             return 180
+        if ref.startswith("recheio-"):
+            return 90
         return 120
 
     def _assert_catalog_remote_purchase_data(self):
