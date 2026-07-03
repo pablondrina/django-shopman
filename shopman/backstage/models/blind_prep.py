@@ -2,9 +2,11 @@
 
 O colaborador pesa com etiquetas que carregam SÓ o código do dia (1 letra +
 1 número, sem 0/1/O/I — ultra legível e memorizável); o mapa código↔preparo é
-visão de gestor. O espaço é pequeno (24×8 = 192), então unicidade vem por
-CONSTRAINT, não por hash: a linha persiste a alocação do dia — o código não
-muda se um preparo novo entrar no meio da manhã (reimpressão sempre bate).
+visão de gestor. A linha persiste a alocação do dia — o código não muda se um
+preparo novo entrar no meio da manhã (reimpressão sempre bate). A constraint
+garante o dia; a alocação (``blind_prep_code``) amplia a unicidade para a
+janela de expediente (dia útil anterior · dia · próximo dia útil), para que
+etiquetas de dias adjacentes convivendo na cozinha nunca se confundam.
 """
 
 from __future__ import annotations

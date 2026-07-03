@@ -375,10 +375,12 @@ staging.
   `production/weighing/` — insumo escalado POR preparo, que é o que se pesa) ao
   lado do agregado "Insumos" (provisionamento), com chips Hoje/Amanhã.
   **Pesagem cega**: `blind_prep_code(ref, date)` — formato "B7" (1 letra +
-  1 número, sem 0/1/O/I — pedido do Pablo: ultra legível/memorizável). Num
-  espaço de 192, unicidade vem por CONSTRAINT: alocação do dia persistida em
-  `BlindPrepCode` (backstage, migração 0016), candidatos em ordem semeada
-  pelo SECRET_KEY — estável o dia todo mesmo com preparo entrando de manhã;
+  1 número, sem 0/1/O/I — pedido do Pablo: ultra legível/memorizável).
+  Sorteio simples com retry só na colisão; alocação persistida em
+  `BlindPrepCode` (backstage, migração 0016) — estável o dia todo mesmo com
+  preparo entrando de manhã. Unicidade na JANELA de expediente (dia útil
+  anterior · dia · próximo dia útil, via `is_open_on` — domingo/feriado
+  pulam): etiquetas de dias adjacentes na cozinha nunca se confundem;
   etiquetas
   imprimíveis (print CSS: só as etiquetas saem — código, ingrediente, peso,
   data, NUNCA o nome da receita); mapa código↔preparo é bloco só-gestor

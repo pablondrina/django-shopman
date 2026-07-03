@@ -792,15 +792,17 @@ _BLIND_DIGITS = "23456789"
 
 
 def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
-    """Código cego diário de um preparo — pesagem sem revelar a receita.
+    """Código cego de um preparo — pesagem sem revelar a receita.
 
-    Formato "B7": 1 letra + 1 número (sem 0/1/O/I). Num espaço de 192, hash
-    puro colidiria; a unicidade vem por CONSTRAINT — a alocação do dia
-    persiste em ``BlindPrepCode``, então o código não muda se um preparo novo
-    entrar no meio da manhã (reimpressão sempre bate). A ordem dos candidatos
-    é semeada pelo SECRET_KEY: imprevisível para quem pesa, e o mapa
-    código↔preparo continua sendo visão de gestor.
+    Formato "B7": 1 letra + 1 número (sem 0/1/O/I — ultra legível). Sorteio
+    simples com retry só na colisão; a alocação persiste em ``BlindPrepCode``
+    (estável o dia todo, reimpressão sempre bate). Unicidade vale na JANELA
+    de expediente — dia útil anterior · dia · próximo dia útil (domingo e
+    feriado pulam, via calendário da loja): etiquetas de dias adjacentes
+    convivendo na cozinha nunca se confundem.
     """
+    import secrets
+
     from django.db import IntegrityError, transaction
 
     from shopman.backstage.models import BlindPrepCode
@@ -809,58 +811,70 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
     if existing:
         return existing.code
 
-    taken = set(BlindPrepCode.objects.filter(date=selected_date).values_list("code", flat=True))
-    for candidate in _blind_candidates(recipe_ref, selected_date):
-        if candidate in taken:
-            continue
+    window = _blind_window(selected_date)
+    space = [letter + digit for letter in _BLIND_LETTERS for digit in _BLIND_DIGITS]
+    for _attempt in range(len(space)):
+        taken = set(
+            BlindPrepCode.objects.filter(date__in=window).values_list("code", flat=True)
+        )
+        free = [code for code in space if code not in taken]
+        if not free:
+            raise RuntimeError(
+                "Espaço de códigos cegos esgotado na janela de expediente "
+                "(192 códigos para 3 dias) — verifique duplicação de refs."
+            )
+        candidate = secrets.choice(free)
         try:
             with transaction.atomic():
-                BlindPrepCode.objects.create(
+                row = BlindPrepCode.objects.create(
                     date=selected_date, recipe_ref=recipe_ref, code=candidate
                 )
-            return candidate
         except IntegrityError:
-            # Corrida: outro processo levou o código (ou já alocou este ref).
+            # Colidiu (código do dia levado numa corrida, ou o ref já alocou).
             existing = BlindPrepCode.objects.filter(
                 date=selected_date, recipe_ref=recipe_ref
             ).first()
             if existing:
                 return existing.code
-            taken.add(candidate)
-    raise RuntimeError(
-        "Espaço de códigos cegos esgotado para o dia (192 preparos) — "
-        "impossível numa operação real; verifique duplicação de refs."
-    )
+            continue  # retry com outro sorteio
+        # Corrida entre DATAS da janela (a constraint é por dia): quem chegou
+        # depois cede e sorteia de novo.
+        clash = (
+            BlindPrepCode.objects.filter(date__in=window, code=candidate)
+            .exclude(pk=row.pk)
+            .filter(pk__lt=row.pk)
+            .exists()
+        )
+        if clash:
+            row.delete()
+            continue
+        return candidate
+    raise RuntimeError("Alocação de código cego não convergiu — investigar concorrência.")
 
 
-def _blind_candidates(recipe_ref: str, selected_date: date) -> list[str]:
-    """Permutação diária do espaço de códigos, rotacionada pelo preparo.
+def _blind_window(selected_date: date) -> tuple[date, date, date]:
+    """Janela de unicidade: dia útil anterior · dia · próximo dia útil.
 
-    Semeada por HMAC(SECRET_KEY, data) — determinística no dia, imprevisível
-    sem o segredo. A rotação por ref espalha os pontos de partida para reduzir
-    corrida entre alocações concorrentes.
+    "Útil" segue o calendário da loja (``is_open_on``: domingo sem expediente,
+    feriados em ``closed_dates``); sem agenda configurada degrada para
+    ontem·hoje·amanhã. Busca limitada a 14 dias para nunca laçar em config
+    quebrada.
     """
-    import hashlib
-    import hmac
-    import random
+    from shopman.shop.services.business_calendar import is_open_on
 
-    from django.conf import settings
+    def step(start: date, delta: int) -> date:
+        candidate = start
+        for _ in range(14):
+            candidate = candidate + timedelta(days=delta)
+            try:
+                if is_open_on(candidate):
+                    return candidate
+            except Exception:
+                logger.debug("blind_window.calendar_failed", exc_info=True)
+                return start + timedelta(days=delta)
+        return start + timedelta(days=delta)
 
-    space = [letter + digit for letter in _BLIND_LETTERS for digit in _BLIND_DIGITS]
-    day_seed = hmac.new(
-        settings.SECRET_KEY.encode(),
-        f"blind-prep-day:{selected_date.isoformat()}".encode(),
-        hashlib.sha256,
-    ).digest()
-    random.Random(day_seed).shuffle(space)
-
-    offset_digest = hmac.new(
-        settings.SECRET_KEY.encode(),
-        f"blind-prep-ref:{recipe_ref}:{selected_date.isoformat()}".encode(),
-        hashlib.sha256,
-    ).digest()
-    offset = int.from_bytes(offset_digest[:4], "big") % len(space)
-    return space[offset:] + space[:offset]
+    return (step(selected_date, -1), selected_date, step(selected_date, 1))
 
 
 def _ingredient_availability(skus: set[str]) -> dict[str, Decimal]:

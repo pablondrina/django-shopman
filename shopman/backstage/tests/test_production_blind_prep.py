@@ -1,10 +1,10 @@
 """Pesagem cega (QA Pablo 2026-07-03) — código por (preparo, dia).
 
-Formato "B7" (1 letra + 1 número, sem 0/1/O/I — ultra legível): num espaço de
-192, unicidade vem por CONSTRAINT (alocação persistida em BlindPrepCode), com
-ordem de candidatos semeada pelo SECRET_KEY. Estável o dia todo mesmo com
-preparos entrando no meio da manhã; as etiquetas circulam só com o código e o
-mapa código↔preparo é visão de gestor.
+Formato "B7" (1 letra + 1 número, sem 0/1/O/I — ultra legível): sorteio com
+retry só na colisão, alocação persistida em BlindPrepCode (estável o dia
+todo). Unicidade vale na JANELA de expediente — dia útil anterior · dia ·
+próximo dia útil (domingo/feriado pulam): etiquetas de dias adjacentes
+convivendo na cozinha nunca se confundem. Mapa código↔preparo = gestor.
 """
 
 from __future__ import annotations
@@ -54,21 +54,74 @@ class TestBlindPrepCode:
         today = date.today()
         assert blind_prep_code("massa-brioche", today) != blind_prep_code("massa-campagne", today)
 
-    def test_days_allocate_independently(self):
+    def test_unique_across_adjacent_days_window(self):
+        """Etiqueta de ontem na câmara nunca colide com a de hoje ou amanhã."""
         today = date.today()
-        tomorrow = today + timedelta(days=1)
-        # Amanhã realoca do zero (códigos reciclam por dia) — só garante que a
-        # alocação de amanhã também é válida e estável.
-        code_tomorrow = blind_prep_code("massa-brioche", tomorrow)
-        assert re.fullmatch(r"[A-HJ-NP-Z][2-9]", code_tomorrow)
-        assert blind_prep_code("massa-brioche", tomorrow) == code_tomorrow
+        codes_today = {blind_prep_code(f"hoje-{i}", today) for i in range(15)}
+        codes_tomorrow = {
+            blind_prep_code(f"amanha-{i}", today + timedelta(days=1)) for i in range(15)
+        }
+        codes_yesterday = {
+            blind_prep_code(f"ontem-{i}", today - timedelta(days=1)) for i in range(15)
+        }
+        assert not (codes_today & codes_tomorrow)
+        assert not (codes_today & codes_yesterday)
+
+    def test_window_skips_sunday(self):
+        """Sábado e segunda são adjacentes (domingo sem expediente)."""
+        from shopman.backstage.projections.production import _blind_window
+        from shopman.shop.models import Shop
+
+        Shop.objects.create(
+            name="Nelson",
+            opening_hours={
+                day: {"open": "07:00", "close": "19:00"}
+                for day in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
+            },
+        )
+        # Uma segunda-feira qualquer: o dia útil anterior é o SÁBADO.
+        monday = date(2026, 7, 6)
+        assert monday.weekday() == 0
+        window = _blind_window(monday)
+        assert window == (date(2026, 7, 4), monday, date(2026, 7, 7))
+
+        # E o próximo dia útil do sábado é a SEGUNDA.
+        saturday = date(2026, 7, 4)
+        assert _blind_window(saturday) == (date(2026, 7, 3), saturday, monday)
+
+    def test_saturday_and_monday_never_share_codes(self):
+        from shopman.shop.models import Shop
+
+        Shop.objects.create(
+            name="Nelson",
+            opening_hours={
+                day: {"open": "07:00", "close": "19:00"}
+                for day in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
+            },
+        )
+        saturday = date(2026, 7, 4)
+        monday = date(2026, 7, 6)
+        codes_sat = {blind_prep_code(f"sab-{i}", saturday) for i in range(15)}
+        codes_mon = {blind_prep_code(f"seg-{i}", monday) for i in range(15)}
+        assert not (codes_sat & codes_mon)
+
+    def test_without_calendar_window_is_simple_yesterday_today_tomorrow(self):
+        from shopman.backstage.projections.production import _blind_window
+
+        today = date.today()
+        assert _blind_window(today) == (
+            today - timedelta(days=1),
+            today,
+            today + timedelta(days=1),
+        )
 
     def test_space_exhaustion_raises_clearly(self):
         today = date.today()
         for i in range(192):
-            blind_prep_code(f"lotação-{i}", today)
+            blind_prep_code(f"lotacao-{i}", today)
+        # A janela de amanhã inclui hoje (192 tomados) — nada livre.
         with pytest.raises(RuntimeError, match="esgotado"):
-            blind_prep_code("um-a-mais", today)
+            blind_prep_code("um-a-mais", today + timedelta(days=1))
 
 
 class TestWeighingAPI:
