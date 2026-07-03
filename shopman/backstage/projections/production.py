@@ -1972,3 +1972,167 @@ def _format_datetime(dt) -> str:
         return ""
     local = timezone.localtime(dt)
     return local.strftime("%d/%m às %H:%M")
+
+
+# ── Painel de previsão da produção (estilo "painel de aeroporto") ──────
+# Uma linha por fornada (WO = voo): quantidade prevista, horário de chegada
+# estimado pela HISTÓRIA (mediana dos últimos 28 dias no ledger) e status.
+# Público: equipe de loja/vendas — "o que posso prometer para esta data?".
+# A previsão é honesta em três níveis: planejado = estimativa histórica;
+# iniciado = quantidade firme (o start trava) + ETA pela duração mediana;
+# concluído = quantidade e horário REAIS.
+
+_FORECAST_HISTORY_DAYS = 28
+_FORECAST_DELAY_TOLERANCE_MIN = 10
+
+_FORECAST_STATUS_LABELS = {
+    "scheduled": "Programado",
+    "in_progress": "Em produção",
+    "delayed": "Atrasado",
+    "arrived": "Na vitrine",
+}
+
+
+@dataclass(frozen=True)
+class ForecastRowProjection:
+    output_sku: str
+    recipe_name: str
+    planned_qty: str
+    forecast_qty: str
+    qty_firm: bool  # True quando o start/finish travou a quantidade
+    committed_qty: str  # unidades já com dono (encomendas confirmadas)
+    promisable_qty: str  # prevista − comprometida (nunca negativa)
+    eta_display: str  # "HH:MM" ou "—" (sem história e sem SLA)
+    eta_is_actual: bool  # True = horário real de conclusão
+    status: str  # scheduled | in_progress | delayed | arrived
+    status_label: str
+    history_days: int  # amostra por trás da estimativa (transparência)
+
+
+@dataclass(frozen=True)
+class ProductionForecastProjection:
+    selected_date: str
+    selected_date_display: str
+    generated_at_display: str
+    rows: tuple[ForecastRowProjection, ...]
+
+
+def _median_int(values: list[int]) -> int | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) // 2
+
+
+def _forecast_history(recipe_ids: list[int], before: date) -> dict[int, tuple[int | None, int | None, int]]:
+    """Por receita: (mediana da hora-do-dia de conclusão em minutos,
+    mediana da duração start→finish em minutos, dias de amostra)."""
+    since = before - timedelta(days=_FORECAST_HISTORY_DAYS)
+    rows = WorkOrder.objects.filter(
+        recipe_id__in=recipe_ids,
+        status=WorkOrder.Status.FINISHED,
+        target_date__gte=since,
+        target_date__lt=before,
+        finished_at__isnull=False,
+    ).values_list("recipe_id", "started_at", "finished_at")
+    finish_tods: dict[int, list[int]] = {}
+    durations: dict[int, list[int]] = {}
+    for recipe_id, started_at, finished_at in rows:
+        local_finish = timezone.localtime(finished_at)
+        finish_tods.setdefault(recipe_id, []).append(local_finish.hour * 60 + local_finish.minute)
+        if started_at is not None:
+            minutes = int((finished_at - started_at).total_seconds() // 60)
+            if 0 < minutes < 24 * 60:
+                durations.setdefault(recipe_id, []).append(minutes)
+    return {
+        recipe_id: (
+            _median_int(finish_tods.get(recipe_id, [])),
+            _median_int(durations.get(recipe_id, [])),
+            len(finish_tods.get(recipe_id, [])),
+        )
+        for recipe_id in recipe_ids
+    }
+
+
+def _forecast_eta_display(eta) -> str:
+    return timezone.localtime(eta).strftime("%H:%M") if eta else "—"
+
+
+def build_production_forecast(selected_date: date | None = None) -> ProductionForecastProjection:
+    """O painel: fornadas da data, com previsão histórica e status vivo."""
+    from datetime import datetime
+    from datetime import time as dt_time
+
+    target = selected_date or timezone.localdate()
+    now = timezone.localtime()
+    tz_info = timezone.get_current_timezone()
+
+    orders = list(
+        WorkOrder.objects.filter(target_date=target)
+        .exclude(status=WorkOrder.Status.VOID)
+        .select_related("recipe")
+        .order_by("output_sku", "created_at")
+    )
+    history = _forecast_history(sorted({wo.recipe_id for wo in orders}), target)
+
+    rows: list[tuple[tuple, ForecastRowProjection]] = []
+    for wo in orders:
+        finish_tod, duration_min, sample = history.get(wo.recipe_id, (None, None, 0))
+        started_qty = _wo_started_qty(wo)
+        commitments = _order_commitments_for_work_order(wo)
+        committed = sum((_decimal_value(item.qty_required) for item in commitments), Decimal("0"))
+
+        if wo.status == WorkOrder.Status.FINISHED and wo.finished is not None:
+            forecast = wo.finished
+            eta = wo.finished_at
+            status = "arrived"
+            eta_actual = True
+        elif wo.status == WorkOrder.Status.STARTED:
+            forecast = started_qty or wo.quantity
+            if duration_min is None:
+                duration_min = int((wo.recipe.meta or {}).get("max_started_minutes") or 0) or None
+            eta = wo.started_at + timedelta(minutes=duration_min) if (wo.started_at and duration_min) else None
+            status = "in_progress"
+            eta_actual = False
+        else:  # planned
+            forecast = wo.quantity
+            eta = (
+                datetime.combine(target, dt_time(finish_tod // 60, finish_tod % 60), tzinfo=tz_info)
+                if finish_tod is not None
+                else None
+            )
+            status = "scheduled"
+            eta_actual = False
+
+        if status in ("scheduled", "in_progress") and eta is not None and target == now.date():
+            if now > eta + timedelta(minutes=_FORECAST_DELAY_TOLERANCE_MIN):
+                status = "delayed"
+
+        promisable = max(forecast - committed, Decimal("0"))
+        row = ForecastRowProjection(
+            output_sku=wo.output_sku,
+            recipe_name=wo.recipe.name,
+            planned_qty=_qty(wo.quantity),
+            forecast_qty=_qty(forecast),
+            qty_firm=wo.status in (WorkOrder.Status.STARTED, WorkOrder.Status.FINISHED),
+            committed_qty=_qty(committed),
+            promisable_qty=_qty(promisable),
+            eta_display=_forecast_eta_display(eta),
+            eta_is_actual=eta_actual,
+            status=status,
+            status_label=_FORECAST_STATUS_LABELS[status],
+            history_days=sample,
+        )
+        sort_eta = timezone.localtime(eta) if eta else None
+        rows.append(((sort_eta is None, sort_eta or now, wo.output_sku), row))
+
+    rows.sort(key=lambda pair: pair[0])
+    return ProductionForecastProjection(
+        selected_date=target.isoformat(),
+        selected_date_display=target.strftime("%d/%m/%Y"),
+        generated_at_display=now.strftime("%H:%M"),
+        rows=tuple(row for _, row in rows),
+    )

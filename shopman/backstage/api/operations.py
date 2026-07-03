@@ -53,6 +53,7 @@ from shopman.backstage.projections.pos import (
 )
 from shopman.backstage.projections.production import (
     build_production_board,
+    build_production_forecast,
     build_production_kds,
     build_production_mise_en_place,
     build_production_weighing,
@@ -423,6 +424,23 @@ class ProductionBoardView(APIView):
             position_ref=position_ref,
         )
         return Response({"board": projection_data(board)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Production forecast board (airport-style panel for the store team)",
+        responses={200: OpenApiResponse(description="Per-batch forecast: quantities, ETA and status.")},
+    ),
+)
+class ProductionForecastView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_production"
+
+    def get(self, request):
+        selected = _parse_date(request.query_params.get("date"))
+        forecast = build_production_forecast(selected_date=selected)
+        return Response({"forecast": projection_data(forecast)})
 
 
 @extend_schema_view(

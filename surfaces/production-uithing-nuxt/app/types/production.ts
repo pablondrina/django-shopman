@@ -180,6 +180,37 @@ export interface ProductionBoardResponse {
   board: ProductionBoardProjection;
 }
 
+// ── O PAINEL — previsão da produção (estilo aeroporto) ──────────────────────
+// Mirrors backstage/projections/production.py ForecastRowProjection.
+
+export type ForecastStatus = "scheduled" | "in_progress" | "delayed" | "arrived";
+
+export interface ForecastRowProjection {
+  output_sku: string;
+  recipe_name: string;
+  planned_qty: string;
+  forecast_qty: string;
+  qty_firm: boolean;
+  committed_qty: string;
+  promisable_qty: string;
+  eta_display: string;
+  eta_is_actual: boolean;
+  status: ForecastStatus;
+  status_label: string;
+  history_days: number;
+}
+
+export interface ProductionForecastProjection {
+  selected_date: string;
+  selected_date_display: string;
+  generated_at_display: string;
+  rows: ForecastRowProjection[];
+}
+
+export interface ProductionForecastResponse {
+  forecast: ProductionForecastProjection;
+}
+
 // ── Structured shortage envelope (material/order) ──────────────────────────
 // Mirrors backstage/api/operations.py `_shortage_response` (HTTP 409).
 

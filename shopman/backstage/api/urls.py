@@ -63,6 +63,7 @@ from .operations import (
     POSTabUnfireView,
     POSView,
     ProductionBoardView,
+    ProductionForecastView,
     ProductionKDSView,
     ProductionMiseEnPlaceView,
     ProductionWeighingView,
@@ -99,6 +100,7 @@ urlpatterns = [
     path("operator/lock/", OperatorLockView.as_view(), name="api-backstage-operator-lock"),
     path("production/", ProductionBoardView.as_view(), name="api-backstage-production"),
     path("production/kds/", ProductionKDSView.as_view(), name="api-backstage-production-kds"),
+    path("production/forecast/", ProductionForecastView.as_view(), name="api-backstage-production-forecast"),
     path(
         "production/mise-en-place/",
         ProductionMiseEnPlaceView.as_view(),
