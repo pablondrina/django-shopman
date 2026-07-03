@@ -210,6 +210,10 @@ function onCouponToggle (on: boolean) {
 const action = computed(() => checkout.value?.actions.find(candidate => candidate.ref === 'checkout') || null)
 const checkoutActionLabel = computed(() => action.value?.label || 'Confirmar pedido')
 const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is_empty || submitting.value)
+// Sacola vazia é um beco sem saída se o CTA só fica desabilitado — omotenashi
+// pede um caminho de volta. Neste estado o botão vira "Adicionar itens" (ativo,
+// leva ao cardápio) em vez de "Revisar pedido" morto + "Sacola vazia.".
+const bagIsEmpty = computed(() => !!cart.value?.is_empty)
 const isAuthed = computed(() => !!checkout.value?.is_authenticated)
 const authAction = computed(() => checkout.value?.auth_action || null)
 const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/entrar?next=/finalizar'))
@@ -1329,18 +1333,29 @@ useSeoMeta({
                     </div>
                   </div>
                   <UiButton
-                    :loading="submitting"
-                    :disabled="submitDisabled"
-                    icon="lucide:clipboard-check"
+                    v-if="bagIsEmpty"
+                    icon="lucide:utensils"
                     size="lg"
                     class="w-full"
-                    @click="continueFromPayment"
+                    @click="navigateTo('/menu')"
                   >
-                    Revisar pedido
+                    Adicionar itens
                   </UiButton>
-                  <p v-if="submitDisabled && action?.reason" class="text-center shop-muted">
-                    {{ action.reason }}
-                  </p>
+                  <template v-else>
+                    <UiButton
+                      :loading="submitting"
+                      :disabled="submitDisabled"
+                      icon="lucide:clipboard-check"
+                      size="lg"
+                      class="w-full"
+                      @click="continueFromPayment"
+                    >
+                      Revisar pedido
+                    </UiButton>
+                    <p v-if="submitDisabled && action?.reason" class="text-center shop-muted">
+                      {{ action.reason }}
+                    </p>
+                  </template>
                 </div>
               </template>
             </CheckoutProgressSection>
