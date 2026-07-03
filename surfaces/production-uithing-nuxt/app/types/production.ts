@@ -28,6 +28,7 @@ export interface ProductionKDSCardProjection {
   next_step_name: string;
   time_remaining_min: number | null;
   can_finish: boolean;
+  order_refs: string[];
 }
 
 export interface ProductionKDSProjection {

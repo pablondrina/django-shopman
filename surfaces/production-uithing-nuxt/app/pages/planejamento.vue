@@ -5,7 +5,7 @@
 // (tap to see why), an inline plan input and a start action. The date selector
 // gives the multi-day horizon (default: tomorrow after noon). Plan/start POST
 // through the django proxy and reconcile. Tablet/touch-first.
-import { matchesRowQuery, rowHasActivity, startableWorkOrder } from "~/presentation/production";
+import { matchesRowQuery, rowCommitments, rowHasActivity, startableWorkOrder } from "~/presentation/production";
 import type { ProductionMatrixRowProjection, ProductionShortageError, ProductionSuggestionProjection } from "~/types/production";
 
 const { board, rows, counts, dateDisplay, selectedDate, pending, error, refresh, isBusy, plan, start } = useProductionBoard();
@@ -28,6 +28,12 @@ const dateChips = [
 
 // Sugestão explicável: bottom-sheet com o basis em frases.
 const explaining = ref<ProductionSuggestionProjection | null>(null);
+
+// Vínculo pedido↔produção: chip "N pedidos" com detalhe por linha.
+const commitmentsRow = ref<ProductionMatrixRowProjection | null>(null);
+const commitmentsList = computed(() =>
+  commitmentsRow.value ? rowCommitments(commitmentsRow.value) : [],
+);
 const showAll = ref(false);
 const visibleRows = computed<ProductionMatrixRowProjection[]>(() =>
   rows.value
@@ -132,7 +138,19 @@ async function submitStart(row: ProductionMatrixRowProjection) {
             <tr v-for="row in visibleRows" :key="row.output_sku" class="hover:bg-muted/30">
               <td class="px-3 py-2">
                 <p class="font-bold">{{ row.output_sku }}</p>
-                <p class="truncate text-xs text-muted-foreground">{{ row.recipe_name }}</p>
+                <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span class="truncate">{{ row.recipe_name }}</span>
+                  <button
+                    v-if="rowCommitments(row).length"
+                    type="button"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[0.7rem] font-medium text-primary transition hover:bg-primary/10"
+                    :aria-label="`Ver ${rowCommitments(row).length} pedidos vinculados a ${row.output_sku}`"
+                    @click="commitmentsRow = row"
+                  >
+                    <Icon name="lucide:shopping-bag" class="size-3" />
+                    {{ rowCommitments(row).length }} pedido{{ rowCommitments(row).length > 1 ? "s" : "" }}
+                  </button>
+                </p>
               </td>
               <td class="px-3 py-2 text-right">
                 <button
@@ -197,6 +215,31 @@ async function submitStart(row: ProductionMatrixRowProjection) {
     </section>
 
     <ShortageDialog :shortage="shortage" @update:open="(v) => { if (!v) shortage = null }" />
+
+    <!-- linked orders -->
+    <UiDialog :open="commitmentsRow != null" @update:open="(v) => { if (!v) commitmentsRow = null }">
+      <UiDialogContent class="sm:max-w-md">
+        <UiDialogHeader>
+          <UiDialogTitle>Pedidos aguardando {{ commitmentsRow?.output_sku }}</UiDialogTitle>
+          <UiDialogDescription>
+            Encomendas confirmadas vinculadas à produção desta ficha.
+          </UiDialogDescription>
+        </UiDialogHeader>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li v-for="commitment in commitmentsList" :key="commitment.ref" class="flex items-center justify-between gap-3 rounded-md border p-2.5">
+            <span class="inline-flex items-center gap-2">
+              <Icon name="lucide:shopping-bag" class="size-4 text-muted-foreground" />
+              <span class="font-medium">{{ commitment.ref }}</span>
+              <UiBadge variant="outline" class="px-1.5 py-0 text-[0.65rem]">{{ commitment.status_label }}</UiBadge>
+            </span>
+            <span class="tabular-nums text-muted-foreground">{{ commitment.qty_required }} un.</span>
+          </li>
+        </ul>
+        <UiDialogFooter>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="commitmentsRow = null">Fechar</button>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 
     <!-- suggestion explanation -->
     <UiDialog :open="explaining != null" @update:open="(v) => { if (!v) explaining = null }">

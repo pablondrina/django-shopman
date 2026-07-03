@@ -391,6 +391,8 @@ class ProductionKDSCardProjection:
     next_step_name: str
     time_remaining_min: int | None
     can_finish: bool
+    order_refs: tuple[str, ...]
+    # Pedidos que aguardam este lote (production_order_sync) — o estorno avisa.
 
 
 @dataclass(frozen=True)
@@ -989,7 +991,18 @@ def _build_production_kds_card(
         next_step_name=step_state["next_step_name"],
         time_remaining_min=step_state["time_remaining_min"],
         can_finish=access.can_edit_finished,
+        order_refs=_linked_order_refs(wo),
     )
+
+
+def _linked_order_refs(wo: WorkOrder) -> tuple[str, ...]:
+    try:
+        from shopman.shop.handlers.production_order_sync import linked_order_refs
+
+        return linked_order_refs(wo)
+    except Exception:
+        logger.debug("production.linked_order_refs_failed wo=%s", wo.pk, exc_info=True)
+        return ()
 
 
 def build_work_order_card(ref: str) -> WorkOrderCardProjection:

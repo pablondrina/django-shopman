@@ -75,6 +75,20 @@ def test_production_dashboard_projection_summarizes_day_and_late_orders(recipe):
 
 
 @pytest.mark.django_db
+def test_kds_card_exposes_linked_order_refs(recipe, superuser):
+    """WP-PE5: o chão mostra quantos pedidos aguardam o lote (aviso no estorno)."""
+    wo = craft.plan(recipe, 10, date=date.today())
+    craft.start(wo, quantity=10)
+    wo.refresh_from_db()
+    wo.meta = {**(wo.meta or {}), "committed_order_refs": ["ORD-1", "ORD-2"]}
+    wo.save(update_fields=["meta"])
+
+    kds = build_production_kds(selected_date=date.today())
+    card = next(c for c in kds.cards if c.ref == wo.ref)
+    assert card.order_refs == ("ORD-1", "ORD-2")
+
+
+@pytest.mark.django_db
 def test_production_kds_projection_returns_started_cards_only(recipe, superuser):
     planned = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
     started = craft.plan(recipe, 12, date=date.today(), position_ref="forno", operator_ref="user:ana")

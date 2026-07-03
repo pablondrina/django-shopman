@@ -5,6 +5,7 @@
 // functional-color tone, and the action affordances. No lifecycle arithmetic
 // (the backend owns the WorkOrder lifecycle).
 import type {
+  OrderCommitmentProjection,
   ProductionKDSCardProjection,
   ProductionMatrixRowProjection,
   ProductionShortageError,
@@ -171,6 +172,21 @@ export function alertTarget(alert: { type: string; order_ref: string }): { to: s
 /** Whether a planning row can be started (has a planned order and no started yet). */
 export function startableWorkOrder(row: ProductionMatrixRowProjection): WorkOrderCardProjection | null {
   return row.planned_orders[0] ?? null;
+}
+
+/** Order commitments across a row's open WOs, deduped by order ref.
+ *  The matrix chip ("N pedidos") and its detail list render from this. */
+export function rowCommitments(row: ProductionMatrixRowProjection): OrderCommitmentProjection[] {
+  const seen = new Set<string>();
+  const out: OrderCommitmentProjection[] = [];
+  for (const wo of [...row.planned_orders, ...row.started_orders]) {
+    for (const commitment of wo.order_commitments ?? []) {
+      if (seen.has(commitment.ref)) continue;
+      seen.add(commitment.ref);
+      out.push(commitment);
+    }
+  }
+  return out;
 }
 
 // ── Shortage envelope parsing ──────────────────────────────────────────────

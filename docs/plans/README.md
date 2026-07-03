@@ -11,7 +11,7 @@ fica em [`_quarantine/`](_quarantine/).
 | Plano | Estado |
 |-------|--------|
 | [`GO-LIVE-READINESS-PLAN.md`](GO-LIVE-READINESS-PLAN.md) | Gate de go-live. Lotes A/B/C de engenharia em sua maioria feitos; corte v1 + QA + data bloqueados no Pablo. |
-| [`PRODUCTION-EXCELLENCE-PLAN.md`](PRODUCTION-EXCELLENCE-PLAN.md) | Cadeia de planejamento/produção no nível das demais superfícies (auditoria e2e 2026-07-02). WP-PE0..6 não iniciados. |
+| [`PRODUCTION-EXCELLENCE-PLAN.md`](PRODUCTION-EXCELLENCE-PLAN.md) | ✅ Engenharia concluída (2026-07-03): WP-PE0..6 entregues, 2 bugs do bridge craftsman→stockman corrigidos via e2e. Resta deploy staging + QA físico; arquivar depois. |
 | [`PRODUCT-V1-SCOPE-BACKLOG.md`](PRODUCT-V1-SCOPE-BACKLOG.md) | Índice-mestre de escopo do v1; gate de produto do go-live. |
 | [`BUYMAN-PROCUREMENT-PLAN.md`](BUYMAN-PROCUREMENT-PLAN.md) | Fase 1 (Material/Supplier/custo/shelf-life/admin) concluída e deployada; Fases 2–4 (PurchaseOrder, Recebimento, Reposição) pós-go-live. |
 | [`VALIDITY-SHELFLIFE-REVIEW.md`](VALIDITY-SHELFLIFE-REVIEW.md) | Referência viva do hardening de validade; P0 ligado (WP-B5), P1/P2 = WP-B6 pendente. |

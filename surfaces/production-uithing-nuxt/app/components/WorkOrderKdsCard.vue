@@ -70,6 +70,14 @@ function priorityClass(priority: "primary" | "secondary" | "danger"): string {
       <span v-if="card.operator_ref" class="inline-flex items-center gap-1 truncate text-muted-foreground">
         <Icon name="lucide:user" class="size-3.5" />{{ card.operator_ref }}
       </span>
+      <span
+        v-if="card.order_refs.length"
+        class="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-xs font-medium text-primary"
+        :title="`Pedidos aguardando este lote: ${card.order_refs.join(', ')}`"
+      >
+        <Icon name="lucide:shopping-bag" class="size-3" />
+        {{ card.order_refs.length }} pedido{{ card.order_refs.length > 1 ? "s" : "" }}
+      </span>
     </div>
 
     <div class="flex flex-col gap-1">

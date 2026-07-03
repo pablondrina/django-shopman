@@ -138,6 +138,16 @@ function onAction(card: ProductionKDSCardProjection, action: FloorAffordanceRef)
           <UiDialogTitle>Estornar {{ voidCard?.output_sku }}</UiDialogTitle>
           <UiDialogDescription>A ordem #{{ voidCard?.ref }} sai da produção. Informe o motivo (opcional).</UiDialogDescription>
         </UiDialogHeader>
+        <p
+          v-if="voidCard?.order_refs?.length"
+          class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-sm text-amber-700 dark:text-amber-300"
+        >
+          <Icon name="lucide:shopping-bag" class="mt-0.5 size-4 shrink-0" />
+          <span>
+            {{ voidCard.order_refs.length }} pedido{{ voidCard.order_refs.length > 1 ? "s aguardam" : " aguarda" }} este lote
+            ({{ voidCard.order_refs.join(", ") }}). O vínculo será desfeito ao estornar.
+          </span>
+        </p>
         <textarea
           v-model="voidReason"
           rows="3"

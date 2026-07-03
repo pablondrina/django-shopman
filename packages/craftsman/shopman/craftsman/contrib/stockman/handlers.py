@@ -94,6 +94,31 @@ def _resolve_position(ref: str):
     return Position.objects.filter(ref=ref).first()
 
 
+def _find_planned_quant(work_order, product_ref, date):
+    """Locate the WO's planned quant.
+
+    ``get_quant`` is a COORDINATE lookup (position=None ⇒ position IS NULL),
+    but planned quants live at the WO's position. Try the resolved position
+    first; if coordinates diverge (legacy WO, renamed position), fall back to
+    the date's planned batch at any position.
+    """
+    from shopman.stockman.models import Quant
+    from shopman.stockman.services.queries import StockQueries
+
+    quant = StockQueries.get_quant(
+        product_ref,
+        target_date=date,
+        position=_resolve_position(work_order.position_ref),
+    )
+    if quant is None:
+        quant = (
+            Quant.objects.filter(sku=product_ref, target_date=date, batch="")
+            .order_by("pk")
+            .first()
+        )
+    return quant
+
+
 def _handle_planned(work_order, product_ref, date):
     """Create a planned Quant for the finished goods output."""
     if not work_order or not date:
@@ -150,15 +175,15 @@ def _handle_adjusted(work_order, product_ref, date):
         return
 
     from shopman.stockman.services.movements import StockMovements
-    from shopman.stockman.services.queries import StockQueries
 
     try:
-        quant = StockQueries.get_quant(product_ref, target_date=date)
+        quant = _find_planned_quant(work_order, product_ref, date)
         if quant is None:
             # Quant doesn't exist yet — create it (defensive)
             StockMovements.receive(
                 quantity=work_order.quantity,
                 sku=product_ref,
+                position=_resolve_position(work_order.position_ref),
                 target_date=date,
                 reference=work_order.ref,
                 reason=f"Produção planejada (ajuste): {work_order.ref}",
@@ -266,7 +291,7 @@ def _handle_voided(work_order, product_ref, date):
     from shopman.stockman.services.queries import StockQueries
 
     try:
-        quant = StockQueries.get_quant(product_ref, target_date=date)
+        quant = _find_planned_quant(work_order, product_ref, date)
         started_quant = StockQueries.get_quant(
             product_ref,
             target_date=date,
@@ -371,6 +396,7 @@ def _write_off_yield_shortfall(work_order, product_ref, date, finished_qty):
     from decimal import Decimal
 
     from shopman.stockman.models.move import Move
+    from shopman.stockman.models.quant import Quant
     from shopman.stockman.services.queries import StockQueries
 
     started_qty = work_order.started_qty or work_order.quantity
@@ -378,7 +404,23 @@ def _write_off_yield_shortfall(work_order, product_ref, date, finished_qty):
     if shortfall <= 0:
         return
 
-    quant = StockQueries.get_quant(product_ref, target_date=date, batch=STARTED_BATCH)
+    # get_quant é lookup por COORDENADA (position=None ⇒ position IS NULL) —
+    # o quant started vive na posição da WO. Busca na posição resolvida e,
+    # se divergir, cai para o lote started da data em qualquer posição.
+    quant = StockQueries.get_quant(
+        product_ref,
+        target_date=date,
+        position=_resolve_position(work_order.position_ref),
+        batch=STARTED_BATCH,
+    )
+    if quant is None:
+        quant = (
+            Quant.objects.filter(
+                sku=product_ref, target_date=date, batch=STARTED_BATCH, _quantity__gt=0
+            )
+            .order_by("pk")
+            .first()
+        )
     if quant is None:
         return
     write_off = min(shortfall, Decimal(str(quant.quantity)))

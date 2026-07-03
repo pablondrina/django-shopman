@@ -7,6 +7,7 @@ import {
   matchesKdsQuery,
   matchesRowQuery,
   parseShortage,
+  rowCommitments,
   rowHasActivity,
   splitRef,
   startableWorkOrder,
@@ -43,6 +44,7 @@ const kdsCard = (over: Partial<ProductionKDSCardProjection> = {}): ProductionKDS
   next_step_name: "Forno",
   time_remaining_min: 5,
   can_finish: true,
+  order_refs: [],
   ...over,
 });
 
@@ -168,6 +170,15 @@ describe("matrix helpers", () => {
     expect(matchesRowQuery(row(), "franc")).toBe(true);
     expect(matchesRowQuery(row(), "bolo")).toBe(false);
     expect(matchesRowQuery(row({ planned_orders: [wo()] }), "wo-010")).toBe(true);
+  });
+  it("rowCommitments dedupes order refs across open WOs", () => {
+    const commitment = (ref: string) => ({ ref, status: "confirmed", status_label: "Confirmado", qty_required: "5" });
+    const r = row({
+      planned_orders: [wo({ order_commitments: [commitment("O-1"), commitment("O-2")] })],
+      started_orders: [wo({ pk: 11, ref: "WO-011", order_commitments: [commitment("O-1")] })],
+    });
+    expect(rowCommitments(r).map((c) => c.ref)).toEqual(["O-1", "O-2"]);
+    expect(rowCommitments(row())).toEqual([]);
   });
   it("alertTarget routes production alerts to the right board", () => {
     expect(alertTarget({ type: "production_late", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });

@@ -285,7 +285,14 @@ os papéis Admin×fournil precisam ser formais.
 **Aceite:** padeiro planeja amanhã sem tocar o Admin; alerta na bell leva ao card
 em 1 toque; sugestão explica a si mesma; `make admin` verde após o split.
 
-### WP-PE5 — Vínculo pedido↔produção visível nas duas pontas 🟡
+### WP-PE5 — Vínculo pedido↔produção visível nas duas pontas 🟡 ✅ (2026-07-03)
+
+> **Nota de execução**: o item 2 (gestor) **já existia** — o OrderCard do
+> orders-uithing-nuxt já renderiza `awaiting_work_orders` (mais um falso gap).
+> Entregue: chip "N pedidos" no card do chão (`order_refs` na projection KDS)
+> e na linha da matriz (`rowCommitments` deduplica refs entre WOs abertas) com
+> dialog de detalhe; o estorno avisa "N pedidos aguardam este lote" com as
+> refs. Verificado no browser com vínculo formado pelo caminho real do signal.
 
 **Problema:** o sync existe e funciona (verificado), mas só o Admin mostra
 compromissos. O gestor de pedidos não mostra "aguardando produção"; o fournil não
@@ -304,7 +311,21 @@ mostra "este lote atende N pedidos".
 **Aceite:** cenário e2e seeded — pedido confirmado vincula, fournil mostra chip,
 void avisa e desvincula, gestor reflete; testes de projection nas duas pontas.
 
-### WP-PE6 — Paridade de testes: a cadeia inteira sob prova 🟡
+### WP-PE6 — Paridade de testes: a cadeia inteira sob prova 🟡 ✅ (2026-07-03)
+
+> **Nota de execução — o e2e pagou o plano sozinho.** Ao exercitar a cadeia
+> real (`test_production_e2e.py`), caíram **dois bugs do contrib
+> craftsman→stockman**, ambos da mesma raiz: `StockQueries.get_quant` é lookup
+> por COORDENADA (`position=None` ⇒ `position IS NULL`), mas quants planejados
+> vivem na posição da WO. Consequências corrigidas (helper
+> `_find_planned_quant` + regressões no e2e):
+> (1) `_write_off_yield_shortfall` nunca achava o quant → resíduo `started`
+> virava estoque-fantasma prometível (exatamente o que a própria docstring
+> jurava impedir); (2) `_handle_adjusted` criava quant DUPLICADO em posição
+> NULL a cada ajuste da matriz → planejado inflado; (3) `_handle_voided` não
+> cancelava o planejado. Bônus: bug latente de teste corrigido em
+> `test_production_lifecycle` (restore de dict dentro do `with patch`
+> envenenava o dispatch table para os testes seguintes — agora `patch.dict`).
 
 **Problema:** L7. A confiança que Orders tem (75 casos de lifecycle + e2e),
 produção não tem.
@@ -346,6 +367,20 @@ UI) na terceira; PE5+PE6 fecham. Cada frente termina mergeável e deployável em
 staging.
 
 ## Progresso
+
+> **✅ PLANO CONCLUÍDO (engenharia) em 2026-07-03** — WP-PE0..6 entregues em 4
+> commits na `main`. Pendências não-engenharia: deploy staging + QA físico do
+> Pablo nas telas do fournil. Arquivar em `completed/` após o deploy.
+
+- **2026-07-03 — WP-PE5 + WP-PE6 entregues** (frente final): vínculo
+  pedido↔produção nas duas pontas (chip + dialog na matriz e no chão, aviso
+  no estorno; gestor já tinha); e2e da cadeia completa
+  (`e2e/test_production_e2e.py`: suggest com demand backend real → plan →
+  mise en place → start → finish parcial → realize → write-off → alerta →
+  venda; void com pedido vinculado; guardrails de committed e ciclo de BOM);
+  lifecycle expandido (11 casos, 3 variantes). **Dois bugs reais do bridge
+  corrigidos** (ver nota do WP-PE6) + 1 bug latente de teste. Suítes:
+  framework 2509 ✅, craftsman 243 ✅, stockman 223 ✅, vitest 26 ✅, ruff ✅.
 
 - **2026-07-03 — WP-PE4 entregue** (terceira frente): horizonte multi-dia na
   matriz (chips Hoje/Amanhã + date picker; default amanhã após 12h); sugestão
