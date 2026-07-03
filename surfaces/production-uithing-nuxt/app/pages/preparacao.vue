@@ -288,7 +288,9 @@ function refreshAll() {
             <header class="flex items-start justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-base font-bold leading-tight">{{ ticket.name }}</p>
-                <p class="text-xs text-muted-foreground">{{ ticket.output_quantity_display }} · {{ ticket.output_sku }}</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ ticket.output_quantity_display }}<template v-if="ticket.dough_weight_display"> · {{ ticket.dough_weight_display }}</template> · {{ ticket.output_sku }}
+                </p>
               </div>
               <span
                 class="shrink-0 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-sm font-bold tracking-wide text-primary"
@@ -345,9 +347,11 @@ function refreshAll() {
         >
           <div class="flex items-baseline justify-between gap-2">
             <span class="text-lg font-bold uppercase leading-tight">{{ ticket.name }}</span>
-            <span class="text-[0.65rem]">{{ weighing.dateDisplay.value }}</span>
+            <span class="text-xs font-semibold tabular-nums">F {{ ticket.made_display }} · V {{ ticket.expiry_display }}</span>
           </div>
-          <span class="text-base font-bold tabular-nums">{{ ticket.output_quantity_display }}</span>
+          <span class="text-base font-bold tabular-nums">
+            {{ ticket.output_quantity_display }}<template v-if="ticket.dough_weight_display"> · {{ ticket.dough_weight_display }}</template>
+          </span>
           <span v-if="ticket.sources_display" class="text-xs">Objetivo: {{ ticket.sources_display }}</span>
           <span class="font-mono text-[0.65rem]">{{ ticket.blind_code }}</span>
         </div>

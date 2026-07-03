@@ -256,9 +256,12 @@ export interface WeighingTicketProjection {
   output_sku: string;
   name: string;
   output_quantity_display: string;
+  dough_weight_display: string;
   sources_display: string;
   ingredients: WeighingIngredientProjection[];
   blind_code: string;
+  made_display: string;
+  expiry_display: string;
 }
 
 export interface ProductionWeighingProjection {

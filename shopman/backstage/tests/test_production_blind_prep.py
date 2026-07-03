@@ -227,6 +227,57 @@ class TestAdminBlindMap:
         assert blind_prep_code("massa-map", date.today()) in content
 
 
+class TestWeighingTicketConventions:
+    """Subtítulo com peso da massa + F/V da etiqueta (QA Pablo)."""
+
+    def _plan_direct_recipe(self, *, meta=None):
+        """Receita SEM sub-preparo (rendimento em un.) — caso Madeleine."""
+        madeleine = Recipe.objects.create(
+            ref="madeleine", name="Madeleine", output_sku="MADELEINE",
+            batch_size=Decimal("30"), meta=meta or {},
+        )
+        RecipeItem.objects.create(recipe=madeleine, input_sku="FARINHA", quantity="0.625", unit="kg")
+        RecipeItem.objects.create(recipe=madeleine, input_sku="MANTEIGA", quantity="625", unit="g")
+        RecipeItem.objects.create(recipe=madeleine, input_sku="OVOS", quantity="0.5", unit="kg")
+        craft.plan(madeleine, Decimal("30"), date=date.today())
+        weighing = build_production_weighing(selected_date=date.today())
+        return next(t for t in weighing.tickets if t.recipe_ref == "madeleine")
+
+    def test_unit_ticket_shows_total_dough_weight(self):
+        """Rendimento em unidades ganha o peso total da massa (convenção)."""
+        ticket = self._plan_direct_recipe()
+        # 0,625 kg + 625 g + 0,5 kg = 1,75 kg
+        assert ticket.output_quantity_display == "30 un."
+        assert ticket.dough_weight_display == "≈ 1,75 kg de massa"
+
+    def test_mass_ticket_has_no_dough_echo(self):
+        massa = Recipe.objects.create(
+            ref="massa-eco", name="Massa Eco", output_sku="MASSA-ECO", batch_size=Decimal("1")
+        )
+        RecipeItem.objects.create(recipe=massa, input_sku="FARINHA", quantity="0.6", unit="kg")
+        final = Recipe.objects.create(
+            ref="pao-eco", name="Pão Eco", output_sku="PAO-ECO", batch_size=Decimal("10")
+        )
+        RecipeItem.objects.create(recipe=final, input_sku="MASSA-ECO", quantity="7", unit="kg")
+        craft.plan(final, Decimal("10"), date=date.today())
+
+        weighing = build_production_weighing(selected_date=date.today())
+        ticket = next(t for t in weighing.tickets if t.recipe_ref == "massa-eco")
+        assert ticket.output_quantity_display == "7 kg"
+        assert ticket.dough_weight_display == ""  # rendimento já é massa
+
+    def test_expiry_defaults_to_next_day(self):
+        """Sem validade configurada, D+1 (padrão de massas)."""
+        ticket = self._plan_direct_recipe()
+        assert ticket.made_display == date.today().strftime("%d/%m")
+        assert ticket.expiry_display == (date.today() + timedelta(days=1)).strftime("%d/%m")
+
+    def test_expiry_respects_recipe_shelf_life(self):
+        """Validade configurável por preparação (Recipe.meta shelf_life_days)."""
+        ticket = self._plan_direct_recipe(meta={"shelf_life_days": 3})
+        assert ticket.expiry_display == (date.today() + timedelta(days=3)).strftime("%d/%m")
+
+
 class TestWeighingTicketsCarryBlindCode:
     def test_tickets_expose_blind_code(self):
         massa = Recipe.objects.create(

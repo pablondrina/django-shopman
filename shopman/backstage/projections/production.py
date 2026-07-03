@@ -215,12 +215,18 @@ class ProductionWeighingTicketProjection:
     output_sku: str
     name: str
     output_quantity_display: str
+    dough_weight_display: str
+    # Peso total da massa (soma dos insumos mássicos escalados). Para tickets
+    # cujo rendimento sai em unidades, é o "quanto de massa" que a convenção
+    # do subtítulo pede; "" quando o rendimento já é em massa (evita eco).
     sources_display: str
     ingredients: tuple[ProductionWeighingIngredientProjection, ...]
     table: dict
     blind_code: str
-    # Código cego do dia (HMAC, sem tabela): etiquetas de pesagem circulam só
-    # com ele — o colaborador pesa sem saber a receita. Mapa = visão de gestor.
+    # Código cego do dia: etiquetas de pesagem circulam só com ele — o
+    # colaborador pesa sem saber a receita. Mapa = visão de gestor.
+    made_display: str  # F (fabricação): dd/mm
+    expiry_display: str  # V (validade): dd/mm — shelf_life_days da ficha (default D+1)
 
 
 @dataclass(frozen=True)
@@ -1739,6 +1745,25 @@ def _build_weighing_ticket(
         )
         for item in _recipe_items(recipe)
     )
+
+    # Peso da massa = soma dos insumos mássicos escalados (kg/g/mg → kg).
+    mass_factors = {"kg": Decimal("1"), "g": Decimal("0.001"), "mg": Decimal("0.000001")}
+    dough_weight = sum(
+        (
+            Decimal(str(item.quantity)) * coefficient * mass_factors[item.unit]
+            for item in _recipe_items(recipe)
+            if item.unit in mass_factors
+        ),
+        Decimal("0"),
+    )
+    dough_weight_display = (
+        f"≈ {_measure(dough_weight, 'kg')} de massa"
+        if output_unit not in mass_factors and dough_weight > 0
+        else ""
+    )
+
+    shelf_life = _decimal_meta(recipe.meta, "shelf_life_days")
+    expiry = selected_date + timedelta(days=int(shelf_life) if shelf_life else 1)
     table = {
         "headers": ["Insumo", "Quantidade"],
         "rows": [
@@ -1751,10 +1776,13 @@ def _build_weighing_ticket(
         output_sku=recipe.output_sku,
         name=recipe.name,
         output_quantity_display=_measure(output_quantity, output_unit),
+        dough_weight_display=dough_weight_display,
         sources_display=", ".join(entry["sources"]),
         ingredients=ingredients,
         table=table,
         blind_code=blind_prep_code(recipe.ref, selected_date),
+        made_display=selected_date.strftime("%d/%m"),
+        expiry_display=expiry.strftime("%d/%m"),
     )
 
 
