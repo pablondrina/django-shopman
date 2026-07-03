@@ -178,10 +178,11 @@ def check_webhook_tokens(app_configs, **kwargs):
     - EFI (``critical=True``) → **Error**: the PIX confirmation webhook is in
       active use; without the token real payments silently never confirm. Block
       the deploy.
-    - iFood-legado (``critical=False``) → **Warning**: fail-closed AND optional —
-      the direct integration uses ``X-IFood-Signature`` (HMAC via
-      ``IFOOD_CLIENT_SECRET``), not this legacy token. Missing token just means
-      the legacy endpoint is inert, which is safe. Don't block the deploy.
+    - iFood (``critical=False``) → **Warning**: fail-closed, mas NÃO é "opcional"
+      se você recebe pedidos por webhook. ``/api/webhooks/ifood/`` ingere o pedido
+      no canal iFood; sem o token, TODO callback do iFood toma 403 e nenhum pedido
+      entra. É Warning (não Error) só porque um deployment que não usa iFood deve
+      poder subir sem ele — mas se usa, este token é obrigatório.
     """
     messages = []
     if settings.DEBUG:
@@ -211,12 +212,14 @@ def check_webhook_tokens(app_configs, **kwargs):
         else:
             messages.append(
                 Warning(
-                    f"{attr}['webhook_token'] não configurado — endpoint {name} "
-                    f"legado inativo (rejeita tudo).",
+                    f"{attr}['webhook_token'] não configurado — o webhook {name} "
+                    f"(/api/webhooks/ifood/) rejeita TODO callback com 403.",
                     hint=(
-                        f"Opcional. A integração {name} direta usa X-IFood-Signature "
-                        f"(HMAC via IFOOD_CLIENT_SECRET), não este token legado. "
-                        f"Defina {env_var} apenas se usar o endpoint legado."
+                        f"Se você recebe pedidos {name} por webhook, eles NÃO entram "
+                        f"sem este token — o endpoint ingere o pedido no canal {name}, "
+                        f"mas sem {env_var} (igual ao configurado no portal {name}) "
+                        f"todo callback toma 403. Defina {env_var}. Deixe vazio só se "
+                        f"não usa o webhook {name}."
                     ),
                     id="SHOPMAN_W008",
                 )
