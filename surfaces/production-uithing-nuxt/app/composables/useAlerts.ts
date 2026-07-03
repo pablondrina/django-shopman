@@ -13,9 +13,7 @@ export function useAlerts() {
   const activeCount = computed(() => data.value?.counts?.active ?? 0);
   const criticalCount = computed(() => data.value?.counts?.critical ?? 0);
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  onMounted(() => { pollTimer = setInterval(() => refresh(), 60_000); });
-  onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); });
+  useAdaptivePoll(refresh, () => 60_000);
 
   async function ack(pk: number): Promise<void> {
     try {

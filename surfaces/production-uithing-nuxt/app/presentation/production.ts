@@ -142,11 +142,30 @@ export function rowHasActivity(row: ProductionMatrixRowProjection): boolean {
   );
 }
 
-/** Filter matrix rows by a free-text query over SKU + recipe name. */
+/** Filter matrix rows by a free-text query over SKU + recipe name + WO refs.
+ *  Refs matter for alert deep-links ("WO-2026-00042" lands on its row). */
 export function matchesRowQuery(row: ProductionMatrixRowProjection, rawQuery: string): boolean {
   const q = rawQuery.trim().toLowerCase();
   if (!q) return true;
-  return [row.output_sku, row.recipe_name].join(" ").toLowerCase().includes(q);
+  const refs = [...row.planned_orders, ...row.started_orders, ...row.finished_orders].map((wo) => wo.ref);
+  return [row.output_sku, row.recipe_name, ...refs].join(" ").toLowerCase().includes(q);
+}
+
+// ── Alert deep-links ───────────────────────────────────────────────────────
+
+/** Where an operator alert resolves, if anywhere in this app.
+ *  - late/stock_short → live floor (the WO is started, on screen);
+ *  - forgotten → planning matrix (the WO is planned);
+ *  - low_yield/others → no target (the WO already left both boards). */
+export function alertTarget(alert: { type: string; order_ref: string }): { to: string; q: string } | null {
+  if (!alert.order_ref) return null;
+  if (alert.type === "production_late" || alert.type === "production_stock_short") {
+    return { to: "/", q: alert.order_ref };
+  }
+  if (alert.type === "production_forgotten") {
+    return { to: "/planejamento", q: alert.order_ref };
+  }
+  return null;
 }
 
 /** Whether a planning row can be started (has a planned order and no started yet). */

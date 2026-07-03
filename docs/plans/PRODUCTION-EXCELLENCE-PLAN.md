@@ -242,7 +242,20 @@ ao padeiro a lista de pesagem do dia derivada do plano — é exatamente o "uau"
 corretos (casos com sub-receita cobertos por teste de projection); filipeta
 térmica sai escalada; fournil funciona com luva/touch (alvos ≥44px).
 
-### WP-PE4 — Fournil excellence: horizonte, alertas acionáveis, explicabilidade 🟠
+### WP-PE4 — Fournil excellence: horizonte, alertas acionáveis, explicabilidade 🟠 ✅ (2026-07-03)
+
+> **Notas de execução**: (a) mais um falso gap de auditoria — a `AlertsBell` já
+> tinha painel completo com ack por alerta; o delta real era o deep-link
+> (implementado: alerta → tela certa com busca preset na WO; `matchesRowQuery`
+> passou a casar refs). (b) Split canônico executado como leitura + botão
+> "Planejar no Fournil" (gated por `SHOPMAN_PRODUCTION_BASE_URL`); a escrita
+> `set_planned` saiu do handler Admin com zero residuals (forms, entries,
+> partial `order_shortage.html`, branch e testes atualizados — a decisão está
+> codificada em `test_design_surface_filter`). (c) Decisão SSE registrada no
+> `useAdaptivePoll`: polling adaptativo (30s→10s sob atraso, pausa em aba
+> oculta, refresh ao voltar) é suficiente para a cadência de produção; SSE
+> reavaliado pós-alpha. (d) Horizonte default: amanhã após as 12h
+> (client-side; `horizon_days` da config segue governando o bulk_plan).
 
 **Problema:** L5 + L8. A superfície viva precisa do polish que POS/KDS já têm — e
 os papéis Admin×fournil precisam ser formais.
@@ -333,6 +346,19 @@ UI) na terceira; PE5+PE6 fecham. Cada frente termina mergeável e deployável em
 staging.
 
 ## Progresso
+
+- **2026-07-03 — WP-PE4 entregue** (terceira frente): horizonte multi-dia na
+  matriz (chips Hoje/Amanhã + date picker; default amanhã após 12h); sugestão
+  explicável (projection `explanation_parts` + dialog "Por que N?" — 4 testes);
+  alertas com deep-link (`alertTarget` + query preset nas 3 telas — vitest);
+  polling adaptativo/visibility-aware (`useAdaptivePoll`, KDS 30s→10s sob
+  atraso; decisão SSE registrada); split canônico Admin×fournil (planning
+  GET-only leitura + botão "Planejar no Fournil", `set_planned` removido do
+  Admin com zero residuals, guardas em `test_design_surface_filter`).
+  Verificado no browser (data, dialog, deep-link). Suítes: framework 2497 ✅,
+  vitest 25 ✅, `make admin` ✅, ruff ✅. Descoberta lateral: poluição de ordem
+  entre suítes (backstage antes de shop derruba 9 testes de holds) — repro
+  registrada, task separada aberta.
 
 - **2026-07-03 — WP-PE2 + WP-PE3 entregues** (segunda frente):
   `production.notifications` no ProductionConfig + `_notify_operator()` nos 4

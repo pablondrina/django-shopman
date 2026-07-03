@@ -18,7 +18,10 @@ const {
   checkedCount,
 } = useMiseEnPlace();
 
-const query = ref("");
+const route = useRoute();
+const query = ref(typeof route.query.q === "string" ? route.query.q : "");
+watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
+
 const visibleLines = computed<MiseEnPlaceLineProjection[]>(() => {
   const term = query.value.trim().toLowerCase();
   if (!term) return lines.value;

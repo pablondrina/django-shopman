@@ -155,6 +155,10 @@ class ProductionSuggestionProjection:
     committed: str
     avg_demand: str
     confidence: str
+    sample_size: int
+    high_demand_applied: bool
+    explanation_parts: tuple[str, ...]
+    # O basis do craft.suggest() em frases de gente — a superfície só renderiza.
 
 
 @dataclass(frozen=True)
@@ -1373,7 +1377,46 @@ def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
             "medium": "Média",
             "low": "Baixa",
         }.get(confidence, "Sem histórico"),
+        sample_size=int(basis.get("sample_size") or 0),
+        high_demand_applied=bool(basis.get("high_demand_applied")),
+        explanation_parts=_suggestion_explanation_parts(basis),
     )
+
+
+def _suggestion_explanation_parts(basis: dict) -> tuple[str, ...]:
+    """O basis do ``craft.suggest()`` em frases curtas — "por que este número?"."""
+    parts: list[str] = []
+
+    avg = _decimal_value(basis.get("avg_demand", Decimal("0")))
+    sample = int(basis.get("sample_size") or 0)
+    if avg and sample:
+        avg_display = format(avg.quantize(Decimal("0.1")).normalize(), "f").replace(".", ",")
+        weekday_note = ", mesmo dia da semana" if basis.get("same_weekday") else ""
+        day_word = "dia" if sample == 1 else "dias"
+        parts.append(
+            f"Média de venda: {avg_display}/dia ({sample} {day_word} de histórico{weekday_note})"
+        )
+
+    committed = _decimal_value(basis.get("committed", Decimal("0")))
+    if committed:
+        parts.append(f"Encomendas já confirmadas: {_qty(committed)}")
+
+    safety = _decimal_value(basis.get("safety_pct", Decimal("0")))
+    if safety and parts:
+        parts.append(f"Margem de segurança: {int(safety * 100)}%")
+
+    waste = basis.get("waste_rate")
+    if waste:
+        parts.append(f"Desconto por perda histórica: {int(_decimal_value(waste) * 100)}%")
+
+    if basis.get("high_demand_applied"):
+        parts.append("Reforço de sexta/sábado aplicado")
+
+    season = basis.get("season")
+    if season:
+        parts.append(f"Histórico filtrado pela estação: {season}")
+
+    return tuple(parts)
 
 
 def _build_matrix_rows(

@@ -11,12 +11,22 @@ export interface BoardActResult {
   shortage?: ProductionShortageError;
 }
 
+/** ISO date default for planning: today's board in the morning, tomorrow's
+ *  after noon — o padeiro planeja o dia seguinte na calmaria da tarde. */
+export function defaultPlanningDate(now = new Date()): string {
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (now.getHours() >= 12 ? 1 : 0));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
+}
+
 export function useProductionBoard() {
   const path = "/api/v1/backstage/production/";
+  const selectedDate = ref(defaultPlanningDate());
 
   const { data, pending, error, refresh } = useFetch<ProductionBoardResponse>(path, {
     key: "production-board",
     server: true,
+    query: computed(() => ({ date: selectedDate.value })),
   });
 
   const board = computed<ProductionBoardProjection | null>(() => data.value?.board ?? null);
@@ -24,9 +34,7 @@ export function useProductionBoard() {
   const counts = computed(() => board.value?.counts ?? null);
   const dateDisplay = computed(() => board.value?.selected_date_display ?? "");
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  onMounted(() => { pollTimer = setInterval(() => refresh(), 60_000); });
-  onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); });
+  useAdaptivePoll(refresh, () => 60_000);
 
   // a planning POST keys on the output_sku row (one in-flight per row).
   const busy = ref<Set<string>>(new Set());
@@ -62,5 +70,5 @@ export function useProductionBoard() {
     return post(key, `/api/v1/backstage/production/${woPk}/start/`, { quantity });
   }
 
-  return { board, rows, counts, dateDisplay, pending, error, refresh, isBusy, plan, start };
+  return { board, rows, counts, dateDisplay, selectedDate, pending, error, refresh, isBusy, plan, start };
 }

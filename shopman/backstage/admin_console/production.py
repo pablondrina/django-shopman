@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.http import (
@@ -65,14 +66,6 @@ REPORT_STATUS_CHOICES = (
     (WorkOrder.Status.FINISHED, "Concluída"),
     (WorkOrder.Status.VOID, "Cancelada"),
 )
-PLAN_ADJUST_REASON_CHOICES = (
-    ("demand", "Demanda atualizada"),
-    ("commitment", "Encomenda/compromisso"),
-    ("capacity", "Capacidade do dia"),
-    ("materials", "Disponibilidade de insumos"),
-)
-
-
 class ProductionDashboardFilterForm(forms.Form):
     date = forms.DateField(
         label="Data agendada",
@@ -218,40 +211,6 @@ class ProductionStartForm(forms.Form):
         self.fields["position"].choices = position_choices
 
 
-class ProductionPlanForm(forms.Form):
-    action = forms.CharField(widget=forms.HiddenInput(), initial="set_planned")
-    source = forms.CharField(widget=forms.HiddenInput(), required=False)
-    target_date = forms.CharField(widget=forms.HiddenInput())
-    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
-    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
-    recipe = forms.CharField(widget=forms.HiddenInput())
-    quantity = forms.DecimalField(
-        label="Planejado",
-        min_value=0,
-        max_value=9999,
-        widget=UnfoldAdminDecimalFieldWidget(
-            attrs={
-                "class": "max-w-none",
-                "step": "0.001",
-                "min": "0",
-                "max": "9999",
-                "inputmode": "decimal",
-            }
-        ),
-    )
-
-
-class ProductionPlanAdjustForm(ProductionPlanForm):
-    reason = forms.ChoiceField(
-        label="Motivo",
-        choices=PLAN_ADJUST_REASON_CHOICES,
-        required=True,
-        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
-    )
-
-
 class ProductionFinishForm(forms.Form):
     action = forms.CharField(widget=forms.HiddenInput(), initial="finish")
     wo_id = forms.CharField(widget=forms.HiddenInput())
@@ -335,7 +294,12 @@ class ProductionConsoleView(UnfoldModelAdminViewMixin, TemplateView):
 
 
 class ProductionPlanningView(UnfoldModelAdminViewMixin, TemplateView):
-    """Projection-backed production planning page inside the Admin shell."""
+    """Projection-backed production planning page inside the Admin shell.
+
+    Leitura da matriz (split canônico WP-PE4): a EDIÇÃO do planejado vive no
+    Fournil (``/planejamento``) — esta página supervisiona e linka para lá.
+    GET-only por design.
+    """
 
     template_name = PLANNING_TEMPLATE
     title = "Planejamento"
@@ -353,13 +317,6 @@ class ProductionPlanningView(UnfoldModelAdminViewMixin, TemplateView):
         if access is None:
             access = resolve_production_access(self.request.user)
         return access.can_access_board
-
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        return handle_production_post(
-            request,
-            self.access,
-            redirect_url_name="admin_console_production_planning",
-        )
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         return render_production_surface(
@@ -663,7 +620,14 @@ def build_production_planning_context(request: HttpRequest, board, context: dict
         "production_orders_url": _date_query_url("admin_console_production", board.selected_date),
         "production_weighing_url": _production_filter_url("admin_console_production_weighing", board),
         "production_work_orders_today_url": _work_orders_today_url(context["selected_date"]),
+        "production_fournil_planning_url": _fournil_planning_url(),
     }
+
+
+def _fournil_planning_url() -> str:
+    """URL do planejamento no Fournil ("" = app não conectado; botão some)."""
+    base = (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").strip().rstrip("/")
+    return f"{base}/planejamento" if base else ""
 
 
 def production_console_bulk_create_view(request: HttpRequest) -> HttpResponse:
@@ -1189,14 +1153,7 @@ def _production_planning_table(request: HttpRequest, board, context: dict, group
                 _cell(request, "sku", row=row, usage=usage, group=group, context=context),
                 _quantity_display(_row_recommended_qty(row)),
                 _quantity_display(_row_committed_qty(row)),
-                _cell(
-                    request,
-                    "planning_planned",
-                    row=row,
-                    context=context,
-                    plan_entry=_planning_entry(row, board),
-                    adjust_entry=_planning_adjust_entry(row, board),
-                ),
+                _cell(request, "planning_planned", row=row, context=context),
             ],
             "table": _details_table(request, row, access=board.access),
         })
@@ -1420,78 +1377,6 @@ def _quick_finish_form(board) -> ProductionQuickFinishForm:
         recipe_choices=[(recipe.pk, f"{recipe.ref} - {recipe.name}") for recipe in board.recipes],
         position_choices=_position_pk_choices(board),
     )
-
-
-def _plan_form(row, board) -> ProductionPlanForm | None:
-    if not row.recipe_pk:
-        return None
-    return ProductionPlanForm(
-        initial={
-            "action": "set_planned",
-            "target_date": board.selected_date,
-            "position_ref": board.selected_position_ref,
-            "operator_ref": board.selected_operator_ref,
-            "operator_ref_filter": board.selected_operator_ref,
-            "base_recipe": board.selected_base_recipe,
-            "recipe": row.recipe_pk,
-            "quantity": row.planned_qty,
-        }
-    )
-
-
-def _planning_entry(row, board) -> dict | None:
-    if not row.recipe_pk:
-        return None
-    recommended = _row_recommended_qty(row)
-    initial = {
-        "action": "set_planned",
-        "target_date": board.selected_date,
-        "position_ref": board.selected_position_ref,
-        "operator_ref": board.selected_operator_ref,
-        "operator_ref_filter": board.selected_operator_ref,
-        "base_recipe": board.selected_base_recipe,
-        "recipe": row.recipe_pk,
-        "quantity": recommended or row.planned_qty or "0",
-    }
-    if row.suggestion:
-        initial["source"] = "suggested"
-    return {
-        "form_id": f"production-plan-{row.recipe_pk}",
-        "modal_title": f"Planejar {row.output_sku}",
-        "modal_description": "Confirme a quantidade recomendada para a data agendada.",
-        "submit_label": "Salvar planejado",
-        "form": ProductionPlanForm(initial=initial),
-    }
-
-
-def _planning_adjust_entry(row, board) -> dict | None:
-    if not row.recipe_pk or not row.planned_orders:
-        return None
-    modal_description = "Escolha o motivo e confirme a nova quantidade planejada."
-    if len(row.planned_orders) > 1:
-        modal_description = (
-            "Há mais de um planejamento interno para este SKU. "
-            "Salvar consolida tudo em uma única OP planejada."
-        )
-    return {
-        "form_id": f"production-adjust-plan-{row.recipe_pk}",
-        "modal_title": f"Ajustar {row.output_sku}",
-        "modal_description": modal_description,
-        "submit_label": "Salvar ajuste",
-        "form": ProductionPlanAdjustForm(
-            initial={
-                "action": "set_planned",
-                "target_date": board.selected_date,
-                "position_ref": board.selected_position_ref,
-                "operator_ref": board.selected_operator_ref,
-                "operator_ref_filter": board.selected_operator_ref,
-                "base_recipe": board.selected_base_recipe,
-                "recipe": row.recipe_pk,
-                "quantity": row.planned_qty,
-                "reason": "demand",
-            }
-        ),
-    }
 
 
 def _produce_entries(row, board) -> list[dict]:

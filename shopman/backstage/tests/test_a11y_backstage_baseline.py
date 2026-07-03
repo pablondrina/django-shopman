@@ -10,11 +10,12 @@ def _read(path: str) -> str:
 
 
 def test_production_shortage_modal_is_accessible():
-    html = _read("shopman/backstage/templates/gestor/producao/partials/order_shortage.html")
+    # O modal de order-shortage migrou para o Fournil junto com o plan (split
+    # canônico WP-PE4); no Admin resta o de insumos (finish/quick_finish).
+    html = _read("shopman/backstage/templates/gestor/producao/partials/material_shortage.html")
 
     assert 'role="dialog"' in html
     assert 'aria-modal="true"' in html
-    assert 'aria-labelledby="order-short-title"' in html
 
 
 def test_closing_reconciliation_has_textual_discrepancy_state():

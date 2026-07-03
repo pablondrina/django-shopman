@@ -99,15 +99,24 @@ def test_backstage_production_uses_high_volume_matrix_surface():
     assert "matrix_groups" in admin_console
     assert "Ficha-base" in admin_console
     assert "base_recipe" in admin_console
-    assert "set_planned" in admin_console
     assert "production_order_sections" in admin_console
     assert "_details_table" in admin_console
     assert ">Sugerido<" not in production
-    assert "Salvar planejado" in admin_console
     assert "quantity_display" in admin_console
     assert "per_unit_display" in admin_console
-    assert "adjustOpen" in cells
     assert "admin_console/unfold/modal.html" in cells
+
+    # Split canônico (WP-PE4): a matriz do Admin é LEITURA — planejar/ajustar
+    # planejado vive no Fournil. Nenhuma escrita de planejamento no Admin.
+    planning = (TEMPLATES / "admin_console" / "production" / "planning.html").read_text(encoding="utf-8")
+    planning_cell = (
+        TEMPLATES / "admin_console" / "production" / "cells" / "planning_planned.html"
+    ).read_text(encoding="utf-8")
+    assert "set_planned" not in admin_console
+    assert "Salvar planejado" not in admin_console
+    assert "adjustOpen" not in planning_cell
+    assert "modal" not in planning_cell
+    assert "production_fournil_planning_url" in planning
     assert "surface-modal max-w-sm" not in production
     assert "Planejar manualmente" not in production
     assert "Planejar sugerido" not in production

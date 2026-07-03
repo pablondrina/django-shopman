@@ -270,13 +270,14 @@ class AdminProductionConsoleTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Planejamento")
-        self.assertContains(response, "Planejamento do dia")
+        self.assertContains(response, "Leitura da matriz do dia")
         self.assertContains(response, reverse("admin_console_production_weighing"))
         self.assertContains(response, "Recomendado")
         self.assertContains(response, "Compromisso")
         self.assertContains(response, "Planejado")
-        self.assertContains(response, "Ajustar planejado")
-        self.assertContains(response, 'role="dialog"')
+        # Split canônico (WP-PE4): leitura — sem modais de planejar/ajustar.
+        self.assertNotContains(response, "Ajustar planejado")
+        self.assertNotContains(response, "Salvar planejado")
         self.assertContains(response, "CIABATTA")
         self.assertEqual(
             response.context["production_planning_sections"][0]["table"]["headers"],
@@ -297,20 +298,10 @@ class AdminProductionConsoleTests(TestCase):
             finished_orders=(finished_without_commitment,),
             planned_qty="",
         )
-        board = SimpleNamespace(
-            selected_date=date.today().isoformat(),
-            selected_position_ref="",
-            selected_operator_ref="",
-            selected_base_recipe="",
-        )
 
         self.assertEqual(admin_production._row_suggested_qty(row), "6")
         self.assertEqual(admin_production._row_committed_qty(row), "6")
         self.assertEqual(admin_production._row_recommended_qty(row), "6")
-
-        planning_entry = admin_production._planning_entry(row, board)
-        self.assertIsNotNone(planning_entry)
-        self.assertEqual(planning_entry["form"].initial["quantity"], "6")
 
     def test_admin_planning_uses_committed_units_as_recommended_floor(self) -> None:
         linked_order = SimpleNamespace(
@@ -375,6 +366,23 @@ class AdminProductionConsoleTests(TestCase):
         self.assertNotContains(response, "Planejadas")
 
     def test_admin_production_console_mutates_through_shared_production_handler(self) -> None:
+        wo = craft.plan(self.recipe, 13, date=date.today())
+        response = self.client.post(
+            reverse("admin_console_production"),
+            {
+                "action": "start",
+                "wo_id": str(wo.pk),
+                "quantity": "13",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith(reverse("admin_console_production")))
+        wo.refresh_from_db()
+        self.assertEqual(wo.status, WorkOrder.Status.STARTED)
+
+    def test_admin_production_rejects_planning_writes_after_canonical_split(self) -> None:
+        """WP-PE4: planejar/ajustar planejado é do Fournil; o Admin só lê a matriz."""
         response = self.client.post(
             reverse("admin_console_production"),
             {
@@ -386,14 +394,10 @@ class AdminProductionConsoleTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].startswith(reverse("admin_console_production")))
-        self.assertTrue(
-            WorkOrder.objects.filter(
-                recipe=self.recipe,
-                output_sku="CIABATTA",
-                quantity=13,
-            ).exists()
-        )
+        self.assertFalse(WorkOrder.objects.filter(recipe=self.recipe).exists())
+
+        planning_response = self.client.post(reverse("admin_console_production_planning"), {})
+        self.assertEqual(planning_response.status_code, 405)
 
     def test_admin_production_produced_action_uses_approved_modal_wrapper(self) -> None:
         craft.plan(self.recipe, 13, date=date.today())

@@ -30,15 +30,16 @@ from shopman.backstage.projections.production import (
     build_production_board,
 )
 from shopman.backstage.services import production as production_service
-from shopman.backstage.services.production import ProductionOrderShortError, ProductionStockShortError
+from shopman.backstage.services.production import ProductionStockShortError
 
 logger = logging.getLogger(__name__)
 
-# Shortage modal partials rendered by ``handle_production_post`` on HX-Request
+# Shortage modal partial rendered by ``handle_production_post`` on HX-Request
 # (the Admin/Unfold production console). The KDS floor templates moved to the
-# Nuxt app, but these stay — they back the console's material/order shortage UX.
+# Nuxt app, but this stays — it backs the console's material shortage UX on
+# finish/quick_finish. (Order-coverage shortage only exists no plan, que migrou
+# para o Fournil — split canônico WP-PE4.)
 SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
-ORDER_SHORT_PARTIAL_TEMPLATE = "gestor/producao/partials/order_shortage.html"
 
 
 def _selected_date(request) -> date:
@@ -87,34 +88,9 @@ def handle_production_post(request, access, *, redirect_url_name: str = "admin_c
     actor = f"production:{request.user.username}"
 
     try:
-        if action == "set_planned":
-            is_suggestion = request.POST.get("source") == "suggested"
-            can_set_planned = access.can_edit_planned or (is_suggestion and access.can_edit_suggested)
-            if not can_set_planned:
-                messages.error(request, "Sem permissão para planejar produção.")
-            else:
-                output_sku, wo_ref, quantity, result = production_service.apply_planned(
-                    recipe_id=request.POST.get("recipe"),
-                    quantity=request.POST.get("quantity", "").strip(),
-                    target_date_value=request.POST.get("target_date", "").strip(),
-                    position_ref=request.POST.get("position_ref", "").strip(),
-                    operator_ref=request.POST.get("operator_ref", "").strip(),
-                    reason=request.POST.get("reason", "").strip(),
-                    actor=actor,
-                    force=request.POST.get("force") == "1",
-                    source_ref="formula:suggestion" if is_suggestion else "production_matrix",
-                )
-                if result == "cleared":
-                    messages.success(request, f"Planejamento zerado: {output_sku}")
-                elif result == "unchanged":
-                    messages.info(request, f"Planejamento mantido: {output_sku} × {quantity}")
-                elif result == "consolidated":
-                    messages.success(request, f"Planejamento consolidado: {output_sku} × {quantity} ({wo_ref})")
-                elif result == "adjusted":
-                    messages.success(request, f"Planejamento ajustado: {output_sku} × {quantity} ({wo_ref})")
-                else:
-                    messages.success(request, f"Planejado: {output_sku} × {quantity} ({wo_ref})")
-        elif action == "start":
+        # Planejar/ajustar planejado saiu do Admin (split canônico WP-PE4):
+        # a matriz do Admin é leitura; a edição vive no Fournil via headless API.
+        if action == "start":
             if not access.can_edit_started:
                 messages.error(request, "Sem permissão para iniciar produção.")
             else:
@@ -164,19 +140,6 @@ def handle_production_post(request, access, *, redirect_url_name: str = "admin_c
                     SHORTAGE_PARTIAL_TEMPLATE,
                     {
                         "missing": exc.missing,
-                        "post": request.POST,
-                    },
-                    request=request,
-                ),
-            )
-        messages.error(request, str(exc))
-    except ProductionOrderShortError as exc:
-        if request.headers.get("HX-Request"):
-            return HttpResponse(
-                render_to_string(
-                    ORDER_SHORT_PARTIAL_TEMPLATE,
-                    {
-                        "error": exc,
                         "post": request.POST,
                     },
                     request=request,

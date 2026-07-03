@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  alertTarget,
   elapsedLabel,
   kdsCardAffordances,
   matchesKdsQuery,
@@ -160,12 +161,20 @@ describe("matrix helpers", () => {
   it("rowHasActivity is true with orders or a suggestion", () => {
     expect(rowHasActivity(row())).toBe(false);
     expect(rowHasActivity(row({ planned_orders: [wo()] }))).toBe(true);
-    expect(rowHasActivity(row({ suggestion: { recipe_pk: 5, recipe_ref: "p", recipe_name: "P", base_usages: [], output_sku: "PAO", quantity: "10", committed: "0", avg_demand: "5", confidence: "Alta" } }))).toBe(true);
+    expect(rowHasActivity(row({ suggestion: { recipe_pk: 5, recipe_ref: "p", recipe_name: "P", base_usages: [], output_sku: "PAO", quantity: "10", committed: "0", avg_demand: "5", confidence: "Alta", sample_size: 3, high_demand_applied: false, explanation_parts: [] } }))).toBe(true);
   });
-  it("matchesRowQuery filters on sku + name", () => {
+  it("matchesRowQuery filters on sku + name + WO refs (alert deep-link)", () => {
     expect(matchesRowQuery(row(), "")).toBe(true);
     expect(matchesRowQuery(row(), "franc")).toBe(true);
     expect(matchesRowQuery(row(), "bolo")).toBe(false);
+    expect(matchesRowQuery(row({ planned_orders: [wo()] }), "wo-010")).toBe(true);
+  });
+  it("alertTarget routes production alerts to the right board", () => {
+    expect(alertTarget({ type: "production_late", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
+    expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
+    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/planejamento", q: "WO-2" });
+    expect(alertTarget({ type: "production_low_yield", order_ref: "WO-3" })).toBeNull();
+    expect(alertTarget({ type: "stock_low", order_ref: "" })).toBeNull();
   });
   it("startableWorkOrder returns the first planned WO or null", () => {
     expect(startableWorkOrder(row())).toBeNull();

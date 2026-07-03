@@ -1,16 +1,33 @@
 <script setup lang="ts">
 // Production planning — the matrix (the old Admin planning surface, now Nuxt).
 // Reads the production board projection via useProductionBoard; each row is an
-// output SKU with its planned/started/finished totals, the demand suggestion, an
-// inline plan input (set the planned quantity) and a start action for the first
-// planned WO. Plan/start POST through the django proxy and reconcile. An order
-// shortage on plan opens the shortage modal. Tablet/touch-first.
+// output SKU with its planned/started/finished totals, the demand suggestion
+// (tap to see why), an inline plan input and a start action. The date selector
+// gives the multi-day horizon (default: tomorrow after noon). Plan/start POST
+// through the django proxy and reconcile. Tablet/touch-first.
 import { matchesRowQuery, rowHasActivity, startableWorkOrder } from "~/presentation/production";
-import type { ProductionMatrixRowProjection, ProductionShortageError } from "~/types/production";
+import type { ProductionMatrixRowProjection, ProductionShortageError, ProductionSuggestionProjection } from "~/types/production";
 
-const { board, rows, counts, dateDisplay, pending, error, refresh, isBusy, plan, start } = useProductionBoard();
+const { board, rows, counts, dateDisplay, selectedDate, pending, error, refresh, isBusy, plan, start } = useProductionBoard();
 
-const query = ref("");
+const route = useRoute();
+const query = ref(typeof route.query.q === "string" ? route.query.q : "");
+watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
+
+// Horizonte: hoje / amanhã / qualquer data.
+function isoFor(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+const dateChips = [
+  { iso: isoFor(0), label: "Hoje" },
+  { iso: isoFor(1), label: "Amanhã" },
+];
+
+// Sugestão explicável: bottom-sheet com o basis em frases.
+const explaining = ref<ProductionSuggestionProjection | null>(null);
 const showAll = ref(false);
 const visibleRows = computed<ProductionMatrixRowProjection[]>(() =>
   rows.value
@@ -60,6 +77,25 @@ async function submitStart(row: ProductionMatrixRowProjection) {
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <div class="mb-3 flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-1 rounded-lg border bg-background p-0.5" role="group" aria-label="Data do planejamento">
+          <button
+            v-for="chip in dateChips"
+            :key="chip.iso"
+            type="button"
+            class="rounded-md px-2.5 py-1.5 text-sm font-medium transition"
+            :class="selectedDate === chip.iso ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+            :aria-pressed="selectedDate === chip.iso"
+            @click="selectedDate = chip.iso"
+          >
+            {{ chip.label }}
+          </button>
+          <input
+            v-model="selectedDate"
+            type="date"
+            class="h-8 rounded-md border-0 bg-transparent px-1.5 text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Outra data"
+          />
+        </div>
         <span class="text-sm text-muted-foreground">{{ dateDisplay }}</span>
         <span v-if="counts" class="text-sm tabular-nums text-muted-foreground">
           Plan {{ counts.planned_qty }} · Iniciado {{ counts.started_qty }} · Concluído {{ counts.finished_qty }}
@@ -99,10 +135,19 @@ async function submitStart(row: ProductionMatrixRowProjection) {
                 <p class="truncate text-xs text-muted-foreground">{{ row.recipe_name }}</p>
               </td>
               <td class="px-3 py-2 text-right">
-                <span v-if="row.suggestion" class="inline-flex flex-col items-end">
-                  <span class="font-semibold tabular-nums">{{ row.suggestion.quantity }}</span>
+                <button
+                  v-if="row.suggestion"
+                  type="button"
+                  class="group inline-flex flex-col items-end rounded-md px-1.5 py-0.5 transition hover:bg-accent"
+                  :aria-label="`Por que ${row.suggestion.quantity} de ${row.recipe_name}?`"
+                  @click="explaining = row.suggestion"
+                >
+                  <span class="inline-flex items-center gap-1 font-semibold tabular-nums">
+                    {{ row.suggestion.quantity }}
+                    <Icon name="lucide:info" class="size-3.5 text-muted-foreground transition group-hover:text-foreground" />
+                  </span>
                   <span class="text-[0.7rem] text-muted-foreground">{{ row.suggestion.confidence }} · méd {{ row.suggestion.avg_demand }}</span>
-                </span>
+                </button>
                 <span v-else class="text-muted-foreground">—</span>
               </td>
               <td class="px-3 py-2 text-right tabular-nums">
@@ -152,5 +197,29 @@ async function submitStart(row: ProductionMatrixRowProjection) {
     </section>
 
     <ShortageDialog :shortage="shortage" @update:open="(v) => { if (!v) shortage = null }" />
+
+    <!-- suggestion explanation -->
+    <UiDialog :open="explaining != null" @update:open="(v) => { if (!v) explaining = null }">
+      <UiDialogContent class="sm:max-w-md">
+        <UiDialogHeader>
+          <UiDialogTitle>Por que {{ explaining?.quantity }}?</UiDialogTitle>
+          <UiDialogDescription>
+            {{ explaining?.recipe_name }} · confiança {{ explaining?.confidence?.toLowerCase() }}
+          </UiDialogDescription>
+        </UiDialogHeader>
+        <ul v-if="explaining?.explanation_parts?.length" class="flex flex-col gap-2 text-sm">
+          <li v-for="part in explaining.explanation_parts" :key="part" class="flex items-start gap-2">
+            <Icon name="lucide:corner-down-right" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <span>{{ part }}</span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-muted-foreground">
+          Ainda sem histórico suficiente para explicar — a sugestão usa apenas a margem padrão.
+        </p>
+        <UiDialogFooter>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="explaining = null">Fechar</button>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
   </main>
 </template>

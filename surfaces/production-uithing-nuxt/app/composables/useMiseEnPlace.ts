@@ -21,9 +21,7 @@ export function useMiseEnPlace() {
   const projection = computed(() => data.value?.mise_en_place ?? null);
   const lines = computed<MiseEnPlaceLineProjection[]>(() => projection.value?.lines ?? []);
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  onMounted(() => { pollTimer = setInterval(() => refresh(), 60_000); });
-  onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); });
+  useAdaptivePoll(refresh, () => 60_000);
 
   // "Separado" por turno: chaveado por data — virou o dia, lista limpa.
   const checkedKey = computed(() => `mise-en-place:${projection.value?.selected_date ?? ""}`);

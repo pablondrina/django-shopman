@@ -1,6 +1,6 @@
 // Production live-floor read-side. Single source for the started-WorkOrder board:
 //   - useFetch the production KDS projection (GET /api/v1/backstage/production/kds/);
-//   - poll every 30s as a robust fallback (the floor clock moves slowly).
+//   - adaptive poll: 30s routine, 10s while something runs late, paused hidden.
 // Writes go through the django proxy (CSRF handled there) and reconcile via refresh.
 // Material/order shortage is surfaced as a structured error so the page can open
 // the shortage modal (a finish can be retried with force=1).
@@ -24,9 +24,8 @@ export function useProductionKds() {
   const totalCount = computed(() => data.value?.kds?.total_count ?? 0);
   const lateCount = computed(() => data.value?.kds?.late_count ?? 0);
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  onMounted(() => { pollTimer = setInterval(() => refresh(), 30_000); });
-  onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); });
+  // Cadência sobe sob pressão: algo atrasado no chão → 10s; rotina → 30s.
+  useAdaptivePoll(refresh, () => (lateCount.value > 0 ? 10_000 : 30_000));
 
   // per-WO in-flight guard (disables that card's buttons); POST then reconcile.
   const busy = ref<Set<number>>(new Set());

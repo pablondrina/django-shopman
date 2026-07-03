@@ -121,6 +121,9 @@ export interface ProductionSuggestionProjection {
   committed: string;
   avg_demand: string;
   confidence: string;
+  sample_size: number;
+  high_demand_applied: boolean;
+  explanation_parts: string[];
 }
 
 export interface ProductionMatrixRowProjection {

@@ -22,10 +22,16 @@
             Planejamento
           {% endcomponent %}
           {% component "unfold/components/text.html" with class="text-base-500" %}
-            Planejamento do dia · {{ production_filter_summary }}
+            Leitura da matriz do dia · {{ production_filter_summary }} · a edicao vive no Fournil
           {% endcomponent %}
         </div>
         <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+          {% if production_fournil_planning_url %}
+            {% component "unfold/components/button.html" with href=production_fournil_planning_url variant="primary" size="sm" %}
+              {% component "unfold/components/icon.html" with class="text-base" %}edit_calendar{% endcomponent %}
+              Planejar no Fournil
+            {% endcomponent %}
+          {% endif %}
           {% component "unfold/components/button.html" with href=production_weighing_url variant="default" size="sm" %}
             {% component "unfold/components/icon.html" with class="text-base" %}receipt_long{% endcomponent %}
             Filipetas

@@ -10,7 +10,9 @@ import type { ProductionKDSCardProjection, ProductionShortageError } from "~/typ
 
 const { cards, totalCount, lateCount, pending, error, refresh, isBusy, advanceStep, finish, voidOrder } = useProductionKds();
 
-const query = ref("");
+const route = useRoute();
+const query = ref(typeof route.query.q === "string" ? route.query.q : "");
+watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
 const filteredCards = computed<ProductionKDSCardProjection[]>(() =>
   cards.value.filter((c) => matchesKdsQuery(c, query.value)),
 );
