@@ -368,6 +368,20 @@ staging.
 
 ## Progresso
 
+- **2026-07-03 — Iteração pós-QA do Pablo (túnel)**: tabs reordenadas pelo
+  fluxo do dia (Planejamento → Preparação → Produção; eyebrow vira "Fournil");
+  rota `/mise-en-place` → `/preparacao`. Preparação ganha o modo **"Por
+  preparo"** (tickets da pesagem via novo endpoint
+  `production/weighing/` — insumo escalado POR preparo, que é o que se pesa) ao
+  lado do agregado "Insumos" (provisionamento), com chips Hoje/Amanhã.
+  **Pesagem cega**: `blind_prep_code(ref, date)` — HMAC do SECRET_KEY em
+  base32 (P-XXXXXX), determinístico no dia, sem tabela/migração; etiquetas
+  imprimíveis (print CSS: só as etiquetas saem — código, ingrediente, peso,
+  data, NUNCA o nome da receita); mapa código↔preparo é bloco só-gestor
+  (`can_manage_all`) na pesagem do Admin, com o código também no header de
+  cada filipeta. Verificado no browser (7 preparos, 40 etiquetas). Suítes:
+  framework 2516 ✅, vitest 26 ✅, make admin ✅.
+
 > **✅ PLANO CONCLUÍDO (engenharia) em 2026-07-03** — WP-PE0..6 entregues em 4
 > commits na `main`. Pendências não-engenharia: deploy staging + QA físico do
 > Pablo nas telas do fournil. Arquivar em `completed/` após o deploy.

@@ -55,6 +55,7 @@ from shopman.backstage.projections.production import (
     build_production_board,
     build_production_kds,
     build_production_mise_en_place,
+    build_production_weighing,
 )
 from shopman.backstage.services import (
     closing as closing_service,
@@ -464,6 +465,27 @@ class ProductionMiseEnPlaceView(APIView):
             expand=expand,
         )
         return Response({"mise_en_place": projection_data(mise_en_place)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Weighing tickets (per-prep scaled ingredients + blind codes)",
+        responses={200: OpenApiResponse(description="Per-prep weighing tickets for the day.")},
+    ),
+)
+class ProductionWeighingView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_production"
+
+    def get(self, request):
+        selected = _parse_date(request.query_params.get("date"))
+        weighing = build_production_weighing(
+            selected_date=selected,
+            position_ref=request.query_params.get("position", ""),
+            base_recipe=request.query_params.get("base_recipe", ""),
+        )
+        return Response({"weighing": projection_data(weighing)})
 
 
 @extend_schema_view(

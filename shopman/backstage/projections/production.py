@@ -218,6 +218,9 @@ class ProductionWeighingTicketProjection:
     sources_display: str
     ingredients: tuple[ProductionWeighingIngredientProjection, ...]
     table: dict
+    blind_code: str
+    # Código cego do dia (HMAC, sem tabela): etiquetas de pesagem circulam só
+    # com ele — o colaborador pesa sem saber a receita. Mapa = visão de gestor.
 
 
 @dataclass(frozen=True)
@@ -691,7 +694,12 @@ def build_production_weighing(
         selected_position_ref=position_ref,
         selected_base_recipe=base_recipe,
         tickets=tuple(
-            _build_weighing_ticket(entry, active_recipes=active_recipes, product_names=product_names)
+            _build_weighing_ticket(
+                entry,
+                active_recipes=active_recipes,
+                product_names=product_names,
+                selected_date=selected_date,
+            )
             for entry in sorted(tickets.values(), key=lambda item: item["recipe"].name)
         ),
     )
@@ -775,6 +783,28 @@ def build_production_mise_en_place(
         work_order_count=len(work_orders),
         has_stock_readings=any(value and value > 0 for value in availability.values()),
     )
+
+
+def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
+    """Código cego diário de um preparo — pesagem sem revelar a receita.
+
+    HMAC(SECRET_KEY, ref+data) truncado em base32: determinístico dentro do
+    dia (reimprimir etiqueta bate com a da manhã), muda a cada dia, e é
+    computado — nenhuma tabela, nenhum estado. O mapa código↔preparo é uma
+    visão de gestor que recomputa sob demanda.
+    """
+    import base64
+    import hashlib
+    import hmac
+
+    from django.conf import settings
+
+    digest = hmac.new(
+        settings.SECRET_KEY.encode(),
+        f"blind-prep:{recipe_ref}:{selected_date.isoformat()}".encode(),
+        hashlib.sha256,
+    ).digest()
+    return "P-" + base64.b32encode(digest).decode()[:6]
 
 
 def _ingredient_availability(skus: set[str]) -> dict[str, Decimal]:
@@ -1594,6 +1624,7 @@ def _build_weighing_ticket(
     *,
     active_recipes: dict[str, Recipe],
     product_names: dict[str, str],
+    selected_date: date,
 ) -> ProductionWeighingTicketProjection:
     recipe = entry["recipe"]
     output_quantity = Decimal(str(entry["quantity"]))
@@ -1623,6 +1654,7 @@ def _build_weighing_ticket(
         sources_display=", ".join(entry["sources"]),
         ingredients=ingredients,
         table=table,
+        blind_code=blind_prep_code(recipe.ref, selected_date),
     )
 
 

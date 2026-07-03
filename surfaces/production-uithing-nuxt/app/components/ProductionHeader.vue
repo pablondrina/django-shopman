@@ -12,10 +12,11 @@ function toggleTheme() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 
+// Ordem = o fluxo do dia do padeiro: planeja → separa/pesa → produz.
 const tabs = [
-  { to: "/", label: "Chão ao vivo", icon: "lucide:flame" },
   { to: "/planejamento", label: "Planejamento", icon: "lucide:layout-grid" },
-  { to: "/mise-en-place", label: "Mise en place", icon: "lucide:scale" },
+  { to: "/preparacao", label: "Preparação", icon: "lucide:scale" },
+  { to: "/", label: "Produção", icon: "lucide:flame" },
 ];
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);
@@ -28,7 +29,7 @@ function isActive(to: string): boolean {
       <Icon name="lucide:croissant" class="size-4" />
     </span>
     <div class="mr-2 min-w-0">
-      <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">Produção</p>
+      <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">Fournil</p>
       <h1 class="truncate text-lg font-bold leading-tight">{{ title }}</h1>
     </div>
 

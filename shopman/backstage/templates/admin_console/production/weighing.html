@@ -84,9 +84,12 @@
       {% for ticket in production_weighing.tickets %}
         <div class="flex flex-col gap-3 production-weighing-ticket" data-weighing-ticket>
           <div class="flex flex-col gap-1">
-            {% component "unfold/components/title.html" with class="text-xl" %}
-              {{ ticket.name }}
-            {% endcomponent %}
+            <div class="flex items-center gap-2">
+              {% component "unfold/components/title.html" with class="text-xl" %}
+                {{ ticket.name }}
+              {% endcomponent %}
+              {% include "unfold/helpers/label.html" with text=ticket.blind_code type="info" %}
+            </div>
             {% component "unfold/components/text.html" with class="text-base-500" %}
               {{ ticket.output_quantity_display }} · {{ ticket.output_sku }}
             {% endcomponent %}
@@ -107,6 +110,18 @@
         {% endcomponent %}
       {% endfor %}
     </div>
+
+    {% if production_weighing_show_blind_map and production_weighing.tickets %}
+      <div class="flex flex-col gap-2" data-print-hide>
+        {% component "unfold/components/title.html" with class="text-lg" %}
+          Mapa de codigos cegos
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+          Visao de gestor: as etiquetas de pesagem circulam apenas com o codigo do dia. Este mapa nao sai na impressao.
+        {% endcomponent %}
+        {% component "unfold/components/table.html" with table=production_weighing_blind_map_table striped=1 %}{% endcomponent %}
+      </div>
+    {% endif %}
 
     <div data-print-hide>
       {% include "admin_console/unfold/modal.html" with open_var="filtersOpen" close_action="filtersOpen = false" modal_title="Filtros de pesagem" modal_description="Ajuste data agendada, posto ou ficha-base." form=production_weighing_filter_form form_fields=production_weighing_filter_fields form_id="production-weighing-filters" form_method="get" form_action=production_weighing_reset_url submit_label="Aplicar filtros" cancel_label="Fechar" clear_href=production_weighing_reset_url clear_label="Limpar filtros" cancel_attrs='type="button" x-on:click="filtersOpen = false"' %}

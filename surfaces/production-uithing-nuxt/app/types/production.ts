@@ -241,3 +241,32 @@ export interface ProductionMiseEnPlaceProjection {
 export interface MiseEnPlaceResponse {
   mise_en_place: ProductionMiseEnPlaceProjection;
 }
+
+// ── Weighing (per-prep tickets + blind codes) ───────────────────────────────
+
+export interface WeighingIngredientProjection {
+  sku: string;
+  name: string;
+  quantity_display: string;
+  is_subrecipe: boolean;
+}
+
+export interface WeighingTicketProjection {
+  recipe_ref: string;
+  output_sku: string;
+  name: string;
+  output_quantity_display: string;
+  sources_display: string;
+  ingredients: WeighingIngredientProjection[];
+  blind_code: string;
+}
+
+export interface ProductionWeighingProjection {
+  selected_date: string;
+  selected_date_display: string;
+  tickets: WeighingTicketProjection[];
+}
+
+export interface WeighingResponse {
+  weighing: ProductionWeighingProjection;
+}

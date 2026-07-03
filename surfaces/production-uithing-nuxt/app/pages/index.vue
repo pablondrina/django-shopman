@@ -74,7 +74,7 @@ function onAction(card: ProductionKDSCardProjection, action: FloorAffordanceRef)
 
 <template>
   <main class="flex min-h-screen flex-col">
-    <ProductionHeader v-model:query="query" title="Chão ao vivo" :count="totalCount" count-label="em produção" :pending="pending" @refresh="refresh()" />
+    <ProductionHeader v-model:query="query" title="Produção" :count="totalCount" count-label="em produção" :pending="pending" @refresh="refresh()" />
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <p v-if="pending && !cards.length" class="text-sm text-muted-foreground">Carregando…</p>

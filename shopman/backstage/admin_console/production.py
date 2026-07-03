@@ -476,6 +476,10 @@ class ProductionWeighingView(UnfoldModelAdminViewMixin, TemplateView):
                 weighing,
             ),
             "production_weighing_reset_url": reverse("admin_console_production_weighing"),
+            # Mapa código-cego ↔ preparo: só gestor. As etiquetas circulam pela
+            # cozinha apenas com o código; quem correlaciona é esta visão.
+            "production_weighing_show_blind_map": self.access.can_manage_all,
+            "production_weighing_blind_map_table": _blind_map_table(weighing),
         })
         return context
 
@@ -621,6 +625,16 @@ def build_production_planning_context(request: HttpRequest, board, context: dict
         "production_weighing_url": _production_filter_url("admin_console_production_weighing", board),
         "production_work_orders_today_url": _work_orders_today_url(context["selected_date"]),
         "production_fournil_planning_url": _fournil_planning_url(),
+    }
+
+
+def _blind_map_table(weighing) -> dict:
+    return {
+        "headers": ["Código", "Preparo", "Rendimento"],
+        "rows": [
+            [ticket.blind_code, ticket.name, ticket.output_quantity_display]
+            for ticket in weighing.tickets
+        ],
     }
 
 
