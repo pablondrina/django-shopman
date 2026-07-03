@@ -94,49 +94,49 @@ const STATUS_CHARS = 10; // CONFIRMADO
 
 <template>
   <main class="board flex min-h-screen flex-col">
-    <header class="flex flex-wrap items-end gap-x-6 gap-y-3 px-4 pb-2 pt-5 md:px-8">
-      <div class="min-w-0">
-        <h1 class="board-title">Fornadas</h1>
-        <div class="board-labels mt-1 flex items-center gap-3">
-          <span>{{ fullDateLabel(selectedDate) }}</span>
-          <span aria-hidden="true">·</span>
-          <div class="flex items-center gap-2.5" role="group" aria-label="Data">
-            <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === todayISO }" :aria-pressed="selectedDate === todayISO" @click="sound.unlock(); selectedDate = todayISO">Hoje</button>
-            <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === tomorrowISO }" :aria-pressed="selectedDate === tomorrowISO" @click="sound.unlock(); selectedDate = tomorrowISO">Amanhã</button>
-            <button type="button" class="board-datekey relative" :class="{ 'board-datekey--active': isCustomDate }" :aria-pressed="isCustomDate" @click="openCustomDate()">
-              {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra" }}
-              <input
-                ref="customDateInput"
-                v-model="selectedDate"
-                type="date"
-                class="absolute inset-0 cursor-pointer opacity-0"
-                aria-label="Escolher outra data"
-                tabindex="-1"
-              />
-            </button>
-          </div>
+    <header class="flex flex-col gap-2 px-4 pb-2 pt-4 md:px-8">
+      <div class="board-labels flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span>{{ fullDateLabel(selectedDate) }}</span>
+        <span aria-hidden="true">·</span>
+        <div class="flex items-center gap-2.5" role="group" aria-label="Data">
+          <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === todayISO }" :aria-pressed="selectedDate === todayISO" @click="sound.unlock(); selectedDate = todayISO">Hoje</button>
+          <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === tomorrowISO }" :aria-pressed="selectedDate === tomorrowISO" @click="sound.unlock(); selectedDate = tomorrowISO">Amanhã</button>
+          <button type="button" class="board-datekey relative" :class="{ 'board-datekey--active': isCustomDate }" :aria-pressed="isCustomDate" @click="openCustomDate()">
+            {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra" }}
+            <input
+              ref="customDateInput"
+              v-model="selectedDate"
+              type="date"
+              class="absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Escolher outra data"
+              tabindex="-1"
+            />
+          </button>
+        </div>
+        <div class="ml-auto flex items-center gap-2.5">
+          <button
+            type="button"
+            class="board-key"
+            :aria-label="sound.enabled.value ? 'Silenciar palhetas' : 'Ativar som das palhetas'"
+            @click="sound.toggle()"
+          >
+            <Icon :name="sound.enabled.value ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
+          </button>
+          <button
+            type="button"
+            class="board-key"
+            :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
+            @click="toggleFullscreen()"
+          >
+            <Icon :name="isFullscreen ? 'lucide:minimize' : 'lucide:maximize'" class="size-4" />
+          </button>
         </div>
       </div>
 
-      <div class="ml-auto flex items-center gap-2.5">
-        <button
-          type="button"
-          class="board-key"
-          :aria-label="sound.enabled.value ? 'Silenciar palhetas' : 'Ativar som das palhetas'"
-          @click="sound.toggle()"
-        >
-          <Icon :name="sound.enabled.value ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
-        </button>
-        <button
-          type="button"
-          class="board-key"
-          :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
-          @click="toggleFullscreen()"
-        >
-          <Icon :name="isFullscreen ? 'lucide:minimize' : 'lucide:maximize'" class="size-4" />
-        </button>
+      <div class="flex items-baseline justify-between gap-6">
+        <h1 class="board-title">Fornadas</h1>
         <ClientOnly>
-          <SplitFlap :value="clock" :chars="5" class="board-display ml-2" />
+          <SplitFlap :value="clock" :chars="5" class="board-display" />
         </ClientOnly>
       </div>
     </header>
