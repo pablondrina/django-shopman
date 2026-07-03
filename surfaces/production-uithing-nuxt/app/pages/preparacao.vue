@@ -69,7 +69,14 @@ function toggleBreakdown(line: MiseEnPlaceLineProjection) {
   expandedSku.value = expandedSku.value === line.sku ? null : line.sku;
 }
 
-// Etiquetas cegas: uma por pesagem (preparo × ingrediente). Só elas imprimem.
+// Dois artefatos de impressão, papéis distintos:
+//   · etiquetas CEGAS de pesagem (uma por preparo × ingrediente) — só o
+//     código do dia, para qualquer colaborador pesar sem correlacionar;
+//   · etiquetas EXPLÍCITAS do preparo pronto (uma por preparo) — a massa
+//     feita ganha nome, data, rendimento e objetivo (o sigilo é da pesagem,
+//     não do produto).
+const printMode = ref<"pesagem" | "preparo">("pesagem");
+
 const labels = computed(() =>
   weighing.tickets.value.flatMap((ticket) =>
     ticket.ingredients.map((ing) => ({
@@ -82,7 +89,8 @@ const labels = computed(() =>
   ),
 );
 
-function printLabels() {
+function printLabels(kind: "pesagem" | "preparo") {
+  printMode.value = kind;
   mode.value = "preparos";
   nextTick(() => window.print());
 }
@@ -153,14 +161,23 @@ function refreshAll() {
             <input v-model="expand" type="checkbox" class="size-4 rounded border" />
             Explodir até matéria-prima
           </label>
-          <button
-            v-if="mode === 'preparos' && visibleTickets.length"
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-            @click="printLabels()"
-          >
-            <Icon name="lucide:printer" class="size-4" /> Imprimir etiquetas
-          </button>
+          <template v-if="mode === 'preparos' && visibleTickets.length">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              @click="printLabels('pesagem')"
+            >
+              <Icon name="lucide:printer" class="size-4" /> Etiquetas de pesagem
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition hover:bg-accent"
+              title="Adesivo explícito da massa pronta: nome, data, rendimento e objetivo"
+              @click="printLabels('preparo')"
+            >
+              <Icon name="lucide:tag" class="size-4" /> Etiquetas do preparo
+            </button>
+          </template>
         </div>
       </div>
 
@@ -295,10 +312,10 @@ function refreshAll() {
       </template>
     </section>
 
-    <!-- ── Etiquetas cegas (só existem no papel) ──
+    <!-- ── Etiquetas CEGAS de pesagem (só existem no papel) ──
          Uma por pesagem: código do dia, ingrediente, peso, data. SEM nome de
          receita — o colaborador pesa sem correlacionar; o mapa é do gestor. -->
-    <section class="hidden print:block" aria-hidden="true">
+    <section v-if="printMode === 'pesagem'" class="hidden print:block" aria-hidden="true">
       <div class="grid grid-cols-2 gap-2">
         <div
           v-for="label in labels"
@@ -311,6 +328,28 @@ function refreshAll() {
           </div>
           <span class="text-sm">{{ label.ingredient }}</span>
           <span class="text-lg font-bold tabular-nums">{{ label.weight }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Etiquetas EXPLÍCITAS do preparo pronto ──
+         Uma por preparo: a massa feita se identifica — nome, data, rendimento
+         e objetivo. O código cego aparece pequeno só para casar com os potes
+         pesados. -->
+    <section v-else class="hidden print:block" aria-hidden="true">
+      <div class="grid grid-cols-2 gap-2">
+        <div
+          v-for="ticket in weighing.tickets.value"
+          :key="ticket.recipe_ref"
+          class="flex break-inside-avoid flex-col gap-0.5 rounded border border-black p-2"
+        >
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-lg font-bold uppercase leading-tight">{{ ticket.name }}</span>
+            <span class="text-[0.65rem]">{{ weighing.dateDisplay.value }}</span>
+          </div>
+          <span class="text-base font-bold tabular-nums">{{ ticket.output_quantity_display }}</span>
+          <span v-if="ticket.sources_display" class="text-xs">Objetivo: {{ ticket.sources_display }}</span>
+          <span class="font-mono text-[0.65rem]">{{ ticket.blind_code }}</span>
         </div>
       </div>
     </section>
