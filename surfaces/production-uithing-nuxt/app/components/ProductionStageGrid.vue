@@ -152,6 +152,23 @@ const startedCard = computed<ProductionKDSCardProjection | null>(() => {
   return kds.cards.value.find((c) => c.pk === wo.pk) ?? null;
 });
 
+// Timer por SKU no forno (Expedição): o lote em processo já carrega o relógio
+// vivo do KDS (elapsed + tom vs. max_started_minutes da receita) — aqui ele
+// aparece na linha, para o forneiro ver de relance o que está estourando.
+function rowTimer(row: ProductionMatrixRowProjection): { label: string; tone: ReturnType<typeof timerTone> } | null {
+  const wo = row.started_orders[0];
+  if (!wo) return null;
+  const card = kds.cards.value.find((c) => c.pk === wo.pk);
+  if (!card) return null;
+  return { label: elapsedLabel(card.elapsed_seconds), tone: timerTone(card.timer_class) };
+}
+
+const finishCard = computed<ProductionKDSCardProjection | null>(() => {
+  const wo = finishRow.value?.started_orders[0];
+  if (!wo) return null;
+  return kds.cards.value.find((c) => c.pk === wo.pk) ?? null;
+});
+
 // Stepper touch: quantidade sempre editável com +/− generosos.
 // (Recebe o NOME do campo — no template o Vue desembrulha refs, então passar
 // `planQty` entregaria a string, não o ref.)
@@ -441,6 +458,15 @@ const headerCount = computed(() => {
                 <p class="font-bold">{{ row.output_sku }}</p>
                 <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span class="truncate">{{ row.recipe_name }}</span>
+                  <span
+                    v-if="stage === 'expedite' && rowTimer(row)"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums"
+                    :class="timerChip(rowTimer(row)!.tone)"
+                    :aria-label="`${row.output_sku} em processo há ${rowTimer(row)!.label}`"
+                  >
+                    <Icon name="lucide:timer" class="size-3" />
+                    {{ rowTimer(row)!.label }}
+                  </span>
                   <button
                     v-if="rowCommittedUnits(row) > 0"
                     type="button"
@@ -666,6 +692,15 @@ const headerCount = computed(() => {
             Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — sai da produção e segue para a vitrine.
           </UiDialogDescription>
         </UiDialogHeader>
+        <p v-if="finishCard" class="flex items-center gap-2 text-sm text-muted-foreground">
+          <span class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums" :class="timerChip(timerTone(finishCard.timer_class))">
+            <Icon name="lucide:timer" class="size-3" />
+            {{ elapsedLabel(finishCard.elapsed_seconds) }}
+          </span>
+          <span v-if="finishRow?.started_orders[0]?.started_at_display">
+            em processo desde {{ finishRow.started_orders[0].started_at_display }}
+          </span>
+        </p>
         <div class="flex items-center gap-2">
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('finish', -1)">−</button>
           <input
