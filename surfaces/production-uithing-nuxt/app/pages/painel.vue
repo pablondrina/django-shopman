@@ -16,6 +16,13 @@ import { fullDateLabel, weekdayLabel } from "~/presentation/production";
 const { rows, selectedDate, pending, error } = useProductionForecast();
 const sound = useFlapClack();
 
+// Paginação de aeroporto: N linhas fixas (medidas na tela), excedente vira
+// páginas em ciclo de 12s — manhã cheia não rola, VIRA, com clac-storm.
+const pages = useBoardPages(rows);
+function setBoardList(el: unknown) {
+  pages.listEl.value = (el as HTMLElement | null) ?? null;
+}
+
 // ── Data: seletor discreto (a TV vive em Hoje; o vendedor consulta Amanhã) ──
 function isoFor(offsetDays: number): string {
   const d = new Date();
@@ -141,7 +148,7 @@ const STATUS_CHARS = 10; // CONFIRMADO
       </div>
     </header>
 
-    <section class="min-h-0 flex-1 overflow-auto px-4 pb-8 pt-4 md:px-8">
+    <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 md:px-8">
       <p v-if="pending && !rows.length" class="board-labels py-8">Carregando…</p>
       <p v-else-if="error" class="board-labels py-8">Sinal perdido — reconectando…</p>
 
@@ -150,26 +157,44 @@ const STATUS_CHARS = 10; // CONFIRMADO
         <p>Nenhuma fornada programada para esta data.</p>
       </div>
 
-      <TransitionGroup v-else tag="div" name="board-row" class="relative flex flex-col gap-1.5">
-        <article
-          v-for="row in rows"
-          :key="row.ref"
-          class="board-row"
-          :aria-label="`${row.recipe_name}: ${row.qty} unidades às ${row.eta_display}, ${row.status_label}`"
-        >
-          <SplitFlap :value="row.recipe_name" :chars="NAME_CHARS" class="board-flap min-w-0" />
-          <SplitFlap :value="`${row.qty} UN`" :chars="QTY_CHARS" align="right" class="board-flap" />
-          <SplitFlap :value="row.eta_display" :chars="5" align="right" class="board-flap" :class="row.status === 'delayed' ? 'tone-amber' : row.eta_is_actual ? 'tone-green' : ''" />
-          <SplitFlap
-            :value="row.status_label"
-            :chars="STATUS_CHARS"
-            align="right"
-            class="board-flap"
-            :class="STATUS_TONE[row.status]"
-            :pulse="row.status === 'delayed' ? respinTick : 0"
+      <template v-else>
+        <div :ref="setBoardList" class="min-h-0 flex-1 overflow-hidden">
+          <TransitionGroup tag="div" name="board-row" class="relative flex flex-col gap-1.5">
+            <article
+              v-for="row in pages.visible.value"
+              :key="row.ref"
+              data-board-row
+              class="board-row"
+              :aria-label="`${row.recipe_name}: ${row.qty} unidades às ${row.eta_display}, ${row.status_label}`"
+            >
+              <SplitFlap :value="row.recipe_name" :chars="NAME_CHARS" class="board-flap min-w-0" />
+              <SplitFlap :value="`${row.qty} UN`" :chars="QTY_CHARS" align="right" class="board-flap" />
+              <SplitFlap :value="row.eta_display" :chars="5" align="right" class="board-flap" :class="row.status === 'delayed' ? 'tone-amber' : row.eta_is_actual ? 'tone-green' : ''" />
+              <SplitFlap
+                :value="row.status_label"
+                :chars="STATUS_CHARS"
+                align="right"
+                class="board-flap"
+                :class="STATUS_TONE[row.status]"
+                :pulse="row.status === 'delayed' ? respinTick : 0"
+              />
+            </article>
+          </TransitionGroup>
+        </div>
+
+        <div v-if="pages.pageCount.value > 1" class="flex shrink-0 items-center justify-center gap-2.5 pt-3" role="group" aria-label="Páginas do painel">
+          <button
+            v-for="p in pages.pageCount.value"
+            :key="p"
+            type="button"
+            class="board-pagedot"
+            :class="{ 'board-pagedot--active': pages.page.value === p - 1 }"
+            :aria-label="`Página ${p}`"
+            :aria-pressed="pages.page.value === p - 1"
+            @click="sound.unlock(); pages.goTo(p - 1)"
           />
-        </article>
-      </TransitionGroup>
+        </div>
+      </template>
     </section>
   </main>
 </template>
@@ -252,6 +277,18 @@ const STATUS_CHARS = 10; // CONFIRMADO
 .board-key:hover {
   color: var(--board-text);
   border-color: #3a3e45;
+}
+
+.board-pagedot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: var(--board-line);
+  transition: background 200ms, transform 200ms;
+}
+.board-pagedot--active {
+  background: var(--board-text);
+  transform: scale(1.25);
 }
 
 /* ── Grade: TV = uma linha; celular = nome em cima, mostradores embaixo ── */
