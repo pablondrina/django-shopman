@@ -798,6 +798,19 @@ def build_production_mise_en_place(
 _BLIND_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 _BLIND_DIGITS = "23456789"
 
+# Famílias sonoras (pt-BR) para o reuso de número em "voltas": quando um
+# número reaparece no dia (9º código em diante), a letra que o acompanha deve
+# vir de OUTRA família da(s) que já carregam esse número — "Z7" na 1ª volta
+# veta "D7" na 2ª (dê soa como zê no grito da cozinha), mas libera "M7".
+_BLIND_LETTER_FAMILIES = {
+    **dict.fromkeys("BCDGPTVZ", "ê"),  # bê cê dê gê pê tê vê zê
+    "M": "êm", "N": "êm",              # ême/êne
+    "F": "és", "S": "és",              # éfe/ésse
+    "K": "cá", "Q": "cá",              # cá/quê
+    "L": "él", "R": "él",              # éle/érre
+    # A, E, H, J, U, W, X, Y — sons únicos, família própria (a própria letra)
+}
+
 
 def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
     """Código cego de um preparo — pesagem sem revelar a receita.
@@ -842,10 +855,30 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
             for code in space
             if code not in window_taken and code[0] not in day_letters
         ]
-        # Fase estrita (8 primeiros): número também único — máxima distinção.
-        # Esgotados os dígitos, relaxa só o número; a letra nunca repete.
+        # Voltas: 1ª (8 primeiros) — número também único, máxima distinção.
+        # Esgotados os dígitos, o número reaparece, MAS acompanhado de letra
+        # de família sonora diferente das que já carregam esse número hoje
+        # ("Z7" veta "D7" na volta, libera "M7"). A letra nunca repete; a
+        # qualidade fonética degrada por último (nunca trava antes das 24).
         strict = [code for code in by_letter if code[1] not in day_digits]
-        free = strict or by_letter
+        if strict:
+            free = strict
+        else:
+            digit_families = {
+                digit: {
+                    _BLIND_LETTER_FAMILIES.get(code[0], code[0])
+                    for code in day_codes
+                    if code[1] == digit
+                }
+                for digit in day_digits
+            }
+            quality = [
+                code
+                for code in by_letter
+                if _BLIND_LETTER_FAMILIES.get(code[0], code[0])
+                not in digit_families.get(code[1], set())
+            ]
+            free = quality or by_letter
         if not free:
             raise RuntimeError(
                 "Sem código cego disponível: a letra não repete no dia "

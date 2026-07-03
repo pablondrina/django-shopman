@@ -49,6 +49,21 @@ class TestBlindPrepCode:
         assert len(set(letters)) == 8
         assert len(set(digits)) == 8
 
+    def test_digit_reuse_avoids_same_phonetic_family(self):
+        """2ª volta do número vem com letra de OUTRA família sonora (Z7 veta D7)."""
+        from shopman.backstage.projections.production import _BLIND_LETTER_FAMILIES
+
+        today = date.today()
+        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(16)]
+        by_digit: dict[str, list[str]] = {}
+        for code in codes:
+            by_digit.setdefault(code[1], []).append(code[0])
+        for digit, letters in by_digit.items():
+            families = [_BLIND_LETTER_FAMILIES.get(letter, letter) for letter in letters]
+            assert len(set(families)) == len(families), (
+                f"número {digit} repetiu família sonora: {letters}"
+            )
+
     def test_ninth_onward_may_repeat_digit_never_letter(self):
         """Antes de estourar, repete NÚMERO — a letra continua única no dia."""
         today = date.today()
