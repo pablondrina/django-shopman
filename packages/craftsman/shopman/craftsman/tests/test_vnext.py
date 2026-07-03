@@ -1027,6 +1027,32 @@ class TestSuggest:
         assert s.basis["safety_pct"] == Decimal("0.20")
         assert s.basis["sample_size"] == 3
 
+    def test_safety_pct_override(self, recipe, tomorrow, settings):
+        """Explicit safety_pct overrides the SAFETY_STOCK_PERCENT setting."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.craftsman.protocols.demand import DailyDemand
+
+        mock_backend = MagicMock()
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2026, 2, 18), sold=Decimal("100"), wasted=Decimal("0")),
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        with patch(
+            "django.utils.module_loading.import_string",
+            return_value=mock_backend_class,
+        ):
+            suggestions = craft.suggest(tomorrow, safety_pct=Decimal("0.50"))
+
+        assert len(suggestions) == 1
+        # avg=100, safety override=50% => 100 * 1.5 = 150 (setting default 0.20 ignored)
+        assert suggestions[0].quantity == Decimal("150")
+        assert suggestions[0].basis["safety_pct"] == Decimal("0.50")
+
     def test_with_committed_demand(self, recipe, tomorrow, settings):
         """Committed demand is added before safety margin."""
         from unittest.mock import MagicMock, patch

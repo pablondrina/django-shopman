@@ -30,6 +30,8 @@ ALL_HANDLERS = [
     "shopman.shop.handlers.confirmation.ConfirmationTimeoutHandler",
     "shopman.shop.handlers.confirmation.StaleNewOrderAlertHandler",
     "shopman.shop.handlers.payment_timeout.PaymentTimeoutHandler",
+    # Production
+    "shopman.shop.handlers.production_alerts.ProductionLateCheckHandler",
     # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
     "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
@@ -259,6 +261,7 @@ def _register_production_alerts() -> None:
     from shopman.shop.handlers import production_alerts
 
     production_alerts.connect()
+    registry.register_directive_handler(production_alerts.ProductionLateCheckHandler())
     logger.info("shopman.handlers: connected production alert receivers.")
 
 

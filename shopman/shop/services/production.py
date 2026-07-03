@@ -38,6 +38,27 @@ class BulkPlanResult:
     target_date: date
 
 
+def suggest_for(target_date: date, output_skus: list[str] | None = None):
+    """Sugestões de produção com a config da loja aplicada.
+
+    Ponto único de resolução: estação (mês da data-alvo), multiplicador de alta
+    demanda e margem de segurança vêm de ``ProductionConfig`` — CLI, projections
+    e matriz enxergam exatamente a mesma sugestão.
+    """
+    from shopman.craftsman import suggest as formula_suggest
+
+    from shopman.shop.production_config import ProductionConfig
+
+    suggestion = ProductionConfig.load().suggestion
+    return formula_suggest(
+        target_date,
+        output_skus=output_skus,
+        season_months=suggestion.season_months_for(target_date.month),
+        high_demand_multiplier=suggestion.high_demand_multiplier_decimal,
+        safety_pct=suggestion.safety_stock_percent_decimal,
+    )
+
+
 def reserve_materials(work_order) -> None:
     """Ponto de coordenação ao planejar produção.
 
@@ -399,9 +420,20 @@ def _default_position_ref() -> str:
 
 def _target_date(value) -> date:
     try:
-        return date.fromisoformat(value) if value else date.today() + timedelta(days=1)
+        return date.fromisoformat(value) if value else _default_planning_date()
     except (ValueError, TypeError):
-        return date.today() + timedelta(days=1)
+        return _default_planning_date()
+
+
+def _default_planning_date() -> date:
+    from shopman.shop.production_config import ProductionConfig
+
+    try:
+        horizon_days = ProductionConfig.load().suggestion.horizon_days
+    except Exception:
+        logger.debug("production.default_planning_date degraded", exc_info=True)
+        horizon_days = 1
+    return date.today() + timedelta(days=horizon_days)
 
 
 def _target_date_or_today(value) -> date:
@@ -415,9 +447,7 @@ def _formula_meta(*, recipe, target_date: date, quantity: Decimal, source_ref: s
     if source_ref != "formula:suggestion":
         return {}
     try:
-        from shopman.craftsman import suggest as formula_suggest
-
-        lines = formula_suggest(target_date, output_skus=[recipe.output_sku])
+        lines = suggest_for(target_date, output_skus=[recipe.output_sku])
         basis = {}
         for line in lines:
             if line.recipe.pk == recipe.pk:

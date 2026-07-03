@@ -413,6 +413,26 @@ def _integrations_form_fields() -> dict[str, forms.Field]:
     }
 
 
+def _production_suggestion_defaults(defaults: dict) -> dict:
+    """Leitura de ``defaults["production"]["suggestion"]`` (dict vazio se ausente)."""
+    production_cfg = defaults.get("production")
+    if not isinstance(production_cfg, dict):
+        return {}
+    suggestion = production_cfg.get("suggestion")
+    return suggestion if isinstance(suggestion, dict) else {}
+
+
+def _ensure_production_suggestion(defaults: dict) -> dict:
+    """Escrita: garante e retorna ``defaults["production"]["suggestion"]`` mutável."""
+    production_cfg = defaults.get("production")
+    production_cfg = dict(production_cfg) if isinstance(production_cfg, dict) else {}
+    suggestion = production_cfg.get("suggestion")
+    suggestion = dict(suggestion) if isinstance(suggestion, dict) else {}
+    production_cfg["suggestion"] = suggestion
+    defaults["production"] = production_cfg
+    return suggestion
+
+
 def _months_to_choice(months) -> list[str]:
     """Stored ``list[int]`` → ``list[str]`` para o MultipleChoiceField."""
     if not isinstance(months, (list, tuple)):
@@ -657,7 +677,12 @@ class ShopForm(forms.ModelForm):
             if isinstance(defaults.get("pickup_slot_config"), dict)
             else {}
         )
-        seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
+        production_suggestion = _production_suggestion_defaults(defaults)
+        seasons = (
+            production_suggestion.get("seasons")
+            if isinstance(production_suggestion.get("seasons"), dict)
+            else {}
+        )
 
         if self._has("defaults_dynamic_collections"):
             self.fields["defaults_dynamic_collections"].initial = list(
@@ -676,8 +701,12 @@ class ShopForm(forms.ModelForm):
             self.fields["defaults_season_mild_months"].initial = _months_to_choice(seasons.get("mild"))
             self.fields["defaults_season_cold_months"].initial = _months_to_choice(seasons.get("cold"))
         if self._has("defaults_high_demand_multiplier"):
-            self.fields["defaults_high_demand_multiplier"].initial = defaults.get("high_demand_multiplier")
-            self.fields["defaults_safety_stock_percent"].initial = defaults.get("safety_stock_percent")
+            self.fields["defaults_high_demand_multiplier"].initial = production_suggestion.get(
+                "high_demand_multiplier"
+            )
+            self.fields["defaults_safety_stock_percent"].initial = production_suggestion.get(
+                "safety_stock_percent"
+            )
 
         if self._has(DEFAULTS_RULE_Q_FIELDS[0][0]):
             rules = defaults.get("rules") if isinstance(defaults.get("rules"), dict) else {}
@@ -965,12 +994,16 @@ class ShopForm(forms.ModelForm):
             defaults["closed_dates"] = closed_dates
 
         if self._has("defaults_season_hot_months"):
-            seasons = defaults.get("seasons") if isinstance(defaults.get("seasons"), dict) else {}
-            seasons = dict(seasons)
+            suggestion_cfg = _ensure_production_suggestion(defaults)
+            seasons = (
+                dict(suggestion_cfg["seasons"])
+                if isinstance(suggestion_cfg.get("seasons"), dict)
+                else {}
+            )
             seasons["hot"] = _choice_to_months(self.cleaned_data.get("defaults_season_hot_months"))
             seasons["mild"] = _choice_to_months(self.cleaned_data.get("defaults_season_mild_months"))
             seasons["cold"] = _choice_to_months(self.cleaned_data.get("defaults_season_cold_months"))
-            defaults["seasons"] = seasons
+            suggestion_cfg["seasons"] = seasons
 
         for field, key in (
             ("defaults_high_demand_multiplier", "high_demand_multiplier"),
@@ -978,11 +1011,12 @@ class ShopForm(forms.ModelForm):
         ):
             if not self._has(field):
                 continue
+            suggestion_cfg = _ensure_production_suggestion(defaults)
             value = self.cleaned_data.get(field)
             if value is None:
-                defaults.pop(key, None)
+                suggestion_cfg.pop(key, None)
             else:
-                defaults[key] = str(value)
+                suggestion_cfg[key] = str(value)
 
         if self._has(DEFAULTS_RULE_Q_FIELDS[0][0]):
             rules = defaults.get("rules") if isinstance(defaults.get("rules"), dict) else {}

@@ -78,6 +78,7 @@ def perform_day_closing(
             data={
                 "items": snapshot,
                 "production_summary": _production_summary(closing_date),
+                "pending_production": _pending_production_snapshot(closing_date),
                 "cash_shift_summary": _cash_shift_summary(closing_date),
                 "reconciliation_errors": _reconciliation_errors(
                     closing_date=closing_date,
@@ -127,6 +128,33 @@ def _issue_from_saleable(sku, quantity, reason) -> None:
         take = min(remaining, quant._quantity)
         StockMovements.issue(quantity=take, quant=quant, reason=reason)
         remaining -= take
+
+
+def _pending_production_snapshot(closing_date: date) -> list[dict]:
+    """WOs abertas no fechamento — registradas para auditoria (não bloqueiam)."""
+    from shopman.craftsman.models import WorkOrder
+
+    rows = []
+    qs = (
+        WorkOrder.objects.filter(
+            status__in=(WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
+            target_date__lte=closing_date,
+        )
+        .select_related("recipe")
+        .order_by("status", "target_date", "ref")
+    )
+    for wo in qs:
+        rows.append(
+            {
+                "ref": wo.ref,
+                "output_sku": wo.output_sku,
+                "recipe_ref": wo.recipe.ref,
+                "status": str(wo.status),
+                "quantity": str(wo.quantity),
+                "target_date": wo.target_date.isoformat() if wo.target_date else "",
+            }
+        )
+    return rows
 
 
 def _production_summary(closing_date: date) -> dict:

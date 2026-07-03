@@ -174,11 +174,9 @@ def _candidate_work_order(sku: str, *, target_date: date):
 
 def _match_strategy() -> str:
     try:
-        from shopman.shop.models import Shop
+        from shopman.shop.production_config import ProductionConfig
 
-        strategy = (Shop.load().defaults or {}).get("production_order_match") or "first_planned"
-        if strategy in {"first_planned", "earliest_target", "manual"}:
-            return strategy
+        return ProductionConfig.load().order_match
     except Exception:
         logger.debug("production_order_sync.strategy_failed", exc_info=True)
     return "first_planned"

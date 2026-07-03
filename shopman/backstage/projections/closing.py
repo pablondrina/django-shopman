@@ -73,6 +73,20 @@ class ReconciliationError:
 
 
 @dataclass(frozen=True)
+class PendingProductionProjection:
+    """An open WorkOrder surfaced at day closing (planned or started)."""
+
+    ref: str
+    output_sku: str
+    recipe_name: str
+    status: str  # "planned" | "started"
+    status_label: str  # "Planejada" | "Em produção"
+    quantity: str  # display (planned qty ou started qty)
+    target_date_display: str  # "16/04"
+    is_overdue: bool  # target_date < hoje
+
+
+@dataclass(frozen=True)
 class DayClosingProjection:
     """Top-level read model for the day closing page."""
 
@@ -87,6 +101,8 @@ class DayClosingProjection:
     production_summary: dict
     cash_shift_summary: dict
     reconciliation_errors: tuple[ReconciliationError, ...]
+    pending_production: tuple[PendingProductionProjection, ...]
+    has_pending_production: bool
 
 
 # ── Builder ────────────────────────────────────────────────────────────
@@ -116,6 +132,8 @@ def build_day_closing() -> DayClosingProjection:
             for raw in raw_errors
         )
 
+    pending_production = _pending_production(today)
+
     return DayClosingProjection(
         today=today.isoformat(),
         today_display=today.strftime("%d/%m/%Y"),
@@ -128,6 +146,8 @@ def build_day_closing() -> DayClosingProjection:
         production_summary=production_summary,
         cash_shift_summary=cash_shift_summary,
         reconciliation_errors=reconciliation_errors,
+        pending_production=pending_production,
+        has_pending_production=bool(pending_production),
     )
 
 
@@ -219,6 +239,44 @@ def _closing_data(closing: DayClosing) -> dict:
     if isinstance(closing.data, dict):
         return closing.data
     return {"items": closing.data or [], "production_summary": {}, "reconciliation_errors": []}
+
+
+def _pending_production(today: date) -> tuple[PendingProductionProjection, ...]:
+    """WOs abertas (planned/started) até hoje — o fechamento acusa, não bloqueia."""
+    try:
+        from shopman.craftsman.models import WorkOrder
+
+        status_labels = {
+            WorkOrder.Status.PLANNED: "Planejada",
+            WorkOrder.Status.STARTED: "Em produção",
+        }
+        rows = []
+        qs = (
+            WorkOrder.objects.filter(
+                status__in=(WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
+                target_date__lte=today,
+            )
+            .select_related("recipe")
+            .order_by("status", "target_date", "ref")
+        )
+        for wo in qs:
+            qty = wo.started_qty if wo.status == WorkOrder.Status.STARTED else wo.quantity
+            rows.append(
+                PendingProductionProjection(
+                    ref=wo.ref,
+                    output_sku=wo.output_sku,
+                    recipe_name=wo.recipe.name or wo.recipe.ref,
+                    status=str(wo.status),
+                    status_label=status_labels.get(wo.status, str(wo.status)),
+                    quantity=str(qty or wo.quantity),
+                    target_date_display=wo.target_date.strftime("%d/%m") if wo.target_date else "",
+                    is_overdue=bool(wo.target_date and wo.target_date < today),
+                )
+            )
+        return tuple(rows)
+    except Exception:
+        logger.debug("closing.pending_production_failed", exc_info=True)
+        return ()
 
 
 def _today_production_summary(selected_date: date) -> dict:

@@ -37,6 +37,25 @@
       {% endcomponent %}
     {% endif %}
 
+    {% if day_closing.has_pending_production %}
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          {% component "unfold/components/title.html" with class="text-lg" %}
+            Producao pendente
+          {% endcomponent %}
+          {% include "unfold/helpers/label.html" with text=day_closing.pending_production|length type="warning" %}
+        </div>
+        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+          Ordens ainda abertas neste fechamento. Conclua ou estorne antes de encerrar o dia. O registro fica no snapshot.
+        {% endcomponent %}
+        {% component "unfold/components/table.html" with table=day_closing_pending_production_table striped=1 %}{% endcomponent %}
+        {% url 'admin_console_production' as production_console_url %}
+        {% component "unfold/components/link.html" with href=production_console_url %}
+          Resolver na producao
+        {% endcomponent %}
+      </div>
+    {% endif %}
+
     <div class="flex flex-col gap-2">
       {% component "unfold/components/title.html" with class="text-lg" %}
         Producao do dia

@@ -205,6 +205,19 @@ class RecipeAdminForm(forms.ModelForm):
         self.fields["requires_batch_tracking"].initial = bool(meta.get("requires_batch_tracking"))
         self.fields["shelf_life_days"].initial = meta.get("shelf_life_days")
 
+        lifecycle_choices = _production_lifecycle_choices()
+        if lifecycle_choices:
+            self.fields["production_lifecycle"] = forms.ChoiceField(
+                label=_("Lifecycle de produção"),
+                required=False,
+                choices=lifecycle_choices,
+                initial=meta.get("production_lifecycle") or lifecycle_choices[0][0],
+                widget=UnfoldAdminSelectWidget(),
+                help_text=_(
+                    "Variante de coordenação do orquestrador para as OPs desta ficha."
+                ),
+            )
+
     def clean_steps_text(self) -> list[str]:
         raw = self.cleaned_data.get("steps_text") or ""
         return [line.strip() for line in raw.splitlines() if line.strip()]
@@ -217,11 +230,35 @@ class RecipeAdminForm(forms.ModelForm):
         _set_meta_value(meta, "capacity_per_day", _json_decimal(self.cleaned_data.get("capacity_per_day")))
         _set_meta_value(meta, "requires_batch_tracking", self.cleaned_data.get("requires_batch_tracking") or None)
         _set_meta_value(meta, "shelf_life_days", self.cleaned_data.get("shelf_life_days"))
+        if "production_lifecycle" in self.fields:
+            lifecycle = (self.cleaned_data.get("production_lifecycle") or "").strip()
+            default_value = self.fields["production_lifecycle"].choices[0][0]
+            _set_meta_value(
+                meta,
+                "production_lifecycle",
+                lifecycle if lifecycle and lifecycle != default_value else None,
+            )
         instance.meta = meta
         if commit:
             instance.save()
             self.save_m2m()
         return instance
+
+
+def _production_lifecycle_choices() -> list[tuple[str, str]]:
+    """Resolve as choices de lifecycle do provider configurado ([] = sem campo)."""
+    from shopman.craftsman.conf import get_setting
+
+    provider_path = get_setting("PRODUCTION_LIFECYCLE_PROVIDER")
+    if not provider_path:
+        return []
+    try:
+        from django.utils.module_loading import import_string
+
+        return [(str(value), str(label)) for value, label in import_string(provider_path)()]
+    except Exception:
+        logger.warning("Failed to load PRODUCTION_LIFECYCLE_PROVIDER: %s", provider_path)
+        return []
 
 
 def _recipe_input_sku_choices(current: str = "") -> list[tuple[str, str]]:

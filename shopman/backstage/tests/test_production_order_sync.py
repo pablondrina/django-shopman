@@ -145,7 +145,7 @@ def test_work_order_void_removes_bidirectional_refs(recipe):
 
 @pytest.mark.django_db
 def test_earliest_target_strategy_prefers_older_work_order(recipe):
-    Shop.objects.create(name="Loja", defaults={"production_order_match": "earliest_target"})
+    Shop.objects.create(name="Loja", defaults={"production": {"order_match": "earliest_target"}})
     newer = craft.plan(recipe, 10, date=date.today())
     older = craft.plan(recipe, 10, date=date.today() - timedelta(days=1))
     order = _order("SYNC-ORD-6")

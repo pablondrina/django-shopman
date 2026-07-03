@@ -429,6 +429,15 @@ Write-back: `transaction_id` (string)
 
 Write-back: `refund_id` (string)
 
+#### `production.late_check`
+
+Heartbeat auto-reagendável de alertas de produção (WP-PE0). Payload **vazio** —
+é um singleton por loja, não referencia pedido. Armado por
+`ensure_late_check_scheduled()` em qualquer `production_changed` (e pelo seed);
+o handler roda `check_late_started_orders()` + `check_forgotten_planned_orders()`
+e reenfileira a si mesmo em `production.alerts.late_check_cadence_minutes`
+(0 = desligado), zerando `attempts`. Duplicatas colapsam mantendo a mais antiga.
+
 #### `card.create`
 
 | Chave | Tipo | Escrito por | Lido por |
@@ -742,6 +751,30 @@ Políticas do balcão, fora do schema do `ChannelConfig`.
 |-------|------|----------|-----------|
 | `stock_alerts.cooldown_minutes` | `int` (minutos) | `get_alert_cooldown_minutes` (`stockman/contrib/alerts/conf.py`, via resolver) | Intervalo mínimo entre re-notificações do MESMO alerta de estoque baixo (anti-flood; o cooldown é por `StockAlert` = par sku+posição). **Ausente = herda `STOCKMAN_ALERT_COOLDOWN_MINUTES`** (deploy, default 60) — zero regressão. O Core não depende do shop: o orquestrador injeta um resolver em `stockman.contrib.alerts.conf`. O limiar de cada alerta (`min_quantity`) continua por-SKU no admin de Alertas. |
 
+### Produção — `Shop.defaults["production"]`
+
+Contrato único de configuração de produção, fora do schema do `ChannelConfig`
+(produção é da loja, não do canal). Source-of-truth tipado em
+`shopman/shop/production_config.py` (`ProductionConfig`, dataclass-driven, mesma
+mecânica do `LoyaltyConfig`): defaults sensatos, `deep_merge` com
+`Shop.defaults["production"]`, validação que acusa cedo no `load()`.
+
+| Chave | Tipo | Lido por | Descrição |
+|-------|------|----------|-----------|
+| `production.suggestion.seasons` | `dict[str, list[int]]` | `production.suggest_for()` (`shop/services/production.py`) | Estações → meses (1-12). O mês da data-alvo resolve a estação; a lista filtra o histórico de demanda do `craft.suggest()`. Vazio = sem filtro sazonal. |
+| `production.suggestion.high_demand_multiplier` | `string` (Decimal) | `production.suggest_for()` | Multiplicador aplicado em sexta/sábado (ex: `"1.2"`). Ausente = desligado. |
+| `production.suggestion.safety_stock_percent` | `string` (Decimal) | `production.suggest_for()` | Margem sobre (demanda média + committed), ex: `"0.20"`. **Ausente = herda `CRAFTSMAN["SAFETY_STOCK_PERCENT"]`** (deploy, default 0.20). |
+| `production.suggestion.horizon_days` | `int` | `bulk_plan` / matriz de planejamento | Data-alvo padrão do planejamento em dias (default `1` = amanhã). |
+| `production.alerts.low_yield_threshold` | `string` (Decimal 0-1) | `maybe_create_low_yield_alert` (`shop/handlers/production_alerts.py`) | Yield (finished/started) abaixo disto → `OperatorAlert production_low_yield`. Default `"0.80"`. |
+| `production.alerts.default_max_started_minutes` | `int` | `production_alerts`, projections de produção | Janela padrão de WO em andamento antes de "atrasada". `Recipe.meta["max_started_minutes"]` sobrescreve por receita. Default `240`. |
+| `production.alerts.late_check_cadence_minutes` | `int` | `ProductionLateCheckHandler` | Cadência do heartbeat `production.late_check`. `0` = desligado. Default `15`. |
+| `production.order_match` | `string` | `production_order_sync._match_strategy` | Estratégia de vínculo pedido confirmado → WorkOrder: `first_planned` (default) \| `earliest_target` \| `manual`. |
+
+> Editáveis no ShopAdmin (estações, multiplicador e margem no fieldset de
+> produção). CLI (`suggest_production`), projections do backstage e matriz do
+> fournil resolvem a sugestão pelo MESMO caminho (`suggest_for`) — nunca chame
+> `craft.suggest()`/`formula suggest()` direto de uma superfície.
+
 ---
 
 ## Shop.integrations
@@ -823,14 +856,20 @@ Contexto operacional de produção mantido fora do core Craftsman.
 | `batch_ref` | `string` | `backstage.services.production` | auditoria/lotes | Lote criado para receita com rastreabilidade. |
 | `batch_quantity` | `string` | `backstage.services.production` | auditoria/lotes | Quantidade acabada associada ao lote. |
 | `expiry_date` | `string` | `backstage.services.production` | auditoria/lotes | ISO date de validade do lote, quando aplicável. |
+| `formula_basis` | `dict` | `set_planned_quantity` (`shop/services/production.py`) | matriz/auditoria de sugestão | Basis da sugestão aceita (demanda média, committed, margem, `accepted_quantity`). Só quando `source_ref="formula:suggestion"`. |
+| `consolidated_work_order_refs` | `list[string]` | `set_planned_quantity` | auditoria | Refs de WOs planned duplicadas consolidadas nesta. |
+| `_recipe_snapshot` | `dict` | Core (`CraftPlanning.plan`) | Core (`finish`) | BOM congelada no plan — **gerida pelo Core, nunca editar**. |
 
 ## Recipe.meta
 
 | Chave | Tipo | Escrito por | Lido por | Descrição |
 |-------|------|-------------|----------|-----------|
 | `steps` | `list[dict]` | seed/admin de receitas | KDS de produção | Passos do KDS: `[{name: string, target_seconds: int}]`. Fallback: campo legado `Recipe.steps`. |
-| `max_started_minutes` | `int` | seed/admin de receitas | alertas/KDS produção | Tempo alvo total para WO em produção antes de atraso. |
+| `max_started_minutes` | `int` | seed/admin de receitas | alertas/KDS produção | Tempo alvo total para WO em produção antes de atraso. Ausente = `production.alerts.default_max_started_minutes`. |
 | `capacity_per_day` | `int` | seed/admin de receitas | dashboard/relatórios | Capacidade diária nominal da receita. |
+| `production_lifecycle` | `string` | admin de receitas (contrib Unfold, campo provider-driven) | `dispatch_production` (`shop/production_lifecycle.py`) | Variante de lifecycle do orquestrador: `standard` (default, chave omitida) \| `forecast` \| `subcontract` (ADR-007). O campo só existe porque `CRAFTSMAN["PRODUCTION_LIFECYCLE_PROVIDER"]` aponta para `production_lifecycle_choices()` do orquestrador — pacote standalone não o renderiza. |
+| `requires_batch_tracking` | `bool` | admin de receitas (contrib Unfold) | `backstage.services.production` | Cria lote ao concluir a produção. |
+| `shelf_life_days` | `int` | admin de receitas (contrib Unfold) | `backstage.services.production` | Validade do lote produzido, em dias. |
 
 ## DayClosing.data
 
@@ -854,4 +893,6 @@ Registros antigos podem ser uma lista simples de snapshots. Registros novos usam
 |-------|------|-------------|----------|-----------|
 | `items` | `list[dict]` | `services/closing.py::perform_day_closing` | template fechamento | Snapshot por SKU com qty reportada, aplicada, D-1, perda. |
 | `production_summary` | `dict[str, dict]` | `services/closing.py::_production_summary` | template fechamento, projection | Agregado de WOs do dia por receita: `{recipe_ref: {recipe_ref, output_sku, planned, finished, loss}}`. |
+| `pending_production` | `list[dict]` | `services/closing.py::_pending_production_snapshot` | auditoria | WOs ainda abertas (planned/started, `target_date <= data do fechamento`) no momento do fechamento: `{ref, output_sku, recipe_ref, status, quantity, target_date}`. O fechamento acusa, não bloqueia. |
+| `cash_shift_summary` | `dict` | `services/closing.py::_cash_shift_summary` | template fechamento, projection | Turnos de caixa do dia (fechados/abertos/totais). |
 | `reconciliation_errors` | `list[dict]` | `services/closing.py::_reconciliation_errors` | projection (`ReconciliationError.from_dict`) | Discrepâncias detectadas: SKUs vendidos além do que estoque + produção poderiam suprir. Schema: `{sku, sold, available, deficit}` (a projection converte para `ReconciliationError(sku, sold_qty, available_qty, deficit_qty)` na leitura). |

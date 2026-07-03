@@ -38,6 +38,11 @@ DEFAULTS = {
     "INVENTORY_BACKEND": None,
     "CATALOG_BACKEND": None,
     "DEMAND_BACKEND": None,
+    # Dotted path to a callable returning [(value, label), ...] for the
+    # Recipe.meta["production_lifecycle"] admin field. The orchestrator that
+    # dispatches production lifecycles provides it; unset = field hidden
+    # (Craftsman itself has no lifecycle concept).
+    "PRODUCTION_LIFECYCLE_PROVIDER": None,
     "SAFETY_STOCK_PERCENT": Decimal("0.20"),
     "HISTORICAL_DAYS": 28,
     "SAME_WEEKDAY_ONLY": True,

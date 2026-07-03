@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from decimal import Decimal
 
 from django.utils import timezone
 
 from shopman.shop.adapters import alert as alert_adapter
+from shopman.shop.directives import PRODUCTION_LATE_CHECK
+from shopman.shop.production_config import ProductionConfig
 
-LOW_YIELD_THRESHOLD = Decimal("0.80")
-DEFAULT_STARTED_MINUTES = 240
 logger = logging.getLogger(__name__)
 
 
@@ -28,8 +27,79 @@ def connect() -> None:
 
 def on_production_changed(sender, product_ref, date, action, work_order, **kwargs):
     """Create operator alerts for production lifecycle events."""
+    ensure_late_check_scheduled()
     if action == "finished":
         maybe_create_low_yield_alert(work_order)
+
+
+def ensure_late_check_scheduled() -> bool:
+    """Arma o heartbeat ``production.late_check`` se não houver um vivo.
+
+    Chamado em qualquer ``production_changed``: loja com produção ativa sempre
+    tem o heartbeat armado — nenhuma tela precisa estar aberta para o operador
+    ser avisado de atraso ou esquecimento. Cadence 0 desliga.
+    """
+    cadence = _alerts_config().late_check_cadence_minutes
+    if cadence <= 0:
+        return False
+
+    from shopman.orderman.models import Directive
+
+    if Directive.objects.filter(
+        topic=PRODUCTION_LATE_CHECK, status__in=("queued", "running")
+    ).exists():
+        return False
+
+    Directive.objects.create(
+        topic=PRODUCTION_LATE_CHECK,
+        payload={},
+        available_at=timezone.now() + timedelta(minutes=cadence),
+    )
+    return True
+
+
+class ProductionLateCheckHandler:
+    """Heartbeat de alertas de produção. Topic: production.late_check
+
+    Auto-reagendável: roda as varreduras (started além da janela, planned
+    esquecida) e reenfileira a si mesmo no cadence do ``ProductionConfig``,
+    zerando ``attempts`` — um heartbeat perpétuo nunca esgota retries. Falha
+    transitória segue o retry/backoff padrão do worker; se o heartbeat morrer
+    (max attempts), o próximo ``production_changed`` rearma.
+
+    Cadence 0 = desligado: conclui sem reagendar. Duplicatas colapsam
+    mantendo a mais antiga viva.
+    """
+
+    topic = PRODUCTION_LATE_CHECK
+
+    def handle(self, *, message, ctx: dict) -> None:
+        from shopman.orderman.models import Directive
+
+        if (
+            Directive.objects.filter(
+                topic=self.topic, status__in=("queued", "running"), pk__lt=message.pk
+            )
+            .exclude(pk=message.pk)
+            .exists()
+        ):
+            return  # duplicata — o worker marca done; a mais antiga segue viva
+
+        cadence = _alerts_config().late_check_cadence_minutes
+        if cadence <= 0:
+            return  # desligado — o worker marca done; production_changed rearma
+
+        late = check_late_started_orders()
+        forgotten = check_forgotten_planned_orders()
+        if late or forgotten:
+            logger.info(
+                "production.late_check: %d atrasada(s), %d esquecida(s)", late, forgotten
+            )
+
+        message.status = "queued"
+        message.attempts = 0
+        message.available_at = timezone.now() + timedelta(minutes=cadence)
+        message.save(update_fields=["status", "attempts", "available_at", "updated_at"])
 
 
 def maybe_create_low_yield_alert(work_order) -> bool:
@@ -42,7 +112,7 @@ def maybe_create_low_yield_alert(work_order) -> bool:
         return False
 
     yield_rate = work_order.finished / base_qty
-    if yield_rate >= LOW_YIELD_THRESHOLD:
+    if yield_rate >= _alerts_config().low_yield_threshold_decimal:
         return False
 
     message = (
@@ -90,6 +160,33 @@ def check_late_started_orders(*, selected_date=None) -> int:
     return created
 
 
+def check_forgotten_planned_orders(*, today=None) -> int:
+    """Create alerts for planned work orders whose target date has passed."""
+    from shopman.craftsman.models import WorkOrder
+
+    today = today or timezone.localdate()
+    qs = (
+        WorkOrder.objects.filter(status=WorkOrder.Status.PLANNED, target_date__lt=today)
+        .select_related("recipe")
+    )
+
+    created = 0
+    for work_order in qs:
+        if _recent_exists("production_forgotten", work_order.ref):
+            continue
+        alert_adapter.create(
+            "production_forgotten",
+            "warning",
+            (
+                f"Produção {work_order.ref} ({work_order.output_sku}) planejada para "
+                f"{work_order.target_date:%d/%m} nunca foi iniciada."
+            ),
+            order_ref=work_order.ref,
+        )
+        created += 1
+    return created
+
+
 def create_stock_short_alert(*, work_order_ref: str, output_sku: str, error: str) -> None:
     """Create an alert for a failed finish caused by stock/inventory shortage."""
     if _recent_exists("production_stock_short", work_order_ref):
@@ -111,7 +208,15 @@ def _target_minutes(work_order) -> int:
                 return value
     except Exception:
         logger.debug("production_alerts.invalid_target_minutes work_order=%s", work_order.pk, exc_info=True)
-    return DEFAULT_STARTED_MINUTES
+    return _alerts_config().default_max_started_minutes
+
+
+def _alerts_config() -> ProductionConfig.Alerts:
+    try:
+        return ProductionConfig.load().alerts
+    except Exception:
+        logger.debug("production_alerts.config_load_failed", exc_info=True)
+        return ProductionConfig.Alerts()
 
 
 def _recent_exists(alert_type: str, work_order_ref: str) -> bool:

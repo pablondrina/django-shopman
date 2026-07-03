@@ -26,6 +26,11 @@ ORDER_STALE_NEW_ALERT = "order.stale_new_alert"
 # Payment
 PAYMENT_TIMEOUT = "payment.timeout"
 
+# Production
+# Heartbeat auto-reagendável: varre WOs started além da janela e planned
+# esquecidas, criando OperatorAlerts sem depender de tela aberta.
+PRODUCTION_LATE_CHECK = "production.late_check"
+
 
 # Fiscal
 FISCAL_EMIT_NFCE = "fiscal.emit_nfce"

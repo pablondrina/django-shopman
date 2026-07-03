@@ -714,6 +714,10 @@ CRAFTSMAN = {
     # Composed: Offerman (vendáveis) + Buyman (insumos/Material). Resolução-only
     # (unidade do insumo p/ cross-check de RecipeItem) — não toca disponibilidade.
     "CATALOG_BACKEND": "shopman.shop.adapters.catalog_backend.ComposedCatalogBackend",
+    # Campo estruturado Recipe.meta["production_lifecycle"] no admin de receitas:
+    # as variantes vivem no dispatch do orquestrador (ADR-007); o pacote só
+    # renderiza o que o provider entrega (sem provider = sem campo).
+    "PRODUCTION_LIFECYCLE_PROVIDER": "shopman.shop.production_lifecycle.production_lifecycle_choices",
 }
 
 STOCKMAN = {

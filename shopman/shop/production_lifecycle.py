@@ -18,6 +18,25 @@ logger = logging.getLogger(__name__)
 ProductionHandler = Callable[[object], None]
 
 
+def available_lifecycles() -> tuple[str, ...]:
+    """Nomes das variantes de lifecycle de produção registradas."""
+    return tuple(_PRODUCTION_PHASE_HANDLERS)
+
+
+def production_lifecycle_choices() -> list[tuple[str, str]]:
+    """Choices (value, label) das variantes — provider do admin de Recipe.
+
+    Wired via ``CRAFTSMAN["PRODUCTION_LIFECYCLE_PROVIDER"]``: o pacote não
+    conhece o orquestrador; o campo só existe porque este provider existe.
+    """
+    labels = {
+        "standard": "Padrão (produção própria)",
+        "forecast": "Previsão (produção especulativa)",
+        "subcontract": "Terceirizada (subcontratação)",
+    }
+    return [(name, labels.get(name, name)) for name in available_lifecycles()]
+
+
 def production_lifecycle_name_for(recipe) -> str:
     """Resolve the production lifecycle name from Recipe.meta."""
     meta = recipe.meta or {}

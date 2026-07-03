@@ -1,8 +1,10 @@
 """
 Management command: suggest production quantities based on demand history.
 
-Uses CraftService.suggest() with the configured DemandBackend to generate
-recommendations for what to produce on a given date.
+Delegates to the orchestration helper ``production.suggest_for()`` so the CLI
+sees exactly the same suggestion as the planning surfaces: season, high-demand
+multiplier and safety margin come from ``ProductionConfig``
+(``Shop.defaults["production"]``).
 
 Usage:
     python manage.py suggest_production                # suggestions for tomorrow
@@ -37,51 +39,22 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from shopman.craftsman.service import CraftService as craft
+        from shopman.shop.services.production import suggest_for
 
         target_date = self._parse_date(options["date"])
         output_skus = options["skus"]
 
-        # Read season and high_demand_multiplier from Shop.defaults if available
-        season_months = None
-        high_demand_multiplier = None
-        try:
-            from decimal import Decimal as D
-
-            from shopman.shop.models import Shop
-
-            shop = Shop.objects.first()
-            if shop and shop.defaults:
-                seasons = shop.defaults.get("seasons", {})
-                # Determine current season based on target_date month
-                month = target_date.month
-                for _season_name, months in seasons.items():
-                    if month in months:
-                        season_months = months
-                        break
-                hdm = shop.defaults.get("high_demand_multiplier")
-                if hdm is not None:
-                    high_demand_multiplier = D(str(hdm))
-        except Exception:
-            logger.debug("suggest_production.handle degraded; using fallback", exc_info=True)
-            self.stderr.write("Warning: could not load Shop defaults for production hints")
-
         self.stdout.write(f"\nSugestão de produção para {target_date}")
         self.stdout.write("=" * 60)
 
-        suggestions = craft.suggest(
-            date=target_date,
-            output_skus=output_skus,
-            season_months=season_months,
-            high_demand_multiplier=high_demand_multiplier,
-        )
+        suggestions = suggest_for(target_date, output_skus=output_skus)
 
         if not suggestions:
             self.stdout.write(
                 self.style.WARNING(
                     "\nNenhuma sugestão gerada.\n"
                     "Possíveis causas:\n"
-                    "  - CRAFTING['DEMAND_BACKEND'] não configurado\n"
+                    "  - CRAFTSMAN['DEMAND_BACKEND'] não configurado\n"
                     "  - Nenhuma receita ativa encontrada\n"
                     "  - Sem histórico de demanda suficiente"
                 )

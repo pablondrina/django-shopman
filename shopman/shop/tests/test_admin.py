@@ -217,9 +217,13 @@ class TestShopAdminDefaults:
                 {"date": "2026-12-25", "label": "Natal antigo"},
                 {"from": "2026-01-02", "to": "2026-01-05", "label": "Férias"},
             ],
-            "seasons": {"hot": [12, 1], "mild": [4], "cold": [7]},
-            "high_demand_multiplier": "1.20",
-            "safety_stock_percent": "0.20",
+            "production": {
+                "suggestion": {
+                    "seasons": {"hot": [12, 1], "mild": [4], "cold": [7]},
+                    "high_demand_multiplier": "1.20",
+                    "safety_stock_percent": "0.20",
+                },
+            },
         }
         shop.save(update_fields=["defaults"])
 
@@ -275,13 +279,14 @@ class TestShopAdminDefaults:
             {"date": "2026-12-25", "label": "Natal"},
             {"from": "2026-01-02", "to": "2026-01-05", "label": "Férias"},
         ]
-        assert saved.defaults["seasons"] == {
+        production_suggestion = saved.defaults["production"]["suggestion"]
+        assert production_suggestion["seasons"] == {
             "hot": [1, 2, 3, 10, 11, 12],  # multiselect persiste ordenado
             "mild": [4, 5, 9],
             "cold": [6, 7, 8],
         }
-        assert saved.defaults["high_demand_multiplier"] == "1.30"
-        assert saved.defaults["safety_stock_percent"] == "0.15"
+        assert production_suggestion["high_demand_multiplier"] == "1.30"
+        assert production_suggestion["safety_stock_percent"] == "0.15"
 
 
 class TestShopAdminLoyaltyDefaults:

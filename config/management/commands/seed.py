@@ -242,13 +242,17 @@ class Command(BaseCommand):
                     },
                     "max_preorder_days": 30,
                     "closed_dates": closed_dates,
-                    "seasons": {
-                        "hot":  [10, 11, 12, 1, 2, 3],
-                        "mild": [4, 5, 9],
-                        "cold": [6, 7, 8],
+                    "production": {
+                        "suggestion": {
+                            "seasons": {
+                                "hot":  [10, 11, 12, 1, 2, 3],
+                                "mild": [4, 5, 9],
+                                "cold": [6, 7, 8],
+                            },
+                            "high_demand_multiplier": "1.2",
+                            "safety_stock_percent": "0.20",
+                        },
                     },
-                    "high_demand_multiplier": "1.2",
-                    "safety_stock_percent": "0.20",
                     "stock_alerts": {
                         "cooldown_minutes": 60,  # mín. entre re-avisos do mesmo alerta
                     },
@@ -3526,9 +3530,11 @@ class Command(BaseCommand):
         from shopman.shop.handlers.production_alerts import (
             check_late_started_orders,
             create_stock_short_alert,
+            ensure_late_check_scheduled,
             maybe_create_low_yield_alert,
         )
 
+        ensure_late_check_scheduled()
         today = date.today()
         created_late = check_late_started_orders(selected_date=today)
         created_yield = 0

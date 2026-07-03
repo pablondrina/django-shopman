@@ -1008,7 +1008,7 @@ def _manual_step_index(meta: dict | None, *, total: int) -> int | None:
 
 
 def _target_minutes_for_recipe(recipe: Recipe) -> int:
-    return int(_decimal_meta(recipe.meta, "max_started_minutes") or Decimal("240"))
+    return int(_decimal_meta(recipe.meta, "max_started_minutes") or _default_max_started_minutes())
 
 
 def _normalize_report_filters(filters: dict | ProductionReportFilters | None) -> ProductionReportFilters:
@@ -1189,7 +1189,17 @@ def _late_projection(wo: WorkOrder) -> ProductionLateWorkOrderProjection:
 
 
 def _target_minutes(wo: WorkOrder) -> int:
-    return int(_decimal_meta(wo.recipe.meta, "max_started_minutes") or Decimal("240"))
+    return int(_decimal_meta(wo.recipe.meta, "max_started_minutes") or _default_max_started_minutes())
+
+
+def _default_max_started_minutes() -> int:
+    from shopman.shop.production_config import ProductionConfig
+
+    try:
+        return ProductionConfig.load().alerts.default_max_started_minutes
+    except Exception:
+        logger.debug("production.default_max_started_minutes degraded", exc_info=True)
+        return ProductionConfig.Alerts().default_max_started_minutes
 
 
 def _decimal_meta(meta: dict, key: str) -> Decimal:
@@ -1206,9 +1216,9 @@ def _decimal_meta(meta: dict, key: str) -> Decimal:
 
 def _production_suggestions(selected_date: date) -> list:
     try:
-        from shopman.craftsman import suggest as formula_suggest
+        from shopman.shop.services.production import suggest_for
 
-        return formula_suggest(target_date=selected_date)
+        return suggest_for(selected_date)
     except Exception:
         logger.exception("production_suggestions_failed date=%s", selected_date)
         return []

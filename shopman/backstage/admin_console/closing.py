@@ -78,6 +78,7 @@ class DayClosingConsoleView(UnfoldModelAdminViewMixin, TemplateView):
             "day_closing_form": form,
             "day_closing_items_table": _items_table(closing, form),
             "day_closing_production_table": _production_table(closing),
+            "day_closing_pending_production_table": _pending_production_table(closing),
             "day_closing_reconciliation_table": _reconciliation_table(closing),
             "day_closing_reports_url": _reports_url(closing),
         })
@@ -125,6 +126,22 @@ def _production_table(closing) -> dict:
     return {
         "headers": ["SKU", "Planejado", "Feito", "Perda"],
         "rows": rows,
+    }
+
+
+def _pending_production_table(closing) -> dict:
+    return {
+        "headers": ["Ordem", "SKU", "Status", "Qtd", "Alvo"],
+        "rows": [
+            [
+                row.ref,
+                row.output_sku,
+                f"{row.status_label} (atrasada)" if row.is_overdue else row.status_label,
+                row.quantity,
+                row.target_date_display,
+            ]
+            for row in closing.pending_production
+        ],
     }
 
 

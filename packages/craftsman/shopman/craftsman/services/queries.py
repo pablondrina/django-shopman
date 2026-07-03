@@ -124,6 +124,7 @@ class CraftQueries:
         *,
         season_months: list | None = None,
         high_demand_multiplier: Decimal | None = None,
+        safety_pct: Decimal | None = None,
     ):
         """
         Suggest production quantities for a date.
@@ -137,6 +138,9 @@ class CraftQueries:
                            If None, all history months are used.
             high_demand_multiplier: if provided and the date falls on Friday (4) or
                                     Saturday (5), multiply suggested qty by this factor.
+            safety_pct: optional safety-margin override applied over
+                        (avg_demand + committed). If None, the
+                        SAFETY_STOCK_PERCENT setting is used.
 
         Algorithm:
             For each active Recipe (optionally filtered by output_skus):
@@ -167,7 +171,8 @@ class CraftQueries:
             logger.warning("Failed to load DEMAND_BACKEND: %s", backend_path)
             return []
 
-        safety_pct = get_setting("SAFETY_STOCK_PERCENT")
+        if safety_pct is None:
+            safety_pct = get_setting("SAFETY_STOCK_PERCENT")
         historical_days = get_setting("HISTORICAL_DAYS")
         same_weekday = get_setting("SAME_WEEKDAY_ONLY")
 
