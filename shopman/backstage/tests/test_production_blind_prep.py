@@ -2,9 +2,10 @@
 
 Formato "B7" (1 letra + 1 número, sem 0/1/O/I — ultra legível): sorteio com
 retry só na colisão, alocação persistida em BlindPrepCode (estável o dia
-todo). Unicidade vale na JANELA de expediente — dia útil anterior · dia ·
-próximo dia útil (domingo/feriado pulam): etiquetas de dias adjacentes
-convivendo na cozinha nunca se confundem. Mapa código↔preparo = gestor.
+todo). Regras anticonfusão: NO DIA, letra e número nunca repetem entre
+códigos (Z7 veta Z9 e S7 — teto 8 preparos/dia); na JANELA de expediente
+(dia útil anterior · dia · próximo dia útil; domingo/feriado pulam) o código
+completo não repete. Mapa código↔preparo = gestor.
 """
 
 from __future__ import annotations
@@ -38,15 +39,27 @@ class TestBlindPrepCode:
         blind_prep_code("massa-folhada", today)
         assert blind_prep_code("massa-brioche", today) == first
 
-    def test_unique_within_day(self):
+    def test_no_letter_nor_digit_repeats_within_day(self):
+        """Z7 veta Z9 (letra) e S7 (número): confusão zero entre códigos do dia."""
         today = date.today()
-        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(40)]
-        assert len(set(codes)) == 40
+        codes = [blind_prep_code(f"preparo-{i}", today) for i in range(8)]
+        letters = [code[0] for code in codes]
+        digits = [code[1] for code in codes]
+        assert len(set(letters)) == 8
+        assert len(set(digits)) == 8
+
+    def test_ninth_prep_in_a_day_fails_explicitly(self):
+        """8 dígitos válidos ⇒ teto de 8 preparos/dia — estouro acusa, não confunde."""
+        today = date.today()
+        for i in range(8):
+            blind_prep_code(f"preparo-{i}", today)
+        with pytest.raises(RuntimeError, match="8 preparos"):
+            blind_prep_code("nono-preparo", today)
 
     def test_format_is_one_letter_one_digit_no_ambiguous_chars(self):
         """1 letra + 1 número, sem 0/1/O/I — ultra legível e memorizável."""
         today = date.today()
-        for i in range(40):
+        for i in range(8):
             code = blind_prep_code(f"preparo-{i}", today)
             assert re.fullmatch(r"[A-HJ-NP-Z][2-9]", code), code
 
@@ -57,12 +70,12 @@ class TestBlindPrepCode:
     def test_unique_across_adjacent_days_window(self):
         """Etiqueta de ontem na câmara nunca colide com a de hoje ou amanhã."""
         today = date.today()
-        codes_today = {blind_prep_code(f"hoje-{i}", today) for i in range(15)}
+        codes_today = {blind_prep_code(f"hoje-{i}", today) for i in range(8)}
         codes_tomorrow = {
-            blind_prep_code(f"amanha-{i}", today + timedelta(days=1)) for i in range(15)
+            blind_prep_code(f"amanha-{i}", today + timedelta(days=1)) for i in range(8)
         }
         codes_yesterday = {
-            blind_prep_code(f"ontem-{i}", today - timedelta(days=1)) for i in range(15)
+            blind_prep_code(f"ontem-{i}", today - timedelta(days=1)) for i in range(8)
         }
         assert not (codes_today & codes_tomorrow)
         assert not (codes_today & codes_yesterday)
@@ -101,8 +114,8 @@ class TestBlindPrepCode:
         )
         saturday = date(2026, 7, 4)
         monday = date(2026, 7, 6)
-        codes_sat = {blind_prep_code(f"sab-{i}", saturday) for i in range(15)}
-        codes_mon = {blind_prep_code(f"seg-{i}", monday) for i in range(15)}
+        codes_sat = {blind_prep_code(f"sab-{i}", saturday) for i in range(8)}
+        codes_mon = {blind_prep_code(f"seg-{i}", monday) for i in range(8)}
         assert not (codes_sat & codes_mon)
 
     def test_without_calendar_window_is_simple_yesterday_today_tomorrow(self):
@@ -115,13 +128,14 @@ class TestBlindPrepCode:
             today + timedelta(days=1),
         )
 
-    def test_space_exhaustion_raises_clearly(self):
+    def test_full_window_still_allocates_every_day(self):
+        """8+8+8 na janela: dias vizinhos lotados não travam o dia corrente."""
         today = date.today()
-        for i in range(192):
-            blind_prep_code(f"lotacao-{i}", today)
-        # A janela de amanhã inclui hoje (192 tomados) — nada livre.
-        with pytest.raises(RuntimeError, match="esgotado"):
-            blind_prep_code("um-a-mais", today + timedelta(days=1))
+        all_codes = []
+        for offset, prefix in ((-1, "ontem"), (0, "hoje"), (1, "amanha")):
+            day = today + timedelta(days=offset)
+            all_codes.extend(blind_prep_code(f"{prefix}-{i}", day) for i in range(8))
+        assert len(set(all_codes)) == 24  # código completo único na janela
 
 
 class TestWeighingAPI:

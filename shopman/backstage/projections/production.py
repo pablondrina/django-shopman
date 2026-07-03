@@ -796,10 +796,14 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
 
     Formato "B7": 1 letra + 1 número (sem 0/1/O/I — ultra legível). Sorteio
     simples com retry só na colisão; a alocação persiste em ``BlindPrepCode``
-    (estável o dia todo, reimpressão sempre bate). Unicidade vale na JANELA
-    de expediente — dia útil anterior · dia · próximo dia útil (domingo e
-    feriado pulam, via calendário da loja): etiquetas de dias adjacentes
-    convivendo na cozinha nunca se confundem.
+    (estável o dia todo, reimpressão sempre bate). Regras anticonfusão:
+
+    - NO DIA, letra e número nunca repetem entre códigos (Z7 veta Z9 e S7) —
+      teto de 8 preparos/dia (8 dígitos válidos), estouro falha explícito;
+    - na JANELA de expediente (dia útil anterior · dia · próximo dia útil,
+      domingo/feriado pulam via calendário da loja) o código completo não
+      repete: etiquetas de dias adjacentes convivendo na cozinha nunca se
+      confundem.
     """
     import secrets
 
@@ -814,14 +818,26 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
     window = _blind_window(selected_date)
     space = [letter + digit for letter in _BLIND_LETTERS for digit in _BLIND_DIGITS]
     for _attempt in range(len(space)):
-        taken = set(
+        window_taken = set(
             BlindPrepCode.objects.filter(date__in=window).values_list("code", flat=True)
         )
-        free = [code for code in space if code not in taken]
+        day_codes = set(
+            BlindPrepCode.objects.filter(date=selected_date).values_list("code", flat=True)
+        )
+        day_letters = {code[0] for code in day_codes}
+        day_digits = {code[1] for code in day_codes}
+        free = [
+            code
+            for code in space
+            if code not in window_taken
+            and code[0] not in day_letters
+            and code[1] not in day_digits
+        ]
         if not free:
             raise RuntimeError(
-                "Espaço de códigos cegos esgotado na janela de expediente "
-                "(192 códigos para 3 dias) — verifique duplicação de refs."
+                "Sem código cego disponível: no dia, letra e número não repetem "
+                "(máx. 8 preparos/dia) e o código não pode ter saído nos dias "
+                "úteis vizinhos. Reduza os preparos do dia ou revise refs duplicadas."
             )
         candidate = secrets.choice(free)
         try:
@@ -837,15 +853,22 @@ def blind_prep_code(recipe_ref: str, selected_date: date) -> str:
             if existing:
                 return existing.code
             continue  # retry com outro sorteio
-        # Corrida entre DATAS da janela (a constraint é por dia): quem chegou
-        # depois cede e sorteia de novo.
-        clash = (
+        # Corrida além da constraint (que só cobre código exato por dia):
+        # mesma letra/número no dia, ou mesmo código noutra data da janela.
+        # Quem chegou depois cede e sorteia de novo.
+        earlier_day_codes = BlindPrepCode.objects.filter(
+            date=selected_date, pk__lt=row.pk
+        ).values_list("code", flat=True)
+        day_clash = any(
+            code[0] == candidate[0] or code[1] == candidate[1] for code in earlier_day_codes
+        )
+        window_clash = (
             BlindPrepCode.objects.filter(date__in=window, code=candidate)
             .exclude(pk=row.pk)
             .filter(pk__lt=row.pk)
             .exists()
         )
-        if clash:
+        if day_clash or window_clash:
             row.delete()
             continue
         return candidate

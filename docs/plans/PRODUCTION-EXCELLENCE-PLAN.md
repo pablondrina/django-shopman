@@ -378,9 +378,11 @@ staging.
   1 número, sem 0/1/O/I — pedido do Pablo: ultra legível/memorizável).
   Sorteio simples com retry só na colisão; alocação persistida em
   `BlindPrepCode` (backstage, migração 0016) — estável o dia todo mesmo com
-  preparo entrando de manhã. Unicidade na JANELA de expediente (dia útil
-  anterior · dia · próximo dia útil, via `is_open_on` — domingo/feriado
-  pulam): etiquetas de dias adjacentes na cozinha nunca se confundem;
+  preparo entrando de manhã. Anticonfusão em duas camadas: NO DIA, letra e
+  número nunca repetem entre códigos (Z7 veta Z9 e S7 — teto 8 preparos/dia,
+  estouro explícito); na JANELA de expediente (dia útil anterior · dia ·
+  próximo dia útil, via `is_open_on` — domingo/feriado pulam) o código
+  completo não repete: etiquetas de dias adjacentes nunca se confundem;
   etiquetas
   imprimíveis (print CSS: só as etiquetas saem — código, ingrediente, peso,
   data, NUNCA o nome da receita); mapa código↔preparo é bloco só-gestor
