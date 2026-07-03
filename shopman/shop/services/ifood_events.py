@@ -56,13 +56,24 @@ def poll() -> list[dict]:
         logger.warning("ifood_events.poll: OAuth not configured — skipping")
         return []
 
-    merchant_id = str(_cfg().get("merchant_id") or "").strip()
-    if merchant_id:
-        headers = {**headers, "x-polling-merchants": merchant_id}
-
     url = f"{_base_url()}/order/v1.0/events:polling"
+    timeout = int(_cfg().get("timeout") or 30)
+    merchant_id = str(_cfg().get("merchant_id") or "").strip()
+    poll_headers = {**headers, "x-polling-merchants": merchant_id} if merchant_id else headers
+
     try:
-        resp = requests.get(url, headers=headers, timeout=int(_cfg().get("timeout") or 30))
+        resp = requests.get(url, headers=poll_headers, timeout=timeout)
+        # x-polling-merchants é um filtro OPCIONAL. Se o iFood o rejeita (400 —
+        # tipicamente IFOOD_MERCHANT_ID malformado/errado), não deixe isso zerar
+        # o polling: refaz sem o filtro (todos os merchants do app) e avisa alto
+        # para corrigir o merchant_id (necessário também p/ o catálogo).
+        if resp.status_code == 400 and merchant_id:
+            logger.warning(
+                "ifood_events.poll: iFood rejeitou x-polling-merchants (400) — "
+                "IFOOD_MERCHANT_ID provavelmente inválido. Pollando sem filtro; "
+                "corrija p/ o UUID do merchant no portal iFood."
+            )
+            resp = requests.get(url, headers=headers, timeout=timeout)
     except requests.RequestException as exc:
         logger.warning("ifood_events.poll: request failed: %s", exc)
         return []

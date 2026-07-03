@@ -279,6 +279,25 @@ def test_poll_200_returns_events(fake_headers):
 
 
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_poll_400_on_merchant_filter_retries_without_it(fake_headers):
+    """iFood rejeita x-polling-merchants inválido (400) → refaz sem o filtro,
+    para o polling não morrer por causa de um IFOOD_MERCHANT_ID errado."""
+    from shopman.shop.services import ifood_events
+
+    events = [{"id": "e1", "code": "PLC", "orderId": "o1"}]
+    bad = MagicMock(status_code=400)
+    bad.text = 'Invalid value for header: x-polling-merchants'
+    ok = MagicMock(status_code=200)
+    ok.json.return_value = events
+    with patch("requests.get", side_effect=[bad, ok]) as mock_get:
+        assert ifood_events.poll() == events
+        assert mock_get.call_count == 2
+        # 1ª tentativa COM o filtro; a 2ª (retry) SEM.
+        assert mock_get.call_args_list[0][1]["headers"].get("x-polling-merchants") == "merchant-abc"
+        assert "x-polling-merchants" not in mock_get.call_args_list[1][1]["headers"]
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_acknowledge_posts_event_ids(fake_headers):
     from shopman.shop.services import ifood_events
 
