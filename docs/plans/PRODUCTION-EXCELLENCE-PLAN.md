@@ -171,7 +171,16 @@ ainda; reavaliar pós-alpha).
 **Aceite:** nenhuma constante de produção hardcoded fora do dataclass; alterar
 threshold no Admin reflete no alerta sem deploy; docs atualizados; suíte verde.
 
-### WP-PE2 — Notificações de produção reais 🟠
+### WP-PE2 — Notificações de produção reais 🟠 ✅ (2026-07-03)
+
+> **Nota de execução**: o caminho de notificação de SISTEMA já existia no
+> `NotificationSendHandler` (payload `{event, context}` sem `order_ref` →
+> operador via email→console, retry). PE2 = par alerta+notificação nos 4
+> alertas de produção via `_notify_operator()`, gated por
+> `production.notifications` (`enabled` default false; `severities` default
+> `["error"]`). `notify()` de lifecycle permanece log — evento feliz é sinal,
+> não ruído (o "Não fazer" prevaleceu sobre a redação do item 2). Templates
+> seedados: `production_late/low_yield/forgotten/stock_short`.
 
 **Problema:** L2. `notify()` é log; operador só descobre problema se estiver
 olhando a tela certa.
@@ -198,7 +207,16 @@ feliz (planned/started/finished normais ficam só no ledger — sinal, não ruí
 renderizado, retry em falha; templates revisados com voz do projeto; testes de
 handler + integração.
 
-### WP-PE3 — Mise en place: `craft.needs()` ganha UI 🟠
+### WP-PE3 — Mise en place: `craft.needs()` ganha UI 🟠 ✅ (2026-07-03)
+
+> **Notas de execução**: (a) o item 3 (pesagem escalada) **já existia** — a
+> auditoria por agente errou: `_build_weighing_ticket` escala pelo coeficiente
+> desde sempre; nada a fazer. (b) Regra de omotenashi descoberta no
+> dogfooding via preview: **pré-preparo nunca mostra saldo/falta** (massa é
+> produzida na hora; "falta de estoque de massa" seria ruído) — saldo só em
+> matéria-prima. (c) Checklist "separado" é estado de turno em localStorage
+> chaveado por data — zero persistência servidor. (d) Verificado no browser:
+> agregação, breakdown, explodir, check, busca — screenshot na sessão.
 
 **Problema:** L4. A joia dormente do Core. Nenhum concorrente de PDV/ERP leve dá
 ao padeiro a lista de pesagem do dia derivada do plano — é exatamente o "uau".
@@ -315,6 +333,17 @@ UI) na terceira; PE5+PE6 fecham. Cada frente termina mergeável e deployável em
 staging.
 
 ## Progresso
+
+- **2026-07-03 — WP-PE2 + WP-PE3 entregues** (segunda frente):
+  `production.notifications` no ProductionConfig + `_notify_operator()` nos 4
+  alertas (par tela+notificação via directive de sistema, 8 testes) +
+  templates seedados; mise en place completo — projection
+  `build_production_mise_en_place` (agregação `craft.needs`, breakdown por
+  receita, saldo só matéria-prima, degrade gracioso), endpoint
+  `GET /api/v1/backstage/production/mise-en-place/`, página `/mise-en-place`
+  no fournil (3ª aba: checklist de turno em localStorage, explodir até
+  matéria-prima, busca) — 11 testes + verificação e2e no browser.
+  Suítes: framework 2491 ✅, ruff ✅.
 
 - **2026-07-03 — WP-PE0 + WP-PE1 entregues** (frente de fundação):
   `ProductionConfig` (`shop/production_config.py`, 23 testes) com namespace

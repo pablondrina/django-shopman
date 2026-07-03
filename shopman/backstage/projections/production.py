@@ -228,6 +228,42 @@ class ProductionWeighingProjection:
 
 
 @dataclass(frozen=True)
+class MiseEnPlaceBreakdownProjection:
+    """Quanto deste insumo cada receita do dia consome."""
+
+    recipe_name: str
+    output_sku: str
+    quantity_display: str
+
+
+@dataclass(frozen=True)
+class MiseEnPlaceLineProjection:
+    """One aggregated ingredient line for the day's mise en place."""
+
+    sku: str
+    name: str
+    quantity_display: str
+    unit: str
+    is_subrecipe: bool  # pré-preparo (tem ficha técnica própria)
+    available_display: str  # "" quando o ledger de insumos não tem leitura
+    is_short: bool
+    breakdown: tuple[MiseEnPlaceBreakdownProjection, ...]
+
+
+@dataclass(frozen=True)
+class ProductionMiseEnPlaceProjection:
+    """Aggregated material needs for the day's open work orders."""
+
+    selected_date: str
+    selected_date_display: str
+    expanded: bool
+    lines: tuple[MiseEnPlaceLineProjection, ...]
+    has_lines: bool
+    work_order_count: int
+    has_stock_readings: bool  # False = coluna de saldo se esconde (degrade)
+
+
+@dataclass(frozen=True)
 class _RecipeItemData:
     input_sku: str
     quantity: Decimal
@@ -653,6 +689,99 @@ def build_production_weighing(
             for entry in sorted(tickets.values(), key=lambda item: item["recipe"].name)
         ),
     )
+
+
+def build_production_mise_en_place(
+    *,
+    selected_date: date | None = None,
+    expand: bool = False,
+) -> ProductionMiseEnPlaceProjection:
+    """Lista de separação do dia — ``craft.needs()`` com quebra e saldo.
+
+    Agrega os insumos das WOs abertas (planned+started) da data, escalados
+    pelo coeficiente da ficha. ``expand=True`` explode sub-receitas até
+    matéria-prima (sem quebra por receita — os caminhos se cruzam). O saldo
+    de estoque anota quando o ledger de insumos tem leitura; sem leitura, a
+    coluna se esconde (degrade gracioso, nunca bloqueia).
+    """
+    selected_date = selected_date or date.today()
+    needs = craft.needs(selected_date, expand=expand)
+
+    open_statuses = (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)
+    work_orders = list(
+        WorkOrder.objects.filter(target_date=selected_date, status__in=open_statuses)
+        .select_related("recipe")
+        .prefetch_related("recipe__items")
+        .order_by("recipe__ref", "ref")
+    )
+
+    breakdown_by_sku: dict[str, list[MiseEnPlaceBreakdownProjection]] = {}
+    if not expand:
+        for work_order in work_orders:
+            recipe = work_order.recipe
+            if not recipe.batch_size:
+                continue
+            coefficient = Decimal(str(work_order.quantity)) / recipe.batch_size
+            for item in _recipe_items(recipe):
+                breakdown_by_sku.setdefault(item.input_sku, []).append(
+                    MiseEnPlaceBreakdownProjection(
+                        recipe_name=recipe.name or recipe.ref,
+                        output_sku=recipe.output_sku,
+                        quantity_display=_measure(item.quantity * coefficient, item.unit),
+                    )
+                )
+
+    skus = {need.item_ref for need in needs}
+    active_recipes = {
+        recipe.output_sku: recipe
+        for recipe in Recipe.objects.filter(is_active=True, output_sku__in=skus)
+    }
+    product_names = _product_names(skus)
+    availability = _ingredient_availability(skus)
+
+    lines = []
+    for need in needs:
+        # Saldo só para matéria-prima: pré-preparo é produzido na hora — "falta"
+        # de estoque de massa seria ruído, não informação.
+        available = None if need.has_recipe else availability.get(need.item_ref)
+        lines.append(
+            MiseEnPlaceLineProjection(
+                sku=need.item_ref,
+                name=_ingredient_name(
+                    need.item_ref, active_recipes=active_recipes, product_names=product_names
+                ),
+                quantity_display=_measure(need.quantity, need.unit),
+                unit=need.unit,
+                is_subrecipe=need.has_recipe,
+                available_display=_measure(available, need.unit) if available is not None else "",
+                is_short=bool(available is not None and available < need.quantity),
+                breakdown=tuple(breakdown_by_sku.get(need.item_ref, ())),
+            )
+        )
+    lines.sort(key=lambda line: (not line.is_subrecipe, line.name.lower()))
+
+    return ProductionMiseEnPlaceProjection(
+        selected_date=selected_date.isoformat(),
+        selected_date_display=selected_date.strftime("%d/%m/%Y"),
+        expanded=expand,
+        lines=tuple(lines),
+        has_lines=bool(lines),
+        work_order_count=len(work_orders),
+        has_stock_readings=any(value and value > 0 for value in availability.values()),
+    )
+
+
+def _ingredient_availability(skus: set[str]) -> dict[str, Decimal]:
+    """Saldo por insumo via Stockman — dict vazio quando o ledger não responde."""
+    if not skus:
+        return {}
+    try:
+        from shopman.stockman import stock
+
+        return {sku: stock.available(sku) for sku in sorted(skus)}
+    except Exception:
+        logger.debug("production.mise_en_place_availability_failed", exc_info=True)
+        return {}
 
 
 def build_production_dashboard(

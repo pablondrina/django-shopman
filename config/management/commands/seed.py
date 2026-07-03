@@ -4093,6 +4093,12 @@ class Command(BaseCommand):
             "payment_failed": {"subject": "Falha ao preparar pagamento do pedido {order_ref}", "body": "Ola{customer_name_greeting}! Nao conseguimos preparar o pagamento do pedido *{order_ref}*.\n\nAcesse {payment_url} para tentar novamente."},
             "payment_refunded": {"subject": "Reembolso do pedido {order_ref} processado", "body": "Ola{customer_name_greeting}! O reembolso do pedido *{order_ref}* foi processado.\n\nValor: *{total}*"},
             "loyalty_earned": {"subject": "Voce ganhou pontos de fidelidade!", "body": "Ola{customer_name_greeting}! Voce ganhou pontos de fidelidade com o pedido *{order_ref}*!"},
+            # Produção → operador (notification.send de sistema, WP-PE2).
+            # Opt-in via Shop.defaults["production"]["notifications"].
+            "production_late": {"subject": "Produção {work_order_ref} atrasada", "body": "A produção *{work_order_ref}* ({output_sku}) está há {elapsed_minutes} min em andamento (janela: {target_minutes} min).\n\nConfira o chão de produção."},
+            "production_low_yield": {"subject": "Yield baixo na produção {work_order_ref}", "body": "A produção *{work_order_ref}* ({output_sku}) fechou com yield de {yield_percent}%.\n\nVale conferir a perda no relatório de produção."},
+            "production_forgotten": {"subject": "Produção {work_order_ref} não foi iniciada", "body": "A produção *{work_order_ref}* ({output_sku}) planejada para {target_date} nunca foi iniciada.\n\nConclua, reagende ou estorne no planejamento."},
+            "production_stock_short": {"subject": "Produção {work_order_ref} sem insumos", "body": "A produção *{work_order_ref}* ({output_sku}) falhou por estoque insuficiente.\n\nDetalhe: {error}"},
         }
 
         count = 0

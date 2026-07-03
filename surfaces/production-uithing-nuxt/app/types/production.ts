@@ -204,3 +204,36 @@ export interface AlertsResponse {
   alerts: AlertProjection[];
   counts: { active: number; critical: number };
 }
+
+// ── Mise en place (aggregated material needs) ───────────────────────────────
+
+export interface MiseEnPlaceBreakdownProjection {
+  recipe_name: string;
+  output_sku: string;
+  quantity_display: string;
+}
+
+export interface MiseEnPlaceLineProjection {
+  sku: string;
+  name: string;
+  quantity_display: string;
+  unit: string;
+  is_subrecipe: boolean;
+  available_display: string;
+  is_short: boolean;
+  breakdown: MiseEnPlaceBreakdownProjection[];
+}
+
+export interface ProductionMiseEnPlaceProjection {
+  selected_date: string;
+  selected_date_display: string;
+  expanded: boolean;
+  lines: MiseEnPlaceLineProjection[];
+  has_lines: boolean;
+  work_order_count: number;
+  has_stock_readings: boolean;
+}
+
+export interface MiseEnPlaceResponse {
+  mise_en_place: ProductionMiseEnPlaceProjection;
+}

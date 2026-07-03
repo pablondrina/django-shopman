@@ -768,6 +768,8 @@ mecânica do `LoyaltyConfig`): defaults sensatos, `deep_merge` com
 | `production.alerts.low_yield_threshold` | `string` (Decimal 0-1) | `maybe_create_low_yield_alert` (`shop/handlers/production_alerts.py`) | Yield (finished/started) abaixo disto → `OperatorAlert production_low_yield`. Default `"0.80"`. |
 | `production.alerts.default_max_started_minutes` | `int` | `production_alerts`, projections de produção | Janela padrão de WO em andamento antes de "atrasada". `Recipe.meta["max_started_minutes"]` sobrescreve por receita. Default `240`. |
 | `production.alerts.late_check_cadence_minutes` | `int` | `ProductionLateCheckHandler` | Cadência do heartbeat `production.late_check`. `0` = desligado. Default `15`. |
+| `production.notifications.enabled` | `bool` | `production_alerts._notify_operator` | Liga o par alerta+notificação: além do `OperatorAlert` (sempre criado), o alerta enfileira `notification.send` de sistema (operador, email→console, retry). Default `false` — opt-in contra ruído. |
+| `production.notifications.severities` | `list[string]` | `production_alerts._notify_operator` | Severidades que notificam quando `enabled`: subconjunto de `info\|warning\|error\|critical`. Default `["error"]` (só falta de insumo); ampliar para `["error", "warning"]` cobre atraso/yield/esquecimento. |
 | `production.order_match` | `string` | `production_order_sync._match_strategy` | Estratégia de vínculo pedido confirmado → WorkOrder: `first_planned` (default) \| `earliest_target` \| `manual`. |
 
 > Editáveis no ShopAdmin (estações, multiplicador e margem no fieldset de

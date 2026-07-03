@@ -127,6 +127,16 @@ def maybe_create_low_yield_alert(work_order) -> bool:
         message,
         order_ref=work_order.ref,
     )
+    _notify_operator(
+        "production_low_yield",
+        severity="warning",
+        context={
+            "message": message,
+            "work_order_ref": work_order.ref,
+            "output_sku": work_order.output_sku,
+            "yield_percent": int(yield_rate * 100),
+        },
+    )
     return True
 
 
@@ -147,14 +157,27 @@ def check_late_started_orders(*, selected_date=None) -> int:
             continue
         if _recent_exists("production_late", work_order.ref):
             continue
+        elapsed_minutes = int((now - started_at).total_seconds() // 60)
+        message = (
+            f"Produção {work_order.ref} ({work_order.output_sku}) está há "
+            f"{elapsed_minutes} min em andamento."
+        )
         alert_adapter.create(
             "production_late",
             "warning",
-            (
-                f"Produção {work_order.ref} ({work_order.output_sku}) está há "
-                f"{int((now - started_at).total_seconds() // 60)} min em andamento."
-            ),
+            message,
             order_ref=work_order.ref,
+        )
+        _notify_operator(
+            "production_late",
+            severity="warning",
+            context={
+                "message": message,
+                "work_order_ref": work_order.ref,
+                "output_sku": work_order.output_sku,
+                "elapsed_minutes": elapsed_minutes,
+                "target_minutes": target_minutes,
+            },
         )
         created += 1
     return created
@@ -174,14 +197,25 @@ def check_forgotten_planned_orders(*, today=None) -> int:
     for work_order in qs:
         if _recent_exists("production_forgotten", work_order.ref):
             continue
+        message = (
+            f"Produção {work_order.ref} ({work_order.output_sku}) planejada para "
+            f"{work_order.target_date:%d/%m} nunca foi iniciada."
+        )
         alert_adapter.create(
             "production_forgotten",
             "warning",
-            (
-                f"Produção {work_order.ref} ({work_order.output_sku}) planejada para "
-                f"{work_order.target_date:%d/%m} nunca foi iniciada."
-            ),
+            message,
             order_ref=work_order.ref,
+        )
+        _notify_operator(
+            "production_forgotten",
+            severity="warning",
+            context={
+                "message": message,
+                "work_order_ref": work_order.ref,
+                "output_sku": work_order.output_sku,
+                "target_date": work_order.target_date.isoformat(),
+            },
         )
         created += 1
     return created
@@ -191,12 +225,50 @@ def create_stock_short_alert(*, work_order_ref: str, output_sku: str, error: str
     """Create an alert for a failed finish caused by stock/inventory shortage."""
     if _recent_exists("production_stock_short", work_order_ref):
         return
+    message = f"Produção {work_order_ref} ({output_sku}) falhou por estoque insuficiente: {error}"
     alert_adapter.create(
         "production_stock_short",
         "error",
-        f"Produção {work_order_ref} ({output_sku}) falhou por estoque insuficiente: {error}",
+        message,
         order_ref=work_order_ref,
     )
+    _notify_operator(
+        "production_stock_short",
+        severity="error",
+        context={
+            "message": message,
+            "work_order_ref": work_order_ref,
+            "output_sku": output_sku,
+            "error": error,
+        },
+    )
+
+
+def _notify_operator(event: str, *, severity: str, context: dict) -> bool:
+    """Enfileira ``notification.send`` de sistema quando a config permite.
+
+    O par tela+notificação: todo alerta de produção vira ``OperatorAlert``
+    incondicionalmente; a notificação ativa (email→console, via directive com
+    retry) é opt-in por ``production.notifications`` — ``enabled`` liga,
+    ``severities`` filtra. A dedup fica no alerta (quem chega aqui já passou).
+    """
+    try:
+        config = ProductionConfig.load().notifications
+    except Exception:
+        logger.debug("production_alerts.notifications_config_failed", exc_info=True)
+        return False
+    if not (config.enabled and severity in config.severities):
+        return False
+
+    from shopman.orderman.models import Directive
+
+    from shopman.shop.directives import NOTIFICATION_SEND
+
+    Directive.objects.create(
+        topic=NOTIFICATION_SEND,
+        payload={"event": event, "context": context},
+    )
+    return True
 
 
 def _target_minutes(work_order) -> int:

@@ -15,6 +15,7 @@ function toggleTheme() {
 const tabs = [
   { to: "/", label: "Chão ao vivo", icon: "lucide:flame" },
   { to: "/planejamento", label: "Planejamento", icon: "lucide:layout-grid" },
+  { to: "/mise-en-place", label: "Mise en place", icon: "lucide:scale" },
 ];
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);

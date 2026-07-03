@@ -88,7 +88,14 @@ def emit_goods(work_order) -> None:
 
 
 def notify(work_order, event: str) -> None:
-    """Notificação de lifecycle de produção (sem Order — apenas log por ora)."""
+    """Registro de lifecycle de produção (log estruturado).
+
+    Eventos felizes (planned/started/finished/voided) ficam no ledger + log —
+    sinal, não ruído. Notificação ativa ao operador acontece nos ALERTAS
+    (production_alerts._notify_operator, opt-in via
+    ``production.notifications``): atraso, yield baixo, esquecimento, falta
+    de insumo.
+    """
     logger.info(
         "production.notify: wo=%s event=%s",
         work_order.ref,

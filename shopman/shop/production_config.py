@@ -21,9 +21,10 @@ class ProductionConfig:
     """
     Configuração de produção da loja.
 
-    suggestion — como a sugestão de produção é calculada?
-    alerts     — quando o operador é avisado?
-    order_match — como pedidos confirmados se vinculam a WorkOrders?
+    suggestion    — como a sugestão de produção é calculada?
+    alerts        — quando o operador é avisado na tela?
+    notifications — quais alertas também viram notificação (email/console)?
+    order_match   — como pedidos confirmados se vinculam a WorkOrders?
     """
 
     # ── 1. Sugestão ──
@@ -73,10 +74,24 @@ class ProductionConfig:
         def low_yield_threshold_decimal(self) -> Decimal:
             return Decimal(self.low_yield_threshold)
 
+    # ── 3. Notificações ──
+
+    @dataclass
+    class Notifications:
+        enabled: bool = False
+        # Desligado por padrão: alerta de produção sempre aparece na tela
+        # (OperatorAlert); notificação ativa (email/console via directive)
+        # é opt-in para não virar ruído.
+        severities: list[str] = field(default_factory=lambda: ["error"])
+        # Severidades que notificam quando enabled. Default: só crítico
+        # (estoque insuficiente); ampliar para ["error", "warning"] cobre
+        # atraso/yield/esquecimento.
+
     # ── Campos ──
 
     suggestion: Suggestion = field(default_factory=Suggestion)
     alerts: Alerts = field(default_factory=Alerts)
+    notifications: Notifications = field(default_factory=Notifications)
     order_match: str = "first_planned"
     # "first_planned" | "earliest_target" | "manual" — estratégia de vínculo
     # pedido confirmado → WorkOrder (production_order_sync).
@@ -91,6 +106,7 @@ class ProductionConfig:
         return cls(
             suggestion=_safe_init(cls.Suggestion, data.get("suggestion", {})),
             alerts=_safe_init(cls.Alerts, data.get("alerts", {})),
+            notifications=_safe_init(cls.Notifications, data.get("notifications", {})),
             order_match=data.get("order_match", cls.order_match),
         )
 
@@ -150,6 +166,17 @@ class ProductionConfig:
             raise ValueError("production.alerts.default_max_started_minutes deve ser > 0")
         if self.alerts.late_check_cadence_minutes < 0:
             raise ValueError("production.alerts.late_check_cadence_minutes deve ser >= 0")
+
+        if not isinstance(self.notifications.enabled, bool):
+            raise ValueError("production.notifications.enabled deve ser booleano")
+        if not isinstance(self.notifications.severities, list) or not all(
+            severity in ("info", "warning", "error", "critical")
+            for severity in self.notifications.severities
+        ):
+            raise ValueError(
+                "production.notifications.severities deve ser lista de "
+                "info|warning|error|critical"
+            )
 
         if self.order_match not in ("first_planned", "earliest_target", "manual"):
             raise ValueError(f"production.order_match inválido: {self.order_match}")

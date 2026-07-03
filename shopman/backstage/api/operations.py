@@ -54,6 +54,7 @@ from shopman.backstage.projections.pos import (
 from shopman.backstage.projections.production import (
     build_production_board,
     build_production_kds,
+    build_production_mise_en_place,
 )
 from shopman.backstage.services import (
     closing as closing_service,
@@ -442,6 +443,27 @@ class ProductionKDSView(APIView):
             position_ref=position_ref,
         )
         return Response({"kds": projection_data(kds)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Mise en place (aggregated material needs for the day)",
+        responses={200: OpenApiResponse(description="Aggregated ingredient list for open work orders.")},
+    ),
+)
+class ProductionMiseEnPlaceView(APIView):
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_production"
+
+    def get(self, request):
+        selected = _parse_date(request.query_params.get("date"))
+        expand = str(request.query_params.get("expand", "")).lower() in ("1", "true", "yes")
+        mise_en_place = build_production_mise_en_place(
+            selected_date=selected,
+            expand=expand,
+        )
+        return Response({"mise_en_place": projection_data(mise_en_place)})
 
 
 @extend_schema_view(

@@ -64,6 +64,7 @@ from .operations import (
     POSView,
     ProductionBoardView,
     ProductionKDSView,
+    ProductionMiseEnPlaceView,
     WorkOrderAdvanceStepView,
     WorkOrderFinishView,
     WorkOrderPlanView,
@@ -97,6 +98,11 @@ urlpatterns = [
     path("operator/lock/", OperatorLockView.as_view(), name="api-backstage-operator-lock"),
     path("production/", ProductionBoardView.as_view(), name="api-backstage-production"),
     path("production/kds/", ProductionKDSView.as_view(), name="api-backstage-production-kds"),
+    path(
+        "production/mise-en-place/",
+        ProductionMiseEnPlaceView.as_view(),
+        name="api-backstage-production-mise-en-place",
+    ),
     path("closing/", DayClosingView.as_view(), name="api-backstage-closing"),
     path("orders/", OrderQueueView.as_view(), name="api-backstage-orders"),
     # Catalog matrix (produto × superfície)
