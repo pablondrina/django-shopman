@@ -574,7 +574,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="O prazo do pagamento acabou",
-                message="Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva. Se quiser, é só repetir o pedido.",
+                message="Não recebemos a confirmação a tempo, então cancelamos o pedido e os itens voltaram ao cardápio. Se quiser, é só refazer o pedido.",
             ),
         },
     },
@@ -610,7 +610,15 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Sua ação:")},
     },
     "TRACKING_PROMISE_LABEL_DEADLINE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Prazo:")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Tempo restante:")},
+    },
+    # Rótulos de countdown por contexto: o cliente lê o que o relógio significa,
+    # nunca um "Prazo" genérico repetido entre telas diferentes.
+    "TRACKING_PROMISE_LABEL_DEADLINE_PAYMENT": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Tempo para pagar:")},
+    },
+    "TRACKING_PROMISE_LABEL_DEADLINE_AVAILABILITY": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Confirmamos em:")},
     },
     "TRACKING_PROMISE_LABEL_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Próximo passo:")},
@@ -647,7 +655,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Depois do pagamento, seguimos com o pedido.")},
     },
     "TRACKING_PROMISE_PAYMENT_RECOVERY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Se o tempo acabar, liberamos sua reserva e o pedido é cancelado.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Se o tempo acabar, os itens voltam ao cardápio e o pedido é cancelado.")},
     },
     "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Também avisamos por um canal ativo habilitado, porque o PIX depende da sua ação.")},

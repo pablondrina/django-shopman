@@ -267,6 +267,22 @@ def build_order_tracking_status(order) -> OrderTrackingStatusProjection:
     return present_tracking_status(build_tracking_status(order))
 
 
+def _deadline_label(promise: OrderTrackingPromiseProjection, copy: CopyCatalog) -> str:
+    """Rótulo do countdown por contexto — nunca um "Prazo" genérico repetido.
+
+    O cliente lê o que o relógio significa: quanto tempo tem para pagar, ou em
+    quanto confirmamos a disponibilidade. Alinhado ao "Tempo para pagar" da
+    tela de pagamento.
+    """
+    if promise.deadline_kind == "payment":
+        key, fallback = "TRACKING_PROMISE_LABEL_DEADLINE_PAYMENT", "Tempo para pagar"
+    elif promise.deadline_kind == "availability":
+        key, fallback = "TRACKING_PROMISE_LABEL_DEADLINE_AVAILABILITY", "Confirmamos em"
+    else:
+        key, fallback = "TRACKING_PROMISE_LABEL_DEADLINE", "Tempo restante"
+    return _clean_label(copy.title(key, fallback))
+
+
 def present_tracking(data: TrackingData) -> OrderTrackingProjection:
     copy = build_copy("TRACKING")
     last_updated_display = copy.title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora")
@@ -279,7 +295,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         copy=_tracking_copy(copy),
         promise=promise,
         promise_rows=_build_promise_rows(promise, copy=copy),
-        promise_deadline_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo")),
+        promise_deadline_label=_deadline_label(promise, copy),
         progress_steps=_present_progress_steps(data, copy=copy),
         timeline=_present_timeline(data),
         items=_present_items(data),
@@ -448,7 +464,7 @@ def _promise_copy(
     if state == "payment_expired":
         title, message = _pair(copy, "TRACKING_PAYMENT_EXPIRED",
                                "O prazo do pagamento acabou",
-                               "Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva.")
+                               "Não recebemos a confirmação a tempo, então cancelamos o pedido e os itens voltaram ao cardápio. Se quiser, é só refazer o pedido.")
         return title, message, "", "", ""
 
     if state in {"payment_requested", "payment_pending"}:
@@ -462,7 +478,7 @@ def _promise_copy(
                                    "Estamos só aguardando a confirmação do pagamento.")
         recovery = copy.message(
             "TRACKING_PROMISE_PAYMENT_RECOVERY",
-            "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado.",
+            "Se o tempo acabar, os itens voltam ao cardápio e o pedido é cancelado.",
         )
         return title, message, "", recovery, ""
 

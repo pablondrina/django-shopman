@@ -2,6 +2,7 @@
 import type { Action, TrackingResponse } from '~/types/shopman'
 import {
   hasLiveDeadline,
+  orderRefParts,
   pollIntervalMs,
   timelineActiveStep,
   trackingPanelClass,
@@ -17,6 +18,9 @@ const route = useRoute()
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
+// Ref em duas partes: prefixo canal+data esmaecido, sufixo curto em destaque —
+// é o pedaço que o cliente dita no balcão e reconhece de relance.
+const refParts = computed(() => orderRefParts(tracking.value?.ref || orderRef.value))
 const rating = ref(5)
 const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
@@ -62,14 +66,6 @@ const hasStatusPanelActions = computed(() => Boolean(
   showSupportInStatusPanel.value
 ))
 const visiblePromiseRows = computed(() => visibleTrackingPromiseRows(tracking.value?.promise_rows || []))
-const showSideActions = computed(() => Boolean(
-  tracking.value &&
-  (
-    cancelAction.value ||
-    (reorderAction.value && !statusPanelActions.value.some(action => action.ref === 'reorder')) ||
-    (tracking.value.whatsapp_url && !showSupportInStatusPanel.value)
-  )
-))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
 const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
@@ -198,7 +194,9 @@ useSeoMeta({
       <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
+          <h1 class="mt-1 shop-title">
+            Pedido <span class="whitespace-nowrap tabular-nums"><span v-if="refParts.prefix" class="text-muted-foreground/50 font-normal">{{ refParts.prefix }}</span><span class="text-foreground">{{ refParts.tail }}</span></span>
+          </h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -277,7 +275,7 @@ useSeoMeta({
                       </UiButton>
                     </template>
                     <UiButton v-if="showPaymentStatusFallback" :to="paymentHref" icon="lucide:credit-card">
-                      Regularizar pagamento
+                      Concluir pagamento
                     </UiButton>
                     <UiButton v-if="showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle">
                       {{ tracking.copy.support_label }}
@@ -389,8 +387,8 @@ useSeoMeta({
         </template>
       </section>
 
-      <aside v-if="tracking && (showSideActions || rateAction)" class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <UiCard v-if="showSideActions">
+      <aside v-if="tracking" class="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <UiCard>
           <UiCardHeader>
             <UiCardTitle>Ações</UiCardTitle>
           </UiCardHeader>
@@ -403,6 +401,14 @@ useSeoMeta({
               @click="performReorderSafely(reorderAction)"
             >
               {{ reorderAction.label }}
+            </UiButton>
+            <UiButton
+              to="/menu"
+              :variant="reorderAction ? 'outline' : 'default'"
+              icon="lucide:plus"
+              class="w-full"
+            >
+              Fazer novo pedido
             </UiButton>
             <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle" class="w-full">
               {{ tracking.copy.support_label }}

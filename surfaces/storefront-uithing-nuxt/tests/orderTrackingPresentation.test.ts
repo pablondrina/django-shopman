@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   hasLiveDeadline,
+  orderRefParts,
   pollIntervalMs,
   timelineActiveStep,
   trackingPanelClass,
@@ -93,5 +94,21 @@ describe('order tracking presentation — live deadline', () => {
     expect(hasLiveDeadline({ timer_mode: 'countdown', deadline_at: '2026-06-14T12:00:00+00:00' })).toBe(true)
     expect(hasLiveDeadline({ timer_mode: 'countdown', deadline_at: null })).toBe(false)
     expect(hasLiveDeadline({ timer_mode: 'none', deadline_at: '2026-06-14T12:00:00+00:00' })).toBe(false)
+  })
+})
+
+describe('order tracking presentation — order ref parts', () => {
+  it('splits channel+date prefix from the distinctive short tail', () => {
+    expect(orderRefParts('WEB-260703-M89')).toEqual({ prefix: 'WEB-260703-', tail: 'M89' })
+    expect(orderRefParts('POS-260703-A1')).toEqual({ prefix: 'POS-260703-', tail: 'A1' })
+  })
+
+  it('keeps the whole ref as tail when there is no hyphen to split on', () => {
+    expect(orderRefParts('M89')).toEqual({ prefix: '', tail: 'M89' })
+    expect(orderRefParts('')).toEqual({ prefix: '', tail: '' })
+  })
+
+  it('does not treat a trailing hyphen as a split point', () => {
+    expect(orderRefParts('WEB-260703-')).toEqual({ prefix: '', tail: 'WEB-260703-' })
   })
 })

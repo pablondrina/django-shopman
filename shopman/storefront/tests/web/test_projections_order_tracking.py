@@ -72,7 +72,9 @@ class TestOrderTrackingShape:
         assert parse_datetime(proj.last_updated_iso) is not None
         assert proj.last_updated_display == "Atualizado agora"
         assert proj.stale_after_seconds == 45
-        assert proj.promise_deadline_label == "Prazo"
+        # Sem countdown ativo (estado "received"): rótulo genérico e humano, nunca
+        # o burocrático "Prazo". Estados com relógio usam rótulos contextuais.
+        assert proj.promise_deadline_label == "Tempo restante"
         # "Atualizado agora" is shown once (standalone) — never repeated as a row.
         assert "Última atualização" not in [row.label for row in proj.promise_rows]
 
@@ -711,7 +713,7 @@ class TestStatusColours:
         assert proj.promise.requires_active_notification is True
         assert proj.promise.notification_topic == "payment_expired"
         assert proj.promise.actions == ()
-        assert "repetir o pedido" in proj.promise.message
+        assert "refazer o pedido" in proj.promise.message
         assert proj.promise.next_event == ""
         assert proj.promise.recovery == ""
         assert any(action.ref == "reorder" and action.label == "Repetir pedido" for action in proj.actions)
@@ -781,7 +783,9 @@ class TestStatusColours:
         assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
         assert proj.promise.message == "Confirme o PIX e já começamos a preparar."
         assert proj.promise.next_event == ""
-        assert proj.promise.recovery == "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado."
+        assert proj.promise.recovery == "Se o tempo acabar, os itens voltam ao cardápio e o pedido é cancelado."
+        # Rótulo do countdown por contexto: pagamento diz o que o relógio significa.
+        assert proj.promise_deadline_label == "Tempo para pagar"
 
     def test_authorized_card_is_internal_not_surface_payment_action(self, order_with_payment):
         from shopman.orderman.models import Order as _Order

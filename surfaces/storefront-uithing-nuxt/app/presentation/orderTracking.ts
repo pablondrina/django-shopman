@@ -74,3 +74,19 @@ export function pollIntervalMs (staleAfterSeconds: number | null | undefined): n
 export function hasLiveDeadline (promise: Pick<TrackingPromiseProjection, 'timer_mode' | 'deadline_at'>): boolean {
   return promise.timer_mode === 'countdown' && Boolean(promise.deadline_at)
 }
+
+// Ref do pedido em duas partes: o prefixo de canal+data (ex.: "WEB-260703-"), que
+// se repete e é ruído visual, e o sufixo curto (ex.: "M89"), que é o que o cliente
+// dita no balcão e reconhece. A UI esmaece o prefixo e destaca o sufixo.
+export interface OrderRefParts {
+  prefix: string
+  tail: string
+}
+
+export function orderRefParts (ref: string): OrderRefParts {
+  const trimmed = (ref || '').trim()
+  const cut = trimmed.lastIndexOf('-')
+  // Sem hífen (ou hífen no fim): não há sufixo distinto — tudo é destaque.
+  if (cut < 0 || cut === trimmed.length - 1) return { prefix: '', tail: trimmed }
+  return { prefix: trimmed.slice(0, cut + 1), tail: trimmed.slice(cut + 1) }
+}
