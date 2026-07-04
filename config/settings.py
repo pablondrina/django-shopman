@@ -1063,6 +1063,14 @@ LOGGING = {
     },
 }
 
+# ── Storefront: acompanhamento do pedido ─────────────────────────────
+# Cadência do polling do tracking (segundos). Default 30 (referência iFood).
+# Configurável por deployment enquanto o push por SSE não é o principal; o campo
+# no Admin (Shop) é follow-up coordenado com a migração do backstage.
+STOREFRONT_TRACKING_POLL_SECONDS = int(
+    os.environ.get("STOREFRONT_TRACKING_POLL_SECONDS", "30") or "30"
+)
+
 # ── Error tracking (Sentry) ───────────────────────────────────────────
 #
 # Opt-in e à prova de ausência: só ativa quando SENTRY_DSN está setado E o
