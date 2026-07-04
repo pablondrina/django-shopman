@@ -224,7 +224,7 @@ useSeoMeta({
                 <div class="shop-stack-block">
                   <p class="shop-muted">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
-                  <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
+                  <UiButton variant="outline" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">Copiar código</UiButton>
 
                   <p v-if="connectionLost" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400" role="status">
                     Sem conexão no momento — se você já pagou, a confirmação chega assim que a internet voltar.
@@ -243,7 +243,7 @@ useSeoMeta({
 
               <div v-if="payment.mock_enabled" class="space-y-1 rounded-lg border border-dashed bg-muted/40 p-4">
                 <UiButton
-                  variant="secondary"
+                  variant="default"
                   class="w-full"
                   icon="lucide:flask-conical"
                   :loading="simulating"

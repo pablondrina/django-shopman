@@ -78,8 +78,8 @@ const showSideActions = computed(() => Boolean(
 ))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
-const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
-const trackingTabsTriggerClass = 'border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none'
+const trackingTabsListClass = 'no-scrollbar relative flex h-auto w-full justify-start gap-6 overflow-x-auto border-b bg-transparent p-0'
+const trackingTabsTriggerClass = 'rounded-none border-b-2 border-transparent bg-transparent px-1 py-2 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 const progressTimelineStep = computed(() => timelineActiveStep(tracking.value?.progress_steps || []))
 
 // Deadline vivo (timeouts transparentes): countdown ancorado em server_now_iso
@@ -217,7 +217,10 @@ useSeoMeta({
       <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 shop-title">Pedido <span class="text-sm font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}</h1>
+          <h1 class="mt-1 shop-title">
+            Pedido<br>
+            <span class="text-base font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
+          </h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -320,7 +323,7 @@ useSeoMeta({
           </UiAlert>
 
           <UiCard>
-            <UiCardContent class="p-4">
+            <UiCardContent class="px-4 pt-3 pb-4">
               <UiTabs default-value="history" class="space-y-4">
                 <UiTabsList :pill="false" :class="trackingTabsListClass">
                   <UiTabsTrigger :pill="false" value="history" :class="trackingTabsTriggerClass">Histórico</UiTabsTrigger>

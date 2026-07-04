@@ -435,21 +435,20 @@ useSeoMeta({
             <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
 
-          <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert">
-            <div class="flex items-start justify-between gap-2">
-              <UiAlertTitle class="flex flex-col items-start gap-2">
-                <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
-                <span>Código para entrar</span>
-              </UiAlertTitle>
-              <UiButton
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                icon="lucide:x"
-                aria-label="Ocultar código de teste"
-                @click="showDebugOtp = false"
-              />
-            </div>
+          <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert" class="relative text-center">
+            <UiButton
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              icon="lucide:x"
+              aria-label="Ocultar código de teste"
+              class="absolute right-2 top-2"
+              @click="showDebugOtp = false"
+            />
+            <UiAlertTitle class="flex flex-col items-center gap-2 text-center">
+              <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
+              <span>Código para entrar</span>
+            </UiAlertTitle>
             <UiAlertDescription>
               <div class="mt-2 flex flex-col gap-3">
                 <div
