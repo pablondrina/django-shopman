@@ -5,7 +5,7 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅ · WP-S3 ✅ · WP-S4 ✅
+**Status:** 🟢 em execução — WP-S0..S4 ✅ · WP-S6 ✅ (dead-code audit ✅)
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -61,6 +61,20 @@ Isto é **reforço de excelência**, não conserto de podridão.
   - ⚠️ **Follow-up (fora do escopo do S4):** ~12 erros de `nuxi typecheck`
     PRÉ-EXISTENTES (o gate nunca teve typecheck) — spawn task criado. Nenhum nos
     arquivos tocados aqui; a tipagem nova compila limpa.
+  - **Dead-code audit (S4-b):** varredura dos 239 componentes por nome de
+    auto-import (com dedup do Nuxt). **Zero dead code de domínio** — todos os
+    nossos componentes são referenciados. As primitivas `Ui/**` não-referenciadas
+    são famílias vendadas ui-thing (Command/HoverCard/Listbox/Kbd/Nav…);
+    heurístico por tag é não-confiável para compound components (falsos-positivos
+    em Stepper/Select/Tabs), e são tree-shaken do bundle → **retenção justificada**
+    (lib de design coesa, sem custo de bundle). Removido o único dead code real
+    (clickHeroTab no smoke, no WP-S4).
+- **WP-S6 ✅ (2026-07-04):** component tests (env jsdom/nuxt) dos componentes de
+  risco. **+9 testes** (289 no total): `CartQuantityAction` (3 — add hidratado
+  dispara mutação+emite, aria-label, disabled inerte), `StockNotifyButton` (3 —
+  estado confirmado persistente, assinatura 1-clique logado, aria-label),
+  `SubstituteSheet` (3 — fechado sem issue, copy "esgotou"+alternativa, "ajuste a
+  quantidade" com saldo). Teleport dos bottom-sheets validado via document.body.
 
 ---
 
