@@ -13,7 +13,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 const hovered = ref(0)
 const stars = computed(() => Array.from({ length: props.max }, (_, i) => i + 1))
 const active = computed(() => hovered.value || props.modelValue)
-const starSize = computed(() => (props.size === 'lg' ? 'size-9' : 'size-6'))
+const starSize = computed(() => (props.size === 'lg' ? 'size-10' : 'size-6'))
 
 function set (value: number) {
   if (!props.readonly) emit('update:modelValue', value)
@@ -40,9 +40,11 @@ function set (value: number) {
       @click="set(value)"
       @mouseenter="hovered = value"
     >
+      <!-- Não selecionada: só contorno dourado (fill transparente). Selecionada:
+           contorno + preenchimento dourado. -->
       <Icon
         name="lucide:star"
-        :class="[starSize, value <= active ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30']"
+        :class="[starSize, 'text-amber-500 transition-colors', value <= active ? 'fill-amber-400' : 'fill-transparent']"
       />
     </button>
   </div>

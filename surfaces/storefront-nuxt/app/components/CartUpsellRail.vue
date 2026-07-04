@@ -32,7 +32,8 @@ function productRoute (sku: string) {
     </div>
     <UiScrollArea>
       <div class="flex w-max min-w-full gap-3 pb-2">
-        <UiItem variant="outline" size="sm" class="shop-photo-frame shop-photo-frame-sm w-44 items-stretch gap-3 bg-card p-3 drop-shadow-md">
+        <div class="shop-photo-frame shop-photo-frame-sm w-44 shrink-0 self-start drop-shadow-md">
+        <UiItem variant="outline" size="sm" class="w-full items-stretch gap-3 rounded-none border-0 bg-card p-3">
           <UiItemHeader>
             <NuxtLink
               :to="productRoute(upsell.sku)"
@@ -57,6 +58,7 @@ function productRoute (sku: string) {
             </div>
           </UiItemFooter>
         </UiItem>
+        </div>
       </div>
     </UiScrollArea>
   </section>

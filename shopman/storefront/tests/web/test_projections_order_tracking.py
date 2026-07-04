@@ -781,7 +781,7 @@ class TestStatusColours:
         assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
         assert proj.promise.message == "Confirme o PIX e já começamos a preparar."
         assert proj.promise.next_event == ""
-        assert proj.promise.recovery == "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado."
+        assert proj.promise.recovery == "Liberamos sua reserva e o pedido é cancelado."
 
     def test_authorized_card_is_internal_not_surface_payment_action(self, order_with_payment):
         from shopman.orderman.models import Order as _Order

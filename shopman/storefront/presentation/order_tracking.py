@@ -462,7 +462,7 @@ def _promise_copy(
                                    "Estamos só aguardando a confirmação do pagamento.")
         recovery = copy.message(
             "TRACKING_PROMISE_PAYMENT_RECOVERY",
-            "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado.",
+            "Liberamos sua reserva e o pedido é cancelado.",
         )
         return title, message, "", recovery, ""
 

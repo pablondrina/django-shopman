@@ -177,6 +177,14 @@ async function postAction (action: Action, body: Record<string, unknown> = {}) {
   }
 }
 
+// Envia a avaliação e fecha o sheet (o rate_order some após avaliar, no refresh).
+async function rateAndClose () {
+  const action = rateAction.value
+  if (!action) return
+  supportOpen.value = false
+  await postAction(action, { rating: rating.value, comment: comment.value })
+}
+
 function actionRoute (action: Action) {
   return localRouteFromBackend(action.href || null)
 }
@@ -329,7 +337,7 @@ useSeoMeta({
                     <UiButton v-if="showPaymentStatusFallback" :to="paymentHref" icon="lucide:credit-card">
                       Regularizar pagamento
                     </UiButton>
-                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" icon="lucide:message-circle" class="border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
+                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="secondary" icon="lucide:message-circle">
                       {{ tracking.copy.support_label }}
                     </UiButton>
                   </div>
@@ -338,8 +346,8 @@ useSeoMeta({
             </UiAlertDescription>
           </UiAlert>
 
-          <UiCard>
-            <UiCardContent class="px-4 pt-1 pb-4">
+          <UiCard class="py-3">
+            <UiCardContent class="px-4 py-0">
               <UiTabs default-value="history" class="space-y-2">
                 <UiTabsList :pill="false" :class="trackingTabsListClass">
                   <UiTabsTrigger :pill="false" value="history" :class="trackingTabsTriggerClass">Histórico</UiTabsTrigger>
@@ -461,24 +469,23 @@ useSeoMeta({
           </UiCardContent>
         </UiCard>
 
-        <UiDialog v-if="rateAction" v-model:open="supportOpen">
-          <UiDialogTrigger as-child>
-            <UiButton variant="secondary" class="w-full" icon="lucide:star">Avaliar pedido</UiButton>
-          </UiDialogTrigger>
-          <UiDialogContent>
-            <UiDialogHeader>
-              <UiDialogTitle>Avaliar pedido</UiDialogTitle>
-              <UiDialogDescription>{{ tracking.copy.rating_comment_placeholder }}</UiDialogDescription>
-            </UiDialogHeader>
-            <div class="space-y-4">
-              <UiStarRating v-model="rating" :max="5" class="justify-center" />
-              <UiTextarea v-model="comment" :rows="3" />
+        <template v-if="rateAction">
+          <UiButton class="w-full" icon="lucide:star" @click="supportOpen = true">Avaliar pedido</UiButton>
+          <BottomSheet
+            v-model:open="supportOpen"
+            max-width="md"
+            title="Avaliar pedido"
+            description="Sua nota ajuda a loja a melhorar."
+          >
+            <div class="shop-stack-block px-4 py-4">
+              <UiStarRating v-model="rating" :max="5" size="lg" class="justify-center" />
+              <UiTextarea v-model="comment" :rows="3" :placeholder="tracking.copy.rating_comment_placeholder" />
             </div>
-            <UiDialogFooter>
-              <UiButton @click="postAction(rateAction, { rating, comment })">{{ tracking.copy.rating_submit_label }}</UiButton>
-            </UiDialogFooter>
-          </UiDialogContent>
-        </UiDialog>
+            <template #footer>
+              <UiButton class="w-full" size="lg" @click="rateAndClose">{{ tracking.copy.rating_submit_label }}</UiButton>
+            </template>
+          </BottomSheet>
+        </template>
       </aside>
 
       <UiAlertDialog :open="!!conflict" @update:open="open => { if (!open) dismissReorderConflict() }">
