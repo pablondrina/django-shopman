@@ -34,11 +34,20 @@
 - **Gestor** (opcional, WP3): tela de operadores → **"Resetar PIN"** (gera temp) para o gerente.
 
 ## WPs
-- **WP1 (backend):** campo `must_change` + `set_pin`/`set_for` + 2 endpoints + `pin_must_change`
-  na sessão. Testes: troca com current ok; current errado → 400; lockout; reset por gerente +
-  must_change; policy (min length / só dígitos). *(test-first)*
-- **WP2 (frontend — troca):** "Trocar PIN" no lock screen dos 4 apps + fluxo forçado no must_change.
-- **WP3 (frontend — gerente):** reset de PIN no gestor (gera temp, mostra uma vez).
+- **WP1 (backend) ✅:** campo `must_change` + `set_pin`/`set_for` + `manage_operators` +
+  `POST operator/pin/change` + `POST operator/pin/reset` + `pin_must_change` na sessão e na
+  projeção POS. 14 testes (troca ok/errado/policy/lockout/limpa-flag; reset temp/explícito/
+  sem-perm/404/policy/e2e forçado; sessão expõe o flag). Commit `816b24b0`.
+- **WP2 (frontend — troca) ✅:** "Trocar meu PIN" no lock screen dos 4 apps (KDS/Gestor/Produção via
+  `OperatorPinChange.vue`; POS via `PosPinChange.vue` reusando o `PosPinPad`) + fluxo forçado quando
+  `pin_must_change`. Type-check + vitest verdes. Commit `a0185e45`.
+- **WP3 (gerente) ✅:** reset de PIN no **Admin/Unfold** (canônico p/ gestão de staff): admin de
+  `PinCredential` em backstage com ações "Resetar PIN" (temp mostrado 1× + must_change) e
+  "Desbloquear PIN", gateado por `manage_operators`. 4 testes + gate canônico verde. Commit `6bdacfb0`.
+
+## Estado — ✅ COMPLETO (2026-07-04)
+Os 3 WPs entregues test-first na branch `feat/operator-pin-selfservice`. Falta só merge + deploy
+staging (decisão do Pablo) e QA físico (trocar PIN no tablet).
 
 ## Fora de escopo (por ora)
 - Recuperação sem gerente (esqueci o PIN e não tem gerente) — decisão de produto; hoje o reset do
