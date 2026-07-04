@@ -344,4 +344,20 @@ def anonymize_customer(customer) -> tuple[str, str]:
     customer.is_active = False
     customer.save()
 
+    # Alcançar a FONTE DE VERDADE do PII (ContactPoint/document/metadata/identidades),
+    # que a limpeza dos campos denormalizados acima não toca, e o User do doorman.
+    try:
+        from shopman.guestman.services import customer as customer_service
+
+        customer_service.purge_pii(customer)
+    except Exception:
+        logger.warning("anonymize: purge_pii falhou customer=%s", original_ref, exc_info=True)
+
+    try:
+        from shopman.doorman.services._user_bridge import forget_customer
+
+        forget_customer(customer.uuid)
+    except Exception:
+        logger.warning("anonymize: forget_customer falhou customer=%s", original_ref, exc_info=True)
+
     return original_ref, phone_hash

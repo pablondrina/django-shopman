@@ -69,3 +69,34 @@ def get_or_create_user_for_customer(customer: AuthCustomerInfo) -> tuple:
     )
 
     return user, True
+
+
+def forget_customer(customer_uuid) -> None:
+    """Anonimiza o User Django vinculado e revoga os dispositivos confiáveis (LGPD).
+
+    O bridge copia first_name/last_name do cliente para o User no login; a
+    anonimização precisa alcançá-los, senão o nome sobrevive no auth. Também
+    desativa o login e revoga TrustedDevices. Idempotente e defensivo.
+    """
+    from ..models import TrustedDevice
+
+    try:
+        link = CustomerUser.objects.select_related("user").get(customer_id=customer_uuid)
+    except CustomerUser.DoesNotExist:
+        link = None
+    except Exception:
+        logger.warning("forget_customer: lookup do User falhou", exc_info=True)
+        link = None
+
+    if link is not None:
+        user = link.user
+        user.first_name = ""
+        user.last_name = ""
+        user.email = ""
+        user.is_active = False
+        user.save(update_fields=["first_name", "last_name", "email", "is_active"])
+
+    try:
+        TrustedDevice.revoke_all_for_customer(customer_uuid)
+    except Exception:
+        logger.warning("forget_customer: revogação de devices falhou", exc_info=True)
