@@ -283,21 +283,39 @@ residuals"). Não é bug, é o que separa "bom" de "excelente".
 > Regressão: todos os testes novos/tocados verdes (103 no framework + por-pacote);
 > as 113 falhas de baseline (poluição pré-existente) permanecem inalteradas.
 
-### Onda 2 — Resiliência e omotenashi das superfícies (P1 frontend) · ~4-5 dias
-12. **Pacote comum das 5 superfícies Nuxt**: interceptor 401 → reabre gate; banner por
-    idade do dado; refetch em `visibilitychange`; indicador de conexão. (Padrão C)
-13. POS: autosave com estado "não salvo" + retry; polling do PIX; guarda de reentrância.
-14. Gestor: expor deadline da confirmação otimista + countdown; paridade board↔detalhe.
-15. KDS: priming do beep por gesto; "ao vivo" atrelado a `error`.
-16. Produção: rollover de data à meia-noite; corrigir os dois furos do multi-lote.
+### Onda 2 — Resiliência e omotenashi das superfícies (P1 frontend) · ✅ PARCIAL (2026-07-04)
+Verificação: os apps Nuxt não têm runner e2e aqui; a lógica pura foi coberta por
+**vitest** e os componentes por **vue-tsc** (typecheck limpo). Itens de fluxo que
+exigem a stack viva (PIX real, expiração de sessão de verdade) ficam com nota.
+12. ✅ **401 no meio do turno reabre o gate** — `onResponseError` no `useFetch` dos
+    boards (kds, orders, production×3) → `refreshNuxtData("operator-session")`. POS
+    (auth divergente): guarda de reentrância em submitSale/openTab/reviewCheckout.
+13. ✅ POS autosave "não salvo" + retry (chip âmbar); ✅ reentrância. ⏳ **PIX polling
+    deferido** — precisa de endpoint de status POS (não existe; só o do storefront) +
+    verificação do fluxo PIX na stack viva.
+14. ⏳ Gestor deadline/countdown + paridade board↔detalhe — **deferido** (precisa do
+    deadline na projection Django + verificação visual).
+15. ✅ KDS: priming do beep por gesto (AudioContext único + `soundBlocked` visível).
+16. ✅ Produção: rollover de data à meia-noite (`resolveDayRollover`, 4 vitest) +
+    os dois furos do multi-lote (conclusão mira a WO certa; iniciar 2º lote).
 
-### Onda 3 — Excelência e higiene (P2/P3) · contínuo
-17. Decisão do `refs` (enforçar o que fica + `UniqueConstraint`; apagar o resto).
-18. Rodar as suítes de concorrência (stockman/craftsman) no Postgres do CI.
-19. Apagar dead code (middleware morto, mocks quebrados, ~40 componentes/app, seams).
-20. Bulk actions de offerman via `save()`/sinais; lock de instância do `ifood_poll`;
-    lockfile Python; RMW de `order.data` com helper único sob lock.
-21. Atualizar CLAUDE.md e docs à realidade headless (9→11 packages, `surfaces/`).
+> Deferido de Onda 2 (precisa da stack viva p/ verificar): PIX polling no POS,
+> deadline/countdown do gestor, indicador de staleness por idade do dado, refetch em
+> `visibilitychange`, poda dos ~40 componentes ui-thing mortos por app.
+
+### Onda 3 — Excelência e higiene (P2/P3) · ✅ PARCIAL (2026-07-04)
+17. ✅ **`refs`**: `deactivate_scope` recusa wipe global (scope vazio/incompleto) — o
+    P1 perigoso (caminho real do day-close). ⏳ `UniqueConstraint` no banco + enforce
+    do `validator` em `attach()` **deferidos** (caminho dormente sem consumidor —
+    o próprio audit orienta "não gold-platear dormente"; fazer se ganhar escritor).
+18. ⏳ Suítes de concorrência (stockman/craftsman) no Postgres do CI — **deferido**
+    (mudança de CI/infra, não verificável sem Postgres local).
+19. ✅ Dead code: cluster de middleware morto removido (com import quebrado). ⏳ mocks
+    quebrados + ~40 componentes/app + seams dormentes — deferido (poda incremental).
+20. ✅ Bulk actions de offerman via `save()`/sinais (iFood retrai despublicado);
+    ✅ lock lógico do `ifood_poll` (claim `in_progress` não acka). ⏳ lockfile Python +
+    helper de RMW de `order.data` — deferido (infra + refactor sistêmico).
+21. ✅ CLAUDE.md à realidade headless (9→11 packages, `surfaces/`, cutover).
 
 ---
 
