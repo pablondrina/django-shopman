@@ -26,13 +26,21 @@ def create_sequenced_event(*, model, scope: dict, **fields):
     from django.db.models.functions import Coalesce
 
     for attempt in range(_MAX_ATTEMPTS):
+        seq = None
         try:
             with transaction.atomic():
                 last_seq = model.objects.filter(**scope).aggregate(
                     m=Coalesce(Max("seq"), Value(-1))
                 )["m"]
-                return model.objects.create(seq=last_seq + 1, **fields)
+                seq = last_seq + 1
+                return model.objects.create(seq=seq, **fields)
         except IntegrityError:
+            # Só retenta se a violação foi MESMO a colisão de (scope, seq). Outra
+            # constraint (FK, NOT NULL, check) não é corrida de seq e não pode ser
+            # mascarada por 6 tentativas — re-levanta na hora. O savepoint do
+            # `with` já reverteu, então a consulta abaixo é segura.
+            if seq is None or not model.objects.filter(seq=seq, **scope).exists():
+                raise
             if attempt == _MAX_ATTEMPTS - 1:
                 raise
             # colisão de seq com emissão concorrente — recalcula e tenta de novo.

@@ -17,9 +17,7 @@ export function useKdsBoard(stationRef: string) {
     server: true,
     // Sessão expirou no meio do turno → o poll passa a 401/403. Reabre o gate de
     // operador (re-fetch da sessão) em vez de deixar "reconectando…" para sempre.
-    onResponseError({ response }) {
-      if (response.status === 401 || response.status === 403) refreshNuxtData("operator-session");
-    },
+    onResponseError: operatorSessionOnError,
   });
 
   const board = computed<KDSBoardProjection | null>(() => data.value?.board ?? null);

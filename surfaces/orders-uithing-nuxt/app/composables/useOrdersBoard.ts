@@ -22,9 +22,7 @@ export function useOrdersBoard() {
     server: true,
     // Sessão expirou no meio do turno → o poll passa a 401/403. Reabre o gate de
     // operador (re-fetch da sessão) em vez de deixar "reconectando…" para sempre.
-    onResponseError({ response }) {
-      if (response.status === 401 || response.status === 403) refreshNuxtData("operator-session");
-    },
+    onResponseError: operatorSessionOnError,
   });
 
   const queue = computed<TwoZoneQueueProjection | null>(() => data.value?.queue ?? null);
