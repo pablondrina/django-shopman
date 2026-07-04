@@ -36,6 +36,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from shopman.orderman.models import Order
+
         from shopman.shop.lifecycle import dispatch
 
         cutoff = timezone.now() - timedelta(minutes=max(1, int(options["minutes"])))

@@ -13,9 +13,9 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
+from shopman.refs.exceptions import RefScopeInvalid
 from shopman.refs.models import Ref
 from shopman.refs.registry import _ref_source_registry, get_ref_type
-from shopman.refs.exceptions import RefScopeInvalid
 from shopman.refs.services import _build_scope_filter, _coerce_target, _normalize_value, _validate_scope
 from shopman.refs.signals import ref_deactivated, ref_renamed
 

@@ -15,8 +15,8 @@ permissão explícita (`IsAdminUser`/`DjangoModelPermissions`) e este guardrail 
 atualizado deliberadamente — nunca por reflexo.
 """
 
-from django.urls import get_resolver
 import pytest
+from django.urls import get_resolver
 
 # Prefixos de CRUD do kernel que NÃO podem estar montados no deployment.
 UNMOUNTED_KERNEL_API_PREFIXES = [

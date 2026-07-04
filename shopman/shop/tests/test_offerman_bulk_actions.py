@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.admin.sites import AdminSite
-
 from shopman.offerman.contrib.admin_unfold.admin import ProductAdmin
 from shopman.offerman.models import Product
 from shopman.offerman.signals import product_updated

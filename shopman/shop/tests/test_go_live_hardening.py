@@ -4,12 +4,12 @@
 - `seed --flush` recusa apagar dados em produção sem --force.
 """
 
-from django.conf import settings
-from django.core.management import CommandError, call_command
-from django.core.exceptions import ValidationError
-from django.contrib.auth.password_validation import validate_password
-from django.test import override_settings
 import pytest
+from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.management import CommandError, call_command
+from django.test import override_settings
 
 
 class TestPasswordValidators:

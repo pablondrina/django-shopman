@@ -11,7 +11,6 @@ import uuid
 
 import pytest
 from django.contrib.auth import get_user_model
-
 from shopman.doorman.models import CustomerUser, TrustedDevice
 from shopman.doorman.services._user_bridge import forget_customer
 

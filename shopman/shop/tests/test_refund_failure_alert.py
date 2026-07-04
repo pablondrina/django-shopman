@@ -91,6 +91,7 @@ def test_refund_handler_retries_then_alerts_on_exhaustion(paid_order):
     from types import SimpleNamespace as NS
 
     from shopman.orderman.exceptions import DirectiveTransientError
+
     from shopman.shop.handlers.payment_refund import PaymentRefundHandler
 
     class FailingAdapter:
