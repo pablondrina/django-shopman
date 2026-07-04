@@ -10,5 +10,6 @@ from shopman.backstage.admin.operation import (  # noqa: F401
     OperationTaskRunAdmin,
     OperationTaskTemplateAdmin,
 )
+from shopman.backstage.admin.operators import PinCredentialAdmin  # noqa: F401
 from shopman.backstage.admin.pos import POSTabAdmin  # noqa: F401
 from shopman.backstage.admin.shop_extensions import ShopAdminWithBackstageURLs  # noqa: F401

@@ -542,7 +542,6 @@ class OperatorPinResetView(APIView):
 
     def post(self, request):
         from django.contrib.auth import get_user_model
-
         from shopman.doorman.models.pin_credential import PinCredentialError
 
         from shopman.backstage.services import operator as operator_service

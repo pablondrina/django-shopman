@@ -188,7 +188,7 @@ def change_own_pin(user, current_pin: str, new_pin: str) -> None:
     except PinCredential.DoesNotExist:
         raise PinChangeError(
             "no_credential", "Você ainda não tem um PIN. Peça ao gerente para provisionar."
-        )
+        ) from None
     if cred.is_locked:
         raise PinChangeError(
             "locked", "PIN bloqueado por tentativas. Aguarde ou peça desbloqueio ao gerente."
