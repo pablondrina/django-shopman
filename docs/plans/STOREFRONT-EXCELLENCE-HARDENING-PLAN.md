@@ -5,7 +5,7 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅
+**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -30,6 +30,13 @@ Isto é **reforço de excelência**, não conserto de podridão.
   `useReorder` (4 — sucesso+navega, 409 conflito, performAction). `no-explicit-any`
   desligado só em `tests/**` (test doubles). Conversão `catch(any)→unknown`
   consolidada no WP-S4.
+- **WP-S2 ✅ (2026-07-04):** BFF `proxyDjangoPath` testado ponta a ponta com H3Event
+  real (mock `http.IncomingMessage/ServerResponse`) + `$fetch.raw` stubado. **+5
+  testes** (257 no total): reescrita de origin/referer p/ o Django + injeção de
+  x-csrftoken em método unsafe; GET safe não força CSRF nem body e preserva query;
+  status upstream 409 preservado com corpo cru (sem envelope); set-cookie
+  split-aware nas duas direções; handshake de CSRF quando falta token. (Passthrough
+  de corpo fica p/ o e2e — limitação do mock de stream sob vitest.)
 
 ---
 
