@@ -63,6 +63,8 @@ export interface OrderCardProjection {
   has_notes: boolean;
   assigned_operator: string;
   awaiting_work_orders: AwaitingWorkOrderProjection[];
+  confirmation_deadline_iso: string; // prazo da confirmação otimista (vazio se sem timer)
+  confirmation_action: string; // "auto_confirm" | "auto_cancel"
 }
 
 export interface OperatorOrderProjection {

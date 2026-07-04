@@ -115,6 +115,11 @@ class OrderCardProjection:
     has_notes: bool
     assigned_operator: str
     awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
+    # Prazo da confirmação otimista (só em pedidos NEW com timer agendado). Vazio
+    # quando não há timer (confirmação manual, fora de NEW). O gestor renderiza um
+    # countdown para o cliente não ficar no escuro sobre o prazo.
+    confirmation_deadline_iso: str = ""
+    confirmation_action: str = ""  # "auto_confirm" | "auto_cancel"
 
 
 @dataclass(frozen=True)
@@ -278,7 +283,9 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
         .order_by("created_at")
     )
 
-    entrada = tuple(_build_card(o) for o in all_orders if o.status == "new")
+    new_orders = [o for o in all_orders if o.status == "new"]
+    deadlines = _confirmation_deadlines([o.ref for o in new_orders])
+    entrada = tuple(_build_card(o, deadline=deadlines.get(o.ref)) for o in new_orders)
     preparo = tuple(_build_card(o) for o in all_orders if o.status in ("confirmed", "preparing"))
     preparing_count = len(preparo)
 
@@ -305,7 +312,25 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
 # ── Internals ──────────────────────────────────────────────────────────
 
 
-def _build_card(order: Order) -> OrderCardProjection:
+def _confirmation_deadlines(refs: list[str]) -> dict[str, tuple[str, str]]:
+    """{order_ref: (expires_at_iso, action)} dos timers de confirmação pendentes.
+
+    Batch (sem N+1): busca os directives confirmation.timeout queued uma vez e
+    filtra em Python (normalmente há poucos pendentes)."""
+    if not refs:
+        return {}
+    from shopman.orderman.models import Directive
+
+    wanted = set(refs)
+    out: dict[str, tuple[str, str]] = {}
+    for d in Directive.objects.filter(topic="confirmation.timeout", status="queued").order_by("available_at", "id"):
+        ref = (d.payload or {}).get("order_ref")
+        if ref in wanted and ref not in out:
+            out[ref] = (str((d.payload or {}).get("expires_at") or ""), str((d.payload or {}).get("action") or ""))
+    return out
+
+
+def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderCardProjection:
     now = timezone.now()
     elapsed = (now - order.created_at).total_seconds()
 
@@ -379,6 +404,8 @@ def _build_card(order: Order) -> OrderCardProjection:
         has_notes=bool(order.data.get("internal_notes")),
         assigned_operator=str((order.data.get("assignment") or {}).get("operator_name") or ""),
         awaiting_work_orders=_awaiting_work_orders(order),
+        confirmation_deadline_iso=deadline[0] if deadline else "",
+        confirmation_action=deadline[1] if deadline else "",
     )
 
 

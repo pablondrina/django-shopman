@@ -116,6 +116,20 @@ export function elapsedLabel(seconds: number): string {
   return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
 }
 
+/**
+ * Countdown regressivo até o prazo da confirmação otimista.
+ * Retorna "" quando não há prazo; "0:00" quando já venceu; senão "M:SS".
+ * Puro e testável — o card passa um `nowMs` que tica no cliente.
+ */
+export function confirmationRemainingLabel(deadlineIso: string, nowMs: number): string {
+  if (!deadlineIso) return "";
+  const deadlineMs = Date.parse(deadlineIso);
+  if (Number.isNaN(deadlineMs)) return "";
+  const left = Math.max(0, Math.round((deadlineMs - nowMs) / 1000));
+  const m = Math.floor(left / 60);
+  return `${m}:${String(left % 60).padStart(2, "0")}`;
+}
+
 // ── Zones (Entrada / Preparo / Saída) ──────────────────────────────────────
 
 export interface ZoneView {
