@@ -22,15 +22,42 @@ export function useKdsBoard(stationRef: string) {
 
   // Realtime + polling + audio cue (client only).
   const soundOn = ref(true);
+  // Som BLOQUEADO pela política de autoplay: o beep vem de um watch (não de um
+  // gesto), então um AudioContext não-primado nasce suspenso e toca MUDO. A UI
+  // mostra "toque para ativar o som" quando isto é true.
+  const soundBlocked = ref(false);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let source: EventSource | null = null;
   let lastTotal = -1;
 
+  // Um ÚNICO AudioContext compartilhado, resumido no primeiro gesto do operador
+  // (destravar/tocar/qualquer toque) — recriar por beep garantia suspensão.
+  let audioCtx: AudioContext | null = null;
+  function ensureCtx(): AudioContext | null {
+    if (!import.meta.client) return null;
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) audioCtx = new Ctx();
+    return audioCtx;
+  }
+  function primeAudio() {
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    soundBlocked.value = soundOn.value && ctx.state !== "running";
+  }
+
   function beep() {
     if (!soundOn.value) return;
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    if (ctx.state !== "running") {
+      // Não conseguimos tocar sem um gesto — sinalize visualmente em vez de falhar mudo.
+      soundBlocked.value = true;
+      return;
+    }
+    soundBlocked.value = false;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -73,14 +100,27 @@ export function useKdsBoard(stationRef: string) {
   function toggleSound() {
     soundOn.value = !soundOn.value;
     if (import.meta.client) localStorage.setItem(`kds_sound_${stationRef}`, soundOn.value ? "on" : "off");
+    primeAudio(); // gesto do usuário — desbloqueia o áudio
     if (soundOn.value) beep();
   }
+
+  let removeGestureListeners: (() => void) | null = null;
 
   onMounted(() => {
     soundOn.value = localStorage.getItem(`kds_sound_${stationRef}`) !== "off";
     lastTotal = view.value?.total ?? -1;
     pollTimer = setInterval(() => refresh(), 15_000);
     connectSse();
+    // Primeiro gesto na tela destrava o áudio (a política de autoplay exige um).
+    const onGesture = () => primeAudio();
+    window.addEventListener("pointerdown", onGesture);
+    window.addEventListener("keydown", onGesture);
+    removeGestureListeners = () => {
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("keydown", onGesture);
+    };
+    // Reflete o estado inicial (provável bloqueado até o 1º gesto).
+    primeAudio();
   });
 
   // ---- write-side: otimista + fila serial + reconciliação ----
@@ -150,7 +190,8 @@ export function useKdsBoard(stationRef: string) {
     if (pollTimer) clearInterval(pollTimer);
     if (reconcileTimer) clearTimeout(reconcileTimer);
     if (source) { source.close(); source = null; }
+    if (removeGestureListeners) removeGestureListeners();
   });
 
-  return { board, view, pending, error, refresh, soundOn, toggleSound, checkItem, finalize, expedite, recall, acknowledge };
+  return { board, view, pending, error, refresh, soundOn, soundBlocked, toggleSound, checkItem, finalize, expedite, recall, acknowledge };
 }

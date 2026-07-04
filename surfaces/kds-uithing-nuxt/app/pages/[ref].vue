@@ -12,7 +12,7 @@ const route = useRoute();
 const stationRef = computed(() => String(route.params.ref || ""));
 
 // Write-side é otimista (toque instantâneo) e mora no composable, junto do estado.
-const { view, pending, error, soundOn, toggleSound, checkItem, finalize, expedite, recall, acknowledge } = useKdsBoard(stationRef.value);
+const { view, pending, error, soundOn, soundBlocked, toggleSound, checkItem, finalize, expedite, recall, acknowledge } = useKdsBoard(stationRef.value);
 
 // Recall: painel de concluídos recentes (desfazer finalização).
 const recallOpen = ref(false);
@@ -154,8 +154,16 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="`Densidade: ${density}`" title="Densidade da grade" @click="cycleDensity">
           <Icon :name="DENSITIES.find((d) => d.key === density)?.icon || 'lucide:layout-grid'" class="size-4" />
         </button>
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="soundOn ? 'Som ativo' : 'Som desativado'" title="Som" @click="toggleSound">
+        <button
+          type="button"
+          class="relative grid size-9 place-items-center rounded-md border transition hover:bg-accent hover:text-foreground"
+          :class="soundOn && soundBlocked ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : 'text-muted-foreground'"
+          :aria-label="soundOn && soundBlocked ? 'Som bloqueado — toque para ativar' : soundOn ? 'Som ativo' : 'Som desativado'"
+          :title="soundOn && soundBlocked ? 'Som bloqueado — toque para ativar' : 'Som'"
+          @click="toggleSound"
+        >
           <Icon :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
+          <span v-if="soundOn && soundBlocked" class="absolute -right-1 -top-1 size-2 rounded-full bg-amber-500" aria-hidden="true" />
         </button>
         <button v-if="view && !view.isExpedition && view.recentDone.length" type="button" class="relative grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Concluídos recentes — reabrir" title="Concluídos recentes" @click="recallOpen = true">
           <Icon name="lucide:rotate-ccw" class="size-4" />
