@@ -46,6 +46,14 @@ class TestCheckoutProjectionShape:
         proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         assert isinstance(proj, CheckoutProjection)
 
+    def test_carries_default_ddd(self, cart_session):
+        # O checkout precisa do DDD padrão para normalizar telefone sem DDD mesmo
+        # em acesso direto/SSR (sem passar pelo home). Sem isso o "55" (país) vira DDD.
+        request = _request_with_cart_session(cart_session)
+        proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.default_ddd
+        assert proj.default_ddd.isdigit()
+
     def test_is_immutable(self, cart_session):
         from dataclasses import FrozenInstanceError
 

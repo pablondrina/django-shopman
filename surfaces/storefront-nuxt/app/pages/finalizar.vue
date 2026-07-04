@@ -50,7 +50,9 @@ const { setFromServer, clearCart, applyCoupon, removeCoupon } = useCartState()
 const session = useShopSession()
 // DDD padrão da loja (config admin) — assumido quando o cliente digita telefone
 // sem DDD, para o número nunca virar "(55) …" nem falhar a validação por isso.
-const defaultDdd = computed(() => session.publicConfig.value?.default_ddd || '')
+// O checkout carrega o DDD padrão direto (crítico p/ normalizar telefone mesmo
+// em acesso direto/SSR sem passar pelo home); public_config é só fallback.
+const defaultDdd = computed(() => checkout.value?.default_ddd || session.publicConfig.value?.default_ddd || '')
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const state = reactive<CheckoutFormState>({

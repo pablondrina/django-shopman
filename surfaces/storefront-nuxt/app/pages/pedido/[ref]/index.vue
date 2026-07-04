@@ -51,6 +51,11 @@ const promiseTone = computed(() => tracking.value?.promise.tone || 'info')
 const statusPanelActions = computed(() => trackingStatusPanelActions(promiseActions.value, reorderAction.value, promiseTone.value))
 const statusPanelClass = computed(() => trackingPanelClass(promiseTone.value))
 const statusPanelIconClass = computed(() => trackingPanelIconClass(promiseTone.value))
+// Pedido em andamento: o próprio ícone do card pulsa (sinal "ao vivo") — sem
+// bolinha extra ao lado do título, que competia com o ícone.
+const statusPanelIconClassLive = computed(() =>
+  tracking.value?.is_active ? `${statusPanelIconClass.value} animate-pulse` : statusPanelIconClass.value
+)
 const statusPanelIcon = computed(() => trackingPanelIcon(promiseTone.value))
 const showPaymentStatusFallback = computed(() => Boolean(
   tracking.value?.requires_payment_gate &&
@@ -68,13 +73,24 @@ const hasStatusPanelActions = computed(() => Boolean(
   showSupportInStatusPanel.value
 ))
 const visiblePromiseRows = computed(() => visibleTrackingPromiseRows(tracking.value?.promise_rows || []))
+const showReorderAction = computed(() => Boolean(
+  reorderAction.value && !statusPanelActions.value.some(action => action.ref === 'reorder')
+))
+const showSupportAction = computed(() => Boolean(
+  tracking.value?.whatsapp_url && !showSupportInStatusPanel.value
+))
+// Um (e só um) botão primary no card de Ações: o topo da pilha não-destrutiva.
+// Prioridade: Avaliar > Pedir de novo > Falar conosco. Cancelar fica destructive
+// à parte. Assim nunca sobra um card só com botões secundários (faubourg).
+const sideActionsPrimary = computed(() => {
+  if (rateAction.value) return 'rate'
+  if (showReorderAction.value) return 'reorder'
+  if (showSupportAction.value) return 'support'
+  return null
+})
 const showSideActions = computed(() => Boolean(
   tracking.value &&
-  (
-    cancelAction.value ||
-    (reorderAction.value && !statusPanelActions.value.some(action => action.ref === 'reorder')) ||
-    (tracking.value.whatsapp_url && !showSupportInStatusPanel.value)
-  )
+  (cancelAction.value || showReorderAction.value || showSupportAction.value)
 ))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
@@ -268,14 +284,9 @@ useSeoMeta({
             variant="default"
             :class="statusPanelClass"
             :icon="statusPanelIcon"
-            :icon-class="statusPanelIconClass"
+            :icon-class="statusPanelIconClassLive"
           >
-            <UiAlertTitle class="flex items-center gap-2 text-foreground">
-              <!-- Pulso "ao vivo": o cliente sente que o pedido está em andamento. -->
-              <span v-if="tracking.is_active" class="relative flex size-2 shrink-0" :class="statusPanelIconClass" aria-hidden="true">
-                <span class="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
-                <span class="relative inline-flex size-2 rounded-full bg-current" />
-              </span>
+            <UiAlertTitle class="text-foreground">
               {{ tracking.promise.title || tracking.status_label }}
             </UiAlertTitle>
             <UiAlertDescription class="w-full text-muted-foreground">
@@ -419,7 +430,7 @@ useSeoMeta({
                       <UiAlertTitle>Endereço</UiAlertTitle>
                       <UiAlertDescription>
                         {{ tracking.pickup_info.address }}
-                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" size="sm" class="mt-2 border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
+                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" size="sm" class="mt-2 w-full border-transparent bg-brass text-brass-foreground hover:bg-brass/90 sm:w-auto">
                           {{ tracking.pickup_info.directions_label }}
                         </UiButton>
                       </UiAlertDescription>
@@ -452,16 +463,16 @@ useSeoMeta({
               Avaliar pedido
             </UiButton>
             <UiButton
-              v-if="reorderAction && !statusPanelActions.some(action => action.ref === 'reorder')"
-              variant="secondary"
+              v-if="showReorderAction"
+              :variant="sideActionsPrimary === 'reorder' ? 'default' : 'secondary'"
               :loading="!!reorderPending[orderRef]"
               icon="lucide:rotate-ccw"
               class="w-full"
-              @click="performReorderSafely(reorderAction)"
+              @click="performReorderSafely(reorderAction!)"
             >
-              {{ reorderAction.label }}
+              {{ reorderAction!.label }}
             </UiButton>
-            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="secondary" icon="lucide:message-circle" class="w-full">
+            <UiButton v-if="showSupportAction" :href="supportUrl" target="_blank" :variant="sideActionsPrimary === 'support' ? 'default' : 'secondary'" icon="lucide:message-circle" class="w-full">
               {{ tracking.copy.support_label }}
             </UiButton>
             <UiAlertDialog v-if="cancelAction">
