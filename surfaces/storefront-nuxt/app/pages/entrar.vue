@@ -449,10 +449,12 @@ useSeoMeta({
               <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
               <span>Código para entrar</span>
             </UiAlertTitle>
-            <UiAlertDescription>
-              <div class="mt-2 flex flex-col gap-3">
+            <!-- !flex sobrescreve o `grid justify-items-start` do AlertDescription
+                 (que encolhia caixa/botão ao conteúdo e grudava à esquerda). -->
+            <UiAlertDescription class="!flex w-full flex-col">
+              <div class="mt-2 flex w-full flex-col gap-3">
                 <div
-                  class="flex justify-center gap-1 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-3xl font-semibold tabular-nums tracking-[0.35em]"
+                  class="flex w-full justify-center gap-3 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-3xl font-semibold tabular-nums"
                   data-testid="debug-otp-code"
                 >
                   <span v-for="(digit, index) in debugOtpDigits" :key="index">{{ digit }}</span>
@@ -468,7 +470,7 @@ useSeoMeta({
                   Usar código de teste
                 </UiButton>
               </div>
-              <p v-if="debugOtpValidUntil" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
+              <p v-if="debugOtpValidUntil" class="mt-2 w-full text-center text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
             </UiAlertDescription>
           </UiAlert>
 

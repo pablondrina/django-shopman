@@ -124,15 +124,19 @@ useSeoMeta({ title: 'Perfil' })
             </UiField>
           </div>
 
-          <div class="flex items-center gap-3 border-t pt-4">
-            <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-              <Icon name="lucide:phone" class="size-4" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
-              <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
+          <!-- No mobile empilha (o label longo do botão esmagava o texto numa
+               coluna de 1 palavra); no desktop volta a ser linha. -->
+          <div class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                <Icon name="lucide:phone" class="size-4" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
+                <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
+              </div>
             </div>
-            <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm">Entrar com outra conta</UiButton>
+            <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm" class="w-full shrink-0 sm:w-auto">Entrar com outra conta</UiButton>
           </div>
         </div>
 
