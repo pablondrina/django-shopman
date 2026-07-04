@@ -390,7 +390,15 @@ watch(() => checkout.value, value => {
   useLoyalty.value = !!value.cart?.loyalty_applied
   nextTick(() => { loyaltySyncing.value = false })
   if (!state.name) state.name = value.customer_name || ''
-  if (!state.phone) state.phone = value.customer_phone || ''
+  // Telefone do cliente AUTENTICADO é identidade: o servidor é a fonte de verdade
+  // e sobrepõe qualquer rascunho local. Sem isso, um número antigo no localStorage
+  // (ex.: cadastro trocado) grudava para sempre — era o bug do "(55)" persistido.
+  // Convidado mantém o que digitou (só preenche se vazio).
+  if (value.is_authenticated && value.customer_phone) {
+    state.phone = value.customer_phone
+  } else if (!state.phone) {
+    state.phone = value.customer_phone || ''
+  }
   if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
   if (!state.delivery_time_slot) state.delivery_time_slot = value.earliest_slot_ref || projectedSlots.find(slot => slot.enabled)?.ref || ''
   if (!checkoutHydrated && !fulfillments.includes(state.fulfillment_type)) {
