@@ -120,9 +120,16 @@ export function useKdsBoard(stationRef: string) {
     const onGesture = () => primeAudio();
     window.addEventListener("pointerdown", onGesture);
     window.addEventListener("keydown", onGesture);
+    // Tablet dormiu / voltou à aba: refetch imediato (setInterval é throttlado em
+    // aba oculta), em vez de esperar até 15s por dados possivelmente muito velhos.
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
     removeGestureListeners = () => {
       window.removeEventListener("pointerdown", onGesture);
       window.removeEventListener("keydown", onGesture);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
     };
     // Reflete o estado inicial (provável bloqueado até o 1º gesto).
     primeAudio();

@@ -53,13 +53,20 @@ export function useOrdersBoard() {
     }
   }
 
+  const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
   onMounted(() => {
     pollTimer = setInterval(() => refresh(), 30_000);
     connectSse();
+    // Voltou à aba / reconectou: refetch imediato (o poll de 30s é longo demais
+    // para um pedido iFood novo esperar quando o tablet acabou de acordar).
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
   });
   onBeforeUnmount(() => {
     if (pollTimer) clearInterval(pollTimer);
     if (source) { source.close(); source = null; }
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("online", onVisible);
   });
 
   // ── write-side: per-ref in-flight guard + reconcile ──────────────────────
