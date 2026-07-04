@@ -20,6 +20,7 @@ import {
   contactSummary as buildContactSummary,
   datepickerDisabledDates as buildDatepickerDisabledDates,
   displayCheckoutDate,
+  firstCheckoutError,
   fulfillmentIcon as resolveFulfillmentIcon,
   fulfillmentLabel as resolveFulfillmentLabel,
   fulfillmentSummary as buildFulfillmentSummary,
@@ -622,8 +623,21 @@ function saveContact () {
   if (validateContact()) nameEditing.value = false
 }
 
+// Omotenashi: um gate de validação NUNCA falha em silêncio. O erro vem até o
+// cliente (toast) e a tela rola até o primeiro campo com erro (role="alert"),
+// em vez de ficar quietinho num campo fora da view.
+function revealFirstError () {
+  if (!import.meta.client) return
+  const first = firstCheckoutError(fieldErrors.value)
+  if (!first) return
+  useSonner.error(first.message)
+  void nextTick(() => {
+    document.querySelector('[data-slot="field-error"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
 function continueFromFulfillment () {
-  if (!validateFulfillmentStep()) return
+  if (!validateFulfillmentStep()) { revealFirstError(); return }
   // Retirada zera a taxa de entrega no total; entrega recalcula ao confirmar
   // o endereço (applyDeliveryDraft no passo seguinte).
   if (state.fulfillment_type === 'pickup') void applyDeliveryDraft()
@@ -631,7 +645,7 @@ function continueFromFulfillment () {
 }
 
 function continueFromAddress () {
-  if (!validateAddressStep()) return
+  if (!validateAddressStep()) { revealFirstError(); return }
   activeStep.value = 'when'
   // Endereço NOVO (não-salvo) em entrega: pergunta a etiqueta na hora. A escolha é
   // guardada e aplicada quando o pedido fecha (o endereço só ganha ID na confirmação).
@@ -642,14 +656,16 @@ function continueFromAddress () {
 
 function continueFromWhen () {
   if (validateWhenStep()) activeStep.value = 'payment'
+  else revealFirstError()
 }
 
 function continueFromPayment () {
   if (validatePaymentStep()) openConfirmSheet()
+  else revealFirstError()
 }
 
 function openConfirmSheet () {
-  if (!validate()) return
+  if (!validate()) { revealFirstError(); return }
   if (submitDisabled.value) {
     serverError.value = action.value?.reason || 'Pedido não pode ser confirmado agora.'
     return
