@@ -36,8 +36,6 @@ const devConsoleHint = ref(false)
 const debugOtpCode = ref('')
 const debugOtpExpiresAt = ref('')
 const showDebugOtp = ref(true)
-const debugOtpCopied = ref(false)
-let debugCopiedTimer: ReturnType<typeof setTimeout> | null = null
 const verified = ref(false)
 const welcomeNeeded = ref(false)
 const welcomeName = ref('')
@@ -110,7 +108,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
-  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
 })
 
 // Confirmação automática ao completar os 6 dígitos (o copy do servidor promete).
@@ -194,15 +191,6 @@ function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryM
   debugOtpCopied.value = false
   lastDeliveryMethod.value = method
   lastSentAtMs.value = Date.now()
-}
-
-async function copyDebugOtp () {
-  if (!debugOtpCode.value || !import.meta.client) return
-  await navigator.clipboard.writeText(debugOtpCode.value)
-  useSonner.success('Código copiado.')
-  debugOtpCopied.value = true
-  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
-  debugCopiedTimer = setTimeout(() => { debugOtpCopied.value = false }, 1500)
 }
 
 // Preenche o campo com o código de teste; o watcher de `code` confirma sozinho.
@@ -457,9 +445,9 @@ useSeoMeta({
 
           <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert">
             <div class="flex items-start justify-between gap-2">
-              <UiAlertTitle class="flex items-center gap-2">
+              <UiAlertTitle class="flex flex-col items-start gap-2">
                 <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
-                Código para entrar
+                <span>Código para entrar</span>
               </UiAlertTitle>
               <UiButton
                 type="button"
@@ -478,27 +466,16 @@ useSeoMeta({
                 >
                   <span v-for="(digit, index) in debugOtpDigits" :key="index">{{ digit }}</span>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                  <UiButton
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    icon="lucide:wand-sparkles"
-                    class="grow"
-                    @click="useDebugOtp"
-                  >
-                    Usar código de teste
-                  </UiButton>
-                  <UiButton
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    :icon="debugOtpCopied ? 'lucide:check' : 'lucide:copy'"
-                    @click="copyDebugOtp"
-                  >
-                    {{ debugOtpCopied ? 'Copiado' : 'Copiar' }}
-                  </UiButton>
-                </div>
+                <UiButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  icon="lucide:wand-sparkles"
+                  class="w-full justify-center"
+                  @click="useDebugOtp"
+                >
+                  Usar código de teste
+                </UiButton>
               </div>
               <p v-if="debugOtpValidUntil" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
             </UiAlertDescription>
