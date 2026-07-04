@@ -4,6 +4,7 @@ import {
   hasLiveDeadline,
   pollIntervalMs,
   timelineActiveStep,
+  trackingFreshness,
   trackingPanelClass,
   trackingPanelIcon,
   trackingPanelIconClass,
@@ -95,6 +96,15 @@ watch(deadlineCount, count => {
 }, { immediate: true })
 const deadlinePct = computed(() => deadlineCount.value ? countdownPct(deadlineCount.value.totalSeconds, deadlineWindowSeconds.value) : 0)
 const deadlineUrgent = computed(() => isCountdownUrgent(deadlinePct.value))
+
+// Frescor do dado: idade viva "Atualizado há X", que vira aviso se um poll falhar
+// (idade > 2× a janela de frescor do servidor). Só em pedidos ativos — um pedido
+// finalizado não precisa de contagem, o carimbo estático basta.
+const freshness = computed(() => trackingFreshness(
+  tracking.value?.last_updated_iso,
+  nowMs.value,
+  (tracking.value?.stale_after_seconds ?? 30) * 2
+))
 
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
@@ -238,7 +248,19 @@ useSeoMeta({
                   <UiProgress :model-value="deadlinePct" :class="deadlineUrgent ? '[&>div]:bg-destructive' : ''" />
                 </div>
 
-                <p class="shop-muted">{{ tracking.last_updated_display }}</p>
+                <p
+                  class="flex items-center gap-2 shop-muted"
+                  :class="tracking.is_active && freshness.isStale ? 'text-destructive' : ''"
+                  aria-live="polite"
+                >
+                  <Icon
+                    v-if="tracking.is_active && freshness.isStale"
+                    name="lucide:rotate-cw"
+                    class="size-3.5 shrink-0 animate-spin"
+                  />
+                  <span>{{ tracking.is_active && freshness.text ? freshness.text : tracking.last_updated_display }}</span>
+                  <span v-if="tracking.is_active && freshness.isStale">— reconectando…</span>
+                </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 shop-body">
