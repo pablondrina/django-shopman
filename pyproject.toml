@@ -40,6 +40,7 @@ dependencies = [
     "qrcode[pil]>=7.4,<8.0",
     "stripe>=14,<16",
     "whitenoise>=6.11,<7.0",
+    "sentry-sdk[django]>=2.0,<3.0",
 ]
 
 [project.optional-dependencies]
