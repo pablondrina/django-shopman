@@ -115,6 +115,17 @@ onBeforeUnmount(teardownObserver)
           :class="[fadeFromClass, showBottomFade ? 'opacity-100' : 'opacity-0']"
           aria-hidden="true"
         />
+        <!-- Affordance animada "role para ver mais": chevron pulsante sobre o fade,
+             desaparece junto quando o fim aparece. Mais claro que só o esmaecido. -->
+        <div
+          class="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200"
+          :class="showBottomFade ? 'opacity-100' : 'opacity-0'"
+          aria-hidden="true"
+        >
+          <span class="flex size-6 animate-bounce items-center justify-center rounded-full bg-foreground/80 text-background shadow-sm">
+            <Icon name="lucide:chevron-down" class="size-4" />
+          </span>
+        </div>
       </div>
 
       <UiSheetFooter
