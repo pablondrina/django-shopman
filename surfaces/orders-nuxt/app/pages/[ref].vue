@@ -39,6 +39,14 @@ function openDialog(kind: "reject" | "cancel" | "settle") {
   reason.value = "";
   amount.value = "";
 }
+
+// Store-configured justification presets (Admin/Unfold). One tap fills the reason
+// field; the operator can still edit before sending. The chosen text reaches the
+// customer in the cancellation notification.
+const presets = computed(() => order.value?.cancellation_presets ?? []);
+function applyPreset(text: string) {
+  reason.value = text;
+}
 async function submitDialog() {
   let ok = false;
   if (dialog.value === "reject" && reason.value.trim()) ok = await reject(reason.value.trim());
@@ -216,14 +224,32 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
           class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
           aria-label="Valor recebido"
         />
-        <textarea
-          v-else
-          v-model="reason"
-          rows="3"
-          :placeholder="dialog === 'reject' ? 'Motivo da recusa…' : 'Motivo do cancelamento (opcional)…'"
-          class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Motivo"
-        />
+        <template v-else>
+          <!-- one-tap justification presets (configuráveis no Admin) -->
+          <div v-if="presets.length" class="flex flex-wrap gap-1.5">
+            <button
+              v-for="(preset, i) in presets"
+              :key="i"
+              type="button"
+              :aria-pressed="reason === preset"
+              class="rounded-full border px-3 py-1 text-xs font-medium transition hover:bg-accent"
+              :class="reason === preset ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'"
+              @click="applyPreset(preset)"
+            >
+              {{ preset }}
+            </button>
+          </div>
+          <textarea
+            v-model="reason"
+            rows="3"
+            :placeholder="dialog === 'reject' ? 'Motivo da recusa…' : 'Motivo do cancelamento (opcional)…'"
+            class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Motivo"
+          />
+          <p v-if="dialog === 'cancel'" class="text-xs text-muted-foreground">
+            O motivo é enviado ao cliente na notificação de cancelamento.
+          </p>
+        </template>
         <UiDialogFooter>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="dialog = ''">Voltar</button>
           <button

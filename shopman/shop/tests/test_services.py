@@ -986,6 +986,20 @@ class TestNotificationSendHandler:
 
         assert ctx["items"] == []
 
+    def test_build_context_reason_note_is_a_self_suppressing_line(self):
+        """`reason_note` renders a Motivo line only when a reason is present."""
+        from shopman.shop.services.notification import _build_context
+
+        order = _make_order(snapshot={}, data={})
+
+        with_reason = _build_context(
+            order, {"order_ref": "ORD-001", "reason": "Item indisponível"}, "order_cancelled"
+        )
+        assert with_reason["reason_note"] == "\n\nMotivo: Item indisponível"
+
+        without_reason = _build_context(order, {"order_ref": "ORD-001"}, "order_cancelled")
+        assert without_reason["reason_note"] == ""
+
 
 # ══════════════════════════════════════════════════════════════════════
 # services/fulfillment.py

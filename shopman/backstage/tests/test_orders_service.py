@@ -74,6 +74,14 @@ def test_cancel_order_delegates(monkeypatch):
     cancel_order = Mock()
     monkeypatch.setattr(orders.operator_orders, "cancel_order", cancel_order)
 
-    orders.cancel_order("order", reason="cliente pediu", actor="admin:ana")
+    orders.cancel_order(
+        "order", reason="cliente pediu", actor="admin:ana", customer_note="cliente pediu"
+    )
 
-    cancel_order.assert_called_once_with("order", reason="cliente pediu", actor="admin:ana", cancellation_code="")
+    cancel_order.assert_called_once_with(
+        "order",
+        reason="cliente pediu",
+        actor="admin:ana",
+        cancellation_code="",
+        customer_note="cliente pediu",
+    )

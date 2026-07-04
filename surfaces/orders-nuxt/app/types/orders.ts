@@ -93,6 +93,7 @@ export interface OperatorOrderProjection {
   gift_recipient_phone: string;
   gift_message: string;
   gift_hide_values: boolean;
+  cancellation_presets: string[];
 }
 
 export interface TwoZoneQueueProjection {

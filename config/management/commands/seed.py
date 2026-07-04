@@ -228,6 +228,12 @@ class Command(BaseCommand):
                     "https://www.facebook.com/example",
                     "http://www.example.com.br",
                 ],
+                "cancellation_presets": [
+                    "Item indisponível no momento",
+                    "Sem um dos ingredientes hoje",
+                    "Problema técnico no preparo",
+                    "Fora do horário de atendimento",
+                ],
                 "opening_hours": {
                     "monday":    {"open": "09:00", "close": "18:00"},
                     "tuesday":   {"open": "09:00", "close": "18:00"},
@@ -4147,7 +4153,7 @@ class Command(BaseCommand):
             "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e aguardando entregador. Assim que sair para entrega avisamos. \U0001f4e6"},
             "order_dispatched": {"subject": "Pedido {order_ref} saiu para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* saiu para entrega!\n\nEm breve estara com voce!"},
             "order_delivered": {"subject": "Pedido {order_ref} entregue", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi entregue.\n\nEsperamos que tenha gostado! Obrigado pela preferencia."},
-            "order_cancelled": {"subject": "Pedido {order_ref} cancelado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi cancelado.\n\nEm caso de duvidas, entre em contato."},
+            "order_cancelled": {"subject": "Pedido {order_ref} cancelado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi cancelado.{reason_note}\n\nEm caso de duvidas, entre em contato."},
             "order_rejected": {"subject": "Pedido {order_ref} nao confirmado", "body": "Ola{customer_name_greeting}! O estabelecimento nao conseguiu confirmar o pedido *{order_ref}*.\n\nMotivo: {reason}\n\nEm caso de duvidas, estamos aqui."},
             "payment_requested": {"subject": "Pedido {order_ref}: pagamento liberado", "body": "Ola{customer_name_greeting}! Confirmamos a disponibilidade do pedido *{order_ref}*.\n\nPara continuar, conclua o pagamento dentro do prazo: {payment_url}"},
             "payment_confirmed": {"subject": "Pagamento do pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! O pagamento do pedido *{order_ref}* foi recebido.\n\nValor: *{total}*\n\nSeu pedido seguira para preparo. Obrigado!"},

@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from django.test import override_settings
 from django.urls import reverse
 from shopman.orderman.models import Directive, Order, OrderItem
 
@@ -233,3 +234,54 @@ def test_settle_delivery_cash_rejects_without_open_shift(client, operator):
     )
     assert response.status_code == 400
     assert "detail" in response.json()
+
+
+@pytest.mark.django_db
+@override_settings(SHOPMAN_REQUIRE_ACTIVE_OPERATOR=False)
+def test_cancel_endpoint_delivers_operator_reason_to_customer(
+    client, operator, django_capture_on_commit_callbacks
+):
+    """G2: the operator's justification reaches the customer, not a generic notice."""
+    order = _order("ORD-API-CANCEL", status="preparing")
+    client.force_login(operator)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            reverse("api-backstage-order-cancel", args=[order.ref]),
+            data={"reason": "Item indisponível no momento"},
+            content_type="application/json",
+        )
+    assert response.status_code == 200
+
+    order.refresh_from_db()
+    assert order.status == "cancelled"
+    assert order.data["cancellation_note"] == "Item indisponível no momento"
+
+    notice = Directive.objects.get(
+        topic="notification.send",
+        payload__order_ref=order.ref,
+        payload__template="order_cancelled",
+    )
+    assert notice.payload["reason"] == "Item indisponível no momento"
+
+
+@pytest.mark.django_db
+@override_settings(SHOPMAN_REQUIRE_ACTIVE_OPERATOR=False)
+def test_cancel_endpoint_without_reason_stays_generic(
+    client, operator, django_capture_on_commit_callbacks
+):
+    order = _order("ORD-API-CANCEL-GEN", status="preparing")
+    client.force_login(operator)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(reverse("api-backstage-order-cancel", args=[order.ref]))
+    assert response.status_code == 200
+
+    order.refresh_from_db()
+    assert "cancellation_note" not in order.data
+    notice = Directive.objects.get(
+        topic="notification.send",
+        payload__order_ref=order.ref,
+        payload__template="order_cancelled",
+    )
+    assert notice.payload.get("reason") is None

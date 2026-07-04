@@ -229,6 +229,24 @@ class Shop(models.Model):
         ),
     )
 
+    # ── Motivos de cancelamento/recusa (presets do operador) ──
+    cancellation_presets = models.JSONField(
+        "motivos de cancelamento/recusa",
+        default=list,
+        blank=True,
+        help_text=(
+            "Justificativas padrão que o operador injeta com um toque ao recusar "
+            "ou cancelar um pedido no gestor. O texto escolhido é enviado ao "
+            "cliente na notificação, então escreva na voz da loja.\n"
+            "Exemplo:\n"
+            "[\n"
+            '  "Item indisponível no momento",\n'
+            '  "Sem um dos ingredientes hoje",\n'
+            '  "Problema técnico no preparo"\n'
+            "]"
+        ),
+    )
+
     # ── Textos do acompanhamento (tracking page) ──
     tracking_copy = models.JSONField(
         "textos do acompanhamento",

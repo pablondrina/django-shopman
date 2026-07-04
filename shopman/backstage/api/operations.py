@@ -840,11 +840,18 @@ class OrderCancelView(_OrderActionBase):
         order, err = self._get_order(ref)
         if err:
             return err
-        reason = (request.data.get("reason") or "Cancelado pelo operador").strip()
+        # The operator's typed/preset text (may be blank). It rides through as the
+        # customer-facing note; the audit reason falls back to a generic label.
+        operator_reason = (request.data.get("reason") or "").strip()
+        reason = operator_reason or "Cancelado pelo operador"
         cancellation_code = (request.data.get("cancellation_code") or "").strip()
         try:
             orders_service.cancel_order(
-                order, reason=reason, actor=_actor(request), cancellation_code=cancellation_code
+                order,
+                reason=reason,
+                actor=_actor(request),
+                cancellation_code=cancellation_code,
+                customer_note=operator_reason,
             )
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao cancelar."}, status=400)
