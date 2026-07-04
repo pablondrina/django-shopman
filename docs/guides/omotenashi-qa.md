@@ -46,7 +46,7 @@ make omotenashi-browser-ci
 ```
 
 No cutover headless, a superfície de cliente deixou de ser o Django e passou a ser
-a loja Nuxt (`surfaces/storefront-uithing-nuxt`). Este alvo reflete a topologia
+a loja Nuxt (`surfaces/storefront-nuxt`). Este alvo reflete a topologia
 real: compila CSS, aplica migrations, recria o seed, **builda e sobe a loja Nuxt**
 (`127.0.0.1:3100`) apontando o BFF para a API Django, sobe o **Django** (API +
 páginas de operador) em `127.0.0.1:8001` com `SHOPMAN_STOREFRONT_BASE_URL`
@@ -65,7 +65,7 @@ onde o superusuário libera o acesso a pedidos — assim os checkpoints de
 pagamento/acompanhamento renderizam o estado real, não o fallback de "não
 encontrado".
 
-O **POS** migrou para o seu próprio app Nuxt (`surfaces/pos-uithing-nuxt`), que
+O **POS** migrou para o seu próprio app Nuxt (`surfaces/pos-nuxt`), que
 este gate não sobe: os checkpoints de POS são **pulados com aviso explícito** (não
 silenciosamente, nem como falso verde) até `SHOPMAN_POS_BASE_URL` apontar para a
 superfície. Essa cobertura entra na revisão do PDV (fase C).

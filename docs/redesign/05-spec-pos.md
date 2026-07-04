@@ -15,7 +15,7 @@
 - **Stack:** Nuxt 3 + UI Thing (não HTMX/Alpine — esse é o storefront). Branding por `Shop` tokens
   (OKLCH/fontes). Sem lib de componentes externa além do UI Thing já adotado ([[feedback_no_external_component_lib]]
   vale pro storefront Django; o PDV é o caso Nuxt já decidido em [[project_pos_uithing_redesign_goal]]).
-- **A `Presentation` do PDV é TypeScript no Nuxt** (`surfaces/pos-uithing-nuxt/.../presentation/`): pega
+- **A `Presentation` do PDV é TypeScript no Nuxt** (`surfaces/pos-nuxt/.../presentation/`): pega
   a `Projection` serializada em JSON e dá shape de tela (numpad, grade, ticket, teclado→qtd). **A
   Projection é a mesma** que storefront/admin/agentic consomem — só a render-tech muda (§2 da arquitetura).
 - **Config-driven:** comportamento por `ChannelConfig` do canal `pos`/`balcao` (confirmation, payment

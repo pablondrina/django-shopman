@@ -29,7 +29,7 @@ from shopman.shop.services.pos_intent import (
 )
 
 #: Generated artifact, relative to the repository root (``BASE_DIR``).
-OUTPUT_RELATIVE_PATH = Path("surfaces/pos-uithing-nuxt/app/generated/posContract.ts")
+OUTPUT_RELATIVE_PATH = Path("surfaces/pos-nuxt/app/generated/posContract.ts")
 
 
 def output_path() -> Path:

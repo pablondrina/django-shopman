@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def _pos_base_url() -> str:
     """Base absoluta do PDV (superfície Nuxt). Vazio ⇒ item de PDV oculto.
 
-    O PDV migrou para Nuxt (surfaces/pos-uithing-nuxt, headless via
+    O PDV migrou para Nuxt (surfaces/pos-nuxt, headless via
     api/v1/backstage/pos/*); não há rota Django. O link do operador aponta para a
     superfície Nuxt, configurável por deployment (como SHOPMAN_STOREFRONT_BASE_URL).
     """
@@ -29,17 +29,17 @@ def _pos_base_url() -> str:
 
 
 def _orders_base_url() -> str:
-    """Base absoluta do Gestor de Pedidos (surfaces/orders-uithing-nuxt). Vazio ⇒ oculto."""
+    """Base absoluta do Gestor de Pedidos (surfaces/orders-nuxt). Vazio ⇒ oculto."""
     return (getattr(settings, "SHOPMAN_ORDERS_BASE_URL", "") or "").rstrip("/")
 
 
 def _kds_base_url() -> str:
-    """Base absoluta do KDS (surfaces/kds-uithing-nuxt). Vazio ⇒ oculto."""
+    """Base absoluta do KDS (surfaces/kds-nuxt). Vazio ⇒ oculto."""
     return (getattr(settings, "SHOPMAN_KDS_BASE_URL", "") or "").rstrip("/")
 
 
 def _production_base_url() -> str:
-    """Base absoluta da Produção (surfaces/production-uithing-nuxt). Vazio ⇒ oculto."""
+    """Base absoluta da Produção (surfaces/production-nuxt). Vazio ⇒ oculto."""
     return (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").rstrip("/")
 
 

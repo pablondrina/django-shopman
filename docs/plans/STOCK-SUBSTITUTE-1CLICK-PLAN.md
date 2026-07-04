@@ -11,7 +11,7 @@ estoque **nunca é informacional — é acionável, em 1 toque**. Quando um item
 poder **adicionar uma alternativa que já está em estoque com 1 clique**, sem fazer conta.
 
 Hoje (verificado 2026-06-28) o storefront Nuxt **mostra** os substitutos no carrinho
-([`app/pages/sacola.vue`](../../surfaces/storefront-uithing-nuxt/app/pages/sacola.vue) ~linha 147,
+([`app/pages/sacola.vue`](../../surfaces/storefront-nuxt/app/pages/sacola.vue) ~linha 147,
 banner "Alternativas disponíveis") mas eles são **rótulos não-clicáveis**. O único 1-clique vivo é
 "aceitar a quantidade disponível" (`acceptAvailableQty`). O princípio está **parcialmente
 implementado**.
@@ -31,7 +31,7 @@ Este é um arco de **completar o frontend**, não de construir do zero. O backen
   `CartUnavailableError(substitutes=...)`; a API
   [`shopman/storefront/api/surface.py:117`](../../shopman/storefront/api/surface.py) serializa
   `"substitutes": exc.substitutes` no corpo do `409`.
-- No Nuxt, [`app/composables/useCartState.ts`](../../surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts)
+- No Nuxt, [`app/composables/useCartState.ts`](../../surfaces/storefront-nuxt/app/composables/useCartState.ts)
   `issueFromPayload()` **já repassa os dicts crus** (`substitutes: Array.isArray(data?.substitutes) ? data.substitutes : []`).
   Ou seja: **`price_q`, `price_display` e `target_qty` já chegam no cliente em runtime** — só não
   estão tipados nem usados.
@@ -41,13 +41,13 @@ Core obrigatório (uma polonização opcional de `image_url` está no fim).
 
 ## Mecânica de carrinho relevante (já existe, reusar)
 
-Em [`useCartState.ts`](../../surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts):
+Em [`useCartState.ts`](../../surfaces/storefront-nuxt/app/composables/useCartState.ts):
 
 - `setSkuQty(meta: ProductMutationMeta, qty)` — **é o único caminho de escrita** do carrinho
   (`PUT /api/v1/cart/skus/{sku}/` com `{ qty }`), com escrita otimista + fila serial + reconciliação
   do servidor + tratamento de `409/429`. No sucesso, `applyServerCart()` zera `cartIssue` (o banner
   some sozinho). **Adicionar um substituto = chamar `setSkuQty` com o sku/qty do substituto.**
-- `ProductMutationMeta` ([`types/shopman.ts:503`](../../surfaces/storefront-uithing-nuxt/app/types/shopman.ts))
+- `ProductMutationMeta` ([`types/shopman.ts:503`](../../surfaces/storefront-nuxt/app/types/shopman.ts))
   = `{ sku, name, price_q, price_display, image_url: string | null }`. O substituto carrega tudo
   isso (menos `image_url`, que pode ser `null` — a linha otimista fica sem imagem por um instante e
   o servidor reconcilia com a imagem real no `applyServerCart`).
@@ -69,7 +69,7 @@ Em [`useCartState.ts`](../../surfaces/storefront-uithing-nuxt/app/composables/us
 ## Slices
 
 ### Slice 1 — Tipo `SubstituteProjection` (tipar o que já chega)
-Em [`types/shopman.ts`](../../surfaces/storefront-uithing-nuxt/app/types/shopman.ts), criar:
+Em [`types/shopman.ts`](../../surfaces/storefront-nuxt/app/types/shopman.ts), criar:
 ```ts
 export interface SubstituteProjection {
   sku: string
@@ -82,12 +82,12 @@ export interface SubstituteProjection {
   reason?: string
 }
 ```
-Em [`useCartState.ts`](../../surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts),
+Em [`useCartState.ts`](../../surfaces/storefront-nuxt/app/composables/useCartState.ts),
 trocar o tipo inline de `CartIssue.substitutes` (linha ~14) por `SubstituteProjection[]`. Manter
 `issueFromPayload` tolerante (campos podem faltar; normalizar `can_order`/`target_qty`).
 
 ### Slice 2 — Helper puro `substituteSwapPlan` (testável)
-Em [`presentation/cart.ts`](../../surfaces/storefront-uithing-nuxt/app/presentation/cart.ts):
+Em [`presentation/cart.ts`](../../surfaces/storefront-nuxt/app/presentation/cart.ts):
 ```ts
 export function substituteSwapPlan(
   sub: SubstituteProjection,
@@ -100,7 +100,7 @@ export function substituteSwapPlan(
 - `meta` = `{ sku, name, price_q, price_display, image_url: null }`.
 
 ### Slice 3 — Ação `addSubstitute` no composable
-Em [`useCartState.ts`](../../surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts),
+Em [`useCartState.ts`](../../surfaces/storefront-nuxt/app/composables/useCartState.ts),
 adicionar e exportar:
 ```ts
 async function addSubstitute(sub: SubstituteProjection) {
@@ -115,7 +115,7 @@ Reusa toda a robustez de `setSkuQty` (otimista, fila, 409/429). Não duplicar l�
 
 ### Slice 4 — UI acionável em `sacola.vue`
 No bloco de substitutos (~linha 147) de
-[`sacola.vue`](../../surfaces/storefront-uithing-nuxt/app/pages/sacola.vue):
+[`sacola.vue`](../../surfaces/storefront-nuxt/app/pages/sacola.vue):
 - Importar `addSubstitute` e `isPending` de `useCartState()`.
 - Para cada `substitute` (manter `.slice(0, 3)`): adicionar um `UiButton` de ação ("Adicionar" +
   `price_display`), wired `@click="addSubstitute(substitute)"`.
@@ -126,7 +126,7 @@ No bloco de substitutos (~linha 147) de
 - Respeitar acessibilidade (botão real, label claro) e mobile-first (botão alcançável com polegar).
 
 ### Slice 5 — Testes (vitest)
-Em [`tests/cartPresentation.test.ts`](../../surfaces/storefront-uithing-nuxt/tests/cartPresentation.test.ts)
+Em [`tests/cartPresentation.test.ts`](../../surfaces/storefront-nuxt/tests/cartPresentation.test.ts)
 (já existe), cobrir `substituteSwapPlan`:
 - `target_qty` presente → usa `target_qty`.
 - sem `target_qty` → `min(requested, available)`, piso 1.
@@ -134,7 +134,7 @@ Em [`tests/cartPresentation.test.ts`](../../surfaces/storefront-uithing-nuxt/tes
 - `can_order: false` → `null`.
 - `meta` montado corretamente (sku/name/price_q/price_display/image_url=null).
 
-Rodar `cd surfaces/storefront-uithing-nuxt && npm run test`. Verde.
+Rodar `cd surfaces/storefront-nuxt && npm run test`. Verde.
 
 ### Slice 6 (OPCIONAL, polish) — `image_url` no substituto
 Só se valer a pena: em [`shopman/shop/services/substitutes.py::find`](../../shopman/shop/services/substitutes.py)
@@ -166,11 +166,11 @@ Confirmar no preview que o array `substitutes` chega populado no `cartIssue`.
 
 | Camada | Arquivo |
 |---|---|
-| Tipo | `surfaces/storefront-uithing-nuxt/app/types/shopman.ts` |
-| Helper puro | `surfaces/storefront-uithing-nuxt/app/presentation/cart.ts` |
-| Ação/estado | `surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts` |
-| UI | `surfaces/storefront-uithing-nuxt/app/pages/sacola.vue` |
-| Teste | `surfaces/storefront-uithing-nuxt/tests/cartPresentation.test.ts` |
+| Tipo | `surfaces/storefront-nuxt/app/types/shopman.ts` |
+| Helper puro | `surfaces/storefront-nuxt/app/presentation/cart.ts` |
+| Ação/estado | `surfaces/storefront-nuxt/app/composables/useCartState.ts` |
+| UI | `surfaces/storefront-nuxt/app/pages/sacola.vue` |
+| Teste | `surfaces/storefront-nuxt/tests/cartPresentation.test.ts` |
 | Backend (já pronto; opcional polish) | `shopman/shop/services/substitutes.py`, `shopman/storefront/api/surface.py` |
 
 Ao concluir, atualizar [STOCK-UX-PLAN](STOCK-UX-PLAN.md) (remover a nota de "lacuna real") e a

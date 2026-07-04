@@ -1,11 +1,11 @@
-# Gestor de Pedidos — orders-uithing-nuxt
+# Gestor de Pedidos — orders-nuxt
 
 Headless operator surface for managing live orders (the **Gestor de Pedidos**,
 served on the `gestor.` subdomain). Replaces the Admin/Unfold order console with a
 dedicated Nuxt/UI-Thing app, consuming the canonical projection/action contract at
 `api/v1/backstage/orders/*` — no business rule is copied; the orchestrator decides.
 
-- **Stable name:** `orders-uithing-nuxt` (by function, like `pos-`/`kds-uithing-nuxt`).
+- **Stable name:** `orders-nuxt` (by function, like `pos-`/`kds-nuxt`).
   `gestor.` is only the public host; never hardcode it (it lives in the deploy spec).
 - **Gate:** `shop.manage_orders` (staff operator, granted to Caixa/Gerente). Log into
   the Django admin first to get the session cookie, then open the app.

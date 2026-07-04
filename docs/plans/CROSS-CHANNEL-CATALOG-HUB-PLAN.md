@@ -259,7 +259,7 @@ UI da Frente 3.
 ## Frente 3 — ✅ COMPLETA (2026-07-01): matriz produto×superfície
 
 **Decisão de arquitetura (aprovada): SPLIT.** A **matriz operacional** (pausa/preço/bulk/sync) vive no
-**Gestor Nuxt** (`orders-uithing-nuxt`); a **edição de config** (`Collection.rule`, `capability`/
+**Gestor Nuxt** (`orders-nuxt`); a **edição de config** (`Collection.rule`, `capability`/
 `content` da superfície) vive no **Admin/Unfold**. Espelha o precedente da produção (console Admin +
 app Nuxt) e honra tanto o Canonical Gate (config→Unfold) quanto o plano (matriz→Gestor). Verificado:
 API backstage = `APIView`+`HasBackstagePermission`+projection dataclass; `shop.manage_catalog` já
@@ -275,7 +275,7 @@ existe; backstage já lê offerman direto nas projections.
   - `backstage/api/catalog.py` + urls: `GET catalog/` (matriz), `POST catalog/cell/`,
     `POST catalog/bulk/` (por skus ou coleção, inclusive smart). Gate `shop.manage_catalog`.
   - 11 testes de contrato. `make test` 2259; `make admin` verde.
-- **WP-3c ✅ FEITO** — Gestor Nuxt (`orders-uithing-nuxt`): nova aba **Catálogo** (nav Pedidos↔Catálogo).
+- **WP-3c ✅ FEITO** — Gestor Nuxt (`orders-nuxt`): nova aba **Catálogo** (nav Pedidos↔Catálogo).
   `pages/catalog.vue` (matriz produto×superfície, chips do eixo coleção com filtro server-side via
   `?collection` smart-aware, barra de bulk scoped à coleção, pausa 1-clique + preço inline por célula,
   capability/sync por coluna, "—" onde não ofertado), `useCatalogMatrix` (fetch+setCell/bulkSet+poll),
@@ -337,7 +337,7 @@ que as sustenta é o Expositor.
 - **Um catálogo canônico interno** (Offerman) → **projeções por canal** (adapters), com o
   `project_listing` (retract-aware) como motor único. Nosso `ProjectedItem` já carrega
   name/description/price/keywords/dietary/metadata.
-- **Superfície no Gestor** (`orders-uithing-nuxt` ou superfície nova): CRUD de produto (nome, desc
+- **Superfície no Gestor** (`orders-nuxt` ou superfície nova): CRUD de produto (nome, desc
   curta/longa, foto, keywords, nutricional/dietético), disponibilidade **por canal** (matriz
   produto×canal), pausa 1-clique, publicação, preço por canal, sync status por canal.
 - **Cross-channel**: iFood (pronto), e seams para Google Merchant / Meta&IG / WhatsApp Catalog —

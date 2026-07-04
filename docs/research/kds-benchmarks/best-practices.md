@@ -3,7 +3,7 @@
 > Pesquisa para o **refinamento de design do KDS** (Pablo, 2026-06-11: "mais
 > profissional, mais bonito, mais funcional; lindo, minimalista/elegante,
 > extremamente prático"). Mesmo rigor do PDV (dossiês em `docs/research/pos-benchmarks/`).
-> Fontes ao final. O KDS Nuxt (`surfaces/kds-uithing-nuxt`) é um 1º passo funcional;
+> Fontes ao final. O KDS Nuxt (`surfaces/kds-nuxt`) é um 1º passo funcional;
 > aqui está a régua pra elevá-lo ao nível do PDV.
 
 ## 1. Benchmarks (os de referência)

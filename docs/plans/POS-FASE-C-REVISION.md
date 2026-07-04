@@ -1,6 +1,6 @@
 # POS — Fase C (revisão reversa do PDV)
 
-> Revisão reversa (a partir do código) da superfície de PDV `surfaces/pos-uithing-nuxt`
+> Revisão reversa (a partir do código) da superfície de PDV `surfaces/pos-nuxt`
 > + backend headless. Frente **v1** (Onda 1). Cada achado abaixo tem **status de
 > verificação** — claims não confirmados no código não viram "gap".
 
@@ -32,7 +32,7 @@ de suspeitas.
 
 ## Arquitetura (confirmada)
 
-- **Superfície ativa**: `surfaces/pos-uithing-nuxt` (Nuxt, desktop-first).
+- **Superfície ativa**: `surfaces/pos-nuxt` (Nuxt, desktop-first).
   `app.vue` orquestra `usePosTerminal` (read) + `usePosSale` (write) +
   `useOperatorLock`. Presentation pura em `app/presentation/` (payment, tabBoard,
   moveLines, cash, kitchen, …).
@@ -67,7 +67,7 @@ surface cobre intent/payment math/operator lock.
 ### 🟡 Confirmado, menor (recomendação — não executado sem você)
 
 - **Cédulas de dinheiro hardcoded** em
-  [`app/presentation/payment.ts:103`](../../surfaces/pos-uithing-nuxt/app/presentation/payment.ts)
+  [`app/presentation/payment.ts:103`](../../surfaces/pos-nuxt/app/presentation/payment.ts)
   (`BRL_CASH_NOTES_Q`). Funciona, mas para tornar config-driven seria expor
   `cash_notes_q` em `POSCheckoutContractProjection` com fallback. Baixo valor;
   decidir se entra.
@@ -115,4 +115,4 @@ mutations, payment numpad, move dialog. Candidata a próxima leva autônoma.
 ## Referências
 
 - [PRODUCT-V1-SCOPE-BACKLOG](PRODUCT-V1-SCOPE-BACKLOG.md) · [POS-FIRST-CLASS-PLAN](POS-FIRST-CLASS-PLAN.md) · [POS-UITHING-REDESIGN-PLAN](POS-UITHING-REDESIGN-PLAN.md)
-- `surfaces/pos-uithing-nuxt/` · `shopman/shop/services/pos.py` · `shopman/backstage/projections/pos.py`
+- `surfaces/pos-nuxt/` · `shopman/shop/services/pos.py` · `shopman/backstage/projections/pos.py`

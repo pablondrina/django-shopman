@@ -51,7 +51,7 @@ divergencia interna.
 ## UI Thing
 
 A superficie Thing usa componentes scaffoldados locais em
-`surfaces/storefront-uithing-nuxt/app/components/Ui`, configurados em
+`surfaces/storefront-nuxt/app/components/Ui`, configurados em
 `ui-thing.config.ts`. Os componentes de aplicacao (`HomeHeroThing`,
 `ProductTile`, `CartDrawer`, `ProductDetailSheet`, `CartQuantityAction`,
 `QuantityControl`) sao composicoes da superficie sobre esses primitives, nao

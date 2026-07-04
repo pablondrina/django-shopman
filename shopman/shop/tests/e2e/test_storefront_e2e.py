@@ -9,7 +9,7 @@ admin pages. These flows are rewritten accordingly:
     the Nuxt store (``store_base_url``), with UI-Thing/Nuxt selectors — not the
     dead HTMX pages.
   · Operator flows (order console, KDS) stay on Django (``operator_base_url``).
-  · POS migrated to its OWN Nuxt app (surfaces/pos-uithing-nuxt, knob
+  · POS migrated to its OWN Nuxt app (surfaces/pos-nuxt, knob
     ``SHOPMAN_POS_BASE_URL``) and is NOT wired into this gate — its check is
     skipped with an explicit note, mirroring how the Omotenashi browser-QA gate
     skips POS until the fase-C PDV review.
@@ -202,7 +202,7 @@ class TestOperator:
         assert "/login" in page.url or response.status in (302, 403)
 
     @pytest.mark.skip(
-        reason="POS migrou para seu próprio app Nuxt (surfaces/pos-uithing-nuxt, "
+        reason="POS migrou para seu próprio app Nuxt (surfaces/pos-nuxt, "
         "knob SHOPMAN_POS_BASE_URL) e não está cabeado neste gate — coberto na "
         "fase C (revisão do PDV), igual o gate Omotenashi pula o POS."
     )

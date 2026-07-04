@@ -6,7 +6,7 @@ Data-base: 2026-05-15
 > **Aposentadoria (2026-06-12, decisao do Pablo):** os pins executaveis de markup
 > (`test_storefront_nuxt_parity_contract.py`) foram removidos junto com a superficie
 > `surfaces/storefront-nuxt`. A funcao de pinar a superficie viva
-> (`surfaces/storefront-uithing-nuxt`) e de `tests/surfaceGuardrails.test.ts` e dos
+> (`surfaces/storefront-nuxt`) e de `tests/surfaceGuardrails.test.ts` e dos
 > testes vitest de `app/presentation/`. Os contratos cross-superficie que continuam
 > executaveis vivem em `test_remote_multisurface_contract.py`. As declaracoes de
 > canon deste documento permanecem validas e pinadas por esses testes.
@@ -43,7 +43,7 @@ deve renderizar Action vinda da Projection em vez de derivar CTA por regra local
 | Conversa WhatsApp | `/api/v1/orders/{ref}/conversation/` | `RemoteConversationProjection`, consumida por adapter ManyChat |
 
 Tipos de superficie devem refletir esses contratos em
-`surfaces/storefront-uithing-nuxt/app/types/shopman.ts` (a superficie viva;
+`surfaces/storefront-nuxt/app/types/shopman.ts` (a superficie viva;
 o antigo `surfaces/storefront-nuxt` foi removido em 2026-06-12). Uma futura
 superficie Ionic deve reutilizar os mesmos nomes e campos, adaptando apenas
 componentes, navegacao e storage local.

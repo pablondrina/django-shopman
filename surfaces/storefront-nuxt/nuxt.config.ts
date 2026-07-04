@@ -74,7 +74,7 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
-    storageKey: 'storefront-uithing-nuxt-color-mode',
+    storageKey: 'storefront-nuxt-color-mode',
     classSuffix: ''
   },
 

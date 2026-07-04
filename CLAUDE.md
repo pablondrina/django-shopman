@@ -47,7 +47,7 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
 │   ├── services/       checkout, checkout_defaults, pickup_slots, ifood_*
 │   ├── models/         Promotion, Coupon, DeliveryZone
 │   ├── middleware.py   ChannelParamMiddleware (captura ?channel=)
-│   ├── urls.py         montado em /api/v1/ (o app cliente é surfaces/storefront-uithing-nuxt)
+│   ├── urls.py         montado em /api/v1/ (o app cliente é surfaces/storefront-nuxt)
 │   └── tests/          api, projections, checkout, rate-limiting, delivery zones
 │
 └── backstage/          Superfícies operador HEADLESS + Admin/Unfold (app Django, label="backstage")
@@ -57,15 +57,15 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
     ├── models/         KDSInstance, KDSTicket, DayClosing, OperatorAlert, CashRegister*
     ├── admin_console/  telas Admin/Unfold (produção, fechamento)
     ├── middleware.py   OnboardingMiddleware
-    ├── urls.py         montado em /api/v1/backstage/ + SSE /gestor/events/ (os apps são surfaces/*-uithing-nuxt)
+    ├── urls.py         montado em /api/v1/backstage/ + SSE /gestor/events/ (os apps são surfaces/*-nuxt)
     └── tests/          POS, KDS, produção, fechamento, contratos de superfície, e2e
 
 surfaces/               5 apps Nuxt 4 (SSR) — as superfícies vivas em produção
-├── storefront-uithing-nuxt/   loja do cliente (apex, mobile-first)  → api.
-├── pos-uithing-nuxt/          PDV (desktop-first)                   → api./backstage
-├── kds-uithing-nuxt/          cozinha (KDS)                         → api./backstage
-├── orders-uithing-nuxt/       gestor de pedidos                     → api./backstage
-└── production-uithing-nuxt/   produção/fornadas (kiosk Solari)      → api./backstage
+├── storefront-nuxt/   loja do cliente (apex, mobile-first)  → api.
+├── pos-nuxt/          PDV (desktop-first)                   → api./backstage
+├── kds-nuxt/          cozinha (KDS)                         → api./backstage
+├── orders-nuxt/       gestor de pedidos                     → api./backstage
+└── production-nuxt/   produção/fornadas (kiosk Solari)      → api./backstage
     Cada app: BFF Nitro (server/utils/djangoProxy.ts, CSRF), composables + presentation/ pura (vitest).
 
 config/                 Django project wrapper + deployment app

@@ -11,7 +11,7 @@ Cutover de domínio é um único knob: em produção, aponte
 passam a apontar para o apex — sem caçar caminho por caminho.
 
 Os caminhos abaixo são os caminhos CANÔNICOS da loja Nuxt (não os antigos do
-Django legado). Mantenha-os em sincronia com `surfaces/storefront-uithing-nuxt`.
+Django legado). Mantenha-os em sincronia com `surfaces/storefront-nuxt`.
 """
 from __future__ import annotations
 

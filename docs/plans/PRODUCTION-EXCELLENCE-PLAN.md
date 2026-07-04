@@ -33,7 +33,7 @@
 | **Craftsman core** | `plan/adjust/start/finish/void` com invariantes, eventos semânticos (`WorkOrderEvent` com payloads canônicos), idempotência no `finish`, snapshot de BOM em `meta._recipe_snapshot`, `suggest()` com histórico/estação/committed/safety/waste (`packages/craftsman/.../services/queries.py:120`) |
 | **Ponte estoque** | `craftsman/contrib/stockman/handlers.py` é o escritor único: planned→quant futuro, started→materializa expected, finished→consome insumos + `StockPlanning.realize()` + write-off de shortfall, voided→cancela planned |
 | **Vínculo pedido↔WO** | `shop/handlers/production_order_sync.py` — denormalizado em `Order.data["awaiting_wo_refs"]` ↔ `WorkOrder.meta["committed_order_refs"]`, estratégia configurável (`Shop.defaults["production_order_match"]`), unlink transacional no void |
-| **Fournil (Nuxt)** | Chão ao vivo (cards com timer/steps/finish/void/shortage-override) + Planejamento (matriz com sugestão inline, basis de confiança, atalho planejar/iniciar) — `surfaces/production-uithing-nuxt/app/pages/` |
+| **Fournil (Nuxt)** | Chão ao vivo (cards com timer/steps/finish/void/shortage-override) + Planejamento (matriz com sugestão inline, basis de confiança, atalho planejar/iniciar) — `surfaces/production-nuxt/app/pages/` |
 | **Admin/Unfold** | Console com 6 páginas (produção do dia, planejamento, painel, relatórios 3 abas + CSV, pesagem, compromissos) — `shopman/backstage/admin_console/production.py` |
 | **API headless** | `/api/v1/backstage/production/*` com envelope estruturado de shortage e permissão `operate_production` |
 
@@ -45,7 +45,7 @@
 | L2 | **`notify()` de produção é log-only.** O registry de notificações não conhece nenhum evento de produção; zero directives de produção (Orders têm 10+ topics). Operador não recebe nada fora da tela. | `shop/services/production.py:69-75`; `shop/notifications.py` (sem "production") |
 | L3 | **Configuração de produção fragmentada e parte hardcoded.** `LOW_YIELD_THRESHOLD=0.80` e `DEFAULT_STARTED_MINUTES=240` em constantes; `production_lifecycle`, `max_started_minutes`, `waste_rate` soltos em `Recipe.meta` sem validação nem dataclass; `seasons`/`high_demand_multiplier`/`production_order_match` em `Shop.defaults` sem contrato documentado. | `shop/handlers/production_alerts.py:13-14`; `shop/production_lifecycle.py:21-27` |
 | L4 | **`craft.needs()` (explosão de BOM → insumos do dia) não tem UI.** A capacidade mais valiosa para o mise en place do padeiro está dormente. A pesagem no Admin é estática (não escala insumos pela quantidade planejada). | `packages/craftsman/.../services/queries.py:89` |
-| L5 | **Fournil é single-date e alertas são só contagem.** Sem horizonte (amanhã/semana); `AlertsBell` conta mas não abre detalhe nem deep-link; polling fixo 30s (SSE já existe no projeto para KDS de pedidos). | `surfaces/production-uithing-nuxt/app/pages/planejamento.vue`; `components/AlertsBell.vue` |
+| L5 | **Fournil é single-date e alertas são só contagem.** Sem horizonte (amanhã/semana); `AlertsBell` conta mas não abre detalhe nem deep-link; polling fixo 30s (SSE já existe no projeto para KDS de pedidos). | `surfaces/production-nuxt/app/pages/planejamento.vue`; `components/AlertsBell.vue` |
 | L6 | **Fechamento do dia ignora produção.** `DayClosing` não acusa WOs abertas (planned esquecida, started atravessando o dia). | `shopman/backstage/models/` |
 | L7 | **Cobertura de testes da orquestração é 1/10 da de Orders.** `test_production_lifecycle.py` = 94 linhas/7 casos vs `test_lifecycle.py` = 1045/75. Sem e2e da cadeia completa suggest→plan→start→finish→realize→venda. | `shop/tests/` |
 | L8 | **Duplicação de superfície.** A matriz de planejamento existe no Admin e no fournil; risco de divergência e custo dobrado de manutenção. Papéis não estão formalizados. | `admin_console/production.py` + fournil |
@@ -288,7 +288,7 @@ em 1 toque; sugestão explica a si mesma; `make admin` verde após o split.
 ### WP-PE5 — Vínculo pedido↔produção visível nas duas pontas 🟡 ✅ (2026-07-03)
 
 > **Nota de execução**: o item 2 (gestor) **já existia** — o OrderCard do
-> orders-uithing-nuxt já renderiza `awaiting_work_orders` (mais um falso gap).
+> orders-nuxt já renderiza `awaiting_work_orders` (mais um falso gap).
 > Entregue: chip "N pedidos" no card do chão (`order_refs` na projection KDS)
 > e na linha da matriz (`rowCommitments` deduplica refs entre WOs abertas) com
 > dialog de detalhe; o estorno avisa "N pedidos aguardam este lote" com as
@@ -302,7 +302,7 @@ mostra "este lote atende N pedidos".
 1. Card de WO no fournil (chão + matriz) ganha chip "N pedidos" quando
    `meta["committed_order_refs"]` não-vazio; toque lista refs + qtds
    (`order_requirement_for_work_order` já calcula).
-2. Gestor de pedidos (orders-uithing-nuxt): pedido com `awaiting_wo_refs` mostra
+2. Gestor de pedidos (orders-nuxt): pedido com `awaiting_wo_refs` mostra
    badge "aguardando produção" com ref da WO e estado dela (projection do gestor
    já lê `Order.data`; incluir no payload).
 3. Void de WO com pedidos vinculados: dialog de estorno passa a avisar ("3

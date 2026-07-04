@@ -2,7 +2,7 @@
 
 Date: 2026-05-23  
 App: POS (`pos`)  
-Surface: `surfaces/pos-uithing-nuxt`  
+Surface: `surfaces/pos-nuxt`  
 Kind: backstage/operational surface
 
 ## Sources Audited
@@ -22,7 +22,7 @@ Kind: backstage/operational surface
   (`https://www.odoo.com/documentation/18.0/applications/sales/point_of_sale/restaurant.html`),
   and Odoo 18 Discounts
   (`https://www.odoo.com/documentation/18.0/applications/sales/point_of_sale/pricing/discounts.html`).
-- Nuxt POS surfaces: `surfaces/pos-uithing-nuxt`, plus stale/maturity comparison against `surfaces/backstage-nuxt/app/pages/pos.vue`.
+- Nuxt POS surfaces: `surfaces/pos-nuxt`, plus stale/maturity comparison against `surfaces/backstage-nuxt/app/pages/pos.vue`.
 - Tests: POS headless contract, intent, cash register/service, tabs, shift summary, discount notes, cancellation and frontend guardrails.
 
 ## Behavior Matrix
@@ -153,8 +153,8 @@ Kind: backstage/operational surface
 
 ## Tests And Build
 
-- `npm run test` in `surfaces/pos-uithing-nuxt`: 12 passed.
-- `npm run build` in `surfaces/pos-uithing-nuxt`: passed; only existing sourcemap/pure annotation warnings from Nuxt/Tailwind/VueUse build chain.
+- `npm run test` in `surfaces/pos-nuxt`: 12 passed.
+- `npm run build` in `surfaces/pos-nuxt`: passed; only existing sourcemap/pure annotation warnings from Nuxt/Tailwind/VueUse build chain.
 - `git diff --check`: passed.
 - `.venv/bin/python -m pytest shopman/backstage/tests/test_pos_headless_surface_contract.py shopman/backstage/tests/test_pos_intent_contract.py shopman/backstage/tests/test_pos_cash_service.py shopman/backstage/tests/test_pos_cash_register.py shopman/backstage/tests/test_pos_cancel.py shopman/backstage/tests/test_pos_discount_notes.py shopman/backstage/tests/test_pos_tabs.py shopman/backstage/tests/test_pos_shift_summary.py -q`: 84 passed.
 - Browser smoke: `http://127.0.0.1:3002/` loaded with Django at `127.0.0.1:8000`; unauthenticated operator state rendered without PDV-unavailable state. Screenshot: `/tmp/shopman-pos-smoke-2026-05-23.png`.
@@ -162,8 +162,8 @@ Kind: backstage/operational surface
   active POS surface without the previous missing-icon warning.
 - Excellence pass targeted checks:
   - `.venv/bin/python -m pytest shopman/backstage/tests/test_pos_headless_surface_contract.py shopman/backstage/tests/test_pos_discount_notes.py -q`: 20 passed.
-  - `npm run test` in `surfaces/pos-uithing-nuxt`: 12 passed.
-  - `npm run build` in `surfaces/pos-uithing-nuxt`: passed with only existing Nuxt/Tailwind/VueUse warnings.
+  - `npm run test` in `surfaces/pos-nuxt`: 12 passed.
+  - `npm run build` in `surfaces/pos-nuxt`: passed with only existing Nuxt/Tailwind/VueUse warnings.
 - Gateway staging readiness checks:
   - `.venv/bin/python -m pytest shopman/backstage/tests/test_integration_readiness.py shopman/backstage/tests/test_gateway_smoke.py shopman/backstage/tests/test_pos_headless_surface_contract.py -q`: 23 passed.
   - `.venv/bin/python -m pytest shopman/backstage/tests/test_integration_readiness.py shopman/backstage/tests/test_gateway_smoke.py shopman/backstage/tests/test_pos_headless_surface_contract.py shopman/shop/tests/test_fiscal_focusnfe.py shopman/shop/tests/test_stripe_checkout_session.py shopman/shop/tests/test_payment_webhooks.py -q`: 59 passed.
@@ -174,8 +174,8 @@ Kind: backstage/operational surface
   - `.venv/bin/python manage.py smoke_gateways --sandbox-only --json`: `passed_local_sandbox_blocked`; Efí sandbox and Stripe test are ready in this local environment, Focus NFe/iFood/ManyChat remain honestly blocked until credentials are installed.
 - 2026-05-25 follow-up checks:
   - `.venv/bin/python -m pytest shopman/backstage/tests/test_pos_headless_surface_contract.py shopman/backstage/tests/test_pos_cash_service.py -q`: 22 passed.
-  - `npm run test -- --run` in `surfaces/pos-uithing-nuxt`: 12 passed.
-  - `npm run build` in `surfaces/pos-uithing-nuxt`: passed; only existing Nuxt/Tailwind/VueUse sourcemap/pure annotation warnings.
+  - `npm run test -- --run` in `surfaces/pos-nuxt`: 12 passed.
+  - `npm run build` in `surfaces/pos-nuxt`: passed; only existing Nuxt/Tailwind/VueUse sourcemap/pure annotation warnings.
   - `git diff --check`: passed.
   - Authenticated Browser DOM smoke: cash terminal occupied state rendered
     correctly, stale local admin shift was closed for smoke, `codex_pos_visual`
@@ -207,4 +207,4 @@ Kind: backstage/operational surface
 
 Start from the canonical app spec, then write the backend/action contract before touching UI. Treat mature surfaces as UX evidence only, and fix small backend gaps before moving behavior into another frontend.
 
-For POS specifically, keep `surfaces/pos-uithing-nuxt` as the active Nuxt surface. Do not refit the older backstage Nuxt POS route unless a product reason justifies maintaining two POS surfaces under the same contract.
+For POS specifically, keep `surfaces/pos-nuxt` as the active Nuxt surface. Do not refit the older backstage Nuxt POS route unless a product reason justifies maintaining two POS surfaces under the same contract.

@@ -42,7 +42,7 @@ urlpatterns = [
     # Health / readiness probes — público, sem auth, no topo para precedência.
     path("health/", HealthCheckView.as_view(), name="health"),
     path("ready/", ReadyCheckView.as_view(), name="ready"),
-    # Pedidos migraram p/ o app Nuxt dedicado (Gestor — surfaces/orders-uithing-nuxt)
+    # Pedidos migraram p/ o app Nuxt dedicado (Gestor — surfaces/orders-nuxt)
     # via api/v1/backstage/orders/*; o console Admin de pedidos foi removido
     # (OPERATOR-APPS-PLAN Fase 2).
     path(

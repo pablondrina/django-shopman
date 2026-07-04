@@ -944,7 +944,7 @@ SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 
 # Base URL pública da superfície POS (operador) — a mesma ideia de
 # SHOPMAN_STOREFRONT_BASE_URL, mas para o PDV, que migrou para o seu próprio
-# app Nuxt (surfaces/pos-uithing-nuxt). Vazio ⇒ o POS não está conectado neste
+# app Nuxt (surfaces/pos-nuxt). Vazio ⇒ o POS não está conectado neste
 # contexto (ex.: o gate Omotenashi storefront+operador não sobe o POS), e os
 # links/checks de POS são pulados em vez de apontarem para uma rota morta.
 SHOPMAN_POS_BASE_URL = (
@@ -952,20 +952,20 @@ SHOPMAN_POS_BASE_URL = (
 ).strip().rstrip("/")
 
 # Base URL pública do Gestor de Pedidos (operador) — app Nuxt dedicado
-# (surfaces/orders-uithing-nuxt). Vazio ⇒ o item "Pedidos" some do nav do Admin
+# (surfaces/orders-nuxt). Vazio ⇒ o item "Pedidos" some do nav do Admin
 # (sem link morto), e o operador acessa direto pelo subdomínio (gestor.).
 SHOPMAN_ORDERS_BASE_URL = (
     os.environ.get("SHOPMAN_ORDERS_BASE_URL") or ""
 ).strip().rstrip("/")
 
-# Base URL pública do KDS (operador) — app Nuxt dedicado (surfaces/kds-uithing-nuxt).
+# Base URL pública do KDS (operador) — app Nuxt dedicado (surfaces/kds-nuxt).
 # Vazio ⇒ o item "KDS" some do nav do Admin (sem link morto).
 SHOPMAN_KDS_BASE_URL = (
     os.environ.get("SHOPMAN_KDS_BASE_URL") or ""
 ).strip().rstrip("/")
 
 # Base URL pública da Produção (operador) — app Nuxt dedicado
-# (surfaces/production-uithing-nuxt). Vazio ⇒ o item "Produção ao vivo" some do nav
+# (surfaces/production-nuxt). Vazio ⇒ o item "Produção ao vivo" some do nav
 # do Admin (sem link morto), e o operador acessa direto pelo subdomínio (prod.).
 SHOPMAN_PRODUCTION_BASE_URL = (
     os.environ.get("SHOPMAN_PRODUCTION_BASE_URL") or ""

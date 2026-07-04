@@ -39,7 +39,7 @@ class OperatorMarkPaidShortcutTests(TestCase):
             ROOT / "shopman/backstage/api/operations.py",
             ROOT / "shopman/backstage/services/orders.py",
             ROOT / "shopman/shop/services/operator_orders.py",
-            ROOT / "surfaces/orders-uithing-nuxt/app/presentation/board.ts",
+            ROOT / "surfaces/orders-nuxt/app/presentation/board.ts",
         )
 
         for path in files:

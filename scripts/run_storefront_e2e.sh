@@ -15,7 +15,7 @@
 set -euo pipefail
 
 PYTHON_BIN="${PYTHON:-.venv/bin/python}"
-NUXT_DIR="${SHOPMAN_QA_NUXT_DIR:-surfaces/storefront-uithing-nuxt}"
+NUXT_DIR="${SHOPMAN_QA_NUXT_DIR:-surfaces/storefront-nuxt}"
 
 DJANGO_PORT="${SHOPMAN_E2E_PORT:-${PORT:-8001}}"
 NUXT_PORT="${SHOPMAN_E2E_NUXT_PORT:-3100}"

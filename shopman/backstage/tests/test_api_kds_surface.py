@@ -1,7 +1,7 @@
 """Headless KDS API contract (api/v1/backstage/kds/*).
 
 Migrates the behavioural coverage of the retired KDS-HTMX views (station +
-customer board) onto the REST surface that the canonical kds-uithing-nuxt app
+customer board) onto the REST surface that the canonical kds-nuxt app
 consumes. Gate is the real ``backstage.operate_kds`` permission (granted to the
 Cozinha group); the customer pickup board is public.
 """

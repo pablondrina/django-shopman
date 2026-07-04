@@ -53,4 +53,4 @@ Auditoria de 2026-06-28 arquivou 28 planos em [`completed/`](completed/) com evi
 | `completed/THEMING-PLAN.md`, `completed/HOME-HERO-NAVBAR-PLAN.md`, `completed/ARC8-*`, `completed/ARC9-*`, `completed/STOREFRONT-ARC6/7-*`, `completed/STOREFRONT-AUDIT-FIXES-PLAN.md` | Storefront Nuxt: theming, home/hero/navbar, tracking/pagamento, conta, auth, audit fixes. |
 | `completed/REMOTE-MULTISURFACE-PLAN.md` | 6/6 WPs concluídos (matriz E2E, contrato, runbook). |
 | `completed/DELIVERY-FEE-TOTAL-PLAN.md`, `completed/PDP-DATA-FIELDS-PLAN.md`, `completed/URL-STANDARDIZATION-PLAN.md`, `completed/OMOTENASHI-PLAN.md`, `completed/DJANGO-HEADLESS-PLAN.md` | Frentes de storefront/checkout/headless entregues. |
-| `completed/MATERIAL-MASTER-PLAN.md`, `completed/BACKOFFICE-UI-PLAN.md`, `completed/STOREFRONT-NUXT-PARITY-ACTION-PLAN-2026-05-14.md` | Absorvidos/superados (Buyman; Admin-Unfold + apps Nuxt; storefront-uithing). |
+| `completed/MATERIAL-MASTER-PLAN.md`, `completed/BACKOFFICE-UI-PLAN.md`, `completed/STOREFRONT-NUXT-PARITY-ACTION-PLAN-2026-05-14.md` | Absorvidos/superados (Buyman; Admin-Unfold + apps Nuxt; storefront-nuxt). |

@@ -64,7 +64,7 @@ describe("POS sale intent", () => {
       receiptEmail: "ana@example.com",
       manualDiscount: null,
       managerApproval: null,
-      clientRequestId: "pos-uithing:test-1",
+      clientRequestId: "pos:test-1",
       items: [
         { sku: "PAO", name: "Pao", price_q: 1200, qty: 2, notes: "", is_d1: false },
       ],
@@ -305,7 +305,7 @@ function baseIntentState(overrides: Record<string, unknown> = {}) {
     receiptEmail: "",
     manualDiscount: null,
     managerApproval: null,
-    clientRequestId: "pos-uithing:test-base",
+    clientRequestId: "pos:test-base",
     items: [
       { sku: "PAO", name: "Pao", price_q: 1200, qty: 1, notes: "", is_d1: false },
     ],

@@ -211,7 +211,7 @@ Cada opção salva com 1 clique — cliente nunca digita a label manualmente.
   usado → None.
 
 ### Frontend
-> _Atualização 2026-06-28: implementado em Nuxt — `surfaces/storefront-uithing-nuxt/app/components/AddressPicker.vue` (+ `AddressLabelSheet.vue`; lógica pura em `app/presentation/address.ts`), reusado em `finalizar.vue` e `conta/enderecos.vue`. As refs Django/HTMX abaixo são da spec original: o contrato de campos segue válido; o veículo é Vue, não Alpine+HTMX._
+> _Atualização 2026-06-28: implementado em Nuxt — `surfaces/storefront-nuxt/app/components/AddressPicker.vue` (+ `AddressLabelSheet.vue`; lógica pura em `app/presentation/address.ts`), reusado em `finalizar.vue` e `conta/enderecos.vue`. As refs Django/HTMX abaixo são da spec original: o contrato de campos segue válido; o veículo é Vue, não Alpine+HTMX._
 - `components/address_picker.html` — componente reutilizável único, usado em
   `checkout.html` e `account.html`.
 - Google Maps JS API carregada uma vez no `base.html` (só quando o

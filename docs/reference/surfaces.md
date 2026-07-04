@@ -17,15 +17,15 @@ e a superficie `storefront-nuxt` foram **aposentados** no cutover headless.
 
 | Host | Superficie | Papel |
 | --- | --- | --- |
-| apex (`/`) | `surfaces/storefront-uithing-nuxt` | Loja do cliente (Nuxt/UI Thing). |
+| apex (`/`) | `surfaces/storefront-nuxt` | Loja do cliente (Nuxt/UI Thing). |
 | `api.` | Django headless | `/api/v1/*` + webhooks; nenhuma pagina de cliente. |
 | `admin.` | Django Admin/Unfold | Operador/admin. |
-| `pos.` | `surfaces/pos-uithing-nuxt` | PDV. |
+| `pos.` | `surfaces/pos-nuxt` | PDV. |
 
 Blueprints: `.do/app.staging-subdomains.yaml` (staging) e `.do/app.subdomains.yaml`
 (template de producao). Cada superficie Nuxt serve em `/` no seu host; o BFF proxia
 `/api/v1` → `api.` (ver `server/utils/djangoProxy.ts`). Dev local da loja:
-`cd surfaces/storefront-uithing-nuxt && npm run dev` (`http://127.0.0.1:3000/`).
+`cd surfaces/storefront-nuxt && npm run dev` (`http://127.0.0.1:3000/`).
 
 ## Regras De Superficie
 
@@ -87,10 +87,10 @@ usa `home.public_config.whatsapp_url`.
 ## UI Thing
 
 UI Thing nao e tratado como dependencia opaca. A superficie
-`surfaces/storefront-uithing-nuxt` foi criada com o setup/CLI canonico
+`surfaces/storefront-nuxt` foi criada com o setup/CLI canonico
 `npx nuxi@latest init`, `npx ui-thing@latest init` e
 `npx ui-thing@latest add`. Os componentes vivem em
-`surfaces/storefront-uithing-nuxt/app/components/Ui` e podem ser ajustados como
+`surfaces/storefront-nuxt/app/components/Ui` e podem ser ajustados como
 codigo da propria superficie.
 
 A superficie Thing possui guardrails locais:

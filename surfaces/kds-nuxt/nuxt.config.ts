@@ -52,7 +52,7 @@ export default defineNuxtConfig({
     // facing) on purpose; light stays available via the toggle.
     preference: 'dark',
     fallback: 'dark',
-    storageKey: 'kds-uithing-nuxt-color-mode',
+    storageKey: 'kds-nuxt-color-mode',
     classSuffix: ''
   },
 

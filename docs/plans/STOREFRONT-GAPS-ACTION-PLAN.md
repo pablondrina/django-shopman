@@ -365,7 +365,7 @@ ajustes do Pablo: contraste do "Me avise", coração só na PDP). `make test` 18
 
 **Fase C — Revisão Reversa Spec-driven das outras superfícies** (mesmo método: ler código → spec →
 caçar brechas → plano → executar):
-6. **PDV (POS)** — `surfaces/pos-uithing-nuxt` + `shop/services/pos.py` + backstage POS.
+6. **PDV (POS)** — `surfaces/pos-nuxt` + `shop/services/pos.py` + backstage POS.
 7. **Backstage / KDS / produção / fechamento** — `shopman/backstage/`.
 8. **Re-spec do storefront** pós-correções.
 

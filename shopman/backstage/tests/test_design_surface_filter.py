@@ -68,7 +68,7 @@ def test_backstage_templates_avoid_micro_type_and_loose_dashes():
 
 
 # O POS-HTMX (templates/pos/) saiu (SURFACE-CONVERGENCE-PLAN WP1); o POS é o Nuxt
-# (surfaces/pos-uithing-nuxt), com componentes/escala próprios testados lá (vitest).
+# (surfaces/pos-nuxt), com componentes/escala próprios testados lá (vitest).
 
 
 def test_backstage_empty_states_and_icons_use_canonical_scale():

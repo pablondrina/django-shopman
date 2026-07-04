@@ -22,7 +22,7 @@ urlpatterns = [
         name="events_scoped",
     ),
     # POS/KDS/Pedidos/alertas/Produção migraram para apps Nuxt dedicados
-    # (surfaces/*-uithing-nuxt) via api/v1/backstage/*; as camadas de view HTMX
+    # (surfaces/*-nuxt) via api/v1/backstage/*; as camadas de view HTMX
     # foram removidas (SURFACE-CONVERGENCE-PLAN WP1 + OPERATOR-APPS-PLAN Fases 2 e 4).
     # O console Admin/Unfold de produção (admin_console/production.py) segue —
     # consome os helpers compartilhados de views/production.py.

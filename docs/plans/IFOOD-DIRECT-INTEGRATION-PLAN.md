@@ -169,7 +169,7 @@ KDS Nuxt :3003). Gerado pedido de teste no Portal → `ifood_poll` ingeriu ao vi
 - **(a) Seletor de motivo de cancelamento no gestor**: ao recusar/cancelar pedido iFood, o operador
   escolhe o motivo da lista real (`GET orders/<ref>/cancellation-reasons/` → live do iFood); o código
   trafega por `order.data.ifood_cancellation_code` até o `requestCancellation`. Outros canais = texto
-  livre. Frontend em `orders-uithing-nuxt` (dialog condicional). Backend testado.
+  livre. Frontend em `orders-nuxt` (dialog condicional). Backend testado.
 - **(b) Cardápio → iFood VERIFICADO AO VIVO**: editar no nosso sistema reflete no iFood — **preço**
   (R$15,90 refletiu), **pausar** (retract → UNAVAILABLE), **reativar** (→ AVAILABLE), **criar**.
   Nome/descrição vão no mesmo PUT (projetam junto).

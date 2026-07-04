@@ -1,6 +1,6 @@
 """Headless production API contract (api/v1/backstage/production/*).
 
-Covers the REST surface that the dedicated production-uithing-nuxt app
+Covers the REST surface that the dedicated production-nuxt app
 (``fournil.``) consumes: the floor + planning board reads, every write action
 (plan/start/finish/advance-step/quick-finish/void), the coarse
 ``backstage.operate_production`` gate, and the structured shortage envelopes

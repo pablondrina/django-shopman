@@ -62,7 +62,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: surfaces/storefront-uithing-nuxt/package-lock.json
+          cache-dependency-path: surfaces/storefront-nuxt/package-lock.json
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
@@ -76,7 +76,7 @@ jobs:
 
       - name: Install Nuxt store dependencies
         run: npm ci
-        working-directory: surfaces/storefront-uithing-nuxt
+        working-directory: surfaces/storefront-nuxt
 
       - name: Omotenashi browser-QA gate (strict)
         env:

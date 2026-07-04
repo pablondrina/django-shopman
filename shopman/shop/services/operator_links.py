@@ -3,9 +3,9 @@
 As superfícies operacionais migraram para apps Nuxt dedicados, cada um no seu
 subdomínio, conversando com o Django via ``api/v1/backstage/*``:
 
-  · Gestor de Pedidos → ``surfaces/orders-uithing-nuxt``      (``gestor.``)
-  · KDS               → ``surfaces/kds-uithing-nuxt``          (``kds.``)
-  · Produção          → ``surfaces/production-uithing-nuxt``    (``fournil.``)
+  · Gestor de Pedidos → ``surfaces/orders-nuxt``      (``gestor.``)
+  · KDS               → ``surfaces/kds-nuxt``          (``kds.``)
+  · Produção          → ``surfaces/production-nuxt``    (``fournil.``)
 
 Como a loja do cliente e o POS, o Django só APONTA para esses apps, atrás de uma
 única base configurável por deployment (``settings.SHOPMAN_*_BASE_URL``). Quando a
@@ -33,7 +33,7 @@ def _url(base: str, path: str) -> str:
     return f"{base}{path}"
 
 
-# ── Gestor de Pedidos (orders-uithing-nuxt) ────────────────────────────────
+# ── Gestor de Pedidos (orders-nuxt) ────────────────────────────────
 
 
 def orders_base_url() -> str:
@@ -45,7 +45,7 @@ def orders_url(path: str = "/") -> str:
     return _url(orders_base_url(), path)
 
 
-# ── KDS (kds-uithing-nuxt) ─────────────────────────────────────────────────
+# ── KDS (kds-nuxt) ─────────────────────────────────────────────────
 
 
 def kds_base_url() -> str:
@@ -57,7 +57,7 @@ def kds_url(path: str = "/") -> str:
     return _url(kds_base_url(), path)
 
 
-# ── Produção (production-uithing-nuxt) ──────────────────────────────────────
+# ── Produção (production-nuxt) ──────────────────────────────────────
 
 
 def production_base_url() -> str:
