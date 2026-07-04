@@ -270,6 +270,8 @@ const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.va
 // por padrão) — fica legível sem depender de caber tudo numa linha só.
 const contactCardSummary = computed(() => [state.name, phoneDisplay.value].filter(Boolean).join('\n'))
 const addressSummary = computed(() => buildAddressSummary(state))
+// Endereço quebrado em linhas (mesmo padrão do rodapé) — leitura bonita na revisão.
+const deliveryAddressLines = computed(() => addressLines(state.delivery_address))
 const confirmSheetDescription = computed(() => buildConfirmSheetDescription(checkout.value))
 const dateBounds = computed(() => checkoutDateBounds(checkout.value))
 const checkoutMinDate = computed(() => dateBounds.value.minDate)
@@ -1420,7 +1422,10 @@ useSeoMeta({
                 </div>
                 <div v-if="state.fulfillment_type === 'delivery'" class="flex items-baseline gap-3 py-2">
                   <Icon name="lucide:map-pin" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ addressSummary }}</dd>
+                  <dd class="min-w-0 flex-1">
+                    <span v-for="(line, i) in deliveryAddressLines" :key="i" class="block">{{ line }}</span>
+                    <span v-if="state.delivery_complement" class="block text-muted-foreground">{{ state.delivery_complement }}</span>
+                  </dd>
                 </div>
                 <div class="flex items-baseline gap-3 py-2">
                   <Icon :name="paymentIcon(state.payment_method)" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />

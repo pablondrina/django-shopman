@@ -18,6 +18,8 @@ const route = useRoute()
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
+// Ref esmaecido no prefixo (canal/data) + cauda em destaque (o que o cliente usa).
+const refParts = computed(() => orderRefParts(orderRef.value))
 const rating = ref(5)
 const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
@@ -206,7 +208,7 @@ useSeoMeta({
       <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
+          <h1 class="mt-1 shop-title">Pedido <span class="font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}</h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
