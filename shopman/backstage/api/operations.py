@@ -268,6 +268,40 @@ class POSView(APIView):
         })
 
 
+class POSPaymentStatusView(APIView):
+    """GET /pos/payment/<ref>/status/ — polling do estado de pagamento (PIX no PDV).
+
+    O status endpoint do storefront é gateado pela sessão de checkout do CLIENTE
+    (anônima) — o operador (staff) não se encaixa. Este é o equivalente operador,
+    gateado por operate_pos, para o POS ver a confirmação do PIX chegar sem sair
+    do balcão. Reusa build_payment_status (por-order, is_paid/is_cancelled/…).
+    """
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def get(self, request, ref: str):
+        from django.http import Http404
+        from shopman.orderman.models import Order
+
+        from shopman.storefront.presentation.payment import build_payment_status
+        from shopman.storefront.services import orders as order_service
+
+        try:
+            order = Order.objects.get(ref=ref)
+        except Order.DoesNotExist as exc:
+            raise Http404("Order not found") from exc
+
+        # Resolve timers vencidos (auto-cancel de PIX) antes de reportar — mesma
+        # função canônica do endpoint de status do cliente.
+        try:
+            order_service.resolve_timeouts_if_due(order)
+        except Exception:
+            logger.warning("pos.payment_status: resolve_timeouts falhou order=%s", ref, exc_info=True)
+
+        return Response(projection_data(build_payment_status(order)))
+
+
 # ── Generic operator identification (PIN / badge) — shared by all surfaces ──
 # (The former POS-specific operator/unlock|lock views were folded into the generic
 #  endpoints below; the POS surface now uses them with perm=operate_pos.)

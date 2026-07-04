@@ -6,7 +6,7 @@
 import { toast } from "vue-sonner";
 import type { PaymentProofView } from "~/presentation/payment";
 
-const props = defineProps<{ proof: PaymentProofView }>();
+const props = defineProps<{ proof: PaymentProofView; confirmed?: boolean }>();
 
 const TONE_CLASS: Record<PaymentProofView["tone"], string> = {
   info: "border-sky-500/30 bg-sky-500/10 text-sky-800",
@@ -28,12 +28,28 @@ async function copyCode() {
 </script>
 
 <template>
-  <div class="grid gap-3 rounded-md border p-3" :class="TONE_CLASS[proof.tone]">
+  <!-- PIX confirmado: o polling detectou o pagamento — troca a tela por "Pago". -->
+  <div
+    v-if="proof.isPix && confirmed"
+    class="grid gap-1 rounded-md border border-green-500/40 bg-green-500/10 p-3 text-green-800 dark:text-green-300"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="flex items-center gap-2">
+      <Icon name="lucide:circle-check-big" class="size-5" />
+      <p class="text-sm font-semibold">Pagamento PIX confirmado · {{ proof.amountDisplay }}</p>
+    </div>
+  </div>
+
+  <div v-else class="grid gap-3 rounded-md border p-3" :class="TONE_CLASS[proof.tone]">
     <div class="flex items-center gap-2">
       <Icon :name="proof.icon" class="size-5" />
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold">{{ proof.isPix ? "Pagamento PIX" : "Pagamento por cartão" }} · {{ proof.amountDisplay }}</p>
         <p v-if="proof.message" class="text-xs opacity-90">{{ proof.message }}</p>
+        <p v-if="proof.isPix && proof.hasProof" class="mt-0.5 flex items-center gap-1 text-xs opacity-80">
+          <Icon name="lucide:loader-circle" class="size-3 animate-spin" /> Aguardando confirmação do PIX…
+        </p>
       </div>
     </div>
 

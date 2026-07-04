@@ -107,6 +107,33 @@ export function usePosSale(deps: PosSaleDeps) {
     serverError.value = "";
   });
   const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot; issueFiscalDocument: boolean } | null>(null);
+
+  // PIX no PDV: o proof mostra o QR e "aguarde confirmação", mas sem polling o
+  // operador nunca via a confirmação chegar (tinha de ir ao gestor). Aqui pollamos
+  // o status por-order (endpoint gateado por operate_pos) até is_paid/terminal.
+  const paymentConfirmed = ref(false);
+  let pixPollTimer: ReturnType<typeof setInterval> | null = null;
+  function stopPixPolling() {
+    if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
+  }
+  function startPixPolling(orderRef: string) {
+    stopPixPolling();
+    paymentConfirmed.value = false;
+    let attempts = 0;
+    pixPollTimer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > 240) return stopPixPolling(); // ~10 min a 2,5s → desiste
+      try {
+        const status = await $fetch<{ is_paid?: boolean; is_terminal?: boolean }>(
+          apiPath(`/api/v1/backstage/pos/payment/${encodeURIComponent(orderRef)}/status/`),
+          { credentials: "include" },
+        );
+        if (status?.is_paid) { paymentConfirmed.value = true; stopPixPolling(); }
+        else if (status?.is_terminal) { stopPixPolling(); } // cancelado/expirado
+      } catch { /* falha transiente de rede — segue tentando */ }
+    }, 2500);
+  }
+
   const checkoutMode = ref(false);
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
@@ -982,6 +1009,7 @@ export function usePosSale(deps: PosSaleDeps) {
 
   async function submitSale() {
     if (busy.value) return; // guarda de reentrância: duplo-toque não dispara 2 close_sale
+    stopPixPolling(); // nova finalização → encerra polling de uma venda anterior
     if (!cart.items.length) return;
     saleCancelled.value = false;
     if (!checkoutMode.value) {
@@ -1021,13 +1049,17 @@ export function usePosSale(deps: PosSaleDeps) {
           fulfillmentLabel: pos.value?.fulfillment_options.find((option) => option.ref === cart.fulfillmentType)?.label || cart.fulfillmentType,
           printedAtMs: Date.now(),
         };
+        const proof = paymentProofView(response.payment);
         result.value = {
           orderRef,
           nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
-          payment: paymentProofView(response.payment),
+          payment: proof,
           receipt,
           issueFiscalDocument: cart.issueFiscalDocument,
         };
+        // PIX pendente → polla até confirmar; outros métodos já saem resolvidos.
+        if (proof?.isPix && proof?.hasProof) startPixPolling(orderRef);
+        else paymentConfirmed.value = false;
         resetCart();
         await refresh();
       }
@@ -1289,12 +1321,15 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  onScopeDispose(() => stopPixPolling());
+
   return {
     // draft + flags
     cart,
     tabInput,
     busy,
     saving,
+    paymentConfirmed,
     unsaved,
     firing,
     renamingTab,

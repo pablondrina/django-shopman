@@ -81,6 +81,7 @@ const {
   lookupBusy,
   serverError,
   result,
+  paymentConfirmed,
   checkoutMode,
   showTabs,
   cashDialogOpen,
@@ -341,7 +342,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
-            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" />
+            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :confirmed="paymentConfirmed" />
             <div class="flex flex-wrap items-center gap-2">
               <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
                 <Icon name="lucide:printer" class="size-4" />
