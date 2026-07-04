@@ -84,6 +84,18 @@ export function displayBrazilianPhone (value: string, defaultDdd = ''): string {
   return normalized ? phoneDisplay(normalized) : ''
 }
 
+// Telefone JÁ normalizado (E.164) para leitura humana COM o código do país:
+// "+5543984049009" → "+55 (43) 98404-9009". Internacional volta como veio.
+export function displayE164Phone (value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('+55')) {
+    const national = phoneDisplay(trimmed)
+    return national.startsWith('(') ? `+55 ${national}` : trimmed
+  }
+  return trimmed
+}
+
 export function authPhonePayload (
   value: string,
   region: AuthPhoneRegion,

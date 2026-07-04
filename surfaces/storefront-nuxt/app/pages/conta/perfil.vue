@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AccountProfile } from '~/types/shopman'
+import { displayE164Phone } from '~/utils/authPhone'
 
 definePageMeta({ middleware: 'account' })
 
@@ -31,6 +32,11 @@ const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/
   credentials: 'include',
   headers: requestHeaders
 })
+
+// Telefone para leitura: "+55 (43) 98404-9009" em vez do E.164 cru.
+const phoneDisplayLabel = computed(() =>
+  displayE164Phone(profile.value?.phone || session.customerPhone.value || '') || 'Telefone confirmado'
+)
 
 watch(() => profile.value, value => {
   if (!value) return
@@ -120,7 +126,9 @@ useSeoMeta({ title: 'Perfil' })
             </UiField>
             <UiField>
               <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
-              <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" />
+              <!-- appearance-none evita o estouro de largura do controle nativo de
+                   data no iOS (largura intrínseca que ignora w-full). -->
+              <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" class="w-full max-w-full appearance-none" />
             </UiField>
           </div>
 
@@ -132,7 +140,7 @@ useSeoMeta({ title: 'Perfil' })
                 <Icon name="lucide:phone" class="size-4" />
               </span>
               <div class="min-w-0 flex-1">
-                <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
+                <p class="shop-body font-semibold tabular-nums">{{ phoneDisplayLabel }}</p>
                 <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
               </div>
             </div>

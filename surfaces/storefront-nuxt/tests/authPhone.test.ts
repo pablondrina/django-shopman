@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { authPhonePayload, displayBrazilianPhone, maskPhoneInput, normalizeAuthPhone, phoneDisplay } from '../app/utils/authPhone'
+import { authPhonePayload, displayBrazilianPhone, displayE164Phone, maskPhoneInput, normalizeAuthPhone, phoneDisplay } from '../app/utils/authPhone'
 
 describe('auth phone payload', () => {
   it('normalizes Brazilian phone variants before auth calls', () => {
@@ -33,6 +33,13 @@ describe('auth phone payload', () => {
     expect(phoneDisplay('+554333231997')).toBe('(43) 3323-1997')
     expect(phoneDisplay('+12025551234')).toBe('+12025551234')
     expect(phoneDisplay('')).toBe('')
+  })
+
+  it('displayE164Phone keeps the +55 country code for the profile label', () => {
+    expect(displayE164Phone('+5543984049009')).toBe('+55 (43) 98404-9009')
+    expect(displayE164Phone('+554333231997')).toBe('+55 (43) 3323-1997')
+    expect(displayE164Phone('+12025551234')).toBe('+12025551234')
+    expect(displayE164Phone('')).toBe('')
   })
 
   it('sends the explicit canonical auth contract fields', () => {
