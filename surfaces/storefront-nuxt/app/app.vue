@@ -3,8 +3,13 @@ import type { HomeResponse } from '~/types/shopman'
 
 const apiPath = useShopmanApiPath()
 const session = useShopSession()
-const { setFromServer } = useCartState()
+const { setFromServer, refreshCart } = useCartState()
+const { watchConnectivity } = useConnectivity()
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
+// Reconexão / retorno de foco reconcilia o carrinho (a fonte de verdade que muda
+// fora da aba). Falha silenciosa aqui é aceitável: é reconciliação de fundo.
+watchConnectivity(() => { void refreshCart().catch(() => null) })
 
 const { data: shellHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
   credentials: 'include',
@@ -66,6 +71,7 @@ useSeoMeta({
     <ClientOnly>
       <SearchOverlay />
       <SubstituteSheet />
+      <OfflineBanner />
     </ClientOnly>
     <UiSonner />
   </div>
