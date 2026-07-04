@@ -119,7 +119,7 @@ class OrderCardProjection:
     # quando não há timer (confirmação manual, fora de NEW). O gestor renderiza um
     # countdown para o cliente não ficar no escuro sobre o prazo.
     confirmation_deadline_iso: str = ""
-    confirmation_action: str = ""  # "auto_confirm" | "auto_cancel"
+    confirmation_action: str = ""  # "confirm" | "cancel" — ação do directive ao vencer
 
 
 @dataclass(frozen=True)
@@ -321,11 +321,18 @@ def _confirmation_deadlines(refs: list[str]) -> dict[str, tuple[str, str]]:
         return {}
     from shopman.orderman.models import Directive
 
-    wanted = set(refs)
     out: dict[str, tuple[str, str]] = {}
-    for d in Directive.objects.filter(topic="confirmation.timeout", status="queued").order_by("available_at", "id"):
+    # Filtra no DB pelos refs em questão (não traz TODOS os timers queued) — casa
+    # a query ao conjunto pequeno de pedidos NEW mesmo se a fila acumular.
+    directives = (
+        Directive.objects.filter(
+            topic="confirmation.timeout", status="queued", payload__order_ref__in=list(refs)
+        )
+        .order_by("available_at", "id")
+    )
+    for d in directives:
         ref = (d.payload or {}).get("order_ref")
-        if ref in wanted and ref not in out:
+        if ref and ref not in out:
             out[ref] = (str((d.payload or {}).get("expires_at") or ""), str((d.payload or {}).get("action") or ""))
     return out
 

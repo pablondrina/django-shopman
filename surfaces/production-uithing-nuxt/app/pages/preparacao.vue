@@ -9,18 +9,13 @@
 //     no Admin). Impressão via print CSS: só as etiquetas saem no papel.
 // Tablet/touch-first.
 import type { MiseEnPlaceLineProjection } from "~/types/production";
+import { isoForOffset } from "~/presentation/production";
 
 // Preparação olha hoje por padrão (a pesagem é do dia); amanhã na véspera.
-function isoFor(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-const selectedDate = ref(isoFor(0));
+const selectedDate = ref(isoForOffset(0));
 const dateChips = [
-  { iso: isoFor(0), label: "Hoje" },
-  { iso: isoFor(1), label: "Amanhã" },
+  { iso: isoForOffset(0), label: "Hoje" },
+  { iso: isoForOffset(1), label: "Amanhã" },
 ];
 
 const {

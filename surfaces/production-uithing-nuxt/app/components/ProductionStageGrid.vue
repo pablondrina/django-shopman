@@ -13,6 +13,7 @@
 import {
   elapsedLabel,
   fullDateLabel,
+  isoForOffset,
   matchesRowQuery,
   rowCommitments,
   rowCommittedUnits,
@@ -42,14 +43,8 @@ const query = ref(typeof route.query.q === "string" ? route.query.q : "");
 watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
 
 // ── Data: Hoje · Amanhã · Outra data (chip com o picker embutido) ───────────
-function isoFor(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-const todayISO = isoFor(0);
-const tomorrowISO = isoFor(1);
+const todayISO = isoForOffset(0);
+const tomorrowISO = isoForOffset(1);
 const isCustomDate = computed(() => selectedDate.value !== todayISO && selectedDate.value !== tomorrowISO);
 const customDateInput = ref<HTMLInputElement | null>(null);
 function openCustomDate() {

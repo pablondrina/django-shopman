@@ -29,21 +29,11 @@ const affordances = computed(() => cardAffordances(props.card));
 const tTone = computed(() => timerTone(props.card.timer_class));
 
 // Countdown do prazo da confirmação otimista (só em cards com timer agendado).
-// Tica no cliente para não ficar congelado entre polls — o cliente do balcão
-// precisa ver o prazo correndo.
-const nowMs = ref<number>(Date.now());
-let countdownTimer: ReturnType<typeof setInterval> | null = null;
+// Usa o relógio compartilhado (um só interval no board, não um por card).
+const nowMs = useNowTick();
 const confirmationLeft = computed(() =>
   confirmationRemainingLabel(props.card.confirmation_deadline_iso, nowMs.value),
 );
-onMounted(() => {
-  if (props.card.confirmation_deadline_iso) {
-    countdownTimer = setInterval(() => (nowMs.value = Date.now()), 1000);
-  }
-});
-onBeforeUnmount(() => {
-  if (countdownTimer) clearInterval(countdownTimer);
-});
 
 function buttonClass(priority: string): string {
   if (priority === "primary")
@@ -104,7 +94,7 @@ function buttonClass(priority: string): string {
       <span
         v-if="confirmationLeft"
         class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400"
-        :title="card.confirmation_action === 'auto_cancel' ? 'Cancela automaticamente ao vencer' : 'Confirma automaticamente ao vencer'"
+        :title="card.confirmation_action === 'cancel' ? 'Cancela automaticamente ao vencer' : 'Confirma automaticamente ao vencer'"
         role="timer"
         aria-live="off"
       >

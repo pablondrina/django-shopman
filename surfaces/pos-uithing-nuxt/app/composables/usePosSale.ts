@@ -590,6 +590,7 @@ export function usePosSale(deps: PosSaleDeps) {
 
   async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
     if (busy.value) return; // guarda de reentrância
+    stopPixPolling(); // saiu da tela de resultado → encerra o polling da venda anterior
     const tabRef = sanitizeTabRef(typeof tab === "string" ? tab : tab.ref);
     if (!tabRef) return;
     if (hasDraftWithoutTab.value && !options.preserveDraft) {

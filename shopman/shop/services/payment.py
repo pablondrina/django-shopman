@@ -294,10 +294,10 @@ def refund(
     # Falha TERMINAL (recusa do gateway): retry não ajuda → alerta já.
     detail = getattr(result, "message", None) or getattr(result, "error_code", None) or "ver logs"
     logger.error("payment.refund: adapter recusou o estorno do pedido %s: %s", order.ref, detail)
-    _alert_refund_failed(order, intent_ref, requested_q, detail)
+    alert_refund_failed(order, intent_ref, requested_q, detail)
 
 
-def _alert_refund_failed(order, intent_ref, amount_q, detail) -> None:
+def alert_refund_failed(order, intent_ref, amount_q, detail) -> None:
     """Alerta crítico de operador para estorno falho — o dinheiro pode estar retido."""
     from shopman.utils.monetary import format_money
 

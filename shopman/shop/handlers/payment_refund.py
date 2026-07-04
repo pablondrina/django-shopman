@@ -53,7 +53,7 @@ class PaymentRefundHandler:
             # estar retido e ninguém mais avisa.
             if message.attempts >= MAX_ATTEMPTS:
                 intent_ref = (order.data or {}).get("payment", {}).get("intent_ref")
-                payment._alert_refund_failed(
+                payment.alert_refund_failed(
                     order, intent_ref, payload.get("amount_q"),
                     "tentativas de estorno esgotadas",
                 )

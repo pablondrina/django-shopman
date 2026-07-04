@@ -74,7 +74,7 @@ class OrderQueueSurfaceTests(TestCase):
             status="queued",
             payload={
                 "order_ref": "Q-DEADLINE",
-                "action": "auto_confirm",
+                "action": "cancel",  # valor real do directive (não "auto_cancel")
                 "expires_at": "2026-07-04T12:00:00+00:00",
             },
         )
@@ -84,7 +84,7 @@ class OrderQueueSurfaceTests(TestCase):
         cards = {c.ref: c for c in queue.entrada}
 
         assert cards["Q-DEADLINE"].confirmation_deadline_iso == "2026-07-04T12:00:00+00:00"
-        assert cards["Q-DEADLINE"].confirmation_action == "auto_confirm"
+        assert cards["Q-DEADLINE"].confirmation_action == "cancel"
         assert cards["Q-NODEADLINE"].confirmation_deadline_iso == ""
 
     def test_all_active_operator_statuses_have_advance_action_after_confirmation(self) -> None:

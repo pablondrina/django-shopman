@@ -284,18 +284,19 @@ class POSPaymentStatusView(APIView):
         from django.http import Http404
         from shopman.orderman.models import Order
 
-        from shopman.storefront.presentation.payment import build_payment_status
-        from shopman.storefront.services import orders as order_service
+        from shopman.shop.projections.payment_status import build_payment_status
+        from shopman.shop.services import customer_orders
 
         try:
             order = Order.objects.get(ref=ref)
         except Order.DoesNotExist as exc:
             raise Http404("Order not found") from exc
 
-        # Resolve timers vencidos (auto-cancel de PIX) antes de reportar — mesma
-        # função canônica do endpoint de status do cliente.
+        # Resolve timers vencidos (auto-cancel de PIX / confirmação) antes de
+        # reportar. Camada shop — backstage NUNCA importa storefront (CLAUDE.md).
         try:
-            order_service.resolve_timeouts_if_due(order)
+            customer_orders.resolve_payment_timeout_if_due(order)
+            customer_orders.resolve_confirmation_timeout_if_due(order)
         except Exception:
             logger.warning("pos.payment_status: resolve_timeouts falhou order=%s", ref, exc_info=True)
 
