@@ -95,6 +95,7 @@ class CashShift(models.Model):
             ("operate_pos", "Pode operar o PDV (abrir/fechar caixa, sangria, balcão)"),
             ("audit_cashshift", "Pode auditar turnos de caixa"),
             ("adjust_cashshift", "Pode ajustar turnos de caixa"),
+            ("manage_operators", "Pode gerir operadores (resetar PIN, provisionar)"),
         ]
         constraints = [
             models.UniqueConstraint(

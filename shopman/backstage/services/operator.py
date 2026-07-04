@@ -127,3 +127,99 @@ def verify_manager_pin(user, raw_pin: str) -> bool:
     refund/cancel, cash-out/no-sale).
     """
     return _verify_with_perm(user, raw_pin, ADJUST_CASHSHIFT)
+
+
+# ── PIN self-service (change) + manager reset ────────────────────────────────
+
+MANAGE_OPERATORS = "backstage.manage_operators"
+
+
+class PinChangeError(ValueError):
+    """A self-service PIN change/reset failed, with a stable ``code`` for the UI."""
+
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
+
+
+def pin_must_change(user) -> bool:
+    """Whether ``user`` was handed a temp PIN and must rotate it before operating."""
+    if user is None:
+        return False
+    try:
+        return bool(user.pin_credential.must_change)
+    except PinCredential.DoesNotExist:
+        return False
+
+
+def resolve_target_for_pin_change(request, operator_id=None):
+    """Who is having their PIN changed: explicit ``operator_id``, else active operator,
+    else the device session user (personal devices). ``current_pin`` still gates it.
+
+    The explicit id supports the lock-screen forced-change (temp PIN as current),
+    where no operator is active yet. It is not an escalation: the change still
+    requires proving that operator's current PIN.
+    """
+    raw_id = str(operator_id or "").strip()
+    if raw_id:
+        return User.objects.filter(pk=raw_id, is_active=True, is_staff=True).first()
+    operator = resolve_active_operator_user(request)
+    if operator is not None:
+        return operator
+    device_user = getattr(request, "user", None)
+    if device_user is not None and device_user.is_authenticated and device_user.is_staff:
+        return device_user
+    return None
+
+
+def change_own_pin(user, current_pin: str, new_pin: str) -> None:
+    """Prove the current PIN and rotate to a new one (self-service).
+
+    Proving ``current_pin`` *is* the authorization — you can only rotate a PIN you
+    already know. A wrong current PIN counts toward lockout (brute-force defense).
+    ``set_pin`` clears ``must_change``, so a real rotation satisfies a forced change.
+    Raises :class:`PinChangeError` (wrong/locked/no credential) or
+    :class:`PinCredentialError` (new PIN violates policy).
+    """
+    if user is None:
+        raise PinChangeError("no_credential", "Operador não identificado.")
+    try:
+        cred = user.pin_credential
+    except PinCredential.DoesNotExist:
+        raise PinChangeError(
+            "no_credential", "Você ainda não tem um PIN. Peça ao gerente para provisionar."
+        )
+    if cred.is_locked:
+        raise PinChangeError(
+            "locked", "PIN bloqueado por tentativas. Aguarde ou peça desbloqueio ao gerente."
+        )
+    if not cred.verify(current_pin):
+        raise PinChangeError("invalid_current", "PIN atual incorreto.")
+    # validate_raw (via set_pin) raises PinCredentialError before mutating on policy failure.
+    cred.set_pin(new_pin)
+
+
+def _generate_temp_pin() -> str:
+    """A random numeric temp PIN that satisfies the configured minimum length."""
+    import secrets
+
+    from shopman.doorman.conf import doorman_settings
+
+    length = max(4, doorman_settings.PIN_MIN_LENGTH)
+    return "".join(secrets.choice("0123456789") for _ in range(length))
+
+
+def reset_operator_pin(target_user, *, temp_pin: str | None = None) -> str:
+    """Manager reset: set a temp PIN on ``target_user`` and force a change on first use.
+
+    Returns the temp PIN (generated when not supplied) — shown to the manager once,
+    never stored in plaintext. Authorization (``manage_operators``) is the caller's
+    responsibility (the API gate). Raises :class:`PinChangeError` on a bad target or
+    :class:`PinCredentialError` when a supplied temp PIN violates policy.
+    """
+    if target_user is None or not getattr(target_user, "is_active", False):
+        raise PinChangeError("no_target", "Operador não encontrado.")
+    temp = (temp_pin or "").strip() or _generate_temp_pin()
+    PinCredential.validate_raw(temp)  # policy check before writing (raises PinCredentialError)
+    PinCredential.set_for(target_user, temp, must_change=True)
+    return temp
