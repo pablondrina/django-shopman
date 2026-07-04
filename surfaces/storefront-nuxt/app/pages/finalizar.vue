@@ -244,7 +244,7 @@ const paymentMethodLabel = computed(() => resolvePaymentMethodLabel(checkout.val
 const selectedSlotLabel = computed(() => selectedSlot.value?.label || state.delivery_time_slot || '')
 const fulfillmentLabel = computed(() => resolveFulfillmentLabel(state.fulfillment_type))
 const fulfillmentIcon = computed(() => resolveFulfillmentIcon(state.fulfillment_type))
-const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date))
+const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date, undefined, true))
 const whenSummary = computed(() => buildWhenSummary(state.delivery_date, selectedSlotLabel.value))
 const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLabel.value, whenSummary.value))
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
@@ -1143,9 +1143,10 @@ useSeoMeta({
                           </span>
                         </UiButton>
                       </UiPopoverTrigger>
-                      <UiPopoverContent align="start" class="w-auto p-0">
+                      <UiPopoverContent align="start" class="w-[var(--reka-popover-trigger-width)] p-0">
                         <UiDatepicker
                           v-model="chosenDate"
+                          expanded
                           is-required
                           :min-date="checkoutMinDate"
                           :max-date="checkoutMaxDate"

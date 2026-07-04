@@ -851,9 +851,9 @@ describe('surface UX guardrails', () => {
     expect(trackingPresentation).toContain("'última atualização'")
     expect(trackingPresentation).toContain("'sua ação'")
     // Frescor vivo do dado (WP-S3): "Atualizado há X" que vira aviso ao perder um
-    // poll; o carimbo estático segue como fallback do pedido finalizado.
+    // poll — SÓ em pedido ativo (finalizado não mostra "Atualizado agora" mentiroso).
     expect(tracking).toContain('trackingFreshness(')
-    expect(tracking).toContain('tracking.last_updated_display')
+    expect(tracking).toContain('v-if="tracking.is_active"')
     expect(tracking).toContain('Ações disponíveis')
     expect(tracking).toContain('handleStatusPanelAction')
     expect(tracking).toContain('showSupportInStatusPanel')

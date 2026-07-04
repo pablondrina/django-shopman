@@ -444,6 +444,23 @@ class TestStatusColours:
         assert "origin=" not in proj.pickup_info.directions_url
         assert "travelmode=" not in proj.pickup_info.directions_url
 
+    def test_pickup_fulfillment_uses_counter_labels_without_shipment_tracking(self, order):
+        # Retirada não é envio: o card não pode dizer "Rastrear envio" (não acionável).
+        from shopman.orderman.models import Fulfillment
+        from shopman.orderman.models import Order as _Order
+
+        _Order.objects.filter(pk=order.pk).update(data={"fulfillment_type": "pickup"})
+        Fulfillment.objects.create(order=order, status="pending")
+        order.refresh_from_db()
+
+        proj = build_order_tracking(order)
+
+        assert len(proj.pickup_fulfillments) == 1
+        ful = proj.pickup_fulfillments[0]
+        assert ful.status_label == "Em preparo"
+        assert ful.tracking_label == ""
+        assert ful.tracking_url is None
+
     def test_pickup_directions_fall_back_to_coordinates_without_address(self, order):
         from decimal import Decimal
 

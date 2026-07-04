@@ -16,7 +16,11 @@ const active = computed(() => hovered.value || props.modelValue)
 const starSize = computed(() => (props.size === 'lg' ? 'size-10' : 'size-6'))
 
 function set (value: number) {
-  if (!props.readonly) emit('update:modelValue', value)
+  if (props.readonly) return
+  // Limpa o preview de hover para o display refletir a SELEÇÃO (no mobile o
+  // mouseenter "gruda" e o active poderia ficar preso no valor sob o dedo).
+  hovered.value = 0
+  emit('update:modelValue', value)
 }
 </script>
 

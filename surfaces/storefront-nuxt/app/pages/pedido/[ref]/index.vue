@@ -270,7 +270,14 @@ useSeoMeta({
             :icon="statusPanelIcon"
             :icon-class="statusPanelIconClass"
           >
-            <UiAlertTitle class="text-foreground">{{ tracking.promise.title || tracking.status_label }}</UiAlertTitle>
+            <UiAlertTitle class="flex items-center gap-2 text-foreground">
+              <!-- Pulso "ao vivo": o cliente sente que o pedido está em andamento. -->
+              <span v-if="tracking.is_active" class="relative flex size-2 shrink-0" :class="statusPanelIconClass" aria-hidden="true">
+                <span class="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                <span class="relative inline-flex size-2 rounded-full bg-current" />
+              </span>
+              {{ tracking.promise.title || tracking.status_label }}
+            </UiAlertTitle>
             <UiAlertDescription class="w-full text-muted-foreground">
               <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
@@ -285,17 +292,18 @@ useSeoMeta({
                 </div>
 
                 <p
+                  v-if="tracking.is_active"
                   class="flex items-center gap-2 shop-muted"
-                  :class="tracking.is_active && freshness.isStale ? 'text-destructive' : ''"
+                  :class="freshness.isStale ? 'text-destructive' : ''"
                   aria-live="polite"
                 >
                   <Icon
-                    v-if="tracking.is_active && freshness.isStale"
+                    v-if="freshness.isStale"
                     name="lucide:rotate-cw"
                     class="size-3.5 shrink-0 animate-spin"
                   />
-                  <span>{{ tracking.is_active && freshness.text ? freshness.text : tracking.last_updated_display }}</span>
-                  <span v-if="tracking.is_active && freshness.isStale">— reconectando…</span>
+                  <span>{{ freshness.text }}</span>
+                  <span v-if="freshness.isStale">— reconectando…</span>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -419,7 +427,7 @@ useSeoMeta({
                     <UiItem v-for="fulfillment in tracking.fulfillments" :key="`${fulfillment.status}-${fulfillment.tracking_code}`" class="rounded-lg border p-3">
                       <UiItemContent>
                         <UiItemTitle>{{ fulfillment.status_label }}</UiItemTitle>
-                        <UiItemDescription>{{ fulfillment.tracking_label }}</UiItemDescription>
+                        <UiItemDescription v-if="fulfillment.tracking_label">{{ fulfillment.tracking_label }}</UiItemDescription>
                       </UiItemContent>
                       <UiItemActions>
                         <UiButton v-if="fulfillment.tracking_url" :href="fulfillment.tracking_url" target="_blank" variant="outline" size="sm">Rastrear</UiButton>
@@ -434,13 +442,18 @@ useSeoMeta({
       </section>
 
       <aside v-if="tracking && (showSideActions || rateAction)" class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <UiCard v-if="showSideActions">
-          <UiCardHeader>
+        <UiCard class="gap-3 py-4">
+          <UiCardHeader class="pb-0">
             <UiCardTitle>Ações</UiCardTitle>
           </UiCardHeader>
           <UiCardContent class="space-y-2">
+            <!-- Avaliar em destaque (primary); as demais ficam secundárias. -->
+            <UiButton v-if="rateAction" class="w-full" icon="lucide:star" @click="supportOpen = true">
+              Avaliar pedido
+            </UiButton>
             <UiButton
               v-if="reorderAction && !statusPanelActions.some(action => action.ref === 'reorder')"
+              variant="secondary"
               :loading="!!reorderPending[orderRef]"
               icon="lucide:rotate-ccw"
               class="w-full"
@@ -448,7 +461,7 @@ useSeoMeta({
             >
               {{ reorderAction.label }}
             </UiButton>
-            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" icon="lucide:message-circle" class="w-full border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
+            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="secondary" icon="lucide:message-circle" class="w-full">
               {{ tracking.copy.support_label }}
             </UiButton>
             <UiAlertDialog v-if="cancelAction">
@@ -469,23 +482,21 @@ useSeoMeta({
           </UiCardContent>
         </UiCard>
 
-        <template v-if="rateAction">
-          <UiButton class="w-full" icon="lucide:star" @click="supportOpen = true">Avaliar pedido</UiButton>
-          <BottomSheet
-            v-model:open="supportOpen"
-            max-width="md"
-            title="Avaliar pedido"
-            description="Sua nota ajuda a loja a melhorar."
-          >
-            <div class="shop-stack-block px-4 py-4">
-              <UiStarRating v-model="rating" :max="5" size="lg" class="justify-center" />
-              <UiTextarea v-model="comment" :rows="3" :placeholder="tracking.copy.rating_comment_placeholder" />
-            </div>
-            <template #footer>
-              <UiButton class="w-full" size="lg" @click="rateAndClose">{{ tracking.copy.rating_submit_label }}</UiButton>
-            </template>
-          </BottomSheet>
-        </template>
+        <BottomSheet
+          v-if="rateAction"
+          v-model:open="supportOpen"
+          max-width="md"
+          title="Avaliar pedido"
+          description="Sua nota ajuda a loja a melhorar."
+        >
+          <div class="shop-stack-block px-4 py-4">
+            <UiStarRating v-model="rating" :max="5" size="lg" class="justify-center" />
+            <UiTextarea v-model="comment" :rows="3" :placeholder="tracking.copy.rating_comment_placeholder" />
+          </div>
+          <template #footer>
+            <UiButton class="w-full" size="lg" @click="rateAndClose">{{ tracking.copy.rating_submit_label }}</UiButton>
+          </template>
+        </BottomSheet>
       </aside>
 
       <UiAlertDialog :open="!!conflict" @update:open="open => { if (!open) dismissReorderConflict() }">

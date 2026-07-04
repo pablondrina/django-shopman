@@ -213,7 +213,7 @@ export function quickCheckoutDateOptions (
   }))
 }
 
-export function displayCheckoutDate (value: string, now = new Date()): string {
+export function displayCheckoutDate (value: string, now = new Date(), long = false): string {
   if (!value) return ''
   const [year, month, day] = value.split('-').map(Number)
   if (!year || !month || !day) return value
@@ -221,11 +221,14 @@ export function displayCheckoutDate (value: string, now = new Date()): string {
   const bounds = checkoutDateBounds(null, now)
   if (value === bounds.todayValue) return 'Hoje'
   if (value === bounds.tomorrowValue) return 'Amanhã'
-  return new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'short',
+  const label = new Intl.DateTimeFormat('pt-BR', {
+    weekday: long ? 'long' : 'short',
     day: '2-digit',
     month: '2-digit'
   }).format(date).replace('.', '')
+  // Forma longa ("quarta-feira, 08/07") vira "Quarta-feira, 08/07" — dia da
+  // semana por extenso e capitalizado, padronizando com as caixas Hoje/Amanhã.
+  return long ? label.charAt(0).toUpperCase() + label.slice(1) : label
 }
 
 export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: CheckoutQuickDateOption[], now = new Date()): string {
