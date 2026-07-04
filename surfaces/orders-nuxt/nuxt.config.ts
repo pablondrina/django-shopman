@@ -3,6 +3,9 @@ import tailwindcss from "@tailwindcss/vite";
 const isProduction = process.env.NODE_ENV === "production";
 
 export default defineNuxtConfig({
+  // Superfície de operador: herda BFF/resiliência/telemetria/DS do kit compartilhado.
+  extends: ["../operator-kit"],
+
   compatibilityDate: "2026-05-16",
   devtools: { enabled: false },
 

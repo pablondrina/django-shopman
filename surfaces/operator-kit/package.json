@@ -1,0 +1,13 @@
+{
+  "name": "@shopman/operator-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nuxt layer compartilhado das superfícies de operador (pos/orders/kds/production-nuxt + Central de Apps): BFF, resiliência de rede, telemetria, design system canônico e guardrails de consistência.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.6"
+  }
+}

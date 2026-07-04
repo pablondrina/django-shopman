@@ -83,8 +83,11 @@ from .showcase import (
     ShowcaseBoardView,
     ShowcaseCollectionsView,
 )
+from .telemetry import ClientErrorView
 
 urlpatterns = [
+    # Telemetria — erro de cliente das superfícies de operador (operator-kit)
+    path("client-error/", ClientErrorView.as_view(), name="api-backstage-client-error"),
     # KDS
     path("kds/", KDSIndexView.as_view(), name="api-backstage-kds-index"),
     path("kds/cliente/", KDSCustomerStatusView.as_view(), name="api-backstage-kds-customer"),
