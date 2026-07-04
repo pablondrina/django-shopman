@@ -219,7 +219,7 @@ useSeoMeta({
           <p class="shop-kicker">Acompanhamento</p>
           <h1 class="mt-1 shop-title">
             Pedido<br>
-            <span class="text-base font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
+            <span class="text-xl font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
           </h1>
         </div>
 
@@ -323,8 +323,8 @@ useSeoMeta({
           </UiAlert>
 
           <UiCard>
-            <UiCardContent class="px-4 pt-3 pb-4">
-              <UiTabs default-value="history" class="space-y-4">
+            <UiCardContent class="px-4 pt-1 pb-4">
+              <UiTabs default-value="history" class="space-y-2">
                 <UiTabsList :pill="false" :class="trackingTabsListClass">
                   <UiTabsTrigger :pill="false" value="history" :class="trackingTabsTriggerClass">Histórico</UiTabsTrigger>
                   <UiTabsTrigger :pill="false" value="summary" :class="trackingTabsTriggerClass">Resumo</UiTabsTrigger>

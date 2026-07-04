@@ -622,7 +622,7 @@ describe('surface UX guardrails', () => {
     expect(productRoute).toContain('Você também pode gostar')
     expect(productRoute).toContain('<ProductListItem')
     expect(productRoute).toContain('% VD')
-    expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-44 items-stretch gap-3 bg-card p-3">')
+    expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="shop-photo-frame shop-photo-frame-sm w-44 items-stretch gap-3 bg-card p-3 drop-shadow-md">')
     expect(upsellRail).toContain('<UiItemHeader>')
     expect(upsellRail).toContain('function productRoute (sku: string)')
     expect(upsellRail).toContain(':to="productRoute(upsell.sku)"')
