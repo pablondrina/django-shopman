@@ -261,10 +261,43 @@ def refund(order, *, amount_q: int | None = None, idempotency_key: str | None = 
             reason="order_cancelled",
             idempotency_key=idempotency_key,
         )
-        if result.success:
-            logger.info("payment.refund: refunded %s for order %s", intent_ref, order.ref)
     except Exception as exc:
-        logger.warning("payment.refund: failed for order %s: %s", order.ref, exc)
+        # Estorno que falha em silêncio = dinheiro do cliente retido sem ninguém
+        # saber. Fail-loud como o stock.fulfill faz com o drift de estoque.
+        logger.error("payment.refund: exceção no estorno do pedido %s: %s", order.ref, exc)
+        _alert_refund_failed(order, intent_ref, requested_q, str(exc))
+        return
+
+    if result.success:
+        logger.info("payment.refund: refunded %s for order %s", intent_ref, order.ref)
+        return
+
+    detail = getattr(result, "message", None) or getattr(result, "error_code", None) or "ver logs"
+    logger.error("payment.refund: adapter recusou o estorno do pedido %s: %s", order.ref, detail)
+    _alert_refund_failed(order, intent_ref, requested_q, detail)
+
+
+def _alert_refund_failed(order, intent_ref, amount_q, detail) -> None:
+    """Alerta crítico de operador para estorno falho — o dinheiro pode estar retido."""
+    from shopman.shop.services.observability import create_operator_alert
+    from shopman.utils.monetary import format_money
+
+    try:
+        valor = format_money(amount_q) if amount_q is not None else "valor a apurar"
+    except Exception:
+        valor = "valor a apurar"
+
+    create_operator_alert(
+        type="payment_refund_failed",
+        severity="critical",
+        message=(
+            f"Estorno FALHOU para o pedido {order.ref} (intent {intent_ref}, {valor}): "
+            f"{detail}. O dinheiro do cliente pode estar retido — conferir no gateway "
+            "e reprocessar o estorno."
+        ),
+        order_ref=order.ref,
+        dedupe_key=f"payment_refund_failed:{order.ref}",
+    )
 
 
 def cancel(order, *, reason: str = "order_cancelled") -> None:
