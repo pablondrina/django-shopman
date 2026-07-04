@@ -48,6 +48,7 @@ from .surface import (
     StorefrontMenuView,
     StorefrontProductView,
 )
+from .telemetry import ClientErrorView
 from .tracking import (
     OrderCancelView,
     OrderConfirmReceiptView,
@@ -62,6 +63,7 @@ urlpatterns = [
     path("storefront/menu/<slug:collection>/", StorefrontMenuView.as_view(), name="api-storefront-menu-collection"),
     path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
     path("storefront/cart/", StorefrontCartView.as_view(), name="api-storefront-cart"),
+    path("storefront/client-error/", ClientErrorView.as_view(), name="api-storefront-client-error"),
     path("storefront/checkout/", StorefrontCheckoutView.as_view(), name="api-storefront-checkout"),
     # Auth
     path("auth/session/", SessionView.as_view(), name="api-auth-session"),

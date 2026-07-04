@@ -5,7 +5,7 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅
+**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅ · WP-S3 ✅
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -37,6 +37,18 @@ Isto é **reforço de excelência**, não conserto de podridão.
   status upstream 409 preservado com corpo cru (sem envelope); set-cookie
   split-aware nas duas direções; handshake de CSRF quando falta token. (Passthrough
   de corpo fica p/ o e2e — limitação do mock de stream sob vitest.)
+- **WP-S3 ✅ (2026-07-04):** resiliência de rede + observabilidade.
+  - **S3a** `retryWithBackoff` (exponencial+jitter+teto+cap, injetável) +
+    `httpError/isTransientError`; fila de mutação do carrinho retenta soluço
+    transiente (rede/502/503/504) sem martelar, `catch(any)→unknown`. +8 testes.
+  - **S3b** `useConnectivity` (VueUse) + `OfflineBanner`: reconexão/retorno de foco
+    reconcilia o carrinho; banner calmo global. +3 testes.
+  - **S3c** `trackingFreshness` "Atualizado há X" no tracking, vira aviso ao perder
+    poll; guardrail atualizado. +5 testes.
+  - **S3d** telemetria espelhando o Sentry opt-in do Django: endpoint
+    `storefront/client-error/` (sem CSRF, rate-limit 30/m, loga→Sentry) + plugin
+    Nuxt `errorReporter.client` (inerte em dev, dedupe+cap). PII sanitizada nos dois
+    lados. +8 Django, +7 Nuxt. Storefront Django 627✅, Nuxt 280✅, build✅.
 
 ---
 
