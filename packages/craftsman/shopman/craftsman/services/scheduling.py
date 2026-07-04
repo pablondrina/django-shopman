@@ -255,6 +255,7 @@ class CraftPlanning:
             date=order.target_date,
             action="adjusted",
             work_order=order,
+            previous_quantity=old_quantity,
         )
 
         logger.info("WorkOrder %s adjusted: %s -> %s", order.ref, old_quantity, quantity)
