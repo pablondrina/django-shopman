@@ -6,8 +6,28 @@
 > herdando o harness provado no storefront (WP-S0..S6) e as duas lentes novas
 > (consistência/pixel-perfect + omotenashi do operador).
 
-**Status:** 🟡 FUNDAÇÃO — plano aprovado nas decisões-chave (2026-07-04); WPs por app
+**Status:** 🟡 FUNDAÇÃO — WP-B0 (kit) parcialmente entregue (2026-07-04); WPs por app
 aguardam execução.
+
+### Registro de execução
+
+- **WP-B0 · parcial ✅ (2026-07-04, commit da branch):** criado o Nuxt layer
+  `surfaces/operator-kit/` e os **4 apps de operador passaram a `extends`** — build
+  limpo nos 4 + suítes verdes (POS 68, KDS 21, Orders 66, Produção 27), auto-imports do
+  layer verificados em cada `.nuxt`. Entregue no kit: resiliência (`httpError`/
+  `isTransientError`, `retryWithBackoff` exp+jitter+teto), conectividade
+  (`useConnectivity` + `OfflineBanner`), telemetria (`reportClientError` +
+  `errorReporter.client`), **guardrail de paridade de tokens** (Lente 7 scaffold; 20
+  testes do kit verdes). Django: `ClientErrorView` em `/api/v1/backstage/client-error/`
+  (AllowAny, PII sanitizada, rate-limit; 8 testes verdes). **Additive-only** (nomes sem
+  colisão) → zero regressão nos apps.
+  - **Restante do B0 (follow-up, documentado no README do kit):** de-duplicação dos
+    byte-idênticos `djangoProxy`/`tw-helper`/`translucent` (com ripple de imports/testes);
+    consolidação da família **operator-lock** (diverge 2–3 variantes; POS tem tela
+    própria) — é trabalho por-app; extração do bloco de **tokens do `tailwind.css`** pro
+    kit (split do app-específico: print no POS, dark no KDS); **interceptor global de
+    401/403**; instalação da **tooling parity** (ESLint/Prettier/vitest 2-projects/
+    Playwright) por app — cada uma aterrissa no WP do respectivo app.
 **Baseline de maturidade** (EXCELLENCE-AUDIT-2026-07): production 3.7 · kds 3.6 ·
 pos 3.6 · orders 3.4 (storefront 4.4 é o exemplar de harness, **fora** da unificação
 visual do operador).
