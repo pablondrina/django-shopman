@@ -32,9 +32,9 @@ export function useFavoritesState () {
       })
       version.value += 1
       return next
-    } catch (e: any) {
+    } catch (e) {
       overrides.value = { ...overrides.value, [sku]: current }
-      if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível salvar o favorito.')
+      if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível salvar o favorito.'))
       throw e
     }
   }

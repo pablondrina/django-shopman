@@ -58,9 +58,7 @@ async function setDefaultAddress (address: SavedAddressProjection) {
     })
     await refreshAddresses()
   } finally {
-    const next = { ...addressDefaultPending.value }
-    delete next[address.id]
-    addressDefaultPending.value = next
+    addressDefaultPending.value = omitKey(addressDefaultPending.value, address.id)
   }
 }
 
@@ -84,8 +82,8 @@ async function deleteAddress () {
     await refreshAddresses()
     addressDeleteOpen.value = false
     addressDeleteCandidate.value = null
-  } catch (e: any) {
-    addressIssue.value = e?.data?.detail || 'Não foi possível remover o endereço agora.'
+  } catch (e) {
+    addressIssue.value = errorDetail(e, 'Não foi possível remover o endereço agora.')
   } finally {
     addressDeletePending.value = false
   }

@@ -5,13 +5,15 @@
 let bootstrapPromise: Promise<boolean> | null = null
 
 declare global {
-  // eslint-disable-next-line no-var
-  var google: any
+  interface Window {
+    google?: typeof google
+    __shopmanGoogleMapsReady?: () => void
+  }
 }
 
 function injectBootstrap (apiKey: string): Promise<boolean> {
   return new Promise(resolve => {
-    if (globalThis.google?.maps?.importLibrary) {
+    if (window.google?.maps?.importLibrary) {
       resolve(true)
       return
     }
@@ -23,9 +25,9 @@ function injectBootstrap (apiKey: string): Promise<boolean> {
       region: 'BR',
       callback: '__shopmanGoogleMapsReady'
     })
-    ;(window as any).__shopmanGoogleMapsReady = () => {
-      delete (window as any).__shopmanGoogleMapsReady
-      resolve(!!globalThis.google?.maps?.importLibrary)
+    window.__shopmanGoogleMapsReady = () => {
+      delete window.__shopmanGoogleMapsReady
+      resolve(!!window.google?.maps?.importLibrary)
     }
     const script = document.createElement('script')
     script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`
@@ -52,10 +54,11 @@ export function useGoogleMaps () {
     return bootstrapPromise
   }
 
-  async function importLibrary (name: string): Promise<any | null> {
+  // Genérico no call-site: importLibrary<google.maps.PlacesLibrary>('places').
+  async function importLibrary<T = unknown> (name: string): Promise<T | null> {
     const ready = await load()
-    if (!ready) return null
-    return globalThis.google.maps.importLibrary(name)
+    if (!ready || !window.google) return null
+    return window.google.maps.importLibrary(name) as Promise<T>
   }
 
   return { enabled, shopLocation, load, importLibrary }

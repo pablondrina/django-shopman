@@ -71,7 +71,7 @@ class TestOrderTrackingShape:
 
         assert parse_datetime(proj.last_updated_iso) is not None
         assert proj.last_updated_display == "Atualizado agora"
-        assert proj.stale_after_seconds == 45
+        assert proj.stale_after_seconds == 30
         assert proj.promise_deadline_label == "Prazo"
         # "Atualizado agora" is shown once (standalone) — never repeated as a row.
         assert "Última atualização" not in [row.label for row in proj.promise_rows]
@@ -444,6 +444,23 @@ class TestStatusColours:
         assert "origin=" not in proj.pickup_info.directions_url
         assert "travelmode=" not in proj.pickup_info.directions_url
 
+    def test_pickup_fulfillment_uses_counter_labels_without_shipment_tracking(self, order):
+        # Retirada não é envio: o card não pode dizer "Rastrear envio" (não acionável).
+        from shopman.orderman.models import Fulfillment
+        from shopman.orderman.models import Order as _Order
+
+        _Order.objects.filter(pk=order.pk).update(data={"fulfillment_type": "pickup"})
+        Fulfillment.objects.create(order=order, status="pending")
+        order.refresh_from_db()
+
+        proj = build_order_tracking(order)
+
+        assert len(proj.pickup_fulfillments) == 1
+        ful = proj.pickup_fulfillments[0]
+        assert ful.status_label == "Em preparo"
+        assert ful.tracking_label == ""
+        assert ful.tracking_url is None
+
     def test_pickup_directions_fall_back_to_coordinates_without_address(self, order):
         from decimal import Decimal
 
@@ -781,7 +798,7 @@ class TestStatusColours:
         assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
         assert proj.promise.message == "Confirme o PIX e já começamos a preparar."
         assert proj.promise.next_event == ""
-        assert proj.promise.recovery == "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado."
+        assert proj.promise.recovery == "Liberamos sua reserva e o pedido é cancelado."
 
     def test_authorized_card_is_internal_not_surface_payment_action(self, order_with_payment):
         from shopman.orderman.models import Order as _Order

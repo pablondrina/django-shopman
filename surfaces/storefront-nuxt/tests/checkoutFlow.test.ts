@@ -4,6 +4,7 @@ import {
   checkoutStepForField,
   checkoutStepState,
   checkoutSteps,
+  firstCheckoutError,
   isCheckoutDateUnavailable,
   parseClosedDateEntries,
   quickCheckoutDateOptions,
@@ -148,5 +149,25 @@ describe('shouldOfferPickupSwap', () => {
     expect(shouldOfferPickupSwap({ ...base, field: 'payment_method' })).toBe(false)
     expect(shouldOfferPickupSwap({ ...base, fulfillmentType: 'pickup' })).toBe(false)
     expect(shouldOfferPickupSwap({ ...base, field: null })).toBe(false)
+  })
+})
+
+describe('firstCheckoutError', () => {
+  it('returns the highest-priority error by flow order', () => {
+    const errors = { recipient_phone: 'tel inválido', name: 'informe o nome' }
+    expect(firstCheckoutError(errors)).toEqual({ key: 'name', message: 'informe o nome' })
+  })
+
+  it('surfaces a lone downstream error (o gate não pode falhar em silêncio)', () => {
+    expect(firstCheckoutError({ recipient_phone: 'tel do destinatário inválido' }))
+      .toEqual({ key: 'recipient_phone', message: 'tel do destinatário inválido' })
+  })
+
+  it('falls back to any present error not in the canonical order', () => {
+    expect(firstCheckoutError({ weird_field: 'algo' })).toEqual({ key: 'weird_field', message: 'algo' })
+  })
+
+  it('returns null when there are no errors', () => {
+    expect(firstCheckoutError({})).toBeNull()
   })
 })

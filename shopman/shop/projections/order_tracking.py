@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from shopman.orderman.models import Directive
@@ -45,7 +46,11 @@ CARRIER_TRACKING_URLS: dict[str, str] = {
 
 TERMINAL_STATUSES = frozenset({"completed", "cancelled", "returned"})
 
-STALE_AFTER_SECONDS = 45
+# Cadência do polling do acompanhamento (segundos). 30s espelha a referência de
+# mercado (iFood) e reduz o "esperei e nada" após o operador mudar o status.
+# Configurável por deployment (STOREFRONT_TRACKING_POLL_SECONDS); o push instantâneo
+# por SSE é o próximo passo (follow-up G1) e o campo no Admin/Shop é follow-up.
+STALE_AFTER_SECONDS = int(getattr(settings, "STOREFRONT_TRACKING_POLL_SECONDS", 30) or 30)
 
 
 # ──────────────────────────────────────────────────────────────────────

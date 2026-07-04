@@ -306,6 +306,7 @@ def alert_refund_failed(order, intent_ref, amount_q, detail) -> None:
     try:
         valor = format_money(amount_q) if amount_q is not None else "valor a apurar"
     except Exception:
+        logger.debug("alert_refund_failed: money format failed for amount_q=%s", amount_q, exc_info=True)
         valor = "valor a apurar"
 
     create_operator_alert(

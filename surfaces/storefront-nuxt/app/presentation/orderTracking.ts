@@ -74,3 +74,33 @@ export function pollIntervalMs (staleAfterSeconds: number | null | undefined): n
 export function hasLiveDeadline (promise: Pick<TrackingPromiseProjection, 'timer_mode' | 'deadline_at'>): boolean {
   return promise.timer_mode === 'countdown' && Boolean(promise.deadline_at)
 }
+
+export interface TrackingFreshness {
+  text: string
+  ageSeconds: number
+  isStale: boolean
+}
+
+// Idade viva do dado ("Atualizado há X"), ancorada no last_updated_iso do servidor
+// e no relógio já corrigido de skew da página. Cresce entre polls e, se um poll
+// falhar, ultrapassa o limiar e vira `isStale` — o cliente vê que a tela pode não
+// estar fresca em vez de confiar num número velho em silêncio.
+export function trackingFreshness (
+  lastUpdatedIso: string | null | undefined,
+  nowMs: number,
+  staleThresholdSeconds: number
+): TrackingFreshness {
+  const updatedMs = lastUpdatedIso ? Date.parse(lastUpdatedIso) : Number.NaN
+  if (!Number.isFinite(updatedMs)) return { text: '', ageSeconds: 0, isStale: false }
+
+  const ageSeconds = Math.max(0, Math.round((nowMs - updatedMs) / 1000))
+  const isStale = staleThresholdSeconds > 0 && ageSeconds >= staleThresholdSeconds
+
+  let rel: string
+  if (ageSeconds < 15) rel = 'agora mesmo'
+  else if (ageSeconds < 60) rel = 'há instantes'
+  else if (ageSeconds < 3600) rel = `há ${Math.floor(ageSeconds / 60)} min`
+  else rel = `há ${Math.floor(ageSeconds / 3600)} h`
+
+  return { text: `Atualizado ${rel}`, ageSeconds, isStale }
+}

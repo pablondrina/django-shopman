@@ -3,6 +3,7 @@ import {
   hasLiveDeadline,
   pollIntervalMs,
   timelineActiveStep,
+  trackingFreshness,
   trackingPanelClass,
   trackingPanelIcon,
   trackingPanelIconClass,
@@ -93,5 +94,35 @@ describe('order tracking presentation — live deadline', () => {
     expect(hasLiveDeadline({ timer_mode: 'countdown', deadline_at: '2026-06-14T12:00:00+00:00' })).toBe(true)
     expect(hasLiveDeadline({ timer_mode: 'countdown', deadline_at: null })).toBe(false)
     expect(hasLiveDeadline({ timer_mode: 'none', deadline_at: '2026-06-14T12:00:00+00:00' })).toBe(false)
+  })
+})
+
+describe('trackingFreshness', () => {
+  const base = Date.parse('2026-07-04T12:00:00Z')
+
+  it('reads "agora mesmo" right after an update', () => {
+    const f = trackingFreshness('2026-07-04T12:00:00Z', base + 5_000, 60)
+    expect(f.text).toBe('Atualizado agora mesmo')
+    expect(f.isStale).toBe(false)
+  })
+
+  it('grows into minutes as the data ages', () => {
+    expect(trackingFreshness('2026-07-04T12:00:00Z', base + 90_000, 300).text).toBe('Atualizado há 1 min')
+    expect(trackingFreshness('2026-07-04T12:00:00Z', base + 3 * 3600_000, 999999).text).toBe('Atualizado há 3 h')
+  })
+
+  it('flags stale once the age crosses the threshold (poll perdido)', () => {
+    // janela de frescor 30s → limiar 60s (2×). 45s ainda fresco, 75s velho.
+    expect(trackingFreshness('2026-07-04T12:00:00Z', base + 45_000, 60).isStale).toBe(false)
+    expect(trackingFreshness('2026-07-04T12:00:00Z', base + 75_000, 60).isStale).toBe(true)
+  })
+
+  it('is inert for a missing or invalid timestamp', () => {
+    expect(trackingFreshness(null, base, 60)).toEqual({ text: '', ageSeconds: 0, isStale: false })
+    expect(trackingFreshness('not-a-date', base, 60).isStale).toBe(false)
+  })
+
+  it('never reports a negative age when the client clock runs behind', () => {
+    expect(trackingFreshness('2026-07-04T12:00:00Z', base - 5_000, 60).ageSeconds).toBe(0)
   })
 })

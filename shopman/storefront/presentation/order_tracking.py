@@ -68,6 +68,15 @@ FULFILLMENT_STATUS_LABELS: dict[str, str] = {
     "cancelled": "Cancelado",
 }
 
+# Retirada não é envio: o mesmo status ganha rótulo de balcão, sem "Rastrear envio".
+PICKUP_FULFILLMENT_STATUS_LABELS: dict[str, str] = {
+    "pending": "Em preparo",
+    "in_progress": "Em preparo",
+    "dispatched": "Pronto para retirada",
+    "delivered": "Retirado",
+    "cancelled": "Cancelado",
+}
+
 # display_status_key → (copy key, fallback). Keys absent here fall back to the
 # canonical order status labels.
 STATUS_LABEL_COPY: dict[str, tuple[str, str]] = {
@@ -288,7 +297,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         delivery_distance_display=_delivery_distance_display(data.delivery_distance_km),
         is_delivery=data.is_delivery,
         delivery_fulfillments=_present_fulfillments(data.delivery_fulfillments, copy=copy),
-        pickup_fulfillments=_present_fulfillments(data.pickup_fulfillments, copy=copy),
+        pickup_fulfillments=_present_fulfillments(data.pickup_fulfillments, copy=copy, is_pickup=True),
         pickup_info=_present_pickup(data.pickup, copy=copy),
         actions=data.actions,
         is_active=data.is_active,
@@ -462,7 +471,7 @@ def _promise_copy(
                                    "Estamos só aguardando a confirmação do pagamento.")
         recovery = copy.message(
             "TRACKING_PROMISE_PAYMENT_RECOVERY",
-            "Se o tempo acabar, liberamos sua reserva e o pedido é cancelado.",
+            "Liberamos sua reserva e o pedido é cancelado.",
         )
         return title, message, "", recovery, ""
 
@@ -741,12 +750,15 @@ def _present_fulfillments(
     fulfillments: tuple[TrackingFulfillmentData, ...],
     *,
     copy: CopyCatalog,
+    is_pickup: bool = False,
 ) -> tuple[FulfillmentProjection, ...]:
+    labels = PICKUP_FULFILLMENT_STATUS_LABELS if is_pickup else FULFILLMENT_STATUS_LABELS
     return tuple(
         FulfillmentProjection(
             status=ful.status,
-            status_label=FULFILLMENT_STATUS_LABELS.get(ful.status, ful.status),
-            tracking_label=_fulfillment_tracking_label(ful.carrier, copy),
+            status_label=labels.get(ful.status, ful.status),
+            # Retirada não tem envio a rastrear — só entrega ganha o rótulo/link.
+            tracking_label="" if is_pickup else _fulfillment_tracking_label(ful.carrier, copy),
             tracking_code=ful.tracking_code,
             tracking_url=ful.tracking_url,
             carrier=ful.carrier,

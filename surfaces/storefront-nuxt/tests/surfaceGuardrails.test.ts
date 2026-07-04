@@ -382,8 +382,10 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('Compra sem senha')
     expect(types).toContain('requires_authentication: boolean')
     expect(types).toContain('auth_action: Action | null')
-    // Telefone editorial formatado (não cru/truncado) e poka-yoke fora de área.
-    expect(checkout).toContain('formatPhoneDisplay')
+    // Telefone editorial formatado (não cru/truncado), assumindo o DDD padrão da
+    // loja (fim do "(55) …" e do número sem máscara), e poka-yoke fora de área.
+    expect(checkout).toContain('displayBrazilianPhone')
+    expect(checkout).toContain('default_ddd')
     expect(checkout).toContain('shouldOfferPickupSwap')
     expect(checkout).toContain('data-checkout-pickup-swap')
     expect(checkout).toContain('Mudar para retirada')
@@ -620,7 +622,7 @@ describe('surface UX guardrails', () => {
     expect(productRoute).toContain('Você também pode gostar')
     expect(productRoute).toContain('<ProductListItem')
     expect(productRoute).toContain('% VD')
-    expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-44 items-stretch gap-3 bg-card p-3">')
+    expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-full items-stretch gap-3 rounded-none border-0 bg-card p-3">')
     expect(upsellRail).toContain('<UiItemHeader>')
     expect(upsellRail).toContain('function productRoute (sku: string)')
     expect(upsellRail).toContain(':to="productRoute(upsell.sku)"')
@@ -809,7 +811,10 @@ describe('surface UX guardrails', () => {
     expect(css).toContain('--destructive-foreground: oklch(0.985 0 0)')
     expect(tracking).toContain('variant="default"')
     expect(tracking).toContain(':class="statusPanelClass"')
-    expect(tracking).toContain(':icon-class="statusPanelIconClass"')
+    // Ícone do painel pulsa (animate-pulse) em pedido ativo — sinal "ao vivo" sem
+    // bolinha extra; a classe base vem do tom (statusPanelIconClass) via a live.
+    expect(tracking).toContain(':icon-class="statusPanelIconClassLive"')
+    expect(tracking).toContain('animate-pulse')
     // Tracking: tom→classe/ícone do painel agora vive em presentation/orderTracking.ts;
     // o acento na borda esquerda (não banner cheio) permanece a regra.
     const trackingPresentation = read('app/presentation/orderTracking.ts')
@@ -848,16 +853,19 @@ describe('surface UX guardrails', () => {
     expect(trackingPresentation).toContain('actions.unshift(reorderAction)')
     expect(trackingPresentation).toContain("'última atualização'")
     expect(trackingPresentation).toContain("'sua ação'")
-    expect(tracking).toContain('{{ tracking.last_updated_display }}')
+    // Frescor vivo do dado (WP-S3): "Atualizado há X" que vira aviso ao perder um
+    // poll — SÓ em pedido ativo (finalizado não mostra "Atualizado agora" mentiroso).
+    expect(tracking).toContain('trackingFreshness(')
+    expect(tracking).toContain('v-if="tracking.is_active"')
     expect(tracking).toContain('Ações disponíveis')
     expect(tracking).toContain('handleStatusPanelAction')
     expect(tracking).toContain('showSupportInStatusPanel')
     expect(tracking).toContain('const showDeliveryTab = computed')
     expect(tracking).toContain("const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')")
     expect(tracking).toContain('const trackingTabsListClass =')
-    expect(tracking).toContain('before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute')
+    expect(tracking).toContain('relative flex h-auto w-full justify-start gap-6 overflow-x-auto border-b bg-transparent p-0')
     expect(tracking).toContain('const trackingTabsTriggerClass =')
-    expect(tracking).toContain('border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10')
+    expect(tracking).toContain('rounded-none border-b-2 border-transparent bg-transparent px-1 py-2 text-muted-foreground shadow-none data-[state=active]:border-primary')
     expect(tracking).toContain('<UiTabs default-value="history"')
     expect(tracking).toContain('<UiTabsList :pill="false" :class="trackingTabsListClass">')
     expect(tracking).toContain('<UiTabsTrigger :pill="false" value="history" :class="trackingTabsTriggerClass">Histórico</UiTabsTrigger>')
@@ -866,11 +874,11 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('<UiTabsContent value="history">')
     expect(tracking).toContain('<UiTabsContent value="summary">')
     expect(tracking).toContain('<UiTabsContent v-if="showDeliveryTab" value="delivery">')
-    expect(tracking).toContain('Resumo do pedido')
-    expect(tracking).toContain('{{ tracking.copy.items_heading }}')
-    expect(tracking).toContain('<UiDescriptionList class="rounded-lg border px-3">')
-    expect(tracking).toContain('<UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>')
-    expect(tracking).toContain('<UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>')
+    // Aba Resumo = mesma diagramação do overlay de revisão: itens qty×nome +
+    // linhas ícone/valor (OrderSummaryRows compartilhado) + Total.
+    expect(tracking).toContain('<OrderSummaryRows :rows="summaryRows" />')
+    expect(tracking).toContain('{{ tracking.copy.total_label }}')
+    expect(tracking).toContain('{{ tracking.total_display }}')
     expect(tracking).toContain('<UiAlertTitle>Endereço</UiAlertTitle>')
     expect(tracking).not.toContain("tracking.payment_status || 'Não informado'")
     expect(tracking).not.toContain('<UiAlertTitle>{{ tracking.pickup_info.heading }}</UiAlertTitle>')

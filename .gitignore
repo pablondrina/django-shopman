@@ -30,3 +30,8 @@ staticfiles/*
 
 # Local scratch/temp files (never commit)
 temp/
+
+# Playwright
+surfaces/storefront-nuxt/test-results/
+surfaces/storefront-nuxt/playwright-report/
+surfaces/storefront-nuxt/blob-report/

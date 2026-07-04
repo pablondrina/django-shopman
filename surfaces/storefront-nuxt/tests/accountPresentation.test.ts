@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AccountLoyalty, AccountSummary, Action, OrderHistoryItem } from '~/types/shopman'
+import type { AccountLoyalty, AccountSummary, Action } from '~/types/shopman'
 import {
   ORDER_FILTER_OPTIONS,
   accountGreeting,

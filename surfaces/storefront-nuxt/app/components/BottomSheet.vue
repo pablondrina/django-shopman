@@ -115,6 +115,17 @@ onBeforeUnmount(teardownObserver)
           :class="[fadeFromClass, showBottomFade ? 'opacity-100' : 'opacity-0']"
           aria-hidden="true"
         />
+        <!-- Affordance animada "role para ver mais": pill translúcida com chevron,
+             flutuar suave (bounce lento), some junto com o fade. Discreta e limpa. -->
+        <div
+          class="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-300"
+          :class="showBottomFade ? 'opacity-100' : 'opacity-0'"
+          aria-hidden="true"
+        >
+          <span class="flex size-7 animate-bounce items-center justify-center rounded-full bg-background/70 text-muted-foreground shadow-sm ring-1 ring-border backdrop-blur-sm [animation-duration:1.6s]">
+            <Icon name="lucide:chevron-down" class="size-4" />
+          </span>
+        </div>
       </div>
 
       <UiSheetFooter

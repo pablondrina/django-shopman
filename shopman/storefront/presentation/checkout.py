@@ -28,6 +28,7 @@ from shopman.shop.projections.types import (
     PickupSlotProjection,
     SavedAddressProjection,
 )
+from shopman.storefront.constants import get_default_ddd
 from shopman.storefront.presentation.status import payment_method_label
 from shopman.storefront.presentation.types import PaymentMethodOptionProjection
 
@@ -96,6 +97,11 @@ class CheckoutProjection:
 
     # Recovery/contact target sourced from Shop configuration
     support_whatsapp_url: str
+
+    # DDD padrão da loja (Shop.default_ddd): o checkout assume quando o cliente
+    # digita um número sem DDD. Vive aqui (e não só no home/public_config) porque
+    # o checkout normaliza telefone mesmo em acesso direto/SSR sem passar pelo home.
+    default_ddd: str = ""
 
     # Disponibilidade robusta de datas (nunca oferecer dia fechado):
     # próximas datas em que a loja opera + dias da semana sem expediente.
@@ -201,6 +207,7 @@ def build_checkout(
         pickup_hint="Gratuita",
         delivery_hint="",
         card_provider=_card_provider(),
+        default_ddd=get_default_ddd(),
     )
 
 

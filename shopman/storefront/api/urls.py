@@ -48,11 +48,13 @@ from .surface import (
     StorefrontMenuView,
     StorefrontProductView,
 )
+from .telemetry import ClientErrorView
 from .tracking import (
     OrderCancelView,
     OrderConfirmReceiptView,
     OrderRateView,
     OrderTrackingView,
+    order_events_view,
 )
 
 urlpatterns = [
@@ -62,6 +64,7 @@ urlpatterns = [
     path("storefront/menu/<slug:collection>/", StorefrontMenuView.as_view(), name="api-storefront-menu-collection"),
     path("storefront/products/<str:sku>/", StorefrontProductView.as_view(), name="api-storefront-product"),
     path("storefront/cart/", StorefrontCartView.as_view(), name="api-storefront-cart"),
+    path("storefront/client-error/", ClientErrorView.as_view(), name="api-storefront-client-error"),
     path("storefront/checkout/", StorefrontCheckoutView.as_view(), name="api-storefront-checkout"),
     # Auth
     path("auth/session/", SessionView.as_view(), name="api-auth-session"),
@@ -87,6 +90,13 @@ urlpatterns = [
     path("catalog/collections/", CollectionListView.as_view(), name="api-catalog-collections"),
     # Tracking
     path("tracking/<str:ref>/", OrderTrackingView.as_view(), name="api-tracking"),
+    # Realtime — push instantâneo do acompanhamento (canal ``order-<ref>``).
+    # order_events_view autoriza só o dono/staff (mesmo gate do ShopmanChannelManager)
+    # e devolve 404 aos demais, então o EventSource do convidado falha limpo e o
+    # cliente Nuxt fica no poll. O app Nuxt conecta via BFF
+    # (surfaces/storefront-nuxt/server/routes/sse), que faz streaming same-origin
+    # deste endpoint — sem depender de CORS.
+    path("tracking/<str:ref>/events/", order_events_view, name="api-tracking-events"),
     path("orders/<str:ref>/cancel/", OrderCancelView.as_view(), name="api-order-cancel"),
     path("orders/<str:ref>/confirm-received/", OrderConfirmReceiptView.as_view(), name="api-order-confirm-received"),
     path("orders/<str:ref>/rate/", OrderRateView.as_view(), name="api-order-rate"),

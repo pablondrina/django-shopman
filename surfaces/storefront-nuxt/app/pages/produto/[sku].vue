@@ -262,6 +262,7 @@ useHead({
               v-for="item in crossSell"
               :key="item.sku"
               :item="item"
+              framed
               class="border-b last:border-b-0 md:[&:nth-last-child(2)]:border-b-0"
             />
           </div>

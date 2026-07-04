@@ -9,8 +9,8 @@ externas — ou seja, o PII permanecia no banco.
 from __future__ import annotations
 
 import pytest
-
 from shopman.guestman.models import ContactPoint, Customer
+
 from shopman.shop.services.account import anonymize_customer
 
 pytestmark = pytest.mark.django_db

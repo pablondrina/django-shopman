@@ -99,8 +99,9 @@ function numberOrNull (value: unknown): number | null {
 function normalizeSubstitutes (raw: unknown): SubstituteProjection[] {
   if (!Array.isArray(raw)) return []
   return raw
-    .filter((sub: any) => sub && typeof sub.sku === 'string' && sub.sku)
-    .map((sub: any) => ({
+    .map(asRecord)
+    .filter(sub => typeof sub.sku === 'string' && sub.sku)
+    .map(sub => ({
       sku: String(sub.sku),
       name: String(sub.name || sub.sku),
       price_q: numberOrNull(sub.price_q) ?? 0,
@@ -113,40 +114,41 @@ function normalizeSubstitutes (raw: unknown): SubstituteProjection[] {
     }))
 }
 
-function issueFromPayload (data: any, meta: ProductMutationMeta): CartIssue {
-  const fallbackName = String(data?.name || meta.name || data?.sku || meta.sku)
-  const rawItems = Array.isArray(data?.items) ? data.items : []
-  const firstItemReason = rawItems.map((item: any) => item?.reason).find((reason: unknown) => typeof reason === 'string' && reason.trim())
-  const rawDetail = typeof data?.detail === 'string' && !/^insufficient stock\.?$/i.test(data.detail.trim()) ? data.detail : ''
+function issueFromPayload (data: Record<string, unknown> | null | undefined, meta: ProductMutationMeta): CartIssue {
+  const d = asRecord(data)
+  const fallbackName = String(d.name || meta.name || d.sku || meta.sku)
+  const rawItems = (Array.isArray(d.items) ? d.items : []).map(asRecord)
+  const firstItemReason = rawItems.map(item => item.reason).find(reason => typeof reason === 'string' && reason.trim())
+  const rawDetail = typeof d.detail === 'string' && !/^insufficient stock\.?$/i.test(d.detail.trim()) ? d.detail : ''
   const fallbackReason = String(firstItemReason || rawDetail || 'Revise a quantidade deste item.')
   const items = rawItems.length
-    ? rawItems.map((item: any) => ({
-        sku: String(item?.sku || data?.sku || meta.sku),
-        name: String(item?.name || fallbackName),
-        requested_qty: numberOrNull(item?.requested_qty),
-        available_qty: numberOrNull(item?.available_qty),
-        reason: String(item?.reason || fallbackReason)
+    ? rawItems.map(item => ({
+        sku: String(item.sku || d.sku || meta.sku),
+        name: String(item.name || fallbackName),
+        requested_qty: numberOrNull(item.requested_qty),
+        available_qty: numberOrNull(item.available_qty),
+        reason: String(item.reason || fallbackReason)
       }))
     : [{
-        sku: String(data?.sku || meta.sku),
+        sku: String(d.sku || meta.sku),
         name: fallbackName,
-        requested_qty: numberOrNull(data?.requested_qty),
-        available_qty: numberOrNull(data?.available_qty),
+        requested_qty: numberOrNull(d.requested_qty),
+        available_qty: numberOrNull(d.available_qty),
         reason: fallbackReason
       }]
 
   return {
-    title: String(data?.title || 'Revise este item'),
+    title: String(d.title || 'Revise este item'),
     detail: fallbackReason,
-    error_code: String(data?.error_code || 'cart_issue'),
-    sku: String(data?.sku || meta.sku),
+    error_code: String(d.error_code || 'cart_issue'),
+    sku: String(d.sku || meta.sku),
     name: fallbackName,
-    requested_qty: numberOrNull(data?.requested_qty),
-    available_qty: numberOrNull(data?.available_qty),
-    is_paused: !!data?.is_paused,
-    is_planned: !!data?.is_planned,
-    substitutes: normalizeSubstitutes(data?.substitutes),
-    actions: Array.isArray(data?.actions) ? data.actions : [],
+    requested_qty: numberOrNull(d.requested_qty),
+    available_qty: numberOrNull(d.available_qty),
+    is_paused: !!d.is_paused,
+    is_planned: !!d.is_planned,
+    substitutes: normalizeSubstitutes(d.substitutes),
+    actions: Array.isArray(d.actions) ? (d.actions as Action[]) : [],
     items
   }
 }
@@ -179,11 +181,10 @@ export function useCartState () {
   }
 
   function dropPending (sku: string) {
-    const next = { ...pendingCountBySku.value }
-    const count = (next[sku] || 0) - 1
-    if (count > 0) next[sku] = count
-    else delete next[sku]
-    pendingCountBySku.value = next
+    const count = (pendingCountBySku.value[sku] || 0) - 1
+    pendingCountBySku.value = count > 0
+      ? { ...pendingCountBySku.value, [sku]: count }
+      : omitKey(pendingCountBySku.value, sku)
   }
 
   // Atualiza só a projeção do carrinho. NÃO mexe em cartIssue/rateLimitRecovery:
@@ -250,12 +251,12 @@ export function useCartState () {
     queueDepth += 1
 
     try {
-      const response = await enqueueMutation(async () => $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
+      const response = await enqueueMutation(async () => retryWithBackoff(async () => $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         headers: await csrfHeaders(),
         body: { qty },
         credentials: 'include'
-      }))
+      })))
       queueDepth -= 1
       dropPending(meta.sku)
       if (queueDepth === 0) {
@@ -264,18 +265,18 @@ export function useCartState () {
         lastMutation.value = null
       }
       return response
-    } catch (error: any) {
+    } catch (error: unknown) {
       queueDepth -= 1
       dropPending(meta.sku)
       if (queueDepth === 0) await refreshCart().catch(() => null)
-      const status = error?.response?.status
-      const data = error?.data
+      const { status, data } = httpError(error)
       if (status === 409 && data) {
-        // Não navega: o SubstituteSheet global sobe no lugar (em qualquer
-        // superfície — menu/PDP/sacola), no momento exato do problema.
+        // Não navega, e NÃO dispara toast: o SubstituteSheet global sobe no lugar
+        // (menu/PDP/sacola) e já comunica tudo — um toast sobreposto atrapalhava.
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
       } else if (status === 429) {
+        // Sem toast: o banner de rate-limit (com countdown) é a UI dedicada.
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {
           detail,
@@ -283,9 +284,10 @@ export function useCartState () {
         }
         lastError.value = detail
       } else {
+        // Erro genérico não tem UI própria → o toast é a única forma de avisar.
         lastError.value = String(data?.detail || 'Não foi possível atualizar o carrinho.')
+        if (import.meta.client) useSonner.error(lastError.value)
       }
-      if (import.meta.client) useSonner.error(lastError.value)
       throw error
     }
   }
@@ -293,12 +295,12 @@ export function useCartState () {
   async function mutateCoupon (method: 'POST' | 'DELETE', body?: Record<string, unknown>) {
     queueDepth += 1
     try {
-      const response = await enqueueMutation(async () => $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
+      const response = await enqueueMutation(async () => retryWithBackoff(async () => $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
         method,
         headers: await csrfHeaders(),
         body,
         credentials: 'include'
-      }))
+      })))
       queueDepth -= 1
       if (queueDepth === 0) applyServerCart(response.cart)
       return response.cart

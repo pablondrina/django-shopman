@@ -42,7 +42,7 @@
 
   .vc-light,
   .vc-dark {
-    --vc-bg: var(--color-background);
+    --vc-bg: var(--color-popover);
     --vc-border: var(--color-border);
     --vc-focus-ring: 0 0 0 3px --alpha(var(--color-primary) / 30%);
     --vc-weekday-color: var(--color-muted-foreground);

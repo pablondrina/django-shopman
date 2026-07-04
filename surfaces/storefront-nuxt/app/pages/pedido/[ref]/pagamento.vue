@@ -109,12 +109,10 @@ async function postAction (action: Action) {
     })
     if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
     else await refresh()
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível atualizar o pagamento.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível atualizar o pagamento.'))
   } finally {
-    const next = { ...actionPending.value }
-    delete next[action.ref]
-    actionPending.value = next
+    actionPending.value = omitKey(actionPending.value, action.ref)
   }
 }
 
@@ -134,8 +132,8 @@ async function simulatePayment () {
     )
     if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
     else await refresh()
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível simular o pagamento.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível simular o pagamento.'))
   } finally {
     simulating.value = false
   }
@@ -206,7 +204,7 @@ useSeoMeta({
                     <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
                   </div>
                 </div>
-                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" size="lg" icon="lucide:credit-card">
+                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">
                   Pagar com cartão
                 </UiButton>
               </div>
@@ -226,7 +224,7 @@ useSeoMeta({
                 <div class="shop-stack-block">
                   <p class="shop-muted">Copia e cola PIX</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
-                  <UiButton variant="outline" icon="lucide:copy" @click="copyPix">Copiar código</UiButton>
+                  <UiButton variant="outline" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">Copiar código</UiButton>
 
                   <p v-if="connectionLost" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400" role="status">
                     Sem conexão no momento — se você já pagou, a confirmação chega assim que a internet voltar.
@@ -241,6 +239,19 @@ useSeoMeta({
                   </div>
                   <p v-else-if="pixCountdown?.isExpired" class="shop-body font-semibold text-destructive">O prazo do PIX expirou.</p>
                 </div>
+              </div>
+
+              <div v-if="payment.mock_enabled" class="space-y-1 rounded-lg border border-dashed bg-muted/40 p-4">
+                <UiButton
+                  variant="default"
+                  class="w-full"
+                  icon="lucide:flask-conical"
+                  :loading="simulating"
+                  @click="simulatePayment"
+                >
+                  Simular pagamento
+                </UiButton>
+                <p class="shop-meta text-center">Ambiente de teste · captura por gateway simulado</p>
               </div>
 
               <UiAlert v-if="payment.error_message" variant="destructive">
@@ -277,18 +288,6 @@ useSeoMeta({
                   {{ action.label }}
                 </UiButton>
 
-                <div v-if="payment.mock_enabled" class="mt-2 space-y-1 border-t border-dashed pt-3">
-                  <UiButton
-                    variant="outline"
-                    class="w-full border-dashed"
-                    icon="lucide:flask-conical"
-                    :loading="simulating"
-                    @click="simulatePayment"
-                  >
-                    Simular pagamento
-                  </UiButton>
-                  <p class="shop-meta text-center">Ambiente de teste · captura por gateway simulado</p>
-                </div>
               </UiCardContent>
             </UiCard>
 

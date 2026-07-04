@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from django.http import HttpRequest
 
 from shopman.shop.projections.types import Action
-from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+from shopman.storefront.constants import STOREFRONT_CHANNEL_REF, get_default_ddd
 from shopman.storefront.presentation.catalog import CatalogItemProjection, build_catalog
 from shopman.storefront.presentation.shop import ShopProjection, build_shop_projection
 from shopman.storefront.presentation.shop_status import _format_opening_hours, _shop_status
@@ -145,6 +145,9 @@ class PublicConfigProjection:
     # pública domain-restricted; o geocoding reverso continua server-side).
     shop_latitude: float | None
     shop_longitude: float | None
+    # DDD padrão da loja (Shop.default_ddd, config admin): o client assume quando o
+    # cliente digita um telefone sem DDD, espelhando o Doorman (intents/_phone.py).
+    default_ddd: str
 
 
 @dataclass(frozen=True)
@@ -220,6 +223,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
         whatsapp_url=shop_proj.whatsapp_url or "",
         shop_latitude=shop_latitude,
         shop_longitude=shop_longitude,
+        default_ddd=get_default_ddd(),
     )
 
     notices = _home_notices(

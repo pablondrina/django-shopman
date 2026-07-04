@@ -280,6 +280,7 @@ onBeforeUnmount(() => {
                 class="inline-flex size-11 items-center justify-center rounded-full border text-foreground transition hover:bg-muted hover:text-primary"
                 @click="closeMenu"
               >
+                <!-- eslint-disable-next-line vue/no-v-html -- SVG de ícone social vem do public_config da loja (curado pelo gerente no Admin), não de input do cliente. -->
                 <span class="size-5" v-html="link.icon_svg" />
               </a>
             </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AccountProfile } from '~/types/shopman'
+import { displayE164Phone } from '~/utils/authPhone'
 
 definePageMeta({ middleware: 'account' })
 
@@ -32,6 +33,11 @@ const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/
   headers: requestHeaders
 })
 
+// Telefone para leitura: "+55 (43) 98404-9009" em vez do E.164 cru.
+const phoneDisplayLabel = computed(() =>
+  displayE164Phone(profile.value?.phone || session.customerPhone.value || '') || 'Telefone confirmado'
+)
+
 watch(() => profile.value, value => {
   if (!value) return
   profileForm.first_name = value.first_name || ''
@@ -62,8 +68,8 @@ async function saveProfile () {
     session.setIdentity({ name: response.name || response.first_name, phone: response.phone, isAuthenticated: true })
     profileSaved.value = true
     if (import.meta.client) useSonner.success('Perfil salvo.')
-  } catch (e: any) {
-    profileIssue.value = e?.data?.detail || 'Não foi possível salvar seu perfil agora.'
+  } catch (e) {
+    profileIssue.value = errorDetail(e, 'Não foi possível salvar seu perfil agora.')
     if (import.meta.client) useSonner.error(profileIssue.value)
   } finally {
     profilePendingSave.value = false
@@ -120,19 +126,25 @@ useSeoMeta({ title: 'Perfil' })
             </UiField>
             <UiField>
               <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
-              <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" />
+              <!-- appearance-none evita o estouro de largura do controle nativo de
+                   data no iOS (largura intrínseca que ignora w-full). -->
+              <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" class="w-full max-w-full appearance-none" />
             </UiField>
           </div>
 
-          <div class="flex items-center gap-3 border-t pt-4">
-            <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-              <Icon name="lucide:phone" class="size-4" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="shop-body font-semibold">{{ profile?.phone || session.customerPhone.value || 'Telefone confirmado' }}</p>
-              <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
+          <!-- No mobile empilha (o label longo do botão esmagava o texto numa
+               coluna de 1 palavra); no desktop volta a ser linha. -->
+          <div class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                <Icon name="lucide:phone" class="size-4" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="shop-body font-semibold tabular-nums">{{ phoneDisplayLabel }}</p>
+                <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
+              </div>
             </div>
-            <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm">Entrar com outra conta</UiButton>
+            <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm" class="w-full shrink-0 sm:w-auto">Entrar com outra conta</UiButton>
           </div>
         </div>
 

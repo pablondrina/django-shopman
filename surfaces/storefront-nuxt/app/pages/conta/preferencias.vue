@@ -29,9 +29,7 @@ async function toggleFood (pref: { key: string, is_active: boolean }) {
     await refreshSummary()
     if (import.meta.client) useSonner.error('Não foi possível salvar sua preferência. Tente de novo.')
   } finally {
-    const next = { ...preferencePending.value }
-    delete next[pref.key]
-    preferencePending.value = next
+    preferencePending.value = omitKey(preferencePending.value, pref.key)
   }
 }
 
@@ -49,9 +47,7 @@ async function toggleNotification (pref: { key: string, enabled: boolean }) {
     await refreshSummary()
     if (import.meta.client) useSonner.error('Não foi possível salvar sua preferência. Tente de novo.')
   } finally {
-    const next = { ...preferencePending.value }
-    delete next[pref.key]
-    preferencePending.value = next
+    preferencePending.value = omitKey(preferencePending.value, pref.key)
   }
 }
 

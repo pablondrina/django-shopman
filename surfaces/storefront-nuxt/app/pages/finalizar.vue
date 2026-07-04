@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
 import { labelPatchPayload, type AddressSelection, type AddressLabelKey } from '~/presentation/address'
-import { phoneDisplay as formatPhoneDisplay } from '~/utils/authPhone'
+import { displayBrazilianPhone, normalizeAuthPhone } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
   addressSummary as buildAddressSummary,
@@ -20,6 +20,7 @@ import {
   contactSummary as buildContactSummary,
   datepickerDisabledDates as buildDatepickerDisabledDates,
   displayCheckoutDate,
+  firstCheckoutError,
   fulfillmentIcon as resolveFulfillmentIcon,
   fulfillmentLabel as resolveFulfillmentLabel,
   fulfillmentSummary as buildFulfillmentSummary,
@@ -46,6 +47,12 @@ type Step = CheckoutStep
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const { setFromServer, clearCart, applyCoupon, removeCoupon } = useCartState()
+const session = useShopSession()
+// DDD padrão da loja (config admin) — assumido quando o cliente digita telefone
+// sem DDD, para o número nunca virar "(55) …" nem falhar a validação por isso.
+// O checkout carrega o DDD padrão direto (crítico p/ normalizar telefone mesmo
+// em acesso direto/SSR sem passar pelo home); public_config é só fallback.
+const defaultDdd = computed(() => checkout.value?.default_ddd || session.publicConfig.value?.default_ddd || '')
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const state = reactive<CheckoutFormState>({
@@ -74,7 +81,7 @@ const chosenDate = ref<Date | null>(null)
 const activeStep = ref<Step>('fulfillment')
 const contactEditing = ref(false)
 const nameEditing = ref(false)
-const nameInput = ref<any>(null)
+const nameInput = ref<{ $el?: HTMLElement } | null>(null)
 const useLoyalty = ref(false)
 const loyaltySyncing = ref(false)
 // Liga/desliga o resgate de pontos NA SESSÃO (fonte única). Carrinho e checkout
@@ -139,7 +146,7 @@ const giftSummary = computed(() => {
     parts.push('Embalar para presente')
   } else {
     parts.push(`Para ${state.recipient_name.trim() || 'quem recebe'}`)
-    if (state.recipient_phone.trim()) parts.push(state.recipient_phone.trim())
+    if (state.recipient_phone.trim()) parts.push(displayBrazilianPhone(state.recipient_phone, defaultDdd.value))
   }
   if (state.gift_hide_values) parts.push('valores ocultos')
   return parts.join(' · ')
@@ -239,11 +246,11 @@ const paymentMethodLabel = computed(() => resolvePaymentMethodLabel(checkout.val
 const selectedSlotLabel = computed(() => selectedSlot.value?.label || state.delivery_time_slot || '')
 const fulfillmentLabel = computed(() => resolveFulfillmentLabel(state.fulfillment_type))
 const fulfillmentIcon = computed(() => resolveFulfillmentIcon(state.fulfillment_type))
-const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date))
+const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date, undefined, true))
 const whenSummary = computed(() => buildWhenSummary(state.delivery_date, selectedSlotLabel.value))
 const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLabel.value, whenSummary.value))
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
-const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
+const phoneDisplay = computed(() => displayBrazilianPhone(state.phone || checkout.value?.customer_phone || '', defaultDdd.value))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
 // Nome só vira input com ação deliberada (ou quando ainda não há nome).
 const showNameInput = computed(() => nameEditing.value || !state.name.trim())
@@ -265,6 +272,8 @@ const contactSummary = computed(() => buildContactSummary(state, phoneDisplay.va
 // por padrão) — fica legível sem depender de caber tudo numa linha só.
 const contactCardSummary = computed(() => [state.name, phoneDisplay.value].filter(Boolean).join('\n'))
 const addressSummary = computed(() => buildAddressSummary(state))
+// Endereço quebrado em linhas (mesmo padrão do rodapé) — leitura bonita na revisão.
+const deliveryAddressLines = computed(() => addressLines(state.delivery_address))
 const confirmSheetDescription = computed(() => buildConfirmSheetDescription(checkout.value))
 const dateBounds = computed(() => checkoutDateBounds(checkout.value))
 const checkoutMinDate = computed(() => dateBounds.value.minDate)
@@ -381,7 +390,15 @@ watch(() => checkout.value, value => {
   useLoyalty.value = !!value.cart?.loyalty_applied
   nextTick(() => { loyaltySyncing.value = false })
   if (!state.name) state.name = value.customer_name || ''
-  if (!state.phone) state.phone = value.customer_phone || ''
+  // Telefone do cliente AUTENTICADO é identidade: o servidor é a fonte de verdade
+  // e sobrepõe qualquer rascunho local. Sem isso, um número antigo no localStorage
+  // (ex.: cadastro trocado) grudava para sempre — era o bug do "(55)" persistido.
+  // Convidado mantém o que digitou (só preenche se vazio).
+  if (value.is_authenticated && value.customer_phone) {
+    state.phone = value.customer_phone
+  } else if (!state.phone) {
+    state.phone = value.customer_phone || ''
+  }
   if (!state.payment_method) state.payment_method = value.default_payment_method || methods[0]?.ref || ''
   if (!state.delivery_time_slot) state.delivery_time_slot = value.earliest_slot_ref || projectedSlots.find(slot => slot.enabled)?.ref || ''
   if (!checkoutHydrated && !fulfillments.includes(state.fulfillment_type)) {
@@ -528,6 +545,21 @@ function goToStep (step: Step) {
 
 const paymentIcon = resolvePaymentIcon
 
+// Linhas do resumo (ícone + valor) — mesma diagramação da aba "Resumo" do
+// acompanhamento (componente OrderSummaryRows), a partir do estado do checkout.
+const reviewSummaryRows = computed(() => {
+  const rows: { icon: string, lines: string[], muted?: string }[] = [
+    { icon: fulfillmentIcon.value, lines: [fulfillmentSummary.value || fulfillmentLabel.value] }
+  ]
+  if (state.fulfillment_type === 'delivery') {
+    rows.push({ icon: 'lucide:map-pin', lines: deliveryAddressLines.value, muted: state.delivery_complement || undefined })
+  }
+  rows.push({ icon: paymentIcon(state.payment_method), lines: [paymentMethodLabel.value] })
+  rows.push({ icon: 'lucide:user-round', lines: [contactSummary.value] })
+  if (state.is_gift) rows.push({ icon: 'lucide:gift', lines: [giftSummary.value] })
+  return rows
+})
+
 function validateContact (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.name
@@ -603,11 +635,13 @@ function validatePaymentStep (): boolean {
     if (!state.recipient_name.trim()) {
       errors.recipient_name = 'Informe o nome de quem vai receber o presente.'
     }
-    const digits = state.recipient_phone.replace(/\D/g, '')
+    // Assume o DDD padrão da loja antes de validar (o cliente não precisa saber o
+    // DDD; espelha o Doorman). Válido = 10 (fixo) ou 11 (celular) dígitos locais.
+    const local = normalizeAuthPhone(state.recipient_phone, 'BR', defaultDdd.value).replace(/^\+55/, '')
     if (!state.recipient_phone.trim()) {
       errors.recipient_phone = 'Informe o telefone de quem vai receber o presente.'
-    } else if (digits.length < 10) {
-      errors.recipient_phone = 'Telefone do destinatário inválido. Informe com DDD, ex: (43) 99999-9999'
+    } else if (local.length < 10) {
+      errors.recipient_phone = 'Telefone do destinatário inválido. Ex: (43) 99999-9999'
     }
   }
   fieldErrors.value = errors
@@ -622,8 +656,21 @@ function saveContact () {
   if (validateContact()) nameEditing.value = false
 }
 
+// Omotenashi: um gate de validação NUNCA falha em silêncio. O erro vem até o
+// cliente (toast) e a tela rola até o primeiro campo com erro (role="alert"),
+// em vez de ficar quietinho num campo fora da view.
+function revealFirstError () {
+  if (!import.meta.client) return
+  const first = firstCheckoutError(fieldErrors.value)
+  if (!first) return
+  useSonner.error(first.message)
+  void nextTick(() => {
+    document.querySelector('[data-slot="field-error"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
 function continueFromFulfillment () {
-  if (!validateFulfillmentStep()) return
+  if (!validateFulfillmentStep()) { revealFirstError(); return }
   // Retirada zera a taxa de entrega no total; entrega recalcula ao confirmar
   // o endereço (applyDeliveryDraft no passo seguinte).
   if (state.fulfillment_type === 'pickup') void applyDeliveryDraft()
@@ -631,7 +678,7 @@ function continueFromFulfillment () {
 }
 
 function continueFromAddress () {
-  if (!validateAddressStep()) return
+  if (!validateAddressStep()) { revealFirstError(); return }
   activeStep.value = 'when'
   // Endereço NOVO (não-salvo) em entrega: pergunta a etiqueta na hora. A escolha é
   // guardada e aplicada quando o pedido fecha (o endereço só ganha ID na confirmação).
@@ -642,14 +689,16 @@ function continueFromAddress () {
 
 function continueFromWhen () {
   if (validateWhenStep()) activeStep.value = 'payment'
+  else revealFirstError()
 }
 
 function continueFromPayment () {
   if (validatePaymentStep()) openConfirmSheet()
+  else revealFirstError()
 }
 
 function openConfirmSheet () {
-  if (!validate()) return
+  if (!validate()) { revealFirstError(); return }
   if (submitDisabled.value) {
     serverError.value = action.value?.reason || 'Pedido não pode ser confirmado agora.'
     return
@@ -766,14 +815,15 @@ async function submitCheckout () {
       return
     }
     await navigateTo(trackingUrl)
-  } catch (e: any) {
-    const data = e?.data || {}
-    serverError.value = data.detail || 'Não foi possível confirmar o pedido.'
-    if (data.field) {
+  } catch (e) {
+    const data = httpError(e).data || {}
+    const field = typeof data.field === 'string' ? data.field : ''
+    serverError.value = errorDetail(e, 'Não foi possível confirmar o pedido.')
+    if (field) {
       // Poka-yoke: endereço fora da zona, mas a loja faz retirada → oferecer
       // a troca em 1 clique em vez de deixar o cliente num beco sem saída.
       pickupSwapOffer.value = shouldOfferPickupSwap({
-        field: data.field,
+        field,
         fulfillmentType: state.fulfillment_type,
         hasPickup: availableFulfillment.value.includes('pickup'),
         hasAddress: !!state.delivery_address.trim()
@@ -786,10 +836,10 @@ async function submitCheckout () {
         // própria oferta. Fecha só o sheet de revisão.
         confirmOpen.value = false
       } else {
-        fieldErrors.value = { ...fieldErrors.value, [data.field]: serverError.value }
-        const step = checkoutStepForField(data.field)
+        fieldErrors.value = { ...fieldErrors.value, [field]: serverError.value }
+        const step = checkoutStepForField(field)
         if (step) activeStep.value = step
-        if (data.field === 'name' || data.field === 'phone') contactEditing.value = true
+        if (field === 'name' || field === 'phone') contactEditing.value = true
       }
     }
     if (import.meta.client && !pickupSwapOffer.value) useSonner.error(serverError.value)
@@ -1103,9 +1153,10 @@ useSeoMeta({
                           </span>
                         </UiButton>
                       </UiPopoverTrigger>
-                      <UiPopoverContent align="start" class="w-auto p-0">
+                      <UiPopoverContent align="start" class="w-[var(--reka-popover-trigger-width)] p-0">
                         <UiDatepicker
                           v-model="chosenDate"
+                          expanded
                           is-required
                           :min-date="checkoutMinDate"
                           :max-date="checkoutMaxDate"
@@ -1390,28 +1441,7 @@ useSeoMeta({
               <UiSeparator class="my-3" />
 
               <!-- Como/onde/pgto/contato: ícone + valor, sem rótulo (o valor já se explica). -->
-              <dl class="divide-y text-sm">
-                <div class="flex items-baseline gap-3 py-2 first:pt-0">
-                  <Icon :name="fulfillmentIcon" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ fulfillmentSummary || fulfillmentLabel }}</dd>
-                </div>
-                <div v-if="state.fulfillment_type === 'delivery'" class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:map-pin" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ addressSummary }}</dd>
-                </div>
-                <div class="flex items-baseline gap-3 py-2">
-                  <Icon :name="paymentIcon(state.payment_method)" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ paymentMethodLabel }}</dd>
-                </div>
-                <div class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:user-round" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ contactSummary }}</dd>
-                </div>
-                <div v-if="state.is_gift" class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:gift" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ giftSummary }}</dd>
-                </div>
-              </dl>
+              <OrderSummaryRows :rows="reviewSummaryRows" />
 
               <!-- Cartão do presente / observação: bilhete em superfície destacada (muted). -->
               <p v-if="state.is_gift && state.gift_message" class="mt-3 rounded-lg bg-muted/50 p-3">

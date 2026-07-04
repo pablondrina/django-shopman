@@ -8,8 +8,8 @@ mais barato), e ignorava is_sellable e a janela de validade do listing.
 from decimal import Decimal
 
 import pytest
-
 from shopman.offerman.models import Listing, ListingItem, Product
+
 from shopman.shop.projections import cart_context
 
 pytestmark = pytest.mark.django_db

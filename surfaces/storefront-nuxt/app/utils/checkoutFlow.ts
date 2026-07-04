@@ -3,6 +3,35 @@ import type { CheckoutFormState, FulfillmentType } from './checkoutPayload'
 import type { CheckoutProjection, PickupSlotProjection, Action } from '~/types/shopman'
 
 export type CheckoutStep = 'fulfillment' | 'address' | 'when' | 'payment'
+
+// Ordem canônica dos campos do checkout, de cima para baixo no fluxo — usada para
+// escolher QUAL erro trazer ao cliente primeiro quando um gate de validação falha.
+export const CHECKOUT_FIELD_ORDER = [
+  'name', 'phone',
+  'fulfillment_type',
+  'delivery_address',
+  'delivery_date', 'delivery_time_slot',
+  'payment_method', 'recipient_name', 'recipient_phone'
+] as const
+
+export interface CheckoutFieldError {
+  key: string
+  message: string
+}
+
+// Primeiro erro a exibir (por prioridade de fluxo, com fallback pro que houver).
+// O gate de validação nunca pode falhar em silêncio: essa mensagem "vem até o
+// cliente" (toast) em vez de ficar quietinha num campo fora da tela.
+export function firstCheckoutError (
+  errors: Record<string, string>,
+  order: readonly string[] = CHECKOUT_FIELD_ORDER
+): CheckoutFieldError | null {
+  for (const key of order) {
+    if (errors[key]) return { key, message: errors[key]! }
+  }
+  const fallback = Object.keys(errors).find(key => errors[key])
+  return fallback ? { key: fallback, message: errors[fallback]! } : null
+}
 export type CheckoutSectionState = 'done' | 'current' | 'upcoming' | 'blocked' | 'error'
 export type ClosedDateEntry = string | { date?: string, from?: string, to?: string }
 export type DatepickerDisabledDate = Date | { start: Date | null, end: Date | null }
@@ -184,7 +213,7 @@ export function quickCheckoutDateOptions (
   }))
 }
 
-export function displayCheckoutDate (value: string, now = new Date()): string {
+export function displayCheckoutDate (value: string, now = new Date(), long = false): string {
   if (!value) return ''
   const [year, month, day] = value.split('-').map(Number)
   if (!year || !month || !day) return value
@@ -192,11 +221,14 @@ export function displayCheckoutDate (value: string, now = new Date()): string {
   const bounds = checkoutDateBounds(null, now)
   if (value === bounds.todayValue) return 'Hoje'
   if (value === bounds.tomorrowValue) return 'Amanhã'
-  return new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'short',
+  const label = new Intl.DateTimeFormat('pt-BR', {
+    weekday: long ? 'long' : 'short',
     day: '2-digit',
     month: '2-digit'
   }).format(date).replace('.', '')
+  // Forma longa ("quarta-feira, 08/07") vira "Quarta-feira, 08/07" — dia da
+  // semana por extenso e capitalizado, padronizando com as caixas Hoje/Amanhã.
+  return long ? label.charAt(0).toUpperCase() + label.slice(1) : label
 }
 
 export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: CheckoutQuickDateOption[], now = new Date()): string {

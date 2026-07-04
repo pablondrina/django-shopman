@@ -107,6 +107,8 @@
   --color-info-foreground: var(--info-foreground);
   --color-cta: var(--shop-cta);
   --color-cta-foreground: var(--shop-cta-foreground);
+  --color-brass: var(--shop-brass);
+  --color-brass-foreground: var(--shop-brass-foreground);
   --color-ink: var(--shop-ink);
   --color-ink-foreground: var(--shop-ink-foreground);
   --color-bottomnav: var(--shop-bottomnav);
@@ -187,6 +189,10 @@
   --shop-bottomnav: rgb(245 231 221); /* Faubourg 200 — bottom bar + área de overscroll (brand_tokens) */
   --shop-cta: var(--primary);
   --shop-cta-foreground: var(--primary-foreground);
+  /* Brass/dourado da marca (mesmo tom do logo). Escuro o bastante p/ texto branco
+     (≈4.8:1, AA). Padrão de ação secundária "dourada" (ex.: como chegar/ajuda). */
+  --shop-brass: #8b6b2e;
+  --shop-brass-foreground: #ffffff;
 
   /* Status — defaults NEUTROS (âmbar/esmeralda/azul de hoje); a marca sobrescreve
      para gold/musgo. Foreground = cor de texto sobre o status preenchido (filled). */

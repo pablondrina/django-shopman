@@ -36,8 +36,6 @@ const devConsoleHint = ref(false)
 const debugOtpCode = ref('')
 const debugOtpExpiresAt = ref('')
 const showDebugOtp = ref(true)
-const debugOtpCopied = ref(false)
-let debugCopiedTimer: ReturnType<typeof setTimeout> | null = null
 const verified = ref(false)
 const welcomeNeeded = ref(false)
 const welcomeName = ref('')
@@ -68,6 +66,9 @@ const step = computed(() => authStep({
 const code = computed(() => codeDigits.value.join('').slice(0, 6))
 const canVerifyCode = computed(() => code.value.length === 6 && !pending.value)
 const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
+// DDD padrão da loja (config): assume-se quando o cliente entra sem DDD, para o
+// telefone ser guardado no formato certo (e não virar "(55) …" depois).
+const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_ddd || '')
 const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
 const stepTitle = computed(() => {
   if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
@@ -110,7 +111,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
-  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
 })
 
 // Confirmação automática ao completar os 6 dígitos (o copy do servidor promete).
@@ -132,17 +132,6 @@ function copyTitle (entry: CopyEntryProjection | null | undefined, fallback: str
 
 function copyMessage (entry: CopyEntryProjection | null | undefined, fallback: string) {
   return entry?.message?.trim() || fallback
-}
-
-function withWhatsAppText (href: string, text: string) {
-  if (!href.trim()) return ''
-  try {
-    const url = new URL(href)
-    url.searchParams.set('text', text)
-    return url.toString()
-  } catch {
-    return href
-  }
 }
 
 function syncPhoneFromInput (event: Event) {
@@ -174,11 +163,12 @@ function togglePhoneRegion () {
   error.value = null
 }
 
-function fetchErrorView (e: any, fallback: string, fallbackField?: string): AuthErrorView {
+function fetchErrorView (e: unknown, fallback: string, fallbackField?: string): AuthErrorView {
+  const { status, data } = httpError(e)
   return authErrorView({
-    status: e?.status ?? e?.response?.status,
-    detail: e?.data?.detail,
-    field: e?.data?.field || fallbackField
+    status,
+    detail: typeof data?.detail === 'string' ? data.detail : null,
+    field: (typeof data?.field === 'string' && data.field) || fallbackField || null
   }, fallback)
 }
 
@@ -193,15 +183,6 @@ function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryM
   debugOtpCopied.value = false
   lastDeliveryMethod.value = method
   lastSentAtMs.value = Date.now()
-}
-
-async function copyDebugOtp () {
-  if (!debugOtpCode.value || !import.meta.client) return
-  await navigator.clipboard.writeText(debugOtpCode.value)
-  useSonner.success('Código copiado.')
-  debugOtpCopied.value = true
-  if (debugCopiedTimer) clearTimeout(debugCopiedTimer)
-  debugCopiedTimer = setTimeout(() => { debugOtpCopied.value = false }, 1500)
 }
 
 // Preenche o campo com o código de teste; o watcher de `code` confirma sozinho.
@@ -231,7 +212,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
   debugOtpCode.value = ''
   debugOtpExpiresAt.value = ''
   try {
-    const devicePayload = authPhonePayload(phone.value, phoneRegion.value)
+    const devicePayload = authPhonePayload(phone.value, phoneRegion.value, undefined, defaultDdd.value)
     const trusted = await $fetch<VerifyResponse & { trusted?: boolean }>(apiPath('/api/auth/device-check/'), {
       method: 'POST',
       headers: await csrfHeaders(),
@@ -250,7 +231,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
       return
     }
 
-    const requestPayload = authPhonePayload(phone.value, phoneRegion.value, method)
+    const requestPayload = authPhonePayload(phone.value, phoneRegion.value, method, defaultDdd.value)
     const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
       method: 'POST',
       headers: await csrfHeaders(),
@@ -258,7 +239,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
       body: requestPayload
     })
     applyCodeDelivery(response, method)
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível enviar o código.')
   } finally {
     pending.value = false
@@ -271,7 +252,7 @@ async function resendCode () {
   error.value = null
   codeDigits.value = []
   try {
-    const payload = authPhonePayload(requestedPhone.value, phoneRegion.value, lastDeliveryMethod.value)
+    const payload = authPhonePayload(requestedPhone.value, phoneRegion.value, lastDeliveryMethod.value, defaultDdd.value)
     const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
       method: 'POST',
       headers: await csrfHeaders(),
@@ -280,7 +261,7 @@ async function resendCode () {
     })
     applyCodeDelivery(response, lastDeliveryMethod.value)
     if (import.meta.client) useSonner.success('Enviamos um novo código.')
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível reenviar o código.')
   } finally {
     pending.value = false
@@ -321,7 +302,7 @@ async function verifyCode () {
       return
     }
     await celebrateAndGo('confirmed')
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Código inválido ou expirado.', 'code')
   } finally {
     pending.value = false
@@ -342,7 +323,7 @@ async function submitWelcome () {
     })
     session.setIdentity({ name })
     await navigateTo(nextUrl.value)
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível salvar seu nome.')
   } finally {
     pending.value = false
@@ -454,52 +435,42 @@ useSeoMeta({
             <span class="whitespace-nowrap font-semibold tabular-nums">{{ requestedPhoneDisplay }}</span>.
           </p>
 
-          <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert">
-            <div class="flex items-start justify-between gap-2">
-              <UiAlertTitle class="flex items-center gap-1.5">
-                <UiBadge variant="secondary" class="text-[0.65rem] uppercase tracking-wide">Ambiente de teste</UiBadge>
-                Código para entrar
-              </UiAlertTitle>
-              <UiButton
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                icon="lucide:x"
-                aria-label="Ocultar código de teste"
-                @click="showDebugOtp = false"
-              />
-            </div>
-            <UiAlertDescription>
-              <div class="mt-2 flex flex-col gap-3">
+          <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert" class="relative text-center">
+            <UiButton
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              icon="lucide:x"
+              aria-label="Ocultar código de teste"
+              class="absolute right-2 top-2"
+              @click="showDebugOtp = false"
+            />
+            <UiAlertTitle class="flex flex-col items-center gap-2 text-center">
+              <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
+              <span>Código para entrar</span>
+            </UiAlertTitle>
+            <!-- !flex sobrescreve o `grid justify-items-start` do AlertDescription
+                 (que encolhia caixa/botão ao conteúdo e grudava à esquerda). -->
+            <UiAlertDescription class="!flex w-full flex-col">
+              <div class="mt-2 flex w-full flex-col gap-3">
                 <div
-                  class="flex justify-center gap-1 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-2xl font-semibold tabular-nums tracking-[0.35em]"
+                  class="flex w-full justify-center gap-3 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-3xl font-semibold tabular-nums"
                   data-testid="debug-otp-code"
                 >
                   <span v-for="(digit, index) in debugOtpDigits" :key="index">{{ digit }}</span>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                  <UiButton
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    icon="lucide:wand-sparkles"
-                    class="grow"
-                    @click="useDebugOtp"
-                  >
-                    Usar código de teste
-                  </UiButton>
-                  <UiButton
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    :icon="debugOtpCopied ? 'lucide:check' : 'lucide:copy'"
-                    @click="copyDebugOtp"
-                  >
-                    {{ debugOtpCopied ? 'Copiado' : 'Copiar' }}
-                  </UiButton>
-                </div>
+                <UiButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  icon="lucide:wand-sparkles"
+                  class="w-full justify-center"
+                  @click="useDebugOtp"
+                >
+                  Usar código de teste
+                </UiButton>
               </div>
-              <p v-if="debugOtpValidUntil" class="mt-2 text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
+              <p v-if="debugOtpValidUntil" class="mt-2 w-full text-center text-xs opacity-80">Válido até {{ debugOtpValidUntil }}.</p>
             </UiAlertDescription>
           </UiAlert>
 

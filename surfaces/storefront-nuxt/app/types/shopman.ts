@@ -404,6 +404,7 @@ export interface PublicConfigProjection {
   whatsapp_url: string
   shop_latitude: number | null
   shop_longitude: number | null
+  default_ddd: string
 }
 
 export interface HomeProjection {
@@ -617,6 +618,7 @@ export interface CheckoutProjection {
   pickup_hint: string
   delivery_hint: string
   card_provider: string
+  default_ddd: string
   available_dates: string[]
   closed_weekdays: number[]
 }

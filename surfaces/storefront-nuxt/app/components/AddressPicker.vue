@@ -34,9 +34,13 @@ interface PickerSuggestion {
   kind: 'place' | 'cep'
   main: string
   secondary: string
-  prediction?: any
+  prediction?: google.maps.places.PlacePrediction
   cepPartial?: Partial<AddressDraft>
 }
+
+// Refs de UiInput/UiInputGroupInput: componente com o elemento nativo em
+// `inputRef` (exposed) ou no `$el` da raiz.
+type FocusableInput = { inputRef?: { value?: HTMLInputElement | null }, $el?: HTMLElement } | null
 
 const props = withDefaults(defineProps<{
   context: 'checkout' | 'account'
@@ -99,17 +103,17 @@ const mapOpen = ref(false)
 const mapLoading = ref(false)
 const mapIssue = ref('')
 const mapEl = ref<HTMLElement | null>(null)
-let mapInstance: any = null
-let mapMarker: any = null
+let mapInstance: google.maps.Map | null = null
+let mapMarker: google.maps.Marker | null = null
 
-const routeInput = ref<any>(null)
-const numberInput = ref<any>(null)
-const complementInput = ref<any>(null)
-const searchInput = ref<any>(null)
+const routeInput = ref<FocusableInput>(null)
+const numberInput = ref<FocusableInput>(null)
+const complementInput = ref<FocusableInput>(null)
+const searchInput = ref<FocusableInput>(null)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let searchSeq = 0
-let placesSessionToken: any = null
+let placesSessionToken: google.maps.places.AutocompleteSessionToken | null = null
 
 const labelOptions = ADDRESS_LABEL_OPTIONS
 const brStates = BR_STATES
@@ -206,9 +210,10 @@ function resetDraft () {
 
 // Refs de UiInput/UiInputGroupInput apontam para o componente; o elemento
 // nativo é o próprio $el (root do UiInput) ou o exposed inputRef.
-function focusUiInput (target: any) {
+function focusUiInput (target: FocusableInput) {
+  const el = target?.$el
   const native = target?.inputRef?.value
-    || (target?.$el?.tagName === 'INPUT' ? target.$el : target?.$el?.querySelector?.('input'))
+    || (el?.tagName === 'INPUT' ? (el as HTMLInputElement) : el?.querySelector?.('input'))
   native?.focus?.()
 }
 
@@ -253,7 +258,7 @@ async function runSearch (value: string) {
 
 async function placesSuggestions (input: string): Promise<PickerSuggestion[]> {
   try {
-    const placesLib = await maps.importLibrary('places')
+    const placesLib = await maps.importLibrary<google.maps.PlacesLibrary>('places')
     if (!placesLib?.AutocompleteSuggestion) return []
     placesSessionToken = placesSessionToken || new placesLib.AutocompleteSessionToken()
     const request: Record<string, unknown> = {
@@ -267,8 +272,8 @@ async function placesSuggestions (input: string): Promise<PickerSuggestion[]> {
     }
     const { suggestions: raw } = await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request)
     return (raw || [])
-      .filter((entry: any) => entry?.placePrediction)
-      .map((entry: any): PickerSuggestion => ({
+      .filter((entry): entry is google.maps.places.AutocompleteSuggestion & { placePrediction: google.maps.places.PlacePrediction } => Boolean(entry?.placePrediction))
+      .map((entry): PickerSuggestion => ({
         id: `place-${entry.placePrediction.placeId}`,
         kind: 'place',
         main: entry.placePrediction.mainText?.text || entry.placePrediction.text?.text || '',
@@ -384,8 +389,8 @@ async function locateMe () {
       body: { lat: coords.latitude, lng: coords.longitude }
     })
     geoCandidate.value = mergeReverseGeocode(emptyAddressDraft(), result)
-  } catch (e: any) {
-    geoIssue.value = e?.data?.detail || 'Não foi possível resolver sua localização.'
+  } catch (e) {
+    geoIssue.value = errorDetail(e, 'Não foi possível resolver sua localização.')
   } finally {
     locating.value = false
   }
@@ -405,7 +410,7 @@ async function openMapAdjust () {
   mapIssue.value = ''
   await nextTick()
   try {
-    const mapsLib = await maps.importLibrary('maps')
+    const mapsLib = await maps.importLibrary<google.maps.MapsLibrary>('maps')
     if (!mapsLib?.Map || !mapEl.value) {
       mapIssue.value = 'O mapa não está disponível agora.'
       return
@@ -419,7 +424,7 @@ async function openMapAdjust () {
       gestureHandling: 'greedy',
       clickableIcons: false
     })
-    mapMarker = new (globalThis as any).google.maps.Marker({
+    mapMarker = new window.google!.maps.Marker({
       map: mapInstance,
       position: center,
       draggable: true
@@ -448,8 +453,8 @@ async function confirmMapAdjust () {
     Object.assign(draft, mergeReverseGeocode({ ...(draft as AddressDraft) }, result))
     acceptedLine.value = draftLine.value
     mapOpen.value = false
-  } catch (e: any) {
-    mapIssue.value = e?.data?.detail || 'Não foi possível confirmar o ponto. Tente de novo.'
+  } catch (e) {
+    mapIssue.value = errorDetail(e, 'Não foi possível confirmar o ponto. Tente de novo.')
   } finally {
     mapLoading.value = false
   }
@@ -534,8 +539,8 @@ async function saveCheckoutEdit () {
     emit('addresses-changed')
     editingSavedId.value = null
     mode.value = 'saved'
-  } catch (e: any) {
-    saveIssue.value = e?.data?.detail || 'Não foi possível salvar o endereço agora.'
+  } catch (e) {
+    saveIssue.value = errorDetail(e, 'Não foi possível salvar o endereço agora.')
   } finally {
     saving.value = false
   }
@@ -571,8 +576,8 @@ async function saveAccountAddress () {
     })
     pendingCreatedId.value = created?.id ?? null
     labelOpen.value = true
-  } catch (e: any) {
-    saveIssue.value = e?.data?.detail || 'Não foi possível salvar o endereço agora.'
+  } catch (e) {
+    saveIssue.value = errorDetail(e, 'Não foi possível salvar o endereço agora.')
   } finally {
     saving.value = false
   }

@@ -8,6 +8,7 @@ import logging
 
 from django.http import Http404
 from django.utils import timezone
+from django_eventstream.views import events as eventstream_view
 from django_ratelimit.core import is_ratelimited
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
@@ -150,6 +151,35 @@ class OrderTrackingView(APIView):
         data = _tracking_payload(order)
         serializer = OrderTrackingSerializer(data)
         return Response(serializer.data)
+
+
+def order_events_view(request, ref: str):
+    """SSE stream for the tracking page — channel ``order-<ref>``.
+
+    Authorize up front and 404 for anyone who is not the order's owner (or staff)
+    so the browser ``EventSource`` fails cleanly — a non-200 is fatal, so it does
+    not reconnect — and the Nuxt client stays on its 30s poll fallback. The status
+    is uniform whether the ref is missing or simply not the caller's, so it never
+    leaks whether a ref exists (same contract as the tracking data endpoint).
+
+    This gate mirrors ``ShopmanChannelManager.can_read_channel`` exactly
+    (``user_can_access_order``), which remains the stream-level defense in depth.
+    Relying on the channel manager alone is not enough: django_eventstream reports
+    a denial as an in-band ``stream-error`` frame over HTTP 200, which EventSource
+    treats as a live stream and retries forever. Guests without a login therefore
+    fall back to polling — session-scoped guest access is intentionally out of
+    scope here.
+    """
+    from shopman.orderman.models import Order
+
+    from shopman.shop.services import customer_orders
+
+    order = Order.objects.filter(ref=ref).first()
+    if order is None or not customer_orders.user_can_access_order(
+        getattr(request, "user", None), order
+    ):
+        raise Http404
+    return eventstream_view(request, **{"format-channels": ["order-{ref}"], "ref": ref})
 
 
 @extend_schema_view(

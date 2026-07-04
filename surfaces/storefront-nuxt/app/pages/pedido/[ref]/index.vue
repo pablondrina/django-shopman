@@ -4,6 +4,7 @@ import {
   hasLiveDeadline,
   pollIntervalMs,
   timelineActiveStep,
+  trackingFreshness,
   trackingPanelClass,
   trackingPanelIcon,
   trackingPanelIconClass,
@@ -17,6 +18,11 @@ const route = useRoute()
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
+// Ref esmaecido no prefixo (canal/data) + cauda em destaque (o que o cliente usa).
+const refParts = computed(() => orderRefParts(orderRef.value))
+// "Conversar com a loja" já abre com o contexto do pedido — o cliente não precisa
+// explicar do zero qual pedido é.
+const supportUrl = computed(() => withWhatsAppText(tracking.value?.whatsapp_url || '', `Preciso de ajuda com o pedido ${orderRef.value}`))
 const rating = ref(5)
 const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
@@ -45,6 +51,11 @@ const promiseTone = computed(() => tracking.value?.promise.tone || 'info')
 const statusPanelActions = computed(() => trackingStatusPanelActions(promiseActions.value, reorderAction.value, promiseTone.value))
 const statusPanelClass = computed(() => trackingPanelClass(promiseTone.value))
 const statusPanelIconClass = computed(() => trackingPanelIconClass(promiseTone.value))
+// Pedido em andamento: o próprio ícone do card pulsa (sinal "ao vivo") — sem
+// bolinha extra ao lado do título, que competia com o ícone.
+const statusPanelIconClassLive = computed(() =>
+  tracking.value?.is_active ? `${statusPanelIconClass.value} animate-pulse` : statusPanelIconClass.value
+)
 const statusPanelIcon = computed(() => trackingPanelIcon(promiseTone.value))
 const showPaymentStatusFallback = computed(() => Boolean(
   tracking.value?.requires_payment_gate &&
@@ -62,18 +73,29 @@ const hasStatusPanelActions = computed(() => Boolean(
   showSupportInStatusPanel.value
 ))
 const visiblePromiseRows = computed(() => visibleTrackingPromiseRows(tracking.value?.promise_rows || []))
+const showReorderAction = computed(() => Boolean(
+  reorderAction.value && !statusPanelActions.value.some(action => action.ref === 'reorder')
+))
+const showSupportAction = computed(() => Boolean(
+  tracking.value?.whatsapp_url && !showSupportInStatusPanel.value
+))
+// Um (e só um) botão primary no card de Ações: o topo da pilha não-destrutiva.
+// Prioridade: Avaliar > Pedir de novo > Falar conosco. Cancelar fica destructive
+// à parte. Assim nunca sobra um card só com botões secundários (faubourg).
+const sideActionsPrimary = computed(() => {
+  if (rateAction.value) return 'rate'
+  if (showReorderAction.value) return 'reorder'
+  if (showSupportAction.value) return 'support'
+  return null
+})
 const showSideActions = computed(() => Boolean(
   tracking.value &&
-  (
-    cancelAction.value ||
-    (reorderAction.value && !statusPanelActions.value.some(action => action.ref === 'reorder')) ||
-    (tracking.value.whatsapp_url && !showSupportInStatusPanel.value)
-  )
+  (cancelAction.value || showReorderAction.value || showSupportAction.value)
 ))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
 const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
-const trackingTabsListClass = 'no-scrollbar before:bg-border relative h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 before:absolute before:inset-x-0 before:bottom-0 before:h-px'
-const trackingTabsTriggerClass = 'border-border bg-muted overflow-hidden rounded-b-none border-x border-t py-2 data-[state=active]:z-10 data-[state=active]:shadow-none'
+const trackingTabsListClass = 'no-scrollbar relative flex h-auto w-full justify-start gap-6 overflow-x-auto border-b bg-transparent p-0'
+const trackingTabsTriggerClass = 'rounded-none border-b-2 border-transparent bg-transparent px-1 py-2 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 const progressTimelineStep = computed(() => timelineActiveStep(tracking.value?.progress_steps || []))
 
 // Deadline vivo (timeouts transparentes): countdown ancorado em server_now_iso
@@ -95,6 +117,41 @@ watch(deadlineCount, count => {
 }, { immediate: true })
 const deadlinePct = computed(() => deadlineCount.value ? countdownPct(deadlineCount.value.totalSeconds, deadlineWindowSeconds.value) : 0)
 const deadlineUrgent = computed(() => isCountdownUrgent(deadlinePct.value))
+
+// Frescor do dado: idade viva "Atualizado há X", que vira aviso se um poll falhar
+// (idade > 2× a janela de frescor do servidor). Só em pedidos ativos — um pedido
+// finalizado não precisa de contagem, o carimbo estático basta.
+const freshness = computed(() => trackingFreshness(
+  tracking.value?.last_updated_iso,
+  nowMs.value,
+  (tracking.value?.stale_after_seconds ?? 30) * 2
+))
+
+// Reconexão / volta de foco → reconcilia NA HORA (não espera o próximo poll):
+// grande alívio do "esperei e nada" quando o operador muda o status.
+const { watchConnectivity } = useConnectivity()
+watchConnectivity(() => { if (tracking.value?.is_active) void refresh() })
+
+// Push instantâneo por SSE (G1): o backend emite no canal order-<ref> a cada
+// mudança de status/pagamento; aqui refazemos o fetch canônico na hora, sem
+// esperar o poll. Convidado sem login cai no poll (o Django recusa o canal dele).
+useOrderTrackingStream(orderRef, () => { if (tracking.value?.is_active) void refresh() })
+
+// Linhas do resumo (ícone + valor) — mesma diagramação do overlay de revisão do
+// checkout (componente OrderSummaryRows), a partir da projeção do pedido.
+const summaryRows = computed(() => {
+  const t = tracking.value
+  if (!t) return []
+  const rows: { icon: string, lines: string[], muted?: string }[] = [
+    { icon: t.is_delivery ? 'lucide:bike' : 'lucide:store', lines: [t.is_delivery ? 'Entrega' : 'Retirada'] }
+  ]
+  if (t.delivery_fee_display) {
+    rows.push({ icon: 'lucide:coins', lines: [`Taxa ${t.delivery_fee_display}${t.delivery_distance_display ? ` · ${t.delivery_distance_display}` : ''}`] })
+  }
+  const paymentLabel = t.payment_status_label || t.payment_status
+  if (paymentLabel) rows.push({ icon: 'lucide:credit-card', lines: [paymentLabel] })
+  return rows
+})
 
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
@@ -133,13 +190,19 @@ async function postAction (action: Action, body: Record<string, unknown> = {}) {
     })
     await refresh()
     if (import.meta.client) useSonner.success('Atualizado.')
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível executar a ação.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível executar a ação.'))
   } finally {
-    const next = { ...actionPending.value }
-    delete next[action.ref]
-    actionPending.value = next
+    actionPending.value = omitKey(actionPending.value, action.ref)
   }
+}
+
+// Envia a avaliação e fecha o sheet (o rate_order some após avaliar, no refresh).
+async function rateAndClose () {
+  const action = rateAction.value
+  if (!action) return
+  supportOpen.value = false
+  await postAction(action, { rating: rating.value, comment: comment.value })
 }
 
 function actionRoute (action: Action) {
@@ -198,7 +261,10 @@ useSeoMeta({
       <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
+          <h1 class="mt-1 shop-title">
+            Pedido<br>
+            <span class="text-xl font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
+          </h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -222,9 +288,11 @@ useSeoMeta({
             variant="default"
             :class="statusPanelClass"
             :icon="statusPanelIcon"
-            :icon-class="statusPanelIconClass"
+            :icon-class="statusPanelIconClassLive"
           >
-            <UiAlertTitle class="text-foreground">{{ tracking.promise.title || tracking.status_label }}</UiAlertTitle>
+            <UiAlertTitle class="text-foreground">
+              {{ tracking.promise.title || tracking.status_label }}
+            </UiAlertTitle>
             <UiAlertDescription class="w-full text-muted-foreground">
               <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
@@ -238,7 +306,20 @@ useSeoMeta({
                   <UiProgress :model-value="deadlinePct" :class="deadlineUrgent ? '[&>div]:bg-destructive' : ''" />
                 </div>
 
-                <p class="shop-muted">{{ tracking.last_updated_display }}</p>
+                <p
+                  v-if="tracking.is_active"
+                  class="flex items-center gap-2 shop-muted"
+                  :class="freshness.isStale ? 'text-destructive' : ''"
+                  aria-live="polite"
+                >
+                  <Icon
+                    v-if="freshness.isStale"
+                    name="lucide:rotate-cw"
+                    class="size-3.5 shrink-0 animate-spin"
+                  />
+                  <span>{{ freshness.text }}</span>
+                  <span v-if="freshness.isStale">— reconectando…</span>
+                </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div v-for="row in visiblePromiseRows" :key="row.label" class="rounded-lg border bg-card p-3 shop-body">
@@ -279,7 +360,7 @@ useSeoMeta({
                     <UiButton v-if="showPaymentStatusFallback" :to="paymentHref" icon="lucide:credit-card">
                       Regularizar pagamento
                     </UiButton>
-                    <UiButton v-if="showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle">
+                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="secondary" icon="lucide:message-circle">
                       {{ tracking.copy.support_label }}
                     </UiButton>
                   </div>
@@ -288,9 +369,9 @@ useSeoMeta({
             </UiAlertDescription>
           </UiAlert>
 
-          <UiCard>
-            <UiCardContent class="p-4">
-              <UiTabs default-value="history" class="space-y-4">
+          <UiCard class="py-3">
+            <UiCardContent class="px-4 py-0">
+              <UiTabs default-value="history" class="space-y-2">
                 <UiTabsList :pill="false" :class="trackingTabsListClass">
                   <UiTabsTrigger :pill="false" value="history" :class="trackingTabsTriggerClass">Histórico</UiTabsTrigger>
                   <UiTabsTrigger :pill="false" value="summary" :class="trackingTabsTriggerClass">Resumo</UiTabsTrigger>
@@ -326,38 +407,24 @@ useSeoMeta({
                 </UiTabsContent>
 
                 <UiTabsContent value="summary">
-                  <div class="shop-stack-block">
-                    <section class="space-y-2">
-                      <p class="shop-kicker">Resumo do pedido</p>
-                      <UiDescriptionList class="rounded-lg border px-3">
-                        <UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>
-                        <UiDescriptionListDetails class="font-semibold">{{ tracking.total_display }}</UiDescriptionListDetails>
+                  <!-- Mesma diagramação do overlay de revisão: itens (qty + nome),
+                       linhas ícone+valor e Total. Fonte = projeção do pedido. -->
+                  <div class="px-1">
+                    <ul v-if="tracking.items.length" class="space-y-1">
+                      <li v-for="item in tracking.items" :key="item.sku" class="shop-body">
+                        <span class="font-semibold tabular-nums">{{ item.qty }}×</span>
+                        {{ item.name }}
+                      </li>
+                    </ul>
 
-                        <UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails>{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
+                    <UiSeparator class="my-3" />
 
-                        <UiDescriptionListTerm v-if="tracking.payment_status_label || tracking.payment_status">Pagamento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
+                    <OrderSummaryRows :rows="summaryRows" />
 
-                        <UiDescriptionListTerm v-if="tracking.delivery_fee_display">
-                          {{ tracking.copy.delivery_fee_label }}<span v-if="tracking.delivery_distance_display" class="shop-muted"> · {{ tracking.delivery_distance_display }}</span>
-                        </UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
-                      </UiDescriptionList>
-                    </section>
-
-                    <section v-if="tracking.items.length" class="space-y-2">
-                      <p class="shop-kicker">{{ tracking.copy.items_heading }}</p>
-                      <UiItemGroup class="rounded-lg border">
-                        <UiItem v-for="item in tracking.items" :key="item.sku" class="border-b px-3 py-3 last:border-b-0">
-                          <UiItemContent>
-                            <UiItemTitle>{{ item.name }}</UiItemTitle>
-                            <UiItemDescription>{{ item.qty }} x {{ item.unit_price_display }}</UiItemDescription>
-                          </UiItemContent>
-                          <UiItemActions>{{ item.total_display }}</UiItemActions>
-                        </UiItem>
-                      </UiItemGroup>
-                    </section>
+                    <div class="mt-3 flex items-baseline justify-between border-t pt-3">
+                      <span class="shop-body font-semibold">{{ tracking.copy.total_label }}</span>
+                      <span class="font-semibold tabular-nums">{{ tracking.total_display }}</span>
+                    </div>
                   </div>
                 </UiTabsContent>
 
@@ -367,7 +434,7 @@ useSeoMeta({
                       <UiAlertTitle>Endereço</UiAlertTitle>
                       <UiAlertDescription>
                         {{ tracking.pickup_info.address }}
-                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" variant="outline" size="sm" class="mt-2">
+                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" size="sm" class="mt-2 w-full border-transparent bg-brass text-brass-foreground hover:bg-brass/90 sm:w-auto">
                           {{ tracking.pickup_info.directions_label }}
                         </UiButton>
                       </UiAlertDescription>
@@ -375,7 +442,7 @@ useSeoMeta({
                     <UiItem v-for="fulfillment in tracking.fulfillments" :key="`${fulfillment.status}-${fulfillment.tracking_code}`" class="rounded-lg border p-3">
                       <UiItemContent>
                         <UiItemTitle>{{ fulfillment.status_label }}</UiItemTitle>
-                        <UiItemDescription>{{ fulfillment.tracking_label }}</UiItemDescription>
+                        <UiItemDescription v-if="fulfillment.tracking_label">{{ fulfillment.tracking_label }}</UiItemDescription>
                       </UiItemContent>
                       <UiItemActions>
                         <UiButton v-if="fulfillment.tracking_url" :href="fulfillment.tracking_url" target="_blank" variant="outline" size="sm">Rastrear</UiButton>
@@ -390,21 +457,26 @@ useSeoMeta({
       </section>
 
       <aside v-if="tracking && (showSideActions || rateAction)" class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <UiCard v-if="showSideActions">
-          <UiCardHeader>
+        <UiCard class="gap-3 py-4">
+          <UiCardHeader class="pb-0">
             <UiCardTitle>Ações</UiCardTitle>
           </UiCardHeader>
           <UiCardContent class="space-y-2">
+            <!-- Avaliar em destaque (primary); as demais ficam secundárias. -->
+            <UiButton v-if="rateAction" class="w-full" icon="lucide:star" @click="supportOpen = true">
+              Avaliar pedido
+            </UiButton>
             <UiButton
-              v-if="reorderAction && !statusPanelActions.some(action => action.ref === 'reorder')"
+              v-if="showReorderAction"
+              :variant="sideActionsPrimary === 'reorder' ? 'default' : 'secondary'"
               :loading="!!reorderPending[orderRef]"
               icon="lucide:rotate-ccw"
               class="w-full"
-              @click="performReorderSafely(reorderAction)"
+              @click="performReorderSafely(reorderAction!)"
             >
-              {{ reorderAction.label }}
+              {{ reorderAction!.label }}
             </UiButton>
-            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle" class="w-full">
+            <UiButton v-if="showSupportAction" :href="supportUrl" target="_blank" :variant="sideActionsPrimary === 'support' ? 'default' : 'secondary'" icon="lucide:message-circle" class="w-full">
               {{ tracking.copy.support_label }}
             </UiButton>
             <UiAlertDialog v-if="cancelAction">
@@ -425,24 +497,21 @@ useSeoMeta({
           </UiCardContent>
         </UiCard>
 
-        <UiDialog v-if="rateAction" v-model:open="supportOpen">
-          <UiDialogTrigger as-child>
-            <UiButton variant="secondary" class="w-full" icon="lucide:star">Avaliar pedido</UiButton>
-          </UiDialogTrigger>
-          <UiDialogContent>
-            <UiDialogHeader>
-              <UiDialogTitle>Avaliar pedido</UiDialogTitle>
-              <UiDialogDescription>{{ tracking.copy.rating_comment_placeholder }}</UiDialogDescription>
-            </UiDialogHeader>
-            <div class="space-y-4">
-              <UiNumberField v-model="rating" :min="1" :max="5" />
-              <UiTextarea v-model="comment" :rows="3" />
-            </div>
-            <UiDialogFooter>
-              <UiButton @click="postAction(rateAction, { rating, comment })">{{ tracking.copy.rating_submit_label }}</UiButton>
-            </UiDialogFooter>
-          </UiDialogContent>
-        </UiDialog>
+        <BottomSheet
+          v-if="rateAction"
+          v-model:open="supportOpen"
+          max-width="md"
+          title="Avaliar pedido"
+          description="Sua nota ajuda a loja a melhorar."
+        >
+          <div class="shop-stack-block px-4 py-4">
+            <UiStarRating v-model="rating" :max="5" size="lg" class="justify-center" />
+            <UiTextarea v-model="comment" :rows="3" :placeholder="tracking.copy.rating_comment_placeholder" />
+          </div>
+          <template #footer>
+            <UiButton class="w-full" size="lg" @click="rateAndClose">{{ tracking.copy.rating_submit_label }}</UiButton>
+          </template>
+        </BottomSheet>
       </aside>
 
       <UiAlertDialog :open="!!conflict" @update:open="open => { if (!open) dismissReorderConflict() }">
