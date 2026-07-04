@@ -127,11 +127,11 @@ def ensure_payment_captured(order) -> None:
         if config.payment.timing == "external":
             return
     except Exception:
+        logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
         # Config lookup falhou. NÃO confiar no default permissivo (post_commit →
         # "não requer captura"), senão o guard abre a porta para CONFIRMED sem
         # captura com um Shop.defaults corrompido. Fail-closed: seguir para a
         # checagem de captura de verdade.
-        logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
         config = ChannelConfig()
         config_failed = True
 
