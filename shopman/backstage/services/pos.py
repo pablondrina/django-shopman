@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from shopman.backstage.services.exceptions import POSError
+from shopman.backstage.services.exceptions import POSError, POSPermissionError
 
 
 def parse_money_to_q(raw) -> int:
@@ -86,6 +86,33 @@ def close_cash_shift(*, operator, closing_amount_raw="0", notes: str = ""):
     shift = CashShift.get_open_for_operator(operator)
     if not shift:
         raise POSError("Caixa não aberto.")
+
+    shift.close(
+        blind_closing_amount_q=parse_money_to_q(closing_amount_raw),
+        notes=notes.strip(),
+    )
+    return shift
+
+
+def close_blocking_shift(*, actor_user, shift_id, closing_amount_raw="0", notes: str = ""):
+    """Fechamento cego SUPERVISÓRIO do turno que bloqueia o terminal.
+
+    Destrava o beco de UX: quando o terminal tem um turno aberto que não é do
+    operador atual, ele fica preso sem poder vender. Aqui o GERENTE
+    (``perform_closing``) ou o DONO do turno conta a gaveta e fecha o turno
+    bloqueante — liberando o terminal. Operador comum não fecha o caixa de
+    outro (anti-fraude) → POSPermissionError.
+    """
+    from shopman.backstage.models import CashShift
+    from shopman.backstage.permissions import can_close_day
+
+    shift = CashShift.objects.filter(pk=shift_id, status=CashShift.Status.OPEN).first()
+    if not shift:
+        raise POSError("Turno não encontrado ou já fechado.")
+
+    is_owner = shift.operator_id == getattr(actor_user, "pk", None)
+    if not (can_close_day(actor_user) or is_owner):
+        raise POSPermissionError("Sem permissão para fechar o turno de outro operador.")
 
     shift.close(
         blind_closing_amount_q=parse_money_to_q(closing_amount_raw),

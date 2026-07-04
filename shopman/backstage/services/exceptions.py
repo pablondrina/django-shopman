@@ -23,6 +23,10 @@ class POSError(BackstageServiceError):
     """Raised when a POS mutation cannot be applied."""
 
 
+class POSPermissionError(POSError):
+    """Raised when a POS actor lacks permission (ex.: fechar caixa de outro)."""
+
+
 class ProductionError(BackstageServiceError):
     """Raised when a production mutation cannot be applied."""
 

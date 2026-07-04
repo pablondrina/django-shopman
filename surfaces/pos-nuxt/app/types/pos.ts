@@ -102,6 +102,7 @@ export interface POSCashRuntimeProjection {
   blocking_operator_username?: string;
   blocking_shift_id?: number | null;
   blocking_message?: string;
+  can_close_blocking?: boolean;
 }
 
 export interface POSAddressAutocompleteProjection {

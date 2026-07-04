@@ -1307,6 +1307,24 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  // Fecha (contagem cega) o turno que bloqueia o terminal — gerente ou dono.
+  // Destrava o terminal para o operador atual abrir o seu.
+  async function closeBlockingShift(payload: { shift_id: number; amount: string; notes: string }) {
+    serverError.value = "";
+    busy.value = true;
+    try {
+      await action.call("/api/v1/backstage/pos/cash/close-blocking/", {
+        body: { shift_id: payload.shift_id, closing_amount: payload.amount || "0", notes: payload.notes },
+      });
+      cashDialogOpen.value = false;
+      await refresh();
+    } catch (err: any) {
+      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao fechar o turno.";
+    } finally {
+      busy.value = false;
+    }
+  }
+
   async function registerCashMovement(payload: { kind: string; amount: string; reason: string }) {
     serverError.value = "";
     busy.value = true;
@@ -1423,6 +1441,7 @@ export function usePosSale(deps: PosSaleDeps) {
     cancelRecentSale,
     openCashShift,
     closeCashShift,
+    closeBlockingShift,
     registerCashMovement,
   };
 }
