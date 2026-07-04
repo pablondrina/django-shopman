@@ -243,6 +243,26 @@ residuals"). Não é bug, é o que separa "bom" de "excelente".
 
 ---
 
+## 3.5 Itens deferidos — progresso (2026-07-04)
+
+Após as ondas, ataque dos itens antes deferidos:
+- ✅ **Retry automático de estorno via Directive** — `PAYMENT_REFUND` + handler; falha
+  transiente enfileira retry com backoff, terminal alerta já, exhaustão alerta. (4 testes)
+- ✅ **Deadline/countdown da confirmação otimista no gestor** — projection expõe
+  `confirmation_deadline_iso`+`action` (batch, sem N+1); OrderCard renderiza countdown
+  M:SS que tica. (10 testes backend + 3 vitest)
+- ✅ **Refetch ao acordar** (`visibilitychange`/`online`) no KDS e no gestor (produção
+  já tinha via `useAdaptivePoll`).
+- ⏳ **PIX polling no POS** — bloqueado por arquitetura: o status endpoint do storefront
+  é `authentication_classes=[]` + `get_accessible_order` pela sessão de checkout do
+  cliente (anônima); o operador POS (staff) não se encaixa. Precisa de **novo endpoint
+  de status gateado por `operate_pos`** no backstage + verificação do fluxo PIX na stack
+  viva. Não shippar polling de dinheiro às cegas.
+- ⏳ **Ainda deferido** (baixo valor / infra / precisa stack): staleness "idade do dado"
+  banner, poda dos componentes ui-thing mortos, `refs` UniqueConstraint (caminho
+  dormente sem escritor — não gold-platear), lockfile Python, helper de RMW `order.data`,
+  concorrência no CI (Postgres).
+
 ## 4. Plano de nivelamento (ondas)
 
 ### Onda 0 — Bloqueadores de release (P0 + P1 de segurança) · ✅ CONCLUÍDA (2026-07-03)
