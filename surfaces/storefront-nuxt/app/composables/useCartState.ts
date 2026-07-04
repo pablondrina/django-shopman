@@ -250,12 +250,12 @@ export function useCartState () {
     queueDepth += 1
 
     try {
-      const response = await enqueueMutation(async () => $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
+      const response = await enqueueMutation(async () => retryWithBackoff(async () => $fetch<CartMutationResponse>(apiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         headers: await csrfHeaders(),
         body: { qty },
         credentials: 'include'
-      }))
+      })))
       queueDepth -= 1
       dropPending(meta.sku)
       if (queueDepth === 0) {
@@ -264,12 +264,11 @@ export function useCartState () {
         lastMutation.value = null
       }
       return response
-    } catch (error: any) {
+    } catch (error: unknown) {
       queueDepth -= 1
       dropPending(meta.sku)
       if (queueDepth === 0) await refreshCart().catch(() => null)
-      const status = error?.response?.status
-      const data = error?.data
+      const { status, data } = httpError(error)
       if (status === 409 && data) {
         // Não navega: o SubstituteSheet global sobe no lugar (em qualquer
         // superfície — menu/PDP/sacola), no momento exato do problema.
@@ -293,12 +292,12 @@ export function useCartState () {
   async function mutateCoupon (method: 'POST' | 'DELETE', body?: Record<string, unknown>) {
     queueDepth += 1
     try {
-      const response = await enqueueMutation(async () => $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
+      const response = await enqueueMutation(async () => retryWithBackoff(async () => $fetch<{ cart: CartProjection }>(apiPath('/api/v1/cart/coupon/'), {
         method,
         headers: await csrfHeaders(),
         body,
         credentials: 'include'
-      }))
+      })))
       queueDepth -= 1
       if (queueDepth === 0) applyServerCart(response.cart)
       return response.cart

@@ -210,6 +210,19 @@ describe('useCartState', () => {
     expect(store.isPending('CROISSANT')).toBe(false)
   })
 
+  it('retries a transient network blip transparently (no error surfaced)', async () => {
+    const $fetch = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error('network'), {})) // sem status = rede
+      .mockResolvedValueOnce({ cart: serverCart() })
+    vi.stubGlobal('$fetch', $fetch)
+    const store = await loadStore()
+
+    const res = await store.setSkuQty(meta, 2)
+    expect(res.cart.items_count).toBe(2)
+    expect($fetch).toHaveBeenCalledTimes(2) // 1 falha + 1 retry
+    expect(store.lastError.value).toBeNull() // soluço absorvido, cliente não vê erro
+  })
+
   it('dismissCartIssue clears the banner', async () => {
     const $fetch = vi
       .fn()
