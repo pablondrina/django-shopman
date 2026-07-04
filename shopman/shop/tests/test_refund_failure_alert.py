@@ -47,7 +47,10 @@ def paid_order(db):
 
 
 @_MOCK_ADAPTERS
-def test_refund_exception_raises_critical_alert(paid_order):
+def test_refund_transient_exception_queues_retry_not_immediate_alert(paid_order):
+    """Falha transiente (gateway down): NÃO alerta já — enfileira retry assíncrono."""
+    from shopman.orderman.models import Directive
+
     class FailingAdapter:
         def refund(self, *a, **k):
             raise RuntimeError("gateway down")
@@ -56,12 +59,8 @@ def test_refund_exception_raises_critical_alert(paid_order):
         with patch("shopman.shop.services.observability.create_operator_alert") as alert:
             payment_service.refund(paid_order)
 
-    alert.assert_called_once()
-    kwargs = alert.call_args.kwargs
-    assert kwargs["type"] == "payment_refund_failed"
-    assert kwargs["severity"] == "critical"
-    assert kwargs["order_ref"] == "ORD-RF-1"
-    assert kwargs["dedupe_key"] == "payment_refund_failed:ORD-RF-1"
+    alert.assert_not_called()  # transiente → retry, sem alarme falso
+    assert Directive.objects.filter(topic="payment.refund", payload__order_ref="ORD-RF-1").exists()
 
 
 @_MOCK_ADAPTERS
@@ -84,3 +83,33 @@ def test_successful_refund_raises_no_alert(paid_order):
         payment_service.refund(paid_order)  # payment_mock estorna com sucesso
 
     alert.assert_not_called()
+
+
+@_MOCK_ADAPTERS
+def test_refund_handler_retries_then_alerts_on_exhaustion(paid_order):
+    """O handler propaga DirectiveTransientError p/ retry; na última tentativa alerta."""
+    from types import SimpleNamespace as NS
+
+    from shopman.orderman.exceptions import DirectiveTransientError
+    from shopman.shop.handlers.payment_refund import PaymentRefundHandler
+
+    class FailingAdapter:
+        def refund(self, *a, **k):
+            raise RuntimeError("gateway down")
+
+    handler = PaymentRefundHandler()
+    payload = {"order_ref": "ORD-RF-1"}
+
+    with patch("shopman.shop.services.payment.get_adapter", return_value=FailingAdapter()):
+        # Tentativa 1 (attempts=1): propaga p/ retry, SEM alertar.
+        with patch("shopman.shop.services.observability.create_operator_alert") as early:
+            with pytest.raises(DirectiveTransientError):
+                handler.handle(message=NS(payload=payload, attempts=1), ctx={})
+        early.assert_not_called()
+
+        # Última tentativa (attempts=5 == MAX): alerta antes de propagar.
+        with patch("shopman.shop.services.observability.create_operator_alert") as last:
+            with pytest.raises(DirectiveTransientError):
+                handler.handle(message=NS(payload=payload, attempts=5), ctx={})
+        last.assert_called_once()
+        assert last.call_args.kwargs["type"] == "payment_refund_failed"

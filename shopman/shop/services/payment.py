@@ -207,7 +207,13 @@ def capture(order) -> None:
         logger.info("payment.capture: captured %s for order %s", intent_ref, order.ref)
 
 
-def refund(order, *, amount_q: int | None = None, idempotency_key: str | None = None) -> None:
+def refund(
+    order,
+    *,
+    amount_q: int | None = None,
+    idempotency_key: str | None = None,
+    _from_directive: bool = False,
+) -> None:
     """
     Refund payment for the order.
 
@@ -262,16 +268,30 @@ def refund(order, *, amount_q: int | None = None, idempotency_key: str | None = 
             idempotency_key=idempotency_key,
         )
     except Exception as exc:
-        # Estorno que falha em silêncio = dinheiro do cliente retido sem ninguém
-        # saber. Fail-loud como o stock.fulfill faz com o drift de estoque.
+        # Falha TRANSIENTE (gateway fora/timeout). Estorno é idempotente, então
+        # retentamos com backoff em vez de desistir e reter o dinheiro do cliente.
         logger.error("payment.refund: exceção no estorno do pedido %s: %s", order.ref, exc)
-        _alert_refund_failed(order, intent_ref, requested_q, str(exc))
+        if _from_directive:
+            # Deixa a Directive retentar (o handler alerta ao esgotar tentativas).
+            from shopman.orderman.exceptions import DirectiveTransientError
+
+            raise DirectiveTransientError(f"refund gateway error: {exc}") from exc
+        # Caminho síncrono: enfileira o retry assíncrono (não bloqueia o cancel).
+        from shopman.shop import directives
+
+        directives.queue(
+            directives.PAYMENT_REFUND,
+            order,
+            amount_q=requested_q,
+            idempotency_key=idempotency_key,
+        )
         return
 
     if result.success:
         logger.info("payment.refund: refunded %s for order %s", intent_ref, order.ref)
         return
 
+    # Falha TERMINAL (recusa do gateway): retry não ajuda → alerta já.
     detail = getattr(result, "message", None) or getattr(result, "error_code", None) or "ver logs"
     logger.error("payment.refund: adapter recusou o estorno do pedido %s: %s", order.ref, detail)
     _alert_refund_failed(order, intent_ref, requested_q, detail)
@@ -279,8 +299,9 @@ def refund(order, *, amount_q: int | None = None, idempotency_key: str | None = 
 
 def _alert_refund_failed(order, intent_ref, amount_q, detail) -> None:
     """Alerta crítico de operador para estorno falho — o dinheiro pode estar retido."""
-    from shopman.shop.services.observability import create_operator_alert
     from shopman.utils.monetary import format_money
+
+    from shopman.shop.services.observability import create_operator_alert
 
     try:
         valor = format_money(amount_q) if amount_q is not None else "valor a apurar"
