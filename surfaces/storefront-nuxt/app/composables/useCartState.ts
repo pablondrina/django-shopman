@@ -271,11 +271,12 @@ export function useCartState () {
       if (queueDepth === 0) await refreshCart().catch(() => null)
       const { status, data } = httpError(error)
       if (status === 409 && data) {
-        // Não navega: o SubstituteSheet global sobe no lugar (em qualquer
-        // superfície — menu/PDP/sacola), no momento exato do problema.
+        // Não navega, e NÃO dispara toast: o SubstituteSheet global sobe no lugar
+        // (menu/PDP/sacola) e já comunica tudo — um toast sobreposto atrapalhava.
         cartIssue.value = issueFromPayload(data, meta)
         lastError.value = cartIssue.value.detail
       } else if (status === 429) {
+        // Sem toast: o banner de rate-limit (com countdown) é a UI dedicada.
         const detail = String(data?.detail || 'Muitas tentativas. Aguarde um instante.')
         rateLimitRecovery.value = {
           detail,
@@ -283,9 +284,10 @@ export function useCartState () {
         }
         lastError.value = detail
       } else {
+        // Erro genérico não tem UI própria → o toast é a única forma de avisar.
         lastError.value = String(data?.detail || 'Não foi possível atualizar o carrinho.')
+        if (import.meta.client) useSonner.error(lastError.value)
       }
-      if (import.meta.client) useSonner.error(lastError.value)
       throw error
     }
   }
