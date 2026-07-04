@@ -558,6 +558,7 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
+    if (busy.value) return; // guarda de reentrância
     const tabRef = sanitizeTabRef(typeof tab === "string" ? tab : tab.ref);
     if (!tabRef) return;
     if (hasDraftWithoutTab.value && !options.preserveDraft) {
@@ -946,6 +947,7 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function reviewCheckout() {
+    if (busy.value) return; // guarda de reentrância
     if (!cart.items.length) return;
     serverError.value = "";
     result.value = null;
@@ -960,6 +962,7 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function submitSale() {
+    if (busy.value) return; // guarda de reentrância: duplo-toque não dispara 2 close_sale
     if (!cart.items.length) return;
     saleCancelled.value = false;
     if (!checkoutMode.value) {

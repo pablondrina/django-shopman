@@ -27,6 +27,9 @@ export function useProductionBoard() {
     key: "production-board",
     server: true,
     query: computed(() => ({ date: selectedDate.value })),
+    onResponseError({ response }) {
+      if (response.status === 401 || response.status === 403) refreshNuxtData("operator-session");
+    },
   });
 
   const board = computed<ProductionBoardProjection | null>(() => data.value?.board ?? null);

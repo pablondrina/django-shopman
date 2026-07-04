@@ -18,6 +18,9 @@ export function useProductionKds() {
   const { data, pending, error, refresh } = useFetch<ProductionKDSResponse>(path, {
     key: "production-kds",
     server: true,
+    onResponseError({ response }) {
+      if (response.status === 401 || response.status === 403) refreshNuxtData("operator-session");
+    },
   });
 
   const cards = computed<ProductionKDSCardProjection[]>(() => data.value?.kds?.cards ?? []);

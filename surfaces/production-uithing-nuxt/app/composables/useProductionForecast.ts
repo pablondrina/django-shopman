@@ -11,6 +11,9 @@ export function useProductionForecast() {
     key: "production-forecast",
     server: true,
     query: computed(() => ({ date: selectedDate.value })),
+    onResponseError({ response }) {
+      if (response.status === 401 || response.status === 403) refreshNuxtData("operator-session");
+    },
   });
 
   const forecast = computed<ProductionForecastProjection | null>(() => data.value?.forecast ?? null);
