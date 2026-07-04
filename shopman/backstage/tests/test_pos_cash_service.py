@@ -284,3 +284,53 @@ def test_close_is_atomic_rolls_back_adoption_on_failure(operator, monkeypatch):
     # A adoção do pedido reverteu junto — não ficou carimbado.
     order.refresh_from_db()
     assert (order.data.get("pos") or {}).get("cash_shift_id") != shift.pk
+
+
+
+
+@pytest.mark.django_db
+def test_close_blocking_shift_owner_can_close(operator):
+    shift = pos.open_cash_shift(operator=operator, opening_amount_raw="50,00")
+    closed = pos.close_blocking_shift(
+        actor_user=operator, shift_id=shift.pk, closing_amount_raw="50,00"
+    )
+    assert closed.pk == shift.pk
+    assert closed.status == CashShift.Status.CLOSED
+
+
+@pytest.mark.django_db
+def test_close_blocking_shift_manager_can_close_others(operator):
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+
+    from shopman.backstage.models import DayClosing
+
+    shift = pos.open_cash_shift(operator=operator, opening_amount_raw="10,00")
+    manager = User.objects.create_user(username="gerente", password="x", is_staff=True)
+    ct = ContentType.objects.get_for_model(DayClosing)
+    manager.user_permissions.add(Permission.objects.get(content_type=ct, codename="perform_closing"))
+    manager = User.objects.get(pk=manager.pk)  # refresca cache de permissão
+
+    closed = pos.close_blocking_shift(
+        actor_user=manager, shift_id=shift.pk, closing_amount_raw="10,00"
+    )
+    assert closed.status == CashShift.Status.CLOSED
+
+
+@pytest.mark.django_db
+def test_close_blocking_shift_regular_operator_forbidden(operator):
+    from shopman.backstage.services.exceptions import POSPermissionError
+
+    shift = pos.open_cash_shift(operator=operator, opening_amount_raw="10,00")
+    stranger = User.objects.create_user(username="qualquer", password="x", is_staff=True)
+
+    with pytest.raises(POSPermissionError):
+        pos.close_blocking_shift(actor_user=stranger, shift_id=shift.pk, closing_amount_raw="10,00")
+    shift.refresh_from_db()
+    assert shift.status == CashShift.Status.OPEN  # nada foi fechado
+
+
+@pytest.mark.django_db
+def test_close_blocking_shift_unknown_shift_errors(operator):
+    with pytest.raises(POSError):
+        pos.close_blocking_shift(actor_user=operator, shift_id=999999, closing_amount_raw="0")

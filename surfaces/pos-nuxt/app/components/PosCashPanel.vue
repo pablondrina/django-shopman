@@ -22,6 +22,7 @@ const emit = defineEmits<{
   "update:open": [boolean];
   openShift: [string];
   closeShift: [{ amount: string; notes: string }];
+  closeBlockingShift: [{ shift_id: number; amount: string; notes: string }];
   movement: [{ kind: string; amount: string; reason: string }];
 }>();
 
@@ -32,14 +33,25 @@ const movementKind = ref("");
 const movementAmount = ref("");
 const movementReason = ref("");
 const confirmingClose = ref(false);
+// Fechamento cego do turno BLOQUEANTE (gerente ou dono destrava o terminal).
+const blockingAmount = ref("");
+const blockingNotes = ref("");
+const confirmingBlocking = ref(false);
 
 const occupied = computed(() => isTerminalOccupied(props.cashRuntime, props.hasOpenShift));
 const openedAtDisplay = computed(() => formatOpenedAt(props.cashRuntime.opened_at));
 const salesCount = computed(() => props.shift?.count ?? 0);
 
 watch(() => props.open, (isOpen) => {
-  if (!isOpen) confirmingClose.value = false;
+  if (!isOpen) { confirmingClose.value = false; confirmingBlocking.value = false; }
 });
+
+function confirmCloseBlocking() {
+  const shiftId = props.cashRuntime.blocking_shift_id;
+  if (!shiftId) return;
+  emit("closeBlockingShift", { shift_id: shiftId, amount: blockingAmount.value, notes: blockingNotes.value });
+  confirmingBlocking.value = false;
+}
 
 function submitMovement() {
   if (!movementKind.value || !movementAmount.value.trim() || !movementReason.value.trim()) return;
@@ -80,8 +92,37 @@ function confirmClose() {
           <template v-if="cashRuntime.blocking_shift_id"> (turno #{{ cashRuntime.blocking_shift_id }})</template>.
         </p>
         <p v-if="cashRuntime.blocking_message" class="text-xs text-amber-700">{{ cashRuntime.blocking_message }}</p>
-        <p class="text-xs text-muted-foreground">
-          Use o operador correto ou feche o turno atual no gestor antes de vender.
+
+        <!-- Gerente ou dono do turno: fecha (contagem cega) e libera o terminal aqui mesmo. -->
+        <template v-if="cashRuntime.can_close_blocking">
+          <div v-if="!confirmingBlocking" class="mt-1">
+            <UiButton variant="outline" size="sm" class="w-full border-amber-600/50 text-amber-800 hover:bg-amber-500/10" :disabled="busy" @click="confirmingBlocking = true">
+              Fechar turno #{{ cashRuntime.blocking_shift_id }} (contagem cega)
+            </UiButton>
+          </div>
+          <div v-else class="mt-1 grid gap-2 rounded-md border border-amber-600/40 bg-background p-3">
+            <div class="flex items-start gap-2 text-xs text-muted-foreground">
+              <Icon name="lucide:eye-off" class="mt-0.5 size-4 shrink-0" />
+              <span>Contagem cega: conte o dinheiro do caixa e informe o valor. A conferência fica no gestor.</span>
+            </div>
+            <label class="grid gap-1 text-sm">
+              <span class="font-medium text-muted-foreground">Valor contado</span>
+              <UiInput v-model="blockingAmount" inputmode="decimal" placeholder="0,00" />
+            </label>
+            <label class="grid gap-1 text-sm">
+              <span class="font-medium text-muted-foreground">Observações</span>
+              <UiTextarea v-model="blockingNotes" :rows="2" placeholder="Motivo (turno órfão, troca de operador…)" />
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <UiButton variant="outline" :disabled="busy" @click="confirmingBlocking = false">Cancelar</UiButton>
+              <UiButton variant="destructive" :disabled="busy" :loading="busy" @click="confirmCloseBlocking">
+                Fechar e liberar
+              </UiButton>
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-xs text-muted-foreground">
+          Só o gerente ou o operador dono do turno pode fechá-lo. Chame o gerente ou feche no gestor.
         </p>
       </div>
 

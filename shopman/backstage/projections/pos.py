@@ -160,6 +160,9 @@ class POSCashRuntimeProjection:
     blocking_operator_username: str = ""
     blocking_shift_id: int | None = None
     blocking_message: str = ""
+    # O operador atual pode fechar o turno bloqueante daqui (gerente ou o dono)?
+    # Anti-fraude: operador comum não fecha o caixa de outro.
+    can_close_blocking: bool = False
 
 
 @dataclass(frozen=True)
@@ -1208,6 +1211,15 @@ def _cash_runtime_projection(cash_shift, runtime, operator, *, terminal_cash_shi
     if cash_shift is None:
         if terminal_cash_shift is not None:
             operator_username = terminal_cash_shift.operator.get_username()
+            # Quem pode fechar o turno bloqueante daqui: gerente (perform_closing)
+            # ou o próprio dono do turno. Operador comum, não (anti-fraude).
+            from shopman.backstage.permissions import can_close_day
+
+            is_owner = (
+                operator is not None
+                and terminal_cash_shift.operator_id == getattr(operator, "pk", None)
+            )
+            can_close_blocking = bool(operator is not None and (can_close_day(operator) or is_owner))
             return POSCashRuntimeProjection(
                 has_open_shift=False,
                 shift_id=None,
@@ -1219,6 +1231,7 @@ def _cash_runtime_projection(cash_shift, runtime, operator, *, terminal_cash_shi
                 blocking_operator_username=operator_username,
                 blocking_shift_id=terminal_cash_shift.pk,
                 blocking_message=f"Terminal aberto por {operator_username}.",
+                can_close_blocking=can_close_blocking,
             )
         return POSCashRuntimeProjection(
             has_open_shift=False,

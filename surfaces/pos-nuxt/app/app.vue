@@ -161,6 +161,7 @@ const {
   cancelRecentSale,
   openCashShift,
   closeCashShift,
+  closeBlockingShift,
   registerCashMovement,
 } = usePosSale({ pos, tabs, actions, refresh, action, apiPath, requestHeaders, djangoOrigin });
 
@@ -594,6 +595,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       :busy="busy"
       @open-shift="openCashShift"
       @close-shift="closeCashShift"
+      @close-blocking-shift="closeBlockingShift"
       @movement="registerCashMovement"
     />
 

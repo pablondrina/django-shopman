@@ -1135,6 +1135,45 @@ class POSCashCloseView(APIView):
         return Response({"ok": True, "result": _cash_shift_result(result) if result else None})
 
 
+class POSCashCloseBlockingView(APIView):
+    """Fecha (contagem cega) o turno que bloqueia o terminal — supervisório.
+
+    Destrava o beco: terminal com turno aberto que não é do operador atual.
+    Gerente (perform_closing) ou o dono do turno fecham daqui; operador comum
+    não (anti-fraude) → 403.
+    """
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def post(self, request):
+        from shopman.backstage.services.exceptions import POSPermissionError
+
+        shift_id = request.data.get("shift_id")
+        amount = request.data.get("closing_amount", "0")
+        notes = (request.data.get("notes") or "").strip()
+        if not shift_id:
+            return Response({"detail": "shift_id é obrigatório."}, status=400)
+        # O subsistema de caixa usa request.user (abrir grava operator=request.user;
+        # a projection checa request.user). Mantém a mesma identidade aqui.
+        try:
+            result = pos_service.close_blocking_shift(
+                actor_user=request.user,
+                shift_id=shift_id,
+                closing_amount_raw=str(amount),
+                notes=notes,
+            )
+        except POSPermissionError as exc:
+            return Response(
+                {"detail": str(exc), "error": {"code": "cash_close_forbidden", "message": str(exc)}},
+                status=403,
+            )
+        except Exception as exc:
+            logger.debug("pos_cash_close_blocking_failed user=%s", _actor(request), exc_info=True)
+            return Response({"detail": str(exc) or "Falha ao fechar o turno."}, status=400)
+        return Response({"ok": True, "result": _cash_shift_result(result) if result else None})
+
+
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
