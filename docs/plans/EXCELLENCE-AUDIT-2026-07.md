@@ -264,14 +264,24 @@ residuals"). Não é bug, é o que separa "bom" de "excelente".
 > rodar tudo num processo — dívida documentada); com as mudanças, **as mesmas 113** +
 > 18 testes novos verdes. Zero regressões introduzidas.
 
-### Onda 1 — Integridade de dinheiro e dados (P1 Core) · ~3-4 dias
-5. Refund silencioso → alerta crítico + Directive de retry (espelhar `stock.fulfill`).
-6. Colisão de `seq` → retry em `IntegrityError` ou lock da linha pai.
-7. Durabilidade do lifecycle → sweeper de `NEW` estagnado (ou fase como directive).
-8. Ponte craftsman→stockman → semântica de DELTA por WO (não SET absoluto).
-9. `cart_context` → delegar preço ao `CatalogService` (parar de contornar a autoridade).
-10. Anonimização LGPD → alcançar `ContactPoint`/CPF/identidades (hoje deixa PII).
-11. **Sentry** + guardas de idempotência (`stock.hold`, `ensure_payment_captured`).
+### Onda 1 — Integridade de dinheiro e dados (P1 Core) · ✅ CONCLUÍDA (2026-07-03)
+5. ✅ Refund silencioso → `OperatorAlert` crítico (exceção E `success=False`); retry
+   automático via Directive fica como follow-up. (3 testes)
+6. ✅ Colisão de `seq` → helper `create_sequenced_event` com retry otimista em
+   `IntegrityError`; Order/Session.emit_event delegam. (2 testes de corrida)
+7. ✅ Durabilidade do lifecycle → marcador `order.data.lifecycle.on_commit=done` +
+   comando `sweep_stuck_orders` (re-dispatch idempotente) no `maintenance_worker`. (5+1)
+8. ✅ Ponte craftsman→stockman → DELTA por WO (`previous_quantity` no sinal; void
+   subtrai a contribuição da WO). (3 testes de WOs coexistentes)
+9. ✅ `cart_context` → delega a `CatalogService.unit_price(qty)` (cascade correto +
+   is_sellable + validade). (4 testes)
+10. ✅ Anonimização LGPD → `purge_pii` (guestman: ContactPoints/identidades/CPF/
+    metadata) + `forget_customer` (doorman: User + devices). (4 testes)
+11. ✅ **Sentry** opt-in à prova de ausência + guardas: `stock.hold` idempotente e
+    `ensure_payment_captured` fail-closed. (5 testes)
+
+> Regressão: todos os testes novos/tocados verdes (103 no framework + por-pacote);
+> as 113 falhas de baseline (poluição pré-existente) permanecem inalteradas.
 
 ### Onda 2 — Resiliência e omotenashi das superfícies (P1 frontend) · ~4-5 dias
 12. **Pacote comum das 5 superfícies Nuxt**: interceptor 401 → reabre gate; banner por
