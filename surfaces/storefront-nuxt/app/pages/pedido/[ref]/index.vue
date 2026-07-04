@@ -117,6 +117,22 @@ const freshness = computed(() => trackingFreshness(
 const { watchConnectivity } = useConnectivity()
 watchConnectivity(() => { if (tracking.value?.is_active) void refresh() })
 
+// Linhas do resumo (ícone + valor) — mesma diagramação do overlay de revisão do
+// checkout (componente OrderSummaryRows), a partir da projeção do pedido.
+const summaryRows = computed(() => {
+  const t = tracking.value
+  if (!t) return []
+  const rows: { icon: string, lines: string[], muted?: string }[] = [
+    { icon: t.is_delivery ? 'lucide:bike' : 'lucide:store', lines: [t.is_delivery ? 'Entrega' : 'Retirada'] }
+  ]
+  if (t.delivery_fee_display) {
+    rows.push({ icon: 'lucide:coins', lines: [`Taxa ${t.delivery_fee_display}${t.delivery_distance_display ? ` · ${t.delivery_distance_display}` : ''}`] })
+  }
+  const paymentLabel = t.payment_status_label || t.payment_status
+  if (paymentLabel) rows.push({ icon: 'lucide:credit-card', lines: [paymentLabel] })
+  return rows
+})
+
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
 let deadlineHandled = false
@@ -313,7 +329,7 @@ useSeoMeta({
                     <UiButton v-if="showPaymentStatusFallback" :to="paymentHref" icon="lucide:credit-card">
                       Regularizar pagamento
                     </UiButton>
-                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="outline" icon="lucide:message-circle">
+                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" icon="lucide:message-circle" class="border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
                       {{ tracking.copy.support_label }}
                     </UiButton>
                   </div>
@@ -360,38 +376,24 @@ useSeoMeta({
                 </UiTabsContent>
 
                 <UiTabsContent value="summary">
-                  <div class="shop-stack-block">
-                    <section class="space-y-2">
-                      <p class="shop-kicker">Resumo do pedido</p>
-                      <UiDescriptionList class="rounded-lg border px-3">
-                        <UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>
-                        <UiDescriptionListDetails class="font-semibold">{{ tracking.total_display }}</UiDescriptionListDetails>
+                  <!-- Mesma diagramação do overlay de revisão: itens (qty + nome),
+                       linhas ícone+valor e Total. Fonte = projeção do pedido. -->
+                  <div class="px-1">
+                    <ul v-if="tracking.items.length" class="space-y-1">
+                      <li v-for="item in tracking.items" :key="item.sku" class="shop-body">
+                        <span class="font-semibold tabular-nums">{{ item.qty }}×</span>
+                        {{ item.name }}
+                      </li>
+                    </ul>
 
-                        <UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails>{{ tracking.is_delivery ? 'Entrega' : 'Retirada' }}</UiDescriptionListDetails>
+                    <UiSeparator class="my-3" />
 
-                        <UiDescriptionListTerm v-if="tracking.payment_status_label || tracking.payment_status">Pagamento</UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.payment_status_label || tracking.payment_status">{{ tracking.payment_status_label || tracking.payment_status }}</UiDescriptionListDetails>
+                    <OrderSummaryRows :rows="summaryRows" />
 
-                        <UiDescriptionListTerm v-if="tracking.delivery_fee_display">
-                          {{ tracking.copy.delivery_fee_label }}<span v-if="tracking.delivery_distance_display" class="shop-muted"> · {{ tracking.delivery_distance_display }}</span>
-                        </UiDescriptionListTerm>
-                        <UiDescriptionListDetails v-if="tracking.delivery_fee_display">{{ tracking.delivery_fee_display }}</UiDescriptionListDetails>
-                      </UiDescriptionList>
-                    </section>
-
-                    <section v-if="tracking.items.length" class="space-y-2">
-                      <p class="shop-kicker">{{ tracking.copy.items_heading }}</p>
-                      <UiItemGroup class="rounded-lg border">
-                        <UiItem v-for="item in tracking.items" :key="item.sku" class="border-b px-3 py-3 last:border-b-0">
-                          <UiItemContent>
-                            <UiItemTitle>{{ item.name }}</UiItemTitle>
-                            <UiItemDescription>{{ item.qty }} x {{ item.unit_price_display }}</UiItemDescription>
-                          </UiItemContent>
-                          <UiItemActions>{{ item.total_display }}</UiItemActions>
-                        </UiItem>
-                      </UiItemGroup>
-                    </section>
+                    <div class="mt-3 flex items-baseline justify-between border-t pt-3">
+                      <span class="shop-body font-semibold">{{ tracking.copy.total_label }}</span>
+                      <span class="font-semibold tabular-nums">{{ tracking.total_display }}</span>
+                    </div>
                   </div>
                 </UiTabsContent>
 
@@ -401,7 +403,7 @@ useSeoMeta({
                       <UiAlertTitle>Endereço</UiAlertTitle>
                       <UiAlertDescription>
                         {{ tracking.pickup_info.address }}
-                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" variant="outline" size="sm" class="mt-2">
+                        <UiButton v-if="tracking.pickup_info.directions_url" :href="tracking.pickup_info.directions_url" target="_blank" size="sm" class="mt-2 border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
                           {{ tracking.pickup_info.directions_label }}
                         </UiButton>
                       </UiAlertDescription>
@@ -438,7 +440,7 @@ useSeoMeta({
             >
               {{ reorderAction.label }}
             </UiButton>
-            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="outline" icon="lucide:message-circle" class="w-full">
+            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" icon="lucide:message-circle" class="w-full border-transparent bg-brass text-brass-foreground hover:bg-brass/90">
               {{ tracking.copy.support_label }}
             </UiButton>
             <UiAlertDialog v-if="cancelAction">

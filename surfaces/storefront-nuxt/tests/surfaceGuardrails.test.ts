@@ -871,11 +871,11 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('<UiTabsContent value="history">')
     expect(tracking).toContain('<UiTabsContent value="summary">')
     expect(tracking).toContain('<UiTabsContent v-if="showDeliveryTab" value="delivery">')
-    expect(tracking).toContain('Resumo do pedido')
-    expect(tracking).toContain('{{ tracking.copy.items_heading }}')
-    expect(tracking).toContain('<UiDescriptionList class="rounded-lg border px-3">')
-    expect(tracking).toContain('<UiDescriptionListTerm>{{ tracking.copy.total_label }}</UiDescriptionListTerm>')
-    expect(tracking).toContain('<UiDescriptionListTerm>Recebimento</UiDescriptionListTerm>')
+    // Aba Resumo = mesma diagramação do overlay de revisão: itens qty×nome +
+    // linhas ícone/valor (OrderSummaryRows compartilhado) + Total.
+    expect(tracking).toContain('<OrderSummaryRows :rows="summaryRows" />')
+    expect(tracking).toContain('{{ tracking.copy.total_label }}')
+    expect(tracking).toContain('{{ tracking.total_display }}')
     expect(tracking).toContain('<UiAlertTitle>Endereço</UiAlertTitle>')
     expect(tracking).not.toContain("tracking.payment_status || 'Não informado'")
     expect(tracking).not.toContain('<UiAlertTitle>{{ tracking.pickup_info.heading }}</UiAlertTitle>')

@@ -535,6 +535,21 @@ function goToStep (step: Step) {
 
 const paymentIcon = resolvePaymentIcon
 
+// Linhas do resumo (ícone + valor) — mesma diagramação da aba "Resumo" do
+// acompanhamento (componente OrderSummaryRows), a partir do estado do checkout.
+const reviewSummaryRows = computed(() => {
+  const rows: { icon: string, lines: string[], muted?: string }[] = [
+    { icon: fulfillmentIcon.value, lines: [fulfillmentSummary.value || fulfillmentLabel.value] }
+  ]
+  if (state.fulfillment_type === 'delivery') {
+    rows.push({ icon: 'lucide:map-pin', lines: deliveryAddressLines.value, muted: state.delivery_complement || undefined })
+  }
+  rows.push({ icon: paymentIcon(state.payment_method), lines: [paymentMethodLabel.value] })
+  rows.push({ icon: 'lucide:user-round', lines: [contactSummary.value] })
+  if (state.is_gift) rows.push({ icon: 'lucide:gift', lines: [giftSummary.value] })
+  return rows
+})
+
 function validateContact (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.name
@@ -1415,31 +1430,7 @@ useSeoMeta({
               <UiSeparator class="my-3" />
 
               <!-- Como/onde/pgto/contato: ícone + valor, sem rótulo (o valor já se explica). -->
-              <dl class="divide-y text-sm">
-                <div class="flex items-baseline gap-3 py-2 first:pt-0">
-                  <Icon :name="fulfillmentIcon" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ fulfillmentSummary || fulfillmentLabel }}</dd>
-                </div>
-                <div v-if="state.fulfillment_type === 'delivery'" class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:map-pin" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">
-                    <span v-for="(line, i) in deliveryAddressLines" :key="i" class="block">{{ line }}</span>
-                    <span v-if="state.delivery_complement" class="block text-muted-foreground">{{ state.delivery_complement }}</span>
-                  </dd>
-                </div>
-                <div class="flex items-baseline gap-3 py-2">
-                  <Icon :name="paymentIcon(state.payment_method)" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ paymentMethodLabel }}</dd>
-                </div>
-                <div class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:user-round" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ contactSummary }}</dd>
-                </div>
-                <div v-if="state.is_gift" class="flex items-baseline gap-3 py-2">
-                  <Icon name="lucide:gift" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                  <dd class="min-w-0 flex-1">{{ giftSummary }}</dd>
-                </div>
-              </dl>
+              <OrderSummaryRows :rows="reviewSummaryRows" />
 
               <!-- Cartão do presente / observação: bilhete em superfície destacada (muted). -->
               <p v-if="state.is_gift && state.gift_message" class="mt-3 rounded-lg bg-muted/50 p-3">
