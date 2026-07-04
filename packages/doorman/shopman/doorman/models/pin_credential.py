@@ -97,6 +97,8 @@ class PinCredential(models.Model):
     attempts = models.PositiveSmallIntegerField(_("tentativas falhas"), default=0)
     max_attempts = models.PositiveSmallIntegerField(_("máximo de tentativas"), default=_default_max_attempts)
     locked_until = models.DateTimeField(_("bloqueado até"), null=True, blank=True)
+    # Provisionado/resetado pelo gerente com PIN temporário → força a troca no 1º uso.
+    must_change = models.BooleanField(_("trocar no próximo uso"), default=False)
 
     # Lifecycle
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
@@ -135,14 +137,19 @@ class PinCredential(models.Model):
             raise PinCredentialError("PIN deve conter apenas dígitos")
         return pin
 
-    def set_pin(self, raw_pin: str) -> None:
-        """Set/rotate the PIN. Validates policy, resets lockout state."""
+    def set_pin(self, raw_pin: str, *, must_change: bool = False) -> None:
+        """Set/rotate the PIN. Valida policy, reseta lockout e o flag must_change.
+
+        Uma troca real (must_change=False, o default) remove a exigência de troca;
+        um reset do gerente passa must_change=True para forçar a troca no 1º uso.
+        """
         pin = self.validate_raw(raw_pin)
         self.pin_hash = hash_pin(pin)
         self.attempts = 0
         self.locked_until = None
+        self.must_change = must_change
         if self.pk:
-            self.save(update_fields=["pin_hash", "attempts", "locked_until", "updated_at"])
+            self.save(update_fields=["pin_hash", "attempts", "locked_until", "must_change", "updated_at"])
 
     def verify(self, raw_pin: str) -> bool:
         """Verify a raw PIN. Honors lockout; records failures; clears on success.
@@ -181,10 +188,10 @@ class PinCredential(models.Model):
         self.save(update_fields=["attempts", "locked_until"])
 
     @classmethod
-    def set_for(cls, user, raw_pin: str) -> "PinCredential":
-        """Create or rotate the PIN for a user."""
+    def set_for(cls, user, raw_pin: str, *, must_change: bool = False) -> "PinCredential":
+        """Create or rotate the PIN for a user (must_change força troca no 1º uso)."""
         cred, _created = cls.objects.get_or_create(user=user, defaults={"pin_hash": ""})
-        cred.set_pin(raw_pin)
+        cred.set_pin(raw_pin, must_change=must_change)
         return cred
 
     # ── Badge (barcode) — possession-based alternative to the PIN ────────────

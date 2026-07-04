@@ -254,17 +254,24 @@ class POSView(APIView):
     required_permission = "backstage.operate_pos"
 
     def get(self, request):
-        from shopman.backstage.services.operator import active_operator
+        from shopman.backstage.services.operator import (
+            active_operator,
+            pin_must_change,
+            resolve_active_operator_user,
+        )
 
         pos = build_pos(operator=request.user)
         shift = build_pos_shift_summary()
         query = request.query_params.get("q", "")
         tabs = build_pos_tabs(query=query)
+        operator = active_operator(request)
+        operator_user = resolve_active_operator_user(request) if operator else None
         return Response({
             "pos": projection_data(pos),
             "shift": projection_data(shift),
             "tabs": projection_data(tabs),
-            "operator": active_operator(request),
+            "operator": operator,
+            "pin_must_change": pin_must_change(operator_user),
         })
 
 
@@ -335,14 +342,20 @@ class OperatorSessionView(APIView):
     def get(self, request):
         from django.conf import settings
 
-        from shopman.backstage.services.operator import active_operator
+        from shopman.backstage.services.operator import (
+            active_operator,
+            pin_must_change,
+            resolve_active_operator_user,
+        )
 
         operator = active_operator(request)
+        operator_user = resolve_active_operator_user(request) if operator else None
         return Response({
             "require_operator": bool(getattr(settings, "SHOPMAN_REQUIRE_ACTIVE_OPERATOR", False)),
             "device_user": getattr(request.user, "username", ""),
             "operator": operator,
             "locked": operator is None,
+            "pin_must_change": pin_must_change(operator_user),
         })
 
 
@@ -475,6 +488,82 @@ class OperatorLockView(APIView):
 
         operator_service.clear_active_operator(request)
         return Response({"ok": True})
+
+
+class OperatorPinChangeView(APIView):
+    """Operator changes their OWN PIN, proving the current one.
+
+    Knowing the current PIN *is* the authorization: you can only rotate a PIN you
+    already hold. Target is the active operator (post-unlock), or an explicit
+    ``operator_id`` (the lock-screen forced-change flow, where the temp PIN is the
+    "current"). A wrong current PIN counts toward lockout.
+    """
+
+    permission_classes = [IsBackstageOperator]
+
+    def post(self, request):
+        from shopman.doorman.models.pin_credential import PinCredentialError
+
+        from shopman.backstage.services import operator as operator_service
+
+        body = request.data or {}
+        current_pin = str(body.get("current_pin") or "")
+        new_pin = str(body.get("new_pin") or "")
+        if not current_pin or not new_pin:
+            return Response({"detail": "Informe o PIN atual e o novo PIN."}, status=400)
+
+        target = operator_service.resolve_target_for_pin_change(request, body.get("operator_id"))
+        if target is None:
+            return Response(
+                {"detail": "Operador não identificado.", "error": {"code": "no_credential"}},
+                status=400,
+            )
+
+        try:
+            operator_service.change_own_pin(target, current_pin, new_pin)
+        except operator_service.PinChangeError as exc:
+            status = 423 if exc.code == "locked" else 400
+            return Response({"detail": str(exc), "error": {"code": exc.code}}, status=status)
+        except PinCredentialError as exc:
+            return Response({"detail": str(exc), "error": {"code": "pin_policy"}}, status=400)
+        return Response({"ok": True})
+
+
+class OperatorPinResetView(APIView):
+    """Manager resets an operator's PIN → temp PIN + forced change on first use.
+
+    Gated by ``backstage.manage_operators`` (against the active operator when the
+    Opção C flag is on, else the device user). The temp PIN is returned once — the
+    manager reads it to the operator; only its HMAC digest is stored.
+    """
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.manage_operators"
+
+    def post(self, request):
+        from django.contrib.auth import get_user_model
+        from shopman.doorman.models.pin_credential import PinCredentialError
+
+        from shopman.backstage.services import operator as operator_service
+
+        body = request.data or {}
+        user_model = get_user_model()
+        target = None
+        raw_id = str(body.get("user_id") or body.get("operator_id") or "").strip()
+        username = str(body.get("username") or "").strip()
+        if raw_id:
+            target = user_model.objects.filter(pk=raw_id, is_staff=True).first()
+        elif username:
+            target = user_model.objects.filter(username=username, is_staff=True).first()
+
+        try:
+            temp_pin = operator_service.reset_operator_pin(target, temp_pin=body.get("temp_pin"))
+        except operator_service.PinChangeError as exc:
+            status = 404 if exc.code == "no_target" else 400
+            return Response({"detail": str(exc), "error": {"code": exc.code}}, status=status)
+        except PinCredentialError as exc:
+            return Response({"detail": str(exc), "error": {"code": "pin_policy"}}, status=400)
+        return Response({"ok": True, "temp_pin": temp_pin, "must_change": True})
 
 
 @extend_schema_view(

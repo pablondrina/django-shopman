@@ -1,16 +1,53 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import type { OperatorCard } from "~/utils/operatorLock";
 
 const props = withDefaults(
-  defineProps<{ operators: OperatorCard[]; busy?: boolean; error?: string }>(),
-  { busy: false, error: "" },
+  defineProps<{
+    operators: OperatorCard[];
+    busy?: boolean;
+    error?: string;
+    // Forced change after a manager reset: the active operator must rotate the
+    // temp PIN before operating. `forcedName` labels the change panel.
+    forced?: boolean;
+    forcedOperatorId?: number | null;
+    forcedOperatorName?: string;
+    changeError?: string;
+    // Bumped by the parent after a successful change → the panel exits change mode.
+    changeNonce?: number;
+  }>(),
+  { busy: false, error: "", forced: false, forcedOperatorId: null, forcedOperatorName: "", changeError: "", changeNonce: 0 },
 );
-const emit = defineEmits<{ unlock: [operatorId: number, pin: string] }>();
+const emit = defineEmits<{
+  unlock: [operatorId: number, pin: string];
+  changePin: [operatorId: number, currentPin: string, newPin: string];
+}>();
 
 const selectedId = ref<number | null>(null);
 const pin = ref("");
+const changing = ref(false); // voluntary "Trocar meu PIN" mode (an operator is selected)
+
+const selectedName = computed(
+  () => props.operators.find((o) => o.id === selectedId.value)?.name || "",
+);
+
+function submitVoluntaryChange(payload: { currentPin: string; newPin: string }) {
+  if (selectedId.value === null) return;
+  emit("changePin", selectedId.value, payload.currentPin, payload.newPin);
+}
+
+function submitForcedChange(payload: { currentPin: string; newPin: string }) {
+  if (props.forcedOperatorId == null) return;
+  emit("changePin", props.forcedOperatorId, payload.currentPin, payload.newPin);
+}
+
+// A successful change (parent bumps the nonce) leaves voluntary change mode so the
+// operator returns to the PIN pad and unlocks with the new PIN.
+watch(
+  () => props.changeNonce,
+  () => { changing.value = false; pin.value = ""; },
+);
 
 // Auto-select when there is a single operator (frictionless).
 watch(
@@ -47,7 +84,28 @@ function submit() {
     aria-modal="true"
     aria-label="Identifique-se para operar o caixa"
   >
-    <div class="w-full max-w-md px-6 py-8">
+    <!-- Forced change: manager reset the operator's PIN; rotate before operating. -->
+    <PosPinChange
+      v-if="forced && forcedOperatorId != null"
+      :operator-name="forcedOperatorName"
+      forced
+      :busy="busy"
+      :error="changeError"
+      @submit="submitForcedChange"
+      @cancel="() => {}"
+    />
+
+    <!-- Voluntary change: the selected operator rotates their own PIN. -->
+    <PosPinChange
+      v-else-if="changing && selectedId !== null"
+      :operator-name="selectedName"
+      :busy="busy"
+      :error="changeError"
+      @submit="submitVoluntaryChange"
+      @cancel="changing = false"
+    />
+
+    <div v-else class="w-full max-w-md px-6 py-8">
       <div class="mb-6 text-center">
         <div class="mx-auto mb-3 grid size-12 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
           <Icon name="lucide:store" class="size-6" />
@@ -80,6 +138,9 @@ function submit() {
           {{ error }}
         </p>
         <PosPinPad v-model="pin" :disabled="busy" @submit="submit" />
+        <UiButton variant="ghost" size="sm" class="mt-1 gap-1.5 text-muted-foreground" :disabled="busy" @click="changing = true">
+          <Icon name="lucide:key-round" class="size-4" /> Trocar meu PIN
+        </UiButton>
       </div>
     </div>
   </div>

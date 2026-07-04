@@ -65,6 +65,29 @@ export function useOperatorLock(opts: {
     error.value = "";
   }
 
+  // Operator rotates their own PIN, proving the current one (the backend authorizes
+  // on that). `operatorId` targets the picked/active operator; forced flow passes the
+  // temp PIN as `currentPin`. The caller refreshes so the must-change flag clears.
+  const changeError = ref("");
+  async function changePin(operatorId: number, currentPin: string, newPin: string): Promise<boolean> {
+    busy.value = true;
+    changeError.value = "";
+    try {
+      await action.call("/api/v1/backstage/operator/pin/change/", {
+        body: { operator_id: operatorId, current_pin: currentPin, new_pin: newPin },
+      });
+      return true;
+    }
+    catch (e: unknown) {
+      const data = (e as { data?: { detail?: string } })?.data;
+      changeError.value = data?.detail || "Não foi possível trocar o PIN.";
+      return false;
+    }
+    finally {
+      busy.value = false;
+    }
+  }
+
   function markActivity() {
     lastActivity = Date.now();
   }
@@ -85,5 +108,5 @@ export function useOperatorLock(opts: {
 
   onBeforeUnmount(() => cleanup?.());
 
-  return { activeOperator, locked, busy, error, unlock, lock };
+  return { activeOperator, locked, busy, error, unlock, lock, changePin, changeError };
 }

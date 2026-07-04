@@ -56,12 +56,27 @@ const {
   error: lockError,
   unlock,
   lock,
+  changePin,
+  changeError,
 } = useOperatorLock({
   initialOperator: data.value?.operator ?? null,
   autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
 });
 async function onUnlock(operatorId: number, pin: string) {
   if (await unlock(operatorId, pin)) await refresh();
+}
+
+// Forced PIN change after a manager reset: the terminal read carries the flag for
+// the active operator. While set, the lock screen stays up (in change mode) even
+// though an operator is "active", until the temp PIN is rotated.
+const mustChange = computed(() => Boolean(data.value?.pin_must_change));
+const changeNonce = ref(0);
+async function onChangePin(operatorId: number, currentPin: string, newPin: string) {
+  if (await changePin(operatorId, currentPin, newPin)) {
+    changeNonce.value += 1;
+    useSonner.success("PIN atualizado.");
+    await refresh(); // clears must_change (forced flow) and reflects the new state.
+  }
 }
 
 // Write-side of the open sale: cart draft + every session command. The shell
@@ -281,11 +296,17 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
     <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
       <PosLockScreen
-        v-if="locked && !!pos"
+        v-if="(locked || mustChange) && !!pos"
         :operators="operators"
         :busy="lockBusy"
         :error="lockError"
+        :forced="mustChange"
+        :forced-operator-id="activeOperator?.id ?? null"
+        :forced-operator-name="activeOperator?.name || ''"
+        :change-error="changeError"
+        :change-nonce="changeNonce"
         @unlock="onUnlock"
+        @change-pin="onChangePin"
       />
 
       <header v-if="pos && !error" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
