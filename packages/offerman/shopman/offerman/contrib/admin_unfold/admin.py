@@ -461,25 +461,33 @@ class ProductAdmin(_ProductImportExportBase):
         "add_to_collection",
     ]
 
+    def _bulk_set(self, request, queryset, field, value, label):
+        """Itera com save() (não queryset.update()) para disparar product_updated →
+        re-projeção para canais externos (iFood retrai o despublicado) + histórico.
+        queryset.update() pulava o save() e nada disso acontecia."""
+        count = 0
+        for product in queryset:
+            if getattr(product, field) != value:
+                setattr(product, field, value)
+                product.save()
+                count += 1
+        self.message_user(request, f"{count} produto(s) {label}.")
+
     @admin.action(description=_("Despublicar produtos selecionados"))
     def unpublish_products(self, request, queryset):
-        updated = queryset.update(is_published=False)
-        self.message_user(request, f"{updated} produto(s) despublicado(s).")
+        self._bulk_set(request, queryset, "is_published", False, "despublicado(s)")
 
     @admin.action(description=_("Publicar produtos selecionados"))
     def publish_products(self, request, queryset):
-        updated = queryset.update(is_published=True)
-        self.message_user(request, f"{updated} produto(s) publicado(s).")
+        self._bulk_set(request, queryset, "is_published", True, "publicado(s)")
 
     @admin.action(description=_("Desabilitar venda dos selecionados"))
     def pause_products(self, request, queryset):
-        updated = queryset.update(is_sellable=False)
-        self.message_user(request, f"{updated} produto(s) com venda desabilitada.")
+        self._bulk_set(request, queryset, "is_sellable", False, "com venda desabilitada")
 
     @admin.action(description=_("Habilitar venda dos selecionados"))
     def resume_products(self, request, queryset):
-        updated = queryset.update(is_sellable=True)
-        self.message_user(request, f"{updated} produto(s) com venda habilitada.")
+        self._bulk_set(request, queryset, "is_sellable", True, "com venda habilitada")
 
     @admin.action(description=_("Atualizar preço +X%%"))
     def update_price_percent(self, request, queryset):
