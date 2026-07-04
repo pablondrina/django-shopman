@@ -217,7 +217,7 @@ useSeoMeta({
       <section class="shop-stack-block">
         <div>
           <p class="shop-kicker">Acompanhamento</p>
-          <h1 class="mt-1 shop-title">Pedido <span class="font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}</h1>
+          <h1 class="mt-1 shop-title">Pedido <span class="text-sm font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}</h1>
         </div>
 
         <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
