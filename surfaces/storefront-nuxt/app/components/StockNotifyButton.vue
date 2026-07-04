@@ -53,9 +53,10 @@ async function subscribe (phoneValue: string) {
     isSubscribed.value = true
     sheetOpen.value = false
     if (import.meta.client) useSonner.success('Pronto! Avisaremos você quando voltar.')
-  } catch (e: any) {
-    const detail = e?.data?.detail || 'Não foi possível registrar o aviso. Tente de novo.'
-    if (e?.data?.field === 'phone') phoneError.value = detail
+  } catch (e) {
+    const { data } = httpError(e)
+    const detail = errorDetail(e, 'Não foi possível registrar o aviso. Tente de novo.')
+    if (data?.field === 'phone') phoneError.value = detail
     else if (import.meta.client) useSonner.error(detail)
   } finally {
     submitting.value = false

@@ -143,12 +143,10 @@ async function postAction (action: Action, body: Record<string, unknown> = {}) {
     })
     await refresh()
     if (import.meta.client) useSonner.success('Atualizado.')
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível executar a ação.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível executar a ação.'))
   } finally {
-    const next = { ...actionPending.value }
-    delete next[action.ref]
-    actionPending.value = next
+    actionPending.value = omitKey(actionPending.value, action.ref)
   }
 }
 

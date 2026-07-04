@@ -5,7 +5,7 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅ · WP-S3 ✅
+**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅ · WP-S2 ✅ · WP-S3 ✅ · WP-S4 ✅
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -49,6 +49,18 @@ Isto é **reforço de excelência**, não conserto de podridão.
     `storefront/client-error/` (sem CSRF, rate-limit 30/m, loga→Sentry) + plugin
     Nuxt `errorReporter.client` (inerte em dev, dedupe+cap). PII sanitizada nos dois
     lados. +8 Django, +7 Nuxt. Storefront Django 627✅, Nuxt 280✅, build✅.
+- **WP-S4 ✅ (2026-07-04):** type-safety + dead code + **lint a ZERO** (de 106
+  problemas significativos → 0). `no-explicit-any` eliminado no NOSSO código (~57):
+  catch `any`→`unknown`+`httpError`/`errorDetail` (util novo), parsing defensivo do
+  carrinho `any`→`unknown`+`asRecord`, **Google Maps tipado de verdade**
+  (`@types/google.maps` em AddressPicker+useGoogleMaps, zero `any`). `no-dynamic-
+  delete` (7)→`omitKey` (util novo, destructuring). `no-v-html` (2): Ui/Card
+  vendado desligado na override; ShopHeader com disable inline justificado (SVG
+  curado no Admin). Dead code removido (clickHeroTab no smoke). Override eslint p/
+  primitivas vendadas `Ui/**` (idioma ui-thing). 280✅, build✅.
+  - ⚠️ **Follow-up (fora do escopo do S4):** ~12 erros de `nuxi typecheck`
+    PRÉ-EXISTENTES (o gate nunca teve typecheck) — spawn task criado. Nenhum nos
+    arquivos tocados aqui; a tipagem nova compila limpa.
 
 ---
 

@@ -62,8 +62,8 @@ async function saveProfile () {
     session.setIdentity({ name: response.name || response.first_name, phone: response.phone, isAuthenticated: true })
     profileSaved.value = true
     if (import.meta.client) useSonner.success('Perfil salvo.')
-  } catch (e: any) {
-    profileIssue.value = e?.data?.detail || 'Não foi possível salvar seu perfil agora.'
+  } catch (e) {
+    profileIssue.value = errorDetail(e, 'Não foi possível salvar seu perfil agora.')
     if (import.meta.client) useSonner.error(profileIssue.value)
   } finally {
     profilePendingSave.value = false

@@ -174,11 +174,12 @@ function togglePhoneRegion () {
   error.value = null
 }
 
-function fetchErrorView (e: any, fallback: string, fallbackField?: string): AuthErrorView {
+function fetchErrorView (e: unknown, fallback: string, fallbackField?: string): AuthErrorView {
+  const { status, data } = httpError(e)
   return authErrorView({
-    status: e?.status ?? e?.response?.status,
-    detail: e?.data?.detail,
-    field: e?.data?.field || fallbackField
+    status,
+    detail: typeof data?.detail === 'string' ? data.detail : null,
+    field: (typeof data?.field === 'string' && data.field) || fallbackField || null
   }, fallback)
 }
 
@@ -258,7 +259,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
       body: requestPayload
     })
     applyCodeDelivery(response, method)
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível enviar o código.')
   } finally {
     pending.value = false
@@ -280,7 +281,7 @@ async function resendCode () {
     })
     applyCodeDelivery(response, lastDeliveryMethod.value)
     if (import.meta.client) useSonner.success('Enviamos um novo código.')
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível reenviar o código.')
   } finally {
     pending.value = false
@@ -321,7 +322,7 @@ async function verifyCode () {
       return
     }
     await celebrateAndGo('confirmed')
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Código inválido ou expirado.', 'code')
   } finally {
     pending.value = false
@@ -342,7 +343,7 @@ async function submitWelcome () {
     })
     session.setIdentity({ name })
     await navigateTo(nextUrl.value)
-  } catch (e: any) {
+  } catch (e) {
     error.value = fetchErrorView(e, 'Não foi possível salvar seu nome.')
   } finally {
     pending.value = false

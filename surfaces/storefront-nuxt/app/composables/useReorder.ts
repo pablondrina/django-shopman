@@ -24,17 +24,16 @@ export function useReorder () {
       if (import.meta.client) await navigateTo('/sacola')
       conflict.value = null
       return response
-    } catch (e: any) {
-      if (e?.response?.status === 409 && e?.data) {
-        conflict.value = e.data as ReorderConflictProjection
+    } catch (e) {
+      const { status, data } = httpError(e)
+      if (status === 409 && data) {
+        conflict.value = data as ReorderConflictProjection
       } else if (import.meta.client) {
-        useSonner.error(e?.data?.detail || 'Não foi possível refazer este pedido.')
+        useSonner.error(errorDetail(e, 'Não foi possível refazer este pedido.'))
       }
       throw e
     } finally {
-      const next = { ...pending.value }
-      delete next[orderRef]
-      pending.value = next
+      pending.value = omitKey(pending.value, orderRef)
     }
   }
 

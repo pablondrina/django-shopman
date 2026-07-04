@@ -25,3 +25,10 @@ export function isTransientError (e: unknown): boolean {
   const { status } = httpError(e)
   return status === null || status === 502 || status === 503 || status === 504
 }
+
+// `detail` que o backend manda no corpo do erro, com fallback humano. Centraliza
+// o padrão `catch (e) { msg = e?.data?.detail || 'fallback' }` sem espalhar `any`.
+export function errorDetail (e: unknown, fallback: string): string {
+  const detail = httpError(e).data?.detail
+  return typeof detail === 'string' && detail.trim() ? detail : fallback
+}

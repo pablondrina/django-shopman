@@ -34,5 +34,19 @@ export default withNuxt(
       '@typescript-eslint/no-explicit-any': 'off'
     }
   },
+  {
+    // Primitivas de UI vendadas (ui-thing/reka-ui): `class?: any`, `customData?:
+    // any`, `[key: string]: any` são a superfície pública da lib, não código nosso
+    // a re-tipar. O alvo de type-safety é a nossa lógica (composables/páginas/
+    // presentation), coberta pela regra global.
+    files: ['app/components/Ui/**/*.vue'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
+      // Primitivas com passthrough de conteúdo (ex.: Card content) usam v-html
+      // por design da lib; o conteúdo é responsabilidade do call-site.
+      'vue/no-v-html': 'off'
+    }
+  },
   prettier
 )

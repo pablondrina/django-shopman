@@ -74,7 +74,7 @@ const chosenDate = ref<Date | null>(null)
 const activeStep = ref<Step>('fulfillment')
 const contactEditing = ref(false)
 const nameEditing = ref(false)
-const nameInput = ref<any>(null)
+const nameInput = ref<{ $el?: HTMLElement } | null>(null)
 const useLoyalty = ref(false)
 const loyaltySyncing = ref(false)
 // Liga/desliga o resgate de pontos NA SESSÃO (fonte única). Carrinho e checkout
@@ -766,14 +766,15 @@ async function submitCheckout () {
       return
     }
     await navigateTo(trackingUrl)
-  } catch (e: any) {
-    const data = e?.data || {}
-    serverError.value = data.detail || 'Não foi possível confirmar o pedido.'
-    if (data.field) {
+  } catch (e) {
+    const data = httpError(e).data || {}
+    const field = typeof data.field === 'string' ? data.field : ''
+    serverError.value = errorDetail(e, 'Não foi possível confirmar o pedido.')
+    if (field) {
       // Poka-yoke: endereço fora da zona, mas a loja faz retirada → oferecer
       // a troca em 1 clique em vez de deixar o cliente num beco sem saída.
       pickupSwapOffer.value = shouldOfferPickupSwap({
-        field: data.field,
+        field,
         fulfillmentType: state.fulfillment_type,
         hasPickup: availableFulfillment.value.includes('pickup'),
         hasAddress: !!state.delivery_address.trim()
@@ -786,10 +787,10 @@ async function submitCheckout () {
         // própria oferta. Fecha só o sheet de revisão.
         confirmOpen.value = false
       } else {
-        fieldErrors.value = { ...fieldErrors.value, [data.field]: serverError.value }
-        const step = checkoutStepForField(data.field)
+        fieldErrors.value = { ...fieldErrors.value, [field]: serverError.value }
+        const step = checkoutStepForField(field)
         if (step) activeStep.value = step
-        if (data.field === 'name' || data.field === 'phone') contactEditing.value = true
+        if (field === 'name' || field === 'phone') contactEditing.value = true
       }
     }
     if (import.meta.client && !pickupSwapOffer.value) useSonner.error(serverError.value)

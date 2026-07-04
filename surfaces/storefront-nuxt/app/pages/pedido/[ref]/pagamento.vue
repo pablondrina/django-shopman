@@ -109,12 +109,10 @@ async function postAction (action: Action) {
     })
     if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
     else await refresh()
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível atualizar o pagamento.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível atualizar o pagamento.'))
   } finally {
-    const next = { ...actionPending.value }
-    delete next[action.ref]
-    actionPending.value = next
+    actionPending.value = omitKey(actionPending.value, action.ref)
   }
 }
 
@@ -134,8 +132,8 @@ async function simulatePayment () {
     )
     if (result.redirect_url) await navigateTo(localRouteFromBackend(result.redirect_url))
     else await refresh()
-  } catch (e: any) {
-    if (import.meta.client) useSonner.error(e?.data?.detail || 'Não foi possível simular o pagamento.')
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível simular o pagamento.'))
   } finally {
     simulating.value = false
   }

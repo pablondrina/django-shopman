@@ -27,7 +27,9 @@ async function waitForHttp (url, timeoutMs = 10000) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
       if (response.ok) return response
-    } catch {}
+    } catch {
+      // servidor ainda subindo — tenta de novo até o timeout
+    }
     await wait(200)
   }
   throw new Error(`Timed out waiting for ${url}`)
@@ -198,49 +200,6 @@ function pageProbe () {
       domNodes: document.querySelectorAll('*').length,
     }
   })()`
-}
-
-async function clickHeroTab (cdp, label) {
-  const rect = await evaluate(cdp, `(() => {
-    const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
-    if (!tab) return null
-    tab.scrollIntoView({ block: 'center', inline: 'center' })
-    const r = tab.getBoundingClientRect()
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height }
-  })()`)
-  if (!rect) return { clicked: false, h1: [] }
-  await wait(150)
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: rect.x, y: rect.y })
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 })
-  await wait(350)
-  let state = await evaluate(cdp, `(() => {
-    const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
-    const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
-    return {
-      clicked: true,
-      selected: !!tab && (tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('data-state') === 'active'),
-      h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
-    }
-  })()`)
-  if (!state.selected) {
-    await evaluate(cdp, `(() => {
-      const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
-      if (tab) tab.click()
-      return true
-    })()`)
-    await wait(350)
-    state = await evaluate(cdp, `(() => {
-      const tab = [...document.querySelectorAll('[data-slot="tabs-trigger"]')].find(el => el.innerText.trim() === ${JSON.stringify(label)})
-      const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) && getComputedStyle(el).visibility !== 'hidden'
-      return {
-        clicked: true,
-        selected: !!tab && (tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('data-state') === 'active'),
-        h1: [...document.querySelectorAll('h1')].filter(visible).map(el => el.innerText.trim()),
-      }
-    })()`)
-  }
-  return state
 }
 
 async function dispatchClickRectCenter (cdp, selector) {

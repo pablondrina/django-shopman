@@ -71,8 +71,8 @@ async function deleteAccount () {
     session.reset()
     deleteAccountOpen.value = false
     await navigateTo('/')
-  } catch (e: any) {
-    privacyIssue.value = e?.data?.detail || 'Não foi possível excluir a conta agora.'
+  } catch (e) {
+    privacyIssue.value = errorDetail(e, 'Não foi possível excluir a conta agora.')
   } finally {
     deleteAccountPending.value = false
   }
@@ -115,8 +115,8 @@ async function confirmRevokeDevice () {
     if (import.meta.client) {
       useSonner.success(revokeDeviceMode.value === 'all' ? 'Aparelhos removidos.' : 'Aparelho removido.')
     }
-  } catch (e: any) {
-    deviceIssue.value = e?.data?.detail || 'Não foi possível remover o aparelho agora.'
+  } catch (e) {
+    deviceIssue.value = errorDetail(e, 'Não foi possível remover o aparelho agora.')
     if (import.meta.client) useSonner.error(deviceIssue.value)
   } finally {
     revokeDevicePending.value = false
@@ -144,8 +144,8 @@ async function sendStepUpCode () {
       body: authPhonePayload(session.customerPhone.value || '', 'BR')
     })
     stepUpSent.value = true
-  } catch (e: any) {
-    stepUpIssue.value = e?.data?.detail || 'Não foi possível enviar o código agora.'
+  } catch (e) {
+    stepUpIssue.value = errorDetail(e, 'Não foi possível enviar o código agora.')
   } finally {
     stepUpSendPending.value = false
   }
@@ -166,8 +166,8 @@ async function confirmStepUp () {
     const action = pendingStepUpAction
     pendingStepUpAction = null
     if (action) await action()
-  } catch (e: any) {
-    stepUpIssue.value = e?.data?.detail || 'Código inválido ou expirado.'
+  } catch (e) {
+    stepUpIssue.value = errorDetail(e, 'Código inválido ou expirado.')
     stepUpCode.value = []
   } finally {
     stepUpPending.value = false
