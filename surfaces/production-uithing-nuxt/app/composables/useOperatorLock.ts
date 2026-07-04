@@ -42,6 +42,9 @@ export function useOperatorLock(perm: string) {
         body: buildUnlockPayload({ ...input, perm }),
       });
       await refresh();
+      // Os fetches que rodaram TRANCADOS falharam (403) e ficariam com o
+      // erro grudado na tela até o próximo poll — destravou, recarrega tudo.
+      await refreshNuxtData();
       return true;
     } catch (err: any) {
       useSonner.error(err?.data?.detail || "Identificação inválida. Tente de novo.");

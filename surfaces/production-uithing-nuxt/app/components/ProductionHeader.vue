@@ -12,6 +12,15 @@ function toggleTheme() {
   colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 
+// Operador ativo (Opção C): o ator dos gestos — plan/start/finish são
+// atribuídos a QUEM destravou, não ao usuário do aparelho. O chip torna a
+// identidade visível e a troca custa um toque (lock → picker de PIN), para
+// o revezamento na bancada não rodar o dia inteiro sob o primeiro PIN.
+const operatorLock = useOperatorLock("backstage.operate_production");
+async function switchOperator() {
+  await operatorLock.lock();
+}
+
 // O fluxo do dia em abas-etapa (refino Pablo 2026-07-03): decide → separa/
 // pesa → produz → expede. As três grades são lentes do mesmo motor; a
 // Preparação é a estação de pesagem/separação.
@@ -56,6 +65,17 @@ function isActive(to: string): boolean {
     </div>
 
     <div class="flex items-center gap-1.5" :class="count != null ? '' : 'ml-auto'">
+      <button
+        v-if="operatorLock.requireOperator.value && operatorLock.operator.value"
+        type="button"
+        class="inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+        :title="`Operando: ${operatorLock.operator.value.name} — toque para trocar`"
+        :aria-label="`Operando como ${operatorLock.operator.value.name}. Trocar operador`"
+        @click="switchOperator()"
+      >
+        <Icon name="lucide:user-round" class="size-4" />
+        <span class="hidden max-w-24 truncate sm:inline">{{ operatorLock.operator.value.name }}</span>
+      </button>
       <div class="relative">
         <Icon name="lucide:search" class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
