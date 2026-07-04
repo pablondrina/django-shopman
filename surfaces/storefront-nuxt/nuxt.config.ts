@@ -42,8 +42,17 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@nuxt/fonts',
     "@yuta-inoue-ph/nuxt-vcalendar",
-    "vue-sonner/nuxt"
+    "vue-sonner/nuxt",
+    '@nuxt/eslint',
+    '@nuxt/test-utils/module'
   ],
+
+  // ESLint com o flat config gerado pelo Nuxt (stylistic OFF; Prettier cuida do estilo).
+  eslint: {
+    config: {
+      stylistic: false
+    }
+  },
 
   // Tipografia canônica self-hospedada via @nuxt/fonts (baixa, self-hospeda e injeta
   // @font-face + métrica de fallback size-adjust = zero CLS):

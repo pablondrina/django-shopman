@@ -456,8 +456,8 @@ useSeoMeta({
 
           <UiAlert v-if="debugOtpCode && showDebugOtp" variant="warning" data-testid="debug-otp-alert">
             <div class="flex items-start justify-between gap-2">
-              <UiAlertTitle class="flex items-center gap-1.5">
-                <UiBadge variant="secondary" class="text-[0.65rem] uppercase tracking-wide">Ambiente de teste</UiBadge>
+              <UiAlertTitle class="flex items-center gap-2">
+                <UiBadge variant="secondary" class="text-xs uppercase tracking-wide">Ambiente de teste</UiBadge>
                 Código para entrar
               </UiAlertTitle>
               <UiButton
@@ -472,7 +472,7 @@ useSeoMeta({
             <UiAlertDescription>
               <div class="mt-2 flex flex-col gap-3">
                 <div
-                  class="flex justify-center gap-1 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-2xl font-semibold tabular-nums tracking-[0.35em]"
+                  class="flex justify-center gap-1 rounded-lg border border-current/20 bg-current/5 py-3 font-mono text-3xl font-semibold tabular-nums tracking-[0.35em]"
                   data-testid="debug-otp-code"
                 >
                   <span v-for="(digit, index) in debugOtpDigits" :key="index">{{ digit }}</span>
