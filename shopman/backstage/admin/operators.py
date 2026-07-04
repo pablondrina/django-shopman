@@ -14,8 +14,7 @@ operador novo continua pela CLI (``set_operator_pin``) ou pelo próprio reset.
 from __future__ import annotations
 
 from django.contrib import admin, messages
-from shopman.doorman.models import PinCredential
-from shopman.doorman.models import PinCredentialError
+from shopman.doorman.models import PinCredential, PinCredentialError
 from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
 
