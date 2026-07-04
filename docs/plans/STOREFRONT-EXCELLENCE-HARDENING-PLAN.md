@@ -5,7 +5,7 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0 ✅
+**Status:** 🟢 em execução — WP-S0 ✅ · WP-S1 ✅
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -22,6 +22,14 @@ Isto é **reforço de excelência**, não conserto de podridão.
   WP-S4. Security sweep OK (sem segredo em env; robots bloqueia rotas privadas).
   Build de produção verde. Scripts: `test:unit`, `test:component`, `test:e2e`,
   `lint`, `lint:fix`, `format`.
+- **WP-S1 ✅ (2026-07-04):** cobertura test-first dos composables de estado (env
+  nuxt, `$fetch` stubado como global). **+23 testes** (252 no total): `useCartState`
+  (9 — optimistic+drain, fila serial em ordem, 409 substitutos, 429 retry-after,
+  erro genérico, retry/acceptAvailableQty/addSubstitute, preservação de cartIssue),
+  `useShopSession` (6), `useFavoritesState` (4 — optimistic+revert+anon no-op),
+  `useReorder` (4 — sucesso+navega, 409 conflito, performAction). `no-explicit-any`
+  desligado só em `tests/**` (test doubles). Conversão `catch(any)→unknown`
+  consolidada no WP-S4.
 
 ---
 

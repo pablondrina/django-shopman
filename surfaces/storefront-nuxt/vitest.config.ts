@@ -19,7 +19,7 @@ export default defineConfig({
           environment: 'node',
           globals: true,
           include: ['tests/**/*.test.ts'],
-          exclude: ['tests/components/**', 'tests/e2e/**', 'node_modules/**']
+          exclude: ['tests/components/**', 'tests/composables/**', 'tests/e2e/**', 'node_modules/**']
         }
       },
       // Component: monta componentes Vue reais com auto-imports/composables do
@@ -29,7 +29,7 @@ export default defineConfig({
           name: 'component',
           environment: 'nuxt',
           globals: true,
-          include: ['tests/components/**/*.test.ts']
+          include: ['tests/components/**/*.test.ts', 'tests/composables/**/*.test.ts']
         }
       })
     ]

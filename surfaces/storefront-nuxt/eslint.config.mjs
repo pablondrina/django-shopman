@@ -26,5 +26,13 @@ export default withNuxt(
       '@typescript-eslint/no-explicit-any': 'error'
     }
   },
+  {
+    // Test doubles legitimamente usam `any` (mocks de $fetch, casts `as never`).
+    // O alvo do no-explicit-any é o código de app, não a instrumentação de teste.
+    files: ['tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off'
+    }
+  },
   prettier
 )
