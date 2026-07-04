@@ -72,6 +72,7 @@ const {
   tabInput,
   busy,
   saving,
+  unsaved,
   firing,
   renamingTab,
   cancellingSale,
@@ -297,6 +298,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         >
           <Icon name="lucide:arrow-left" class="size-5" />
         </UiButton>
+        <span
+          v-if="inSaleView && !checkoutMode && unsaved"
+          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+          role="status"
+          title="A comanda não pôde ser salva — tentando de novo"
+        >
+          <Icon name="lucide:cloud-off" class="size-3.5" /> Não salvo
+        </span>
         <PosComandaHeader
           v-if="inSaleView && !checkoutMode"
           class="min-w-0 flex-1"

@@ -85,6 +85,10 @@ export function usePosSale(deps: PosSaleDeps) {
   const tabInput = ref("");
   const busy = ref(false);
   const saving = ref(false);
+  // Autosave FALHOU (wi-fi caiu): a comanda tem itens não persistidos. Antes o
+  // erro era engolido (.catch(() => {})) e o operador seguia lançando itens numa
+  // comanda que não estava sendo salva. A UI mostra um chip "não salvo".
+  const unsaved = ref(false);
   // Auto-persist the comanda (Odoo-style): no manual "Salvar". tabLoading guards
   // against re-saving right after a programmatic load (setFromTabPayload).
   const tabLoading = ref(false);
@@ -849,10 +853,25 @@ export function usePosSale(deps: PosSaleDeps) {
       await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
         body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
       });
+      unsaved.value = false; // persistiu de verdade
       if (!quiet) await refresh();
     };
     persistQueue = persistQueue.then(run, run);
     return persistQueue as Promise<void>;
+  }
+
+  // Retry do autosave: numa rede instável, uma comanda parada com save falho
+  // precisa tentar de novo sozinha (o próximo lançamento também reagenda).
+  let autosaveRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  function onAutosaveFailed() {
+    unsaved.value = true;
+    if (autosaveRetryTimer) return;
+    autosaveRetryTimer = setTimeout(() => {
+      autosaveRetryTimer = null;
+      if (hasOpenTab.value && !checkoutMode.value && !busy.value && !saving.value) {
+        persistTab(true).catch(() => onAutosaveFailed());
+      }
+    }, 5000);
   }
 
   // Debounced auto-persist: fires on cart/sale-data changes while a tab is open,
@@ -864,7 +883,7 @@ export function usePosSale(deps: PosSaleDeps) {
     autosaveTimer = setTimeout(() => {
       autosaveTimer = null;
       if (!hasOpenTab.value || checkoutMode.value || busy.value || saving.value) return;
-      persistTab(true).catch(() => {});
+      persistTab(true).catch(() => onAutosaveFailed());
     }, 1200);
   }
   watch(() => [
@@ -1276,6 +1295,7 @@ export function usePosSale(deps: PosSaleDeps) {
     tabInput,
     busy,
     saving,
+    unsaved,
     firing,
     renamingTab,
     cancellingSale,
