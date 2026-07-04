@@ -31,9 +31,12 @@ POST endpoints (operator actions):
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -265,6 +268,41 @@ class POSView(APIView):
         })
 
 
+class POSPaymentStatusView(APIView):
+    """GET /pos/payment/<ref>/status/ — polling do estado de pagamento (PIX no PDV).
+
+    O status endpoint do storefront é gateado pela sessão de checkout do CLIENTE
+    (anônima) — o operador (staff) não se encaixa. Este é o equivalente operador,
+    gateado por operate_pos, para o POS ver a confirmação do PIX chegar sem sair
+    do balcão. Reusa build_payment_status (por-order, is_paid/is_cancelled/…).
+    """
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def get(self, request, ref: str):
+        from django.http import Http404
+        from shopman.orderman.models import Order
+
+        from shopman.shop.projections.payment_status import build_payment_status
+        from shopman.shop.services import customer_orders
+
+        try:
+            order = Order.objects.get(ref=ref)
+        except Order.DoesNotExist as exc:
+            raise Http404("Order not found") from exc
+
+        # Resolve timers vencidos (auto-cancel de PIX / confirmação) antes de
+        # reportar. Camada shop — backstage NUNCA importa storefront (CLAUDE.md).
+        try:
+            customer_orders.resolve_payment_timeout_if_due(order)
+            customer_orders.resolve_confirmation_timeout_if_due(order)
+        except Exception:
+            logger.warning("pos.payment_status: resolve_timeouts falhou order=%s", ref, exc_info=True)
+
+        return Response(projection_data(build_payment_status(order)))
+
+
 # ── Generic operator identification (PIN / badge) — shared by all surfaces ──
 # (The former POS-specific operator/unlock|lock views were folded into the generic
 #  endpoints below; the POS surface now uses them with perm=operate_pos.)
@@ -308,20 +346,54 @@ class OperatorSessionView(APIView):
         })
 
 
+def _login_username_key(group, request):
+    """Chave de rate-limit pela conta-alvo do login.
+
+    O BFF envia JSON (onde `request.POST` fica vazio); o teste e forms enviam
+    form-encoded. Lê os dois para que o limite por-username funcione em produção —
+    sem isso, JSON colapsaria todas as contas num único bucket global.
+    """
+    username = request.POST.get("username")
+    if not username and "json" in (request.content_type or ""):
+        try:
+            username = (json.loads(request.body or b"{}") or {}).get("username")
+        except (ValueError, TypeError):
+            username = None
+    return (str(username or "").strip().lower()) or "anon"
+
+
+@method_decorator(
+    ratelimit(key="ip", rate="30/m", method="POST", block=False), name="dispatch"
+)
+@method_decorator(
+    ratelimit(key=_login_username_key, rate="5/m", method="POST", block=False), name="dispatch"
+)
 class OperatorLoginView(APIView):
     """Login de operador NO PRÓPRIO app (sem bounce pro Django admin).
 
     Reusa a auth do Django (mesma credencial do admin): valida usuário+senha e abre a
     sessão de dispositivo (o cookie é escopado ao domínio de operador pelo middleware).
     O front mostra um formulário e já entra — uma tela, um submit, sem sair do app. Só
-    concede sessão a staff. NÃO faz 2FA/rate-limit aqui — se o deploy exigir, tratar na
-    frente de hardening (go-live).
+    concede sessão a staff.
+
+    Freio contra brute-force de senha staff: limite por-username (ataque a uma conta)
+    de 5/min e teto por-IP de 30/min — generoso porque os dispositivos da loja
+    compartilham o IP (NAT). Ambos `block=False`: o handler devolve 429 amigável.
     """
 
     permission_classes = [AllowAny]
 
     def post(self, request):
         from django.contrib.auth import authenticate, login
+
+        if getattr(request, "limited", False):
+            return Response(
+                {
+                    "detail": "Muitas tentativas de login. Aguarde um minuto e tente de novo.",
+                    "error": {"code": "operator_login_rate_limited"},
+                },
+                status=429,
+            )
 
         body = request.data or {}
         username = str(body.get("username") or "").strip()

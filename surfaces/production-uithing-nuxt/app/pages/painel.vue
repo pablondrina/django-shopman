@@ -11,7 +11,7 @@
 // · ordem de aeroporto: cronológica pelo horário — status muda cor, nunca
 //   posição; confirmados saem pelo TTL.
 import type { ForecastStatus } from "~/types/production";
-import { fullDateLabel, weekdayLabel } from "~/presentation/production";
+import { fullDateLabel, isoForOffset, resolveDayRollover, weekdayLabel } from "~/presentation/production";
 
 const { rows, selectedDate, pending, error } = useProductionForecast();
 const sound = useFlapClack();
@@ -24,15 +24,18 @@ function setBoardList(el: unknown) {
 }
 
 // ── Data: seletor discreto (a TV vive em Hoje; o vendedor consulta Amanhã) ──
-function isoFor(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+// Reativo: à meia-noite a TV precisa VIRAR o dia sozinha (senão amanhece nas
+// fornadas de ontem). O tick do relógio (abaixo) chama rollDay() a cada segundo.
+const todayISO = ref(isoForOffset(0));
+const tomorrowISO = ref(isoForOffset(1));
+function rollDay(): void {
+  const r = resolveDayRollover(todayISO.value, selectedDate.value);
+  if (!r.rolled) return;
+  todayISO.value = r.todayISO;
+  tomorrowISO.value = r.tomorrowISO;
+  selectedDate.value = r.selectedDate;
 }
-const todayISO = isoFor(0);
-const tomorrowISO = isoFor(1);
-const isCustomDate = computed(() => selectedDate.value !== todayISO && selectedDate.value !== tomorrowISO);
+const isCustomDate = computed(() => selectedDate.value !== todayISO.value && selectedDate.value !== tomorrowISO.value);
 const customDateInput = ref<HTMLInputElement | null>(null);
 function openCustomDate() {
   sound.unlock();
@@ -54,6 +57,7 @@ onMounted(() => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     clock.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    rollDay();  // vira o dia à meia-noite (a TV não amanhece em ontem)
   };
   tick();
   clockTimer = setInterval(tick, 1000);

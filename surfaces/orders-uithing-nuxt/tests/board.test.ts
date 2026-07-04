@@ -22,6 +22,7 @@ import {
   toneBadge,
   triageCards,
   zonesView,
+  confirmationRemainingLabel,
 } from "../app/presentation/board";
 import type { OrderCardProjection, TwoZoneQueueProjection } from "../app/types/orders";
 
@@ -326,5 +327,21 @@ describe("elapsedLabel — dias", () => {
     expect(elapsedLabel(3600 * 25)).toBe("1d 1h");
     expect(elapsedLabel(3600 * 24 * 4 + 3600 * 23)).toBe("4d 23h");
     expect(elapsedLabel(3600 * 48)).toBe("2d");
+  });
+});
+
+describe("confirmationRemainingLabel", () => {
+  it("empty when no deadline", () => {
+    expect(confirmationRemainingLabel("", Date.now())).toBe("");
+    expect(confirmationRemainingLabel("not-a-date", Date.now())).toBe("");
+  });
+  it("formats M:SS remaining", () => {
+    const now = Date.parse("2026-07-04T12:00:00Z");
+    expect(confirmationRemainingLabel("2026-07-04T12:02:34Z", now)).toBe("2:34");
+    expect(confirmationRemainingLabel("2026-07-04T12:00:09Z", now)).toBe("0:09");
+  });
+  it("clamps to 0:00 once past", () => {
+    const now = Date.parse("2026-07-04T12:05:00Z");
+    expect(confirmationRemainingLabel("2026-07-04T12:00:00Z", now)).toBe("0:00");
   });
 });

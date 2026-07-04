@@ -121,17 +121,22 @@ def ensure_payment_captured(order) -> None:
 
     # External timing channels (iFood, POS) manage payment outside Shopman;
     # the guard doesn't apply.
+    config_failed = False
     try:
         config = ChannelConfig.for_channel(order.channel_ref)
         if config.payment.timing == "external":
             return
     except Exception:
-        # Config lookup failed — fall through to strict path (check payment).
+        # Config lookup falhou. NÃO confiar no default permissivo (post_commit →
+        # "não requer captura"), senão o guard abre a porta para CONFIRMED sem
+        # captura com um Shop.defaults corrompido. Fail-closed: seguir para a
+        # checagem de captura de verdade.
         logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
         config = ChannelConfig()
+        config_failed = True
 
     requires_upfront_payment = _requires_captured_payment_before_confirmation(order, config)
-    if not requires_upfront_payment:
+    if not requires_upfront_payment and not config_failed:
         return
 
     method = _payment_method(order, config)
@@ -229,6 +234,28 @@ def _on_commit(order, config: ChannelConfig) -> None:
         notification.send(order, "order_received")
 
     _handle_confirmation(order, config)
+
+    # Marcador durável de conclusão: on_commit não é durável (roda em on_commit do
+    # signal, síncrono); um crash/deploy entre o COMMIT e o callback deixaria o
+    # pedido órfão em NEW. O sweeper (sweep_stuck_orders) re-despacha, de forma
+    # idempotente, os NEW antigos SEM este marcador. Os early-returns acima são
+    # cancelamentos (saem de NEW), então só marcamos on_commit realmente completo.
+    _mark_phase_complete(order, "on_commit")
+
+
+def _mark_phase_complete(order, phase: str) -> None:
+    """Grava order.data['lifecycle'][phase]='done' (ver docs/reference/data-schemas.md)."""
+    try:
+        data = dict(order.data or {})
+        marks = dict(data.get("lifecycle") or {})
+        marks[phase] = "done"
+        data["lifecycle"] = marks
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
+    except Exception:
+        logger.warning(
+            "lifecycle.mark_phase_complete falhou order=%s phase=%s", order.ref, phase, exc_info=True
+        )
 
 
 def _record_coupon_use(order) -> None:

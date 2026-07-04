@@ -11,6 +11,7 @@ export function useProductionForecast() {
     key: "production-forecast",
     server: true,
     query: computed(() => ({ date: selectedDate.value })),
+    onResponseError: operatorSessionOnError,
   });
 
   const forecast = computed<ProductionForecastProjection | null>(() => data.value?.forecast ?? null);

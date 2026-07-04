@@ -94,15 +94,22 @@ urlpatterns = [
 ]
 
 # ── Core APIs ──────────────────────────────────────────────────────
+#
+# Os ViewSets de CRUD dos pacotes do kernel (orderman, offerman, stockman,
+# craftsman, guestman, payman) NÃO são montados no deployment. Eles herdam o
+# default DRF `IsAuthenticated`, e clientes do storefront viram usuários Django
+# autenticados (login OTP chama `login()`), então expô-los deixaria qualquer
+# cliente logado ler/mutar dados do kernel — sessões e comandas do POS, base de
+# PII, ledger de estoque, BOM (segredo de negócio), payment intents. Nenhuma
+# superfície os consome: os apps Nuxt entram por `api/v1/` (storefront) e
+# `api/v1/backstage/` (projections gateadas por permissão). Guardrail que trava
+# a re-introdução: shopman/shop/tests/test_api_perimeter.py.
+#
+# Se um desses ganhar consumidor real, ele volta COM permissão explícita
+# (IsAdminUser/DjangoModelPermissions) e o guardrail é atualizado deliberadamente.
 
-urlpatterns += _include_optional("api/orderman/", "shopman.orderman.api.urls")
-urlpatterns += _include_optional("api/offerman/", "shopman.offerman.api.urls")
-urlpatterns += _include_optional("api/stockman/", "shopman.stockman.api.urls")
-urlpatterns += _include_optional("api/craftsman/", "shopman.craftsman.api.urls")
-urlpatterns += _include_optional("api/customers/", "shopman.guestman.api.urls")
 urlpatterns += _include_optional("api/auth/", "shopman.doorman.api.urls")
 urlpatterns += _include_optional("auth/", "shopman.doorman.urls")
-urlpatterns += _include_optional("api/payments/", "shopman.payman.api.urls")
 
 urlpatterns += _include_optional("api/webhooks/", "shopman.shop.webhooks.urls")
 # ManyChat inbound webhook (subscriber sync). HMAC + replay gated; without

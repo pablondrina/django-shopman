@@ -263,3 +263,39 @@ def update(ref: str, **fields) -> Customer | None:
     if changes:
         customer_updated.send(sender=Customer, customer=cust, changes=changes)
     return cust
+
+
+def purge_pii(customer) -> None:
+    """Apaga os dados pessoais do cliente para anonimização (LGPD).
+
+    Mantém a linha Customer (referenciada por pedidos via handle_ref), mas remove
+    a FONTE DE VERDADE dos contatos (ContactPoint) e as identidades externas
+    (Manychat/Instagram), e zera document (CPF/CNPJ) e metadata — que a
+    anonimização anterior deixava intactos. Idempotente e defensivo por camada.
+
+    Pré-condição: o chamador já limpou phone/email do Customer e salvou, para que
+    o _sync_contact_points do save() não recrie um ContactPoint a partir deles.
+    """
+    # ContactPoints — fonte de verdade de telefone/e-mail.
+    try:
+        customer.contact_points.all().delete()
+    except Exception:
+        logger.warning("purge_pii: contact_points delete falhou customer=%s", customer.ref, exc_info=True)
+
+    # Identifiers (contrib) — subscriber Manychat/Instagram.
+    try:
+        customer.identifiers.all().delete()
+    except Exception:
+        logger.warning("purge_pii: identifiers delete falhou customer=%s", customer.ref, exc_info=True)
+
+    # ExternalIdentity (core) — mapeamento provider→customer legado.
+    try:
+        from shopman.guestman.models import ExternalIdentity
+
+        ExternalIdentity.objects.filter(customer=customer).delete()
+    except Exception:
+        logger.warning("purge_pii: external_identity delete falhou customer=%s", customer.ref, exc_info=True)
+
+    customer.document = ""
+    customer.metadata = {}
+    customer.save(update_fields=["document", "metadata", "updated_at"])

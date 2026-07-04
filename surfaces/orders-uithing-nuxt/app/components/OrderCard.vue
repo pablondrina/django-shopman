@@ -5,6 +5,7 @@
 import type { OrderCardProjection } from "~/types/orders";
 import {
   cardAffordances,
+  confirmationRemainingLabel,
   lucideIcon,
   splitRef,
   statusTone,
@@ -26,6 +27,13 @@ const emit = defineEmits<{
 const code = computed(() => splitRef(props.card.ref));
 const affordances = computed(() => cardAffordances(props.card));
 const tTone = computed(() => timerTone(props.card.timer_class));
+
+// Countdown do prazo da confirmação otimista (só em cards com timer agendado).
+// Usa o relógio compartilhado (um só interval no board, não um por card).
+const nowMs = useNowTick();
+const confirmationLeft = computed(() =>
+  confirmationRemainingLabel(props.card.confirmation_deadline_iso, nowMs.value),
+);
 
 function buttonClass(priority: string): string {
   if (priority === "primary")
@@ -82,6 +90,16 @@ function buttonClass(priority: string): string {
       >
         <Icon name="lucide:clock" class="size-3" />
         {{ elapsedLabel(card.elapsed_seconds) }}
+      </span>
+      <span
+        v-if="confirmationLeft"
+        class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400"
+        :title="card.confirmation_action === 'cancel' ? 'Cancela automaticamente ao vencer' : 'Confirma automaticamente ao vencer'"
+        role="timer"
+        aria-live="off"
+      >
+        <Icon name="lucide:hourglass" class="size-3" />
+        {{ confirmationLeft }}
       </span>
     </div>
 

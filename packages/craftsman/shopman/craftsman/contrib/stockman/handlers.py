@@ -74,7 +74,7 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
     if action == "planned":
         _handle_planned(work_order, product_ref, date)
     elif action == "adjusted":
-        _handle_adjusted(work_order, product_ref, date)
+        _handle_adjusted(work_order, product_ref, date, kwargs.get("previous_quantity"))
     elif action == "started":
         _handle_started(work_order, product_ref, date)
     elif action == "voided":
@@ -159,12 +159,14 @@ def _handle_planned(work_order, product_ref, date):
         )
 
 
-def _handle_adjusted(work_order, product_ref, date):
+def _handle_adjusted(work_order, product_ref, date, previous_quantity=None):
     """
-    Update the planned Quant to match the new WorkOrder quantity.
+    Aplica o DELTA da mudança de quantidade da WO ao Quant planejado.
 
-    Finds the existing planned Quant (by sku + target_date) and adjusts it.
-    If no quant exists yet, creates one (defensive).
+    O Quant planejado é COMPARTILHADO por todas as WOs do mesmo (sku, data,
+    posição) — `StockMovements.receive` faz get_or_create. Setar o Quant para a
+    quantidade absoluta desta WO clobberava a contribuição das outras. Aqui
+    aplicamos apenas ``delta = nova - antiga`` desta WO ao total compartilhado.
     """
     if not work_order or not date:
         logger.warning(
@@ -174,12 +176,14 @@ def _handle_adjusted(work_order, product_ref, date):
         )
         return
 
+    from decimal import Decimal
+
     from shopman.stockman.services.movements import StockMovements
 
     try:
         quant = _find_planned_quant(work_order, product_ref, date)
         if quant is None:
-            # Quant doesn't exist yet — create it (defensive)
+            # Nenhum Quant ainda — cria com a contribuição desta WO (defensivo).
             StockMovements.receive(
                 quantity=work_order.quantity,
                 sku=product_ref,
@@ -189,16 +193,28 @@ def _handle_adjusted(work_order, product_ref, date):
                 reason=f"Produção planejada (ajuste): {work_order.ref}",
                 kind="make",  # Move.Kind.MAKE
             )
+        elif previous_quantity is None:
+            # Sem a quantidade anterior não dá para isolar o delta — não clobbear
+            # o Quant compartilhado. (Único emissor de "adjusted" já envia; guarda.)
+            logger.warning(
+                "Adjust sem previous_quantity para %s — pulando p/ não clobbear "
+                "o Quant compartilhado",
+                work_order.ref,
+            )
+            return
         else:
+            delta = Decimal(str(work_order.quantity)) - Decimal(str(previous_quantity))
+            new_total = max(quant.quantity + delta, Decimal("0"))
             StockMovements.adjust(
                 quant,
-                work_order.quantity,
-                reason=f"Ajuste WO {work_order.ref}",
+                new_total,
+                reason=f"Ajuste WO {work_order.ref} (Δ {delta:+})",
             )
         logger.info(
-            "Planned quant adjusted: sku=%s qty=%s target_date=%s ref=%s",
+            "Planned quant adjusted (delta): sku=%s qty=%s prev=%s target_date=%s ref=%s",
             product_ref,
             work_order.quantity,
+            previous_quantity,
             date,
             work_order.ref,
         )
@@ -307,17 +323,28 @@ def _handle_voided(work_order, product_ref, date):
             )
             return
 
-        if quant is not None and quant.quantity > 0:
+        # DELTA por WO: subtrai a contribuição DESTA WO do Quant compartilhado,
+        # em vez de zerar o total (que mataria as outras WOs do mesmo sku/data).
+        # Contribuições: o que entrou em produção (started_qty) vive no batch
+        # STARTED; o restante (quantity - started_qty) vive no planejado.
+        from decimal import Decimal
+
+        started_qty = Decimal(str(work_order.started_qty or 0))
+        planned_contribution = max(Decimal(str(work_order.quantity)) - started_qty, Decimal("0"))
+
+        if quant is not None and quant.quantity > 0 and planned_contribution > 0:
+            new_total = max(quant.quantity - planned_contribution, Decimal("0"))
             StockMovements.adjust(
                 quant,
-                new_quantity=0,
-                reason=f"WO cancelada: {work_order.ref}",
+                new_quantity=new_total,
+                reason=f"WO cancelada: {work_order.ref} (−{planned_contribution})",
             )
-        if started_quant is not None and started_quant.quantity > 0:
+        if started_quant is not None and started_quant.quantity > 0 and started_qty > 0:
+            new_started = max(started_quant.quantity - started_qty, Decimal("0"))
             StockMovements.adjust(
                 started_quant,
-                new_quantity=0,
-                reason=f"WO cancelada após início: {work_order.ref}",
+                new_quantity=new_started,
+                reason=f"WO cancelada após início: {work_order.ref} (−{started_qty})",
             )
         logger.info(
             "Planned/started quants cancelled: sku=%s target_date=%s ref=%s",

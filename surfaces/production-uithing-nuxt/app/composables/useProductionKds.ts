@@ -18,6 +18,7 @@ export function useProductionKds() {
   const { data, pending, error, refresh } = useFetch<ProductionKDSResponse>(path, {
     key: "production-kds",
     server: true,
+    onResponseError: operatorSessionOnError,
   });
 
   const cards = computed<ProductionKDSCardProjection[]>(() => data.value?.kds?.cards ?? []);

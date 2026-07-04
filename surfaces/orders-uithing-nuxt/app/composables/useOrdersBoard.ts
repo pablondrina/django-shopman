@@ -20,6 +20,9 @@ export function useOrdersBoard() {
   const { data, pending, error, refresh } = useFetch<OrderQueueResponse>(path, {
     key: "orders-queue",
     server: true,
+    // Sessão expirou no meio do turno → o poll passa a 401/403. Reabre o gate de
+    // operador (re-fetch da sessão) em vez de deixar "reconectando…" para sempre.
+    onResponseError: operatorSessionOnError,
   });
 
   const queue = computed<TwoZoneQueueProjection | null>(() => data.value?.queue ?? null);
@@ -48,13 +51,20 @@ export function useOrdersBoard() {
     }
   }
 
+  const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
   onMounted(() => {
     pollTimer = setInterval(() => refresh(), 30_000);
     connectSse();
+    // Voltou à aba / reconectou: refetch imediato (o poll de 30s é longo demais
+    // para um pedido iFood novo esperar quando o tablet acabou de acordar).
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
   });
   onBeforeUnmount(() => {
     if (pollTimer) clearInterval(pollTimer);
     if (source) { source.close(); source = null; }
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("online", onVisible);
   });
 
   // ── write-side: per-ref in-flight guard + reconcile ──────────────────────

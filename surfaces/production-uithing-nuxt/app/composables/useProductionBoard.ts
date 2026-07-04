@@ -27,6 +27,7 @@ export function useProductionBoard() {
     key: "production-board",
     server: true,
     query: computed(() => ({ date: selectedDate.value })),
+    onResponseError: operatorSessionOnError,
   });
 
   const board = computed<ProductionBoardProjection | null>(() => data.value?.board ?? null);

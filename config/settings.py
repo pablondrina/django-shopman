@@ -239,6 +239,26 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+# Senhas de staff/admin (clientes autenticam por OTP, sem senha). Sem estes
+# validadores, `createsuperuser`/reset aceitavam qualquer coisa e o `check --deploy`
+# não acusava. Os 4 defaults do Django: similaridade, comprimento mínimo, senhas
+# comuns e não-100%-numérica.
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 10},
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
 DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
@@ -1042,6 +1062,34 @@ LOGGING = {
         },
     },
 }
+
+# ── Error tracking (Sentry) ───────────────────────────────────────────
+#
+# Opt-in e à prova de ausência: só ativa quando SENTRY_DSN está setado E o
+# sentry-sdk está instalado. Sem isso, um 500 no checkout só aparecia se alguém
+# estivesse lendo o log do DO. send_default_pii=False por privacidade (LGPD) —
+# não mandar dados do cliente para o serviço externo.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        _sentry_traces = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0") or "0")
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=SHOPMAN_ENVIRONMENT,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=_sentry_traces,
+            send_default_pii=False,
+        )
+    except Exception:  # pragma: no cover - inerte sem a dependência
+        import logging as _logging
+
+        _logging.getLogger("shopman.settings").warning(
+            "SENTRY_DSN setado mas sentry-sdk não pôde inicializar — error tracking OFF.",
+            exc_info=True,
+        )
 
 # ── Security ──────────────────────────────────────────────────────────
 

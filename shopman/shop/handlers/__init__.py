@@ -75,6 +75,7 @@ def register_all() -> None:
     _register_notification_handlers()
     _register_confirmation_handler()
     _register_payment_timeout_handler()
+    _register_payment_refund_handler()
     _register_mock_pix_handler()
     _register_customer_strategies()
     _register_fiscal_handlers()
@@ -129,6 +130,11 @@ def _register_confirmation_handler() -> None:
 def _register_payment_timeout_handler() -> None:
     from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
     registry.register_directive_handler(PaymentTimeoutHandler())
+
+
+def _register_payment_refund_handler() -> None:
+    from shopman.shop.handlers.payment_refund import PaymentRefundHandler
+    registry.register_directive_handler(PaymentRefundHandler())
 
 
 def _register_mock_pix_handler() -> None:

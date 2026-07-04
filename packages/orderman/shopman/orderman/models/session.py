@@ -269,23 +269,16 @@ class Session(models.Model):
         same ``session_key``. The model is intentionally opinion-free
         (``type`` is a plain string); the action vocabulary belongs to callers.
         """
-        from django.db import transaction
-        from django.db.models import Max, Value
-        from django.db.models.functions import Coalesce
+        from ._sequenced_event import create_sequenced_event
 
-        with transaction.atomic():
-            last_seq = (
-                SessionEvent.objects.select_for_update()
-                .filter(session_key=self.session_key)
-                .aggregate(m=Coalesce(Max("seq"), Value(-1)))["m"]
-            )
-            return SessionEvent.objects.create(
-                session_key=self.session_key,
-                seq=last_seq + 1,
-                type=event_type,
-                actor=actor,
-                payload=payload or {},
-            )
+        return create_sequenced_event(
+            model=SessionEvent,
+            scope={"session_key": self.session_key},
+            session_key=self.session_key,
+            type=event_type,
+            actor=actor,
+            payload=payload or {},
+        )
 
 
 class SessionItem(models.Model):

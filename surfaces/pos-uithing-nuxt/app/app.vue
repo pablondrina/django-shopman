@@ -72,6 +72,7 @@ const {
   tabInput,
   busy,
   saving,
+  unsaved,
   firing,
   renamingTab,
   cancellingSale,
@@ -80,6 +81,7 @@ const {
   lookupBusy,
   serverError,
   result,
+  paymentConfirmed,
   checkoutMode,
   showTabs,
   cashDialogOpen,
@@ -297,6 +299,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         >
           <Icon name="lucide:arrow-left" class="size-5" />
         </UiButton>
+        <span
+          v-if="inSaleView && !checkoutMode && unsaved"
+          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+          role="status"
+          title="A comanda não pôde ser salva — tentando de novo"
+        >
+          <Icon name="lucide:cloud-off" class="size-3.5" /> Não salvo
+        </span>
         <PosComandaHeader
           v-if="inSaleView && !checkoutMode"
           class="min-w-0 flex-1"
@@ -332,7 +342,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
-            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" />
+            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :confirmed="paymentConfirmed" />
             <div class="flex flex-wrap items-center gap-2">
               <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
                 <Icon name="lucide:printer" class="size-4" />

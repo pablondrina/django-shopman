@@ -5,7 +5,7 @@ Instruções para agentes de código que trabalham neste repositório.
 ## Estrutura do Projeto
 
 ```
-packages/               9 apps pip-instaláveis (sem dependência entre si)
+packages/               11 apps pip-instaláveis (sem dependência entre si)
 ├── utils/              Utilitários compartilhados (monetary, phone, admin)          [shopman-utils]
 ├── refs/               Registro de refs tipadas, rename/audit e campos reutilizáveis [shopman-refs]
 ├── offerman/           Catálogo: produtos, preços, listings, coleções, bundles      [shopman-offerman]
@@ -14,7 +14,9 @@ packages/               9 apps pip-instaláveis (sem dependência entre si)
 ├── orderman/           Pedidos: sessions, orders, channels, directives, fulfillment [shopman-orderman]
 ├── guestman/           Clientes: customers, contatos, grupos, loyalty, RFM          [shopman-guestman]
 ├── doorman/            Auth: OTP, device trust, bridge tokens, magic links          [shopman-doorman]
-└── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
+├── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
+├── buyman/             Compras: fornecedores, materiais, custos (procurement, Fase 1) [shopman-buyman]
+└── fiscalman/          Fiscal: classificação NFC-e (schema em Product.metadata)      [shopman-fiscalman]
 
 shopman/                Namespace package (PEP 420) — sem __init__.py
 ├── shop/               Orquestrador (app Django, label="shop") — health/readiness views [django-shopman]
@@ -33,32 +35,38 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
 │   ├── admin/          admin registrations dos models de shop
 │   ├── projections/    types.py (shared projection types — Availability, OrderItem, etc.)
 │   ├── views/          health.py — /health/ e /ready/
-│   ├── middleware.py   APIVersionHeaderMiddleware
-│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
+│   ├── middleware.py   AppPlatformHealthCheckHost, APIVersionHeader, OperatorSessionDomain
+│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, maintenance_worker, sweep_stuck_orders, ifood_poll
 │   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
 │   └── tests/          lifecycle, services, adapters, handlers, integration, e2e
 │
-├── storefront/         Superfície customer (app Django, label="storefront")
-│   ├── views/          14 módulos (catalog, cart, checkout, tracking, auth, payment, etc.)
-│   ├── projections/    8 módulos (cart, catalog, checkout, order_tracking, payment, etc.)
-│   ├── services/       checkout, checkout_defaults, storefront_context, pickup_slots, ifood_*
+├── storefront/         Superfície customer HEADLESS (app Django, label="storefront")
+│   ├── api/            endpoints JSON consumidos pelo BFF do app Nuxt (cart, checkout, auth, tracking, account, catalog…)
+│   ├── presentation/   projections puras (home, cart, checkout, order_tracking, payment, account…)
+│   ├── intents/        interpretação server-side de ações (cart set-qty, phone, auth)
+│   ├── services/       checkout, checkout_defaults, pickup_slots, ifood_*
 │   ├── models/         Promotion, Coupon, DeliveryZone
-│   ├── cart.py         CartService
-│   ├── omotenashi/     UX context builder
-│   ├── context_processors.py  shop() + omotenashi() + cart_count()
-│   ├── middleware.py   ChannelParamMiddleware, WelcomeGateMiddleware
-│   ├── urls.py         URLs customer (menu, cart, checkout, tracking, account, auth)
-│   ├── templates/storefront/  57 templates
-│   └── tests/          web views, projections, checkout, omotenashi
+│   ├── middleware.py   ChannelParamMiddleware (captura ?channel=)
+│   ├── urls.py         montado em /api/v1/ (o app cliente é surfaces/storefront-uithing-nuxt)
+│   └── tests/          api, projections, checkout, rate-limiting, delivery zones
 │
-└── backstage/          Superfícies operador (app Django, label="backstage")
-    ├── views/          5 módulos (kds, orders, pos, production, closing)
-    ├── projections/    6 módulos (kds, order_queue, pos, closing, production, dashboard)
+└── backstage/          Superfícies operador HEADLESS + Admin/Unfold (app Django, label="backstage")
+    ├── api/            endpoints JSON dos apps operador Nuxt (pos, kds, production, orders, closing, operator)
+    ├── projections/    kds, order_queue, pos, closing, production, dashboard
+    ├── services/       operator, closing, production, cash
     ├── models/         KDSInstance, KDSTicket, DayClosing, OperatorAlert, CashRegister*
+    ├── admin_console/  telas Admin/Unfold (produção, fechamento)
     ├── middleware.py   OnboardingMiddleware
-    ├── urls.py         URLs operador (/gestor/pedidos, /gestor/pos, /gestor/kds, /gestor/producao, fechamento)
-    ├── templates/      kds/, pedidos/, pos/, gestao/ (19 templates)
-    └── tests/          POS, KDS, operator tests
+    ├── urls.py         montado em /api/v1/backstage/ + SSE /gestor/events/ (os apps são surfaces/*-uithing-nuxt)
+    └── tests/          POS, KDS, produção, fechamento, contratos de superfície, e2e
+
+surfaces/               5 apps Nuxt 4 (SSR) — as superfícies vivas em produção
+├── storefront-uithing-nuxt/   loja do cliente (apex, mobile-first)  → api.
+├── pos-uithing-nuxt/          PDV (desktop-first)                   → api./backstage
+├── kds-uithing-nuxt/          cozinha (KDS)                         → api./backstage
+├── orders-uithing-nuxt/       gestor de pedidos                     → api./backstage
+└── production-uithing-nuxt/   produção/fornadas (kiosk Solari)      → api./backstage
+    Cada app: BFF Nitro (server/utils/djangoProxy.ts, CSRF), composables + presentation/ pura (vitest).
 
 config/                 Django project wrapper + deployment app
 ├── settings.py, urls.py, wsgi.py, asgi.py
@@ -66,6 +74,12 @@ config/                 Django project wrapper + deployment app
 manage.py               Django management entrypoint (repo root)
 pyproject.toml          Build + test config (repo root)
 ```
+
+> **Cutover headless:** os apps Django `storefront`/`backstage` NÃO renderizam mais
+> HTML — servem API JSON + projections. As superfícies são os 5 apps Nuxt em
+> `surfaces/`, que falam com o Django via BFF (cookie de sessão cross-subdomínio
+> `.boulangerie`). A seção "Frontend: HTMX ↔ Alpine" abaixo vale só para as telas
+> Admin/Unfold que ainda são Django-rendered.
 
 > **Tenant = config + dados + marca, zero código.** Não há pacote Python de
 > instância. "Nelson" é o `Shop` singleton + dados no DB (`Channel`/`RuleConfig`/
@@ -177,7 +191,7 @@ make migrate           # Migrações
 
 ## Core é Sagrado — Regras de Integridade
 
-O `packages/` é um conjunto de 9 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
+O `packages/` é um conjunto de 11 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
 Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o problema**.
 
 1. **Não adicionar campos a modelos do Core sem necessidade comprovada.** Os modelos `Session`, `Order`,

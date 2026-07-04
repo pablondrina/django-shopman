@@ -85,6 +85,10 @@ export function usePosSale(deps: PosSaleDeps) {
   const tabInput = ref("");
   const busy = ref(false);
   const saving = ref(false);
+  // Autosave FALHOU (wi-fi caiu): a comanda tem itens não persistidos. Antes o
+  // erro era engolido (.catch(() => {})) e o operador seguia lançando itens numa
+  // comanda que não estava sendo salva. A UI mostra um chip "não salvo".
+  const unsaved = ref(false);
   // Auto-persist the comanda (Odoo-style): no manual "Salvar". tabLoading guards
   // against re-saving right after a programmatic load (setFromTabPayload).
   const tabLoading = ref(false);
@@ -103,6 +107,33 @@ export function usePosSale(deps: PosSaleDeps) {
     serverError.value = "";
   });
   const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot; issueFiscalDocument: boolean } | null>(null);
+
+  // PIX no PDV: o proof mostra o QR e "aguarde confirmação", mas sem polling o
+  // operador nunca via a confirmação chegar (tinha de ir ao gestor). Aqui pollamos
+  // o status por-order (endpoint gateado por operate_pos) até is_paid/terminal.
+  const paymentConfirmed = ref(false);
+  let pixPollTimer: ReturnType<typeof setInterval> | null = null;
+  function stopPixPolling() {
+    if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
+  }
+  function startPixPolling(orderRef: string) {
+    stopPixPolling();
+    paymentConfirmed.value = false;
+    let attempts = 0;
+    pixPollTimer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > 240) return stopPixPolling(); // ~10 min a 2,5s → desiste
+      try {
+        const status = await $fetch<{ is_paid?: boolean; is_terminal?: boolean }>(
+          apiPath(`/api/v1/backstage/pos/payment/${encodeURIComponent(orderRef)}/status/`),
+          { credentials: "include" },
+        );
+        if (status?.is_paid) { paymentConfirmed.value = true; stopPixPolling(); }
+        else if (status?.is_terminal) { stopPixPolling(); } // cancelado/expirado
+      } catch { /* falha transiente de rede — segue tentando */ }
+    }, 2500);
+  }
+
   const checkoutMode = ref(false);
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
@@ -558,6 +589,8 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function openTab(tab: POSTabProjection | string, options: { preserveDraft?: boolean } = {}) {
+    if (busy.value) return; // guarda de reentrância
+    stopPixPolling(); // saiu da tela de resultado → encerra o polling da venda anterior
     const tabRef = sanitizeTabRef(typeof tab === "string" ? tab : tab.ref);
     if (!tabRef) return;
     if (hasDraftWithoutTab.value && !options.preserveDraft) {
@@ -848,10 +881,25 @@ export function usePosSale(deps: PosSaleDeps) {
       await action.call(actionHref(actions.value, "save_tab", "/api/v1/backstage/pos/tabs/save/"), {
         body: buildPosSaleIntent(state, checkoutContract.value?.intent_version),
       });
+      unsaved.value = false; // persistiu de verdade
       if (!quiet) await refresh();
     };
     persistQueue = persistQueue.then(run, run);
     return persistQueue as Promise<void>;
+  }
+
+  // Retry do autosave: numa rede instável, uma comanda parada com save falho
+  // precisa tentar de novo sozinha (o próximo lançamento também reagenda).
+  let autosaveRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  function onAutosaveFailed() {
+    unsaved.value = true;
+    if (autosaveRetryTimer) return;
+    autosaveRetryTimer = setTimeout(() => {
+      autosaveRetryTimer = null;
+      if (hasOpenTab.value && !checkoutMode.value && !busy.value && !saving.value) {
+        persistTab(true).catch(() => onAutosaveFailed());
+      }
+    }, 5000);
   }
 
   // Debounced auto-persist: fires on cart/sale-data changes while a tab is open,
@@ -863,7 +911,7 @@ export function usePosSale(deps: PosSaleDeps) {
     autosaveTimer = setTimeout(() => {
       autosaveTimer = null;
       if (!hasOpenTab.value || checkoutMode.value || busy.value || saving.value) return;
-      persistTab(true).catch(() => {});
+      persistTab(true).catch(() => onAutosaveFailed());
     }, 1200);
   }
   watch(() => [
@@ -946,6 +994,7 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function reviewCheckout() {
+    if (busy.value) return; // guarda de reentrância
     if (!cart.items.length) return;
     serverError.value = "";
     result.value = null;
@@ -960,6 +1009,8 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   async function submitSale() {
+    if (busy.value) return; // guarda de reentrância: duplo-toque não dispara 2 close_sale
+    stopPixPolling(); // nova finalização → encerra polling de uma venda anterior
     if (!cart.items.length) return;
     saleCancelled.value = false;
     if (!checkoutMode.value) {
@@ -999,13 +1050,17 @@ export function usePosSale(deps: PosSaleDeps) {
           fulfillmentLabel: pos.value?.fulfillment_options.find((option) => option.ref === cart.fulfillmentType)?.label || cart.fulfillmentType,
           printedAtMs: Date.now(),
         };
+        const proof = paymentProofView(response.payment);
         result.value = {
           orderRef,
           nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
-          payment: paymentProofView(response.payment),
+          payment: proof,
           receipt,
           issueFiscalDocument: cart.issueFiscalDocument,
         };
+        // PIX pendente → polla até confirmar; outros métodos já saem resolvidos.
+        if (proof?.isPix && proof?.hasProof) startPixPolling(orderRef);
+        else paymentConfirmed.value = false;
         resetCart();
         await refresh();
       }
@@ -1267,12 +1322,16 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
+  onScopeDispose(() => stopPixPolling());
+
   return {
     // draft + flags
     cart,
     tabInput,
     busy,
     saving,
+    paymentConfirmed,
+    unsaved,
     firing,
     renamingTab,
     cancellingSale,

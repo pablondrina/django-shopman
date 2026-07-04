@@ -65,6 +65,28 @@ class OrderQueueSurfaceTests(TestCase):
         self.assertEqual(queue.saida_delivery_count, 2)
         self.assertEqual(queue.total_count, 6)
 
+    def test_confirmation_deadline_surfaces_on_new_card(self) -> None:
+        from shopman.orderman.models import Directive
+
+        _order("Q-DEADLINE", "new")
+        Directive.objects.create(
+            topic="confirmation.timeout",
+            status="queued",
+            payload={
+                "order_ref": "Q-DEADLINE",
+                "action": "cancel",  # valor real do directive (não "auto_cancel")
+                "expires_at": "2026-07-04T12:00:00+00:00",
+            },
+        )
+        _order("Q-NODEADLINE", "new")  # sem timer → campos vazios
+
+        queue = build_two_zone_queue()
+        cards = {c.ref: c for c in queue.entrada}
+
+        assert cards["Q-DEADLINE"].confirmation_deadline_iso == "2026-07-04T12:00:00+00:00"
+        assert cards["Q-DEADLINE"].confirmation_action == "cancel"
+        assert cards["Q-NODEADLINE"].confirmation_deadline_iso == ""
+
     def test_all_active_operator_statuses_have_advance_action_after_confirmation(self) -> None:
         expected_labels = {
             "confirmed": "Iniciar preparo",

@@ -56,6 +56,7 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
     product_ctx = cart_context.product_context(
         sku,
         for_add=qty > 0 and line is None,
+        qty=qty if qty > 0 else 1,
     )
     if not product_ctx:
         return CartIntentResult(intent=None, error_type="not_found", error_context={})

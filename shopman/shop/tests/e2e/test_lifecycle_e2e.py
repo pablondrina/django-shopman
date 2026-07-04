@@ -197,6 +197,9 @@ class TestE2E2WebPixHappyPath(TransactionTestCase):
         self.assertTrue(
             Directive.objects.filter(topic="confirmation.timeout", payload__order_ref=order.ref).exists()
         )
+        # on_commit completo grava o marcador durável — o sweeper NÃO re-despacha
+        # este pedido (ele está só aguardando confirmação, não órfão).
+        self.assertEqual((order.data or {}).get("lifecycle", {}).get("on_commit"), "done")
 
         # Operator confirms availability; only then the PIX payment is started
         # and the customer receives the active payment request.

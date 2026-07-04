@@ -146,6 +146,30 @@ class TestPaymentGuard:
         order = _make_order(data={})
         ensure_payment_captured(order)
 
+    def test_config_failure_fails_closed_for_uncaptured_digital(self):
+        """Config corrompida NÃO pode abrir a porta: pix não capturado deve bloquear."""
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "pix", "status": "pending"}})
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", side_effect=RuntimeError("corrupt")):
+            with patch("shopman.shop.lifecycle._payment_is_captured", return_value=False):
+                with pytest.raises(InvalidTransition, match="Pagamento"):
+                    ensure_payment_captured(order)
+
+    def test_config_failure_still_allows_offline_method(self):
+        """Fail-closed não pune método offline (cash/POS): segue passando."""
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "cash", "status": "pending"}})
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", side_effect=RuntimeError("corrupt")):
+            ensure_payment_captured(order)
+
+    def test_config_failure_allows_captured(self):
+        """Com pagamento já capturado, config quebrada não bloqueia."""
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "pix", "status": "captured"}})
+        with patch("shopman.shop.lifecycle.ChannelConfig.for_channel", side_effect=RuntimeError("corrupt")):
+            with patch("shopman.shop.lifecycle._payment_is_captured", return_value=True):
+                ensure_payment_captured(order)
+
 
 # ── on_commit ──
 

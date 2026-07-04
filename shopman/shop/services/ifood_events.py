@@ -173,8 +173,14 @@ def _process_placed(event_id: str, order_id: str) -> str:
         _IDEMPOTENCY_SCOPE,
         f"event:{webhook_idempotency.stable_webhook_key(event_id)}",
     )
-    if claim.replayed or claim.in_progress:
-        return "deduped"
+    if claim.replayed:
+        return "deduped"  # já ingerido antes (done) — seguro ackar
+    if claim.in_progress:
+        # Outra instância (ex.: rolling deploy) está processando ESTE evento agora.
+        # NÃO ackar: se ela concluir, o próximo poll vê replayed e acka; se ela
+        # morrer, o iFood reentrega. Ackar aqui perderia o pedido caso a outra
+        # instância falhasse no meio.
+        return "failed"
 
     # Order already ingested via another event/webhook for the same orderId.
     from shopman.orderman.models import Order

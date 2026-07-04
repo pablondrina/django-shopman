@@ -27,6 +27,7 @@ def product_context(
     *,
     channel_ref: str = "web",
     for_add: bool = True,
+    qty: int = 1,
 ) -> CartProductContext | None:
     from shopman.offerman.models import Product
 
@@ -38,27 +39,24 @@ def product_context(
 
     return CartProductContext(
         product=product,
-        unit_price_q=_price_q(product, channel_ref=channel_ref) or 0,
+        unit_price_q=_price_q(product, channel_ref=channel_ref, qty=qty) or 0,
         is_d1=_is_d1(product.sku, channel_ref=channel_ref),
     )
 
 
-def _price_q(product, *, channel_ref: str) -> int | None:
-    from shopman.offerman.models import ListingItem
+def _price_q(product, *, channel_ref: str, qty: int = 1) -> int | None:
+    # Offerman é a autoridade de preço: `unit_price` faz o cascade correto por tier
+    # (min_qty__lte=qty), respeita is_sellable e a janela de validade do listing, e
+    # cai para base_price_q. Reimplementar aqui (ex.: order_by("-min_qty").first() sem
+    # filtro de qty) cobrava o tier de atacado ao adicionar 1 unidade.
+    from shopman.offerman.service import CatalogError, CatalogService
 
-    item = (
-        ListingItem.objects.filter(
-            listing__ref=channel_ref,
-            listing__is_active=True,
-            product=product,
-            is_published=True,
+    try:
+        return CatalogService.unit_price(
+            product.sku, qty=Decimal(str(qty or 1)), listing=channel_ref
         )
-        .order_by("-min_qty")
-        .first()
-    )
-    if item:
-        return item.price_q
-    return product.base_price_q
+    except CatalogError:
+        return product.base_price_q
 
 
 def _is_d1(sku: str, *, channel_ref: str) -> bool:

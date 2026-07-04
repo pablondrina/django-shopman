@@ -355,6 +355,28 @@ def test_process_events_dedupes_existing_order(db, fake_headers, ifood_order):
 
 
 @override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
+def test_process_events_in_progress_claim_is_not_acked(db, fake_headers):
+    """Outra instância (rolling deploy) processando o evento AGORA (claim in_progress):
+    o evento NÃO pode ser ackado — se aquela instância morrer, o iFood reentrega.
+    Ackar aqui perderia o pedido."""
+    from shopman.shop.models import Channel
+    from shopman.shop.services import ifood_events
+    from shopman.shop.services.webhook_idempotency import WebhookClaim
+
+    Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood", "is_active": True})
+    events = [{"id": "evt-inprog", "fullCode": "PLACED", "orderId": "ifd-order-x"}]
+
+    in_progress = WebhookClaim(record=None, in_progress=True)
+    with patch("shopman.shop.services.ifood_events.webhook_idempotency.claim", return_value=in_progress):
+        with patch("shopman.shop.services.ifood_events.acknowledge", return_value=True) as mock_ack:
+            summary = ifood_events.process_events(events)
+
+    assert summary["failed"] == 1
+    assert summary["deduped"] == 0
+    mock_ack.assert_not_called()  # não ackado → iFood reentrega
+
+
+@override_settings(SHOPMAN_IFOOD=IFOOD_CFG)
 def test_process_events_ignores_non_placed_codes(db, fake_headers):
     from shopman.shop.services import ifood_events
 

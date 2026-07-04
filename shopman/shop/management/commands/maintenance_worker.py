@@ -8,6 +8,7 @@ manutenção num loop (default: a cada 5 minutos):
   cleanup_stale_planning    — quants planejados órfãos
   cleanup_d1                — D-1 vencido vira perda
   reconcile_payments        — PIX pago com webhook perdido é resgatado
+  sweep_stuck_orders        — pedido órfão em NEW (crash pós-commit) é resgatado
 
 Cada tarefa é isolada: uma falha loga e NUNCA derruba o ciclo das demais.
 
@@ -33,6 +34,7 @@ MAINTENANCE_COMMANDS = (
     "cleanup_stale_planning",
     "cleanup_d1",
     "reconcile_payments",
+    "sweep_stuck_orders",
 )
 
 

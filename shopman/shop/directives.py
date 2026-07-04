@@ -25,6 +25,7 @@ ORDER_STALE_NEW_ALERT = "order.stale_new_alert"
 
 # Payment
 PAYMENT_TIMEOUT = "payment.timeout"
+PAYMENT_REFUND = "payment.refund"  # retry assíncrono de estorno com backoff
 
 # Production
 # Heartbeat auto-reagendável: varre WOs started além da janela e planned

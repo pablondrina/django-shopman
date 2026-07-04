@@ -13,6 +13,7 @@
 import {
   elapsedLabel,
   fullDateLabel,
+  isoForOffset,
   matchesRowQuery,
   rowCommitments,
   rowCommittedUnits,
@@ -26,6 +27,7 @@ import type {
   ProductionMatrixRowProjection,
   ProductionShortageError,
   ProductionSuggestionProjection,
+  WorkOrderCardProjection,
 } from "~/types/production";
 
 const props = defineProps<{ stage: "plan" | "produce" | "expedite"; title: string }>();
@@ -41,14 +43,8 @@ const query = ref(typeof route.query.q === "string" ? route.query.q : "");
 watch(() => route.query.q, (q) => { if (typeof q === "string") query.value = q; });
 
 // ── Data: Hoje · Amanhã · Outra data (chip com o picker embutido) ───────────
-function isoFor(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-const todayISO = isoFor(0);
-const tomorrowISO = isoFor(1);
+const todayISO = isoForOffset(0);
+const tomorrowISO = isoForOffset(1);
 const isCustomDate = computed(() => selectedDate.value !== todayISO && selectedDate.value !== tomorrowISO);
 const customDateInput = ref<HTMLInputElement | null>(null);
 function openCustomDate() {
@@ -244,15 +240,32 @@ async function confirmStart() {
   }
 }
 
+// A conclusão mira UMA WorkOrder específica, não o agregado da linha. Com dois
+// lotes de 30 em processo, pré-preencher com o started_qty AGREGADO (60) contra a
+// WO[0] (30) fazia o ledger engolir rendimento de 200%. Aqui a qty pré-preenchida
+// é a do lote alvo, e o operador escolhe o lote quando há mais de um.
+const finishTargetPk = ref<number | null>(null);
+const finishTarget = computed<WorkOrderCardProjection | null>(() => {
+  const row = finishRow.value;
+  if (!row) return null;
+  return row.started_orders.find((w) => w.pk === finishTargetPk.value) ?? row.started_orders[0] ?? null;
+});
+function selectFinishTarget(wo: WorkOrderCardProjection) {
+  finishTargetPk.value = wo.pk;
+  finishQty.value = wo.started_qty !== "0" ? wo.started_qty : (finishRow.value?.planned_qty ?? "");
+}
+
 function openFinish(row: ProductionMatrixRowProjection) {
   startedRow.value = null;
   finishRow.value = row;
-  finishQty.value = row.started_qty !== "0" ? row.started_qty : row.planned_qty;
+  const wo0 = row.started_orders[0];
+  finishTargetPk.value = wo0?.pk ?? null;
+  finishQty.value = wo0 && wo0.started_qty !== "0" ? wo0.started_qty : row.planned_qty;
 }
 
 async function confirmFinish(force = false) {
   const row = finishRow.value;
-  const wo = row?.started_orders[0];
+  const wo = finishTarget.value;
   if (!row || !wo || !finishQty.value.trim()) return;
   const res = await kds.finish(wo.pk, finishQty.value.trim(), force);
   if (res.ok) {
@@ -265,15 +278,25 @@ async function confirmFinish(force = false) {
   }
 }
 
+// Inicia o próximo lote PLANEJADO sem sair do fluxo — antes, com um lote em
+// processo, qualquer toque caía no diálogo de gestão e não havia como largar o
+// próximo até concluir o primeiro.
+function startNextBatch() {
+  const row = startedRow.value;
+  startedRow.value = null;
+  if (row) openStart(row);
+}
+
 async function overrideShortage() {
   const s = shortage.value;
   shortage.value = null;
   if (!s) return;
-  const row = rows.value.find((r) =>
-    r.started_orders.some((wo) => wo.ref === (s as { work_order_ref?: string }).work_order_ref),
-  );
+  const ref = (s as { work_order_ref?: string }).work_order_ref;
+  const row = rows.value.find((r) => r.started_orders.some((wo) => wo.ref === ref));
   if (row) {
     finishRow.value = row;
+    const wo = row.started_orders.find((w) => w.ref === ref);
+    finishTargetPk.value = wo?.pk ?? row.started_orders[0]?.pk ?? null;
     await confirmFinish(true);
   }
 }
@@ -659,6 +682,15 @@ const headerCount = computed(() => {
           </button>
         </div>
 
+        <button
+          v-if="startedRow && startableWorkOrder(startedRow)"
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition hover:bg-accent"
+          @click="startNextBatch()"
+        >
+          <Icon name="lucide:plus" class="size-4" /> Iniciar próximo lote ({{ startableWorkOrder(startedRow)?.planned_qty }} un.)
+        </button>
+
         <div v-if="voidConfirming" class="flex flex-col gap-2">
           <p class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-sm text-amber-700 dark:text-amber-300">
             <Icon name="lucide:triangle-alert" class="mt-0.5 size-4 shrink-0" />
@@ -704,9 +736,27 @@ const headerCount = computed(() => {
         <UiDialogHeader>
           <UiDialogTitle>Concluir {{ finishRow?.output_sku }}</UiDialogTitle>
           <UiDialogDescription>
-            Quantidade final aprovada (#{{ finishRow?.started_orders[0]?.ref }}) — sai da produção e segue para a vitrine.
+            Quantidade final aprovada (#{{ finishTarget?.ref }}) — sai da produção e segue para a vitrine.
           </UiDialogDescription>
         </UiDialogHeader>
+        <div
+          v-if="(finishRow?.started_orders.length ?? 0) > 1"
+          class="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label="Escolher o lote a concluir"
+        >
+          <button
+            v-for="wo in finishRow?.started_orders"
+            :key="wo.pk"
+            type="button"
+            :aria-pressed="wo.pk === finishTargetPk"
+            class="rounded-md border px-2 py-1 text-xs font-medium tabular-nums transition"
+            :class="wo.pk === finishTargetPk ? 'border-primary bg-primary/5' : 'hover:bg-accent'"
+            @click="selectFinishTarget(wo)"
+          >
+            #{{ wo.ref }} · {{ wo.started_qty }} un.
+          </button>
+        </div>
         <div class="flex items-center gap-2">
           <button type="button" class="grid size-12 shrink-0 place-items-center rounded-md border text-xl font-bold transition hover:bg-accent" aria-label="Diminuir" @click="bump('finish', -1)">−</button>
           <input
