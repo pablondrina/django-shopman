@@ -253,11 +253,10 @@ Após as ondas, ataque dos itens antes deferidos:
   M:SS que tica. (10 testes backend + 3 vitest)
 - ✅ **Refetch ao acordar** (`visibilitychange`/`online`) no KDS e no gestor (produção
   já tinha via `useAdaptivePoll`).
-- ⏳ **PIX polling no POS** — bloqueado por arquitetura: o status endpoint do storefront
-  é `authentication_classes=[]` + `get_accessible_order` pela sessão de checkout do
-  cliente (anônima); o operador POS (staff) não se encaixa. Precisa de **novo endpoint
-  de status gateado por `operate_pos`** no backstage + verificação do fluxo PIX na stack
-  viva. Não shippar polling de dinheiro às cegas.
+- ✅ **PIX polling no POS** — destravado: novo `POSPaymentStatusView` gateado por
+  `operate_pos` (reusa `build_payment_status`, por-order) + `usePosSale` polla até
+  `is_paid`/terminal e troca o proof por "Pagamento PIX confirmado". (3 testes backend
+  + typecheck). Verificação do fluxo PIX ponta-a-ponta ainda pede a stack viva.
 - ⏳ **Ainda deferido** (baixo valor / infra / precisa stack): staleness "idade do dado"
   banner, poda dos componentes ui-thing mortos, `refs` UniqueConstraint (caminho
   dormente sem escritor — não gold-platear), lockfile Python, helper de RMW `order.data`,
