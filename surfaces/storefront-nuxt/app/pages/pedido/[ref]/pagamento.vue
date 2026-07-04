@@ -204,7 +204,7 @@ useSeoMeta({
                     <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
                   </div>
                 </div>
-                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" size="lg" icon="lucide:credit-card">
+                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">
                   Pagar com cartão
                 </UiButton>
               </div>
@@ -241,6 +241,19 @@ useSeoMeta({
                 </div>
               </div>
 
+              <div v-if="payment.mock_enabled" class="space-y-1 rounded-lg border border-dashed bg-muted/40 p-4">
+                <UiButton
+                  variant="secondary"
+                  class="w-full"
+                  icon="lucide:flask-conical"
+                  :loading="simulating"
+                  @click="simulatePayment"
+                >
+                  Simular pagamento
+                </UiButton>
+                <p class="shop-meta text-center">Ambiente de teste · captura por gateway simulado</p>
+              </div>
+
               <UiAlert v-if="payment.error_message" variant="destructive">
                 <UiAlertTitle>Gateway</UiAlertTitle>
                 <UiAlertDescription>{{ payment.error_message }}</UiAlertDescription>
@@ -275,18 +288,6 @@ useSeoMeta({
                   {{ action.label }}
                 </UiButton>
 
-                <div v-if="payment.mock_enabled" class="mt-2 space-y-1 border-t border-dashed pt-3">
-                  <UiButton
-                    variant="outline"
-                    class="w-full border-dashed"
-                    icon="lucide:flask-conical"
-                    :loading="simulating"
-                    @click="simulatePayment"
-                  >
-                    Simular pagamento
-                  </UiButton>
-                  <p class="shop-meta text-center">Ambiente de teste · captura por gateway simulado</p>
-                </div>
               </UiCardContent>
             </UiCard>
 
