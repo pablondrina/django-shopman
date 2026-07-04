@@ -436,6 +436,7 @@ class Command(BaseCommand):
                     "backstage.operate_production",
                     "backstage.perform_closing",
                     "backstage.adjust_cashshift",
+                    "backstage.manage_operators",
                     "shop.manage_orders",
                 ],
             ),
