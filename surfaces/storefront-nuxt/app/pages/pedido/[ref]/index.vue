@@ -457,7 +457,7 @@ useSeoMeta({
               <UiDialogDescription>{{ tracking.copy.rating_comment_placeholder }}</UiDialogDescription>
             </UiDialogHeader>
             <div class="space-y-4">
-              <UiNumberField v-model="rating" :min="1" :max="5" />
+              <UiStarRating v-model="rating" :max="5" class="justify-center" />
               <UiTextarea v-model="comment" :rows="3" />
             </div>
             <UiDialogFooter>
