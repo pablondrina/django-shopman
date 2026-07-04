@@ -66,6 +66,9 @@ const step = computed(() => authStep({
 const code = computed(() => codeDigits.value.join('').slice(0, 6))
 const canVerifyCode = computed(() => code.value.length === 6 && !pending.value)
 const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
+// DDD padrão da loja (config): assume-se quando o cliente entra sem DDD, para o
+// telefone ser guardado no formato certo (e não virar "(55) …" depois).
+const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_ddd || '')
 const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
 const stepTitle = computed(() => {
   if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
@@ -220,7 +223,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
   debugOtpCode.value = ''
   debugOtpExpiresAt.value = ''
   try {
-    const devicePayload = authPhonePayload(phone.value, phoneRegion.value)
+    const devicePayload = authPhonePayload(phone.value, phoneRegion.value, undefined, defaultDdd.value)
     const trusted = await $fetch<VerifyResponse & { trusted?: boolean }>(apiPath('/api/auth/device-check/'), {
       method: 'POST',
       headers: await csrfHeaders(),
@@ -239,7 +242,7 @@ async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Eve
       return
     }
 
-    const requestPayload = authPhonePayload(phone.value, phoneRegion.value, method)
+    const requestPayload = authPhonePayload(phone.value, phoneRegion.value, method, defaultDdd.value)
     const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
       method: 'POST',
       headers: await csrfHeaders(),
@@ -260,7 +263,7 @@ async function resendCode () {
   error.value = null
   codeDigits.value = []
   try {
-    const payload = authPhonePayload(requestedPhone.value, phoneRegion.value, lastDeliveryMethod.value)
+    const payload = authPhonePayload(requestedPhone.value, phoneRegion.value, lastDeliveryMethod.value, defaultDdd.value)
     const response = await $fetch<RequestCodeResponse>(apiPath('/api/auth/request-code/'), {
       method: 'POST',
       headers: await csrfHeaders(),

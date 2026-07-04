@@ -382,8 +382,10 @@ describe('surface UX guardrails', () => {
     expect(checkout).not.toContain('Compra sem senha')
     expect(types).toContain('requires_authentication: boolean')
     expect(types).toContain('auth_action: Action | null')
-    // Telefone editorial formatado (não cru/truncado) e poka-yoke fora de área.
-    expect(checkout).toContain('formatPhoneDisplay')
+    // Telefone editorial formatado (não cru/truncado), assumindo o DDD padrão da
+    // loja (fim do "(55) …" e do número sem máscara), e poka-yoke fora de área.
+    expect(checkout).toContain('displayBrazilianPhone')
+    expect(checkout).toContain('default_ddd')
     expect(checkout).toContain('shouldOfferPickupSwap')
     expect(checkout).toContain('data-checkout-pickup-swap')
     expect(checkout).toContain('Mudar para retirada')

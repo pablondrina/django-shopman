@@ -404,6 +404,7 @@ export interface PublicConfigProjection {
   whatsapp_url: string
   shop_latitude: number | null
   shop_longitude: number | null
+  default_ddd: string
 }
 
 export interface HomeProjection {

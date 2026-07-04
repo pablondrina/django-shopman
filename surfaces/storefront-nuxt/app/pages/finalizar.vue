@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
 import { labelPatchPayload, type AddressSelection, type AddressLabelKey } from '~/presentation/address'
-import { phoneDisplay as formatPhoneDisplay } from '~/utils/authPhone'
+import { displayBrazilianPhone, normalizeAuthPhone } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
   addressSummary as buildAddressSummary,
@@ -47,6 +47,10 @@ type Step = CheckoutStep
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const { setFromServer, clearCart, applyCoupon, removeCoupon } = useCartState()
+const session = useShopSession()
+// DDD padrão da loja (config admin) — assumido quando o cliente digita telefone
+// sem DDD, para o número nunca virar "(55) …" nem falhar a validação por isso.
+const defaultDdd = computed(() => session.publicConfig.value?.default_ddd || '')
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const state = reactive<CheckoutFormState>({
@@ -140,7 +144,7 @@ const giftSummary = computed(() => {
     parts.push('Embalar para presente')
   } else {
     parts.push(`Para ${state.recipient_name.trim() || 'quem recebe'}`)
-    if (state.recipient_phone.trim()) parts.push(state.recipient_phone.trim())
+    if (state.recipient_phone.trim()) parts.push(displayBrazilianPhone(state.recipient_phone, defaultDdd.value))
   }
   if (state.gift_hide_values) parts.push('valores ocultos')
   return parts.join(' · ')
@@ -244,7 +248,7 @@ const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date
 const whenSummary = computed(() => buildWhenSummary(state.delivery_date, selectedSlotLabel.value))
 const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLabel.value, whenSummary.value))
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
-const phoneDisplay = computed(() => formatPhoneDisplay(state.phone || checkout.value?.customer_phone || ''))
+const phoneDisplay = computed(() => displayBrazilianPhone(state.phone || checkout.value?.customer_phone || '', defaultDdd.value))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
 // Nome só vira input com ação deliberada (ou quando ainda não há nome).
 const showNameInput = computed(() => nameEditing.value || !state.name.trim())
@@ -604,11 +608,13 @@ function validatePaymentStep (): boolean {
     if (!state.recipient_name.trim()) {
       errors.recipient_name = 'Informe o nome de quem vai receber o presente.'
     }
-    const digits = state.recipient_phone.replace(/\D/g, '')
+    // Assume o DDD padrão da loja antes de validar (o cliente não precisa saber o
+    // DDD; espelha o Doorman). Válido = 10 (fixo) ou 11 (celular) dígitos locais.
+    const local = normalizeAuthPhone(state.recipient_phone, 'BR', defaultDdd.value).replace(/^\+55/, '')
     if (!state.recipient_phone.trim()) {
       errors.recipient_phone = 'Informe o telefone de quem vai receber o presente.'
-    } else if (digits.length < 10) {
-      errors.recipient_phone = 'Telefone do destinatário inválido. Informe com DDD, ex: (43) 99999-9999'
+    } else if (local.length < 10) {
+      errors.recipient_phone = 'Telefone do destinatário inválido. Ex: (43) 99999-9999'
     }
   }
   fieldErrors.value = errors

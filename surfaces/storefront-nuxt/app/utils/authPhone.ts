@@ -18,7 +18,7 @@ function normalizeInternationalPhone (value: string): string {
   return digits ? `+${digits}` : ''
 }
 
-export function normalizeAuthPhone (value: string, region: AuthPhoneRegion): string {
+export function normalizeAuthPhone (value: string, region: AuthPhoneRegion, defaultDdd = ''): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
 
@@ -33,6 +33,14 @@ export function normalizeAuthPhone (value: string, region: AuthPhoneRegion): str
   if (digits.startsWith('0') && digits.length >= 3) {
     const ddd = Number(digits.slice(1, 3))
     if (ddd >= 11) digits = digits.slice(1)
+  }
+
+  // Sem DDD (8 dígitos fixo / 9 dígitos celular) → assume o DDD padrão da loja
+  // (Shop.default_ddd, config admin), espelhando o Doorman server-side. Sem isso,
+  // um número local vira E.164 malformado e o "55" (país) é lido como DDD.
+  const ddd = digitsOnly(defaultDdd).slice(0, 2)
+  if ((digits.length === 8 || digits.length === 9) && ddd.length === 2) {
+    digits = `${ddd}${digits}`
   }
 
   digits = digits.slice(0, 11)
@@ -68,13 +76,22 @@ export function phoneDisplay (value: string): string {
   return trimmed
 }
 
+// Exibe um telefone BR digitado/cru (com ou sem DDD, mascarado ou E.164),
+// normalizando com o DDD padrão da loja antes de formatar. É o que a tela de
+// revisão do pedido usa para NUNCA mostrar "(55) …" nem número sem formatação.
+export function displayBrazilianPhone (value: string, defaultDdd = ''): string {
+  const normalized = normalizeAuthPhone(value, 'BR', defaultDdd)
+  return normalized ? phoneDisplay(normalized) : ''
+}
+
 export function authPhonePayload (
   value: string,
   region: AuthPhoneRegion,
-  deliveryMethod?: AuthDeliveryMethod
+  deliveryMethod?: AuthDeliveryMethod,
+  defaultDdd = ''
 ): AuthPhonePayload {
   const phone = value.trim()
-  const phone_normalized = normalizeAuthPhone(phone, region)
+  const phone_normalized = normalizeAuthPhone(phone, region, defaultDdd)
   return {
     phone,
     phone_normalized,
