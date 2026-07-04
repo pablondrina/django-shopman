@@ -5,7 +5,7 @@
 // (Opção C): when the gate is ON and nobody has unlocked, the overlay covers the
 // app until a PIN/badge identifies the operator. Gated OFF → never shows.
 const OPERATOR_PERM = "backstage.operate_production";
-const { authenticated, locked } = useOperatorLock(OPERATOR_PERM);
+const { authenticated, locked, mustChange } = useOperatorLock(OPERATOR_PERM);
 
 useHead({ title: "Produção" });
 </script>
@@ -15,7 +15,7 @@ useHead({ title: "Produção" });
     <NuxtRouteAnnouncer />
     <NuxtPage />
     <OperatorLogin v-if="!authenticated" />
-    <OperatorLock v-else-if="locked" :perm="OPERATOR_PERM" />
+    <OperatorLock v-else-if="locked || mustChange" :perm="OPERATOR_PERM" />
     <UiSonner />
   </div>
 </template>

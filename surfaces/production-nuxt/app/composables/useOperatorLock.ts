@@ -18,6 +18,8 @@ export function useOperatorLock(perm: string) {
   const locked = computed(() => isLocked(session.value));
   const operator = computed<OperatorCard | null>(() => session.value?.operator ?? null);
   const requireOperator = computed(() => Boolean(session.value?.require_operator));
+  // O operador ativo foi resetado pelo gerente (PIN temporário) → força a troca.
+  const mustChange = computed(() => Boolean(session.value?.pin_must_change));
 
   const eligible = ref<OperatorCard[]>([]);
   async function loadEligible(): Promise<void> {
@@ -63,5 +65,27 @@ export function useOperatorLock(perm: string) {
     }
   }
 
-  return { session, authenticated, locked, operator, requireOperator, eligible, loadEligible, unlock, lock, refresh, busy };
+  const changeError = ref("");
+  // Trocar o próprio PIN provando o atual. `operatorId` identifica o alvo na lock
+  // screen (fluxo forçado, onde o "atual" é o PIN temporário); ausente = operador ativo.
+  async function changePin(input: { operatorId?: number; currentPin: string; newPin: string }): Promise<boolean> {
+    if (busy.value) return false;
+    busy.value = true;
+    changeError.value = "";
+    try {
+      await $fetch("/api/v1/backstage/operator/pin/change/", {
+        method: "POST",
+        body: { operator_id: input.operatorId, current_pin: input.currentPin, new_pin: input.newPin },
+      });
+      await refresh();
+      return true;
+    } catch (err: any) {
+      changeError.value = err?.data?.detail || "Não foi possível trocar o PIN.";
+      return false;
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  return { session, authenticated, locked, operator, requireOperator, mustChange, eligible, loadEligible, unlock, lock, changePin, changeError, refresh, busy };
 }

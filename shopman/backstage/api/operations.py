@@ -254,17 +254,24 @@ class POSView(APIView):
     required_permission = "backstage.operate_pos"
 
     def get(self, request):
-        from shopman.backstage.services.operator import active_operator
+        from shopman.backstage.services.operator import (
+            active_operator,
+            pin_must_change,
+            resolve_active_operator_user,
+        )
 
         pos = build_pos(operator=request.user)
         shift = build_pos_shift_summary()
         query = request.query_params.get("q", "")
         tabs = build_pos_tabs(query=query)
+        operator = active_operator(request)
+        operator_user = resolve_active_operator_user(request) if operator else None
         return Response({
             "pos": projection_data(pos),
             "shift": projection_data(shift),
             "tabs": projection_data(tabs),
-            "operator": active_operator(request),
+            "operator": operator,
+            "pin_must_change": pin_must_change(operator_user),
         })
 
 

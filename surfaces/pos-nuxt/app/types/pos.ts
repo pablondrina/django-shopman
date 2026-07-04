@@ -259,6 +259,9 @@ export interface POSResponse {
   shift: POSShiftSummaryProjection;
   tabs: POSTabProjection[];
   operator: POSOperatorProjection | null;
+  // O operador ativo recebeu um PIN temporário (reset do gerente) e precisa
+  // trocá-lo antes de operar — a lock screen força a troca quando true.
+  pin_must_change: boolean;
 }
 
 export interface POSCartItem {

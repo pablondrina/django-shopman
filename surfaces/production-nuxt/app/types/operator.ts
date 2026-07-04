@@ -13,6 +13,9 @@ export interface OperatorSession {
   device_user: string;
   operator: OperatorCard | null;
   locked: boolean;
+  // O operador ativo recebeu um PIN temporário (reset do gerente) e precisa
+  // trocá-lo antes de operar. O shell força a troca quando true.
+  pin_must_change: boolean;
 }
 
 export interface OperatorSessionResponse extends OperatorSession {}
