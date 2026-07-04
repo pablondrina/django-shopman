@@ -247,13 +247,18 @@ def _build_context(order, payload: dict, template: str) -> dict:
     """Constrói contexto de notificação a partir dos dados do pedido."""
     fulfillment_type = order.data.get("fulfillment_type", "pickup")
 
+    reason = payload.get("reason")
     context = {
         "order_ref": payload.get("order_ref"),
         "template": template,
         "order_status": order.status,
         "total_q": order.total_q,
         "items": order.snapshot.get("items", []),
-        "reason": payload.get("reason"),
+        "reason": reason,
+        # Pre-formatted, self-suppressing reason line — templates embed `{reason_note}`
+        # and it disappears cleanly when no customer-facing reason is present (same
+        # pattern as `pix_suffix`). Avoids "Motivo: None"/dangling labels in flat copy.
+        "reason_note": f"\n\nMotivo: {reason}" if reason else "",
         "fulfillment_type": fulfillment_type,
         "outside_business_hours": bool(order.data.get("outside_business_hours", False)),
     }

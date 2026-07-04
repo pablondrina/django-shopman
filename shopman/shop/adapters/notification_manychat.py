@@ -44,7 +44,7 @@ MESSAGE_TEMPLATES: dict[str, str] = {
         "Pedido {order_ref} entregue. Obrigado pela preferencia! \u2b50{reorder_suffix}"
     ),
     "order_cancelled": (
-        "Seu pedido {order_ref} foi cancelado. Qualquer duvida, estamos aqui."
+        "Seu pedido {order_ref} foi cancelado.{reason_note}\n\nQualquer duvida, estamos aqui."
     ),
     "order_rejected": (
         "Seu pedido {order_ref} nao pode ser confirmado pelo estabelecimento. "

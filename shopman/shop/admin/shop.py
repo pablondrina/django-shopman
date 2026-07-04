@@ -602,6 +602,9 @@ class ShopForm(forms.ModelForm):
     # serializaria para string e o ArrayWidget quebraria no split por vírgula.
     social_links = forms.Field(required=False, widget=ArrayWidget())
 
+    # Justificativas de cancelamento/recusa — mesma edição add/remove (ArrayWidget).
+    cancellation_presets = forms.Field(required=False, widget=ArrayWidget())
+
     locals().update(_defaults_form_fields())
     locals().update(_integrations_form_fields())
 
@@ -629,6 +632,14 @@ class ShopForm(forms.ModelForm):
             self.fields["social_links"].help_text = (
                 "Adicione uma rede por vez (URL completa, ex.: https://instagram.com/sualoja). "
                 "O ícone é detectado automaticamente."
+            )
+
+        if "cancellation_presets" in self.fields:
+            self.fields["cancellation_presets"].required = False
+            self.fields["cancellation_presets"].help_text = (
+                "Adicione um motivo por vez. O operador injeta com um toque ao recusar/"
+                "cancelar no gestor, e o texto vai ao cliente na notificação — escreva na "
+                "voz da loja (ex.: “Item indisponível no momento”)."
             )
 
         opening_hours = getattr(self.instance, "opening_hours", None) or {}
@@ -764,6 +775,8 @@ class ShopForm(forms.ModelForm):
         # ArrayWidget vazio → None; o campo é NOT NULL (default lista).
         if self._has("social_links") and not cleaned_data.get("social_links"):
             cleaned_data["social_links"] = []
+        if self._has("cancellation_presets") and not cleaned_data.get("cancellation_presets"):
+            cleaned_data["cancellation_presets"] = []
         if self._has(_opening_field("monday", "status")):
             for day, label in OPENING_HOUR_DAYS:
                 status = cleaned_data.get(_opening_field(day, "status"))
@@ -1223,6 +1236,13 @@ _ORDERING_FIELDSETS = (
             "defaults_pickup_fallback_slot",
         ) + _defaults_pickup_admin_rows(),
         "description": "Slots padrão de retirada e janela máxima para encomendas.",
+    }),
+    ("Motivos de cancelamento e recusa", {
+        "fields": ("cancellation_presets",),
+        "description": (
+            "Justificativas prontas para o operador recusar ou cancelar um pedido com um "
+            "toque no gestor. O motivo escolhido é enviado ao cliente na notificação."
+        ),
     }),
 )
 

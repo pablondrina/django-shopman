@@ -166,6 +166,25 @@ class OrderQueueSurfaceTests(TestCase):
 
         self.assertEqual(card.customer_name, "+14155552671")
 
+
+class OperatorOrderPresetTests(TestCase):
+    def test_detail_projection_exposes_store_cancellation_presets(self) -> None:
+        from django.core.cache import cache
+
+        from shopman.backstage.projections.order_queue import build_operator_order
+        from shopman.shop.models import Shop
+
+        Shop.objects.create(
+            name="Loja Teste",
+            cancellation_presets=["Item indisponível", "  ", "Problema técnico"],
+        )
+        cache.clear()  # Shop.load() memoizes the singleton
+
+        proj = build_operator_order(_order("PRESET-1", "new"))
+
+        # Blank entries are dropped; the rest are exposed in order for the gestor.
+        self.assertEqual(proj.cancellation_presets, ("Item indisponível", "Problema técnico"))
+
 # As ações do operador (advance/reject/confirm) agora são exercidas no contrato
 # headless em test_api_orders_surface.py; a semântica de lifecycle (new não avança,
 # terminal não avança, reject só em new) é coberta nos testes de shop/operator_orders.

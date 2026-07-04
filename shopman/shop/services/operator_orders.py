@@ -186,13 +186,31 @@ def confirm_received(order: Order, *, actor: str = "customer") -> bool:
     return True
 
 
-def cancel_order(order: Order, *, reason: str, actor: str, cancellation_code: str = "") -> None:
+def cancel_order(
+    order: Order,
+    *,
+    reason: str,
+    actor: str,
+    cancellation_code: str = "",
+    customer_note: str = "",
+) -> None:
     """Cancel an order through the canonical cancellation service.
 
     ``cancellation_code`` (iFood) rides ``order.data`` to the status-callback handler.
+
+    ``customer_note`` is the operator-authored, customer-facing justification. It is
+    stored under ``order.data["cancellation_note"]`` and surfaced to the customer in
+    the ``order_cancelled`` notification. Kept separate from ``cancellation_reason``,
+    which also carries machine codes (``pix_timeout``, ``customer_requested``) that
+    must never reach the customer. Empty when the operator gave no reason → the
+    customer gets the plain cancellation message.
     """
-    extra_data = {"ifood_cancellation_code": cancellation_code} if cancellation_code else None
-    cancel(order, reason=reason, actor=actor, extra_data=extra_data)
+    extra_data: dict[str, str] = {}
+    if cancellation_code:
+        extra_data["ifood_cancellation_code"] = cancellation_code
+    if customer_note.strip():
+        extra_data["cancellation_note"] = customer_note.strip()
+    cancel(order, reason=reason, actor=actor, extra_data=extra_data or None)
 
 
 def settle_delivery_cash(order: Order, *, cash_shift, actor: str, amount_q: int | None = None) -> int:

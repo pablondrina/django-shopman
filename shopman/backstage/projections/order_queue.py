@@ -151,6 +151,7 @@ class OperatorOrderProjection:
     gift_recipient_phone: str
     gift_message: str
     gift_hide_values: bool
+    cancellation_presets: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -267,7 +268,25 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         gift_recipient_phone=str(recipient.get("phone", "") or ""),
         gift_message=str(order.data.get("gift_message", "") or ""),
         gift_hide_values=bool(order.data.get("gift_hide_values")),
+        cancellation_presets=_cancellation_presets(),
     )
+
+
+def _cancellation_presets() -> tuple[str, ...]:
+    """Store-configured reject/cancel justification presets (Admin/Unfold).
+
+    The operator injects one with a tap in the gestor; the chosen text is sent to
+    the customer in the cancellation notification. Read from the Shop singleton;
+    never fails the projection.
+    """
+    try:
+        from shopman.shop.models import Shop
+
+        presets = Shop.load().cancellation_presets or []
+    except Exception:
+        logger.debug("orders.cancellation_presets_read_failed", exc_info=True)
+        return ()
+    return tuple(str(p).strip() for p in presets if str(p).strip())
 
 
 def build_order_card(order: Order) -> OrderCardProjection:

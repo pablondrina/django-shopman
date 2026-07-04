@@ -43,10 +43,14 @@ def advance_order(order, *, actor: str):
         raise OrderError(str(exc) or "Ação inválida") from exc
 
 
-def cancel_order(order, *, reason: str, actor: str, cancellation_code: str = ""):
+def cancel_order(order, *, reason: str, actor: str, cancellation_code: str = "", customer_note: str = ""):
     try:
         return operator_orders.cancel_order(
-            order, reason=reason, actor=actor, cancellation_code=cancellation_code
+            order,
+            reason=reason,
+            actor=actor,
+            cancellation_code=cancellation_code,
+            customer_note=customer_note,
         )
     except InvalidTransition as exc:
         raise OrderError(str(exc)) from exc

@@ -424,7 +424,21 @@ def _on_cancelled(order, config: ChannelConfig) -> None:
     _release_coupon_use(order)
     _settle_cancelled_payment(order)
     fiscal.cancel(order)
-    notification.send(order, "order_cancelled")
+
+    # Rejections already queued `order_rejected` (with the reason) in reject_order;
+    # firing `order_cancelled` too would double-notify the customer. All the
+    # side-effects above still run either way — only the redundant message is skipped.
+    if (order.data or {}).get("rejected_by"):
+        return
+
+    # Only an operator-authored, customer-facing note reaches the customer. Machine
+    # codes (pix_timeout, customer_requested) live in `cancellation_reason` and are
+    # never surfaced — no note means the plain cancellation message.
+    note = str((order.data or {}).get("cancellation_note") or "").strip()
+    if note:
+        notification.send(order, "order_cancelled", reason=note)
+    else:
+        notification.send(order, "order_cancelled")
 
 
 def _settle_cancelled_payment(order) -> None:

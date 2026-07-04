@@ -72,7 +72,7 @@ BODY_TEMPLATES: dict[str, str] = {
     ),
     "order_cancelled": (
         "Ola{customer_name_greeting}!\n\n"
-        "Seu pedido {order_ref} foi cancelado.\n\n"
+        "Seu pedido {order_ref} foi cancelado.{reason_note}\n\n"
         "Em caso de duvidas, entre em contato.\n"
     ),
     "order_rejected": (
