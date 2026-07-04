@@ -15,7 +15,8 @@ from django.utils import timezone
 
 from shopman.refs.models import Ref
 from shopman.refs.registry import _ref_source_registry, get_ref_type
-from shopman.refs.services import _build_scope_filter, _coerce_target, _normalize_value
+from shopman.refs.exceptions import RefScopeInvalid
+from shopman.refs.services import _build_scope_filter, _coerce_target, _normalize_value, _validate_scope
 from shopman.refs.signals import ref_deactivated, ref_renamed
 
 if TYPE_CHECKING:
@@ -236,14 +237,18 @@ class RefBulk:
         qs = Ref.objects.filter(ref_type=ref_type, is_active=True)
 
         if rt and rt.scope_keys:
-            filt = _build_scope_filter(scope, rt.scope_keys)
-            if filt:
-                qs = qs.filter(**filt)
+            # Exige TODAS as scope_keys: sem esta validação, um scope vazio/incompleto
+            # fazia _build_scope_filter retornar {} → o filtro era pulado → desativava
+            # TODOS os refs ativos do tipo (wipe global), sem API de reativação.
+            _validate_scope(rt, scope)
+            qs = qs.filter(**_build_scope_filter(scope, rt.scope_keys))
         else:
-            # No scope_keys defined — filter by all provided scope keys
+            # Sem scope_keys definidas: exige ao menos uma chave — um scope vazio aqui
+            # também seria um wipe global silencioso.
             filt = {f"scope__{k}": v for k, v in scope.items()}
-            if filt:
-                qs = qs.filter(**filt)
+            if not filt:
+                raise RefScopeInvalid({"<scope não pode ser vazio>"}, ref_type)
+            qs = qs.filter(**filt)
 
         refs = list(qs)  # fetch before update for signal emission
         count = qs.update(is_active=False, deactivated_at=now, deactivated_by=actor)

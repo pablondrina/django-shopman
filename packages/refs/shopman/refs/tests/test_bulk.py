@@ -267,6 +267,34 @@ class TestDeactivateScope:
         count = RefBulk.deactivate_scope("TABLE", day_scope)
         assert count == 0
 
+    def test_empty_scope_is_rejected_not_global_wipe(self, day_scope):
+        """Scope vazio NÃO pode desativar todos os refs do tipo (wipe global)."""
+        from shopman.refs.exceptions import RefScopeInvalid
+
+        _make_ref(ref_type="TABLE", value="1", scope=day_scope, target_id="1")
+        with pytest.raises(RefScopeInvalid):
+            RefBulk.deactivate_scope("TABLE", {})
+        # Nada foi desativado.
+        assert Ref.objects.filter(ref_type="TABLE", is_active=True).count() == 1
+
+    def test_incomplete_scope_is_rejected(self, day_scope):
+        """Faltando uma scope_key exigida → recusa (não filtra parcial e over-mata)."""
+        from shopman.refs.exceptions import RefScopeInvalid
+
+        _make_ref(ref_type="TABLE", value="1", scope=day_scope, target_id="1")
+        with pytest.raises(RefScopeInvalid):
+            RefBulk.deactivate_scope("TABLE", {"store_id": 1})  # falta business_date
+        assert Ref.objects.filter(ref_type="TABLE", is_active=True).count() == 1
+
+    def test_scoped_type_without_keys_rejects_empty_scope(self):
+        """Tipo sem scope_keys também não pode ser zerado com scope vazio."""
+        from shopman.refs.exceptions import RefScopeInvalid
+
+        _make_ref(ref_type="SKU", value="X", target_id="1")
+        with pytest.raises(RefScopeInvalid):
+            RefBulk.deactivate_scope("SKU", {})
+        assert Ref.objects.filter(ref_type="SKU", is_active=True).count() == 1
+
     def test_emits_ref_deactivated_per_ref(self, day_scope):
         _make_ref(ref_type="TABLE", value="1", scope=day_scope, target_id="1")
         _make_ref(ref_type="TABLE", value="2", scope=day_scope, target_id="2")
