@@ -235,6 +235,28 @@ def _on_commit(order, config: ChannelConfig) -> None:
 
     _handle_confirmation(order, config)
 
+    # Marcador durável de conclusão: on_commit não é durável (roda em on_commit do
+    # signal, síncrono); um crash/deploy entre o COMMIT e o callback deixaria o
+    # pedido órfão em NEW. O sweeper (sweep_stuck_orders) re-despacha, de forma
+    # idempotente, os NEW antigos SEM este marcador. Os early-returns acima são
+    # cancelamentos (saem de NEW), então só marcamos on_commit realmente completo.
+    _mark_phase_complete(order, "on_commit")
+
+
+def _mark_phase_complete(order, phase: str) -> None:
+    """Grava order.data['lifecycle'][phase]='done' (ver docs/reference/data-schemas.md)."""
+    try:
+        data = dict(order.data or {})
+        marks = dict(data.get("lifecycle") or {})
+        marks[phase] = "done"
+        data["lifecycle"] = marks
+        order.data = data
+        order.save(update_fields=["data", "updated_at"])
+    except Exception:
+        logger.warning(
+            "lifecycle.mark_phase_complete falhou order=%s phase=%s", order.ref, phase, exc_info=True
+        )
+
 
 def _record_coupon_use(order) -> None:
     """Conta o uso do cupom no commit — senão ``max_uses`` é decorativo.
