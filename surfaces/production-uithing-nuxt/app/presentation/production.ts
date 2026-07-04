@@ -73,6 +73,30 @@ export function fullDateLabel(iso: string): string {
   return `${String(date.getDate()).padStart(2, "0")} ${MONTHS_PT[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+/** ISO local (YYYY-MM-DD) para hoje + offsetDays, sem UTC (a padaria é local). */
+export function isoForOffset(offsetDays: number, now: Date = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Resolve a virada de dia do kiosk. À meia-noite `todayISO` avança; se a seleção
+ * acompanhava "hoje", ela rola junto (a TV não amanhece nas fornadas de ontem).
+ * Pura e testável — o componente só a chama num tick de minuto.
+ */
+export function resolveDayRollover(
+  prevTodayISO: string,
+  selectedISO: string,
+  now: Date = new Date(),
+): { todayISO: string; tomorrowISO: string; selectedDate: string; rolled: boolean } {
+  const todayISO = isoForOffset(0, now);
+  const tomorrowISO = isoForOffset(1, now);
+  const rolled = todayISO !== prevTodayISO;
+  const selectedDate = rolled && selectedISO === prevTodayISO ? todayISO : selectedISO;
+  return { todayISO, tomorrowISO, selectedDate, rolled };
+}
+
 /** Segundos restantes → "12:34" (contagem regressiva do timer do forno). */
 export function countdownLabel(secondsLeft: number): string {
   const s = Math.max(0, Math.round(secondsLeft));

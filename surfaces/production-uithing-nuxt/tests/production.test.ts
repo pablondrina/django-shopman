@@ -5,8 +5,10 @@ import {
   countdownLabel,
   elapsedLabel,
   fullDateLabel,
+  isoForOffset,
   matchesRowQuery,
   parseShortage,
+  resolveDayRollover,
   rowCommitments,
   rowCommittedUnits,
   rowHasActivity,
@@ -159,5 +161,37 @@ describe("parseShortage", () => {
     expect(parseShortage({ detail: "boom" })).toBeNull();
     expect(parseShortage(null)).toBeNull();
     expect(parseShortage({ error: { code: "other" } })).toBeNull();
+  });
+});
+
+describe("kiosk day rollover", () => {
+  it("isoForOffset gera ISO local sem UTC", () => {
+    const now = new Date(2026, 6, 4, 23, 30); // 04/jul 23:30 local
+    expect(isoForOffset(0, now)).toBe("2026-07-04");
+    expect(isoForOffset(1, now)).toBe("2026-07-05");
+  });
+
+  it("vira o dia à meia-noite e rola a seleção que acompanhava hoje", () => {
+    // Era 04/jul; seleção estava em 'hoje' (04). Agora é 05/jul 00:01.
+    const now = new Date(2026, 6, 5, 0, 1);
+    const r = resolveDayRollover("2026-07-04", "2026-07-04", now);
+    expect(r.rolled).toBe(true);
+    expect(r.todayISO).toBe("2026-07-05");
+    expect(r.selectedDate).toBe("2026-07-05"); // acompanhou hoje
+  });
+
+  it("NÃO mexe numa data escolhida à mão quando o dia vira", () => {
+    const now = new Date(2026, 6, 5, 0, 1);
+    // O vendedor estava olhando 'amanhã' (05) explicitamente na véspera.
+    const r = resolveDayRollover("2026-07-04", "2026-07-05", now);
+    expect(r.rolled).toBe(true);
+    expect(r.selectedDate).toBe("2026-07-05"); // preservada, não forçada a hoje
+  });
+
+  it("sem virada, não altera nada", () => {
+    const now = new Date(2026, 6, 4, 14, 0);
+    const r = resolveDayRollover("2026-07-04", "2026-07-04", now);
+    expect(r.rolled).toBe(false);
+    expect(r.selectedDate).toBe("2026-07-04");
   });
 });
