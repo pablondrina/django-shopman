@@ -121,17 +121,22 @@ def ensure_payment_captured(order) -> None:
 
     # External timing channels (iFood, POS) manage payment outside Shopman;
     # the guard doesn't apply.
+    config_failed = False
     try:
         config = ChannelConfig.for_channel(order.channel_ref)
         if config.payment.timing == "external":
             return
     except Exception:
-        # Config lookup failed — fall through to strict path (check payment).
+        # Config lookup falhou. NÃO confiar no default permissivo (post_commit →
+        # "não requer captura"), senão o guard abre a porta para CONFIRMED sem
+        # captura com um Shop.defaults corrompido. Fail-closed: seguir para a
+        # checagem de captura de verdade.
         logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
         config = ChannelConfig()
+        config_failed = True
 
     requires_upfront_payment = _requires_captured_payment_before_confirmation(order, config)
-    if not requires_upfront_payment:
+    if not requires_upfront_payment and not config_failed:
         return
 
     method = _payment_method(order, config)

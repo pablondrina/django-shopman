@@ -49,7 +49,16 @@ def hold(order) -> None:
          checkout that weren't reconciled on the cart side).
 
     Saves the resulting hold_ids in order.data["hold_ids"]. SYNC.
+
+    Idempotente: se ``order.data["hold_ids"]`` já existe, a fase já rodou (re-dispatch
+    de on_commit após falha parcial, comando de diagnóstico). Reexecutar sobrescreveria
+    a chave e deixaria os holds da 1ª passada órfãos — dupla reserva até o backstop de
+    48h. A presença da chave (não seu valor) é o sinal de "já executou".
     """
+    if "hold_ids" in (order.data or {}):
+        logger.info("stock.hold: skip (holds já criados) order=%s", order.ref)
+        return
+
     items = order.snapshot.get("items", [])
     if not items:
         return
