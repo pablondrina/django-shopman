@@ -71,7 +71,7 @@ class TestOrderTrackingShape:
 
         assert parse_datetime(proj.last_updated_iso) is not None
         assert proj.last_updated_display == "Atualizado agora"
-        assert proj.stale_after_seconds == 45
+        assert proj.stale_after_seconds == 30
         assert proj.promise_deadline_label == "Prazo"
         # "Atualizado agora" is shown once (standalone) — never repeated as a row.
         assert "Última atualização" not in [row.label for row in proj.promise_rows]

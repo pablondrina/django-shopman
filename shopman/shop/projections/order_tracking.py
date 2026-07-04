@@ -45,7 +45,11 @@ CARRIER_TRACKING_URLS: dict[str, str] = {
 
 TERMINAL_STATUSES = frozenset({"completed", "cancelled", "returned"})
 
-STALE_AFTER_SECONDS = 45
+# Cadência do polling do acompanhamento (segundos). 30s espelha a referência de
+# mercado (iFood) e reduz o "esperei e nada" após o operador mudar o status. O
+# push instantâneo por SSE é o próximo passo (follow-up G1); configurável via
+# admin fica para quando houver o campo no Shop.
+STALE_AFTER_SECONDS = 30
 
 
 # ──────────────────────────────────────────────────────────────────────

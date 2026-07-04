@@ -20,6 +20,9 @@ const csrfHeaders = useShopmanCsrfHeaders()
 const orderRef = computed(() => String(route.params.ref || ''))
 // Ref esmaecido no prefixo (canal/data) + cauda em destaque (o que o cliente usa).
 const refParts = computed(() => orderRefParts(orderRef.value))
+// "Conversar com a loja" já abre com o contexto do pedido — o cliente não precisa
+// explicar do zero qual pedido é.
+const supportUrl = computed(() => withWhatsAppText(tracking.value?.whatsapp_url || '', `Preciso de ajuda com o pedido ${orderRef.value}`))
 const rating = ref(5)
 const comment = ref('')
 const actionPending = ref<Record<string, boolean>>({})
@@ -107,6 +110,12 @@ const freshness = computed(() => trackingFreshness(
   nowMs.value,
   (tracking.value?.stale_after_seconds ?? 30) * 2
 ))
+
+// Reconexão / volta de foco → reconcilia NA HORA (não espera o próximo poll):
+// grande alívio do "esperei e nada" quando o operador muda o status. (O push
+// instantâneo por SSE é o próximo passo — ver follow-up G1.)
+const { watchConnectivity } = useConnectivity()
+watchConnectivity(() => { if (tracking.value?.is_active) void refresh() })
 
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
@@ -301,7 +310,7 @@ useSeoMeta({
                     <UiButton v-if="showPaymentStatusFallback" :to="paymentHref" icon="lucide:credit-card">
                       Regularizar pagamento
                     </UiButton>
-                    <UiButton v-if="showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle">
+                    <UiButton v-if="showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="outline" icon="lucide:message-circle">
                       {{ tracking.copy.support_label }}
                     </UiButton>
                   </div>
@@ -426,7 +435,7 @@ useSeoMeta({
             >
               {{ reorderAction.label }}
             </UiButton>
-            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="tracking.whatsapp_url" target="_blank" variant="outline" icon="lucide:message-circle" class="w-full">
+            <UiButton v-if="tracking.whatsapp_url && !showSupportInStatusPanel" :href="supportUrl" target="_blank" variant="outline" icon="lucide:message-circle" class="w-full">
               {{ tracking.copy.support_label }}
             </UiButton>
             <UiAlertDialog v-if="cancelAction">

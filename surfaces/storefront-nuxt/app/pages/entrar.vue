@@ -134,17 +134,6 @@ function copyMessage (entry: CopyEntryProjection | null | undefined, fallback: s
   return entry?.message?.trim() || fallback
 }
 
-function withWhatsAppText (href: string, text: string) {
-  if (!href.trim()) return ''
-  try {
-    const url = new URL(href)
-    url.searchParams.set('text', text)
-    return url.toString()
-  } catch {
-    return href
-  }
-}
-
 function syncPhoneFromInput (event: Event) {
   const input = event.target as HTMLInputElement | null
   if (!input) return
