@@ -39,6 +39,7 @@
     "@iconify-json/lucide": "^1.2.108",
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/test-utils": "^4.0.3",
+    "@playwright/test": "^1.61.1",
     "@types/google.maps": "^3.65.2",
     "@vue/test-utils": "^2.4.11",
     "@yuta-inoue-ph/nuxt-vcalendar": "^1.1.4",

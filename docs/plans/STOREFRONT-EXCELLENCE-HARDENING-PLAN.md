@@ -5,7 +5,8 @@
 > Metodologia herdada de HARDENING-PLAN(1/2/3), SPLIT-HARDENING-PLAN e
 > EXCELLENCE-AUDIT-2026-07 (6 lentes + 4 ondas, test-first, regressão-zero).
 
-**Status:** 🟢 em execução — WP-S0..S4 ✅ · WP-S6 ✅ (dead-code audit ✅)
+**Status:** ✅ CONCLUÍDO — WP-S0..S6 ✅ (dead-code audit ✅). Follow-up aberto:
+typecheck pré-existente (spawn task).
 **Data:** 2026-07-04
 **Baseline:** storefront-nuxt = 4.4⭐ na EXCELLENCE-AUDIT (a superfície mais madura).
 Isto é **reforço de excelência**, não conserto de podridão.
@@ -75,6 +76,24 @@ Isto é **reforço de excelência**, não conserto de podridão.
   estado confirmado persistente, assinatura 1-clique logado, aria-label),
   `SubstituteSheet` (3 — fechado sem issue, copy "esgotou"+alternativa, "ajuste a
   quantidade" com saldo). Teleport dos bottom-sheets validado via document.body.
+- **WP-S5 ✅ (2026-07-04):** e2e Playwright (chromium). Harness com mock backend
+  leve (`mockBackend.mjs`, respostas `{}` rápidas) + Nitro do build servido direto
+  (`node .output/server/index.mjs` — o `nuxt preview` malparseia `--host` nesta
+  versão). **4 specs verdes independentes de backend**: shell degrada com dignidade
+  (backend vazio), banner offline aparece/some via `context.setOffline`, `/conta`
+  redireciona ao login preservando destino, 404 renderiza `error.vue` (noindex +
+  saída pro cardápio). Fluxo crítico com dados (menu→carrinho→checkout) fica como
+  spec `skip` documentado (`criticalFlow.spec.ts` + `tests/e2e/README.md`) p/
+  reviewer local com Django semeado (convenção do projeto: e2e full-stack não é
+  100% verificável sem a stack). Scripts: `test:e2e`. Artefatos gitignorados.
+
+## Resultado final
+
+Storefront-nuxt sai da onda: **lint 0**, **testes 289 (vitest) + 4 (e2e)** —
+partindo de presentation-only. Novas capacidades: backoff/cap na fila, sinal
+offline + reconciliação, frescor vivo do tracking, telemetria opt-in (espelha
+Sentry), Google Maps tipado, `httpError/errorDetail/omitKey/asRecord` utilitários.
+Único débito remanescente: `nuxi typecheck` pré-existente (spawn task).
 
 ---
 
