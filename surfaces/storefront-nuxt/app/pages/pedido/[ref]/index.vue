@@ -128,10 +128,14 @@ const freshness = computed(() => trackingFreshness(
 ))
 
 // Reconexão / volta de foco → reconcilia NA HORA (não espera o próximo poll):
-// grande alívio do "esperei e nada" quando o operador muda o status. (O push
-// instantâneo por SSE é o próximo passo — ver follow-up G1.)
+// grande alívio do "esperei e nada" quando o operador muda o status.
 const { watchConnectivity } = useConnectivity()
 watchConnectivity(() => { if (tracking.value?.is_active) void refresh() })
+
+// Push instantâneo por SSE (G1): o backend emite no canal order-<ref> a cada
+// mudança de status/pagamento; aqui refazemos o fetch canônico na hora, sem
+// esperar o poll. Convidado sem login cai no poll (o Django recusa o canal dele).
+useOrderTrackingStream(orderRef, () => { if (tracking.value?.is_active) void refresh() })
 
 // Linhas do resumo (ícone + valor) — mesma diagramação do overlay de revisão do
 // checkout (componente OrderSummaryRows), a partir da projeção do pedido.
