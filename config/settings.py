@@ -239,6 +239,26 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+# Senhas de staff/admin (clientes autenticam por OTP, sem senha). Sem estes
+# validadores, `createsuperuser`/reset aceitavam qualquer coisa e o `check --deploy`
+# não acusava. Os 4 defaults do Django: similaridade, comprimento mínimo, senhas
+# comuns e não-100%-numérica.
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 10},
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
 DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),

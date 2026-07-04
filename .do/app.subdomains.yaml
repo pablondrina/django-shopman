@@ -150,8 +150,11 @@ envs:
     value: shopman.shop.adapters.payment_mock
     scope: RUN_TIME
     type: GENERAL
+  # false em produção: com SHOPMAN_ENVIRONMENT=production e adapters ainda em
+  # payment_mock, o deploy-check SHOPMAN_E003 FALHA o PRE_DEPLOY de propósito —
+  # forçando a troca por SHOPMAN_PIX_ADAPTER/SHOPMAN_CARD_ADAPTER reais antes de subir.
   - key: SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS
-    value: "true"
+    value: "false"
     scope: RUN_TIME
     type: GENERAL
   - key: SHOPMAN_MOCK_PIX_AUTO_CONFIRM
@@ -170,12 +173,16 @@ envs:
     value: "true"
     scope: RUN_TIME
     type: GENERAL
+  # production: liga os deploy-checks estritos (E003 pagamento mock, E010 OTP debug).
+  # Este é o TEMPLATE de produção; o deploy-check vai barrar até os adapters/segredos
+  # reais entrarem — comportamento desejado, não bug.
   - key: SHOPMAN_ENVIRONMENT
-    value: staging
+    value: production
     scope: RUN_TIME
     type: GENERAL
+  # false em produção: nunca expor OTP no corpo da resposta em produção (E010).
   - key: SHOPMAN_EXPOSE_DEBUG_OTP
-    value: "true"
+    value: "false"
     scope: RUN_TIME
     type: GENERAL
 

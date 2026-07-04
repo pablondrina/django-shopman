@@ -31,9 +31,12 @@ POST endpoints (operator actions):
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -308,20 +311,54 @@ class OperatorSessionView(APIView):
         })
 
 
+def _login_username_key(group, request):
+    """Chave de rate-limit pela conta-alvo do login.
+
+    O BFF envia JSON (onde `request.POST` fica vazio); o teste e forms enviam
+    form-encoded. Lê os dois para que o limite por-username funcione em produção —
+    sem isso, JSON colapsaria todas as contas num único bucket global.
+    """
+    username = request.POST.get("username")
+    if not username and "json" in (request.content_type or ""):
+        try:
+            username = (json.loads(request.body or b"{}") or {}).get("username")
+        except (ValueError, TypeError):
+            username = None
+    return (str(username or "").strip().lower()) or "anon"
+
+
+@method_decorator(
+    ratelimit(key="ip", rate="30/m", method="POST", block=False), name="dispatch"
+)
+@method_decorator(
+    ratelimit(key=_login_username_key, rate="5/m", method="POST", block=False), name="dispatch"
+)
 class OperatorLoginView(APIView):
     """Login de operador NO PRÓPRIO app (sem bounce pro Django admin).
 
     Reusa a auth do Django (mesma credencial do admin): valida usuário+senha e abre a
     sessão de dispositivo (o cookie é escopado ao domínio de operador pelo middleware).
     O front mostra um formulário e já entra — uma tela, um submit, sem sair do app. Só
-    concede sessão a staff. NÃO faz 2FA/rate-limit aqui — se o deploy exigir, tratar na
-    frente de hardening (go-live).
+    concede sessão a staff.
+
+    Freio contra brute-force de senha staff: limite por-username (ataque a uma conta)
+    de 5/min e teto por-IP de 30/min — generoso porque os dispositivos da loja
+    compartilham o IP (NAT). Ambos `block=False`: o handler devolve 429 amigável.
     """
 
     permission_classes = [AllowAny]
 
     def post(self, request):
         from django.contrib.auth import authenticate, login
+
+        if getattr(request, "limited", False):
+            return Response(
+                {
+                    "detail": "Muitas tentativas de login. Aguarde um minuto e tente de novo.",
+                    "error": {"code": "operator_login_rate_limited"},
+                },
+                status=429,
+            )
 
         body = request.data or {}
         username = str(body.get("username") or "").strip()

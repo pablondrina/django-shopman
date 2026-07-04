@@ -91,8 +91,27 @@ class Command(BaseCommand):
             action="store_true",
             help="Apaga todos os dados antes de popular",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Permite --flush mesmo em produção (SHOPMAN_ENVIRONMENT=production).",
+        )
 
     def handle(self, *args, **options):
+        from django.conf import settings
+        from django.core.management.base import CommandError
+
+        # Guard destrutivo: --flush apaga TUDO. Em produção, exige --force explícito
+        # para não zerar a loja num comando distraído. Staging/dev seguem livres.
+        if options["flush"] and not options["force"]:
+            environment = str(getattr(settings, "SHOPMAN_ENVIRONMENT", "") or "").lower()
+            if environment == "production":
+                raise CommandError(
+                    "Recusando `seed --flush` em produção (SHOPMAN_ENVIRONMENT=production): "
+                    "isto apagaria TODOS os dados da loja. Se é mesmo o que você quer, "
+                    "repita com --force."
+                )
+
         # Dado sintético nunca notifica gente de verdade — em NENHUM ambiente.
         # (O staging roda DEBUG=False com credenciais reais; sem isto, as
         # directives de notificação dos pedidos seedados disparariam SMS.)
