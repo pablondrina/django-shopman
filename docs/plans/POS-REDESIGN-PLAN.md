@@ -69,7 +69,7 @@ e gate canônico; ver `docs/engineering/unfold_*`).
 - Avisos âmbar (terminal ocupado, saúde, D-1, "em uso") = funcionais, mantêm.
 
 ## Gates (rodar sempre)
-- POS Nuxt (de DENTRO de `surfaces/pos-uithing-nuxt`): `npx nuxi typecheck`
+- POS Nuxt (de DENTRO de `surfaces/pos-nuxt`): `npx nuxi typecheck`
   (ignorar pré-existentes djangoProxy/nuxt.config) + `npx vitest run` (baseline 67).
 - Backend (do root): `pytest shopman/shop/tests shopman/backstage/tests -q` (NÃO
   `make test-framework` — poluição de ordem). Admin/Unfold: `make admin`.

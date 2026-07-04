@@ -2,7 +2,7 @@
 
 Data: 2026-05-16
 Branch: `codex/pos-uithing-surface`
-Alvo: `surfaces/storefront-uithing-nuxt`
+Alvo: `surfaces/storefront-nuxt`
 
 ## Escopo
 
@@ -141,7 +141,7 @@ usado como equivalente documentado e composto sobre primitives de combobox/list.
 - `/nuxt` -> `nuxt-storefront`
 - `/thing` -> `thing-storefront`
 
-O novo servico usa `source_dir: /surfaces/storefront-uithing-nuxt`,
+O novo servico usa `source_dir: /surfaces/storefront-nuxt`,
 `build_command: npm ci && npm run build`, `run_command:
 node .output/server/index.mjs`, `NUXT_APP_BASE_URL=/thing/` e
 `NUXT_DJANGO_BASE_URL=${APP_URL}`.

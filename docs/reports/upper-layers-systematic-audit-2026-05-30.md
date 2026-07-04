@@ -256,7 +256,7 @@ sem risco de dupla conexão. **OK.**
   backstage 427, shop 868.
   - **Deixado de fora (separate axis):** a chave de projection
     `has_open_cash_session` (`backstage/projections/pos.py:240,323`) é consumida
-    pelas surfaces **Nuxt** (`pos-uithing-nuxt`, `backstage-nuxt`) — renomear
+    pelas surfaces **Nuxt** (`pos-nuxt`, `backstage-nuxt`) — renomear
     cruza o contrato headless. 🟢 follow-up no eixo de superfícies.
 - **D1** — Documentadas as 6 chaves em `data-schemas.md` (seção pós-commit):
   `pos_committed_at`, `client_request_id`, `pos` (POS) e `external_order_code`,

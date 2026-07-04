@@ -45,7 +45,7 @@ export default defineNuxtConfig({
     // available via the toggle.
     preference: 'light',
     fallback: 'light',
-    storageKey: 'orders-uithing-nuxt-color-mode',
+    storageKey: 'orders-nuxt-color-mode',
     classSuffix: ''
   },
 

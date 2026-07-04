@@ -1,12 +1,12 @@
 {
-  "name": "production-uithing-nuxt",
+  "name": "orders-nuxt",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host 127.0.0.1 --port 3005",
+    "dev": "nuxt dev --host 127.0.0.1 --port 3004",
     "generate": "nuxt generate",
-    "preview": "HOST=127.0.0.1 nuxt preview --port 3005",
+    "preview": "HOST=127.0.0.1 nuxt preview --port 3004",
     "test": "vitest run",
     "postinstall": "nuxt prepare"
   },

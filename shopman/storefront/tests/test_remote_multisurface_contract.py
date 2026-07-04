@@ -12,8 +12,8 @@ HEADLESS_ADR = REPO_ROOT / "docs" / "decisions" / "adr-012-headless-surface-cont
 HEADLESS_CONTRACT = REPO_ROOT / "docs" / "reference" / "headless-surface-contract.md"
 REMOTE_MUTATION_CONTRACT = REPO_ROOT / "docs" / "reference" / "remote-mutation-contract.md"
 REMOTE_RUNBOOK = REPO_ROOT / "docs" / "runbooks" / "pedido-remoto-preso.md"
-NUXT_TYPES = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "types" / "shopman.ts"
-NUXT_TRACKING_PAGE = REPO_ROOT / "surfaces" / "storefront-uithing-nuxt" / "app" / "pages" / "pedido" / "[ref]" / "index.vue"
+NUXT_TYPES = REPO_ROOT / "surfaces" / "storefront-nuxt" / "app" / "types" / "shopman.ts"
+NUXT_TRACKING_PAGE = REPO_ROOT / "surfaces" / "storefront-nuxt" / "app" / "pages" / "pedido" / "[ref]" / "index.vue"
 
 ORDER_STATUSES = {
     "new",

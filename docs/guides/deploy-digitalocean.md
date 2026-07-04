@@ -292,10 +292,10 @@ Topologia (apex = loja):
 
 | Host | Componente | O quê |
 |---|---|---|
-| `seudominio.com` (apex) | `thing-storefront` | loja Nuxt em `/` |
+| `seudominio.com` (apex) | `storefront-nuxt` | loja Nuxt em `/` |
 | `api.seudominio.com` | `web` (Django) | API REST + webhooks |
 | `admin.seudominio.com` | `web` (Django) | admin/operador (Unfold, KDS, produção) |
-| `pos.seudominio.com` | `pos-uithing` | PDV Nuxt em `/` |
+| `pos.seudominio.com` | `pos-nuxt` | PDV Nuxt em `/` |
 
 **Por que subdomínios e não path único:** o BFF das superfícies Nuxt serve `/api/v1`
 e `/api/auth`; o Django também tem `/api/*`. Na raiz isso colide. Em subdomínios cada

@@ -47,7 +47,7 @@ exatamente o tipo de decisão de fronteira que o redesign precisa revisar consci
 - **A API REST headless** (`backstage/api/operations.py`) — já é a "superfície limpa" que queremos.
 - **Camada de projections** (frozen dataclasses, dual price `_q`+`_display`, zero import de Core
   model, zero aritmética em template). Sólida.
-- **Proxy Nuxt** (`surfaces/pos-uithing-nuxt/server/utils/djangoProxy.ts`) — transporte impecável
+- **Proxy Nuxt** (`surfaces/pos-nuxt/server/utils/djangoProxy.ts`) — transporte impecável
   (CSRF bootstrap, cookie merge, catch-all único).
 
 ## Os bolsões de frankenstein (localizados, contáveis — NÃO sistêmico)

@@ -7,7 +7,7 @@
 
 ## Estado atual (verificado 2026-06-30)
 
-- **Labels hardcoded**: [`ShopHeader.vue:98,109`](../../surfaces/storefront-uithing-nuxt/app/components/ShopHeader.vue) — `"Ligar"` (loja aberta, `tel:`) e `"Mensagem"` (fechada, WhatsApp).
+- **Labels hardcoded**: [`ShopHeader.vue:98,109`](../../surfaces/storefront-nuxt/app/components/ShopHeader.vue) — `"Ligar"` (loja aberta, `tel:`) e `"Mensagem"` (fechada, WhatsApp).
 - **URLs já configuráveis**: `shop.phone_url` / `shop.whatsapp_url` derivam de `Shop.phone` + `Shop.social_links` (Admin).
 - **`shop` no Nuxt** vem de `session.shop` (typed `ShopProjection`, [`presentation/shop.py`](../../shopman/storefront/presentation/shop.py)).
 
@@ -28,7 +28,7 @@
 2. **Admin** [`admin/shop.py:1067`](../../shopman/shop/admin/shop.py) — fieldset `"Contato"`: adicionar os 2 campos.
 3. **Projection** [`presentation/shop.py`](../../shopman/storefront/presentation/shop.py) — adicionar os 2 campos ao `ShopProjection` + `build_shop_projection` (+ `_empty_shop` em `home.py:446`).
 4. **⚠️ Confirmar a serialização**: rastrear como `session.shop` é montado (o `ShopProjection` não aparece serializado em `shopman/storefront/api/*.py` — achar o endpoint/`asdict` que entrega `shop` ao Nuxt). Se for `asdict`, os campos novos fluem automático; senão, adicionar ao serializer.
-5. **Nuxt** [`ShopHeader.vue:98,109`](../../surfaces/storefront-uithing-nuxt/app/components/ShopHeader.vue) — trocar `Ligar`/`Mensagem` por `shop?.call_cta_label || 'Ligar'` / `shop?.message_cta_label || 'Mensagem'`.
+5. **Nuxt** [`ShopHeader.vue:98,109`](../../surfaces/storefront-nuxt/app/components/ShopHeader.vue) — trocar `Ligar`/`Mensagem` por `shop?.call_cta_label || 'Ligar'` / `shop?.message_cta_label || 'Mensagem'`.
 6. **Migração** + **teste** da projection (campos presentes no payload) + **verificação visual** (preview Nuxt).
 
 ## Referências

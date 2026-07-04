@@ -1,7 +1,7 @@
 """Quick production registration + bulk create — operator backstage views.
 
 The live floor "KDS de produção" migrated to the dedicated Nuxt app
-(``surfaces/production-uithing-nuxt`` / ``fournil.``) over the headless API at
+(``surfaces/production-nuxt`` / ``fournil.``) over the headless API at
 ``api/v1/backstage/production/*`` (OPERATOR-APPS-PLAN Fase 4). What remains here
 are the SHARED helpers consumed by the Admin/Unfold production console
 (``admin_console/production.py``): ``handle_production_post``,

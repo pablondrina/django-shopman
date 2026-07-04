@@ -7,7 +7,7 @@
 > ESTE item é só a camada de apresentação dos dois boards. `make test`/vitest ao fim.
 
 ## Onde
-Superfície `surfaces/orders-uithing-nuxt` (o Gestor; porta **3004**, Django **8000**,
+Superfície `surfaces/orders-nuxt` (o Gestor; porta **3004**, Django **8000**,
 sempre `127.0.0.1`). Nuxt + **reka-ui + tailwind-variants** (NÃO é Alpine — Alpine é
 só o menuboard/Django). Componentes UI em `app/components/Ui/*`. Tokens em
 `app/assets/css/tailwind.css` (neutro-first "à la Odoo": cor só com significado).

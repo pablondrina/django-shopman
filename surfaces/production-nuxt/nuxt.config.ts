@@ -45,7 +45,7 @@ export default defineNuxtConfig({
     // available via the toggle for the back-of-house bakery floor.
     preference: 'light',
     fallback: 'light',
-    storageKey: 'production-uithing-nuxt-color-mode',
+    storageKey: 'production-nuxt-color-mode',
     classSuffix: ''
   },
 

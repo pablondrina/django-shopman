@@ -12,7 +12,7 @@
 
 ## 0. Arquitetura (o contrato físico)
 
-- **Desacoplado por domínio.** A loja de cliente é o **Nuxt** (`surfaces/storefront-uithing-nuxt/`),
+- **Desacoplado por domínio.** A loja de cliente é o **Nuxt** (`surfaces/storefront-nuxt/`),
   servida no **apex** (`/`). O **Django é headless**: serve só `/api/v1/*` (+ `/admin/` + webhooks +
   `/api/v1/backstage/`). Não há **nenhuma** página HTML de cliente no Django.
 - **BFF é a ponte.** O servidor Nuxt (`server/api/v1/[...path].ts`, `server/api/auth/[...path].ts`,
@@ -27,7 +27,7 @@
 
 ## 1. Superfícies & fluxos de cliente (Nuxt)
 
-Páginas em `surfaces/storefront-uithing-nuxt/app/pages/`. Cada uma é server-driven (consome
+Páginas em `surfaces/storefront-nuxt/app/pages/`. Cada uma é server-driven (consome
 projeções do Django via BFF).
 
 | Rota | O que o cliente faz | API principal |
@@ -255,7 +255,7 @@ order_confirmation, account (profile/loyalty), order_history, shop/shop_status, 
 
 ## 7. Referências
 
-- Nuxt loja: `surfaces/storefront-uithing-nuxt/` (`app/pages/`, `server/utils/djangoProxy.ts`).
+- Nuxt loja: `surfaces/storefront-nuxt/` (`app/pages/`, `server/utils/djangoProxy.ts`).
 - API Django: `shopman/storefront/api/` (urls + views).
 - Read-models: `shopman/storefront/presentation/` + `shopman/shop/projections/`.
 - Regras: `shopman/storefront/services/`, `shopman/storefront/intents/`, `shopman/shop/services/`,

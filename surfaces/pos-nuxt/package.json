@@ -1,12 +1,12 @@
 {
-  "name": "kds-uithing-nuxt",
+  "name": "pos-nuxt",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host 127.0.0.1 --port 3003",
+    "dev": "nuxt dev --host 127.0.0.1 --port 3002",
     "generate": "nuxt generate",
-    "preview": "HOST=127.0.0.1 nuxt preview --port 3003",
+    "preview": "HOST=127.0.0.1 nuxt preview --port 3002",
     "test": "vitest run",
     "postinstall": "nuxt prepare"
   },

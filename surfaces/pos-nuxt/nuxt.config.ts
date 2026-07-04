@@ -40,7 +40,7 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
-    storageKey: 'pos-uithing-nuxt-color-mode',
+    storageKey: 'pos-nuxt-color-mode',
     classSuffix: ''
   },
 

@@ -2,10 +2,10 @@
 #
 # Valida o modelo cross-domain com pagamentos MOCK antes de virar produção.
 # Ramo de teste sob `staging.nelsonboulangerie.com.br` (zona nelsonboulangerie.com.br):
-#   staging.nelsonboulangerie.com.br        → thing-storefront (loja Nuxt em /)
+#   staging.nelsonboulangerie.com.br        → storefront-nuxt (loja Nuxt em /)
 #   api.staging.nelsonboulangerie.com.br    → web (Django headless: /api, webhooks)
 #   admin.staging.nelsonboulangerie.com.br  → web (Django admin/operador)
-#   pos.staging.nelsonboulangerie.com.br    → pos-uithing (PDV Nuxt em /)
+#   pos.staging.nelsonboulangerie.com.br    → pos-nuxt (PDV Nuxt em /)
 #
 # DEPLOY (valores concretos do app de staging atual):
 #   APP_ID = 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f   (app `shopman-staging`)
@@ -92,34 +92,34 @@ ingress:
         path:
           prefix: /
       component:
-        name: orders-uithing
+        name: orders-nuxt
     - match:
         authority:
           exact: kds.boulangerie.com.br
         path:
           prefix: /
       component:
-        name: kds-uithing
+        name: kds-nuxt
     - match:
         authority:
           exact: pdv.boulangerie.com.br
         path:
           prefix: /
       component:
-        name: pos-uithing
+        name: pos-nuxt
     - match:
         authority:
           exact: prod.boulangerie.com.br
         path:
           prefix: /
       component:
-        name: production-uithing
+        name: production-nuxt
     # Catch-all do domínio primário (apex de staging) = a loja.
     - match:
         path:
           prefix: /
       component:
-        name: thing-storefront
+        name: storefront-nuxt
 
 envs:
   - key: DJANGO_SETTINGS_MODULE
@@ -304,11 +304,11 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
-  - name: thing-storefront
+  - name: storefront-nuxt
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
-    source_dir: /surfaces/storefront-uithing-nuxt
+    source_dir: /surfaces/storefront-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000
@@ -337,11 +337,11 @@ services:
         window: TEN_MINUTES
   # Superfícies de operador (Nuxt). Ficam em *.boulangerie.com.br e apontam
   # para a API em api.boulangerie.com.br (SHOPMAN_OPERATOR_API_HOST).
-  - name: pos-uithing
+  - name: pos-nuxt
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
-    source_dir: /surfaces/pos-uithing-nuxt
+    source_dir: /surfaces/pos-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000
@@ -372,11 +372,11 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
-  - name: kds-uithing
+  - name: kds-nuxt
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
-    source_dir: /surfaces/kds-uithing-nuxt
+    source_dir: /surfaces/kds-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000
@@ -407,11 +407,11 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
-  - name: orders-uithing
+  - name: orders-nuxt
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
-    source_dir: /surfaces/orders-uithing-nuxt
+    source_dir: /surfaces/orders-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000
@@ -442,11 +442,11 @@ services:
         operator: GREATER_THAN
         value: 2
         window: TEN_MINUTES
-  - name: production-uithing
+  - name: production-nuxt
     git:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
-    source_dir: /surfaces/production-uithing-nuxt
+    source_dir: /surfaces/production-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000

@@ -20,7 +20,7 @@ Projection com Actions e criaria risco contabil.
 
 Tambem existem duas superficies Nuxt relacionadas a POS:
 
-- `surfaces/pos-uithing-nuxt`: superficie ativa endurecida contra o contrato
+- `surfaces/pos-nuxt`: superficie ativa endurecida contra o contrato
   POS canonico.
 - `surfaces/backstage-nuxt/app/pages/pos.vue`: superficie mais antiga, util
   como historico, mas nao como implementacao ativa.
@@ -81,7 +81,7 @@ superficie pode exibir COD pendente somente como fato projetado.
 
 ### 4. A superficie POS ativa e unica
 
-`surfaces/pos-uithing-nuxt` e a superficie POS Nuxt ativa.
+`surfaces/pos-nuxt` e a superficie POS Nuxt ativa.
 
 `surfaces/backstage-nuxt/app/pages/pos.vue` fica deprecated como superficie POS
 ativa. Ela pode ser usada como referencia historica, mas nao deve receber novas

@@ -24,7 +24,7 @@ Mesma lógica para `short_description` (= meta description + og:description),
 ## Estado atual
 
 > **Nota (2026-06-15):** as seções abaixo descrevem o storefront **Django** (base.html,
-> template tags). A superfície viva é o **Nuxt** (`surfaces/storefront-uithing-nuxt`),
+> template tags). A superfície viva é o **Nuxt** (`surfaces/storefront-nuxt`),
 > onde o SEO foi (re)implementado: meta ricas + Open Graph/Twitter + canonical +
 > JSON-LD (Product/Offer, Bakery/LocalBusiness, BreadcrumbList) server-driven, em
 > `app/presentation/seo.ts` (puro, vitest) consumido por PDP/home no SSR; canonical
@@ -34,7 +34,7 @@ Mesma lógica para `short_description` (= meta description + og:description),
 > coleções. O conteúdo Django abaixo permanece como referência de paridade.
 
 ### Já existe
-> _Atualização 2026-06-28: o SEO técnico foi reimplementado em Nuxt (storefront headless). `sitemap.xml`/`robots.txt` hoje são `surfaces/storefront-uithing-nuxt/server/routes/sitemap.xml.ts` e `robots.txt.ts` (domain-aware), meta/OG/JSON-LD via `app/presentation/seo.ts`. As refs Django abaixo (`SitemapView`, `base.html`, `{% block %}`) são do baseline original; o `Product.keywords` no Core permanece._
+> _Atualização 2026-06-28: o SEO técnico foi reimplementado em Nuxt (storefront headless). `sitemap.xml`/`robots.txt` hoje são `surfaces/storefront-nuxt/server/routes/sitemap.xml.ts` e `robots.txt.ts` (domain-aware), meta/OG/JSON-LD via `app/presentation/seo.ts`. As refs Django abaixo (`SitemapView`, `base.html`, `{% block %}`) são do baseline original; o `Product.keywords` no Core permanece._
 - ✅ `Product.keywords` (django-taggit) — curadoria por SKU.
 - ✅ `robots.txt` / `sitemap.xml` — hoje em `server/routes/*.ts` no Nuxt (antes `SitemapView` Django).
 - ✅ `<meta description>` / Open Graph / JSON-LD — hoje via `app/presentation/seo.ts` no Nuxt (antes `base.html`).

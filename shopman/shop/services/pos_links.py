@@ -1,6 +1,6 @@
 """Fonte única dos links da superfície POS (operador) gerados pelo Django.
 
-O PDV migrou para o seu próprio app Nuxt (`surfaces/pos-uithing-nuxt`), que
+O PDV migrou para o seu próprio app Nuxt (`surfaces/pos-nuxt`), que
 conversa com o Django via `api/v1/backstage/pos/*`. Como a loja do cliente, o
 Django só APONTA para o POS, atrás de uma única base configurável
 (`settings.SHOPMAN_POS_BASE_URL`).
@@ -11,7 +11,7 @@ chamador trata isso como "pular" — nunca apontar para a rota Django morta que 
 PDV deixou para trás.
 
 Espelha `storefront_links` (loja do cliente). Mantenha os caminhos em sincronia
-com `surfaces/pos-uithing-nuxt`.
+com `surfaces/pos-nuxt`.
 """
 from __future__ import annotations
 

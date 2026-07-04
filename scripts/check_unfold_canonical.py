@@ -127,7 +127,7 @@ def _paths(*paths: str) -> tuple[Path, ...]:
 
 
 # NOTA: a superfície `admin-console-orders` foi removida — a fila de pedidos virou
-# app Nuxt dedicado (Gestor, surfaces/orders-uithing-nuxt) via api/v1/backstage/orders/*
+# app Nuxt dedicado (Gestor, surfaces/orders-nuxt) via api/v1/backstage/orders/*
 # (OPERATOR-APPS-PLAN Fase 2). Deixou de ser superfície Admin/Unfold.
 CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
     Surface(
@@ -248,7 +248,7 @@ RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
         projections=(ROOT / "shopman/backstage/projections/pos.py",),
         replacement="POS is registered runtime UI; management screens must use Admin/Unfold.",
     ),
-    # KDS station + customer board migraram p/ o app Nuxt dedicado (kds-uithing-nuxt)
+    # KDS station + customer board migraram p/ o app Nuxt dedicado (kds-nuxt)
     # via api/v1/backstage/kds/*; as views/templates HTMX foram removidas (Fase 2).
     Surface(
         id="runtime-admin-2fa",

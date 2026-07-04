@@ -2,7 +2,7 @@
 
 ## Escopo
 
-Superficie revisada: `surfaces/storefront-uithing-nuxt`.
+Superficie revisada: `surfaces/storefront-nuxt`.
 
 Objetivo aplicado: aproximar a UI Thing da Spec canonica de Storefront, mantendo a superficie como hidratadora de projections/actions e sem regra local de preco, estoque, status operacional, auth gate, payment gate, permissoes, prazo, total, frete ou lifecycle.
 
@@ -120,7 +120,7 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 
 - `pytest shopman/storefront/tests/api/test_auth_session.py shopman/storefront/tests/api/test_storefront_surface.py shopman/storefront/tests/web/test_projections_cart.py shopman/storefront/tests/web/test_projections_checkout.py -q` -> `53 passed`.
 - `pytest shopman/storefront/tests/api/test_account_addresses.py shopman/storefront/tests/api/test_auth_session.py -q` -> `23 passed`.
-- `npm run test` em `surfaces/storefront-uithing-nuxt` -> `8 passed`, `47 passed`.
+- `npm run test` em `surfaces/storefront-nuxt` -> `8 passed`, `47 passed`.
 - `SHOPMAN_THING_URL=http://127.0.0.1:3013/thing npm run test:ux` -> `UX smoke passed`.
 - `npm run build` -> passou. Warnings conhecidos: sourcemap de `nuxt:module-preload-polyfill`/`@tailwindcss/vite`, anotacoes pure em `@vueuse/core`, e chunk > 500 kB.
 - Browser smoke local em `/thing/`: home/footer/header, menu com busca colapsada inicialmente, botao de busca sticky, panel de busca com lista de colecoes, busca filtrando `croissant` para 6 itens, carrinho vazio com checkout bloqueado, mobile sem carrinho flutuante/header duplicado.
@@ -147,7 +147,7 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 - Browser plugin em `/thing/account`: tab `Enderecos` renderiza CTA `Adicionar endereco`, empty state com recovery e sheet bottom com campos `Tipo`, `Endereco`, `Complemento`, `Instrucoes de entrega`, switch de padrao e CTA `Salvar endereco`.
 - Browser plugin em `/thing/menu`: filterbar sticky renderiza `bg-background` branco puro e `backdrop-filter: none`, alinhada visualmente com a navbar branca.
 - Browser plugin em `/thing/login?next=/checkout`: etapa telefone renderiza `UiInputGroup`, CTA WhatsApp e SMS separados, item lateral de suporte e badge de checkout. Alternancia `Usar numero internacional` muda placeholder/estado para internacional; numero internacional `12025551234` via SMS chega ao OTP como `+12025551234`; numero BR `43984049009` via WhatsApp chega ao OTP como `+5543984049009`. OTP renderiza `UiPinInput`.
-- `npm run test -- tests/surfaceGuardrails.test.ts` em `surfaces/storefront-uithing-nuxt` -> `1 passed`, `30 passed`; guardrail cobre `destructive-foreground`, impede promessa `danger` como banner preenchido em tracking/payment e fixa tabs/timeline/resumo de tracking.
+- `npm run test -- tests/surfaceGuardrails.test.ts` em `surfaces/storefront-nuxt` -> `1 passed`, `30 passed`; guardrail cobre `destructive-foreground`, impede promessa `danger` como banner preenchido em tracking/payment e fixa tabs/timeline/resumo de tracking.
 - Browser plugin em `/thing/tracking/WEB-260519-JELF`: sem sessao autorizada, alerta destrutivo de erro renderiza com `backgroundColor: rgba(0, 0, 0, 0)`, `border-destructive/50`, `text-destructive`. Proxy local com sessao autorizada confirmou o payload real do pedido do print: `promise.tone = "danger"`, `state = "payment_expired"`, texto "O prazo para pagamento expirou.".
 - Projection local do pedido `WEB-260519-JELF`: `payment_expired`, `next_event=""`, `recovery=""`, `actions=[("reorder", "Repetir pedido")]`, `promise_rows` sem "Proximo passo" e sem "Se algo mudar".
 - SSR local em `/thing/tracking/WEB-260519-JELF` com sessao autorizada: `Repetir pedido` aparece, `Voce pode refazer o pedido quando quiser.` aparece 0 vezes, `Proxima acao` aparece 0 vezes.
@@ -156,12 +156,12 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 - Browser plugin em `/thing/` e `/thing/menu`: brand da navbar renderiza somente `Nelson Boulangerie`; header e footer computam `backgroundColor: oklch(1 0 0)`, body/shell computam `oklch(0.97 0.001 106.4)`, pillbar computa `oklch(1 0 0)` e sem blur.
 - Browser plugin em `/thing/menu` e `/thing/cart`: adicionar item nao abre sheet/modal; o carrinho segue acessivel pela bottom nav e pelo header desktop como pagina `/thing/cart`, com `sheetCount=0`.
 - `CartSummaryBreakdown` usa `UiDescriptionList`, exibe subtotal original riscado quando `cart.has_discount`, prefixa `discount.amount_display` com `-` e e usado na pagina de carrinho.
-- `npm run test -- tests/surfaceGuardrails.test.ts` em `surfaces/storefront-uithing-nuxt` -> `1 passed`, `32 passed`; guardrail cobre ausencia de `CartDrawer`/`drawerOpen`, navegacao canonica para `/cart`, resumo de cupom com subtotal original/desconto negativo e tabs conectadas na conta.
+- `npm run test -- tests/surfaceGuardrails.test.ts` em `surfaces/storefront-nuxt` -> `1 passed`, `32 passed`; guardrail cobre ausencia de `CartDrawer`/`drawerOpen`, navegacao canonica para `/cart`, resumo de cupom com subtotal original/desconto negativo e tabs conectadas na conta.
 - `python -m pytest shopman/storefront/tests/web/test_projections_cart.py shopman/storefront/tests/api/test_storefront_surface.py -q` -> `17 passed`.
-- `npm run test` em `surfaces/storefront-uithing-nuxt` -> `8 passed`, `50 passed`.
+- `npm run test` em `surfaces/storefront-nuxt` -> `8 passed`, `50 passed`.
 - `npm run build` -> passou. Warnings conhecidos: sourcemap de `nuxt:module-preload-polyfill`/`@tailwindcss/vite`, anotacoes pure em `@vueuse/core`, e chunk > 500 kB.
 - `pytest shopman/storefront/tests/web/test_projections_order_tracking.py shopman/storefront/tests/web/test_web_order_tracking.py -q` -> `80 passed`.
-- `npm run test` em `surfaces/storefront-uithing-nuxt` -> `8 passed`, `49 passed`.
+- `npm run test` em `surfaces/storefront-nuxt` -> `8 passed`, `49 passed`.
 - `npm run test:ux` -> `UX smoke passed`.
 - `npm run build` -> passou. Warnings conhecidos: sourcemap de `nuxt:module-preload-polyfill`/`@tailwindcss/vite`, anotacoes pure em `@vueuse/core`, e chunk > 500 kB.
 - Ngrok validado com `HTTP/2 200` em `/thing/`.
@@ -203,4 +203,4 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 - Rodape: `ShopFooter` segue lendo `session.openingHours` de `home.opening_hours` e deixou de truncar a lista com `slice(0, 5)`.
 - Refinamento de copy: slides de saudacao (`Bom dia`, `Bom dia, Fulano`) ficaram sem subtitulo para evitar colar saudacao pessoal com descricao institucional da loja. Copy nova para esse caso deve ser canonizada em `hero_copy` antes de materializar na superficie.
 - Evidencia de dados: staging em `2026-05-20` retornava `home.opening_hours` com `Quarta: 9h as 23h`, enquanto `instances/nelson/management/commands/seed.py` define quarta como `09:00` a `18:00`. Ou seja, o valor errado exibido no rodape vem do banco/projection de staging, nao de calculo local da UI Thing. Tentativa de console remoto via `doctl apps console 40b86e35-bafe-4a1a-a1b0-e124d3d9fd0f web` falhou com `403`, entao a correcao do dado persistido ficou bloqueada por permissao.
-- Evidencias executadas: `pytest shopman/storefront/tests/test_shop_status.py shopman/storefront/tests/test_home_projection_contract.py` -> `5 passed`; `npm run test` em `surfaces/storefront-uithing-nuxt` -> `8 passed`, `51 passed`; `npm run build` -> passou com warnings conhecidos; `SHOPMAN_THING_URL=http://127.0.0.1:3003/thing npm run test:ux` -> `UX smoke passed`; browser local contra backend staging confirmou `Fechado. Abrimos as 9h` aparecendo 1 vez e nenhum alert operacional redundante.
+- Evidencias executadas: `pytest shopman/storefront/tests/test_shop_status.py shopman/storefront/tests/test_home_projection_contract.py` -> `5 passed`; `npm run test` em `surfaces/storefront-nuxt` -> `8 passed`, `51 passed`; `npm run build` -> passou com warnings conhecidos; `SHOPMAN_THING_URL=http://127.0.0.1:3003/thing npm run test:ux` -> `UX smoke passed`; browser local contra backend staging confirmou `Fechado. Abrimos as 9h` aparecendo 1 vez e nenhum alert operacional redundante.

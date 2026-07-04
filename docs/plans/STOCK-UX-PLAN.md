@@ -12,7 +12,7 @@
 > headers `HX-Retarget`/`HX-Reswap` **não existem mais**. O contrato de backend sobrevive, renomeado:
 > - `offerman/contrib/suggestions/suggestions.py::find_alternatives` → **`offerman/contrib/substitutes/substitutes.py::find_substitutes`**.
 > - `CartUnavailableError.alternatives` → **`.substitutes`** (`shopman/storefront/cart.py`).
-> - Hoje o consumo é em **`surfaces/storefront-uithing-nuxt/app/composables/useCartState.ts`**
+> - Hoje o consumo é em **`surfaces/storefront-nuxt/app/composables/useCartState.ts`**
 >   (`cartIssue.substitutes`) + **`app/pages/sacola.vue`** (banner "Alternativas disponíveis").
 >
 > **Lacuna real (não só doc):** em `sacola.vue` os substitutos são **listados mas NÃO acionáveis** —

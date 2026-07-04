@@ -33,7 +33,7 @@
 
 ## Superficie adicionada
 
-- `surfaces/pos-uithing-nuxt`
+- `surfaces/pos-nuxt`
 - Stack: Nuxt 4, UI Thing scaffoldado por `npx ui-thing@latest init` e componentes copiados para `app/components/Ui`.
 - Fluxo minimo: abrir/criar comanda ou iniciar venda rapida, buscar/listar produtos, montar carrinho, buscar cliente, reutilizar memoria/endereco salvo, usar autocomplete de endereco quando configurado, escolher retirada/entrega, escolher pagamento/recebimento, revisar, finalizar venda e abrir o pedido no gestor.
 - A superficie permite checkout direto sem comanda quando `tab_lifecycle.allows_direct_checkout_without_tab` estiver ativo. Se houver rascunho local sem comanda e o operador tentar salvar/pausar ou abrir outra comanda, um Dialog UI Thing solicita associar a uma comanda livre ou criar uma nova sem duplicar regra de lifecycle na superficie.

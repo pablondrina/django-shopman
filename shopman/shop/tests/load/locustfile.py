@@ -284,7 +284,7 @@ class OperatorUser(HttpUser):
 
 
 class KDSUser(HttpUser):
-    """KDS stations on the headless API (kds-uithing-nuxt app)."""
+    """KDS stations on the headless API (kds-nuxt app)."""
 
     weight = 30
     wait_time = between(1, 3)

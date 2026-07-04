@@ -258,7 +258,7 @@ shopman/backstage/                    SUPERFÍCIE operador
 ├── permissions.py                    ⭐ NOVO único (mata as 5 cópias de _can_*)
 ├── models/  templates/
 
-surfaces/pos-uithing-nuxt/            SUPERFÍCIE PDV (Nuxt/UI-Thing, headless)
+surfaces/pos-nuxt/            SUPERFÍCIE PDV (Nuxt/UI-Thing, headless)
 ├── presentation em TS                consome Projection serializada + Action; schema POS GERADO do contrato
 └── server/utils/djangoProxy.ts       transporte (preservar — é ouro)
 

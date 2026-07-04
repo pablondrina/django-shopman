@@ -1097,7 +1097,7 @@ export function usePosSale(deps: PosSaleDeps) {
 
   function newClientRequestId(): string {
     const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    return `pos-uithing:${random}`;
+    return `pos:${random}`;
   }
 
   async function openMoveDialog() {

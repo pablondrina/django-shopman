@@ -6,7 +6,7 @@
 > viradas arquiteturais. A **camada de domínio (seção 1, Cores)** continua fiel e
 > canônica. Já as partes de **superfície/UI e instância foram superadas**:_
 > _1. **Superfícies são Nuxt headless.** Storefront, POS, KDS, pedidos e produção
-> vivem em `surfaces/*-uithing-nuxt` consumindo projections/BFF do backend; o
+> vivem em `surfaces/*-nuxt` consumindo projections/BFF do backend; o
 > Admin/Unfold é a superfície de operador para CRUD/config. Os templates Django
 > de cliente, o HTMX e o design system Penguin UI foram aposentados. Onde este
 > spec disser "HTMX↔server / Alpine↔DOM", "Penguin UI", "templates", "modal HTMX"

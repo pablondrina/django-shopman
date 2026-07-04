@@ -2,7 +2,7 @@
 
 Status: canonical backend/projection/action contract  
 Date: 2026-05-23  
-Surface class: backstage operational POS surfaces (`/gestor/pos/`, `surfaces/pos-uithing-nuxt`, future POS clients)
+Surface class: backstage operational POS surfaces (`/gestor/pos/`, `surfaces/pos-nuxt`, future POS clients)
 
 ## Contract Rule
 

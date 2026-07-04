@@ -1,7 +1,7 @@
 """Headless operator orders API contract (api/v1/backstage/orders/*).
 
 Mirrors the Admin order console actions on the REST surface that the dedicated
-Gestor de Pedidos (orders-uithing-nuxt) consumes. The gate is the existing
+Gestor de Pedidos (orders-nuxt) consumes. The gate is the existing
 ``shop.manage_orders`` permission (granted to the Caixa/Gerente groups), so a
 non-superuser staff operator with that permission can drive the queue; staff
 without it — and non-staff — are blocked.
