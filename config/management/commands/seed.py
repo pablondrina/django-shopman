@@ -3411,17 +3411,20 @@ class Command(BaseCommand):
             "CHAUSSON": weeks(12),
             "MADELEINE": weeks(24),
         }
+        # Ancora no localdate (fuso da loja), não em now(): o backend de demanda
+        # filtra o histórico por __week_day, que extrai o dia convertendo para
+        # settings.TIME_ZONE. Perto da meia-noite UTC, now() cai no dia UTC — um
+        # dia-da-semana adiante do fuso local — e a sugestão do mesmo-dia-da-semana
+        # nasce zerada. localdate() faz histórico e consulta baterem no mesmo fuso.
+        anchor = timezone.localdate()
         created_or_updated = 0
         for sku, quantities in history.items():
             product = products.get(sku)
             if product is None:
                 continue
             for index, qty in enumerate(quantities, start=1):
-                order_time = (now - timedelta(days=7 * index)).replace(
-                    hour=10,
-                    minute=15,
-                    second=0,
-                    microsecond=0,
+                order_time = timezone.make_aware(
+                    datetime.combine(anchor - timedelta(days=7 * index), time(hour=10, minute=15))
                 )
                 seed_key = f"production-demand-history:{sku}:{index}"
                 ref = self._new_order_ref(pdv.ref, order_time.date())

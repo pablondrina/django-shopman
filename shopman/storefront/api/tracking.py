@@ -170,11 +170,9 @@ def order_events_view(request, ref: str):
     fall back to polling — session-scoped guest access is intentionally out of
     scope here.
     """
-    from shopman.orderman.models import Order
-
     from shopman.shop.services import customer_orders
 
-    order = Order.objects.filter(ref=ref).first()
+    order = customer_orders.find_order(ref)
     if order is None or not customer_orders.user_can_access_order(
         getattr(request, "user", None), order
     ):

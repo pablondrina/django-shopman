@@ -44,8 +44,15 @@ class OrderingDemandBackend:
         """
         from shopman.orderman.models import OrderItem
 
-        cutoff = timezone.now().date() - timedelta(days=days)
-        today = timezone.now().date()
+        # localdate(), não now().date(): sob USE_TZ, os lookups de ORM abaixo
+        # (__date, __week_day) extraem o dia convertendo created_at para
+        # settings.TIME_ZONE. now().date() devolve o dia em UTC — as duas noções
+        # de "hoje" divergem na janela 00:00–03:00 UTC (fim de tarde/noite no
+        # Brasil, justo quando a produção é planejada), e o filtro same_weekday
+        # passa a caçar o dia da semana errado, zerando o histórico. localdate()
+        # casa com o fuso usado pelos lookups.
+        cutoff = timezone.localdate() - timedelta(days=days)
+        today = timezone.localdate()
 
         qs = OrderItem.objects.filter(
             sku=product_ref,
