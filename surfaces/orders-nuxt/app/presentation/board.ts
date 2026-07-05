@@ -266,7 +266,7 @@ export function matchesFulfillment(card: OrderCardProjection, mode: FulfillmentF
 export function fulfillmentCounts(cards: OrderCardProjection[]): { delivery: number; pickup: number } {
   let delivery = 0;
   let pickup = 0;
-  for (const c of cards) c.fulfillment_type === "delivery" ? delivery++ : pickup++;
+  for (const c of cards) { if (c.fulfillment_type === "delivery") delivery++; else pickup++; }
   return { delivery, pickup };
 }
 

@@ -52,8 +52,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao atualizar. Tente de novo.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao atualizar. Tente de novo.");
       useSonner.error(errorMsg.value);
       return false;
     } finally {
@@ -81,8 +81,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao atualizar. Tente de novo.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao atualizar. Tente de novo.");
       useSonner.error(errorMsg.value);
       return false;
     } finally {
@@ -111,8 +111,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       const count = res?.count ?? 0;
       useSonner.success(`${count} item(ns) atualizado(s).`);
       return count;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha na ação em lote.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha na ação em lote.");
       useSonner.error(errorMsg.value);
       return 0;
     } finally {
@@ -139,8 +139,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       const count = res?.count ?? 0;
       useSonner.success(`${count} preço(s) atualizado(s).`);
       return count;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao reprecificar.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao reprecificar.");
       useSonner.error(errorMsg.value);
       return 0;
     } finally {
@@ -158,8 +158,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao reordenar.");
       useSonner.error(errorMsg.value);
       await refresh(); // reverte o otimista
       return false;
@@ -174,8 +174,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao reordenar.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao reordenar.");
       useSonner.error(errorMsg.value);
       await refresh();
       return false;

@@ -45,8 +45,8 @@ export function useOperatorLock(perm: string) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      useSonner.error(err?.data?.detail || "Identificação inválida. Tente de novo.");
+    } catch (error) {
+      useSonner.error(httpErrorMessage(error, "Identificação inválida. Tente de novo."));
       return false;
     } finally {
       busy.value = false;
@@ -76,8 +76,8 @@ export function useOperatorLock(perm: string) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      changeError.value = err?.data?.detail || "Não foi possível trocar o PIN.";
+    } catch (error) {
+      changeError.value = httpErrorMessage(error, "Não foi possível trocar o PIN.");
       return false;
     } finally {
       busy.value = false;

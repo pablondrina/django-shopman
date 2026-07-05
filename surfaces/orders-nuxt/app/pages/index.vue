@@ -58,7 +58,8 @@ const selected = ref<Set<string>>(new Set());
 const isSelected = (ref_: string) => selected.value.has(ref_);
 function toggleSelect(ref_: string) {
   const next = new Set(selected.value);
-  next.has(ref_) ? next.delete(ref_) : next.add(ref_);
+  if (next.has(ref_)) next.delete(ref_);
+  else next.add(ref_);
   selected.value = next;
 }
 function clearSelection() {
@@ -179,7 +180,8 @@ function onAction(ref_: string, action: AffordanceRef) {
 
 // claim/release an order ("estou atendendo").
 function onToggleAssign(card: OrderCardProjection) {
-  card.assigned_operator ? unassign(card.ref) : assign(card.ref);
+  if (card.assigned_operator) unassign(card.ref);
+  else assign(card.ref);
 }
 
 // ── export / print (Arc 5) ───────────────────────────────────────────────
@@ -187,7 +189,7 @@ function onToggleAssign(card: OrderCardProjection) {
 // browser dialog (the print stylesheet hides the chrome and shows the table).
 function exportCsv() {
   const csv = rowsToCsv(tableRows.value);
-  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "h");
   const a = document.createElement("a");

@@ -19,9 +19,7 @@ import {
 const props = defineProps<{ card: OrderCardProjection; busy?: boolean; error?: string; selected?: boolean }>();
 const emit = defineEmits<{
   (e: "action", ref: AffordanceRef): void;
-  (e: "dismiss-error"): void;
-  (e: "toggle-select"): void;
-  (e: "toggle-assign"): void;
+  (e: "dismiss-error" | "toggle-select" | "toggle-assign"): void;
 }>();
 
 const code = computed(() => splitRef(props.card.ref));

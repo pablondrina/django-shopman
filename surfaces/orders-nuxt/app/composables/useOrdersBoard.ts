@@ -103,8 +103,8 @@ export function useOrdersBoard() {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      const message = err?.data?.detail || "Falha na ação. Tente de novo.";
+    } catch (error) {
+      const message = httpErrorMessage(error, "Falha na ação. Tente de novo.");
       setActionError(ref_, message);
       useSonner.error(message);
       return false;
@@ -150,9 +150,9 @@ export function useOrdersBoard() {
       targets.map(async (r) => {
         try {
           await $fetch(`/api/v1/backstage/orders/${encodeURIComponent(r)}/${action}/`, { method: "POST", body: {} });
-        } catch (err: any) {
+        } catch (error) {
           failures += 1;
-          setActionError(r, err?.data?.detail || "Falha na ação.");
+          setActionError(r, httpErrorMessage(error, "Falha na ação."));
         }
       }),
     );

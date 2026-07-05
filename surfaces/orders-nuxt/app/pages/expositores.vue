@@ -27,7 +27,8 @@ function openEdit(sc: ShowcaseProjection) {
 }
 function toggleDraft(ref_: string) {
   const next = new Set(draft.value);
-  next.has(ref_) ? next.delete(ref_) : next.add(ref_);
+  if (next.has(ref_)) next.delete(ref_);
+  else next.add(ref_);
   draft.value = next;
 }
 async function applyEdit(sc: ShowcaseProjection) {

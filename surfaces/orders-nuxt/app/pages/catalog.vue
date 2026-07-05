@@ -49,7 +49,7 @@ const orderedCollections = computed(
   () => reorderView<CollectionProjection>(collections.value, collectionOverride.value, (c) => c.ref),
 );
 const {
-  dragKey: collDragKey, overKey: collOverKey, onPointerDown: collPointerDown,
+  dragKey: collDragKey, onPointerDown: collPointerDown,
 } = useDragReorder(
   () => orderedCollections.value.map((c) => c.ref),
   (order) => {
@@ -82,7 +82,8 @@ const selected = ref<Set<string>>(new Set());
 const isSelected = (sku: string) => selected.value.has(sku);
 function toggleSelect(sku: string) {
   const next = new Set(selected.value);
-  next.has(sku) ? next.delete(sku) : next.add(sku);
+  if (next.has(sku)) next.delete(sku);
+  else next.add(sku);
   selected.value = next;
 }
 const visibleSkus = computed(() => rows.value.map((r) => r.sku));
@@ -152,7 +153,6 @@ function toggleProductPublish(row: CatalogRowProjection) {
 // row actions menu (⋯) — casa das ações menos corriqueiras (editar, pausar tudo,
 // (des)publicar). Um menu por vez; keyed por sku.
 const menuOpen = ref<string | null>(null);
-const toggleMenu = (sku: string) => (menuOpen.value = menuOpen.value === sku ? null : sku);
 
 // deep-link para a edição do produto no Admin (host do Django, não o do Gestor).
 const djangoBase = useRuntimeConfig().public.djangoPublicBaseUrl as string;

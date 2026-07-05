@@ -13,7 +13,7 @@ export function useShowcaseBoard() {
   const isBusy = (ref_: string) => busy.value.has(ref_);
   const errorMsg = ref("");
 
-  async function run(ref_: string, body: any, url: string): Promise<boolean> {
+  async function run(ref_: string, body: Record<string, unknown>, url: string): Promise<boolean> {
     if (busy.value.has(ref_)) return false;
     errorMsg.value = "";
     busy.value = new Set(busy.value).add(ref_);
@@ -21,8 +21,8 @@ export function useShowcaseBoard() {
       await $fetch(url, { method: "POST", body });
       await refresh();
       return true;
-    } catch (err: any) {
-      errorMsg.value = err?.data?.detail || "Falha ao atualizar o expositor.";
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao atualizar o expositor.");
       useSonner.error(errorMsg.value);
       return false;
     } finally {
