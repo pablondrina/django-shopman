@@ -51,7 +51,7 @@ describe("design-system: paridade de tokens canônicos entre os 4 apps de operad
 // avulso (mesma dívida corrigida no storefront no WP-S0). Aplica-se às superfícies de
 // TELA — não à impressão térmica (recibo 80mm tem px fixos, outro meio). A enforcement
 // CRESCE por app (cada WP endurece o seu); a allowlist só ENCOLHE.
-const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt"] as const; // + kds/orders/production quando endurecidos
+const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt", "orders-nuxt"] as const; // + kds/production quando endurecidos
 
 // Arquivos isentos com justificativa (medium ≠ tela). Chave = caminho relativo ao app.
 const TYPOGRAPHY_ALLOWLIST: Record<string, string> = {

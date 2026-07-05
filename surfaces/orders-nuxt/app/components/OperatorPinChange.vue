@@ -99,7 +99,7 @@ const shownError = computed(() => localError.value || props.error || "");
     </button>
 
     <p class="mb-2 text-sm font-semibold">{{ label }}</p>
-    <div class="mb-2 flex h-10 items-center justify-center rounded-md border bg-background text-2xl tracking-[0.4em] tabular-nums">
+    <div class="mb-2 flex h-10 items-center justify-center rounded-md border bg-background text-3xl tracking-[0.4em] tabular-nums">
       {{ "•".repeat(activeValue().length) || "—" }}
     </div>
     <p v-if="shownError" class="mb-2 text-sm font-medium text-destructive">{{ shownError }}</p>

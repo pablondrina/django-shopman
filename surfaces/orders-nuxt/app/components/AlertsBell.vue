@@ -25,7 +25,7 @@ function sevChip(sev: AlertProjection["severity"]): string {
       <Icon name="lucide:bell" class="size-4" />
       <span
         v-if="activeCount"
-        class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full px-1 text-[0.6rem] font-bold tabular-nums text-white"
+        class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full px-1 text-xs font-bold tabular-nums text-white"
         :class="criticalCount ? 'bg-red-600' : 'bg-amber-500'"
       >{{ activeCount }}</span>
     </button>

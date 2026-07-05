@@ -384,7 +384,7 @@ function printQueue() {
         <div v-else class="overflow-x-auto rounded-lg border bg-card">
           <table class="w-full border-collapse text-sm">
             <thead>
-              <tr class="text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:border-b [&>th]:bg-card">
+              <tr class="text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:border-b [&>th]:bg-card">
                 <th class="w-9 px-3 py-2">
                   <button
                     type="button"
@@ -440,7 +440,7 @@ function printQueue() {
                 </td>
                 <td class="max-w-40 px-3 py-2">
                   <span class="block truncate">{{ row.card.customer_name }}</span>
-                  <span v-if="row.card.assigned_operator" class="mt-0.5 inline-flex items-center gap-1 text-[0.7rem] text-primary">
+                  <span v-if="row.card.assigned_operator" class="mt-0.5 inline-flex items-center gap-1 text-xs text-primary">
                     <Icon name="lucide:user-check" class="size-3" />{{ row.card.assigned_operator }}
                   </span>
                 </td>
