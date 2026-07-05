@@ -34,3 +34,13 @@ export function isTransientError(error: unknown): boolean {
   const { status } = httpError(error);
   return status === 0 || status === 502 || status === 503 || status === 504;
 }
+
+/**
+ * Autenticação perdida (401): a sessão de dispositivo do operador expirou no meio da
+ * operação. Distinto de 403 (autenticado, porém proibido — falta de permissão/gate de
+ * PIN), que NÃO deve re-gate para login. Consumido pelo `useOperatorSession` para
+ * forçar re-autenticação em vez de falhar gravações no vácuo.
+ */
+export function isUnauthenticatedError(error: unknown): boolean {
+  return httpError(error).status === 401;
+}

@@ -6,7 +6,10 @@
 import { toast } from "vue-sonner";
 import type { PaymentProofView } from "~/presentation/payment";
 
-const props = defineProps<{ proof: PaymentProofView; confirmed?: boolean }>();
+// `status` = estado do polling PIX vindo do composable: 'polling' (aguardando),
+// 'paid' (confirmado), 'expired' (desistiu — terminal/timeout). Cartão/dinheiro
+// não pollam → 'idle'.
+const props = defineProps<{ proof: PaymentProofView; status?: "idle" | "polling" | "paid" | "expired" }>();
 
 const TONE_CLASS: Record<PaymentProofView["tone"], string> = {
   info: "border-sky-500/30 bg-sky-500/10 text-sky-800",
@@ -30,7 +33,7 @@ async function copyCode() {
 <template>
   <!-- PIX confirmado: o polling detectou o pagamento — troca a tela por "Pago". -->
   <div
-    v-if="proof.isPix && confirmed"
+    v-if="proof.isPix && status === 'paid'"
     class="grid gap-1 rounded-md border border-green-500/40 bg-green-500/10 p-3 text-green-800 dark:text-green-300"
     role="status"
     aria-live="polite"
@@ -47,8 +50,13 @@ async function copyCode() {
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold">{{ proof.isPix ? "Pagamento PIX" : "Pagamento por cartão" }} · {{ proof.amountDisplay }}</p>
         <p v-if="proof.message" class="text-xs opacity-90">{{ proof.message }}</p>
-        <p v-if="proof.isPix && proof.hasProof" class="mt-0.5 flex items-center gap-1 text-xs opacity-80">
+        <!-- Aguardando: gira só ENQUANTO polla. Ao desistir, para de mentir. -->
+        <p v-if="proof.isPix && proof.hasProof && status === 'polling'" class="mt-0.5 flex items-center gap-1 text-xs opacity-80">
           <Icon name="lucide:loader-circle" class="size-3 animate-spin" /> Aguardando confirmação do PIX…
+        </p>
+        <!-- Desistiu (expirado/cancelado): acusa honestamente, sem prometer o que não cumpre. -->
+        <p v-else-if="proof.isPix && proof.hasProof && status === 'expired'" class="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <Icon name="lucide:clock-alert" class="size-3.5" /> Não confirmamos o PIX automaticamente. Confira no gestor ou gere um novo pagamento.
         </p>
       </div>
     </div>

@@ -36,6 +36,7 @@ async function submitLogin() {
       method: "POST",
       body: { username: loginUser.value.trim(), password: loginPass.value },
     });
+    resetSession(); // sessão re-estabelecida antes do reload
     if (import.meta.client) window.location.reload();
   } catch (err: any) {
     loginError.value = err?.data?.detail || "Não foi possível entrar. Confira usuário e senha.";
@@ -44,6 +45,17 @@ async function submitLogin() {
 }
 
 const { data, pos, shift, tabs, operators, actions, pending, error, refresh } = await usePosTerminal();
+
+// Resiliência de rede (kit): reconciliação ao reconectar/reganhar foco — o tablet do
+// balcão que dormiu não fica com dados velhos. O <OfflineBanner> (auto-import do kit)
+// dá o aviso calmo enquanto offline.
+const { onReconnect } = useConnectivity();
+onReconnect(() => refresh());
+
+// Re-gate global de sessão (kit): um 401 no meio do turno (sessão de dispositivo
+// expirada) sobe a tela de login em vez de o operador bater numa sessão morta.
+const { expired: sessionExpired, reset: resetSession } = useOperatorSession();
+const needsLogin = computed(() => Boolean(error.value) || sessionExpired.value);
 
 // Operator identity / lock screen (PIN attribution). Instantiated here in the
 // shell's <script setup> so its lifecycle hooks (auto-lock idle timer) survive
@@ -96,7 +108,7 @@ const {
   lookupBusy,
   serverError,
   result,
-  paymentConfirmed,
+  pixStatus,
   checkoutMode,
   showTabs,
   cashDialogOpen,
@@ -278,8 +290,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
 <template>
   <main class="flex flex-wrap content-start min-h-dvh bg-background text-foreground md:h-[100dvh] md:min-h-0 md:flex-nowrap md:overflow-hidden">
+    <!-- Aviso calmo de conexão (kit): fixed no topo, só aparece offline. -->
+    <OfflineBanner />
     <PosFunctionRail
-      v-if="pos && !error"
+      v-if="pos && !needsLogin"
       :pos="pos"
       :shift="shift"
       :has-open-cash-session="pos.has_open_cash_session"
@@ -309,7 +323,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         @change-pin="onChangePin"
       />
 
-      <header v-if="pos && !error" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
+      <header v-if="pos && !needsLogin" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
         <UiButton
           v-if="inSaleView"
           variant="ghost"
@@ -364,7 +378,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
-            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :confirmed="paymentConfirmed" />
+            <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :status="pixStatus" />
             <div class="flex flex-wrap items-center gap-2">
               <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
                 <Icon name="lucide:printer" class="size-4" />
@@ -411,15 +425,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       </div>
 
       <div class="flex-1 md:min-h-0 md:overflow-hidden">
-      <div v-if="error" class="grid h-full place-items-center p-4">
+      <div v-if="needsLogin" class="grid h-full place-items-center p-4">
         <form class="grid w-full max-w-sm gap-4 text-center" @submit.prevent="submitLogin">
           <div class="mx-auto grid size-14 place-items-center rounded-full border bg-muted">
             <Icon name="lucide:lock-keyhole" class="size-7 text-muted-foreground" />
           </div>
           <div class="grid gap-1.5">
-            <h2 class="text-2xl font-semibold">Entre para operar o caixa</h2>
+            <h2 class="text-2xl font-semibold">{{ sessionExpired ? "Sua sessão expirou" : "Entre para operar o caixa" }}</h2>
             <p class="text-sm text-muted-foreground">
-              Acesse com sua conta autorizada a operar o caixa.
+              {{ sessionExpired ? "Entre de novo para continuar de onde parou." : "Acesse com sua conta autorizada a operar o caixa." }}
             </p>
           </div>
           <div class="grid gap-2.5 text-left">
@@ -558,7 +572,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
     <!-- TICKET / COMANDA — full-height right flank (cart-direita, reaches the top
          edge alongside the rail; on mobile it wraps below the product grid). -->
     <aside
-      v-if="pos && !error && inSaleView && !checkoutMode"
+      v-if="pos && !needsLogin && inSaleView && !checkoutMode"
       class="flex w-full shrink-0 flex-col border-t border-border bg-card md:order-none md:h-full md:w-[360px] md:border-l md:border-t-0"
     >
         <div class="min-h-0 flex-1 md:overflow-hidden">

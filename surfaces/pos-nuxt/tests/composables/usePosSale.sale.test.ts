@@ -127,19 +127,19 @@ describe("usePosSale — PIX polling pós-venda", () => {
 
   const pixProof = { method: "pix", amount_q: 1000, amount_display: "R$ 10,00", qr_code: "QRDATA", status: "pending" };
 
-  it("confirma o pagamento quando o status vira is_paid", async () => {
+  it("polling → 'paid' quando o status vira is_paid, e então para", async () => {
     fetchMock.mockResolvedValue({ is_paid: true });
     const actionCall = saleRouter(pixProof);
     const h = saleReadyForCheckout(actionCall);
 
     await h.sale.submitSale(); // prepara
     await h.sale.submitSale(); // fecha → inicia polling
-    expect(h.sale.paymentConfirmed.value).toBe(false);
+    expect(h.sale.pixStatus.value).toBe("polling");
 
     await vi.advanceTimersByTimeAsync(2500); // 1º poll
     expect(fetchMock).toHaveBeenCalled();
     expect(String(fetchMock.mock.calls[0]![0])).toContain("/pos/payment/PED-1/status/");
-    expect(h.sale.paymentConfirmed.value).toBe(true);
+    expect(h.sale.pixStatus.value).toBe("paid");
 
     // Confirmado → o polling parou (não chama mais).
     const callsAfter = fetchMock.mock.calls.length;
@@ -148,7 +148,7 @@ describe("usePosSale — PIX polling pós-venda", () => {
     h.handles.dispose();
   });
 
-  it("para o polling num estado terminal (expirado/cancelado) sem confirmar", async () => {
+  it("estado terminal (cancelado/expirado) vira 'expired' — não mente 'aguardando'", async () => {
     fetchMock.mockResolvedValue({ is_terminal: true });
     const actionCall = saleRouter(pixProof);
     const h = saleReadyForCheckout(actionCall);
@@ -157,21 +157,36 @@ describe("usePosSale — PIX polling pós-venda", () => {
     await h.sale.submitSale();
     await vi.advanceTimersByTimeAsync(2500);
 
-    expect(h.sale.paymentConfirmed.value).toBe(false);
+    expect(h.sale.pixStatus.value).toBe("expired");
     const calls = fetchMock.mock.calls.length;
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock.mock.calls.length).toBe(calls); // parou
     h.handles.dispose();
   });
 
-  it("métodos sem prova (dinheiro) não iniciam polling", async () => {
+  it("timeout (~10 min sem resolução) desiste com 'expired'", async () => {
+    fetchMock.mockResolvedValue({}); // nunca is_paid/is_terminal
+    const actionCall = saleRouter(pixProof);
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale();
+    await h.sale.submitSale();
+    expect(h.sale.pixStatus.value).toBe("polling");
+
+    // 241 tentativas a 2,5s → passa do teto de 240 e desiste.
+    await vi.advanceTimersByTimeAsync(241 * 2500);
+    expect(h.sale.pixStatus.value).toBe("expired");
+    h.handles.dispose();
+  });
+
+  it("métodos sem prova (dinheiro) não iniciam polling → 'idle'", async () => {
     const actionCall = saleRouter(null); // sem payment proof
     const h = saleReadyForCheckout(actionCall);
     await h.sale.submitSale();
     await h.sale.submitSale();
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(h.sale.paymentConfirmed.value).toBe(false);
+    expect(h.sale.pixStatus.value).toBe("idle");
     h.handles.dispose();
   });
 });

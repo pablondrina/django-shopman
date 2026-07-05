@@ -110,26 +110,28 @@ export function usePosSale(deps: PosSaleDeps) {
 
   // PIX no PDV: o proof mostra o QR e "aguarde confirmação", mas sem polling o
   // operador nunca via a confirmação chegar (tinha de ir ao gestor). Aqui pollamos
-  // o status por-order (endpoint gateado por operate_pos) até is_paid/terminal.
-  const paymentConfirmed = ref(false);
+  // o status por-order (endpoint gateado por operate_pos). O estado é explícito
+  // ('polling'|'paid'|'expired') para a UI nunca girar "aguardando…" no vácuo: ao
+  // desistir (terminal/timeout) a tela acusa honestamente ([[feedback_transparent_timeouts]]).
+  const pixStatus = ref<"idle" | "polling" | "paid" | "expired">("idle");
   let pixPollTimer: ReturnType<typeof setInterval> | null = null;
   function stopPixPolling() {
     if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
   }
   function startPixPolling(orderRef: string) {
     stopPixPolling();
-    paymentConfirmed.value = false;
+    pixStatus.value = "polling";
     let attempts = 0;
     pixPollTimer = setInterval(async () => {
       attempts += 1;
-      if (attempts > 240) return stopPixPolling(); // ~10 min a 2,5s → desiste
+      if (attempts > 240) { pixStatus.value = "expired"; return stopPixPolling(); } // ~10 min a 2,5s → desiste
       try {
         const status = await $fetch<{ is_paid?: boolean; is_terminal?: boolean }>(
           apiPath(`/api/v1/backstage/pos/payment/${encodeURIComponent(orderRef)}/status/`),
           { credentials: "include" },
         );
-        if (status?.is_paid) { paymentConfirmed.value = true; stopPixPolling(); }
-        else if (status?.is_terminal) { stopPixPolling(); } // cancelado/expirado
+        if (status?.is_paid) { pixStatus.value = "paid"; stopPixPolling(); }
+        else if (status?.is_terminal) { pixStatus.value = "expired"; stopPixPolling(); } // cancelado/expirado
       } catch { /* falha transiente de rede — segue tentando */ }
     }, 2500);
   }
@@ -1060,7 +1062,7 @@ export function usePosSale(deps: PosSaleDeps) {
         };
         // PIX pendente → polla até confirmar; outros métodos já saem resolvidos.
         if (proof?.isPix && proof?.hasProof) startPixPolling(orderRef);
-        else paymentConfirmed.value = false;
+        else pixStatus.value = "idle";
         resetCart();
         await refresh();
       }
@@ -1348,7 +1350,7 @@ export function usePosSale(deps: PosSaleDeps) {
     tabInput,
     busy,
     saving,
-    paymentConfirmed,
+    pixStatus,
     unsaved,
     firing,
     renamingTab,

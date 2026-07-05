@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { httpError, isTransientError } from "../app/utils/httpError";
+import { httpError, isTransientError, isUnauthenticatedError } from "../app/utils/httpError";
 
 describe("httpError", () => {
   it("extracts status/data/message from an ofetch-style error", () => {
@@ -31,5 +31,20 @@ describe("isTransientError", () => {
     for (const status of [400, 401, 403, 404, 409, 429, 500]) {
       expect(isTransientError({ status })).toBe(false);
     }
+  });
+});
+
+describe("isUnauthenticatedError", () => {
+  it("is true only for 401 (auth perdida), across error shapes", () => {
+    expect(isUnauthenticatedError({ status: 401 })).toBe(true);
+    expect(isUnauthenticatedError({ statusCode: 401 })).toBe(true);
+    expect(isUnauthenticatedError({ response: { status: 401 } })).toBe(true);
+  });
+
+  it("is false for 403 (proibido) e demais status/rede", () => {
+    for (const status of [0, 400, 403, 404, 419, 500]) {
+      expect(isUnauthenticatedError({ status })).toBe(false);
+    }
+    expect(isUnauthenticatedError(new Error("offline"))).toBe(false);
   });
 });

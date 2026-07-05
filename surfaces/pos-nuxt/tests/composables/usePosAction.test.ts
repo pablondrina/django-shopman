@@ -43,4 +43,20 @@ describe("usePosAction", () => {
     const { call } = usePosAction();
     await expect(call("/x/")).resolves.toEqual({ ok: true, tab: { ref: "T9" } });
   });
+
+  it("re-gate: 401 (auth perdida) marca a sessão expirada e re-lança", async () => {
+    useOperatorSession().reset();
+    fetchMock.mockRejectedValue({ status: 401, data: { detail: "expired" } });
+    const { call } = usePosAction();
+    await expect(call("/api/v1/backstage/pos/sale/close/")).rejects.toBeTruthy();
+    expect(useOperatorSession().expired.value).toBe(true);
+  });
+
+  it("403 (proibido) NÃO dispara re-gate — só re-lança", async () => {
+    useOperatorSession().reset();
+    fetchMock.mockRejectedValue({ status: 403 });
+    const { call } = usePosAction();
+    await expect(call("/x/")).rejects.toBeTruthy();
+    expect(useOperatorSession().expired.value).toBe(false);
+  });
 });
