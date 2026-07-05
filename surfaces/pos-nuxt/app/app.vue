@@ -422,7 +422,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
             <Icon name="lucide:lock-keyhole" class="size-7 text-muted-foreground" />
           </div>
           <div class="grid gap-1.5">
-            <h2 class="text-2xl font-semibold">{{ sessionExpired ? "Sua sessão expirou" : "Entre para operar o caixa" }}</h2>
+            <h2 class="text-lg font-semibold">{{ sessionExpired ? "Sua sessão expirou" : "Entre para operar o caixa" }}</h2>
             <p class="text-sm text-muted-foreground">
               {{ sessionExpired ? "Entre de novo para continuar de onde parou." : "Acesse com sua conta autorizada a operar o caixa." }}
             </p>

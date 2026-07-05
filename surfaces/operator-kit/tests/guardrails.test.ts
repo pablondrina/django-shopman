@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -47,10 +47,55 @@ describe("design-system: paridade de tokens canônicos entre os 4 apps de operad
   });
 });
 
-// TODO(WP-B0 → por-app): estender o scaffold com as demais checagens da Lente 7
-// conforme cada app é endurecido, cada uma retirando sua dívida da allowlist:
-//   - escala tipográfica (só os 6 papéis; sem text-2xl/text-[..] avulso)
-//   - raio/seleção (sem rounded-lg/xl avulso; sem ring colorido em seleção)
-//   - alvos de toque ≥ 44px onde a regra se aplica
-//   - ícone forte declarado por app
-//   - a11y: input de crachá não aria-hidden porém focável (WCAG 4.1.2)
+// --- Escala tipográfica (DS §3): só os 6 papéis; sem `text-2xl` nem `text-[..]`
+// avulso (mesma dívida corrigida no storefront no WP-S0). Aplica-se às superfícies de
+// TELA — não à impressão térmica (recibo 80mm tem px fixos, outro meio). A enforcement
+// CRESCE por app (cada WP endurece o seu); a allowlist só ENCOLHE.
+const TYPOGRAPHY_ENFORCED = ["pos-nuxt"] as const; // + kds/orders/production quando endurecidos
+
+// Arquivos isentos com justificativa (medium ≠ tela). Chave = caminho relativo ao app.
+const TYPOGRAPHY_ALLOWLIST: Record<string, string> = {
+  "pos-nuxt/app/components/PosReceipt.vue": "recibo térmico 80mm — px fixos p/ a impressora, não papéis de tela",
+};
+
+function walkVueFiles(dir: string, appDir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    // Componentes Ui/** são a família vendada (UI Thing) — fora do canon de tela.
+    if (entry.isDirectory()) {
+      if (entry.name === "Ui" || entry.name === "node_modules") continue;
+      walkVueFiles(full, appDir, out);
+    } else if (entry.name.endsWith(".vue")) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+// text-2xl e qualquer arbitrário text-[..] (px/rem) — os dois anti-padrões nomeados no DS.
+const STRAY_TEXT = /\btext-2xl\b|\btext-\[[^\]]+\]/g;
+
+describe("design-system: escala tipográfica (só os 6 papéis)", () => {
+  for (const app of TYPOGRAPHY_ENFORCED) {
+    const appRoot = resolve(surfacesDir, app, "app");
+    const files = walkVueFiles(appRoot, appRoot);
+
+    it(`${app}: nenhum text-2xl/text-[..] avulso fora da allowlist`, () => {
+      const offenders: string[] = [];
+      for (const file of files) {
+        const rel = `${app}/app/${file.slice(appRoot.length + 1)}`;
+        if (TYPOGRAPHY_ALLOWLIST[rel]) continue;
+        const hits = readFileSync(file, "utf8").match(STRAY_TEXT);
+        if (hits) offenders.push(`${rel}: ${[...new Set(hits)].join(", ")}`);
+      }
+      expect(offenders, `tamanhos de texto fora dos papéis:\n${offenders.join("\n")}`).toEqual([]);
+    });
+
+    it(`${app}: cada arquivo da allowlist ainda existe (a lista só encolhe)`, () => {
+      for (const rel of Object.keys(TYPOGRAPHY_ALLOWLIST)) {
+        if (!rel.startsWith(`${app}/`)) continue;
+        expect(files.some((f) => `${app}/app/${f.slice(appRoot.length + 1)}` === rel), `allowlist stale: ${rel}`).toBe(true);
+      }
+    });
+  }
+});

@@ -361,7 +361,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
             </p>
             <span
               v-if="item.discount && item.discount.value > 0"
-              class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+              class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
               :title="`Desconto: ${item.discount.reason}`"
             >
               <Icon name="lucide:tag" class="size-3" />
@@ -370,7 +370,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
             <button
               v-if="lineKitchenState(item) === 'fired_cancellable'"
               type="button"
-              class="group mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              class="group mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               :disabled="firing"
               :aria-label="`${unfireAction.label}: ${item.name}`"
               @click.stop="$emit('unfire', item.line_id || '')"
@@ -381,7 +381,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
             </button>
             <span
               v-else-if="lineKitchenState(item) === 'fired'"
-              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
             >
               <Icon name="lucide:flame" class="size-3" />
               Na cozinha

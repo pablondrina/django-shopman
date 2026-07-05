@@ -43,7 +43,7 @@ function submit() {
         v-for="d in digits"
         :key="d"
         variant="outline"
-        class="h-16 w-20 text-2xl font-semibold tabular-nums"
+        class="h-16 w-20 text-3xl font-semibold tabular-nums"
         :disabled="disabled"
         @click="press(d)"
       >
@@ -62,7 +62,7 @@ function submit() {
 
       <UiButton
         variant="outline"
-        class="h-16 w-20 text-2xl font-semibold tabular-nums"
+        class="h-16 w-20 text-3xl font-semibold tabular-nums"
         :disabled="disabled"
         @click="press('0')"
       >
