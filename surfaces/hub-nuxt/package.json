@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host 127.0.0.1 --port 3006",
+    "dev": "nuxt dev --host 127.0.0.1 --port 3001",
     "generate": "nuxt generate",
-    "preview": "HOST=127.0.0.1 nuxt preview --port 3006",
+    "preview": "HOST=127.0.0.1 nuxt preview --port 3001",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:component": "vitest run --project component",

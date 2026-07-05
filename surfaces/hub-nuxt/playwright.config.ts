@@ -12,7 +12,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:3006",
+    baseURL: "http://127.0.0.1:3001",
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -24,14 +24,14 @@ export default defineConfig({
     },
     {
       command: "nuxt build && node .output/server/index.mjs",
-      port: 3006,
+      port: 3001,
       reuseExistingServer: !process.env.CI,
       timeout: 240_000,
       env: {
         NUXT_APP_BASE_URL: "/",
         NUXT_DJANGO_BASE_URL: "http://127.0.0.1:8797",
         HOST: "127.0.0.1",
-        PORT: "3006",
+        PORT: "3001",
       },
     },
   ],

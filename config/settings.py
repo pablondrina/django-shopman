@@ -124,8 +124,8 @@ if DEBUG:
         "https://*.ngrok.io",
         "https://*.ngrok.app",
         "https://*.trycloudflare.com",
-        # Nuxt dev surfaces: storefront :3000 · pos :3002 · kds :3003 · gestor :3004
-        # · fournil :3005 · central :3006 (backstage legado :3001).
+        # Nuxt dev surfaces (contíguo): storefront :3000 · central :3001 · pos :3002
+        # · kds :3003 · gestor :3004 · fournil :3005.
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
@@ -138,8 +138,6 @@ if DEBUG:
         "http://127.0.0.1:3004",
         "http://localhost:3005",
         "http://127.0.0.1:3005",
-        "http://localhost:3006",
-        "http://127.0.0.1:3006",
     ]
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
