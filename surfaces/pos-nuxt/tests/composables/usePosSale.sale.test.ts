@@ -1,0 +1,177 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "vue-sonner";
+
+import { makeProjection, makeSale } from "./_posSaleHarness";
+
+vi.mock("vue-sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
+function freeCartProjection() {
+  return makeProjection({
+    checkout: {
+      intent_version: 1,
+      capabilities: { tab_lifecycle: { requires_open_tab_for_cart: false, requires_tab_before_save: false } },
+    } as ReturnType<typeof makeProjection>["checkout"],
+  });
+}
+
+// Router de action.call por caminho: review devolve um review; close devolve ok.
+function saleRouter(closePayment: Record<string, unknown> | null = null) {
+  return vi.fn().mockImplementation(async (path: string) => {
+    if (String(path).includes("/sale/review/")) {
+      return { review: { total_q: 1000, total_display: "R$ 10,00", subtotal_q: 1000 } };
+    }
+    if (String(path).includes("/sale/close/")) {
+      return { ok: true, order_ref: "PED-1", payment: closePayment };
+    }
+    return {};
+  });
+}
+
+/** Carrinho pronto para checkout (2 pães = R$ 10,00, sem comanda). */
+function saleReadyForCheckout(actionCall: ReturnType<typeof vi.fn>) {
+  const h = makeSale({ projection: freeCartProjection(), actionCall });
+  const pao = h.handles.posValue.value!.products[0]!;
+  h.sale.addProduct(pao);
+  h.sale.addProduct(pao);
+  return h;
+}
+
+describe("usePosSale — submitSale (fluxo em etapas)", () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("guarda de reentrância: não dispara nada enquanto busy", async () => {
+    const actionCall = saleRouter();
+    const h = saleReadyForCheckout(actionCall);
+    h.sale.busy.value = true;
+    await h.sale.submitSale();
+    expect(actionCall).not.toHaveBeenCalled();
+    h.handles.dispose();
+  });
+
+  it("primeiro clique prepara (review + checkoutMode), não fecha", async () => {
+    const actionCall = saleRouter();
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale();
+
+    expect(h.sale.checkoutMode.value).toBe(true);
+    expect(h.sale.review.value?.total_q).toBe(1000);
+    const closeCalls = actionCall.mock.calls.filter((c) => String(c[0]).includes("/sale/close/"));
+    expect(closeCalls).toHaveLength(0);
+    h.handles.dispose();
+  });
+
+  it("segundo clique fecha a venda, congela o recibo e limpa o carrinho", async () => {
+    const actionCall = saleRouter(null);
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale(); // prepara
+    await h.sale.submitSale(); // fecha
+
+    expect(h.sale.result.value?.orderRef).toBe("PED-1");
+    // Recibo congelado ANTES do reset: 1 linha (pão), total do review.
+    expect(h.sale.result.value?.receipt.items).toHaveLength(1);
+    expect(h.sale.result.value?.receipt.items[0]).toMatchObject({ qty: 2, price_q: 500 });
+    expect(h.sale.result.value?.receipt.totalDisplay).toBe("R$ 10,00");
+    // Carrinho zerado após finalizar.
+    expect(h.sale.cart.items).toHaveLength(0);
+    expect(h.handles.refresh).toHaveBeenCalled();
+    h.handles.dispose();
+  });
+
+  it("review obsoleto (stale) volta a revisar em vez de fechar", async () => {
+    const actionCall = saleRouter(null);
+    const h = saleReadyForCheckout(actionCall);
+    await h.sale.submitSale(); // checkoutMode + review
+    h.sale.review.value = null; // simula dado de venda mudado → review invalidado
+
+    await h.sale.submitSale();
+
+    const closeCalls = actionCall.mock.calls.filter((c) => String(c[0]).includes("/sale/close/"));
+    expect(closeCalls).toHaveLength(0); // re-revisou, não fechou
+    h.handles.dispose();
+  });
+
+  it("falha no fechamento acende toast e preserva o carrinho", async () => {
+    const actionCall = vi.fn().mockImplementation(async (path: string) => {
+      if (String(path).includes("/sale/review/")) return { review: { total_q: 1000, total_display: "R$ 10,00" } };
+      if (String(path).includes("/sale/close/")) throw { data: { detail: "Caixa fechado" } };
+      return {};
+    });
+    const h = saleReadyForCheckout(actionCall);
+    await h.sale.submitSale(); // prepara
+    await h.sale.submitSale(); // tenta fechar → erro
+
+    expect(h.sale.result.value).toBeNull();
+    expect(h.sale.busy.value).toBe(false);
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Caixa fechado");
+    expect(h.sale.cart.items).toHaveLength(1); // 1 linha (pão x2) — nada perdido
+    expect(h.sale.cart.items[0]!.qty).toBe(2);
+    h.handles.dispose();
+  });
+});
+
+describe("usePosSale — PIX polling pós-venda", () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchMock.mockReset();
+    vi.stubGlobal("$fetch", fetchMock);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const pixProof = { method: "pix", amount_q: 1000, amount_display: "R$ 10,00", qr_code: "QRDATA", status: "pending" };
+
+  it("confirma o pagamento quando o status vira is_paid", async () => {
+    fetchMock.mockResolvedValue({ is_paid: true });
+    const actionCall = saleRouter(pixProof);
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale(); // prepara
+    await h.sale.submitSale(); // fecha → inicia polling
+    expect(h.sale.paymentConfirmed.value).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(2500); // 1º poll
+    expect(fetchMock).toHaveBeenCalled();
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("/pos/payment/PED-1/status/");
+    expect(h.sale.paymentConfirmed.value).toBe(true);
+
+    // Confirmado → o polling parou (não chama mais).
+    const callsAfter = fetchMock.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBe(callsAfter);
+    h.handles.dispose();
+  });
+
+  it("para o polling num estado terminal (expirado/cancelado) sem confirmar", async () => {
+    fetchMock.mockResolvedValue({ is_terminal: true });
+    const actionCall = saleRouter(pixProof);
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale();
+    await h.sale.submitSale();
+    await vi.advanceTimersByTimeAsync(2500);
+
+    expect(h.sale.paymentConfirmed.value).toBe(false);
+    const calls = fetchMock.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBe(calls); // parou
+    h.handles.dispose();
+  });
+
+  it("métodos sem prova (dinheiro) não iniciam polling", async () => {
+    const actionCall = saleRouter(null); // sem payment proof
+    const h = saleReadyForCheckout(actionCall);
+    await h.sale.submitSale();
+    await h.sale.submitSale();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.sale.paymentConfirmed.value).toBe(false);
+    h.handles.dispose();
+  });
+});
