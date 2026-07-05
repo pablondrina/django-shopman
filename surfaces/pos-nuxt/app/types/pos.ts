@@ -77,6 +77,33 @@ export interface POSCheckoutSectionProjection {
   field_refs: string[];
 }
 
+// Sub-objetos do mapa `capabilities` do contrato de checkout. Só os campos que a
+// superfície lê são tipados; o index signature preserva as demais chaves (o servidor
+// pode carregar mais) e mantém cada capability atribuível a `Record<string, unknown>`.
+export interface POSCashManagementCapability {
+  movement_kinds?: string[];
+  [key: string]: unknown;
+}
+export interface POSKitchenHandoffCapability {
+  fire_action_ref?: string;
+  [key: string]: unknown;
+}
+export interface POSTabManipulationCapability {
+  rename_action_ref?: string;
+  [key: string]: unknown;
+}
+export interface POSSaleCorrectionCapability {
+  cancel_recent_action_ref?: string;
+  [key: string]: unknown;
+}
+export interface POSCheckoutCapabilities {
+  cash_management?: POSCashManagementCapability | null;
+  kitchen_handoff?: POSKitchenHandoffCapability | null;
+  tab_manipulation?: POSTabManipulationCapability | null;
+  sale_correction?: POSSaleCorrectionCapability | null;
+  [key: string]: unknown;
+}
+
 export interface POSCheckoutContractProjection {
   intent_version: string;
   allowed_payload_keys: string[];

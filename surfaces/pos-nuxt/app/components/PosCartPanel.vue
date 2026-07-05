@@ -208,7 +208,7 @@ function commitPrice() {
 function onDigit(digit: string) {
   if (!numpadCanType.value) return;
   if (numpadMode.value === "price") {
-    let entry = numpadFresh.value ? "" : numpadBuffer.value;
+    const entry = numpadFresh.value ? "" : numpadBuffer.value;
     if (entry.includes(",")) {
       if ((entry.split(",")[1] ?? "").length >= 2) return;
     } else if (entry.replace(/^0+/, "").length >= 6) {

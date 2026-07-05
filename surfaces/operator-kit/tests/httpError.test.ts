@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { httpError, isTransientError, isUnauthenticatedError } from "../app/utils/httpError";
+import { httpError, httpErrorMessage, isTransientError, isUnauthenticatedError } from "../app/utils/httpError";
 
 describe("httpError", () => {
   it("extracts status/data/message from an ofetch-style error", () => {
@@ -31,6 +31,24 @@ describe("isTransientError", () => {
     for (const status of [400, 401, 403, 404, 409, 429, 500]) {
       expect(isTransientError({ status })).toBe(false);
     }
+  });
+});
+
+describe("httpErrorMessage", () => {
+  it("prioriza data.detail (DRF)", () => {
+    expect(httpErrorMessage({ data: { detail: "Comanda já paga" } }, "fallback")).toBe("Comanda já paga");
+  });
+
+  it("cai para data.error.message (erro de domínio)", () => {
+    expect(httpErrorMessage({ data: { error: { message: "Estoque insuficiente" } } }, "fallback")).toBe(
+      "Estoque insuficiente",
+    );
+  });
+
+  it("usa o fallback localizado — nunca a string técnica do ofetch", () => {
+    expect(httpErrorMessage({ message: "[POST] \"/x\": 500" }, "Falha ao salvar.")).toBe("Falha ao salvar.");
+    expect(httpErrorMessage(new Error("Failed to fetch"), "Sem conexão.")).toBe("Sem conexão.");
+    expect(httpErrorMessage({ data: { detail: "" } }, "Falha.")).toBe("Falha."); // detail vazio → fallback
   });
 });
 

@@ -12,6 +12,7 @@
     "test:component": "vitest run --project component",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "typecheck": "nuxi typecheck",
     "format": "prettier --write \"app/**/*.{ts,vue}\" \"tests/**/*.ts\"",
     "postinstall": "nuxt prepare"
   },

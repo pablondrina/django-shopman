@@ -44,3 +44,19 @@ export function isTransientError(error: unknown): boolean {
 export function isUnauthenticatedError(error: unknown): boolean {
   return httpError(error).status === 401;
 }
+
+/**
+ * Mensagem amigável de um erro do backstage, com tipagem (substitui `catch (e: any)` +
+ * `e?.data?.detail || e?.message`). Prioriza a mensagem do servidor — `data.detail`
+ * (DRF) e depois `data.error.message` (erros de domínio) — e cai no `fallback`
+ * localizado. NUNCA devolve a string técnica do ofetch ("[POST] …: 500"): o operador
+ * vê ou a mensagem do servidor ou o texto amigável, jamais ruído de stack.
+ */
+export function httpErrorMessage(error: unknown, fallback: string): string {
+  const data = asRecord(httpError(error).data);
+  const detail = data?.detail;
+  if (typeof detail === "string" && detail) return detail;
+  const nested = asRecord(data?.error)?.message;
+  if (typeof nested === "string" && nested) return nested;
+  return fallback;
+}

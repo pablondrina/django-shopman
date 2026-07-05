@@ -1,10 +1,11 @@
 import type { POSAddressAutocompleteProjection } from "~/types/pos";
+import type { GoogleNamespace, GooglePlacesLibrary } from "~/types/googleMaps";
 
 declare global {
   interface Window {
-    google?: any;
-    __shopman_pos_maps_loading?: Promise<any>;
-    __shopman_pos_places_library?: any;
+    google?: GoogleNamespace;
+    __shopman_pos_maps_loading?: Promise<GooglePlacesLibrary>;
+    __shopman_pos_places_library?: GooglePlacesLibrary;
   }
 }
 
@@ -15,32 +16,36 @@ export function usePosGoogleMaps(capability: Ref<POSAddressAutocompleteProjectio
     return Boolean(config?.enabled && config.public_api_key && config.provider === "google_places");
   });
 
-  async function ensurePlacesLibrary() {
-    if (window.__shopman_pos_places_library?.Autocomplete) return window.__shopman_pos_places_library;
-    if (window.google?.maps?.places?.Autocomplete) {
-      window.__shopman_pos_places_library = window.google.maps.places;
-      return window.__shopman_pos_places_library;
+  async function ensurePlacesLibrary(): Promise<GooglePlacesLibrary> {
+    const cached = window.__shopman_pos_places_library;
+    if (cached?.Autocomplete) return cached;
+    const maps = window.google?.maps;
+    if (maps?.places?.Autocomplete) {
+      window.__shopman_pos_places_library = maps.places;
+      return maps.places;
     }
-    if (window.google?.maps?.importLibrary) {
-      const library = await window.google.maps.importLibrary("places");
-      window.__shopman_pos_places_library = library || window.google?.maps?.places;
+    if (maps?.importLibrary) {
+      const library = await maps.importLibrary("places");
+      window.__shopman_pos_places_library = library || maps.places;
     }
-    if (!window.__shopman_pos_places_library?.Autocomplete && window.google?.maps?.places?.Autocomplete) {
-      window.__shopman_pos_places_library = window.google.maps.places;
+    if (!window.__shopman_pos_places_library?.Autocomplete && maps?.places?.Autocomplete) {
+      window.__shopman_pos_places_library = maps.places;
     }
-    if (!window.__shopman_pos_places_library?.Autocomplete) {
+    const resolved = window.__shopman_pos_places_library;
+    if (!resolved?.Autocomplete) {
       throw new Error("Google Places library unavailable");
     }
-    return window.__shopman_pos_places_library;
+    return resolved;
   }
 
-  function ensureLoaded(): Promise<any> {
+  function ensureLoaded(): Promise<GooglePlacesLibrary> {
     const config = capability.value;
     if (!config?.public_api_key) return Promise.reject(new Error("Google Maps API key not configured"));
     if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
-    if (window.__shopman_pos_places_library?.Autocomplete || window.google?.maps?.places?.Autocomplete) {
+    const existing = window.__shopman_pos_places_library ?? window.google?.maps?.places;
+    if (existing?.Autocomplete) {
       isReady.value = true;
-      return Promise.resolve(window.__shopman_pos_places_library || window.google.maps.places);
+      return Promise.resolve(existing);
     }
     if (window.__shopman_pos_maps_loading) return window.__shopman_pos_maps_loading;
 
@@ -48,7 +53,7 @@ export function usePosGoogleMaps(capability: Ref<POSAddressAutocompleteProjectio
     const region = encodeURIComponent(config.region || "BR");
     const key = encodeURIComponent(config.public_api_key);
 
-    window.__shopman_pos_maps_loading = new Promise<any>((resolve, reject) => {
+    window.__shopman_pos_maps_loading = new Promise<GooglePlacesLibrary>((resolve, reject) => {
       const script = document.createElement("script");
       script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&language=${language}&region=${region}&loading=async`;
       script.async = true;

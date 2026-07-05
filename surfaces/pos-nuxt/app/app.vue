@@ -38,8 +38,8 @@ async function submitLogin() {
     });
     resetSession(); // sessão re-estabelecida antes do reload
     if (import.meta.client) window.location.reload();
-  } catch (err: any) {
-    loginError.value = err?.data?.detail || "Não foi possível entrar. Confira usuário e senha.";
+  } catch (error) {
+    loginError.value = httpErrorMessage(error, "Não foi possível entrar. Confira usuário e senha.");
     loginPending.value = false;
   }
 }
@@ -101,22 +101,18 @@ const {
   saving,
   unsaved,
   firing,
-  renamingTab,
   cancellingSale,
   cancelSaleReason,
   saleCancelled,
   lookupBusy,
-  serverError,
   result,
   pixStatus,
   checkoutMode,
-  showTabs,
   cashDialogOpen,
   moveDialogOpen,
   review,
   customerLookup,
   tabDialogOpen,
-  tabDialogReason,
   selectedTenderIndex,
   checkoutContract,
   canRenameTab,
@@ -128,10 +124,7 @@ const {
   tabDisallowedChars,
   tabDraftTargetStates,
   tabRequiredForCart,
-  tabRequiredForSave,
   addressAutocomplete,
-  totalDisplay,
-  itemCount,
   hasOpenTab,
   inSaleView,
   hasDraftWithoutTab,
@@ -160,7 +153,6 @@ const {
   setQty,
   setLineDiscount,
   setLinePrice,
-  sanitizeTabRef,
   requestTabAssociation,
   openTab,
   openTabFromDialog,
@@ -174,7 +166,6 @@ const {
   clearCustomer,
   applyCustomerFavorite,
   repeatCustomerLastOrder,
-  saveTab,
   prepareCheckout,
   reviewCheckout,
   submitSale,
@@ -345,14 +336,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </span>
         <PosComandaHeader
           v-if="inSaleView && !checkoutMode"
-          class="min-w-0 flex-1"
-          :tab-display="cart.tabDisplay"
-          :has-open-tab="hasOpenTab"
-          :can-rename="canRenameTab"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"
           v-model:customer-tax-id="cart.customerTaxId"
           v-model:customer-email="cart.customerEmail"
+          class="min-w-0 flex-1"
+          :tab-display="cart.tabDisplay"
+          :has-open-tab="hasOpenTab"
+          :can-rename="canRenameTab"
           :customer-lookup="customerLookup"
           :lookup-busy="lookupBusy"
           :search-results="customerSearchResults"
@@ -467,20 +458,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       </div>
       <div v-else-if="checkoutMode" class="h-full md:overflow-y-auto">
       <PosPaymentWorkspace
-        :tab-display="cart.tabDisplay"
-        :items="cart.items"
-        :has-open-tab="hasOpenTab"
-        :fulfillment-options="pos?.fulfillment_options || []"
-        :payment-methods="pos?.payment_methods || []"
-        :payment-collections="pos?.payment_collections || []"
-        :checkout-contract="checkoutContract"
-        :address-autocomplete="addressAutocomplete"
-        :customer-lookup="customerLookup"
-        :search-results="customerSearchResults"
-        :search-busy="customerSearchBusy"
-        :review="review"
-        :discount-types="checkoutContract?.discount_types || []"
-        :discount-reasons="checkoutContract?.discount_reasons || []"
         v-model:discount-type="cart.discountType"
         v-model:discount-value="cart.discountValue"
         v-model:discount-reason="cart.discountReason"
@@ -488,12 +465,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:manager-pin="cart.managerPin"
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-collection="cart.paymentCollection"
-        :payment-tenders="cart.paymentTenders"
-        :selected-tender-index="selectedTenderIndex"
-        :selected-tender-method="selectedTenderMethod"
-        :payment-remaining-q="paymentRemainingQ"
-        :payment-change-q="paymentChangeQ"
-        :payment-covered="paymentCovered"
         v-model:customer-name="cart.customerName"
         v-model:customer-phone="cart.customerPhone"
         v-model:customer-tax-id="cart.customerTaxId"
@@ -511,6 +482,26 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:issue-fiscal-document="cart.issueFiscalDocument"
         v-model:receipt-mode="cart.receiptMode"
         v-model:receipt-email="cart.receiptEmail"
+        :tab-display="cart.tabDisplay"
+        :items="cart.items"
+        :has-open-tab="hasOpenTab"
+        :fulfillment-options="pos?.fulfillment_options || []"
+        :payment-methods="pos?.payment_methods || []"
+        :payment-collections="pos?.payment_collections || []"
+        :checkout-contract="checkoutContract"
+        :address-autocomplete="addressAutocomplete"
+        :customer-lookup="customerLookup"
+        :search-results="customerSearchResults"
+        :search-busy="customerSearchBusy"
+        :review="review"
+        :discount-types="checkoutContract?.discount_types || []"
+        :discount-reasons="checkoutContract?.discount_reasons || []"
+        :payment-tenders="cart.paymentTenders"
+        :selected-tender-index="selectedTenderIndex"
+        :selected-tender-method="selectedTenderMethod"
+        :payment-remaining-q="paymentRemainingQ"
+        :payment-change-q="paymentChangeQ"
+        :payment-covered="paymentCovered"
         :loading="busy"
         :lookup-busy="lookupBusy"
         @back="checkoutMode = false"

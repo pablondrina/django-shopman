@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import type { POSAddressAutocompleteProjection, StructuredAddressProjection } from "~/types/pos";
+import type { GoogleAddressComponent, GoogleAutocomplete, GooglePlaceResult } from "~/types/googleMaps";
+
+// O template ref pode ser o elemento nativo OU a instância do UiInput (que expõe
+// `inputRef`/`$el`); getInputElement() normaliza para o <input> real.
+type AddressInputRef = HTMLInputElement | { inputRef?: HTMLInputElement; $el?: HTMLElement };
 
 const props = defineProps<{
   modelValue: string;
@@ -11,22 +16,22 @@ const emit = defineEmits<{
   selected: [StructuredAddressProjection];
 }>();
 
-const inputRef = ref<any>(null);
+const inputRef = ref<AddressInputRef | null>(null);
 const capabilityRef = computed(() => props.capability);
 const { isAvailable, ensureLoaded } = usePosGoogleMaps(capabilityRef);
 const isLoading = ref(false);
 const error = ref("");
 const initialized = ref(false);
 
-let autocomplete: any = null;
+let autocomplete: GoogleAutocomplete | null = null;
 
-function componentValue(components: any[] | undefined, type: string, useShort = false): string {
+function componentValue(components: GoogleAddressComponent[] | undefined, type: string, useShort = false): string {
   const match = components?.find((component) => Array.isArray(component.types) && component.types.includes(type));
   if (!match) return "";
   return String(useShort ? match.short_name || "" : match.long_name || "").trim();
 }
 
-function structuredFromPlace(place: any): StructuredAddressProjection {
+function structuredFromPlace(place: GooglePlaceResult): StructuredAddressProjection {
   const location = place?.geometry?.location;
   const lat = typeof location?.lat === "function" ? location.lat() : null;
   const lng = typeof location?.lng === "function" ? location.lng() : null;
@@ -83,16 +88,18 @@ async function setupAutocomplete() {
         radius: config.bias_radius_m || 15000,
       }).getBounds();
     }
-    autocomplete = new places.Autocomplete(input, options);
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
+    const instance = new places.Autocomplete(input, options);
+    autocomplete = instance;
+    instance.addListener("place_changed", () => {
+      const place = instance.getPlace();
       if (!place?.formatted_address) return;
       emit("update:modelValue", place.formatted_address);
       emit("selected", structuredFromPlace(place));
     });
     initialized.value = true;
-  } catch (err: any) {
-    error.value = err?.message === "SSR" ? "" : "Busca automática indisponível.";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    error.value = message === "SSR" ? "" : "Busca automática indisponível.";
   } finally {
     isLoading.value = false;
   }
