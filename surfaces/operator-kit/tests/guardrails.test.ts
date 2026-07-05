@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 // tailwind.css e não os outros. Storefront fica FORA (sistema branded próprio).
 
 const surfacesDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const OPERATOR_APPS = ["pos-nuxt", "kds-nuxt", "orders-nuxt", "production-nuxt"] as const;
+const OPERATOR_APPS = ["pos-nuxt", "kds-nuxt", "orders-nuxt", "production-nuxt", "hub-nuxt"] as const;
 
 // Tokens canônicos que DEVEM ter o mesmo valor nos 4 apps (cor neutra, raio, semânticos).
 // Cada app pode ter tokens ADICIONAIS (print no POS, dark no KDS) — o guardrail checa
@@ -51,7 +51,7 @@ describe("design-system: paridade de tokens canônicos entre os 4 apps de operad
 // avulso (mesma dívida corrigida no storefront no WP-S0). Aplica-se às superfícies de
 // TELA — não à impressão térmica (recibo 80mm tem px fixos, outro meio). A enforcement
 // CRESCE por app (cada WP endurece o seu); a allowlist só ENCOLHE.
-const TYPOGRAPHY_ENFORCED = ["pos-nuxt"] as const; // + kds/orders/production quando endurecidos
+const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt"] as const; // + kds/orders/production quando endurecidos
 
 // Arquivos isentos com justificativa (medium ≠ tela). Chave = caminho relativo ao app.
 const TYPOGRAPHY_ALLOWLIST: Record<string, string> = {

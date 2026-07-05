@@ -124,13 +124,22 @@ if DEBUG:
         "https://*.ngrok.io",
         "https://*.ngrok.app",
         "https://*.trycloudflare.com",
-        # Nuxt dev surfaces: storefront em :3000, backstage em :3001
+        # Nuxt dev surfaces: storefront :3000 · pos :3002 · kds :3003 · gestor :3004
+        # · fournil :3005 · central :3006 (backstage legado :3001).
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
         "http://localhost:3002",
         "http://127.0.0.1:3002",
+        "http://localhost:3003",
+        "http://127.0.0.1:3003",
+        "http://localhost:3004",
+        "http://127.0.0.1:3004",
+        "http://localhost:3005",
+        "http://127.0.0.1:3005",
+        "http://localhost:3006",
+        "http://127.0.0.1:3006",
     ]
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
@@ -983,6 +992,21 @@ SHOPMAN_PRODUCTION_BASE_URL = (
 #     "api.boulangerie.com.br" (o proxy Nuxt reescreve o Host para esse alias).
 SHOPMAN_OPERATOR_COOKIE_DOMAIN = (os.environ.get("SHOPMAN_OPERATOR_COOKIE_DOMAIN") or "").strip()
 SHOPMAN_OPERATOR_API_HOST = (os.environ.get("SHOPMAN_OPERATOR_API_HOST") or "").strip()
+
+# URLs das superfícies para a Central de Apps (surfaces/hub-nuxt). Em prod, aponte cada
+# tile ao subdomínio (`https://pdv.…`, `https://gestor.…`); vazio ⇒ o launcher usa os
+# defaults de dev (127.0.0.1:PORT) de `projections/hub.py`. A Loja deep-linka pro Unfold.
+SHOPMAN_SURFACE_URLS = {
+    key: url
+    for key, url in {
+        "pos": (os.environ.get("SHOPMAN_SURFACE_POS_URL") or "").strip(),
+        "kds": (os.environ.get("SHOPMAN_SURFACE_KDS_URL") or "").strip(),
+        "gestor": (os.environ.get("SHOPMAN_SURFACE_GESTOR_URL") or "").strip(),
+        "production": (os.environ.get("SHOPMAN_SURFACE_PRODUCTION_URL") or "").strip(),
+        "loja": (os.environ.get("SHOPMAN_SURFACE_LOJA_URL") or "").strip(),
+    }.items()
+    if url
+}
 
 # Autorização Opção C: quando ON, as ações de backstage são autorizadas contra o
 # OPERADOR ATIVO (estabelecido por PIN/crachá), não o usuário da sessão do device.
