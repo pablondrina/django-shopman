@@ -10,7 +10,11 @@ const appAlias = {
 export default defineConfig({
   test: {
     projects: [
-      // Unit: presentation pura, composables (com $fetch mockado) e BFF. Env `node`.
+      // Unit: presentation pura, composables e BFF. Env `node` (transform plano, sem
+      // auto-import do Nuxt — os composables injetam as fatias do framework como globais).
+      // ⚠️ Os composables ficam AQUI (não no projeto `component`) porque orders tem
+      // pages/ (router) e o @nuxt/test-utils 4.0.3 quebra o SETUP do env `nuxt` para apps
+      // com router (`nuxtApp._route` undefined) — sem versão que corrija. Ver os testes.
       {
         resolve: { alias: appAlias },
         test: {
@@ -18,17 +22,17 @@ export default defineConfig({
           environment: "node",
           globals: true,
           include: ["tests/**/*.test.ts"],
-          exclude: ["tests/components/**", "tests/composables/**", "tests/e2e/**", "node_modules/**"],
+          exclude: ["tests/components/**", "tests/e2e/**", "node_modules/**"],
         },
       },
-      // Component: monta componentes Vue reais com auto-imports/composables do Nuxt
-      // (mountSuspended). Env `nuxt` (happy-dom) — mais pesado, isolado aqui.
+      // Component: monta componentes Vue reais (env `nuxt`/happy-dom). Reservado p/
+      // B-ORD.6 — bloqueado pelo mesmo bug de router do test-utils; abordagem definida lá.
       await defineVitestProject({
         test: {
           name: "component",
           environment: "nuxt",
           globals: true,
-          include: ["tests/components/**/*.test.ts", "tests/composables/**/*.test.ts"],
+          include: ["tests/components/**/*.test.ts"],
         },
       }),
     ],
