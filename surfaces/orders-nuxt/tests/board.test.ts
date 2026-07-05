@@ -23,6 +23,7 @@ import {
   triageCards,
   zonesView,
   confirmationRemainingLabel,
+  realtimeIndicator,
 } from "../app/presentation/board";
 import type { OrderCardProjection, TwoZoneQueueProjection } from "../app/types/orders";
 
@@ -343,5 +344,23 @@ describe("confirmationRemainingLabel", () => {
   it("clamps to 0:00 once past", () => {
     const now = Date.parse("2026-07-04T12:05:00Z");
     expect(confirmationRemainingLabel("2026-07-04T12:00:00Z", now)).toBe("0:00");
+  });
+});
+
+describe("realtimeIndicator — honestidade do tempo-real", () => {
+  it("'live' acende a bolinha verde e diz 'Ao vivo'", () => {
+    const v = realtimeIndicator("live");
+    expect(v.live).toBe(true);
+    expect(v.label).toBe("Ao vivo");
+    expect(v.dotClass).toContain("green");
+  });
+
+  it("'connecting' e 'polling' NUNCA são 'live' (a bolinha não mente)", () => {
+    expect(realtimeIndicator("connecting").live).toBe(false);
+    expect(realtimeIndicator("connecting").dotClass).not.toContain("green");
+    const polling = realtimeIndicator("polling");
+    expect(polling.live).toBe(false);
+    expect(polling.label).toContain("automática"); // ainda atualiza, mas não em tempo real
+    expect(polling.dotClass).not.toContain("green");
   });
 });

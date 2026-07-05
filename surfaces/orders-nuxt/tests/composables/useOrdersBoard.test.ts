@@ -40,6 +40,11 @@ describe("useOrdersBoard — derivação da fila", () => {
     expect(board.zones.value).toEqual([]);
     expect(board.totalCount.value).toBe(0);
   });
+
+  it("expõe `realtime` começando em 'polling' (SSE liga no onMounted, browser)", () => {
+    // Sem componente montado (harness node), o SSE não conecta → sinal honesto de poll.
+    expect(useOrdersBoard().realtime.value).toBe("polling");
+  });
 });
 
 describe("useOrdersBoard — ações (act)", () => {

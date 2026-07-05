@@ -14,6 +14,7 @@ import {
   fulfillmentCounts,
   lucideIcon,
   nextSort,
+  realtimeIndicator,
   resolveShortcut,
   rowsToCsv,
   SORT_OPTIONS,
@@ -27,7 +28,10 @@ import {
 import type { OrderCardProjection } from "~/types/orders";
 import type { CancellationReason } from "~/composables/useOrdersBoard";
 
-const { zones, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+const { zones, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+
+// Sinal honesto de tempo-real vs poll (indicador de degradação do SSE).
+const realtimeView = computed(() => realtimeIndicator(realtime.value));
 
 // ── triage: search + channel filter + sort + view-mode (Arc 1) ──────────────
 // query/channel are transient; sort/view persist per operator (cookie, SSR-safe).
@@ -246,6 +250,12 @@ function printQueue() {
       </div>
 
       <template #end>
+        <!-- Sinal de tempo-real: bolinha verde SÓ quando o SSE está vivo (honesto);
+             senão, sinal neutro de que o board ainda atualiza sozinho a cada 30s. -->
+        <span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground" role="status" :title="realtimeView.title">
+          <span class="size-1.5 rounded-full" :class="realtimeView.dotClass" />
+          <span class="hidden md:inline">{{ realtimeView.label }}</span>
+        </span>
         <AlertsBell />
 
         <!-- sort -->
