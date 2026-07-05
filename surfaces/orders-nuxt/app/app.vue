@@ -13,6 +13,8 @@ useHead({ title: "Gestor de Pedidos" });
 <template>
   <div class="flex min-h-screen flex-col bg-background text-foreground">
     <NuxtRouteAnnouncer />
+    <!-- Aviso calmo de conexão (kit) — global, só aparece offline (paridade c/ POS/KDS/hub). -->
+    <OfflineBanner />
     <!-- Hub chrome: one identity + section-switch + global-tools bar for both boards. -->
     <GestorTopBar />
     <NuxtPage />
