@@ -21,7 +21,14 @@ const session = (over: Partial<OperatorSession> = {}): OperatorSession => ({
 describe("isLocked", () => {
   it("locks only when the gate is on AND nobody is operating", () => {
     expect(isLocked(session())).toBe(true);
-    expect(isLocked(session({ operator: { id: 1, username: "bia", name: "Bia" }, locked: false }))).toBe(false);
+    expect(
+      isLocked(
+        session({
+          operator: { id: 1, username: "bia", name: "Bia" },
+          locked: false,
+        }),
+      ),
+    ).toBe(false);
     // gate off → never locked, regardless of locked flag
     expect(isLocked(session({ require_operator: false }))).toBe(false);
     expect(isLocked(null)).toBe(false);
@@ -30,8 +37,14 @@ describe("isLocked", () => {
 
 describe("operatorName", () => {
   it("prefers the display name, falls back to username", () => {
-    expect(operatorName(session({ operator: { id: 1, username: "bia", name: "Bia Forno" } }))).toBe("Bia Forno");
-    expect(operatorName(session({ operator: { id: 1, username: "bia", name: "" } }))).toBe("bia");
+    expect(
+      operatorName(
+        session({ operator: { id: 1, username: "bia", name: "Bia Forno" } }),
+      ),
+    ).toBe("Bia Forno");
+    expect(
+      operatorName(session({ operator: { id: 1, username: "bia", name: "" } })),
+    ).toBe("bia");
     expect(operatorName(session())).toBe("");
   });
 });
@@ -48,20 +61,30 @@ describe("isLikelyBadge", () => {
 
 describe("buildUnlockPayload", () => {
   it("uses the badge when present (with perm)", () => {
-    expect(buildUnlockPayload({ badge: " tok ", perm: "backstage.operate_production" })).toEqual({
+    expect(
+      buildUnlockPayload({
+        badge: " tok ",
+        perm: "backstage.operate_production",
+      }),
+    ).toEqual({
       badge: "tok",
       perm: "backstage.operate_production",
     });
   });
   it("uses operator_id + pin otherwise", () => {
-    expect(buildUnlockPayload({ operatorId: 7, pin: " 4321 ", perm: "p" })).toEqual({
+    expect(
+      buildUnlockPayload({ operatorId: 7, pin: " 4321 ", perm: "p" }),
+    ).toEqual({
       operator_id: 7,
       pin: "4321",
       perm: "p",
     });
   });
   it("omits perm when absent", () => {
-    expect(buildUnlockPayload({ operatorId: 7, pin: "4321" })).toEqual({ operator_id: 7, pin: "4321" });
+    expect(buildUnlockPayload({ operatorId: 7, pin: "4321" })).toEqual({
+      operator_id: 7,
+      pin: "4321",
+    });
   });
 });
 

@@ -1,10 +1,21 @@
 import { vi } from "vitest";
-import { computed, nextTick, reactive, readonly, ref, shallowRef, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  reactive,
+  readonly,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 
 // Utilitários REAIS do operator-kit (auto-imports em runtime) — implementação verdadeira
 // (não mock) para o teste exercitar o narrowing/mensagem de fato (os `catch` do KDS usam
 // httpError/httpErrorMessage do kit — WP B-KDS.4).
-import { httpError, httpErrorMessage } from "../../../operator-kit/app/utils/httpError";
+import {
+  httpError,
+  httpErrorMessage,
+} from "../../../operator-kit/app/utils/httpError";
 
 /**
  * Harness ÚNICO para testar os composables do KDS em env `node`.
@@ -29,7 +40,10 @@ export interface ComposableEnv {
   /** `$fetch` (transporte de ação/escrita). */
   fetchMock: ReturnType<typeof vi.fn>;
   /** `useSonner` (toast). */
-  sonner: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+  sonner: {
+    error: ReturnType<typeof vi.fn>;
+    success: ReturnType<typeof vi.fn>;
+  };
   /** `refreshNuxtData` (usado pelo unlock e pelo operatorSessionOnError). */
   refreshNuxtData: ReturnType<typeof vi.fn>;
   /** `useRuntimeConfig()`. */

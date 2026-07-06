@@ -16,7 +16,8 @@ describe("useOperatorLock — session derivations", () => {
       locked: true,
       pin_must_change: true,
     };
-    const { authenticated, locked, operator, requireOperator, mustChange } = useOperatorLock(PERM);
+    const { authenticated, locked, operator, requireOperator, mustChange } =
+      useOperatorLock(PERM);
     expect(authenticated.value).toBe(true);
     expect(locked.value).toBe(true);
     expect(operator.value?.name).toBe("Nelson");
@@ -32,7 +33,12 @@ describe("useOperatorLock — session derivations", () => {
   });
 
   it("is not locked when the gate is off, even with nobody operating", () => {
-    env.fetchData.value = { device_user: "admin", operator: null, require_operator: false, locked: true };
+    env.fetchData.value = {
+      device_user: "admin",
+      operator: null,
+      require_operator: false,
+      locked: true,
+    };
     expect(useOperatorLock(PERM).locked.value).toBe(false);
   });
 });
@@ -40,17 +46,26 @@ describe("useOperatorLock — session derivations", () => {
 describe("useOperatorLock — unlock / lock / changePin", () => {
   beforeEach(() => env.reset());
 
-  it("unlocks by PIN and refreshes the session", async () => {
+  it("unlocks by PIN, refreshes the session AND all board data (frees 403-stuck fetches)", async () => {
     env.fetchData.value = { device_user: "admin" };
-    const ok = await useOperatorLock(PERM).unlock({ operatorId: 3, pin: "1234" });
+    const ok = await useOperatorLock(PERM).unlock({
+      operatorId: 3,
+      pin: "1234",
+    });
     expect(ok).toBe(true);
     expect(env.fetchMock).toHaveBeenCalledWith(
       "/api/v1/backstage/operator/unlock/",
-      expect.objectContaining({ method: "POST", body: expect.objectContaining({ operator_id: 3, pin: "1234", perm: PERM }) }),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({
+          operator_id: 3,
+          pin: "1234",
+          perm: PERM,
+        }),
+      }),
     );
     expect(env.refresh).toHaveBeenCalled();
-    // NOTE: ao contrário do POS/Fournil, o KDS ainda NÃO chama refreshNuxtData() aqui —
-    // os fetches 403-trancados recuperam só no próximo poll (≤15s). Paridade em B-KDS.3.
+    expect(env.refreshNuxtData).toHaveBeenCalled(); // paridade B-KDS.3: recupera o board na hora
   });
 
   it("prefers the badge payload when a badge is scanned", async () => {
@@ -65,13 +80,17 @@ describe("useOperatorLock — unlock / lock / changePin", () => {
   it("toasts and returns false on a bad identification", async () => {
     env.fetchData.value = { device_user: "admin" };
     env.fetchMock.mockRejectedValueOnce({ data: { detail: "PIN inválido" } });
-    expect(await useOperatorLock(PERM).unlock({ operatorId: 3, pin: "0000" })).toBe(false);
+    expect(
+      await useOperatorLock(PERM).unlock({ operatorId: 3, pin: "0000" }),
+    ).toBe(false);
     expect(env.sonner.error).toHaveBeenCalledWith("PIN inválido");
   });
 
   it("changePin exposes the server message on failure", async () => {
     env.fetchData.value = { device_user: "admin" };
-    env.fetchMock.mockRejectedValueOnce({ data: { detail: "PIN atual errado" } });
+    env.fetchMock.mockRejectedValueOnce({
+      data: { detail: "PIN atual errado" },
+    });
     const { changePin, changeError } = useOperatorLock(PERM);
     expect(await changePin({ currentPin: "0000", newPin: "5678" })).toBe(false);
     expect(changeError.value).toBe("PIN atual errado");

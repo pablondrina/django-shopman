@@ -17,7 +17,16 @@ function ticket(over: Partial<KDSTicketProjection> = {}): KDSTicketProjection {
     elapsed_seconds: 30,
     target_seconds: 600,
     timer_class: "timer-ok",
-    items: [{ sku: "A", name: "Pão", qty: 1, notes: "", checked: false, stock_warning: "" }],
+    items: [
+      {
+        sku: "A",
+        name: "Pão",
+        qty: 1,
+        notes: "",
+        checked: false,
+        stock_warning: "",
+      },
+    ],
     status: "in_progress",
     all_checked: false,
     status_label: "",
@@ -71,12 +80,19 @@ describe("useKdsBoard — checkItem (optimistic + rollback)", () => {
     const { checkItem } = useKdsBoard("bancada");
     checkItem(1, 0, true);
     // otimista: a UI já mudou antes da rede responder
-    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(true);
-    expect((env.fetchData.value as any).board.tickets[0].all_checked).toBe(true);
+    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(
+      true,
+    );
+    expect((env.fetchData.value as any).board.tickets[0].all_checked).toBe(
+      true,
+    );
     await flushPromises();
     expect(env.fetchMock).toHaveBeenCalledWith(
       "/api/v1/backstage/kds/tickets/1/items/",
-      expect.objectContaining({ method: "POST", body: { index: 0, checked: true } }),
+      expect.objectContaining({
+        method: "POST",
+        body: { index: 0, checked: true },
+      }),
     );
   });
 
@@ -85,9 +101,13 @@ describe("useKdsBoard — checkItem (optimistic + rollback)", () => {
     env.fetchMock.mockRejectedValueOnce({ data: { detail: "Falhou" } });
     const { checkItem } = useKdsBoard("bancada");
     checkItem(1, 0, true);
-    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(true); // otimista
+    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(
+      true,
+    ); // otimista
     await flushPromises();
-    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(false); // revertido
+    expect((env.fetchData.value as any).board.tickets[0].items[0].checked).toBe(
+      false,
+    ); // revertido
     expect(env.sonner.error).toHaveBeenCalled();
     expect(env.refresh).toHaveBeenCalled();
   });
@@ -120,7 +140,10 @@ describe("useKdsBoard — card actions (optimistic remove + rollback)", () => {
   });
 
   it("recall acts on the recent_done list", async () => {
-    env.fetchData.value = board({ tickets: [], recent_done: [ticket({ pk: 9 })] });
+    env.fetchData.value = board({
+      tickets: [],
+      recent_done: [ticket({ pk: 9 })],
+    });
     const { recall } = useKdsBoard("bancada");
     recall(9);
     expect((env.fetchData.value as any).board.recent_done).toHaveLength(0);
@@ -132,10 +155,15 @@ describe("useKdsBoard — card actions (optimistic remove + rollback)", () => {
   });
 
   it("acknowledge acts on the cancelled list", async () => {
-    env.fetchData.value = board({ tickets: [], cancelled_tickets: [ticket({ pk: 7, is_cancelled: true })] });
+    env.fetchData.value = board({
+      tickets: [],
+      cancelled_tickets: [ticket({ pk: 7, is_cancelled: true })],
+    });
     const { acknowledge } = useKdsBoard("bancada");
     acknowledge(7);
-    expect((env.fetchData.value as any).board.cancelled_tickets).toHaveLength(0);
+    expect((env.fetchData.value as any).board.cancelled_tickets).toHaveLength(
+      0,
+    );
     await flushPromises();
     expect(env.fetchMock).toHaveBeenCalledWith(
       "/api/v1/backstage/kds/tickets/7/acknowledge/",

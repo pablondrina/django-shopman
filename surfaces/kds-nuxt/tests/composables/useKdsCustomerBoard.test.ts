@@ -10,8 +10,22 @@ describe("useKdsCustomerBoard — public pickup board", () => {
   it("derives the preparing/ready status from the public payload", () => {
     env.fetchData.value = {
       status: {
-        preparing: [{ ref: "WEB-0007", status: "preparing", status_label: "Preparando", updated_at_display: "08:00" }],
-        ready: [{ ref: "WEB-0006", status: "ready", status_label: "Pronto", updated_at_display: "07:58" }],
+        preparing: [
+          {
+            ref: "WEB-0007",
+            status: "preparing",
+            status_label: "Preparando",
+            updated_at_display: "08:00",
+          },
+        ],
+        ready: [
+          {
+            ref: "WEB-0006",
+            status: "ready",
+            status_label: "Pronto",
+            updated_at_display: "07:58",
+          },
+        ],
         updated_at_display: "08:00",
       },
     };
@@ -23,5 +37,11 @@ describe("useKdsCustomerBoard — public pickup board", () => {
   it("degrades to null when there is no payload (never throws on the public TV)", () => {
     env.fetchData.value = null;
     expect(useKdsCustomerBoard().status.value).toBeNull();
+  });
+
+  it("starts in 'polling' — a bolinha verde 'ao vivo' só acende quando o SSE conecta", () => {
+    env.fetchData.value = null;
+    // Sem onMounted/EventSource no harness, o default honesto é 'polling' (não 'live').
+    expect(useKdsCustomerBoard().realtime.value).toBe("polling");
   });
 });
