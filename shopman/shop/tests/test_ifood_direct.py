@@ -214,6 +214,9 @@ def test_ingest_real_order_uses_order_amount_as_total(db):
     )
     order = ifood_ingest.ingest(ifood_orders.map_order(raw))
 
+    # O ref carrega o prefixo do canal (IFOOD-), como WEB-/PDV- nos demais canais —
+    # não o default genérico ORD-.
+    assert order.ref.startswith("IFOOD-"), order.ref
     assert order.total_q == 2700  # orderAmount, not the 2100 items subtotal
     assert order.data["ifood"]["is_test"] is True
     assert order.data["ifood"]["totals"]["order_amount_q"] == 2700
