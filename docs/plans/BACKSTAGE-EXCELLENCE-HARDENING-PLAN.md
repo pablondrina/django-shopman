@@ -6,10 +6,10 @@
 > herdando o harness provado no storefront (WP-S0..S6) e as duas lentes novas
 > (consistência/pixel-perfect + omotenashi do operador).
 
-**Status:** 🟢 EM ANDAMENTO — WP-B0 (kit invisível) + **B-POS**, **WP-BH (Central)** e
-**B-ORD (Gestor)** entregues. Próximo: **WP-B0.2** (a camada VISÍVEL compartilhada — o
-`OperatorRail` 3-estados neutro + primitivas), provado no POS, seguido de um **passo de
-revisão** em POS/Gestor/Central para adotá-lo; só então **B-KDS** e **B-PROD**.
+**Status:** 🟢 EM ANDAMENTO — **as 5 superfícies adotaram o `OperatorRail`** (WP-B0.2);
+**B-POS**, **WP-BH (Central)**, **B-ORD (Gestor)** e **B-PROD (Fournil)** com o hardening
+COMPLETO (.0–.7). Falta o hardening por-WP do **KDS** (só recebeu o shell no WP-B0.2 —
+tooling + cobertura .0–.6 pendentes).
 
 ### Registro de execução
 
@@ -338,15 +338,16 @@ WP-B0   ✅ (kit invisível: resiliência + telemetria + guardrails de token)
   → B-POS   ✅ (âncora desktop-first)
   → WP-BH   ✅ (Central de Apps)
   → B-ORD   ✅ (Gestor)
-  → WP-B0.2  ▶ a camada VISÍVEL (OperatorRail 3-estados) — prova no POS
-  → REVISÃO  ▶ POS · Gestor · Central adotam o shell (antes de avançar)
-  → B-KDS    (dark-first, SSE)
-  → B-PROD   (Fournil; mais maduro; maior camada de composables)
+  → WP-B0.2  ✅ a camada VISÍVEL (OperatorRail 3-estados) — POS·Gestor·Central·KDS adotaram
+  → B-PROD   ✅ (Fournil; hardening full .0–.7 + rail; 91 unit/comp + 5 e2e) 2026-07-06
+  → B-KDS    ⏳ FALTA (dark-first, SSE) — KDS só recebeu o SHELL no WP-B0.2; tooling+cobertura
+             (.0–.6) ainda pendentes: composable-tests, resiliência (honestidade do `retirada`
+             + beep), type-safety, e2e, component-tests.
 ```
 
-> O furo da demo (2026-07-06) reordenou o fim: em vez de seguir direto pra KDS/PROD, primeiro
-> se constrói o shell VISÍVEL (WP-B0.2) e se **revisa os três já feitos** para adotá-lo —
-> senão KDS/PROD nivelariam contra um canon que ainda não existe como componente.
+> O furo da demo (2026-07-06) reordenou o fim: primeiro se construiu o shell VISÍVEL
+> (WP-B0.2) e se adotou em POS/Gestor/Central/KDS/Fournil; o Fournil recebeu o hardening
+> COMPLETO. Resta o hardening por-WP do KDS (só o shell foi feito).
 
 ## 8. Gate de cada WP (não-negociável)
 
