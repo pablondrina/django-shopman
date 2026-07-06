@@ -12,8 +12,10 @@ npm run test:e2e
 
 ## O que cobre
 
-- **guards.spec** — telas de operador atrás do gate; `/retirada` (público) renderiza SEM
-  sessão de operador; rota inexistente → 404.
+- **guards.spec** — telas de operador atrás do gate; sessão autenticada → seletor de
+  estações + rail; `/retirada` (público) renderiza SEM sessão de operador e FORA do rail.
+  (Sem teste de 404: `pages/[ref].vue` torna todo path de um segmento um ref de estação
+  válido — não há 404 genérico, análogo ao POS view-única.)
 - **resilience.spec** — `OfflineBanner` aparece/some com a rede.
 
 ## O que fica para o reviewer local (Django real)
