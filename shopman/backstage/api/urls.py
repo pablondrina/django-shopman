@@ -14,6 +14,7 @@ from .catalog import (
     CatalogReorderCollectionsView,
     CatalogReorderItemsView,
 )
+from .hub import HubView
 from .kds import (
     KDSBoardView,
     KDSCustomerStatusView,
@@ -78,7 +79,6 @@ from .operations import (
     WorkOrderStartView,
     WorkOrderVoidView,
 )
-from .hub import HubView
 from .showcase import (
     ShowcaseActiveView,
     ShowcaseBoardView,
