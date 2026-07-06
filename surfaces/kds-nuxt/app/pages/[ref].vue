@@ -17,12 +17,6 @@ const { view, pending, error, soundOn, soundBlocked, toggleSound, checkItem, fin
 // Recall: painel de concluídos recentes (desfazer finalização).
 const recallOpen = ref(false);
 
-// Tema: dark-first (cozinha, pouca luz), mas claro disponível pelo toggle.
-const colorMode = useColorMode();
-function toggleTheme() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
-
 // Relógio em tempo real (client-only; new Date() no SSR causaria mismatch).
 const now = ref<Date | null>(null);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
@@ -105,10 +99,8 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
   <main class="flex min-h-screen flex-col">
     <!-- context bar -->
     <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5">
-      <!-- identidade -->
-      <NuxtLink to="/" class="grid size-9 shrink-0 place-items-center rounded-md border bg-card text-foreground transition hover:bg-accent" aria-label="Início — trocar de estação" title="KDS — trocar de estação">
-        <Icon name="lucide:utensils" class="size-4" />
-      </NuxtLink>
+      <!-- Controle do rail (kit): a identidade/nav comum vive no OperatorRail à esquerda. -->
+      <RailToggle />
       <div class="mr-auto min-w-0">
         <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
           {{ view?.isExpedition ? "Expedição" : "Estação KDS" }}
@@ -169,14 +161,6 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
           <Icon name="lucide:rotate-ccw" class="size-4" />
           <span class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-[0.6rem] font-bold tabular-nums text-background">{{ view.recentDone.length }}</span>
         </button>
-        <ClientOnly>
-          <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="colorMode.value === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'" title="Tema" @click="toggleTheme">
-            <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
-          </button>
-          <template #fallback>
-            <span class="grid size-9 place-items-center rounded-md border text-muted-foreground"><Icon name="lucide:sun" class="size-4" /></span>
-          </template>
-        </ClientOnly>
         <NuxtLink to="/retirada" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Tela do cliente" title="Tela do cliente">
           <Icon name="lucide:monitor" class="size-4" />
         </NuxtLink>

@@ -16,9 +16,8 @@ function typeIcon(type: string): string {
 <template>
   <main class="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-6 md:p-10">
     <header class="flex items-center gap-3">
-      <span class="grid size-12 shrink-0 place-items-center rounded-md border bg-card text-foreground">
-        <Icon name="lucide:utensils" class="size-6" />
-      </span>
+      <!-- Controle do rail (kit): a identidade vive no OperatorRail à esquerda. -->
+      <RailToggle />
       <div class="min-w-0">
         <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kitchen Display</p>
         <h1 class="text-3xl font-bold">Escolha uma estação</h1>
