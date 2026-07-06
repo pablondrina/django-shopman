@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { computed, reactive, readonly, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, reactive, readonly, ref, shallowRef, watch } from "vue";
 
 // Utilitário REAL do operator-kit (auto-import em runtime) — injetamos a implementação
 // verdadeira (não um mock) para o teste exercitar a mensagem de fato, quando o WP .4 mover
@@ -70,6 +70,7 @@ export function installNuxtGlobals(): ComposableEnv {
   vi.stubGlobal("readonly", readonly);
   vi.stubGlobal("shallowRef", shallowRef);
   vi.stubGlobal("watch", watch);
+  vi.stubGlobal("nextTick", nextTick);
   // Lifecycle: sem componente montado → no-op.
   vi.stubGlobal("onMounted", () => {});
   vi.stubGlobal("onBeforeUnmount", () => {});
