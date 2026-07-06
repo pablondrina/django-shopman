@@ -6,10 +6,10 @@
 > herdando o harness provado no storefront (WP-S0..S6) e as duas lentes novas
 > (consistência/pixel-perfect + omotenashi do operador).
 
-**Status:** 🟢 EM ANDAMENTO — **as 5 superfícies adotaram o `OperatorRail`** (WP-B0.2);
-**B-POS**, **WP-BH (Central)**, **B-ORD (Gestor)** e **B-PROD (Fournil)** com o hardening
-COMPLETO (.0–.7). Falta o hardening por-WP do **KDS** (só recebeu o shell no WP-B0.2 —
-tooling + cobertura .0–.6 pendentes).
+**Status:** ✅ CONCLUÍDO (nível de código) — **as 5 superfícies de operador
+(POS·Gestor·Central·KDS·Fournil) adotaram o `OperatorRail` e passaram pelo hardening
+COMPLETO (.0–.7)**. Falta apenas o operacional de deploy p/ staging (merge p/ `main` +
+wiring de env vars da Central/rail — ver §Deploy abaixo).
 
 ### Registro de execução
 
@@ -340,14 +340,13 @@ WP-B0   ✅ (kit invisível: resiliência + telemetria + guardrails de token)
   → B-ORD   ✅ (Gestor)
   → WP-B0.2  ✅ a camada VISÍVEL (OperatorRail 3-estados) — POS·Gestor·Central·KDS adotaram
   → B-PROD   ✅ (Fournil; hardening full .0–.7 + rail; 91 unit/comp + 5 e2e) 2026-07-06
-  → B-KDS    ⏳ FALTA (dark-first, SSE) — KDS só recebeu o SHELL no WP-B0.2; tooling+cobertura
-             (.0–.6) ainda pendentes: composable-tests, resiliência (honestidade do `retirada`
-             + beep), type-safety, e2e, component-tests.
+  → B-KDS    ✅ (dark-first, SSE; hardening full .0–.7; 52 unit/comp + 4 e2e) 2026-07-06
 ```
 
-> O furo da demo (2026-07-06) reordenou o fim: primeiro se construiu o shell VISÍVEL
-> (WP-B0.2) e se adotou em POS/Gestor/Central/KDS/Fournil; o Fournil recebeu o hardening
-> COMPLETO. Resta o hardening por-WP do KDS (só o shell foi feito).
+> **🎉 As 5 superfícies de operador estão 100% hardenadas** (POS·Gestor·Central·KDS·Fournil):
+> tooling, cobertura de composables, resiliência, type-safety, e2e, component-tests e canon
+> tipográfico completos em todas; todas adotaram o OperatorRail. A iniciativa de excellence
+> hardening do backstage está concluída no nível de código.
 
 ## 8. Gate de cada WP (não-negociável)
 
