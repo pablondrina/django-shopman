@@ -1,10 +1,10 @@
 import { vi } from "vitest";
 import { computed, nextTick, reactive, readonly, ref, shallowRef, watch } from "vue";
 
-// Utilitário REAL do operator-kit (auto-import em runtime) — injetamos a implementação
-// verdadeira (não um mock) para o teste exercitar a mensagem de fato, quando o WP .4 mover
-// os `catch` do app para ele.
-import { httpErrorMessage } from "../../../operator-kit/app/utils/httpError";
+// Utilitários REAIS do operator-kit (auto-imports em runtime) — injetamos a implementação
+// verdadeira (não um mock) para o teste exercitar o narrowing/mensagem de fato (os `catch`
+// dos composables usam httpError/httpErrorMessage do kit — WP .4).
+import { httpError, httpErrorMessage } from "../../../operator-kit/app/utils/httpError";
 
 /**
  * Harness ÚNICO para testar os composables do Fournil em env `node`.
@@ -82,6 +82,7 @@ export function installNuxtGlobals(): ComposableEnv {
   vi.stubGlobal("refreshNuxtData", env.refreshNuxtData);
   vi.stubGlobal("operatorSessionOnError", () => {});
   vi.stubGlobal("useAdaptivePoll", env.adaptivePoll);
+  vi.stubGlobal("httpError", httpError); // implementação REAL do kit (narrowing tipado)
   vi.stubGlobal("httpErrorMessage", httpErrorMessage); // implementação REAL do kit
   vi.stubGlobal("useFetch", () => ({
     data: ref(env.fetchData.value),

@@ -283,6 +283,14 @@ function openPlan(row: ProductionMatrixRowProjection) {
   else planQty.value = row.suggestion?.quantity ?? "0";
 }
 
+// Do diálogo "por que essa sugestão?" direto para o planejamento da linha dona da
+// sugestão (fecha a explicação e abre o plano).
+function planFromExplanation() {
+  const row = rows.value.find((r) => r.suggestion === explaining.value);
+  explaining.value = null;
+  if (row) openPlan(row);
+}
+
 async function confirmPlan() {
   const row = planRow.value;
   if (!row || row.recipe_pk == null || !board.value || !planQty.value.trim())
@@ -1361,13 +1369,7 @@ const headerCount = computed(() => {
             v-if="stage === 'plan' && access?.can_edit_planned"
             type="button"
             class="mr-auto rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-            @click="
-              (() => {
-                const row = rows.find((r) => r.suggestion === explaining);
-                explaining = null;
-                if (row) openPlan(row);
-              })()
-            "
+            @click="planFromExplanation()"
           >
             Planejar esta sugestão
           </button>
