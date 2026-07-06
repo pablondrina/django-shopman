@@ -2,6 +2,7 @@
   "name": "kds-nuxt",
   "type": "module",
   "private": true,
+  "engines": { "node": "22.x" },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev --host 127.0.0.1 --port 3003",
