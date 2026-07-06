@@ -24,8 +24,8 @@ export function useOrderDetail(orderRef: string) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+    } catch (error) {
+      useSonner.error(httpErrorMessage(error, "Falha na ação. Tente de novo."));
       return false;
     } finally {
       busy.value = false;

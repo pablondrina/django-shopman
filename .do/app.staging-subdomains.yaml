@@ -59,6 +59,9 @@ domains:
   - domain: prod.boulangerie.com.br
     type: ALIAS
     zone: boulangerie.com.br
+  - domain: central.boulangerie.com.br
+    type: ALIAS
+    zone: boulangerie.com.br
   - domain: api.boulangerie.com.br
     type: ALIAS
     zone: boulangerie.com.br
@@ -114,6 +117,13 @@ ingress:
           prefix: /
       component:
         name: production-nuxt
+    - match:
+        authority:
+          exact: central.boulangerie.com.br
+        path:
+          prefix: /
+      component:
+        name: hub-nuxt
     # Catch-all do domínio primário (apex de staging) = a loja.
     - match:
         path:
@@ -277,6 +287,15 @@ services:
     http_port: 8000
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-1gb
+    # Config do web = env vars LIVE no app DO (deliberadamente NÃO no spec — evita o wipe de
+    # segredos do `apps update --spec`). A Central de Apps (hub-nuxt) REUSA as base URLs de
+    # operador que o nav do Admin já usa — nada novo a setar SE já estão configuradas no
+    # staging (senão os tiles caem no default de dev 127.0.0.1, e o próprio nav do Admin some):
+    #   SHOPMAN_POS_BASE_URL=https://pdv.boulangerie.com.br
+    #   SHOPMAN_KDS_BASE_URL=https://kds.boulangerie.com.br
+    #   SHOPMAN_ORDERS_BASE_URL=https://gestor.boulangerie.com.br
+    #   SHOPMAN_PRODUCTION_BASE_URL=https://prod.boulangerie.com.br
+    #   (o tile Loja é deep-link pro Unfold — não precisa de URL.)
     health_check:
       http_path: /ready/
       initial_delay_seconds: 30
@@ -348,6 +367,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -383,6 +408,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -418,6 +449,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -447,6 +484,48 @@ services:
       repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: main
     source_dir: /surfaces/production-nuxt
+    build_command: npm ci && npm run build
+    run_command: node .output/server/index.mjs
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+      - key: NUXT_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_APP_BASE_URL
+        value: /
+        scope: RUN_TIME
+        type: GENERAL
+      - key: NUXT_PUBLIC_DJANGO_BASE_URL
+        value: "https://api.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+    health_check:
+      http_path: /
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+  # Central de Apps (central.) — launcher pós-login sobre o operator-kit.
+  - name: hub-nuxt
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
+      branch: main
+    source_dir: /surfaces/hub-nuxt
     build_command: npm ci && npm run build
     run_command: node .output/server/index.mjs
     http_port: 3000

@@ -14,6 +14,7 @@ import {
   fulfillmentCounts,
   lucideIcon,
   nextSort,
+  realtimeIndicator,
   resolveShortcut,
   rowsToCsv,
   SORT_OPTIONS,
@@ -27,7 +28,10 @@ import {
 import type { OrderCardProjection } from "~/types/orders";
 import type { CancellationReason } from "~/composables/useOrdersBoard";
 
-const { zones, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+const { zones, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+
+// Sinal honesto de tempo-real vs poll (indicador de degradação do SSE).
+const realtimeView = computed(() => realtimeIndicator(realtime.value));
 
 // ── triage: search + channel filter + sort + view-mode (Arc 1) ──────────────
 // query/channel are transient; sort/view persist per operator (cookie, SSR-safe).
@@ -58,7 +62,8 @@ const selected = ref<Set<string>>(new Set());
 const isSelected = (ref_: string) => selected.value.has(ref_);
 function toggleSelect(ref_: string) {
   const next = new Set(selected.value);
-  next.has(ref_) ? next.delete(ref_) : next.add(ref_);
+  if (next.has(ref_)) next.delete(ref_);
+  else next.add(ref_);
   selected.value = next;
 }
 function clearSelection() {
@@ -179,7 +184,8 @@ function onAction(ref_: string, action: AffordanceRef) {
 
 // claim/release an order ("estou atendendo").
 function onToggleAssign(card: OrderCardProjection) {
-  card.assigned_operator ? unassign(card.ref) : assign(card.ref);
+  if (card.assigned_operator) unassign(card.ref);
+  else assign(card.ref);
 }
 
 // ── export / print (Arc 5) ───────────────────────────────────────────────
@@ -187,7 +193,7 @@ function onToggleAssign(card: OrderCardProjection) {
 // browser dialog (the print stylesheet hides the chrome and shows the table).
 function exportCsv() {
   const csv = rowsToCsv(tableRows.value);
-  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "h");
   const a = document.createElement("a");
@@ -244,6 +250,12 @@ function printQueue() {
       </div>
 
       <template #end>
+        <!-- Sinal de tempo-real: bolinha verde SÓ quando o SSE está vivo (honesto);
+             senão, sinal neutro de que o board ainda atualiza sozinho a cada 30s. -->
+        <span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground" role="status" :title="realtimeView.title">
+          <span class="size-1.5 rounded-full" :class="realtimeView.dotClass" />
+          <span class="hidden md:inline">{{ realtimeView.label }}</span>
+        </span>
         <AlertsBell />
 
         <!-- sort -->
@@ -382,7 +394,7 @@ function printQueue() {
         <div v-else class="overflow-x-auto rounded-lg border bg-card">
           <table class="w-full border-collapse text-sm">
             <thead>
-              <tr class="text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:border-b [&>th]:bg-card">
+              <tr class="text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:border-b [&>th]:bg-card">
                 <th class="w-9 px-3 py-2">
                   <button
                     type="button"
@@ -438,7 +450,7 @@ function printQueue() {
                 </td>
                 <td class="max-w-40 px-3 py-2">
                   <span class="block truncate">{{ row.card.customer_name }}</span>
-                  <span v-if="row.card.assigned_operator" class="mt-0.5 inline-flex items-center gap-1 text-[0.7rem] text-primary">
+                  <span v-if="row.card.assigned_operator" class="mt-0.5 inline-flex items-center gap-1 text-xs text-primary">
                     <Icon name="lucide:user-check" class="size-3" />{{ row.card.assigned_operator }}
                   </span>
                 </td>

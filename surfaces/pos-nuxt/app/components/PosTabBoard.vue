@@ -152,7 +152,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           <span class="truncate font-semibold tabular-nums">#{{ view.displayRef }}</span>
           <span
             v-if="view.isUnpaid"
-            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
             title="Disparado para a cozinha e ainda não pago"
           >
             <Icon name="lucide:flame" class="size-3" />
@@ -160,7 +160,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           </span>
           <span
             v-else-if="view.pendingKitchen"
-            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
             title="Tem itens ainda não enviados à cozinha"
           >
             <Icon name="lucide:utensils" class="size-3" />

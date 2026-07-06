@@ -21,8 +21,8 @@ export function useAlerts() {
     try {
       await $fetch(`/api/v1/backstage/alerts/${pk}/ack/`, { method: "POST", body: {} });
       await refresh();
-    } catch (err: any) {
-      useSonner.error(err?.data?.detail || "Falha ao reconhecer o alerta.");
+    } catch (error) {
+      useSonner.error(httpErrorMessage(error, "Falha ao reconhecer o alerta."));
     }
   }
 

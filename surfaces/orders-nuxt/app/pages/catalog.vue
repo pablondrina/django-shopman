@@ -49,7 +49,7 @@ const orderedCollections = computed(
   () => reorderView<CollectionProjection>(collections.value, collectionOverride.value, (c) => c.ref),
 );
 const {
-  dragKey: collDragKey, overKey: collOverKey, onPointerDown: collPointerDown,
+  dragKey: collDragKey, onPointerDown: collPointerDown,
 } = useDragReorder(
   () => orderedCollections.value.map((c) => c.ref),
   (order) => {
@@ -82,7 +82,8 @@ const selected = ref<Set<string>>(new Set());
 const isSelected = (sku: string) => selected.value.has(sku);
 function toggleSelect(sku: string) {
   const next = new Set(selected.value);
-  next.has(sku) ? next.delete(sku) : next.add(sku);
+  if (next.has(sku)) next.delete(sku);
+  else next.add(sku);
   selected.value = next;
 }
 const visibleSkus = computed(() => rows.value.map((r) => r.sku));
@@ -152,7 +153,6 @@ function toggleProductPublish(row: CatalogRowProjection) {
 // row actions menu (⋯) — casa das ações menos corriqueiras (editar, pausar tudo,
 // (des)publicar). Um menu por vez; keyed por sku.
 const menuOpen = ref<string | null>(null);
-const toggleMenu = (sku: string) => (menuOpen.value = menuOpen.value === sku ? null : sku);
 
 // deep-link para a edição do produto no Admin (host do Django, não o do Gestor).
 const djangoBase = useRuntimeConfig().public.djangoPublicBaseUrl as string;
@@ -281,10 +281,10 @@ useHead({ title: "Catálogo · Gestor" });
                     :title="`Abrir ${s.name}`" @click.stop
                   ><Icon name="lucide:external-link" class="size-3" /></a>
                 </span>
-                <span v-if="syncBadge(s.sync_status)" class="truncate text-[10px] font-medium" :class="syncBadge(s.sync_status)!.toneClass">
+                <span v-if="syncBadge(s.sync_status)" class="truncate text-xs font-medium" :class="syncBadge(s.sync_status)!.toneClass">
                   ● {{ syncBadge(s.sync_status)!.label }}
                 </span>
-                <span v-else-if="!s.transactional" class="truncate text-[10px] font-medium text-primary/60">
+                <span v-else-if="!s.transactional" class="truncate text-xs font-medium text-primary/60">
                   {{ surfaceKindLabel(s) }}{{ s.is_active ? "" : " · pausado" }}
                 </span>
               </div>
@@ -332,7 +332,7 @@ useHead({ title: "Catálogo · Gestor" });
                       <span class="truncate" :class="rowStatuses[row.sku]?.off ? 'line-through decoration-1' : ''">{{ row.name }}</span>
                       <span
                         v-if="rowStatuses[row.sku]?.label"
-                        class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                        class="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium"
                         :class="{
                           'bg-destructive/10 text-destructive': rowStatuses[row.sku]?.tone === 'danger',
                           'bg-amber-500/15 text-amber-600 dark:text-amber-400': rowStatuses[row.sku]?.tone === 'amber',
@@ -340,15 +340,15 @@ useHead({ title: "Catálogo · Gestor" });
                         }"
                       >{{ rowStatuses[row.sku]?.label }}</span>
                       <!-- esgotado que repõe por produção: a próxima fornada reativa sozinha -->
-                      <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-[10px] font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>
+                      <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-xs font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>
                       <!-- estoque baixo (produto ainda ativo): aviso discreto -->
-                      <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
+                      <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
                     </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>
                       <span class="text-muted-foreground/40">·</span>
                       <span class="tabular-nums">{{ row.base_price_display }}</span>
-                      <span v-if="row.primary_collection_name" class="truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{{ row.primary_collection_name }}</span>
+                      <span v-if="row.primary_collection_name" class="truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{{ row.primary_collection_name }}</span>
                     </span>
                   </div>
                 </label>
@@ -437,7 +437,7 @@ useHead({ title: "Catálogo · Gestor" });
                       @click="startEdit(row, cell)"
                     >
                       <span v-if="cellPrice(row, cell).differs" class="flex flex-col items-start gap-0.5 leading-none">
-                        <span class="flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span class="flex items-center gap-0.5 text-xs font-medium text-muted-foreground">
                           R$
                           <Icon
                             :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'"
@@ -459,7 +459,7 @@ useHead({ title: "Catálogo · Gestor" });
                       class="h-9 w-full rounded-md border bg-background px-2.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
                       @keyup.enter="commitPrice(row, cell)" @keyup.esc="editing = null"
                     />
-                    <p class="mt-1 text-[11px] text-muted-foreground">Base do produto: {{ row.base_price_display }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">Base do produto: {{ row.base_price_display }}</p>
                     <div class="mt-2.5 flex justify-end gap-1.5">
                       <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition hover:bg-accent" @click="editing = null">Cancelar</button>
                       <button type="button" class="rounded-md border border-transparent bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90" @click="commitPrice(row, cell)">Salvar</button>
@@ -537,7 +537,7 @@ useHead({ title: "Catálogo · Gestor" });
                 @keyup.enter="applyBulkPrice"
               />
             </div>
-            <p class="mt-1.5 text-[11px] leading-tight text-muted-foreground">
+            <p class="mt-1.5 text-xs leading-tight text-muted-foreground">
               {{ priceOp === "set" ? "Define o preço de todos os selecionados." : priceOp === "pct" ? "Aumenta (+) ou reduz (−) por porcentagem." : "Soma (+) ou subtrai (−) do preço atual." }}
               Permanente — para promo, use as regras.
             </p>

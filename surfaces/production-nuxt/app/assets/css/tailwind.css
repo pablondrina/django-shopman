@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* O Tailwind v4 só escaneia a raiz deste app; o operator-kit (layer irmão, via `extends`)
+   fica fora. Sem este `@source`, classes usadas SÓ nos componentes do kit (ex.: o
+   OperatorRail — `w-52`, `bg-primary-foreground/15`) não entram no CSS. */
+@source "../../../../operator-kit/app";
+
 @plugin "@tailwindcss/forms" {
   strategy: "class";
 }

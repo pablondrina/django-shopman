@@ -18,7 +18,7 @@ export interface OperatorSession {
   pin_must_change: boolean;
 }
 
-export interface OperatorSessionResponse extends OperatorSession {}
+export type OperatorSessionResponse = OperatorSession;
 
 export interface OperatorEligibleResponse {
   operators: OperatorCard[];

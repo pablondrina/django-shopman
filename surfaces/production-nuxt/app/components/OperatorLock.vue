@@ -141,7 +141,7 @@ async function submitForcedChange(payload: { currentPin: string; newPin: string 
             <Icon name="lucide:chevron-left" class="size-4" /> Trocar operador
           </button>
           <p class="mb-2 text-sm font-semibold">{{ picked.name }}</p>
-          <div class="mb-3 flex h-10 items-center justify-center rounded-md border bg-background text-2xl tracking-[0.4em] tabular-nums">
+          <div class="mb-3 flex h-10 items-center justify-center rounded-md border bg-background text-3xl tracking-[0.4em] tabular-nums">
             {{ "•".repeat(pin.length) || "—" }}
           </div>
           <div class="grid grid-cols-3 gap-2">

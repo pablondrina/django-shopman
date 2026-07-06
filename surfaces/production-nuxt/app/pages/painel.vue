@@ -11,9 +11,20 @@
 // · ordem de aeroporto: cronológica pelo horário — status muda cor, nunca
 //   posição; confirmados saem pelo TTL.
 import type { ForecastStatus } from "~/types/production";
-import { fullDateLabel, isoForOffset, resolveDayRollover, weekdayLabel } from "~/presentation/production";
+import {
+  fullDateLabel,
+  isStale,
+  isoForOffset,
+  resolveDayRollover,
+  weekdayLabel,
+} from "~/presentation/production";
 
 const { rows, selectedDate, pending, error } = useProductionForecast();
+// Kiosk aberto o dia todo: se o sinal cair, mantém o último quadro no ar (dado velho
+// visível > tela em branco) e acende um aviso discreto de "sem sinal".
+const stale = computed(() =>
+  isStale({ error: !!error.value, hasData: rows.value.length > 0 }),
+);
 const sound = useFlapClack();
 
 // Paginação de aeroporto: N linhas fixas (medidas na tela), excedente vira
@@ -35,7 +46,11 @@ function rollDay(): void {
   tomorrowISO.value = r.tomorrowISO;
   selectedDate.value = r.selectedDate;
 }
-const isCustomDate = computed(() => selectedDate.value !== todayISO.value && selectedDate.value !== tomorrowISO.value);
+const isCustomDate = computed(
+  () =>
+    selectedDate.value !== todayISO.value &&
+    selectedDate.value !== tomorrowISO.value,
+);
 const customDateInput = ref<HTMLInputElement | null>(null);
 function openCustomDate() {
   sound.unlock();
@@ -57,7 +72,7 @@ onMounted(() => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     clock.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    rollDay();  // vira o dia à meia-noite (a TV não amanhece em ontem)
+    rollDay(); // vira o dia à meia-noite (a TV não amanhece em ontem)
   };
   tick();
   clockTimer = setInterval(tick, 1000);
@@ -108,11 +123,49 @@ const STATUS_CHARS = 10; // CONFIRMADO
     <header class="flex flex-col gap-2 px-4 pb-2 pt-4 md:px-8">
       <div class="board-labels flex flex-wrap items-center gap-x-3 gap-y-2">
         <span>{{ fullDateLabel(selectedDate) }}</span>
+        <span
+          v-if="stale"
+          role="status"
+          aria-live="polite"
+          class="inline-flex items-center gap-1.5 tone-amber"
+          title="Sem sinal — mostrando o último quadro"
+        >
+          <Icon name="lucide:wifi-off" class="size-4" />
+          <span>sem sinal</span>
+        </span>
         <span aria-hidden="true">·</span>
         <div class="flex items-center gap-2.5" role="group" aria-label="Data">
-          <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === todayISO }" :aria-pressed="selectedDate === todayISO" @click="sound.unlock(); selectedDate = todayISO">Hoje</button>
-          <button type="button" class="board-datekey" :class="{ 'board-datekey--active': selectedDate === tomorrowISO }" :aria-pressed="selectedDate === tomorrowISO" @click="sound.unlock(); selectedDate = tomorrowISO">Amanhã</button>
-          <button type="button" class="board-datekey relative" :class="{ 'board-datekey--active': isCustomDate }" :aria-pressed="isCustomDate" @click="openCustomDate()">
+          <button
+            type="button"
+            class="board-datekey"
+            :class="{ 'board-datekey--active': selectedDate === todayISO }"
+            :aria-pressed="selectedDate === todayISO"
+            @click="
+              sound.unlock();
+              selectedDate = todayISO;
+            "
+          >
+            Hoje
+          </button>
+          <button
+            type="button"
+            class="board-datekey"
+            :class="{ 'board-datekey--active': selectedDate === tomorrowISO }"
+            :aria-pressed="selectedDate === tomorrowISO"
+            @click="
+              sound.unlock();
+              selectedDate = tomorrowISO;
+            "
+          >
+            Amanhã
+          </button>
+          <button
+            type="button"
+            class="board-datekey relative"
+            :class="{ 'board-datekey--active': isCustomDate }"
+            :aria-pressed="isCustomDate"
+            @click="openCustomDate()"
+          >
             {{ isCustomDate ? weekdayLabel(selectedDate) : "Outra" }}
             <input
               ref="customDateInput"
@@ -128,10 +181,19 @@ const STATUS_CHARS = 10; // CONFIRMADO
           <button
             type="button"
             class="board-key"
-            :aria-label="sound.enabled.value ? 'Silenciar palhetas' : 'Ativar som das palhetas'"
+            :aria-label="
+              sound.enabled.value
+                ? 'Silenciar palhetas'
+                : 'Ativar som das palhetas'
+            "
             @click="sound.toggle()"
           >
-            <Icon :name="sound.enabled.value ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
+            <Icon
+              :name="
+                sound.enabled.value ? 'lucide:volume-2' : 'lucide:volume-x'
+              "
+              class="size-4"
+            />
           </button>
           <button
             type="button"
@@ -139,7 +201,10 @@ const STATUS_CHARS = 10; // CONFIRMADO
             :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
             @click="toggleFullscreen()"
           >
-            <Icon :name="isFullscreen ? 'lucide:minimize' : 'lucide:maximize'" class="size-4" />
+            <Icon
+              :name="isFullscreen ? 'lucide:minimize' : 'lucide:maximize'"
+              class="size-4"
+            />
           </button>
         </div>
       </div>
@@ -152,18 +217,31 @@ const STATUS_CHARS = 10; // CONFIRMADO
       </div>
     </header>
 
-    <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 md:px-8">
-      <p v-if="pending && !rows.length" class="board-labels py-8">Carregando…</p>
-      <p v-else-if="error" class="board-labels py-8">Sinal perdido — reconectando…</p>
+    <section
+      class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 md:px-8"
+    >
+      <p v-if="pending && !rows.length" class="board-labels py-8">
+        Carregando…
+      </p>
+      <p v-else-if="error && !rows.length" class="board-labels py-8">
+        Sinal perdido — reconectando…
+      </p>
 
-      <div v-else-if="!rows.length" class="board-labels grid place-items-center gap-2 py-24 text-center">
+      <div
+        v-else-if="!rows.length"
+        class="board-labels grid place-items-center gap-2 py-24 text-center"
+      >
         <Icon name="lucide:tower-control" class="size-9" />
         <p>Nenhuma fornada programada para esta data.</p>
       </div>
 
       <template v-else>
         <div :ref="setBoardList" class="min-h-0 flex-1 overflow-hidden">
-          <TransitionGroup tag="div" name="board-row" class="relative flex flex-col gap-1.5">
+          <TransitionGroup
+            tag="div"
+            name="board-row"
+            class="relative flex flex-col gap-1.5"
+          >
             <article
               v-for="row in pages.visible.value"
               :key="row.ref"
@@ -171,9 +249,30 @@ const STATUS_CHARS = 10; // CONFIRMADO
               class="board-row"
               :aria-label="`${row.recipe_name}: ${row.qty} unidades às ${row.eta_display}, ${row.status_label}`"
             >
-              <SplitFlap :value="row.recipe_name" :chars="NAME_CHARS" class="board-flap min-w-0" />
-              <SplitFlap :value="`${row.qty} UN`" :chars="QTY_CHARS" align="right" class="board-flap" />
-              <SplitFlap :value="row.eta_display" :chars="5" align="right" class="board-flap" :class="row.status === 'delayed' ? 'tone-amber' : row.eta_is_actual ? 'tone-green' : ''" />
+              <SplitFlap
+                :value="row.recipe_name"
+                :chars="NAME_CHARS"
+                class="board-flap min-w-0"
+              />
+              <SplitFlap
+                :value="`${row.qty} UN`"
+                :chars="QTY_CHARS"
+                align="right"
+                class="board-flap"
+              />
+              <SplitFlap
+                :value="row.eta_display"
+                :chars="5"
+                align="right"
+                class="board-flap"
+                :class="
+                  row.status === 'delayed'
+                    ? 'tone-amber'
+                    : row.eta_is_actual
+                      ? 'tone-green'
+                      : ''
+                "
+              />
               <SplitFlap
                 :value="row.status_label"
                 :chars="STATUS_CHARS"
@@ -186,7 +285,12 @@ const STATUS_CHARS = 10; // CONFIRMADO
           </TransitionGroup>
         </div>
 
-        <div v-if="pages.pageCount.value > 1" class="flex shrink-0 items-center justify-center gap-2.5 pt-3" role="group" aria-label="Páginas do painel">
+        <div
+          v-if="pages.pageCount.value > 1"
+          class="flex shrink-0 items-center justify-center gap-2.5 pt-3"
+          role="group"
+          aria-label="Páginas do painel"
+        >
           <button
             v-for="p in pages.pageCount.value"
             :key="p"
@@ -195,7 +299,10 @@ const STATUS_CHARS = 10; // CONFIRMADO
             :class="{ 'board-pagedot--active': pages.page.value === p - 1 }"
             :aria-label="`Página ${p}`"
             :aria-pressed="pages.page.value === p - 1"
-            @click="sound.unlock(); pages.goTo(p - 1)"
+            @click="
+              sound.unlock();
+              pages.goTo(p - 1);
+            "
           />
         </div>
       </template>
@@ -257,7 +364,9 @@ const STATUS_CHARS = 10; // CONFIRMADO
   color: var(--board-dim);
   border-bottom: 1px solid transparent;
   padding-bottom: 1px;
-  transition: color 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    border-color 150ms;
 }
 .board-datekey:hover {
   color: var(--board-text);
@@ -276,7 +385,9 @@ const STATUS_CHARS = 10; // CONFIRMADO
   border: 1px solid var(--board-line);
   background: var(--board-panel);
   color: var(--board-dim);
-  transition: color 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    border-color 150ms;
 }
 .board-key:hover {
   color: var(--board-text);
@@ -288,7 +399,9 @@ const STATUS_CHARS = 10; // CONFIRMADO
   height: 0.45rem;
   border-radius: 9999px;
   background: var(--board-line);
-  transition: background 200ms, transform 200ms;
+  transition:
+    background 200ms,
+    transform 200ms;
 }
 .board-pagedot--active {
   background: var(--board-text);
@@ -323,7 +436,9 @@ const STATUS_CHARS = 10; // CONFIRMADO
 /* Entrada/saída de fornadas (lote novo; confirmado expirou o TTL). */
 .board-row-enter-active,
 .board-row-leave-active {
-  transition: opacity 400ms ease, transform 400ms ease;
+  transition:
+    opacity 400ms ease,
+    transform 400ms ease;
 }
 .board-row-enter-from {
   opacity: 0;

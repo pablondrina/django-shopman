@@ -6,7 +6,7 @@
 // Used by both the comanda header and the payment screen's customer modal.
 import type { POSCustomerSearchResult } from "~/types/pos";
 
-const props = defineProps<{
+defineProps<{
   results: POSCustomerSearchResult[];
   busy: boolean;
 }>();

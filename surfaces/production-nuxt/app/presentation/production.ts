@@ -51,8 +51,29 @@ export function elapsedLabel(seconds: number): string {
 
 // ── Datas (chips Hoje · Amanhã · dia-da-semana + data cheia fixa) ──────────
 
-const WEEKDAYS_PT = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const WEEKDAYS_PT = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+];
+const MONTHS_PT = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
 
 function parseISODate(iso: string): Date | null {
   const [y, m, d] = iso.split("-").map(Number);
@@ -74,8 +95,15 @@ export function fullDateLabel(iso: string): string {
 }
 
 /** ISO local (YYYY-MM-DD) para hoje + offsetDays, sem UTC (a padaria é local). */
-export function isoForOffset(offsetDays: number, now: Date = new Date()): string {
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+export function isoForOffset(
+  offsetDays: number,
+  now: Date = new Date(),
+): string {
+  const d = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + offsetDays,
+  );
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
@@ -89,11 +117,17 @@ export function resolveDayRollover(
   prevTodayISO: string,
   selectedISO: string,
   now: Date = new Date(),
-): { todayISO: string; tomorrowISO: string; selectedDate: string; rolled: boolean } {
+): {
+  todayISO: string;
+  tomorrowISO: string;
+  selectedDate: string;
+  rolled: boolean;
+} {
   const todayISO = isoForOffset(0, now);
   const tomorrowISO = isoForOffset(1, now);
   const rolled = todayISO !== prevTodayISO;
-  const selectedDate = rolled && selectedISO === prevTodayISO ? todayISO : selectedISO;
+  const selectedDate =
+    rolled && selectedISO === prevTodayISO ? todayISO : selectedISO;
   return { todayISO, tomorrowISO, selectedDate, rolled };
 }
 
@@ -117,11 +151,21 @@ export function rowHasActivity(row: ProductionMatrixRowProjection): boolean {
 
 /** Filter matrix rows by a free-text query over SKU + recipe name + WO refs.
  *  Refs matter for alert deep-links ("WO-2026-00042" lands on its row). */
-export function matchesRowQuery(row: ProductionMatrixRowProjection, rawQuery: string): boolean {
+export function matchesRowQuery(
+  row: ProductionMatrixRowProjection,
+  rawQuery: string,
+): boolean {
   const q = rawQuery.trim().toLowerCase();
   if (!q) return true;
-  const refs = [...row.planned_orders, ...row.started_orders, ...row.finished_orders].map((wo) => wo.ref);
-  return [row.output_sku, row.recipe_name, ...refs].join(" ").toLowerCase().includes(q);
+  const refs = [
+    ...row.planned_orders,
+    ...row.started_orders,
+    ...row.finished_orders,
+  ].map((wo) => wo.ref);
+  return [row.output_sku, row.recipe_name, ...refs]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
 }
 
 // ── Alert deep-links ───────────────────────────────────────────────────────
@@ -131,22 +175,31 @@ export function matchesRowQuery(row: ProductionMatrixRowProjection, rawQuery: st
  *  - stock_short → Expedição (a falha aconteceu ao expedir);
  *  - forgotten → Planejamento (a WO nunca saiu do planejado);
  *  - low_yield/others → sem destino (a WO já saiu das grades). */
-export function alertTarget(alert: { type: string; order_ref: string }): { to: string; q: string } | null {
+export function alertTarget(alert: {
+  type: string;
+  order_ref: string;
+}): { to: string; q: string } | null {
   if (!alert.order_ref) return null;
   if (alert.type === "production_late") return { to: "/", q: alert.order_ref };
-  if (alert.type === "production_stock_short") return { to: "/expedicao", q: alert.order_ref };
-  if (alert.type === "production_forgotten") return { to: "/planejamento", q: alert.order_ref };
+  if (alert.type === "production_stock_short")
+    return { to: "/expedicao", q: alert.order_ref };
+  if (alert.type === "production_forgotten")
+    return { to: "/planejamento", q: alert.order_ref };
   return null;
 }
 
 /** Whether a planning row can be started (has a planned order and no started yet). */
-export function startableWorkOrder(row: ProductionMatrixRowProjection): WorkOrderCardProjection | null {
+export function startableWorkOrder(
+  row: ProductionMatrixRowProjection,
+): WorkOrderCardProjection | null {
   return row.planned_orders[0] ?? null;
 }
 
 /** Order commitments across a row's open WOs, deduped by order ref.
  *  The committed-units chip and its detail list render from this. */
-export function rowCommitments(row: ProductionMatrixRowProjection): OrderCommitmentProjection[] {
+export function rowCommitments(
+  row: ProductionMatrixRowProjection,
+): OrderCommitmentProjection[] {
   const seen = new Set<string>();
   const out: OrderCommitmentProjection[] = [];
   for (const wo of [...row.planned_orders, ...row.started_orders]) {
@@ -163,16 +216,44 @@ export function rowCommitments(row: ProductionMatrixRowProjection): OrderCommitm
  *  "quantas dessas já têm dono"), somadas sobre os pedidos vinculados. */
 export function rowCommittedUnits(row: ProductionMatrixRowProjection): number {
   return rowCommitments(row).reduce(
-    (total, commitment) => total + (parseFloat(commitment.qty_required.replace(",", ".")) || 0),
+    (total, commitment) =>
+      total + (parseFloat(commitment.qty_required.replace(",", ".")) || 0),
     0,
   );
+}
+
+// ── Honest board feedback (stale data beats an empty board) ────────────────
+
+/** Como um board TOLERANTE a dado velho deve se apresentar. Só troca o board por uma
+ *  tela de carregando/erro/vazio quando NÃO há dado nenhum; havendo dado, mostra-o
+ *  SEMPRE (mesmo que a última atualização tenha falhado — o chip de degradação avisa). */
+export type BoardDisplay = "loading" | "error" | "empty" | "ready";
+
+export function boardDisplay(opts: {
+  pending: boolean;
+  error: boolean;
+  hasData: boolean;
+}): BoardDisplay {
+  if (opts.hasData) return "ready";
+  if (opts.pending) return "loading";
+  if (opts.error) return "error";
+  return "empty";
+}
+
+/** Há dado na tela porém a última atualização falhou → o quadro está velho. É o gatilho
+ *  do indicador honesto de degradação (dado velho visível > quadro vazio; nunca no vácuo
+ *  — [[feedback_transparent_timeouts]]). */
+export function isStale(opts: { error: boolean; hasData: boolean }): boolean {
+  return opts.error && opts.hasData;
 }
 
 // ── Shortage envelope parsing ──────────────────────────────────────────────
 
 /** Pull the structured shortage error out of a proxied 409 response body, if any.
  *  The floor app renders the material/order shortage modal from this. */
-export function parseShortage(errorBody: unknown): ProductionShortageError | null {
+export function parseShortage(
+  errorBody: unknown,
+): ProductionShortageError | null {
   const error = (errorBody as { error?: unknown })?.error;
   if (!error || typeof error !== "object") return null;
   const code = (error as { code?: string }).code;

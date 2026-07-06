@@ -16,9 +16,15 @@ import {
   toneNextSurface,
   toneTimer,
 } from "../app/presentation/board";
-import type { KDSBoardProjection, KDSExpeditionCardProjection, KDSTicketProjection } from "../app/types/kds";
+import type {
+  KDSBoardProjection,
+  KDSExpeditionCardProjection,
+  KDSTicketProjection,
+} from "../app/types/kds";
 
-const ticket = (over: Partial<KDSTicketProjection> = {}): KDSTicketProjection => ({
+const ticket = (
+  over: Partial<KDSTicketProjection> = {},
+): KDSTicketProjection => ({
   pk: 1,
   order_ref: "PDV-1",
   channel_icon: "store",
@@ -28,7 +34,16 @@ const ticket = (over: Partial<KDSTicketProjection> = {}): KDSTicketProjection =>
   elapsed_seconds: 30,
   target_seconds: 600,
   timer_class: "timer-ok",
-  items: [{ sku: "x", name: "Pão", qty: 2, notes: "", checked: false, stock_warning: "" }],
+  items: [
+    {
+      sku: "x",
+      name: "Pão",
+      qty: 2,
+      notes: "",
+      checked: false,
+      stock_warning: "",
+    },
+  ],
   status: "in_progress",
   all_checked: false,
   status_label: "",
@@ -127,34 +142,79 @@ describe("kds board presentation", () => {
 
   it("auto-sorts prep tickets by urgency (late first, then oldest)", () => {
     const ok = ticket({ pk: 1, timer_class: "timer-ok", elapsed_seconds: 10 });
-    const lateNew = ticket({ pk: 2, timer_class: "timer-late", elapsed_seconds: 100 });
-    const lateOld = ticket({ pk: 3, timer_class: "timer-late", elapsed_seconds: 500 });
-    const warn = ticket({ pk: 4, timer_class: "timer-warning", elapsed_seconds: 50 });
+    const lateNew = ticket({
+      pk: 2,
+      timer_class: "timer-late",
+      elapsed_seconds: 100,
+    });
+    const lateOld = ticket({
+      pk: 3,
+      timer_class: "timer-late",
+      elapsed_seconds: 500,
+    });
+    const warn = ticket({
+      pk: 4,
+      timer_class: "timer-warning",
+      elapsed_seconds: 50,
+    });
     const sorted = sortByUrgency([ok, lateNew, warn, lateOld]);
-    expect(sorted.map((c) => (c as KDSTicketProjection).pk)).toEqual([3, 2, 4, 1]);
+    expect(sorted.map((c) => (c as KDSTicketProjection).pk)).toEqual([
+      3, 2, 4, 1,
+    ]);
   });
 
   it("splits the ref into a recessive prefix + the hero code", () => {
-    expect(splitRef("IFOOD-260606-2L8Y")).toEqual({ prefix: "IFOOD-260606-", code: "2L8Y" });
-    expect(splitRef("PDV-260606-NMEQ")).toEqual({ prefix: "PDV-260606-", code: "NMEQ" });
+    expect(splitRef("IFOOD-260606-2L8Y")).toEqual({
+      prefix: "IFOOD-260606-",
+      code: "2L8Y",
+    });
+    expect(splitRef("PDV-260606-NMEQ")).toEqual({
+      prefix: "PDV-260606-",
+      code: "NMEQ",
+    });
     expect(splitRef("SEMTRACO")).toEqual({ prefix: "", code: "SEMTRACO" });
   });
 
   it("reports item progress (done/total)", () => {
-    expect(itemProgress([{ checked: true }, { checked: false }, { checked: false }])).toEqual({ done: 1, total: 3 });
+    expect(
+      itemProgress([{ checked: true }, { checked: false }, { checked: false }]),
+    ).toEqual({ done: 1, total: 3 });
   });
 
   it("aggregates all-day counts of unchecked items", () => {
     const t1 = ticket({
       pk: 1,
       items: [
-        { sku: "a", name: "Baguete", qty: 2, notes: "", checked: false, stock_warning: "" },
-        { sku: "b", name: "Café", qty: 1, notes: "", checked: true, stock_warning: "" },
+        {
+          sku: "a",
+          name: "Baguete",
+          qty: 2,
+          notes: "",
+          checked: false,
+          stock_warning: "",
+        },
+        {
+          sku: "b",
+          name: "Café",
+          qty: 1,
+          notes: "",
+          checked: true,
+          stock_warning: "",
+        },
       ],
     });
     const t2 = ticket({
       pk: 2,
-      items: [{ sku: "a", name: "Baguete", qty: 3, notes: "", checked: false, stock_warning: "" }],
+      items: [
+        {
+          sku: "a",
+          name: "Baguete",
+          qty: 3,
+          notes: "",
+          checked: false,
+          stock_warning: "",
+        },
+      ],
     });
     const allDay = allDayCounts([t1, t2]);
     expect(allDay).toEqual([{ name: "Baguete", qty: 5 }]); // café excluded (checked)

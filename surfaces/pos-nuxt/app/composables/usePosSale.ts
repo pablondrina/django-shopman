@@ -4,6 +4,7 @@ import type {
   Action,
   POSAddressAutocompleteProjection,
   POSCartItem,
+  POSCheckoutCapabilities,
   POSCloseSaleResponse,
   POSCustomerLookupProjection,
   POSCustomerLookupResponse,
@@ -34,7 +35,6 @@ import {
   type PaymentProofView,
   paymentProofView,
   paymentRemainingQ as computeRemainingQ,
-  tenderSumQ as computeTenderSum,
 } from "~/presentation/payment";
 import {
   draftAssociationTargetStates,
@@ -110,26 +110,28 @@ export function usePosSale(deps: PosSaleDeps) {
 
   // PIX no PDV: o proof mostra o QR e "aguarde confirmação", mas sem polling o
   // operador nunca via a confirmação chegar (tinha de ir ao gestor). Aqui pollamos
-  // o status por-order (endpoint gateado por operate_pos) até is_paid/terminal.
-  const paymentConfirmed = ref(false);
+  // o status por-order (endpoint gateado por operate_pos). O estado é explícito
+  // ('polling'|'paid'|'expired') para a UI nunca girar "aguardando…" no vácuo: ao
+  // desistir (terminal/timeout) a tela acusa honestamente ([[feedback_transparent_timeouts]]).
+  const pixStatus = ref<"idle" | "polling" | "paid" | "expired">("idle");
   let pixPollTimer: ReturnType<typeof setInterval> | null = null;
   function stopPixPolling() {
     if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
   }
   function startPixPolling(orderRef: string) {
     stopPixPolling();
-    paymentConfirmed.value = false;
+    pixStatus.value = "polling";
     let attempts = 0;
     pixPollTimer = setInterval(async () => {
       attempts += 1;
-      if (attempts > 240) return stopPixPolling(); // ~10 min a 2,5s → desiste
+      if (attempts > 240) { pixStatus.value = "expired"; return stopPixPolling(); } // ~10 min a 2,5s → desiste
       try {
         const status = await $fetch<{ is_paid?: boolean; is_terminal?: boolean }>(
           apiPath(`/api/v1/backstage/pos/payment/${encodeURIComponent(orderRef)}/status/`),
           { credentials: "include" },
         );
-        if (status?.is_paid) { paymentConfirmed.value = true; stopPixPolling(); }
-        else if (status?.is_terminal) { stopPixPolling(); } // cancelado/expirado
+        if (status?.is_paid) { pixStatus.value = "paid"; stopPixPolling(); }
+        else if (status?.is_terminal) { pixStatus.value = "expired"; stopPixPolling(); } // cancelado/expirado
       } catch { /* falha transiente de rede — segue tentando */ }
     }, 2500);
   }
@@ -183,13 +185,15 @@ export function usePosSale(deps: PosSaleDeps) {
   });
 
   const checkoutContract = computed(() => pos.value?.checkout || null);
-  const checkoutCapabilities = computed(() => checkoutContract.value?.capabilities || {});
-  const cashManagement = computed(() => (checkoutCapabilities.value as Record<string, any>)?.cash_management || null);
-  const kitchenHandoff = computed(() => (checkoutCapabilities.value as Record<string, any>)?.kitchen_handoff || null);
+  const checkoutCapabilities = computed<POSCheckoutCapabilities>(
+    () => (checkoutContract.value?.capabilities ?? {}) as POSCheckoutCapabilities,
+  );
+  const cashManagement = computed(() => checkoutCapabilities.value.cash_management ?? null);
+  const kitchenHandoff = computed(() => checkoutCapabilities.value.kitchen_handoff ?? null);
   const canFireTab = computed(() => Boolean(kitchenHandoff.value?.fire_action_ref));
-  const tabManipulation = computed(() => (checkoutCapabilities.value as Record<string, any>)?.tab_manipulation || null);
+  const tabManipulation = computed(() => checkoutCapabilities.value.tab_manipulation ?? null);
   const canRenameTab = computed(() => Boolean(tabManipulation.value?.rename_action_ref));
-  const saleCorrection = computed(() => (checkoutCapabilities.value as Record<string, any>)?.sale_correction || null);
+  const saleCorrection = computed(() => checkoutCapabilities.value.sale_correction ?? null);
   const canCancelRecentSale = computed(() => Boolean(saleCorrection.value?.cancel_recent_action_ref));
   const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
   const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
@@ -212,12 +216,10 @@ export function usePosSale(deps: PosSaleDeps) {
   const hasDraftWithoutTab = computed(() => !hasOpenTab.value && cart.items.length > 0);
   const canUseCart = computed(() => !tabRequiredForCart.value || hasOpenTab.value);
   const deliveryFeeQ = computed(() => moneyInputToQ(cart.deliveryFeeInput));
-  const tenderedAmountQ = computed(() => moneyInputToQ(cart.tenderedAmountInput));
 
   // Payment by injection (Odoo-style): the operator adds tender lines in any form;
   // the method is derived (no "mixed" selection). Finalize is gated until covered.
   const paymentTotalQ = computed(() => review.value?.total_q || cartTotalQ(cart.items));
-  const tenderSumQ = computed(() => computeTenderSum(cart.paymentTenders));
   const paymentRemainingQ = computed(() => computeRemainingQ(cart.paymentTenders, paymentTotalQ.value));
   const paymentChangeQ = computed(() => computeChangeQ(cart.paymentTenders, paymentTotalQ.value));
   const paymentCovered = computed(() => isPaymentCovered(cart.paymentTenders, paymentTotalQ.value));
@@ -621,8 +623,8 @@ export function usePosSale(deps: PosSaleDeps) {
       }
       tabInput.value = "";
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao abrir comanda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao abrir comanda.");
     } finally {
       busy.value = false;
     }
@@ -741,8 +743,8 @@ export function usePosSale(deps: PosSaleDeps) {
       if (cart.fulfillmentType === "delivery" && response.customer.default_address && !cart.deliveryAddress.trim()) {
         applySavedAddress(response.customer.default_address);
       }
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao buscar cliente.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao buscar cliente.");
     } finally {
       lookupBusy.value = false;
     }
@@ -775,8 +777,8 @@ export function usePosSale(deps: PosSaleDeps) {
       if (cart.fulfillmentType === "delivery" && response.customer.default_address && !cart.deliveryAddress.trim()) {
         applySavedAddress(response.customer.default_address);
       }
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao salvar o cliente.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao salvar o cliente.");
     } finally {
       lookupBusy.value = false;
     }
@@ -942,8 +944,8 @@ export function usePosSale(deps: PosSaleDeps) {
     saving.value = true;
     try {
       await persistTab();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao salvar comanda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao salvar comanda.");
     } finally {
       saving.value = false;
     }
@@ -986,8 +988,8 @@ export function usePosSale(deps: PosSaleDeps) {
       }
       await reviewSale();
       checkoutMode.value = true;
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao revisar checkout.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao revisar checkout.");
     } finally {
       busy.value = false;
     }
@@ -1001,8 +1003,8 @@ export function usePosSale(deps: PosSaleDeps) {
     busy.value = true;
     try {
       await reviewSale();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao revisar venda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao revisar venda.");
     } finally {
       busy.value = false;
     }
@@ -1060,12 +1062,12 @@ export function usePosSale(deps: PosSaleDeps) {
         };
         // PIX pendente → polla até confirmar; outros métodos já saem resolvidos.
         if (proof?.isPix && proof?.hasProof) startPixPolling(orderRef);
-        else paymentConfirmed.value = false;
+        else pixStatus.value = "idle";
         resetCart();
         await refresh();
       }
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao finalizar venda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao finalizar venda.");
     } finally {
       busy.value = false;
     }
@@ -1088,8 +1090,8 @@ export function usePosSale(deps: PosSaleDeps) {
       await action.call(path, { method: "DELETE" });
       resetCart();
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao liberar comanda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao liberar comanda.");
     } finally {
       busy.value = false;
     }
@@ -1109,8 +1111,8 @@ export function usePosSale(deps: PosSaleDeps) {
       await persistTab();
       await reloadCurrentTab();
       moveDialogOpen.value = true;
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.message || "Falha ao preparar a comanda para mover itens.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao preparar a comanda para mover itens.");
     } finally {
       busy.value = false;
     }
@@ -1145,8 +1147,8 @@ export function usePosSale(deps: PosSaleDeps) {
         setFromTabPayload(response.source);
       }
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao mover itens.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao mover itens.");
     } finally {
       busy.value = false;
     }
@@ -1188,8 +1190,8 @@ export function usePosSale(deps: PosSaleDeps) {
       );
       if (response.tab) setFromTabPayload(response.tab);
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao enviar à cozinha.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao enviar à cozinha.");
     } finally {
       firing.value = false;
     }
@@ -1211,8 +1213,8 @@ export function usePosSale(deps: PosSaleDeps) {
     firing.value = true;
     try {
       await unfireLineIds([lineId]);
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao cancelar envio à cozinha.");
     } finally {
       firing.value = false;
     }
@@ -1228,8 +1230,8 @@ export function usePosSale(deps: PosSaleDeps) {
       const ids = await freshLineIdsForSkus(selectedSkus, "fired");
       if (!ids.length) return;
       await unfireLineIds(ids);
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar envio à cozinha.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao cancelar envio à cozinha.");
     } finally {
       firing.value = false;
     }
@@ -1246,8 +1248,8 @@ export function usePosSale(deps: PosSaleDeps) {
       );
       if (response.tab) setFromTabPayload(response.tab);
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao renomear comanda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao renomear comanda.");
     } finally {
       renamingTab.value = false;
     }
@@ -1268,8 +1270,8 @@ export function usePosSale(deps: PosSaleDeps) {
       cancelSaleReason.value = "";
       saleCancelled.value = true;
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao cancelar venda.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao cancelar venda.");
     } finally {
       cancellingSale.value = false;
     }
@@ -1284,8 +1286,8 @@ export function usePosSale(deps: PosSaleDeps) {
       });
       cashDialogOpen.value = false;
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao abrir caixa.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao abrir caixa.");
     } finally {
       busy.value = false;
     }
@@ -1300,8 +1302,8 @@ export function usePosSale(deps: PosSaleDeps) {
       });
       cashDialogOpen.value = false;
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao fechar caixa.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao fechar caixa.");
     } finally {
       busy.value = false;
     }
@@ -1318,8 +1320,8 @@ export function usePosSale(deps: PosSaleDeps) {
       });
       cashDialogOpen.value = false;
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao fechar o turno.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao fechar o turno.");
     } finally {
       busy.value = false;
     }
@@ -1333,8 +1335,8 @@ export function usePosSale(deps: PosSaleDeps) {
         body: { kind: payload.kind, amount: payload.amount || "0", reason: payload.reason },
       });
       await refresh();
-    } catch (err: any) {
-      serverError.value = err?.data?.detail || err?.data?.error?.message || err?.message || "Falha ao registrar movimento.";
+    } catch (error) {
+      serverError.value = httpErrorMessage(error, "Falha ao registrar movimento.");
     } finally {
       busy.value = false;
     }
@@ -1348,7 +1350,7 @@ export function usePosSale(deps: PosSaleDeps) {
     tabInput,
     busy,
     saving,
-    paymentConfirmed,
+    pixStatus,
     unsaved,
     firing,
     renamingTab,

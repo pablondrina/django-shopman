@@ -19,8 +19,8 @@ async function submit() {
     });
     // A sessão é do lado do servidor; recarregar refaz o fetch já autenticado.
     if (import.meta.client) window.location.reload();
-  } catch (err: any) {
-    error.value = err?.data?.detail || "Não foi possível entrar. Confira usuário e senha.";
+  } catch (err) {
+    error.value = httpErrorMessage(err, "Não foi possível entrar. Confira usuário e senha.");
     pending.value = false;
   }
 }

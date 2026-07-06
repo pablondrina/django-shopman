@@ -262,11 +262,36 @@ export function matchesFulfillment(card: OrderCardProjection, mode: FulfillmentF
   return mode === "all" || card.fulfillment_type === mode;
 }
 
+export type RealtimeState = "connecting" | "live" | "polling";
+
+export interface RealtimeIndicatorView {
+  label: string;
+  /** true SÓ quando o SSE está aberto — a bolinha verde não mente. */
+  live: boolean;
+  dotClass: string;
+  title: string;
+}
+
+/**
+ * Como apresentar o estado de realtime do board (honestidade da resiliência): "ao vivo"
+ * (verde) só com SSE aberto; caso contrário um sinal neutro de que o board ainda atualiza
+ * sozinho, a cada 30s (poll) — nunca prometendo tempo-real que não há.
+ */
+export function realtimeIndicator(state: RealtimeState): RealtimeIndicatorView {
+  if (state === "live") {
+    return { label: "Ao vivo", live: true, dotClass: "bg-green-500", title: "Recebendo atualizações em tempo real" };
+  }
+  if (state === "connecting") {
+    return { label: "Conectando…", live: false, dotClass: "bg-amber-500", title: "Estabelecendo tempo real; enquanto isso, atualiza a cada 30s" };
+  }
+  return { label: "Atualização automática", live: false, dotClass: "bg-muted-foreground/40", title: "Sem tempo real; o board atualiza sozinho a cada 30s" };
+}
+
 /** Contagem por fulfillment na fila corrente (para os selos dos filtros). */
 export function fulfillmentCounts(cards: OrderCardProjection[]): { delivery: number; pickup: number } {
   let delivery = 0;
   let pickup = 0;
-  for (const c of cards) c.fulfillment_type === "delivery" ? delivery++ : pickup++;
+  for (const c of cards) { if (c.fulfillment_type === "delivery") delivery++; else pickup++; }
   return { delivery, pickup };
 }
 

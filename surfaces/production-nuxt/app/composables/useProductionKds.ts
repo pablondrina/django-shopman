@@ -39,10 +39,10 @@ export function useProductionKds() {
       await $fetch(url, { method: "POST", body: body ?? {} });
       await refresh();
       return { ok: true };
-    } catch (err: any) {
-      const shortage = parseShortage(err?.data);
+    } catch (err) {
+      const shortage = parseShortage(httpError(err).data);
       if (shortage) return { ok: false, shortage };
-      useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+      useSonner.error(httpErrorMessage(err, "Falha na ação. Tente de novo."));
       return { ok: false };
     } finally {
       const next = new Set(busy.value);

@@ -4,7 +4,10 @@
 // expedition cards; the gestures (check item / finalize / dispatch) POST through
 // the django proxy (CSRF handled there) and refresh. Status color is functional;
 // chrome neutral.
-import type { KDSExpeditionCardProjection, KDSTicketProjection } from "~/types/kds";
+import type {
+  KDSExpeditionCardProjection,
+  KDSTicketProjection,
+} from "~/types/kds";
 import { isExpeditionCard, splitRef } from "~/presentation/board";
 import type { KDSDensity } from "~/components/KdsTicketCard.vue";
 
@@ -12,24 +15,47 @@ const route = useRoute();
 const stationRef = computed(() => String(route.params.ref || ""));
 
 // Write-side é otimista (toque instantâneo) e mora no composable, junto do estado.
-const { view, pending, error, soundOn, soundBlocked, toggleSound, checkItem, finalize, expedite, recall, acknowledge } = useKdsBoard(stationRef.value);
+const {
+  view,
+  pending,
+  error,
+  soundOn,
+  soundBlocked,
+  toggleSound,
+  checkItem,
+  finalize,
+  expedite,
+  recall,
+  acknowledge,
+} = useKdsBoard(stationRef.value);
 
 // Recall: painel de concluídos recentes (desfazer finalização).
 const recallOpen = ref(false);
 
-// Tema: dark-first (cozinha, pouca luz), mas claro disponível pelo toggle.
-const colorMode = useColorMode();
-function toggleTheme() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
-
 // Relógio em tempo real (client-only; new Date() no SSR causaria mismatch).
 const now = ref<Date | null>(null);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
-const clockTime = computed(() => (now.value ? now.value.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""));
-const clockSec = computed(() => (now.value ? String(now.value.getSeconds()).padStart(2, "0") : ""));
+const clockTime = computed(() =>
+  now.value
+    ? now.value.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "",
+);
+const clockSec = computed(() =>
+  now.value ? String(now.value.getSeconds()).padStart(2, "0") : "",
+);
 const clockDate = computed(() =>
-  now.value ? now.value.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).replace(".", "") : "",
+  now.value
+    ? now.value
+        .toLocaleDateString("pt-BR", {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+        })
+        .replace(".", "")
+    : "",
 );
 onMounted(() => {
   now.value = new Date();
@@ -45,7 +71,12 @@ onBeforeUnmount(() => {
 // sem depender de breakpoints. Densidade = quão estreito o card pode ser.
 // `min` é a largura MÍNIMA que faz o REF + minutagem caberem com folga numa linha
 // (nunca truncam). A grade preenche em quantas colunas couber a partir daí.
-const DENSITIES: { key: KDSDensity; label: string; icon: string; min: number }[] = [
+const DENSITIES: {
+  key: KDSDensity;
+  label: string;
+  icon: string;
+  min: number;
+}[] = [
   { key: "compact", label: "Compacta", icon: "lucide:grid-3x3", min: 260 },
   { key: "cozy", label: "Padrão", icon: "lucide:layout-grid", min: 320 },
   { key: "roomy", label: "Ampla", icon: "lucide:square", min: 390 },
@@ -53,15 +84,26 @@ const DENSITIES: { key: KDSDensity; label: string; icon: string; min: number }[]
 const density = ref<KDSDensity>("cozy");
 const gridStyle = computed(() => {
   const min = DENSITIES.find((d) => d.key === density.value)?.min ?? 300;
-  return { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${min}px), 1fr))` };
+  return {
+    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${min}px), 1fr))`,
+  };
 });
 
 // Busca: filtra os cards por código, cliente ou item (útil pra consulta e na
 // expedição; no preparo você faz o próximo). Contadores/all-day seguem o total da
 // estação — a busca só filtra a grade.
 const query = ref("");
-function matchesQuery(card: KDSTicketProjection | KDSExpeditionCardProjection, q: string): boolean {
-  const hay = [card.order_ref, card.customer_name, ...("items" in card ? card.items.map((i) => i.name) : [])].join(" ").toLowerCase();
+function matchesQuery(
+  card: KDSTicketProjection | KDSExpeditionCardProjection,
+  q: string,
+): boolean {
+  const hay = [
+    card.order_ref,
+    card.customer_name,
+    ...("items" in card ? card.items.map((i) => i.name) : []),
+  ]
+    .join(" ")
+    .toLowerCase();
   return hay.includes(q);
 }
 const filteredCards = computed(() => {
@@ -76,7 +118,8 @@ function cycleDensity() {
 }
 onMounted(() => {
   const stored = localStorage.getItem("kds.density");
-  if (stored === "compact" || stored === "cozy" || stored === "roomy") density.value = stored;
+  if (stored === "compact" || stored === "cozy" || stored === "roomy")
+    density.value = stored;
 });
 
 // Detail modal: the prep card is glanceable; tapping opens the work (items +
@@ -85,7 +128,9 @@ const openTicketPk = ref<number | null>(null);
 const openTicket = computed<KDSTicketProjection | null>(() => {
   const pk = openTicketPk.value;
   if (pk == null || !view.value) return null;
-  const card = view.value.cards.find((c) => !isExpeditionCard(c) && c.pk === pk);
+  const card = view.value.cards.find(
+    (c) => !isExpeditionCard(c) && c.pk === pk,
+  );
   return (card as KDSTicketProjection) ?? null;
 });
 function setModalOpen(value: boolean) {
@@ -97,40 +142,59 @@ function finalizeFromModal(pk: number) {
 }
 
 // Narrow the union for the template.
-const asTicket = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c as KDSTicketProjection;
-const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c as KDSExpeditionCardProjection;
+const asTicket = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
+  c as KDSTicketProjection;
+const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
+  c as KDSExpeditionCardProjection;
 </script>
 
 <template>
   <main class="flex min-h-screen flex-col">
     <!-- context bar -->
-    <header class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5">
-      <!-- identidade -->
-      <NuxtLink to="/" class="grid size-9 shrink-0 place-items-center rounded-md border bg-card text-foreground transition hover:bg-accent" aria-label="Início — trocar de estação" title="KDS — trocar de estação">
-        <Icon name="lucide:utensils" class="size-4" />
-      </NuxtLink>
+    <header
+      class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-card px-4 py-2.5"
+    >
+      <!-- Controle do rail (kit): a identidade/nav comum vive no OperatorRail à esquerda. -->
+      <RailToggle />
       <div class="mr-auto min-w-0">
-        <p class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+        <p
+          class="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+        >
           {{ view?.isExpedition ? "Expedição" : "Estação KDS" }}
         </p>
-        <h1 class="truncate text-lg font-bold leading-tight">{{ view?.instanceName || stationRef }}</h1>
+        <h1 class="truncate text-lg font-bold leading-tight">
+          {{ view?.instanceName || stationRef }}
+        </h1>
       </div>
 
       <!-- relógio em tempo real -->
       <ClientOnly>
         <div v-if="now" class="flex flex-col items-end leading-none">
-          <span class="text-lg font-bold tabular-nums">{{ clockTime }}<span class="text-sm font-medium text-muted-foreground">:{{ clockSec }}</span></span>
-          <span class="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">{{ clockDate }}</span>
+          <span class="text-lg font-bold tabular-nums"
+            >{{ clockTime
+            }}<span class="text-sm font-medium text-muted-foreground"
+              >:{{ clockSec }}</span
+            ></span
+          >
+          <span
+            class="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{{ clockDate }}</span
+          >
         </div>
       </ClientOnly>
 
       <!-- contadores: neutros e padronizados (cor reservada à urgência dos cards) -->
-      <div v-if="view" class="flex items-baseline gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-sm">
+      <div
+        v-if="view"
+        class="flex items-baseline gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-sm"
+      >
         <span class="font-bold tabular-nums">{{ view.total }}</span>
         <span class="text-xs text-muted-foreground">ativos</span>
         <template v-if="view.counts.in_progress">
           <span class="text-muted-foreground/40">·</span>
-          <span class="font-bold tabular-nums">{{ view.counts.in_progress }}</span>
+          <span class="font-bold tabular-nums">{{
+            view.counts.in_progress
+          }}</span>
           <span class="text-xs text-muted-foreground">em preparo</span>
         </template>
       </div>
@@ -138,7 +202,10 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
       <!-- controles -->
       <div class="flex items-center gap-1.5">
         <div class="relative">
-          <Icon name="lucide:search" class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Icon
+            name="lucide:search"
+            class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             v-model="query"
             type="search"
@@ -147,37 +214,83 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
             class="h-9 w-36 rounded-md border bg-background pl-8 pr-7 text-sm outline-none transition focus:w-48 focus:ring-1 focus:ring-ring sm:w-44"
             aria-label="Buscar pedido por código, cliente ou item"
           />
-          <button v-if="query" type="button" class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:text-foreground" aria-label="Limpar busca" @click="query = ''">
+          <button
+            v-if="query"
+            type="button"
+            class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:text-foreground"
+            aria-label="Limpar busca"
+            @click="query = ''"
+          >
             <Icon name="lucide:x" class="size-3.5" />
           </button>
         </div>
-        <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="`Densidade: ${density}`" title="Densidade da grade" @click="cycleDensity">
-          <Icon :name="DENSITIES.find((d) => d.key === density)?.icon || 'lucide:layout-grid'" class="size-4" />
+        <button
+          type="button"
+          class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          :aria-label="`Densidade: ${density}`"
+          title="Densidade da grade"
+          @click="cycleDensity"
+        >
+          <Icon
+            :name="
+              DENSITIES.find((d) => d.key === density)?.icon ||
+              'lucide:layout-grid'
+            "
+            class="size-4"
+          />
         </button>
         <button
           type="button"
           class="relative grid size-9 place-items-center rounded-md border transition hover:bg-accent hover:text-foreground"
-          :class="soundOn && soundBlocked ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : 'text-muted-foreground'"
-          :aria-label="soundOn && soundBlocked ? 'Som bloqueado — toque para ativar' : soundOn ? 'Som ativo' : 'Som desativado'"
-          :title="soundOn && soundBlocked ? 'Som bloqueado — toque para ativar' : 'Som'"
+          :class="
+            soundOn && soundBlocked
+              ? 'border-amber-500/50 text-amber-600 dark:text-amber-400'
+              : 'text-muted-foreground'
+          "
+          :aria-label="
+            soundOn && soundBlocked
+              ? 'Som bloqueado — toque para ativar'
+              : soundOn
+                ? 'Som ativo'
+                : 'Som desativado'
+          "
+          :title="
+            soundOn && soundBlocked
+              ? 'Som bloqueado — toque para ativar'
+              : 'Som'
+          "
           @click="toggleSound"
         >
-          <Icon :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'" class="size-4" />
-          <span v-if="soundOn && soundBlocked" class="absolute -right-1 -top-1 size-2 rounded-full bg-amber-500" aria-hidden="true" />
+          <Icon
+            :name="soundOn ? 'lucide:volume-2' : 'lucide:volume-x'"
+            class="size-4"
+          />
+          <span
+            v-if="soundOn && soundBlocked"
+            class="absolute -right-1 -top-1 size-2 rounded-full bg-amber-500"
+            aria-hidden="true"
+          />
         </button>
-        <button v-if="view && !view.isExpedition && view.recentDone.length" type="button" class="relative grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Concluídos recentes — reabrir" title="Concluídos recentes" @click="recallOpen = true">
+        <button
+          v-if="view && !view.isExpedition && view.recentDone.length"
+          type="button"
+          class="relative grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          aria-label="Concluídos recentes — reabrir"
+          title="Concluídos recentes"
+          @click="recallOpen = true"
+        >
           <Icon name="lucide:rotate-ccw" class="size-4" />
-          <span class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-[0.6rem] font-bold tabular-nums text-background">{{ view.recentDone.length }}</span>
+          <span
+            class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-xs font-bold tabular-nums text-background"
+            >{{ view.recentDone.length }}</span
+          >
         </button>
-        <ClientOnly>
-          <button type="button" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" :aria-label="colorMode.value === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'" title="Tema" @click="toggleTheme">
-            <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-4" />
-          </button>
-          <template #fallback>
-            <span class="grid size-9 place-items-center rounded-md border text-muted-foreground"><Icon name="lucide:sun" class="size-4" /></span>
-          </template>
-        </ClientOnly>
-        <NuxtLink to="/retirada" class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground" aria-label="Tela do cliente" title="Tela do cliente">
+        <NuxtLink
+          to="/retirada"
+          class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          aria-label="Tela do cliente"
+          title="Tela do cliente"
+        >
           <Icon name="lucide:monitor" class="size-4" />
         </NuxtLink>
       </div>
@@ -185,8 +298,13 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
 
     <!-- all-day: o que falta fazer somando os pedidos (mise en place / prep em lote).
          Bem legível — é uma das infos mais úteis da estação. -->
-    <div v-if="view && !view.isExpedition && view.allDay.length" class="flex shrink-0 items-center gap-2.5 overflow-x-auto border-b bg-muted/40 px-4 py-2.5 no-scrollbar">
-      <span class="flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+    <div
+      v-if="view && !view.isExpedition && view.allDay.length"
+      class="flex shrink-0 items-center gap-2.5 overflow-x-auto border-b bg-muted/40 px-4 py-2.5 no-scrollbar"
+    >
+      <span
+        class="flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"
+      >
         <Icon name="lucide:clipboard-list" class="size-4" />
         A fazer
       </span>
@@ -201,26 +319,52 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
     </div>
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
-      <p v-if="pending && !view" class="text-sm text-muted-foreground">Carregando…</p>
+      <p v-if="pending && !view" class="text-sm text-muted-foreground">
+        Carregando…
+      </p>
       <!-- Erro com dados em cache NUNCA apaga o board: um blip de 1 poll não
            pode esconder os tickets da cozinha — banner acima, cards embaixo. -->
-      <p v-if="error && !view" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
+      <p
+        v-if="error && !view"
+        class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400"
+      >
         Falha ao carregar o board. Reconectando…
       </p>
-      <p v-else-if="error && view" class="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+      <p
+        v-else-if="error && view"
+        class="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400"
+      >
         Sem conexão — mostrando o último estado. Reconectando…
       </p>
       <template v-if="view">
         <!-- cancelled (loud — único lugar onde o vermelho é alerta de verdade) -->
-        <div v-if="view.cancelled.length" class="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="t in view.cancelled" :key="`x-${t.pk}`" class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4">
+        <div
+          v-if="view.cancelled.length"
+          class="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <article
+            v-for="t in view.cancelled"
+            :key="`x-${t.pk}`"
+            class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4"
+          >
             <div class="min-w-0">
-              <div class="flex items-center gap-2 text-sm font-semibold text-red-400">
+              <div
+                class="flex items-center gap-2 text-sm font-semibold text-red-400"
+              >
                 <Icon name="lucide:ban" class="size-4 shrink-0" />
-                Cancelado{{ t.cancelled_at_display ? ` às ${t.cancelled_at_display}` : "" }}
+                Cancelado{{
+                  t.cancelled_at_display ? ` às ${t.cancelled_at_display}` : ""
+                }}
               </div>
-              <div class="mt-1 break-words text-xl font-bold tabular-nums">{{ t.order_ref }}</div>
-              <p v-if="t.customer_name" class="truncate text-sm text-muted-foreground">{{ t.customer_name }}</p>
+              <div class="mt-1 break-words text-xl font-bold tabular-nums">
+                {{ t.order_ref }}
+              </div>
+              <p
+                v-if="t.customer_name"
+                class="truncate text-sm text-muted-foreground"
+              >
+                {{ t.customer_name }}
+              </p>
             </div>
             <button
               type="button"
@@ -235,32 +379,57 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
         </div>
 
         <!-- empty — estação zerada: estado calmo/acolhedor (omotenashi) -->
-        <div v-if="!view.cards.length" class="grid place-items-center gap-3 rounded-md border border-dashed py-20 text-center">
-          <div class="grid size-16 place-items-center rounded-full bg-green-500/10 text-green-400">
+        <div
+          v-if="!view.cards.length"
+          class="grid place-items-center gap-3 rounded-md border border-dashed py-20 text-center"
+        >
+          <div
+            class="grid size-16 place-items-center rounded-full bg-green-500/10 text-green-400"
+          >
             <Icon name="lucide:coffee" class="size-8" />
           </div>
-          <p class="text-2xl font-bold">Tudo em dia</p>
+          <p class="text-3xl font-bold">Tudo em dia</p>
           <p class="max-w-sm text-base text-muted-foreground">
-            Nenhum pedido na fila agora. Aproveite para respirar — a gente avisa quando o próximo chegar.
+            Nenhum pedido na fila agora. Aproveite para respirar — a gente avisa
+            quando o próximo chegar.
           </p>
         </div>
 
         <!-- busca sem resultado -->
-        <div v-else-if="!filteredCards.length" class="grid place-items-center gap-2 rounded-md border border-dashed py-16 text-center">
+        <div
+          v-else-if="!filteredCards.length"
+          class="grid place-items-center gap-2 rounded-md border border-dashed py-16 text-center"
+        >
           <Icon name="lucide:search-x" class="size-10 text-muted-foreground" />
-          <p class="text-base font-semibold">Nenhum pedido para “{{ query.trim() }}”.</p>
-          <button type="button" class="text-sm font-medium text-muted-foreground underline-offset-2 hover:underline" @click="query = ''">Limpar busca</button>
+          <p class="text-base font-semibold">
+            Nenhum pedido para “{{ query.trim() }}”.
+          </p>
+          <button
+            type="button"
+            class="text-sm font-medium text-muted-foreground underline-offset-2 hover:underline"
+            @click="query = ''"
+          >
+            Limpar busca
+          </button>
         </div>
 
         <!-- grade uniforme, auto-ordenada por urgência. O 1º card de preparo é o
              "próximo" — pintado ton sur ton (sem posição/tamanho especial). A ordem
              é indicada aqui na seção, não dentro do card. -->
         <template v-else>
-          <p v-if="!view.isExpedition && !query" class="mb-2.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p
+            v-if="!view.isExpedition && !query"
+            class="mb-2.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+          >
             <Icon name="lucide:arrow-down-wide-narrow" class="size-3.5" />
             Mais urgente primeiro — o destacado é o próximo
           </p>
-          <TransitionGroup tag="div" name="kds-card" class="grid items-start gap-3" :style="gridStyle">
+          <TransitionGroup
+            tag="div"
+            name="kds-card"
+            class="grid items-start gap-3"
+            :style="gridStyle"
+          >
             <div v-for="(card, idx) in filteredCards" :key="card.pk">
               <KdsExpeditionCard
                 v-if="isExpeditionCard(card)"
@@ -288,23 +457,48 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
       :open="openTicket != null"
       :ticket="openTicket"
       @update:open="setModalOpen"
-      @check-item="(idx, checked) => openTicket && checkItem(openTicket.pk, idx, checked)"
+      @check-item="
+        (idx, checked) => openTicket && checkItem(openTicket.pk, idx, checked)
+      "
       @done="openTicket && finalizeFromModal(openTicket.pk)"
     />
 
     <!-- recall: concluídos recentes (desfazer finalização) -->
     <UiDialog :open="recallOpen" @update:open="recallOpen = Boolean($event)">
-      <UiDialogContent class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-        <UiDialogTitle class="border-b px-5 py-4 text-lg font-bold">Concluídos recentes</UiDialogTitle>
-        <UiDialogDescription class="sr-only">Reabra um pedido finalizado por engano (últimos 30 minutos).</UiDialogDescription>
+      <UiDialogContent
+        class="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+      >
+        <UiDialogTitle class="border-b px-5 py-4 text-lg font-bold"
+          >Concluídos recentes</UiDialogTitle
+        >
+        <UiDialogDescription class="sr-only"
+          >Reabra um pedido finalizado por engano (últimos 30
+          minutos).</UiDialogDescription
+        >
         <div class="min-h-0 flex-1 overflow-y-auto p-3">
-          <p v-if="!view || !view.recentDone.length" class="p-6 text-center text-sm text-muted-foreground">Nada concluído nos últimos 30 minutos.</p>
+          <p
+            v-if="!view || !view.recentDone.length"
+            class="p-6 text-center text-sm text-muted-foreground"
+          >
+            Nada concluído nos últimos 30 minutos.
+          </p>
           <ul v-else class="flex flex-col gap-1.5">
-            <li v-for="t in view.recentDone" :key="t.pk" class="flex items-center justify-between gap-3 rounded-md border p-3">
+            <li
+              v-for="t in view.recentDone"
+              :key="t.pk"
+              class="flex items-center justify-between gap-3 rounded-md border p-3"
+            >
               <div class="min-w-0">
-                <p class="truncate text-lg font-bold tabular-nums leading-tight">{{ splitRef(t.order_ref).code }}</p>
+                <p
+                  class="truncate text-lg font-bold tabular-nums leading-tight"
+                >
+                  {{ splitRef(t.order_ref).code }}
+                </p>
                 <p class="truncate text-sm text-muted-foreground">
-                  {{ t.customer_name || t.order_ref }}<template v-if="t.completed_at_display"> · {{ t.completed_at_display }}</template>
+                  {{ t.customer_name || t.order_ref
+                  }}<template v-if="t.completed_at_display">
+                    · {{ t.completed_at_display }}</template
+                  >
                 </p>
               </div>
               <button
@@ -332,7 +526,9 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) => c
 }
 .kds-card-enter-active,
 .kds-card-leave-active {
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
 }
 .kds-card-enter-from,
 .kds-card-leave-to {

@@ -29,7 +29,10 @@ export function useOrdersBoard() {
   const zones = computed<ZoneView[]>(() => (queue.value ? zonesView(queue.value) : []));
   const totalCount = computed(() => queue.value?.total_count ?? 0);
 
-  // Realtime + polling (client only).
+  // Realtime + polling (client only). `realtime` diz honestamente ao operador se o board
+  // recebe pushes ao vivo (SSE aberto) ou caiu no poll de 30s — a bolinha "ao vivo" só
+  // acende quando genuinamente vivo ([[feedback_transparent_timeouts]], [[feedback_no_overpromise_tracking]]).
+  const realtime = ref<"connecting" | "live" | "polling">("polling");
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let source: EventSource | null = null;
 
@@ -38,16 +41,20 @@ export function useOrdersBoard() {
     const base = String(config.public.djangoPublicBaseUrl || "").replace(/\/$/, "");
     // EventSource needs same-origin. In prod the Gestor is served on its own host
     // proxying Django, so it connects; in dev it's a different origin (:3004 vs
-    // Django :8000) → skip and let the 30s poll carry realtime.
+    // Django :8000) → skip and let the 30s poll carry realtime (fica "polling").
     if (!base || new URL(base).origin !== window.location.origin) return;
     const url = `${base}/gestor/events/orders/`;
     try {
+      realtime.value = "connecting";
       source = new EventSource(url, { withCredentials: true });
       const onPush = () => refresh();
       ["message", "backstage-orders-update"].forEach((name) => source!.addEventListener(name, onPush));
-      source.onerror = () => { /* EventSource auto-reconnects; poll covers gaps. */ };
+      source.onopen = () => { realtime.value = "live"; };
+      // Erro/desconexão → cai pro poll; o EventSource auto-reconecta e o onopen volta a "live".
+      source.onerror = () => { realtime.value = "polling"; };
     } catch {
       source = null; // SSE unavailable → polling carries it.
+      realtime.value = "polling";
     }
   }
 
@@ -103,8 +110,8 @@ export function useOrdersBoard() {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      const message = err?.data?.detail || "Falha na ação. Tente de novo.";
+    } catch (error) {
+      const message = httpErrorMessage(error, "Falha na ação. Tente de novo.");
       setActionError(ref_, message);
       useSonner.error(message);
       return false;
@@ -150,9 +157,9 @@ export function useOrdersBoard() {
       targets.map(async (r) => {
         try {
           await $fetch(`/api/v1/backstage/orders/${encodeURIComponent(r)}/${action}/`, { method: "POST", body: {} });
-        } catch (err: any) {
+        } catch (error) {
           failures += 1;
-          setActionError(r, err?.data?.detail || "Falha na ação.");
+          setActionError(r, httpErrorMessage(error, "Falha na ação."));
         }
       }),
     );
@@ -166,5 +173,5 @@ export function useOrdersBoard() {
   const confirmMany = (refs: string[]) => actMany(refs, "confirm");
   const advanceMany = (refs: string[]) => actMany(refs, "advance");
 
-  return { queue, zones, totalCount, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany };
+  return { queue, zones, totalCount, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany };
 }

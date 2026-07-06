@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import type { Action, POSCollectionProjection, POSProductProjection, POSTabProjection } from "../app/types/pos";
+import type {
+  Action,
+  POSCartItem,
+  POSCashRuntimeProjection,
+  POSCheckoutContractProjection,
+  POSCollectionProjection,
+  POSPaymentCollectionProjection,
+  POSPaymentMethodProjection,
+  POSPaymentResultProjection,
+  POSPaymentTenderDraft,
+  POSProductProjection,
+  POSTabProjection,
+} from "../app/types/pos";
 import { findAction, hasAction, resolveAffordance } from "../app/presentation/actions";
 import {
   filterProducts,
@@ -50,15 +62,6 @@ import { pruneSelection, selectedItems, selectionView, toggleSelected } from "..
 import { receiptLineTotalQ, receiptLines, receiptPayments, type PosReceiptSnapshot } from "../app/presentation/receipt";
 import type { ActionAffordance } from "../app/presentation/actions";
 import { formatBRL } from "../app/utils/posIntent";
-import type {
-  POSCartItem,
-  POSCashRuntimeProjection,
-  POSCheckoutContractProjection,
-  POSPaymentCollectionProjection,
-  POSPaymentMethodProjection,
-  POSPaymentResultProjection,
-  POSPaymentTenderDraft,
-} from "../app/types/pos";
 
 function cartItem(overrides: Partial<POSCartItem> & { sku: string }): POSCartItem {
   return {

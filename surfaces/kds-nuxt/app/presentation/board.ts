@@ -37,14 +37,16 @@ export function toneBar(tone: KDSTone): string {
  *  prazo não tem cor de urgência → spotlight neutro elevado. Texto claro por cima. */
 export function toneNextSurface(tone: KDSTone): string {
   if (tone === "late") return "bg-red-500/20 border-red-500/55 ring-red-500/45";
-  if (tone === "warning") return "bg-amber-500/20 border-amber-500/55 ring-amber-500/45";
+  if (tone === "warning")
+    return "bg-amber-500/20 border-amber-500/55 ring-amber-500/45";
   return "bg-accent border-foreground/20 ring-foreground/20";
 }
 
 /** Tonal chip classes for the live timer (border+tint+text), shared by card+modal. */
 export function toneTimer(tone: KDSTone): string {
   if (tone === "late") return "border-red-500/40 bg-red-500/15 text-red-300";
-  if (tone === "warning") return "border-amber-500/40 bg-amber-500/15 text-amber-300";
+  if (tone === "warning")
+    return "border-amber-500/40 bg-amber-500/15 text-amber-300";
   return "border-white/10 bg-white/5 text-muted-foreground";
 }
 
@@ -71,7 +73,10 @@ export function sortByUrgency(
   });
 }
 
-export interface KDSAllDayCount { name: string; qty: number }
+export interface KDSAllDayCount {
+  name: string;
+  qty: number;
+}
 
 /** "All-day" aggregate (KDS best practice — mise en place / batch prep): how many
  *  of each item are still to make across all active prep tickets (unchecked only). */
@@ -147,7 +152,10 @@ export function splitRef(ref: string): { prefix: string; code: string } {
 }
 
 /** Total unchecked vs total item lines — for the minimal card's progress hint. */
-export function itemProgress(items: { checked: boolean }[]): { done: number; total: number } {
+export function itemProgress(items: { checked: boolean }[]): {
+  done: number;
+  total: number;
+} {
   return { done: items.filter((i) => i.checked).length, total: items.length };
 }
 
@@ -167,14 +175,57 @@ export function elapsedLabel(seconds: number): string {
  *  so the operator reads elapsed *against* the promise, not in a vacuum. */
 export function targetLabel(targetSeconds: number): string {
   const m = Math.max(0, Math.round(targetSeconds / 60));
-  return m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`;
+  return m >= 60
+    ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`
+    : `${m}m`;
 }
 
 /** Elapsed-vs-target fill for the time-to-SLA bar — the at-a-glance urgency cue
  *  winning KDS products lean on (Toast/Fresh). Clamped to 0–100 so the bar fills
  *  as the ticket approaches its promise and pins full once it's overdue; the tone
  *  (verde→âmbar→vermelho) carries the over-SLA escalation. */
-export function slaPercent(elapsedSeconds: number, targetSeconds: number): number {
+export function slaPercent(
+  elapsedSeconds: number,
+  targetSeconds: number,
+): number {
   if (targetSeconds <= 0) return 0;
   return Math.min(100, Math.max(0, (elapsedSeconds / targetSeconds) * 100));
+}
+
+// ── Honestidade de tempo-real (mesmo padrão do Gestor) ──────────────────────
+// O painel do cliente diz a VERDADE sobre a atualização: verde "ao vivo" só quando o
+// SSE está de fato conectado; senão âmbar (conectando) ou neutro (atualiza sozinho pelo
+// poll). Nunca uma bolinha verde mentirosa piscando sobre um quadro que só faz poll.
+export type RealtimeState = "connecting" | "live" | "polling";
+
+export interface RealtimeIndicatorView {
+  label: string;
+  live: boolean;
+  dotClass: string;
+  title: string;
+}
+
+export function realtimeIndicator(state: RealtimeState): RealtimeIndicatorView {
+  if (state === "live") {
+    return {
+      label: "ao vivo",
+      live: true,
+      dotClass: "bg-green-500",
+      title: "Recebendo atualizações em tempo real",
+    };
+  }
+  if (state === "connecting") {
+    return {
+      label: "conectando…",
+      live: false,
+      dotClass: "bg-amber-500",
+      title: "Estabelecendo tempo real; enquanto isso, atualiza sozinho",
+    };
+  }
+  return {
+    label: "atualiza sozinho",
+    live: false,
+    dotClass: "bg-muted-foreground/40",
+    title: "O painel atualiza sozinho a cada poucos segundos",
+  };
 }

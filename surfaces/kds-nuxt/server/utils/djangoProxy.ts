@@ -20,7 +20,7 @@ export function csrfTokenFromCookieHeader(cookie: string | undefined): string {
 }
 
 export function mergeSetCookieIntoCookieHeader(cookie: string | undefined, setCookie: string): string {
-  const [pair] = setCookie.split(";");
+  const [pair = ""] = setCookie.split(";");
   const [name, ...valueParts] = pair.split("=");
   const value = valueParts.join("=");
   if (!name || value == null) return cookie || "";
