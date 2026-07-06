@@ -22,12 +22,29 @@ describe("useOrderDetail", () => {
     expect(env.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("reject/cancel enviam reason", async () => {
+  it("reject/cancel enviam reason + cancellation_code (vazio p/ canal não-marketplace)", async () => {
     const d = useOrderDetail("WEB-2");
     await d.reject("sem estoque");
-    expect(env.fetchMock.mock.calls[0]![1].body).toEqual({ reason: "sem estoque" });
+    expect(env.fetchMock.mock.calls[0]![1].body).toEqual({ reason: "sem estoque", cancellation_code: "" });
     await d.cancel("cliente desistiu");
-    expect(env.fetchMock.mock.calls[1]![1].body).toEqual({ reason: "cliente desistiu" });
+    expect(env.fetchMock.mock.calls[1]![1].body).toEqual({ reason: "cliente desistiu", cancellation_code: "" });
+  });
+
+  it("reject/cancel de iFood repassam o código exigido pelo marketplace", async () => {
+    const d = useOrderDetail("IFOOD-2");
+    await d.reject("Item em falta", "IN_STORE_OUT_OF_STOCK");
+    expect(env.fetchMock.mock.calls[0]![1].body).toEqual({ reason: "Item em falta", cancellation_code: "IN_STORE_OUT_OF_STOCK" });
+    await d.cancel("Loja fechada", "STORE_CLOSED");
+    expect(env.fetchMock.mock.calls[1]![1].body).toEqual({ reason: "Loja fechada", cancellation_code: "STORE_CLOSED" });
+  });
+
+  it("fetchCancellationReasons devolve a lista do pedido, ou [] em erro", async () => {
+    env.fetchMock.mockResolvedValueOnce({ reasons: [{ code: "1", description: "Sem estoque" }] });
+    const d = useOrderDetail("IFOOD-3");
+    expect(await d.fetchCancellationReasons()).toEqual([{ code: "1", description: "Sem estoque" }]);
+    expect(String(env.fetchMock.mock.calls[0]![0])).toBe("/api/v1/backstage/orders/IFOOD-3/cancellation-reasons/");
+    env.fetchMock.mockRejectedValueOnce(new Error("boom"));
+    expect(await d.fetchCancellationReasons()).toEqual([]);
   });
 
   it("guarda de reentrância: 2ª ação enquanto em voo é no-op", async () => {
