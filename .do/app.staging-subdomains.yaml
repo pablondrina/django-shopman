@@ -287,6 +287,15 @@ services:
     http_port: 8000
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-1gb
+    # ⚠️ Config do web = env vars LIVE no app DO (deliberadamente NÃO no spec — evita o wipe
+    # de segredos do `apps update --spec`). Para a Central de Apps (hub-nuxt) linkar os tiles
+    # aos subdomínios reais — senão `build_operator_hub` cai nos defaults de dev 127.0.0.1 —
+    # setar no console DO (não são segredos, mas seguem o modelo live do web):
+    #   SHOPMAN_SURFACE_POS_URL=https://pdv.boulangerie.com.br
+    #   SHOPMAN_SURFACE_KDS_URL=https://kds.boulangerie.com.br
+    #   SHOPMAN_SURFACE_GESTOR_URL=https://gestor.boulangerie.com.br
+    #   SHOPMAN_SURFACE_PRODUCTION_URL=https://prod.boulangerie.com.br
+    #   SHOPMAN_SURFACE_LOJA_URL=<apex da loja>   # ou o deep-link do Unfold canônico
     health_check:
       http_path: /ready/
       initial_delay_seconds: 30
@@ -358,6 +367,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -393,6 +408,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -428,6 +449,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
@@ -463,6 +490,12 @@ services:
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
+      # Rail canônico → "voltar à Central" (OperatorRail). Sem isto, o default de dev
+      # (127.0.0.1:3001) vaza em prod. runtimeConfig.public → overridável em runtime.
+      - key: NUXT_PUBLIC_OPERATOR_HUB_URL
+        value: "https://central.boulangerie.com.br"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME
