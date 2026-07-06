@@ -38,7 +38,9 @@ export function useKdsBoard(stationRef: string) {
   let audioCtx: AudioContext | null = null;
   function ensureCtx(): AudioContext | null {
     if (!import.meta.client) return null;
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return null;
     if (!audioCtx) audioCtx = new Ctx();
     return audioCtx;
@@ -141,13 +143,22 @@ export function useKdsBoard(stationRef: string) {
   let chain: Promise<unknown> = Promise.resolve();
   let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // O `$fetch` tipado do Nitro estoura o typecheck (TS2321 excessive stack depth) ao casar
+  // um path DINÂMICO contra o catch-all `/api/v1/**:path`. Estas escritas vão pro proxy BFF
+  // (a resposta é JSON do Django, NÃO uma rota Nitro tipada), então aqui o $fetch é um cliente
+  // HTTP simples — o cast declara isso com precisão (resposta `unknown`) e corta a recursão.
+  const postProxy = $fetch as (
+    path: string,
+    opts: { method: string; body: Record<string, unknown> },
+  ) => Promise<unknown>;
+
   function scheduleReconcile() {
     if (reconcileTimer) clearTimeout(reconcileTimer);
     reconcileTimer = setTimeout(() => refresh(), 500);
   }
 
   function enqueue(path: string, body?: Record<string, unknown>) {
-    const run = chain.then(() => $fetch(path, { method: "POST", body: body ?? {} }));
+    const run = chain.then(() => postProxy(path, { method: "POST", body: body ?? {} }));
     chain = run.then(() => undefined, () => undefined); // mantém a fila viva após erro
     return run;
   }
@@ -161,26 +172,31 @@ export function useKdsBoard(stationRef: string) {
     t.all_checked = t.items.every((i) => i.checked);
     enqueue(`/api/v1/backstage/kds/tickets/${pk}/items/`, { index, checked })
       .then(() => scheduleReconcile())
-      .catch((err: any) => {
+      .catch((err) => {
         item.checked = prev; // reverte
         t.all_checked = t.items.every((i) => i.checked);
-        useSonner.error(err?.data?.detail || "Falha ao marcar item.");
+        useSonner.error(httpErrorMessage(err, "Falha ao marcar item."));
         refresh();
       });
   }
 
   // Remove um card de uma lista do board (tickets / cancelled / recent_done) na hora
   // e dispara o POST; recoloca + avisa em falha; reconcilia ~500ms depois.
-  function removeFrom(getList: () => any[] | undefined, pk: number, path: string, body?: Record<string, unknown>) {
+  function removeFrom<T extends { pk: number }>(
+    getList: () => T[] | undefined,
+    pk: number,
+    path: string,
+    body?: Record<string, unknown>,
+  ) {
     const list = getList();
     const idx = list?.findIndex((x) => x.pk === pk) ?? -1;
     if (!list || idx < 0) return;
     const [removed] = list.splice(idx, 1);
     enqueue(path, body)
       .then(() => scheduleReconcile())
-      .catch((err: any) => {
-        getList()?.splice(idx, 0, removed);
-        useSonner.error(err?.data?.detail || "Falha na ação. Tente de novo.");
+      .catch((err) => {
+        if (removed) getList()?.splice(idx, 0, removed);
+        useSonner.error(httpErrorMessage(err, "Falha na ação. Tente de novo."));
         refresh();
       });
   }

@@ -66,10 +66,8 @@ export function useOperatorLock(perm: string) {
       // tela até o próximo poll (≤15s) — destravou, recarrega tudo já (paridade POS/Fournil).
       await refreshNuxtData();
       return true;
-    } catch (err: any) {
-      useSonner.error(
-        err?.data?.detail || "Identificação inválida. Tente de novo.",
-      );
+    } catch (err) {
+      useSonner.error(httpErrorMessage(err, "Identificação inválida. Tente de novo."));
       return false;
     } finally {
       busy.value = false;
@@ -110,8 +108,8 @@ export function useOperatorLock(perm: string) {
       });
       await refresh();
       return true;
-    } catch (err: any) {
-      changeError.value = err?.data?.detail || "Não foi possível trocar o PIN.";
+    } catch (err) {
+      changeError.value = httpErrorMessage(err, "Não foi possível trocar o PIN.");
       return false;
     } finally {
       busy.value = false;
