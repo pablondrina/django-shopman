@@ -711,7 +711,7 @@ const headerCount = computed(() => {
                     <button
                       v-if="stage === 'expedite' && ovenKey(row)"
                       type="button"
-                      class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums transition"
+                      class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-semibold tabular-nums transition"
                       :class="
                         oven.isRinging(ovenKey(row))
                           ? 'animate-pulse border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
@@ -738,7 +738,7 @@ const headerCount = computed(() => {
                     <button
                       v-if="rowCommittedUnits(row) > 0"
                       type="button"
-                      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[0.7rem] font-medium tabular-nums text-primary transition hover:bg-primary/10"
+                      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-xs font-medium tabular-nums text-primary transition hover:bg-primary/10"
                       :aria-label="`${rowCommittedUnits(row)} unidades de ${row.output_sku} comprometidas com pedidos`"
                       @click="commitmentsRow = row"
                     >
@@ -890,7 +890,7 @@ const headerCount = computed(() => {
             v-model="planQty"
             type="text"
             inputmode="decimal"
-            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            class="h-12 w-full rounded-md border bg-background text-center text-3xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
             aria-label="Quantidade planejada"
           />
           <button
@@ -954,7 +954,7 @@ const headerCount = computed(() => {
             v-model="startQty"
             type="text"
             inputmode="decimal"
-            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            class="h-12 w-full rounded-md border bg-background text-center text-3xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
             aria-label="Quantidade em processo"
           />
           <button
@@ -1164,7 +1164,7 @@ const headerCount = computed(() => {
             v-model="finishQty"
             type="text"
             inputmode="decimal"
-            class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+            class="h-12 w-full rounded-md border bg-background text-center text-3xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
             aria-label="Quantidade concluída"
           />
           <button
@@ -1229,7 +1229,7 @@ const headerCount = computed(() => {
               v-model="ovenMinutes"
               type="text"
               inputmode="numeric"
-              class="h-12 w-full rounded-md border bg-background text-center text-2xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
+              class="h-12 w-full rounded-md border bg-background text-center text-3xl font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring"
               aria-label="Minutos do timer"
             />
             <span
@@ -1306,7 +1306,7 @@ const headerCount = computed(() => {
                 class="size-4 text-muted-foreground"
               />
               <span class="font-medium">{{ commitment.ref }}</span>
-              <UiBadge variant="outline" class="px-1.5 py-0 text-[0.65rem]">{{
+              <UiBadge variant="outline" class="px-1.5 py-0 text-xs">{{
                 commitment.status_label
               }}</UiBadge>
             </span>

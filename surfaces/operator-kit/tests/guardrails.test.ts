@@ -51,11 +51,12 @@ describe("design-system: paridade de tokens canônicos entre os 4 apps de operad
 // avulso (mesma dívida corrigida no storefront no WP-S0). Aplica-se às superfícies de
 // TELA — não à impressão térmica (recibo 80mm tem px fixos, outro meio). A enforcement
 // CRESCE por app (cada WP endurece o seu); a allowlist só ENCOLHE.
-const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt", "orders-nuxt"] as const; // + kds/production quando endurecidos
+const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt", "orders-nuxt", "production-nuxt"] as const; // + kds quando endurecido
 
 // Arquivos isentos com justificativa (medium ≠ tela). Chave = caminho relativo ao app.
 const TYPOGRAPHY_ALLOWLIST: Record<string, string> = {
   "pos-nuxt/app/components/PosReceipt.vue": "recibo térmico 80mm — px fixos p/ a impressora, não papéis de tela",
+  "production-nuxt/app/components/WeighingLabels.vue": "etiquetas de pesagem — papel físico, tamanhos fixos p/ a etiquetadora, não papéis de tela",
 };
 
 function walkVueFiles(dir: string, appDir: string, out: string[] = []): string[] {

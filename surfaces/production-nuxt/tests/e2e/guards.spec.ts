@@ -14,14 +14,24 @@ test.describe("Fournil — gate de operador", () => {
     await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();
   });
 
-  test("sessão autenticada → a grade de produção renderiza (estado vazio acolhedor), sem login", async ({
-    page,
-    context,
-  }) => {
+  test("sessão autenticada → grade + rail canônico (kit), sem login", async ({ page, context }) => {
     await context.addCookies([authed]);
     await page.goto("/");
     await expect(page.getByText("Nada planejado para processar")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Entre para operar" })).toHaveCount(0);
+    // Tela de operador embrulhada pelo OperatorRail compartilhado + RailToggle no cabeçalho.
+    await expect(page.locator('aside[aria-label="Barra do Fournil"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: /barra/i })).toBeVisible();
+  });
+});
+
+test.describe("Fournil — split operador vs público", () => {
+  test("menuboard é PÚBLICO: renderiza o cardápio sem login e FORA do rail", async ({ page }) => {
+    // Sem cookie de sessão — o menuboard não é embrulhado pelo gate nem pelo rail.
+    await page.goto("/menuboard");
+    await expect(page.getByText(/Cardápio/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Entre para operar" })).toHaveCount(0);
+    await expect(page.locator('aside[aria-label="Barra do Fournil"]')).toHaveCount(0);
   });
 });
 

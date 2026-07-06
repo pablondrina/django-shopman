@@ -331,7 +331,7 @@ function refreshAll() {
                         <UiBadge
                           v-if="line.is_subrecipe"
                           variant="outline"
-                          class="px-1.5 py-0 text-[0.65rem]"
+                          class="px-1.5 py-0 text-xs"
                           >pré-preparo</UiBadge
                         >
                       </p>
@@ -354,7 +354,7 @@ function refreshAll() {
                       </span>
                       <p
                         v-if="line.is_short"
-                        class="text-[0.7rem] font-medium text-red-700 dark:text-red-400"
+                        class="text-xs font-medium text-red-700 dark:text-red-400"
                       >
                         falta
                       </p>
@@ -526,63 +526,12 @@ function refreshAll() {
       </template>
     </section>
 
-    <!-- ── Etiquetas CEGAS de pesagem (só existem no papel) ──
-         Uma por pesagem: código do dia, ingrediente, peso, data. SEM nome de
-         receita — o colaborador pesa sem correlacionar; o mapa é do gestor. -->
-    <section
-      v-if="printMode === 'pesagem'"
-      class="hidden print:block"
-      aria-hidden="true"
-    >
-      <div class="grid grid-cols-2 gap-2">
-        <div
-          v-for="label in labels"
-          :key="label.key"
-          class="flex break-inside-avoid flex-col gap-0.5 rounded border border-black p-2"
-        >
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="font-mono text-2xl font-bold tracking-widest">{{
-              label.code
-            }}</span>
-            <span class="text-[0.65rem]">{{ label.date }}</span>
-          </div>
-          <span class="text-sm">{{ label.ingredient }}</span>
-          <span class="text-lg font-bold tabular-nums">{{ label.weight }}</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Etiquetas EXPLÍCITAS do preparo pronto ──
-         Uma por preparo: a massa feita se identifica — nome, data, rendimento
-         e objetivo. O código cego aparece pequeno só para casar com os potes
-         pesados. -->
-    <section v-else class="hidden print:block" aria-hidden="true">
-      <div class="grid grid-cols-2 gap-2">
-        <div
-          v-for="ticket in weighing.tickets.value"
-          :key="ticket.recipe_ref"
-          class="flex break-inside-avoid flex-col gap-0.5 rounded border border-black p-2"
-        >
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="text-lg font-bold uppercase leading-tight">{{
-              ticket.name
-            }}</span>
-            <span class="text-xs font-semibold tabular-nums"
-              >F {{ ticket.made_display }} · V {{ ticket.expiry_display }}</span
-            >
-          </div>
-          <span class="text-base font-bold tabular-nums">
-            {{ ticket.output_quantity_display
-            }}<template v-if="ticket.dough_weight_display">
-              · {{ ticket.dough_weight_display }}</template
-            >
-          </span>
-          <span v-if="ticket.sources_display" class="text-xs"
-            >Objetivo: {{ ticket.sources_display }}</span
-          >
-          <span class="font-mono text-[0.65rem]">{{ ticket.blind_code }}</span>
-        </div>
-      </div>
-    </section>
+    <!-- Etiquetas de pesagem (SÓ impressão, papel físico) — extraídas p/ componente
+         próprio, allowlistado no guardrail de tipografia (medium ≠ tela). -->
+    <WeighingLabels
+      :print-mode="printMode"
+      :labels="labels"
+      :tickets="weighing.tickets.value"
+    />
   </main>
 </template>
