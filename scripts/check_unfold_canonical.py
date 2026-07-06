@@ -251,6 +251,17 @@ RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
     # KDS station + customer board migraram p/ o app Nuxt dedicado (kds-nuxt)
     # via api/v1/backstage/kds/*; as views/templates HTMX foram removidas (Fase 2).
     Surface(
+        id="runtime-central-hub",
+        kind="registered-runtime-backstage",
+        projections=(ROOT / "shopman/backstage/projections/hub.py",),
+        replacement=(
+            "A Central de Apps (surfaces/hub-nuxt) é o launcher runtime do operador — "
+            "projection `build_operator_hub` + API `GET /api/v1/backstage/hub/`, no MESMO "
+            "contrato projection+Action das superfícies dedicadas (pos/kds/gestor/fournil). "
+            "NÃO hospeda CRUD de Admin; o tile Loja deep-linka pro Unfold canônico (plan §5)."
+        ),
+    ),
+    Surface(
         id="runtime-admin-2fa",
         kind="registered-runtime-backstage",
         templates=(ROOT / "shopman/backstage/templates/two_factor",),
