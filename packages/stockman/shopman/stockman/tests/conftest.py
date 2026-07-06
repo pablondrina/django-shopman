@@ -3,6 +3,11 @@ Pytest fixtures for Stockman tests.
 
 Stockman is catalog-agnostic: tests use plain SKU strings with NoopSkuValidator
 (all SKUs are valid). No dependency on offerman or any catalog package.
+
+That contract is pinned below regardless of the host settings: the runtime
+gate runs this suite under the full project settings, whose STOCKMAN wires a
+real catalog validator that would deny holds for SKUs no catalog knows.
+Tests that exercise a specific policy still override per-test with fakes.
 """
 
 from datetime import date, timedelta
@@ -17,7 +22,11 @@ User = get_user_model()
 
 
 @pytest.fixture(autouse=True)
-def _reset_sku_validator_cache():
+def _noop_sku_validator(settings):
+    settings.STOCKMAN = {
+        **getattr(settings, "STOCKMAN", {}),
+        "SKU_VALIDATOR": "shopman.stockman.adapters.noop.NoopSkuValidator",
+    }
     reset_sku_validator()
     yield
     reset_sku_validator()
