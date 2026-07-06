@@ -130,7 +130,7 @@ def ingest(payload: dict, *, channel_ref: str = IFOOD_CHANNEL_REF) -> Order:
 
     with transaction.atomic():
         order = Order.objects.create(
-            ref=generate_order_ref(),
+            ref=generate_order_ref(channel_ref=channel_ref),
             channel_ref=channel_ref,
             session_key="",
             external_ref=order_code,
