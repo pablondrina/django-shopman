@@ -51,7 +51,10 @@ describe("design-system: paridade de tokens canônicos entre os 4 apps de operad
 // avulso (mesma dívida corrigida no storefront no WP-S0). Aplica-se às superfícies de
 // TELA — não à impressão térmica (recibo 80mm tem px fixos, outro meio). A enforcement
 // CRESCE por app (cada WP endurece o seu); a allowlist só ENCOLHE.
-const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt", "orders-nuxt", "production-nuxt"] as const; // + kds quando endurecido
+// As 5 superfícies de operador estão endurecidas. O KDS é distance-first: sua escala de
+// densidade mapeia limpo aos papéis do canon (compact=title text-xl · cozy=figure text-3xl
+// · roomy=display text-4xl) — nenhum text-2xl/text-[..] avulso, então nada de allowlist.
+const TYPOGRAPHY_ENFORCED = ["pos-nuxt", "hub-nuxt", "orders-nuxt", "production-nuxt", "kds-nuxt"] as const;
 
 // Arquivos isentos com justificativa (medium ≠ tela). Chave = caminho relativo ao app.
 const TYPOGRAPHY_ALLOWLIST: Record<string, string> = {

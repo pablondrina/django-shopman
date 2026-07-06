@@ -25,8 +25,22 @@ function ticket(over: Partial<KDSTicketProjection> = {}): KDSTicketProjection {
     target_seconds: 600,
     timer_class: "timer-ok",
     items: [
-      { sku: "A", name: "Pão na Chapa", qty: 2, notes: "", checked: false, stock_warning: "" },
-      { sku: "B", name: "Café", qty: 1, notes: "sem açúcar", checked: true, stock_warning: "" },
+      {
+        sku: "A",
+        name: "Pão na Chapa",
+        qty: 2,
+        notes: "",
+        checked: false,
+        stock_warning: "",
+      },
+      {
+        sku: "B",
+        name: "Café",
+        qty: 1,
+        notes: "sem açúcar",
+        checked: true,
+        stock_warning: "",
+      },
     ],
     status: "in_progress",
     all_checked: false,
@@ -39,7 +53,8 @@ function ticket(over: Partial<KDSTicketProjection> = {}): KDSTicketProjection {
 }
 
 const stubs = { Icon: true };
-const mountCard = (props: Record<string, unknown>) => mount(KdsTicketCard, { props, global: { stubs } });
+const mountCard = (props: Record<string, unknown>) =>
+  mount(KdsTicketCard, { props, global: { stubs } });
 
 describe("KdsTicketCard — render", () => {
   it("mostra o código (final da ref), a minutagem e os itens", () => {
@@ -56,13 +71,34 @@ describe("KdsTicketCard — render", () => {
   });
 
   it("mostra o aviso de estoque quando presente", () => {
-    const w = mountCard({ ticket: ticket({ items: [{ sku: "A", name: "Pão", qty: 1, notes: "", checked: false, stock_warning: "Massa acabando" }] }) });
+    const w = mountCard({
+      ticket: ticket({
+        items: [
+          {
+            sku: "A",
+            name: "Pão",
+            qty: 1,
+            notes: "",
+            checked: false,
+            stock_warning: "Massa acabando",
+          },
+        ],
+      }),
+    });
     expect(w.text()).toContain("Massa acabando");
   });
 
-  it("escala de densidade: compact usa text-2xl no código; roomy usa text-4xl", () => {
-    expect(mountCard({ ticket: ticket(), density: "compact" }).find("article p").classes()).toContain("text-2xl");
-    expect(mountCard({ ticket: ticket(), density: "roomy" }).find("article p").classes()).toContain("text-4xl");
+  it("escala de densidade mapeia aos papéis do canon: compact=title text-xl, roomy=display text-4xl", () => {
+    expect(
+      mountCard({ ticket: ticket(), density: "compact" })
+        .find("article p")
+        .classes(),
+    ).toContain("text-xl");
+    expect(
+      mountCard({ ticket: ticket(), density: "roomy" })
+        .find("article p")
+        .classes(),
+    ).toContain("text-4xl");
   });
 });
 
@@ -80,8 +116,12 @@ describe("KdsTicketCard — ações emitidas (o toque da cozinha)", () => {
 
   it("Finalizar emite 'done'; Detalhes emite 'open'", async () => {
     const w = mountCard({ ticket: ticket() });
-    const done = w.findAll("button").find((b) => b.text().includes("Finalizar"))!;
-    const open = w.findAll("button").find((b) => b.text().includes("Detalhes"))!;
+    const done = w
+      .findAll("button")
+      .find((b) => b.text().includes("Finalizar"))!;
+    const open = w
+      .findAll("button")
+      .find((b) => b.text().includes("Detalhes"))!;
     await done.trigger("click");
     await open.trigger("click");
     expect(w.emitted("done")).toHaveLength(1);

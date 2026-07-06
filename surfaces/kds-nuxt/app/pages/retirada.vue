@@ -50,7 +50,7 @@ onBeforeUnmount(() => {
       </div>
       <ClientOnly>
         <div v-if="now" class="flex flex-col items-end leading-none">
-          <span class="text-2xl font-bold tabular-nums md:text-4xl">{{
+          <span class="text-xl font-bold tabular-nums md:text-4xl">{{
             clockTime
           }}</span>
           <span
@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
       <!-- ready -->
       <section class="flex min-h-0 flex-col overflow-hidden bg-background">
         <h2
-          class="flex items-center gap-2.5 px-6 py-5 text-2xl font-bold md:px-10 md:text-3xl"
+          class="flex items-center gap-2.5 px-6 py-5 text-xl font-bold md:px-10 md:text-3xl"
         >
           <Icon
             name="lucide:circle-check-big"
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
       <!-- preparing -->
       <section class="flex min-h-0 flex-col overflow-hidden bg-background">
         <h2
-          class="flex items-center gap-2.5 px-6 py-5 text-2xl font-bold text-muted-foreground md:px-10 md:text-3xl"
+          class="flex items-center gap-2.5 px-6 py-5 text-xl font-bold text-muted-foreground md:px-10 md:text-3xl"
         >
           <Icon name="lucide:flame" class="size-7 shrink-0" />
           Em preparo
