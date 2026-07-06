@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* O Tailwind v4 auto-detecta fontes só a partir da raiz do app; o `operator-kit` (Nuxt
+   layer irmão, via `extends`) fica fora dela. Sem este `@source`, classes usadas SÓ nos
+   componentes do kit (OperatorRail/RailItem/RailToggle/OfflineBanner) somem silenciosamente. */
+@source "../../../../operator-kit/app";
+
 @plugin "@tailwindcss/forms" {
   strategy: "class";
 }

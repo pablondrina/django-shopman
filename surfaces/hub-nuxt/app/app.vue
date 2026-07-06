@@ -6,10 +6,6 @@
 import { hubGreeting, hubIsEmpty, tileIcon, tileTarget } from "~/presentation/hub";
 
 const apiPath = useHubApiPath();
-const colorMode = useColorMode();
-function toggleColorMode() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
 
 // Login no próprio hub (sessão de dispositivo cross-subdomínio `.boulangerie`): um submit
 // autentica e recarrega já na central. Reusa o endpoint de login do operador.
@@ -100,25 +96,24 @@ const isEmpty = computed(() => hubIsEmpty(tiles.value));
 
     <!-- Launcher -->
     <template v-else>
-      <header class="flex items-center gap-3 border-b border-border bg-card px-4 py-3">
-        <span class="grid size-9 place-items-center rounded-md bg-primary text-primary-foreground">
-          <Icon name="lucide:layout-grid" class="size-5" />
-        </span>
-        <div class="min-w-0 flex-1">
-          <h1 class="truncate text-lg font-semibold leading-tight">{{ hubGreeting(operatorName) }}</h1>
-          <p class="text-xs text-muted-foreground">Central de Apps</p>
+      <div class="flex min-h-dvh">
+        <!-- Rail canônico (kit). A Central é o launcher: sem botão "Central" (é a casa) e
+             sem travar-operador. Só identidade + tema — a mesma espinha das outras. -->
+        <div class="sticky top-0 flex h-dvh shrink-0">
+          <OperatorRail app-icon="layout-grid" app-label="Central" />
         </div>
-        <button
-          type="button"
-          aria-label="Alternar tema"
-          class="grid size-11 place-items-center rounded-md border border-border transition hover:bg-accent"
-          @click="toggleColorMode"
-        >
-          <Icon :name="colorMode.value === 'dark' ? 'lucide:sun' : 'lucide:moon'" class="size-5" />
-        </button>
-      </header>
 
-      <section class="mx-auto w-full max-w-4xl p-4">
+        <div class="flex min-w-0 flex-1 flex-col">
+          <!-- Cabeçalho: controle do rail + a saudação (identidade da Central). -->
+          <header class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+            <RailToggle />
+            <div class="min-w-0">
+              <h1 class="truncate text-base font-semibold leading-tight">{{ hubGreeting(operatorName) }}</h1>
+              <p class="text-xs text-muted-foreground">Central de Apps</p>
+            </div>
+          </header>
+
+          <section class="mx-auto w-full max-w-4xl p-4">
         <div v-if="isEmpty" class="grid place-items-center gap-3 rounded-md border border-dashed p-10 text-center">
           <Icon name="lucide:inbox" class="size-8 text-muted-foreground" />
           <div class="grid gap-1">
@@ -145,8 +140,10 @@ const isEmpty = computed(() => hubIsEmpty(tiles.value));
               </span>
             </a>
           </li>
-        </ul>
-      </section>
+          </ul>
+          </section>
+        </div>
+      </div>
     </template>
   </main>
 </template>

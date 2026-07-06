@@ -2,17 +2,13 @@
 import { resolveAffordance } from "~/presentation/actions";
 // POS shell — wires the read-side (usePosTerminal) and write-side (usePosSale)
 // composables to the operator lock and the three core screens. It holds only
-// the Nuxt-bound primitives (apiPath/action/colorMode/runtimeConfig) and the
+// the Nuxt-bound primitives (apiPath/action/runtimeConfig) and the
 // terminal/lock setup, then hands them to usePosSale. No sale orchestration
 // lives here anymore — the monolith's logic is drained into the composables and
 // the screens (PosTabBoard / PosProductGrid / PosCartPanel) consume the
 // Projection through the presentation layer.
 const apiPath = usePosApiPath();
 const action = usePosAction();
-const colorMode = useColorMode();
-function toggleColorMode() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
 const runtimeConfig = useRuntimeConfig();
 // The Django admin (login) lives on its own operator host (api.<zona>), a different
 // subdomain from the POS — so the login link must be ABSOLUTE to that host, not
@@ -286,17 +282,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
     <PosFunctionRail
       v-if="pos && !needsLogin"
       :pos="pos"
-      :shift="shift"
       :has-open-cash-session="pos.has_open_cash_session"
       :operator-name="activeOperator?.name || ''"
-      :color-mode-value="colorMode.value"
       :pending="pending"
       :view="checkoutMode ? 'checkout' : (inSaleView ? 'sale' : 'board')"
       @board="goToTabs"
       @cash="cashDialogOpen = true"
       @lock="lock()"
       @refresh="refresh()"
-      @toggle-theme="toggleColorMode"
     />
 
     <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
@@ -315,6 +308,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       />
 
       <header v-if="pos && !needsLogin" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
+        <!-- Controle do rail (kit): cicla colapsado/compacto/estendido; mora no cabeçalho
+             para que o rail suma por inteiro quando colapsado. -->
+        <RailToggle />
         <UiButton
           v-if="inSaleView"
           variant="ghost"

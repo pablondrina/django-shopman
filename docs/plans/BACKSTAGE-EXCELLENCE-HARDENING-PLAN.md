@@ -6,8 +6,10 @@
 > herdando o harness provado no storefront (WP-S0..S6) e as duas lentes novas
 > (consistência/pixel-perfect + omotenashi do operador).
 
-**Status:** 🟡 FUNDAÇÃO — WP-B0 (kit) parcialmente entregue (2026-07-04); WPs por app
-aguardam execução.
+**Status:** 🟢 EM ANDAMENTO — WP-B0 (kit invisível) + **B-POS**, **WP-BH (Central)** e
+**B-ORD (Gestor)** entregues. Próximo: **WP-B0.2** (a camada VISÍVEL compartilhada — o
+`OperatorRail` 3-estados neutro + primitivas), provado no POS, seguido de um **passo de
+revisão** em POS/Gestor/Central para adotá-lo; só então **B-KDS** e **B-PROD**.
 
 ### Registro de execução
 
@@ -28,6 +30,19 @@ aguardam execução.
     kit (split do app-específico: print no POS, dark no KDS); **interceptor global de
     401/403**; instalação da **tooling parity** (ESLint/Prettier/vitest 2-projects/
     Playwright) por app — cada uma aterrissa no WP do respectivo app.
+- **B-POS · ✅ / WP-BH (Central) · ✅ / B-ORD (Gestor) · ✅:** os três primeiros apps
+  passaram pelos WPs `.1..7` (harness 2-project, cobertura test-first, e2e mock, lint 0,
+  build, omotenashi). Harness provado com os workarounds do `@nuxt/test-utils` 4.0.3 (ver
+  §4, correção). Central nova em `surfaces/hub-nuxt/` sobre o kit.
+- **⚠️ Furo descoberto na demo (2026-07-06):** o WP-B0 entregou o kit **invisível**
+  (resiliência, telemetria, guardrail de tokens, `OfflineBanner`), mas a **camada visível
+  compartilhada que o §4 previa nunca foi construída** — `tailwind.css` ainda é copiado por
+  app, primitivas `Ui/**` não extraídas, e **não existe shell/rail comum**. Resultado: os
+  apps não "parecem" da mesma família. Correção = **WP-B0.2** (abaixo). Descartada a
+  tentativa de top-bar `OperatorChrome` (unidade fraca demais); a assinatura passa a ser o
+  **rail lateral neutro** (origem: `PosFunctionRail`), com **3 estados** que o operador
+  escolhe (colapsado · compacto · estendido), persistidos por estação.
+
 **Baseline de maturidade** (EXCELLENCE-AUDIT-2026-07): production 3.7 · kds 3.6 ·
 pos 3.6 · orders 3.4 (storefront 4.4 é o exemplar de harness, **fora** da unificação
 visual do operador).
@@ -102,6 +117,14 @@ de fora). O design system canônico do backstage (ver §3 e
 - **Ícone forte por app** presente e correto (identidade/familiaridade).
 - **A11y estrutural** — corrige o `aria-hidden` porém focável do input de crachá
   (WCAG 4.1.2) nos 4 apps; ordem de foco; rótulos.
+- **Shell compartilhado (`OperatorRail`) adotado, não copiado** — a unidade forte vem de
+  um **componente do kit**, não de pixel replicado: a mesma espinha lateral neutra
+  (`bg-primary`) em todos, com o ícone forte do app no topo, as **funções comuns** na base
+  (voltar à Central, operador/travar, tema, atualizar/conexão) e **3 estados** (colapsado ·
+  compacto · estendido) que o operador cicla e ficam persistidos por dispositivo. Nav
+  específica de cada app (abas do Gestor, visões do Fournil) fica no conteúdo — o rail
+  economiza a horizontal e concentra só o comum. "Nivelar à canon" = **adotar o shell +
+  apagar a cópia divergente**.
 
 ### Lente 8 (nova) — Omotenashi do operador
 
@@ -134,6 +157,11 @@ documentado + guardrailado**):
 - **Espaçamento:** gap 1.5/2/3/4/6; `rounded-md` default, `rounded-full` só pílula.
 - **Ícone forte por app** (Lucide): PDV `banknote`, KDS `chef-hat`, Gestor
   `clipboard-list`, Fournil `croissant`, Loja `store`, Central `layout-grid`.
+- **Rail de operador (`OperatorRail`, primitiva do kit):** espinha vertical **neutra**
+  (`bg-primary` ≈ preto — sem matiz de marca, coerente com a cor já neutra do operador),
+  ícone forte do app no topo + controle de estado, funções comuns na base. **3 estados**
+  persistidos: `colapsado` (puxador fino) · `compacto` (só ícone, ~w-14, o de hoje no POS) ·
+  `estendido` (ícone + rótulo). É o portador nº 1 da familiaridade — mesma peça em todos.
 - **Intenção por superfície (canônica, não drift):** KDS dark-first + timers mono à
   distância; produção light-first + board Solari; POS densidade desktop; gestor board.
 
@@ -158,10 +186,19 @@ BFF/resiliência **uma vez**, e cada app segue deployando independente.
 - `useOperatorLock` + `presentation/operatorLock.ts` (hoje replicados nos 4).
 - Telemetria: `clientErrorReport` util + plugin `errorReporter.client` (inerte em dev,
   dedupe+cap, PII sanitizada) → novo endpoint Django `backstage/client-error/`.
-- Design system: `assets/css/tailwind.css` (tokens canônicos) + primitivas `Ui/**`.
+- Design system: `assets/css/tailwind.css` (tokens canônicos) + primitivas `Ui/**` +
+  **shell**: `OperatorRail` (3-estados neutro) + `RailItem` + `useRailState` (persistência) +
+  estados vazio/erro/loading acolhedores compartilhados.
 - Guardrails: suíte vitest de consistência (paridade de token, escala, a11y).
 - Tooling: config base de ESLint flat (`@nuxt/eslint`) + Prettier + vitest 2-projects
-  (`unit` env node + `component` env nuxt) + Playwright + `mockBackend.mjs`.
+  + Playwright + `mockBackend.mjs`.
+
+> **Correção da receita (provada em B-POS/B-ORD):** o `@nuxt/test-utils` 4.0.3 **quebra o
+> env `nuxt`** no setup de apps com router (`nuxtApp._route` undefined). Os 2 projects NÃO
+> usam env nuxt: **`unit`** roda composables em **env node** com `vi.stubGlobal` para os
+> auto-imports do Nuxt (reatividade Vue real, fronteira de dados mockada — ver
+> `tests/support/composableEnv.ts`); **`component`** roda em **happy-dom + `@vitejs/plugin-vue`**
+> com `@vue/test-utils` `mount()`; **e2e** Playwright contra `mockBackend` + build de produção.
 
 **O que fica em cada app:** pages, componentes de domínio, composables de domínio,
 `presentation/` específico, `nuxt.config.ts` (com `extends: ['../operator-kit']` +
@@ -231,6 +268,34 @@ operator experiences"*. Resolução:
 - **Aceite:** cada app builda com o layer; baseline de testes verde por app; lint 0 no
   kit; guardrails rodando (mesmo que com allowlist inicial de dívidas conhecidas).
 
+### WP-B0.2 · A camada VISÍVEL compartilhada (o shell) — fecha o furo do B0
+
+O que o B0 deixou de fora, agora explícito. Origem do rail = o `PosFunctionRail` do POS,
+generalizado.
+
+- **`OperatorRail.vue`** (kit): rail vertical neutro (`bg-primary`), **3 estados**
+  (colapsado · compacto · estendido) via **`useRailState`** (persistência por dispositivo,
+  cookie/localStorage; SSR-safe). Topo: controle de estado + ícone forte do app (+ rótulo
+  no estendido). Base (comum): voltar à Central, operador/travar (`@lock`), tema,
+  atualizar/conexão. Slots `#nav` (funções específicas do app) e `#status`.
+- **`RailItem.vue`** (kit): primitiva de item do rail — ícone + rótulo (no estendido) +
+  tooltip (no compacto/colapsado) + `aria-label`/`aria-current`; consistente nos 3 estados.
+- **Estados vazio/erro/loading** compartilhados (Lente 8) promovidos ao kit.
+- **Adoção-prova no POS:** `PosFunctionRail` → consome `OperatorRail` (board/caixa/health
+  nos slots), **apagando a divergência**. Regressão-zero: suíte POS verde + build.
+- **Aceite:** rail nos 3 estados no POS (visual aprovado); `useRailState` testado
+  (ciclo + persistência, test-first, env node); lint 0 + build; guardrails verdes.
+
+### Passo de revisão · POS · Gestor · Central (antes de KDS/PROD)
+
+Os três já hardenados adotam o shell e recebem o polimento final de Lentes 7+8:
+- **POS** — origem do rail (adoção acima); confere densidade desktop + os 3 estados.
+- **Gestor** — troca o `GestorTopBar`/`OperatorChrome` pelo `OperatorRail`; a nav de seção
+  (Pedidos/Catálogo/Expositores) fica no topo do **conteúdo**, não no rail.
+- **Central** — reverte o `OperatorChrome` (saudação desmontada); adota o rail sem botão
+  "Central" (é a casa) e sem travar; a grade de apps é o conteúdo.
+- Descartar `OperatorChrome.vue` (beco sem saída).
+
 ### Por app (cada um = uma sessão), na forma S1–S6 do storefront + Lentes 7 e 8
 
 Padrão de WP por app `<APP>` ∈ {POS, ORD, KDS, PROD}:
@@ -269,16 +334,19 @@ runtime no inventário Unfold; host `central.` + ingress; entry-point pós-login
 ## 7. Sequência
 
 ```
-WP-B0 (kit + DS + guardrails + telemetria)
-  → B-POS  (âncora desktop-first, maior valor + maior gap de teste)
-  → WP-BH  (Central de Apps — dá o entry-point cedo; já sobre o kit provado)
-  → B-ORD  (menor maturidade + maior gap de omotenashi; presentation não-testado)
-  → B-KDS  (dark-first, SSE)
-  → B-PROD (mais maduro; maior camada de composables)
+WP-B0   ✅ (kit invisível: resiliência + telemetria + guardrails de token)
+  → B-POS   ✅ (âncora desktop-first)
+  → WP-BH   ✅ (Central de Apps)
+  → B-ORD   ✅ (Gestor)
+  → WP-B0.2  ▶ a camada VISÍVEL (OperatorRail 3-estados) — prova no POS
+  → REVISÃO  ▶ POS · Gestor · Central adotam o shell (antes de avançar)
+  → B-KDS    (dark-first, SSE)
+  → B-PROD   (Fournil; mais maduro; maior camada de composables)
 ```
 
-> A Central pode também vir por último; posta-a após o POS para os operadores
-> ganharem a central assim que o canon está provado (decisão de encaixe, não de mérito).
+> O furo da demo (2026-07-06) reordenou o fim: em vez de seguir direto pra KDS/PROD, primeiro
+> se constrói o shell VISÍVEL (WP-B0.2) e se **revisa os três já feitos** para adotá-lo —
+> senão KDS/PROD nivelariam contra um canon que ainda não existe como componente.
 
 ## 8. Gate de cada WP (não-negociável)
 
