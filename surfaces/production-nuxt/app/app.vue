@@ -13,6 +13,8 @@ useHead({ title: "Produção" });
 <template>
   <div class="min-h-screen bg-background text-foreground">
     <NuxtRouteAnnouncer />
+    <!-- Aviso calmo e global de conexão (kit) — só aparece offline (paridade c/ POS/KDS/Gestor). -->
+    <OfflineBanner />
     <NuxtPage />
     <OperatorLogin v-if="!authenticated" />
     <OperatorLock v-else-if="locked || mustChange" :perm="OPERATOR_PERM" />
