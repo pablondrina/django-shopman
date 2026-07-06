@@ -991,17 +991,18 @@ SHOPMAN_PRODUCTION_BASE_URL = (
 SHOPMAN_OPERATOR_COOKIE_DOMAIN = (os.environ.get("SHOPMAN_OPERATOR_COOKIE_DOMAIN") or "").strip()
 SHOPMAN_OPERATOR_API_HOST = (os.environ.get("SHOPMAN_OPERATOR_API_HOST") or "").strip()
 
-# URLs das superfícies para a Central de Apps (surfaces/hub-nuxt). Em prod, aponte cada
-# tile ao subdomínio (`https://pdv.…`, `https://gestor.…`); vazio ⇒ o launcher usa os
-# defaults de dev (127.0.0.1:PORT) de `projections/hub.py`. A Loja deep-linka pro Unfold.
+# URLs das superfícies para a Central de Apps (surfaces/hub-nuxt). REUSA as base URLs
+# públicas que o nav do Admin já usa — UMA fonte por superfície (DRY): quem já configurou
+# os links de operador do Admin (SHOPMAN_POS_BASE_URL etc.) ganha a Central de graça, sem
+# env vars novas. Vazio ⇒ o launcher usa os defaults de dev (127.0.0.1:PORT) de
+# `projections/hub.py`. O tile Loja é deep-link pro Unfold (fica no default, não é URL de app).
 SHOPMAN_SURFACE_URLS = {
     key: url
     for key, url in {
-        "pos": (os.environ.get("SHOPMAN_SURFACE_POS_URL") or "").strip(),
-        "kds": (os.environ.get("SHOPMAN_SURFACE_KDS_URL") or "").strip(),
-        "gestor": (os.environ.get("SHOPMAN_SURFACE_GESTOR_URL") or "").strip(),
-        "production": (os.environ.get("SHOPMAN_SURFACE_PRODUCTION_URL") or "").strip(),
-        "loja": (os.environ.get("SHOPMAN_SURFACE_LOJA_URL") or "").strip(),
+        "pos": SHOPMAN_POS_BASE_URL,
+        "kds": SHOPMAN_KDS_BASE_URL,
+        "gestor": SHOPMAN_ORDERS_BASE_URL,
+        "production": SHOPMAN_PRODUCTION_BASE_URL,
     }.items()
     if url
 }
