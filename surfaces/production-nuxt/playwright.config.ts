@@ -14,7 +14,9 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:3005",
+    // Porta de e2e dedicada (3105), distinta do dev server (3005) — o build de produção do
+    // e2e sobe aqui e aponta ao mock, sem colidir/reusar um dev server aberto em :3005.
+    baseURL: "http://127.0.0.1:3105",
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -26,14 +28,14 @@ export default defineConfig({
     },
     {
       command: "nuxt build && node .output/server/index.mjs",
-      port: 3005,
+      port: 3105,
       reuseExistingServer: !process.env.CI,
       timeout: 240_000,
       env: {
         NUXT_APP_BASE_URL: "/",
         NUXT_DJANGO_BASE_URL: "http://127.0.0.1:8797",
         HOST: "127.0.0.1",
-        PORT: "3005",
+        PORT: "3105",
       },
     },
   ],
