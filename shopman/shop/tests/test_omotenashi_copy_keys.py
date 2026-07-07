@@ -53,3 +53,18 @@ def test_used_copy_keys_are_defined():
 def test_copy_keys_were_collected():
     """Sanidade: o scanner encontra as chaves (não silenciar por regex quebrada)."""
     assert len(_used_copy_keys()) > 10
+
+
+def test_no_em_dash_in_copy():
+    """Voz da marca: travessão largo (—) proibido na copy user-facing, salvo
+    instrução explícita. Ele é marca de texto gerado por IA. Use ponto/vírgula.
+    """
+    offenders: list[str] = []
+    for key, by_moment in OMOTENASHI_DEFAULTS.items():
+        for moment, by_audience in by_moment.items():
+            for audience, entry in by_audience.items():
+                for field in ("title", "message"):
+                    value = getattr(entry, field, "") or ""
+                    if "—" in value:
+                        offenders.append(f"{key}[{moment}][{audience}].{field}: {value!r}")
+    assert not offenders, "Travessão largo (—) na copy (use ponto/vírgula):\n" + "\n".join(offenders)
