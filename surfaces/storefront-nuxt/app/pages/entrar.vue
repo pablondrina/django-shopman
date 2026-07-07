@@ -89,7 +89,7 @@ const stepTitle = computed(() => {
 const stepDescription = computed(() => {
   if (step.value === 'phone') {
     if (mode.value === 'whatsapp') return ''
-    return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp — é rápido e sem senha.')
+    return copyMessage(authCopy.value?.phone_subtitle, 'Sem senha — você entra em segundos.')
   }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
@@ -473,9 +473,6 @@ useSeoMeta({
                   @input="syncPhoneFromInput"
                 />
               </UiInputGroup>
-              <UiFieldDescription>
-                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Você entra em segundos pelo WhatsApp.') }}
-              </UiFieldDescription>
             </UiField>
 
             <div class="grid gap-3">
@@ -550,8 +547,8 @@ useSeoMeta({
               :aria-describedby="error ? 'login-error' : undefined"
               class="justify-between sm:justify-start"
             />
-            <UiFieldDescription>
-              Use o código recebido por {{ deliveryLabel }}.<template v-if="codeValidUntil"> Vale até {{ codeValidUntil }}.</template>
+            <UiFieldDescription v-if="codeValidUntil">
+              Vale até {{ codeValidUntil }}.
             </UiFieldDescription>
           </UiField>
 
@@ -601,7 +598,7 @@ useSeoMeta({
               v-model="welcomeName"
               name="welcome-name"
               autocomplete="given-name"
-              placeholder="Como prefere ser chamado"
+              placeholder="Primeiro nome ou apelido"
             />
           </UiField>
 

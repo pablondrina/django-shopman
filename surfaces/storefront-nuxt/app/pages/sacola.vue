@@ -112,8 +112,8 @@ useSeoMeta({
     <div class="shop-container shop-stack-block">
       <div>
         <h1 class="shop-title">Sua sacola</h1>
-        <p class="mt-2 shop-muted">
-          {{ cart.is_empty ? 'Escolha itens no cardápio para montar o pedido.' : `${formatCount(cart.items_count, 'item', 'itens')} · ${cart.grand_total_display}` }}
+        <p v-if="!cart.is_empty" class="mt-2 shop-muted">
+          {{ `${formatCount(cart.items_count, 'item', 'itens')} · ${cart.grand_total_display}` }}
         </p>
       </div>
 

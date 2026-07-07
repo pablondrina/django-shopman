@@ -304,7 +304,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Saiba como fazer seu pedido. Pedido online ou visita na loja.")},
     },
     "HOW_IT_WORKS_INTRO": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Duas formas simples de aproveitar: peça pelo site ou venha escolher na loja.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Do pedido à retirada, sem complicação.")},
     },
     "HOW_ONLINE_CHOOSE_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Navegue pelo cardápio e adicione à sacola. A disponibilidade aparece em tempo real.")},
@@ -340,7 +340,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Dúvidas? Ou algum pedido especial?",
-                message="Fale conosco direto pelo WhatsApp. Respondemos o mais rápido possível.",
+                message="Respondemos rápido, de pessoa para pessoa.",
             ),
         },
     },
@@ -1047,7 +1047,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Entre pelo WhatsApp — é rápido e sem senha.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha — você entra em segundos.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
