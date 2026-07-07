@@ -98,6 +98,10 @@ const supportUrl = computed(() => withWhatsAppText(
   loginHome.value?.home.public_config.whatsapp_url || '',
   nextUrl.value.includes('checkout') ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
 ))
+// "O código não chegou?" só cabe no passo de código (SMS). No WhatsApp/telefone não
+// há código enviado ao cliente — ele é quem manda o token —, então o convite à ajuda
+// é genérico.
+const supportHeading = computed(() => step.value === 'code' ? 'O código não chegou?' : 'Precisa de ajuda para entrar?')
 const phonePlaceholder = computed(() => phoneRegion.value === 'INTL' ? '+1 202 555 1234' : '(43) 98404-9009')
 const phoneAutocomplete = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'tel-national')
 const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'numeric')
@@ -615,7 +619,7 @@ useSeoMeta({
         </p>
 
         <div v-if="supportUrl" class="-mx-4 border-t px-4 pt-4 sm:mx-0 sm:px-0" data-login-support>
-          <p class="shop-item-title font-semibold">O código não chegou?</p>
+          <p class="shop-item-title font-semibold">{{ supportHeading }}</p>
           <p class="mt-1 shop-muted">Fale com a loja e resolvemos juntos.</p>
           <UiButton
             :href="supportUrl"
