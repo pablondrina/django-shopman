@@ -167,6 +167,38 @@ for key in (
 | `external_order_code` | `string` | `shop/services/ifood_ingest.py` | — | Código do pedido no marketplace iFood. Duplicado em `ifood.order_code` |
 | `merchant_id` | `string` | `shop/services/ifood_ingest.py` | — | ID do merchant na iFood. Duplicado em `ifood.merchant_id` |
 | `ifood` | `dict` | `shop/services/ifood_ingest.py` | — | Contexto da iFood (só em pedidos ingeridos via `ifood_ingest`): `{order_code, merchant_id, created_at}` |
+| `courier` | `dict` | `CourierDispatchHandler`, `services/courier.apply_status` | `_courier_block` (projection do gestor), webhook Machine (lookup por `data__courier__id_mch`), notificação (`courier_tracking_url`) | Corrida de entrega na logística externa (Machine). Ver detalhamento abaixo |
+
+### courier — detalhamento
+
+Corrida de entrega via logística externa (Machine/Gaudium). Escrito pelo
+`CourierDispatchHandler` (abertura) e por `services/courier.apply_status`
+(funil único de status: webhook + polling convergem nele). Status usa a letra
+crua da Machine (`D` distribuindo, `G` aguardando aceite, `P` pendente, `A`
+aceita, `S` em espera, `E` em andamento, `F` finalizada, `N` não atendida,
+`C` cancelada, `U` agrupada); labels pt-BR só na projection.
+
+```jsonc
+"courier": {
+  "provider": "machine",
+  "id_mch": "184532",              // corrida ATIVA (string); some quando N/C arquiva
+  "status": "E",                   // letra Machine crua
+  "requested_at": "2026-07-07T18:02:11-03:00",
+  "dispatched_at": null,           // setado no primeiro E (coleta)
+  "finished_at": null,             // setado no F
+  "driver": {"name": "", "phone": "", "vehicle_plate": "", "vehicle_model": ""},  // a partir de A
+  "tracking_url": "",              // link de rastreio da parada (a partir de A)
+  "confirmation_code": "",
+  "estimate": {"value_q": 1250, "minutes": 18.0, "km": 4.2},  // custo interno (centavos)
+  "final_value_q": null,           // finished.final_value convertido p/ centavos
+  "last_event_at": "iso",
+  "last_source": "webhook",        // "webhook" | "poll" | "dispatch" | "operator:<nome>"
+  "attempts": [                    // corridas anteriores (N/C ou canceladas p/ re-despacho)
+    {"id_mch": "184501", "status": "N", "requested_at": "iso", "ended_at": "iso"}
+  ],
+  "error": {"message": "...", "at": "iso"}  // falha terminal do despacho; limpo no re-despacho
+}
+```
 
 ### Chaves seed-only para QA adversarial
 
@@ -518,6 +550,27 @@ Valores de `event`: `"stock.alert.triggered"`, `"system"`.
 | `new_status` | `string` | hooks | FulfillmentUpdateHandler |
 | `tracking_code` | `string` | hooks (opcional) | FulfillmentUpdateHandler |
 | `carrier` | `string` | hooks (opcional) | FulfillmentUpdateHandler |
+
+#### `courier.dispatch`
+
+| Chave | Tipo | Escrito por | Lido por |
+|-------|------|-------------|----------|
+| `order_ref` | `string` | `courier.request_dispatch` | CourierDispatchHandler |
+| `channel_ref` | `string` | `courier.request_dispatch` | — (auditoria) |
+| `actor` | `string` | `courier.request_dispatch` (`lifecycle.on_ready` ou `operator:<nome>`) | CourierDispatchHandler (auditoria no evento) |
+
+Write-back em `Order.data["courier"]` (ver detalhamento). `dedupe_key` =
+`courier.dispatch:{order_ref}:{tentativa}`.
+
+#### `courier.sync`
+
+| Chave | Tipo | Escrito por | Lido por |
+|-------|------|-------------|----------|
+| `order_ref` | `string` | CourierDispatchHandler / CourierSyncHandler (reagenda) | CourierSyncHandler |
+
+Heartbeat de polling do status da corrida (fallback do webhook Machine).
+Auto-reagendável a cada `Shop.defaults.delivery.courier_poll_seconds` (default
+60; `0` desliga). Morre em status terminal (F/N/C).
 
 #### `loyalty.earn`
 

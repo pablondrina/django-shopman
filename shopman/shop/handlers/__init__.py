@@ -38,6 +38,9 @@ ALL_HANDLERS = [
     "shopman.shop.handlers.fulfillment.FulfillmentCreateHandler",
     "shopman.shop.handlers.fulfillment.FulfillmentUpdateHandler",
     "shopman.shop.handlers.delivery_auto_complete.DeliveryAutoCompleteHandler",
+    # Courier (logística externa — no-op sem adapter "courier" resolvido)
+    "shopman.shop.handlers.courier_dispatch.CourierDispatchHandler",
+    "shopman.shop.handlers.courier_sync.CourierSyncHandler",
     # Notification
     "shopman.shop.handlers.notification.NotificationSendHandler",
     # Returns
@@ -83,6 +86,7 @@ def register_all() -> None:
     _register_return_handler()
     _register_fulfillment_handler()
     _register_delivery_auto_complete_handler()
+    _register_courier_handlers()
     _register_loyalty_handler()
     _register_pricing_modifiers()
     _register_validators()
@@ -195,6 +199,17 @@ def _register_fulfillment_handler() -> None:
 def _register_delivery_auto_complete_handler() -> None:
     from shopman.shop.handlers.delivery_auto_complete import DeliveryAutoCompleteHandler
     registry.register_directive_handler(DeliveryAutoCompleteHandler())
+
+
+def _register_courier_handlers() -> None:
+    # Sempre registrados: os directives só entram na fila quando um adapter
+    # "courier" resolve (request_dispatch checa), e os handlers revalidam. O
+    # adapter pode vir de Shop.integrations (DB), invisível no boot — gate por
+    # settings deixaria directives órfãos com handler_not_found.
+    from shopman.shop.handlers.courier_dispatch import CourierDispatchHandler
+    from shopman.shop.handlers.courier_sync import CourierSyncHandler
+    registry.register_directive_handler(CourierDispatchHandler())
+    registry.register_directive_handler(CourierSyncHandler())
 
 
 def _register_loyalty_handler() -> None:
