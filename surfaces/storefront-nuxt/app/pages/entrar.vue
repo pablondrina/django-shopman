@@ -88,7 +88,7 @@ const stepTitle = computed(() => {
 })
 const stepDescription = computed(() => {
   if (step.value === 'phone') {
-    if (mode.value === 'whatsapp') return 'Mensagem pronta — é só enviar o código.'
+    if (mode.value === 'whatsapp') return 'A mensagem está pronta. É só enviar o código.'
     return copyMessage(authCopy.value?.phone_subtitle, 'Sem senha, rápido e seguro.')
   }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')

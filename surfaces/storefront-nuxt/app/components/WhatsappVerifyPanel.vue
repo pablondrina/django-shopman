@@ -157,7 +157,7 @@ watch(sessionResponse, value => {
              + copiar + abrir chat cru para colar. Fallback se o deep link não abrir. -->
         <div v-if="token" class="rounded-lg border bg-card p-4 shop-stack-block" data-login-whatsapp-manual>
           <p class="shop-meta">
-            Se preferir, é só enviar o código abaixo para o nosso WhatsApp
+            Se preferir, pode enviar o código abaixo diretamente para o nosso WhatsApp
             <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
           </p>
           <div class="rounded-md border bg-background py-3 text-center font-mono text-3xl font-semibold tracking-widest text-foreground">
@@ -196,7 +196,7 @@ watch(sessionResponse, value => {
       <template v-else-if="phase === 'expired'">
         <UiAlert variant="warning">
           <UiAlertTitle>O código expirou</UiAlertTitle>
-          <UiAlertDescription>Gere um novo e tente de novo — leva um instante.</UiAlertDescription>
+          <UiAlertDescription>Gere um novo e tente de novo. Leva um instante.</UiAlertDescription>
         </UiAlert>
         <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="regenerate">
           Gerar novo código
