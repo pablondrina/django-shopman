@@ -1,99 +1,73 @@
-# COPY-CONSOLIDATION-PLAN — matar o drift registro × template
+# COPY-OMOTENASHI-PLAN — registro como fonte única, configurável de verdade
 
-Status: **CONCLUÍDO** (2026-07-07) para as áreas mapeadas. Insight que guiou a execução:
-**chave no registro que não chega a nenhuma tela é uma "mentira" para o operador** (ele
-edita no Admin e nada muda) — logo, chrome estrutural com chave órfã confirmada resolve-se
-**removendo a chave** (fonte única = template), e copy entregue-mas-ignorada resolve-se
-**consumindo a projection** no Vue. Resultado:
+Status: **em execução** (reformulado 2026-07-07). Substitui a abordagem anterior de
+"deletar órfãs" — que se revelou errada: **órfã ≠ morta**. Uma chave sem tela é, quase
+sempre, uma feature que existe e **hardcoda** a copy (drift) ou uma feature que foi
+**especificada e não construída**. Deletar apaga a intenção e cimenta copy não-configurável.
 
-- **Home "Como Funciona"** ✅ Vue consome `how_online_heading`/`how_store_heading`.
-- **Tracking** ✅ Vue consome `tracking.copy.page_kicker`/`order_ref_label` (com fallback
-  no header, que renderiza antes de `tracking` carregar).
-- **10 chaves órfãs deletadas** (zero refs, não-dinâmicas): `CART_PAGE_TITLE`,
-  `CHECKOUT_PAGE_TITLE`, `CHECKOUT_PAGE_META_DESCRIPTION`, `CHECKOUT_LOYALTY_PROMPT`,
-  `CHECKOUT_COUPON_PROMPT`, `CHECKOUT_NOTES_PROMPT`, `MENU_EMPTY`, `MENU_PAGE_META_DESCRIPTION`,
-  `PDP_CROSS_SELL_HEADING`, `TRACKING_RATE_PROMPT`. Os hardcodes (iguais ou melhores)
-  viram fonte única; o cross-sell adotou o wording bom do registro ("Talvez você também goste").
-- Fora de escopo confirmado: `MENU_SUBTITLE` (viva só como fixture de teste do template tag —
-  investigar depois) e a limpeza das ~180 chaves órfãs de legado do cutover.
+Reversão feita (restaura 379 chaves): `159348e7`.
 
-## Problema
+## Princípio (omotenashi-first)
 
-A copy de cliente é canônica no **registro omotenashi** (`shopman/shop/omotenashi/copy.py`,
-`OMOTENASHI_DEFAULTS`, ~389 chaves), resolvida pela camada de **presentation** via
-`build_copy(namespace)` / `resolve_copy(key)` e entregue às superfícies Nuxt como
-**projections** (campos `CopyEntryProjection`). O Vue deveria **consumir** a projection.
+**Toda copy de cliente é canônica no registro `OMOTENASHI_DEFAULTS` e chega à tela via
+projection — configurável pelo operador no Admin/Unfold.** Um hardcode no template que
+duplica (ou ignora) o registro é o defeito. A resolução correta é sempre **religar**
+(registro → projection → Vue), nunca deletar a copy.
 
-**Drift:** vários templates Nuxt **hardcodam** strings que também existem no registro —
-às vezes com wording **divergente**. Duas fontes de verdade = risco de inconsistência
-silenciosa e copy que o operador acha que configura (via Admin/OmotenashiCopy) mas não
-tem efeito, porque a tela ignora a projection.
+Exceções que podem ficar no template: `aria-label` dinâmico e microtexto puramente
+estrutural sem valor de marca.
 
-## Descoberta crítica — por que NÃO deletar chaves em massa
+## Os três baldes (auditoria de 2026-07-07)
 
-Um scan por nome literal marca ~187 chaves como "não referenciadas". **É enganoso.** As
-chaves são resolvidas também de forma **não-estática**:
+Cada chave sem tela caiu em um destes. A ação difere por balde.
 
-- **f-string por prefixo** (`shopman/storefront/presentation/status.py`):
-  `build_copy("ORDER_STATUS").title(f"ORDER_STATUS_{status.upper()}")`,
-  idem `PAYMENT_METHOD_*`, `AVAILABILITY_*`.
-- **valor carregado no dado**: uma promise de tracking carrega `copy_key`; a presentation
-  resolve `.title(promise.copy_key)`. As chaves `TRACKING_PROMISE_*` nunca aparecem
-  literalmente no código.
-- **namespaces inteiros** (`build_copy("TRACKING"|"CHECKOUT"|"PAYMENT"|"STOREFRONT")`)
-  carregam todas as chaves do prefixo para o catálogo.
+### Balde A — feature EXISTE, tela hardcoda (drift) → **RELIGAR**
+Verificado que a tela existe; a copy só foi reescrita no template. Religar via projection.
+- **Segurança/dispositivos** (`conta/seguranca.vue`) → `DEVICE_LIST_*`, `DEVICE_REVOKE_*`, `ACCOUNT_TRUSTED_DEVICES_MESSAGE`, `DEVICE_TRUST_*`
+- **Preferências de notificação** (`conta/preferencias.vue`) → `NOTIFICATION_PREFS_EMPTY`
+- **Pagamento** (`pedido/[ref]/pagamento.vue`) → `PAYMENT_PAGE_*`, `PAYMENT_PIX_*`, `PAYMENT_WAITING*`, `PAYMENT_ERROR_*`, `PAYMENT_CARD_SECURITY_NOTE`, `PAYMENT_CONFIRMED`, `PAYMENT_REDIRECTING_*`, `PAYMENT_CANCELLED*`, `PAYMENT_DEADLINE_NOTICE`, `PAYMENT_ORDER_REF_LABEL`, `PAYMENT_TOTAL_LABEL`
+- **Perfil** (`conta/perfil.vue`, tem email+nascimento) → `PROFILE_*`
+- **Conta** (`conta/index.vue`) → `ACCOUNT_GREETING_PREFIX`, `ACCOUNT_PAGE_TITLE`, `ACCOUNT_DELETE_WARNING`
+- **Checkout** → `CHECKOUT_SWITCH_ACCOUNT_*`, `CHECKOUT_WHEN_REQUIRED`, `CHECKOUT_CONFIRM_CTA`, `CHECKOUT_LOYALTY_BALANCE_SUFFIX`, `MIN_ORDER_WARNING*`
+- **Tracking** → `TRACKING_CANCEL_*`, `TRACKING_DELIVERY_HEADING`, `TRACKING_ACTION_*`, `TRACKING_AUTO_CONFIRM_*`, `TRACKING_ETA_PREFIX`, `TRACKING_PAYMENT_*`, `TRACKING_RATE_THANKS`, `TRACKING_PAGE_META_DESCRIPTION`
+- **Empty states / avisos** → `HISTORY_EMPTY`, `ADDRESSES_EMPTY`, `LOYALTY_UNAVAILABLE`, `CART_UNAVAILABLE_BANNER`, `PICKUP_READY_NOTICE`, `PRODUCT_OUT_OF_STOCK`, `PRODUCT_SCHEDULED_UNAVAILABLE`
+- **Home "Como Funciona" (detalhe)** → `HOW_DELIVERY_*`, `HOW_QUALITY_MESSAGE`, `HOW_PREORDER_MESSAGE`, `HOW_TRACKING_MESSAGE`
+- **Login** → `LOGIN_CHANGE_PHONE_*`, `LOGIN_WELCOME_BACK`
+- **Kintsugi (recuperação/omotenashi)** → `KINTSUGI_*` (erros de CEP, cancelamento recusado, rate-limit, falta/substituto) — verificar tela a tela
 
-⇒ **Regra de ouro:** só deletar uma chave após **confirmar positivamente** que é
-inalcançável — nenhum literal, nenhuma família f-string, nenhum `copy_key` de dado. Na
-dúvida, **não deletar**. Limpeza de órfãs de legado (resíduo do cutover headless, telas
-Django removidas) é **fora de escopo** deste plano — vira um passe próprio por família.
+### Balde B — superseto (feito de outro jeito) → **RECONCILIAR**
+A feature existe, mas construída por hardcode/f-string em vez do registro. Fazer a
+implementação atual **resolver do registro**.
+- `SHOP_STATUS_*` → hoje montado por f-string em `shop_status.py`; passar a resolver as chaves.
+- `WELCOME_*` → o passo inline "Como podemos te chamar?" (login) substituiu a página welcome;
+  reconciliar (o passo do login deveria consumir `WELCOME_*` ou consolidar em `LOGIN_NAME_*`).
+- `URGENCY_BANNER_MESSAGE` / `CLOSING_AWARENESS_*` → aviso de "fechamos em X"; reconciliar com o que a home mostra.
 
-## Princípio de resolução (por caso)
+### Balde C — especificada e NÃO construída → **BACKLOG** (nunca deletar; é a spec)
+Copy detalhada de features sem tela. Vira backlog explícito para o Pablo decidir
+construir ou arquivar conscientemente. Ver `COPY-BACKLOG-UNBUILT.md`.
+- `CONFIRMATION_*` — tela de confirmação/celebração pós-pedido (com **Compartilhar**).
+- `KINTSUGI_PLANNED_OFFER` — **pré-reserva** do próximo lote.
+- `TRACKING_PROMISE_*_ACTIVE_NOTIFICATION` — indicador "também avisamos por canal ativo".
+- `TRACKING_DELIVERED_YOIN` — delícia pós-entrega ("Bom apetite. Até a próxima.").
+- `BIRTHDAY_BANNER_*` — banner de aniversário.
 
-Para cada string hardcoded que colide com o registro:
+## Método de religação (padrão validado na home)
 
-1. **É copy de cliente (deve poder ser reconfigurada pelo operador)?**
-   → Fonte única = **REGISTRO**. Entregar via projection (Python) e **consumir no Vue**,
-   removendo o hardcode. Alinhar o wording do registro ao melhor texto. *(padrão validado
-   na home "Como Funciona").*
-2. **É label puramente estrutural, que ninguém configura, e a chave do registro está
-   comprovadamente órfã?**
-   → Manter no template e **deletar a chave órfã**.
-3. **Nunca** deixar duas fontes. Se ligar dá trabalho desproporcional para um label trivial,
-   documentar a decisão de manter hardcode + remover a chave.
+Por tela: (1) adicionar o campo `CopyEntryProjection` à projection da tela (Python);
+(2) resolver do registro com `_copy_entry`/`build_copy`; (3) tipar no `types/shopman.ts`;
+(4) consumir no Vue removendo o hardcode; (5) alinhar o wording do registro ao melhor
+texto; (6) build + testes + verificação de tela.
 
-Toda mudança: `build` + testes verdes + **verificação de tela**.
+## Burndown (guardrail)
 
-## Áreas e drifts concretos
+`docs/plans/copy-wiring-backlog.txt` lista todas as chaves ainda não religadas. O teste
+`test_copy_wiring_backlog_only_shrinks` falha se surgir uma chave sem tela **fora** do
+backlog (impede novo drift) — e o backlog só pode **encolher**. Cada PR de religação
+remove linhas do backlog.
 
-| # | Área | Hardcode (Vue) | Chave/campo do registro | Ação |
-|---|------|----------------|-------------------------|------|
-| 1 | Home "Como Funciona" | "Peça online" / "Visite a loja" | `how_online_heading` / `how_store_heading` (já entregues) | **✅ FEITO** — Vue consome projection; registro adotou o wording bom |
-| 2 | Produto | `<h2>Você também pode gostar</h2>` | `PDP_CROSS_SELL_HEADING` (title+message, **não entregue**) | Entregar `cross_sell_heading` na product projection; consumir; alinhar wording |
-| 3 | Checkout | h1 "Finalize seu pedido"; "Usar pontos de fidelidade"; "Cupom de desconto?" | `CHECKOUT_PAGE_TITLE` / `CHECKOUT_LOYALTY_PROMPT` / `CHECKOUT_COUPON_PROMPT` (**não entregues**) | Entregar copy bag na checkout projection; consumir; alinhar |
-| 4 | Sacola | h1 "Sua sacola" | `CART_PAGE_TITLE` ("Sua sacola") | Confirmar órfã; entregar via cart projection **ou** deletar chave (label estrutural idêntico) |
-| 5 | Tracking | kicker "Acompanhamento" / "Pedido {ref}" | `TRACKING_PAGE_KICKER` / `TRACKING_ORDER_REF_LABEL` | Verificar entrega; consumir se entregue |
-| 6 | Menu | vazio "Cardápio em preparo…" | `MENU_EMPTY` / `MENU_SUBTITLE` | Confirmar órfã; resolver (entregar ou deletar) |
+## Sequência (uma tela por PR, com verificação)
 
-> Campos de projection **entregues mas não consumidos** (ex.: `how_step_choose/pay/fulfill`,
-> `how_self_service_label` — de um layout antigo da home) são um sub-caso: ou o layout volta
-> a usá-los, ou se podam do projection + registro. Tratar ao passar por cada área.
-
-## Guardrails / testes
-
-- Manter `test_used_copy_keys_are_defined` (chave usada via `.title/.text` deve existir).
-- Manter `test_no_em_dash_in_copy` (voz da marca).
-- Adicionar **radar de órfã ciente de dinâmicas**: reportar (não travar) chaves cujo
-  namespace nunca é carregado por `build_copy` **e** que não são referenciadas por literal —
-  candidatas a investigação, nunca deleção automática.
-
-## Sequência
-
-Uma área por vez, **commit por área**, com verificação de tela. Ordem por
-valor/risco: Home ✅ → Produto → Checkout → Sacola → Tracking → Menu.
-
-## Não-escopo
-
-- Limpeza das chaves órfãs de legado do cutover headless (~famílias `*_PAGE_TITLE`,
-  `PROFILE_*`, `DEVICE_LIST_*` etc.). Exige verificação por família (dinâmicas + `copy_key`
-  de dado). Passe próprio, depois deste.
+Home ✅ · Produto ✅ · Tracking(kicker) ✅ → Pagamento → Segurança → Perfil → Conta →
+Preferências → Checkout(switch/min) → Empty states → Kintsugi → Home(how detalhe) → B(reconciliar).
+Balde C fica no backlog até decisão de produto.
