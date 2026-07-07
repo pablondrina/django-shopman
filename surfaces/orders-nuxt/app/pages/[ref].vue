@@ -8,11 +8,12 @@ import {
   statusTone,
   toneBadge,
 } from "~/presentation/board";
+import type { CancellationReason } from "~/types/orders";
 
 const route = useRoute();
 const orderRef = computed(() => String(route.params.ref || ""));
 
-const { order, pending, error, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes, addComment } =
+const { order, pending, error, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment } =
   useOrderDetail(orderRef.value);
 
 // timeline comment composer
@@ -30,28 +31,43 @@ const notes = ref("");
 watch(order, (o) => { if (o) notes.value = o.internal_notes || ""; }, { immediate: true });
 const notesDirty = computed(() => order.value != null && notes.value !== (order.value.internal_notes || ""));
 
-// reject + cancel + settle dialogs (typed input).
+// reject + cancel + settle dialogs. Reject/cancel share OrderReasonDialog, which is
+// marketplace-aware: for an iFood order it shows the provider's required coded reasons
+// (fetched live per order); other channels get the store presets + free text.
 const dialog = ref<"" | "reject" | "cancel" | "settle">("");
-const reason = ref("");
 const amount = ref("");
-function openDialog(kind: "reject" | "cancel" | "settle") {
+const reasons = ref<CancellationReason[]>([]);
+const reasonsLoading = ref(false);
+
+// Store-configured justification presets (Admin/Unfold) for non-marketplace channels.
+const presets = computed(() => order.value?.cancellation_presets ?? []);
+
+async function openDialog(kind: "reject" | "cancel" | "settle") {
   dialog.value = kind;
-  reason.value = "";
   amount.value = "";
+  if (kind === "reject" || kind === "cancel") {
+    // Pull the order's valid cancellation reasons — a coded list for iFood, [] else.
+    reasons.value = [];
+    reasonsLoading.value = true;
+    try {
+      reasons.value = await fetchCancellationReasons();
+    } finally {
+      reasonsLoading.value = false;
+    }
+  }
 }
 
-// Store-configured justification presets (Admin/Unfold). One tap fills the reason
-// field; the operator can still edit before sending. The chosen text reaches the
-// customer in the cancellation notification.
-const presets = computed(() => order.value?.cancellation_presets ?? []);
-function applyPreset(text: string) {
-  reason.value = text;
-}
-async function submitDialog() {
+// OrderReasonDialog emits the chosen (trimmed) reason + code; we apply the generic
+// fallback text and route to the right action, then reconcile.
+async function submitReason(payload: { reason: string; cancellationCode: string }) {
   let ok = false;
-  if (dialog.value === "reject" && reason.value.trim()) ok = await reject(reason.value.trim());
-  else if (dialog.value === "cancel") ok = await cancel(reason.value.trim() || "Cancelado pelo operador");
-  else if (dialog.value === "settle") ok = await settleCash(amount.value.trim());
+  if (dialog.value === "reject") ok = await reject(payload.reason || "Pedido recusado", payload.cancellationCode);
+  else if (dialog.value === "cancel") ok = await cancel(payload.reason || "Cancelado pelo operador", payload.cancellationCode);
+  if (ok) dialog.value = "";
+}
+
+async function submitSettle() {
+  const ok = await settleCash(amount.value.trim());
   if (ok) dialog.value = "";
 }
 
@@ -204,19 +220,27 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
       </section>
     </template>
 
-    <!-- reason/amount dialog -->
-    <UiDialog :open="dialog !== ''" @update:open="(v) => { if (!v) dialog = '' }">
+    <!-- reject / cancel: marketplace-aware reason dialog (iFood coded reasons or
+         store presets + free text) -->
+    <OrderReasonDialog
+      :open="dialog === 'reject' || dialog === 'cancel'"
+      :mode="dialog === 'cancel' ? 'cancel' : 'reject'"
+      :loading="reasonsLoading"
+      :reasons="reasons"
+      :presets="presets"
+      :busy="busy"
+      @update:open="(v) => { if (!v) dialog = '' }"
+      @confirm="submitReason"
+    />
+
+    <!-- settle delivery cash dialog -->
+    <UiDialog :open="dialog === 'settle'" @update:open="(v) => { if (!v) dialog = '' }">
       <UiDialogContent class="sm:max-w-md">
         <UiDialogHeader>
-          <UiDialogTitle>
-            {{ dialog === "reject" ? "Recusar pedido" : dialog === "cancel" ? "Cancelar pedido" : "Acerto de dinheiro" }}
-          </UiDialogTitle>
-          <UiDialogDescription>
-            {{ dialog === "settle" ? "Valor recebido na entrega. Em branco usa o total." : "Informe o motivo." }}
-          </UiDialogDescription>
+          <UiDialogTitle>Acerto de dinheiro</UiDialogTitle>
+          <UiDialogDescription>Valor recebido na entrega. Em branco usa o total.</UiDialogDescription>
         </UiDialogHeader>
         <input
-          v-if="dialog === 'settle'"
           v-model="amount"
           type="text"
           inputmode="decimal"
@@ -224,39 +248,13 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
           class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
           aria-label="Valor recebido"
         />
-        <template v-else>
-          <!-- one-tap justification presets (configuráveis no Admin) -->
-          <div v-if="presets.length" class="flex flex-wrap gap-1.5">
-            <button
-              v-for="(preset, i) in presets"
-              :key="i"
-              type="button"
-              :aria-pressed="reason === preset"
-              class="rounded-full border px-3 py-1 text-xs font-medium transition hover:bg-accent"
-              :class="reason === preset ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'"
-              @click="applyPreset(preset)"
-            >
-              {{ preset }}
-            </button>
-          </div>
-          <textarea
-            v-model="reason"
-            rows="3"
-            :placeholder="dialog === 'reject' ? 'Motivo da recusa…' : 'Motivo do cancelamento (opcional)…'"
-            class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-            aria-label="Motivo"
-          />
-          <p v-if="dialog === 'cancel'" class="text-xs text-muted-foreground">
-            O motivo é enviado ao cliente na notificação de cancelamento.
-          </p>
-        </template>
         <UiDialogFooter>
           <button type="button" class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent" @click="dialog = ''">Voltar</button>
           <button
             type="button"
-            :disabled="busy || (dialog === 'reject' && !reason.trim())"
+            :disabled="busy"
             class="rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-            @click="submitDialog"
+            @click="submitSettle"
           >
             Confirmar
           </button>

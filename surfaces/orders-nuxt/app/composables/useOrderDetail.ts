@@ -1,7 +1,7 @@
 // Order detail read-side. Reads the expanded operator projection (items, timeline,
 // notes, fiscal links) and exposes the full action set. Writes go through the django
 // proxy and reconcile via refresh. Mirrors useOrdersBoard's in-flight guard.
-import type { OperatorOrderProjection, OrderDetailResponse } from "~/types/orders";
+import type { CancellationReason, OperatorOrderProjection, OrderDetailResponse } from "~/types/orders";
 
 export function useOrderDetail(orderRef: string) {
   const path = `/api/v1/backstage/orders/${encodeURIComponent(orderRef)}/`;
@@ -34,10 +34,25 @@ export function useOrderDetail(orderRef: string) {
 
   const confirm = () => act("confirm");
   const advance = () => act("advance");
-  const reject = (reason: string) => act("reject", { reason });
-  const cancel = (reason: string) => act("cancel", { reason });
+  // Marketplace (iFood) reject/cancel carry the operator-picked code so the backend
+  // relays a valid reason to the provider; empty string for other channels.
+  const reject = (reason: string, cancellation_code = "") => act("reject", { reason, cancellation_code });
+  const cancel = (reason: string, cancellation_code = "") => act("cancel", { reason, cancellation_code });
   const settleCash = (amount: string) => act("settle-delivery-cash", { amount });
   const requeueFiscal = () => act("requeue-fiscal");
+
+  // Valid cancellation reasons for this order: for iFood, the live per-order coded
+  // list ({code, description}); empty for channels without reason codes.
+  async function fetchCancellationReasons(): Promise<CancellationReason[]> {
+    try {
+      const res = await $fetch<{ reasons: CancellationReason[] }>(
+        `/api/v1/backstage/orders/${encodeURIComponent(orderRef)}/cancellation-reasons/`,
+      );
+      return res?.reasons ?? [];
+    } catch {
+      return [];
+    }
+  }
 
   async function saveNotes(notes: string): Promise<boolean> {
     const ok = await act("notes", { notes });
@@ -51,5 +66,5 @@ export function useOrderDetail(orderRef: string) {
     return ok;
   }
 
-  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, settleCash, requeueFiscal, saveNotes, addComment };
+  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment };
 }

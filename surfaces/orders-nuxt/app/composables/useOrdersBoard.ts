@@ -4,13 +4,10 @@
 //   - SSE realtime: EventSource on /gestor/events/orders/ → refresh on push.
 // Writes go through the django proxy (CSRF handled there) and reconcile via refresh.
 // SSE/poll are client-only (EventSource is a browser API).
-import type { OrderQueueResponse, TwoZoneQueueProjection } from "~/types/orders";
+import type { CancellationReason, OrderQueueResponse, TwoZoneQueueProjection } from "~/types/orders";
 import { zonesView, type ZoneView } from "~/presentation/board";
 
-export interface CancellationReason {
-  code: string;
-  description: string;
-}
+export type { CancellationReason };
 
 export function useOrdersBoard() {
   const config = useRuntimeConfig();

@@ -67,6 +67,12 @@ export interface OrderCardProjection {
   confirmation_action: string; // "confirm" | "cancel" (ação do directive ao vencer)
 }
 
+/** A coded cancellation reason (marketplace/iFood requires one per order). */
+export interface CancellationReason {
+  code: string;
+  description: string;
+}
+
 export interface OperatorOrderProjection {
   ref: string;
   status: string;
