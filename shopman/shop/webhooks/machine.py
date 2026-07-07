@@ -118,6 +118,7 @@ class MachineWebhookView(APIView):
                 response_body={"status": "processed", "id_mch": str(ride_ref), "ride_status": ride_status},
             )
         except Exception as exc:
+            logger.exception("MachineWebhook: error processing id_mch=%s", ride_ref)
             webhook_idempotency.mark_failed(claim)
             from shopman.shop.services import observability
 
@@ -129,7 +130,6 @@ class MachineWebhookView(APIView):
                 exc=exc,
                 context={"id_mch": str(ride_ref), "ride_status": ride_status},
             )
-            logger.exception("MachineWebhook: error processing id_mch=%s", ride_ref)
             # 5xx → a Machine (se reentregar) tenta de novo; o polling cobre se não.
             return Response({"status": "retry"}, status=http.HTTP_500_INTERNAL_SERVER_ERROR)
 

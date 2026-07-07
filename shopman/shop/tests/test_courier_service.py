@@ -438,6 +438,34 @@ def test_on_ready_with_courier_none_does_not_dispatch(shop):
     assert not Directive.objects.filter(topic=COURIER_DISPATCH).exists()
 
 
+# ── notificação: link de rastreio do entregador ─────────────────────
+
+
+def test_notification_context_includes_courier_tracking(shop):
+    from shopman.shop.services.notification import _build_context
+
+    order = _delivery_order(
+        courier={
+            "provider": "machine",
+            "id_mch": "1",
+            "status": "E",
+            "tracking_url": "https://rastreio.mock/pedido/x",
+        }
+    )
+    ctx = _build_context(order, {"order_ref": order.ref}, "order_dispatched")
+    assert ctx["courier_tracking_url"] == "https://rastreio.mock/pedido/x"
+    assert ctx["courier_tracking_suffix"] == "\nAcompanhe o entregador: https://rastreio.mock/pedido/x"
+
+
+def test_notification_context_suppresses_suffix_without_ride(shop):
+    from shopman.shop.services.notification import _build_context
+
+    order = _delivery_order(ref="CR-NO-RIDE")
+    ctx = _build_context(order, {"order_ref": order.ref}, "order_dispatched")
+    assert ctx["courier_tracking_url"] == ""
+    assert ctx["courier_tracking_suffix"] == ""
+
+
 def test_channel_config_validates_courier_values():
     from shopman.shop.config import ChannelConfig
 

@@ -179,8 +179,9 @@ def courier_cancel(order, *, actor: str, reason_id=None):
 
 def courier_quote(order) -> dict:
     """Cotação avulsa da entrega ("só cotar", sem abrir corrida)."""
-    from shopman.shop.services import courier
     from shopman.utils.monetary import format_money
+
+    from shopman.shop.services import courier
 
     estimate = courier.estimate_for_order(order, store=True)
     if estimate is None:

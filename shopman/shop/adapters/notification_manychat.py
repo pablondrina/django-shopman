@@ -38,7 +38,7 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     ),
     "order_dispatched": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} saiu para"
-        " entrega! \U0001f697{tracking_suffix}"
+        " entrega! \U0001f697{courier_tracking_suffix}{tracking_suffix}"
     ),
     "order_delivered": (
         "Pedido {order_ref} entregue. Obrigado pela preferencia! \u2b50{reorder_suffix}"
@@ -152,6 +152,8 @@ def _build_message(template: str, context: dict) -> str:
     ctx["reorder_suffix"] = (
         f"\nPeca de novo: {ctx['reorder_url']}" if ctx.get("reorder_url") else ""
     )
+    # Definido por notification._build_context; default vazio p/ chamadas diretas.
+    ctx.setdefault("courier_tracking_suffix", "")
 
     from shopman.shop.adapters._notification_templates import render_message
 

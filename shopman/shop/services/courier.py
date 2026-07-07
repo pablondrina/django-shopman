@@ -21,7 +21,6 @@ from datetime import timedelta
 
 from django.core.cache import cache
 from django.utils import timezone
-
 from shopman.orderman.models import Directive, Order
 
 from shopman.shop.adapters import get_adapter
