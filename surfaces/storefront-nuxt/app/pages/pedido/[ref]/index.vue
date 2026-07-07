@@ -297,6 +297,13 @@ useSeoMeta({
               <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
 
+                <!-- Aviso ativo: "também avisamos você por um canal ativo" (só quando o
+                     sistema realmente notifica). Reduz a ansiedade de olhar a tela. -->
+                <p v-if="tracking.promise.active_notification" class="flex items-center gap-2 shop-meta">
+                  <Icon name="lucide:bell-ring" class="size-3.5 shrink-0" />
+                  {{ tracking.promise.active_notification }}
+                </p>
+
                 <div v-if="deadlineCount && !deadlineCount.isExpired" class="space-y-2" role="timer" aria-live="polite">
                   <div class="flex items-center gap-2 text-sm font-semibold">
                     <Icon name="lucide:timer" :size="18" :class="deadlineUrgent ? 'text-destructive' : statusPanelIconClass" />

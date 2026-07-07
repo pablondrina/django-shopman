@@ -418,6 +418,29 @@ def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
 # ──────────────────────────────────────────────────────────────────────
 
 
+# Aviso ativo por estado ("também avisamos você por um canal ativo"). Reduz a
+# ansiedade de ficar olhando a tela. Feature já existia inteira no pagamento; no
+# tracking a copy foi escrita e nunca conectada — religada aqui.
+_ACTIVE_NOTIFICATION_KEY: dict[str, str] = {
+    "ready_pickup": "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION",
+    "ready_delivery": "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION",
+    "payment_requested": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+    "payment_pending": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+}
+
+
+_TERMINAL_STATES = {"delivered", "completed", "cancelled", "payment_expired"}
+
+
+def _active_notification(data: TrackingPromiseData, copy: CopyCatalog) -> str:
+    """Copy do aviso ativo, SÓ quando o sistema realmente notifica (anti-overpromise)
+    e o pedido segue em andamento (terminal não tem o que avisar)."""
+    if not data.requires_active_notification or data.state in _TERMINAL_STATES:
+        return ""
+    key = _ACTIVE_NOTIFICATION_KEY.get(data.state, "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION")
+    return copy.message(key, "Avisamos você a cada atualização. Pode fechar a tela sem preocupação.")
+
+
 def _present_promise(
     data: TrackingPromiseData,
     *,
@@ -425,12 +448,13 @@ def _present_promise(
     is_delivery: bool,
     copy: CopyCatalog,
 ) -> OrderTrackingPromiseProjection:
-    title, message, next_event, recovery, active_notification = _promise_copy(
+    title, message, next_event, recovery, _ = _promise_copy(
         data,
         status=status,
         is_delivery=is_delivery,
         copy=copy,
     )
+    active_notification = _active_notification(data, copy)
     return OrderTrackingPromiseProjection(
         state=data.state,
         title=title,

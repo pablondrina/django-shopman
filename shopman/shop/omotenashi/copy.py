@@ -690,7 +690,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
     },
     "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos ativamente sobre esta atualização.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos você a cada atualização. Pode fechar a tela sem preocupação.")},
     },
     "TRACKING_PROMISE_RECEIVED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento vai conferir a disponibilidade.")},
