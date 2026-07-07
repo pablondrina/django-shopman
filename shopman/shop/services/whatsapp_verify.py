@@ -102,9 +102,23 @@ def _wa_number() -> str:
     return ""
 
 
+def _return_url(token: str) -> str:
+    """Link de volta para a loja após confirmar no WhatsApp (mobile: mesma sessão).
+
+    Injetado na resposta do ``confirm`` para o ManyChat renderizar um botão/link.
+    Carrega o token para o ``/entrar`` retomar o handshake mesmo se a aba foi
+    reciclada (o ``status`` continua bind por sessão — o token não é segredo).
+    Vazio se a base pública da loja não estiver configurada.
+    """
+    base = str(getattr(settings, "SHOPMAN_STOREFRONT_BASE_URL", "") or "").rstrip("/")
+    if not base:
+        return ""
+    return f"{base}/entrar?wa={urllib.parse.quote(token)}"
+
+
 def _deep_link(token: str) -> str:
     number = _wa_number()
-    text = f"Meu codigo de verificacao e {token}"
+    text = f"Meu código de verificação é {token}"
     query = urllib.parse.quote(text)
     if number:
         return f"https://wa.me/{number}?text={query}"
@@ -196,7 +210,7 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     if not data:
         return {"ok": False, "reason": "not_found"}
     if data.get("status") == "verified":
-        return {"ok": True, "reason": "already_verified"}
+        return {"ok": True, "reason": "already_verified", "return_url": _return_url(normalized_token)}
 
     phone = _normalize_phone(whatsapp_phone)
     if not phone:
@@ -214,7 +228,7 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     _emit_verified(normalized_token)  # push SSE instantâneo (poll fica de fallback)
     matched = (not intended) or intended == phone
     logger.info("wa_verify.confirm verified matched=%s has_name=%s", matched, bool(data["wa_name"]))
-    return {"ok": True, "reason": "verified", "matched": matched}
+    return {"ok": True, "reason": "verified", "matched": matched, "return_url": _return_url(normalized_token)}
 
 
 def verification_status(*, token: str, request) -> dict:
@@ -226,6 +240,18 @@ def verification_status(*, token: str, request) -> dict:
     if not data:
         return {"status": "expired", "customer": None}
     if data.get("status") != "verified":
+        return {"status": "pending", "customer": None}
+
+    # Bind de sessão (anti-fixação), FAIL-CLOSED e antes de qualquer retorno
+    # "verified": só a sessão que iniciou o fluxo vê o resultado / autentica.
+    # Sessão ausente ou diferente da que chamou ``start`` → pending. Vale também
+    # depois do token consumido (senão terceiros que soubessem o token leriam o
+    # cliente). O ``start`` garante o session_key (salva a sessão), então um
+    # ``stored_sk`` vazio só ocorre sem sessão — aí não há o que vincular.
+    stored_sk = data.get("session_key") or ""
+    current_sk = getattr(getattr(request, "session", None), "session_key", None) or ""
+    if stored_sk and stored_sk != current_sk:
+        logger.info("wa_verify.status session_bind_mismatch")
         return {"status": "pending", "customer": None}
 
     phone = data.get("verified_phone") or ""
@@ -247,14 +273,6 @@ def verification_status(*, token: str, request) -> dict:
             "created": False,
             "phone_mismatch": mismatch,
         }
-
-    # Bind de sessão: só autentica a MESMA sessão que iniciou o fluxo.
-    stored_sk = data.get("session_key") or ""
-    current_sk = getattr(getattr(request, "session", None), "session_key", None) or ""
-    if stored_sk and current_sk and stored_sk != current_sk:
-        # Navegador diferente: não autentica. A sessão legítima continua o polling.
-        logger.info("wa_verify.status session_bind_mismatch")
-        return {"status": "pending", "customer": None}
 
     login_info = _login_phone(request, phone)
     if login_info is None:

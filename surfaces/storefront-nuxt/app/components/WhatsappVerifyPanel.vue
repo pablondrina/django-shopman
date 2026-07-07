@@ -2,7 +2,7 @@
 import { whatsappCountdown, whatsappPhase } from '~/presentation/auth'
 import type { WhatsappStatusResponse } from '~/composables/useWhatsappVerify'
 
-const props = withDefaults(defineProps<{ phone?: string }>(), { phone: '' })
+const props = withDefaults(defineProps<{ phone?: string, resumeToken?: string }>(), { phone: '', resumeToken: '' })
 const emit = defineEmits<{
   verified: [session: WhatsappStatusResponse]
   sms: []
@@ -16,8 +16,13 @@ const {
   startedAtMs,
   status,
   sessionResponse,
-  start
+  start,
+  resume
 } = useWhatsappVerify()
+
+// Retomando pelo link do WhatsApp (?wa=<token>): mostra "confirmando…" em vez do
+// QR/deep link, até o poll resolver (quase sempre já verificado no retorno).
+const isResuming = computed(() => !!props.resumeToken && status.value !== 'verified' && status.value !== 'expired')
 
 const nowMs = ref(Date.now())
 let clock: ReturnType<typeof setInterval> | null = null
@@ -67,6 +72,10 @@ async function regenerate () {
 
 onMounted(async () => {
   clock = setInterval(() => { nowMs.value = Date.now() }, 1000)
+  if (props.resumeToken) {
+    resume(props.resumeToken)
+    return
+  }
   await start(props.phone)
   await nextTick()
   renderQr()
@@ -90,15 +99,22 @@ watch(sessionResponse, value => {
           <Icon name="lucide:message-circle" class="size-5" />
         </div>
         <div class="min-w-0">
-          <p class="shop-body font-semibold">Confirme pelo WhatsApp</p>
+          <p class="shop-body font-semibold">{{ isResuming ? 'Confirmando sua entrada' : 'Confirme pelo WhatsApp' }}</p>
           <p class="mt-0.5 shop-meta">
-            Toque no botão, o WhatsApp abre com uma mensagem pronta. É só enviar — a gente confirma na hora.
+            <template v-if="isResuming">Você voltou do WhatsApp — só um instante enquanto confirmamos por aqui.</template>
+            <template v-else>Toque no botão, o WhatsApp abre com uma mensagem pronta. É só enviar — nós confirmamos na hora.</template>
           </p>
         </div>
       </div>
 
+      <!-- Retomando pelo link do WhatsApp: confirmando a sessão -->
+      <div v-if="isResuming" class="flex items-center justify-center gap-2 py-2 text-muted-foreground" data-login-whatsapp-resuming>
+        <Icon name="lucide:loader-circle" class="size-4 animate-spin" />
+        <span class="shop-meta">Confirmando sua entrada…</span>
+      </div>
+
       <!-- Aguardando: CTA principal (deep link) + QR no desktop -->
-      <template v-if="phase === 'waiting'">
+      <template v-else-if="phase === 'waiting'">
         <UiButton
           :href="deepLink || undefined"
           target="_blank"

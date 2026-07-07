@@ -112,6 +112,23 @@ export function useWhatsappVerify () {
     }
   }
 
+  // Retoma um handshake já existente (cliente voltou pelo link do WhatsApp com
+  // ?wa=<token>). Não chama start (não gera token novo, não precisa de deep link):
+  // no retorno o número já foi confirmado no WhatsApp, então o 1º poll resolve na
+  // hora. SSE + poll de fallback cobrem o caso raro de a aba abrir antes do envio.
+  function resume (existingToken: string) {
+    stop()
+    if (!import.meta.client || !existingToken) return
+    status.value = 'pending'
+    sessionResponse.value = null
+    phoneMismatch.value = false
+    token.value = existingToken
+    startedAtMs.value = Date.now()
+    connectStream()
+    pollTimer = setInterval(poll, WHATSAPP_POLL_FALLBACK_MS)
+    poll()
+  }
+
   onBeforeUnmount(stop)
 
   return {
@@ -124,6 +141,7 @@ export function useWhatsappVerify () {
     phoneMismatch,
     sessionResponse,
     start,
+    resume,
     stop,
     poll
   }

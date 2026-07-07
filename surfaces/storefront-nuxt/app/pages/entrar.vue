@@ -31,6 +31,10 @@ const requestedPhone = ref('')
 // por WhatsApp. O WhatsApp é o caminho primário; SMS é o fallback.
 const mode = ref<'otp' | 'whatsapp'>('otp')
 const whatsappPhone = ref('')
+// Retorno do WhatsApp: o ManyChat manda o cliente de volta com ?wa=<token> (link
+// no reply). Entra direto no painel em modo "confirmando", retomando o handshake.
+const waResumeToken = computed(() => (typeof route.query.wa === 'string' ? route.query.wa.trim() : ''))
+if (waResumeToken.value) mode.value = 'whatsapp'
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
@@ -426,6 +430,7 @@ useSeoMeta({
         <WhatsappVerifyPanel
           v-if="step === 'phone' && mode === 'whatsapp'"
           :phone="whatsappPhone"
+          :resume-token="waResumeToken"
           @verified="onWhatsappVerified"
           @sms="onWhatsappSms"
           @back="onWhatsappBack"

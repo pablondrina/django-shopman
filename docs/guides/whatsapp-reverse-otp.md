@@ -67,8 +67,17 @@ COMTELE_ROUTE=<id da rota transacional>
 
 ## Configuração do Flow no ManyChat (feito na UI do ManyChat)
 
-1. **Trigger** — crie um *Keyword* que dispara quando a mensagem do cliente contém o
-   prefixo do token (padrão `V-`). Use "message contains" com `V-`.
+1. **Trigger** — crie um *Keyword* robusto (evite casar só `V-`, que colide com
+   texto comum). Duas keywords em **OR**, ambas "message contains":
+   - `código de verificação` — a frase que o deep link sempre injeta (o caminho
+     normal). Multi-palavra ⇒ quase zero falso-positivo.
+   - `NB-` — o prefixo distintivo do token (configure `SHOPMAN_WA_VERIFY_TOKEN_PREFIX=NB-`),
+     que cobre a digitação manual se o deep link falhar.
+
+   O trigger **não é a fronteira de segurança** — o Django é o portão (token no
+   Valkey, single-use, TTL, rate-limit + bind de sessão). Guarde a resposta do Flow
+   numa condição `ok == true` antes de responder, para um trigger espúrio (que caia
+   num `404`) nunca mandar mensagem de sucesso.
 2. **External Request** (Dev Tools, plano Pro):
    - Method: `POST`
    - URL: `https://api.<seu-domínio>/api/v1/auth/whatsapp/confirm/`
@@ -86,10 +95,18 @@ COMTELE_ROUTE=<id da rota transacional>
      = nome do perfil do WhatsApp, trazido como **sugestão** para o cliente
      confirmar no "Como quer ser chamado?". Aceita também um único campo `name`.)
 3. **Resposta ao cliente** — se o External Request retornar `ok: true`, responda
-   "✅ Número confirmado! Volte para a tela para continuar."
+   "✅ Número confirmado!" com um **botão/link de volta para a loja**. O `confirm`
+   devolve `return_url` no corpo (ex.: `https://<loja>/entrar?wa=NB-XXXX`) — mapeie
+   esse campo num custom field do ManyChat e use como URL do botão. Ao tocar, a loja
+   reabre **na mesma sessão** (cookie) e conclui a entrada; o `?wa=<token>` deixa o
+   `/entrar` retomar o handshake mesmo se a aba foi reciclada.
 
-> O endpoint tolera a mensagem inteira em `token` (ex.: "Meu codigo de verificacao e
-> V-AC3F9K") — ele extrai o padrão do token automaticamente.
+> O `return_url` só vem preenchido se `SHOPMAN_STOREFRONT_BASE_URL` (a base pública da
+> loja Nuxt) estiver configurada. No fluxo desktop+QR o botão é dispensável — o
+> desktop confirma sozinho via push SSE; o retorno importa no fluxo tudo-no-celular.
+
+> O endpoint tolera a mensagem inteira em `token` (ex.: "Meu código de verificação é
+> NB-AC3F9K") — ele extrai o padrão do token automaticamente, com ou sem acento.
 
 ## Fallback SMS (Comtele)
 
