@@ -92,18 +92,8 @@ Toda mudança: `build` + testes verdes + **verificação de tela**.
 Uma área por vez, **commit por área**, com verificação de tela. Ordem por
 valor/risco: Home ✅ → Produto → Checkout → Sacola → Tracking → Menu.
 
-## Limpeza de legado ✅ FEITA (2026-07-07)
+## Não-escopo
 
-Executada com segurança após validar o **radar de alcançabilidade**:
-
-- Confirmado que os **únicos** caminhos não-literais são 3 f-strings
-  (`ORDER_STATUS_`/`PAYMENT_METHOD_`/`AVAILABILITY_`) — **não** há `copy_key` de dado
-  (grep vazio), nem concatenação/`.format()`/`getattr` construindo chave. Logo o radar
-  (definida − literal-ref − famílias dinâmicas) é **sólido**.
-- **157 chaves órfãs removidas** via AST (robusto, não regex): `copy.py` 379 → 222
-  chaves. Preservadas `MENU_SUBTITLE`/`WELCOME_WHATSAPP` (referenciadas só em testes).
-- **Zero falhas novas**: as 18 falhas do suite completo são **pré-existentes** (idênticas
-  com o `copy.py` original — permissions/order_confirm/exception-hygiene, sem relação).
-  Home/tracking/product resolvem copy normalmente; sem erros no runtime.
-- **Guardrail instalado**: `test_no_orphan_copy_keys` recomputa o radar e falha se uma
-  chave definida ficar inalcançável (impede as órfãs de voltarem a crescer).
+- Limpeza das chaves órfãs de legado do cutover headless (~famílias `*_PAGE_TITLE`,
+  `PROFILE_*`, `DEVICE_LIST_*` etc.). Exige verificação por família (dinâmicas + `copy_key`
+  de dado). Passe próprio, depois deste.
