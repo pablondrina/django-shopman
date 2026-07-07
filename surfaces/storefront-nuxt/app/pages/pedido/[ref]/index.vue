@@ -481,16 +481,16 @@ useSeoMeta({
             </UiButton>
             <UiAlertDialog v-if="cancelAction">
               <UiAlertDialogTrigger as-child>
-                <UiButton variant="destructive" class="w-full">Cancelar pedido</UiButton>
+                <UiButton variant="destructive" class="w-full">{{ tracking.copy.cancel_cta }}</UiButton>
               </UiAlertDialogTrigger>
               <UiAlertDialogContent>
                 <UiAlertDialogHeader>
-                  <UiAlertDialogTitle>Cancelar pedido?</UiAlertDialogTitle>
-                  <UiAlertDialogDescription>Vamos avisar a loja e atualizar o acompanhamento.</UiAlertDialogDescription>
+                  <UiAlertDialogTitle>{{ tracking.copy.cancel_dialog_title }}</UiAlertDialogTitle>
+                  <UiAlertDialogDescription>{{ tracking.copy.cancel_dialog_message }}</UiAlertDialogDescription>
                 </UiAlertDialogHeader>
                 <UiAlertDialogFooter>
-                  <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>
-                  <UiAlertDialogAction @click="postAction(cancelAction)">Cancelar</UiAlertDialogAction>
+                  <UiAlertDialogCancel>{{ tracking.copy.cancel_dialog_back }}</UiAlertDialogCancel>
+                  <UiAlertDialogAction @click="postAction(cancelAction)">{{ tracking.copy.cancel_dialog_confirm }}</UiAlertDialogAction>
                 </UiAlertDialogFooter>
               </UiAlertDialogContent>
             </UiAlertDialog>

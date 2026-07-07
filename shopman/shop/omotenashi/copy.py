@@ -714,13 +714,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Acompanhar via {carrier}")},
     },
     "TRACKING_CANCEL_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido?")},
     },
     "TRACKING_CANCEL_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar este pedido")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
     },
     "TRACKING_CANCEL_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Confirmar cancelamento?")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Vamos avisar a loja e atualizar o acompanhamento.")},
     },
     "TRACKING_CANCEL_YES": {
         WILDCARD: {WILDCARD: CopyEntry(title="Sim, cancelar")},

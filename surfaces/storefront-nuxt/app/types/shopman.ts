@@ -717,6 +717,11 @@ export interface TrackingCopyProjection {
   cancel_success_title: string
   cancel_success_message: string
   cancel_failed_message: string
+  cancel_cta: string
+  cancel_dialog_title: string
+  cancel_dialog_message: string
+  cancel_dialog_confirm: string
+  cancel_dialog_back: string
   mock_payment_success_title: string
   mock_payment_success_message: string
   mock_payment_failed_title: string

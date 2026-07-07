@@ -163,6 +163,11 @@ class OrderTrackingCopyProjection:
     cancel_success_title: str
     cancel_success_message: str
     cancel_failed_message: str
+    cancel_cta: str
+    cancel_dialog_title: str
+    cancel_dialog_message: str
+    cancel_dialog_confirm: str
+    cancel_dialog_back: str
     mock_payment_success_title: str
     mock_payment_success_message: str
     mock_payment_failed_title: str
@@ -857,6 +862,14 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
             "TRACKING_CANCEL_FAILED_MESSAGE",
             "Não foi possível cancelar este pedido agora.",
         ),
+        cancel_cta=copy.title("TRACKING_CANCEL_CTA", "Cancelar pedido"),
+        cancel_dialog_title=copy.title("TRACKING_CANCEL_HEADING", "Cancelar pedido?"),
+        cancel_dialog_message=copy.message(
+            "TRACKING_CANCEL_CONFIRM",
+            "Vamos avisar a loja e atualizar o acompanhamento.",
+        ),
+        cancel_dialog_confirm=copy.title("TRACKING_CANCEL_YES", "Sim, cancelar"),
+        cancel_dialog_back=copy.title("TRACKING_CANCEL_BACK", "Voltar"),
         mock_payment_success_title=copy.title("TRACKING_MOCK_PAYMENT_SUCCESS_TITLE", "Pagamento teste capturado"),
         mock_payment_success_message=copy.message(
             "TRACKING_MOCK_PAYMENT_SUCCESS_MESSAGE",

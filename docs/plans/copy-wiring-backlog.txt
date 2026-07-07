@@ -1,7 +1,7 @@
 # copy-wiring-backlog — chaves ainda NÃO religadas a uma tela.
 # Regra: só encolhe. Cada religação (via projection) remove a linha.
 # O teste test_copy_wiring_backlog falha se surgir órfã fora desta lista.
-# gerado 2026-07-07 — 159 chaves
+# gerado 2026-07-07 — 154 chaves (5 religadas: tracking cancel)
 ACCOUNT_DELETE_WARNING
 ACCOUNT_GREETING_PREFIX
 ACCOUNT_PAGE_TITLE
@@ -111,11 +111,6 @@ TRACKING_ACTION_NONE
 TRACKING_ACTION_WAITING_COURIER
 TRACKING_AUTO_CONFIRM_PREFIX
 TRACKING_AUTO_CONFIRM_SUFFIX
-TRACKING_CANCEL_BACK
-TRACKING_CANCEL_CONFIRM
-TRACKING_CANCEL_CTA
-TRACKING_CANCEL_HEADING
-TRACKING_CANCEL_YES
 TRACKING_DELIVERED_YOIN
 TRACKING_DELIVERY_HEADING
 TRACKING_ETA_PREFIX
