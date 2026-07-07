@@ -41,11 +41,22 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
   conscientemente? Era uma tela real; sumiu no cutover.
 
 ### **Pré-reserva** de lote — `KINTSUGI_PLANNED_OFFER` ("Quer pré-reservar?")
-- **Achado:** o modal kintsugi de erro de estoque foi construído (`SubstituteSheet.vue`, WP-GAP-14,
-  "3 variants + substitutes"). O cart tem planned-hold (`is_awaiting_confirmation`). A variante
-  **pré-reserva** ("A caminho / O próximo lote sai em breve. Quer pré-reservar?") ficou sem fiar —
-  o ponto seria o fluxo de item planejado/indisponível (overlap com "Me avise"/notify).
-- **Decisão:** pré-reserva é feature distinta do "Me avise" ou o mesmo? Construir onde?
+- **Decisão do Pablo (2026-07-07):** opção **(a)** — pré-reservar = adicionar o item e fechar
+  para a **data futura** (reusa a pré-encomenda existente). E conceitualmente: pré-reserva é o
+  affordance **principal** (padaria assa todo dia → planejado é a norma); **"Me avise" fica como
+  fallback** para `unavailable` sem plano (item descontinuado/sem data). Não obsoleta, demove.
+- **Ponto de fiação confirmado:** o 409 de escassez (`surface.py`) já carrega `is_planned` **e**
+  `planned_target_date`; o `SubstituteSheet.vue` recebe `cartIssue.is_planned` mas não usa. Itens
+  `planned_ok` são addable (criam planned-hold); "Me avise" só aparece em `unavailable`.
+- **⚠️ É FEATURE, não fiação de copy.** Precisa de:
+  1. Backend: uma ação "reservar planejado" (adicionar a qtd pedida como planned-hold para
+     `planned_target_date`, além do `set_available_qty` que só pega o disponível-agora).
+  2. Front: no `SubstituteSheet`, quando `is_planned`, trocar o enquadramento para
+     `KINTSUGI_PLANNED_OFFER` ("A caminho. O próximo lote sai em breve. Quer pré-reservar?") +
+     ação "Pré-reservar" que chama a ação nova e leva ao checkout com a data pré-selecionada.
+  3. Checkout: pré-selecionar `planned_target_date` (a pré-encomenda já valida datas futuras).
+- **Status:** aprovada, especificada, **pendente de build focado** (toca carrinho+checkout;
+  não faço sozinho/remoto sem fingir ação inexistente).
 
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.
