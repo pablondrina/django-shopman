@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   RESEND_COOLDOWN_MS,
+  WHATSAPP_POLL_INTERVAL_MS,
   authErrorView,
   authStep,
   otpValidUntilDisplay,
   resendCooldown,
-  welcomeNameValue
+  welcomeNameValue,
+  whatsappCountdown,
+  whatsappPhase
 } from '../app/presentation/auth'
 
 describe('authStep', () => {
@@ -84,5 +87,46 @@ describe('welcomeNameValue', () => {
 
   it('returns empty for blank input', () => {
     expect(welcomeNameValue('   ')).toBe('')
+  })
+})
+
+describe('whatsappCountdown', () => {
+  it('is expired when not started or with non-positive window', () => {
+    expect(whatsappCountdown(null, 600, 1000)).toEqual({ expired: true, remainingSeconds: 0 })
+    expect(whatsappCountdown(1000, 0, 1000)).toEqual({ expired: true, remainingSeconds: 0 })
+  })
+
+  it('counts down whole seconds while the token is valid', () => {
+    const started = 10_000
+    expect(whatsappCountdown(started, 600, started + 1)).toEqual({ expired: false, remainingSeconds: 600 })
+    expect(whatsappCountdown(started, 600, started + 90_400)).toEqual({ expired: false, remainingSeconds: 510 })
+  })
+
+  it('expires exactly at the end of the window', () => {
+    const started = 10_000
+    expect(whatsappCountdown(started, 600, started + 600_000)).toEqual({ expired: true, remainingSeconds: 0 })
+  })
+})
+
+describe('whatsappPhase', () => {
+  it('prioritizes verified and error over expiry', () => {
+    expect(whatsappPhase('verified', true)).toBe('verified')
+    expect(whatsappPhase('error', false)).toBe('error')
+  })
+
+  it('reports expired from either the flag or the status', () => {
+    expect(whatsappPhase('pending', true)).toBe('expired')
+    expect(whatsappPhase('expired', false)).toBe('expired')
+  })
+
+  it('waits while pending and still valid', () => {
+    expect(whatsappPhase('pending', false)).toBe('waiting')
+    expect(whatsappPhase('idle', false)).toBe('waiting')
+  })
+})
+
+describe('WHATSAPP_POLL_INTERVAL_MS', () => {
+  it('polls on a calm 3s cadence', () => {
+    expect(WHATSAPP_POLL_INTERVAL_MS).toBe(3_000)
   })
 })

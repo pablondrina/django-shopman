@@ -27,6 +27,10 @@ const session = useShopSession()
 const phone = ref('')
 const phoneRegion = ref<AuthPhoneRegion>('BR')
 const requestedPhone = ref('')
+// Modo do passo de telefone: OTP clássico (SMS/código) ou verificação reversa
+// por WhatsApp. O WhatsApp é o caminho primário; SMS é o fallback.
+const mode = ref<'otp' | 'whatsapp'>('otp')
+const whatsappPhone = ref('')
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
@@ -71,12 +75,18 @@ const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
 const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_ddd || '')
 const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
 const stepTitle = computed(() => {
-  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
+  if (step.value === 'phone') {
+    if (mode.value === 'whatsapp') return 'Quase lá'
+    return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
+  }
   if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
   return copyTitle(authCopy.value?.name_heading, 'Como podemos te chamar?')
 })
 const stepDescription = computed(() => {
-  if (step.value === 'phone') return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')
+  if (step.value === 'phone') {
+    if (mode.value === 'whatsapp') return ''
+    return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')
+  }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
 })
@@ -201,6 +211,38 @@ async function celebrateAndGo (kind: 'recognized' | 'confirmed') {
 function enterWelcomeGate (sessionResponse: AuthSessionResponse) {
   welcomeNeeded.value = true
   welcomeName.value = sessionResponse.welcome_suggested_name?.trim() || ''
+}
+
+// ── Verificação reversa por WhatsApp ───────────────────────────────────────
+function startWhatsappFlow (event?: Event) {
+  syncPhoneFromEvent(event)
+  whatsappPhone.value = phone.value
+  error.value = null
+  mode.value = 'whatsapp'
+}
+
+async function onWhatsappVerified (response: AuthSessionResponse) {
+  session.setFromAuthSession(response)
+  verified.value = true
+  requestedPhone.value = response.customer_phone || whatsappPhone.value
+  mode.value = 'otp'
+  if (response.requires_welcome) {
+    // Mesmo passo de boas-vindas de sempre — o nome vem pré-preenchido do WhatsApp.
+    enterWelcomeGate(response)
+    return
+  }
+  await celebrateAndGo('confirmed')
+}
+
+function onWhatsappSms () {
+  mode.value = 'otp'
+  // Se o telefone já foi informado, dispara o SMS direto; senão volta ao formulário.
+  if (phone.value.trim()) requestCode('sms')
+}
+
+function onWhatsappBack () {
+  mode.value = 'otp'
+  error.value = null
 }
 
 async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Event) {
@@ -381,7 +423,15 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <form v-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="requestCode('whatsapp', $event)">
+        <WhatsappVerifyPanel
+          v-if="step === 'phone' && mode === 'whatsapp'"
+          :phone="whatsappPhone"
+          @verified="onWhatsappVerified"
+          @sms="onWhatsappSms"
+          @back="onWhatsappBack"
+        />
+
+        <form v-else-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="startWhatsappFlow($event)">
           <div class="shop-stack-block rounded-lg border bg-bottomnav p-4">
             <UiField>
               <div class="flex items-center justify-between gap-3">

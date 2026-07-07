@@ -533,7 +533,9 @@ describe('surface UX guardrails', () => {
     expect(authPhone).toContain('phone_region')
     expect(authPhone).toContain('phone_normalized')
     expect(authPhone).toContain('target')
-    expect(login).toContain("requestCode('whatsapp', $event)")
+    // WhatsApp = verificação reversa (deep link + polling); SMS = fallback OTP push.
+    expect(login).toContain('startWhatsappFlow($event)')
+    expect(login).toContain('<WhatsappVerifyPanel')
     expect(login).toContain("requestCode('sms', $event)")
     expect(login).toContain('class="w-full justify-center"')
     expect(login).toContain('<UiFieldLabel for="trusted-device" class="w-full">')
