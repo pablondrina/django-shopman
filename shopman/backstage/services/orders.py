@@ -155,3 +155,42 @@ def add_comment(order, *, note: str, actor: str):
 
 def recent_history(*, limit: int = 20):
     return operator_orders.recent_history(limit=limit)
+
+
+def courier_dispatch(order, *, actor: str):
+    """Despacha (ou re-despacha) a corrida de entrega externa."""
+    from shopman.shop.services import courier
+
+    try:
+        return courier.redispatch(order, actor=actor)
+    except ValueError as exc:
+        raise OrderError(str(exc) or "Não foi possível despachar a corrida.") from exc
+
+
+def courier_cancel(order, *, actor: str, reason_id=None):
+    """Cancela a corrida ativa na central de entregas."""
+    from shopman.shop.services import courier
+
+    try:
+        return courier.cancel_ride(order, actor=actor, reason_id=reason_id)
+    except ValueError as exc:
+        raise OrderError(str(exc) or "Não foi possível cancelar a corrida.") from exc
+
+
+def courier_quote(order) -> dict:
+    """Cotação avulsa da entrega ("só cotar", sem abrir corrida)."""
+    from shopman.shop.services import courier
+    from shopman.utils.monetary import format_money
+
+    estimate = courier.estimate_for_order(order, store=True)
+    if estimate is None:
+        raise OrderError(
+            "Cotação indisponível — verifique o endereço do pedido e a "
+            "conexão com a central de entregas."
+        )
+    return {
+        "value_q": estimate["value_q"],
+        "value_display": f"R$ {format_money(int(estimate['value_q']))}",
+        "minutes": estimate["minutes"],
+        "km": estimate["km"],
+    }
