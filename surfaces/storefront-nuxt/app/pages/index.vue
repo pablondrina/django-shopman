@@ -299,7 +299,7 @@ useHead({
                 <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
                 <h3 class="shop-item-title font-semibold">Peça online</h3>
               </div>
-              <p class="shop-muted">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+              <p class="shop-muted">Escolha, pague e acompanhe. Entregamos ou você retira.</p>
               <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
                 {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
               </UiButton>

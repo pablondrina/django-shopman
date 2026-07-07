@@ -93,7 +93,7 @@ export function loyaltyView (loyalty: AccountLoyalty | null | undefined): Loyalt
 
 export function loyaltyStampsLabel (remaining: number, cardComplete: boolean, target: number): string {
   if (target <= 0) return ''
-  if (cardComplete) return 'Cartela completa — sua recompensa está pronta!'
+  if (cardComplete) return 'Cartela completa! Sua recompensa está pronta.'
   if (remaining === 1) return 'Falta 1 selo para a próxima recompensa'
   return `Faltam ${remaining} selos para a próxima recompensa`
 }

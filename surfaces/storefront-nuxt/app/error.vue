@@ -17,7 +17,7 @@ const title = computed(() =>
 )
 const message = computed(() =>
   is404.value
-    ? 'O item pode ter saído do cardápio ou o endereço está incorreto — vamos te levar de volta a um lugar seguro.'
+    ? 'O item pode ter saído do cardápio ou o endereço está incorreto. Vamos te levar de volta a um lugar seguro.'
     : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale conosco no WhatsApp.'
 )
 

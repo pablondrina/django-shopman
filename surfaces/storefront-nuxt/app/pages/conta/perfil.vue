@@ -141,7 +141,7 @@ useSeoMeta({ title: 'Perfil' })
               </span>
               <div class="min-w-0 flex-1">
                 <p class="shop-body font-semibold tabular-nums">{{ phoneDisplayLabel }}</p>
-                <p class="shop-meta">Entrar com outro número abre outra conta — o histórico fica neste número.</p>
+                <p class="shop-meta">Entrar com outro número abre outra conta. O histórico fica neste número.</p>
               </div>
             </div>
             <UiButton to="/entrar?next=/conta/perfil" variant="ghost" size="sm" class="w-full shrink-0 sm:w-auto">Entrar com outra conta</UiButton>

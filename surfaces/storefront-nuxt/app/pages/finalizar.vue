@@ -1183,7 +1183,7 @@ useSeoMeta({
                           :id="`checkout-slot-${slot.ref}`"
                           :value="slot.ref"
                           :disabled="!slot.enabled"
-                          :aria-label="slot.enabled ? slot.label : `${slot.label} — ${slot.reason}`"
+                          :aria-label="slot.enabled ? slot.label : `${slot.label}: ${slot.reason}`"
                         />
                         <UiFieldContent class="gap-1">
                           <UiFieldTitle>
@@ -1251,7 +1251,7 @@ useSeoMeta({
                     class="bg-background"
                   />
                 </UiInputGroup>
-                <UiFieldDescription>Opcional — informe o valor da nota para o entregador levar o troco certinho.</UiFieldDescription>
+                <UiFieldDescription>Opcional. Informe o valor da nota para o entregador levar o troco certinho.</UiFieldDescription>
               </UiField>
 
               <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card has-data-[state=checked]:bg-card">

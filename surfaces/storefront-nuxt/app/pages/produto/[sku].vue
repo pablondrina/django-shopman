@@ -119,7 +119,7 @@ useHead({
         <UiAlertTitle>Não foi possível abrir este produto</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>Tivemos um percalço ao carregar — tente de novo em instantes.</span>
+            <span>Tivemos um percalço ao carregar. Tente de novo em instantes.</span>
             <UiButton size="sm" variant="outline" @click="refresh">Tentar de novo</UiButton>
           </div>
         </UiAlertDescription>

@@ -318,7 +318,7 @@ useSeoMeta({
                     class="size-3.5 shrink-0 animate-spin"
                   />
                   <span>{{ freshness.text }}</span>
-                  <span v-if="freshness.isStale">— reconectando…</span>
+                  <span v-if="freshness.isStale">· reconectando…</span>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">

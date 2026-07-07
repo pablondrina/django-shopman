@@ -460,7 +460,7 @@ useHead({
               </UiEmptyMedia>
               <UiEmptyHeader>
                 <UiEmptyTitle>Cardápio em preparo</UiEmptyTitle>
-                <UiEmptyDescription>Estamos preparando as novidades — volte em breve!</UiEmptyDescription>
+                <UiEmptyDescription>Estamos preparando as novidades. Volte em breve!</UiEmptyDescription>
               </UiEmptyHeader>
             </UiEmpty>
 

@@ -26,7 +26,7 @@ export function orderAccessErrorView (
   if (statusCode === 429) {
     return {
       title: 'Muitas atualizações em pouco tempo',
-      message: 'Espere um instante e tente de novo — está tudo bem.',
+      message: 'Espere um instante e tente de novo. Está tudo bem.',
       icon: 'lucide:clock',
       showLogin: false,
       canRetry: true

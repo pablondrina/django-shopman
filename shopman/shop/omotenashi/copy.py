@@ -532,7 +532,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Pedido pronto",
-                message="Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.",
+                message="Está tudo pronto! Logo sai para entrega. Avisamos você assim que sair.",
             ),
         },
     },
@@ -1012,7 +1012,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Redirecionando em")},
     },
     "PAYMENT_REDIRECTING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="s...")},
+        WILDCARD: {WILDCARD: CopyEntry(message="s…")},
     },
     "PAYMENT_PIX_REGENERATE_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Gerar novo PIX")},
@@ -1484,8 +1484,8 @@ def default_for(key: str, moment: str = WILDCARD, audience: str = WILDCARD) -> C
     return CopyEntry()
 
 
-MOMENT_CHOICES = [(WILDCARD, "— qualquer —")] + [(m, m) for m in ALL_MOMENTS]
-AUDIENCE_CHOICES = [(WILDCARD, "— qualquer —")] + [
+MOMENT_CHOICES = [(WILDCARD, "(qualquer)")] + [(m, m) for m in ALL_MOMENTS]
+AUDIENCE_CHOICES = [(WILDCARD, "(qualquer)")] + [
     (AUDIENCE_ANON, "anônima"),
     (AUDIENCE_NEW, "nova"),
     (AUDIENCE_RETURNING, "recorrente"),
