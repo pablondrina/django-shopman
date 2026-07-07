@@ -22,8 +22,6 @@ export function useWhatsappVerify () {
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
 
-  const apiPath = useShopmanApiPath()
-
   const token = ref('')
   const deepLink = ref('')
   const waNumber = ref('')

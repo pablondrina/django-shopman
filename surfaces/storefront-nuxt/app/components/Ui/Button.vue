@@ -108,7 +108,19 @@
     },
   });
   export type ButtonVariants = VariantProps<typeof buttonStyles>;
-  export type ButtonProps = NuxtLinkProps & {
+  // `NuxtLinkProps` extends `Omit<RouterLinkProps, "to">`, which @vue/compiler-sfc
+  // cannot resolve through vue-router 5's re-exported .d.ts — it aborts the build.
+  // `/* @vue-ignore */` treats the base props as runtime fallthrough attrs (they
+  // still bind to the root NuxtLink via $attrs); the props this component's own
+  // logic reads (`to`/`href`/`target`) are re-declared explicitly below so they
+  // remain real props.
+  export interface ButtonProps extends /* @vue-ignore */ NuxtLinkProps {
+    /** Route location the button links to (renders as NuxtLink). */
+    to?: NuxtLinkProps["to"];
+    /** External href the button links to (renders as NuxtLink). */
+    href?: NuxtLinkProps["href"];
+    /** Anchor target, e.g. `_blank` (renders as NuxtLink). */
+    target?: NuxtLinkProps["target"];
     /** The type for the button. */
     type?: "button" | "submit" | "reset";
     /** Whether the button is disabled. */
@@ -137,7 +149,7 @@
     loadingIcon?: string;
     /** Applies an inset skeuomorphic shadow for a tactile, raised appearance. */
     skeuomorphic?: boolean;
-  };
+  }
 </script>
 
 <script setup lang="ts">
