@@ -152,6 +152,53 @@ O QR usa a dependência `qrcode` (adicionada ao `package.json`). Rode `npm ci` n
 `surfaces/storefront-nuxt` antes do build. Sem a lib, o desktop degrada limpo para
 botão + link copiável.
 
+## Testar localmente com Cloudflare Tunnel
+
+O único serviço que **precisa ser público** é o Django — para o External Request do
+ManyChat alcançar o `confirm`. O navegador de teste (desktop) e o celular (que envia
+a mensagem) fazem o resto. O `settings.py` já libera `*.trycloudflare.com` em
+`ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` no modo dev — o túnel funciona sem ajustar host.
+
+1. **`.env` (dev)** — mínimo para o fluxo:
+   ```env
+   SHOPMAN_WHATSAPP_VERIFY_NUMBER=554333231997   # o WhatsApp ligado ao ManyChat
+   DOORMAN_ACCESS_LINK_API_KEY=<segredo forte>   # em DEBUG o confirm aceita sem, mas configure p/ testar de verdade
+   # (opcional) fallback SMS:
+   COMTELE_API_KEY=...
+   COMTELE_ROUTE=...
+   ```
+
+2. **Django + túnel** (alvo já existente):
+   ```bash
+   make run
+   ```
+   Ele sobe o servidor em `0.0.0.0:8000`, o directive worker e um **quick tunnel**
+   Cloudflare; a URL pública aparece no console e em `.tunnel.log`
+   (ex.: `https://algo-aleatorio.trycloudflare.com`).
+
+3. **Storefront (Nuxt)** em outro terminal:
+   ```bash
+   cd surfaces/storefront-nuxt
+   NUXT_DJANGO_BASE_URL=http://localhost:8000 npm run dev
+   ```
+   Abra `http://localhost:3000/entrar` no **desktop**.
+
+4. **ManyChat** — no External Request do Flow, aponte para a URL do túnel:
+   ```
+   POST https://<tunnel>.trycloudflare.com/api/v1/auth/whatsapp/confirm/
+   Authorization: Bearer <DOORMAN_ACCESS_LINK_API_KEY>
+   Body: { "token": "{{last_input_text}}", "phone": "{{phone}}", "name": "{{first_name}} {{last_name}}" }
+   ```
+
+5. **Fluxo de teste**: no desktop, "Entrar pelo WhatsApp" → escaneie o QR com o
+   celular → o WhatsApp abre com o token → envie → o Flow do ManyChat chama o
+   `confirm` → o desktop recebe o **push SSE** e confirma na hora.
+
+> Quick tunnels trocam de URL a cada `make run` (é preciso reapontar o ManyChat). Para
+> uma URL fixa, use um **named tunnel** do Cloudflare — requer um (sub)domínio com DNS
+> na Cloudflare (o domínio de vocês está na DigitalOcean, então seria mover um
+> subdomínio de teste, ex.: `dev.` para a Cloudflare).
+
 ## Testes
 
 Backend — `shopman/storefront/tests/test_whatsapp_verify.py` cobre start, confirm
