@@ -107,6 +107,10 @@ function buttonClass(priority: string): string {
       <p class="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
         <Icon :name="`lucide:${lucideIcon(card.fulfillment_icon)}`" class="size-3.5 shrink-0" />
         {{ card.fulfillment_label }}
+        <!-- corrida externa (Machine): estado do entregador direto no card -->
+        <span v-if="card.courier_status_label" class="inline-flex items-center gap-1 truncate">
+          · <Icon name="lucide:bike" class="size-3.5 shrink-0" /> {{ card.courier_status_label }}
+        </span>
       </p>
     </div>
 
