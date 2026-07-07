@@ -460,6 +460,18 @@ SHOPMAN_WHATSAPP = {
     "templates": {},
 }
 
+# ── WhatsApp reverse-OTP (verificação de número via ManyChat) ───────
+# Modelo invertido: o cliente envia um token para o WhatsApp da loja (deep link
+# wa.me) e o ManyChat confirma server-to-server. Não usa template Authentication
+# (que o ManyChat não emite). Token efêmero vive só no cache (Valkey) com TTL.
+# ``number``: WhatsApp da loja em E.164 só-dígitos (ex.: 554333231997). Vazio =
+# cai para Shop.phone. Ver docs/guides/whatsapp-reverse-otp.md.
+SHOPMAN_WA_VERIFY = {
+    "number": os.environ.get("SHOPMAN_WHATSAPP_VERIFY_NUMBER", "").strip(),
+    "ttl_seconds": int(os.environ.get("SHOPMAN_WA_VERIFY_TTL_SECONDS", "600") or "600"),
+    "token_prefix": os.environ.get("SHOPMAN_WA_VERIFY_TOKEN_PREFIX", "V-"),
+}
+
 # ── iFood (Marketplace F16) ────────────────────────────────────────
 # Same rule as EFI: webhook_token is mandatory in every environment (including
 # local dev). No skip flag. See shopman/shop/webhooks/efi.py for the pattern.

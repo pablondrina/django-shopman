@@ -32,6 +32,11 @@ from .auth import (
     VerifyCodeView,
 )
 from .availability import AvailabilityView, StockAlertSubscribeView
+from .whatsapp_verify import (
+    WhatsAppVerifyConfirmView,
+    WhatsAppVerifyStartView,
+    WhatsAppVerifyStatusView,
+)
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .conversation import OrderConversationView
 from .geocode import ReverseGeocodeView
@@ -73,6 +78,9 @@ urlpatterns = [
     path("auth/request-code/", RequestCodeView.as_view(), name="api-auth-request-code"),
     path("auth/verify-code/", VerifyCodeView.as_view(), name="api-auth-verify-code"),
     path("auth/trust-device/", TrustDeviceView.as_view(), name="api-auth-trust-device"),
+    path("auth/whatsapp/start/", WhatsAppVerifyStartView.as_view(), name="api-auth-whatsapp-start"),
+    path("auth/whatsapp/confirm/", WhatsAppVerifyConfirmView.as_view(), name="api-auth-whatsapp-confirm"),
+    path("auth/whatsapp/status/", WhatsAppVerifyStatusView.as_view(), name="api-auth-whatsapp-status"),
     path("auth/logout/", LogoutView.as_view(), name="api-auth-logout"),
     # Cart
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),
