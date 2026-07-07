@@ -114,13 +114,16 @@ class WhatsAppVerifyConfirmView(APIView):
         ).strip()
         if not token or not phone:
             return Response(
-                {"detail": "token e phone são obrigatórios."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"ok": False, "reason": "missing_token_or_phone", "return_url": wa.return_url()},
+                status=status.HTTP_200_OK,
             )
 
         result = wa.confirm_verification(token=token, whatsapp_phone=phone, name=name)
-        code = status.HTTP_200_OK if result.get("ok") else status.HTTP_404_NOT_FOUND
-        return Response(result, status=code)
+        # Desfechos de negócio sempre 200 (o flag ``ok`` carrega o resultado, e
+        # ``return_url`` acompanha os dois casos): plataformas S2S como o ManyChat
+        # só leem o corpo em 2xx — assim a Condition sobre ``ok`` sempre dispara.
+        # 401 fica reservado a falha de auth (checada no topo).
+        return Response(result, status=status.HTTP_200_OK)
 
 
 @method_decorator(

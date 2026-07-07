@@ -473,7 +473,7 @@ useSeoMeta({
                 />
               </UiInputGroup>
               <UiFieldDescription>
-                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}
+                {{ copyMessage(authCopy?.no_password_note, 'Sem senha: você entra pelo WhatsApp ou por um código no SMS.') }}
               </UiFieldDescription>
             </UiField>
 

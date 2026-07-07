@@ -10,6 +10,7 @@ const emit = defineEmits<{
 }>()
 
 const {
+  token,
   deepLink,
   waNumber,
   expiresIn,
@@ -29,6 +30,7 @@ let clock: ReturnType<typeof setInterval> | null = null
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrReady = ref(false)
 const tokenCopied = ref(false)
+const codeCopied = ref(false)
 
 const countdown = computed(() => whatsappCountdown(startedAtMs.value, expiresIn.value, nowMs.value))
 const phase = computed(() => whatsappPhase(status.value, countdown.value.expired))
@@ -60,6 +62,18 @@ async function copyDeepLink () {
     setTimeout(() => { tokenCopied.value = false }, 2500)
   } catch {
     // Clipboard indisponível: silencioso; o botão de abrir o WhatsApp continua.
+  }
+}
+
+async function copyCode () {
+  if (!import.meta.client || !token.value) return
+  try {
+    await navigator.clipboard.writeText(token.value)
+    codeCopied.value = true
+    useSonner.success('Código copiado. Envie no nosso WhatsApp.')
+    setTimeout(() => { codeCopied.value = false }, 2500)
+  } catch {
+    // Clipboard indisponível: o código continua visível para digitar.
   }
 }
 
@@ -99,10 +113,10 @@ watch(sessionResponse, value => {
           <Icon name="lucide:message-circle" class="size-5" />
         </div>
         <div class="min-w-0">
-          <p class="shop-body font-semibold">{{ isResuming ? 'Confirmando sua entrada' : 'Confirme pelo WhatsApp' }}</p>
+          <p class="shop-body font-semibold">{{ isResuming ? 'Confirmando sua entrada' : 'Entrar pelo WhatsApp' }}</p>
           <p class="mt-0.5 shop-meta">
-            <template v-if="isResuming">Você voltou do WhatsApp — só um instante enquanto confirmamos por aqui.</template>
-            <template v-else>Toque no botão, o WhatsApp abre com uma mensagem pronta. É só enviar — nós confirmamos na hora.</template>
+            <template v-if="isResuming">Só um instante enquanto confirmamos.</template>
+            <template v-else>A mensagem já vai pronta — é só enviar.</template>
           </p>
         </div>
       </div>
@@ -152,9 +166,25 @@ watch(sessionResponse, value => {
           </span>
         </div>
 
-        <p v-if="waNumberDisplay" class="text-center shop-meta">
-          Ou envie a mensagem manualmente para <span class="whitespace-nowrap font-semibold tabular-nums">{{ waNumberDisplay }}</span>.
-        </p>
+        <!-- Envio manual: código copiável + número (deep link falhou ou preferência) -->
+        <div v-if="token" class="flex flex-col items-center gap-2 border-t pt-4" data-login-whatsapp-manual>
+          <p class="text-center shop-meta">
+            Prefere enviar você? Mande este código no nosso WhatsApp
+            <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold tabular-nums">{{ waNumberDisplay }}</span>:
+          </p>
+          <div class="flex items-center gap-2">
+            <code class="rounded-md border bg-card px-3 py-1.5 font-mono text-base font-semibold tracking-widest">{{ token }}</code>
+            <UiButton
+              type="button"
+              variant="outline"
+              size="sm"
+              :icon="codeCopied ? 'lucide:check' : 'lucide:copy'"
+              @click="copyCode"
+            >
+              {{ codeCopied ? 'Copiado' : 'Copiar código' }}
+            </UiButton>
+          </div>
+        </div>
       </template>
 
       <!-- Verificado -->

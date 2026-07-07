@@ -102,18 +102,30 @@ def _wa_number() -> str:
     return ""
 
 
-def _return_url(token: str) -> str:
-    """Link de volta para a loja após confirmar no WhatsApp (mobile: mesma sessão).
+def _return_url(token: str = "") -> str:
+    """Link de volta para a loja, injetado na resposta do ``confirm`` para o
+    ManyChat renderizar um botão.
 
-    Injetado na resposta do ``confirm`` para o ManyChat renderizar um botão/link.
-    Carrega o token para o ``/entrar`` retomar o handshake mesmo se a aba foi
-    reciclada (o ``status`` continua bind por sessão — o token não é segredo).
-    Vazio se a base pública da loja não estiver configurada.
+    - **Com token** (sucesso): ``/entrar?wa=<token>`` — o ``/entrar`` retoma o
+      handshake na mesma sessão mesmo se a aba foi reciclada (o ``status`` segue
+      bind por sessão; o token não é segredo).
+    - **Sem token** (falha: token expirado/inexistente): ``/entrar`` — recomeça o
+      fluxo do zero (gera um código novo).
+
+    Vazio se a base pública da loja (``SHOPMAN_STOREFRONT_BASE_URL``) não estiver
+    configurada.
     """
     base = str(getattr(settings, "SHOPMAN_STOREFRONT_BASE_URL", "") or "").rstrip("/")
     if not base:
         return ""
-    return f"{base}/entrar?wa={urllib.parse.quote(token)}"
+    if token:
+        return f"{base}/entrar?wa={urllib.parse.quote(token)}"
+    return f"{base}/entrar"
+
+
+def return_url(token: str = "") -> str:
+    """Wrapper público (usado pelo view p/ o caso de payload malformado)."""
+    return _return_url(token)
 
 
 def _deep_link(token: str) -> str:
@@ -208,17 +220,17 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     key = _CACHE_KEY.format(normalized_token)
     data = cache.get(key)
     if not data:
-        return {"ok": False, "reason": "not_found"}
+        return {"ok": False, "reason": "not_found", "return_url": _return_url()}
     if data.get("status") == "verified":
         return {"ok": True, "reason": "already_verified", "return_url": _return_url(normalized_token)}
 
     phone = _normalize_phone(whatsapp_phone)
     if not phone:
-        return {"ok": False, "reason": "invalid_phone"}
+        return {"ok": False, "reason": "invalid_phone", "return_url": _return_url()}
 
     if not _confirm_rate_ok(phone):
         logger.warning("wa_verify.confirm rate_limited")
-        return {"ok": False, "reason": "rate_limited"}
+        return {"ok": False, "reason": "rate_limited", "return_url": _return_url()}
 
     intended = data.get("intended_phone") or ""
     data["status"] = "verified"

@@ -92,10 +92,30 @@ def test_confirm_wrong_api_key_rejected(client: Client):
 
 
 @override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_confirm_unknown_token_404(client: Client):
+def test_confirm_unknown_token_returns_ok_false(client: Client):
+    # Desfecho de negócio (token inexistente) → 200 com ok:false, não 4xx: o
+    # ManyChat só lê o corpo em 2xx, então a ramificação por ``ok`` sempre funciona.
     resp = _confirm(client, "V-NOPE99", "+5543999990004")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
     assert resp.json()["ok"] is False
+    assert resp.json()["reason"] == "not_found"
+
+
+@override_settings(
+    SHOPMAN_WA_VERIFY=WA_SETTINGS,
+    DOORMAN=_doorman_with_key(),
+    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
+)
+def test_confirm_carries_return_url_both_outcomes(client: Client):
+    # Sucesso: retoma na mesma sessão (?wa=<token>). Falha: recomeça (/entrar limpo).
+    start = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": "+5543999990005"}).json()
+    ok = _confirm(client, start["token"], "+5543999990005").json()
+    assert ok["ok"] is True
+    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}"
+
+    fail = _confirm(client, "V-NOPE99", "+5543999990006").json()
+    assert fail["ok"] is False
+    assert fail["return_url"] == "https://loja.example/entrar"
 
 
 # ── status + login ──────────────────────────────────────────────────────────
