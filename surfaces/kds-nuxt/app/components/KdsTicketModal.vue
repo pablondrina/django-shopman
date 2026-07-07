@@ -117,6 +117,28 @@ const progress = computed(() =>
         </div>
       </div>
 
+      <!-- notas do pedido: diretiva de preparo do operador (cozinha) + nota do cliente
+           (checkout). Aqui há espaço — mostra completo (sem clamp). -->
+      <div
+        v-if="ticket.kitchen_note || ticket.customer_note"
+        class="flex flex-col gap-2 border-b p-4"
+      >
+        <p
+          v-if="ticket.kitchen_note"
+          class="flex items-start gap-2 rounded-md border border-foreground/20 bg-muted/60 px-3 py-2 text-sm font-medium leading-snug"
+        >
+          <Icon name="lucide:chef-hat" class="mt-0.5 size-4 shrink-0 opacity-70" />
+          <span class="min-w-0 whitespace-pre-wrap">{{ ticket.kitchen_note }}</span>
+        </p>
+        <p
+          v-if="ticket.customer_note"
+          class="flex items-start gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground leading-snug"
+        >
+          <Icon name="lucide:user" class="mt-0.5 size-4 shrink-0" />
+          <span class="min-w-0 whitespace-pre-wrap">{{ ticket.customer_note }}</span>
+        </p>
+      </div>
+
       <!-- items (tap to check; mods prominent; checked = dim, no strikethrough) -->
       <div class="min-h-0 flex-1 overflow-y-auto p-3">
         <div

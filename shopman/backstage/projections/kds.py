@@ -68,6 +68,10 @@ class KDSTicketProjection:
     is_cancelled: bool = False
     cancelled_at_display: str = ""
     completed_at_display: str = ""
+    # Order-level notes shown to the kitchen: the operator's kitchen note (from the
+    # gestor) and the customer's checkout note (order_notes). Empty when absent.
+    kitchen_note: str = ""
+    customer_note: str = ""
 
 
 @dataclass(frozen=True)
@@ -383,6 +387,8 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
         is_cancelled=is_cancelled,
         cancelled_at_display=_format_time(ticket.cancelled_at),
         completed_at_display=_format_time(ticket.completed_at),
+        kitchen_note=str(source_data.get("kitchen_note", "") or ""),
+        customer_note=str(source_data.get("order_notes", "") or ""),
     )
 
 

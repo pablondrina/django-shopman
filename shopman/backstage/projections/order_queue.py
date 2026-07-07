@@ -137,7 +137,7 @@ class OperatorOrderProjection:
     total_display: str
     items: tuple[OrderItemProjection, ...]
     timeline: tuple[TimelineEventProjection, ...]
-    internal_notes: str
+    kitchen_note: str
     payment_method: str
     payment_method_label: str
     payment_status: str
@@ -152,6 +152,7 @@ class OperatorOrderProjection:
     gift_message: str
     gift_hide_values: bool
     cancellation_presets: tuple[str, ...]
+    kitchen_note_tags: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -254,7 +255,7 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         total_display=_money(order.total_q),
         items=items,
         timeline=timeline,
-        internal_notes=order.data.get("internal_notes", ""),
+        kitchen_note=order.data.get("kitchen_note", ""),
         payment_method=method,
         payment_method_label=payment_method_label,
         payment_status=payment_status,
@@ -269,6 +270,7 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         gift_message=str(order.data.get("gift_message", "") or ""),
         gift_hide_values=bool(order.data.get("gift_hide_values")),
         cancellation_presets=_cancellation_presets(),
+        kitchen_note_tags=_kitchen_note_tags(),
     )
 
 
@@ -287,6 +289,23 @@ def _cancellation_presets() -> tuple[str, ...]:
         logger.debug("orders.cancellation_presets_read_failed", exc_info=True)
         return ()
     return tuple(str(p).strip() for p in presets if str(p).strip())
+
+
+def _kitchen_note_tags() -> tuple[str, ...]:
+    """Store-configured kitchen-note tags (Admin/Unfold).
+
+    The operator appends one with a tap in the gestor; the resulting note is shown
+    on the KDS ticket for the kitchen. Read from the Shop singleton; never fails
+    the projection.
+    """
+    try:
+        from shopman.shop.models import Shop
+
+        tags = Shop.load().kitchen_note_tags or []
+    except Exception:
+        logger.debug("orders.kitchen_note_tags_read_failed", exc_info=True)
+        return ()
+    return tuple(str(t).strip() for t in tags if str(t).strip())
 
 
 def build_order_card(order: Order) -> OrderCardProjection:
@@ -427,7 +446,7 @@ def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderC
         can_settle_delivery_cash=_can_settle_delivery_cash(order, payment_data),
         fiscal_status_label=fiscal_status_label,
         fiscal_status=fiscal_status,
-        has_notes=bool(order.data.get("internal_notes")),
+        has_notes=bool(order.data.get("kitchen_note")),
         assigned_operator=str((order.data.get("assignment") or {}).get("operator_name") or ""),
         awaiting_work_orders=_awaiting_work_orders(order),
         confirmation_deadline_iso=deadline[0] if deadline else "",

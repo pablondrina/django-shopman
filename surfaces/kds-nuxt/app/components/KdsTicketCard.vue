@@ -150,6 +150,30 @@ const d = computed(
       </div>
     </div>
 
+    <!-- notas do pedido (glanceable): a diretiva de preparo do operador (cozinha) e a
+         nota do cliente (checkout). A da cozinha tem mais peso — o cozinheiro precisa vê-la;
+         ambas em no máx. 2 linhas (o detalhe abre completo). -->
+    <div
+      v-if="ticket.kitchen_note || ticket.customer_note"
+      class="mt-1 flex flex-col gap-1"
+      :class="d.inset"
+    >
+      <p
+        v-if="ticket.kitchen_note"
+        class="flex items-start gap-1.5 rounded-md border border-foreground/20 bg-muted/60 px-2 py-1 text-sm font-medium leading-snug"
+      >
+        <Icon name="lucide:chef-hat" class="mt-0.5 size-3.5 shrink-0 opacity-70" />
+        <span class="line-clamp-2 min-w-0">{{ ticket.kitchen_note }}</span>
+      </p>
+      <p
+        v-if="ticket.customer_note"
+        class="flex items-start gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground leading-snug"
+      >
+        <Icon name="lucide:user" class="mt-0.5 size-3 shrink-0" />
+        <span class="line-clamp-2 min-w-0">{{ ticket.customer_note }}</span>
+      </p>
+    </div>
+
     <!-- items — massa focal, alinhados ao código (qty em coluna); toque confere e risca.
          A área preenche o espaço; o excedente é clipado e esmaecido (máscara) como dica. -->
     <div class="relative min-h-0 flex-1">

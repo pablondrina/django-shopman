@@ -185,6 +185,34 @@ class OperatorOrderPresetTests(TestCase):
         # Blank entries are dropped; the rest are exposed in order for the gestor.
         self.assertEqual(proj.cancellation_presets, ("Item indisponível", "Problema técnico"))
 
+    def test_detail_projection_exposes_store_kitchen_note_tags(self) -> None:
+        from django.core.cache import cache
+
+        from shopman.backstage.projections.order_queue import build_operator_order
+        from shopman.shop.models import Shop
+
+        Shop.objects.create(
+            name="Loja Teste",
+            kitchen_note_tags=["Bem assado", "  ", "Sem cebola"],
+        )
+        cache.clear()  # Shop.load() memoizes the singleton
+
+        proj = build_operator_order(_order("KTAG-1", "new"))
+
+        # Blank entries dropped; the rest exposed in order for the gestor's tag buttons.
+        self.assertEqual(proj.kitchen_note_tags, ("Bem assado", "Sem cebola"))
+
+    def test_detail_projection_reads_kitchen_note(self) -> None:
+        from shopman.backstage.projections.order_queue import build_operator_order
+
+        order = _order("KNOTE-1", "new")
+        order.data = {**order.data, "kitchen_note": "Sem cebola. Cortar ao meio."}
+        order.save(update_fields=["data", "updated_at"])
+
+        proj = build_operator_order(order)
+
+        self.assertEqual(proj.kitchen_note, "Sem cebola. Cortar ao meio.")
+
 # As ações do operador (advance/reject/confirm) agora são exercidas no contrato
 # headless em test_api_orders_surface.py; a semântica de lifecycle (new não avança,
 # terminal não avança, reject só em new) é coberta nos testes de shop/operator_orders.

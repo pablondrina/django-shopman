@@ -48,6 +48,31 @@ def test_build_kds_board_returns_ticket_projection(kds_setup):
 
 
 @pytest.mark.django_db
+def test_ticket_exposes_order_level_kitchen_and_customer_notes(kds_setup):
+    prep, _, _, _ = kds_setup
+    # The operator's kitchen note (from the gestor) and the customer's checkout note
+    # both ride on the order data and must surface on the kitchen ticket.
+    order = Order.objects.get(ref="KDS-PROJ-1")
+    order.data = {**order.data, "kitchen_note": "Bem assado. Sem cebola.", "order_notes": "Cortar ao meio"}
+    order.save(update_fields=["data", "updated_at"])
+
+    ticket = build_kds_board(prep.ref).tickets[0]
+
+    assert ticket.kitchen_note == "Bem assado. Sem cebola."
+    assert ticket.customer_note == "Cortar ao meio"
+
+
+@pytest.mark.django_db
+def test_ticket_notes_default_empty_when_absent(kds_setup):
+    prep, _, _, _ = kds_setup
+
+    ticket = build_kds_board(prep.ref).tickets[0]
+
+    assert ticket.kitchen_note == ""
+    assert ticket.customer_note == ""
+
+
+@pytest.mark.django_db
 def test_build_kds_board_exposes_recent_cancelled_tickets(kds_setup):
     prep, _, ticket, _ = kds_setup
     ticket.status = "cancelled"

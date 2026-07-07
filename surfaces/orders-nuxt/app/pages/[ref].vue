@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Order detail — the operator's full view of one order: items, timeline, internal
-// notes, fiscal links, and the complete action set. Reads the expanded projection
+// Order detail — the operator's full view of one order: items, timeline, kitchen
+// note, fiscal links, and the complete action set. Reads the expanded projection
 // via useOrderDetail; actions POST through the django proxy and reconcile.
 import {
+  appendTag,
   lucideIcon,
   splitRef,
   statusTone,
@@ -26,10 +27,17 @@ async function submitComment() {
 
 const code = computed(() => splitRef(orderRef.value));
 
-// notes editor (seeded from the projection; saved explicitly).
+// kitchen-note editor (seeded from the projection; saved explicitly). The note —
+// preset tags one-tap-appended + free text — is shown on the KDS ticket.
 const notes = ref("");
-watch(order, (o) => { if (o) notes.value = o.internal_notes || ""; }, { immediate: true });
-const notesDirty = computed(() => order.value != null && notes.value !== (order.value.internal_notes || ""));
+watch(order, (o) => { if (o) notes.value = o.kitchen_note || ""; }, { immediate: true });
+const notesDirty = computed(() => order.value != null && notes.value !== (order.value.kitchen_note || ""));
+// Store-configured kitchen-note tags (Admin/Unfold). One tap appends the tag to the
+// note, preserving the free text; already-present tags aren't duplicated.
+const noteTags = computed(() => order.value?.kitchen_note_tags ?? []);
+function applyNoteTag(tag: string) {
+  notes.value = appendTag(notes.value, tag);
+}
 
 // reject + cancel + settle dialogs. Reject/cancel share OrderReasonDialog, which is
 // marketplace-aware: for an iFood order it shows the provider's required coded reasons
@@ -165,23 +173,36 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
         </table>
       </section>
 
-      <!-- notes -->
+      <!-- kitchen note -->
       <section class="flex flex-col gap-2 rounded-lg border bg-card p-4">
-        <label class="text-sm font-bold uppercase tracking-wide" for="order-notes">Notas internas</label>
+        <label class="text-sm font-bold uppercase tracking-wide" for="order-notes">Nota da cozinha</label>
+        <!-- one-tap tags (configuráveis no Admin) — anexam ao texto, sem duplicar -->
+        <div v-if="noteTags.length" class="flex flex-wrap gap-1.5">
+          <button
+            v-for="(tag, i) in noteTags"
+            :key="i"
+            type="button"
+            class="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            @click="applyNoteTag(tag)"
+          >
+            <Icon name="lucide:plus" class="size-3" />{{ tag }}
+          </button>
+        </div>
         <textarea
           id="order-notes"
           v-model="notes"
           rows="3"
-          placeholder="Anotações do operador (não vão ao cliente)…"
+          placeholder="Instruções de preparo para a cozinha…"
           class="w-full rounded-md border bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
         />
+        <p class="text-xs text-muted-foreground">Aparece no ticket da cozinha (KDS).</p>
         <button
           type="button"
           :disabled="busy || !notesDirty"
           class="self-end rounded-md border border-transparent bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           @click="saveNotes(notes)"
         >
-          Salvar notas
+          Salvar nota
         </button>
       </section>
 

@@ -234,6 +234,13 @@ class Command(BaseCommand):
                     "Problema técnico no preparo",
                     "Fora do horário de atendimento",
                 ],
+                "kitchen_note_tags": [
+                    "Bem assado",
+                    "Pouco assado",
+                    "Sem cebola",
+                    "Embalar para presente",
+                    "Cortar ao meio",
+                ],
                 "opening_hours": {
                     "monday":    {"open": "09:00", "close": "18:00"},
                     "tuesday":   {"open": "09:00", "close": "18:00"},

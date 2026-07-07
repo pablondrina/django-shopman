@@ -48,6 +48,8 @@ function ticket(over: Partial<KDSTicketProjection> = {}): KDSTicketProjection {
     is_cancelled: false,
     cancelled_at_display: "",
     completed_at_display: "",
+    kitchen_note: "",
+    customer_note: "",
     ...over,
   };
 }
@@ -68,6 +70,23 @@ describe("KdsTicketCard — render", () => {
 
   it("renderiza a nota do item (observação da cozinha)", () => {
     expect(mountCard({ ticket: ticket() }).text()).toContain("sem açúcar");
+  });
+
+  it("mostra a nota da cozinha (operador) e a nota do cliente quando presentes", () => {
+    const t = mountCard({
+      ticket: ticket({ kitchen_note: "Bem assado. Sem cebola.", customer_note: "Cortar ao meio" }),
+    }).text();
+    expect(t).toContain("Bem assado. Sem cebola.");
+    expect(t).toContain("Cortar ao meio");
+  });
+
+  it("sem notas de pedido → não renderiza o banner de notas", () => {
+    // Sem kitchen_note/customer_note o bloco de notas do pedido não aparece
+    // (apenas a observação por-item, se houver).
+    const t = mountCard({
+      ticket: ticket({ items: [{ sku: "A", name: "Pão", qty: 1, notes: "", checked: false, stock_warning: "" }] }),
+    }).text();
+    expect(t).not.toContain("Bem assado");
   });
 
   it("mostra o aviso de estoque quando presente", () => {

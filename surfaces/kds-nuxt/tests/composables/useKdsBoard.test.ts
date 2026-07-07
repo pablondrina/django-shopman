@@ -33,6 +33,8 @@ function ticket(over: Partial<KDSTicketProjection> = {}): KDSTicketProjection {
     is_cancelled: false,
     cancelled_at_display: "",
     completed_at_display: "",
+    kitchen_note: "",
+    customer_note: "",
     ...over,
   };
 }
