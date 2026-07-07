@@ -1,6 +1,21 @@
 # COPY-CONSOLIDATION-PLAN — matar o drift registro × template
 
-Status: **em execução** (2026-07-07). Home ✓ feita; demais áreas abaixo.
+Status: **CONCLUÍDO** (2026-07-07) para as áreas mapeadas. Insight que guiou a execução:
+**chave no registro que não chega a nenhuma tela é uma "mentira" para o operador** (ele
+edita no Admin e nada muda) — logo, chrome estrutural com chave órfã confirmada resolve-se
+**removendo a chave** (fonte única = template), e copy entregue-mas-ignorada resolve-se
+**consumindo a projection** no Vue. Resultado:
+
+- **Home "Como Funciona"** ✅ Vue consome `how_online_heading`/`how_store_heading`.
+- **Tracking** ✅ Vue consome `tracking.copy.page_kicker`/`order_ref_label` (com fallback
+  no header, que renderiza antes de `tracking` carregar).
+- **10 chaves órfãs deletadas** (zero refs, não-dinâmicas): `CART_PAGE_TITLE`,
+  `CHECKOUT_PAGE_TITLE`, `CHECKOUT_PAGE_META_DESCRIPTION`, `CHECKOUT_LOYALTY_PROMPT`,
+  `CHECKOUT_COUPON_PROMPT`, `CHECKOUT_NOTES_PROMPT`, `MENU_EMPTY`, `MENU_PAGE_META_DESCRIPTION`,
+  `PDP_CROSS_SELL_HEADING`, `TRACKING_RATE_PROMPT`. Os hardcodes (iguais ou melhores)
+  viram fonte única; o cross-sell adotou o wording bom do registro ("Talvez você também goste").
+- Fora de escopo confirmado: `MENU_SUBTITLE` (viva só como fixture de teste do template tag —
+  investigar depois) e a limpeza das ~180 chaves órfãs de legado do cutover.
 
 ## Problema
 

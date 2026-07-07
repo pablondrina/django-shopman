@@ -129,12 +129,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Checkout microcopy ────────────────────────────────────────
-    "CHECKOUT_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Finalizar pedido")},
-    },
-    "CHECKOUT_PAGE_META_DESCRIPTION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revise e finalize seu pedido")},
-    },
     "CHECKOUT_SWITCH_ACCOUNT_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar conta?")},
     },
@@ -150,17 +144,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CHECKOUT_WHEN_REQUIRED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha data e horário para seguir.")},
     },
-    "CHECKOUT_LOYALTY_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Usar pontos de fidelidade?")},
-    },
     "CHECKOUT_LOYALTY_BALANCE_SUFFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="disponíveis.")},
-    },
-    "CHECKOUT_NOTES_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Algo mais que devemos saber?")},
-    },
-    "CHECKOUT_COUPON_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tem cupom de desconto?")},
     },
     "CHECKOUT_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Enviar pedido")},
@@ -178,9 +163,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Cart microcopy ────────────────────────────────────────────
-    "CART_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sua sacola")},
-    },
     # Discount-line labels for the rule-driven pricing modifiers. Generic by
     # function; a deployment overrides with its brand wording (e.g. "D-1",
     # "Hora da Xepa") via an OmotenashiCopy row.
@@ -207,9 +189,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Menu empty state ──────────────────────────────────────────
-    "MENU_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum produto disponível no momento.")},
-    },
 
     # ── Home sections ─────────────────────────────────────────────
     "HOME_HERO_ORDER_TITLE_PREFIX": {
@@ -258,14 +237,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "HOME_HOW_IT_WORKS_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Como Funciona")},
-    },
-    "PDP_CROSS_SELL_HEADING": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Talvez você também goste",
-                message="Descubra outras delícias da casa",
-            ),
-        },
     },
     "HOME_HOW_ONLINE_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Peça online")},
@@ -1231,9 +1202,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Kintsugi ──────────────────────────────────────────────────
     # ── Rating ────────────────────────────────────────────────────
-    "TRACKING_RATE_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como foi?", message="Sua opinião nos ajuda a melhorar.")},
-    },
     "TRACKING_RATE_THANKS": {
         WILDCARD: {WILDCARD: CopyEntry(title="Obrigado!", message="Valorizamos muito seu retorno.")},
     },
@@ -1280,9 +1248,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "FOOTER_COPYRIGHT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Todos os direitos reservados.")},
-    },
-    "MENU_PAGE_META_DESCRIPTION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Cardápio com disponibilidade em tempo real")},
     },
     "OFFLINE_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Sem conexão")},

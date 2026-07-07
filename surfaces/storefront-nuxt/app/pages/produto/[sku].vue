@@ -256,7 +256,7 @@ useHead({
         </article>
 
         <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
-          <h2 class="shop-heading">Você também pode gostar</h2>
+          <h2 class="shop-heading">Talvez você também goste</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem
               v-for="item in crossSell"

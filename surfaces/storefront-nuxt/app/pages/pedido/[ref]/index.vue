@@ -260,9 +260,9 @@ useSeoMeta({
     <div class="shop-container grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section class="shop-stack-block">
         <div>
-          <p class="shop-kicker">Acompanhamento</p>
+          <p class="shop-kicker">{{ tracking?.copy.page_kicker || 'Acompanhamento' }}</p>
           <h1 class="mt-1 shop-title">
-            Pedido<br>
+            {{ tracking?.copy.order_ref_label || 'Pedido' }}<br>
             <span class="text-xl font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
           </h1>
         </div>
