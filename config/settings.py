@@ -492,6 +492,30 @@ SHOPMAN_IFOOD = {
     ).strip(),
 }
 
+# ── Machine (courier — despacho de entregadores) ───────────────────
+# API da central de entregas (TaOn roda sobre a Machine/Gaudium). O adapter só
+# liga quando SHOPMAN_COURIER_ADAPTER aponta para courier_machine E o canal
+# delivery tem fulfillment.courier="auto". Sem credenciais o deploy-check
+# SHOPMAN_E011 bloqueia produção. Ver docs/plans/DELIVERY-EXTERNAL-LOGISTICS-PLAN.md.
+SHOPMAN_MACHINE = {
+    "base_url": os.environ.get("MACHINE_API_BASE", "https://api.taximachine.com.br/api/integracao"),
+    "details_base": os.environ.get("MACHINE_DETAILS_BASE", "https://api.taximachine.com.br/integracao/v1"),
+    "username": os.environ.get("MACHINE_API_USER", "").strip(),
+    "password": os.environ.get("MACHINE_API_PASSWORD", "").strip(),
+    "api_key": os.environ.get("MACHINE_API_KEY", "").strip(),
+    # Token do NOSSO endpoint (/api/webhooks/machine/?token=...), cadastrado na
+    # Machine via `manage.py machine_register_webhook`. Sem ele o endpoint
+    # rejeita tudo (fail-closed) e o status vem só por polling.
+    "webhook_token": os.environ.get("MACHINE_WEBHOOK_TOKEN", "").strip(),
+    # Forma de pagamento da corrida junto à central: F=faturado, R=carteira de
+    # créditos, D=dinheiro. Confirmar com a central junto com as credenciais.
+    "forma_pagamento": os.environ.get("MACHINE_FORMA_PAGAMENTO", "F"),
+    "retorno": _env_bool("MACHINE_RETORNO", False),
+    "timeout": int(os.environ.get("MACHINE_TIMEOUT", "15")),
+    "cancel_reason_id": int(os.environ.get("MACHINE_CANCEL_REASON_ID", "1")),
+}
+SHOPMAN_COURIER_ADAPTER = os.environ.get("SHOPMAN_COURIER_ADAPTER", "").strip() or None
+
 # Catalog projection backends — project catalog changes (create/update/price/
 # availability) to external channels. This is the *canonical* registry, owned by
 # Offerman (OFFERMAN["PROJECTION_BACKENDS"], resolved by get_projection_backend()).
@@ -537,6 +561,7 @@ SHOPMAN_ALLOW_EXTERNAL_IN_DEBUG = _env_bool("SHOPMAN_ALLOW_EXTERNAL_IN_DEBUG", F
 SHOPMAN_SMS_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_SMS_ALLOW_IN_DEBUG", False)
 SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG", False)
 SHOPMAN_WHATSAPP_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_WHATSAPP_ALLOW_IN_DEBUG", False)
+SHOPMAN_MACHINE_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_MACHINE_ALLOW_IN_DEBUG", False)
 
 # ── OTP Delivery Chain ───────────────────────────────────────────────
 # SMS primário (Twilio), email como fallback. WhatsApp fica mapeado mas FORA da cadeia
