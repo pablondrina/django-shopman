@@ -99,6 +99,16 @@ export function whatsappCountdown (
   return { expired: false, remainingSeconds: Math.ceil(remainingMs / 1_000) }
 }
 
+// Contagem em linguagem humana: "5min 49s" (ou "49s" abaixo de um minuto). Nada de
+// "589s" — ninguém conta tempo assim.
+export function whatsappCountdownDisplay (remainingSeconds: number): string {
+  const total = Math.max(0, Math.floor(remainingSeconds))
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  if (minutes === 0) return `${seconds}s`
+  return `${minutes}min ${seconds.toString().padStart(2, '0')}s`
+}
+
 export function whatsappPhase (status: WhatsappVerifyStatus, expired: boolean): WhatsappPhase {
   if (status === 'verified') return 'verified'
   if (status === 'error') return 'error'

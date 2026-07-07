@@ -80,7 +80,7 @@ const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_d
 const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
 const stepTitle = computed(() => {
   if (step.value === 'phone') {
-    if (mode.value === 'whatsapp') return 'Quase lá'
+    if (mode.value === 'whatsapp') return 'Entrar pelo WhatsApp'
     return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
   }
   if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
@@ -88,8 +88,8 @@ const stepTitle = computed(() => {
 })
 const stepDescription = computed(() => {
   if (step.value === 'phone') {
-    if (mode.value === 'whatsapp') return ''
-    return copyMessage(authCopy.value?.phone_subtitle, 'Sem senha — você entra em segundos.')
+    if (mode.value === 'whatsapp') return 'Mensagem pronta — é só enviar o código.'
+    return copyMessage(authCopy.value?.phone_subtitle, 'Sem senha, rápido e seguro.')
   }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')

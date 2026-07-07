@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { whatsappCountdown, whatsappPhase } from '~/presentation/auth'
+import { whatsappCountdown, whatsappCountdownDisplay, whatsappPhase } from '~/presentation/auth'
+import { phoneDisplay } from '~/utils/authPhone'
 import type { WhatsappStatusResponse } from '~/composables/useWhatsappVerify'
 
 const props = withDefaults(defineProps<{ phone?: string, resumeToken?: string, next?: string }>(), { phone: '', resumeToken: '', next: '' })
@@ -33,13 +34,12 @@ const tokenCopied = ref(false)
 const codeCopied = ref(false)
 
 const countdown = computed(() => whatsappCountdown(startedAtMs.value, expiresIn.value, nowMs.value))
+const countdownLabel = computed(() => whatsappCountdownDisplay(countdown.value.remainingSeconds))
 const phase = computed(() => whatsappPhase(status.value, countdown.value.expired))
-const waNumberDisplay = computed(() => {
-  const digits = waNumber.value
-  if (!digits) return ''
-  // Ex.: 554333231997 → +55 43 3323-1997 (exibição amigável, best-effort).
-  return `+${digits}`
-})
+// 554333231997 → "(43) 3323-1997" (formato amigável BR, reusa o formatter de auth).
+const waNumberDisplay = computed(() => waNumber.value ? phoneDisplay(`+${waNumber.value}`) : '')
+// Chat "cru" (sem mensagem pronta) para o envio manual: a pessoa cola o código.
+const chatLink = computed(() => waNumber.value ? `https://wa.me/${waNumber.value}` : '')
 
 async function renderQr () {
   if (!import.meta.client || !deepLink.value || !qrCanvas.value) return
@@ -108,19 +108,6 @@ watch(sessionResponse, value => {
 <template>
   <section class="shop-stack-block" data-login-whatsapp aria-live="polite">
     <div class="rounded-lg border bg-bottomnav p-4 shop-stack-block">
-      <div class="flex items-start gap-3">
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#25D366]/15 text-[#128C7E]">
-          <Icon name="lucide:message-circle" class="size-5" />
-        </div>
-        <div class="min-w-0">
-          <p class="shop-body font-semibold">{{ isResuming ? 'Confirmando sua entrada' : 'Entrar pelo WhatsApp' }}</p>
-          <p class="mt-0.5 shop-meta">
-            <template v-if="isResuming">Só um instante enquanto confirmamos.</template>
-            <template v-else>A mensagem já vai pronta — é só enviar.</template>
-          </p>
-        </div>
-      </div>
-
       <!-- Retomando pelo link do WhatsApp: confirmando a sessão -->
       <div v-if="isResuming" class="flex items-center justify-center gap-2 py-2 text-muted-foreground" data-login-whatsapp-resuming>
         <Icon name="lucide:loader-circle" class="size-4 animate-spin" />
@@ -134,11 +121,11 @@ watch(sessionResponse, value => {
           target="_blank"
           rel="noopener"
           size="lg"
-          icon="lucide:message-circle"
+          icon="lucide:send"
           class="w-full justify-center"
           :disabled="!deepLink"
         >
-          Abrir WhatsApp e enviar
+          Enviar código
         </UiButton>
 
         <div class="hidden flex-col items-center gap-2 border-t pt-4 md:flex" data-login-whatsapp-qr>
@@ -162,28 +149,40 @@ watch(sessionResponse, value => {
           <Icon name="lucide:loader-circle" class="size-4 animate-spin" />
           <span class="shop-meta">
             Aguardando sua confirmação…
-            <template v-if="!countdown.expired">expira em {{ countdown.remainingSeconds }}s</template>
+            <template v-if="!countdown.expired">expira em {{ countdownLabel }}</template>
           </span>
         </div>
 
-        <!-- Envio manual: código copiável + número (deep link falhou ou preferência) -->
-        <div v-if="token" class="flex flex-col items-center gap-2 border-t pt-4" data-login-whatsapp-manual>
-          <p class="text-center shop-meta">
-            Prefere enviar você? Mande este código no nosso WhatsApp
-            <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold tabular-nums">{{ waNumberDisplay }}</span>:
+        <!-- Envio manual (card dentro do card): descrição enxuta + código valorizado
+             + copiar + abrir chat cru para colar. Fallback se o deep link não abrir. -->
+        <div v-if="token" class="rounded-lg border bg-card p-4 shop-stack-block" data-login-whatsapp-manual>
+          <p class="shop-meta">
+            Se preferir, é só enviar o código abaixo para o nosso WhatsApp
+            <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
           </p>
-          <div class="flex items-center gap-2">
-            <code class="rounded-md border bg-card px-3 py-1.5 font-mono text-base font-semibold tracking-widest">{{ token }}</code>
-            <UiButton
-              type="button"
-              variant="outline"
-              size="sm"
-              :icon="codeCopied ? 'lucide:check' : 'lucide:copy'"
-              @click="copyCode"
-            >
-              {{ codeCopied ? 'Copiado' : 'Copiar código' }}
-            </UiButton>
+          <div class="rounded-md border bg-background py-3 text-center font-mono text-3xl font-semibold tracking-widest text-foreground">
+            {{ token }}
           </div>
+          <UiButton
+            type="button"
+            variant="outline"
+            class="w-full justify-center"
+            :icon="codeCopied ? 'lucide:check' : 'lucide:copy'"
+            @click="copyCode"
+          >
+            {{ codeCopied ? 'Código copiado' : 'Copiar código' }}
+          </UiButton>
+          <UiButton
+            :href="chatLink || undefined"
+            target="_blank"
+            rel="noopener"
+            variant="outline"
+            icon="lucide:message-circle"
+            class="w-full justify-center"
+            :disabled="!chatLink"
+          >
+            Abrir WhatsApp
+          </UiButton>
         </div>
       </template>
 

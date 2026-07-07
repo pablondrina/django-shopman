@@ -9,6 +9,7 @@ import {
   resendCooldown,
   welcomeNameValue,
   whatsappCountdown,
+  whatsappCountdownDisplay,
   whatsappPhase
 } from '../app/presentation/auth'
 
@@ -106,6 +107,19 @@ describe('whatsappCountdown', () => {
   it('expires exactly at the end of the window', () => {
     const started = 10_000
     expect(whatsappCountdown(started, 600, started + 600_000)).toEqual({ expired: true, remainingSeconds: 0 })
+  })
+})
+
+describe('whatsappCountdownDisplay', () => {
+  it('shows minutes and zero-padded seconds above a minute', () => {
+    expect(whatsappCountdownDisplay(349)).toBe('5min 49s')
+    expect(whatsappCountdownDisplay(600)).toBe('10min 00s')
+    expect(whatsappCountdownDisplay(65)).toBe('1min 05s')
+  })
+
+  it('shows only seconds below a minute', () => {
+    expect(whatsappCountdownDisplay(49)).toBe('49s')
+    expect(whatsappCountdownDisplay(0)).toBe('0s')
   })
 })
 
