@@ -89,7 +89,7 @@ const stepTitle = computed(() => {
 const stepDescription = computed(() => {
   if (step.value === 'phone') {
     if (mode.value === 'whatsapp') return ''
-    return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')
+    return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp — é rápido e sem senha.')
   }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
@@ -435,6 +435,7 @@ useSeoMeta({
           v-if="step === 'phone' && mode === 'whatsapp'"
           :phone="whatsappPhone"
           :resume-token="waResumeToken"
+          :next="nextUrl"
           @verified="onWhatsappVerified"
           @sms="onWhatsappSms"
           @back="onWhatsappBack"
@@ -473,7 +474,7 @@ useSeoMeta({
                 />
               </UiInputGroup>
               <UiFieldDescription>
-                {{ copyMessage(authCopy?.no_password_note, 'Sem senha: você entra pelo WhatsApp ou por um código no SMS.') }}
+                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Você entra em segundos pelo WhatsApp.') }}
               </UiFieldDescription>
             </UiField>
 

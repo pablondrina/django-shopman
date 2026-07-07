@@ -118,6 +118,38 @@ def test_confirm_carries_return_url_both_outcomes(client: Client):
     assert fail["return_url"] == "https://loja.example/entrar"
 
 
+@override_settings(
+    SHOPMAN_WA_VERIFY=WA_SETTINGS,
+    DOORMAN=_doorman_with_key(),
+    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
+)
+def test_confirm_return_url_carries_next_destination(client: Client):
+    # Cliente iniciou rumo ao checkout → volta já autenticado no destino.
+    start = _post_json(
+        client,
+        "/api/v1/auth/whatsapp/start/",
+        {"phone": "+5543999990007", "next": "/checkout"},
+    ).json()
+    ok = _confirm(client, start["token"], "+5543999990007").json()
+    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}&next=%2Fcheckout"
+
+
+@override_settings(
+    SHOPMAN_WA_VERIFY=WA_SETTINGS,
+    DOORMAN=_doorman_with_key(),
+    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
+)
+def test_confirm_return_url_ignores_open_redirect_next(client: Client):
+    # next externo/protocol-relative é descartado (guard de open-redirect).
+    start = _post_json(
+        client,
+        "/api/v1/auth/whatsapp/start/",
+        {"phone": "+5543999990008", "next": "https://evil.example/phish"},
+    ).json()
+    ok = _confirm(client, start["token"], "+5543999990008").json()
+    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}"
+
+
 # ── status + login ──────────────────────────────────────────────────────────
 
 

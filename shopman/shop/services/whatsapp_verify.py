@@ -102,13 +102,23 @@ def _wa_number() -> str:
     return ""
 
 
-def _return_url(token: str = "") -> str:
+def _safe_next(raw: str) -> str:
+    """Destino pós-login. Só caminhos internos (guard de open-redirect): começa com
+    '/' e não '//' (protocol-relative). Caso contrário, vazio."""
+    value = (raw or "").strip()
+    if value.startswith("/") and not value.startswith("//"):
+        return value
+    return ""
+
+
+def _return_url(token: str = "", next_path: str = "") -> str:
     """Link de volta para a loja, injetado na resposta do ``confirm`` para o
     ManyChat renderizar um botão.
 
     - **Com token** (sucesso): ``/entrar?wa=<token>`` — o ``/entrar`` retoma o
       handshake na mesma sessão mesmo se a aba foi reciclada (o ``status`` segue
-      bind por sessão; o token não é segredo).
+      bind por sessão; o token não é segredo). Se o cliente iniciou com um destino
+      (ex.: checkout), acrescenta ``&next=<destino>`` para cair lá já autenticado.
     - **Sem token** (falha: token expirado/inexistente): ``/entrar`` — recomeça o
       fluxo do zero (gera um código novo).
 
@@ -118,14 +128,21 @@ def _return_url(token: str = "") -> str:
     base = str(getattr(settings, "SHOPMAN_STOREFRONT_BASE_URL", "") or "").rstrip("/")
     if not base:
         return ""
+    params = []
     if token:
-        return f"{base}/entrar?wa={urllib.parse.quote(token)}"
-    return f"{base}/entrar"
+        params.append(f"wa={urllib.parse.quote(token)}")
+    safe_next = _safe_next(next_path)
+    if safe_next:
+        # Encoda o destino inteiro (safe='') para ser um valor opaco — a '/' e um
+        # eventual query interno (?x=1) não colidem com a estrutura da URL externa.
+        params.append(f"next={urllib.parse.quote(safe_next, safe='')}")
+    query = f"?{'&'.join(params)}" if params else ""
+    return f"{base}/entrar{query}"
 
 
-def return_url(token: str = "") -> str:
+def return_url(token: str = "", next_path: str = "") -> str:
     """Wrapper público (usado pelo view p/ o caso de payload malformado)."""
-    return _return_url(token)
+    return _return_url(token, next_path)
 
 
 def _deep_link(token: str) -> str:
@@ -185,8 +202,12 @@ def _normalize_phone(raw: str) -> str:
 # ===========================================================================
 
 
-def start_verification(*, phone: str = "", session_key: str | None = None) -> dict:
-    """Inicia uma verificação. Retorna o token e o deep link do WhatsApp."""
+def start_verification(*, phone: str = "", session_key: str | None = None, next_path: str = "") -> dict:
+    """Inicia uma verificação. Retorna o token e o deep link do WhatsApp.
+
+    ``next_path`` é o destino interno pós-login (ex.: ``/checkout``); volta no
+    ``return_url`` do ``confirm`` para o cliente cair lá já autenticado.
+    """
     intended = _normalize_phone(phone) if phone else ""
     token = _new_token()
     data = {
@@ -197,6 +218,7 @@ def start_verification(*, phone: str = "", session_key: str | None = None) -> di
         "wa_name": "",
         "consumed": False,
         "authenticated_uuid": "",
+        "next": _safe_next(next_path),
         "created_at": timezone.now().isoformat(),
     }
     cache.set(_CACHE_KEY.format(token), data, timeout=_ttl_seconds())
@@ -222,7 +244,11 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     if not data:
         return {"ok": False, "reason": "not_found", "return_url": _return_url()}
     if data.get("status") == "verified":
-        return {"ok": True, "reason": "already_verified", "return_url": _return_url(normalized_token)}
+        return {
+            "ok": True,
+            "reason": "already_verified",
+            "return_url": _return_url(normalized_token, data.get("next", "")),
+        }
 
     phone = _normalize_phone(whatsapp_phone)
     if not phone:
@@ -240,7 +266,12 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     _emit_verified(normalized_token)  # push SSE instantâneo (poll fica de fallback)
     matched = (not intended) or intended == phone
     logger.info("wa_verify.confirm verified matched=%s has_name=%s", matched, bool(data["wa_name"]))
-    return {"ok": True, "reason": "verified", "matched": matched, "return_url": _return_url(normalized_token)}
+    return {
+        "ok": True,
+        "reason": "verified",
+        "matched": matched,
+        "return_url": _return_url(normalized_token, data.get("next", "")),
+    }
 
 
 def verification_status(*, token: str, request) -> dict:

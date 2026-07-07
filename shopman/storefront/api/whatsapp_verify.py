@@ -78,6 +78,7 @@ class WhatsAppVerifyStartView(APIView):
         payload = request.data if hasattr(request, "data") else {}
         raw_phone = str((payload or {}).get("phone") or "").strip()
         phone = normalize_phone_input(raw_phone) or "" if raw_phone else ""
+        next_path = str((payload or {}).get("next") or "").strip()
 
         session_key = None
         if hasattr(request, "session"):
@@ -85,7 +86,7 @@ class WhatsAppVerifyStartView(APIView):
                 request.session.save()
             session_key = request.session.session_key
 
-        result = wa.start_verification(phone=phone, session_key=session_key)
+        result = wa.start_verification(phone=phone, session_key=session_key, next_path=next_path)
         return Response(result)
 
 

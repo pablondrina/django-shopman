@@ -2,7 +2,7 @@
 import { whatsappCountdown, whatsappPhase } from '~/presentation/auth'
 import type { WhatsappStatusResponse } from '~/composables/useWhatsappVerify'
 
-const props = withDefaults(defineProps<{ phone?: string, resumeToken?: string }>(), { phone: '', resumeToken: '' })
+const props = withDefaults(defineProps<{ phone?: string, resumeToken?: string, next?: string }>(), { phone: '', resumeToken: '', next: '' })
 const emit = defineEmits<{
   verified: [session: WhatsappStatusResponse]
   sms: []
@@ -79,7 +79,7 @@ async function copyCode () {
 
 async function regenerate () {
   qrReady.value = false
-  await start(props.phone)
+  await start(props.phone, props.next)
   await nextTick()
   renderQr()
 }
@@ -90,7 +90,7 @@ onMounted(async () => {
     resume(props.resumeToken)
     return
   }
-  await start(props.phone)
+  await start(props.phone, props.next)
   await nextTick()
   renderQr()
 })

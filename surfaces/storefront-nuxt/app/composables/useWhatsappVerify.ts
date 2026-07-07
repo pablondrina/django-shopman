@@ -88,7 +88,7 @@ export function useWhatsappVerify () {
     }
   }
 
-  async function start (phone = '') {
+  async function start (phone = '', next = '') {
     stop()
     status.value = 'pending'
     sessionResponse.value = null
@@ -98,7 +98,7 @@ export function useWhatsappVerify () {
         method: 'POST',
         headers: await csrfHeaders(),
         credentials: 'include',
-        body: { phone }
+        body: { phone, next }
       })
       token.value = res.token
       deepLink.value = res.deep_link
