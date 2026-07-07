@@ -32,13 +32,8 @@ from .auth import (
     VerifyCodeView,
 )
 from .availability import AvailabilityView, StockAlertSubscribeView
-from .whatsapp_verify import (
-    WhatsAppVerifyConfirmView,
-    WhatsAppVerifyStartView,
-    WhatsAppVerifyStatusView,
-    whatsapp_events_view,
-)
 from .catalog import CollectionListView, ProductDetailView, ProductListView
+from .confirmation import OrderConfirmationView
 from .conversation import OrderConversationView
 from .geocode import ReverseGeocodeView
 from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderPaymentView
@@ -61,6 +56,12 @@ from .tracking import (
     OrderRateView,
     OrderTrackingView,
     order_events_view,
+)
+from .whatsapp_verify import (
+    WhatsAppVerifyConfirmView,
+    WhatsAppVerifyStartView,
+    WhatsAppVerifyStatusView,
+    whatsapp_events_view,
 )
 
 urlpatterns = [
@@ -107,6 +108,7 @@ urlpatterns = [
     # (surfaces/storefront-nuxt/server/routes/sse), que faz streaming same-origin
     # deste endpoint — sem depender de CORS.
     path("tracking/<str:ref>/events/", order_events_view, name="api-tracking-events"),
+    path("orders/<str:ref>/confirmation/", OrderConfirmationView.as_view(), name="api-order-confirmation"),
     path("orders/<str:ref>/cancel/", OrderCancelView.as_view(), name="api-order-cancel"),
     path("orders/<str:ref>/confirm-received/", OrderConfirmReceiptView.as_view(), name="api-order-confirm-received"),
     path("orders/<str:ref>/rate/", OrderRateView.as_view(), name="api-order-rate"),

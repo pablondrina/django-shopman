@@ -798,7 +798,10 @@ async function submitCheckout () {
     clearCart()
     clearCheckoutDraft()
     attemptKey.value = createCheckoutAttemptKey()
-    const trackingUrl = localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref))
+    // Momento de confirmação/celebração (Balde C resgatado): o pedido passa pela tela
+    // "pedido recebido", que decide o próximo passo (pagar agora se PIX pendente,
+    // ou acompanhar). Ver COPY-BACKLOG-UNBUILT.
+    const confirmadoUrl = `/pedido/${encodeURIComponent(response.order_ref)}/confirmado`
     // O Core já salvou o endereço de entrega ao confirmar (só em pedido que
     // de fato fechou — fora-de-zona/abandonado nunca poluem o perfil). Se foi
     // um endereço novo, oferecemos a etiqueta nele antes de seguir.
@@ -809,12 +812,12 @@ async function submitCheckout () {
     } else if (newAddressId) {
       // Sem etiqueta escolhida antes: oferece agora (fallback pós-pedido).
       savedAddressIdForLabel.value = newAddressId
-      pendingTrackingUrl.value = trackingUrl
+      pendingTrackingUrl.value = confirmadoUrl
       addressLabelOpen.value = true
       submitting.value = false
       return
     }
-    await navigateTo(trackingUrl)
+    await navigateTo(confirmadoUrl)
   } catch (e) {
     const data = httpError(e).data || {}
     const field = typeof data.field === 'string' ? data.field : ''
