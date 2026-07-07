@@ -20,7 +20,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_address` | `string` | CheckoutView, API, iFood webhook | CommitService, CustomerIdentificationHandler | Endereço formatado (texto livre) |
 | `delivery_date` | `string` | CheckoutView | CommitService | ISO date (`YYYY-MM-DD`). Se futuro, indica encomenda |
 | `delivery_time_slot` | `string` | CheckoutView | CommitService | Faixa horária: `"manha"`, `"tarde"`, etc. |
-| `order_notes` | `string` | CheckoutView, iFood webhook | CommitService | Observações do pedido |
+| `order_notes` | `string` | CheckoutView, iFood webhook | CommitService, KDS ticket (`customer_note`) | Observações do pedido escritas pelo **cliente** no checkout. Exibida no ticket do KDS (nota do cliente). Distinta da `kitchen_note` (nota do operador) |
 | `origin_channel` | `string` | CartService, POS, iFood webhook | CommitService, hooks.py | Canal de origem: `"web"`, `"whatsapp"`, `"ifood"`, `"pos"`, `"instagram"` |
 | `coupon_code` | `string` | CartService.apply_coupon | CouponModifier, CartService.get_cart_summary | Código do cupom aplicado (uppercase) |
 | `availability` | `dict` | StockCheckHandler (via checks) | D1DiscountModifier | Mapa SKU → `{is_d1: bool}`. Flag D-1 por produto |
@@ -141,7 +141,7 @@ for key in (
 | `cancellation_reason` | `string` | PixTimeoutHandler, PaymentTimeoutHandler, ConfirmationTimeoutHandler, OrderCancelView, GestorOrderRejectView | hooks._on_cancelled | Motivo (auditoria): `"pix_timeout"`, `"card_timeout"`, `"confirmation_timeout"`, `"customer_requested"`, texto livre. **Pode conter código de máquina — nunca exibir ao cliente.** |
 | `cancellation_note` | `string` | `operator_orders.cancel_order` (via OrderCancelView `customer_note`) | `lifecycle._on_cancelled` | Justificativa **voltada ao cliente**, escrita/escolhida pelo operador (preset). Só existe em cancelamento por operador com motivo informado; entra na notificação `order_cancelled` (`{reason_note}`). Ausente ⇒ mensagem genérica. Distinta de `cancellation_reason` (que carrega códigos de máquina) |
 | `rejected_by` | `string` | GestorOrderRejectView | — | Username do operador que rejeitou |
-| `internal_notes` | `string` | PedidoNotesView | PedidoDetailView | Notas internas do operador |
+| `kitchen_note` | `string` | OrderNotesView (`operator_orders.save_kitchen_note`) | OperatorOrderProjection (`kitchen_note`), KDS ticket (`kitchen_note`) | Nota da cozinha escrita pelo operador no gestor (tags pré-configuradas `Shop.kitchen_note_tags` anexadas + texto livre). **Exibida no ticket do KDS** para a produção. Distinta da `order_notes` (nota do cliente, do checkout) e dos `operator_comment` do histórico |
 | `assignment` | `dict` | OrderAssignView (operator_orders.assign_order) | OrderCardProjection (`assigned_operator`) | Operador que assumiu o pedido ("estou atendendo"): `{operator_id, operator_name, at}`. Removido por OrderUnassignView |
 | `returns` | `list[dict]` | ReturnService | ReturnHandler | Histórico de devoluções (ver detalhamento) |
 | `nfce_access_key` | `string` | NFCeEmitHandler | NFCeEmitHandler (idempotência), ReturnService | Chave de acesso NFCe |

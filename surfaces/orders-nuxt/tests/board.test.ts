@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appendTag,
   bulkableRefs,
   cardAffordances,
   channelLabel,
@@ -362,5 +363,33 @@ describe("realtimeIndicator — honestidade do tempo-real", () => {
     expect(polling.live).toBe(false);
     expect(polling.label).toContain("automática"); // ainda atualiza, mas não em tempo real
     expect(polling.dotClass).not.toContain("green");
+  });
+});
+
+describe("appendTag — tags de nota da cozinha (anexa)", () => {
+  it("nota vazia → só a tag", () => {
+    expect(appendTag("", "Bem assado")).toBe("Bem assado");
+    expect(appendTag("   ", "Sem cebola")).toBe("Sem cebola");
+  });
+
+  it("anexa preservando o texto livre, separado por vírgula", () => {
+    expect(appendTag("Cliente alérgico", "Sem cebola")).toBe("Cliente alérgico, Sem cebola");
+  });
+
+  it("acumula várias tags", () => {
+    let n = "";
+    n = appendTag(n, "Bem assado");
+    n = appendTag(n, "Sem cebola");
+    n = appendTag(n, "Cortar ao meio");
+    expect(n).toBe("Bem assado, Sem cebola, Cortar ao meio");
+  });
+
+  it("idempotente: não duplica uma tag já presente (case-insensitive)", () => {
+    expect(appendTag("Bem assado", "Bem assado")).toBe("Bem assado");
+    expect(appendTag("bem assado, Sem cebola", "Bem Assado")).toBe("bem assado, Sem cebola");
+  });
+
+  it("tag vazia é no-op (retorna a nota aparada)", () => {
+    expect(appendTag("Sem cebola", "  ")).toBe("Sem cebola");
   });
 });

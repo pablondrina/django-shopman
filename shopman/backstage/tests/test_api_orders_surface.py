@@ -192,12 +192,13 @@ def test_reject_requires_reason(client, operator, order):
 
 
 @pytest.mark.django_db
+@override_settings(SHOPMAN_REQUIRE_ACTIVE_OPERATOR=False)
 def test_save_notes_persists(client, operator, order):
     client.force_login(operator)
     response = client.post(reverse("api-backstage-order-notes", args=[order.ref]), {"notes": "Separar"})
     assert response.status_code == 200
     order.refresh_from_db()
-    assert order.data["internal_notes"] == "Separar"
+    assert order.data["kitchen_note"] == "Separar"
 
 
 @pytest.mark.django_db

@@ -60,10 +60,10 @@ def test_advance_order_surfaces_specific_reason(monkeypatch):
 def test_save_notes_and_history_delegate(monkeypatch):
     save_notes = Mock()
     recent = Mock(return_value=["order"])
-    monkeypatch.setattr(orders.operator_orders, "save_internal_notes", save_notes)
+    monkeypatch.setattr(orders.operator_orders, "save_kitchen_note", save_notes)
     monkeypatch.setattr(orders.operator_orders, "recent_history", recent)
 
-    orders.save_internal_notes("order", notes="obs")
+    orders.save_kitchen_note("order", notes="obs")
     assert orders.recent_history(limit=5) == ["order"]
 
     save_notes.assert_called_once_with("order", notes="obs")

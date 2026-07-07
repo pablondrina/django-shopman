@@ -31,6 +31,8 @@ export interface KDSTicketProjection {
   is_cancelled: boolean;
   cancelled_at_display: string;
   completed_at_display: string;
+  kitchen_note: string; // operator's note from the gestor ("" = none)
+  customer_note: string; // customer's checkout note / order_notes ("" = none)
 }
 
 export interface KDSExpeditionCardProjection {

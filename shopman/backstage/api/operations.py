@@ -14,7 +14,7 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/orders/<ref>/cancel/   → cancel order
   POST /api/v1/backstage/orders/<ref>/settle-delivery-cash/ → settle COD cash
   POST /api/v1/backstage/orders/<ref>/requeue-fiscal/ → requeue NFC-e emission
-  POST /api/v1/backstage/orders/<ref>/notes/    → save operator internal notes
+  POST /api/v1/backstage/orders/<ref>/notes/    → save the operator's kitchen note
   POST /api/v1/backstage/production/plan/                 → plan/adjust matrix cell
   POST /api/v1/backstage/production/<wo_id>/start/        → start a planned WO
   POST /api/v1/backstage/production/<wo_id>/finish/       → finish a started WO
@@ -919,8 +919,8 @@ class OrderRequeueFiscalView(_OrderActionBase):
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
-        summary="Save operator internal notes on an order",
-        responses={200: OpenApiResponse(description="Notes saved.")},
+        summary="Save the operator's kitchen note on an order",
+        responses={200: OpenApiResponse(description="Note saved.")},
     ),
 )
 class OrderNotesView(_OrderActionBase):
@@ -929,7 +929,7 @@ class OrderNotesView(_OrderActionBase):
         if err:
             return err
         notes = str(request.data.get("notes", "") or "")
-        orders_service.save_internal_notes(order, notes=notes)
+        orders_service.save_kitchen_note(order, notes=notes)
         return Response({"ok": True, "ref": ref})
 
 

@@ -424,3 +424,18 @@ export function bulkableRefs(
   const can = action === "confirm" ? (c: OrderCardProjection) => c.can_confirm : (c: OrderCardProjection) => c.can_advance;
   return cards.filter((c) => selected.has(c.ref) && can(c)).map((c) => c.ref);
 }
+
+// ── Kitchen note tags ───────────────────────────────────────────────────────
+
+/** Append a preset tag to the operator's kitchen note, preserving the free text.
+ *  One tap stacks tags separated by ", ". Idempotent: a tag already present in the
+ *  note isn't added again (case-insensitive), so repeated taps don't duplicate it.
+ *  Pure → the tag buttons' behaviour is testable without a DOM. */
+export function appendTag(current: string, tag: string): string {
+  const t = tag.trim();
+  const base = current.trim();
+  if (!t) return base;
+  if (!base) return t;
+  if (base.toLowerCase().includes(t.toLowerCase())) return base;
+  return `${base}, ${t}`;
+}

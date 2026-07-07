@@ -54,7 +54,7 @@ def _shop_form_data(shop):
 
     initial_form = ShopForm(instance=shop)
     data = {}
-    list_fields = {"social_links"}  # ArrayWidget → lista de valores
+    list_fields = {"social_links", "kitchen_note_tags"}  # ArrayWidget → lista de valores
     json_object_fields = {"tracking_copy", "integrations"}
 
     for name, field in initial_form.fields.items():
@@ -176,6 +176,33 @@ class TestShopAdminOpeningHours:
         assert saved.opening_hours["wednesday"] == {"open": "09:00", "close": "18:00"}
         assert saved.opening_hours["saturday"] == {"open": "09:00", "close": "18:00"}
         assert "sunday" not in saved.opening_hours
+
+    def test_form_saves_kitchen_note_tags_from_array_widget(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        data = _shop_form_data(shop)
+        data.setlist("kitchen_note_tags", ["Bem assado", "Sem cebola", "Cortar ao meio"])
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.kitchen_note_tags == ["Bem assado", "Sem cebola", "Cortar ao meio"]
+
+    def test_form_clears_kitchen_note_tags_when_empty(self, shop):
+        from shopman.shop.admin.shop import ShopForm
+
+        shop.kitchen_note_tags = ["Bem assado"]
+        shop.save(update_fields=["kitchen_note_tags"])
+
+        data = _shop_form_data(shop)
+        data.setlist("kitchen_note_tags", [])
+
+        form = ShopForm(data=data, instance=shop)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+
+        assert saved.kitchen_note_tags == []
 
 
 class TestShopAdminDefaults:

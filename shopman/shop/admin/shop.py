@@ -605,6 +605,9 @@ class ShopForm(forms.ModelForm):
     # Justificativas de cancelamento/recusa — mesma edição add/remove (ArrayWidget).
     cancellation_presets = forms.Field(required=False, widget=ArrayWidget())
 
+    # Tags de nota da cozinha — mesma edição add/remove (ArrayWidget).
+    kitchen_note_tags = forms.Field(required=False, widget=ArrayWidget())
+
     locals().update(_defaults_form_fields())
     locals().update(_integrations_form_fields())
 
@@ -640,6 +643,14 @@ class ShopForm(forms.ModelForm):
                 "Adicione um motivo por vez. O operador injeta com um toque ao recusar/"
                 "cancelar no gestor, e o texto vai ao cliente na notificação — escreva na "
                 "voz da loja (ex.: “Item indisponível no momento”)."
+            )
+
+        if "kitchen_note_tags" in self.fields:
+            self.fields["kitchen_note_tags"].required = False
+            self.fields["kitchen_note_tags"].help_text = (
+                "Adicione uma tag por vez. O operador anexa com um toque à nota da cozinha "
+                "no gestor, e a nota aparece no ticket do KDS para a produção — instruções "
+                "curtas de preparo (ex.: “Bem assado”, “Sem cebola”)."
             )
 
         opening_hours = getattr(self.instance, "opening_hours", None) or {}
@@ -777,6 +788,8 @@ class ShopForm(forms.ModelForm):
             cleaned_data["social_links"] = []
         if self._has("cancellation_presets") and not cleaned_data.get("cancellation_presets"):
             cleaned_data["cancellation_presets"] = []
+        if self._has("kitchen_note_tags") and not cleaned_data.get("kitchen_note_tags"):
+            cleaned_data["kitchen_note_tags"] = []
         if self._has(_opening_field("monday", "status")):
             for day, label in OPENING_HOUR_DAYS:
                 status = cleaned_data.get(_opening_field(day, "status"))
@@ -1242,6 +1255,13 @@ _ORDERING_FIELDSETS = (
         "description": (
             "Justificativas prontas para o operador recusar ou cancelar um pedido com um "
             "toque no gestor. O motivo escolhido é enviado ao cliente na notificação."
+        ),
+    }),
+    ("Tags de nota da cozinha", {
+        "fields": ("kitchen_note_tags",),
+        "description": (
+            "Etiquetas prontas para o operador anexar com um toque à nota da cozinha de um "
+            "pedido no gestor. A nota é exibida no ticket do KDS para a produção."
         ),
     }),
 )

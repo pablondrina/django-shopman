@@ -247,6 +247,25 @@ class Shop(models.Model):
         ),
     )
 
+    # ── Tags de nota da cozinha (presets do operador) ──
+    kitchen_note_tags = models.JSONField(
+        "tags de nota da cozinha",
+        default=list,
+        blank=True,
+        help_text=(
+            "Etiquetas prontas que o operador anexa com um toque à nota da cozinha "
+            "de um pedido no gestor. A nota (tags + texto livre) é exibida no ticket "
+            "do KDS para a produção. Escreva instruções curtas de preparo.\n"
+            "Exemplo:\n"
+            "[\n"
+            '  "Bem assado",\n'
+            '  "Sem cebola",\n'
+            '  "Embalar para presente",\n'
+            '  "Cortar ao meio"\n'
+            "]"
+        ),
+    )
+
     # ── Textos do acompanhamento (tracking page) ──
     tracking_copy = models.JSONField(
         "textos do acompanhamento",

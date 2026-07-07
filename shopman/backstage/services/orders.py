@@ -132,8 +132,8 @@ def requeue_fiscal_emission(order, *, actor: str):
     order.emit_event(event_type="fiscal_requeued", actor=actor, payload={"topic": FISCAL_EMIT_NFCE})
 
 
-def save_internal_notes(order, *, notes: str):
-    return operator_orders.save_internal_notes(order, notes=notes)
+def save_kitchen_note(order, *, notes: str):
+    return operator_orders.save_kitchen_note(order, notes=notes)
 
 
 def assign_order(order, *, operator_id: int, operator_name: str, actor: str):

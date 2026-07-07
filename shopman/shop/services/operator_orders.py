@@ -280,10 +280,15 @@ def settle_delivery_cash(order: Order, *, cash_shift, actor: str, amount_q: int 
     return amount
 
 
-def save_internal_notes(order: Order, *, notes: str) -> None:
-    """Persist operator-only notes on the order data payload."""
+def save_kitchen_note(order: Order, *, notes: str) -> None:
+    """Persist the operator's kitchen note on the order data payload.
+
+    The note (preset tags + free text) is written by the operator in the gestor
+    and surfaced on the KDS ticket for the kitchen. Distinct from the customer's
+    ``order_notes`` (from checkout) and from timeline ``operator_comment`` entries.
+    """
     data = dict(order.data or {})
-    data["internal_notes"] = notes
+    data["kitchen_note"] = notes
     order.data = data
     order.save(update_fields=["data", "updated_at"])
 
@@ -324,7 +329,7 @@ def unassign_order(order: Order, *, actor: str) -> None:
 def add_comment(order: Order, *, note: str, actor: str) -> None:
     """Append a timestamped operator comment to the order timeline (OrderEvent).
 
-    Distinct from ``internal_notes`` (a single editable blob): a comment is an
+    Distinct from ``kitchen_note`` (a single editable blob): a comment is an
     immutable, attributed entry that shows up in the timeline like any other
     event — useful for a running operator log/handover.
     """

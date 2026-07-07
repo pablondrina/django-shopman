@@ -85,7 +85,7 @@ export interface OperatorOrderProjection {
   total_display: string;
   items: OrderItemProjection[];
   timeline: TimelineEventProjection[];
-  internal_notes: string;
+  kitchen_note: string;
   payment_method: string;
   payment_method_label: string;
   payment_status: string;
@@ -100,6 +100,7 @@ export interface OperatorOrderProjection {
   gift_message: string;
   gift_hide_values: boolean;
   cancellation_presets: string[];
+  kitchen_note_tags: string[];
 }
 
 export interface TwoZoneQueueProjection {
