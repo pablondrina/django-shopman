@@ -1,4 +1,4 @@
-import { WHATSAPP_POLL_INTERVAL_MS, type WhatsappVerifyStatus } from '~/presentation/auth'
+import { WHATSAPP_POLL_FALLBACK_MS, type WhatsappVerifyStatus } from '~/presentation/auth'
 import type { AuthSessionResponse } from '~/types/shopman'
 
 interface StartResponse {
@@ -22,6 +22,8 @@ export function useWhatsappVerify () {
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
 
+  const apiPath = useShopmanApiPath()
+
   const token = ref('')
   const deepLink = ref('')
   const waNumber = ref('')
@@ -32,11 +34,34 @@ export function useWhatsappVerify () {
   const sessionResponse = ref<WhatsappStatusResponse | null>(null)
 
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let source: EventSource | null = null
 
   function stop () {
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
+    }
+    if (source) {
+      source.close()
+      source = null
+    }
+  }
+
+  // Push instantâneo (SSE) por cima do fetch canônico. Same-origin: o BFF faz
+  // streaming do canal wa-verify-<token> do Django. No evento 'verified',
+  // refazemos o /status (fonte da verdade, que autentica a sessão). Se o SSE
+  // não subir (proxy sem streaming, sem sessão), o poll de fallback cobre.
+  function connectStream () {
+    if (!import.meta.client || source || !token.value) return
+    try {
+      const url = apiPath(`/sse/whatsapp/${encodeURIComponent(token.value)}`)
+      source = new EventSource(url, { withCredentials: true })
+      const onPush = () => { poll() }
+      ;['message', 'verified'].forEach(name => source!.addEventListener(name, onPush))
+      // Sem onerror: reconexão é nativa em queda transitória; num status fatal o
+      // EventSource fecha sozinho e o poll de fallback assume.
+    } catch {
+      source = null
     }
   }
 
@@ -82,7 +107,8 @@ export function useWhatsappVerify () {
       waNumber.value = res.wa_number
       expiresIn.value = res.expires_in
       startedAtMs.value = Date.now()
-      pollTimer = setInterval(poll, WHATSAPP_POLL_INTERVAL_MS)
+      connectStream()                                     // push primário (SSE)
+      pollTimer = setInterval(poll, WHATSAPP_POLL_FALLBACK_MS)  // rede de segurança
     } catch {
       status.value = 'error'
     }

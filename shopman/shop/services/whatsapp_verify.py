@@ -112,6 +112,38 @@ def _deep_link(token: str) -> str:
     return f"https://wa.me/?text={query}"
 
 
+def normalize_token(raw: str) -> str:
+    """Normalizador público do token (usado pelo view/SSE)."""
+    return _normalize_token(raw)
+
+
+def peek(token: str) -> dict | None:
+    """Estado atual do handshake (ou None). Usado pelo view SSE e pelo channel manager."""
+    return cache.get(_CACHE_KEY.format(_normalize_token(token)))
+
+
+def verify_channel(token: str) -> str:
+    """Nome do canal SSE para um token."""
+    return f"wa-verify-{_normalize_token(token)}"
+
+
+def _emit_verified(normalized_token: str) -> None:
+    """Publica o evento de verificação no canal SSE (push instantâneo).
+
+    Espelha o padrão de shop/handlers/_sse_emitters.py: best-effort, inerte se o
+    django_eventstream não estiver instalado. O payload não carrega PII — o login
+    acontece no fetch canônico de /status.
+    """
+    try:
+        from django_eventstream import send_event
+    except Exception:
+        return
+    try:
+        send_event(f"wa-verify-{normalized_token}", "verified", {"status": "verified"})
+    except Exception:
+        logger.debug("wa_verify: emit SSE falhou", exc_info=True)
+
+
 def _normalize_phone(raw: str) -> str:
     from shopman.doorman.conf import get_adapter
 
@@ -179,6 +211,7 @@ def confirm_verification(*, token: str, whatsapp_phone: str, name: str = "") -> 
     data["verified_phone"] = phone
     data["wa_name"] = (name or "").strip()
     cache.set(key, data, timeout=_ttl_seconds())  # refresh TTL: dá janela ao polling
+    _emit_verified(normalized_token)  # push SSE instantâneo (poll fica de fallback)
     matched = (not intended) or intended == phone
     logger.info("wa_verify.confirm verified matched=%s has_name=%s", matched, bool(data["wa_name"]))
     return {"ok": True, "reason": "verified", "matched": matched}

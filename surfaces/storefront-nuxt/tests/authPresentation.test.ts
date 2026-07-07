@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   RESEND_COOLDOWN_MS,
+  WHATSAPP_POLL_FALLBACK_MS,
   WHATSAPP_POLL_INTERVAL_MS,
   authErrorView,
   authStep,
@@ -125,8 +126,13 @@ describe('whatsappPhase', () => {
   })
 })
 
-describe('WHATSAPP_POLL_INTERVAL_MS', () => {
-  it('polls on a calm 3s cadence', () => {
+describe('cadências de polling do WhatsApp', () => {
+  it('mantém o intervalo base em 3s', () => {
     expect(WHATSAPP_POLL_INTERVAL_MS).toBe(3_000)
+  })
+
+  it('usa um fallback mais calmo (SSE é o push primário)', () => {
+    expect(WHATSAPP_POLL_FALLBACK_MS).toBe(8_000)
+    expect(WHATSAPP_POLL_FALLBACK_MS).toBeGreaterThan(WHATSAPP_POLL_INTERVAL_MS)
   })
 })

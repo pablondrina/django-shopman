@@ -199,6 +199,25 @@ def test_status_binds_to_originating_session(client: Client):
     assert legit["is_authenticated"] is True
 
 
+# ── SSE (canal wa-verify) ───────────────────────────────────────────────────
+
+
+@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
+def test_events_unknown_token_404(client: Client):
+    """Token inexistente → 404, para o EventSource falhar limpo e cair no fallback."""
+    resp = client.get("/api/v1/auth/whatsapp/events/V-GONE99/")
+    assert resp.status_code == 404
+
+
+@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
+def test_events_foreign_session_404(client: Client):
+    """Sessão diferente da que iniciou não escuta o canal (bind de sessão)."""
+    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {}).json()["token"]
+    other = Client()
+    resp = other.get(f"/api/v1/auth/whatsapp/events/{token}/")
+    assert resp.status_code == 404
+
+
 @override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
 def test_phone_mismatch_is_flagged(client: Client):
     """Número digitado ≠ número que confirmou pelo WhatsApp → flag, não silêncio."""

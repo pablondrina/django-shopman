@@ -75,7 +75,10 @@ export function otpValidUntilDisplay (expiresAtIso: string | null | undefined): 
 // navegador faz polling. Estes transforms puros governam contagem regressiva,
 // intervalo de polling e a fase visível — sem tocar rede (testáveis).
 
+// Push é por SSE (instantâneo). O poll fica como rede de segurança em cadência
+// calma (SSE indisponível, proxy sem streaming, aba suspensa). Ver ADR SSE-first.
 export const WHATSAPP_POLL_INTERVAL_MS = 3_000
+export const WHATSAPP_POLL_FALLBACK_MS = 8_000
 
 export type WhatsappVerifyStatus = 'idle' | 'pending' | 'verified' | 'expired' | 'error'
 export type WhatsappPhase = 'waiting' | 'verified' | 'expired' | 'error'

@@ -17,6 +17,7 @@ import hmac
 import logging
 
 from django.conf import settings
+from django.http import Http404
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import extend_schema
@@ -166,3 +167,30 @@ class WhatsAppVerifyStatusView(APIView):
                 payload["phone_mismatch"] = True
 
         return Response(payload)
+
+
+def whatsapp_events_view(request, token: str):
+    """SSE stream do reverse-OTP — canal ``wa-verify-<token>``.
+
+    Push instantâneo: quando o ManyChat confirma, o backend emite no canal e o
+    navegador refaz o fetch canônico de /status (fonte da verdade, que casa a
+    sessão e autentica). Espelha ``order_events_view``: autoriza up front e
+    404 para quem não é a sessão de origem, para o ``EventSource`` falhar limpo
+    (não reconecta) e o cliente cair no poll de fallback.
+    """
+    from django_eventstream.views import events as eventstream_view
+
+    normalized = wa.normalize_token(token)
+    data = wa.peek(normalized)
+    if data is None:
+        raise Http404
+
+    # Bind de sessão: só a sessão que iniciou o fluxo escuta o canal. Sessão
+    # ausente/diferente → 404 (mais estrito que o /status, porque aqui abriríamos
+    # um stream de longa duração para quem não é a origem).
+    stored_sk = str(data.get("session_key") or "")
+    current_sk = getattr(getattr(request, "session", None), "session_key", None) or ""
+    if stored_sk and stored_sk != current_sk:
+        raise Http404
+
+    return eventstream_view(request, **{"format-channels": ["wa-verify-{token}"], "token": normalized})

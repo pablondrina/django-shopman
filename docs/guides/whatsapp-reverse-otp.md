@@ -38,7 +38,8 @@ modelos do Core.
 |--------|------|------|-----|
 | POST | `/api/v1/auth/whatsapp/start/` | pública (rate-limit 10/min) | Gera token + deep link. Body opcional `{"phone": "+55..."}`. |
 | POST | `/api/v1/auth/whatsapp/confirm/` | **API key S2S** | Chamado pelo ManyChat. Body `{"token": "...", "phone": "55..."}`. |
-| GET/POST | `/api/v1/auth/whatsapp/status/` | pública (rate-limit 30/min) | Polling `{"token": "..."}`. Ao verificar, loga a sessão. |
+| GET/POST | `/api/v1/auth/whatsapp/status/` | pública (rate-limit 30/min) | Fetch canônico `{"token": "..."}`. Ao verificar, loga a sessão. |
+| GET | `/api/v1/auth/whatsapp/events/<token>/` | sessão de origem (Http404 senão) | SSE (canal `wa-verify-<token>`). Push instantâneo no confirm. |
 
 O `confirm` autentica com a `DOORMAN_ACCESS_LINK_API_KEY` no header
 `Authorization: Bearer <chave>` (ou `X-Api-Key`). Fail-closed: sem chave configurada,
@@ -138,8 +139,10 @@ A tela de entrada (`app/pages/entrar.vue`) tem o WhatsApp como caminho primário
   principal (mobile-first), **QR code no desktop** (escaneia com o celular),
   contagem regressiva, "gerar novo código" ao expirar e "prefiro por SMS" como
   fallback. Feedback ao vivo ("aguardando confirmação…" → "número confirmado!").
-- **`app/composables/useWhatsappVerify.ts`** — start + polling do status (3s) pela
-  BFF; ao verificar, hidrata a sessão.
+- **`app/composables/useWhatsappVerify.ts`** — start + **push por SSE** (canal
+  `wa-verify-<token>`, same-origin via BFF `/sse/whatsapp/<token>`); no evento
+  refaz o fetch canônico de `/status` (fonte da verdade, que autentica a sessão).
+  Poll fica como fallback calmo (8s). Ver [ADR-016](../decisions/adr-016-sse-first-realtime.md).
 - **`app/presentation/auth.ts`** — transforms puros (contagem, fase, cadência),
   cobertos por vitest.
 - O passo "Como quer ser chamado?" é o mesmo de antes; o nome do WhatsApp chega
