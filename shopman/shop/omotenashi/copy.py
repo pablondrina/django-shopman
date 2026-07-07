@@ -268,10 +268,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         },
     },
     "HOME_HOW_ONLINE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pedido Online")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Peça online")},
     },
     "HOME_HOW_STORE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Na Loja")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Visite a loja")},
     },
     "HOME_HOW_STEP_CHOOSE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Escolha")},
