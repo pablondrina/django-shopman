@@ -1137,7 +1137,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Minha Conta")},
     },
     "ACCOUNT_TRUSTED_DEVICES_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Verifique os dispositivos confiáveis e controle seus dados pessoais.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:")},

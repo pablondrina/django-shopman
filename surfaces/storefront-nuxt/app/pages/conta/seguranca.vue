@@ -42,7 +42,7 @@ const accountDevices = computed(() => devicesResponse.value?.devices || [])
 // Copy da tela vem do registro omotenashi (configurável no Admin). Fallback só cobre
 // o intervalo de carregamento.
 const devicesCopy = computed(() => devicesResponse.value?.copy || {
-  page_message: 'Verifique os dispositivos confiáveis e controle seus dados pessoais.',
+  page_message: 'Controle os dispositivos confiáveis e seus dados pessoais.',
   empty_title: 'Nenhum dispositivo confiável',
   empty_message: 'Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.',
   current_badge: 'Este dispositivo',
