@@ -45,18 +45,26 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
   para a **data futura** (reusa a pré-encomenda existente). E conceitualmente: pré-reserva é o
   affordance **principal** (padaria assa todo dia → planejado é a norma); **"Me avise" fica como
   fallback** para `unavailable` sem plano (item descontinuado/sem data). Não obsoleta, demove.
-- **Ponto de fiação confirmado:** o 409 de escassez (`surface.py`) já carrega `is_planned` **e**
-  `planned_target_date`; o `SubstituteSheet.vue` recebe `cartIssue.is_planned` mas não usa. Itens
-  `planned_ok` são addable (criam planned-hold); "Me avise" só aparece em `unavailable`.
-- **⚠️ É FEATURE, não fiação de copy.** Precisa de:
-  1. Backend: uma ação "reservar planejado" (adicionar a qtd pedida como planned-hold para
-     `planned_target_date`, além do `set_available_qty` que só pega o disponível-agora).
-  2. Front: no `SubstituteSheet`, quando `is_planned`, trocar o enquadramento para
-     `KINTSUGI_PLANNED_OFFER` ("A caminho. O próximo lote sai em breve. Quer pré-reservar?") +
-     ação "Pré-reservar" que chama a ação nova e leva ao checkout com a data pré-selecionada.
-  3. Checkout: pré-selecionar `planned_target_date` (a pré-encomenda já valida datas futuras).
-- **Status:** aprovada, especificada, **pendente de build focado** (toca carrinho+checkout;
-  não faço sozinho/remoto sem fingir ação inexistente).
+- **Achado real (investigação 2026-07-08, com arquivo:linha) — corrige imprecisão anterior:**
+  a máquina de pré-encomenda **já existe e funciona**. O Core cria planned-hold com data futura
+  (`packages/stockman/.../holds.py:85`, teste `test_planned_holds.py:27`) e o **checkout com data
+  futura JÁ cria planned-holds** no commit (`shop/services/stock.py:hold(order)`, `target_date =
+  get_commitment_date(order)`, linhas 66-131). **NÃO precisa inventar hold novo.** O que falta:
+  o caminho do **carrinho descarta `target_date`** (`shop/services/cart.py:322` passa `None` →
+  reserva contra hoje), o **409 nunca preenche `planned_target_date`** (sempre `is_planned=false`
+  no carrinho; o `true` dos testes é mock), e o **projection do produto não expõe a data do
+  próximo lote** (só `availability:'planned_ok'`). O botão "Pré-reservar N" do `SubstituteSheet`
+  hoje é **fachada**: chama `acceptAvailableQty()` (`useCartState.ts:335`) = disponível-AGORA.
+- **Decisão do Pablo (2026-07-08): REAPROVEITAR A PRÉ-ENCOMENDA.** Em vez de reserva-por-linha no
+  add-to-cart, o "Pré-reservar" grava `delivery_date` = próximo lote e leva ao checkout; o commit
+  já cria os planned-holds (caminho testado). Escopo mínimo:
+  1. **Backend (pequeno):** expor a **data do próximo lote** ao front para itens `planned_ok`
+     (surfacer a próxima data disponível — no projection do produto e/ou no payload do 409).
+  2. **Front:** no `SubstituteSheet` (e/ou no card/PDP), quando `planned_ok`, enquadrar com
+     `KINTSUGI_PLANNED_OFFER` + ação "Pré-reservar" que grava `session.data["delivery_date"]` =
+     próximo lote e roteia ao checkout (a pré-encomenda já valida datas futuras).
+  3. **Zero** código novo de hold — o commit já faz.
+- **Status:** aprovada + semântica travada (reuso). Pendente de build focado.
 
 ### Perfil — resíduo do modo **"ler-depois-editar"** — `PROFILE_EDIT_CTA` · `PROFILE_MISSING_VALUE` · `PROFILE_NAME_FIELD`
 - **Achado:** o registro descrevia um **cartão de leitura** do perfil (rótulo: valor,
