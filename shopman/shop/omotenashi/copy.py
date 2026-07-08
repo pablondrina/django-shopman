@@ -1057,10 +1057,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode colar o código. Ao completar, a confirmação é automática.")},
     },
     "LOGIN_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Que bom ter você aqui!")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Como quer ser chamado?")},
     },
     "LOGIN_NAME_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Como quer ser chamado? Pode ser só o primeiro nome.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser só o primeiro nome ou um apelido.")},
     },
     "LOGIN_NAME_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
