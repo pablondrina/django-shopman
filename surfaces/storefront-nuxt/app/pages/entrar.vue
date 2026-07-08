@@ -133,7 +133,14 @@ const debugOtpDigits = computed(() => debugOtpCode.value.split(''))
 const codeValidUntil = computed(() => otpValidUntilDisplay(codeExpiresAt.value))
 const requestedPhoneDisplay = computed(() => phoneDisplay(requestedPhone.value))
 const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
-const momentTitle = computed(() => copyTitle(authCopy.value?.auth_confirmed, 'Pronto'))
+// Saudação personalizada de retorno: "Bem-vindo de volta, {primeiro nome}!" quando
+// já sabemos o nome (recorrente); sem nome, cai em "Bem-vindo de volta!". O dado vem
+// da própria resposta de auth (customer_name → session.customerName).
+const greetName = computed(() => (session.customerName.value || '').trim().split(/\s+/)[0] || '')
+const momentTitle = computed(() => {
+  const base = copyTitle(authCopy.value?.auth_confirmed, 'Bem-vindo de volta')
+  return greetName.value ? `${base}, ${greetName.value}!` : `${base}!`
+})
 const momentMessage = computed(() => moment.value === 'recognized'
   ? copyMessage(authCopy.value?.device_trust_redirecting, 'Dispositivo reconhecido. Entrando automaticamente…')
   : copyMessage(authCopy.value?.auth_confirmed, 'Identidade confirmada')

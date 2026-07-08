@@ -1057,16 +1057,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode colar o código. Ao completar, a confirmação é automática.")},
     },
     "LOGIN_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como podemos te chamar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Que bom ter você aqui!")},
     },
     "LOGIN_NAME_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser seu primeiro nome ou um apelido. O que for mais natural.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Como quer ser chamado? Pode ser só o primeiro nome.")},
     },
     "LOGIN_NAME_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
     },
     "LOGIN_AUTH_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pronto", message="Identidade confirmada")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja.")},
     },
     "DEVICE_TRUST_ERROR": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
