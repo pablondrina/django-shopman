@@ -39,6 +39,16 @@ const { data: devicesResponse, pending: devicesPending, refresh: refreshDevices 
 })
 
 const accountDevices = computed(() => devicesResponse.value?.devices || [])
+// Copy da tela vem do registro omotenashi (configurável no Admin). Fallback só cobre
+// o intervalo de carregamento.
+const devicesCopy = computed(() => devicesResponse.value?.copy || {
+  page_message: 'Verifique os dispositivos confiáveis e controle seus dados pessoais.',
+  empty_title: 'Nenhum dispositivo confiável',
+  empty_message: 'Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.',
+  current_badge: 'Este dispositivo',
+  registered_prefix: 'Registrado em',
+  revoke_cta: 'Remover'
+})
 
 async function exportData () {
   if (!import.meta.client || exportPending.value) return
@@ -200,16 +210,16 @@ useSeoMeta({ title: 'Segurança e dados' })
 
       <div>
         <h1 class="shop-title">Segurança e dados</h1>
-        <p class="shop-muted">Aparelhos confiáveis e o controle dos seus dados pessoais.</p>
+        <p class="shop-muted">{{ devicesCopy.page_message }}</p>
       </div>
 
       <!-- Aparelhos confiáveis -->
       <section class="space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="shop-heading">Aparelhos confiáveis</h2>
+            <h2 class="shop-heading">Dispositivos confiáveis</h2>
             <p class="shop-muted">
-              {{ devicesPending ? 'Carregando…' : formatCount(accountDevices.length, 'aparelho autorizado', 'aparelhos autorizados') }}
+              {{ devicesPending ? 'Carregando…' : formatCount(accountDevices.length, 'dispositivo autorizado', 'dispositivos autorizados') }}
             </p>
           </div>
           <UiButton v-if="accountDevices.length > 1" variant="outline" size="sm" icon="lucide:shield-x" @click="askRevokeAllDevices">
@@ -229,8 +239,8 @@ useSeoMeta({ title: 'Segurança e dados' })
             <Icon name="lucide:monitor" />
           </UiEmptyMedia>
           <UiEmptyHeader>
-            <UiEmptyTitle>Nenhum aparelho confiável</UiEmptyTitle>
-            <UiEmptyDescription>Quando você optar por confiar neste aparelho no login, ele aparecerá aqui.</UiEmptyDescription>
+            <UiEmptyTitle>{{ devicesCopy.empty_title }}</UiEmptyTitle>
+            <UiEmptyDescription>{{ devicesCopy.empty_message }}</UiEmptyDescription>
           </UiEmptyHeader>
         </UiEmpty>
 
@@ -242,16 +252,16 @@ useSeoMeta({ title: 'Segurança e dados' })
             <UiItemContent>
               <UiItemTitle>
                 {{ device.label || 'Dispositivo' }}
-                <UiBadge v-if="device.is_current" variant="secondary">Atual</UiBadge>
+                <UiBadge v-if="device.is_current" variant="secondary">{{ devicesCopy.current_badge }}</UiBadge>
               </UiItemTitle>
               <UiItemDescription>
                 <span>{{ device.last_used_at_display }}</span>
                 <span v-if="device.location"> · {{ device.location }}</span>
-                <span> · Registrado em {{ device.created_at_display }}</span>
+                <span> · {{ devicesCopy.registered_prefix }} {{ device.created_at_display }}</span>
               </UiItemDescription>
             </UiItemContent>
             <UiItemActions>
-              <UiButton variant="ghost" size="sm" icon="lucide:shield-x" @click="askRevokeDevice(device)">Remover</UiButton>
+              <UiButton variant="ghost" size="sm" icon="lucide:shield-x" @click="askRevokeDevice(device)">{{ devicesCopy.revoke_cta }}</UiButton>
             </UiItemActions>
           </UiItem>
         </UiItemGroup>

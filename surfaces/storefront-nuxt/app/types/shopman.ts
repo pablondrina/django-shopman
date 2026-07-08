@@ -939,6 +939,16 @@ export interface AccountDeviceProjection {
   is_current: boolean
 }
 
+export interface AccountDeviceCopy {
+  page_message: string
+  empty_title: string
+  empty_message: string
+  current_badge: string
+  registered_prefix: string
+  revoke_cta: string
+}
+
 export interface AccountDeviceResponse {
   devices: AccountDeviceProjection[]
+  copy: AccountDeviceCopy
 }

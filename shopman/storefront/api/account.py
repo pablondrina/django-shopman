@@ -17,6 +17,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import auth as auth_service
@@ -612,6 +613,25 @@ class NotificationPreferenceToggleView(APIView):
         })
 
 
+def _devices_copy() -> dict:
+    """Copy da tela de Segurança/dispositivos, resolvida do registro omotenashi
+    (configurável no Admin). Fonte única — o Vue consome, sem hardcode."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "page_message": message("ACCOUNT_TRUSTED_DEVICES_MESSAGE", "Verifique os dispositivos confiáveis e controle seus dados pessoais."),
+        "empty_title": title("DEVICE_LIST_EMPTY", "Nenhum dispositivo confiável"),
+        "empty_message": message("DEVICE_LIST_EMPTY", "Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui."),
+        "current_badge": title("DEVICE_LIST_CURRENT", "Este dispositivo"),
+        "registered_prefix": message("DEVICE_LIST_REGISTERED_PREFIX", "Registrado em"),
+        "revoke_cta": title("DEVICE_REVOKE_CTA", "Remover"),
+    }
+
+
 class AccountDeviceListView(APIView):
     """GET/DELETE /api/v1/account/devices/ — trusted devices for current customer."""
 
@@ -626,7 +646,10 @@ class AccountDeviceListView(APIView):
             customer_id=customer_info.uuid,
             raw_token=request.COOKIES.get(device_service.cookie_name()),
         )
-        return Response({"devices": [_serialize_device(device) for device in devices]})
+        return Response({
+            "devices": [_serialize_device(device) for device in devices],
+            "copy": _devices_copy(),
+        })
 
     def delete(self, request):
         customer_info = getattr(request, "customer", None)

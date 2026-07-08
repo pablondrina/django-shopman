@@ -1137,13 +1137,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Minha Conta")},
     },
     "ACCOUNT_TRUSTED_DEVICES_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Dispositivos que podem acessar sua conta sem código de verificação.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Verifique os dispositivos confiáveis e controle seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:")},
     },
     "DEVICE_LIST_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},
     },
     "DEVICE_LIST_UNKNOWN": {
         WILDCARD: {WILDCARD: CopyEntry(title="Dispositivo desconhecido")},
@@ -1158,7 +1158,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Registrado em")},
     },
     "DEVICE_REVOKE_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Revogar")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Remover")},
     },
     "DEVICE_REVOKE_CONFIRM": {
         WILDCARD: {WILDCARD: CopyEntry(message="Revogar acesso deste dispositivo?")},
@@ -1293,7 +1293,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Que tal um destes no lugar?")},
     },
     "KINTSUGI_PLANNED_OFFER": {
-        WILDCARD: {WILDCARD: CopyEntry(title="A caminho", message="O próximo lote sai em breve. Quer pré-reservar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Já vem quentinho", message="Sai fresquinho no próximo lote. Quer garantir o seu?")},
     },
     "KINTSUGI_PAUSED_COPY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Voltamos em breve!", message="Esse item está temporariamente fora do cardápio.")},
