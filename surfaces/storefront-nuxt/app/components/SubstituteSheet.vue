@@ -22,11 +22,24 @@ const itemName = computed(() => cartIssue.value?.name || 'este item')
 const availableQty = computed(() => cartIssue.value?.available_qty ?? null)
 const hasAvailable = computed(() => availableQty.value != null && availableQty.value > 0)
 const substitutes = computed(() => cartIssue.value?.substitutes ?? [])
+// Planejado = há próximo lote conhecido. Enquadra a escassez como pré-reserva
+// ("garantir o seu"), não como "esgotou". A reserva é o planned-hold do carrinho.
+const isPlanned = computed(() => !!cartIssue.value?.is_planned)
 
-const title = computed(() => hasAvailable.value ? 'Ajuste a quantidade' : 'Esgotou enquanto você escolhia')
-const description = computed(() => hasAvailable.value
-  ? `Agora temos ${formatCount(availableQty.value!, 'unidade', 'unidades')} de ${itemName.value}.`
-  : `O ${itemName.value} acabou agora — veja boas alternativas.`)
+const title = computed(() => {
+  if (isPlanned.value && cartIssue.value?.planned_offer_title) return cartIssue.value.planned_offer_title
+  return hasAvailable.value ? 'Ajuste a quantidade' : 'Esgotou enquanto você escolhia'
+})
+const description = computed(() => {
+  if (isPlanned.value && cartIssue.value?.planned_offer_message) return cartIssue.value.planned_offer_message
+  return hasAvailable.value
+    ? `Agora temos ${formatCount(availableQty.value!, 'unidade', 'unidades')} de ${itemName.value}.`
+    : `O ${itemName.value} acabou agora. Veja boas alternativas.`
+})
+const primaryQtyLabel = computed(() => {
+  const n = formatCount(availableQty.value!, 'unidade', 'unidades')
+  return isPlanned.value ? `Pré-reservar ${n}` : `Levar ${n}`
+})
 
 function useAvailable () {
   void acceptAvailableQty()
@@ -55,7 +68,7 @@ function tryAgain () {
         :loading="!!cartIssue && isPending(cartIssue.sku)"
         @click="useAvailable"
       >
-        Levar {{ formatCount(availableQty!, 'unidade', 'unidades') }}
+        {{ primaryQtyLabel }}
       </UiButton>
 
       <div v-if="substitutes.length">
