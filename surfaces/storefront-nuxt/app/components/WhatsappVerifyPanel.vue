@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
           <Icon name="lucide:loader-circle" class="size-5 animate-spin text-muted-foreground" />
           <p class="shop-body font-semibold">Estamos aguardando sua mensagem no WhatsApp</p>
           <p class="shop-meta">
-            Toque em enviar no WhatsApp e volte para esta aba. Nós entramos automaticamente.
+            Toque em enviar no WhatsApp e volte aqui. Nós entramos automaticamente.
             <template v-if="!countdown.expired"><br>O código expira em {{ countdownLabel }}.</template>
           </p>
         </div>

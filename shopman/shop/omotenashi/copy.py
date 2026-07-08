@@ -1015,7 +1015,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
     "LOGIN_PHONE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
     },
     "LOGIN_PHONE_SUBTITLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Sem senha, rápido e seguro.")},

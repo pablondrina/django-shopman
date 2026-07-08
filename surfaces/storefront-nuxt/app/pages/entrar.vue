@@ -503,7 +503,7 @@ useSeoMeta({
             >
               {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
             </UiButton>
-            <p class="shop-meta text-center">Sem senha. Abrimos o WhatsApp com a mensagem pronta. É só enviar.</p>
+            <p class="shop-meta text-center">Abrimos o WhatsApp com a mensagem pronta. É só enviar.</p>
 
             <!-- Usar OUTRO número = via SMS (o único caminho que mira um número digitado;
                  pelo WhatsApp a conta é sempre a de quem envia). -->
