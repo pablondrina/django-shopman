@@ -11,14 +11,14 @@ useShopTheme(session.shop)
 const is404 = computed(() => props.error?.statusCode === 404)
 const whatsappUrl = computed(() => session.publicConfig.value?.whatsapp_url || '')
 
-const kicker = computed(() => (is404.value ? 'Erro 404' : 'Ops'))
+const kicker = computed(() => (is404.value ? 'Erro 404' : ''))
 const title = computed(() =>
-  is404.value ? 'Não encontramos esta página' : 'Algo saiu do forno errado'
+  is404.value ? 'Não encontramos esta página' : 'Tivemos um problema por aqui'
 )
 const message = computed(() =>
   is404.value
     ? 'O item pode ter saído do cardápio ou o endereço está incorreto. Vamos te levar de volta a um lugar seguro.'
-    : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale conosco no WhatsApp.'
+    : 'Tente de novo em instantes. Se precisar fechar um pedido agora, fale conosco no WhatsApp.'
 )
 
 // Páginas de erro nunca devem ser indexadas (o status 404/5xx já sinaliza, isto é
@@ -37,7 +37,7 @@ function goHome () {
 <template>
   <div class="flex min-h-svh flex-col items-center justify-center gap-6 px-6 py-16 text-center">
     <div class="shop-stack-block max-w-md">
-      <p class="shop-kicker">{{ kicker }}</p>
+      <p v-if="kicker" class="shop-kicker">{{ kicker }}</p>
       <h1 class="shop-display">{{ title }}</h1>
       <p class="shop-muted">{{ message }}</p>
     </div>
