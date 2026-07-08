@@ -109,17 +109,8 @@ onBeforeUnmount(() => {
         </UiButton>
       </template>
 
-      <!-- Aguardando: mensagem de espera é o herói; abrir o WhatsApp é 1 toque -->
+      <!-- Aguardando: a AÇÃO vem primeiro (abrir o WhatsApp); o status vem depois. -->
       <template v-else-if="phase === 'waiting'">
-        <div class="flex flex-col items-center gap-2 py-1 text-center" data-login-whatsapp-waiting>
-          <Icon name="lucide:loader-circle" class="size-5 animate-spin text-muted-foreground" />
-          <p class="shop-body font-semibold">Estamos aguardando sua mensagem no WhatsApp</p>
-          <p class="shop-meta">
-            Toque em enviar no WhatsApp e volte aqui. Nós entramos automaticamente.
-            <template v-if="!countdown.expired"><br>O código expira em {{ countdownLabel }}.</template>
-          </p>
-        </div>
-
         <UiButton
           :href="deepLink || undefined"
           target="_blank"
@@ -131,6 +122,15 @@ onBeforeUnmount(() => {
         >
           Abrir o WhatsApp
         </UiButton>
+
+        <div class="flex flex-col items-center gap-2 py-1 text-center" data-login-whatsapp-waiting>
+          <Icon name="lucide:loader-circle" class="size-5 animate-spin text-muted-foreground" />
+          <p class="shop-body font-semibold">Estamos aguardando sua mensagem</p>
+          <p class="shop-meta">
+            É só tocar em enviar no WhatsApp e voltar aqui. Nós entramos automaticamente.
+            <template v-if="!countdown.expired"><br>O código expira em {{ countdownLabel }}.</template>
+          </p>
+        </div>
 
         <div class="hidden flex-col items-center gap-2 border-t pt-4 md:flex" data-login-whatsapp-qr>
           <p class="shop-meta text-center">No computador? Escaneie com a câmera do seu celular:</p>
