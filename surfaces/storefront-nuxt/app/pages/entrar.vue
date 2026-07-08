@@ -35,6 +35,22 @@ const whatsappPhone = ref('')
 // no reply). Entra direto no painel em modo "confirmando", retomando o handshake.
 const waResumeToken = computed(() => (typeof route.query.wa === 'string' ? route.query.wa.trim() : ''))
 if (waResumeToken.value) mode.value = 'whatsapp'
+// Handshake do WhatsApp vive no PAI (não no painel): assim dá para PRÉ-AQUECER o
+// deep link enquanto o telefone é digitado, e o botão "Entrar pelo WhatsApp" abre o
+// app num único toque (o link já está pronto no clique). O poll/SSE que loga a aba
+// original também roda aqui. Ver useWhatsappVerify.
+const {
+  token: waToken,
+  deepLink: waDeepLink,
+  waNumber: waNumber,
+  expiresIn: waExpiresIn,
+  startedAtMs: waStartedAt,
+  status: waStatus,
+  sessionResponse: waSession,
+  start: waStart,
+  resume: waResume,
+  stop: waStop
+} = useWhatsappVerify()
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
@@ -66,6 +82,27 @@ const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
 })
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
+// Telefone "válido o bastante" para pré-aquecer o handshake (BR = 11 dígitos móvel;
+// intl = 8+). Não é a validação final (o backend normaliza), só o gatilho do prewarm.
+const phoneDigits = computed(() => phone.value.replace(/\D/g, ''))
+const phoneIsValid = computed(() => phoneRegion.value === 'BR' ? phoneDigits.value.length === 11 : phoneDigits.value.length >= 8)
+const waIsResuming = computed(() => !!waResumeToken.value && waStatus.value !== 'verified' && waStatus.value !== 'expired')
+
+// Pré-aquece o deep link do WhatsApp assim que o telefone fica válido (debounce),
+// para o CTA abrir o app num único toque. Reinicia se o número mudar.
+let prewarmTimer: ReturnType<typeof setTimeout> | null = null
+let lastPrewarm = ''
+watch([phoneDigits, phoneRegion], () => {
+  if (waResumeToken.value || !import.meta.client) return
+  if (prewarmTimer) clearTimeout(prewarmTimer)
+  if (!phoneIsValid.value) return
+  const target = `${phoneRegion.value}:${phoneDigits.value}`
+  if (target === lastPrewarm && waDeepLink.value) return
+  prewarmTimer = setTimeout(() => {
+    lastPrewarm = target
+    void waStart(phone.value, nextUrl.value)
+  }, 450)
+})
 const step = computed(() => authStep({
   requestedPhone: requestedPhone.value,
   verified: verified.value,
@@ -125,6 +162,16 @@ const momentSavedNote = computed(() => moment.value === 'confirmed' && trustSave
 onMounted(() => {
   nowMs.value = Date.now()
   clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
+  // Retomando pelo link do WhatsApp (?wa=): o poll resolve na hora SE for a mesma
+  // sessão que iniciou (bind anti-fixação). Em outra aba/in-app browser fica pending
+  // — o painel corta o spinner e orienta a voltar à aba original.
+  if (waResumeToken.value) waResume(waResumeToken.value)
+})
+
+// A aba original loga sozinha quando o ManyChat confirma (poll/SSE do handshake).
+watch([waSession, waStatus], () => {
+  if (verified.value) return
+  if (waStatus.value === 'verified' && waSession.value) onWhatsappVerified(waSession.value)
 })
 
 onBeforeUnmount(() => {
@@ -227,6 +274,16 @@ function startWhatsappFlow (event?: Event) {
   whatsappPhone.value = phone.value
   error.value = null
   mode.value = 'whatsapp'
+  // Rede de segurança: se o prewarm ainda não rodou (ex.: Enter rápido), inicia agora.
+  if (!waDeepLink.value && phoneIsValid.value) void waStart(phone.value, nextUrl.value)
+}
+
+// Um clique: troca para o painel de espera E abre o WhatsApp. Como o deep link já foi
+// pré-aquecido, o window.open acontece dentro do gesto (sem await) e não é bloqueado.
+// Sem link pronto, só entra no painel (que mostra o botão "Abrir o WhatsApp").
+function goWhatsapp (event?: Event) {
+  startWhatsappFlow(event)
+  if (import.meta.client && waDeepLink.value) window.open(waDeepLink.value, '_blank', 'noopener')
 }
 
 async function onWhatsappVerified (response: AuthSessionResponse) {
@@ -243,6 +300,7 @@ async function onWhatsappVerified (response: AuthSessionResponse) {
 }
 
 function onWhatsappSms () {
+  waStop()  // encerra poll/SSE do WhatsApp: o cliente optou pelo SMS.
   mode.value = 'otp'
   // Se o telefone já foi informado, dispara o SMS direto; senão volta ao formulário.
   if (phone.value.trim()) requestCode('sms')
@@ -255,6 +313,7 @@ function onWhatsappBack () {
 
 async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Event) {
   syncPhoneFromEvent(event)
+  waStop()  // se havia prewarm do WhatsApp rodando, encerra: seguimos por código/SMS.
   pending.value = true
   error.value = null
   codeDigits.value = []
@@ -433,15 +492,19 @@ useSeoMeta({
 
         <WhatsappVerifyPanel
           v-if="step === 'phone' && mode === 'whatsapp'"
-          :phone="whatsappPhone"
-          :resume-token="waResumeToken"
-          :next="nextUrl"
-          @verified="onWhatsappVerified"
+          :deep-link="waDeepLink"
+          :token="waToken"
+          :wa-number="waNumber"
+          :status="waStatus"
+          :started-at-ms="waStartedAt"
+          :expires-in="waExpiresIn"
+          :is-resuming="waIsResuming"
           @sms="onWhatsappSms"
           @back="onWhatsappBack"
+          @regenerate="() => waStart(phone, nextUrl)"
         />
 
-        <form v-else-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="startWhatsappFlow($event)">
+        <form v-else-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="goWhatsapp($event)">
           <div class="shop-stack-block rounded-lg border bg-bottomnav p-4">
             <UiField>
               <div class="flex items-center justify-between gap-3">
@@ -476,7 +539,16 @@ useSeoMeta({
             </UiField>
 
             <div class="grid gap-3">
-              <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
+              <!-- Um toque: abre o WhatsApp (deep link pré-aquecido) E entra no painel
+                   de espera. Ver goWhatsapp. -->
+              <UiButton
+                type="button"
+                size="lg"
+                :loading="pending"
+                icon="lucide:message-circle"
+                class="w-full justify-center"
+                @click="goWhatsapp"
+              >
                 {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
               </UiButton>
               <UiButton type="button" size="lg" variant="ghost" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">

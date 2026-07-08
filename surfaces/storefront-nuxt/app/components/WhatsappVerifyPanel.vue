@@ -1,30 +1,24 @@
 <script setup lang="ts">
-import { whatsappCountdown, whatsappCountdownDisplay, whatsappPhase } from '~/presentation/auth'
+import { whatsappCountdown, whatsappCountdownDisplay, whatsappPhase, type WhatsappVerifyStatus } from '~/presentation/auth'
 import { phoneDisplay } from '~/utils/authPhone'
-import type { WhatsappStatusResponse } from '~/composables/useWhatsappVerify'
 
-const props = withDefaults(defineProps<{ phone?: string, resumeToken?: string, next?: string }>(), { phone: '', resumeToken: '', next: '' })
+// Painel APRESENTACIONAL: o handshake (start/poll/SSE/verified) vive no pai (entrar.vue),
+// que pré-aquece o deep link e loga a aba original. Aqui só desenhamos o estado.
+const props = withDefaults(defineProps<{
+  deepLink?: string
+  token?: string
+  waNumber?: string
+  status?: WhatsappVerifyStatus
+  startedAtMs?: number | null
+  expiresIn?: number
+  isResuming?: boolean
+}>(), { deepLink: '', token: '', waNumber: '', status: 'idle', startedAtMs: null, expiresIn: 0, isResuming: false })
+
 const emit = defineEmits<{
-  verified: [session: WhatsappStatusResponse]
   sms: []
   back: []
+  regenerate: []
 }>()
-
-const {
-  token,
-  deepLink,
-  waNumber,
-  expiresIn,
-  startedAtMs,
-  status,
-  sessionResponse,
-  start,
-  resume
-} = useWhatsappVerify()
-
-// Retomando pelo link do WhatsApp (?wa=<token>): mostra "confirmando…" em vez do
-// QR/deep link, até o poll resolver (quase sempre já verificado no retorno).
-const isResuming = computed(() => !!props.resumeToken && status.value !== 'verified' && status.value !== 'expired')
 
 const nowMs = ref(Date.now())
 let clock: ReturnType<typeof setInterval> | null = null
@@ -33,19 +27,25 @@ const qrReady = ref(false)
 const tokenCopied = ref(false)
 const codeCopied = ref(false)
 
-const countdown = computed(() => whatsappCountdown(startedAtMs.value, expiresIn.value, nowMs.value))
+// Retomando em OUTRA sessão (in-app browser do WhatsApp / aba diferente): o bind
+// anti-fixação recusa por segurança, então o poll fica pending pra sempre. Depois de
+// uma janela curta, cortamos o spinner e orientamos — nunca deixar no vácuo.
+const resumeStuck = ref(false)
+let resumeTimer: ReturnType<typeof setTimeout> | null = null
+
+const countdown = computed(() => whatsappCountdown(props.startedAtMs, props.expiresIn, nowMs.value))
 const countdownLabel = computed(() => whatsappCountdownDisplay(countdown.value.remainingSeconds))
-const phase = computed(() => whatsappPhase(status.value, countdown.value.expired))
+const phase = computed(() => whatsappPhase(props.status, countdown.value.expired))
 // 554333231997 → "(43) 3323-1997" (formato amigável BR, reusa o formatter de auth).
-const waNumberDisplay = computed(() => waNumber.value ? phoneDisplay(`+${waNumber.value}`) : '')
+const waNumberDisplay = computed(() => props.waNumber ? phoneDisplay(`+${props.waNumber}`) : '')
 // Chat "cru" (sem mensagem pronta) para o envio manual: a pessoa cola o código.
-const chatLink = computed(() => waNumber.value ? `https://wa.me/${waNumber.value}` : '')
+const chatLink = computed(() => props.waNumber ? `https://wa.me/${props.waNumber}` : '')
 
 async function renderQr () {
-  if (!import.meta.client || !deepLink.value || !qrCanvas.value) return
+  if (!import.meta.client || !props.deepLink || !qrCanvas.value) return
   try {
     const QR = await import('qrcode')
-    await QR.toCanvas(qrCanvas.value, deepLink.value, { width: 190, margin: 1 })
+    await QR.toCanvas(qrCanvas.value, props.deepLink, { width: 190, margin: 1 })
     qrReady.value = true
   } catch {
     // Sem a lib de QR: o desktop cai no botão/link + token copiável (degrada limpo).
@@ -53,22 +53,10 @@ async function renderQr () {
   }
 }
 
-async function copyDeepLink () {
-  if (!import.meta.client || !deepLink.value) return
-  try {
-    await navigator.clipboard.writeText(deepLink.value)
-    tokenCopied.value = true
-    useSonner.success('Link copiado. Abra no WhatsApp e envie a mensagem.')
-    setTimeout(() => { tokenCopied.value = false }, 2500)
-  } catch {
-    // Clipboard indisponível: silencioso; o botão de abrir o WhatsApp continua.
-  }
-}
-
 async function copyCode () {
-  if (!import.meta.client || !token.value) return
+  if (!import.meta.client || !props.token) return
   try {
-    await navigator.clipboard.writeText(token.value)
+    await navigator.clipboard.writeText(props.token)
     codeCopied.value = true
     useSonner.success('Código copiado. Envie no nosso WhatsApp.')
     setTimeout(() => { codeCopied.value = false }, 2500)
@@ -77,31 +65,24 @@ async function copyCode () {
   }
 }
 
-async function regenerate () {
-  qrReady.value = false
-  await start(props.phone, props.next)
-  await nextTick()
-  renderQr()
-}
-
-onMounted(async () => {
-  clock = setInterval(() => { nowMs.value = Date.now() }, 1000)
-  if (props.resumeToken) {
-    resume(props.resumeToken)
-    return
+watch(() => props.isResuming, resuming => {
+  if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null }
+  resumeStuck.value = false
+  if (resuming) {
+    resumeTimer = setTimeout(() => { if (props.isResuming) resumeStuck.value = true }, 8000)
   }
-  await start(props.phone, props.next)
-  await nextTick()
+}, { immediate: true })
+
+watch(() => props.deepLink, () => { qrReady.value = false; renderQr() })
+
+onMounted(() => {
+  clock = setInterval(() => { nowMs.value = Date.now() }, 1000)
   renderQr()
 })
 
 onBeforeUnmount(() => {
   if (clock) clearInterval(clock)
-})
-
-watch(deepLink, () => { renderQr() })
-watch(sessionResponse, value => {
-  if (value && status.value === 'verified') emit('verified', value)
+  if (resumeTimer) clearTimeout(resumeTimer)
 })
 </script>
 
@@ -109,13 +90,36 @@ watch(sessionResponse, value => {
   <section class="shop-stack-block" data-login-whatsapp aria-live="polite">
     <div class="rounded-lg border bg-bottomnav p-4 shop-stack-block">
       <!-- Retomando pelo link do WhatsApp: confirmando a sessão -->
-      <div v-if="isResuming" class="flex items-center justify-center gap-2 py-2 text-muted-foreground" data-login-whatsapp-resuming>
+      <div v-if="isResuming && !resumeStuck" class="flex items-center justify-center gap-2 py-2 text-muted-foreground" data-login-whatsapp-resuming>
         <Icon name="lucide:loader-circle" class="size-4 animate-spin" />
         <span class="shop-meta">Confirmando sua entrada…</span>
       </div>
 
-      <!-- Aguardando: CTA principal (deep link) + QR no desktop -->
+      <!-- Retomada travada (outra aba/in-app browser): não dá para logar aqui por
+           segurança. Orienta a voltar OU recomeçar nesta janela. -->
+      <template v-else-if="isResuming && resumeStuck">
+        <UiAlert variant="warning" data-login-whatsapp-wrongtab>
+          <UiAlertTitle>Continue na aba onde você começou</UiAlertTitle>
+          <UiAlertDescription>
+            Se você já enviou o código no WhatsApp, volte para a aba do navegador onde iniciou a entrada. Por segurança, o login termina lá. Se preferir, recomece por aqui.
+          </UiAlertDescription>
+        </UiAlert>
+        <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="emit('regenerate')">
+          Recomeçar por aqui
+        </UiButton>
+      </template>
+
+      <!-- Aguardando: mensagem de espera é o herói; abrir o WhatsApp é 1 toque -->
       <template v-else-if="phase === 'waiting'">
+        <div class="flex flex-col items-center gap-2 py-1 text-center" data-login-whatsapp-waiting>
+          <Icon name="lucide:loader-circle" class="size-5 animate-spin text-muted-foreground" />
+          <p class="shop-body font-semibold">Estamos aguardando sua mensagem no WhatsApp</p>
+          <p class="shop-meta">
+            Toque em enviar no WhatsApp e volte para esta aba. Nós entramos automaticamente.
+            <template v-if="!countdown.expired"><br>O código expira em {{ countdownLabel }}.</template>
+          </p>
+        </div>
+
         <UiButton
           :href="deepLink || undefined"
           target="_blank"
@@ -125,7 +129,7 @@ watch(sessionResponse, value => {
           class="w-full justify-center"
           :disabled="!deepLink"
         >
-          Enviar código
+          Abrir o WhatsApp
         </UiButton>
 
         <div class="hidden flex-col items-center gap-2 border-t pt-4 md:flex" data-login-whatsapp-qr>
@@ -133,31 +137,12 @@ watch(sessionResponse, value => {
           <div class="rounded-lg border bg-white p-3">
             <canvas ref="qrCanvas" class="size-[190px]" :class="{ 'opacity-0': !qrReady }" />
           </div>
-          <UiButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            icon="lucide:copy"
-            class="text-muted-foreground hover:text-foreground"
-            @click="copyDeepLink"
-          >
-            {{ tokenCopied ? 'Link copiado' : 'Copiar link do WhatsApp' }}
-          </UiButton>
         </div>
 
-        <div class="flex items-center justify-center gap-2 text-muted-foreground" data-login-whatsapp-waiting>
-          <Icon name="lucide:loader-circle" class="size-4 animate-spin" />
-          <span class="shop-meta">
-            Aguardando sua confirmação…
-            <template v-if="!countdown.expired">expira em {{ countdownLabel }}</template>
-          </span>
-        </div>
-
-        <!-- Envio manual (card dentro do card): descrição enxuta + código valorizado
-             + copiar + abrir chat cru para colar. Fallback se o deep link não abrir. -->
+        <!-- Envio manual (fallback): código valorizado + copiar + abrir chat cru. -->
         <div v-if="token" class="rounded-lg border bg-card p-4 shop-stack-block" data-login-whatsapp-manual>
           <p class="shop-meta">
-            Se preferir, pode enviar o código abaixo diretamente para o nosso WhatsApp
+            Se o WhatsApp não abrir, envie o código abaixo diretamente para o nosso WhatsApp
             <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
           </p>
           <div class="rounded-md border bg-background py-3 text-center font-mono text-3xl font-semibold tracking-widest text-foreground">
@@ -181,7 +166,7 @@ watch(sessionResponse, value => {
             class="w-full justify-center"
             :disabled="!chatLink"
           >
-            Abrir WhatsApp
+            Abrir WhatsApp manualmente
           </UiButton>
         </div>
       </template>
@@ -198,7 +183,7 @@ watch(sessionResponse, value => {
           <UiAlertTitle>O código expirou</UiAlertTitle>
           <UiAlertDescription>Gere um novo e tente de novo. Leva um instante.</UiAlertDescription>
         </UiAlert>
-        <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="regenerate">
+        <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="emit('regenerate')">
           Gerar novo código
         </UiButton>
       </template>
@@ -209,7 +194,7 @@ watch(sessionResponse, value => {
           <UiAlertTitle>Não deu para iniciar pelo WhatsApp</UiAlertTitle>
           <UiAlertDescription>Tente de novo ou receba um código por SMS.</UiAlertDescription>
         </UiAlert>
-        <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="regenerate">
+        <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="emit('regenerate')">
           Tentar de novo
         </UiButton>
       </template>

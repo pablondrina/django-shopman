@@ -534,7 +534,10 @@ describe('surface UX guardrails', () => {
     expect(authPhone).toContain('phone_normalized')
     expect(authPhone).toContain('target')
     // WhatsApp = verificação reversa (deep link + polling); SMS = fallback OTP push.
-    expect(login).toContain('startWhatsappFlow($event)')
+    // 1 clique: o handshake vive no pai (useWhatsappVerify), pré-aquece o deep link e
+    // o CTA abre o WhatsApp num toque (goWhatsapp). O painel é apresentacional.
+    expect(login).toContain('goWhatsapp($event)')
+    expect(login).toContain('useWhatsappVerify()')
     expect(login).toContain('<WhatsappVerifyPanel')
     expect(login).toContain("requestCode('sms', $event)")
     expect(login).toContain('class="w-full justify-center"')
