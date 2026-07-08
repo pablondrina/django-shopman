@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
           class="w-full justify-center"
           :disabled="!deepLink"
         >
-          Enviar pelo WhatsApp
+          Abrir e enviar no WhatsApp
         </UiButton>
 
         <div class="flex flex-col items-center gap-2 py-1 text-center" data-login-whatsapp-waiting>

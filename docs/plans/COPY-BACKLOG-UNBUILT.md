@@ -76,11 +76,11 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
   Aniversário), o título de seção **"Dados pessoais"** (`PROFILE_SECTION_TITLE`), o convite
   humano **"Como quer ser chamado?"** (`PROFILE_NAME_LABEL`, sobre o par de nome) e o rótulo
   **"Telefone"** (`PROFILE_PHONE_FIELD`).
-- **Resíduo (3 chaves) → backlog:** `PROFILE_EDIT_CTA` ("Editar"), `PROFILE_MISSING_VALUE`
-  ("Não informado") e `PROFILE_NAME_FIELD` ("Nome" único) só fazem sentido no **modo leitura**
-  não construído (form sempre-editável não tem estado vazio nem botão Editar; nome é dividido).
-- **Status:** aguarda visão do Pablo — construir o modo leitura+editar (com o nudge "Não
-  informado") ou aposentar as 3. Seguem no registro e no `copy-wiring-backlog.txt`.
+- **✅ CONSTRUÍDO (2026-07-08, decisão do Pablo "vamos completar"):** o Perfil agora abre em
+  **modo leitura** (cartão rótulo:valor, com **"Não informado"** nos vazios via
+  `PROFILE_MISSING_VALUE`; nome único via `PROFILE_NAME_FIELD`) + botão **"Editar"**
+  (`PROFILE_EDIT_CTA`) que revela o formulário. As 3 chaves saíram do backlog. Balde B do
+  Perfil fechado — todas as chaves `PROFILE_*` agora chegam à tela.
 
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.

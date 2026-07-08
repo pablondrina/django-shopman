@@ -194,14 +194,20 @@ def _profile_copy() -> dict:
     def title(key: str, fb: str) -> str:
         return resolve_copy(key, moment="*", audience="*").title or fb
 
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
     return {
         "section_title": title("PROFILE_SECTION_TITLE", "Dados pessoais"),
         "name_label": title("PROFILE_NAME_LABEL", "Como quer ser chamado?"),
+        "name_field": title("PROFILE_NAME_FIELD", "Nome"),
         "first_name_field": title("PROFILE_FIRST_NAME_FIELD", "Primeiro nome"),
         "last_name_field": title("PROFILE_LAST_NAME_FIELD", "Sobrenome"),
         "email_field": title("PROFILE_EMAIL_FIELD", "E-mail"),
         "birthday_field": title("PROFILE_BIRTHDAY_FIELD", "Aniversário"),
         "phone_field": title("PROFILE_PHONE_FIELD", "Telefone"),
+        "edit_cta": title("PROFILE_EDIT_CTA", "Editar"),
+        "missing_value": message("PROFILE_MISSING_VALUE", "Não informado"),
     }
 
 

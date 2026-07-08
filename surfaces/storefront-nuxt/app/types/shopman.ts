@@ -909,11 +909,14 @@ export interface AccountSummary {
 export interface AccountProfileCopy {
   section_title: string
   name_label: string
+  name_field: string
   first_name_field: string
   last_name_field: string
   email_field: string
   birthday_field: string
   phone_field: string
+  edit_cta: string
+  missing_value: string
 }
 
 export interface AccountProfile {
