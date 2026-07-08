@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
             Se o WhatsApp não abrir, envie o código abaixo diretamente para o nosso WhatsApp
             <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
           </p>
-          <div class="rounded-md border bg-background py-3 text-center font-mono text-2xl font-semibold tracking-widest text-foreground">
+          <div class="rounded-md border bg-background py-3 text-center font-mono text-xl font-semibold tracking-widest text-foreground">
             {{ token }}
           </div>
           <UiButton
