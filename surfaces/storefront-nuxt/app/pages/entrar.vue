@@ -455,8 +455,12 @@ useSeoMeta({
     <div class="shop-container">
       <div class="mx-auto max-w-md shop-stack-block">
         <div v-if="moment !== 'none'" class="py-10 text-center" data-login-moment>
-          <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-foreground text-background">
-            <Icon name="lucide:check" class="size-6" />
+          <!-- Anel girando ao redor do check: sinaliza que estamos te levando. -->
+          <div class="relative mx-auto size-14">
+            <div class="absolute inset-0 rounded-full border-2 border-foreground/15 border-t-foreground animate-spin" aria-hidden="true" />
+            <div class="absolute inset-1.5 flex items-center justify-center rounded-full bg-foreground text-background">
+              <Icon name="lucide:check" class="size-6" />
+            </div>
           </div>
           <h1 class="mt-4 shop-title">{{ momentTitle }}</h1>
           <p class="mt-2 shop-muted" aria-live="polite">{{ momentMessage }}</p>
@@ -510,7 +514,7 @@ useSeoMeta({
             >
               {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
             </UiButton>
-            <p class="shop-meta text-center">Abrimos o WhatsApp com a mensagem pronta. É só enviar.</p>
+            <p class="shop-meta text-center">Sem senha, rápido e seguro.</p>
 
             <!-- Usar OUTRO número = via SMS (o único caminho que mira um número digitado;
                  pelo WhatsApp a conta é sempre a de quem envia). -->

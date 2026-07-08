@@ -1018,7 +1018,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha, rápido e seguro.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Abrimos o WhatsApp com a mensagem pronta. É só enviar.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
@@ -1066,7 +1066,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
     },
     "LOGIN_AUTH_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja…")},
     },
     "DEVICE_TRUST_ERROR": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
