@@ -33,6 +33,15 @@ const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/
   headers: requestHeaders
 })
 
+// Labels dos campos vêm do registro omotenashi (configurável no Admin), com
+// fallback para não quebrar se a API degradar. Fonte única, sem hardcode.
+const profileCopy = computed(() => profile.value?.copy ?? {
+  first_name_field: 'Primeiro nome',
+  last_name_field: 'Sobrenome',
+  email_field: 'E-mail',
+  birthday_field: 'Aniversário'
+})
+
 // Telefone para leitura: "+55 (43) 98404-9009" em vez do E.164 cru.
 const phoneDisplayLabel = computed(() =>
   displayE164Phone(profile.value?.phone || session.customerPhone.value || '') || 'Telefone confirmado'
@@ -108,24 +117,24 @@ useSeoMeta({ title: 'Perfil' })
         <div class="space-y-4 rounded-lg border bg-card p-4">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
-              <UiFieldLabel for="account-first-name">Primeiro nome</UiFieldLabel>
+              <UiFieldLabel for="account-first-name">{{ profileCopy.first_name_field }}</UiFieldLabel>
               <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required :aria-invalid="!!fieldErrors.first_name" @blur="validateFirstName" />
               <UiFieldError v-if="fieldErrors.first_name" :errors="[fieldErrors.first_name]" />
             </UiField>
             <UiField>
-              <UiFieldLabel for="account-last-name">Sobrenome</UiFieldLabel>
+              <UiFieldLabel for="account-last-name">{{ profileCopy.last_name_field }}</UiFieldLabel>
               <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
             </UiField>
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UiField>
-              <UiFieldLabel for="account-email">E-mail</UiFieldLabel>
+              <UiFieldLabel for="account-email">{{ profileCopy.email_field }}</UiFieldLabel>
               <UiInput id="account-email" v-model="profileForm.email" type="email" autocomplete="email" :aria-invalid="!!fieldErrors.email" @blur="validateEmail" />
               <UiFieldError v-if="fieldErrors.email" :errors="[fieldErrors.email]" />
             </UiField>
             <UiField>
-              <UiFieldLabel for="account-birthday">Aniversário</UiFieldLabel>
+              <UiFieldLabel for="account-birthday">{{ profileCopy.birthday_field }}</UiFieldLabel>
               <!-- appearance-none evita o estouro de largura do controle nativo de
                    data no iOS (largura intrínseca que ignora w-full). -->
               <UiInput id="account-birthday" v-model="profileForm.birthday" type="date" class="w-full max-w-full appearance-none" />

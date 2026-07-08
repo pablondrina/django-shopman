@@ -188,6 +188,20 @@ def _intent_from_payload(payload: dict, base=None) -> AddressIntent:
     )
 
 
+def _profile_copy() -> dict:
+    """Labels dos campos do Perfil, resolvidos do registro omotenashi (configurável
+    no Admin). Fonte única — o Vue consome, sem hardcode. Nome dividido é a UX no ar."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    return {
+        "first_name_field": title("PROFILE_FIRST_NAME_FIELD", "Primeiro nome"),
+        "last_name_field": title("PROFILE_LAST_NAME_FIELD", "Sobrenome"),
+        "email_field": title("PROFILE_EMAIL_FIELD", "E-mail"),
+        "birthday_field": title("PROFILE_BIRTHDAY_FIELD", "Aniversário"),
+    }
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["account"],
@@ -228,7 +242,7 @@ class ProfileView(APIView):
             "birthday": customer.birthday.isoformat() if getattr(customer, "birthday", None) else "",
         }
         serializer = CustomerProfileSerializer(data)
-        return Response(serializer.data)
+        return Response({**serializer.data, "copy": _profile_copy()})
 
     def patch(self, request):
         from datetime import date as date_type

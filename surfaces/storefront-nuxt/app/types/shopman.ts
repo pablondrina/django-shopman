@@ -906,6 +906,13 @@ export interface AccountSummary {
   notification_preferences: AccountNotificationPreference[]
 }
 
+export interface AccountProfileCopy {
+  first_name_field: string
+  last_name_field: string
+  email_field: string
+  birthday_field: string
+}
+
 export interface AccountProfile {
   ref: string
   name: string
@@ -914,6 +921,7 @@ export interface AccountProfile {
   phone: string
   email: string
   birthday: string
+  copy?: AccountProfileCopy
 }
 
 export interface OrderHistoryItem {

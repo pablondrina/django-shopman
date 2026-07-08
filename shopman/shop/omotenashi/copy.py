@@ -1175,6 +1175,26 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOYALTY_UNAVAILABLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Programa de fidelidade não disponível.")},
     },
+    # Labels dos campos editáveis do Perfil — religados em perfil.vue via
+    # ProfileView._profile_copy(). Nome dividido (given/family) é a decisão de UX
+    # no ar: melhor pro autocomplete e pra saudar pelo primeiro nome.
+    "PROFILE_FIRST_NAME_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Primeiro nome")},
+    },
+    "PROFILE_LAST_NAME_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Sobrenome")},
+    },
+    "PROFILE_EMAIL_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="E-mail")},
+    },
+    "PROFILE_BIRTHDAY_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Aniversário")},
+    },
+    # ── Perfil "ler-depois-editar" (backlog, ainda não construído) ──
+    # Um cartão de leitura do perfil (rótulo: valor, "Não informado" nos vazios)
+    # com botão "Editar" e o convite humano "Como quer ser chamado?". A tela no
+    # ar hoje é sempre-editável; estas guardam a intenção de omotenashi.
+    # Ver docs/plans/COPY-BACKLOG-UNBUILT.md.
     "PROFILE_SECTION_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Dados pessoais")},
     },
@@ -1186,12 +1206,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "PROFILE_PHONE_FIELD": {
         WILDCARD: {WILDCARD: CopyEntry(title="Telefone")},
-    },
-    "PROFILE_EMAIL_FIELD": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Email")},
-    },
-    "PROFILE_BIRTHDAY_FIELD": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Data de nascimento")},
     },
     "PROFILE_MISSING_VALUE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não informado")},
