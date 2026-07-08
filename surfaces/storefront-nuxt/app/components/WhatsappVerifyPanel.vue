@@ -120,12 +120,12 @@ onBeforeUnmount(() => {
           class="w-full justify-center"
           :disabled="!deepLink"
         >
-          Abrir o WhatsApp
+          Enviar pelo WhatsApp
         </UiButton>
 
         <div class="flex flex-col items-center gap-2 py-1 text-center" data-login-whatsapp-waiting>
           <Icon name="lucide:loader-circle" class="size-5 animate-spin text-muted-foreground" />
-          <p class="shop-body font-semibold">Estamos aguardando sua mensagem</p>
+          <p class="shop-body font-semibold">Estamos aguardando sua mensagem…</p>
           <p class="shop-meta">
             É só tocar em enviar no WhatsApp e voltar aqui.
             <template v-if="!countdown.expired"><br>O código expira em {{ countdownLabel }}.</template>
@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
             Se o WhatsApp não abrir, envie o código abaixo diretamente para o nosso WhatsApp
             <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
           </p>
-          <div class="rounded-md border bg-background py-3 text-center font-mono text-3xl font-semibold tracking-widest text-foreground">
+          <div class="rounded-md border bg-background py-3 text-center font-mono text-2xl font-semibold tracking-widest text-foreground">
             {{ token }}
           </div>
           <UiButton
