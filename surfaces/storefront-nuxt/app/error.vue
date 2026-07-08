@@ -1,11 +1,25 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import type { HomeResponse } from '~/types/shopman'
 
 const props = defineProps<{ error: NuxtError }>()
 
-// app.vue já roda antes da página que lança o erro, então a sessão costuma estar
-// populada (marca + WhatsApp). Se a própria API caiu, degrada para neutro/sem CTA.
+const apiPath = useShopmanApiPath()
 const session = useShopSession()
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
+// Numa 404/5xx de SSR o app.vue não roda, então a sessão (marca + WhatsApp) viria vazia
+// e o tema cairia no neutro cinza — fora da paleta da Nelson. Buscamos o mesmo shell do
+// app (mesma `key` ⇒ reaproveita o cache quando o erro é lançado depois do app já ter
+// carregado). Se a própria API caiu, o fetch falha em silêncio e degradamos para
+// neutro/sem CTA — aceitável só no pior caso.
+const { data: shellHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
+  credentials: 'include',
+  headers: requestHeaders,
+  key: 'shopman-shell-home'
+})
+watch(() => shellHome.value, value => session.setFromHome(value?.home), { immediate: true })
+
 useShopTheme(session.shop)
 
 const is404 = computed(() => props.error?.statusCode === 404)
