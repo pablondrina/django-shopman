@@ -58,19 +58,21 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
 - **Status:** aprovada, especificada, **pendente de build focado** (toca carrinho+checkout;
   não faço sozinho/remoto sem fingir ação inexistente).
 
-### Perfil **"ler-depois-editar"** — `PROFILE_SECTION_TITLE` · `PROFILE_EDIT_CTA` · `PROFILE_NAME_FIELD` · `PROFILE_PHONE_FIELD` · `PROFILE_MISSING_VALUE` · `PROFILE_NAME_LABEL`
-- **Achado:** o registro descreve um **cartão de leitura** do perfil (rótulo: valor,
-  **"Não informado"** nos vazios) com botão **"Editar"** e o convite humano
-  **"Como quer ser chamado?"** (`PROFILE_NAME_LABEL`) + nome **único** (`PROFILE_NAME_FIELD`
-  = "Nome"). A tela `conta/perfil.vue` no ar é um **formulário sempre-editável** com nome
-  **dividido** (Primeiro nome + Sobrenome), que **substituiu** aquele design.
-- **Decisão do Pablo (2026-07-08):** nome **dividido** confirmado; os 4 labels editáveis
-  (`PROFILE_FIRST_NAME_FIELD`/`LAST_NAME_FIELD`/`EMAIL_FIELD`/`BIRTHDAY_FIELD`, com E-mail e
-  Aniversário) **religados** via `ProfileView._profile_copy()`. As 6 chaves acima descrevem o
-  modo leitura **não construído** → **backlog** (não apagar; a intenção omotenashi é boa,
-  sobretudo o "Como quer ser chamado?" e o nudge "Não informado").
-- **Status:** aguarda visão do Pablo — construir o modo leitura+editar (toca a UX da tela) ou
-  arquivar conscientemente. Enquanto isso, seguem no registro e no `copy-wiring-backlog.txt`.
+### Perfil — resíduo do modo **"ler-depois-editar"** — `PROFILE_EDIT_CTA` · `PROFILE_MISSING_VALUE` · `PROFILE_NAME_FIELD`
+- **Achado:** o registro descrevia um **cartão de leitura** do perfil (rótulo: valor,
+  **"Não informado"** nos vazios) com botão **"Editar"**. A tela `conta/perfil.vue` no ar é um
+  **formulário sempre-editável** com nome **dividido**, que **substituiu** aquele design.
+- **Decisão do Pablo (2026-07-08, revisão linha a linha A/B):** nome **dividido** confirmado.
+  **Religados** via `ProfileView._profile_copy()`: os 4 campos editáveis
+  (`PROFILE_FIRST_NAME_FIELD`/`LAST_NAME_FIELD`/`EMAIL_FIELD`/`BIRTHDAY_FIELD` — E-mail e
+  Aniversário), o título de seção **"Dados pessoais"** (`PROFILE_SECTION_TITLE`), o convite
+  humano **"Como quer ser chamado?"** (`PROFILE_NAME_LABEL`, sobre o par de nome) e o rótulo
+  **"Telefone"** (`PROFILE_PHONE_FIELD`).
+- **Resíduo (3 chaves) → backlog:** `PROFILE_EDIT_CTA` ("Editar"), `PROFILE_MISSING_VALUE`
+  ("Não informado") e `PROFILE_NAME_FIELD` ("Nome" único) só fazem sentido no **modo leitura**
+  não construído (form sempre-editável não tem estado vazio nem botão Editar; nome é dividido).
+- **Status:** aguarda visão do Pablo — construir o modo leitura+editar (com o nudge "Não
+  informado") ou aposentar as 3. Seguem no registro e no `copy-wiring-backlog.txt`.
 
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.

@@ -195,10 +195,13 @@ def _profile_copy() -> dict:
         return resolve_copy(key, moment="*", audience="*").title or fb
 
     return {
+        "section_title": title("PROFILE_SECTION_TITLE", "Dados pessoais"),
+        "name_label": title("PROFILE_NAME_LABEL", "Como quer ser chamado?"),
         "first_name_field": title("PROFILE_FIRST_NAME_FIELD", "Primeiro nome"),
         "last_name_field": title("PROFILE_LAST_NAME_FIELD", "Sobrenome"),
         "email_field": title("PROFILE_EMAIL_FIELD", "E-mail"),
         "birthday_field": title("PROFILE_BIRTHDAY_FIELD", "Aniversário"),
+        "phone_field": title("PROFILE_PHONE_FIELD", "Telefone"),
     }
 
 

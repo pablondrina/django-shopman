@@ -36,10 +36,13 @@ const { data: profile, pending } = await useFetch<AccountProfile>(apiPath('/api/
 // Labels dos campos vêm do registro omotenashi (configurável no Admin), com
 // fallback para não quebrar se a API degradar. Fonte única, sem hardcode.
 const profileCopy = computed(() => profile.value?.copy ?? {
+  section_title: 'Dados pessoais',
+  name_label: 'Como quer ser chamado?',
   first_name_field: 'Primeiro nome',
   last_name_field: 'Sobrenome',
   email_field: 'E-mail',
-  birthday_field: 'Aniversário'
+  birthday_field: 'Aniversário',
+  phone_field: 'Telefone'
 })
 
 // Telefone para leitura: "+55 (43) 98404-9009" em vez do E.164 cru.
@@ -115,16 +118,21 @@ useSeoMeta({ title: 'Perfil' })
         </UiAlert>
 
         <div class="space-y-4 rounded-lg border bg-card p-4">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <UiField>
-              <UiFieldLabel for="account-first-name">{{ profileCopy.first_name_field }}</UiFieldLabel>
-              <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required :aria-invalid="!!fieldErrors.first_name" @blur="validateFirstName" />
-              <UiFieldError v-if="fieldErrors.first_name" :errors="[fieldErrors.first_name]" />
-            </UiField>
-            <UiField>
-              <UiFieldLabel for="account-last-name">{{ profileCopy.last_name_field }}</UiFieldLabel>
-              <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
-            </UiField>
+          <h2 class="shop-heading">{{ profileCopy.section_title }}</h2>
+
+          <div class="space-y-2">
+            <p class="shop-meta">{{ profileCopy.name_label }}</p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <UiField>
+                <UiFieldLabel for="account-first-name">{{ profileCopy.first_name_field }}</UiFieldLabel>
+                <UiInput id="account-first-name" v-model="profileForm.first_name" autocomplete="given-name" required :aria-invalid="!!fieldErrors.first_name" @blur="validateFirstName" />
+                <UiFieldError v-if="fieldErrors.first_name" :errors="[fieldErrors.first_name]" />
+              </UiField>
+              <UiField>
+                <UiFieldLabel for="account-last-name">{{ profileCopy.last_name_field }}</UiFieldLabel>
+                <UiInput id="account-last-name" v-model="profileForm.last_name" autocomplete="family-name" />
+              </UiField>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -149,6 +157,7 @@ useSeoMeta({ title: 'Perfil' })
                 <Icon name="lucide:phone" class="size-4" />
               </span>
               <div class="min-w-0 flex-1">
+                <p class="shop-meta">{{ profileCopy.phone_field }}</p>
                 <p class="shop-body font-semibold tabular-nums">{{ phoneDisplayLabel }}</p>
                 <p class="shop-meta">Entrar com outro número abre outra conta. O histórico fica neste número.</p>
               </div>
