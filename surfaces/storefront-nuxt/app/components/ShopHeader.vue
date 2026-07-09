@@ -154,7 +154,7 @@ onBeforeUnmount(() => {
           v-if="!cart.is_empty"
           variant="default"
           size="sm"
-          class="absolute -right-1 -top-1 size-5 min-w-5 rounded-full p-0 text-xs font-semibold tabular-nums ring-2 ring-background"
+          class="absolute -right-1 -top-1 size-5 min-w-5 rounded-md p-0 text-xs font-semibold tabular-nums ring-2 ring-background"
           :class="cartPulse ? 'scale-110' : ''"
         >{{ cart.items_count }}</UiBadge>
       </UiButton>

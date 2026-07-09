@@ -5,15 +5,15 @@ Identidade: **navbar burgundy, corpo creme, detalhes/destaques em dourado/latão
 verde-musgo** — boulangerie francesa clássica. Os valores são strings `'R G B'` (0–255).
 
 ## Arquitetura (escala de matizes)
-A fonte da verdade são **escalas nomeadas por matiz** (Burgundy, Brass, Moss, Faubourg, Yellow),
-cada uma com poucos degraus (100=mais claro → 900=mais escuro). Os **papéis** semânticos
+A fonte da verdade são **escalas nomeadas por matiz** (Burgundy, Brass, Moss, Faubourg),
+cada uma com ramp completo (50=mais claro → 950=mais escuro). Os **papéis** semânticos
 (`primary`, `background`, `border`, …) mapeiam degraus dessas escalas — então retunar um matiz é
 mexer na escala, não caçar hex espalhado. Sistema de cor decidido em
 [[project_color_system_plan]] (Modelo A: **burgundy = ação**, ouro = acento/superfície/estado).
 
 - **Ação** = Burgundy (`primary`, `header`, `ink`).
 - **Acento/superfície/estado** = Brass (barras douradas, fios, pílula selecionada, foco=Brass-700).
-- **Neutros do corpo** = Faubourg (com leve sopro róseo) + Yellow (canvas) + creme/branco.
+- **Neutros do corpo** = Faubourg (com leve sopro róseo) + Brass claro (canvas 200) + creme/branco.
 - **Status** (success/warning/error/info) = eixo PRÓPRIO, distinto da marca (não reusa Moss/Brass).
 
 Dark mode é um esquema derivado à mão (fundo marrom-burgundy quase-preto), não um degrau das
@@ -27,13 +27,42 @@ singleton. O destino é movê-la para dado (seed/Shop) consumido por um builder 
 
 from __future__ import annotations
 
-# ── Escalas de matiz NB (light) — fonte da verdade. '100' mais claro → '900' mais escuro. ──
-_BURGUNDY = {"100": "233 212 214", "300": "185 123 130", "500": "124 58 64", "600": "106 49 55", "800": "83 29 34", "900": "58 20 24"}
-_BRASS = {"100": "239 226 201", "300": "200 150 47", "500": "139 107 46", "700": "107 80 25", "900": "59 42 30"}
-_MOSS = {"300": "138 154 107", "500": "94 123 59", "700": "66 82 42", "900": "48 57 30"}
+# ── Escalas de matiz NB (light) — fonte da verdade. Ramps completos 50 (claro) → 950 (escuro). ──
+# Cada matiz tem 11 degraus. Âncoras de papel comentadas ao lado.
+_BURGUNDY = {
+    "50": "247 236 237", "100": "233 212 214", "200": "219 180 184", "300": "185 123 130",
+    "400": "157 88 96", "500": "124 58 64",   # 500 = primary / header (ação)
+    "600": "106 49 55",   # 600 = primary-hover
+    "700": "94 39 45", "800": "83 29 34",     # 800 = ink (barras escuras)
+    "900": "58 20 24", "950": "40 12 15",
+}
+# BRASS = dourado UNIFICADO (antigo Yellow + Brass fundidos num só ramp). Claros = canvas/creme,
+# escuros = latão/bronze. 200 = canvas · 500 = dourado vivo (fios/qty) · 700 = cta · 950 = texto.
+_BRASS = {
+    "50": "253 250 240", "100": "251 244 220", "200": "245 233 194",  # 200 = background (canvas)
+    "300": "236 214 143", "400": "217 184 90",
+    "500": "200 150 47",   # 500 = dourado vivo (fio/latão/pílula qty)
+    "600": "168 134 47",
+    "700": "139 107 46",   # 700 = cta (acento/superfície/estado)
+    "800": "107 80 25",    # 800 = ring (foco)
+    "900": "76 56 31", "950": "59 42 30",  # 950 = foreground (texto bronze)
+}
+_MOSS = {
+    "50": "241 244 234", "100": "223 230 206", "200": "196 210 166", "300": "138 154 107",
+    "400": "116 136 79", "500": "94 123 59", "600": "78 100 49",
+    "700": "66 82 42",    # 700 = help (CTA ajuda/WhatsApp)
+    "800": "56 69 34", "900": "48 57 30",  # 900 = footer (rodapé)
+    "950": "30 36 19",
+}
 # Faubourg = bege com leve sopro róseo (R puxa, B sobe p/ tirar o amarelo). Neutros do corpo.
-_FAUBOURG = {"100": "252 246 241", "200": "245 231 221", "300": "238 223 212", "400": "232 216 203", "500": "222 201 187", "700": "110 90 72"}
-_YELLOW = {"100": "251 244 220", "300": "245 233 194", "500": "236 214 143", "700": "217 184 90", "900": "168 134 47"}
+_FAUBOURG = {
+    "50": "254 251 248", "100": "252 246 241", "200": "245 231 221", "300": "238 223 212",
+    "400": "232 216 203", "500": "222 201 187",  # 500 = border / input
+    "600": "169 141 119", "700": "110 90 72",     # 700 = muted-foreground
+    "800": "82 66 51", "900": "54 43 33", "950": "36 28 21",
+}
+# Yellow foi FUNDIDO em Brass — alias mantido só para compatibilidade de import antigo.
+_YELLOW = _BRASS
 _CREAM = "247 239 224"   # creme de leitura sobre superfícies escuras de marca
 _WHITE = "255 255 255"
 
@@ -43,20 +72,20 @@ _WHITE = "255 255 255"
 _STATUS = {"success": "62 125 68", "warning": "194 112 28", "error": "180 51 37", "info": "63 110 140"}
 
 _BRAND_LIGHT: dict[str, str] = {
-    "background": _YELLOW["300"],          # NB Light Yellow — canvas
-    "foreground": _BRASS["900"],           # Brass-900 (bronze quase-marrom) — texto
+    "background": _BRASS["200"],           # canvas creme (Brass-200 = antigo Yellow-300, 245 233 194)
+    "foreground": _BRASS["950"],           # Brass-950 (bronze quase-marrom) — texto
     "card": _FAUBOURG["100"],              # creme quase-branco (sopro róseo)
-    "card_foreground": _BRASS["900"],
+    "card_foreground": _BRASS["950"],
     "popover": _FAUBOURG["100"],
-    "popover_foreground": _BRASS["900"],
+    "popover_foreground": _BRASS["950"],
     "primary": _BURGUNDY["500"],           # AÇÃO — burgundy
     "primary_foreground": _CREAM,
     "secondary": _FAUBOURG["400"],
-    "secondary_foreground": _BRASS["900"],
+    "secondary_foreground": _BRASS["950"],
     "muted": _FAUBOURG["300"],
     "muted_foreground": _FAUBOURG["700"],  # marrom médio (texto secundário)
-    "accent": _BRASS["100"],               # dourado pálido — hover sutil (NÃO o dourado vivo)
-    "accent_foreground": _BRASS["900"],
+    "accent": "239 226 201",               # dourado pálido — hover sutil (preservado; era Brass-100 antigo)
+    "accent_foreground": _BRASS["950"],
     "destructive": _STATUS["error"],
     "destructive_foreground": _WHITE,
     "success": _STATUS["success"],
@@ -67,7 +96,7 @@ _BRAND_LIGHT: dict[str, str] = {
     "info_foreground": _WHITE,
     "border": _FAUBOURG["500"],            # Faubourg rosé
     "input": _FAUBOURG["500"],
-    "ring": _BRASS["700"],                 # Deep Brass — foco (passa 3:1 no creme)
+    "ring": _BRASS["800"],                 # Deep Brass — foco (passa 3:1 no creme)
     # Superfícies de identidade (navbar/rodapé/barras) — tratamento de marca reversível.
     "header": _BURGUNDY["500"],            # navbar burgundy
     "header_foreground": _CREAM,
@@ -78,7 +107,7 @@ _BRAND_LIGHT: dict[str, str] = {
     "ink": _BURGUNDY["800"],               # Dark Burgundy — barras escuras (status)
     "ink_foreground": _CREAM,
     "bottomnav": _FAUBOURG["200"],         # Faubourg rosé — bottom bar
-    "cta": _BRASS["500"],                  # Brass — acento/superfície/estado (barras, fios, qty)
+    "cta": _BRASS["700"],                  # Brass — acento/superfície/estado (barras, fios, qty)
     "cta_foreground": _WHITE,
 }
 
