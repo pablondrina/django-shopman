@@ -228,7 +228,7 @@ class TestAccessLinkCreateAuth:
 
         code = store_state({"cart_session_key": "sk_site", "next": "/checkout"})
         response = self._post_create(
-            {"customer_id": str(customer.uuid), "code": code},
+            {"customer_id": str(customer.uuid), "access_code": code},
             headers={"HTTP_X_API_KEY": TEST_API_KEY},
         )
         assert response.status_code == 200
@@ -244,7 +244,7 @@ class TestAccessLinkCreateAuth:
 
         code = store_state({"cart_session_key": "sk_msg"})
         response = self._post_create(
-            {"customer_id": str(customer.uuid), "code": f"Quero entrar na loja {code}"},
+            {"customer_id": str(customer.uuid), "access_code": f"Quero entrar na loja {code}"},
             headers={"HTTP_X_API_KEY": TEST_API_KEY},
         )
         assert response.status_code == 200
@@ -257,7 +257,7 @@ class TestAccessLinkCreateAuth:
         from shopman.doorman.models import AccessLink
 
         response = self._post_create(
-            {"customer_id": str(customer.uuid), "code": "NB-NOPE00"},
+            {"customer_id": str(customer.uuid), "access_code": "NB-NOPE00"},
             headers={"HTTP_X_API_KEY": TEST_API_KEY},
         )
         assert response.status_code == 200

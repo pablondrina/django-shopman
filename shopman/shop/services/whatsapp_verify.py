@@ -164,7 +164,7 @@ def _deep_link(token: str) -> str:
 def _access_message_text(code: str) -> str:
     """Mensagem pré-preenchida do botão do site. O código NB-XxXx é a parte que o
     ManyChat casa (gatilho/regex); o texto ao redor é configurável e cosmético."""
-    template = str(_config().get("access_message_template") or "#menu {code}")
+    template = str(_config().get("access_message_template") or "Quero entrar na loja {code}")
     try:
         return template.format(code=code)
     except (KeyError, IndexError, ValueError):

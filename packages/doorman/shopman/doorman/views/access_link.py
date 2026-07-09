@@ -98,16 +98,16 @@ class AccessLinkCreateView(View):
             metadata["next"] = safe_redirect_url(next_url, request)
 
         # Contexto do site (fluxo do botão): um código NB-XxXx guarda a sacola e o
-        # destino numa sessão web anônima. Se veio ``code`` (o próprio código ou a
-        # mensagem inteira do WhatsApp, da qual extraímos o código), consome (uso único)
+        # destino numa sessão web anônima. Se veio ``access_code`` (o próprio código ou
+        # a mensagem inteira do WhatsApp, da qual extraímos o código), consome (uso único)
         # e dobra na metadata. ``next`` passa por safe_redirect_url; o resto (ex.:
         # cart_session_key) viaja opaco. Código inválido/expirado é IGNORADO — o login
         # nunca falha por causa do estado (degrada para o link genérico).
-        site_code = data.get("code")
-        if site_code:
+        access_code = data.get("access_code")
+        if access_code:
             from ..services.link_state import pop_state
 
-            state = pop_state(str(site_code))
+            state = pop_state(str(access_code))
             if isinstance(state, dict):
                 for key, value in state.items():
                     if key == "next":
