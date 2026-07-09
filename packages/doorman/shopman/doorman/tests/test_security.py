@@ -221,14 +221,14 @@ class TestAccessLinkCreateAuth:
         assert response.status_code == 503
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
-    def test_state_code_folds_cart_and_next_into_metadata(self, customer):
-        """Um state_code válido dobra sacola + destino na metadata do token."""
+    def test_code_folds_cart_and_next_into_metadata(self, customer):
+        """Um code válido dobra sacola + destino na metadata do token."""
         from shopman.doorman.models import AccessLink
         from shopman.doorman.services.link_state import store_state
 
         code = store_state({"cart_session_key": "sk_site", "next": "/checkout"})
         response = self._post_create(
-            {"customer_id": str(customer.uuid), "state_code": code},
+            {"customer_id": str(customer.uuid), "code": code},
             headers={"HTTP_X_API_KEY": TEST_API_KEY},
         )
         assert response.status_code == 200
@@ -237,12 +237,27 @@ class TestAccessLinkCreateAuth:
         assert link.metadata.get("next") == "/checkout"
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
-    def test_invalid_state_code_degrades_without_failing(self, customer):
+    def test_code_extracted_from_full_whatsapp_message(self, customer):
+        """O ManyChat pode mandar a mensagem inteira; o código é extraído dela."""
+        from shopman.doorman.models import AccessLink
+        from shopman.doorman.services.link_state import store_state
+
+        code = store_state({"cart_session_key": "sk_msg"})
+        response = self._post_create(
+            {"customer_id": str(customer.uuid), "code": f"Quero entrar na loja {code}"},
+            headers={"HTTP_X_API_KEY": TEST_API_KEY},
+        )
+        assert response.status_code == 200
+        link = AccessLink.get_by_token(json.loads(response.content)["token"])
+        assert link.metadata.get("cart_session_key") == "sk_msg"
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    def test_invalid_code_degrades_without_failing(self, customer):
         """Código inválido/expirado é ignorado — o login não falha (link genérico)."""
         from shopman.doorman.models import AccessLink
 
         response = self._post_create(
-            {"customer_id": str(customer.uuid), "state_code": "NB-NOPE00"},
+            {"customer_id": str(customer.uuid), "code": "NB-NOPE00"},
             headers={"HTTP_X_API_KEY": TEST_API_KEY},
         )
         assert response.status_code == 200

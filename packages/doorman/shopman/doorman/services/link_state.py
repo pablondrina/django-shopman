@@ -12,6 +12,7 @@ autentica ninguém (a identidade é o número que envia a mensagem no WhatsApp).
 
 from __future__ import annotations
 
+import re
 import secrets
 
 from django.core.cache import cache
@@ -45,9 +46,22 @@ def store_state(data: dict, *, ttl_seconds: int | None = None) -> str:
     return code
 
 
+def extract_code(raw: str) -> str:
+    """Extrai o código de uma string que pode ser o código puro OU a mensagem inteira
+    do WhatsApp (ex.: "Quero entrar na loja NB-7Q2K9P"). Assim o ManyChat só precisa
+    repassar o texto da mensagem — sem regex do lado dele."""
+    norm = _normalize(raw)
+    prefix = _normalize(_prefix())
+    if not prefix:
+        return norm
+    match = re.search(re.escape(prefix) + f"[{re.escape(_ALPHABET)}]+", norm)
+    return match.group(0) if match else norm
+
+
 def pop_state(code: str) -> dict | None:
-    """Consome (uso único) o contexto de um código. ``None`` se inválido/expirado."""
-    norm = _normalize(code)
+    """Consome (uso único) o contexto de um código. Aceita o código puro ou a mensagem
+    inteira (extrai o código). ``None`` se inválido/expirado."""
+    norm = extract_code(code)
     if not norm:
         return None
     key = _CACHE_KEY.format(norm)

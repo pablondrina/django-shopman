@@ -29,6 +29,10 @@ class LinkStateTest(SimpleTestCase):
         code = store_state({"next": "/y"})
         self.assertIsNotNone(pop_state(f"  {code.lower()} "))
 
+    def test_pop_extracts_code_from_full_message(self):
+        code = store_state({"next": "/z"})
+        self.assertEqual(pop_state(f"Quero entrar na loja {code}!"), {"next": "/z"})
+
     @override_settings(DOORMAN={"LINK_STATE_CODE_PREFIX": "V-"})
     def test_prefix_configurable(self):
         self.assertTrue(new_code().startswith("V-"))
