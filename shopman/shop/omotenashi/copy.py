@@ -133,7 +133,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar conta?")},
     },
     "CHECKOUT_SWITCH_ACCOUNT_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Você vai sair desta conta para entrar com outro telefone.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Você vai sair desta conta para entrar com outro telefone. Sua sacola continua guardada.")},
     },
     "CHECKOUT_SWITCH_ACCOUNT_KEEP_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Manter conta")},
@@ -144,8 +144,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CHECKOUT_WHEN_REQUIRED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha data e horário para seguir.")},
     },
-    "CHECKOUT_LOYALTY_BALANCE_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="disponíveis.")},
+    "CHECKOUT_LOYALTY_SAVINGS_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Economize até")},
     },
     "CHECKOUT_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Enviar pedido")},

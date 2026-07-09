@@ -600,7 +600,17 @@ export interface Action {
   confirmation: Record<string, unknown>
 }
 
+export interface CheckoutCopyProjection {
+  when_required: string
+  switch_account_title: string
+  switch_account_message: string
+  switch_account_confirm: string
+  switch_account_keep: string
+  loyalty_savings_prefix: string
+}
+
 export interface CheckoutProjection {
+  copy: CheckoutCopyProjection
   cart: CartProjection
   customer_phone: string
   customer_name: string
