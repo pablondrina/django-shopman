@@ -81,6 +81,14 @@ class HomeHeroCopyProjection:
 
 
 @dataclass(frozen=True)
+class HomeFacetProjection:
+    """One topical "how it works" facet — icon chosen frontend-side from ``ref``."""
+
+    ref: str
+    message: str
+
+
+@dataclass(frozen=True)
 class HomeSectionsCopyProjection:
     availability_heading: CopyEntryProjection
     full_menu_cta: CopyEntryProjection
@@ -100,6 +108,7 @@ class HomeSectionsCopyProjection:
     how_online_track_message: CopyEntryProjection
     how_store_self_service_message: CopyEntryProjection
     how_store_counter_message: CopyEntryProjection
+    how_facets: tuple[HomeFacetProjection, ...]
     tomorrow_label: CopyEntryProjection
     tomorrow_hook: CopyEntryProjection
     whatsapp_cta: CopyEntryProjection
@@ -236,7 +245,7 @@ def build_home(request: HttpRequest) -> HomeProjection:
     return HomeProjection(
         omotenashi=omotenashi,
         hero_copy=_home_hero_copy(omotenashi),
-        sections_copy=_home_sections_copy(omotenashi),
+        sections_copy=_home_sections_copy(omotenashi, default_city=shop_proj.default_city),
         auth_copy=_auth_copy(omotenashi),
         shop=shop_proj,
         shop_status=shop_status,
@@ -266,8 +275,13 @@ def _home_notices(
             tone = "warning"
             title = "Loja fechada agora"
         elif omotenashi.moment == "fechando":
+            from shopman.shop.omotenashi import resolve_copy
+
             tone = "warning"
-            title = "Estamos perto do fechamento"
+            title = (
+                resolve_copy("URGENCY_BANNER_MESSAGE", moment=omotenashi.moment, audience=omotenashi.audience).message
+                or "Estamos perto do fechamento"
+            )
         else:
             tone = "info"
             title = "Status da loja"
@@ -361,7 +375,9 @@ def _home_hero_copy(omotenashi: OmotenashiProjection) -> HomeHeroCopyProjection:
     )
 
 
-def _home_sections_copy(omotenashi: OmotenashiProjection) -> HomeSectionsCopyProjection:
+def _home_sections_copy(
+    omotenashi: OmotenashiProjection, *, default_city: str = ""
+) -> HomeSectionsCopyProjection:
     return HomeSectionsCopyProjection(
         availability_heading=_copy_entry("HOME_AVAILABILITY_HEADING", omotenashi=omotenashi),
         full_menu_cta=_copy_entry("HOME_FULL_MENU_CTA", omotenashi=omotenashi),
@@ -381,11 +397,42 @@ def _home_sections_copy(omotenashi: OmotenashiProjection) -> HomeSectionsCopyPro
         how_online_track_message=_copy_entry("HOW_ONLINE_TRACK_MESSAGE", omotenashi=omotenashi),
         how_store_self_service_message=_copy_entry("HOW_STORE_SELF_SERVICE_MESSAGE", omotenashi=omotenashi),
         how_store_counter_message=_copy_entry("HOW_STORE_COUNTER_MESSAGE", omotenashi=omotenashi),
+        how_facets=_home_facets(omotenashi, default_city=default_city),
         tomorrow_label=_copy_entry("HOME_TOMORROW_LABEL", omotenashi=omotenashi),
         tomorrow_hook=_copy_entry("TRACKING_TOMORROW_HOOK", omotenashi=omotenashi),
         whatsapp_cta=_copy_entry("HOME_WHATSAPP_CTA", omotenashi=omotenashi),
         whatsapp_cta_label=_copy_entry("HOME_WHATSAPP_CTA_LABEL", omotenashi=omotenashi),
     )
+
+
+def _home_facets(
+    omotenashi: OmotenashiProjection, *, default_city: str = ""
+) -> tuple[HomeFacetProjection, ...]:
+    """Topical "how it works" facets, surfaced below the two path cards.
+
+    Entrega/retirada compõe o prefixo do registro com a cidade da loja para não
+    prometer no vácuo; encomenda, qualidade e acompanhamento vêm diretos do
+    registro. Facetas sem mensagem caem fora (nunca renderiza card vazio).
+    """
+    from shopman.shop.omotenashi import resolve_copy
+
+    def _msg(key: str) -> str:
+        return (resolve_copy(key, moment=omotenashi.moment, audience=omotenashi.audience).message or "").strip()
+
+    delivery_prefix = _msg("HOW_DELIVERY_PREFIX")
+    delivery_suffix = _msg("HOW_DELIVERY_SUFFIX")
+    if default_city and delivery_prefix:
+        delivery = f"{delivery_prefix} {default_city}. {delivery_suffix}".strip()
+    else:
+        delivery = delivery_suffix or delivery_prefix
+
+    facets = (
+        HomeFacetProjection(ref="delivery", message=delivery),
+        HomeFacetProjection(ref="preorder", message=_msg("HOW_PREORDER_MESSAGE")),
+        HomeFacetProjection(ref="quality", message=_msg("HOW_QUALITY_MESSAGE")),
+        HomeFacetProjection(ref="tracking", message=_msg("HOW_TRACKING_MESSAGE")),
+    )
+    return tuple(facet for facet in facets if facet.message)
 
 
 def _auth_copy(omotenashi: OmotenashiProjection) -> AuthCopyProjection:
@@ -466,5 +513,6 @@ def _empty_shop() -> ShopProjection:
         full_address="",
         maps_url="",
         default_city="",
+        copyright="",
         social_links=(),
     )

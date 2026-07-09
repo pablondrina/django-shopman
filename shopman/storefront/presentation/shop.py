@@ -37,12 +37,16 @@ class ShopProjection:
     full_address: str
     maps_url: str
     default_city: str
+    copyright: str
     social_links: tuple[SocialLinkProjection, ...]
 
 
 def build_shop_projection(shop: Shop) -> ShopProjection:
+    from shopman.shop.omotenashi import resolve_copy
+
     logo_name = shop.logo.name if shop.logo else ""
     logo_url = shop.logo.url if shop.logo else ""
+    copyright_note = (resolve_copy("FOOTER_COPYRIGHT", moment="*").message or "").strip()
 
     resolved = shop.social_links_resolved
     social_links = tuple(
@@ -74,5 +78,6 @@ def build_shop_projection(shop: Shop) -> ShopProjection:
         full_address=shop.full_address,
         maps_url=shop.maps_url,
         default_city=shop.default_city,
+        copyright=copyright_note,
         social_links=social_links,
     )

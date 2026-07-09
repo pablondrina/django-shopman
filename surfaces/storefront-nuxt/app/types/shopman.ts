@@ -288,6 +288,7 @@ export interface ShopProjection {
   full_address: string
   maps_url: string
   default_city: string
+  copyright: string
   social_links: SocialLinkProjection[]
   design_tokens?: ShopDesignTokensProjection
 }
@@ -340,6 +341,11 @@ export interface HomeHeroCopyProjection {
   birthday_cta: CopyEntryProjection
 }
 
+export interface HomeFacetProjection {
+  ref: 'delivery' | 'preorder' | 'quality' | 'tracking' | string
+  message: string
+}
+
 export interface HomeSectionsCopyProjection {
   availability_heading: CopyEntryProjection
   full_menu_cta: CopyEntryProjection
@@ -359,6 +365,7 @@ export interface HomeSectionsCopyProjection {
   how_online_track_message: CopyEntryProjection
   how_store_self_service_message: CopyEntryProjection
   how_store_counter_message: CopyEntryProjection
+  how_facets: HomeFacetProjection[]
   tomorrow_label: CopyEntryProjection
   tomorrow_hook: CopyEntryProjection
   whatsapp_cta: CopyEntryProjection

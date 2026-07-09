@@ -21,6 +21,22 @@ watch(() => data.value, value => {
 const home = computed(() => data.value?.home || null)
 const featured = computed(() => home.value?.featured_items || [])
 const sectionsCopy = computed(() => home.value?.sections_copy || null)
+const onlineSteps = computed(() => [
+  sectionsCopy.value?.how_online_choose_message.message,
+  sectionsCopy.value?.how_online_pay_message.message,
+  sectionsCopy.value?.how_online_track_message.message
+].filter((step): step is string => !!step))
+const storeSteps = computed(() => [
+  { label: sectionsCopy.value?.how_self_service_label.title, message: sectionsCopy.value?.how_store_self_service_message.message },
+  { label: sectionsCopy.value?.how_counter_label.title, message: sectionsCopy.value?.how_store_counter_message.message }
+].filter(step => step.message))
+const howFacets = computed(() => sectionsCopy.value?.how_facets || [])
+const facetIcon = (ref: string) => (({
+  delivery: 'lucide:truck',
+  preorder: 'lucide:calendar-clock',
+  quality: 'lucide:award',
+  tracking: 'lucide:smartphone'
+} as Record<string, string>)[ref] || 'lucide:info')
 const primaryAction = computed(() => home.value?.actions.find(action => action.priority === 'primary' && action.enabled && !action.ref.includes('reorder')) || null)
 const reorderAction = computed(() => home.value?.actions.find(action => action.ref.includes('reorder') && action.enabled) || null)
 const contextualNotices = computed(() => home.value?.notices.filter(notice => notice.priority !== 'global') || [])
@@ -299,7 +315,12 @@ useHead({
                 <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
                 <h3 class="shop-item-title font-semibold">{{ sectionsCopy.how_online_heading.title }}</h3>
               </div>
-              <p class="shop-muted">Escolha, pague e acompanhe. Entregamos ou você retira.</p>
+              <ol v-if="onlineSteps.length" class="flex flex-col gap-2.5">
+                <li v-for="(step, index) in onlineSteps" :key="index" class="flex gap-2.5">
+                  <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{{ index + 1 }}</span>
+                  <span class="shop-muted">{{ step }}</span>
+                </li>
+              </ol>
               <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
                 {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
               </UiButton>
@@ -322,6 +343,12 @@ useHead({
                 <h3 class="shop-item-title font-semibold">{{ sectionsCopy.how_store_heading.title }}</h3>
                 <UiBadge v-if="operationalStatus.label" variant="secondary" class="font-normal">{{ operationalStatus.label }}</UiBadge>
               </div>
+              <ul v-if="storeSteps.length" class="flex flex-col gap-2">
+                <li v-for="(step, index) in storeSteps" :key="index" class="shop-muted">
+                  <span v-if="step.label" class="font-semibold text-foreground">{{ step.label }}.</span>
+                  {{ step.message }}
+                </li>
+              </ul>
               <p v-if="visitAddressLines.length" class="shop-muted">
                 <span v-for="line in visitAddressLines" :key="line" class="block">{{ line }}</span>
               </p>
@@ -345,6 +372,18 @@ useHead({
                 </UiButton>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div v-if="howFacets.length" class="mx-auto grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
+          <div
+            v-for="facet in howFacets"
+            :key="facet.ref"
+            class="flex gap-3 rounded-lg border bg-card p-4"
+            :data-home-facet="facet.ref"
+          >
+            <Icon :name="facetIcon(facet.ref)" class="size-5 shrink-0 text-muted-foreground" />
+            <p class="shop-muted">{{ facet.message }}</p>
           </div>
         </div>
       </div>

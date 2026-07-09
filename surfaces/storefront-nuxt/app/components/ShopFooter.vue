@@ -86,7 +86,7 @@ const year = new Date().getFullYear()
     </div>
 
     <div class="border-t border-current/15 py-3 text-center text-xs opacity-70">
-      {{ year }} · {{ shop?.brand_name || 'Shopman' }}
+      {{ year }} · {{ shop?.brand_name || 'Shopman' }}<template v-if="shop?.copyright"> · {{ shop.copyright }}</template>
     </div>
   </footer>
 </template>
