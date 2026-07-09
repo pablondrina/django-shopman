@@ -460,16 +460,19 @@ SHOPMAN_WHATSAPP = {
     "templates": {},
 }
 
-# ── WhatsApp reverse-OTP (verificação de número via ManyChat) ───────
-# Modelo invertido: o cliente envia um token para o WhatsApp da loja (deep link
-# wa.me) e o ManyChat confirma server-to-server. Não usa template Authentication
-# (que o ManyChat não emite). Token efêmero vive só no cache (Valkey) com TTL.
-# ``number``: WhatsApp da loja em E.164 só-dígitos (ex.: 554333231997). Vazio =
-# cai para Shop.phone. Ver docs/guides/whatsapp-reverse-otp.md.
+# ── Login por WhatsApp (fluxo access-link via ManyChat) ─────────────
+# O botão do site pré-preenche uma mensagem com um código NB-XxXx que carrega
+# contexto (sacola + destino); o cliente envia, o ManyChat cria o access link e a
+# sessão loga (identidade = número que ENVIA a mensagem, zero-telefone). Sem OTP,
+# sem template. O código (prefixo NB-, TTL) é do doorman (``LINK_STATE_*``).
+# ``number``: WhatsApp da loja em E.164 só-dígitos (ex.: 554333231997); vazio =
+# cai para Shop.phone. Ver docs/guides/whatsapp-access-link.md.
 SHOPMAN_WA_VERIFY = {
     "number": os.environ.get("SHOPMAN_WHATSAPP_VERIFY_NUMBER", "").strip(),
-    "ttl_seconds": int(os.environ.get("SHOPMAN_WA_VERIFY_TTL_SECONDS", "600") or "600"),
-    "token_prefix": os.environ.get("SHOPMAN_WA_VERIFY_TOKEN_PREFIX", "V-"),
+    # Mensagem pré-preenchida do botão do site ({code} = o NB-XxXx que o ManyChat casa).
+    "access_message_template": os.environ.get(
+        "SHOPMAN_WA_ACCESS_MESSAGE_TEMPLATE", "Meu código de acesso é {code}"
+    ),
 }
 
 # ── iFood (Marketplace F16) ────────────────────────────────────────

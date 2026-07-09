@@ -130,7 +130,11 @@ notificações, `DOORMAN_ACCESS_LINK_API_KEY`.
    do site vira deep link pré-aquecido, simplificação da `/entrar`.
 3. **F3 — ManyChat**: regex do código no flow do `#menu`, External Request com
    `state_code`; teste ponta-a-ponta via túneis (Django + storefront).
-4. **F4 — Deleção**: inventário acima, guardrails/vitest/ruff verdes, guia novo.
+4. **F4 — Deleção** ✅ (2026-07-09): serviço reescrito enxuto (só o start leve); views
+   confirm/status/SSE + URLs + canal `wa-verify-` (eventstream) removidos; front sem SSE
+   route nem transforms de polling; config morto do settings limpo; guia novo
+   (`docs/guides/whatsapp-access-link.md`). Endpoints mortos → 404; ruff/Django-check ok;
+   27 backend + 324 vitest verdes.
 
 ## Decisões em aberto (para a retomada local)
 
@@ -145,15 +149,18 @@ notificações, `DOORMAN_ACCESS_LINK_API_KEY`.
 - A `/entrar?wa=` (resume) perde a razão de ser — confirmar que nada mais a
   referencia antes de deletar.
 
-## TODO pós-happy-path (aprovado, fazer após validar o ciclo no ManyChat)
+## Degradação da sacola (handoff_expired) ✅ FEITO (2026-07-09)
 
 Comunicar a **degradação da sacola** (omotenashi — não sumir com a sacola em silêncio).
 Quando `access_code` vem mas NÃO resolve (expirou/já usado), sabemos que um handoff foi
-tentado e falhou (distinto do login orgânico). Então:
-1. **Backend:** no `create`, quando `access_code` presente mas `pop_state` = None, marcar
-   `metadata.handoff_expired = true`. No `exchange` (storefront), propagar o flag na resposta.
-2. **Front:** no login, mensagem gentil ("Você entrou! Sua sacola não veio desta vez porque
-   o link expirou.") + caminho (refazer / ela ficou na aba anterior). Copy a lapidar.
-3. **Barato, reduz a frequência:** subir o TTL do código de 10 → 30min
-   (`DOORMAN.LINK_STATE_TTL_SECONDS`).
-Decidido 2026-07-09; Pablo vai validar o happy-path primeiro e então fazemos isto.
+tentado e falhou (distinto do login orgânico). Implementado:
+1. **Backend `create`** (`views/access_link.py`): `access_code` presente mas `pop_state`=None
+   → `metadata["handoff_expired"] = True` (else do `isinstance(state, dict)`). Login nunca falha.
+2. **Backend `exchange`** (`storefront/api/auth.py`): se `metadata.handoff_expired`, resposta
+   inclui `handoff_expired: true` + `notice` (copy resolvida de `LOGIN_HANDOFF_EXPIRED`, registro).
+3. **Front** (`app/pages/a.vue`): `if (response.handoff_expired && response.notice) useSonner(notice)`
+   antes do `navigateTo` — toast sobrevive à navegação (Sonner no layout). Entra logado normal.
+4. **TTL** 10→30min (`DOORMAN.LINK_STATE_TTL_SECONDS = 1800`), reduz a frequência.
+Copy default: "Você entrou! Sua sacola não veio desta vez porque o link expirou. É só montar de novo."
+Testes: `test_security.py` (marca handoff / login orgânico não marca), `test_auth_access_api.py`
+(exchange propaga flag+notice / metadata limpa não polui). 27 verdes + guardrails de copy.

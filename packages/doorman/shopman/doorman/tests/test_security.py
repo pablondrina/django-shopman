@@ -264,6 +264,31 @@ class TestAccessLinkCreateAuth:
         link = AccessLink.get_by_token(json.loads(response.content)["token"])
         assert "cart_session_key" not in (link.metadata or {})
 
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    def test_invalid_code_marks_handoff_expired(self, customer):
+        """Código veio mas não resolveu: marca handoff_expired (handoff tentado e falho),
+        distinto do login orgânico. O exchange usa isso para avisar da sacola ausente."""
+        from shopman.doorman.models import AccessLink
+
+        response = self._post_create(
+            {"customer_id": str(customer.uuid), "access_code": "NB-NOPE00"},
+            headers={"HTTP_X_API_KEY": TEST_API_KEY},
+        )
+        link = AccessLink.get_by_token(json.loads(response.content)["token"])
+        assert link.metadata.get("handoff_expired") is True
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    def test_organic_login_has_no_handoff_flag(self, customer):
+        """Sem access_code (login orgânico), nada de handoff_expired — nenhum aviso de sacola."""
+        from shopman.doorman.models import AccessLink
+
+        response = self._post_create(
+            {"customer_id": str(customer.uuid)},
+            headers={"HTTP_X_API_KEY": TEST_API_KEY},
+        )
+        link = AccessLink.get_by_token(json.loads(response.content)["token"])
+        assert "handoff_expired" not in (link.metadata or {})
+
 
 # ===================================================
 # Access Link Lifecycle

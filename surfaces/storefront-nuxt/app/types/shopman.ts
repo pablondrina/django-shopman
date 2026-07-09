@@ -368,6 +368,10 @@ export interface HomeSectionsCopyProjection {
 export interface AuthCopyProjection {
   phone_heading: CopyEntryProjection
   phone_subtitle: CopyEntryProjection
+  wa_cart_kept: CopyEntryProjection
+  wa_glimpse: CopyEntryProjection
+  wa_manual_title: CopyEntryProjection
+  wa_manual_intro: CopyEntryProjection
   phone_cta_wa: CopyEntryProjection
   phone_cta_sms: CopyEntryProjection
   trusted_device_message: CopyEntryProjection

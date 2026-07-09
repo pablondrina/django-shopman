@@ -112,7 +112,9 @@ class DoormanSettings:
     # Link state — contexto efêmero passado de uma sessão web para a criação do
     # access link (ex.: sacola + destino, via código NB-XxXx). Ver services.link_state.
     LINK_STATE_CODE_PREFIX: str = "NB-"
-    LINK_STATE_TTL_SECONDS: int = 600
+    # 30 min: janela folgada entre tocar o botão no site e enviar no WhatsApp,
+    # reduzindo a frequência de handoff expirado (sacola que não viaja).
+    LINK_STATE_TTL_SECONDS: int = 1800
 
     # Templates (override in your project)
     TEMPLATE_CODE_REQUEST: str = "auth/code_request.html"

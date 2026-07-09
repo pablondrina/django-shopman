@@ -115,6 +115,12 @@ class AccessLinkCreateView(View):
                             metadata["next"] = safe_redirect_url(str(value), request)
                     elif value is not None and key not in metadata:
                         metadata[key] = value
+            else:
+                # Código veio mas não resolveu (expirou/já usado): um handoff do site foi
+                # TENTADO e falhou — distinto do login orgânico (sem access_code). Marcamos
+                # para o exchange avisar que a sacola não veio (omotenashi: nunca sumir com
+                # a sacola em silêncio). O login em si nunca falha por isso.
+                metadata["handoff_expired"] = True
 
         result = AccessLinkService.create_token(
             customer=customer,

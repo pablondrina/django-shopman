@@ -2,21 +2,34 @@
 import { phoneDisplay } from '~/utils/authPhone'
 import type { WhatsappStartStatus } from '~/composables/useWhatsappVerify'
 
-// Painel APRESENTACIONAL do login por WhatsApp (fluxo access-link). O start leve vive
-// no pai (entrar.vue): abrimos o WhatsApp com a mensagem pronta; o cliente envia e toca
-// no link que o ManyChat devolve para entrar. Sem polling/espera — a aba só instrui.
+// Painel APRESENTACIONAL do login por WhatsApp (fluxo access-link), em uma tela só: o
+// start leve vive no pai (entrar.vue) e pré-aquece o deep link. Dois blocos: (1) abrir e
+// enviar num toque; "OU"; (2) envio manual do código, caso o WhatsApp não abra sozinho.
+// O login em si acontece pelo access link que o ManyChat devolve — a aba só instrui.
+// Copy vem por props (configurável no Admin via OMOTENASHI_DEFAULTS).
 const props = withDefaults(defineProps<{
   deepLink?: string
   code?: string
   waNumber?: string
   status?: WhatsappStartStatus
-}>(), { deepLink: '', code: '', waNumber: '', status: 'idle' })
+  glimpse?: string
+  noPasswordNote?: string
+  manualTitle?: string
+  manualIntro?: string
+  ctaLabel?: string
+}>(), {
+  deepLink: '',
+  code: '',
+  waNumber: '',
+  status: 'idle',
+  glimpse: '',
+  noPasswordNote: '',
+  manualTitle: 'Quer fazer você mesmo?',
+  manualIntro: 'Envie o código abaixo diretamente para o nosso WhatsApp',
+  ctaLabel: 'Entrar pelo WhatsApp'
+})
 
-const emit = defineEmits<{
-  sms: []
-  back: []
-  regenerate: []
-}>()
+const emit = defineEmits<{ regenerate: [] }>()
 
 const codeCopied = ref(false)
 // 554333231997 → "(43) 3323-1997"; chat "cru" (sem mensagem) para o envio manual.
@@ -38,8 +51,8 @@ async function copyCode () {
 
 <template>
   <section class="shop-stack-block" data-login-whatsapp aria-live="polite">
-    <div class="rounded-lg border bg-bottomnav p-4 shop-stack-block">
-      <template v-if="status === 'error'">
+    <template v-if="status === 'error'">
+      <div class="rounded-lg border bg-bottomnav p-4 shop-stack-block">
         <UiAlert variant="destructive">
           <UiAlertTitle>Não deu para iniciar pelo WhatsApp</UiAlertTitle>
           <UiAlertDescription>Tente de novo ou receba um código por SMS.</UiAlertDescription>
@@ -47,81 +60,69 @@ async function copyCode () {
         <UiButton type="button" size="lg" icon="lucide:rotate-cw" class="w-full justify-center" @click="emit('regenerate')">
           Tentar de novo
         </UiButton>
-      </template>
+      </div>
+    </template>
 
-      <template v-else>
-        <!-- A AÇÃO primeiro: abrir o WhatsApp com a mensagem pronta. -->
+    <template v-else>
+      <!-- Bloco 1 — a ação: abrir o WhatsApp com a mensagem pronta e enviar. O lampejo
+           lidera (o que vai acontecer); o rodapé reassegura (prático, seguro, sem senha). -->
+      <div class="rounded-lg border bg-bottomnav p-4 shop-stack-block" data-login-whatsapp-open>
+        <p v-if="glimpse" class="shop-item-title text-center text-balance" data-login-whatsapp-glimpse>{{ glimpse }}</p>
         <UiButton
           :href="deepLink || undefined"
           target="_blank"
           rel="noopener"
           size="lg"
-          icon="lucide:send"
+          icon="lucide:message-circle"
           class="w-full justify-center"
           :disabled="!deepLink"
         >
-          Abrir e enviar no WhatsApp
+          {{ ctaLabel }}
         </UiButton>
+        <p v-if="noPasswordNote" class="shop-meta text-center" data-login-whatsapp-note>{{ noPasswordNote }}</p>
+      </div>
 
-        <p class="text-center shop-meta" data-login-whatsapp-hint>
-          Toque em enviar no WhatsApp. Você recebe um link e entra num toque.
-        </p>
+      <!-- Divisor: a alternativa manual, para quando o app não abre sozinho. -->
+      <div v-if="code" class="flex items-center gap-3" aria-hidden="true" data-login-whatsapp-or>
+        <span class="h-px flex-1 bg-border" />
+        <span class="shop-meta uppercase tracking-widest">ou</span>
+        <span class="h-px flex-1 bg-border" />
+      </div>
 
-        <!-- Envio manual (fallback): código valorizado + copiar + abrir chat cru. -->
-        <div v-if="code" class="rounded-lg border bg-card p-4 shop-stack-block" data-login-whatsapp-manual>
+      <!-- Bloco 2 — envio manual (alternativa): título com peso de seção + subtítulo,
+           código discreto + copiar + abrir chat cru. -->
+      <div v-if="code" class="rounded-lg border bg-card p-4 shop-stack-block" data-login-whatsapp-manual>
+        <div class="shop-stack-micro text-center">
+          <p v-if="manualTitle" class="shop-item-title" data-login-whatsapp-manual-title>{{ manualTitle }}</p>
           <p class="shop-meta">
-            Se o WhatsApp não abrir, envie o código abaixo diretamente para o nosso WhatsApp
-            <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold">{{ waNumberDisplay }}</span>:
+            {{ manualIntro }}
+            <span v-if="waNumberDisplay" class="whitespace-nowrap font-semibold text-foreground">{{ waNumberDisplay }}</span>.
           </p>
-          <div class="rounded-md border bg-background py-3 text-center font-mono text-xl font-semibold tracking-widest text-foreground">
-            {{ code }}
-          </div>
-          <UiButton
-            type="button"
-            variant="outline"
-            class="w-full justify-center"
-            :icon="codeCopied ? 'lucide:check' : 'lucide:copy'"
-            @click="copyCode"
-          >
-            {{ codeCopied ? 'Código copiado' : 'Copiar código' }}
-          </UiButton>
-          <UiButton
-            :href="chatLink || undefined"
-            target="_blank"
-            rel="noopener"
-            variant="outline"
-            icon="lucide:message-circle"
-            class="w-full justify-center"
-            :disabled="!chatLink"
-          >
-            Abrir WhatsApp manualmente
-          </UiButton>
         </div>
-      </template>
-    </div>
-
-    <!-- Alternativas -->
-    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        class="-ml-2 text-muted-foreground hover:text-foreground"
-        icon="lucide:arrow-left"
-        @click="emit('back')"
-      >
-        Voltar
-      </UiButton>
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        class="text-muted-foreground hover:text-foreground"
-        icon="lucide:smartphone"
-        @click="emit('sms')"
-      >
-        Prefiro receber por SMS
-      </UiButton>
-    </div>
+        <div class="rounded-md bg-background py-2 text-center font-mono text-base tracking-wider text-muted-foreground">
+          {{ code }}
+        </div>
+        <UiButton
+          type="button"
+          variant="outline"
+          class="w-full justify-center"
+          :icon="codeCopied ? 'lucide:check' : 'lucide:copy'"
+          @click="copyCode"
+        >
+          {{ codeCopied ? 'Código copiado' : 'Copiar código' }}
+        </UiButton>
+        <UiButton
+          :href="chatLink || undefined"
+          target="_blank"
+          rel="noopener"
+          variant="outline"
+          icon="lucide:message-circle"
+          class="w-full justify-center"
+          :disabled="!chatLink"
+        >
+          Abrir WhatsApp
+        </UiButton>
+      </div>
+    </template>
   </section>
 </template>

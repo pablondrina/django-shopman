@@ -293,9 +293,11 @@ describe('surface UX guardrails', () => {
 
     expect(checkout).toContain('buildCheckoutPayload')
     expect(checkout).toContain("from '~/utils/checkoutFlow'")
-    expect(checkout).toContain('checkout.value.requires_authentication')
+    // Gate de auth do checkout = middleware compartilhado (SSR, sem flash da tela gated);
+    // a projection ainda dirige o auth_action (rota de login usada no "Trocar número").
+    expect(checkout).toContain("definePageMeta({ middleware: 'account' })")
     expect(checkout).toContain('checkout.value?.auth_action')
-    expect(checkout).toContain('navigateTo(authRoute.value)')
+    expect(checkout).toContain('navigateTo(authRoute)')
     expect(checkoutFlow).toContain("export type CheckoutStep = 'fulfillment' | 'address' | 'when' | 'payment'")
     expect(checkoutFlow).toContain('export function checkoutSteps')
     expect(checkoutFlow).toContain('export function checkoutStepState')
@@ -523,7 +525,7 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('const isCheckoutReturn')
     expect(login).toContain('const stepTitle')
     expect(login).toContain('const stepDescription')
-    expect(login).toContain('<UiInputGroup class="bg-white">')
+    expect(login).toContain('<UiInputGroup class="bg-background">')
     expect(login).toContain('<UiInputGroupAddon align="inline-start">')
     expect(login).toContain('<UiInputGroupInput')
     expect(login).toContain('name="phone"')
@@ -533,12 +535,12 @@ describe('surface UX guardrails', () => {
     expect(authPhone).toContain('phone_region')
     expect(authPhone).toContain('phone_normalized')
     expect(authPhone).toContain('target')
-    // WhatsApp = verificação reversa (deep link + polling); SMS = fallback OTP push.
-    // 1 clique: o handshake vive no pai (useWhatsappVerify), pré-aquece o deep link e
-    // o CTA abre o WhatsApp num toque (goWhatsapp). O painel é apresentacional.
-    expect(login).toContain('goWhatsapp($event)')
+    // WhatsApp = login por access link (deep link pré-aquecido no pai, sem polling/SSE);
+    // SMS = fallback OTP push. O CTA é o próprio deep link (<a href>) no painel
+    // apresentacional; o pai pré-aquece via waStart no mount (uma tela só).
     expect(login).toContain('useWhatsappVerify()')
     expect(login).toContain('<WhatsappVerifyPanel')
+    expect(login).toContain(':deep-link="waDeepLink"')
     expect(login).toContain("requestCode('sms', $event)")
     expect(login).toContain('class="w-full justify-center"')
     expect(login).toContain('<UiFieldLabel for="trusted-device" class="w-full">')

@@ -182,11 +182,19 @@ class AccessLinkExchangeView(APIView):
         except Exception:
             logger.debug("access_link_exchange: customer lookup degraded", exc_info=True)
 
-        return Response({
+        payload = {
             "ok": True,
             "redirect": _access_link_redirect(metadata),
             **_session_payload(customer),
-        })
+        }
+        # Handoff do site que expirou: entrou logado, mas a sacola não veio. Avisamos com
+        # gentileza (copy configurável), sem bloquear a entrada. Ver ACCESS-LINK-UNIFICATION.
+        if isinstance(metadata, dict) and metadata.get("handoff_expired"):
+            from shopman.shop.omotenashi import resolve_copy
+
+            payload["handoff_expired"] = True
+            payload["notice"] = resolve_copy("LOGIN_HANDOFF_EXPIRED", moment="*").message
+        return Response(payload)
 
 
 def _normalize_payload_phone(payload: dict) -> str:

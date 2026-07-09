@@ -1,12 +1,10 @@
-"""Start leve do login por WhatsApp (ACCESS-LINK-UNIFICATION, F2).
+"""Start leve do login por WhatsApp (ACCESS-LINK-UNIFICATION).
 
-O ``/start/`` agora só guarda o contexto do site (sacola anônima + destino) sob um
-código ``NB-XxXx`` de uso único e devolve o deep link ``wa.me`` já preenchido. Sem
+O ``/start/`` só guarda o contexto do site (sacola anônima + destino) sob um código
+``NB-XxXx`` de uso único e devolve o deep link ``wa.me`` já preenchido. Sem
 handshake/token/poll/SSE: a identidade é o número que envia a mensagem; o login
 acontece depois, pelo access link que o ManyChat devolve (ver ``AccessLinkCreateView``).
-
-As views legado ``confirm``/``status``/SSE (reverse-OTP) ainda existem no arquivo mas
-estão mortas neste fluxo; são removidas em F4 (inventário no ACCESS-LINK-UNIFICATION-PLAN.md).
+As views legado do reverse-OTP (confirm/status/SSE) foram removidas em F4.
 """
 from __future__ import annotations
 

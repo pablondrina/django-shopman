@@ -1,16 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   RESEND_COOLDOWN_MS,
-  WHATSAPP_POLL_FALLBACK_MS,
-  WHATSAPP_POLL_INTERVAL_MS,
   authErrorView,
   authStep,
   otpValidUntilDisplay,
   resendCooldown,
-  welcomeNameValue,
-  whatsappCountdown,
-  whatsappCountdownDisplay,
-  whatsappPhase
+  welcomeNameValue
 } from '../app/presentation/auth'
 
 describe('authStep', () => {
@@ -89,64 +84,5 @@ describe('welcomeNameValue', () => {
 
   it('returns empty for blank input', () => {
     expect(welcomeNameValue('   ')).toBe('')
-  })
-})
-
-describe('whatsappCountdown', () => {
-  it('is expired when not started or with non-positive window', () => {
-    expect(whatsappCountdown(null, 600, 1000)).toEqual({ expired: true, remainingSeconds: 0 })
-    expect(whatsappCountdown(1000, 0, 1000)).toEqual({ expired: true, remainingSeconds: 0 })
-  })
-
-  it('counts down whole seconds while the token is valid', () => {
-    const started = 10_000
-    expect(whatsappCountdown(started, 600, started + 1)).toEqual({ expired: false, remainingSeconds: 600 })
-    expect(whatsappCountdown(started, 600, started + 90_400)).toEqual({ expired: false, remainingSeconds: 510 })
-  })
-
-  it('expires exactly at the end of the window', () => {
-    const started = 10_000
-    expect(whatsappCountdown(started, 600, started + 600_000)).toEqual({ expired: true, remainingSeconds: 0 })
-  })
-})
-
-describe('whatsappCountdownDisplay', () => {
-  it('shows minutes and zero-padded seconds above a minute', () => {
-    expect(whatsappCountdownDisplay(349)).toBe('5min 49s')
-    expect(whatsappCountdownDisplay(600)).toBe('10min 00s')
-    expect(whatsappCountdownDisplay(65)).toBe('1min 05s')
-  })
-
-  it('shows only seconds below a minute', () => {
-    expect(whatsappCountdownDisplay(49)).toBe('49s')
-    expect(whatsappCountdownDisplay(0)).toBe('0s')
-  })
-})
-
-describe('whatsappPhase', () => {
-  it('prioritizes verified and error over expiry', () => {
-    expect(whatsappPhase('verified', true)).toBe('verified')
-    expect(whatsappPhase('error', false)).toBe('error')
-  })
-
-  it('reports expired from either the flag or the status', () => {
-    expect(whatsappPhase('pending', true)).toBe('expired')
-    expect(whatsappPhase('expired', false)).toBe('expired')
-  })
-
-  it('waits while pending and still valid', () => {
-    expect(whatsappPhase('pending', false)).toBe('waiting')
-    expect(whatsappPhase('idle', false)).toBe('waiting')
-  })
-})
-
-describe('cadências de polling do WhatsApp', () => {
-  it('mantém o intervalo base em 3s', () => {
-    expect(WHATSAPP_POLL_INTERVAL_MS).toBe(3_000)
-  })
-
-  it('usa um fallback mais calmo (SSE é o push primário)', () => {
-    expect(WHATSAPP_POLL_FALLBACK_MS).toBe(8_000)
-    expect(WHATSAPP_POLL_FALLBACK_MS).toBeGreaterThan(WHATSAPP_POLL_INTERVAL_MS)
   })
 })

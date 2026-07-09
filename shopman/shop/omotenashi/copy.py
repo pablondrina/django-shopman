@@ -1018,7 +1018,28 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Abrimos o WhatsApp com a mensagem pronta. É só enviar.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha, rápido e seguro.")},
+    },
+    # Vindo do checkout, a sacola é o que importa dizer no subtítulo (uma linha, sem alarde).
+    "LOGIN_WA_CART_KEPT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Sua sacola está guardada.")},
+    },
+    # Lampejo do fluxo: o que vai acontecer ao tocar (você envia, recebe um link, entra).
+    "LOGIN_WA_GLIMPSE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie a mensagem pronta e receba um link para entrar.")},
+    },
+    # Fallback manual (bloco "OU"): título com peso de seção + subtítulo (o número do
+    # WhatsApp é anexado ao subtítulo na tela).
+    "LOGIN_WA_MANUAL_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Quer fazer você mesmo?")},
+    },
+    "LOGIN_WA_MANUAL_INTRO": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie o código abaixo diretamente para o nosso WhatsApp")},
+    },
+    # Handoff do site expirou: entrou logado, mas a sacola não veio (link do WhatsApp venceu).
+    # Aviso gentil, com caminho de volta, sem culpar o cliente.
+    "LOGIN_HANDOFF_EXPIRED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você entrou! Sua sacola não veio desta vez porque o link expirou. É só montar de novo.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
@@ -1036,7 +1057,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Ou confirme outro telefone abaixo.")},
     },
     "LOGIN_NO_PASSWORD_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. Você entra em segundos pelo WhatsApp.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="É prático e seguro, e não exige senha.")},
     },
     "LOGIN_TERMS_NOTE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},

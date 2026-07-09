@@ -27,9 +27,6 @@ const session = useShopSession()
 const phone = ref('')
 const phoneRegion = ref<AuthPhoneRegion>('BR')
 const requestedPhone = ref('')
-// Modo do passo de telefone: OTP clássico (SMS/código) ou verificação reversa
-// por WhatsApp. O WhatsApp é o caminho primário; SMS é o fallback.
-const mode = ref<'otp' | 'whatsapp'>('otp')
 // Login por WhatsApp (fluxo access-link): o start leve vive no PAI para pré-aquecer o
 // deep link e o botão abrir o app num toque. Sem polling/SSE/resume — o login acontece
 // pelo access link que o ManyChat devolve; a aba original só instrui. Ver useWhatsappVerify.
@@ -86,26 +83,32 @@ const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
 // DDD padrão da loja (config): assume-se quando o cliente entra sem DDD, para o
 // telefone ser guardado no formato certo (e não virar "(55) …" depois).
 const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_ddd || '')
-const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
+// Volta do checkout: o gate manda `next=/finalizar`; o backend usa `/checkout`. Cobre os dois.
+const isCheckoutReturn = computed(() => /checkout|finalizar/.test(nextUrl.value))
 const stepTitle = computed(() => {
-  if (step.value === 'phone') {
-    if (mode.value === 'whatsapp') return 'Entrar pelo WhatsApp'
-    return copyTitle(authCopy.value?.phone_heading, 'Entrar')
-  }
+  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entrar')
   if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
   return copyTitle(authCopy.value?.name_heading, 'Como podemos te chamar?')
 })
 const stepDescription = computed(() => {
   if (step.value === 'phone') {
-    if (mode.value === 'whatsapp') return 'A mensagem está pronta. É só enviar o código.'
-    return copyMessage(authCopy.value?.phone_subtitle, 'Sem senha, rápido e seguro.')
+    // Vindo do checkout: a sacola é o que importa dizer, no subtítulo. No login comum o
+    // subtítulo fica vazio — quem lidera é o lampejo dentro da caixa (com mais ênfase).
+    if (isCheckoutReturn.value) return copyMessage(authCopy.value?.wa_cart_kept, 'Sua sacola está guardada.')
+    return ''
   }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
 })
+// Lampejo (o que vai acontecer), reasseguro (sem senha) e intro do envio manual: alimentam
+// o WhatsappVerifyPanel (configuráveis no Admin). O login em si é pelo access link.
+const waGlimpse = computed(() => copyMessage(authCopy.value?.wa_glimpse, 'Envie a mensagem pronta e receba um link para entrar.'))
+const waNoPasswordNote = computed(() => copyMessage(authCopy.value?.no_password_note, 'É prático e seguro, e não exige senha.'))
+const waManualTitle = computed(() => copyTitle(authCopy.value?.wa_manual_title, 'Quer fazer você mesmo?'))
+const waManualIntro = computed(() => copyMessage(authCopy.value?.wa_manual_intro, 'Envie o código abaixo diretamente para o nosso WhatsApp'))
 const supportUrl = computed(() => withWhatsAppText(
   loginHome.value?.home.public_config.whatsapp_url || '',
-  nextUrl.value.includes('checkout') ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
+  isCheckoutReturn.value ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
 ))
 // "O código não chegou?" só cabe no passo de código (SMS). No WhatsApp/telefone não
 // há código enviado ao cliente — ele é quem manda o token —, então o convite à ajuda
@@ -237,34 +240,6 @@ async function celebrateAndGo (kind: 'recognized' | 'confirmed') {
 function enterWelcomeGate (sessionResponse: AuthSessionResponse) {
   welcomeNeeded.value = true
   welcomeName.value = sessionResponse.welcome_suggested_name?.trim() || ''
-}
-
-// ── Login por WhatsApp (access-link) ───────────────────────────────────────
-function startWhatsappFlow () {
-  error.value = null
-  mode.value = 'whatsapp'
-  // Rede de segurança: se o prewarm ainda não rodou, inicia agora (sem número).
-  if (!waDeepLink.value) void waStart(nextUrl.value)
-}
-
-// Um clique: troca para o painel instrutivo E abre o WhatsApp. Como o deep link já foi
-// pré-aquecido no mount, o window.open acontece dentro do gesto (sem await) e não é
-// bloqueado. Sem link pronto, só entra no painel (com o botão de abrir). O login em si
-// acontece depois, pelo access link que o ManyChat devolve — a aba original só instrui.
-function goWhatsapp () {
-  startWhatsappFlow()
-  if (import.meta.client && waDeepLink.value) window.open(waDeepLink.value, '_blank', 'noopener')
-}
-
-function onWhatsappSms () {
-  mode.value = 'otp'
-  // Se o telefone já foi informado, dispara o SMS direto; senão volta ao formulário.
-  if (phone.value.trim()) requestCode('sms')
-}
-
-function onWhatsappBack () {
-  mode.value = 'otp'
-  error.value = null
 }
 
 async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Event) {
@@ -433,11 +408,7 @@ useSeoMeta({
         <template v-else>
         <header>
           <h1 class="shop-title">{{ stepTitle }}</h1>
-          <p class="mt-2 shop-muted">{{ stepDescription }}</p>
-          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-2 shop-meta">
-            <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
-            Sua sacola continua reservada durante a entrada.
-          </p>
+          <p v-if="stepDescription" class="mt-2 shop-muted">{{ stepDescription }}</p>
         </header>
 
         <UiAlert v-if="error && error.kind === 'rate_limit'" id="login-error" role="alert" icon="lucide:clock" variant="warning">
@@ -449,98 +420,86 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <WhatsappVerifyPanel
-          v-if="step === 'phone' && mode === 'whatsapp'"
-          :deep-link="waDeepLink"
-          :code="waCode"
-          :wa-number="waNumber"
-          :status="waStatus"
-          @sms="onWhatsappSms"
-          @back="onWhatsappBack"
-          @regenerate="() => waStart(nextUrl)"
-        />
+        <div v-if="step === 'phone'" class="shop-stack-block">
+          <!-- Zero-telefone, uma tela: a identidade é quem ENVIA a mensagem no WhatsApp.
+               Bloco 1 abre o app com a mensagem pronta; "OU"; bloco 2 é o envio manual. -->
+          <WhatsappVerifyPanel
+            :deep-link="waDeepLink"
+            :code="waCode"
+            :wa-number="waNumber"
+            :status="waStatus"
+            :glimpse="waGlimpse"
+            :no-password-note="waNoPasswordNote"
+            :manual-title="waManualTitle"
+            :manual-intro="waManualIntro"
+            :cta-label="copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp')"
+            @regenerate="() => waStart(nextUrl)"
+          />
 
-        <div v-else-if="step === 'phone'" class="shop-stack-block">
-          <div class="shop-stack-block rounded-lg border bg-bottomnav p-4">
-            <!-- Zero-telefone: um toque abre o WhatsApp; a identidade é quem envia a
-                 mensagem. Não pedimos número por padrão. Ver goWhatsapp. -->
-            <UiButton
-              type="button"
-              size="lg"
-              :loading="pending"
-              icon="lucide:message-circle"
-              class="w-full justify-center"
-              @click="goWhatsapp($event)"
-            >
-              {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
-            </UiButton>
-            <p class="shop-meta text-center">Sem senha, rápido e seguro.</p>
+          <!-- Alternativa: usar OUTRO número = via SMS (o único caminho que mira um número
+               digitado; pelo WhatsApp a conta é sempre a de quem envia a mensagem). -->
+          <UiButton
+            v-if="!revealPhone"
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="w-full justify-center text-muted-foreground hover:text-foreground"
+            icon="lucide:smartphone"
+            @click="revealPhone = true"
+          >
+            Usar outro número
+          </UiButton>
 
-            <!-- Usar OUTRO número = via SMS (o único caminho que mira um número digitado;
-                 pelo WhatsApp a conta é sempre a de quem envia). -->
-            <UiButton
-              v-if="!revealPhone"
-              type="button"
-              variant="ghost"
-              size="sm"
-              class="w-full justify-center text-muted-foreground hover:text-foreground"
-              icon="lucide:smartphone"
-              @click="revealPhone = true"
-            >
-              Usar outro número
-            </UiButton>
-
-            <form v-else ref="phoneForm" class="shop-stack-block border-t pt-4" @submit.prevent="requestCode('sms', $event)">
-              <UiField>
-                <div class="flex items-center justify-between gap-3">
-                  <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
-                  <UiButton
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    class="h-auto px-0 text-xs"
-                    @click="togglePhoneRegion"
-                  >
-                    {{ regionToggleLabel }}
-                  </UiButton>
-                </div>
-                <UiInputGroup class="bg-white">
-                  <UiInputGroupAddon align="inline-start">
-                    <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
-                    <Icon v-else name="lucide:globe-2" />
-                  </UiInputGroupAddon>
-                  <UiInputGroupInput
-                    id="login-phone"
-                    v-model="phone"
-                    name="phone"
-                    type="tel"
-                    :inputmode="phoneInputMode"
-                    :autocomplete="phoneAutocomplete"
-                    :placeholder="phonePlaceholder"
-                    :maxlength="phoneRegion === 'INTL' ? 24 : 16"
-                    @input="syncPhoneFromInput"
-                  />
-                </UiInputGroup>
-                <UiFieldDescription>Enviamos um código por SMS para este número.</UiFieldDescription>
-              </UiField>
-
-              <div class="grid gap-3">
-                <UiButton type="submit" size="lg" :loading="pending" icon="lucide:smartphone" class="w-full justify-center">
-                  {{ copyTitle(authCopy?.phone_cta_sms, 'Receber código por SMS') }}
-                </UiButton>
+          <form v-else ref="phoneForm" class="shop-stack-block rounded-lg border bg-card p-4" @submit.prevent="requestCode('sms', $event)">
+            <UiField>
+              <div class="flex items-center justify-between gap-3">
+                <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
                 <UiButton
                   type="button"
-                  variant="ghost"
+                  variant="link"
                   size="sm"
-                  class="w-full justify-center text-muted-foreground hover:text-foreground"
-                  icon="lucide:arrow-left"
-                  @click="revealPhone = false"
+                  class="h-auto px-0 text-xs"
+                  @click="togglePhoneRegion"
                 >
-                  Voltar
+                  {{ regionToggleLabel }}
                 </UiButton>
               </div>
-            </form>
-          </div>
+              <UiInputGroup class="bg-background">
+                <UiInputGroupAddon align="inline-start">
+                  <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
+                  <Icon v-else name="lucide:globe-2" />
+                </UiInputGroupAddon>
+                <UiInputGroupInput
+                  id="login-phone"
+                  v-model="phone"
+                  name="phone"
+                  type="tel"
+                  :inputmode="phoneInputMode"
+                  :autocomplete="phoneAutocomplete"
+                  :placeholder="phonePlaceholder"
+                  :maxlength="phoneRegion === 'INTL' ? 24 : 16"
+                  @input="syncPhoneFromInput"
+                />
+              </UiInputGroup>
+              <UiFieldDescription>Enviamos um código por SMS para este número.</UiFieldDescription>
+            </UiField>
+
+            <div class="grid gap-3">
+              <UiButton type="submit" size="lg" :loading="pending" icon="lucide:smartphone" class="w-full justify-center">
+                {{ copyTitle(authCopy?.phone_cta_sms, 'Receber código por SMS') }}
+              </UiButton>
+              <UiButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="w-full justify-center text-muted-foreground hover:text-foreground"
+                icon="lucide:arrow-left"
+                @click="revealPhone = false"
+              >
+                Voltar
+              </UiButton>
+            </div>
+          </form>
         </div>
 
         <form v-else-if="step === 'code'" ref="codeForm" class="shop-stack-block" @submit.prevent="verifyCode">
