@@ -48,7 +48,7 @@ function set (value: number) {
            contorno + preenchimento dourado. -->
       <Icon
         name="lucide:star"
-        :class="[starSize, 'text-amber-500 transition-colors', value <= active ? 'fill-amber-400' : 'fill-transparent']"
+        :class="[starSize, 'text-cta transition-colors', value <= active ? 'fill-cta' : 'fill-transparent']"
       />
     </button>
   </div>
