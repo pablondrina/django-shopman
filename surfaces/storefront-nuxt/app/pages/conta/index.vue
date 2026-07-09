@@ -105,7 +105,8 @@ useSeoMeta({ title: 'Conta' })
               <span class="shop-muted">pontos</span>
             </p>
           </div>
-          <Icon name="lucide:sparkles" class="size-7 shrink-0 text-primary" />
+          <!-- Brilho da fidelidade sempre dourado (brass), nunca burgundy — nos dois temas. -->
+          <Icon name="lucide:sparkles" class="size-7 shrink-0 text-brass" />
         </div>
 
         <div v-if="loyalty.hasStamps" class="shop-stack-block px-4 py-4">
