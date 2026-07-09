@@ -1115,20 +1115,34 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── History / account empty states ────────────────────────────
+    # Vazio da lista de pedidos — 3 estados por filtro (moment "active"/"past" e o
+    # "*" padrão para "todos"). A tela recebe a copy do filtro atual no payload e
+    # mantém um fallback client-side só para o intervalo de carregamento.
     "HISTORY_EMPTY": {
         WILDCARD: {
-            AUDIENCE_ANON: CopyEntry(
-                title="Nenhum pedido ainda",
-                message="Entre para começar.",
-            ),
             WILDCARD: CopyEntry(
-                title="Primeiro pedido?",
-                message="Conheça nosso cardápio.",
+                title="Você ainda não fez pedidos",
+                message="Que tal começar? Escolha algo fresquinho no cardápio.",
+            ),
+        },
+        "active": {
+            WILDCARD: CopyEntry(
+                title="Nenhum pedido em andamento",
+                message="Quando você fizer um pedido, ele aparece aqui para você acompanhar de pertinho.",
+            ),
+        },
+        "past": {
+            WILDCARD: CopyEntry(
+                title="Nenhum pedido finalizado ainda",
+                message="Seus pedidos concluídos ficam guardados aqui para você repetir quando quiser.",
             ),
         },
     },
     "ADDRESSES_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum endereço cadastrado.")},
+        WILDCARD: {WILDCARD: CopyEntry(
+            title="Nenhum endereço salvo",
+            message="Adicione um endereço para finalizar a próxima entrega com menos passos.",
+        )},
     },
     "ACCOUNT_GREETING_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(title="Olá")},
@@ -1140,7 +1154,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste aparelho.")},
     },
     "DEVICE_LIST_EMPTY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},

@@ -87,6 +87,17 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
 - **Status:** arquivada como decisão consciente. Segue no registro **e no
   `copy-wiring-backlog.txt`** (continua órfã: a copy não chega a tela alguma — de propósito).
 
+### `NOTIFICATION_PREFS_EMPTY` ("Nenhuma preferência de notificação configurável no momento.")
+- **Achado:** a chave existe, mas `conta/preferencias.vue` **não tem estado-vazio** — a página
+  só renderiza os toggles de notificação (`v-for`); se a lista vier vazia, a seção some sem
+  mensagem. "Religar" exigiria **construir uma UI nova** (um bloco `UiEmpty` de notificações),
+  não reconectar um texto já em tela.
+- **Decisão do Pablo (2026-07-09, revisão A/B das sub-páginas da conta):** **documentar, não
+  deletar.** Um empty-state de notificações é uma tela plausível de construir depois e a frase
+  já rascunhada é copy boa para reaproveitar. Não vale inventar UI que ninguém pediu agora.
+- **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito
+  — sem tela). Quando/se o empty-state de notificações for construído, ligar via projection.
+
 ## 🙈 Tracking — superseded/duplicadas (decisão Pablo 2026-07-09, revisão caso-a-caso)
 
 O acompanhamento já resolve 80+ chaves via `build_copy("TRACKING")`. Destas órfãs, umas

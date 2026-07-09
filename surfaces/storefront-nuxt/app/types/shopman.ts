@@ -972,6 +972,26 @@ export interface OrderHistoryItem {
   actions?: Action[]
 }
 
+export interface EmptyStateCopy {
+  title: string
+  message: string
+}
+
+export interface OrderHistoryResponse {
+  orders: OrderHistoryItem[]
+  copy: { empty: EmptyStateCopy }
+}
+
+export interface AddressListCopy {
+  empty_title: string
+  empty_message: string
+}
+
+export interface AddressListResponse {
+  addresses: SavedAddressProjection[]
+  copy: AddressListCopy
+}
+
 export interface AccountDeviceProjection {
   id: string
   label: string
@@ -990,6 +1010,7 @@ export interface AccountDeviceCopy {
   current_badge: string
   registered_prefix: string
   revoke_cta: string
+  delete_warning: string
 }
 
 export interface AccountDeviceResponse {

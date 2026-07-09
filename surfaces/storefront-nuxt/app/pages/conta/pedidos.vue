@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { OrderHistoryItem, ReorderConflictProjection } from '~/types/shopman'
+import type { OrderHistoryResponse, ReorderConflictProjection } from '~/types/shopman'
 import { ORDER_FILTER_OPTIONS, orderStatusAccentClass, orderStatusDotClass, ordersEmptyCopy, reorderActionFrom } from '~/presentation/account'
 
 definePageMeta({ middleware: 'account' })
@@ -12,13 +12,15 @@ const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : unde
 
 const orderFilter = ref<OrderFilter>('todos')
 
-const { data: orders, pending } = await useFetch<OrderHistoryItem[]>(apiPath('/api/v1/account/orders/'), {
+const { data: history, pending } = await useFetch<OrderHistoryResponse>(apiPath('/api/v1/account/orders/'), {
   credentials: 'include',
   headers: requestHeaders,
   query: computed(() => ({ filter: orderFilter.value }))
 })
 
-const emptyCopy = computed(() => ordersEmptyCopy(orderFilter.value))
+const orders = computed(() => history.value?.orders ?? [])
+// Copy do vazio vem do registro (por filtro); o fallback client-side cobre só o carregamento.
+const emptyCopy = computed(() => history.value?.copy?.empty ?? ordersEmptyCopy(orderFilter.value))
 const conflictRef = conflict as Ref<ReorderConflictProjection | null>
 
 function dismissConflict () {
