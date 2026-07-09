@@ -151,6 +151,9 @@ export interface MinimumOrderProgressProjection {
   percent: number
   minimum_display: string
   remaining_display: string
+  warning_prefix: string
+  warning_middle: string
+  add_more_cta: string
 }
 
 export interface FreeDeliveryProgressProjection {
@@ -210,6 +213,7 @@ export interface CartProjection {
   has_unavailable_items: boolean
   has_awaiting_confirmation_items: boolean
   has_ready_for_confirmation_items: boolean
+  unavailable_banner: string
   minimum_order_progress: MinimumOrderProgressProjection | null
   delivery_minimum_progress: MinimumOrderProgressProjection | null
   free_delivery_progress: FreeDeliveryProgressProjection | null
