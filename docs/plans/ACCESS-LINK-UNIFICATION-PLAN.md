@@ -144,3 +144,16 @@ notificações, `DOORMAN_ACCESS_LINK_API_KEY`.
   Manter `NB-` via settings ao reaproveitar o gerador.
 - A `/entrar?wa=` (resume) perde a razão de ser — confirmar que nada mais a
   referencia antes de deletar.
+
+## TODO pós-happy-path (aprovado, fazer após validar o ciclo no ManyChat)
+
+Comunicar a **degradação da sacola** (omotenashi — não sumir com a sacola em silêncio).
+Quando `access_code` vem mas NÃO resolve (expirou/já usado), sabemos que um handoff foi
+tentado e falhou (distinto do login orgânico). Então:
+1. **Backend:** no `create`, quando `access_code` presente mas `pop_state` = None, marcar
+   `metadata.handoff_expired = true`. No `exchange` (storefront), propagar o flag na resposta.
+2. **Front:** no login, mensagem gentil ("Você entrou! Sua sacola não veio desta vez porque
+   o link expirou.") + caminho (refazer / ela ficou na aba anterior). Copy a lapidar.
+3. **Barato, reduz a frequência:** subir o TTL do código de 10 → 30min
+   (`DOORMAN.LINK_STATE_TTL_SECONDS`).
+Decidido 2026-07-09; Pablo vai validar o happy-path primeiro e então fazemos isto.
