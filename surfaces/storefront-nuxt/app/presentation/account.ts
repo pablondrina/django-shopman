@@ -10,9 +10,10 @@ import type {
 // para ficar 100% testável (vitest).
 
 // ── Saudação ───────────────────────────────────────────────────────────────
-export function accountGreeting (firstName: string | null | undefined): string {
+export function accountGreeting (firstName: string | null | undefined, prefix?: string | null): string {
   const name = (firstName || '').trim()
-  return name ? `Olá, ${name}` : 'Olá'
+  const hello = (prefix || '').trim() || 'Olá'
+  return name ? `${hello}, ${name}` : hello
 }
 
 // ── Fidelidade (vitrine de valor) ──────────────────────────────────────────

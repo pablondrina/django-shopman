@@ -74,5 +74,18 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
 - **Status:** aguarda visão do Pablo — construir o modo leitura+editar (com o nudge "Não
   informado") ou aposentar as 3. Seguem no registro e no `copy-wiring-backlog.txt`.
 
+## 🙈 Ausência que não vale anunciar (esconder > avisar)
+
+### `LOYALTY_UNAVAILABLE` ("Programa de fidelidade não disponível.")
+- **Achado:** a chave existe só para **afirmar a ausência** do programa de fidelidade. Hoje a
+  vitrine de fidelidade (`conta/index.vue`, `home`) some quando `loyalty.available` é falso
+  (`v-if`). Quando um programa é configurado, ela aparece sozinha — nada mais a fazer.
+- **Decisão do Pablo (2026-07-09, revisão A/B da conta/index):** **não construir.** Avisar que
+  uma feature não existe é ruído (ninguém sente falta do que não sabia que existia). O
+  esconder-quando-indisponível é o comportamento certo. A chave fica arquivada — se um dia
+  quisermos um estado explícito, está aqui.
+- **Status:** arquivada como decisão consciente. Segue no registro **e no
+  `copy-wiring-backlog.txt`** (continua órfã: a copy não chega a tela alguma — de propósito).
+
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.

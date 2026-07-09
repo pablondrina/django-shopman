@@ -205,6 +205,22 @@ def _profile_copy() -> dict:
     }
 
 
+def _account_copy() -> dict:
+    """Copy do hub da conta (conta/index), do registro omotenashi. Saudação e título
+    são labels; a despedida é mensagem. O Vue consome, sem hardcode."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "greeting_prefix": title("ACCOUNT_GREETING_PREFIX", "Olá"),
+        "page_title": title("ACCOUNT_PAGE_TITLE", "Minha Conta"),
+        "logout_farewell": message("LOGOUT_FAREWELL", "Até logo."),
+    }
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["account"],
@@ -335,6 +351,7 @@ class AccountSummaryView(APIView):
             }
 
         return Response({
+            "copy": _account_copy(),
             "customer_first_name": account.customer_first_name,
             "recent_order_count": len(account.recent_orders),
             "active_order_count": order_service.active_order_count_for_customer(

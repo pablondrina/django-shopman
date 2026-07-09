@@ -904,7 +904,14 @@ export interface AccountNotificationPreference {
   enabled: boolean
 }
 
+export interface AccountSummaryCopy {
+  greeting_prefix: string
+  page_title: string
+  logout_farewell: string
+}
+
 export interface AccountSummary {
+  copy: AccountSummaryCopy
   customer_first_name: string
   recent_order_count: number
   active_order_count: number

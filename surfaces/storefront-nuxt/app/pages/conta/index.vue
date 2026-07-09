@@ -19,7 +19,10 @@ const { data: summary, pending } = await useFetch<AccountSummary>(apiPath('/api/
   headers: requestHeaders
 })
 
-const greeting = computed(() => accountGreeting(summary.value?.customer_first_name || session.customerName.value))
+const greeting = computed(() => accountGreeting(
+  summary.value?.customer_first_name || session.customerName.value,
+  summary.value?.copy.greeting_prefix
+))
 const loyalty = computed(() => loyaltyView(summary.value?.loyalty))
 const navCards = computed(() => accountNavCards(summary.value || null))
 const lastOrder = computed(() => summary.value?.last_order || null)
@@ -38,6 +41,8 @@ async function logout () {
       headers: await csrfHeaders(),
       credentials: 'include'
     })
+    const farewell = summary.value?.copy.logout_farewell?.trim()
+    if (import.meta.client && farewell) useSonner(farewell)
     session.reset()
     await navigateTo('/')
   } finally {
@@ -50,7 +55,7 @@ function dismissConflict () {
   conflict.value = null
 }
 
-useSeoMeta({ title: 'Conta' })
+useSeoMeta({ title: () => summary.value?.copy.page_title || 'Minha Conta' })
 </script>
 
 <template>
