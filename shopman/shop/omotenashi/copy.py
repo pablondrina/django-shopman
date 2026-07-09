@@ -1224,14 +1224,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "URGENCY_BANNER_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em breve")},
     },
-    "BIRTHDAY_BANNER_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
-    },
-    "BIRTHDAY_BANNER_SUB": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
-    },
+    # BIRTHDAY_BANNER_* eram duplicatas órfãs do slide de aniversário do hero;
+    # consolidadas aqui (o "!" veio do banner). O hero é o único lugar do aniversário.
     "BIRTHDAY_HERO_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
     },
     "BIRTHDAY_HERO_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},

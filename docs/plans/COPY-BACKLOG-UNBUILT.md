@@ -20,15 +20,16 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
 
 ## ↔ Supersedidas (a feature existe, com outra copy) — RECONCILIAR
 
-### `TRACKING_DELIVERED_YOIN` ("Bom apetite. Até a próxima.")
-- **Achado:** o estado terminal `delivered` já usa `TRACKING_PROMISE_DELIVERED_MESSAGE`
-  ("Bom apetite! Esperamos você de novo em breve."). O YOIN é uma variante duplicada da mesma
-  mensagem de despedida. → consolidar (adotar o melhor texto numa chave, remover a outra).
+### ✅ `TRACKING_DELIVERED_YOIN` ("Bom apetite. Até a próxima.") — FIADA (2026-07-08)
+- O estado `delivered` renderizava por `TRACKING_PROMISE_DELIVERED_MESSAGE` (chave que nem
+  existia no registro — só fallback no código). Repontado para `TRACKING_DELIVERED_YOIN`
+  (`order_tracking.py`): a despedida do `delivered` agora é a yoin, configurável no registro.
 
-### `BIRTHDAY_BANNER_*` ("Feliz aniversário!")
-- **Achado:** a home tem um **slide de aniversário** no hero (`HomeHeroThing.vue`, copy
-  `birthday_heading`/`birthday_sub`/`birthday_cta` = "Um cuidado especial hoje"). O banner é uma
-  copy alternativa não usada. → decidir consolidar no slide do hero ou usar como banner separado.
+### ✅ `BIRTHDAY_BANNER_*` — CONSOLIDADO no hero (2026-07-08)
+- Eram duplicatas órfãs do slide de aniversário do hero (`BIRTHDAY_HERO_HEADING`/`_SUB`, usados
+  em `home.py`). O "!" do banner foi adotado no `BIRTHDAY_HERO_HEADING` ("Feliz aniversário!") e
+  as chaves `BIRTHDAY_BANNER_TITLE`/`_SUB` foram removidas do registro (o hero é o único lugar
+  do aniversário). Sub do hero mantém o desconto (a informação acionável).
 
 ## ⚠️ Decisão de produto (feature não reconstruída no Nuxt)
 
