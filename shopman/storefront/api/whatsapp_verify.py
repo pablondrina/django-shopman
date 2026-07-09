@@ -27,7 +27,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.shop.services import whatsapp_verify as wa
-from shopman.storefront.intents._phone import normalize_phone_input
 from shopman.storefront.intents.auth import clean_display_name
 
 from .auth import _session_payload
@@ -63,12 +62,17 @@ def _api_key_ok(request) -> bool:
     ratelimit(key="ip", rate="10/m", method="POST", block=False), name="dispatch"
 )
 class WhatsAppVerifyStartView(APIView):
-    """POST /api/v1/auth/whatsapp/start/ — inicia verificação, devolve deep link."""
+    """POST /api/v1/auth/whatsapp/start/ — start leve do login por WhatsApp.
+
+    Guarda o contexto do site (sacola anônima + destino) sob um código NB-XxXx e
+    devolve o deep link pré-preenchido. Sem handshake/poll/SSE — o login acontece
+    pelo access link que o ManyChat devolve. Ver ACCESS-LINK-UNIFICATION-PLAN.md.
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    @extend_schema(tags=["auth"], summary="Start WhatsApp number verification")
+    @extend_schema(tags=["auth"], summary="Start WhatsApp login (access-link handoff)")
     def post(self, request):
         if getattr(request, "limited", False):
             return Response(
@@ -76,17 +80,12 @@ class WhatsAppVerifyStartView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
         payload = request.data if hasattr(request, "data") else {}
-        raw_phone = str((payload or {}).get("phone") or "").strip()
-        phone = normalize_phone_input(raw_phone) or "" if raw_phone else ""
         next_path = str((payload or {}).get("next") or "").strip()
-
-        session_key = None
+        cart_key = ""
         if hasattr(request, "session"):
-            if not request.session.session_key:
-                request.session.save()
-            session_key = request.session.session_key
+            cart_key = str(request.session.get("cart_session_key") or "")
 
-        result = wa.start_verification(phone=phone, session_key=session_key, next_path=next_path)
+        result = wa.start_access_link(cart_session_key=cart_key, next_path=next_path)
         return Response(result)
 
 

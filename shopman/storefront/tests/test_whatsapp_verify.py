@@ -1,30 +1,25 @@
-"""Reverse-OTP de WhatsApp: start, confirm (server-to-server) e status/login.
+"""Start leve do login por WhatsApp (ACCESS-LINK-UNIFICATION, F2).
 
-Cobre o fluxo invertido: o storefront gera token + deep link, o ManyChat confirma
-S2S (autenticado pela DOORMAN_ACCESS_LINK_API_KEY) e o polling autentica a sessão.
-Token vive só no cache (Valkey em prod, LocMem no teste).
+O ``/start/`` agora só guarda o contexto do site (sacola anônima + destino) sob um
+código ``NB-XxXx`` de uso único e devolve o deep link ``wa.me`` já preenchido. Sem
+handshake/token/poll/SSE: a identidade é o número que envia a mensagem; o login
+acontece depois, pelo access link que o ManyChat devolve (ver ``AccessLinkCreateView``).
+
+As views legado ``confirm``/``status``/SSE (reverse-OTP) ainda existem no arquivo mas
+estão mortas neste fluxo; são removidas em F4 (inventário no ACCESS-LINK-UNIFICATION-PLAN.md).
 """
 from __future__ import annotations
 
-import copy
 import json
 
 import pytest
-from django.conf import settings as dj_settings
 from django.core.cache import cache
 from django.test import Client, override_settings
+from shopman.doorman.services.link_state import pop_state
 
 pytestmark = pytest.mark.django_db
 
-API_KEY = "s2s-test-key"
-WA_SETTINGS = {"number": "554333231997", "ttl_seconds": 600, "token_prefix": "V-"}
-
-
-def _doorman_with_key(key: str = API_KEY) -> dict:
-    """Copia o DOORMAN real e injeta a chave S2S (preserva DELIVERY_SENDERS etc.)."""
-    d = copy.deepcopy(dj_settings.DOORMAN)
-    d["ACCESS_LINK_API_KEY"] = key
-    return d
+WA_SETTINGS = {"number": "554333231997", "ttl_seconds": 600}
 
 
 @pytest.fixture(autouse=True)
@@ -38,245 +33,43 @@ def _post_json(client: Client, url: str, data: dict, **extra):
     return client.post(url, data=json.dumps(data), content_type="application/json", **extra)
 
 
-def _confirm(client: Client, token: str, phone: str, *, key: str = API_KEY):
-    return _post_json(
-        client,
-        "/api/v1/auth/whatsapp/confirm/",
-        {"token": token, "phone": phone},
-        HTTP_AUTHORIZATION=f"Bearer {key}",
-    )
-
-
-# ── start ──────────────────────────────────────────────────────────────────
-
-
 @override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_start_returns_token_and_deep_link(client: Client):
-    resp = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": "+5543999990001"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["token"].startswith("V-")
-    assert body["wa_number"] == "554333231997"
-    assert "wa.me/554333231997" in body["deep_link"]
-    assert body["token"] in body["deep_link"]
-    assert body["expires_in"] == 600
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_start_without_phone_still_issues_token(client: Client):
+def test_start_returns_code_and_deep_link(client: Client):
     resp = _post_json(client, "/api/v1/auth/whatsapp/start/", {})
     assert resp.status_code == 200
-    assert resp.json()["token"].startswith("V-")
-
-
-# ── confirm (server-to-server) ──────────────────────────────────────────────
+    body = resp.json()
+    assert body["code"].startswith("NB-")
+    assert body["wa_number"] == "554333231997"
+    assert "wa.me/554333231997" in body["deep_link"]
+    # O código vai pré-preenchido na mensagem (é o que o ManyChat casa no fluxo do site).
+    assert body["code"] in body["deep_link"]
 
 
 @override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_confirm_requires_api_key(client: Client):
-    start = _post_json(client, "/api/v1/auth/whatsapp/start/", {}).json()
-    # Sem header de autorização → 401 (fail-closed fora de DEBUG).
+def test_start_stores_cart_and_next_under_code(client: Client):
+    # Sacola anônima na sessão + destino → viajam no estado do código (uso único).
+    session = client.session
+    session["cart_session_key"] = "sk_anon_42"
+    session.save()
+    resp = _post_json(client, "/api/v1/auth/whatsapp/start/", {"next": "/checkout"})
+    code = resp.json()["code"]
+    assert pop_state(code) == {"cart_session_key": "sk_anon_42", "next": "/checkout"}
+
+
+@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
+def test_start_without_context_still_issues_code(client: Client):
+    resp = _post_json(client, "/api/v1/auth/whatsapp/start/", {})
+    body = resp.json()
+    assert body["code"].startswith("NB-")
+    # Estado vazio → o create degrada para o link genérico (sem sacola/destino).
+    assert pop_state(body["code"]) == {}
+
+
+@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
+def test_start_ignores_open_redirect_next(client: Client):
     resp = _post_json(
-        client,
-        "/api/v1/auth/whatsapp/confirm/",
-        {"token": start["token"], "phone": "+5543999990002"},
+        client, "/api/v1/auth/whatsapp/start/", {"next": "https://evil.example/phish"}
     )
-    assert resp.status_code == 401
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_confirm_wrong_api_key_rejected(client: Client):
-    start = _post_json(client, "/api/v1/auth/whatsapp/start/", {}).json()
-    resp = _confirm(client, start["token"], "+5543999990002", key="wrong-key")
-    assert resp.status_code == 401
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_confirm_unknown_token_returns_ok_false(client: Client):
-    # Desfecho de negócio (token inexistente) → 200 com ok:false, não 4xx: o
-    # ManyChat só lê o corpo em 2xx, então a ramificação por ``ok`` sempre funciona.
-    resp = _confirm(client, "V-NOPE99", "+5543999990004")
-    assert resp.status_code == 200
-    assert resp.json()["ok"] is False
-    assert resp.json()["reason"] == "not_found"
-
-
-@override_settings(
-    SHOPMAN_WA_VERIFY=WA_SETTINGS,
-    DOORMAN=_doorman_with_key(),
-    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
-)
-def test_confirm_carries_return_url_both_outcomes(client: Client):
-    # Sucesso: retoma na mesma sessão (?wa=<token>). Falha: recomeça (/entrar limpo).
-    start = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": "+5543999990005"}).json()
-    ok = _confirm(client, start["token"], "+5543999990005").json()
-    assert ok["ok"] is True
-    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}"
-
-    fail = _confirm(client, "V-NOPE99", "+5543999990006").json()
-    assert fail["ok"] is False
-    assert fail["return_url"] == "https://loja.example/entrar"
-
-
-@override_settings(
-    SHOPMAN_WA_VERIFY=WA_SETTINGS,
-    DOORMAN=_doorman_with_key(),
-    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
-)
-def test_confirm_return_url_carries_next_destination(client: Client):
-    # Cliente iniciou rumo ao checkout → volta já autenticado no destino.
-    start = _post_json(
-        client,
-        "/api/v1/auth/whatsapp/start/",
-        {"phone": "+5543999990007", "next": "/checkout"},
-    ).json()
-    ok = _confirm(client, start["token"], "+5543999990007").json()
-    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}&next=%2Fcheckout"
-
-
-@override_settings(
-    SHOPMAN_WA_VERIFY=WA_SETTINGS,
-    DOORMAN=_doorman_with_key(),
-    SHOPMAN_STOREFRONT_BASE_URL="https://loja.example",
-)
-def test_confirm_return_url_ignores_open_redirect_next(client: Client):
-    # next externo/protocol-relative é descartado (guard de open-redirect).
-    start = _post_json(
-        client,
-        "/api/v1/auth/whatsapp/start/",
-        {"phone": "+5543999990008", "next": "https://evil.example/phish"},
-    ).json()
-    ok = _confirm(client, start["token"], "+5543999990008").json()
-    assert ok["return_url"] == f"https://loja.example/entrar?wa={start['token']}"
-
-
-# ── status + login ──────────────────────────────────────────────────────────
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_status_unknown_token_is_expired(client: Client):
-    body = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": "V-GONE99"}).json()
-    assert body["status"] == "expired"
-    assert body["is_authenticated"] is False
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_full_flow_confirm_then_status_authenticates(client: Client):
-    phone = "+5543999990003"
-    start = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": phone}).json()
-    token = start["token"]
-
-    # Antes da confirmação: pending, não autenticado.
-    pending = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert pending["status"] == "pending"
-    assert pending["is_authenticated"] is False
-
-    # ManyChat confirma S2S com a chave.
-    confirm = _confirm(client, token, phone)
-    assert confirm.status_code == 200
-    assert confirm.json()["ok"] is True
-    assert confirm.json()["matched"] is True
-
-    # Polling agora: verificado e sessão autenticada (auto-create do cliente).
-    done = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert done["status"] == "verified"
-    assert done["is_authenticated"] is True
-    assert done["customer_phone"]
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_confirm_is_idempotent(client: Client):
-    phone = "+5543999990006"
-    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": phone}).json()["token"]
-    first = _confirm(client, token, phone)
-    second = _confirm(client, token, phone)
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert second.json()["reason"] == "already_verified"
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_confirm_extracts_token_from_full_message(client: Client):
-    """ManyChat pode mandar a mensagem inteira do cliente; o serviço extrai o token."""
-    phone = "+5543999990007"
-    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": phone}).json()["token"]
-    resp = _confirm(client, f"Meu codigo de verificacao e {token.lower()}", phone)
-    assert resp.status_code == 200
-    assert resp.json()["ok"] is True
-
-
-# ── nome trazido do WhatsApp ────────────────────────────────────────────────
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_brought_name_is_suggested_for_confirmation(client: Client):
-    """O nome do perfil do WhatsApp volta como welcome_suggested_name para confirmar."""
-    phone = "+5543999990008"
-    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": phone}).json()["token"]
-    confirm = client.post(
-        "/api/v1/auth/whatsapp/confirm/",
-        data=json.dumps({"token": token, "phone": phone, "name": "Joana Ferreira"}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
-    )
-    assert confirm.status_code == 200
-
-    done = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert done["status"] == "verified"
-    assert done["is_authenticated"] is True
-    # Cliente novo: traz o nome como sugestão, mas ainda pede confirmação.
-    assert done["welcome_suggested_name"] == "Joana Ferreira"
-    assert done["requires_welcome"] is True
-
-
-# ── bind de sessão (anti-fixação) ───────────────────────────────────────────
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_status_binds_to_originating_session(client: Client):
-    """Só a sessão que iniciou o fluxo autentica; outro navegador fica pending."""
-    phone = "+5543999990009"
-    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {"phone": phone}).json()["token"]
-    _confirm(client, token, phone)
-
-    # Navegador diferente (outra sessão) não deve autenticar.
-    other = Client()
-    intruder = _post_json(other, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert intruder["status"] == "pending"
-    assert intruder["is_authenticated"] is False
-
-    # A sessão original autentica normalmente.
-    legit = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert legit["status"] == "verified"
-    assert legit["is_authenticated"] is True
-
-
-# ── SSE (canal wa-verify) ───────────────────────────────────────────────────
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_events_unknown_token_404(client: Client):
-    """Token inexistente → 404, para o EventSource falhar limpo e cair no fallback."""
-    resp = client.get("/api/v1/auth/whatsapp/events/V-GONE99/")
-    assert resp.status_code == 404
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS)
-def test_events_foreign_session_404(client: Client):
-    """Sessão diferente da que iniciou não escuta o canal (bind de sessão)."""
-    token = _post_json(client, "/api/v1/auth/whatsapp/start/", {}).json()["token"]
-    other = Client()
-    resp = other.get(f"/api/v1/auth/whatsapp/events/{token}/")
-    assert resp.status_code == 404
-
-
-@override_settings(SHOPMAN_WA_VERIFY=WA_SETTINGS, DOORMAN=_doorman_with_key())
-def test_phone_mismatch_is_flagged(client: Client):
-    """Número digitado ≠ número que confirmou pelo WhatsApp → flag, não silêncio."""
-    token = _post_json(
-        client, "/api/v1/auth/whatsapp/start/", {"phone": "+5543999990010"}
-    ).json()["token"]
-    _confirm(client, token, "+5543999990011")
-    done = _post_json(client, "/api/v1/auth/whatsapp/status/", {"token": token}).json()
-    assert done["status"] == "verified"
-    assert done.get("phone_mismatch") is True
+    code = resp.json()["code"]
+    # _safe_next descarta destino externo/protocol-relative (guard de open-redirect).
+    assert "next" not in (pop_state(code) or {})
