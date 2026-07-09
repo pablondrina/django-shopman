@@ -97,6 +97,24 @@ class AccessLinkCreateView(View):
         if next_url:
             metadata["next"] = safe_redirect_url(next_url, request)
 
+        # Contexto do site (fluxo do botão): um código NB-XxXx guarda a sacola e o
+        # destino numa sessão web anônima. Se veio ``state_code``, consome (uso único)
+        # e dobra na metadata. ``next`` passa por safe_redirect_url; o resto (ex.:
+        # cart_session_key) viaja opaco. Código inválido/expirado é IGNORADO — o login
+        # nunca falha por causa do estado (degrada para o link genérico).
+        state_code = data.get("state_code")
+        if state_code:
+            from ..services.link_state import pop_state
+
+            state = pop_state(str(state_code))
+            if isinstance(state, dict):
+                for key, value in state.items():
+                    if key == "next":
+                        if value and not metadata.get("next"):
+                            metadata["next"] = safe_redirect_url(str(value), request)
+                    elif value is not None and key not in metadata:
+                        metadata[key] = value
+
         result = AccessLinkService.create_token(
             customer=customer,
             audience=data.get("audience", AccessLink.Audience.WEB_GENERAL),

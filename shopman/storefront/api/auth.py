@@ -162,6 +162,13 @@ class AccessLinkExchangeView(APIView):
         if hasattr(request, "session"):
             request.session["origin_channel"] = access_service.resolve_origin(result)
 
+        # Access link vindo do site: o código NB carregou a sacola anônima na metadata.
+        # A in-app browser que abre o link é sessão nova (sem sacola), então adotamos a
+        # ref — mas só se a sessão atual estiver vazia (não sobrescreve uma sacola local).
+        cart_ref = str(metadata.get("cart_session_key") or "") if isinstance(metadata, dict) else ""
+        if cart_ref and hasattr(request, "session") and not request.session.get("cart_session_key"):
+            request.session["cart_session_key"] = cart_ref
+
         order_ref = str(metadata.get("order_ref") or "") if isinstance(metadata, dict) else ""
         if order_ref:
             from shopman.storefront.services import orders as order_service

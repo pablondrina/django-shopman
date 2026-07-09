@@ -86,6 +86,26 @@ class TestAccessLinkExchangeApi:
         assert response.status_code == 400
         assert client.session.get("_auth_user_id") is None
 
+    def test_cart_session_key_adopted_when_session_empty(self, client: Client, customer):
+        # Fluxo do site: o código NB dobrou a sacola anônima na metadata do token.
+        _link, raw_token = self._token(customer, metadata={"cart_session_key": "sk_from_site"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 200
+        assert client.session.get("cart_session_key") == "sk_from_site"
+
+    def test_cart_session_key_not_overridden_when_session_has_cart(self, client: Client, customer):
+        session = client.session
+        session["cart_session_key"] = "sk_local"
+        session.save()
+        _link, raw_token = self._token(customer, metadata={"cart_session_key": "sk_from_site"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 200
+        assert client.session.get("cart_session_key") == "sk_local"
+
     def test_missing_token_is_rejected(self, client: Client):
         response = client.post(self.URL, {})
 
