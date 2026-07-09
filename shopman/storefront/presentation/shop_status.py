@@ -28,11 +28,65 @@ def _shop_status() -> dict:
             message = f"{message}. Abrimos {next_opening}." if message else f"Abrimos {next_opening}."
     return {
         "is_open": state.is_open,
-        "label": "Aberto agora" if state.is_open else "Fechado agora",
+        "label": _status_label(state),
         "opens_at": state.opens_at,
         "closes_at": state.closes_at,
         "message": message,
     }
+
+
+def _status_label(state) -> str:
+    """Status badge label — copy owned by the omotenashi registry (``SHOP_STATUS_*``).
+
+    Escapa o genérico fixo pelo conjunto granular do registro: aberto até
+    {hora}, fecha em breve, fechado, abre às {hora}. Os prefixos vêm do
+    registro (admin-configurável); a hora vem do estado do calendário. Só o
+    fechamento antes de abrir carrega um horário de abertura útil — depois de
+    fechar ou em feriado, ``opens_at`` não serve, então fica "Fechado" seco.
+    """
+    from shopman.shop.omotenashi import resolve_copy
+
+    def _copy(key: str) -> str:
+        return (resolve_copy(key, moment="*").message or "").strip()
+
+    if state.is_open:
+        closes = _human_time(state.closes_at)
+        if not closes:
+            return _copy("SHOP_STATUS_OPEN")
+        prefix = "SHOP_STATUS_OPEN_CLOSING_SOON" if _closing_soon(state) else "SHOP_STATUS_OPEN_UNTIL"
+        return f"{_copy(prefix)} {closes}".strip()
+
+    if (
+        state.opens_at
+        and getattr(state, "closure_source", "") != "after_close"
+        and not getattr(state, "closed_reason", "")
+    ):
+        opens = _human_time(state.opens_at)
+        if opens:
+            return f"{_copy('SHOP_STATUS_CLOSED_OPENS_AT')} {opens}".strip()
+    return _copy("SHOP_STATUS_CLOSED")
+
+
+def _closing_soon(state, *, threshold_min: int = 60) -> bool:
+    """Whether the shop closes within ``threshold_min`` minutes of resolution."""
+    resolved_at = getattr(state, "resolved_at", None)
+    if not (state.closes_at and resolved_at):
+        return False
+    try:
+        hour, minute = (int(part) for part in state.closes_at.split(":"))
+    except (ValueError, AttributeError):
+        return False
+    close_dt = resolved_at.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    delta_min = (close_dt - resolved_at).total_seconds() / 60
+    return 0 < delta_min <= threshold_min
+
+
+def _human_time(hhmm: str | None) -> str:
+    """Format a "HH:MM" clock string as "19h" / "19h30", matching opening hours."""
+    if not hhmm or ":" not in hhmm:
+        return hhmm or ""
+    hour, minute = hhmm.split(":", 1)
+    return f"{int(hour)}h" if minute == "00" else f"{int(hour)}h{minute}"
 
 
 def _format_opening_hours() -> list[dict]:

@@ -351,6 +351,7 @@ export interface HomeSectionsCopyProjection {
   full_menu_cta: CopyEntryProjection
   how_it_works_heading: CopyEntryProjection
   how_it_works_intro: CopyEntryProjection
+  how_it_works_meta_description: CopyEntryProjection
   how_online_heading: CopyEntryProjection
   how_store_heading: CopyEntryProjection
   how_step_choose: CopyEntryProjection

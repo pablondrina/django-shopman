@@ -99,7 +99,14 @@ function noticeVariant (tone: string) {
 }
 
 const canonicalUrl = computed(() => `${requestUrl.origin}/`)
-const homeDescription = computed(() => home.value?.shop.description || home.value?.shop.tagline || 'Storefront Shopman')
+// A meta-description da home prioriza a copy funcional de "como funciona" (feita
+// para SEO: diz o que o cliente pode fazer), caindo para a descrição da marca.
+const homeDescription = computed(() =>
+  sectionsCopy.value?.how_it_works_meta_description.message
+  || home.value?.shop.description
+  || home.value?.shop.tagline
+  || 'Storefront Shopman'
+)
 const homeOgImage = computed(() => absoluteImage(
   requestUrl.origin,
   featured.value[0]?.image_url || home.value?.shop.logo_url

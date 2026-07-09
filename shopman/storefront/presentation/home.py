@@ -94,6 +94,7 @@ class HomeSectionsCopyProjection:
     full_menu_cta: CopyEntryProjection
     how_it_works_heading: CopyEntryProjection
     how_it_works_intro: CopyEntryProjection
+    how_it_works_meta_description: CopyEntryProjection
     how_online_heading: CopyEntryProjection
     how_store_heading: CopyEntryProjection
     how_step_choose: CopyEntryProjection
@@ -383,6 +384,7 @@ def _home_sections_copy(
         full_menu_cta=_copy_entry("HOME_FULL_MENU_CTA", omotenashi=omotenashi),
         how_it_works_heading=_copy_entry("HOME_HOW_IT_WORKS_HEADING", omotenashi=omotenashi),
         how_it_works_intro=_copy_entry("HOW_IT_WORKS_INTRO", omotenashi=omotenashi),
+        how_it_works_meta_description=_copy_entry("HOW_IT_WORKS_META_DESCRIPTION", omotenashi=omotenashi),
         how_online_heading=_copy_entry("HOME_HOW_ONLINE_HEADING", omotenashi=omotenashi),
         how_store_heading=_copy_entry("HOME_HOW_STORE_HEADING", omotenashi=omotenashi),
         how_step_choose=_copy_entry("HOME_HOW_STEP_CHOOSE", omotenashi=omotenashi),
