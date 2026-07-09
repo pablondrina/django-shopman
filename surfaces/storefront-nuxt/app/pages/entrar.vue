@@ -30,26 +30,15 @@ const requestedPhone = ref('')
 // Modo do passo de telefone: OTP clássico (SMS/código) ou verificação reversa
 // por WhatsApp. O WhatsApp é o caminho primário; SMS é o fallback.
 const mode = ref<'otp' | 'whatsapp'>('otp')
-const whatsappPhone = ref('')
-// Retorno do WhatsApp: o ManyChat manda o cliente de volta com ?wa=<token> (link
-// no reply). Entra direto no painel em modo "confirmando", retomando o handshake.
-const waResumeToken = computed(() => (typeof route.query.wa === 'string' ? route.query.wa.trim() : ''))
-if (waResumeToken.value) mode.value = 'whatsapp'
-// Handshake do WhatsApp vive no PAI (não no painel): assim dá para PRÉ-AQUECER o
-// deep link enquanto o telefone é digitado, e o botão "Entrar pelo WhatsApp" abre o
-// app num único toque (o link já está pronto no clique). O poll/SSE que loga a aba
-// original também roda aqui. Ver useWhatsappVerify.
+// Login por WhatsApp (fluxo access-link): o start leve vive no PAI para pré-aquecer o
+// deep link e o botão abrir o app num toque. Sem polling/SSE/resume — o login acontece
+// pelo access link que o ManyChat devolve; a aba original só instrui. Ver useWhatsappVerify.
 const {
-  token: waToken,
+  code: waCode,
   deepLink: waDeepLink,
   waNumber: waNumber,
-  expiresIn: waExpiresIn,
-  startedAtMs: waStartedAt,
   status: waStatus,
-  sessionResponse: waSession,
-  start: waStart,
-  resume: waResume,
-  stop: waStop
+  start: waStart
 } = useWhatsappVerify()
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
@@ -82,7 +71,6 @@ const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
 })
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
-const waIsResuming = computed(() => !!waResumeToken.value && waStatus.value !== 'verified' && waStatus.value !== 'expired')
 // Zero-telefone: por padrão não pedimos número. A identidade é quem ENVIA a mensagem
 // no WhatsApp. O campo só aparece quando o cliente quer usar OUTRO número (via SMS,
 // o único caminho que mira um número digitado). O deep link é pré-aquecido no mount.
@@ -153,18 +141,8 @@ const momentSavedNote = computed(() => moment.value === 'confirmed' && trustSave
 onMounted(() => {
   nowMs.value = Date.now()
   clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
-  // Retomando pelo link do WhatsApp (?wa=): o poll resolve na hora SE for a mesma
-  // sessão que iniciou (bind anti-fixação). Em outra aba/in-app browser fica pending;
-  // o painel corta o spinner e orienta a voltar à aba original.
-  if (waResumeToken.value) { waResume(waResumeToken.value); return }
-  // Zero-telefone: pré-aquece o deep link SEM número, para o CTA abrir num toque.
-  if (import.meta.client) void waStart('', nextUrl.value)
-})
-
-// A aba original loga sozinha quando o ManyChat confirma (poll/SSE do handshake).
-watch([waSession, waStatus], () => {
-  if (verified.value) return
-  if (waStatus.value === 'verified' && waSession.value) onWhatsappVerified(waSession.value)
+  // Pré-aquece o deep link (zero-telefone) para o CTA abrir o WhatsApp num toque.
+  if (import.meta.client) void waStart(nextUrl.value)
 })
 
 onBeforeUnmount(() => {
@@ -261,38 +239,24 @@ function enterWelcomeGate (sessionResponse: AuthSessionResponse) {
   welcomeName.value = sessionResponse.welcome_suggested_name?.trim() || ''
 }
 
-// ── Verificação reversa por WhatsApp ───────────────────────────────────────
-function startWhatsappFlow (_event?: Event) {
-  whatsappPhone.value = ''  // zero-telefone: identidade = quem envia no WhatsApp.
+// ── Login por WhatsApp (access-link) ───────────────────────────────────────
+function startWhatsappFlow () {
   error.value = null
   mode.value = 'whatsapp'
   // Rede de segurança: se o prewarm ainda não rodou, inicia agora (sem número).
-  if (!waDeepLink.value) void waStart('', nextUrl.value)
+  if (!waDeepLink.value) void waStart(nextUrl.value)
 }
 
-// Um clique: troca para o painel de espera E abre o WhatsApp. Como o deep link já foi
-// pré-aquecido (no mount, sem número), o window.open acontece dentro do gesto (sem
-// await) e não é bloqueado. Sem link pronto, só entra no painel (com o botão de abrir).
-function goWhatsapp (event?: Event) {
-  startWhatsappFlow(event)
+// Um clique: troca para o painel instrutivo E abre o WhatsApp. Como o deep link já foi
+// pré-aquecido no mount, o window.open acontece dentro do gesto (sem await) e não é
+// bloqueado. Sem link pronto, só entra no painel (com o botão de abrir). O login em si
+// acontece depois, pelo access link que o ManyChat devolve — a aba original só instrui.
+function goWhatsapp () {
+  startWhatsappFlow()
   if (import.meta.client && waDeepLink.value) window.open(waDeepLink.value, '_blank', 'noopener')
 }
 
-async function onWhatsappVerified (response: AuthSessionResponse) {
-  session.setFromAuthSession(response)
-  verified.value = true
-  requestedPhone.value = response.customer_phone || whatsappPhone.value
-  mode.value = 'otp'
-  if (response.requires_welcome) {
-    // Mesmo passo de boas-vindas de sempre — o nome vem pré-preenchido do WhatsApp.
-    enterWelcomeGate(response)
-    return
-  }
-  await celebrateAndGo('confirmed')
-}
-
 function onWhatsappSms () {
-  waStop()  // encerra poll/SSE do WhatsApp: o cliente optou pelo SMS.
   mode.value = 'otp'
   // Se o telefone já foi informado, dispara o SMS direto; senão volta ao formulário.
   if (phone.value.trim()) requestCode('sms')
@@ -305,7 +269,6 @@ function onWhatsappBack () {
 
 async function requestCode (method: AuthDeliveryMethod = 'whatsapp', event?: Event) {
   syncPhoneFromEvent(event)
-  waStop()  // se havia prewarm do WhatsApp rodando, encerra: seguimos por código/SMS.
   pending.value = true
   error.value = null
   codeDigits.value = []
@@ -489,15 +452,12 @@ useSeoMeta({
         <WhatsappVerifyPanel
           v-if="step === 'phone' && mode === 'whatsapp'"
           :deep-link="waDeepLink"
-          :token="waToken"
+          :code="waCode"
           :wa-number="waNumber"
           :status="waStatus"
-          :started-at-ms="waStartedAt"
-          :expires-in="waExpiresIn"
-          :is-resuming="waIsResuming"
           @sms="onWhatsappSms"
           @back="onWhatsappBack"
-          @regenerate="() => waStart(phone, nextUrl)"
+          @regenerate="() => waStart(nextUrl)"
         />
 
         <div v-else-if="step === 'phone'" class="shop-stack-block">

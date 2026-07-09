@@ -1,148 +1,42 @@
-import { WHATSAPP_POLL_FALLBACK_MS, type WhatsappVerifyStatus } from '~/presentation/auth'
-import type { AuthSessionResponse } from '~/types/shopman'
-
 interface StartResponse {
-  token: string
+  code: string
   deep_link: string
   wa_number: string
-  expires_in: number
 }
 
-export interface WhatsappStatusResponse extends AuthSessionResponse {
-  status: 'pending' | 'verified' | 'expired'
-  phone_mismatch?: boolean
-}
+export type WhatsappStartStatus = 'idle' | 'ready' | 'error'
 
 /**
- * Verificação reversa por WhatsApp: inicia o handshake (start), faz polling do
- * status e resolve quando o ManyChat confirma. A rede fica aqui; a lógica de
- * contagem/estado fica pura em ~/presentation/auth.
+ * Login por WhatsApp (fluxo access-link): o `start` leve guarda o contexto do site
+ * (sacola + destino) sob um código NB-XxXx e devolve o deep link pré-preenchido. Sem
+ * polling/SSE/bind — a identidade é o número que envia a mensagem, e o login acontece
+ * pelo access link que o ManyChat devolve. A aba original só mostra a instrução.
  */
 export function useWhatsappVerify () {
   const apiPath = useShopmanApiPath()
   const csrfHeaders = useShopmanCsrfHeaders()
 
-  const token = ref('')
+  const code = ref('')
   const deepLink = ref('')
   const waNumber = ref('')
-  const expiresIn = ref(0)
-  const startedAtMs = ref<number | null>(null)
-  const status = ref<WhatsappVerifyStatus>('idle')
-  const phoneMismatch = ref(false)
-  const sessionResponse = ref<WhatsappStatusResponse | null>(null)
+  const status = ref<WhatsappStartStatus>('idle')
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null
-  let source: EventSource | null = null
-
-  function stop () {
-    if (pollTimer) {
-      clearInterval(pollTimer)
-      pollTimer = null
-    }
-    if (source) {
-      source.close()
-      source = null
-    }
-  }
-
-  // Push instantâneo (SSE) por cima do fetch canônico. Same-origin: o BFF faz
-  // streaming do canal wa-verify-<token> do Django. No evento 'verified',
-  // refazemos o /status (fonte da verdade, que autentica a sessão). Se o SSE
-  // não subir (proxy sem streaming, sem sessão), o poll de fallback cobre.
-  function connectStream () {
-    if (!import.meta.client || source || !token.value) return
-    try {
-      const url = apiPath(`/sse/whatsapp/${encodeURIComponent(token.value)}`)
-      source = new EventSource(url, { withCredentials: true })
-      const onPush = () => { poll() }
-      ;['message', 'verified'].forEach(name => source!.addEventListener(name, onPush))
-      // Sem onerror: reconexão é nativa em queda transitória; num status fatal o
-      // EventSource fecha sozinho e o poll de fallback assume.
-    } catch {
-      source = null
-    }
-  }
-
-  async function poll () {
-    if (!token.value) return
-    try {
-      const res = await $fetch<WhatsappStatusResponse>(apiPath('/api/auth/whatsapp/status/'), {
-        method: 'POST',
-        headers: await csrfHeaders(),
-        credentials: 'include',
-        body: { token: token.value }
-      })
-      if (res.status === 'verified' && res.is_authenticated) {
-        status.value = 'verified'
-        phoneMismatch.value = !!res.phone_mismatch
-        sessionResponse.value = res
-        stop()
-      } else if (res.status === 'expired') {
-        status.value = 'expired'
-        stop()
-      } else {
-        status.value = 'pending'
-      }
-    } catch {
-      status.value = 'error'
-    }
-  }
-
-  async function start (phone = '', next = '') {
-    stop()
-    status.value = 'pending'
-    sessionResponse.value = null
-    phoneMismatch.value = false
+  async function start (next = '') {
     try {
       const res = await $fetch<StartResponse>(apiPath('/api/auth/whatsapp/start/'), {
         method: 'POST',
         headers: await csrfHeaders(),
         credentials: 'include',
-        body: { phone, next }
+        body: { next }
       })
-      token.value = res.token
+      code.value = res.code
       deepLink.value = res.deep_link
       waNumber.value = res.wa_number
-      expiresIn.value = res.expires_in
-      startedAtMs.value = Date.now()
-      connectStream()                                     // push primário (SSE)
-      pollTimer = setInterval(poll, WHATSAPP_POLL_FALLBACK_MS)  // rede de segurança
+      status.value = 'ready'
     } catch {
       status.value = 'error'
     }
   }
 
-  // Retoma um handshake já existente (cliente voltou pelo link do WhatsApp com
-  // ?wa=<token>). Não chama start (não gera token novo, não precisa de deep link):
-  // no retorno o número já foi confirmado no WhatsApp, então o 1º poll resolve na
-  // hora. SSE + poll de fallback cobrem o caso raro de a aba abrir antes do envio.
-  function resume (existingToken: string) {
-    stop()
-    if (!import.meta.client || !existingToken) return
-    status.value = 'pending'
-    sessionResponse.value = null
-    phoneMismatch.value = false
-    token.value = existingToken
-    startedAtMs.value = Date.now()
-    connectStream()
-    pollTimer = setInterval(poll, WHATSAPP_POLL_FALLBACK_MS)
-    poll()
-  }
-
-  onBeforeUnmount(stop)
-
-  return {
-    token,
-    deepLink,
-    waNumber,
-    expiresIn,
-    startedAtMs,
-    status,
-    phoneMismatch,
-    sessionResponse,
-    start,
-    resume,
-    stop,
-    poll
-  }
+  return { code, deepLink, waNumber, status, start }
 }
