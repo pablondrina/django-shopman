@@ -87,5 +87,30 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
 - **Status:** arquivada como decisão consciente. Segue no registro **e no
   `copy-wiring-backlog.txt`** (continua órfã: a copy não chega a tela alguma — de propósito).
 
+## 🙈 Tracking — superseded/duplicadas (decisão Pablo 2026-07-09, revisão caso-a-caso)
+
+O acompanhamento já resolve 80+ chaves via `build_copy("TRACKING")`. Destas órfãs, umas
+duplicam copy já fiada, outras descrevem um design que a tela não usa. Arquivadas (seguem
+no registro e no `copy-wiring-backlog.txt` — órfãs de propósito):
+
+- `TRACKING_PROMISE_LABEL_ACTION` ("Sua ação:") — a ação é **botão**, não linha (`_build_promise_rows`
+  é deliberadamente enxuto). Sem linha de ação.
+- `TRACKING_PROMISE_LABEL_UPDATED` ("Última atualização:") — a tela mostra *"Atualizado há X"*
+  (tempo vivo relativo, `freshness.text`), melhor que um prefixo estático.
+- `TRACKING_ETA_PREFIX` ("Previsão para ficar pronto às") — a ETA já vem **embutida na mensagem**
+  do estado ("Fica pronto por volta das {eta}"), não há linha de ETA separada.
+- `TRACKING_ACTION_NONE` ("Nenhuma ação necessária") / `TRACKING_ACTION_WAITING_COURIER`
+  ("Aguardando entregador") — labels de estado de ação; as ações são botões específicos por estado.
+- `TRACKING_PAYMENT_CONFIRMED` ("Recebemos a confirmação do pagamento deste pedido.") — duplica
+  `TRACKING_PAYMENT_CONFIRMED_NOTICE` (fiada: "Pagamento confirmado. Acompanhe o próximo passo…").
+- `TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE` ("Nenhuma ação necessária agora.") — superseded pelas
+  mensagens por status `TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE_NEW/_CONFIRMED` (fiadas).
+
+**Ainda no backlog p/ follow-up focado (mudam a estrutura do countdown/freshness, não é swap de
+string):** `TRACKING_AUTO_CONFIRM_PREFIX/SUFFIX` (enquadrar o countdown de disponibilidade),
+`TRACKING_PAYMENT_TIME_LEFT` (rótulo do countdown de pagamento por contexto), `TRACKING_PROMISE_STALE`
+(mensagem quando o poll falha, no composable de frescor), `TRACKING_PROMISE_AVAILABILITY_RECOVERY` +
+`TRACKING_PROMISE_RECOVERY_HELP` (preencher o slot `recovery` por estado).
+
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.

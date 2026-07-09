@@ -753,6 +753,10 @@ export interface TrackingCopyProjection {
   rating_comment_placeholder: string
   rating_comment_aria_label: string
   rating_submit_label: string
+  rating_thanks: string
+  page_meta_description: string
+  delivery_heading: string
+  active_notification_label: string
 }
 
 export interface TrackingResponse {

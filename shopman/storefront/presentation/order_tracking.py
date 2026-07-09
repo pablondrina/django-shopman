@@ -177,6 +177,10 @@ class OrderTrackingCopyProjection:
     rating_comment_placeholder: str
     rating_comment_aria_label: str
     rating_submit_label: str
+    rating_thanks: str
+    page_meta_description: str
+    delivery_heading: str
+    active_notification_label: str
 
 
 @dataclass(frozen=True)
@@ -943,6 +947,10 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
         rating_comment_placeholder=copy.title("TRACKING_RATING_COMMENT_PLACEHOLDER", "Comentário opcional"),
         rating_comment_aria_label=copy.title("TRACKING_RATING_COMMENT_ARIA_LABEL", "Comentário da avaliação"),
         rating_submit_label=copy.title("TRACKING_RATING_SUBMIT_CTA", "Enviar avaliação"),
+        rating_thanks=copy.message("TRACKING_RATE_THANKS", "Valorizamos muito seu retorno."),
+        page_meta_description=copy.message("TRACKING_PAGE_META_DESCRIPTION", "Acompanhe seu pedido"),
+        delivery_heading=copy.title("TRACKING_DELIVERY_HEADING", "Entrega"),
+        active_notification_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION", "Aviso:")),
     )
 
 
