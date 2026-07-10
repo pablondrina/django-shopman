@@ -2,7 +2,6 @@
 
 from django.core.cache import cache
 from django.test import SimpleTestCase, override_settings
-
 from shopman.doorman.services.link_state import new_code, pop_state, store_state
 
 
