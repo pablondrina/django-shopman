@@ -5,7 +5,8 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   runtimeConfig: {
-    djangoBaseUrl: process.env.NUXT_DJANGO_BASE_URL || 'http://127.0.0.1:8000'
+    // NUXT_DJANGO_BASE_URL sobrescreve em runtime (auto-bind do Nuxt runtimeConfig).
+    djangoBaseUrl: 'http://127.0.0.1:8000'
   },
 
   // 301 das rotas antigas (inglês) → pt-BR. Rede de segurança para links já enviados
@@ -22,10 +23,12 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || '/',
+    // NUXT_APP_BASE_URL sobrescreve em runtime (auto-bind do Nuxt).
+    baseURL: '/',
     head: {
       htmlAttrs: { lang: 'pt-BR' },
-      titleTemplate: title => title ? `${title} | Shopman` : 'Shopman',
+      // titleTemplate é definido em runtime no app.vue (brand-aware, server-driven);
+      // o head do nuxt.config precisa ser serializável e não aceita função aqui.
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#85786c' },

@@ -64,11 +64,17 @@ function cssColor (value: string): string {
 }
 
 /** Mapeia um conjunto de tokens (light ou dark) → { '--var': 'rgb(...)' }. */
-export function tokenVars (tokens: Record<string, string> | null | undefined): Record<string, string> {
+export function tokenVars (
+  tokens: ShopDesignTokensProjection | Record<string, string> | null | undefined
+): Record<string, string> {
   const out: Record<string, string> = {}
   if (!tokens) return out
+  // Leitura por chave dinâmica sobre um bag de cores server-driven (o backend serve
+  // mais tokens do que a projeção tipa, ex. cta/ink/bottomnav). `unknown` + guarda
+  // de tipo mantém o acesso seguro sem afrouxar para `any`.
+  const lookup = tokens as Record<string, unknown>
   for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
-    const raw = tokens[key]
+    const raw = lookup[key]
     if (typeof raw === 'string' && raw.trim()) out[cssVar] = cssColor(raw)
   }
   return out
@@ -76,7 +82,7 @@ export function tokenVars (tokens: Record<string, string> | null | undefined): R
 
 /** Variáveis CSS da marca para o modo claro (vazio ⇒ neutro). */
 export function shopThemeStyle (shop: ShopProjection | null | undefined): Record<string, string> {
-  return tokenVars(shop?.design_tokens as ShopDesignTokensProjection | undefined)
+  return tokenVars(shop?.design_tokens)
 }
 
 // Fontes canônicas já self-hospedadas via @nuxt/fonts (declaradas no tailwind.css):

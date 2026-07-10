@@ -15,12 +15,13 @@ const socialLinks = computed(() => shop.value?.social_links || [])
 const addressLinesValue = computed(() => addressLines(shop.value?.full_address))
 
 // Navegação primária — espelha o bottom-nav, com o carrinho ganhando contador.
-const primaryNav = computed(() => [
+interface NavItem { to: string, label: string, icon: string, badge?: string }
+const primaryNav = computed<NavItem[]>(() => [
   { to: '/', label: 'Início', icon: 'lucide:home' },
   { to: '/menu', label: 'Cardápio', icon: 'lucide:utensils' },
   { to: '/sacola', label: 'Sacola', icon: 'lucide:shopping-bag', badge: cart.value.is_empty ? '' : String(cart.value.items_count) },
   { to: '/conta', label: 'Conta e pedidos', icon: 'lucide:user-round' }
-] as const)
+])
 
 function navActive (to: string) {
   if (to === '/') return route.path === '/'

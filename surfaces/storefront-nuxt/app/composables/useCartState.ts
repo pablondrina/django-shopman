@@ -49,10 +49,12 @@ function emptyCart (): CartProjection {
     delivery_fee_q: null,
     delivery_fee_display: null,
     delivery_is_free: false,
+    delivery_zone_error: false,
     delivery_distance_km: null,
     delivery_distance_display: null,
     grand_total_q: 0,
     grand_total_display: 'R$ 0,00',
+    loyalty_applied: false,
     coupon_code: null,
     coupon_discount_q: null,
     coupon_discount_display: null,
@@ -60,6 +62,8 @@ function emptyCart (): CartProjection {
     has_awaiting_confirmation_items: false,
     has_ready_for_confirmation_items: false,
     minimum_order_progress: null,
+    delivery_minimum_progress: null,
+    free_delivery_progress: null,
     upsell: null,
     actions: [
       {

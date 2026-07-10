@@ -103,7 +103,7 @@ async function postAction (action: Action) {
       headers['x-idempotency-key'] = newRemoteMutationKey(action.ref)
     }
     const result = await $fetch<{ redirect_url?: string }>(apiPath(action.href), {
-      method: action.method || 'POST',
+      method: remoteMethod(action.method),
       headers,
       credentials: 'include'
     })

@@ -195,7 +195,8 @@ function syncActiveSectionFromScroll () {
   }
 
   const sectionEls = Array.from(document.querySelectorAll<HTMLElement>('[data-menu-section-ref]'))
-  if (!sectionEls.length) {
+  const firstSection = sectionEls[0]
+  if (!firstSection) {
     activeSection.value = 'all'
     alignActiveSectionPill('all')
     return
@@ -212,14 +213,14 @@ function syncActiveSectionFromScroll () {
     return
   }
 
-  if (sectionEls[0].getBoundingClientRect().top > activationLine) {
+  if (firstSection.getBoundingClientRect().top > activationLine) {
     const current = hasAppliedFilters.value ? FILTERED_SECTION_VALUE : 'all'
     activeSection.value = current
     alignActiveSectionPill(current)
     return
   }
 
-  let current = sectionEls[0].dataset.menuSectionRef || 'all'
+  let current = firstSection.dataset.menuSectionRef || 'all'
   for (const section of sectionEls) {
     if (section.getBoundingClientRect().top <= activationLine) {
       current = section.dataset.menuSectionRef || current

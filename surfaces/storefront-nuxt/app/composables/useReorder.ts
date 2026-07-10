@@ -43,7 +43,8 @@ export function useReorder () {
     return match?.[1] || ''
   }
 
-  async function performAction (action: Action, mode: 'append' | 'replace' = 'append') {
+  async function performAction (action: Action | undefined, mode: 'append' | 'replace' = 'append') {
+    if (!action) return null
     const orderRef = orderRefFromAction(action)
     if (!orderRef) return null
     return submit(orderRef, mode)

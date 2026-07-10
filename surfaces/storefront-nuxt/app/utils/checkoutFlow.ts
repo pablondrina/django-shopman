@@ -199,7 +199,7 @@ export function displayCheckoutDate (value: string, now = new Date()): string {
   }).format(date).replace('.', '')
 }
 
-export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: CheckoutQuickDateOption[], now = new Date()): string {
+export function otherCheckoutDateLabel (deliveryDate: string, quickOptions: ReadonlyArray<Pick<CheckoutQuickDateOption, 'value'>>, now = new Date()): string {
   if (!deliveryDate || quickOptions.some(option => option.value === deliveryDate)) return 'Outra data'
   return displayCheckoutDate(deliveryDate, now)
 }
@@ -214,7 +214,7 @@ export function weekdayDateLabel (value: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-export function isCustomCheckoutDate (deliveryDate: string, quickOptions: CheckoutQuickDateOption[]): boolean {
+export function isCustomCheckoutDate (deliveryDate: string, quickOptions: ReadonlyArray<Pick<CheckoutQuickDateOption, 'value'>>): boolean {
   return !!deliveryDate && !quickOptions.some(option => option.value === deliveryDate)
 }
 

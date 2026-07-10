@@ -16,7 +16,7 @@ interface ShopSessionState {
 }
 
 interface AuthSessionProjection {
-  is_authenticated: boolean
+  is_authenticated?: boolean
   customer_ref?: string
   customer_name?: string
   customer_phone?: string

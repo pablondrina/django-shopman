@@ -99,11 +99,14 @@
   const displayItems = computed<BreadcrumbItem[]>(() => {
     const items = props.items ?? [];
     if (!collapsed.value || items.length <= 2) return items;
+    const first = items[0];
+    const last = items[items.length - 1];
     const parent = items[items.length - 2];
+    if (!first || !last) return items;
     return [
-      items[0],
+      first,
       { label: "•••", link: parent?.link, disabled: !parent?.link },
-      items[items.length - 1],
+      last,
     ];
   });
 
