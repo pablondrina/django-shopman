@@ -257,3 +257,27 @@ já-melhores-na-tela. Cada uma abaixo segue órfã de propósito no `copy-wiring
 > ⚠️ Reversível: se o Pablo quiser admin-config de qualquer uma (ex.: PICKUP_READY_NOTICE ou os
 > diálogos de revoke), é só pedir e eu abro o canal de copy no projection correspondente. As de
 > login saem sozinhas quando a mãe fechar o `/entrar`.
+
+## 🙈 Login (`WELCOME_*`/`LOGIN_*`) — superseded pelo canal `auth_copy` da mãe (2026-07-10)
+
+**Resolvido.** O loop acima ("saem quando a mãe fechar o /entrar") fechou: a mãe mergeou o pivô
+access-link (#45) e **reescreveu a copy de login com o próprio canal `auth_copy`** — `_auth_copy()`
+em `shopman/storefront/presentation/home.py` resolve ~24 chaves **`LOGIN_*`/`DEVICE_TRUST_*`** novas
+(`LOGIN_PHONE_HEADING`, `LOGIN_NAME_HEADING`, `LOGIN_CODE_HELP`, `LOGIN_AUTH_CONFIRMED`, `LOGIN_WA_*`…),
+consumidas em `entrar.vue` via `copyTitle(authCopy.X, fallback)`. O login **já é registro-driven**.
+
+As 13 chaves órfãs antigas ficaram **duplicatas mortas** — arquivadas (seguem órfãs de propósito no
+`copy-wiring-backlog.txt`):
+- `WELCOME_NAME_HEADING` (+ `_PREFIX`/`_SUFFIX`) → superseded por `LOGIN_NAME_HEADING`.
+- `WELCOME_CONFIRM_CTA` → superseded por `LOGIN_NAME_CTA`.
+- `WELCOME_GREETING` / `WELCOME_PAGE_TITLE` / `WELCOME_ACCOUNT_NOTE` / `WELCOME_SUGGESTED_NAME_MESSAGE`
+  / `WELCOME_WHATSAPP` → superseded pelo fluxo enxuto novo (headings por passo + `LOGIN_AUTH_CONFIRMED`),
+  ou UI que o fluxo não tem mais.
+- `LOGIN_WELCOME_BACK` → superseded por `LOGIN_AUTH_CONFIRMED` ("confirmação automática").
+- `LOGIN_CHANGE_PHONE_TITLE` / `_MESSAGE` → descrevem um **diálogo de confirmação que o fluxo enxuto
+  não tem** (o "Trocar telefone" só volta pro passo do telefone, sem diálogo).
+- `LOGIN_CHANGE_PHONE_CTA` ("Trocar telefone") → **único resíduo ainda hardcoded** (`entrar.vue`, botão
+  ghost que chama `returnToPhoneStep`). Micro-wire opcional: adicionar `change_phone_cta` no `_auth_copy()`
+  da mãe resolvendo essa chave. É superfície DELA (login) — sinalizado por mensagem, decisão dela.
+
+> Fecha o item A: toda `WELCOME_*`/`LOGIN_*` agora está religada (pela mãe) ou arquivada como superseded.
