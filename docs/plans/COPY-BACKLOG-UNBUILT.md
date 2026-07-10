@@ -204,3 +204,47 @@ concreto, não por preguiça. Todas seguem no registro e no `copy-wiring-backlog
   seria redundante com o CTA de suporte. A gêmea `TRACKING_PROMISE_AVAILABILITY_RECOVERY` (que É
   sobre deadline) foi religada no estado `availability_check`.
 - **Status:** arquivada. Segue no registro e no `copy-wiring-backlog.txt` (órfã de propósito).
+
+## 🧹 Varredura do backlog restante (decisão autônoma 2026-07-10, "siga!")
+
+Triado o que sobrava. Nenhuma era wire limpo de alto valor (ao contrário do item 2):
+não há bug de copy a corrigir; todas são superseded, client-only, backstage, da mãe, ou
+já-melhores-na-tela. Cada uma abaixo segue órfã de propósito no `copy-wiring-backlog.txt`.
+
+**Superseded por chave dinâmica já fiada:**
+- `PRODUCT_OUT_OF_STOCK` / `PRODUCT_SCHEDULED_UNAVAILABLE` ("Indisponível") — o badge de
+  disponibilidade vem de `availability_label()` → `AVAILABILITY_{estado}` (prefixo dinâmico, sempre
+  alcançável). Estas duas duplicam o conceito; nunca são lidas.
+
+**Client-only (sem servidor no momento):**
+- `OFFLINE_TITLE` / `OFFLINE_MESSAGE` / `OFFLINE_RETRY_CTA` — o `OfflineBanner.vue` dispara por
+  `navigator.onLine` (offline = sem fetch de copy). Hoje é um banner mínimo auto-reconectante
+  ("Sem conexão. Tentando reconectar…"), que supera a estrutura título+mensagem+retry. Copy de
+  offline precisa estar embarcada no cliente; não há canal de projection viável.
+
+**Fora do escopo storefront (operador/backstage):**
+- `CLOSING_AWARENESS_PREFIX` / `_SUFFIX` / `_OLD_D1_ALERT` — renderizam em
+  `backstage/projections/closing.py` (tela de fechamento do operador, D-1 = staff). Copy de
+  operador, não do cliente. Se for fiar, é no burndown do backstage, não aqui.
+
+**Fluxo de login/device-trust (território VIVO da mãe — [[project_whatsapp_access_link_pivot]]):**
+- `DEVICE_TRUST_GREETING` ("Bem-vindo de volta") / `DEVICE_TRUST_ERROR` — aparecem no fluxo de
+  confiar-no-dispositivo durante o LOGIN. A mãe reescreve o login inteiro; não tocar.
+- `WELCOME_*` (9: greeting, name-heading×3, page-title, confirm-cta, account-note, suggested-name,
+  whatsapp), `LOGIN_CHANGE_PHONE_*` (3), `LOGIN_WELCOME_BACK` — a tela `/entrar` (boas-vindas +
+  trocar telefone + saudação recorrente). **DEFERIDAS à mãe**, não arquivadas por mim: ela é a dona
+  dessa superfície (pivô access-link/F4). Sair do meu backlog quando ela religar/consolidar.
+
+**On-screen já melhor que o registro (baixo valor em admin-config):**
+- `DEVICE_REVOKE_CONFIRM` / `DEVICE_REVOKE_ALL_CONFIRM` / `DEVICE_REVOKE_ALL_CTA` /
+  `DEVICE_LIST_UNKNOWN` / `DEVICE_LIST_LAST_USED_PREFIX` — `seguranca.vue` já fia o principal via
+  `_devices_copy()`; os diálogos de revoke na tela são MELHORES que os stubs do registro (separam
+  título-pergunta de consequência e interpolam o nome do aparelho). Microcopy de segurança que muda
+  raramente — baixo ROI pra tornar admin-config.
+- `PICKUP_READY_NOTICE` ("Avisamos quando ficar pronto.") — nota do planned-hold por linha na sacola.
+  Customer-facing e a copy é boa, mas o projection do carrinho não tem canal `copy`; wire exigiria
+  infra nova pra uma copy que já está certa.
+
+> ⚠️ Reversível: se o Pablo quiser admin-config de qualquer uma (ex.: PICKUP_READY_NOTICE ou os
+> diálogos de revoke), é só pedir e eu abro o canal de copy no projection correspondente. As de
+> login saem sozinhas quando a mãe fechar o `/entrar`.
