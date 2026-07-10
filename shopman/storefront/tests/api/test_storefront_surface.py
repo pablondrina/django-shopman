@@ -85,7 +85,7 @@ def test_api_storefront_checkout_projection_requires_login_for_anonymous_cart(cl
     assert checkout["requires_authentication"] is True
     assert checkout["auth_action"]["href"] == "/login?next=/checkout"
     assert checkout["cart"]["items_count"] == 1
-    assert action["label"] == "Confirmar pedido"
+    assert action["label"] == "Enviar pedido"
     assert action["enabled"] is False
     assert action["reason"] == "Entre por telefone para continuar."
     assert action["payload_schema"]["required"] == [

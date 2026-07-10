@@ -21,6 +21,20 @@ const { data, pending, error, refresh } = await useFetch<PaymentResponse>(
 )
 
 const payment = computed(() => data.value?.payment || null)
+// Copy estática da tela vem do registro omotenashi (configurável no Admin); o
+// fallback cobre só o intervalo de carregamento. O painel de status é o promise.
+const copy = computed(() => data.value?.copy ?? {
+  order_ref_label: 'Pedido',
+  total_label: 'Total',
+  meta_description: 'Pague seu pedido para seguirmos com o preparo',
+  card_intro: 'Conclua o pagamento no ambiente seguro do Stripe. A confirmação é automática. Volte aqui se quiser acompanhar seu pedido.',
+  card_security_note: 'Pagamento processado por provedor seguro. Nós não recebemos os dados do seu cartão.',
+  pix_instruction: 'Escaneie o QR Code ou copie o código Pix abaixo.',
+  pix_copy_label: 'Copia e cola PIX',
+  pix_copy_btn: 'Copiar código',
+  pix_copied: 'Código PIX copiado.',
+  pix_expires_label: 'Tempo para pagar'
+})
 const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'payment'))
 const loginHref = computed(() => `/entrar?next=${encodeURIComponent(`/pedido/${orderRef.value}/pagamento`)}`)
 
@@ -92,7 +106,7 @@ watch(() => pixCountdown.value?.isExpired, async expired => {
 async function copyPix () {
   if (!payment.value?.pix_copy_paste || !import.meta.client) return
   await navigator.clipboard.writeText(payment.value.pix_copy_paste)
-  useSonner.success('Código PIX copiado.')
+  useSonner.success(copy.value.pix_copied)
 }
 
 async function postAction (action: Action) {
@@ -103,7 +117,7 @@ async function postAction (action: Action) {
       headers['x-idempotency-key'] = newRemoteMutationKey(action.ref)
     }
     const result = await $fetch<{ redirect_url?: string }>(apiPath(action.href), {
-      method: action.method || 'POST',
+      method: remoteMethod(action.method),
       headers,
       credentials: 'include'
     })
@@ -140,7 +154,8 @@ async function simulatePayment () {
 }
 
 useSeoMeta({
-  title: () => `Pagamento ${orderRef.value}`
+  title: () => `Pagamento ${orderRef.value}`,
+  description: () => copy.value.meta_description
 })
 </script>
 
@@ -160,7 +175,7 @@ useSeoMeta({
     <div class="shop-container max-w-4xl shop-stack-block">
       <div>
         <p class="shop-kicker">Pagamento</p>
-        <h1 class="mt-1 shop-title">Pedido {{ orderRef }}</h1>
+        <h1 class="mt-1 shop-title">{{ copy.order_ref_label }} {{ orderRef }}</h1>
       </div>
 
       <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
@@ -192,6 +207,7 @@ useSeoMeta({
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <UiCard>
             <UiCardHeader>
+              <p class="shop-muted text-sm">{{ copy.total_label }}</p>
               <UiCardTitle>{{ payment.total_display }}</UiCardTitle>
               <UiCardDescription>{{ paymentMethodLabel(payment.method) }}</UiCardDescription>
             </UiCardHeader>
@@ -201,7 +217,8 @@ useSeoMeta({
                   <Icon name="lucide:shield-check" :size="22" class="mt-0.5 shrink-0 text-emerald-600" />
                   <div class="space-y-1">
                     <p class="shop-item-title font-semibold text-foreground">Pagamento seguro</p>
-                    <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos. Você não precisa voltar aqui.</p>
+                    <p class="shop-muted">{{ copy.card_intro }}</p>
+                    <p class="shop-meta">{{ copy.card_security_note }}</p>
                   </div>
                 </div>
                 <UiButton :href="payment.checkout_url" target="_blank" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">
@@ -214,6 +231,8 @@ useSeoMeta({
                 <p class="shop-muted">Preparando o pagamento seguro com cartão…</p>
               </div>
 
+              <p v-if="payment.pix_qr_code || payment.pix_copy_paste" class="shop-muted">{{ copy.pix_instruction }}</p>
+
               <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid grid-cols-1 gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
                 <div class="rounded-lg border bg-white p-4">
                   <img v-if="payment.pix_qr_code" :src="payment.pix_qr_code" alt="QR Code PIX" class="w-full" />
@@ -222,16 +241,16 @@ useSeoMeta({
                   </div>
                 </div>
                 <div class="shop-stack-block">
-                  <p class="shop-muted">Copia e cola PIX</p>
+                  <p class="shop-muted">{{ copy.pix_copy_label }}</p>
                   <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
-                  <UiButton variant="outline" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">Copiar código</UiButton>
+                  <UiButton variant="outline" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">{{ copy.pix_copy_btn }}</UiButton>
 
                   <p v-if="connectionLost" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400" role="status">
                     Sem conexão no momento — se você já pagou, a confirmação chega assim que a internet voltar.
                   </p>
                   <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer" aria-live="polite">
                     <div class="flex items-center justify-between shop-body">
-                      <span class="text-muted-foreground">Tempo para pagar</span>
+                      <span class="text-muted-foreground">{{ copy.pix_expires_label }}</span>
                       <span class="shop-price" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>
                     </div>
                     <UiProgress :model-value="pixPct" :class="pixUrgent ? '[&>div]:bg-destructive' : ''" />

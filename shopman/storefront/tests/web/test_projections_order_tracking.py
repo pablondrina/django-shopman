@@ -376,10 +376,11 @@ class TestStatusColours:
         assert proj.copy.page_kicker == "Acompanhamento"
         assert proj.copy.support_label == "Ajuda"
         assert proj.copy.progress_heading == "Etapas do pedido"
-        # Status panel is sparse: the message says it all, the action is a button
-        # (not a row), "Atualizado agora" shows once standalone — so no rows here.
+        # O painel mostra a mensagem do estado + a linha "Próximo passo" (a ação
+        # segue como botão, "Atualizado agora" segue standalone).
         assert proj.promise.message == "Pode retirar quando quiser — estamos esperando você."
-        assert proj.promise_rows == ()
+        assert proj.promise.next_event == "Retire no estabelecimento quando puder."
+        assert [row.label for row in proj.promise_rows] == ["Próximo passo"]
 
     def test_pickup_info_uses_structured_shop_address_without_fulfillment(self, order):
         from shopman.orderman.models import Order as _Order
@@ -652,7 +653,7 @@ class TestStatusColours:
         assert proj.promise.state == "availability_check"
         assert proj.promise.title == "Recebemos seu pedido"
         assert proj.promise.message == "Estamos conferindo a disponibilidade dos itens."
-        assert proj.promise.next_event == ""
+        assert proj.promise.next_event == "Se a disponibilidade for confirmada, liberamos o pagamento e avisamos você."
 
     def test_closed_store_new_order_defers_availability_without_countdown(
         self, order, channel, shop_instance,
@@ -701,7 +702,7 @@ class TestStatusColours:
         assert proj.promise.message == (
             "Estamos fechados agora. Conferimos a disponibilidade quando abrirmos, amanhã às 9h."
         )
-        assert proj.promise.next_event == ""
+        assert proj.promise.next_event == "Próxima abertura: amanhã às 9h"
 
     def test_payment_timeout_cancelled_order_shows_payment_expired(self, order_with_payment):
         from shopman.orderman.models import Order as _Order
@@ -729,11 +730,11 @@ class TestStatusColours:
         assert proj.promise.notification_topic == "payment_expired"
         assert proj.promise.actions == ()
         assert "repetir o pedido" in proj.promise.message
-        assert proj.promise.next_event == ""
+        assert proj.promise.next_event == "Você pode refazer o pedido quando quiser."
         assert proj.promise.recovery == ""
         assert any(action.ref == "reorder" and action.label == "Repetir pedido" for action in proj.actions)
         row_labels = [row.label for row in proj.promise_rows]
-        assert "Próximo passo" not in row_labels
+        assert "Próximo passo" in row_labels
         assert "Se algo mudar" not in row_labels
 
     def test_confirmed_paid_order_keeps_payment_confirmation_visible(self, order_with_payment):
@@ -797,7 +798,7 @@ class TestStatusColours:
         assert proj.promise.actions[0].label == "Pagar agora"
         assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
         assert proj.promise.message == "Confirme o PIX e já começamos a preparar."
-        assert proj.promise.next_event == ""
+        assert proj.promise.next_event == "Depois do pagamento, seguimos com o pedido."
         assert proj.promise.recovery == "Liberamos sua reserva e o pedido é cancelado."
 
     def test_authorized_card_is_internal_not_surface_payment_action(self, order_with_payment):

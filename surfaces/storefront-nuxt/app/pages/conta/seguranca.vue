@@ -47,7 +47,8 @@ const devicesCopy = computed(() => devicesResponse.value?.copy || {
   empty_message: 'Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.',
   current_badge: 'Este dispositivo',
   registered_prefix: 'Registrado em',
-  revoke_cta: 'Remover'
+  revoke_cta: 'Remover',
+  delete_warning: 'Seus dados pessoais serão anonimizados e você sairá da loja neste aparelho.'
 })
 
 async function exportData () {
@@ -292,7 +293,7 @@ useSeoMeta({ title: 'Segurança e dados' })
           <UiAlertDialogHeader>
             <UiAlertDialogTitle>Excluir sua conta?</UiAlertDialogTitle>
             <UiAlertDialogDescription>
-              Seus dados pessoais serão anonimizados e você sairá da loja neste aparelho.
+              {{ devicesCopy.delete_warning }}
             </UiAlertDialogDescription>
           </UiAlertDialogHeader>
           <UiAlert v-if="privacyIssue" variant="destructive">

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections import checkout as checkout_projection
 from shopman.shop.projections import customer_context
 from shopman.shop.projections.channel_policy import ChannelPolicyResolution, resolve_channel_policy
@@ -48,12 +49,30 @@ _DEFAULT_CHANNEL_REF = "web"
 
 
 @dataclass(frozen=True)
+class CheckoutCopyProjection:
+    """Copy do checkout resolvida do registro omotenashi (admin-configurável).
+
+    Fonte única para os textos que o Vue consome sem hardcode: validação do
+    passo "quando", diálogo de trocar conta e o prefixo do valor de fidelidade.
+    """
+
+    when_required: str
+    switch_account_title: str
+    switch_account_message: str
+    switch_account_confirm: str
+    switch_account_keep: str
+    loyalty_savings_prefix: str
+
+
+@dataclass(frozen=True)
 class CheckoutProjection:
     """Full projection for the checkout page.
 
     Templates consume this alongside a separate ``errors`` dict and
     ``form_data`` dict supplied by the view for error re-renders.
     """
+
+    copy: CheckoutCopyProjection
 
     # Cart summary panel
     cart: CartProjection
@@ -175,6 +194,7 @@ def build_checkout(
     requires_authentication = _requires_authentication(channel_ref)
 
     return CheckoutProjection(
+        copy=_checkout_copy(),
         cart=cart,
         customer_phone=customer_phone,
         customer_name=customer_name,
@@ -325,7 +345,7 @@ def _checkout_actions(
         Action(
             ref="checkout",
             kind="mutation",
-            label="Confirmar pedido",
+            label=(resolve_copy("CHECKOUT_CONFIRM_CTA", moment="*", audience="*").title or "Enviar pedido"),
             priority="primary",
             enabled=enabled,
             reason=reason,
@@ -343,6 +363,24 @@ def _checkout_actions(
             },
             idempotency="required",
         ),
+    )
+
+
+def _checkout_copy() -> CheckoutCopyProjection:
+    """Textos do checkout resolvidos do registro omotenashi (admin-configurável)."""
+    def title(key: str) -> str:
+        return (resolve_copy(key, moment="*", audience="*").title or "").strip()
+
+    def message(key: str) -> str:
+        return (resolve_copy(key, moment="*", audience="*").message or "").strip()
+
+    return CheckoutCopyProjection(
+        when_required=message("CHECKOUT_WHEN_REQUIRED"),
+        switch_account_title=title("CHECKOUT_SWITCH_ACCOUNT_TITLE"),
+        switch_account_message=message("CHECKOUT_SWITCH_ACCOUNT_MESSAGE"),
+        switch_account_confirm=title("CHECKOUT_SWITCH_ACCOUNT_CONFIRM_CTA"),
+        switch_account_keep=title("CHECKOUT_SWITCH_ACCOUNT_KEEP_CTA"),
+        loyalty_savings_prefix=message("CHECKOUT_LOYALTY_SAVINGS_PREFIX"),
     )
 
 

@@ -211,6 +211,47 @@ def _profile_copy() -> dict:
     }
 
 
+def _account_copy() -> dict:
+    """Copy do hub da conta (conta/index), do registro omotenashi. Saudação e título
+    são labels; a despedida é mensagem. O Vue consome, sem hardcode."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "greeting_prefix": title("ACCOUNT_GREETING_PREFIX", "Olá"),
+        "page_title": title("ACCOUNT_PAGE_TITLE", "Minha Conta"),
+        "logout_farewell": message("LOGOUT_FAREWELL", "Até logo."),
+    }
+
+
+# Filtro da lista de pedidos → moment do registro (o "todos" cai no default "*").
+_HISTORY_FILTER_MOMENT = {"ativos": "active", "anteriores": "past"}
+
+
+def _history_empty_copy(filter_param: str) -> dict:
+    """Vazio da lista de pedidos, resolvido do registro omotenashi por filtro
+    (moment). Fonte única — o Vue consome com fallback só no carregamento."""
+    moment = _HISTORY_FILTER_MOMENT.get(filter_param, "*")
+    entry = resolve_copy("HISTORY_EMPTY", moment=moment, audience="*")
+    return {
+        "title": entry.title or "Você ainda não fez pedidos",
+        "message": entry.message or "Que tal começar? Escolha algo fresquinho no cardápio.",
+    }
+
+
+def _addresses_copy() -> dict:
+    """Copy da tela de Endereços (vazio), do registro omotenashi. O Vue consome
+    com fallback só durante o carregamento."""
+    entry = resolve_copy("ADDRESSES_EMPTY", moment="*", audience="*")
+    return {
+        "empty_title": entry.title or "Nenhum endereço salvo",
+        "empty_message": entry.message or "Adicione um endereço para finalizar a próxima entrega com menos passos.",
+    }
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["account"],
@@ -341,6 +382,7 @@ class AccountSummaryView(APIView):
             }
 
         return Response({
+            "copy": _account_copy(),
             "customer_first_name": account.customer_first_name,
             "recent_order_count": len(account.recent_orders),
             "active_order_count": order_service.active_order_count_for_customer(
@@ -407,6 +449,11 @@ class AddressListView(APIView):
         addresses = customer.addresses.order_by("-is_default", "label")
         data = [_serialize_address(addr) for addr in addresses]
         serializer = AddressSerializer(data, many=True)
+        # Envelope opt-in: a tela de Endereços pede ?include=copy para receber a
+        # copy do vazio (registro omotenashi). O default segue array puro — o
+        # checkout e o AddressPicker consomem a lista crua sem quebrar.
+        if request.query_params.get("include") == "copy":
+            return Response({"addresses": serializer.data, "copy": _addresses_copy()})
         return Response(serializer.data)
 
     def post(self, request):
@@ -556,7 +603,10 @@ class OrderHistoryView(APIView):
             limit=50,
         )
         serializer = OrderHistoryItemSerializer([_with_order_actions(order) for order in data], many=True)
-        return Response(serializer.data)
+        return Response({
+            "orders": serializer.data,
+            "copy": {"empty": _history_empty_copy(filter_param)},
+        })
 
 
 class ActiveOrderCountView(APIView):
@@ -652,6 +702,7 @@ def _devices_copy() -> dict:
         "current_badge": title("DEVICE_LIST_CURRENT", "Este dispositivo"),
         "registered_prefix": message("DEVICE_LIST_REGISTERED_PREFIX", "Registrado em"),
         "revoke_cta": title("DEVICE_REVOKE_CTA", "Remover"),
+        "delete_warning": message("ACCOUNT_DELETE_WARNING", "Seus dados pessoais serão anonimizados e você sairá da loja neste aparelho."),
     }
 
 

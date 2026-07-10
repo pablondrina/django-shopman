@@ -177,6 +177,11 @@ class OrderTrackingCopyProjection:
     rating_comment_placeholder: str
     rating_comment_aria_label: str
     rating_submit_label: str
+    rating_thanks: str
+    page_meta_description: str
+    delivery_heading: str
+    active_notification_label: str
+    stale_cta: str
 
 
 @dataclass(frozen=True)
@@ -293,7 +298,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         copy=_tracking_copy(copy),
         promise=promise,
         promise_rows=_build_promise_rows(promise, copy=copy),
-        promise_deadline_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo")),
+        promise_deadline_label=_deadline_label(promise, copy),
         progress_steps=_present_progress_steps(data, copy=copy),
         timeline=_present_timeline(data),
         items=_present_items(data),
@@ -402,6 +407,16 @@ def _clean_label(value: str) -> str:
     return str(value or "").strip().rstrip(":").strip()
 
 
+def _deadline_label(promise: OrderTrackingPromiseProjection, copy: CopyCatalog) -> str:
+    """Rótulo do countdown por tipo de prazo — um relógio único "Prazo" era ambíguo
+    (loja confirmando vs. cliente pagando são momentos diferentes)."""
+    if promise.deadline_kind == "payment":
+        return _clean_label(copy.message("TRACKING_PAYMENT_TIME_LEFT", "Tempo para pagamento:"))
+    if promise.deadline_kind == "availability":
+        return _clean_label(copy.message("TRACKING_AUTO_CONFIRM_LABEL", "A loja está conferindo a disponibilidade:"))
+    return _clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo"))
+
+
 def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
     if not base:
         return base
@@ -487,7 +502,8 @@ def _promise_copy(
         title, message = _pair(copy, "TRACKING_PAYMENT_EXPIRED",
                                "O prazo do pagamento acabou",
                                "Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva.")
-        return title, message, "", "", ""
+        next_event = copy.message("TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT", "Você pode refazer o pedido quando quiser.")
+        return title, message, next_event, "", ""
 
     if state in {"payment_requested", "payment_pending"}:
         if state == "payment_requested":
@@ -502,7 +518,8 @@ def _promise_copy(
             "TRACKING_PROMISE_PAYMENT_RECOVERY",
             "Liberamos sua reserva e o pedido é cancelado.",
         )
-        return title, message, "", recovery, ""
+        next_event = copy.message("TRACKING_PROMISE_PAYMENT_NEXT", "Depois do pagamento, seguimos com o pedido.")
+        return title, message, next_event, recovery, ""
 
     if state == "availability_deferred":
         if data.next_opening_phrase:
@@ -515,10 +532,18 @@ def _promise_copy(
                 "TRACKING_PROMISE_CLOSED_HOURS_MESSAGE",
                 "Estamos fechados agora. Conferimos a disponibilidade assim que abrirmos.",
             )
+        if data.next_opening_phrase:
+            prefix = copy.message("TRACKING_PROMISE_CLOSED_HOURS_NEXT_PREFIX", "Próxima abertura:")
+            next_event = f"{prefix} {data.next_opening_phrase}".strip()
+        else:
+            next_event = copy.message(
+                "TRACKING_PROMISE_CLOSED_HOURS_NEXT_UNKNOWN",
+                "Atualizaremos o pedido assim que o próximo expediente estiver definido.",
+            )
         return (
             copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
             message,
-            "",
+            next_event,
             "",
             "",
         )
@@ -529,10 +554,15 @@ def _promise_copy(
             if status == "new"
             else copy.message("TRACKING_CARD_AUTHORIZED_MESSAGE_CONFIRMED", "Pronto! Assim que a confirmação terminar, começamos o preparo.")
         )
+        next_event = (
+            copy.message("TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_NEW", "O estabelecimento vai conferir a disponibilidade.")
+            if status == "new"
+            else copy.message("TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_CONFIRMED", "Assim que a confirmação financeira terminar, seguimos com o pedido.")
+        )
         return (
             copy.title("TRACKING_CARD_AUTHORIZED", "Pagamento autorizado"),
             message,
-            "",
+            next_event,
             "",
             "",
         )
@@ -541,8 +571,8 @@ def _promise_copy(
         return (
             copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
             copy.message("TRACKING_PROMISE_AVAILABILITY_MESSAGE", "Estamos conferindo a disponibilidade dos itens."),
-            "",
-            "",
+            copy.message("TRACKING_PROMISE_AVAILABILITY_NEXT", "Se a disponibilidade for confirmada, liberamos o pagamento e avisamos você."),
+            copy.message("TRACKING_PROMISE_AVAILABILITY_RECOVERY", "Se o estabelecimento não confirmar a tempo, atualizaremos o pedido aqui."),
             "",
         )
 
@@ -552,10 +582,15 @@ def _promise_copy(
             if status == "new"
             else copy.message("TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE_CONFIRMED", "Recebemos o pagamento. Já vamos começar o preparo.")
         )
+        next_event = (
+            copy.message("TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_NEW", "O estabelecimento está conferindo a disponibilidade.")
+            if status == "new"
+            else copy.message("TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_CONFIRMED", "Vamos começar o preparo do seu pedido.")
+        )
         return (
             copy.title("TRACKING_STEP_PAYMENT_CONFIRMED", "Pagamento confirmado"),
             message,
-            "",
+            next_event,
             "",
             "",
         )
@@ -574,10 +609,15 @@ def _promise_copy(
                 if eta_display
                 else "Já estamos no preparo. Avisamos você quando estiver pronto."
             )
+        next_event = (
+            copy.message("TRACKING_PROMISE_PREPARING_NEXT_DELIVERY", "Quando estiver pronto, solicitaremos a coleta para entrega.")
+            if is_delivery
+            else copy.message("TRACKING_PROMISE_PREPARING_NEXT_PICKUP", "Quando estiver pronto, avisaremos você.")
+        )
         return (
             copy.title("TRACKING_STEP_PREPARING", "Preparando seu pedido"),
             message,
-            "",
+            next_event,
             "",
             "",
         )
@@ -589,13 +629,14 @@ def _promise_copy(
         title, message = _pair(copy, "TRACKING_DELIVERY_WAITING_COURIER",
                                "Pedido pronto",
                                "Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.")
-        return title, message, "", "", ""
+        next_event = copy.message("TRACKING_PROMISE_READY_DELIVERY_NEXT", "Assim que sair para entrega, avisamos você.")
+        return title, message, next_event, "", ""
 
     if state == "ready_pickup":
         return (
             copy.title("TRACKING_STEP_READY_PICKUP", "Pronto para retirada"),
             copy.message("TRACKING_PROMISE_READY_PICKUP_MESSAGE", "Pode retirar quando quiser — estamos esperando você."),
-            "",
+            copy.message("TRACKING_PROMISE_READY_PICKUP_NEXT", "Retire no estabelecimento quando puder."),
             "",
             "",
         )
@@ -615,7 +656,7 @@ def _promise_copy(
         return (
             copy.title("TRACKING_STEP_DISPATCHED", "Saiu para entrega"),
             message,
-            "",
+            copy.message("TRACKING_PROMISE_DISPATCHED_NEXT", "Quando for entregue, atualizaremos o pedido."),
             "",
             "",
         )
@@ -623,10 +664,11 @@ def _promise_copy(
     terminal = _TERMINAL_PROMISE_COPY.get(state)
     if terminal:
         copy_key, fallback, message_key, message_fb, next_key, next_fb = terminal
+        next_event = copy.message(next_key, next_fb) if next_key else ""
         return (
             copy.title(copy_key, fallback),
             copy.message(message_key, message_fb) if message_key else message_fb,
-            "",
+            next_event,
             "",
             "",
         )
@@ -634,7 +676,7 @@ def _promise_copy(
     return (
         copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
         copy.message("TRACKING_PROMISE_AVAILABILITY_MESSAGE", "Estamos conferindo a disponibilidade dos itens."),
-        "",
+        copy.message("TRACKING_PROMISE_RECEIVED_NEXT", "O estabelecimento vai conferir a disponibilidade."),
         "",
         "",
     )
@@ -646,8 +688,9 @@ _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
     "delivered": (
         "TRACKING_STEP_DELIVERED", "Pedido entregue",
         "TRACKING_DELIVERED_YOIN", "Bom apetite. Até a próxima.",
-        "", "",
+        "TRACKING_PROMISE_DELIVERED_NEXT", "O pedido será concluído em seguida.",
     ),
+    # completed é o estado final — não há "próximo passo".
     "completed": (
         "TRACKING_STEP_COMPLETED", "Pedido concluído",
         "TRACKING_PROMISE_COMPLETED_MESSAGE", "Obrigado pela preferência! Esperamos você de novo.",
@@ -656,7 +699,7 @@ _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
     "cancelled": (
         "TRACKING_STEP_CANCELLED", "Pedido cancelado",
         "TRACKING_PROMISE_CANCELLED_MESSAGE", "Este pedido foi cancelado. Qualquer dúvida, estamos à disposição.",
-        "", "",
+        "TRACKING_PROMISE_CANCELLED_NEXT", "Você pode refazer o pedido quando quiser.",
     ),
 }
 
@@ -915,6 +958,11 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
         rating_comment_placeholder=copy.title("TRACKING_RATING_COMMENT_PLACEHOLDER", "Comentário opcional"),
         rating_comment_aria_label=copy.title("TRACKING_RATING_COMMENT_ARIA_LABEL", "Comentário da avaliação"),
         rating_submit_label=copy.title("TRACKING_RATING_SUBMIT_CTA", "Enviar avaliação"),
+        rating_thanks=copy.message("TRACKING_RATE_THANKS", "Valorizamos muito seu retorno."),
+        page_meta_description=copy.message("TRACKING_PAGE_META_DESCRIPTION", "Acompanhe seu pedido"),
+        delivery_heading=copy.title("TRACKING_DELIVERY_HEADING", "Entrega"),
+        active_notification_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION", "Aviso:")),
+        stale_cta=copy.message("TRACKING_PROMISE_STALE", "Atualizar"),
     )
 
 

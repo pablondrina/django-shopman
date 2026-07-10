@@ -25,13 +25,21 @@ const substitutes = computed(() => cartIssue.value?.substitutes ?? [])
 // Planejado = há próximo lote conhecido. Enquadra a escassez como pré-reserva
 // ("garantir o seu"), não como "esgotou". A reserva é o planned-hold do carrinho.
 const isPlanned = computed(() => !!cartIssue.value?.is_planned)
+// Pausado ≠ esgotado: a casa tirou o item por ora ("voltamos em breve"), não acabou.
+const isPaused = computed(() => !!cartIssue.value?.is_paused)
+// Intro dos substitutos e headlines de escassez vêm do registro omotenashi (Kintsugi);
+// o fallback cobre só o intervalo até o payload chegar.
+const substitutesIntro = computed(() => cartIssue.value?.substitutes_intro || 'Que tal um destes no lugar?')
 
 const title = computed(() => {
   if (isPlanned.value && cartIssue.value?.planned_offer_title) return cartIssue.value.planned_offer_title
-  return hasAvailable.value ? 'Ajuste a quantidade' : 'Esgotou enquanto você escolhia'
+  if (isPaused.value) return cartIssue.value?.paused_title || 'Temporariamente indisponível'
+  if (hasAvailable.value) return 'Ajuste a quantidade'
+  return cartIssue.value?.shortage_title || 'Esgotou enquanto você escolhia'
 })
 const description = computed(() => {
   if (isPlanned.value && cartIssue.value?.planned_offer_message) return cartIssue.value.planned_offer_message
+  if (isPaused.value) return cartIssue.value?.paused_message || 'Voltamos em breve.'
   return hasAvailable.value
     ? `Agora temos ${formatCount(availableQty.value!, 'unidade', 'unidades')} de ${itemName.value}.`
     : `O ${itemName.value} acabou agora. Veja boas alternativas.`
@@ -72,7 +80,7 @@ function tryAgain () {
       </UiButton>
 
       <div v-if="substitutes.length">
-        <p v-if="hasAvailable" class="mb-1 shop-meta">Ou troque por:</p>
+        <p class="mb-1 shop-meta">{{ hasAvailable ? 'Ou troque por:' : substitutesIntro }}</p>
         <ul class="divide-y overflow-hidden rounded-lg border">
           <li v-for="sub in substitutes" :key="sub.sku">
             <UiButton

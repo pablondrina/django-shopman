@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections import cart as cart_data
 from shopman.shop.projections import catalog_context
 from shopman.shop.projections.types import Action, Availability
@@ -91,6 +92,12 @@ class MinimumOrderProgressProjection:
     percent: int
     minimum_display: str
     remaining_display: str
+    # Copy do aviso, do registro omotenashi (admin-configurável). O Vue monta
+    # "{warning_prefix} {remaining_display} {warning_middle} {minimum_display}"
+    # + o CTA acionável.
+    warning_prefix: str = ""
+    warning_middle: str = ""
+    add_more_cta: str = ""
 
 
 @dataclass(frozen=True)
@@ -153,6 +160,9 @@ class CartProjection:
     has_unavailable_items: bool
     has_awaiting_confirmation_items: bool    # ≥1 line still pre-materialization
     has_ready_for_confirmation_items: bool   # ≥1 line materialized, awaiting shopper confirmation
+    # Copy do banner de estoque alterado (registro omotenashi, admin-configurável);
+    # o Vue mostra quando ``has_unavailable_items`` — acima do tratamento por-item.
+    unavailable_banner: str
 
     # Minimum order + upsell context
     minimum_order_progress: MinimumOrderProgressProjection | None
@@ -227,6 +237,9 @@ def build_cart(
         has_unavailable_items=data.has_unavailable,
         has_awaiting_confirmation_items=data.has_awaiting_confirmation,
         has_ready_for_confirmation_items=data.has_ready_for_confirmation,
+        unavailable_banner=(
+            resolve_copy("CART_UNAVAILABLE_BANNER", moment="*", audience="*").message or ""
+        ).strip(),
         minimum_order_progress=min_order,
         delivery_minimum_progress=delivery_minimum,
         free_delivery_progress=free_delivery,
@@ -331,12 +344,19 @@ def present_minimum_order(
     """
     if data is None:
         return None
+
+    def _msg(key: str) -> str:
+        return (resolve_copy(key, moment="*", audience="*").message or "").strip()
+
     return MinimumOrderProgressProjection(
         minimum_q=data.minimum_q,
         remaining_q=data.remaining_q,
         percent=data.percent,
         minimum_display=_money(data.minimum_q),
         remaining_display=_money(data.remaining_q),
+        warning_prefix=_msg("MIN_ORDER_WARNING_PREFIX"),
+        warning_middle=_msg("MIN_ORDER_WARNING_MIDDLE"),
+        add_more_cta=_msg("MIN_ORDER_WARNING"),
     )
 
 

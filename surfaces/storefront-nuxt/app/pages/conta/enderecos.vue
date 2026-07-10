@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SavedAddressProjection } from '~/types/shopman'
+import type { AddressListResponse, SavedAddressProjection } from '~/types/shopman'
 import { addressSheetDescription, addressSheetTitle } from '~/presentation/account'
 
 definePageMeta({ middleware: 'account' })
@@ -19,9 +19,17 @@ const addressDeleteCandidate = ref<SavedAddressProjection | null>(null)
 const addressDeletePending = ref(false)
 const addressDefaultPending = ref<Record<number, boolean>>({})
 
-const { data: addresses, pending, refresh: refreshAddresses } = await useFetch<SavedAddressProjection[]>(apiPath('/api/v1/account/addresses/'), {
+const { data: addressData, pending, refresh: refreshAddresses } = await useFetch<AddressListResponse>(apiPath('/api/v1/account/addresses/'), {
   credentials: 'include',
-  headers: requestHeaders
+  headers: requestHeaders,
+  query: { include: 'copy' }
+})
+
+const addresses = computed(() => addressData.value?.addresses ?? [])
+// Copy do vazio vem do registro omotenashi; o fallback cobre só o carregamento.
+const emptyCopy = computed(() => addressData.value?.copy ?? {
+  empty_title: 'Nenhum endereço salvo',
+  empty_message: 'Adicione um endereço para finalizar a próxima entrega com menos passos.'
 })
 
 const sheetTitle = computed(() => addressSheetTitle(addressMode.value))
@@ -118,8 +126,8 @@ useSeoMeta({ title: 'Endereços' })
           <Icon name="lucide:map-pin" />
         </UiEmptyMedia>
         <UiEmptyHeader>
-          <UiEmptyTitle>Nenhum endereço salvo</UiEmptyTitle>
-          <UiEmptyDescription>Adicione um endereço para finalizar a próxima entrega com menos passos.</UiEmptyDescription>
+          <UiEmptyTitle>{{ emptyCopy.empty_title }}</UiEmptyTitle>
+          <UiEmptyDescription>{{ emptyCopy.empty_message }}</UiEmptyDescription>
         </UiEmptyHeader>
         <div class="flex justify-center">
           <UiButton icon="lucide:plus" @click="openCreateAddress">Adicionar endereço</UiButton>

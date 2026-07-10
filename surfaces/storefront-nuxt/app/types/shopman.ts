@@ -151,6 +151,9 @@ export interface MinimumOrderProgressProjection {
   percent: number
   minimum_display: string
   remaining_display: string
+  warning_prefix: string
+  warning_middle: string
+  add_more_cta: string
 }
 
 export interface FreeDeliveryProgressProjection {
@@ -210,6 +213,7 @@ export interface CartProjection {
   has_unavailable_items: boolean
   has_awaiting_confirmation_items: boolean
   has_ready_for_confirmation_items: boolean
+  unavailable_banner: string
   minimum_order_progress: MinimumOrderProgressProjection | null
   delivery_minimum_progress: MinimumOrderProgressProjection | null
   free_delivery_progress: FreeDeliveryProgressProjection | null
@@ -288,6 +292,7 @@ export interface ShopProjection {
   full_address: string
   maps_url: string
   default_city: string
+  copyright: string
   social_links: SocialLinkProjection[]
   design_tokens?: ShopDesignTokensProjection
 }
@@ -340,11 +345,17 @@ export interface HomeHeroCopyProjection {
   birthday_cta: CopyEntryProjection
 }
 
+export interface HomeFacetProjection {
+  ref: 'delivery' | 'preorder' | 'quality' | 'tracking' | string
+  message: string
+}
+
 export interface HomeSectionsCopyProjection {
   availability_heading: CopyEntryProjection
   full_menu_cta: CopyEntryProjection
   how_it_works_heading: CopyEntryProjection
   how_it_works_intro: CopyEntryProjection
+  how_it_works_meta_description: CopyEntryProjection
   how_online_heading: CopyEntryProjection
   how_store_heading: CopyEntryProjection
   how_step_choose: CopyEntryProjection
@@ -359,6 +370,7 @@ export interface HomeSectionsCopyProjection {
   how_online_track_message: CopyEntryProjection
   how_store_self_service_message: CopyEntryProjection
   how_store_counter_message: CopyEntryProjection
+  how_facets: HomeFacetProjection[]
   tomorrow_label: CopyEntryProjection
   tomorrow_hook: CopyEntryProjection
   whatsapp_cta: CopyEntryProjection
@@ -596,7 +608,17 @@ export interface Action {
   confirmation: Record<string, unknown>
 }
 
+export interface CheckoutCopyProjection {
+  when_required: string
+  switch_account_title: string
+  switch_account_message: string
+  switch_account_confirm: string
+  switch_account_keep: string
+  loyalty_savings_prefix: string
+}
+
 export interface CheckoutProjection {
+  copy: CheckoutCopyProjection
   cart: CartProjection
   customer_phone: string
   customer_name: string
@@ -701,6 +723,7 @@ export interface PickupInfoProjection {
 }
 
 export interface TrackingCopyProjection {
+  stale_cta: string
   page_kicker: string
   order_ref_label: string
   menu_label: string
@@ -735,6 +758,10 @@ export interface TrackingCopyProjection {
   rating_comment_placeholder: string
   rating_comment_aria_label: string
   rating_submit_label: string
+  rating_thanks: string
+  page_meta_description: string
+  delivery_heading: string
+  active_notification_label: string
 }
 
 export interface TrackingResponse {
@@ -817,11 +844,25 @@ export interface PaymentProjection {
   mock_enabled: boolean
 }
 
+export interface PaymentPageCopy {
+  order_ref_label: string
+  total_label: string
+  meta_description: string
+  card_intro: string
+  card_security_note: string
+  pix_instruction: string
+  pix_copy_label: string
+  pix_copy_btn: string
+  pix_copied: string
+  pix_expires_label: string
+}
+
 export interface PaymentResponse {
   redirect_url: string | null
   intent_ready?: boolean
   reason?: string
   payment: PaymentProjection | null
+  copy?: PaymentPageCopy
 }
 
 export interface PaymentStatusResponse {
@@ -900,7 +941,14 @@ export interface AccountNotificationPreference {
   enabled: boolean
 }
 
+export interface AccountSummaryCopy {
+  greeting_prefix: string
+  page_title: string
+  logout_farewell: string
+}
+
 export interface AccountSummary {
+  copy: AccountSummaryCopy
   customer_first_name: string
   recent_order_count: number
   active_order_count: number
@@ -946,6 +994,26 @@ export interface OrderHistoryItem {
   actions?: Action[]
 }
 
+export interface EmptyStateCopy {
+  title: string
+  message: string
+}
+
+export interface OrderHistoryResponse {
+  orders: OrderHistoryItem[]
+  copy: { empty: EmptyStateCopy }
+}
+
+export interface AddressListCopy {
+  empty_title: string
+  empty_message: string
+}
+
+export interface AddressListResponse {
+  addresses: SavedAddressProjection[]
+  copy: AddressListCopy
+}
+
 export interface AccountDeviceProjection {
   id: string
   label: string
@@ -964,6 +1032,7 @@ export interface AccountDeviceCopy {
   current_badge: string
   registered_prefix: string
   revoke_cta: string
+  delete_warning: string
 }
 
 export interface AccountDeviceResponse {

@@ -32,7 +32,10 @@ class TestShopStatusVsBusinessHoursRule:
         with patch.object(rule, "_get_opening_hours", return_value=None):
             assert rule._check_outside_hours() is False
 
-    def test_shop_status_does_not_duplicate_next_opening_copy(self):
+    def test_shop_status_label_owned_by_registry(self):
+        """O badge (label) vem do registro omotenashi (SHOP_STATUS_*), granular:
+        fechado antes de abrir → "Fechado. Abre às {hora}". A ``message`` (spine,
+        banner global não renderizado na home) segue sua própria fonte."""
         from shopman.storefront.presentation.shop_status import _shop_status
 
         state = SimpleNamespace(
@@ -40,6 +43,8 @@ class TestShopStatusVsBusinessHoursRule:
             is_closed=True,
             opens_at="09:00",
             closes_at="18:00",
+            closure_source="",
+            closed_reason="",
             message="Fechado. Abrimos às 9h",
             next_open_at=datetime(2026, 5, 15, 9, 0, tzinfo=ZoneInfo("America/Sao_Paulo")),
             resolved_at=datetime(2026, 5, 15, 8, 0, tzinfo=ZoneInfo("America/Sao_Paulo")),
@@ -52,7 +57,28 @@ class TestShopStatusVsBusinessHoursRule:
             st = _shop_status()
 
         assert st["message"] == "Fechado. Abrimos às 9h"
-        assert st["label"] == "Fechado agora"
+        assert st["label"] == "Fechado. Abre às 9h"
+
+    def test_shop_status_label_open_until_closing_hour(self):
+        """Aberto com horário de fechamento → "Aberto até {hora}" (registro)."""
+        from shopman.storefront.presentation.shop_status import _shop_status
+
+        state = SimpleNamespace(
+            is_open=True,
+            is_closed=False,
+            opens_at="07:00",
+            closes_at="19:00",
+            closure_source="",
+            closed_reason="",
+            message="Aberto até 19h",
+            next_open_at=None,
+            resolved_at=datetime(2026, 5, 15, 10, 0, tzinfo=ZoneInfo("America/Sao_Paulo")),
+        )
+
+        with patch("shopman.shop.services.business_calendar.current_business_state", return_value=state):
+            st = _shop_status()
+
+        assert st["label"] == "Aberto até 19h"
 
     def test_opening_hours_format_uses_plain_preposition(self):
         from shopman.storefront.presentation.shop_status import _format_opening_hours

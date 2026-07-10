@@ -605,7 +605,7 @@ function validateWhenStep (): boolean {
   const errors = { ...fieldErrors.value }
   delete errors.delivery_date
   delete errors.delivery_time_slot
-  if (!state.delivery_date) errors.delivery_date = 'Escolha a data.'
+  if (!state.delivery_date) errors.delivery_date = checkout.value?.copy.when_required || 'Escolha a data.'
   if (state.delivery_date && isCheckoutDateUnavailable(state.delivery_date, dateBounds.value, closedDateEntries.value, closedWeekdays.value)) errors.delivery_date = 'Escolha uma data disponível.'
   if (state.fulfillment_type === 'pickup' && slots.value.length && !state.delivery_time_slot) errors.delivery_time_slot = 'Escolha um horário.'
   if (state.fulfillment_type === 'pickup' && state.delivery_time_slot && !selectedSlot.value?.enabled) {
@@ -1247,7 +1247,7 @@ useSeoMeta({
                 <UiField orientation="horizontal">
                   <UiFieldContent class="gap-1">
                     <UiFieldTitle>Usar pontos de fidelidade</UiFieldTitle>
-                    <UiFieldDescription>Economize até {{ checkout.loyalty_value_display }}</UiFieldDescription>
+                    <UiFieldDescription>{{ checkout.copy.loyalty_savings_prefix || 'Economize até' }} {{ checkout.loyalty_value_display }}</UiFieldDescription>
                   </UiFieldContent>
                   <UiSwitch id="checkout-loyalty" v-model="useLoyalty" />
                 </UiField>
@@ -1523,14 +1523,14 @@ useSeoMeta({
           <UiAlertDialog v-model:open="changePhoneOpen">
             <UiAlertDialogContent>
               <UiAlertDialogHeader>
-                <UiAlertDialogTitle>Entrar com outro número?</UiAlertDialogTitle>
+                <UiAlertDialogTitle>{{ checkout.copy.switch_account_title || 'Trocar conta?' }}</UiAlertDialogTitle>
                 <UiAlertDialogDescription>
-                  Você troca de conta. Sua sacola continua guardada.
+                  {{ checkout.copy.switch_account_message || 'Você vai sair desta conta para entrar com outro telefone. Sua sacola continua guardada.' }}
                 </UiAlertDialogDescription>
               </UiAlertDialogHeader>
               <UiAlertDialogFooter>
-                <UiAlertDialogCancel>Cancelar</UiAlertDialogCancel>
-                <UiAlertDialogAction @click="navigateTo(authRoute)">Trocar número</UiAlertDialogAction>
+                <UiAlertDialogCancel>{{ checkout.copy.switch_account_keep || 'Manter conta' }}</UiAlertDialogCancel>
+                <UiAlertDialogAction @click="navigateTo(authRoute)">{{ checkout.copy.switch_account_confirm || 'Trocar conta' }}</UiAlertDialogAction>
               </UiAlertDialogFooter>
             </UiAlertDialogContent>
           </UiAlertDialog>

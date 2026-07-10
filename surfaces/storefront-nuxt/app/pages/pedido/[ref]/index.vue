@@ -93,7 +93,9 @@ const showSideActions = computed(() => Boolean(
   (cancelAction.value || showReorderAction.value || showSupportAction.value)
 ))
 const showDeliveryTab = computed(() => Boolean(tracking.value?.pickup_info || tracking.value?.fulfillments.length))
-const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')
+const deliveryTabLabel = computed(() => tracking.value?.is_delivery
+  ? (tracking.value.copy.delivery_heading || 'Entrega')
+  : (tracking.value?.pickup_info?.heading || 'Retirada'))
 const trackingTabsListClass = 'no-scrollbar relative flex h-auto w-full justify-start gap-6 overflow-x-auto border-b bg-transparent p-0'
 const trackingTabsTriggerClass = 'rounded-none border-b-2 border-transparent bg-transparent px-1 py-2 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 const progressTimelineStep = computed(() => timelineActiveStep(tracking.value?.progress_steps || []))
@@ -143,7 +145,7 @@ const summaryRows = computed(() => {
   const t = tracking.value
   if (!t) return []
   const rows: { icon: string, lines: string[], muted?: string }[] = [
-    { icon: t.is_delivery ? 'lucide:bike' : 'lucide:store', lines: [t.is_delivery ? 'Entrega' : 'Retirada'] }
+    { icon: t.is_delivery ? 'lucide:bike' : 'lucide:store', lines: [t.is_delivery ? (t.copy.delivery_heading || 'Entrega') : (t.pickup_info?.heading || 'Retirada')] }
   ]
   if (t.delivery_fee_display) {
     rows.push({ icon: 'lucide:coins', lines: [`Taxa ${t.delivery_fee_display}${t.delivery_distance_display ? ` · ${t.delivery_distance_display}` : ''}`] })
@@ -183,7 +185,7 @@ async function postAction (action: Action, body: Record<string, unknown> = {}) {
       headers['x-idempotency-key'] = newRemoteMutationKey(action.ref)
     }
     await $fetch(apiPath(action.href), {
-      method: action.method || 'POST',
+      method: remoteMethod(action.method),
       headers,
       credentials: 'include',
       body
@@ -240,7 +242,8 @@ function dismissReorderConflict () {
 }
 
 useSeoMeta({
-  title: () => tracking.value ? `Pedido ${tracking.value.ref}` : 'Acompanhamento'
+  title: () => tracking.value ? `Pedido ${tracking.value.ref}` : 'Acompanhamento',
+  description: () => tracking.value?.copy.page_meta_description || 'Acompanhe seu pedido'
 })
 </script>
 
@@ -301,6 +304,7 @@ useSeoMeta({
                      sistema realmente notifica). Reduz a ansiedade de olhar a tela. -->
                 <p v-if="tracking.promise.active_notification" class="flex items-center gap-2 shop-meta">
                   <Icon name="lucide:bell-ring" class="size-3.5 shrink-0" />
+                  <span v-if="tracking.copy.active_notification_label" class="font-semibold">{{ tracking.copy.active_notification_label }}</span>
                   {{ tracking.promise.active_notification }}
                 </p>
 
@@ -325,7 +329,13 @@ useSeoMeta({
                     class="size-3.5 shrink-0 animate-spin"
                   />
                   <span>{{ freshness.text }}</span>
-                  <span v-if="freshness.isStale">· reconectando…</span>
+                  <UiButton
+                    v-if="freshness.isStale"
+                    variant="link"
+                    size="sm"
+                    class="h-auto p-0 underline underline-offset-2 hover:text-foreground"
+                    @click="() => refresh()"
+                  >· {{ tracking.copy.stale_cta }}</UiButton>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -509,7 +519,7 @@ useSeoMeta({
           v-model:open="supportOpen"
           max-width="md"
           title="Avaliar pedido"
-          description="Sua nota ajuda a loja a melhorar."
+          :description="tracking.copy.rating_thanks || 'Sua nota ajuda a loja a melhorar.'"
         >
           <div class="shop-stack-block px-4 py-4">
             <UiStarRating v-model="rating" :max="5" size="lg" class="justify-center" />

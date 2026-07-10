@@ -83,5 +83,177 @@ Resultado: nenhuma é "ideia solta" — todas têm um lugar de origem. Classific
   (`PROFILE_EDIT_CTA`) que revela o formulário. As 3 chaves saíram do backlog. Balde B do
   Perfil fechado — todas as chaves `PROFILE_*` agora chegam à tela.
 
+## 🙈 Ausência que não vale anunciar (esconder > avisar)
+
+### `LOYALTY_UNAVAILABLE` ("Programa de fidelidade não disponível.")
+- **Achado:** a chave existe só para **afirmar a ausência** do programa de fidelidade. Hoje a
+  vitrine de fidelidade (`conta/index.vue`, `home`) some quando `loyalty.available` é falso
+  (`v-if`). Quando um programa é configurado, ela aparece sozinha — nada mais a fazer.
+- **Decisão do Pablo (2026-07-09, revisão A/B da conta/index):** **não construir.** Avisar que
+  uma feature não existe é ruído (ninguém sente falta do que não sabia que existia). O
+  esconder-quando-indisponível é o comportamento certo. A chave fica arquivada — se um dia
+  quisermos um estado explícito, está aqui.
+- **Status:** arquivada como decisão consciente. Segue no registro **e no
+  `copy-wiring-backlog.txt`** (continua órfã: a copy não chega a tela alguma — de propósito).
+
+### `NOTIFICATION_PREFS_EMPTY` ("Nenhuma preferência de notificação configurável no momento.")
+- **Achado:** a chave existe, mas `conta/preferencias.vue` **não tem estado-vazio** — a página
+  só renderiza os toggles de notificação (`v-for`); se a lista vier vazia, a seção some sem
+  mensagem. "Religar" exigiria **construir uma UI nova** (um bloco `UiEmpty` de notificações),
+  não reconectar um texto já em tela.
+- **Decisão do Pablo (2026-07-09, revisão A/B das sub-páginas da conta):** **documentar, não
+  deletar.** Um empty-state de notificações é uma tela plausível de construir depois e a frase
+  já rascunhada é copy boa para reaproveitar. Não vale inventar UI que ninguém pediu agora.
+- **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito
+  — sem tela). Quando/se o empty-state de notificações for construído, ligar via projection.
+
+## 🙈 Tracking — superseded/duplicadas (decisão Pablo 2026-07-09, revisão caso-a-caso)
+
+O acompanhamento já resolve 80+ chaves via `build_copy("TRACKING")`. Destas órfãs, umas
+duplicam copy já fiada, outras descrevem um design que a tela não usa. Arquivadas (seguem
+no registro e no `copy-wiring-backlog.txt` — órfãs de propósito):
+
+- `TRACKING_PROMISE_LABEL_ACTION` ("Sua ação:") — a ação é **botão**, não linha (`_build_promise_rows`
+  é deliberadamente enxuto). Sem linha de ação.
+- `TRACKING_PROMISE_LABEL_UPDATED` ("Última atualização:") — a tela mostra *"Atualizado há X"*
+  (tempo vivo relativo, `freshness.text`), melhor que um prefixo estático.
+- `TRACKING_ETA_PREFIX` ("Previsão para ficar pronto às") — a ETA já vem **embutida na mensagem**
+  do estado ("Fica pronto por volta das {eta}"), não há linha de ETA separada.
+- `TRACKING_ACTION_NONE` ("Nenhuma ação necessária") / `TRACKING_ACTION_WAITING_COURIER`
+  ("Aguardando entregador") — labels de estado de ação; as ações são botões específicos por estado.
+- `TRACKING_PAYMENT_CONFIRMED` ("Recebemos a confirmação do pagamento deste pedido.") — duplica
+  `TRACKING_PAYMENT_CONFIRMED_NOTICE` (fiada: "Pagamento confirmado. Acompanhe o próximo passo…").
+- `TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE` ("Nenhuma ação necessária agora.") — superseded pelas
+  mensagens por status `TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE_NEW/_CONFIRMED` (fiadas).
+
+**Ainda no backlog p/ follow-up focado (mudam a estrutura do countdown/freshness, não é swap de
+string):** `TRACKING_AUTO_CONFIRM_PREFIX/SUFFIX` (enquadrar o countdown de disponibilidade),
+`TRACKING_PAYMENT_TIME_LEFT` (rótulo do countdown de pagamento por contexto), `TRACKING_PROMISE_STALE`
+(mensagem quando o poll falha, no composable de frescor), `TRACKING_PROMISE_AVAILABILITY_RECOVERY` +
+`TRACKING_PROMISE_RECOVERY_HELP` (preencher o slot `recovery` por estado).
+
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.
+
+## 🙈 Pagamento — superseded pelo painel `promise` (decisão Pablo 2026-07-09, revisão da tela)
+
+A tela `/pagamento` (`pedido/[ref]/pagamento.vue`) tem o **painel de status fiado via
+`payment.promise.*`** (resolvido em `presentation/payment.py` por estado: pix/cartão/pago/
+cancelado/expirado/erro). O chrome estático + UI de PIX/cartão foi religado (canal `copy` na
+`OrderPaymentView`, 10 chaves). Estas 13 descrevem estados que o `promise` **já resolve** ou
+telas que a UI **não usa** — arquivadas (seguem no registro e no `copy-wiring-backlog.txt`,
+órfãs de propósito):
+
+- `PAYMENT_WAITING` ("Aguardando seu banco confirmar…") / `PAYMENT_WAITING_LONG` ("Ainda
+  processando…") — o estado de espera é a **mensagem do promise**, não uma linha à parte.
+- `PAYMENT_CONFIRMED` ("Pagamento recebido" / "Seguimos com o preparo…") — = `PAYMENT_PROMISE_PAID_*`.
+- `PAYMENT_CANCELLED` ("Pedido cancelado") + `PAYMENT_CANCELLED_DETAILS_CTA` ("Ver detalhes") —
+  = `PAYMENT_PROMISE_CANCELLED_*` + ações do promise.
+- `PAYMENT_ERROR_TITLE` / `PAYMENT_ERROR_MESSAGE` — a tela usa `errorView` (orderAccess) para acesso
+  e `payment.error_message` (do gateway) para falha de intent; estas chaves não são as usadas.
+- `PAYMENT_PIX_EXPIRED` ("Este PIX expirou" / "Geramos um novo…") — o terminal expirado vem do
+  promise; o inline "O prazo do PIX expirou." cobre o countdown.
+- `PAYMENT_PIX_REGENERATE_CTA` ("Gerar novo PIX") — é **ação** do promise (label vem da action).
+- `PAYMENT_DEADLINE_NOTICE` ("Conclua dentro do prazo indicado abaixo.") — sem aviso separado; o
+  countdown com barra fala por si.
+- `PAYMENT_REDIRECTING_PREFIX` ("Redirecionando em") / `PAYMENT_REDIRECTING_SUFFIX` ("s…") — não há
+  countdown de redirect na UI; o `watchEffect` navega direto quando há `redirect_url`.
+- `PAYMENT_PAGE_TITLE` ("Concluir pagamento") — a tela usa título dinâmico por pedido
+  ("Pagamento {ref}"), mais informativo que o estático.
+
+> Se algum estado ganhar tela própria no futuro (ex.: aviso de deadline dedicado), ligar via a
+> projection ao registro. Nada se deleta sem aprovação.
+
+## 🙈 Menu — subtítulo sem lugar no design filter-first (decisão Pablo 2026-07-10)
+
+### `MENU_SUBTITLE` (6 variantes por momento: madrugada/manhã/almoço/tarde/fechando/fechado)
+- **Achado:** copy boa de subtítulo por horário ("Fresquinho do forno.", "Para o café da tarde.",
+  "Olhe à vontade. Atendemos assim que abrirmos."), mas `menu.vue` **não tem header de página** —
+  o `h1 "Cardápio"` é `sr-only` e a tela vai direto pra barra de filtro (`sticky top-16`) + headers
+  **por seção** (`section.description`, ex.: "Os mais vendidos e curados pela casa."). O subtítulo
+  de página moraria numa faixa nova acima do filtro.
+- **Decisão do Pablo (2026-07-10, revisão A/B com mockup lado a lado):** **arquivar.** O menu é
+  enxuto filter-first de propósito; um header de página empurra o catálogo pra baixo. A copy fica
+  guardada — se um dia o menu ganhar um header, ligar via a projection do menu (`/api/v1/storefront/menu/`)
+  resolvendo `MENU_SUBTITLE` por momento.
+- **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito).
+
+## 🙈 Kintsugi — superseded ou sem touchpoint limpo (decisão autônoma 2026-07-10, Pablo pediu "fazer tudo")
+
+A família `KINTSUGI_*` (copy de erro/degradação) tem 5 fluxos. **4 chaves religadas**
+(`SHORTAGE_GENERIC`, `SHORTAGE_SUBSTITUTES_INTRO`, `PAUSED_COPY` via `_stock_error_payload`;
+`CANCEL_REFUSED` via `execute_cancel`). Estas **6 ficam arquivadas** — cada uma por um motivo
+concreto, não por preguiça. Todas seguem no registro e no `copy-wiring-backlog.txt`:
+
+- `KINTSUGI_ITEM_REMOVED` ("Removido.") — **superseded**: o toast real ao remover é
+  `"{nome} removido"` (`sacola.vue`), específico e melhor que o genérico. Nada a ganhar.
+- `KINTSUGI_CEP_NOT_FOUND` ("Não encontrei esse CEP. Quer digitar o endereço?") — o CEP é buscado
+  **client-side direto no ViaCEP** (`AddressPicker.vue`, sem passar pelo Django) e o "não
+  encontrado" hoje é **silencioso** (o dropdown só não abre). Religar exigiria (a) UI nova de
+  "não encontrado" e (b) um canal de copy pro componente — que é **compartilhado com o checkout
+  da mãe** (`finalizar.vue`). Risco desproporcional pra um edge (Places é o buscador primário).
+  Reavaliar se o CEP migrar pro servidor (`geocode.py`).
+- `KINTSUGI_RATE_LIMITED` + `_CONTACT` + `_RETRY_CTA` + `_RETRY_PREFIX` — descrevem um **painel
+  estruturado genérico** (título + mensagem + "prefere falar conosco?" + botão retry + countdown).
+  O storefront hoje usa mensagens **context-specific** ("Muitas tentativas de recompra" vs "Muitas
+  alterações na sacola", `surface.py`) num alert flat (`sacola.vue`, título "Aguarde um instante").
+  As específicas são **melhores** que a genérica; o painel estruturado não existe. Religar seria
+  downgrade + UI nova. Se um dia quiser unificar o rate-limit num painel omotenashi com escape
+  pra WhatsApp, as 4 chaves estão prontas.
+
+> ⚠️ Decisões autônomas reversíveis: se o Pablo quiser a mensagem genérica de rate-limit (com o
+> escape pra WhatsApp) ou o aviso de CEP construídos mesmo assim, é só pedir.
+
+### `TRACKING_PROMISE_RECOVERY_HELP` ("Se precisar de ajuda, fale com o estabelecimento.")
+- **Achado:** o slot `recovery` do tracking vira uma row rotulada **"Se o tempo acabar:"**
+  (`TRACKING_PROMISE_LABEL_RECOVERY`, em `_build_promise_rows`) — um safety-net de deadline.
+  `RECOVERY_HELP` **não é sobre tempo acabar** (é ajuda genérica), então não cabe nesse rótulo; e
+  a tela já tem o CTA **"Fale conosco"** em destaque no painel pra esse fim.
+- **Decisão (2026-07-10):** arquivar — semanticamente não encaixa na row de recovery (deadline) e
+  seria redundante com o CTA de suporte. A gêmea `TRACKING_PROMISE_AVAILABILITY_RECOVERY` (que É
+  sobre deadline) foi religada no estado `availability_check`.
+- **Status:** arquivada. Segue no registro e no `copy-wiring-backlog.txt` (órfã de propósito).
+
+## 🧹 Varredura do backlog restante (decisão autônoma 2026-07-10, "siga!")
+
+Triado o que sobrava. Nenhuma era wire limpo de alto valor (ao contrário do item 2):
+não há bug de copy a corrigir; todas são superseded, client-only, backstage, da mãe, ou
+já-melhores-na-tela. Cada uma abaixo segue órfã de propósito no `copy-wiring-backlog.txt`.
+
+**Superseded por chave dinâmica já fiada:**
+- `PRODUCT_OUT_OF_STOCK` / `PRODUCT_SCHEDULED_UNAVAILABLE` ("Indisponível") — o badge de
+  disponibilidade vem de `availability_label()` → `AVAILABILITY_{estado}` (prefixo dinâmico, sempre
+  alcançável). Estas duas duplicam o conceito; nunca são lidas.
+
+**Client-only (sem servidor no momento):**
+- `OFFLINE_TITLE` / `OFFLINE_MESSAGE` / `OFFLINE_RETRY_CTA` — o `OfflineBanner.vue` dispara por
+  `navigator.onLine` (offline = sem fetch de copy). Hoje é um banner mínimo auto-reconectante
+  ("Sem conexão. Tentando reconectar…"), que supera a estrutura título+mensagem+retry. Copy de
+  offline precisa estar embarcada no cliente; não há canal de projection viável.
+
+**Fora do escopo storefront (operador/backstage):**
+- `CLOSING_AWARENESS_PREFIX` / `_SUFFIX` / `_OLD_D1_ALERT` — renderizam em
+  `backstage/projections/closing.py` (tela de fechamento do operador, D-1 = staff). Copy de
+  operador, não do cliente. Se for fiar, é no burndown do backstage, não aqui.
+
+**Fluxo de login/device-trust (território VIVO da mãe — [[project_whatsapp_access_link_pivot]]):**
+- `DEVICE_TRUST_GREETING` ("Bem-vindo de volta") / `DEVICE_TRUST_ERROR` — aparecem no fluxo de
+  confiar-no-dispositivo durante o LOGIN. A mãe reescreve o login inteiro; não tocar.
+- `WELCOME_*` (9: greeting, name-heading×3, page-title, confirm-cta, account-note, suggested-name,
+  whatsapp), `LOGIN_CHANGE_PHONE_*` (3), `LOGIN_WELCOME_BACK` — a tela `/entrar` (boas-vindas +
+  trocar telefone + saudação recorrente). **DEFERIDAS à mãe**, não arquivadas por mim: ela é a dona
+  dessa superfície (pivô access-link/F4). Sair do meu backlog quando ela religar/consolidar.
+
+**On-screen já melhor que o registro (baixo valor em admin-config):**
+- `DEVICE_REVOKE_CONFIRM` / `DEVICE_REVOKE_ALL_CONFIRM` / `DEVICE_REVOKE_ALL_CTA` /
+  `DEVICE_LIST_UNKNOWN` / `DEVICE_LIST_LAST_USED_PREFIX` — `seguranca.vue` já fia o principal via
+  `_devices_copy()`; os diálogos de revoke na tela são MELHORES que os stubs do registro (separam
+  título-pergunta de consequência e interpolam o nome do aparelho). Microcopy de segurança que muda
+  raramente — baixo ROI pra tornar admin-config.
+- `PICKUP_READY_NOTICE` ("Avisamos quando ficar pronto.") — nota do planned-hold por linha na sacola.
+  Customer-facing e a copy é boa, mas o projection do carrinho não tem canal `copy`; wire exigiria
+  infra nova pra uma copy que já está certa.
+
+> ⚠️ Reversível: se o Pablo quiser admin-config de qualquer uma (ex.: PICKUP_READY_NOTICE ou os
+> diálogos de revoke), é só pedir e eu abro o canal de copy no projection correspondente. As de
+> login saem sozinhas quando a mãe fechar o `/entrar`.

@@ -139,8 +139,13 @@ useSeoMeta({
       </UiAlert>
 
       <template v-else>
-        <!-- Indisponibilidade (esgotou/qtd) sobe no SubstituteSheet global, no
-             momento do 409 — não como banner inline aqui. -->
+        <!-- Banner de estoque alterado: aviso no topo quando ≥1 item ficou
+             indisponível, acima do tratamento por-item (substitutos no 409 +
+             aviso em cada linha). Copy do registro (CART_UNAVAILABLE_BANNER). -->
+        <UiAlert v-if="!cart.is_empty && cart.has_unavailable_items" variant="warning" data-cart-unavailable-banner>
+          <UiAlertTitle>{{ cart.unavailable_banner || 'O estoque de alguns itens mudou. Veja as opções em cada item abaixo.' }}</UiAlertTitle>
+        </UiAlert>
+
         <UiAlert v-if="rateLimitRecovery" variant="warning">
           <UiAlertTitle>Aguarde um instante</UiAlertTitle>
           <UiAlertDescription>{{ rateLimitRecovery.detail }}</UiAlertDescription>
@@ -286,11 +291,16 @@ useSeoMeta({
             </UiButton>
 
             <div v-if="cart.minimum_order_progress" class="mt-4 border-b pb-4">
-              <div class="mb-2 flex justify-between gap-3 shop-body">
-                <span>Pedido mínimo</span>
-                <span class="tabular-nums">{{ cart.minimum_order_progress.remaining_display }}</span>
-              </div>
+              <p class="mb-2 shop-body">
+                <span class="text-muted-foreground">{{ cart.minimum_order_progress.warning_prefix || 'Faltam' }}</span>
+                <span class="font-semibold tabular-nums"> {{ cart.minimum_order_progress.remaining_display }} </span>
+                <span class="text-muted-foreground">{{ cart.minimum_order_progress.warning_middle || 'para o pedido mínimo de' }}</span>
+                <span class="font-semibold tabular-nums"> {{ cart.minimum_order_progress.minimum_display }}</span>
+              </p>
               <UiProgress :model-value="cart.minimum_order_progress.percent" />
+              <UiButton to="/menu" variant="outline" size="sm" icon="lucide:plus" class="mt-3 w-full">
+                {{ cart.minimum_order_progress.add_more_cta || 'Adicionar mais itens' }}
+              </UiButton>
             </div>
 
             <div v-if="cart.free_delivery_progress" class="mt-4 border-b pb-4" data-cart-free-delivery>

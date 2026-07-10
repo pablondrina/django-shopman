@@ -235,7 +235,10 @@ class OrderCancelView(APIView):
             if not order_service.can_cancel(order):
                 return (
                     {
-                        "detail": "Não é possível cancelar este pedido no status atual.",
+                        "detail": (
+                            resolve_copy("KINTSUGI_CANCEL_REFUSED", moment="*", audience="*").message
+                            or "Seu pedido já está sendo preparado. Fale conosco para ajustar."
+                        ),
                         "error_code": "order_not_cancellable",
                         "payment_status": order_service.payment_status(order),
                     },

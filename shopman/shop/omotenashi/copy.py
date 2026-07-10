@@ -133,7 +133,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar conta?")},
     },
     "CHECKOUT_SWITCH_ACCOUNT_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Você vai sair desta conta para entrar com outro telefone.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Você vai sair desta conta para entrar com outro telefone. Sua sacola continua guardada.")},
     },
     "CHECKOUT_SWITCH_ACCOUNT_KEEP_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Manter conta")},
@@ -144,8 +144,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CHECKOUT_WHEN_REQUIRED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha data e horário para seguir.")},
     },
-    "CHECKOUT_LOYALTY_BALANCE_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="disponíveis.")},
+    "CHECKOUT_LOYALTY_SAVINGS_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Economize até")},
     },
     "CHECKOUT_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Enviar pedido")},
@@ -454,11 +454,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             message="Previsão para ficar pronto às",
         )},
     },
-    "TRACKING_AUTO_CONFIRM_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento tem")},
-    },
-    "TRACKING_AUTO_CONFIRM_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="para conferir a disponibilidade.")},
+    # Rótulo enxuto do countdown quando o prazo é a loja conferir disponibilidade
+    # (deadline_kind="availability"). Consolidou o antigo par prefix/suffix num rótulo.
+    "TRACKING_AUTO_CONFIRM_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(message="A loja está conferindo a disponibilidade:")},
     },
     "TRACKING_STATUS_PAYMENT_PENDING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Aguardando pagamento")},
@@ -595,12 +594,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_LABEL_UPDATED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Última atualização:")},
     },
+    # Affordância enxuta quando o dado está velho (um poll falhou): vira um "Atualizar"
+    # tocável ao lado do carimbo de frescor, no lugar do técnico "reconectando…".
     "TRACKING_PROMISE_STALE": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                message="Estamos conferindo uma atualização. Se a tela não mudar, toque em atualizar.",
-            ),
-        },
+        WILDCARD: {WILDCARD: CopyEntry(message="Atualizar")},
     },
     "TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
@@ -939,8 +936,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 message=(
-                    "Você será levado ao ambiente seguro do cartão. "
-                    "Depois da autorização, volte para acompanhar o pedido."
+                    "Conclua o pagamento no ambiente seguro do Stripe. "
+                    "A confirmação é automática. Volte aqui se quiser acompanhar seu pedido."
                 ),
             ),
         },
@@ -952,16 +949,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Escaneie o QR Code ou copie o código Pix abaixo.")},
     },
     "PAYMENT_PIX_COPY_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copia e cola:")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Copia e cola PIX")},
     },
     "PAYMENT_PIX_COPY_BTN": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copiar")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Copiar código")},
     },
     "PAYMENT_PIX_COPIED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copiado!")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Código PIX copiado.")},
     },
     "PAYMENT_PIX_EXPIRES_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Expira em")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Tempo para pagar")},
     },
     "PAYMENT_CONFIRMED": {
         WILDCARD: {
@@ -1136,20 +1133,34 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── History / account empty states ────────────────────────────
+    # Vazio da lista de pedidos — 3 estados por filtro (moment "active"/"past" e o
+    # "*" padrão para "todos"). A tela recebe a copy do filtro atual no payload e
+    # mantém um fallback client-side só para o intervalo de carregamento.
     "HISTORY_EMPTY": {
         WILDCARD: {
-            AUDIENCE_ANON: CopyEntry(
-                title="Nenhum pedido ainda",
-                message="Entre para começar.",
-            ),
             WILDCARD: CopyEntry(
-                title="Primeiro pedido?",
-                message="Conheça nosso cardápio.",
+                title="Você ainda não fez pedidos",
+                message="Que tal começar? Escolha algo fresquinho no cardápio.",
+            ),
+        },
+        "active": {
+            WILDCARD: CopyEntry(
+                title="Nenhum pedido em andamento",
+                message="Quando você fizer um pedido, ele aparece aqui para você acompanhar de pertinho.",
+            ),
+        },
+        "past": {
+            WILDCARD: CopyEntry(
+                title="Nenhum pedido finalizado ainda",
+                message="Seus pedidos concluídos ficam guardados aqui para você repetir quando quiser.",
             ),
         },
     },
     "ADDRESSES_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum endereço cadastrado.")},
+        WILDCARD: {WILDCARD: CopyEntry(
+            title="Nenhum endereço salvo",
+            message="Adicione um endereço para finalizar a próxima entrega com menos passos.",
+        )},
     },
     "ACCOUNT_GREETING_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(title="Olá")},
@@ -1161,7 +1172,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste aparelho.")},
     },
     "DEVICE_LIST_EMPTY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},
@@ -1327,7 +1338,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Já vem quentinho", message="Sai fresquinho no próximo lote. Quer garantir o seu?")},
     },
     "KINTSUGI_PAUSED_COPY": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Voltamos em breve!", message="Esse item está temporariamente fora do cardápio.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Temporariamente indisponível", message="Voltamos em breve.")},
     },
 
     # ── Reorder ──────────────────────────────────────────────────

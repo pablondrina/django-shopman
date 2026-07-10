@@ -868,7 +868,10 @@ describe('surface UX guardrails', () => {
     expect(tracking).toContain('handleStatusPanelAction')
     expect(tracking).toContain('showSupportInStatusPanel')
     expect(tracking).toContain('const showDeliveryTab = computed')
-    expect(tracking).toContain("const deliveryTabLabel = computed(() => tracking.value?.is_delivery ? 'Entrega' : 'Retirada')")
+    // Rótulo da aba entrega/retirada vem do registro omotenashi (copy-burndown):
+    // TRACKING_DELIVERY_HEADING via copy.delivery_heading, com fallback textual.
+    expect(tracking).toContain('const deliveryTabLabel = computed')
+    expect(tracking).toContain('copy.delivery_heading')
     expect(tracking).toContain('const trackingTabsListClass =')
     expect(tracking).toContain('relative flex h-auto w-full justify-start gap-6 overflow-x-auto border-b bg-transparent p-0')
     expect(tracking).toContain('const trackingTabsTriggerClass =')
