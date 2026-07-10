@@ -185,7 +185,7 @@ async function postAction (action: Action, body: Record<string, unknown> = {}) {
       headers['x-idempotency-key'] = newRemoteMutationKey(action.ref)
     }
     await $fetch(apiPath(action.href), {
-      method: action.method || 'POST',
+      method: remoteMethod(action.method),
       headers,
       credentials: 'include',
       body
