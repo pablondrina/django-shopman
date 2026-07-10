@@ -154,3 +154,17 @@ telas que a UI **não usa** — arquivadas (seguem no registro e no `copy-wiring
 
 > Se algum estado ganhar tela própria no futuro (ex.: aviso de deadline dedicado), ligar via a
 > projection ao registro. Nada se deleta sem aprovação.
+
+## 🙈 Menu — subtítulo sem lugar no design filter-first (decisão Pablo 2026-07-10)
+
+### `MENU_SUBTITLE` (6 variantes por momento: madrugada/manhã/almoço/tarde/fechando/fechado)
+- **Achado:** copy boa de subtítulo por horário ("Fresquinho do forno.", "Para o café da tarde.",
+  "Olhe à vontade. Atendemos assim que abrirmos."), mas `menu.vue` **não tem header de página** —
+  o `h1 "Cardápio"` é `sr-only` e a tela vai direto pra barra de filtro (`sticky top-16`) + headers
+  **por seção** (`section.description`, ex.: "Os mais vendidos e curados pela casa."). O subtítulo
+  de página moraria numa faixa nova acima do filtro.
+- **Decisão do Pablo (2026-07-10, revisão A/B com mockup lado a lado):** **arquivar.** O menu é
+  enxuto filter-first de propósito; um header de página empurra o catálogo pra baixo. A copy fica
+  guardada — se um dia o menu ganhar um header, ligar via a projection do menu (`/api/v1/storefront/menu/`)
+  resolvendo `MENU_SUBTITLE` por momento.
+- **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito).
