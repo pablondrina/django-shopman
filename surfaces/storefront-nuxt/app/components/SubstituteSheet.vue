@@ -33,13 +33,13 @@ const substitutesIntro = computed(() => cartIssue.value?.substitutes_intro || 'Q
 
 const title = computed(() => {
   if (isPlanned.value && cartIssue.value?.planned_offer_title) return cartIssue.value.planned_offer_title
-  if (isPaused.value) return cartIssue.value?.paused_title || 'Voltamos em breve!'
+  if (isPaused.value) return cartIssue.value?.paused_title || 'Temporariamente indisponível'
   if (hasAvailable.value) return 'Ajuste a quantidade'
   return cartIssue.value?.shortage_title || 'Esgotou enquanto você escolhia'
 })
 const description = computed(() => {
   if (isPlanned.value && cartIssue.value?.planned_offer_message) return cartIssue.value.planned_offer_message
-  if (isPaused.value) return cartIssue.value?.paused_message || 'Esse item está temporariamente fora do cardápio.'
+  if (isPaused.value) return cartIssue.value?.paused_message || 'Voltamos em breve.'
   return hasAvailable.value
     ? `Agora temos ${formatCount(availableQty.value!, 'unidade', 'unidades')} de ${itemName.value}.`
     : `O ${itemName.value} acabou agora. Veja boas alternativas.`

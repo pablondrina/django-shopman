@@ -132,11 +132,11 @@ def _stock_error_payload(exc, *, product=None) -> dict:
             or "Esgotou enquanto você escolhia"
         ),
         "paused_title": (
-            resolve_copy("KINTSUGI_PAUSED_COPY", moment="*", audience="*").title or "Voltamos em breve!"
+            resolve_copy("KINTSUGI_PAUSED_COPY", moment="*", audience="*").title or "Temporariamente indisponível"
         ) if exc.is_paused else "",
         "paused_message": (
             resolve_copy("KINTSUGI_PAUSED_COPY", moment="*", audience="*").message
-            or "Esse item está temporariamente fora do cardápio."
+            or "Voltamos em breve."
         ) if exc.is_paused else "",
         "substitutes_intro": (
             resolve_copy("KINTSUGI_SHORTAGE_SUBSTITUTES_INTRO", moment="*", audience="*").message
