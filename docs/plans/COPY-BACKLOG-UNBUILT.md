@@ -194,3 +194,13 @@ concreto, não por preguiça. Todas seguem no registro e no `copy-wiring-backlog
 
 > ⚠️ Decisões autônomas reversíveis: se o Pablo quiser a mensagem genérica de rate-limit (com o
 > escape pra WhatsApp) ou o aviso de CEP construídos mesmo assim, é só pedir.
+
+### `TRACKING_PROMISE_RECOVERY_HELP` ("Se precisar de ajuda, fale com o estabelecimento.")
+- **Achado:** o slot `recovery` do tracking vira uma row rotulada **"Se o tempo acabar:"**
+  (`TRACKING_PROMISE_LABEL_RECOVERY`, em `_build_promise_rows`) — um safety-net de deadline.
+  `RECOVERY_HELP` **não é sobre tempo acabar** (é ajuda genérica), então não cabe nesse rótulo; e
+  a tela já tem o CTA **"Fale conosco"** em destaque no painel pra esse fim.
+- **Decisão (2026-07-10):** arquivar — semanticamente não encaixa na row de recovery (deadline) e
+  seria redundante com o CTA de suporte. A gêmea `TRACKING_PROMISE_AVAILABILITY_RECOVERY` (que É
+  sobre deadline) foi religada no estado `availability_check`.
+- **Status:** arquivada. Segue no registro e no `copy-wiring-backlog.txt` (órfã de propósito).

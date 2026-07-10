@@ -561,7 +561,7 @@ def _promise_copy(
             copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
             copy.message("TRACKING_PROMISE_AVAILABILITY_MESSAGE", "Estamos conferindo a disponibilidade dos itens."),
             copy.message("TRACKING_PROMISE_AVAILABILITY_NEXT", "Se a disponibilidade for confirmada, liberamos o pagamento e avisamos você."),
-            "",
+            copy.message("TRACKING_PROMISE_AVAILABILITY_RECOVERY", "Se o estabelecimento não confirmar a tempo, atualizaremos o pedido aqui."),
             "",
         )
 
