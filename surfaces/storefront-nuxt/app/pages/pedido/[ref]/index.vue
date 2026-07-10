@@ -329,7 +329,12 @@ useSeoMeta({
                     class="size-3.5 shrink-0 animate-spin"
                   />
                   <span>{{ freshness.text }}</span>
-                  <span v-if="freshness.isStale">· reconectando…</span>
+                  <button
+                    v-if="freshness.isStale"
+                    type="button"
+                    class="underline underline-offset-2 hover:text-foreground"
+                    @click="() => refresh()"
+                  >· {{ tracking.copy.stale_cta }}</button>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">

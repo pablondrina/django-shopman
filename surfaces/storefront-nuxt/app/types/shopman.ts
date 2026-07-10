@@ -719,6 +719,7 @@ export interface PickupInfoProjection {
 }
 
 export interface TrackingCopyProjection {
+  stale_cta: string
   page_kicker: string
   order_ref_label: string
   menu_label: string

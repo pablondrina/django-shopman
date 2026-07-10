@@ -229,6 +229,7 @@ class OrderTrackingCopySerializer(serializers.Serializer):
     rating_comment_placeholder = serializers.CharField()
     rating_comment_aria_label = serializers.CharField()
     rating_submit_label = serializers.CharField()
+    stale_cta = serializers.CharField()
 
 
 class OrderTrackingSerializer(serializers.Serializer):

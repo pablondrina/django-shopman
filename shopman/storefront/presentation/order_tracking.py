@@ -181,6 +181,7 @@ class OrderTrackingCopyProjection:
     page_meta_description: str
     delivery_heading: str
     active_notification_label: str
+    stale_cta: str
 
 
 @dataclass(frozen=True)
@@ -961,6 +962,7 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
         page_meta_description=copy.message("TRACKING_PAGE_META_DESCRIPTION", "Acompanhe seu pedido"),
         delivery_heading=copy.title("TRACKING_DELIVERY_HEADING", "Entrega"),
         active_notification_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION", "Aviso:")),
+        stale_cta=copy.message("TRACKING_PROMISE_STALE", "Atualizar"),
     )
 
 
