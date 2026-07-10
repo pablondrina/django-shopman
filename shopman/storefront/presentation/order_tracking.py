@@ -297,7 +297,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         copy=_tracking_copy(copy),
         promise=promise,
         promise_rows=_build_promise_rows(promise, copy=copy),
-        promise_deadline_label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo")),
+        promise_deadline_label=_deadline_label(promise, copy),
         progress_steps=_present_progress_steps(data, copy=copy),
         timeline=_present_timeline(data),
         items=_present_items(data),
@@ -404,6 +404,16 @@ def _fmt_timestamp(iso: str | None) -> str:
 
 def _clean_label(value: str) -> str:
     return str(value or "").strip().rstrip(":").strip()
+
+
+def _deadline_label(promise: OrderTrackingPromiseProjection, copy: CopyCatalog) -> str:
+    """Rótulo do countdown por tipo de prazo — um relógio único "Prazo" era ambíguo
+    (loja confirmando vs. cliente pagando são momentos diferentes)."""
+    if promise.deadline_kind == "payment":
+        return _clean_label(copy.message("TRACKING_PAYMENT_TIME_LEFT", "Tempo para pagamento:"))
+    if promise.deadline_kind == "availability":
+        return _clean_label(copy.message("TRACKING_AUTO_CONFIRM_LABEL", "A loja está conferindo a disponibilidade:"))
+    return _clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo"))
 
 
 def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
