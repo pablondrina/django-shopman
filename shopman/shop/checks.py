@@ -14,6 +14,7 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E008  Doorman access-link API key is not configured
   SHOPMAN_E009  Real payment adapter is missing required credentials/files
   SHOPMAN_E010  Debug OTP exposure enabled outside non-production
+  SHOPMAN_E011  Machine courier adapter enabled without API credentials
 
 Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite in local/debug mode
@@ -23,6 +24,7 @@ Warnings (non-blocking, logged at startup):
   SHOPMAN_W005  OFFERMAN pricing backend not configured
   SHOPMAN_W006  Mock payment adapter explicitly allowed outside DEBUG
   SHOPMAN_W007  Debug OTP exposure explicitly allowed in staging
+  SHOPMAN_W010  Machine courier enabled without webhook token (status via polling only)
 """
 
 from __future__ import annotations
@@ -296,6 +298,62 @@ def check_guestman_webhook_secret(app_configs, **kwargs):
                     id="SHOPMAN_W009",
                 )
             )
+    return messages
+
+
+@register(deploy=True)
+def check_courier_credentials(app_configs, **kwargs):
+    """Machine courier: credenciais obrigatórias quando o adapter real está ligado.
+
+    Fora do check_webhook_tokens porque a severidade é condicional ao adapter:
+    sem SHOPMAN_COURIER_ADAPTER apontando para courier_machine, nada aqui se
+    aplica (deployment sem courier sobe limpo). Com o adapter ligado:
+    - sem username/password/api_key → Error (todo despacho automático falharia);
+    - sem webhook_token → Warning (o polling cobre o status, com latência).
+    """
+    messages = []
+    if settings.DEBUG:
+        return messages
+
+    adapter_path = getattr(settings, "SHOPMAN_COURIER_ADAPTER", None) or ""
+    if "courier_machine" not in adapter_path:
+        return messages
+
+    cfg = getattr(settings, "SHOPMAN_MACHINE", {}) or {}
+    missing = [
+        env
+        for key, env in (
+            ("username", "MACHINE_API_USER"),
+            ("password", "MACHINE_API_PASSWORD"),
+            ("api_key", "MACHINE_API_KEY"),
+        )
+        if not cfg.get(key)
+    ]
+    if missing:
+        messages.append(
+            Error(
+                "SHOPMAN_COURIER_ADAPTER aponta para courier_machine sem credenciais: "
+                f"faltam {', '.join(missing)}.",
+                hint=(
+                    "O despacho automático de entregadores falharia em toda corrida. "
+                    "Defina as variáveis de ambiente da Machine ou remova "
+                    "SHOPMAN_COURIER_ADAPTER."
+                ),
+                id="SHOPMAN_E011",
+            )
+        )
+    if not cfg.get("webhook_token"):
+        messages.append(
+            Warning(
+                "SHOPMAN_MACHINE['webhook_token'] não configurado — status da corrida "
+                "só por polling (latência de até courier_poll_seconds).",
+                hint=(
+                    "Defina MACHINE_WEBHOOK_TOKEN e cadastre o endpoint com "
+                    "`manage.py machine_register_webhook` para receber status em push."
+                ),
+                id="SHOPMAN_W010",
+            )
+        )
     return messages
 
 

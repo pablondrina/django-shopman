@@ -368,6 +368,10 @@ export interface HomeSectionsCopyProjection {
 export interface AuthCopyProjection {
   phone_heading: CopyEntryProjection
   phone_subtitle: CopyEntryProjection
+  wa_cart_kept: CopyEntryProjection
+  wa_glimpse: CopyEntryProjection
+  wa_manual_title: CopyEntryProjection
+  wa_manual_intro: CopyEntryProjection
   phone_cta_wa: CopyEntryProjection
   phone_cta_sms: CopyEntryProjection
   trusted_device_message: CopyEntryProjection
@@ -717,6 +721,11 @@ export interface TrackingCopyProjection {
   cancel_success_title: string
   cancel_success_message: string
   cancel_failed_message: string
+  cancel_cta: string
+  cancel_dialog_title: string
+  cancel_dialog_message: string
+  cancel_dialog_confirm: string
+  cancel_dialog_back: string
   mock_payment_success_title: string
   mock_payment_success_message: string
   mock_payment_failed_title: string
@@ -901,6 +910,19 @@ export interface AccountSummary {
   notification_preferences: AccountNotificationPreference[]
 }
 
+export interface AccountProfileCopy {
+  section_title: string
+  name_label: string
+  name_field: string
+  first_name_field: string
+  last_name_field: string
+  email_field: string
+  birthday_field: string
+  phone_field: string
+  edit_cta: string
+  missing_value: string
+}
+
 export interface AccountProfile {
   ref: string
   name: string
@@ -909,6 +931,7 @@ export interface AccountProfile {
   phone: string
   email: string
   birthday: string
+  copy?: AccountProfileCopy
 }
 
 export interface OrderHistoryItem {
@@ -934,6 +957,16 @@ export interface AccountDeviceProjection {
   is_current: boolean
 }
 
+export interface AccountDeviceCopy {
+  page_message: string
+  empty_title: string
+  empty_message: string
+  current_badge: string
+  registered_prefix: string
+  revoke_cta: string
+}
+
 export interface AccountDeviceResponse {
   devices: AccountDeviceProjection[]
+  copy: AccountDeviceCopy
 }

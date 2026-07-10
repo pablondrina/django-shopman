@@ -201,7 +201,7 @@ useSeoMeta({
                   <Icon name="lucide:shield-check" :size="22" class="mt-0.5 shrink-0 text-emerald-600" />
                   <div class="space-y-1">
                     <p class="shop-item-title font-semibold text-foreground">Pagamento seguro</p>
-                    <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos — você não precisa voltar aqui.</p>
+                    <p class="shop-muted">Você conclui o cartão no ambiente protegido do nosso parceiro. Assim que for aprovado, confirmamos seu pedido sozinhos. Você não precisa voltar aqui.</p>
                   </div>
                 </div>
                 <UiButton :href="payment.checkout_url" target="_blank" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">

@@ -15,6 +15,7 @@ class ShopmanChannelManager(DefaultChannelManager):
     def is_channel_reliable(self, channel):
         channel = str(channel or "")
         if channel.startswith("stock-"):
+            # Efêmeros: sem histórico/resume — a verdade é refeita no fetch canônico.
             return False
         return super().is_channel_reliable(channel)
 

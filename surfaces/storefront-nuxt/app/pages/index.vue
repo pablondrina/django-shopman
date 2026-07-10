@@ -297,9 +297,9 @@ useHead({
             <div class="flex flex-1 flex-col gap-3 p-4">
               <div class="flex items-center gap-2">
                 <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
-                <h3 class="shop-item-title font-semibold">Peça online</h3>
+                <h3 class="shop-item-title font-semibold">{{ sectionsCopy.how_online_heading.title }}</h3>
               </div>
-              <p class="shop-muted">Escolha, pague e acompanhe — entregamos ou você retira.</p>
+              <p class="shop-muted">Escolha, pague e acompanhe. Entregamos ou você retira.</p>
               <UiButton :to="'/menu'" icon="lucide:utensils" class="mt-auto w-fit">
                 {{ sectionsCopy.full_menu_cta.title || 'Ver cardápio' }}
               </UiButton>
@@ -319,7 +319,7 @@ useHead({
             <div class="flex flex-1 flex-col gap-3 p-4">
               <div class="flex flex-wrap items-center gap-2">
                 <Icon name="lucide:store" class="size-5 shrink-0 text-muted-foreground" />
-                <h3 class="shop-item-title font-semibold">Visite a loja</h3>
+                <h3 class="shop-item-title font-semibold">{{ sectionsCopy.how_store_heading.title }}</h3>
                 <UiBadge v-if="operationalStatus.label" variant="secondary" class="font-normal">{{ operationalStatus.label }}</UiBadge>
               </div>
               <p v-if="visitAddressLines.length" class="shop-muted">

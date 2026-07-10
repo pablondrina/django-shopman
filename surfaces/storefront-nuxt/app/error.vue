@@ -1,24 +1,38 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import type { HomeResponse } from '~/types/shopman'
 
 const props = defineProps<{ error: NuxtError }>()
 
-// app.vue já roda antes da página que lança o erro, então a sessão costuma estar
-// populada (marca + WhatsApp). Se a própria API caiu, degrada para neutro/sem CTA.
+const apiPath = useShopmanApiPath()
 const session = useShopSession()
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
+// Numa 404/5xx de SSR o app.vue não roda, então a sessão (marca + WhatsApp) viria vazia
+// e o tema cairia no neutro cinza — fora da paleta da Nelson. Buscamos o mesmo shell do
+// app (mesma `key` ⇒ reaproveita o cache quando o erro é lançado depois do app já ter
+// carregado). Se a própria API caiu, o fetch falha em silêncio e degradamos para
+// neutro/sem CTA — aceitável só no pior caso.
+const { data: shellHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storefront/home/'), {
+  credentials: 'include',
+  headers: requestHeaders,
+  key: 'shopman-shell-home'
+})
+watch(() => shellHome.value, value => session.setFromHome(value?.home), { immediate: true })
+
 useShopTheme(session.shop)
 
 const is404 = computed(() => props.error?.statusCode === 404)
 const whatsappUrl = computed(() => session.publicConfig.value?.whatsapp_url || '')
 
-const kicker = computed(() => (is404.value ? 'Erro 404' : 'Ops'))
+const kicker = computed(() => (is404.value ? 'Erro 404' : ''))
 const title = computed(() =>
-  is404.value ? 'Não encontramos esta página' : 'Algo saiu do forno errado'
+  is404.value ? 'Não encontramos esta página' : 'Tivemos um problema por aqui'
 )
 const message = computed(() =>
   is404.value
-    ? 'O item pode ter saído do cardápio ou o endereço está incorreto — vamos te levar de volta a um lugar seguro.'
-    : 'Tivemos um percalço por aqui. Tente de novo em instantes; se precisar fechar um pedido agora, fale conosco no WhatsApp.'
+    ? 'O item pode ter saído do cardápio ou o endereço está incorreto. Vamos te levar de volta a um lugar seguro.'
+    : 'Tente de novo em instantes. Se precisar fechar um pedido agora, fale conosco no WhatsApp.'
 )
 
 // Páginas de erro nunca devem ser indexadas (o status 404/5xx já sinaliza, isto é
@@ -37,7 +51,7 @@ function goHome () {
 <template>
   <div class="flex min-h-svh flex-col items-center justify-center gap-6 px-6 py-16 text-center">
     <div class="shop-stack-block max-w-md">
-      <p class="shop-kicker">{{ kicker }}</p>
+      <p v-if="kicker" class="shop-kicker">{{ kicker }}</p>
       <h1 class="shop-display">{{ title }}</h1>
       <p class="shop-muted">{{ message }}</p>
     </div>

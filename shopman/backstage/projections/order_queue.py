@@ -120,6 +120,10 @@ class OrderCardProjection:
     # countdown para o cliente não ficar no escuro sobre o prazo.
     confirmation_deadline_iso: str = ""
     confirmation_action: str = ""  # "confirm" | "cancel" — ação do directive ao vencer
+    # Corrida externa (Machine): letra crua + label p/ badge no board. Vazios
+    # quando não há corrida registrada no pedido.
+    courier_status: str = ""
+    courier_status_label: str = ""
 
 
 @dataclass(frozen=True)
@@ -153,6 +157,9 @@ class OperatorOrderProjection:
     gift_hide_values: bool
     cancellation_presets: tuple[str, ...]
     kitchen_note_tags: tuple[str, ...]
+    # Corrida de entrega na logística externa (Machine). None quando não se
+    # aplica (retirada, ou canal sem adapter courier e sem corrida registrada).
+    courier: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -271,7 +278,96 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         gift_hide_values=bool(order.data.get("gift_hide_values")),
         cancellation_presets=_cancellation_presets(),
         kitchen_note_tags=_kitchen_note_tags(),
+        courier=_courier_block(order),
     )
+
+
+#: Letra Machine → label pt-BR do operador (fonte única do gestor).
+COURIER_STATUS_LABELS = {
+    "D": "Procurando entregador",
+    "G": "Aguardando aceite",
+    "P": "Procurando entregador",
+    "A": "Entregador a caminho da loja",
+    "S": "Entregador na loja",
+    "E": "Saiu para entrega",
+    "F": "Entregue",
+    "N": "Não atendida",
+    "C": "Corrida cancelada",
+    "U": "Agrupada",
+}
+
+
+def _courier_block(order: Order) -> dict | None:
+    """Read-model da corrida (Order.data['courier']) + ações possíveis.
+
+    None quando entrega externa não se aplica ao pedido. Nunca falha a
+    projection: qualquer erro degrada para None com log.
+    """
+    try:
+        if not _is_delivery(order):
+            return None
+
+        from django.core.cache import cache
+
+        from shopman.shop.adapters import get_adapter
+        from shopman.shop.adapters.courier_machine import (
+            CANCELLABLE_STATUSES,
+            TERMINAL_STATUSES,
+        )
+
+        data = order.data or {}
+        block = data.get("courier") if isinstance(data.get("courier"), dict) else {}
+        adapter_on = get_adapter("courier") is not None
+        if not block and not adapter_on:
+            return None
+
+        ride_status = str(block.get("status") or "")
+        active = bool(block.get("id_mch")) and ride_status not in TERMINAL_STATUSES
+        order_can_ride = order.status in (Order.Status.READY, Order.Status.DISPATCHED)
+
+        estimate = block.get("estimate") if isinstance(block.get("estimate"), dict) else {}
+        estimate_display = ""
+        if estimate.get("value_q") is not None:
+            parts = [_money(int(estimate["value_q"]))]
+            if estimate.get("minutes"):
+                parts.append(f"{int(estimate['minutes'])} min")
+            if estimate.get("km"):
+                parts.append(f"{float(estimate['km']):.1f} km".replace(".", ","))
+            estimate_display = " · ".join(parts)
+
+        position = None
+        if active and block.get("id_mch"):
+            position = cache.get(f"courier:pos:{block['id_mch']}")
+
+        error = block.get("error") if isinstance(block.get("error"), dict) else None
+
+        return {
+            "provider": str(block.get("provider") or ("machine" if adapter_on else "")),
+            "status": ride_status,
+            "status_label": COURIER_STATUS_LABELS.get(ride_status, ""),
+            "active": active,
+            "driver": block.get("driver") if isinstance(block.get("driver"), dict) else None,
+            "tracking_url": str(block.get("tracking_url") or ""),
+            "confirmation_code": str(block.get("confirmation_code") or ""),
+            "estimate_display": estimate_display,
+            "final_value_display": (
+                _money(int(block["final_value_q"]))
+                if block.get("final_value_q") is not None
+                else ""
+            ),
+            "requested_at": str(block.get("requested_at") or ""),
+            "dispatched_at": str(block.get("dispatched_at") or ""),
+            "finished_at": str(block.get("finished_at") or ""),
+            "attempts_count": len(block.get("attempts") or []),
+            "position": position,
+            "error": error,
+            "can_quote": adapter_on and not active and order.status not in ("cancelled", "completed"),
+            "can_dispatch": adapter_on and not active and order_can_ride,
+            "can_cancel": active and ride_status in CANCELLABLE_STATUSES,
+        }
+    except Exception:
+        logger.debug("orders.courier_block_failed order=%s", order.ref, exc_info=True)
+        return None
 
 
 def _cancellation_presets() -> tuple[str, ...]:
@@ -451,7 +547,16 @@ def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderC
         awaiting_work_orders=_awaiting_work_orders(order),
         confirmation_deadline_iso=deadline[0] if deadline else "",
         confirmation_action=deadline[1] if deadline else "",
+        courier_status=_card_courier_status(order),
+        courier_status_label=COURIER_STATUS_LABELS.get(_card_courier_status(order), ""),
     )
+
+
+def _card_courier_status(order: Order) -> str:
+    block = (order.data or {}).get("courier")
+    if not isinstance(block, dict):
+        return ""
+    return str(block.get("status") or "")
 
 
 def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ...]:

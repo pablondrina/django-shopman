@@ -76,6 +76,11 @@ class ChannelConfig:
         # "post_commit" — create fulfillment when order is ready (default)
         # "external"    — handled externally (marketplace)
         auto_sync: bool = True
+        courier: str = "none"
+        # "none" — sem despacho automático de entregador (marketplace tem
+        #          logística própria; retirada não entrega)
+        # "auto" — pedido delivery marcado "pronto" abre corrida no adapter
+        #          courier (SHOPMAN_COURIER_ADAPTER diz QUEM; isto diz SE)
 
     # ── 4. Estoque ──
 
@@ -252,6 +257,8 @@ class ChannelConfig:
             raise ValueError(f"payment.timing inválido: {self.payment.timing}")
         if self.fulfillment.timing not in valid_timings:
             raise ValueError(f"fulfillment.timing inválido: {self.fulfillment.timing}")
+        if self.fulfillment.courier not in ("none", "auto"):
+            raise ValueError(f"fulfillment.courier inválido: {self.fulfillment.courier}")
         if self.stock.hold_ttl_minutes is not None and self.stock.hold_ttl_minutes <= 0:
             raise ValueError("stock.hold_ttl_minutes deve ser > 0 ou null")
         if self.stock.safety_margin < 0:

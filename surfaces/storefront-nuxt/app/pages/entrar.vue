@@ -27,6 +27,16 @@ const session = useShopSession()
 const phone = ref('')
 const phoneRegion = ref<AuthPhoneRegion>('BR')
 const requestedPhone = ref('')
+// Login por WhatsApp (fluxo access-link): o start leve vive no PAI para pré-aquecer o
+// deep link e o botão abrir o app num toque. Sem polling/SSE/resume — o login acontece
+// pelo access link que o ManyChat devolve; a aba original só instrui. Ver useWhatsappVerify.
+const {
+  code: waCode,
+  deepLink: waDeepLink,
+  waNumber: waNumber,
+  status: waStatus,
+  start: waStart
+} = useWhatsappVerify()
 const codeDigits = ref<number[]>([])
 const deliveryLabel = ref('WhatsApp')
 const pending = ref(false)
@@ -58,6 +68,10 @@ const { data: loginHome } = await useFetch<HomeResponse>(apiPath('/api/v1/storef
 })
 
 const nextUrl = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/')
+// Zero-telefone: por padrão não pedimos número. A identidade é quem ENVIA a mensagem
+// no WhatsApp. O campo só aparece quando o cliente quer usar OUTRO número (via SMS,
+// o único caminho que mira um número digitado). O deep link é pré-aquecido no mount.
+const revealPhone = ref(false)
 const step = computed(() => authStep({
   requestedPhone: requestedPhone.value,
   verified: verified.value,
@@ -69,21 +83,37 @@ const authCopy = computed(() => loginHome.value?.home.auth_copy || null)
 // DDD padrão da loja (config): assume-se quando o cliente entra sem DDD, para o
 // telefone ser guardado no formato certo (e não virar "(55) …" depois).
 const defaultDdd = computed(() => loginHome.value?.home.public_config?.default_ddd || '')
-const isCheckoutReturn = computed(() => nextUrl.value.includes('checkout'))
+// Volta do checkout: o gate manda `next=/finalizar`; o backend usa `/checkout`. Cobre os dois.
+const isCheckoutReturn = computed(() => /checkout|finalizar/.test(nextUrl.value))
 const stepTitle = computed(() => {
-  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entre com seu telefone')
+  if (step.value === 'phone') return copyTitle(authCopy.value?.phone_heading, 'Entrar')
   if (step.value === 'code') return copyTitle(authCopy.value?.code_heading, 'Informe o código')
   return copyTitle(authCopy.value?.name_heading, 'Como podemos te chamar?')
 })
 const stepDescription = computed(() => {
-  if (step.value === 'phone') return copyMessage(authCopy.value?.phone_subtitle, 'Entre pelo WhatsApp ou confirme seu telefone por SMS.')
+  if (step.value === 'phone') {
+    // Vindo do checkout: a sacola é o que importa dizer, no subtítulo. No login comum o
+    // subtítulo fica vazio — quem lidera é o lampejo dentro da caixa (com mais ênfase).
+    if (isCheckoutReturn.value) return copyMessage(authCopy.value?.wa_cart_kept, 'Sua sacola está guardada.')
+    return ''
+  }
   if (step.value === 'code') return copyMessage(authCopy.value?.code_help, 'Você pode colar o código. Ao completar, a confirmação é automática.')
   return copyMessage(authCopy.value?.name_subtitle, 'Pode ser seu primeiro nome ou um apelido. O que for mais natural.')
 })
+// Lampejo (o que vai acontecer), reasseguro (sem senha) e intro do envio manual: alimentam
+// o WhatsappVerifyPanel (configuráveis no Admin). O login em si é pelo access link.
+const waGlimpse = computed(() => copyMessage(authCopy.value?.wa_glimpse, 'Envie a mensagem pronta e receba um link para entrar.'))
+const waNoPasswordNote = computed(() => copyMessage(authCopy.value?.no_password_note, 'É prático e seguro, e não exige senha.'))
+const waManualTitle = computed(() => copyTitle(authCopy.value?.wa_manual_title, 'Quer fazer você mesmo?'))
+const waManualIntro = computed(() => copyMessage(authCopy.value?.wa_manual_intro, 'Envie o código abaixo diretamente para o nosso WhatsApp'))
 const supportUrl = computed(() => withWhatsAppText(
   loginHome.value?.home.public_config.whatsapp_url || '',
-  nextUrl.value.includes('checkout') ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
+  isCheckoutReturn.value ? 'Quero finalizar meu pedido' : 'Quero entrar na loja'
 ))
+// "O código não chegou?" só cabe no passo de código (SMS). No WhatsApp/telefone não
+// há código enviado ao cliente — ele é quem manda o token —, então o convite à ajuda
+// é genérico.
+const supportHeading = computed(() => step.value === 'code' ? 'O código não chegou?' : 'Precisa de ajuda para entrar?')
 const phonePlaceholder = computed(() => phoneRegion.value === 'INTL' ? '+1 202 555 1234' : '(43) 98404-9009')
 const phoneAutocomplete = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'tel-national')
 const phoneInputMode = computed(() => phoneRegion.value === 'INTL' ? 'tel' : 'numeric')
@@ -94,7 +124,14 @@ const debugOtpDigits = computed(() => debugOtpCode.value.split(''))
 const codeValidUntil = computed(() => otpValidUntilDisplay(codeExpiresAt.value))
 const requestedPhoneDisplay = computed(() => phoneDisplay(requestedPhone.value))
 const canContinueWelcome = computed(() => !!welcomeNameValue(welcomeName.value) && !pending.value)
-const momentTitle = computed(() => copyTitle(authCopy.value?.auth_confirmed, 'Pronto'))
+// Saudação personalizada de retorno: "Bem-vindo de volta, {primeiro nome}!" quando
+// já sabemos o nome (recorrente); sem nome, cai em "Bem-vindo de volta!". O dado vem
+// da própria resposta de auth (customer_name → session.customerName).
+const greetName = computed(() => (session.customerName.value || '').trim().split(/\s+/)[0] || '')
+const momentTitle = computed(() => {
+  const base = copyTitle(authCopy.value?.auth_confirmed, 'Bem-vindo de volta')
+  return greetName.value ? `${base}, ${greetName.value}!` : `${base}!`
+})
 const momentMessage = computed(() => moment.value === 'recognized'
   ? copyMessage(authCopy.value?.device_trust_redirecting, 'Dispositivo reconhecido. Entrando automaticamente…')
   : copyMessage(authCopy.value?.auth_confirmed, 'Identidade confirmada')
@@ -107,6 +144,8 @@ const momentSavedNote = computed(() => moment.value === 'confirmed' && trustSave
 onMounted(() => {
   nowMs.value = Date.now()
   clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
+  // Pré-aquece o deep link (zero-telefone) para o CTA abrir o WhatsApp num toque.
+  if (import.meta.client) void waStart(nextUrl.value)
 })
 
 onBeforeUnmount(() => {
@@ -354,8 +393,12 @@ useSeoMeta({
     <div class="shop-container">
       <div class="mx-auto max-w-md shop-stack-block">
         <div v-if="moment !== 'none'" class="py-10 text-center" data-login-moment>
-          <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-foreground text-background">
-            <Icon name="lucide:check" class="size-6" />
+          <!-- Anel girando ao redor do check: sinaliza que estamos te levando. -->
+          <div class="relative mx-auto size-14">
+            <div class="absolute inset-0 rounded-full border-2 border-foreground/15 border-t-foreground animate-spin" aria-hidden="true" />
+            <div class="absolute inset-1.5 flex items-center justify-center rounded-full bg-foreground text-background">
+              <Icon name="lucide:check" class="size-6" />
+            </div>
           </div>
           <h1 class="mt-4 shop-title">{{ momentTitle }}</h1>
           <p class="mt-2 shop-muted" aria-live="polite">{{ momentMessage }}</p>
@@ -365,11 +408,7 @@ useSeoMeta({
         <template v-else>
         <header>
           <h1 class="shop-title">{{ stepTitle }}</h1>
-          <p class="mt-2 shop-muted">{{ stepDescription }}</p>
-          <p v-if="isCheckoutReturn && step !== 'welcome'" class="mt-2 flex items-center gap-2 shop-meta">
-            <Icon name="lucide:shopping-bag" class="size-3.5 shrink-0" />
-            Sua sacola continua reservada durante a entrada.
-          </p>
+          <p v-if="stepDescription" class="mt-2 shop-muted">{{ stepDescription }}</p>
         </header>
 
         <UiAlert v-if="error && error.kind === 'rate_limit'" id="login-error" role="alert" icon="lucide:clock" variant="warning">
@@ -381,8 +420,37 @@ useSeoMeta({
           <UiAlertDescription>{{ error.message }}</UiAlertDescription>
         </UiAlert>
 
-        <form v-if="step === 'phone'" ref="phoneForm" class="shop-stack-block" @submit.prevent="requestCode('whatsapp', $event)">
-          <div class="shop-stack-block rounded-lg border bg-bottomnav p-4">
+        <div v-if="step === 'phone'" class="shop-stack-block">
+          <!-- Zero-telefone, uma tela: a identidade é quem ENVIA a mensagem no WhatsApp.
+               Bloco 1 abre o app com a mensagem pronta; "OU"; bloco 2 é o envio manual. -->
+          <WhatsappVerifyPanel
+            :deep-link="waDeepLink"
+            :code="waCode"
+            :wa-number="waNumber"
+            :status="waStatus"
+            :glimpse="waGlimpse"
+            :no-password-note="waNoPasswordNote"
+            :manual-title="waManualTitle"
+            :manual-intro="waManualIntro"
+            :cta-label="copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp')"
+            @regenerate="() => waStart(nextUrl)"
+          />
+
+          <!-- Alternativa: usar OUTRO número = via SMS (o único caminho que mira um número
+               digitado; pelo WhatsApp a conta é sempre a de quem envia a mensagem). -->
+          <UiButton
+            v-if="!revealPhone"
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="w-full justify-center text-muted-foreground hover:text-foreground"
+            icon="lucide:smartphone"
+            @click="revealPhone = true"
+          >
+            Usar outro número
+          </UiButton>
+
+          <form v-else ref="phoneForm" class="shop-stack-block rounded-lg border bg-card p-4" @submit.prevent="requestCode('sms', $event)">
             <UiField>
               <div class="flex items-center justify-between gap-3">
                 <UiFieldLabel for="login-phone">Telefone</UiFieldLabel>
@@ -396,7 +464,7 @@ useSeoMeta({
                   {{ regionToggleLabel }}
                 </UiButton>
               </div>
-              <UiInputGroup class="bg-white">
+              <UiInputGroup class="bg-background">
                 <UiInputGroupAddon align="inline-start">
                   <span v-if="phoneRegion === 'BR'" class="font-semibold">+55</span>
                   <Icon v-else name="lucide:globe-2" />
@@ -413,21 +481,26 @@ useSeoMeta({
                   @input="syncPhoneFromInput"
                 />
               </UiInputGroup>
-              <UiFieldDescription>
-                {{ copyMessage(authCopy?.no_password_note, 'Sem senha. Use o código enviado para entrar.') }}
-              </UiFieldDescription>
+              <UiFieldDescription>Enviamos um código por SMS para este número.</UiFieldDescription>
             </UiField>
 
             <div class="grid gap-3">
-              <UiButton type="submit" size="lg" :loading="pending" icon="lucide:message-circle" class="w-full justify-center">
-                {{ copyTitle(authCopy?.phone_cta_wa, 'Entrar pelo WhatsApp') }}
+              <UiButton type="submit" size="lg" :loading="pending" icon="lucide:smartphone" class="w-full justify-center">
+                {{ copyTitle(authCopy?.phone_cta_sms, 'Receber código por SMS') }}
               </UiButton>
-              <UiButton type="button" size="lg" variant="ghost" :loading="pending" class="w-full justify-center" @click="requestCode('sms', $event)">
-                {{ copyTitle(authCopy?.phone_cta_sms, 'Receber por SMS') }}
+              <UiButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="w-full justify-center text-muted-foreground hover:text-foreground"
+                icon="lucide:arrow-left"
+                @click="revealPhone = false"
+              >
+                Voltar
               </UiButton>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
 
         <form v-else-if="step === 'code'" ref="codeForm" class="shop-stack-block" @submit.prevent="verifyCode">
           <p class="shop-body">
@@ -490,8 +563,8 @@ useSeoMeta({
               :aria-describedby="error ? 'login-error' : undefined"
               class="justify-between sm:justify-start"
             />
-            <UiFieldDescription>
-              Use o código recebido por {{ deliveryLabel }}.<template v-if="codeValidUntil"> Vale até {{ codeValidUntil }}.</template>
+            <UiFieldDescription v-if="codeValidUntil">
+              Vale até {{ codeValidUntil }}.
             </UiFieldDescription>
           </UiField>
 
@@ -541,7 +614,7 @@ useSeoMeta({
               v-model="welcomeName"
               name="welcome-name"
               autocomplete="given-name"
-              placeholder="Como prefere ser chamado"
+              placeholder="Primeiro nome ou apelido"
             />
           </UiField>
 
@@ -560,7 +633,7 @@ useSeoMeta({
         </p>
 
         <div v-if="supportUrl" class="-mx-4 border-t px-4 pt-4 sm:mx-0 sm:px-0" data-login-support>
-          <p class="shop-item-title font-semibold">O código não chegou?</p>
+          <p class="shop-item-title font-semibold">{{ supportHeading }}</p>
           <p class="mt-1 shop-muted">Fale com a loja e resolvemos juntos.</p>
           <UiButton
             :href="supportUrl"

@@ -32,6 +32,7 @@ _SETTINGS_MAP = {
     "production": "SHOPMAN_PRODUCTION_ADAPTER",
     "customer": "SHOPMAN_CUSTOMER_ADAPTER",
     "promotion": "SHOPMAN_PROMOTION_ADAPTER",
+    "courier": "SHOPMAN_COURIER_ADAPTER",
 }
 
 # Defaults when settings are absent
@@ -51,6 +52,7 @@ _DEFAULTS = {
     "production": "shopman.shop.adapters.production",
     "customer": "shopman.shop.adapters.customer",
     "promotion": "shopman.shop.adapters.promotion",
+    "courier": None,
 }
 
 

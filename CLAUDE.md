@@ -126,6 +126,7 @@ Cores nunca se importam. Para causar efeito em outro app, a **interação decide
   - **Alpine.js**: todo estado local na tela (abrir/fechar, toggles, dropdowns, modals, steppers, validação client-side, contadores, masks).
   - **NUNCA**: `onclick="..."`, `onchange="..."`, `document.getElementById`, `classList.toggle/add/remove` em templates. Usar `@click`, `x-show`, `x-data`, `x-text`, `$store`.
   - **Exceção**: IntersectionObserver e APIs do browser que não têm equivalente Alpine (geolocation, clipboard, service worker).
+- **Tempo real por SSE (cross-surface, site-wide)**: sempre que houver estado que muda no servidor e importa na tela (acompanhamento, estoque, verificação, KDS, badges), preferir **push por SSE** em vez de depender de polling. O SSE é camada de push sobre um **fetch canônico** que continua sendo a fonte da verdade (no evento, refaça o fetch REST); o **poll fica só como fallback** em cadência calma. Canais nomeados + permissão no `ShopmanChannelManager`, proxy same-origin no BFF via `server/utils/eventStream.ts` (`proxyEventStream`). Ver [ADR-016](docs/decisions/adr-016-sse-first-realtime.md).
 
 ## Admin/Unfold — Regra de Canonicidade
 

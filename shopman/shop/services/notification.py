@@ -313,6 +313,18 @@ def _build_context(order, payload: dict, template: str) -> dict:
         context["payment_url"] = context.get("payment_url") or storefront_links.order_payment_url(order.ref)
         context["pix_suffix"] = ""
 
+    # Corrida externa (Machine): link de rastreio do entregador, quando existe.
+    # Sufixo auto-suprimível (padrão pix_suffix) — some limpo em pedidos sem
+    # corrida ou antes do aceite. Distinto do tracking_url (página do pedido).
+    courier_block = order.data.get("courier")
+    courier_tracking = (
+        str(courier_block.get("tracking_url") or "") if isinstance(courier_block, dict) else ""
+    )
+    context["courier_tracking_url"] = courier_tracking
+    context["courier_tracking_suffix"] = (
+        f"\nAcompanhe o entregador: {courier_tracking}" if courier_tracking else ""
+    )
+
     return context
 
 

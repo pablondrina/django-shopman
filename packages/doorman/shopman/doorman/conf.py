@@ -109,6 +109,13 @@ class DoormanSettings:
     ACCESS_LINK_RATE_LIMIT_MAX: int = 5
     ACCESS_LINK_RATE_LIMIT_WINDOW_MINUTES: int = 15
 
+    # Link state — contexto efêmero passado de uma sessão web para a criação do
+    # access link (ex.: sacola + destino, via código NB-XxXx). Ver services.link_state.
+    LINK_STATE_CODE_PREFIX: str = "NB-"
+    # 30 min: janela folgada entre tocar o botão no site e enviar no WhatsApp,
+    # reduzindo a frequência de handoff expirado (sacola que não viaja).
+    LINK_STATE_TTL_SECONDS: int = 1800
+
     # Templates (override in your project)
     TEMPLATE_CODE_REQUEST: str = "auth/code_request.html"
     TEMPLATE_CODE_VERIFY: str = "auth/code_verify.html"

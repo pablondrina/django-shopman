@@ -19,6 +19,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.presentation import (
@@ -114,6 +115,16 @@ def _stock_error_payload(exc, *, product=None) -> dict:
         "is_paused": exc.is_paused,
         "is_planned": exc.is_planned,
         "planned_target_date": exc.planned_target_date,
+        # Pré-reserva: item planejado tem próximo lote conhecido. Enquadra a escassez
+        # como oferta ("garantir o seu") em vez de só "esgotou". A reserva de fato é o
+        # planned-hold que já existe no carrinho.
+        "planned_offer_title": (
+            resolve_copy("KINTSUGI_PLANNED_OFFER", moment="*", audience="*").title or "Já vem quentinho"
+        ) if exc.is_planned else "",
+        "planned_offer_message": (
+            resolve_copy("KINTSUGI_PLANNED_OFFER", moment="*", audience="*").message
+            or "Sai fresquinho no próximo lote. Quer garantir o seu?"
+        ) if exc.is_planned else "",
         "substitutes": exc.substitutes,
         "actions": actions,
         "items": [

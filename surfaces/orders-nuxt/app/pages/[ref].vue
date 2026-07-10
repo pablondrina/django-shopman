@@ -14,8 +14,12 @@ import type { CancellationReason } from "~/types/orders";
 const route = useRoute();
 const orderRef = computed(() => String(route.params.ref || ""));
 
-const { order, pending, error, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment } =
+const { order, pending, error, refresh, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment, courierDispatch, courierCancel, courierQuote } =
   useOrderDetail(orderRef.value);
+
+// Realtime: SSE push (filtrado a este pedido) + poll de 30s + wake-on-visibility.
+// Mantém o painel da corrida (entregador/status) vivo sem F5.
+useOrderEvents(orderRef.value, () => refresh());
 
 // timeline comment composer
 const comment = ref("");
@@ -149,6 +153,16 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
           <Icon name="lucide:ban" class="size-4" /> Cancelar
         </button>
       </section>
+
+      <!-- corrida de entrega (logística externa) -->
+      <OrderCourierPanel
+        v-if="order.courier"
+        :courier="order.courier"
+        :busy="busy"
+        @quote="courierQuote"
+        @dispatch="courierDispatch"
+        @cancel="courierCancel"
+      />
 
       <!-- fiscal -->
       <section v-if="order.fiscal_status_label || order.fiscal_links.length" class="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 text-sm">

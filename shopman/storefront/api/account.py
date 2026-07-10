@@ -17,6 +17,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import auth as auth_service
@@ -187,6 +188,29 @@ def _intent_from_payload(payload: dict, base=None) -> AddressIntent:
     )
 
 
+def _profile_copy() -> dict:
+    """Labels dos campos do Perfil, resolvidos do registro omotenashi (configurável
+    no Admin). Fonte única — o Vue consome, sem hardcode. Nome dividido é a UX no ar."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "section_title": title("PROFILE_SECTION_TITLE", "Dados pessoais"),
+        "name_label": title("PROFILE_NAME_LABEL", "Como quer ser chamado?"),
+        "name_field": title("PROFILE_NAME_FIELD", "Nome"),
+        "first_name_field": title("PROFILE_FIRST_NAME_FIELD", "Primeiro nome"),
+        "last_name_field": title("PROFILE_LAST_NAME_FIELD", "Sobrenome"),
+        "email_field": title("PROFILE_EMAIL_FIELD", "E-mail"),
+        "birthday_field": title("PROFILE_BIRTHDAY_FIELD", "Aniversário"),
+        "phone_field": title("PROFILE_PHONE_FIELD", "Telefone"),
+        "edit_cta": title("PROFILE_EDIT_CTA", "Editar"),
+        "missing_value": message("PROFILE_MISSING_VALUE", "Não informado"),
+    }
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["account"],
@@ -227,7 +251,7 @@ class ProfileView(APIView):
             "birthday": customer.birthday.isoformat() if getattr(customer, "birthday", None) else "",
         }
         serializer = CustomerProfileSerializer(data)
-        return Response(serializer.data)
+        return Response({**serializer.data, "copy": _profile_copy()})
 
     def patch(self, request):
         from datetime import date as date_type
@@ -612,6 +636,25 @@ class NotificationPreferenceToggleView(APIView):
         })
 
 
+def _devices_copy() -> dict:
+    """Copy da tela de Segurança/dispositivos, resolvida do registro omotenashi
+    (configurável no Admin). Fonte única — o Vue consome, sem hardcode."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "page_message": message("ACCOUNT_TRUSTED_DEVICES_MESSAGE", "Verifique os dispositivos confiáveis e controle seus dados pessoais."),
+        "empty_title": title("DEVICE_LIST_EMPTY", "Nenhum dispositivo confiável"),
+        "empty_message": message("DEVICE_LIST_EMPTY", "Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui."),
+        "current_badge": title("DEVICE_LIST_CURRENT", "Este dispositivo"),
+        "registered_prefix": message("DEVICE_LIST_REGISTERED_PREFIX", "Registrado em"),
+        "revoke_cta": title("DEVICE_REVOKE_CTA", "Remover"),
+    }
+
+
 class AccountDeviceListView(APIView):
     """GET/DELETE /api/v1/account/devices/ — trusted devices for current customer."""
 
@@ -626,7 +669,10 @@ class AccountDeviceListView(APIView):
             customer_id=customer_info.uuid,
             raw_token=request.COOKIES.get(device_service.cookie_name()),
         )
-        return Response({"devices": [_serialize_device(device) for device in devices]})
+        return Response({
+            "devices": [_serialize_device(device) for device in devices],
+            "copy": _devices_copy(),
+        })
 
     def delete(self, request):
         customer_info = getattr(request, "customer", None)

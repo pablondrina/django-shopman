@@ -73,6 +73,34 @@ def test_webhook_tokens_all_set_no_messages():
     assert checks.check_webhook_tokens(None) == []
 
 
+@override_settings(DEBUG=False, SHOPMAN_COURIER_ADAPTER=None)
+def test_courier_check_silent_when_adapter_disabled():
+    assert checks.check_courier_credentials(None) == []
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_COURIER_ADAPTER="shopman.shop.adapters.courier_machine",
+    SHOPMAN_MACHINE={"username": "", "password": "", "api_key": "", "webhook_token": ""},
+)
+def test_courier_machine_without_credentials_blocks_and_warns_webhook():
+    messages = checks.check_courier_credentials(None)
+    by_id = {m.id: type(m).__name__ for m in messages}
+    assert by_id.get("SHOPMAN_E011") == "Error"      # sem credenciais bloqueia
+    assert by_id.get("SHOPMAN_W010") == "Warning"    # sem webhook_token só avisa
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_COURIER_ADAPTER="shopman.shop.adapters.courier_machine",
+    SHOPMAN_MACHINE={
+        "username": "u", "password": "p", "api_key": "k", "webhook_token": "tok",
+    },
+)
+def test_courier_machine_fully_configured_no_messages():
+    assert checks.check_courier_credentials(None) == []
+
+
 @override_settings(DEBUG=False, MANYCHAT_WEBHOOK_SECRET="")
 def test_manychat_webhook_secret_missing_is_warning_not_error():
     from django.core.checks import Error as CheckError

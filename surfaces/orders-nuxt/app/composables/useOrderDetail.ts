@@ -66,5 +66,25 @@ export function useOrderDetail(orderRef: string) {
     return ok;
   }
 
-  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment };
+  // Courier ride (external delivery): dispatch/re-dispatch, cancel the active
+  // ride, and "just quote" (stores the estimate; refresh shows it in the panel).
+  async function courierDispatch(): Promise<boolean> {
+    const ok = await act("courier-dispatch");
+    if (ok) useSonner.success("Corrida solicitada.");
+    return ok;
+  }
+
+  async function courierCancel(): Promise<boolean> {
+    const ok = await act("courier-cancel");
+    if (ok) useSonner.success("Corrida cancelada.");
+    return ok;
+  }
+
+  async function courierQuote(): Promise<boolean> {
+    const ok = await act("courier-quote");
+    if (ok) useSonner.success("Cotação atualizada.");
+    return ok;
+  }
+
+  return { order, pending, error, refresh, busy, confirm, advance, reject, cancel, fetchCancellationReasons, settleCash, requeueFiscal, saveNotes, addComment, courierDispatch, courierCancel, courierQuote };
 }

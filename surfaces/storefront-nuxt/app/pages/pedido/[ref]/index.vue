@@ -260,9 +260,9 @@ useSeoMeta({
     <div class="shop-container grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section class="shop-stack-block">
         <div>
-          <p class="shop-kicker">Acompanhamento</p>
+          <p class="shop-kicker">{{ tracking?.copy.page_kicker || 'Acompanhamento' }}</p>
           <h1 class="mt-1 shop-title">
-            Pedido<br>
+            {{ tracking?.copy.order_ref_label || 'Pedido' }}<br>
             <span class="text-xl font-normal text-muted-foreground">{{ refParts.prefix }}</span>{{ refParts.tail }}
           </h1>
         </div>
@@ -297,6 +297,13 @@ useSeoMeta({
               <div class="w-full shop-stack-block">
                 <p>{{ tracking.promise.message || tracking.copy.promise_fallback_message }}</p>
 
+                <!-- Aviso ativo: "também avisamos você por um canal ativo" (só quando o
+                     sistema realmente notifica). Reduz a ansiedade de olhar a tela. -->
+                <p v-if="tracking.promise.active_notification" class="flex items-center gap-2 shop-meta">
+                  <Icon name="lucide:bell-ring" class="size-3.5 shrink-0" />
+                  {{ tracking.promise.active_notification }}
+                </p>
+
                 <div v-if="deadlineCount && !deadlineCount.isExpired" class="space-y-2" role="timer" aria-live="polite">
                   <div class="flex items-center gap-2 text-sm font-semibold">
                     <Icon name="lucide:timer" :size="18" :class="deadlineUrgent ? 'text-destructive' : statusPanelIconClass" />
@@ -318,7 +325,7 @@ useSeoMeta({
                     class="size-3.5 shrink-0 animate-spin"
                   />
                   <span>{{ freshness.text }}</span>
-                  <span v-if="freshness.isStale">— reconectando…</span>
+                  <span v-if="freshness.isStale">· reconectando…</span>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -481,16 +488,16 @@ useSeoMeta({
             </UiButton>
             <UiAlertDialog v-if="cancelAction">
               <UiAlertDialogTrigger as-child>
-                <UiButton variant="destructive" class="w-full">Cancelar pedido</UiButton>
+                <UiButton variant="destructive" class="w-full">{{ tracking.copy.cancel_cta }}</UiButton>
               </UiAlertDialogTrigger>
               <UiAlertDialogContent>
                 <UiAlertDialogHeader>
-                  <UiAlertDialogTitle>Cancelar pedido?</UiAlertDialogTitle>
-                  <UiAlertDialogDescription>Vamos avisar a loja e atualizar o acompanhamento.</UiAlertDialogDescription>
+                  <UiAlertDialogTitle>{{ tracking.copy.cancel_dialog_title }}</UiAlertDialogTitle>
+                  <UiAlertDialogDescription>{{ tracking.copy.cancel_dialog_message }}</UiAlertDialogDescription>
                 </UiAlertDialogHeader>
                 <UiAlertDialogFooter>
-                  <UiAlertDialogCancel>Voltar</UiAlertDialogCancel>
-                  <UiAlertDialogAction @click="postAction(cancelAction)">Cancelar</UiAlertDialogAction>
+                  <UiAlertDialogCancel>{{ tracking.copy.cancel_dialog_back }}</UiAlertDialogCancel>
+                  <UiAlertDialogAction @click="postAction(cancelAction)">{{ tracking.copy.cancel_dialog_confirm }}</UiAlertDialogAction>
                 </UiAlertDialogFooter>
               </UiAlertDialogContent>
             </UiAlertDialog>

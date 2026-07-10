@@ -19,6 +19,12 @@ FULFILLMENT_UPDATE = "fulfillment.update"
 # o cliente ("Recebi") nem o operador ("Marcar entregue") fecharem o loop.
 DELIVERY_AUTO_COMPLETE = "delivery.auto_complete"
 
+# Courier (logística externa — Machine)
+# Despacho da corrida ao marcar "pronto" (retry/idempotência via Directive) e
+# heartbeat de polling do status (fallback do webhook, auto-reagendável).
+COURIER_DISPATCH = "courier.dispatch"
+COURIER_SYNC = "courier.sync"
+
 # Confirmation
 CONFIRMATION_TIMEOUT = "confirmation.timeout"
 ORDER_STALE_NEW_ALERT = "order.stale_new_alert"

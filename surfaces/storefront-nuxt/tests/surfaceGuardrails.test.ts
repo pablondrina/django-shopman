@@ -293,9 +293,11 @@ describe('surface UX guardrails', () => {
 
     expect(checkout).toContain('buildCheckoutPayload')
     expect(checkout).toContain("from '~/utils/checkoutFlow'")
-    expect(checkout).toContain('checkout.value.requires_authentication')
+    // Gate de auth do checkout = middleware compartilhado (SSR, sem flash da tela gated);
+    // a projection ainda dirige o auth_action (rota de login usada no "Trocar número").
+    expect(checkout).toContain("definePageMeta({ middleware: 'account' })")
     expect(checkout).toContain('checkout.value?.auth_action')
-    expect(checkout).toContain('navigateTo(authRoute.value)')
+    expect(checkout).toContain('navigateTo(authRoute)')
     expect(checkoutFlow).toContain("export type CheckoutStep = 'fulfillment' | 'address' | 'when' | 'payment'")
     expect(checkoutFlow).toContain('export function checkoutSteps')
     expect(checkoutFlow).toContain('export function checkoutStepState')
@@ -523,7 +525,7 @@ describe('surface UX guardrails', () => {
     expect(login).toContain('const isCheckoutReturn')
     expect(login).toContain('const stepTitle')
     expect(login).toContain('const stepDescription')
-    expect(login).toContain('<UiInputGroup class="bg-white">')
+    expect(login).toContain('<UiInputGroup class="bg-background">')
     expect(login).toContain('<UiInputGroupAddon align="inline-start">')
     expect(login).toContain('<UiInputGroupInput')
     expect(login).toContain('name="phone"')
@@ -533,7 +535,12 @@ describe('surface UX guardrails', () => {
     expect(authPhone).toContain('phone_region')
     expect(authPhone).toContain('phone_normalized')
     expect(authPhone).toContain('target')
-    expect(login).toContain("requestCode('whatsapp', $event)")
+    // WhatsApp = login por access link (deep link pré-aquecido no pai, sem polling/SSE);
+    // SMS = fallback OTP push. O CTA é o próprio deep link (<a href>) no painel
+    // apresentacional; o pai pré-aquece via waStart no mount (uma tela só).
+    expect(login).toContain('useWhatsappVerify()')
+    expect(login).toContain('<WhatsappVerifyPanel')
+    expect(login).toContain(':deep-link="waDeepLink"')
     expect(login).toContain("requestCode('sms', $event)")
     expect(login).toContain('class="w-full justify-center"')
     expect(login).toContain('<UiFieldLabel for="trusted-device" class="w-full">')
@@ -619,7 +626,7 @@ describe('surface UX guardrails', () => {
     // ao título e interior aberto com recuo extra (+16px sobre o trigger).
     expect(productRoute).toContain('class="-mx-4 mt-6 border-t sm:-mx-6 lg:mx-0 [&_[data-slot=accordion-trigger]]:font-semibold sm:[&_[data-slot=accordion-trigger]]:px-6 lg:[&_[data-slot=accordion-trigger]]:px-0 [&_[data-slot=accordion-content]>div]:px-8 sm:[&_[data-slot=accordion-content]>div]:px-10 lg:[&_[data-slot=accordion-content]>div]:px-4"')
     expect(productRoute).toContain('data-product-cross-sell')
-    expect(productRoute).toContain('Você também pode gostar')
+    expect(productRoute).toContain('Talvez você também goste')
     expect(productRoute).toContain('<ProductListItem')
     expect(productRoute).toContain('% VD')
     expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-full items-stretch gap-3 rounded-none border-0 bg-card p-3">')

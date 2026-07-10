@@ -129,12 +129,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Checkout microcopy ────────────────────────────────────────
-    "CHECKOUT_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Finalizar pedido")},
-    },
-    "CHECKOUT_PAGE_META_DESCRIPTION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revise e finalize seu pedido")},
-    },
     "CHECKOUT_SWITCH_ACCOUNT_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar conta?")},
     },
@@ -150,17 +144,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CHECKOUT_WHEN_REQUIRED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Escolha data e horário para seguir.")},
     },
-    "CHECKOUT_LOYALTY_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Usar pontos de fidelidade?")},
-    },
     "CHECKOUT_LOYALTY_BALANCE_SUFFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="disponíveis.")},
-    },
-    "CHECKOUT_NOTES_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Algo mais que devemos saber?")},
-    },
-    "CHECKOUT_COUPON_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tem cupom de desconto?")},
     },
     "CHECKOUT_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Enviar pedido")},
@@ -178,9 +163,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Cart microcopy ────────────────────────────────────────────
-    "CART_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sua sacola")},
-    },
     # Discount-line labels for the rule-driven pricing modifiers. Generic by
     # function; a deployment overrides with its brand wording (e.g. "D-1",
     # "Hora da Xepa") via an OmotenashiCopy row.
@@ -207,9 +189,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Menu empty state ──────────────────────────────────────────
-    "MENU_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum produto disponível no momento.")},
-    },
 
     # ── Home sections ─────────────────────────────────────────────
     "HOME_HERO_ORDER_TITLE_PREFIX": {
@@ -259,19 +238,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "HOME_HOW_IT_WORKS_HEADING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Como Funciona")},
     },
-    "PDP_CROSS_SELL_HEADING": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Talvez você também goste",
-                message="Descubra outras delícias da casa",
-            ),
-        },
-    },
     "HOME_HOW_ONLINE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pedido Online")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Peça online")},
     },
     "HOME_HOW_STORE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Na Loja")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Visite a loja")},
     },
     "HOME_HOW_STEP_CHOOSE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Escolha")},
@@ -304,7 +275,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Saiba como fazer seu pedido. Pedido online ou visita na loja.")},
     },
     "HOW_IT_WORKS_INTRO": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Duas formas simples de aproveitar: peça pelo site ou venha escolher na loja.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Do pedido à retirada, sem complicação.")},
     },
     "HOW_ONLINE_CHOOSE_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Navegue pelo cardápio e adicione à sacola. A disponibilidade aparece em tempo real.")},
@@ -340,7 +311,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Dúvidas? Ou algum pedido especial?",
-                message="Fale conosco direto pelo WhatsApp. Respondemos o mais rápido possível.",
+                message="Respondemos rápido, de pessoa para pessoa.",
             ),
         },
     },
@@ -532,7 +503,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Pedido pronto",
-                message="Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.",
+                message="Está tudo pronto! Logo sai para entrega. Avisamos você assim que sair.",
             ),
         },
     },
@@ -719,7 +690,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
     },
     "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos ativamente sobre esta atualização.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos você a cada atualização. Pode fechar a tela sem preocupação.")},
     },
     "TRACKING_PROMISE_RECEIVED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento vai conferir a disponibilidade.")},
@@ -743,13 +714,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Acompanhar via {carrier}")},
     },
     "TRACKING_CANCEL_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido?")},
     },
     "TRACKING_CANCEL_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar este pedido")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
     },
     "TRACKING_CANCEL_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Confirmar cancelamento?")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Vamos avisar a loja e atualizar o acompanhamento.")},
     },
     "TRACKING_CANCEL_YES": {
         WILDCARD: {WILDCARD: CopyEntry(title="Sim, cancelar")},
@@ -1012,7 +983,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Redirecionando em")},
     },
     "PAYMENT_REDIRECTING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="s...")},
+        WILDCARD: {WILDCARD: CopyEntry(message="s…")},
     },
     "PAYMENT_PIX_REGENERATE_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Gerar novo PIX")},
@@ -1044,10 +1015,31 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
     "LOGIN_PHONE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Entre pelo WhatsApp ou confirme seu telefone por SMS.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha, rápido e seguro.")},
+    },
+    # Vindo do checkout, a sacola é o que importa dizer no subtítulo (uma linha, sem alarde).
+    "LOGIN_WA_CART_KEPT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Sua sacola está guardada.")},
+    },
+    # Lampejo do fluxo: o que vai acontecer ao tocar (você envia, recebe um link, entra).
+    "LOGIN_WA_GLIMPSE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie a mensagem pronta e receba um link para entrar.")},
+    },
+    # Fallback manual (bloco "OU"): título com peso de seção + subtítulo (o número do
+    # WhatsApp é anexado ao subtítulo na tela).
+    "LOGIN_WA_MANUAL_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Quer fazer você mesmo?")},
+    },
+    "LOGIN_WA_MANUAL_INTRO": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie o código abaixo diretamente para o nosso WhatsApp")},
+    },
+    # Handoff do site expirou: entrou logado, mas a sacola não veio (link do WhatsApp venceu).
+    # Aviso gentil, com caminho de volta, sem culpar o cliente.
+    "LOGIN_HANDOFF_EXPIRED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você entrou! Sua sacola não veio desta vez porque o link expirou. É só montar de novo.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
@@ -1065,7 +1057,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Ou confirme outro telefone abaixo.")},
     },
     "LOGIN_NO_PASSWORD_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. Use o código enviado para entrar.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="É prático e seguro, e não exige senha.")},
     },
     "LOGIN_TERMS_NOTE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},
@@ -1086,16 +1078,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode colar o código. Ao completar, a confirmação é automática.")},
     },
     "LOGIN_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como podemos te chamar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Como quer ser chamado?")},
     },
     "LOGIN_NAME_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser seu primeiro nome ou um apelido. O que for mais natural.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser só o primeiro nome ou um apelido.")},
     },
     "LOGIN_NAME_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
     },
     "LOGIN_AUTH_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pronto", message="Identidade confirmada")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja…")},
     },
     "DEVICE_TRUST_ERROR": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
@@ -1166,13 +1158,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Minha Conta")},
     },
     "ACCOUNT_TRUSTED_DEVICES_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Dispositivos que podem acessar sua conta sem código de verificação.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:")},
     },
     "DEVICE_LIST_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},
     },
     "DEVICE_LIST_UNKNOWN": {
         WILDCARD: {WILDCARD: CopyEntry(title="Dispositivo desconhecido")},
@@ -1187,7 +1179,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Registrado em")},
     },
     "DEVICE_REVOKE_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Revogar")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Remover")},
     },
     "DEVICE_REVOKE_CONFIRM": {
         WILDCARD: {WILDCARD: CopyEntry(message="Revogar acesso deste dispositivo?")},
@@ -1204,6 +1196,26 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOYALTY_UNAVAILABLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Programa de fidelidade não disponível.")},
     },
+    # Labels dos campos editáveis do Perfil — religados em perfil.vue via
+    # ProfileView._profile_copy(). Nome dividido (given/family) é a decisão de UX
+    # no ar: melhor pro autocomplete e pra saudar pelo primeiro nome.
+    "PROFILE_FIRST_NAME_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Primeiro nome")},
+    },
+    "PROFILE_LAST_NAME_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Sobrenome")},
+    },
+    "PROFILE_EMAIL_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="E-mail")},
+    },
+    "PROFILE_BIRTHDAY_FIELD": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Aniversário")},
+    },
+    # ── Perfil "ler-depois-editar" (backlog, ainda não construído) ──
+    # Um cartão de leitura do perfil (rótulo: valor, "Não informado" nos vazios)
+    # com botão "Editar" e o convite humano "Como quer ser chamado?". A tela no
+    # ar hoje é sempre-editável; estas guardam a intenção de omotenashi.
+    # Ver docs/plans/COPY-BACKLOG-UNBUILT.md.
     "PROFILE_SECTION_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Dados pessoais")},
     },
@@ -1216,12 +1228,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PROFILE_PHONE_FIELD": {
         WILDCARD: {WILDCARD: CopyEntry(title="Telefone")},
     },
-    "PROFILE_EMAIL_FIELD": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Email")},
-    },
-    "PROFILE_BIRTHDAY_FIELD": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Data de nascimento")},
-    },
     "PROFILE_MISSING_VALUE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não informado")},
     },
@@ -1231,9 +1237,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Kintsugi ──────────────────────────────────────────────────
     # ── Rating ────────────────────────────────────────────────────
-    "TRACKING_RATE_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como foi?", message="Sua opinião nos ajuda a melhorar.")},
-    },
     "TRACKING_RATE_THANKS": {
         WILDCARD: {WILDCARD: CopyEntry(title="Obrigado!", message="Valorizamos muito seu retorno.")},
     },
@@ -1242,14 +1245,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "URGENCY_BANNER_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em breve")},
     },
-    "BIRTHDAY_BANNER_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
-    },
-    "BIRTHDAY_BANNER_SUB": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
-    },
+    # BIRTHDAY_BANNER_* eram duplicatas órfãs do slide de aniversário do hero;
+    # consolidadas aqui (o "!" veio do banner). O hero é o único lugar do aniversário.
     "BIRTHDAY_HERO_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
     },
     "BIRTHDAY_HERO_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},
@@ -1280,9 +1279,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "FOOTER_COPYRIGHT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Todos os direitos reservados.")},
-    },
-    "MENU_PAGE_META_DESCRIPTION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Cardápio com disponibilidade em tempo real")},
     },
     "OFFLINE_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Sem conexão")},
@@ -1328,7 +1324,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Que tal um destes no lugar?")},
     },
     "KINTSUGI_PLANNED_OFFER": {
-        WILDCARD: {WILDCARD: CopyEntry(title="A caminho", message="O próximo lote sai em breve. Quer pré-reservar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Já vem quentinho", message="Sai fresquinho no próximo lote. Quer garantir o seu?")},
     },
     "KINTSUGI_PAUSED_COPY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Voltamos em breve!", message="Esse item está temporariamente fora do cardápio.")},
@@ -1484,8 +1480,8 @@ def default_for(key: str, moment: str = WILDCARD, audience: str = WILDCARD) -> C
     return CopyEntry()
 
 
-MOMENT_CHOICES = [(WILDCARD, "— qualquer —")] + [(m, m) for m in ALL_MOMENTS]
-AUDIENCE_CHOICES = [(WILDCARD, "— qualquer —")] + [
+MOMENT_CHOICES = [(WILDCARD, "(qualquer)")] + [(m, m) for m in ALL_MOMENTS]
+AUDIENCE_CHOICES = [(WILDCARD, "(qualquer)")] + [
     (AUDIENCE_ANON, "anônima"),
     (AUDIENCE_NEW, "nova"),
     (AUDIENCE_RETURNING, "recorrente"),

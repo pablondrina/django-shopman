@@ -44,6 +44,10 @@ import {
 
 type Step = CheckoutStep
 
+// Checkout exige cliente autenticado (canal padrão). O guard de auth resolve a sessão
+// no SSR e redireciona pro /entrar antes de renderizar — sem flash da tela gated.
+definePageMeta({ middleware: 'account' })
+
 const apiPath = useShopmanApiPath()
 const csrfHeaders = useShopmanCsrfHeaders()
 const { setFromServer, clearCart, applyCoupon, removeCoupon } = useCartState()
@@ -221,7 +225,6 @@ const submitDisabled = computed(() => !action.value?.enabled || !!cart.value?.is
 // pede um caminho de volta. Neste estado o botão vira "Adicionar itens" (ativo,
 // leva ao cardápio) em vez de "Revisar pedido" morto + "Sacola vazia.".
 const bagIsEmpty = computed(() => !!cart.value?.is_empty)
-const isAuthed = computed(() => !!checkout.value?.is_authenticated)
 const authAction = computed(() => checkout.value?.auth_action || null)
 const authRoute = computed(() => localRouteFromBackend(authAction.value?.href || '/entrar?next=/finalizar'))
 const availableFulfillment = computed(() => availableFulfillmentOptions(checkout.value))
@@ -497,13 +500,6 @@ watch(slots, () => {
 
 watch(() => state.fulfillment_type, () => {
   reconcileDeliverySlot()
-})
-
-watchEffect(() => {
-  if (!checkout.value || !import.meta.client) return
-  if (checkout.value.requires_authentication && !isAuthed.value) {
-    void navigateTo(authRoute.value)
-  }
 })
 
 watchEffect(() => {
@@ -798,7 +794,10 @@ async function submitCheckout () {
     clearCart()
     clearCheckoutDraft()
     attemptKey.value = createCheckoutAttemptKey()
-    const trackingUrl = localRouteFromBackend(response.next_url || orderTrackingRoute(response.order_ref))
+    // Momento de confirmação/celebração (Balde C resgatado): o pedido passa pela tela
+    // "pedido recebido", que decide o próximo passo (pagar agora se PIX pendente,
+    // ou acompanhar). Ver COPY-BACKLOG-UNBUILT.
+    const confirmadoUrl = `/pedido/${encodeURIComponent(response.order_ref)}/confirmado`
     // O Core já salvou o endereço de entrega ao confirmar (só em pedido que
     // de fato fechou — fora-de-zona/abandonado nunca poluem o perfil). Se foi
     // um endereço novo, oferecemos a etiqueta nele antes de seguir.
@@ -809,12 +808,12 @@ async function submitCheckout () {
     } else if (newAddressId) {
       // Sem etiqueta escolhida antes: oferece agora (fallback pós-pedido).
       savedAddressIdForLabel.value = newAddressId
-      pendingTrackingUrl.value = trackingUrl
+      pendingTrackingUrl.value = confirmadoUrl
       addressLabelOpen.value = true
       submitting.value = false
       return
     }
-    await navigateTo(trackingUrl)
+    await navigateTo(confirmadoUrl)
   } catch (e) {
     const data = httpError(e).data || {}
     const field = typeof data.field === 'string' ? data.field : ''
@@ -907,16 +906,6 @@ useSeoMeta({
         </UiAlert>
 
         <template v-else-if="checkout">
-          <UiAlert v-if="checkout.requires_authentication && !isAuthed" variant="warning">
-            <UiAlertTitle>{{ authAction?.label || 'Entrar por telefone' }}</UiAlertTitle>
-            <UiAlertDescription>
-              {{ action?.reason || 'Confirme seu telefone para continuar o checkout.' }}
-              <UiButton :to="authRoute" size="sm" variant="outline" class="mt-2">
-                {{ authAction?.label || 'Entrar por telefone' }}
-              </UiButton>
-            </UiAlertDescription>
-          </UiAlert>
-
           <UiAlert v-if="pickupSwapOffer" variant="warning" data-checkout-pickup-swap>
             <UiAlertTitle>{{ serverError || 'Ainda não entregamos nesse endereço' }}</UiAlertTitle>
             <UiAlertDescription>
@@ -1183,7 +1172,7 @@ useSeoMeta({
                           :id="`checkout-slot-${slot.ref}`"
                           :value="slot.ref"
                           :disabled="!slot.enabled"
-                          :aria-label="slot.enabled ? slot.label : `${slot.label} — ${slot.reason}`"
+                          :aria-label="slot.enabled ? slot.label : `${slot.label}: ${slot.reason}`"
                         />
                         <UiFieldContent class="gap-1">
                           <UiFieldTitle>
@@ -1251,7 +1240,7 @@ useSeoMeta({
                     class="bg-background"
                   />
                 </UiInputGroup>
-                <UiFieldDescription>Opcional — informe o valor da nota para o entregador levar o troco certinho.</UiFieldDescription>
+                <UiFieldDescription>Opcional. Informe o valor da nota para o entregador levar o troco certinho.</UiFieldDescription>
               </UiField>
 
               <UiFieldLabel v-if="checkout.loyalty_balance_q > 0" for="checkout-loyalty" class="bg-card has-data-[state=checked]:bg-card">

@@ -386,10 +386,19 @@ def _on_preparing(order, config: ChannelConfig) -> None:
 
 
 def _on_ready(order, config: ChannelConfig) -> None:
-    """Order ready: create fulfillment (if post_commit) + notify."""
+    """Order ready: create fulfillment (if post_commit) + notify + courier dispatch."""
     if config.fulfillment.timing == "post_commit":
         fulfillment.create(order)
     notification.send(order, "order_ready")
+    if config.fulfillment.courier == "auto":
+        # Best-effort: o despacho vira Directive (retry próprio); um erro aqui
+        # nunca pode derrubar a transição para "pronto".
+        try:
+            from shopman.shop.services import courier
+
+            courier.request_dispatch(order, actor="lifecycle.on_ready")
+        except Exception:
+            logger.warning("courier_dispatch_enqueue_failed order=%s", order.ref, exc_info=True)
 
 
 def _on_dispatched(order, config: ChannelConfig) -> None:

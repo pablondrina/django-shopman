@@ -48,6 +48,7 @@ Legenda: `sandbox` = chave de teste · `LIVE` = chave de produção · `—` = n
 | **Doorman** (magic links) | `DOORMAN_ACCESS_LINK_API_KEY` | staging | **LIVE** |
 | **Email** (fallback OTP) | `EMAIL_HOST/PORT/USER/PASSWORD`, `DEFAULT_FROM_EMAIL` | SMTP staging | **SMTP prod** |
 | **Maps** (UI endereço) | `GOOGLE_MAPS_API_KEY` | opcional | LIVE (restrita por domínio) |
+| **Machine** (courier/entregas) | `SHOPMAN_COURIER_ADAPTER`, `MACHINE_API_USER/PASSWORD/API_KEY`, `MACHINE_WEBHOOK_TOKEN`, `MACHINE_FORMA_PAGAMENTO` | mock (`courier_mock`) ou desligado | **LIVE** (credenciais da central) + `machine_register_webhook` + `fulfillment.courier="auto"` no canal delivery |
 
 Inventário completo de variáveis comentadas: [`.env.example`](../../.env.example).
 
@@ -110,15 +111,17 @@ nota emitida, ≥1 estorno real executado com sucesso, e zero bug P0 aberto.
 
 ## 5. Logística externa (TaOn / Taxi Machine) — plano separado
 
-Decisão Pablo (2026-06-29): **planejar o adapter, construir depois**; entregar **já** o stopgap
-"teleporte". Detalhe em [DELIVERY-EXTERNAL-LOGISTICS-PLAN](DELIVERY-EXTERNAL-LOGISTICS-PLAN.md).
+A API da Machine chegou (2026-07-07) e a integração first-class foi **construída** (adapter
+`courier_machine` + directive `courier.dispatch` + webhook + painel no gestor). Detalhe e
+roteiro de go-live em [DELIVERY-EXTERNAL-LOGISTICS-PLAN](DELIVERY-EXTERNAL-LOGISTICS-PLAN.md).
 
-- **Teleporte (clipboard) ✅ entregue 2026-06-29**: `manage.py teleporte ORDER-REF` copia o
-  endereço estruturado do pedido para a área de transferência (o serviço não tem API; despacho
-  manual sem erro de digitação). Auto-fill do form continua **bloqueado em URL/campos** (Pablo).
-- **Adapter de logística**: desenhado (directive `dispatch.request` + `CourierBackend` swappable +
-  webhook de status), **não construído** — só com API real. Credenciais entram nesta matriz quando
-  existirem.
+- **Integração Machine ✅ construída 2026-07-07**: pedido delivery "pronto" abre corrida
+  automaticamente (`fulfillment.courier="auto"` por canal); status em tempo real no gestor
+  (webhook + polling de fallback); cotação avulsa pelo operador. Falta só: credenciais da
+  central (linha na matriz acima) + homologação do webhook (`manage.py machine_register_webhook`)
+  + confirmar `MACHINE_FORMA_PAGAMENTO` e `motivo_id` de cancelamento com a central.
+- **Teleporte (clipboard) ✅ 2026-06-29**: `manage.py teleporte ORDER-REF` segue como fallback
+  manual (API fora do ar / corrida não atendida com entrega própria).
 
 ---
 

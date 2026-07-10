@@ -12,6 +12,9 @@ interface AccessResponse {
   customer_phone?: string
   requires_welcome?: boolean
   welcome_suggested_name?: string
+  // Handoff do site expirou: entrou logado, mas a sacola não veio (link vencido).
+  handoff_expired?: boolean
+  notice?: string
 }
 
 const route = useRoute()
@@ -35,6 +38,9 @@ onMounted(async () => {
       body: { token: token.value }
     })
     session.setFromAuthSession(response)
+    // Sacola não veio (handoff expirou): aviso gentil que sobrevive à navegação (Sonner
+    // vive no layout). O login segue normal; só comunicamos a sacola ausente.
+    if (response.handoff_expired && response.notice) useSonner(response.notice)
     await navigateTo(localRouteFromBackend(response.redirect || '/conta'))
   } catch {
     failed.value = true

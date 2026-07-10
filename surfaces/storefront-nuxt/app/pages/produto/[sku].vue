@@ -119,7 +119,7 @@ useHead({
         <UiAlertTitle>Não foi possível abrir este produto</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>Tivemos um percalço ao carregar — tente de novo em instantes.</span>
+            <span>Tivemos um percalço ao carregar. Tente de novo em instantes.</span>
             <UiButton size="sm" variant="outline" @click="refresh">Tentar de novo</UiButton>
           </div>
         </UiAlertDescription>
@@ -256,7 +256,7 @@ useHead({
         </article>
 
         <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
-          <h2 class="shop-heading">Você também pode gostar</h2>
+          <h2 class="shop-heading">Talvez você também goste</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem
               v-for="item in crossSell"

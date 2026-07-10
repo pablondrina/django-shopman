@@ -163,6 +163,11 @@ class OrderTrackingCopyProjection:
     cancel_success_title: str
     cancel_success_message: str
     cancel_failed_message: str
+    cancel_cta: str
+    cancel_dialog_title: str
+    cancel_dialog_message: str
+    cancel_dialog_confirm: str
+    cancel_dialog_back: str
     mock_payment_success_title: str
     mock_payment_success_message: str
     mock_payment_failed_title: str
@@ -413,6 +418,29 @@ def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
 # ──────────────────────────────────────────────────────────────────────
 
 
+# Aviso ativo por estado ("também avisamos você por um canal ativo"). Reduz a
+# ansiedade de ficar olhando a tela. Feature já existia inteira no pagamento; no
+# tracking a copy foi escrita e nunca conectada — religada aqui.
+_ACTIVE_NOTIFICATION_KEY: dict[str, str] = {
+    "ready_pickup": "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION",
+    "ready_delivery": "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION",
+    "payment_requested": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+    "payment_pending": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+}
+
+
+_TERMINAL_STATES = {"delivered", "completed", "cancelled", "payment_expired"}
+
+
+def _active_notification(data: TrackingPromiseData, copy: CopyCatalog) -> str:
+    """Copy do aviso ativo, SÓ quando o sistema realmente notifica (anti-overpromise)
+    e o pedido segue em andamento (terminal não tem o que avisar)."""
+    if not data.requires_active_notification or data.state in _TERMINAL_STATES:
+        return ""
+    key = _ACTIVE_NOTIFICATION_KEY.get(data.state, "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION")
+    return copy.message(key, "Avisamos você a cada atualização. Pode fechar a tela sem preocupação.")
+
+
 def _present_promise(
     data: TrackingPromiseData,
     *,
@@ -420,12 +448,13 @@ def _present_promise(
     is_delivery: bool,
     copy: CopyCatalog,
 ) -> OrderTrackingPromiseProjection:
-    title, message, next_event, recovery, active_notification = _promise_copy(
+    title, message, next_event, recovery, _ = _promise_copy(
         data,
         status=status,
         is_delivery=is_delivery,
         copy=copy,
     )
+    active_notification = _active_notification(data, copy)
     return OrderTrackingPromiseProjection(
         state=data.state,
         title=title,
@@ -616,7 +645,7 @@ _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
     # dispatched é tratado num ramo dedicado (ETA + ações) — não fica aqui.
     "delivered": (
         "TRACKING_STEP_DELIVERED", "Pedido entregue",
-        "TRACKING_PROMISE_DELIVERED_MESSAGE", "Bom apetite! Esperamos você de novo em breve.",
+        "TRACKING_DELIVERED_YOIN", "Bom apetite. Até a próxima.",
         "", "",
     ),
     "completed": (
@@ -857,6 +886,14 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
             "TRACKING_CANCEL_FAILED_MESSAGE",
             "Não foi possível cancelar este pedido agora.",
         ),
+        cancel_cta=copy.title("TRACKING_CANCEL_CTA", "Cancelar pedido"),
+        cancel_dialog_title=copy.title("TRACKING_CANCEL_HEADING", "Cancelar pedido?"),
+        cancel_dialog_message=copy.message(
+            "TRACKING_CANCEL_CONFIRM",
+            "Vamos avisar a loja e atualizar o acompanhamento.",
+        ),
+        cancel_dialog_confirm=copy.title("TRACKING_CANCEL_YES", "Sim, cancelar"),
+        cancel_dialog_back=copy.title("TRACKING_CANCEL_BACK", "Voltar"),
         mock_payment_success_title=copy.title("TRACKING_MOCK_PAYMENT_SUCCESS_TITLE", "Pagamento teste capturado"),
         mock_payment_success_message=copy.message(
             "TRACKING_MOCK_PAYMENT_SUCCESS_MESSAGE",

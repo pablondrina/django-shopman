@@ -65,12 +65,38 @@ export interface OrderCardProjection {
   awaiting_work_orders: AwaitingWorkOrderProjection[];
   confirmation_deadline_iso: string; // prazo da confirmação otimista (vazio se sem timer)
   confirmation_action: string; // "confirm" | "cancel" (ação do directive ao vencer)
+  courier_status: string; // letra Machine crua ("" sem corrida)
+  courier_status_label: string; // label pt-BR do badge
 }
 
 /** A coded cancellation reason (marketplace/iFood requires one per order). */
 export interface CancellationReason {
   code: string;
   description: string;
+}
+
+/** Courier ride block (Order.data["courier"] → projections._courier_block).
+ * `status` is the raw Machine letter (D/G/P/A/S/E/F/N/C/U); labels come from
+ * the server, steps/tone are derived client-side (presentation/courier.ts). */
+export interface CourierBlock {
+  provider: string;
+  status: string;
+  status_label: string;
+  active: boolean;
+  driver: { name: string; phone: string; vehicle_plate: string; vehicle_model: string } | null;
+  tracking_url: string;
+  confirmation_code: string;
+  estimate_display: string;
+  final_value_display: string;
+  requested_at: string;
+  dispatched_at: string;
+  finished_at: string;
+  attempts_count: number;
+  position: { lat: string; lng: string } | null;
+  error: { message: string; at: string } | null;
+  can_quote: boolean;
+  can_dispatch: boolean;
+  can_cancel: boolean;
 }
 
 export interface OperatorOrderProjection {
@@ -101,6 +127,7 @@ export interface OperatorOrderProjection {
   gift_hide_values: boolean;
   cancellation_presets: string[];
   kitchen_note_tags: string[];
+  courier: CourierBlock | null;
 }
 
 export interface TwoZoneQueueProjection {

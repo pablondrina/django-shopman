@@ -919,6 +919,70 @@ class OrderRequeueFiscalView(_OrderActionBase):
 @extend_schema_view(
     post=extend_schema(
         tags=["backstage"],
+        summary="Dispatch (or re-dispatch) the external courier ride",
+        responses={200: OpenApiResponse(description="Courier dispatch queued.")},
+    ),
+)
+class OrderCourierDispatchView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        try:
+            orders_service.courier_dispatch(order, actor=_actor(request))
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Falha ao despachar."}, status=400)
+        return Response({"ok": True, "ref": ref})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Cancel the active external courier ride",
+        responses={200: OpenApiResponse(description="Courier ride cancelled.")},
+    ),
+)
+class OrderCourierCancelView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        reason_id = request.data.get("reason_id")
+        try:
+            orders_service.courier_cancel(
+                order,
+                actor=_actor(request),
+                reason_id=int(reason_id) if reason_id is not None else None,
+            )
+        except (TypeError, ValueError):
+            return Response({"detail": "reason_id inválido."}, status=400)
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Falha ao cancelar a corrida."}, status=400)
+        return Response({"ok": True, "ref": ref})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
+        summary="Quote the external courier ride without dispatching",
+        responses={200: OpenApiResponse(description="Courier quote.")},
+    ),
+)
+class OrderCourierQuoteView(_OrderActionBase):
+    def post(self, request, ref: str):
+        order, err = self._get_order(ref)
+        if err:
+            return err
+        try:
+            quote = orders_service.courier_quote(order)
+        except OrderError as exc:
+            return Response({"detail": str(exc) or "Cotação indisponível."}, status=400)
+        return Response({"ok": True, "ref": ref, "quote": quote})
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["backstage"],
         summary="Save the operator's kitchen note on an order",
         responses={200: OpenApiResponse(description="Note saved.")},
     ),

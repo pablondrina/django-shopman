@@ -203,6 +203,23 @@ def _on_order_changed(sender, order, event_type, actor, **kwargs):
     )
 
 
+def emit_courier_update(order, payload: dict) -> None:
+    """Publish courier-ride changes for the tracking page and the orders board.
+
+    Necessário porque ``_on_order_changed`` só emite em created/status_changed —
+    mudanças da corrida (aceita, entregador a caminho, falhou) não transitam o
+    pedido, mas o gestor precisa refletir na hora.
+    """
+    body = {"ref": order.ref, "kind": "courier_changed", **payload}
+    _emit_for_order(order.ref, event_type="order-update", payload=body)
+    _emit_backstage(
+        "orders",
+        "backstage-orders-update",
+        {**body, "status": order.status},
+        scope=_scope_for_order(order),
+    )
+
+
 def _on_payment_changed(sender, intent=None, order_ref=None, **kwargs):
     order_ref = order_ref or getattr(intent, "order_ref", "")
     if not order_ref:

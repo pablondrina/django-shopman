@@ -11,6 +11,8 @@ interface CartIssue {
   available_qty: number | null
   is_paused: boolean
   is_planned: boolean
+  planned_offer_title: string
+  planned_offer_message: string
   substitutes: SubstituteProjection[]
   actions: Action[]
   items: Array<{
@@ -147,6 +149,8 @@ function issueFromPayload (data: Record<string, unknown> | null | undefined, met
     available_qty: numberOrNull(d.available_qty),
     is_paused: !!d.is_paused,
     is_planned: !!d.is_planned,
+    planned_offer_title: String(d.planned_offer_title || ''),
+    planned_offer_message: String(d.planned_offer_message || ''),
     substitutes: normalizeSubstitutes(d.substitutes),
     actions: Array.isArray(d.actions) ? (d.actions as Action[]) : [],
     items

@@ -63,7 +63,8 @@ BODY_TEMPLATES: dict[str, str] = {
     ),
     "order_dispatched": (
         "Ola{customer_name_greeting}!\n\n"
-        "Seu pedido {order_ref} saiu para entrega.\n\n"
+        "Seu pedido {order_ref} saiu para entrega."
+        "{courier_tracking_suffix}\n\n"
         "Acompanhe pelo link de rastreamento.\n"
     ),
     "order_delivered": (
@@ -127,6 +128,9 @@ def _enrich_context(context: dict[str, Any]) -> dict[str, Any]:
     total_q = ctx.get("total_q")
     if total_q and not ctx.get("total"):
         ctx["total"] = f"R$ {total_q / 100:,.2f}"
+
+    # Definido por notification._build_context; default vazio p/ chamadas diretas.
+    ctx.setdefault("courier_tracking_suffix", "")
 
     return ctx
 
