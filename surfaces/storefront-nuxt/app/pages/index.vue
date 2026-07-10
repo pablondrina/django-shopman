@@ -322,8 +322,8 @@ useHead({
                 <Icon name="lucide:shopping-bag" class="size-5 shrink-0 text-muted-foreground" />
                 <h3 class="shop-item-title font-semibold">{{ sectionsCopy.how_online_heading.title }}</h3>
               </div>
-              <ol v-if="onlineSteps.length" class="flex flex-col gap-2.5">
-                <li v-for="(step, index) in onlineSteps" :key="index" class="flex gap-2.5">
+              <ol v-if="onlineSteps.length" class="flex flex-col gap-2">
+                <li v-for="(step, index) in onlineSteps" :key="index" class="flex gap-2">
                   <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{{ index + 1 }}</span>
                   <span class="shop-muted">{{ step }}</span>
                 </li>

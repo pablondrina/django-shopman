@@ -304,7 +304,7 @@ useSeoMeta({
                      sistema realmente notifica). Reduz a ansiedade de olhar a tela. -->
                 <p v-if="tracking.promise.active_notification" class="flex items-center gap-2 shop-meta">
                   <Icon name="lucide:bell-ring" class="size-3.5 shrink-0" />
-                  <span v-if="tracking.copy.active_notification_label" class="font-medium">{{ tracking.copy.active_notification_label }}</span>
+                  <span v-if="tracking.copy.active_notification_label" class="font-semibold">{{ tracking.copy.active_notification_label }}</span>
                   {{ tracking.promise.active_notification }}
                 </p>
 
@@ -329,12 +329,13 @@ useSeoMeta({
                     class="size-3.5 shrink-0 animate-spin"
                   />
                   <span>{{ freshness.text }}</span>
-                  <button
+                  <UiButton
                     v-if="freshness.isStale"
-                    type="button"
-                    class="underline underline-offset-2 hover:text-foreground"
+                    variant="link"
+                    size="sm"
+                    class="h-auto p-0 underline underline-offset-2 hover:text-foreground"
                     @click="() => refresh()"
-                  >· {{ tracking.copy.stale_cta }}</button>
+                  >· {{ tracking.copy.stale_cta }}</UiButton>
                 </p>
 
                 <div v-if="visiblePromiseRows.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
