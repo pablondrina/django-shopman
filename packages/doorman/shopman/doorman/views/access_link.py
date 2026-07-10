@@ -97,6 +97,31 @@ class AccessLinkCreateView(View):
         if next_url:
             metadata["next"] = safe_redirect_url(next_url, request)
 
+        # Contexto do site (fluxo do botão): um código NB-XxXx guarda a sacola e o
+        # destino numa sessão web anônima. Se veio ``access_code`` (o próprio código ou
+        # a mensagem inteira do WhatsApp, da qual extraímos o código), consome (uso único)
+        # e dobra na metadata. ``next`` passa por safe_redirect_url; o resto (ex.:
+        # cart_session_key) viaja opaco. Código inválido/expirado é IGNORADO — o login
+        # nunca falha por causa do estado (degrada para o link genérico).
+        access_code = data.get("access_code")
+        if access_code:
+            from ..services.link_state import pop_state
+
+            state = pop_state(str(access_code))
+            if isinstance(state, dict):
+                for key, value in state.items():
+                    if key == "next":
+                        if value and not metadata.get("next"):
+                            metadata["next"] = safe_redirect_url(str(value), request)
+                    elif value is not None and key not in metadata:
+                        metadata[key] = value
+            else:
+                # Código veio mas não resolveu (expirou/já usado): um handoff do site foi
+                # TENTADO e falhou — distinto do login orgânico (sem access_code). Marcamos
+                # para o exchange avisar que a sacola não veio (omotenashi: nunca sumir com
+                # a sacola em silêncio). O login em si nunca falha por isso.
+                metadata["handoff_expired"] = True
+
         result = AccessLinkService.create_token(
             customer=customer,
             audience=data.get("audience", AccessLink.Audience.WEB_GENERAL),

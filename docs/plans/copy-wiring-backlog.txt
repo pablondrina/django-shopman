@@ -1,9 +1,7 @@
 # copy-wiring-backlog — chaves ainda NÃO religadas a uma tela.
 # Regra: só encolhe. Cada religação (via projection) remove a linha.
 # O teste test_copy_wiring_backlog falha se surgir órfã fora desta lista.
-# gerado 2026-07-07 — 154 chaves (5 religadas: tracking cancel)
-BIRTHDAY_BANNER_SUB
-BIRTHDAY_BANNER_TITLE
+# regenerado no merge do main (#45) 2026-07-10 — 59 órfãs (união das duas branches)
 CLOSING_AWARENESS_OLD_D1_ALERT
 CLOSING_AWARENESS_PREFIX
 CLOSING_AWARENESS_SUFFIX
@@ -46,12 +44,8 @@ PAYMENT_WAITING_LONG
 PICKUP_READY_NOTICE
 PRODUCT_OUT_OF_STOCK
 PRODUCT_SCHEDULED_UNAVAILABLE
-PROFILE_EDIT_CTA
-PROFILE_MISSING_VALUE
-PROFILE_NAME_FIELD
 TRACKING_ACTION_NONE
 TRACKING_ACTION_WAITING_COURIER
-TRACKING_DELIVERED_YOIN
 TRACKING_ETA_PREFIX
 TRACKING_PAYMENT_CONFIRMED
 TRACKING_PROMISE_LABEL_ACTION

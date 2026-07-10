@@ -86,6 +86,47 @@ class TestAccessLinkExchangeApi:
         assert response.status_code == 400
         assert client.session.get("_auth_user_id") is None
 
+    def test_cart_session_key_adopted_when_session_empty(self, client: Client, customer):
+        # Fluxo do site: o código NB dobrou a sacola anônima na metadata do token.
+        _link, raw_token = self._token(customer, metadata={"cart_session_key": "sk_from_site"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 200
+        assert client.session.get("cart_session_key") == "sk_from_site"
+
+    def test_cart_session_key_not_overridden_when_session_has_cart(self, client: Client, customer):
+        session = client.session
+        session["cart_session_key"] = "sk_local"
+        session.save()
+        _link, raw_token = self._token(customer, metadata={"cart_session_key": "sk_from_site"})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 200
+        assert client.session.get("cart_session_key") == "sk_local"
+
+    def test_handoff_expired_metadata_surfaces_notice(self, client: Client, customer):
+        # Handoff do site expirou (código NB não resolveu no create): entra logado, mas
+        # avisamos que a sacola não veio — flag + copy gentil, sem bloquear a entrada.
+        _link, raw_token = self._token(customer, metadata={"handoff_expired": True})
+
+        response = client.post(self.URL, {"token": raw_token})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_authenticated"] is True
+        assert body["handoff_expired"] is True
+        assert body["notice"]  # copy resolvida do registro (LOGIN_HANDOFF_EXPIRED)
+
+    def test_clean_metadata_carries_no_handoff_notice(self, client: Client, customer):
+        # Login/handoff normal: sem flag nem notice (não polui a UI de quem entrou ok).
+        _link, raw_token = self._token(customer, metadata={"cart_session_key": "sk_ok"})
+
+        body = client.post(self.URL, {"token": raw_token}).json()
+        assert "handoff_expired" not in body
+        assert "notice" not in body
+
     def test_missing_token_is_rejected(self, client: Client):
         response = client.post(self.URL, {})
 

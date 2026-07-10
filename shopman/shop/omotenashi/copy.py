@@ -1012,10 +1012,31 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
     "LOGIN_PHONE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
     },
     "LOGIN_PHONE_SUBTITLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Sem senha, rápido e seguro.")},
+    },
+    # Vindo do checkout, a sacola é o que importa dizer no subtítulo (uma linha, sem alarde).
+    "LOGIN_WA_CART_KEPT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Sua sacola está guardada.")},
+    },
+    # Lampejo do fluxo: o que vai acontecer ao tocar (você envia, recebe um link, entra).
+    "LOGIN_WA_GLIMPSE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie a mensagem pronta e receba um link para entrar.")},
+    },
+    # Fallback manual (bloco "OU"): título com peso de seção + subtítulo (o número do
+    # WhatsApp é anexado ao subtítulo na tela).
+    "LOGIN_WA_MANUAL_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Quer fazer você mesmo?")},
+    },
+    "LOGIN_WA_MANUAL_INTRO": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie o código abaixo diretamente para o nosso WhatsApp")},
+    },
+    # Handoff do site expirou: entrou logado, mas a sacola não veio (link do WhatsApp venceu).
+    # Aviso gentil, com caminho de volta, sem culpar o cliente.
+    "LOGIN_HANDOFF_EXPIRED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você entrou! Sua sacola não veio desta vez porque o link expirou. É só montar de novo.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
@@ -1033,7 +1054,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Ou confirme outro telefone abaixo.")},
     },
     "LOGIN_NO_PASSWORD_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. Você entra em segundos pelo WhatsApp.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="É prático e seguro, e não exige senha.")},
     },
     "LOGIN_TERMS_NOTE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},
@@ -1054,16 +1075,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode colar o código. Ao completar, a confirmação é automática.")},
     },
     "LOGIN_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como podemos te chamar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Como quer ser chamado?")},
     },
     "LOGIN_NAME_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser seu primeiro nome ou um apelido. O que for mais natural.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser só o primeiro nome ou um apelido.")},
     },
     "LOGIN_NAME_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
     },
     "LOGIN_AUTH_CONFIRMED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pronto", message="Identidade confirmada")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja…")},
     },
     "DEVICE_TRUST_ERROR": {
         WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
@@ -1235,14 +1256,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "URGENCY_BANNER_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em breve")},
     },
-    "BIRTHDAY_BANNER_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
-    },
-    "BIRTHDAY_BANNER_SUB": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
-    },
+    # BIRTHDAY_BANNER_* eram duplicatas órfãs do slide de aniversário do hero;
+    # consolidadas aqui (o "!" veio do banner). O hero é o único lugar do aniversário.
     "BIRTHDAY_HERO_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
     },
     "BIRTHDAY_HERO_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},

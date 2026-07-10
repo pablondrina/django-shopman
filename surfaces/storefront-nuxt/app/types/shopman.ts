@@ -380,6 +380,10 @@ export interface HomeSectionsCopyProjection {
 export interface AuthCopyProjection {
   phone_heading: CopyEntryProjection
   phone_subtitle: CopyEntryProjection
+  wa_cart_kept: CopyEntryProjection
+  wa_glimpse: CopyEntryProjection
+  wa_manual_title: CopyEntryProjection
+  wa_manual_intro: CopyEntryProjection
   phone_cta_wa: CopyEntryProjection
   phone_cta_sms: CopyEntryProjection
   trusted_device_message: CopyEntryProjection
@@ -957,11 +961,14 @@ export interface AccountSummary {
 export interface AccountProfileCopy {
   section_title: string
   name_label: string
+  name_field: string
   first_name_field: string
   last_name_field: string
   email_field: string
   birthday_field: string
   phone_field: string
+  edit_cta: string
+  missing_value: string
 }
 
 export interface AccountProfile {

@@ -57,12 +57,7 @@ from .tracking import (
     OrderTrackingView,
     order_events_view,
 )
-from .whatsapp_verify import (
-    WhatsAppVerifyConfirmView,
-    WhatsAppVerifyStartView,
-    WhatsAppVerifyStatusView,
-    whatsapp_events_view,
-)
+from .whatsapp_verify import WhatsAppVerifyStartView
 
 urlpatterns = [
     # Storefront projections for API-first clients
@@ -81,9 +76,6 @@ urlpatterns = [
     path("auth/verify-code/", VerifyCodeView.as_view(), name="api-auth-verify-code"),
     path("auth/trust-device/", TrustDeviceView.as_view(), name="api-auth-trust-device"),
     path("auth/whatsapp/start/", WhatsAppVerifyStartView.as_view(), name="api-auth-whatsapp-start"),
-    path("auth/whatsapp/confirm/", WhatsAppVerifyConfirmView.as_view(), name="api-auth-whatsapp-confirm"),
-    path("auth/whatsapp/status/", WhatsAppVerifyStatusView.as_view(), name="api-auth-whatsapp-status"),
-    path("auth/whatsapp/events/<str:token>/", whatsapp_events_view, name="api-auth-whatsapp-events"),
     path("auth/logout/", LogoutView.as_view(), name="api-auth-logout"),
     # Cart
     path("cart/skus/<str:sku>/", CartSkuQtyView.as_view(), name="api-cart-sku-qty"),

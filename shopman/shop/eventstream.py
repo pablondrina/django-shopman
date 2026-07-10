@@ -14,7 +14,7 @@ class ShopmanChannelManager(DefaultChannelManager):
 
     def is_channel_reliable(self, channel):
         channel = str(channel or "")
-        if channel.startswith("stock-") or channel.startswith("wa-verify-"):
+        if channel.startswith("stock-"):
             # Efêmeros: sem histórico/resume — a verdade é refeita no fetch canônico.
             return False
         return super().is_channel_reliable(channel)
@@ -23,8 +23,6 @@ class ShopmanChannelManager(DefaultChannelManager):
         channel = str(channel or "")
         if channel.startswith("order-"):
             return self._can_read_order_channel(user, channel.removeprefix("order-"))
-        if channel.startswith("wa-verify-"):
-            return self._can_read_wa_verify_channel(channel.removeprefix("wa-verify-"))
         if channel.startswith("backstage-"):
             return bool(
                 user
@@ -32,22 +30,6 @@ class ShopmanChannelManager(DefaultChannelManager):
                 and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
             )
         return super().can_read_channel(user, channel)
-
-    @staticmethod
-    def _can_read_wa_verify_channel(token: str) -> bool:
-        # O token é o segredo; a defesa de sessão fica no view (Http404 up front).
-        # Aqui só autorizamos o canal se o handshake ainda existe no cache. O
-        # payload do SSE não carrega PII (só "verified") — o login real acontece
-        # no fetch canônico de /status, que casa a sessão.
-        if not token:
-            return False
-        try:
-            from shopman.shop.services import whatsapp_verify
-
-            return whatsapp_verify.peek(token) is not None
-        except Exception:
-            logger.warning("eventstream_wa_verify_permission_failed", exc_info=True)
-            return False
 
     @staticmethod
     def _can_read_order_channel(user, order_ref: str) -> bool:

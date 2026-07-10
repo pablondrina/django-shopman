@@ -687,7 +687,7 @@ _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
     # dispatched é tratado num ramo dedicado (ETA + ações) — não fica aqui.
     "delivered": (
         "TRACKING_STEP_DELIVERED", "Pedido entregue",
-        "TRACKING_PROMISE_DELIVERED_MESSAGE", "Bom apetite! Esperamos você de novo em breve.",
+        "TRACKING_DELIVERED_YOIN", "Bom apetite. Até a próxima.",
         "TRACKING_PROMISE_DELIVERED_NEXT", "O pedido será concluído em seguida.",
     ),
     # completed é o estado final — não há "próximo passo".
