@@ -501,6 +501,16 @@ SHOPMAN_SMS = {
     "timeout": MANYCHAT_API_TIMEOUT,
 }
 
+# ── Dev-safety: adapters externos inertes em DEBUG ──────────────────
+# Em DEBUG as credenciais reais ficam no .env, então SMS/WhatsApp/OTP disparariam
+# mensagens de verdade num `seed`, num shell ou no dev server. A trava
+# (shopman.shop.adapters._external.inert_in_debug) mantém esses adapters inertes
+# em DEBUG salvo opt-in explícito. Fora de DEBUG nada disto tem efeito.
+SHOPMAN_ALLOW_EXTERNAL_IN_DEBUG = _env_bool("SHOPMAN_ALLOW_EXTERNAL_IN_DEBUG", False)
+SHOPMAN_SMS_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_SMS_ALLOW_IN_DEBUG", False)
+SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG", False)
+SHOPMAN_WHATSAPP_ALLOW_IN_DEBUG = _env_bool("SHOPMAN_WHATSAPP_ALLOW_IN_DEBUG", False)
+
 # ── OTP Delivery Chain ───────────────────────────────────────────────
 # SMS primário (Twilio), email como fallback. WhatsApp fica mapeado mas FORA da cadeia
 # (ManyChat não emite template de Authentication). Debug usa console para ver o código.

@@ -188,6 +188,15 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         logger.warning("ManyChat API token not configured")
         return False
 
+    from ._external import inert_in_debug
+
+    if inert_in_debug("SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG"):
+        logger.info(
+            "ManyChat inerte em DEBUG: %s -> %s (defina SHOPMAN_MANYCHAT_ALLOW_IN_DEBUG=true para enviar de verdade)",
+            template, recipient,
+        )
+        return True
+
     ctx = context or {}
     subscriber_id = _resolve_subscriber(recipient, mc_config)
     if subscriber_id is None:

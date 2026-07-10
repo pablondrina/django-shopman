@@ -73,6 +73,15 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
         logger.warning("SMS adapter: Comtele não configurado (api_key/route)")
         return False
 
+    from ._external import inert_in_debug
+
+    if inert_in_debug("SHOPMAN_SMS_ALLOW_IN_DEBUG"):
+        logger.info(
+            "SMS inerte em DEBUG: %s -> %s (defina SHOPMAN_SMS_ALLOW_IN_DEBUG=true para enviar de verdade)",
+            template, recipient,
+        )
+        return True
+
     message = _build_message(template, context or {})
     payload = {
         "receivers": [to_digits(recipient)],
