@@ -939,8 +939,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 message=(
-                    "Você será levado ao ambiente seguro do cartão. "
-                    "Depois da autorização, volte para acompanhar o pedido."
+                    "Conclua o pagamento no ambiente seguro do Stripe. "
+                    "A confirmação é automática. Volte aqui se quiser acompanhar seu pedido."
                 ),
             ),
         },
@@ -952,16 +952,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Escaneie o QR Code ou copie o código Pix abaixo.")},
     },
     "PAYMENT_PIX_COPY_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copia e cola:")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Copia e cola PIX")},
     },
     "PAYMENT_PIX_COPY_BTN": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copiar")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Copiar código")},
     },
     "PAYMENT_PIX_COPIED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Copiado!")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Código PIX copiado.")},
     },
     "PAYMENT_PIX_EXPIRES_LABEL": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Expira em")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Tempo para pagar")},
     },
     "PAYMENT_CONFIRMED": {
         WILDCARD: {

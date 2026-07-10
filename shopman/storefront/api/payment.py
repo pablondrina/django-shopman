@@ -12,6 +12,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
 from shopman.storefront.api.actions import retry_after_action
 from shopman.storefront.api.projections import projection_data
@@ -42,6 +43,30 @@ def _rate_limited_response() -> Response:
 def _is_digital_payment(order) -> bool:
     payment = (order.data or {}).get("payment") or {}
     return str(payment.get("method") or "").lower() in {"pix", "card"}
+
+
+def _payment_copy() -> dict:
+    """Copy estática da tela de pagamento (chrome + UI de PIX/cartão), resolvida do
+    registro omotenashi (configurável no Admin). O painel de status vem do `promise`
+    (fiado à parte); aqui só o que a tela hardcodava. O Vue consome com fallback."""
+    def title(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").title or fb
+
+    def message(key: str, fb: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fb
+
+    return {
+        "order_ref_label": title("PAYMENT_ORDER_REF_LABEL", "Pedido"),
+        "total_label": title("PAYMENT_TOTAL_LABEL", "Total"),
+        "meta_description": message("PAYMENT_PAGE_META_DESCRIPTION", "Pague seu pedido para seguirmos com o preparo"),
+        "card_intro": message("PAYMENT_CARD_INTRO", "Conclua o pagamento no ambiente seguro do Stripe. A confirmação é automática. Volte aqui se quiser acompanhar seu pedido."),
+        "card_security_note": message("PAYMENT_CARD_SECURITY_NOTE", "Pagamento processado por provedor seguro. Nós não recebemos os dados do seu cartão."),
+        "pix_instruction": message("PAYMENT_PIX_INSTRUCTION", "Escaneie o QR Code ou copie o código Pix abaixo."),
+        "pix_copy_label": title("PAYMENT_PIX_COPY_LABEL", "Copia e cola PIX"),
+        "pix_copy_btn": title("PAYMENT_PIX_COPY_BTN", "Copiar código"),
+        "pix_copied": title("PAYMENT_PIX_COPIED", "Código PIX copiado."),
+        "pix_expires_label": message("PAYMENT_PIX_EXPIRES_LABEL", "Tempo para pagar"),
+    }
 
 
 def _payment_has_pending_payment_action(payment: dict | None) -> bool:
@@ -101,6 +126,7 @@ class OrderPaymentView(APIView):
             "redirect_url": None,
             "intent_ready": bool(intent_ready),
             "payment": payment,
+            "copy": _payment_copy(),
         })
 
 

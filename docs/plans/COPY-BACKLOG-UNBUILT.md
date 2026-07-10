@@ -125,3 +125,32 @@ string):** `TRACKING_AUTO_CONFIRM_PREFIX/SUFFIX` (enquadrar o countdown de dispo
 
 > Nada disto se deleta sem sua aprovação. As chaves seguem no registro e no
 > `copy-wiring-backlog.txt`. Cada decisão vira fiação (via projection) ou arquivamento explícito.
+
+## 🙈 Pagamento — superseded pelo painel `promise` (decisão Pablo 2026-07-09, revisão da tela)
+
+A tela `/pagamento` (`pedido/[ref]/pagamento.vue`) tem o **painel de status fiado via
+`payment.promise.*`** (resolvido em `presentation/payment.py` por estado: pix/cartão/pago/
+cancelado/expirado/erro). O chrome estático + UI de PIX/cartão foi religado (canal `copy` na
+`OrderPaymentView`, 10 chaves). Estas 13 descrevem estados que o `promise` **já resolve** ou
+telas que a UI **não usa** — arquivadas (seguem no registro e no `copy-wiring-backlog.txt`,
+órfãs de propósito):
+
+- `PAYMENT_WAITING` ("Aguardando seu banco confirmar…") / `PAYMENT_WAITING_LONG` ("Ainda
+  processando…") — o estado de espera é a **mensagem do promise**, não uma linha à parte.
+- `PAYMENT_CONFIRMED` ("Pagamento recebido" / "Seguimos com o preparo…") — = `PAYMENT_PROMISE_PAID_*`.
+- `PAYMENT_CANCELLED` ("Pedido cancelado") + `PAYMENT_CANCELLED_DETAILS_CTA` ("Ver detalhes") —
+  = `PAYMENT_PROMISE_CANCELLED_*` + ações do promise.
+- `PAYMENT_ERROR_TITLE` / `PAYMENT_ERROR_MESSAGE` — a tela usa `errorView` (orderAccess) para acesso
+  e `payment.error_message` (do gateway) para falha de intent; estas chaves não são as usadas.
+- `PAYMENT_PIX_EXPIRED` ("Este PIX expirou" / "Geramos um novo…") — o terminal expirado vem do
+  promise; o inline "O prazo do PIX expirou." cobre o countdown.
+- `PAYMENT_PIX_REGENERATE_CTA` ("Gerar novo PIX") — é **ação** do promise (label vem da action).
+- `PAYMENT_DEADLINE_NOTICE` ("Conclua dentro do prazo indicado abaixo.") — sem aviso separado; o
+  countdown com barra fala por si.
+- `PAYMENT_REDIRECTING_PREFIX` ("Redirecionando em") / `PAYMENT_REDIRECTING_SUFFIX` ("s…") — não há
+  countdown de redirect na UI; o `watchEffect` navega direto quando há `redirect_url`.
+- `PAYMENT_PAGE_TITLE` ("Concluir pagamento") — a tela usa título dinâmico por pedido
+  ("Pagamento {ref}"), mais informativo que o estático.
+
+> Se algum estado ganhar tela própria no futuro (ex.: aviso de deadline dedicado), ligar via a
+> projection ao registro. Nada se deleta sem aprovação.

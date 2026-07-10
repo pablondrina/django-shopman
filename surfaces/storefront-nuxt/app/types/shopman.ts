@@ -839,11 +839,25 @@ export interface PaymentProjection {
   mock_enabled: boolean
 }
 
+export interface PaymentPageCopy {
+  order_ref_label: string
+  total_label: string
+  meta_description: string
+  card_intro: string
+  card_security_note: string
+  pix_instruction: string
+  pix_copy_label: string
+  pix_copy_btn: string
+  pix_copied: string
+  pix_expires_label: string
+}
+
 export interface PaymentResponse {
   redirect_url: string | null
   intent_ready?: boolean
   reason?: string
   payment: PaymentProjection | null
+  copy?: PaymentPageCopy
 }
 
 export interface PaymentStatusResponse {
