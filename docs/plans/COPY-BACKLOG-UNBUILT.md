@@ -168,3 +168,29 @@ telas que a UI **não usa** — arquivadas (seguem no registro e no `copy-wiring
   guardada — se um dia o menu ganhar um header, ligar via a projection do menu (`/api/v1/storefront/menu/`)
   resolvendo `MENU_SUBTITLE` por momento.
 - **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito).
+
+## 🙈 Kintsugi — superseded ou sem touchpoint limpo (decisão autônoma 2026-07-10, Pablo pediu "fazer tudo")
+
+A família `KINTSUGI_*` (copy de erro/degradação) tem 5 fluxos. **4 chaves religadas**
+(`SHORTAGE_GENERIC`, `SHORTAGE_SUBSTITUTES_INTRO`, `PAUSED_COPY` via `_stock_error_payload`;
+`CANCEL_REFUSED` via `execute_cancel`). Estas **6 ficam arquivadas** — cada uma por um motivo
+concreto, não por preguiça. Todas seguem no registro e no `copy-wiring-backlog.txt`:
+
+- `KINTSUGI_ITEM_REMOVED` ("Removido.") — **superseded**: o toast real ao remover é
+  `"{nome} removido"` (`sacola.vue`), específico e melhor que o genérico. Nada a ganhar.
+- `KINTSUGI_CEP_NOT_FOUND` ("Não encontrei esse CEP. Quer digitar o endereço?") — o CEP é buscado
+  **client-side direto no ViaCEP** (`AddressPicker.vue`, sem passar pelo Django) e o "não
+  encontrado" hoje é **silencioso** (o dropdown só não abre). Religar exigiria (a) UI nova de
+  "não encontrado" e (b) um canal de copy pro componente — que é **compartilhado com o checkout
+  da mãe** (`finalizar.vue`). Risco desproporcional pra um edge (Places é o buscador primário).
+  Reavaliar se o CEP migrar pro servidor (`geocode.py`).
+- `KINTSUGI_RATE_LIMITED` + `_CONTACT` + `_RETRY_CTA` + `_RETRY_PREFIX` — descrevem um **painel
+  estruturado genérico** (título + mensagem + "prefere falar conosco?" + botão retry + countdown).
+  O storefront hoje usa mensagens **context-specific** ("Muitas tentativas de recompra" vs "Muitas
+  alterações na sacola", `surface.py`) num alert flat (`sacola.vue`, título "Aguarde um instante").
+  As específicas são **melhores** que a genérica; o painel estruturado não existe. Religar seria
+  downgrade + UI nova. Se um dia quiser unificar o rate-limit num painel omotenashi com escape
+  pra WhatsApp, as 4 chaves estão prontas.
+
+> ⚠️ Decisões autônomas reversíveis: se o Pablo quiser a mensagem genérica de rate-limit (com o
+> escape pra WhatsApp) ou o aviso de CEP construídos mesmo assim, é só pedir.
