@@ -125,6 +125,23 @@ def _stock_error_payload(exc, *, product=None) -> dict:
             resolve_copy("KINTSUGI_PLANNED_OFFER", moment="*", audience="*").message
             or "Sai fresquinho no próximo lote. Quer garantir o seu?"
         ) if exc.is_planned else "",
+        # Kintsugi: enquadra a escassez com voz acolhedora (registro, admin-configurável).
+        # Pausado é diferente de esgotado — "voltamos em breve", não "acabou".
+        "shortage_title": (
+            resolve_copy("KINTSUGI_SHORTAGE_GENERIC", moment="*", audience="*").title
+            or "Esgotou enquanto você escolhia"
+        ),
+        "paused_title": (
+            resolve_copy("KINTSUGI_PAUSED_COPY", moment="*", audience="*").title or "Voltamos em breve!"
+        ) if exc.is_paused else "",
+        "paused_message": (
+            resolve_copy("KINTSUGI_PAUSED_COPY", moment="*", audience="*").message
+            or "Esse item está temporariamente fora do cardápio."
+        ) if exc.is_paused else "",
+        "substitutes_intro": (
+            resolve_copy("KINTSUGI_SHORTAGE_SUBSTITUTES_INTRO", moment="*", audience="*").message
+            or "Que tal um destes no lugar?"
+        ),
         "substitutes": exc.substitutes,
         "actions": actions,
         "items": [
