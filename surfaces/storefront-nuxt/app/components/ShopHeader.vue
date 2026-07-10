@@ -153,15 +153,15 @@ onBeforeUnmount(() => {
       <!-- Nav desktop (md+): links inline no lugar do hambúrguer. Item ativo = pílula creme
            sobre burgundy (bg-primary/text-primary-foreground remapeados no escopo
            .shop-header-bar). Escondido no mobile, que mantém logo central + gaveta. -->
-      <nav class="ml-5 hidden items-center gap-1 md:flex" aria-label="Navegação principal">
+      <nav class="ml-6 hidden items-center gap-1 md:flex" aria-label="Navegação principal">
         <NuxtLink
           v-for="item in desktopNav"
           :key="item.to"
           :to="item.to"
-          class="rounded-full px-3.5 py-1.5 text-sm transition"
+          class="rounded-full px-4 py-1.5 text-sm transition"
           :class="navActive(item.to)
             ? 'bg-primary font-semibold text-primary-foreground'
-            : 'font-medium text-foreground/80 hover:bg-accent hover:text-foreground'"
+            : 'font-normal text-foreground/80 hover:bg-accent hover:text-foreground'"
           :aria-current="navActive(item.to) ? 'page' : undefined"
           @click="closeMenu"
         >{{ item.label }}</NuxtLink>
