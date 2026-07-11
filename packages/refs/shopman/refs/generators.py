@@ -24,6 +24,7 @@ from datetime import date, datetime
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from shopman.refs.models import RefSequence
 from shopman.refs.registry import get_ref_type
@@ -73,7 +74,7 @@ def _apply_format(generator_format: str, code: str, scope: dict) -> str:
         fmt = match.group(1)
         raw_date = scope.get("business_date")
         if raw_date is None:
-            raw_date = date.today()
+            raw_date = timezone.localdate()
         if isinstance(raw_date, str):
             raw_date = date.fromisoformat(raw_date)
         elif isinstance(raw_date, datetime):
@@ -124,7 +125,7 @@ class DateSequenceGenerator:
     slug = "date_sequence"
 
     def next(self, ref_type: Any, scope: dict) -> str:
-        business_date = scope.get("business_date", str(date.today()))
+        business_date = scope.get("business_date", str(timezone.localdate()))
         if isinstance(business_date, (date, datetime)):
             business_date = business_date.isoformat()[:10]
         seq_name = f"{ref_type.slug}:{business_date}"
