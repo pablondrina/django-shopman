@@ -5,7 +5,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 TEMPLATES = ROOT / "templates"
-CSS_SOURCE = ROOT.parents[1] / "static" / "src" / "style-gestor.css"
 
 
 def _template_sources() -> dict[str, str]:
@@ -25,35 +24,8 @@ def _visible_source(source: str) -> str:
 
 # The legacy operator shell (gestor/base.html) was retired with the production
 # app cutover (OPERATOR-APPS-PLAN Fase 4) — operator surfaces are dedicated Nuxt
-# apps. The CSS guardrail below stays: style-gestor.css still backs the production
-# shortage modals (surface-modal) rendered into the Admin/Unfold production console.
-
-
-def test_backstage_design_tokens_expose_canonical_components():
-    css = CSS_SOURCE.read_text(encoding="utf-8")
-
-    for token in (
-        ".icon-sm",
-        ".icon-md",
-        ".icon-lg",
-        ".icon-display",
-        ".btn-ghost",
-        ".btn-quiet",
-        ".surface-modal",
-        ".empty-state",
-        ".field-label",
-        ".metric-value",
-        ".count-badge",
-        ".order-timer",
-        ".timer-late",
-        ".segmented-action",
-    ):
-        assert token in css
-
-    assert "placeholder:text-on-surface/70" in css
-    assert "placeholder:text-on-surface/40" not in css
-    assert ".material-symbols-rounded.icon-sm { font-size: 1rem; }" in css
-    assert ".order-timer .material-symbols-rounded" in css
+# apps, and the root Tailwind pipeline (static/src/style-gestor.css) went with
+# them: no Admin template nor UNFOLD["STYLES"] ever linked its output.
 
 
 def test_backstage_templates_avoid_micro_type_and_loose_dashes():
