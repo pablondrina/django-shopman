@@ -35,17 +35,17 @@ def _run():
 
 
 def _failed(n, *, minutes_ago=5):
-    for i in range(n):
-        d = Directive.objects.create(
+    for _ in range(n):
+        directive = Directive.objects.create(
             topic="notification.send", status="failed", payload={}, last_error="boom"
         )
-        Directive.objects.filter(pk=d.pk).update(
+        Directive.objects.filter(pk=directive.pk).update(
             updated_at=timezone.now() - timedelta(minutes=minutes_ago)
         )
 
 
 def _overdue_queued(n, *, minutes_overdue=30):
-    for i in range(n):
+    for _ in range(n):
         Directive.objects.create(
             topic="notification.send",
             status="queued",
@@ -97,7 +97,7 @@ def test_overdue_backlog_alerts():
 
 def test_fresh_queued_does_not_alert():
     # Na fila mas dentro do prazo (available_at recente/futuro) = saudável.
-    for i in range(10):
+    for _ in range(10):
         Directive.objects.create(topic="notification.send", status="queued", payload={})
     _run()
     assert not OperatorAlert.objects.filter(type="directive_backlog").exists()
