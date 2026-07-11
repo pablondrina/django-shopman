@@ -415,7 +415,7 @@ def _validate_checkout_form(
 def _validate_preorder(delivery_date: str) -> dict[str, str]:
     from datetime import date as date_type
     errors: dict[str, str] = {}
-    today = timezone.now().date()
+    today = timezone.localdate()
     try:
         chosen_date = date_type.fromisoformat(delivery_date)
     except ValueError:
