@@ -40,6 +40,10 @@ def mark_ticket_done(*, ticket_pk: int, actor: str):
     ticket = KDSTicket.objects.filter(pk=ticket_pk).first()
     if ticket is None:
         raise KDSError("Ticket não encontrado.")
+    if ticket.status == "done":
+        # Replay (duas estações bumpando o mesmo ticket) = sucesso no-op,
+        # mesma semântica de expedition_action_idempotent.
+        return ticket
     if not kds_core.complete_ticket(ticket, actor=actor):
         raise KDSError("Ticket não está aberto.")
     return ticket
