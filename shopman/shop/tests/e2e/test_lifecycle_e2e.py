@@ -530,10 +530,13 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
 # ─────────────────────────────────────────────────────────────────────
 
 class TestE2E9StockHoldFailure(TransactionTestCase):
-    """If stock.hold raises in on_commit, the order is committed and the exception propagates.
+    """Falha do stock.hold no gate de commit desfaz a transação inteira.
 
-    The order DB row survives (committed before on_commit fired). The exception
-    still surfaces to the caller so it can be logged/retried.
+    Canal remoto (payment não-external): ``lifecycle.secure_stock`` roda o
+    ``stock.hold`` DENTRO da transação do CommitService. Se a reserva falha,
+    o pedido nunca nasce — nenhuma linha órfã para o operador limpar, nenhum
+    pagamento iniciado. A exceção continua propagando ao caller para
+    log/retry.
     """
 
     def setUp(self):
@@ -543,19 +546,19 @@ class TestE2E9StockHoldFailure(TransactionTestCase):
     def tearDown(self):
         _stop_patches(self.patchers)
 
-    def test_stock_hold_failure_propagates(self):
+    def test_stock_hold_failure_rolls_back_commit(self):
         # Override stock.hold to raise
         self.mocks["hold"].side_effect = RuntimeError("stock hold failed: partial bundle")
 
         session = _make_session(self.channel)
 
-        # dispatch() runs in on_commit (after the order is committed), so the
-        # RuntimeError propagates from on_commit back to the caller.
+        # secure_stock roda síncrono dentro da transação do commit, então a
+        # RuntimeError propaga E desfaz o pedido junto (rollback atômico).
         with self.assertRaises(RuntimeError):
             _commit(session, self.channel)
 
-        # The Order was committed before on_commit fired — it exists in the DB.
-        self.assertEqual(Order.objects.count(), 1)
+        # A transação inteira desfez — pedido não existe.
+        self.assertEqual(Order.objects.count(), 0)
 
 
 # ─────────────────────────────────────────────────────────────────────
