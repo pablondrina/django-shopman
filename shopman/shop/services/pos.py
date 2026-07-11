@@ -219,9 +219,10 @@ def close_sale(
 ) -> PosSaleResult:
     """Create and commit a POS sale from a parsed cart payload."""
     payload = parse_pos_sale_intent(payload, for_commit=True).payload
+    channel, config = _channel_and_config(channel_ref)
+    derive_price_overrides(payload, channel=channel)
     validate_manager_approval(payload, operator_username=operator_username)
     _validate_payment_completion(payload)
-    channel, config = _channel_and_config(channel_ref)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     existing = _existing_sale_by_client_request_id(channel_ref=channel.ref, payload=payload)
     if existing is not None and session is None:
@@ -311,6 +312,7 @@ def review_sale(
     """Validate a POS checkout intent without committing the Orderman session."""
     payload = parse_pos_sale_intent(payload, for_commit=True).payload
     channel, _config = _channel_and_config(channel_ref)
+    derive_price_overrides(payload, channel=channel)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     if session is None and _payload_has_tab_identity(payload):
         raise ValueError("Abra um POS tab antes de finalizar.")
@@ -451,6 +453,7 @@ def save_pos_tab(
     """Save the current POS cart on its tab and return to the tab grid."""
     payload = parse_pos_sale_intent(payload, for_commit=False).payload
     channel, config = _channel_and_config(channel_ref)
+    derive_price_overrides(payload, channel=channel)
     session = _payload_open_tab_session(channel_ref=channel.ref, payload=payload)
     if session is None:
         raise ValueError("Abra um POS tab antes de deixar em espera.")
@@ -994,7 +997,10 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
             meta["notes"] = notes
         if item.get("price_overridden"):
             # Freeze the operator's unit price: the pricing modifier honors this
-            # flag and skips re-pricing. Stamp who approved (manager PIN gate).
+            # flag and skips re-pricing. The flag is server-derived
+            # (``derive_price_overrides``), not the client's advisory value, so
+            # only a genuinely off-catalog price freezes. Stamp who approved
+            # (manager PIN gate).
             meta["price_overridden"] = True
             if approved_by:
                 meta["price_approved_by"] = approved_by
@@ -1308,12 +1314,59 @@ def _payload_has_d1_line_discount(payload: dict) -> bool:
 
 
 def _payload_has_price_override(payload: dict) -> bool:
-    """True if any line carries an operator unit-price override (numpad "Preço").
+    """True if any line carries a unit-price override requiring manager approval.
 
-    Flag-driven (the client knows when the operator overrode), not a price
-    comparison — robust against D-1/Happy-Hour and listing-vs-base differences.
-    Always requires manager approval."""
+    Reads the ``price_overridden`` flag DERIVED server-side by
+    ``derive_price_overrides`` (a comparison of the declared ``unit_price_q``
+    against the canonical POS catalog price). The client's advisory flag is never
+    trusted here — derive first, then gate on the derivation."""
     return any(item.get("price_overridden") for item in payload.get("items", []))
+
+
+def _canonical_pos_unit_price_q(sku: str, channel: Channel, qty: int) -> int | None:
+    """Resolve the catalog price the POS channel would charge for a line.
+
+    Mirrors the ``pricing.item`` modifier that reprices every non-frozen line on
+    commit: the same customer-agnostic, qty-aware cascade (customer group is not
+    resolved at commit — POS ``ctx`` carries no customer — so employee pricing
+    stays a post-pricing modifier). This is the price a *legitimate* line already
+    carries in the payload, because D-1, happy-hour and employee discounts are
+    applied by later modifiers on commit, never baked into the quoted
+    ``unit_price_q``. Returns ``None`` when the SKU has no catalog anchor.
+    """
+    from shopman.shop.handlers.pricing import OffermanPricingBackend
+
+    try:
+        return OffermanPricingBackend().get_price(sku, channel, qty=max(1, int(qty)))
+    except Exception:
+        logger.debug("pos_canonical_price_lookup_failed sku=%s", sku, exc_info=True)
+        return None
+
+
+def derive_price_overrides(payload: dict, *, channel: Channel) -> None:
+    """Stamp ``price_overridden`` on each line from server-resolved catalog truth.
+
+    Server-side authority over the price-trust gate: for every merchandise line,
+    ``price_overridden`` is DERIVED by comparing the declared ``unit_price_q``
+    against the canonical POS catalog price — the client's advisory flag is
+    overwritten. A crafted request that lowers a price without the flag is caught
+    (the derivation flips it on) and the manager PIN gate fires. A line whose SKU
+    has no catalog anchor is treated as an override: there is no trusted price to
+    charge against, so it needs manager sign-off. Legitimate D-1/happy-hour lines
+    do not read as overrides — their payload price is the pre-modifier catalog
+    price, which matches the canonical resolved here.
+    """
+    for item in payload.get("items", []):
+        if _is_delivery_fee_item(item):
+            continue
+        try:
+            unit_price_q = int(item.get("unit_price_q", 0))
+            qty = int(item.get("qty", 1))
+        except (TypeError, ValueError):
+            item["price_overridden"] = True
+            continue
+        canonical_q = _canonical_pos_unit_price_q(str(item.get("sku") or ""), channel, qty)
+        item["price_overridden"] = canonical_q is None or unit_price_q != canonical_q
 
 
 def _payload_manual_discount(payload: dict) -> dict:
