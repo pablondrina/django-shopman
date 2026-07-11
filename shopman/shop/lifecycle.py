@@ -202,12 +202,30 @@ def secure_stock(order) -> None:
     stock.hold(order, require_all=True)
 
 
+# Fases com marcador durável de conclusão em order.data["lifecycle"] (ver
+# docs/reference/data-schemas.md). O dispatch roda pós-commit, fora de qualquer
+# durabilidade: um crash/deploy entre o COMMIT da transição e o fim do handler
+# perde a fase inteira (hold, fulfill, ticket KDS, notificação). dispatch()
+# grava o marcador após o handler retornar; sweep_stuck_orders re-despacha,
+# idempotente, as fases sem marcador.
+DURABLE_PHASES = frozenset({"on_commit", "on_confirmed", "on_paid", "on_cancelled"})
+LIFECYCLE_DATA_KEY = "lifecycle"
+PHASE_DONE = "done"
+
+
+def phase_complete(order, phase: str) -> bool:
+    """True quando a fase tem marcador durável de conclusão em order.data."""
+    return ((order.data or {}).get(LIFECYCLE_DATA_KEY) or {}).get(phase) == PHASE_DONE
+
+
 def dispatch(order, phase: str) -> None:
     """Resolve ChannelConfig and call services for the given phase.
 
     Exceptions propagate — an order stuck in an inconsistent state is worse
     than a visible error. Callers (signal handlers) are responsible for
-    surfacing failures appropriately.
+    surfacing failures appropriately. Fases em ``DURABLE_PHASES`` ganham o
+    marcador de conclusão APÓS o handler retornar; se o handler levantar, o
+    marcador não é gravado e o sweeper re-despacha.
     """
     config = ChannelConfig.for_channel(order.channel_ref)
 
@@ -216,6 +234,8 @@ def dispatch(order, phase: str) -> None:
         logger.warning("dispatch: unknown phase %s for order %s", phase, order.ref)
         return
     handler(order, config)
+    if phase in DURABLE_PHASES:
+        _mark_phase_complete(order, phase)
 
 
 # ── Phase handlers ──
@@ -277,21 +297,24 @@ def _on_commit(order, config: ChannelConfig) -> None:
 
     _handle_confirmation(order, config)
 
-    # Marcador durável de conclusão: on_commit não é durável (roda em on_commit do
-    # signal, síncrono); um crash/deploy entre o COMMIT e o callback deixaria o
-    # pedido órfão em NEW. O sweeper (sweep_stuck_orders) re-despacha, de forma
-    # idempotente, os NEW antigos SEM este marcador. Os early-returns acima são
-    # cancelamentos (saem de NEW), então só marcamos on_commit realmente completo.
-    _mark_phase_complete(order, "on_commit")
+    # O marcador durável de on_commit é gravado pelo dispatch() ao retornar.
+    # Os early-returns acima são cancelamentos (saem de NEW e ganham o marcador
+    # de on_cancelled pelo próprio dispatch da fase de cancelamento).
 
 
 def _mark_phase_complete(order, phase: str) -> None:
-    """Grava order.data['lifecycle'][phase]='done' (ver docs/reference/data-schemas.md)."""
+    """Grava order.data['lifecycle'][phase]='done' (ver docs/reference/data-schemas.md).
+
+    Lê o ``data`` fresco do banco antes de gravar: um dispatch aninhado
+    (transição de status dentro do handler) pode ter marcado outra fase nesse
+    meio-tempo, e um save cego do instance em memória perderia esse marcador.
+    """
     try:
-        data = dict(order.data or {})
-        marks = dict(data.get("lifecycle") or {})
-        marks[phase] = "done"
-        data["lifecycle"] = marks
+        fresh = type(order).objects.filter(pk=order.pk).values_list("data", flat=True).first()
+        data = dict(fresh) if fresh else dict(order.data or {})
+        marks = dict(data.get(LIFECYCLE_DATA_KEY) or {})
+        marks[phase] = PHASE_DONE
+        data[LIFECYCLE_DATA_KEY] = marks
         order.data = data
         order.save(update_fields=["data", "updated_at"])
     except Exception:
