@@ -1,8 +1,9 @@
 // KDS board read-side (Arc 2). Single source for a station's board:
 //   - useFetch the canonical projection (GET /api/v1/backstage/kds/<ref>/);
 //   - poll every 15s as a robust fallback (mirrors the HTMX `every 15s`);
-//   - SSE realtime: EventSource on the Django events channel → refresh on push,
-//     and a beep when the active-ticket count rises (new order arrived).
+//   - SSE realtime: EventSource same-origin no BFF (/sse/kds/<ref> → proxy do
+//     eventstream do Django) → refresh on push, and a beep when the
+//     active-ticket count rises (new order arrived).
 // SSE/poll/beep are client-only (EventSource + Web Audio are browser APIs).
 import type { KDSBoardProjection, KDSBoardResponse, KDSTicketProjection } from "~/types/kds";
 import { boardView, type KDSBoardView } from "~/presentation/board";
@@ -84,12 +85,9 @@ export function useKdsBoard(stationRef: string) {
 
   function connectSse() {
     if (source) return;
-    const base = String(config.public.djangoPublicBaseUrl || "").replace(/\/$/, "");
-    // SSE (EventSource) needs same-origin (or CORS on the eventstream). In prod the
-    // KDS is served same-origin under /kds/, so it connects; in dev it's a different
-    // origin (:3003 vs Django :8000) → skip and let the 15s poll carry realtime.
-    if (base && new URL(base).origin !== window.location.origin) return;
-    const url = `${base}/gestor/events/kds/${encodeURIComponent(stationRef)}/`;
+    // Same-origin sempre: o BFF (server/routes/sse/kds/[ref].ts) faz streaming do
+    // eventstream do Django, em dev e em prod — nada de gate por origem.
+    const url = ssePath(`/sse/kds/${encodeURIComponent(stationRef)}`, config.app.baseURL);
     try {
       source = new EventSource(url, { withCredentials: true });
       // django-eventstream pushes named events; any of them means "refetch".

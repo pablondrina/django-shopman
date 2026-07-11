@@ -45,7 +45,7 @@ export function installNuxtGlobals(): ComposableEnv {
     refresh: vi.fn(),
     fetchMock: vi.fn(),
     sonner: { error: vi.fn(), success: vi.fn() },
-    runtimeConfig: { public: { djangoPublicBaseUrl: "" } },
+    runtimeConfig: { app: { baseURL: "/" }, public: {} },
     reset() {
       env.fetchData.value = null;
       env.refresh.mockReset();

@@ -1,6 +1,6 @@
 // Realtime for the order detail page: SSE push (filtered to one ref) + poll
 // fallback + wake-on-visibility. Mirrors useOrdersBoard.connectSse — EventSource
-// needs same-origin, so dev (:3004 vs Django :8000) honestly stays on polling.
+// same-origin no BFF (/sse/orders), que proxya o eventstream do Django.
 export function useOrderEvents(orderRef: string, onPush: () => void, opts?: { pollMs?: number }) {
   const config = useRuntimeConfig();
   const realtime = ref<"connecting" | "live" | "polling">("polling");
@@ -9,9 +9,7 @@ export function useOrderEvents(orderRef: string, onPush: () => void, opts?: { po
 
   function connectSse() {
     if (source) return;
-    const base = String(config.public.djangoPublicBaseUrl || "").replace(/\/$/, "");
-    if (!base || new URL(base).origin !== window.location.origin) return;
-    const url = `${base}/gestor/events/orders/`;
+    const url = ssePath("/sse/orders", config.app.baseURL);
     try {
       realtime.value = "connecting";
       source = new EventSource(url, { withCredentials: true });
