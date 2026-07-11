@@ -231,7 +231,7 @@ def test_omotenashi_tag_renders_message(db, rf, shop_7_to_19):
     with patch("django.utils.timezone.localtime", return_value=_freeze(8)):
         ctx = OmotenashiContext.from_request(request)
     tpl = Template(
-        "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
     )
     out = tpl.render(Context({"omotenashi_ctx": ctx}))
     assert "fresquinho" in out.lower()

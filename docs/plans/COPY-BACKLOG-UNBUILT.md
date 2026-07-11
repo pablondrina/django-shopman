@@ -176,7 +176,9 @@ telas que a UI **não usa** — arquivadas (seguem no registro e no `copy-wiring
   enxuto filter-first de propósito; um header de página empurra o catálogo pra baixo. A copy fica
   guardada — se um dia o menu ganhar um header, ligar via a projection do menu (`/api/v1/storefront/menu/`)
   resolvendo `MENU_SUBTITLE` por momento.
-- **Status:** arquivada. Segue no registro **e no `copy-wiring-backlog.txt`** (órfã de propósito).
+- **Status (2026-07-10):** arquivada, mantida no registro. **Superseded pela decisão definitiva de
+  2026-07-11** (ver a seção "arquivamento definitivo" abaixo): a chave foi removida do registro para
+  zerar o backlog.
 
 ## 🙈 Kintsugi — superseded ou sem touchpoint limpo (decisão autônoma 2026-07-10, Pablo pediu "fazer tudo")
 
@@ -283,13 +285,26 @@ As 13 chaves órfãs antigas ficaram **duplicatas mortas** — arquivadas (segue
 > Fecha o item A: toda `WELCOME_*`/`LOGIN_*` agora está religada (pela mãe, ou `change_phone_cta` por mim)
 > ou arquivada como superseded. **Zero resíduo hardcoded.**
 
-## 🍞 `MENU_SUBTITLE` — subtítulo momento-aware do cardápio (BUILD, 2026-07-11)
+## 🍞 `MENU_SUBTITLE` — arquivamento definitivo (decisão do Pablo, 2026-07-11)
 
-**Não construída.** A chave descreve um subtítulo do cardápio que varia por momento do dia
-(ex.: manhã vs. tarde). Hoje `menu.vue` tem só um `h1` sr-only e **nenhum slot de subtítulo**,
-e a projection do catálogo não entrega campo de copy. Não é religação (não há tela que hardcode):
-é feature.
+**Arquivada e REMOVIDA do registro.** A chave descrevia um subtítulo do cardápio momento-aware
+(6 variantes: madrugada/manhã/almoço/tarde/fechando/fechado). Não era religação — `menu.vue` tinha
+só um `h1` sr-only e **nenhum slot de subtítulo**, e a projection do catálogo não entregava campo de
+copy. Era **feature nova** (um header de página acima do filtro sticky).
 
-Para construir: (1) elemento de subtítulo no header do cardápio; (2) campo `subtitle` na projection
-de catálogo resolvendo `MENU_SUBTITLE` do registro (momento/audiência via `OmotenashiContext`);
-(3) tipo Nuxt + consumo. Fica como decisão de produto do Pablo — arquivar ou construir.
+**Decisão (2026-07-11, confirmando a revisão A/B de 2026-07-10): arquivar definitivo.** O cardápio é
+filter-first de propósito — na loja mobile-first, o acima-da-dobra é para produto, e uma faixa de
+saudação competiria com o filtro sticky (`sticky top-16`) empurrando o catálogo para baixo. A
+calorosidade omotenashi já é entregue onde melhor cai: hero da home (momento-aware), `CART_EMPTY`
+(momento-aware) e os headers de seção com voz curada. O menu é superfície de tarefa, não de saudação.
+
+**Diferença desta vez:** o arquivamento anterior mantinha a chave no registro como órfã-de-propósito,
+mas o guardrail `test_copy_wiring_backlog` **só tolera órfã que esteja no backlog** — manter no registro
+E zerar o backlog é impossível. Como a decisão é definitiva, a chave saiu de `shopman/shop/omotenashi/copy.py`
+por inteiro (zero resíduo). As 5 referências em teste (`test_omotenashi_tag.py`, `test_omotenashi.py`) — que
+usavam `MENU_SUBTITLE` só como cobaia de infra do tag — foram repontadas para `CART_EMPTY` (outra chave com
+variantes por momento). **Backlog de copy = ZERO.**
+
+Se um dia o menu ganhar um header de página, a copy está preservada no git (commit deste arquivamento):
+recriar as 6 variantes no registro e ligar via a projection do menu (`/api/v1/storefront/menu/`) resolvendo
+por momento/audiência com o `OmotenashiContext` que `build_catalog()` já instancia.
