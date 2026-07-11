@@ -710,3 +710,118 @@ class EfiPixWebhookTests(WebhookTestBase):
             HTTP_X_EFI_WEBHOOK_TOKEN="any-token",
         )
         self.assertEqual(resp.status_code, 401)
+
+
+# ══════════════════════════════════════════════════════════════
+# PIX capture sufficiency (confirm_pix ↔ Stripe parity)
+# ══════════════════════════════════════════════════════════════
+
+
+class PixCaptureSufficiencyTests(WebhookTestBase):
+    """``on_paid`` só dispara quando o capturado cobre ``order.total_q``.
+
+    Mesmo contrato do webhook Stripe (``has_sufficient_captured_payment``).
+    Pagamento parcial registra audit data, cria alerta ``payment_insufficient``
+    e NÃO transiciona o pedido.
+    """
+
+    def test_partial_pix_does_not_dispatch_on_paid(self) -> None:
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = _create_order_with_payment("web", "pix")  # total_q = 1000
+        intent = _create_pix_intent(order)
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid=intent.gateway_id, e2e_id="E_PARTIAL", valor="5.00")
+
+        mock_dispatch.assert_not_called()
+        order.refresh_from_db()
+        payment_data = order.data["payment"]
+        self.assertEqual(payment_data["paid_amount_q"], 500)
+        self.assertNotIn("captured_at", payment_data)
+        self.assertTrue(
+            OperatorAlert.objects.filter(
+                type="payment_insufficient",
+                order_ref=order.ref,
+                acknowledged=False,
+            ).exists()
+        )
+
+    def test_partial_pix_replay_stays_blocked_without_duplicate_alert(self) -> None:
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = _create_order_with_payment("web", "pix")
+        intent = _create_pix_intent(order)
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid=intent.gateway_id, e2e_id="E_PART_1", valor="5.00")
+            confirm_pix(txid=intent.gateway_id, e2e_id="E_PART_2", valor="5.00")
+
+        mock_dispatch.assert_not_called()
+        self.assertEqual(
+            OperatorAlert.objects.filter(
+                type="payment_insufficient", order_ref=order.ref,
+            ).count(),
+            1,
+        )
+
+    def test_full_pix_dispatches_on_paid_and_records_captured_at(self) -> None:
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = _create_order_with_payment("web", "pix")
+        intent = _create_pix_intent(order)
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid=intent.gateway_id, e2e_id="E_FULL", valor="10.00")
+
+        mock_dispatch.assert_called_once_with(order, "on_paid")
+        order.refresh_from_db()
+        self.assertIn("captured_at", order.data["payment"])
+        self.assertFalse(
+            OperatorAlert.objects.filter(
+                type="payment_insufficient", order_ref=order.ref,
+            ).exists()
+        )
+
+    def test_partial_pix_on_legacy_order_without_intent_does_not_dispatch(self) -> None:
+        """Fallback por scan de Order.data (sem intent no Payman): compara
+        paid_amount_q com total_q diretamente."""
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = Order.objects.create(
+            ref="PIX-LEGACY-PARTIAL",
+            channel_ref="web",
+            status="confirmed",
+            total_q=1000,
+            data={"payment": {"method": "pix", "intent_ref": "legacy-txid_legacy_1"}},
+        )
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid="txid_legacy_1", e2e_id="E_LEG_PART", valor="5.00")
+
+        mock_dispatch.assert_not_called()
+        order.refresh_from_db()
+        self.assertNotIn("captured_at", order.data["payment"])
+        self.assertTrue(
+            OperatorAlert.objects.filter(
+                type="payment_insufficient", order_ref=order.ref,
+            ).exists()
+        )
+
+    def test_full_pix_on_legacy_order_without_intent_still_dispatches(self) -> None:
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = Order.objects.create(
+            ref="PIX-LEGACY-FULL",
+            channel_ref="web",
+            status="confirmed",
+            total_q=1000,
+            data={"payment": {"method": "pix", "intent_ref": "legacy-txid_legacy_2"}},
+        )
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid="txid_legacy_2", e2e_id="E_LEG_FULL", valor="10.00")
+
+        mock_dispatch.assert_called_once_with(order, "on_paid")
+        order.refresh_from_db()
+        self.assertIn("captured_at", order.data["payment"])

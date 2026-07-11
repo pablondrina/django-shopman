@@ -8,6 +8,15 @@ keeping ``availability.check`` as the single source of truth.
 
 Wired in ``shopman.shop.handlers.__init__._register_sse_emitters`` and only
 active when ``django_eventstream`` is installed (it is, since WP-AV-10).
+
+Every publish is deferred to ``transaction.on_commit``: the receivers fire
+inside the transaction that is mutating state, and the client reacts to the
+event by refetching the canonical endpoint (ADR-016) — an event delivered
+before COMMIT would make that refetch read stale state. Payloads are built
+eagerly (value snapshots at signal time, never live model instances) and only
+the publish itself waits for the COMMIT. Outside an atomic block, Django runs
+``on_commit`` callbacks immediately, so non-transactional callers keep the
+synchronous behavior.
 """
 
 from __future__ import annotations
@@ -15,6 +24,7 @@ from __future__ import annotations
 import logging
 
 from django.core.cache import cache
+from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 
 logger = logging.getLogger(__name__)
@@ -60,11 +70,21 @@ def _emit_for_sku(sku: str, *, event_type: str, extra: dict | None = None) -> No
     Also invalidates the per-channel availability cache so the next API read
     sees fresh data — without this, push updates would race the 10s cache TTL
     in :mod:`shopman.shop.api.availability`.
+
+    Publish (and the cache invalidation that accompanies it) waits for the
+    COMMIT — deleting the cache before COMMIT would let a concurrent request
+    refill it with pre-commit data.
     """
     if not sku:
         return
 
     payload = {"sku": sku, **(extra or {})}
+    transaction.on_commit(
+        lambda: _publish_for_sku(sku, event_type=event_type, payload=payload)
+    )
+
+
+def _publish_for_sku(sku: str, *, event_type: str, payload: dict) -> None:
     try:
         from django_eventstream import send_event
     except ImportError:
@@ -94,6 +114,10 @@ def emit_surface_changed(surface_ref: str) -> None:
     """
     if not surface_ref:
         return
+    transaction.on_commit(lambda: _publish_surface_changed(surface_ref))
+
+
+def _publish_surface_changed(surface_ref: str) -> None:
     try:
         from django_eventstream import send_event
     except ImportError:
@@ -174,13 +198,20 @@ def _emit_for_order(order_ref: str, *, event_type: str, payload: dict | None = N
     """
     if not order_ref:
         return
+    payload = dict(payload) if payload else {"ref": order_ref}
+    transaction.on_commit(
+        lambda: _publish_for_order(order_ref, event_type=event_type, payload=payload)
+    )
+
+
+def _publish_for_order(order_ref: str, *, event_type: str, payload: dict) -> None:
     try:
         from django_eventstream import send_event
     except ImportError:
         logger.warning("django_eventstream not installed; SSE order emit skipped")
         return
     try:
-        send_event(f"order-{order_ref}", event_type, payload or {"ref": order_ref})
+        send_event(f"order-{order_ref}", event_type, payload)
     except Exception:
         logger.warning(
             "SSE order emit failed ref=%s type=%s", order_ref, event_type, exc_info=True,
@@ -350,6 +381,11 @@ def _active_kds_count(kds_instance_id) -> int:
 
 
 def _emit_backstage(kind: str, event_type: str, payload: dict, *, scope: str | None = None) -> None:
+    payload = dict(payload)
+    transaction.on_commit(lambda: _publish_backstage(kind, event_type, payload, scope))
+
+
+def _publish_backstage(kind: str, event_type: str, payload: dict, scope: str | None) -> None:
     try:
         from django_eventstream import send_event
     except ImportError:

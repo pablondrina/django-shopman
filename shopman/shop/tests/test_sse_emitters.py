@@ -5,12 +5,15 @@ Verifies:
    lists the SKU, with the correct event type and payload shape.
 2. Cache invalidation accompanies each emit so the next ``/api/v1/availability``
    call sees fresh data.
-3. ``/storefront/sku/<sku>/state/`` returns the badge HTML and a parseable
-   ``HX-Trigger`` header carrying the canonical state.
+3. Every publish waits for the COMMIT (``transaction.on_commit``) — an event
+   delivered before COMMIT would make the client's canonical refetch read
+   stale state (ADR-016).
 
 End-to-end tests against a live SSE consumer require a multi-process bridge
 (Redis), which is documented as the production requirement; here we
-mock ``send_event`` and assert on the call surface.
+mock ``send_event`` and assert on the call surface. Emits are deferred to
+``on_commit``, so tests run the mutation inside
+``django_capture_on_commit_callbacks(execute=True)``.
 """
 
 from __future__ import annotations
@@ -87,12 +90,13 @@ def listings_for_baguete(baguete, web_channel, pdv_channel):
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_emit_targets_every_channel_listing_the_sku(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     """``_emit_for_sku`` resolves channels via ListingItem and emits to each."""
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
 
-    _emit_for_sku("BAGUETE", event_type="stock-update")
+    with django_capture_on_commit_callbacks(execute=True):
+        _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
     assert channels_called == ["stock-catalog", "stock-pdv", "stock-web"]
@@ -103,13 +107,36 @@ def test_emit_targets_every_channel_listing_the_sku(
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
+def test_emit_waits_for_transaction_commit(
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
+):
+    """No publish (nor cache invalidation) may happen before COMMIT (ADR-016)."""
+    from shopman.shop.handlers._sse_emitters import _emit_for_sku
+
+    cache.set("availability:BAGUETE:web", {"stale": True}, 30)
+
+    with django_capture_on_commit_callbacks(execute=False) as callbacks:
+        _emit_for_sku("BAGUETE", event_type="stock-update")
+        assert mock_send.call_count == 0
+        assert cache.get("availability:BAGUETE:web") == {"stale": True}
+
+    assert callbacks, "emit must be deferred via transaction.on_commit"
+    for callback in callbacks:
+        callback()
+    assert mock_send.call_count > 0
+    assert cache.get("availability:BAGUETE:web") is None
+
+
+@pytest.mark.django_db
+@patch("django_eventstream.send_event")
 def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
-    mock_send, baguete, web_channel, pdv_channel,
+    mock_send, baguete, web_channel, pdv_channel, django_capture_on_commit_callbacks,
 ):
     """SKUs without Listing membership broadcast to every active channel."""
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
 
-    _emit_for_sku("BAGUETE", event_type="stock-update")
+    with django_capture_on_commit_callbacks(execute=True):
+        _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
     assert channels_called == ["stock-catalog", "stock-pdv", "stock-web"]
@@ -118,7 +145,7 @@ def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_emit_invalidates_per_channel_availability_cache(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     """The cache used by ``/api/v1/availability/`` must be cleared on every emit."""
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
@@ -127,7 +154,8 @@ def test_emit_invalidates_per_channel_availability_cache(
     cache.set("availability:BAGUETE:pdv", {"stale": True}, 30)
     cache.set("availability:BAGUETE:default", {"stale": True}, 30)
 
-    _emit_for_sku("BAGUETE", event_type="stock-update")
+    with django_capture_on_commit_callbacks(execute=True):
+        _emit_for_sku("BAGUETE", event_type="stock-update")
 
     assert cache.get("availability:BAGUETE:web") is None
     assert cache.get("availability:BAGUETE:pdv") is None
@@ -137,15 +165,16 @@ def test_emit_invalidates_per_channel_availability_cache(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_emit_carries_extra_payload_keys(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
 
-    _emit_for_sku(
-        "BAGUETE",
-        event_type="product-paused",
-        extra={"is_sellable": False},
-    )
+    with django_capture_on_commit_callbacks(execute=True):
+        _emit_for_sku(
+            "BAGUETE",
+            event_type="product-paused",
+            extra={"is_sellable": False},
+        )
 
     payload = mock_send.call_args_list[0].args[2]
     assert payload == {"sku": "BAGUETE", "is_sellable": False}
@@ -153,7 +182,9 @@ def test_emit_carries_extra_payload_keys(
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_payment_change_emits_order_and_backstage_updates(mock_send, web_channel):
+def test_payment_change_emits_order_and_backstage_updates(
+    mock_send, web_channel, django_capture_on_commit_callbacks,
+):
     from shopman.shop.handlers._sse_emitters import _on_payment_changed
 
     order = Order.objects.create(
@@ -166,7 +197,8 @@ def test_payment_change_emits_order_and_backstage_updates(mock_send, web_channel
     class Intent:
         status = "captured"
 
-    _on_payment_changed(sender=None, intent=Intent(), order_ref=order.ref)
+    with django_capture_on_commit_callbacks(execute=True):
+        _on_payment_changed(sender=None, intent=Intent(), order_ref=order.ref)
 
     assert any(
         call.args[0] == "order-PAY-SSE-1"
@@ -188,14 +220,15 @@ def test_payment_change_emits_order_and_backstage_updates(mock_send, web_channel
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_hold_save_emits_stock_update(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
-    Hold.objects.create(
-        sku="BAGUETE",
-        quantity=Decimal("1"),
-        status="pending",
-        target_date=date.today(),
-    )
+    with django_capture_on_commit_callbacks(execute=True):
+        Hold.objects.create(
+            sku="BAGUETE",
+            quantity=Decimal("1"),
+            status="pending",
+            target_date=date.today(),
+        )
     types = {call.args[1] for call in mock_send.call_args_list}
     skus = {call.args[2]["sku"] for call in mock_send.call_args_list}
     assert "stock-update" in types
@@ -205,12 +238,13 @@ def test_hold_save_emits_stock_update(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_product_pause_emits_product_paused(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     mock_send.reset_mock()  # ignore creation-time signals from fixtures
 
-    baguete.is_sellable = False
-    baguete.save()
+    with django_capture_on_commit_callbacks(execute=True):
+        baguete.is_sellable = False
+        baguete.save()
 
     pause_calls = [
         c for c in mock_send.call_args_list if c.args[1] == "product-paused"
@@ -222,12 +256,13 @@ def test_product_pause_emits_product_paused(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_product_save_without_sellable_change_skips_emit(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     mock_send.reset_mock()
 
-    baguete.name = "Baguete tradicional"
-    baguete.save()
+    with django_capture_on_commit_callbacks(execute=True):
+        baguete.name = "Baguete tradicional"
+        baguete.save()
 
     pause_calls = [
         c for c in mock_send.call_args_list if c.args[1] == "product-paused"
@@ -238,20 +273,19 @@ def test_product_save_without_sellable_change_skips_emit(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_listing_item_unpublish_emits_listing_changed(
-    mock_send, baguete, listings_for_baguete,
+    mock_send, baguete, listings_for_baguete, django_capture_on_commit_callbacks,
 ):
     mock_send.reset_mock()
 
-    item = ListingItem.objects.filter(
-        listing__ref="web", product=baguete,
-    ).first()
-    item.is_published = False
-    item.save()
+    with django_capture_on_commit_callbacks(execute=True):
+        item = ListingItem.objects.filter(
+            listing__ref="web", product=baguete,
+        ).first()
+        item.is_published = False
+        item.save()
 
     listing_calls = [
         c for c in mock_send.call_args_list if c.args[1] == "listing-changed"
     ]
     assert listing_calls, "expected listing-changed emit"
     assert listing_calls[0].args[2] == {"sku": "BAGUETE"}
-
-

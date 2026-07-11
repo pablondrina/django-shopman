@@ -53,6 +53,20 @@ def trusted_device_prefill(request) -> tuple[str, str]:
         return "", ""
 
 
+def client_ip(request) -> str:
+    """IP real do cliente para os gates de rate-limit por IP do doorman.
+
+    Atrás do load balancer, ``REMOTE_ADDR`` é o IP do proxy — todos os
+    clientes compartilhariam um único bucket (falso bloqueio coletivo).
+    Resolve via ``X-Forwarded-For`` com o mesmo ``TRUSTED_PROXY_DEPTH`` que os
+    endpoints do doorman já usam.
+    """
+    from shopman.doorman.conf import get_doorman_settings
+    from shopman.doorman.utils import get_client_ip
+
+    return get_client_ip(request, get_doorman_settings().TRUSTED_PROXY_DEPTH)
+
+
 def request_code(*, phone: str, delivery_method: str, ip_address: str | None):
     from shopman.doorman import get_auth_service
 

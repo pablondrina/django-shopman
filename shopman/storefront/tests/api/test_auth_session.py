@@ -458,3 +458,53 @@ def test_auth_trust_device_json_skip_does_not_set_cookie(client: Client):
     assert response.status_code == 200
     assert response.json()["trusted"] is False
     assert doorman_settings.DEVICE_TRUST_COOKIE_NAME not in response.cookies
+
+
+def test_auth_request_code_resolves_client_ip_behind_proxy(monkeypatch, client: Client):
+    """Atrás do LB, REMOTE_ADDR é o IP do proxy: o gate de IP do doorman deve
+    receber o IP real via X-Forwarded-For (rightmost com TRUSTED_PROXY_DEPTH),
+    senão todos os clientes compartilham um único bucket de rate-limit."""
+    from shopman.storefront.api import auth as auth_api
+
+    sent = {}
+
+    def fake_request_code(*, phone, delivery_method, ip_address):
+        sent.update(ip_address=ip_address)
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "request_code", fake_request_code)
+
+    response = client.post(
+        "/api/v1/auth/request-code/",
+        data={"target": "43999997777"},
+        content_type="application/json",
+        # Entrada da esquerda é spoofável pelo cliente; a confiável é a que o
+        # proxy confiado anexou (rightmost, TRUSTED_PROXY_DEPTH=1).
+        HTTP_X_FORWARDED_FOR="203.0.113.9, 198.51.100.7",
+    )
+
+    assert response.status_code == 200
+    assert sent["ip_address"] == "198.51.100.7"
+
+
+def test_auth_request_code_falls_back_to_remote_addr_without_proxy(monkeypatch, client: Client):
+    from shopman.storefront.api import auth as auth_api
+
+    sent = {}
+
+    def fake_request_code(*, phone, delivery_method, ip_address):
+        sent.update(ip_address=ip_address)
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(auth_api, "HAS_AUTH", True)
+    monkeypatch.setattr(auth_api.auth_service, "request_code", fake_request_code)
+
+    response = client.post(
+        "/api/v1/auth/request-code/",
+        data={"target": "43999997777"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert sent["ip_address"] == "127.0.0.1"
