@@ -325,7 +325,7 @@ class CommitService:
             from datetime import date as date_type
             try:
                 delivery_dt = date_type.fromisoformat(delivery_date_str)
-                order_data["is_preorder"] = delivery_dt > timezone.now().date()
+                order_data["is_preorder"] = delivery_dt > timezone.localdate()
             except (ValueError, TypeError):
                 pass
 
