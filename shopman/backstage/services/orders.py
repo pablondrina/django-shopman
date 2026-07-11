@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from shopman.orderman.exceptions import InvalidTransition
 
-from shopman.backstage.services.exceptions import OrderError
+from shopman.backstage.services.exceptions import OrderConflict, OrderError
 from shopman.shop.services import operator_orders
+from shopman.shop.services.operator_orders import OrderStateConflict
 
 
 def find_order(ref: str):
@@ -15,6 +16,8 @@ def find_order(ref: str):
 def confirm_order(order, *, actor: str):
     try:
         return operator_orders.confirm_order(order, actor=actor)
+    except OrderStateConflict as exc:
+        raise OrderConflict(str(exc)) from exc
     except (ValueError, InvalidTransition) as exc:
         raise OrderError(str(exc) or "Não foi possível confirmar o pedido.") from exc
 
@@ -30,6 +33,8 @@ def reject_order(order, *, reason: str, actor: str, rejected_by: str, cancellati
             rejected_by=rejected_by,
             cancellation_code=cancellation_code,
         )
+    except OrderStateConflict as exc:
+        raise OrderConflict(str(exc)) from exc
     except (ValueError, InvalidTransition) as exc:
         raise OrderError(str(exc)) from exc
 

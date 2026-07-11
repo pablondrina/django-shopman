@@ -73,7 +73,7 @@ from shopman.backstage.services import (
 from shopman.backstage.services import (
     production as production_service,
 )
-from shopman.backstage.services.exceptions import OrderError, POSError, ProductionError
+from shopman.backstage.services.exceptions import OrderConflict, OrderError, POSError, ProductionError
 from shopman.backstage.services.production import ProductionOrderShortError, ProductionStockShortError
 from shopman.shop.services import pos as pos_tabs_service
 from shopman.shop.services.pos import PosRecentSaleNotFound
@@ -785,7 +785,10 @@ class OrderAdvanceView(_OrderActionBase):
     post=extend_schema(
         tags=["backstage"],
         summary="Confirm pending order",
-        responses={200: OpenApiResponse(description="Order confirmed.")},
+        responses={
+            200: OpenApiResponse(description="Order confirmed."),
+            409: OpenApiResponse(description="Order already left the pending state."),
+        },
     ),
 )
 class OrderConfirmView(_OrderActionBase):
@@ -795,6 +798,8 @@ class OrderConfirmView(_OrderActionBase):
             return err
         try:
             orders_service.confirm_order(order, actor=_actor(request))
+        except OrderConflict as exc:
+            return Response({"detail": str(exc)}, status=409)
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao confirmar."}, status=400)
         return Response({"ok": True, "ref": ref})
@@ -804,7 +809,10 @@ class OrderConfirmView(_OrderActionBase):
     post=extend_schema(
         tags=["backstage"],
         summary="Reject pending order",
-        responses={200: OpenApiResponse(description="Order rejected.")},
+        responses={
+            200: OpenApiResponse(description="Order rejected."),
+            409: OpenApiResponse(description="Order already left the pending state."),
+        },
     ),
 )
 class OrderRejectView(_OrderActionBase):
@@ -824,6 +832,8 @@ class OrderRejectView(_OrderActionBase):
                 rejected_by="operator",
                 cancellation_code=cancellation_code,
             )
+        except OrderConflict as exc:
+            return Response({"detail": str(exc)}, status=409)
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao recusar."}, status=400)
         return Response({"ok": True, "ref": ref})

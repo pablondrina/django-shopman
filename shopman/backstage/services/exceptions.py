@@ -19,6 +19,14 @@ class OrderError(BackstageServiceError):
     """Raised when an order mutation cannot be applied."""
 
 
+class OrderConflict(OrderError):
+    """Raised when the order changed state before the operator action landed.
+
+    Ex.: recusar um pedido que a auto-confirmação acabou de confirmar. A camada
+    HTTP mapeia para 409 (conflito de estado), não 400 (request inválido).
+    """
+
+
 class POSError(BackstageServiceError):
     """Raised when a POS mutation cannot be applied."""
 

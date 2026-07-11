@@ -192,6 +192,33 @@ def test_reject_requires_reason(client, operator, order):
 
 
 @pytest.mark.django_db
+def test_confirm_conflicts_when_order_already_left_new(client, operator, order):
+    # `order` já está CONFIRMED (a auto-confirmação venceu a corrida):
+    # conflito de estado responde 409, não 400.
+    client.force_login(operator)
+    response = client.post(reverse("api-backstage-order-confirm", args=[order.ref]))
+    assert response.status_code == 409
+    assert "não está mais aguardando confirmação" in response.json()["detail"]
+
+
+@pytest.mark.django_db
+def test_reject_conflicts_when_order_was_auto_confirmed(client, operator, order):
+    """Corrida Recusar × auto-confirmação otimista: o guard reavalia o status na
+    linha travada e responde 409 — nunca aplica CONFIRMED→CANCELLED decidindo
+    sobre estado velho."""
+    client.force_login(operator)
+    response = client.post(
+        reverse("api-backstage-order-reject", args=[order.ref]),
+        data={"reason": "Sem estoque"},
+        content_type="application/json",
+    )
+    assert response.status_code == 409
+    assert "não está mais aguardando confirmação" in response.json()["detail"]
+    order.refresh_from_db()
+    assert order.status == Order.Status.CONFIRMED  # pedido segue intacto
+
+
+@pytest.mark.django_db
 @override_settings(SHOPMAN_REQUIRE_ACTIVE_OPERATOR=False)
 def test_save_notes_persists(client, operator, order):
     client.force_login(operator)

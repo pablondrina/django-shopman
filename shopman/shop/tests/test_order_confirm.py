@@ -153,6 +153,9 @@ class OrderConfirmTests(TestCase):
 
         resp = self.client.post(f"/api/v1/backstage/orders/{order.ref}/confirm/")
 
-        self.assertEqual(resp.status_code, 400)
+        # Conflito de estado (pedido já saiu de NEW) é 409, não 400: o guard
+        # reavalia o status na linha travada e sinaliza a corrida com a
+        # auto-confirmação, em vez de fingir request inválido.
+        self.assertEqual(resp.status_code, 409)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
