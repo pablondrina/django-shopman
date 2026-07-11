@@ -58,7 +58,7 @@ def _sku_availability_policy(sku: str) -> str:
 
 def _planned_supply_for_target(sku: str, target: date) -> Decimal:
     """Quantity expected from future-dated quants up to the target date."""
-    today = date.today()
+    today = timezone.localdate()
     if target <= today:
         return Decimal("0")
     return (
@@ -212,7 +212,7 @@ def availability_for_sku(
             sku, availability_policy, safety_margin, is_paused=True,
         )
 
-    target = target_date or date.today()
+    target = target_date or timezone.localdate()
 
     is_tracked = Quant.objects.filter(sku=sku).exists()
 
@@ -372,7 +372,7 @@ def availability_for_skus(
 
     zero = Decimal("0")
 
-    today = date.today()
+    today = timezone.localdate()
     target = target_date or today
 
     # ── Query 1: orderable SKUs from the offering contract ───────────────────

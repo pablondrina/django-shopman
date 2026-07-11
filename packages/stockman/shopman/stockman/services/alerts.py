@@ -10,7 +10,6 @@ Usage:
 """
 
 import logging
-from datetime import date
 from decimal import Decimal
 
 from django.db.models import Q, Sum
@@ -49,7 +48,7 @@ def check_alerts(sku: str | None = None) -> list[tuple[StockAlert, Decimal]]:
 
         # Physical stock only (no future planned)
         quant_qs = quant_qs.filter(
-            Q(target_date__isnull=True) | Q(target_date__lte=date.today())
+            Q(target_date__isnull=True) | Q(target_date__lte=timezone.localdate())
         )
 
         total = quant_qs.aggregate(
@@ -58,7 +57,7 @@ def check_alerts(sku: str | None = None) -> list[tuple[StockAlert, Decimal]]:
 
         held_qs = Hold.objects.filter(
             sku=alert.sku,
-            target_date=date.today(),
+            target_date=timezone.localdate(),
         ).active()
         if alert.position:
             held_qs = held_qs.filter(quant__position=alert.position)

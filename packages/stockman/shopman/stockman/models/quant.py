@@ -9,12 +9,12 @@ See: docs/guides/stockman.md § Integridade de `_quantity`
 """
 
 import logging
-from datetime import date
 from decimal import Decimal
 
 from django.db import models
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from shopman.utils.refs import RefField
 
@@ -53,14 +53,14 @@ class QuantManager(models.Manager):
 
     def physical(self):
         """Only physical stock (target_date=None or past)."""
-        today = date.today()
+        today = timezone.localdate()
         return self.filter(
             Q(target_date__isnull=True) | Q(target_date__lte=today)
         )
 
     def planned(self):
         """Only planned production (target_date in future)."""
-        return self.filter(target_date__gt=date.today())
+        return self.filter(target_date__gt=timezone.localdate())
 
     def at_position(self, position):
         """Filter by position."""
@@ -183,7 +183,7 @@ class Quant(models.Model):
         """Is planned production (doesn't exist physically yet)?"""
         if self.target_date is None:
             return False
-        return self.target_date > date.today()
+        return self.target_date > timezone.localdate()
 
     # ══════════════════════════════════════════════════════════════
     # VALIDATION

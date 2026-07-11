@@ -5,8 +5,8 @@ Usage:
     batch = Batch.objects.create(
         ref="LOT-2026-0223-A",
         sku='CROISSANT',
-        production_date=date.today(),
-        expiry_date=date.today() + timedelta(days=3),
+        production_date=timezone.localdate(),
+        expiry_date=timezone.localdate() + timedelta(days=3),
         supplier="Fornecedor ABC",
     )
 
@@ -133,8 +133,8 @@ class Batch(models.Model):
         """Is this batch past its expiry date?"""
         if self.expiry_date is None:
             return False
-        from datetime import date
-        return date.today() > self.expiry_date
+        from django.utils import timezone
+        return timezone.localdate() > self.expiry_date
 
     def __str__(self) -> str:
         expiry = f" (val:{self.expiry_date})" if self.expiry_date else ""

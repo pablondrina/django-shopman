@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.position import Position
 from shopman.stockman.models.quant import Quant
@@ -65,7 +66,7 @@ class StockQueries:
         Returns:
             Decimal with available quantity
         """
-        target = target_date or date.today()
+        target = target_date or timezone.localdate()
 
         # Support both sku string and product object
         profile = _resolve_stock_profile(sku_or_product)
@@ -165,7 +166,7 @@ class StockQueries:
         Returns:
             Sum of active hold quantities
         """
-        target = target_date or date.today()
+        target = target_date or timezone.localdate()
         sku = sku_or_product if isinstance(sku_or_product, str) else sku_or_product.sku
 
         return Hold.objects.filter(
@@ -201,7 +202,7 @@ class StockQueries:
             qs = qs.filter(position=position)
 
         if not include_future:
-            qs = qs.filter(Q(target_date__isnull=True) | Q(target_date__lte=date.today()))
+            qs = qs.filter(Q(target_date__isnull=True) | Q(target_date__lte=timezone.localdate()))
 
         if not include_empty:
             qs = qs.filter(_quantity__gt=0)

@@ -113,9 +113,9 @@ class ExpiryStatusFilter(admin.SimpleListFilter):
         ]
 
     def queryset(self, request, queryset):
-        from datetime import date
+        from django.utils import timezone
 
-        today = date.today()
+        today = timezone.localdate()
         if self.value() == "expired":
             return queryset.filter(expiry_date__lt=today)
         if self.value() == "valid":
