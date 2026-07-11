@@ -72,14 +72,31 @@ describe("useOrdersBoard — ações (act)", () => {
     expect(opts.body).toEqual({ reason: "Sem estoque", cancellation_code: "CODE_2" });
   });
 
-  it("falha na ação acende erro inline por-ref + toast, e devolve false", async () => {
+  it("falha na ação acende erro inline por-ref + toast, devolve false e reconcilia via refresh", async () => {
     env.fetchMock.mockRejectedValueOnce({ data: { detail: "Pagamento não confirmado" } });
     const board = useOrdersBoard();
     const ok = await board.confirm("WEB-2");
     expect(ok).toBe(false);
     expect(board.actionError("WEB-2")).toBe("Pagamento não confirmado");
     expect(env.sonner.error).toHaveBeenCalledWith("Pagamento não confirmado");
-    expect(env.refresh).not.toHaveBeenCalled();
+    // Mesmo em erro o board refaz o fetch canônico: o estado no servidor pode
+    // ter mudado por baixo (auto-confirmação, outra estação).
+    expect(env.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("409 (conflito de estado) mostra mensagem honesta e refaz o fetch canônico", async () => {
+    env.fetchMock.mockRejectedValueOnce({
+      status: 409,
+      data: { detail: "Pedido não está mais aguardando confirmação (status atual: confirmado)." },
+    });
+    const board = useOrdersBoard();
+    const ok = await board.reject("WEB-5", "Sem estoque");
+    expect(ok).toBe(false);
+    const message = board.actionError("WEB-5");
+    expect(message).toContain("Pedido não está mais aguardando confirmação");
+    expect(message).toContain("confirmado automaticamente");
+    expect(env.sonner.error).toHaveBeenCalledWith(message);
+    expect(env.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("uma nova tentativa limpa o erro anterior do ref", async () => {

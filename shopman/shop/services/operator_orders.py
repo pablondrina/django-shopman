@@ -9,12 +9,24 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
 from shopman.orderman.models import Order
 
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.order_helpers import get_fulfillment_type
 
 logger = logging.getLogger(__name__)
+
+
+class OrderStateConflict(ValueError):
+    """O pedido mudou de status antes de a ação do operador ser aplicada.
+
+    Levantada pelo guard reavaliado na linha travada (``select_for_update``):
+    a auto-confirmação (directive ``confirmation.timeout``) corre em paralelo
+    com o operador, então decidir sobre o status em memória permitiria, por
+    exemplo, recusar um pedido que acabou de ser confirmado (CONFIRMED →
+    CANCELLED é transição válida). A camada HTTP mapeia para 409.
+    """
 
 _NEXT_STATUS_MAP: dict[str, str] = {
     Order.Status.CONFIRMED: Order.Status.PREPARING,
@@ -46,15 +58,26 @@ def recent_history(*, limit: int = 20) -> list[Order]:
 
 
 def confirm_order(order: Order, *, actor: str) -> None:
-    """Confirm a manually accepted order."""
-    if order.status != Order.Status.NEW:
-        raise ValueError("Pedido não está aguardando confirmação")
+    """Confirm a manually accepted order.
 
+    Guard + transição rodam na MESMA transação com lock: o guard reavalia o
+    status na linha travada, nunca na instância em memória, para não decidir
+    sobre estado velho enquanto a auto-confirmação corre em paralelo.
+    """
     from shopman.shop.lifecycle import ensure_confirmable, ensure_payment_captured
 
-    ensure_payment_captured(order)
-    ensure_confirmable(order)
-    order.transition_status(Order.Status.CONFIRMED, actor=actor)
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        if locked.status != Order.Status.NEW:
+            raise OrderStateConflict(
+                "Pedido não está mais aguardando confirmação "
+                f"(status atual: {locked.get_status_display()})."
+            )
+        ensure_payment_captured(locked)
+        ensure_confirmable(locked)
+        # transition_status re-lê a mesma linha já travada nesta transação,
+        # então o lock cobre do guard até o save.
+        order.transition_status(Order.Status.CONFIRMED, actor=actor)
 
 
 def reject_order(
@@ -69,22 +92,32 @@ def reject_order(
 
     ``cancellation_code`` is the marketplace (iFood) cancellation code the
     operator picked; it rides ``order.data`` to the status-callback handler.
+
+    Guard + cancelamento na MESMA transação com lock (ver ``OrderStateConflict``):
+    CONFIRMED → CANCELLED é transição válida, então sem o guard na linha travada
+    uma recusa atrasada cancelaria um pedido que a auto-confirmação acabou de
+    confirmar.
     """
-    if order.status != Order.Status.NEW:
-        raise ValueError("Pedido só pode ser rejeitado enquanto aguarda confirmação")
+    with transaction.atomic():
+        locked = Order.objects.select_for_update().get(pk=order.pk)
+        if locked.status != Order.Status.NEW:
+            raise OrderStateConflict(
+                "Pedido não está mais aguardando confirmação "
+                f"(status atual: {locked.get_status_display()})."
+            )
 
-    extra_data = {"rejected_by": rejected_by}
-    if cancellation_code:
-        extra_data["ifood_cancellation_code"] = cancellation_code
-    cancel(
-        order,
-        reason=reason,
-        actor=actor,
-        extra_data=extra_data,
-    )
-    from shopman.shop.services import notification
+        extra_data = {"rejected_by": rejected_by}
+        if cancellation_code:
+            extra_data["ifood_cancellation_code"] = cancellation_code
+        cancel(
+            locked,
+            reason=reason,
+            actor=actor,
+            extra_data=extra_data,
+        )
+        from shopman.shop.services import notification
 
-    notification.send(order, "order_rejected", reason=reason, rejected_by=rejected_by)
+        notification.send(locked, "order_rejected", reason=reason, rejected_by=rejected_by)
     logger.info("operator_reject order=%s reason=%s", order.ref, reason)
 
 

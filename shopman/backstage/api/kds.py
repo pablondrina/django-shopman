@@ -24,6 +24,7 @@ from shopman.backstage.projections.kds import (
     build_kds_ticket,
 )
 from shopman.backstage.services import kds as kds_service
+from shopman.backstage.services.exceptions import KDSError
 
 from .permissions import HasBackstagePermission, IsBackstageOperator
 from .projections import projection_data
@@ -80,7 +81,10 @@ class KDSTicketItemView(APIView):
     required_permission = "backstage.operate_kds"
 
     def post(self, request, ticket_pk: int):
-        index = int(request.data.get("index", -1))
+        try:
+            index = int(request.data.get("index", -1))
+        except (TypeError, ValueError):
+            return Response({"detail": "Index inválido."}, status=status.HTTP_400_BAD_REQUEST)
         checked = bool(request.data.get("checked", False))
         if index < 0:
             return Response({"detail": "Index inválido."}, status=status.HTTP_400_BAD_REQUEST)
@@ -91,9 +95,9 @@ class KDSTicketItemView(APIView):
                 checked=checked,
                 actor=_actor(request),
             )
-        except Exception as exc:
+        except KDSError as exc:
             logger.debug("kds_ticket_item_update_failed ticket_pk=%s", ticket_pk, exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao atualizar item."}, status=400)
+            return Response({"detail": str(exc) or "Falha ao atualizar item."}, status=status.HTTP_400_BAD_REQUEST)
         ticket = build_kds_ticket(ticket_pk)
         return Response({"ticket": projection_data(ticket)})
 
@@ -112,9 +116,9 @@ class KDSTicketDoneView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.mark_ticket_done(ticket_pk=ticket_pk, actor=_actor(request))
-        except Exception as exc:
+        except KDSError as exc:
             logger.debug("kds_ticket_done_failed ticket_pk=%s", ticket_pk, exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao marcar como pronto."}, status=400)
+            return Response({"detail": str(exc) or "Falha ao marcar como pronto."}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"ok": True, "ticket_pk": ticket_pk})
 
 
@@ -132,9 +136,9 @@ class KDSTicketRecallView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.recall_ticket(ticket_pk=ticket_pk, actor=_actor(request))
-        except Exception as exc:
+        except KDSError as exc:
             logger.debug("kds_ticket_recall_failed ticket_pk=%s", ticket_pk, exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao reabrir."}, status=400)
+            return Response({"detail": str(exc) or "Falha ao reabrir."}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"ok": True, "ticket_pk": ticket_pk})
 
 
@@ -152,9 +156,9 @@ class KDSTicketAcknowledgeView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.acknowledge_ticket(ticket_pk=ticket_pk, actor=_actor(request))
-        except Exception as exc:
+        except KDSError as exc:
             logger.debug("kds_ticket_ack_failed ticket_pk=%s", ticket_pk, exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao dar baixa."}, status=400)
+            return Response({"detail": str(exc) or "Falha ao dar baixa."}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"ok": True, "ticket_pk": ticket_pk})
 
 
@@ -179,14 +183,14 @@ class KDSExpeditionActionView(APIView):
                 action=action,
                 actor=_actor(request),
             )
-        except Exception as exc:
+        except KDSError as exc:
             logger.debug(
                 "kds_expedition_action_failed order_pk=%s action=%s",
                 order_pk,
                 action,
                 exc_info=True,
             )
-            return Response({"detail": str(exc) or "Falha na ação."}, status=400)
+            return Response({"detail": str(exc) or "Falha na ação."}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"ok": True, "action": action, "order_pk": order_pk})
 
 
@@ -203,6 +207,10 @@ class KDSCustomerStatusView(APIView):
     permission_classes = []
 
     def get(self, request):
-        limit = int(request.query_params.get("limit", 24))
+        try:
+            limit = int(request.query_params.get("limit", 24))
+        except (TypeError, ValueError):
+            return Response({"detail": "Parâmetro limit inválido."}, status=status.HTTP_400_BAD_REQUEST)
+        limit = max(1, min(limit, 100))
         status_proj = build_kds_customer_status(limit=limit)
         return Response({"status": projection_data(status_proj)})

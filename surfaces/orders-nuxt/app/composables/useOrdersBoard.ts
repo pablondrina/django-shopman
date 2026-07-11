@@ -106,9 +106,19 @@ export function useOrdersBoard() {
       await refresh();
       return true;
     } catch (error) {
-      const message = httpErrorMessage(error, "Falha na ação. Tente de novo.");
+      // 409 = o pedido mudou de estado antes da ação chegar (ex.: a confirmação
+      // otimista confirmou enquanto o operador recusava). Mensagem honesta, sem
+      // fingir que a ação "falhou por bug".
+      const conflict = httpError(error).status === 409;
+      const message = conflict
+        ? httpErrorMessage(error, "O pedido mudou de estado antes da ação chegar.") +
+          " Ele pode ter sido confirmado automaticamente. Atualizamos o quadro."
+        : httpErrorMessage(error, "Falha na ação. Tente de novo.");
       setActionError(ref_, message);
       useSonner.error(message);
+      // Refetch canônico: o estado no servidor pode ter mudado (é justamente o
+      // caso do 409) — o quadro precisa mostrar a verdade, não a foto velha.
+      await refresh();
       return false;
     } finally {
       const next = new Set(busy.value);

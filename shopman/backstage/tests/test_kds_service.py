@@ -97,6 +97,22 @@ def test_mark_ticket_done_raises_for_missing_ticket():
 
 
 @pytest.mark.django_db
+def test_mark_ticket_done_replay_is_noop_success(ticket, monkeypatch):
+    # Segundo bump (outra estação) = sucesso no-op, mesma semântica de
+    # expedition_action_idempotent — nunca "Ticket não está aberto".
+    ticket.status = "done"
+    ticket.completed_at = timezone.now()
+    ticket.save(update_fields=["status", "completed_at"])
+    core = Mock()
+    monkeypatch.setattr(kds.kds_core, "complete_ticket", core)
+
+    result = kds.mark_ticket_done(ticket_pk=ticket.pk, actor="kds:op")
+
+    assert result.pk == ticket.pk
+    core.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_mark_ticket_done_raises_for_cancelled_ticket(ticket):
     ticket.status = "cancelled"
     ticket.cancelled_at = timezone.now()

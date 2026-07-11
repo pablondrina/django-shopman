@@ -73,9 +73,10 @@ from shopman.backstage.services import (
 from shopman.backstage.services import (
     production as production_service,
 )
-from shopman.backstage.services.exceptions import OrderError, POSError, ProductionError
+from shopman.backstage.services.exceptions import OrderConflict, OrderError, POSError, ProductionError
 from shopman.backstage.services.production import ProductionOrderShortError, ProductionStockShortError
 from shopman.shop.services import pos as pos_tabs_service
+from shopman.shop.services.pos import PosRecentSaleNotFound
 from shopman.shop.services.pos_intent import PosIntentError
 
 from .permissions import HasBackstagePermission, IsBackstageOperator
@@ -784,7 +785,10 @@ class OrderAdvanceView(_OrderActionBase):
     post=extend_schema(
         tags=["backstage"],
         summary="Confirm pending order",
-        responses={200: OpenApiResponse(description="Order confirmed.")},
+        responses={
+            200: OpenApiResponse(description="Order confirmed."),
+            409: OpenApiResponse(description="Order already left the pending state."),
+        },
     ),
 )
 class OrderConfirmView(_OrderActionBase):
@@ -794,6 +798,8 @@ class OrderConfirmView(_OrderActionBase):
             return err
         try:
             orders_service.confirm_order(order, actor=_actor(request))
+        except OrderConflict as exc:
+            return Response({"detail": str(exc)}, status=409)
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao confirmar."}, status=400)
         return Response({"ok": True, "ref": ref})
@@ -803,7 +809,10 @@ class OrderConfirmView(_OrderActionBase):
     post=extend_schema(
         tags=["backstage"],
         summary="Reject pending order",
-        responses={200: OpenApiResponse(description="Order rejected.")},
+        responses={
+            200: OpenApiResponse(description="Order rejected."),
+            409: OpenApiResponse(description="Order already left the pending state."),
+        },
     ),
 )
 class OrderRejectView(_OrderActionBase):
@@ -823,6 +832,8 @@ class OrderRejectView(_OrderActionBase):
                 rejected_by="operator",
                 cancellation_code=cancellation_code,
             )
+        except OrderConflict as exc:
+            return Response({"detail": str(exc)}, status=409)
         except OrderError as exc:
             return Response({"detail": str(exc) or "Falha ao recusar."}, status=400)
         return Response({"ok": True, "ref": ref})
@@ -1668,9 +1679,6 @@ class POSCustomerResolveView(APIView):
                 {"detail": str(exc) or "Cadastro conflitante.", "error": {"code": "customer_conflict"}},
                 status=422,
             )
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("pos_customer_resolve_failed user=%s", _actor(request), exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao resolver o cliente."}, status=400)
         if not customer:
             return Response({"customer": None})
         phone = customer.get("phone") or ""
@@ -1703,9 +1711,6 @@ class POSReviewSaleView(APIView):
             return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=422)
-        except Exception as exc:
-            logger.debug("pos_review_sale_failed user=%s", _actor(request), exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao revisar checkout."}, status=400)
         return Response({"ok": True, "review": _pos_sale_review_payload(review)})
 
 
@@ -1733,9 +1738,8 @@ class POSCloseSaleView(APIView):
             )
         except PosIntentError as exc:
             return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
-        except Exception as exc:
-            logger.debug("pos_close_sale_failed user=%s", _actor(request), exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao finalizar venda."}, status=400)
+        except ValueError as exc:
+            return Response({"detail": str(exc) or "Falha ao finalizar venda."}, status=422)
         return Response({
             "ok": True,
             "order_ref": getattr(result, "order_ref", None),
@@ -1772,10 +1776,8 @@ class POSCancelRecentSaleView(APIView):
                     order_ref=order_ref,
                     actor=_actor_pos(request),
                 )
+        except PosRecentSaleNotFound as exc:
+            return Response({"detail": str(exc)}, status=404)
         except ValueError as exc:
-            status_code = 404 if "não encontrado" in str(exc) else 422
-            return Response({"detail": str(exc)}, status=status_code)
-        except Exception as exc:
-            logger.debug("pos_cancel_recent_sale_failed order=%s user=%s", order_ref, _actor(request), exc_info=True)
-            return Response({"detail": str(exc) or "Falha ao cancelar venda."}, status=400)
+            return Response({"detail": str(exc)}, status=422)
         return Response({"ok": True, "order_ref": order_ref})

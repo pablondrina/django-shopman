@@ -29,6 +29,15 @@ from shopman.shop.services.pos_intent import POS_SALE_INTENT_VERSION, PosIntentE
 
 logger = logging.getLogger(__name__)
 
+
+class PosRecentSaleNotFound(ValueError):
+    """Ação de venda recente referenciou um pedido que não existe.
+
+    Tipo distinto para a camada HTTP mapear para 404 sem inspecionar a
+    mensagem; as demais violações de janela/estado seguem como ``ValueError``.
+    """
+
+
 _TAB_REF_MAX_LENGTH = 64
 _TAB_REF_DISALLOWED = set('/\\?#%\r\n\t')
 
@@ -919,7 +928,7 @@ def cancel_recent_order(
     try:
         order = Order.objects.get(ref=order_ref)
     except Order.DoesNotExist as exc:
-        raise ValueError(f"Pedido {order_ref} não encontrado") from exc
+        raise PosRecentSaleNotFound(f"Pedido {order_ref} não encontrado") from exc
 
     if channel_ref and order.channel_ref != channel_ref:
         raise ValueError(

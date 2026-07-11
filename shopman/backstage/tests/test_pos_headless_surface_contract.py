@@ -691,3 +691,14 @@ class POSHeadlessSurfaceContractTests(TestCase):
         order = Order.objects.get(ref=order_ref)
         self.assertEqual(order.status, Order.Status.CANCELLED)
         self.assertEqual(order.data["pos_correction_reason"], "Erro de lançamento")
+
+    def test_api_cancel_recent_sale_unknown_ref_is_404(self) -> None:
+        # Não-encontrado mapeia por TIPO de exceção (PosRecentSaleNotFound),
+        # não por substring da mensagem.
+        response = self.client.post(
+            "/api/v1/backstage/pos/sale/recent/cancel/",
+            data=json.dumps({"order_ref": "NOPE-404"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("detail", response.json())
