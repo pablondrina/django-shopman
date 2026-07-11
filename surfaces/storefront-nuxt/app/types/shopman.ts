@@ -386,6 +386,7 @@ export interface AuthCopyProjection {
   wa_manual_intro: CopyEntryProjection
   phone_cta_wa: CopyEntryProjection
   phone_cta_sms: CopyEntryProjection
+  change_phone_cta: CopyEntryProjection
   trusted_device_message: CopyEntryProjection
   trusted_device_cta: CopyEntryProjection
   trusted_other_phone: CopyEntryProjection

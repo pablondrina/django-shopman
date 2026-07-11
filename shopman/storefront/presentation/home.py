@@ -126,6 +126,7 @@ class AuthCopyProjection:
     wa_manual_intro: CopyEntryProjection
     phone_cta_wa: CopyEntryProjection
     phone_cta_sms: CopyEntryProjection
+    change_phone_cta: CopyEntryProjection
     trusted_device_message: CopyEntryProjection
     trusted_device_cta: CopyEntryProjection
     trusted_other_phone: CopyEntryProjection
@@ -451,6 +452,7 @@ def _auth_copy(omotenashi: OmotenashiProjection) -> AuthCopyProjection:
         wa_manual_intro=_copy_entry("LOGIN_WA_MANUAL_INTRO", omotenashi=omotenashi),
         phone_cta_wa=_copy_entry("LOGIN_PHONE_CTA_WA", omotenashi=omotenashi),
         phone_cta_sms=_copy_entry("LOGIN_PHONE_CTA_SMS", omotenashi=omotenashi),
+        change_phone_cta=_copy_entry("LOGIN_CHANGE_PHONE_CTA", omotenashi=omotenashi),
         trusted_device_message=_copy_entry("LOGIN_TRUSTED_DEVICE_MESSAGE", omotenashi=omotenashi),
         trusted_device_cta=_copy_entry("LOGIN_TRUSTED_DEVICE_CTA", omotenashi=omotenashi),
         trusted_other_phone=_copy_entry("LOGIN_TRUSTED_OTHER_PHONE", omotenashi=omotenashi),
