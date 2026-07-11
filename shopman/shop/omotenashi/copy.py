@@ -440,12 +440,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_SUPPORT_WHATSAPP_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Oi! Posso ajudar com o pedido {order_ref}?")},
     },
-    "TRACKING_ETA_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(
-            title="Estamos preparando seu pedido.",
-            message="Previsão para ficar pronto às",
-        )},
-    },
     # Rótulo enxuto do countdown quando o prazo é a loja conferir disponibilidade
     # (deadline_kind="availability"). Consolidou o antigo par prefix/suffix num rótulo.
     "TRACKING_AUTO_CONFIRM_LABEL": {
@@ -540,20 +534,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
-    "TRACKING_PAYMENT_CONFIRMED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Pagamento confirmado.",
-                message="Recebemos a confirmação do pagamento deste pedido.",
-            ),
-        },
-    },
-    "TRACKING_ACTION_NONE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Nenhuma ação necessária")},
-    },
-    "TRACKING_ACTION_WAITING_COURIER": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Aguardando entregador")},
-    },
     "TRACKING_ACTION_READY_PICKUP": {
         WILDCARD: {WILDCARD: CopyEntry(title="Retirar pedido")},
     },
@@ -568,9 +548,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_UPDATED_NOW": {
         WILDCARD: {WILDCARD: CopyEntry(title="Atualizado agora")},
     },
-    "TRACKING_PROMISE_LABEL_ACTION": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sua ação:")},
-    },
     "TRACKING_PROMISE_LABEL_DEADLINE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Prazo:")},
     },
@@ -583,9 +560,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Aviso:")},
     },
-    "TRACKING_PROMISE_LABEL_UPDATED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Última atualização:")},
-    },
     # Affordância enxuta quando o dado está velho (um poll falhou): vira um "Atualizar"
     # tocável ao lado do carimbo de frescor, no lugar do técnico "reconectando…".
     "TRACKING_PROMISE_STALE": {
@@ -593,9 +567,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
-    },
-    "TRACKING_PROMISE_RECOVERY_HELP": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Se precisar de ajuda, fale com o estabelecimento.")},
     },
     "TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_NEW": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento vai conferir a disponibilidade.")},
@@ -632,9 +603,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "TRACKING_PROMISE_CLOSED_HOURS_NEXT_UNKNOWN": {
         WILDCARD: {WILDCARD: CopyEntry(message="Atualizaremos o pedido assim que o próximo expediente estiver definido.")},
-    },
-    "TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhuma ação necessária agora.")},
     },
     "TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_NEW": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento está conferindo a disponibilidade.")},
