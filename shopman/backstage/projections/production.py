@@ -496,7 +496,7 @@ def build_production_board(
     access: ProductionSurfaceAccess | None = None,
 ) -> ProductionBoardProjection:
     """Build the production board projection."""
-    selected_date = selected_date or date.today()
+    selected_date = selected_date or timezone.localdate()
     access = access or _full_access()
 
     # Fetch work orders for the selected date
@@ -629,7 +629,7 @@ def build_production_weighing(
     base_recipe: str = "",
 ) -> ProductionWeighingProjection:
     """Build thermal weighing tickets from saved planned/started work orders."""
-    selected_date = selected_date or date.today()
+    selected_date = selected_date or timezone.localdate()
     open_statuses = (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)
     work_orders = (
         WorkOrder.objects.filter(target_date=selected_date, status__in=open_statuses)
@@ -726,7 +726,7 @@ def build_production_mise_en_place(
     de estoque anota quando o ledger de insumos tem leitura; sem leitura, a
     coluna se esconde (degrade gracioso, nunca bloqueia).
     """
-    selected_date = selected_date or date.today()
+    selected_date = selected_date or timezone.localdate()
     needs = craft.needs(selected_date, expand=expand)
 
     open_statuses = (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)
@@ -966,7 +966,7 @@ def build_production_dashboard(
     position_ref: str = "",
 ) -> ProductionDashboardProjection:
     """Build the dashboard projection for the selected production day."""
-    selected_date = selected_date or date.today()
+    selected_date = selected_date or timezone.localdate()
     summary = craft.summary(date=selected_date, position_ref=position_ref or None)
 
     wos = list(
@@ -1021,7 +1021,7 @@ def build_production_kds(
     access: ProductionSurfaceAccess | None = None,
 ) -> ProductionKDSProjection:
     """Build a KDS-style board for started production work orders."""
-    selected_date = selected_date or date.today()
+    selected_date = selected_date or timezone.localdate()
     access = access or _full_access()
 
     qs = (
@@ -1331,7 +1331,7 @@ def _normalize_report_filters(filters: dict | ProductionReportFilters | None) ->
     if isinstance(filters, ProductionReportFilters):
         return filters
     raw = filters or {}
-    today = date.today()
+    today = timezone.localdate()
     date_to = _parse_date(raw.get("date_to"), today)
     date_from = _parse_date(raw.get("date_from"), date_to - timedelta(days=6))
     if date_from > date_to:

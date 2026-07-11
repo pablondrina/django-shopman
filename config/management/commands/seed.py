@@ -2084,7 +2084,7 @@ class Command(BaseCommand):
         # history behind, a busy current day, and planned work ahead.
         from shopman.craftsman.models import WorkOrderEvent
 
-        today = date.today()
+        today = timezone.localdate()
         tz_info = timezone.get_current_timezone()
 
         production_plan = [
@@ -2539,7 +2539,7 @@ class Command(BaseCommand):
         for ref, first, last, ctype, group, phone in customers_data:
             extras = {}
             if ref == "CLI-001":
-                extras["birthday"] = date.today()
+                extras["birthday"] = timezone.localdate()
             c, _ = Customer.objects.update_or_create(
                 ref=ref,
                 defaults={
@@ -3613,7 +3613,7 @@ class Command(BaseCommand):
         )
 
         ensure_late_check_scheduled()
-        today = date.today()
+        today = timezone.localdate()
         created_late = check_late_started_orders(selected_date=today)
         created_yield = 0
         for work_order in WorkOrder.objects.filter(

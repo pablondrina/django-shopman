@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def link_work_order_to_orders(sender=None, action: str = "", work_order=None, **
         .order_by("created_at")
     )
     for order in orders:
-        if _target_date(order) > (work_order.target_date or date.today()):
+        if _target_date(order) > (work_order.target_date or timezone.localdate()):
             continue
         if _append_order_work_order_link(order, work_order):
             order.save(update_fields=["data", "updated_at"])
@@ -193,4 +194,4 @@ def _target_date(order) -> date:
             return date.fromisoformat(str(raw))
         except ValueError:
             pass
-    return order.created_at.date() if order.created_at else date.today()
+    return timezone.localdate(order.created_at) if order.created_at else timezone.localdate()

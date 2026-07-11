@@ -66,7 +66,7 @@ class ProductionBackend:
             ProductionRequest(
                 sku="CROISSANT",
                 quantity=Decimal("50"),
-                target_date=date.today(),
+                target_date=timezone.localdate(),
             )
         )
     """

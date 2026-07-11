@@ -21,6 +21,7 @@ from django.http import (
 )
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.views.generic import TemplateView
 from shopman.craftsman.models import Recipe, WorkOrder
@@ -711,9 +712,9 @@ def _bulk_result(
 def _dashboard_selected_date(request: HttpRequest) -> date:
     raw = (request.GET.get("date") or "").strip()
     try:
-        return date.fromisoformat(raw) if raw else date.today()
+        return date.fromisoformat(raw) if raw else timezone.localdate()
     except ValueError:
-        return date.today()
+        return timezone.localdate()
 
 
 def _position_choices() -> list[tuple[str, str]]:

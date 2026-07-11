@@ -402,12 +402,13 @@ def planned_supply_for_skus(skus: list[str], *, horizon_days: int = 2) -> dict[s
     if not skus:
         return {}
     try:
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from django.db.models import Sum
+        from django.utils import timezone
         from shopman.stockman.models import Quant
 
-        today = date.today()
+        today = timezone.localdate()
         rows = (
             Quant.objects.filter(
                 sku__in=skus,

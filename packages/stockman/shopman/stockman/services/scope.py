@@ -25,6 +25,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from django.db.models import QuerySet
+from django.utils import timezone
 from shopman.stockman.models.quant import Quant
 from shopman.stockman.services.queries import _resolve_stock_profile
 from shopman.stockman.shelflife import filter_valid_quants
@@ -59,7 +60,7 @@ def quants_eligible_for(
     """
     from shopman.stockman.models import Batch
 
-    target = target_date or date.today()
+    target = target_date or timezone.localdate()
 
     profile = _resolve_stock_profile(sku)
     product_ns = SimpleNamespace(sku=sku, shelf_life_days=profile.get("shelflife"))

@@ -129,7 +129,7 @@ class StockHolds:
         if quantity <= 0:
             raise StockError('INVALID_QUANTITY', requested=quantity)
 
-        target = target_date or date.today()
+        target = target_date or timezone.localdate()
         profile = _resolve_stock_profile(product)
         sku = profile["sku"]
 

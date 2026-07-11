@@ -8,10 +8,10 @@ stay in Admin.
 from __future__ import annotations
 
 import logging
-from datetime import date
 
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 
 from shopman.backstage import permissions
 
@@ -187,7 +187,7 @@ def badge_new_orders(request) -> str:
 def badge_started_work_orders(request) -> str:
     from shopman.craftsman.models import WorkOrder
 
-    today = date.today()
+    today = timezone.localdate()
     return str(WorkOrder.objects.filter(target_date=today, status=WorkOrder.Status.STARTED).count())
 
 
