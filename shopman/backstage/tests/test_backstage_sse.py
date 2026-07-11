@@ -1,4 +1,8 @@
-"""Backstage SSE publisher tests."""
+"""Backstage SSE publisher tests.
+
+Emits are deferred to ``transaction.on_commit`` (ADR-016), so each mutation
+runs inside ``django_capture_on_commit_callbacks(execute=True)``.
+"""
 
 from __future__ import annotations
 
@@ -32,10 +36,13 @@ def recipe(db):
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_order_change_publishes_backstage_orders_event(mock_send, channel):
+def test_order_change_publishes_backstage_orders_event(
+    mock_send, channel, django_capture_on_commit_callbacks,
+):
     order = Order.objects.create(ref="SSE-ORD-1", channel_ref=channel.ref, status=Order.Status.NEW, total_q=1000)
 
-    order.transition_status(Order.Status.CONFIRMED, actor="test")
+    with django_capture_on_commit_callbacks(execute=True):
+        order.transition_status(Order.Status.CONFIRMED, actor="test")
 
     assert any(
         call.args[0] == "backstage-orders-main"
@@ -47,8 +54,11 @@ def test_order_change_publishes_backstage_orders_event(mock_send, channel):
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_production_change_publishes_backstage_production_event(mock_send, recipe):
-    work_order = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
+def test_production_change_publishes_backstage_production_event(
+    mock_send, recipe, django_capture_on_commit_callbacks,
+):
+    with django_capture_on_commit_callbacks(execute=True):
+        work_order = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
 
     assert any(
         call.args[0] == "backstage-production-main"
@@ -60,12 +70,15 @@ def test_production_change_publishes_backstage_production_event(mock_send, recip
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_operator_alert_publishes_backstage_alerts_event(mock_send):
-    alert = OperatorAlert.objects.create(
-        type="production_late",
-        severity="warning",
-        message="Produção atrasada",
-    )
+def test_operator_alert_publishes_backstage_alerts_event(
+    mock_send, django_capture_on_commit_callbacks,
+):
+    with django_capture_on_commit_callbacks(execute=True):
+        alert = OperatorAlert.objects.create(
+            type="production_late",
+            severity="warning",
+            message="Produção atrasada",
+        )
 
     assert any(
         call.args[0] == "backstage-alerts-main"
@@ -77,7 +90,9 @@ def test_operator_alert_publishes_backstage_alerts_event(mock_send):
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_order_change_publishes_shop_scoped_backstage_event(mock_send):
+def test_order_change_publishes_shop_scoped_backstage_event(
+    mock_send, django_capture_on_commit_callbacks,
+):
     shop = Shop.objects.create(name="SSE Loja")
     channel = Channel.objects.create(ref="web-scoped", name="Web Scoped", shop=shop, is_active=True)
     order = Order.objects.create(
@@ -87,7 +102,8 @@ def test_order_change_publishes_shop_scoped_backstage_event(mock_send):
         total_q=1000,
     )
 
-    order.transition_status(Order.Status.CONFIRMED, actor="test")
+    with django_capture_on_commit_callbacks(execute=True):
+        order.transition_status(Order.Status.CONFIRMED, actor="test")
 
     channels = [call.args[0] for call in mock_send.call_args_list]
     assert "backstage-orders-main" in channels
@@ -96,10 +112,13 @@ def test_order_change_publishes_shop_scoped_backstage_event(mock_send):
 
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
-def test_production_change_publishes_shop_scoped_backstage_event(mock_send, recipe):
+def test_production_change_publishes_shop_scoped_backstage_event(
+    mock_send, recipe, django_capture_on_commit_callbacks,
+):
     shop = Shop.objects.create(name="SSE Producao")
 
-    craft.plan(recipe, 10, date=date.today(), position_ref="forno")
+    with django_capture_on_commit_callbacks(execute=True):
+        craft.plan(recipe, 10, date=date.today(), position_ref="forno")
 
     channels = [call.args[0] for call in mock_send.call_args_list]
     assert "backstage-production-main" in channels
