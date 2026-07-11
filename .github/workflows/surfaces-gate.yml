@@ -1,0 +1,71 @@
+name: Surfaces Gate
+
+# Rede de segurança das superfícies Nuxt: vitest + typecheck para CADA app de
+# surfaces/ (incluindo o layer operator-kit, dono dos guardrails de design system
+# que leem os tailwind.css dos apps irmãos). Matrix simples, sem paths-filter de
+# terceiros — o filtro nativo `paths` já limita o gate a mudanças em surfaces/.
+#
+# Node 22 SEMPRE (buildpack DigitalOcean = node 22; locks regenerados com outro
+# node quebram `npm ci` no deploy — ver memória do projeto).
+
+"on":
+  pull_request:
+    paths:
+      - "surfaces/**"
+      - ".github/workflows/surfaces-gate.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "surfaces/**"
+      - ".github/workflows/surfaces-gate.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  app-quality:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - operator-kit
+          - storefront-nuxt
+          - pos-nuxt
+          - kds-nuxt
+          - orders-nuxt
+          - production-nuxt
+          - hub-nuxt
+
+    defaults:
+      run:
+        working-directory: surfaces/${{ matrix.app }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: surfaces/${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vitest
+        run: npm test
+
+      # `--if-present`: o operator-kit (layer, sem app Nuxt próprio) não tem
+      # typecheck; todos os 6 apps têm — storefront e pos ganharam o script
+      # junto com este gate.
+      - name: Typecheck
+        run: npm run typecheck --if-present
