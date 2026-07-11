@@ -974,9 +974,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGIN_AUTH_CONFIRMED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja…")},
     },
-    "DEVICE_TRUST_ERROR": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
-    },
     "DEVICE_TRUST_REDIRECTING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo reconhecido. Entrando automaticamente…")},
     },
@@ -991,9 +988,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "DEVICE_TRUST_SAVED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo salvo por 30 dias.")},
-    },
-    "DEVICE_TRUST_GREETING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta")},
     },
 
     # ── History / account empty states ────────────────────────────
@@ -1036,7 +1030,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste aparelho.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste dispositivo.")},
     },
     "DEVICE_LIST_EMPTY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},
@@ -1047,9 +1041,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "DEVICE_LIST_CURRENT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Este dispositivo")},
     },
-    "DEVICE_LIST_LAST_USED_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Último uso:")},
-    },
     "DEVICE_LIST_REGISTERED_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="Registrado em")},
     },
@@ -1057,13 +1048,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Remover")},
     },
     "DEVICE_REVOKE_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revogar acesso deste dispositivo?")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Remover este dispositivo?")},
     },
     "DEVICE_REVOKE_ALL_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Revogar todos os dispositivos")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Remover todos os dispositivos")},
     },
     "DEVICE_REVOKE_ALL_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revogar TODOS os dispositivos? Você precisará fazer login novamente.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Remover todos os dispositivos?")},
     },
     # Labels dos campos editáveis do Perfil — religados em perfil.vue via
     # ProfileView._profile_copy(). Nome dividido (given/family) é a decisão de UX

@@ -1034,6 +1034,10 @@ export interface AccountDeviceCopy {
   current_badge: string
   registered_prefix: string
   revoke_cta: string
+  revoke_all_cta: string
+  revoke_confirm: string
+  revoke_all_confirm: string
+  unknown_label: string
   delete_warning: string
 }
 
