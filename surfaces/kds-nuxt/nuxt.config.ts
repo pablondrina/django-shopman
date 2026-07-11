@@ -11,9 +11,6 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     djangoBaseUrl: process.env.NUXT_DJANGO_BASE_URL || "http://127.0.0.1:8000",
-    public: {
-      operatorLoginNextPath: process.env.NUXT_KDS_LOGIN_NEXT_PATH || (isProduction ? "/kds/" : "/admin/"),
-    },
   },
 
   // 301 das rotas antigas → enxutas: estação direta em /<ref> (era /estacao/<ref>);

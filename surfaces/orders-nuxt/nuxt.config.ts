@@ -1,6 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const isProduction = process.env.NODE_ENV === "production";
 
 export default defineNuxtConfig({
   // Superfície de operador: herda BFF/resiliência/telemetria/DS do kit compartilhado.
@@ -14,7 +13,6 @@ export default defineNuxtConfig({
     public: {
       djangoPublicBaseUrl:
         process.env.NUXT_PUBLIC_DJANGO_BASE_URL || process.env.NUXT_DJANGO_BASE_URL || "http://127.0.0.1:8000",
-      operatorLoginNextPath: process.env.NUXT_ORDERS_LOGIN_NEXT_PATH || (isProduction ? "/" : "/admin/"),
     },
   },
 
