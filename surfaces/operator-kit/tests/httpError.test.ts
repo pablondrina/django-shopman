@@ -39,6 +39,36 @@ describe("httpErrorMessage", () => {
     expect(httpErrorMessage({ data: { detail: "Comanda já paga" } }, "fallback")).toBe("Comanda já paga");
   });
 
+  it("lê detail do dialeto canônico de validação {detail, field, errors}", () => {
+    // Shape emitido pelo EXCEPTION_HANDLER (shopman/shop/api_errors.py).
+    const error = {
+      status: 400,
+      data: {
+        detail: "Este campo é obrigatório.",
+        field: "phone",
+        errors: { phone: ["Este campo é obrigatório."] },
+      },
+    };
+    expect(httpErrorMessage(error, "fallback")).toBe("Este campo é obrigatório.");
+  });
+
+  it("lê detail do superset do PDV {detail, error: {code, ...}}", () => {
+    const error = {
+      status: 400,
+      data: {
+        detail: "CPF/CNPJ inválido: confira os dígitos.",
+        error: {
+          code: "invalid_customer_tax_id",
+          message: "CPF/CNPJ inválido: confira os dígitos.",
+          field: "customer_tax_id",
+          focus: "customer_tax_id",
+          recovery: "Corrija o documento ou remova para emitir sem CPF.",
+        },
+      },
+    };
+    expect(httpErrorMessage(error, "fallback")).toBe("CPF/CNPJ inválido: confira os dígitos.");
+  });
+
   it("cai para data.error.message (erro de domínio)", () => {
     expect(httpErrorMessage({ data: { error: { message: "Estoque insuficiente" } } }, "fallback")).toBe(
       "Estoque insuficiente",

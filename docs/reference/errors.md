@@ -4,6 +4,60 @@
 
 ---
 
+## Dialeto HTTP de erro (superfícies headless)
+
+Toda resposta de erro JSON das APIs (`/api/v1/` e `/api/v1/backstage/`) fala o
+mesmo dialeto, que os fronts Nuxt leem via `httpError.ts`:
+
+```json
+{
+  "detail": "Escolha a data.",
+  "field": "delivery_date",
+  "errors": {"delivery_date": ["Escolha a data."]}
+}
+```
+
+| Chave | Presença | Uso |
+|-------|----------|-----|
+| `detail` | **Sempre** | Mensagem humana principal (pt-br). É o que as superfícies exibem (`errorDetail`/`httpErrorMessage`). |
+| `field` | Erros de campo | Roteia o erro para o passo/campo dono (ex.: `finalizar.vue` reabre o passo do checkout). Campos aninhados usam caminho pontuado (`delivery_address_structured.cep`, `items.0.sku`). |
+| `errors` | Erros de validação | Mapa completo `campo → [mensagens]` para render inline. |
+
+Implementação:
+
+- **Erros de negócio** são construídos manualmente nas views já nesse shape.
+- **Falha de serializer DRF** é convertida pelo `EXCEPTION_HANDLER` custom
+  (`shopman/shop/api_errors.py`, registrado em `config/settings.py`): o shape
+  DRF cru `{"phone": ["..."]}` nunca chega ao front. Mensagens dos validators
+  chegam em pt-br via i18n (`LANGUAGE_CODE = "pt-br"` + locale `pt_BR` do DRF).
+- **Não encontrado mapeia por TIPO de exceção**, nunca por string: `PosRecentSaleNotFound`,
+  `KDSTicketNotFound`, `KDSOrderNotFound` → 404; conflito de estado
+  (`OrderConflict`/`OrderStateConflict`) → 409.
+
+### Superset do PDV (deliberado)
+
+O POS fala um dialeto **rico** por cima do canônico — `detail` continua
+obrigatório; `error` agrega metadados estáveis de recuperação
+(`shopman/shop/services/pos_intent.py`):
+
+```json
+{
+  "detail": "CPF/CNPJ inválido: confira os dígitos.",
+  "error": {
+    "code": "invalid_customer_tax_id",
+    "message": "CPF/CNPJ inválido: confira os dígitos.",
+    "field": "customer_tax_id",
+    "focus": "customer_tax_id",
+    "recovery": "Corrija o documento ou remova para emitir sem CPF."
+  }
+}
+```
+
+Um front que só entende o dialeto canônico continua funcionando (lê `detail`);
+o operator-kit usa `error.{code,focus,recovery}` para foco e ação de 1 clique.
+
+---
+
 ## Hierarquia
 
 ```

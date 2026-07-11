@@ -10,7 +10,7 @@ from shopman.orderman.models import Order
 
 from shopman.backstage.models import KDSInstance, KDSTicket
 from shopman.backstage.services import kds
-from shopman.backstage.services.exceptions import KDSError
+from shopman.backstage.services.exceptions import KDSError, KDSOrderNotFound, KDSTicketNotFound
 
 
 @pytest.fixture
@@ -37,7 +37,8 @@ def test_check_ticket_item_delegates_to_core(ticket, monkeypatch):
 
 @pytest.mark.django_db
 def test_check_ticket_item_raises_for_missing_ticket():
-    with pytest.raises(KDSError):
+    # Tipo específico: a camada HTTP mapeia KDSTicketNotFound para 404.
+    with pytest.raises(KDSTicketNotFound):
         kds.check_ticket_item(ticket_pk=999999, index=0, actor="kds:op")
 
 
@@ -92,14 +93,29 @@ def test_mark_ticket_done_delegates_to_core(ticket, monkeypatch):
 
 @pytest.mark.django_db
 def test_mark_ticket_done_raises_for_missing_ticket():
-    with pytest.raises(KDSError):
+    with pytest.raises(KDSTicketNotFound):
         kds.mark_ticket_done(ticket_pk=999999, actor="kds:op")
 
 
 @pytest.mark.django_db
+def test_mark_ticket_done_surfaces_lifecycle_block_reason(ticket, monkeypatch):
+    # Gate do lifecycle (ex.: pagamento não capturado) ≠ "ticket não está
+    # aberto": a razão real do core chega intacta ao operador.
+    from shopman.shop.services import kds as kds_core
+
+    def blocked(*args, **kwargs):
+        raise kds_core.TicketCompletionBlocked("Pagamento ainda não foi confirmado.")
+
+    monkeypatch.setattr(kds.kds_core, "complete_ticket", blocked)
+
+    with pytest.raises(KDSError, match="Pagamento ainda não foi confirmado."):
+        kds.mark_ticket_done(ticket_pk=ticket.pk, actor="kds:op")
+
+
+@pytest.mark.django_db
 def test_mark_ticket_done_replay_is_noop_success(ticket, monkeypatch):
-    # Segundo bump (outra estação) = sucesso no-op, mesma semântica de
-    # expedition_action_idempotent — nunca "Ticket não está aberto".
+    # Segundo bump (outra estação) = sucesso no-op, mesma semântica do replay
+    # da expedição — nunca "Ticket não está aberto".
     ticket.status = "done"
     ticket.completed_at = timezone.now()
     ticket.save(update_fields=["status", "completed_at"])
@@ -157,14 +173,16 @@ def test_acknowledge_ticket_raises_when_not_cancelled(ticket):
         kds.acknowledge_ticket(ticket_pk=ticket.pk, actor="kds:op")
 
 
-def test_expedition_action_wraps_invalid_action(monkeypatch):
+def test_expedition_action_preserves_core_message(monkeypatch):
+    # A mensagem específica do core (ex.: "Pedido de retirada não pode ser
+    # despachado") chega intacta — nunca vira "Ação inválida" genérico.
     def fail(*args, **kwargs):
-        raise ValueError("bad")
+        raise ValueError("Pedido de retirada não pode ser despachado")
 
     monkeypatch.setattr(kds.kds_core, "expedition_action_by_order_id", fail)
 
-    with pytest.raises(KDSError):
-        kds.expedition_action(order_id=1, action="bad", actor="kds:op")
+    with pytest.raises(KDSError, match="Pedido de retirada não pode ser despachado"):
+        kds.expedition_action(order_id=1, action="dispatch", actor="kds:op")
 
 
 def test_expedition_action_delegates_to_core(monkeypatch):
@@ -175,11 +193,19 @@ def test_expedition_action_delegates_to_core(monkeypatch):
     core.assert_called_once_with(1, action="dispatch", actor="kds:op")
 
 
-@pytest.mark.django_db
-def test_expedition_action_idempotent_noops_for_completed_pickup_order(monkeypatch):
-    order = Order.objects.create(ref="KDS-SVC-DONE", channel_ref="web", status=Order.Status.COMPLETED, total_q=1000)
-    core = Mock()
-    monkeypatch.setattr(kds.kds_core, "expedition_action_by_order_id", core)
+def test_expedition_action_maps_missing_order_to_typed_not_found(monkeypatch):
+    def missing(*args, **kwargs):
+        raise kds.kds_core.ExpeditionOrderNotFound("Pedido não encontrado")
 
-    assert kds.expedition_action_idempotent(order_id=order.pk, action="complete", actor="kds:op") == Order.Status.COMPLETED
-    core.assert_not_called()
+    monkeypatch.setattr(kds.kds_core, "expedition_action_by_order_id", missing)
+
+    with pytest.raises(KDSOrderNotFound):
+        kds.expedition_action(order_id=999999, action="complete", actor="kds:op")
+
+
+@pytest.mark.django_db
+def test_expedition_action_replay_noops_for_completed_pickup_order():
+    # Replay resolvido sob o lock do core: pedido já no status alvo = no-op.
+    order = Order.objects.create(ref="KDS-SVC-DONE", channel_ref="web", status=Order.Status.COMPLETED, total_q=1000)
+
+    assert kds.expedition_action(order_id=order.pk, action="complete", actor="kds:op") == Order.Status.COMPLETED

@@ -190,6 +190,50 @@ def test_expedition_action_validates_action(client, kds_operator, kds_setup):
     assert ok.json()["action"] == "complete"
 
 
+@pytest.mark.django_db
+def test_ticket_done_missing_ticket_is_404(client, kds_operator, kds_setup):
+    # Recurso inexistente mapeia por TIPO (KDSTicketNotFound) para 404, não 400.
+    client.force_login(kds_operator)
+    response = client.post(reverse("api-backstage-kds-ticket-done", args=[999999]))
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Ticket não encontrado."
+
+
+@pytest.mark.django_db
+def test_expedition_missing_order_is_404(client, kds_operator, kds_setup):
+    client.force_login(kds_operator)
+    url = reverse("api-backstage-kds-expedition", args=[999999])
+    response = client.post(url, data={"action": "complete"}, content_type="application/json")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Pedido não encontrado."
+
+
+@pytest.mark.django_db
+def test_expedition_propagates_specific_core_message(client, kds_operator, kds_setup):
+    # Dispatch de pedido de retirada: a mensagem real do core chega ao
+    # operador — nunca o genérico "Ação inválida".
+    ready = kds_setup[3]  # pickup
+    client.force_login(kds_operator)
+    url = reverse("api-backstage-kds-expedition", args=[ready.pk])
+    response = client.post(url, data={"action": "dispatch"}, content_type="application/json")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Pedido de retirada não pode ser despachado"
+
+
+@pytest.mark.django_db
+def test_ticket_done_blocked_by_payment_gate_says_why(client, kds_operator, kds_setup):
+    # Pedido CONFIRMED com PIX sem captura: o bump é barrado pelo gate de
+    # pagamento e o operador lê a razão real, não "Ticket não está aberto."
+    ticket = kds_setup[2]
+    order = Order.objects.get(session_key=ticket.session_key)
+    order.data = {**(order.data or {}), "payment": {"method": "pix"}}
+    order.save(update_fields=["data"])
+    client.force_login(kds_operator)
+    response = client.post(reverse("api-backstage-kds-ticket-done", args=[ticket.pk]))
+    assert response.status_code == 400
+    assert "Pagamento ainda não foi confirmado" in response.json()["detail"]
+
+
 # ── Customer board (public) ─────────────────────────────────────────────────
 
 
