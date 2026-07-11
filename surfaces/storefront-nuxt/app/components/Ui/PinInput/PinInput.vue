@@ -15,7 +15,7 @@
   </PinInputRoot>
 </template>
 
-<script lang="ts" setup>
+<script lang="ts" setup generic="Type extends 'text' | 'number' = 'text'">
   import { PinInputRoot, useForwardPropsEmits } from "reka-ui";
   import type { PinInputRootEmits, PinInputRootProps } from "reka-ui";
   import { normalizeClass } from "vue";
@@ -23,7 +23,7 @@
 
   const props = withDefaults(
     defineProps<
-      PinInputRootProps & {
+      PinInputRootProps<Type> & {
         /** Custom class(es) to apply to the parent element. */
         class?: HTMLAttributes["class"];
         /** The number of inputs to render. @default 4. */
@@ -39,7 +39,7 @@
     }
   );
 
-  const emits = defineEmits<PinInputRootEmits>();
+  const emits = defineEmits<PinInputRootEmits<Type>>();
 
   const forwarded = useForwardPropsEmits(
     reactiveOmit(props, "class", "inputCount", "separator"),

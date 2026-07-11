@@ -72,7 +72,7 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
             <Icon v-if="step.state === 'done'" name="lucide:check" class="size-3.5" />
             <template v-else>{{ i + 1 }}</template>
           </span>
-          <span class="truncate text-[11px]" :class="step.state === 'pending' ? 'text-muted-foreground' : 'font-medium'">
+          <span class="truncate text-xs" :class="step.state === 'pending' ? 'text-muted-foreground' : 'font-medium'">
             {{ step.label }}
           </span>
         </div>

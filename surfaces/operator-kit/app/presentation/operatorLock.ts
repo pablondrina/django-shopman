@@ -2,7 +2,7 @@
 // session projection. The barcode badge scanner behaves like a keyboard that
 // types the token fast and ends with Enter; the PIN is typed on an on-screen pad.
 // No network here — the composable owns I/O; this owns shape + the unlock payload.
-import type { OperatorSession } from "~/types/operator";
+import type { OperatorSession } from "../types/operator";
 
 /** The overlay shows only when the gate is on AND nobody is operating. When the
  *  gate is off (SHOPMAN_REQUIRE_ACTIVE_OPERATOR=false) the surface is never locked. */

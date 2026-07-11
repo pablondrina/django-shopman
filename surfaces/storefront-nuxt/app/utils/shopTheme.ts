@@ -64,11 +64,11 @@ function cssColor (value: string): string {
 }
 
 /** Mapeia um conjunto de tokens (light ou dark) → { '--var': 'rgb(...)' }. */
-export function tokenVars (tokens: Record<string, string> | null | undefined): Record<string, string> {
+export function tokenVars (tokens: ShopDesignTokensProjection | Record<string, string> | null | undefined): Record<string, string> {
   const out: Record<string, string> = {}
   if (!tokens) return out
   for (const [key, cssVar] of Object.entries(TOKEN_TO_CSS_VAR)) {
-    const raw = tokens[key]
+    const raw = (tokens as Record<string, unknown>)[key]
     if (typeof raw === 'string' && raw.trim()) out[cssVar] = cssColor(raw)
   }
   return out
@@ -76,7 +76,7 @@ export function tokenVars (tokens: Record<string, string> | null | undefined): R
 
 /** Variáveis CSS da marca para o modo claro (vazio ⇒ neutro). */
 export function shopThemeStyle (shop: ShopProjection | null | undefined): Record<string, string> {
-  return tokenVars(shop?.design_tokens as ShopDesignTokensProjection | undefined)
+  return tokenVars(shop?.design_tokens)
 }
 
 // Fontes canônicas já self-hospedadas via @nuxt/fonts (declaradas no tailwind.css):
@@ -101,7 +101,7 @@ export function shopFontLinks (
   options: { preview?: string | null } = {}
 ): Array<Record<string, string>> {
   if (options.preview === 'neutral') return []
-  const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
+  const tokens = shop?.design_tokens
   if (!tokens) return []
 
   const families = [...new Set(
@@ -137,7 +137,7 @@ export function shopThemeCss (
   options: { preview?: string | null } = {}
 ): string {
   if (options.preview === 'neutral') return ''
-  const tokens = shop?.design_tokens as ShopDesignTokensProjection | undefined
+  const tokens = shop?.design_tokens
   if (!tokens) return ''
 
   const light = tokenVars(tokens)
