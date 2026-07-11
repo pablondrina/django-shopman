@@ -315,14 +315,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
-    "WELCOME_WHATSAPP": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Você entrou pelo WhatsApp",
-                message="Pode continuar por aqui quando quiser.",
-            ),
-        },
-    },
 
     # ── Tracking tail ─────────────────────────────────────────────
     "TRACKING_PAGE_META_DESCRIPTION": {
@@ -1049,30 +1041,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "DEVICE_TRUST_GREETING": {
         WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta")},
-    },
-    "WELCOME_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Boas-vindas")},
-    },
-    "WELCOME_GREETING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Que bom te ver aqui!")},
-    },
-    "WELCOME_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer ser chamado(a)?")},
-    },
-    "WELCOME_NAME_HEADING_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer")},
-    },
-    "WELCOME_NAME_HEADING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(title="ser chamado(a)?")},
-    },
-    "WELCOME_SUGGESTED_NAME_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Encontramos esse nome nos seus dados. Se estiver bom, é só confirmar.")},
-    },
-    "WELCOME_CONFIRM_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar")},
-    },
-    "WELCOME_ACCOUNT_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Você pode mudar isso depois em Minha Conta.")},
     },
 
     # ── History / account empty states ────────────────────────────
