@@ -121,12 +121,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Product states ────────────────────────────────────────────
-    "PRODUCT_OUT_OF_STOCK": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Indisponível")},
-    },
-    "PRODUCT_SCHEDULED_UNAVAILABLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Indisponível")},
-    },
 
     # ── Checkout microcopy ────────────────────────────────────────
     "CHECKOUT_SWITCH_ACCOUNT_TITLE": {
@@ -908,9 +902,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Auth ──────────────────────────────────────────────────────
-    "LOGIN_WELCOME_BACK": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pronto. Você está entrando.")},
-    },
     "LOGOUT_FAREWELL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
@@ -961,12 +952,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "LOGIN_TERMS_NOTE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},
-    },
-    "LOGIN_CHANGE_PHONE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Trocar de telefone?")},
-    },
-    "LOGIN_CHANGE_PHONE_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Ao trocar, o código enviado deixa de valer. Você recebe outro em seguida.")},
     },
     "LOGIN_CHANGE_PHONE_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar telefone")},
@@ -1080,12 +1065,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "DEVICE_REVOKE_ALL_CONFIRM": {
         WILDCARD: {WILDCARD: CopyEntry(message="Revogar TODOS os dispositivos? Você precisará fazer login novamente.")},
     },
-    "NOTIFICATION_PREFS_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhuma preferência de notificação configurável no momento.")},
-    },
-    "LOYALTY_UNAVAILABLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Programa de fidelidade não disponível.")},
-    },
     # Labels dos campos editáveis do Perfil — religados em perfil.vue via
     # ProfileView._profile_copy(). Nome dividido (given/family) é a decisão de UX
     # no ar: melhor pro autocomplete e pra saudar pelo primeiro nome.
@@ -1143,15 +1122,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "BIRTHDAY_HERO_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},
     },
-    "CLOSING_AWARENESS_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em")},
-    },
-    "CLOSING_AWARENESS_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="minutos")},
-    },
-    "CLOSING_AWARENESS_OLD_D1_ALERT": {
-        WILDCARD: {WILDCARD: CopyEntry(message='Atenção: há estoque D-1 com mais de 1 dia na posição "ontem".')},
-    },
     "SHOP_STATUS_OPEN": {
         WILDCARD: {WILDCARD: CopyEntry(message="Aberto agora")},
     },
@@ -1169,15 +1139,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "FOOTER_COPYRIGHT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Todos os direitos reservados.")},
-    },
-    "OFFLINE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sem conexão")},
-    },
-    "OFFLINE_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Verifique sua internet e tente novamente.")},
-    },
-    "OFFLINE_RETRY_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
     },
 
     # ── Kintsugi ──────────────────────────────────────────────────
