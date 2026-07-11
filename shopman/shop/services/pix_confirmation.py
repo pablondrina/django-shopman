@@ -61,7 +61,7 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
                 "pix_confirmation: no payment intent or order for txid=%s", txid,
             )
             return
-        _apply_order_payment(order, e2e_id=e2e_id, valor=valor)
+        _apply_order_payment(order, e2e_id=e2e_id, valor=valor, intent_backed=False)
         return
 
     amount_q = _amount_to_q(valor, default=db_intent.amount_q)
@@ -101,15 +101,26 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
     _apply_order_payment(order, e2e_id=e2e_id, valor=valor)
 
 
-def _apply_order_payment(order: Order, *, e2e_id: str, valor: str) -> None:
+def _apply_order_payment(
+    order: Order, *, e2e_id: str, valor: str, intent_backed: bool = True,
+) -> None:
     """Record PIX transaction audit data on the order and dispatch ``on_paid``.
 
     Idempotent on ``e2e_id``: a second call with the same end-to-end id is
     a noop (returns without dispatching).
+
+    ``on_paid`` only fires when the captured amount covers ``order.total_q``
+    (same contract as the Stripe webhook via
+    ``payment.has_sufficient_captured_payment``). An underpaid capture is
+    recorded as audit data and raises a ``payment_insufficient`` alert; the
+    order keeps waiting for payment. ``intent_backed=False`` marks the legacy
+    fallback (order located by data scan, no Payman intent for this txid),
+    where sufficiency comes from the webhook amount instead of Payman.
     """
     from shopman.shop.lifecycle import dispatch
 
     should_dispatch = False
+    sufficient = False
     with transaction.atomic():
         order = Order.objects.select_for_update().get(pk=order.pk)
         payment_data = dict(order.data.get("payment", {}) if order.data else {})
@@ -118,26 +129,100 @@ def _apply_order_payment(order: Order, *, e2e_id: str, valor: str) -> None:
             return
 
         already_captured = bool(payment_data.get("captured_at"))
-        should_dispatch = not already_captured
 
         if e2e_id:
             payment_data["e2e_id"] = e2e_id
         if valor:
             payment_data["paid_amount_q"] = _amount_to_q(valor, default=order.total_q)
-        captured_at = _captured_at_for_payment(order) or timezone.now()
-        if not payment_data.get("captured_at"):
-            payment_data["captured_at"] = captured_at.isoformat()
+
+        sufficient = _captured_payment_is_sufficient(
+            order, payment_data, intent_backed=intent_backed,
+        )
+        if sufficient:
+            # ``captured_at`` marca captura SUFICIENTE — é o guard de
+            # idempotência do dispatch e nunca é gravado num pagamento parcial.
+            captured_at = _captured_at_for_payment(order) or timezone.now()
+            if not payment_data.get("captured_at"):
+                payment_data["captured_at"] = captured_at.isoformat()
+        should_dispatch = sufficient and not already_captured
 
         if order.data is None:
             order.data = {}
         order.data["payment"] = payment_data
         order.save(update_fields=["data", "updated_at"])
 
+    if not sufficient:
+        logger.warning(
+            "pix_confirmation: captured amount below order total order=%s paid_q=%s total_q=%s",
+            order.ref,
+            payment_data.get("paid_amount_q"),
+            order.total_q,
+        )
+        _create_insufficient_payment_alert(
+            order, paid_q=payment_data.get("paid_amount_q"),
+        )
+        return
+
     _ack_payment_failed_alerts(order)
     _cancel_stale_intents(order, keep_intent_ref=payment_data.get("intent_ref", ""))
 
     if should_dispatch:
         dispatch(order, "on_paid")
+
+
+def _captured_payment_is_sufficient(
+    order: Order, payment_data: dict, *, intent_backed: bool,
+) -> bool:
+    """True quando o valor capturado cobre ``order.total_q``.
+
+    Com intent no Payman a fonte canônica é
+    ``payment.has_sufficient_captured_payment`` (mesmo contrato do webhook
+    Stripe). No fallback legado o Payman não conhece este pagamento, então a
+    comparação usa o ``paid_amount_q`` reportado pelo webhook; webhook sem
+    ``valor`` não indica pagamento parcial.
+    """
+    from shopman.shop.services import payment as payment_service
+
+    if intent_backed and payment_data.get("intent_ref"):
+        return payment_service.has_sufficient_captured_payment(order) is True
+    paid_q = payment_data.get("paid_amount_q")
+    if paid_q is None:
+        return True
+    return int(paid_q) >= int(getattr(order, "total_q", 0) or 0)
+
+
+def _create_insufficient_payment_alert(order: Order, *, paid_q) -> None:
+    from datetime import timedelta
+
+    try:
+        from shopman.shop.adapters import alert as alert_adapter
+
+        debounce_cutoff = timezone.now() - timedelta(minutes=15)
+        if alert_adapter.recent_exists(
+            "payment_insufficient",
+            debounce_cutoff,
+            order_ref=order.ref,
+        ):
+            return
+        from shopman.utils.monetary import format_money
+
+        paid_display = (
+            f"R$ {format_money(int(paid_q))}" if paid_q is not None else "valor não informado"
+        )
+        alert_adapter.create(
+            "payment_insufficient",
+            "error",
+            (
+                f"PIX do pedido {order.ref} pago abaixo do total: "
+                f"{paid_display} de R$ {format_money(order.total_q)}. "
+                "Pedido segue aguardando pagamento; confira no gateway."
+            ),
+            order_ref=order.ref,
+        )
+    except Exception:
+        logger.warning(
+            "payment_insufficient_alert_create_failed order=%s", order.ref, exc_info=True,
+        )
 
 
 def _amount_to_q(valor: str, *, default: int | None = None) -> int:
