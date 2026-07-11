@@ -282,3 +282,14 @@ As 13 chaves órfãs antigas ficaram **duplicatas mortas** — arquivadas (segue
 
 > Fecha o item A: toda `WELCOME_*`/`LOGIN_*` agora está religada (pela mãe, ou `change_phone_cta` por mim)
 > ou arquivada como superseded. **Zero resíduo hardcoded.**
+
+## 🍞 `MENU_SUBTITLE` — subtítulo momento-aware do cardápio (BUILD, 2026-07-11)
+
+**Não construída.** A chave descreve um subtítulo do cardápio que varia por momento do dia
+(ex.: manhã vs. tarde). Hoje `menu.vue` tem só um `h1` sr-only e **nenhum slot de subtítulo**,
+e a projection do catálogo não entrega campo de copy. Não é religação (não há tela que hardcode):
+é feature.
+
+Para construir: (1) elemento de subtítulo no header do cardápio; (2) campo `subtitle` na projection
+de catálogo resolvendo `MENU_SUBTITLE` do registro (momento/audiência via `OmotenashiContext`);
+(3) tipo Nuxt + consumo. Fica como decisão de produto do Pablo — arquivar ou construir.

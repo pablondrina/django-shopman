@@ -48,7 +48,11 @@ const devicesCopy = computed(() => devicesResponse.value?.copy || {
   current_badge: 'Este dispositivo',
   registered_prefix: 'Registrado em',
   revoke_cta: 'Remover',
-  delete_warning: 'Seus dados pessoais serão anonimizados e você sairá da loja neste aparelho.'
+  revoke_all_cta: 'Remover todos os dispositivos',
+  revoke_confirm: 'Remover este dispositivo?',
+  revoke_all_confirm: 'Remover todos os dispositivos?',
+  unknown_label: 'Dispositivo desconhecido',
+  delete_warning: 'Seus dados pessoais serão anonimizados e você sairá da loja neste dispositivo.'
 })
 
 async function exportData () {
@@ -124,10 +128,10 @@ async function confirmRevokeDevice () {
     await refreshDevices()
     revokeDeviceOpen.value = false
     if (import.meta.client) {
-      useSonner.success(revokeDeviceMode.value === 'all' ? 'Aparelhos removidos.' : 'Aparelho removido.')
+      useSonner.success(revokeDeviceMode.value === 'all' ? 'Dispositivos removidos.' : 'Dispositivo removido.')
     }
   } catch (e) {
-    deviceIssue.value = errorDetail(e, 'Não foi possível remover o aparelho agora.')
+    deviceIssue.value = errorDetail(e, 'Não foi possível remover o dispositivo agora.')
     if (import.meta.client) useSonner.error(deviceIssue.value)
   } finally {
     revokeDevicePending.value = false
@@ -224,7 +228,7 @@ useSeoMeta({ title: 'Segurança e dados' })
             </p>
           </div>
           <UiButton v-if="accountDevices.length > 1" variant="outline" size="sm" icon="lucide:shield-x" @click="askRevokeAllDevices">
-            Remover todos
+            {{ devicesCopy.revoke_all_cta }}
           </UiButton>
         </div>
 
@@ -252,7 +256,7 @@ useSeoMeta({ title: 'Segurança e dados' })
             </UiItemMedia>
             <UiItemContent>
               <UiItemTitle>
-                {{ device.label || 'Dispositivo' }}
+                {{ device.label || devicesCopy.unknown_label }}
                 <UiBadge v-if="device.is_current" variant="secondary">{{ devicesCopy.current_badge }}</UiBadge>
               </UiItemTitle>
               <UiItemDescription>
@@ -320,12 +324,12 @@ useSeoMeta({ title: 'Segurança e dados' })
         <UiAlertDialogContent>
           <UiAlertDialogHeader>
             <UiAlertDialogTitle>
-              {{ revokeDeviceMode === 'all' ? 'Remover todos os aparelhos?' : 'Remover aparelho?' }}
+              {{ revokeDeviceMode === 'all' ? devicesCopy.revoke_all_confirm : devicesCopy.revoke_confirm }}
             </UiAlertDialogTitle>
             <UiAlertDialogDescription>
               {{ revokeDeviceMode === 'all'
                 ? 'Você precisará confirmar o telefone novamente nos próximos acessos.'
-                : `Você precisará confirmar o telefone novamente neste aparelho: ${revokeDeviceCandidate?.label || 'Dispositivo'}.` }}
+                : `Você precisará confirmar o telefone novamente neste dispositivo: ${revokeDeviceCandidate?.label || devicesCopy.unknown_label}.` }}
             </UiAlertDialogDescription>
           </UiAlertDialogHeader>
           <UiAlertDialogFooter>

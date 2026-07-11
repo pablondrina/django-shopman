@@ -214,6 +214,7 @@ export interface CartProjection {
   has_awaiting_confirmation_items: boolean
   has_ready_for_confirmation_items: boolean
   unavailable_banner: string
+  awaiting_confirmation_notice: string
   minimum_order_progress: MinimumOrderProgressProjection | null
   delivery_minimum_progress: MinimumOrderProgressProjection | null
   free_delivery_progress: FreeDeliveryProgressProjection | null
@@ -1033,6 +1034,10 @@ export interface AccountDeviceCopy {
   current_badge: string
   registered_prefix: string
   revoke_cta: string
+  revoke_all_cta: string
+  revoke_confirm: string
+  revoke_all_confirm: string
+  unknown_label: string
   delete_warning: string
 }
 

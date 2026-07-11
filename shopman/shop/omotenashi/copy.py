@@ -121,12 +121,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Product states ────────────────────────────────────────────
-    "PRODUCT_OUT_OF_STOCK": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Indisponível")},
-    },
-    "PRODUCT_SCHEDULED_UNAVAILABLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Indisponível")},
-    },
 
     # ── Checkout microcopy ────────────────────────────────────────
     "CHECKOUT_SWITCH_ACCOUNT_TITLE": {
@@ -315,14 +309,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
-    "WELCOME_WHATSAPP": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Você entrou pelo WhatsApp",
-                message="Pode continuar por aqui quando quiser.",
-            ),
-        },
-    },
 
     # ── Tracking tail ─────────────────────────────────────────────
     "TRACKING_PAGE_META_DESCRIPTION": {
@@ -448,12 +434,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_SUPPORT_WHATSAPP_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Oi! Posso ajudar com o pedido {order_ref}?")},
     },
-    "TRACKING_ETA_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(
-            title="Estamos preparando seu pedido.",
-            message="Previsão para ficar pronto às",
-        )},
-    },
     # Rótulo enxuto do countdown quando o prazo é a loja conferir disponibilidade
     # (deadline_kind="availability"). Consolidou o antigo par prefix/suffix num rótulo.
     "TRACKING_AUTO_CONFIRM_LABEL": {
@@ -548,20 +528,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
-    "TRACKING_PAYMENT_CONFIRMED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Pagamento confirmado.",
-                message="Recebemos a confirmação do pagamento deste pedido.",
-            ),
-        },
-    },
-    "TRACKING_ACTION_NONE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Nenhuma ação necessária")},
-    },
-    "TRACKING_ACTION_WAITING_COURIER": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Aguardando entregador")},
-    },
     "TRACKING_ACTION_READY_PICKUP": {
         WILDCARD: {WILDCARD: CopyEntry(title="Retirar pedido")},
     },
@@ -576,9 +542,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_UPDATED_NOW": {
         WILDCARD: {WILDCARD: CopyEntry(title="Atualizado agora")},
     },
-    "TRACKING_PROMISE_LABEL_ACTION": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sua ação:")},
-    },
     "TRACKING_PROMISE_LABEL_DEADLINE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Prazo:")},
     },
@@ -591,9 +554,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(title="Aviso:")},
     },
-    "TRACKING_PROMISE_LABEL_UPDATED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Última atualização:")},
-    },
     # Affordância enxuta quando o dado está velho (um poll falhou): vira um "Atualizar"
     # tocável ao lado do carimbo de frescor, no lugar do técnico "reconectando…".
     "TRACKING_PROMISE_STALE": {
@@ -601,9 +561,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
-    },
-    "TRACKING_PROMISE_RECOVERY_HELP": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Se precisar de ajuda, fale com o estabelecimento.")},
     },
     "TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_NEW": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento vai conferir a disponibilidade.")},
@@ -640,9 +597,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "TRACKING_PROMISE_CLOSED_HOURS_NEXT_UNKNOWN": {
         WILDCARD: {WILDCARD: CopyEntry(message="Atualizaremos o pedido assim que o próximo expediente estiver definido.")},
-    },
-    "TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhuma ação necessária agora.")},
     },
     "TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_NEW": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estabelecimento está conferindo a disponibilidade.")},
@@ -748,9 +702,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Payment ───────────────────────────────────────────────────
-    "PAYMENT_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Concluir pagamento")},
-    },
     "PAYMENT_PAGE_META_DESCRIPTION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Pague seu pedido para seguirmos com o preparo")},
     },
@@ -762,12 +713,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "PAYMENT_DEV_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="[DEV] Simular pagamento confirmado")},
-    },
-    "PAYMENT_ERROR_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Não conseguimos gerar o pagamento agora.")},
-    },
-    "PAYMENT_ERROR_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Tente novamente em instantes. Se o problema continuar, fale com o estabelecimento.")},
     },
     "PAYMENT_RETRY_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
@@ -870,9 +815,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PROMISE_CARD_PENDING_RECOVERY": {
         WILDCARD: {WILDCARD: CopyEntry(message="Se demorar, atualize a página ou fale com o estabelecimento.")},
     },
-    "PAYMENT_DEADLINE_NOTICE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Conclua dentro do prazo indicado abaixo.")},
-    },
     "PAYMENT_PROMISE_ERROR_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Não conseguimos preparar o pagamento")},
     },
@@ -918,20 +860,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PROMISE_EXPIRED_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Também avisaremos pelos canais ativos da sua conta.")},
     },
-    "PAYMENT_WAITING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Aguardando seu banco confirmar…")},
-    },
-    "PAYMENT_WAITING_LONG": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Ainda processando. Pode levar até 1 minuto.")},
-    },
-    "PAYMENT_PIX_EXPIRED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Este PIX expirou",
-                message="Geramos um novo para você. É só continuar.",
-            ),
-        },
-    },
     "PAYMENT_CARD_INTRO": {
         WILDCARD: {
             WILDCARD: CopyEntry(
@@ -960,39 +888,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PIX_EXPIRES_LABEL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Tempo para pagar")},
     },
-    "PAYMENT_CONFIRMED": {
-        WILDCARD: {
-            AUDIENCE_RETURNING: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-            AUDIENCE_VIP: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-            WILDCARD: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-        },
-    },
-    "PAYMENT_REDIRECTING_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Redirecionando em")},
-    },
-    "PAYMENT_REDIRECTING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="s…")},
-    },
-    "PAYMENT_PIX_REGENERATE_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Gerar novo PIX")},
-    },
     "PAYMENT_VIEW_ORDER_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ver pedido")},
-    },
-    "PAYMENT_CANCELLED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pedido cancelado")},
-    },
-    "PAYMENT_CANCELLED_DETAILS_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Ver detalhes")},
     },
 
     # ── Tracking / yoin ───────────────────────────────────────────
@@ -1005,9 +902,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Auth ──────────────────────────────────────────────────────
-    "LOGIN_WELCOME_BACK": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Pronto. Você está entrando.")},
-    },
     "LOGOUT_FAREWELL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
@@ -1059,12 +953,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGIN_TERMS_NOTE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Usamos seu telefone para autenticar a entrada. Seus dados não são compartilhados.")},
     },
-    "LOGIN_CHANGE_PHONE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Trocar de telefone?")},
-    },
-    "LOGIN_CHANGE_PHONE_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Ao trocar, o código enviado deixa de valer. Você recebe outro em seguida.")},
-    },
     "LOGIN_CHANGE_PHONE_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar telefone")},
     },
@@ -1086,9 +974,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGIN_AUTH_CONFIRMED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta", message="Tudo pronto. Levando você para a loja…")},
     },
-    "DEVICE_TRUST_ERROR": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Não foi possível salvar. Tente novamente.")},
-    },
     "DEVICE_TRUST_REDIRECTING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo reconhecido. Entrando automaticamente…")},
     },
@@ -1103,33 +988,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "DEVICE_TRUST_SAVED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo salvo por 30 dias.")},
-    },
-    "DEVICE_TRUST_GREETING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta")},
-    },
-    "WELCOME_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Boas-vindas")},
-    },
-    "WELCOME_GREETING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Que bom te ver aqui!")},
-    },
-    "WELCOME_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer ser chamado(a)?")},
-    },
-    "WELCOME_NAME_HEADING_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer")},
-    },
-    "WELCOME_NAME_HEADING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(title="ser chamado(a)?")},
-    },
-    "WELCOME_SUGGESTED_NAME_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Encontramos esse nome nos seus dados. Se estiver bom, é só confirmar.")},
-    },
-    "WELCOME_CONFIRM_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar")},
-    },
-    "WELCOME_ACCOUNT_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Você pode mudar isso depois em Minha Conta.")},
     },
 
     # ── History / account empty states ────────────────────────────
@@ -1172,7 +1030,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Controle os dispositivos confiáveis e seus dados pessoais.")},
     },
     "ACCOUNT_DELETE_WARNING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste aparelho.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Esta ação é irreversível. Seus dados pessoais serão anonimizados conforme a LGPD e você sairá da loja neste dispositivo.")},
     },
     "DEVICE_LIST_EMPTY": {
         WILDCARD: {WILDCARD: CopyEntry(title="Nenhum dispositivo confiável", message="Quando você optar por confiar neste dispositivo no login, ele aparecerá aqui.")},
@@ -1183,9 +1041,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "DEVICE_LIST_CURRENT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Este dispositivo")},
     },
-    "DEVICE_LIST_LAST_USED_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Último uso:")},
-    },
     "DEVICE_LIST_REGISTERED_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="Registrado em")},
     },
@@ -1193,19 +1048,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Remover")},
     },
     "DEVICE_REVOKE_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revogar acesso deste dispositivo?")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Remover este dispositivo?")},
     },
     "DEVICE_REVOKE_ALL_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Revogar todos os dispositivos")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Remover todos os dispositivos")},
     },
     "DEVICE_REVOKE_ALL_CONFIRM": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Revogar TODOS os dispositivos? Você precisará fazer login novamente.")},
-    },
-    "NOTIFICATION_PREFS_EMPTY": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Nenhuma preferência de notificação configurável no momento.")},
-    },
-    "LOYALTY_UNAVAILABLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Programa de fidelidade não disponível.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Remover todos os dispositivos?")},
     },
     # Labels dos campos editáveis do Perfil — religados em perfil.vue via
     # ProfileView._profile_copy(). Nome dividido (given/family) é a decisão de UX
@@ -1264,15 +1113,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "BIRTHDAY_HERO_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},
     },
-    "CLOSING_AWARENESS_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em")},
-    },
-    "CLOSING_AWARENESS_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="minutos")},
-    },
-    "CLOSING_AWARENESS_OLD_D1_ALERT": {
-        WILDCARD: {WILDCARD: CopyEntry(message='Atenção: há estoque D-1 com mais de 1 dia na posição "ontem".')},
-    },
     "SHOP_STATUS_OPEN": {
         WILDCARD: {WILDCARD: CopyEntry(message="Aberto agora")},
     },
@@ -1291,42 +1131,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "FOOTER_COPYRIGHT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Todos os direitos reservados.")},
     },
-    "OFFLINE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Sem conexão")},
-    },
-    "OFFLINE_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Verifique sua internet e tente novamente.")},
-    },
-    "OFFLINE_RETRY_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
-    },
 
     # ── Kintsugi ──────────────────────────────────────────────────
-    "KINTSUGI_ITEM_REMOVED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Removido.")},
-    },
-    "KINTSUGI_CEP_NOT_FOUND": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Não encontrei esse CEP. Quer digitar o endereço?")},
-    },
     "KINTSUGI_CANCEL_REFUSED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido já está sendo preparado. Fale conosco para ajustar.")},
-    },
-    "KINTSUGI_RATE_LIMITED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Muitas tentativas",
-                message="Tente novamente em alguns minutos ou fale conosco pelo WhatsApp.",
-            ),
-        },
-    },
-    "KINTSUGI_RATE_LIMITED_RETRY_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Tente novamente em")},
-    },
-    "KINTSUGI_RATE_LIMITED_RETRY_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
-    },
-    "KINTSUGI_RATE_LIMITED_CONTACT": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Prefere falar conosco?")},
     },
     "KINTSUGI_SHORTAGE_GENERIC": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ih, o último acabou de sair")},

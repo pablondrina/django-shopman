@@ -702,7 +702,11 @@ def _devices_copy() -> dict:
         "current_badge": title("DEVICE_LIST_CURRENT", "Este dispositivo"),
         "registered_prefix": message("DEVICE_LIST_REGISTERED_PREFIX", "Registrado em"),
         "revoke_cta": title("DEVICE_REVOKE_CTA", "Remover"),
-        "delete_warning": message("ACCOUNT_DELETE_WARNING", "Seus dados pessoais serão anonimizados e você sairá da loja neste aparelho."),
+        "revoke_all_cta": title("DEVICE_REVOKE_ALL_CTA", "Remover todos os dispositivos"),
+        "revoke_confirm": message("DEVICE_REVOKE_CONFIRM", "Remover este dispositivo?"),
+        "revoke_all_confirm": message("DEVICE_REVOKE_ALL_CONFIRM", "Remover todos os dispositivos?"),
+        "unknown_label": title("DEVICE_LIST_UNKNOWN", "Dispositivo desconhecido"),
+        "delete_warning": message("ACCOUNT_DELETE_WARNING", "Seus dados pessoais serão anonimizados e você sairá da loja neste dispositivo."),
     }
 
 
