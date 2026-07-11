@@ -280,7 +280,9 @@ class RequestCodeView(APIView):
         auth_result = auth_service.request_code(
             phone=phone,
             delivery_method=delivery_method,
-            ip_address=request.META.get("REMOTE_ADDR"),
+            # IP real (XFF rightmost, TRUSTED_PROXY_DEPTH): atrás do LB,
+            # REMOTE_ADDR é o proxy e o gate de IP bloquearia todo mundo junto.
+            ip_address=auth_service.client_ip(request),
         )
         if not auth_result.success:
             return Response(
