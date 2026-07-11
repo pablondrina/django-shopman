@@ -151,7 +151,7 @@ useSeoMeta({
           <UiAlertDescription>{{ rateLimitRecovery.detail }}</UiAlertDescription>
         </UiAlert>
 
-        <UiAlert v-if="holdBanner?.kind === 'ready'" :variant="holdBannerVariant(holdBanner)" icon="lucide:party-popper" data-cart-hold-banner>
+        <UiAlert v-if="holdBanner?.kind === 'ready'" :variant="holdBannerVariant(holdBanner) ?? undefined" icon="lucide:party-popper" data-cart-hold-banner>
           <UiAlertTitle>
             Tudo pronto! Confirme{{ holdBanner.deadlineDisplay ? ` até ${holdBanner.deadlineDisplay}` : '' }}
           </UiAlertTitle>

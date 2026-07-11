@@ -294,14 +294,16 @@ const quickDateOptions = computed(() => {
       .map(option => ({ value: option.value, title: option.label, disabled: option.disabled }))
   }
   const today = dateBounds.value.todayValue
+  const [firstDate, secondDate] = available
   const out: Array<{ value: string, title: string, disabled: boolean }> = []
-  if (available[0] === today) {
-    out.push({ value: available[0], title: 'Hoje', disabled: false })
-    if (available[1]) out.push({ value: available[1], title: nextDateTitle(available[1]), disabled: false })
+  if (!firstDate) return out
+  if (firstDate === today) {
+    out.push({ value: firstDate, title: 'Hoje', disabled: false })
+    if (secondDate) out.push({ value: secondDate, title: nextDateTitle(secondDate), disabled: false })
   } else {
     // Hoje está fechado → a opção mais próxima JÁ é a próxima data disponível
     // ("Amanhã" se for o dia seguinte; senão "Próxima fornada").
-    out.push({ value: available[0], title: nextDateTitle(available[0]), disabled: false })
+    out.push({ value: firstDate, title: nextDateTitle(firstDate), disabled: false })
   }
   return out
 })

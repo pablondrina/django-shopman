@@ -203,7 +203,9 @@ function syncActiveSectionFromScroll () {
 
   const offset = menuScrollOffset()
   const activationLine = offset + 48
+  const firstSection = sectionEls[0]
   const lastSection = sectionEls[sectionEls.length - 1]
+  if (!firstSection || !lastSection) return
   const nearDocumentEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8
   if (nearDocumentEnd && lastSection) {
     const current = lastSection.dataset.menuSectionRef || 'all'
@@ -212,14 +214,14 @@ function syncActiveSectionFromScroll () {
     return
   }
 
-  if (sectionEls[0].getBoundingClientRect().top > activationLine) {
+  if (firstSection.getBoundingClientRect().top > activationLine) {
     const current = hasAppliedFilters.value ? FILTERED_SECTION_VALUE : 'all'
     activeSection.value = current
     alignActiveSectionPill(current)
     return
   }
 
-  let current = sectionEls[0].dataset.menuSectionRef || 'all'
+  let current = firstSection.dataset.menuSectionRef || 'all'
   for (const section of sectionEls) {
     if (section.getBoundingClientRect().top <= activationLine) {
       current = section.dataset.menuSectionRef || current

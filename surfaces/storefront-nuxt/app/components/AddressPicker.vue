@@ -261,7 +261,7 @@ async function placesSuggestions (input: string): Promise<PickerSuggestion[]> {
     const placesLib = await maps.importLibrary<google.maps.PlacesLibrary>('places')
     if (!placesLib?.AutocompleteSuggestion) return []
     placesSessionToken = placesSessionToken || new placesLib.AutocompleteSessionToken()
-    const request: Record<string, unknown> = {
+    const request: google.maps.places.AutocompleteRequest = {
       input,
       sessionToken: placesSessionToken,
       includedRegionCodes: ['br'],
@@ -309,14 +309,15 @@ async function acceptSuggestion (suggestion: PickerSuggestion) {
     applyPartial(suggestion.cepPartial)
     return
   }
+  if (!suggestion.prediction) return
   try {
     searching.value = true
     const place = suggestion.prediction.toPlace()
     await place.fetchFields({ fields: ['addressComponents', 'formattedAddress', 'location', 'id'] })
     placesSessionToken = null
     const location = place.location
-    const latitude = typeof location?.lat === 'function' ? location.lat() : location?.lat ?? null
-    const longitude = typeof location?.lng === 'function' ? location.lng() : location?.lng ?? null
+    const latitude = location ? location.lat() : null
+    const longitude = location ? location.lng() : null
     applyPartial(draftFromGooglePlace({
       id: place.id,
       formattedAddress: place.formattedAddress,
