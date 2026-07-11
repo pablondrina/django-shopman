@@ -1,7 +1,10 @@
 # copy-wiring-backlog — chaves ainda NÃO religadas a uma tela.
 # Regra: só encolhe. Cada religação (via projection) remove a linha.
 # O teste test_copy_wiring_backlog falha se surgir órfã fora desta lista.
-# regenerado no merge do main (#45) 2026-07-10 — 59 órfãs (união das duas branches)
+# 2026-07-11 — 8 restantes. Triagem completa: PICKUP religada; 49 superadas arquivadas
+# (PAYMENT/WELCOME/TRACKING/KINTSUGI/OFFLINE/CLOSING/LOGIN/PRODUCT/etc.). Restam:
+#   · DEVICE_* (7) — WIRE em espera: Pablo revisa o wording (Revogar×Remover) antes.
+#   · MENU_SUBTITLE (1) — BUILD: subtítulo momento-aware do cardápio (ver COPY-BACKLOG-UNBUILT.md).
 DEVICE_LIST_LAST_USED_PREFIX
 DEVICE_LIST_UNKNOWN
 DEVICE_REVOKE_ALL_CONFIRM
