@@ -8,12 +8,28 @@
 // (must_change — the operator can't operate until they rotate the temp PIN), and
 // a VOLUNTARY "Trocar PIN" from the pad. Both prove the current PIN (the backend
 // authorizes on that), so no manager is needed for a routine change.
-import { appendPinDigit, canSubmitPin, isLikelyBadge } from "~/presentation/operatorLock";
-import type { OperatorCard } from "~/types/operator";
+import {
+  appendPinDigit,
+  canSubmitPin,
+  isLikelyBadge,
+} from "../presentation/operatorLock";
+// Import explícito (não auto-import): o POS mantém um lock próprio (usePosOperatorLock)
+// e este overlay é construído SOBRE o composable do kit, independente do app hospedeiro.
+import { useOperatorLock } from "../composables/useOperatorLock";
+import type { OperatorCard } from "../types/operator";
 
 const props = defineProps<{ perm: string }>();
 
-const { eligible, loadEligible, unlock, changePin, changeError, operator, mustChange, busy } = useOperatorLock(props.perm);
+const {
+  eligible,
+  loadEligible,
+  unlock,
+  changePin,
+  changeError,
+  operator,
+  mustChange,
+  busy,
+} = useOperatorLock(props.perm);
 
 const picked = ref<OperatorCard | null>(null);
 const pin = ref("");
@@ -35,7 +51,9 @@ function backspace() {
   pin.value = pin.value.slice(0, -1);
 }
 
-const canSubmit = computed(() => canSubmitPin(picked.value?.id ?? null, pin.value));
+const canSubmit = computed(() =>
+  canSubmitPin(picked.value?.id ?? null, pin.value),
+);
 
 async function submitPin() {
   if (!canSubmit.value || !picked.value) return;
@@ -53,7 +71,10 @@ async function onBadgeEnter() {
 }
 
 // ── Voluntary change (an operator picked themselves and taps "Trocar PIN") ──
-async function submitVoluntaryChange(payload: { currentPin: string; newPin: string }) {
+async function submitVoluntaryChange(payload: {
+  currentPin: string;
+  newPin: string;
+}) {
   if (!picked.value) return;
   const ok = await changePin({ operatorId: picked.value.id, ...payload });
   if (ok) {
@@ -64,7 +85,10 @@ async function submitVoluntaryChange(payload: { currentPin: string; newPin: stri
 }
 
 // ── Forced change (must_change after a manager reset) ──
-async function submitForcedChange(payload: { currentPin: string; newPin: string }) {
+async function submitForcedChange(payload: {
+  currentPin: string;
+  newPin: string;
+}) {
   if (!operator.value) return;
   const ok = await changePin({ operatorId: operator.value.id, ...payload });
   if (ok) useSonner.success("PIN atualizado.");
@@ -73,7 +97,9 @@ async function submitForcedChange(payload: { currentPin: string; newPin: string 
 </script>
 
 <template>
-  <div class="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-4 backdrop-blur-sm">
+  <div
+    class="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-4 backdrop-blur-sm"
+  >
     <!-- hidden capture for the barcode scanner (types + Enter) -->
     <input
       v-if="!changing && !mustChange"
@@ -118,7 +144,10 @@ async function submitForcedChange(payload: { currentPin: string; newPin: string 
 
         <!-- operator picker -->
         <template v-if="!picked">
-          <div v-if="!eligible.length" class="grid place-items-center gap-1.5 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
+          <div
+            v-if="!eligible.length"
+            class="grid place-items-center gap-1.5 rounded-lg border border-dashed py-8 text-center text-muted-foreground"
+          >
             <Icon name="lucide:user-x" class="size-6" />
             <p class="text-sm">Nenhum operador habilitado para esta tela.</p>
           </div>
@@ -137,16 +166,22 @@ async function submitForcedChange(payload: { currentPin: string; newPin: string 
 
         <!-- PIN pad -->
         <template v-else>
-          <button type="button" class="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" @click="picked = null">
+          <button
+            type="button"
+            class="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            @click="picked = null"
+          >
             <Icon name="lucide:chevron-left" class="size-4" /> Trocar operador
           </button>
           <p class="mb-2 text-sm font-semibold">{{ picked.name }}</p>
-          <div class="mb-3 flex h-10 items-center justify-center rounded-md border bg-background text-3xl tracking-[0.4em] tabular-nums">
+          <div
+            class="mb-3 flex h-10 items-center justify-center rounded-md border bg-background text-3xl tracking-[0.4em] tabular-nums"
+          >
             {{ "•".repeat(pin.length) || "—" }}
           </div>
           <div class="grid grid-cols-3 gap-2">
             <button
-              v-for="d in ['1','2','3','4','5','6','7','8','9']"
+              v-for="d in ['1', '2', '3', '4', '5', '6', '7', '8', '9']"
               :key="d"
               type="button"
               class="rounded-lg border bg-background py-3 text-lg font-semibold transition hover:bg-accent"
@@ -154,10 +189,20 @@ async function submitForcedChange(payload: { currentPin: string; newPin: string 
             >
               {{ d }}
             </button>
-            <button type="button" class="rounded-lg border bg-background py-3 text-sm transition hover:bg-accent" @click="backspace">
+            <button
+              type="button"
+              class="rounded-lg border bg-background py-3 text-sm transition hover:bg-accent"
+              @click="backspace"
+            >
               <Icon name="lucide:delete" class="mx-auto size-5" />
             </button>
-            <button type="button" class="rounded-lg border bg-background py-3 text-lg font-semibold transition hover:bg-accent" @click="press('0')">0</button>
+            <button
+              type="button"
+              class="rounded-lg border bg-background py-3 text-lg font-semibold transition hover:bg-accent"
+              @click="press('0')"
+            >
+              0
+            </button>
             <button
               type="button"
               :disabled="!canSubmit || busy"

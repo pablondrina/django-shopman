@@ -66,7 +66,7 @@ const {
   lock,
   changePin,
   changeError,
-} = useOperatorLock({
+} = usePosOperatorLock({
   initialOperator: data.value?.operator ?? null,
   autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
 });
