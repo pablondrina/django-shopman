@@ -276,8 +276,9 @@ As 13 chaves órfãs antigas ficaram **duplicatas mortas** — arquivadas (segue
 - `LOGIN_WELCOME_BACK` → superseded por `LOGIN_AUTH_CONFIRMED` ("confirmação automática").
 - `LOGIN_CHANGE_PHONE_TITLE` / `_MESSAGE` → descrevem um **diálogo de confirmação que o fluxo enxuto
   não tem** (o "Trocar telefone" só volta pro passo do telefone, sem diálogo).
-- `LOGIN_CHANGE_PHONE_CTA` ("Trocar telefone") → **único resíduo ainda hardcoded** (`entrar.vue`, botão
-  ghost que chama `returnToPhoneStep`). Micro-wire opcional: adicionar `change_phone_cta` no `_auth_copy()`
-  da mãe resolvendo essa chave. É superfície DELA (login) — sinalizado por mensagem, decisão dela.
+- `LOGIN_CHANGE_PHONE_CTA` ("Trocar telefone") → ✅ **RELIGADA** (2026-07-11, a pedido do Pablo): era o
+  único resíduo hardcoded no `entrar.vue`. Adicionado `change_phone_cta` ao `_auth_copy()` (home.py) +
+  dataclass/tipo, consumido via `copyTitle(authCopy?.change_phone_cta, 'Trocar telefone')`. Saiu do backlog.
 
-> Fecha o item A: toda `WELCOME_*`/`LOGIN_*` agora está religada (pela mãe) ou arquivada como superseded.
+> Fecha o item A: toda `WELCOME_*`/`LOGIN_*` agora está religada (pela mãe, ou `change_phone_cta` por mim)
+> ou arquivada como superseded. **Zero resíduo hardcoded.**

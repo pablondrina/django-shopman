@@ -587,7 +587,7 @@ useSeoMeta({
               class="text-muted-foreground hover:text-foreground"
               @click="returnToPhoneStep"
             >
-              Trocar telefone
+              {{ copyTitle(authCopy?.change_phone_cta, 'Trocar telefone') }}
             </UiButton>
           </div>
 
