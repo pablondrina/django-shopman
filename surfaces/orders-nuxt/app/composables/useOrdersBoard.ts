@@ -1,7 +1,8 @@
 // Order board read-side. Single source for the live queue:
 //   - useFetch the canonical two-zone projection (GET /api/v1/backstage/orders/);
 //   - poll every 30s as a robust fallback (mirrors the Admin queue `every 30s`);
-//   - SSE realtime: EventSource on /gestor/events/orders/ → refresh on push.
+//   - SSE realtime: EventSource same-origin no BFF (/sse/orders → proxy do
+//     /gestor/events/orders/ do Django) → refresh on push.
 // Writes go through the django proxy (CSRF handled there) and reconcile via refresh.
 // SSE/poll are client-only (EventSource is a browser API).
 import type { CancellationReason, OrderQueueResponse, TwoZoneQueueProjection } from "~/types/orders";
@@ -35,12 +36,9 @@ export function useOrdersBoard() {
 
   function connectSse() {
     if (source) return;
-    const base = String(config.public.djangoPublicBaseUrl || "").replace(/\/$/, "");
-    // EventSource needs same-origin. In prod the Gestor is served on its own host
-    // proxying Django, so it connects; in dev it's a different origin (:3004 vs
-    // Django :8000) → skip and let the 30s poll carry realtime (fica "polling").
-    if (!base || new URL(base).origin !== window.location.origin) return;
-    const url = `${base}/gestor/events/orders/`;
+    // Same-origin sempre: o BFF (server/routes/sse/orders.ts) faz streaming do
+    // eventstream do Django, em dev e em prod — nada de gate por origem.
+    const url = ssePath("/sse/orders", config.app.baseURL);
     try {
       realtime.value = "connecting";
       source = new EventSource(url, { withCredentials: true });

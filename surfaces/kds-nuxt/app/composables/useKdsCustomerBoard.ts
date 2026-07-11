@@ -1,7 +1,7 @@
 // Customer pickup board read-side (Arc 4). Public endpoint (no auth) —
 // GET /api/v1/backstage/kds/cliente/ → orders split into preparing / ready, with
-// privacy-safe refs only. Polls every 10s (mirrors the HTMX board); SSE on the
-// orders channel is best-effort same-origin (prod), poll carries dev.
+// privacy-safe refs only. Polls every 10s (mirrors the HTMX board); SSE
+// same-origin via BFF (/sse/orders) is best-effort, poll covers the gaps.
 import type {
   KDSCustomerStatusProjection,
   KDSCustomerStatusResponse,
@@ -25,16 +25,12 @@ export function useKdsCustomerBoard() {
 
   function connectSse() {
     if (source) return;
-    const base = String(config.public.djangoPublicBaseUrl || "").replace(
-      /\/$/,
-      "",
-    );
-    // EventSource exige same-origin. Em prod o painel é servido same-origin (conecta); em
-    // dev é outra origem (:3003 vs Django :8000) → fica em "polling" e o poll de 10s carrega.
-    if (!base || new URL(base).origin !== window.location.origin) return;
+    // Same-origin sempre: o BFF (server/routes/sse/orders.ts) faz streaming do
+    // eventstream do Django, em dev e em prod — nada de gate por origem.
+    const url = ssePath("/sse/orders", config.app.baseURL);
     try {
       realtime.value = "connecting";
-      source = new EventSource(`${base}/gestor/events/orders/`, {
+      source = new EventSource(url, {
         withCredentials: true,
       });
       ["message", "backstage-orders-update"].forEach((name) =>
