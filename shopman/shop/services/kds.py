@@ -29,6 +29,28 @@ logger = logging.getLogger(__name__)
 
 OPEN_TICKET_STATUSES = {"pending", "in_progress"}
 
+EXPEDITION_TRANSITIONS = {
+    "dispatch": Order.Status.DISPATCHED,
+    "complete": Order.Status.COMPLETED,
+}
+
+
+class ExpeditionOrderNotFound(ValueError):
+    """Pedido inexistente numa ação de expedição.
+
+    Mapeia por TIPO para 404 na camada HTTP (padrão ``PosRecentSaleNotFound``),
+    nunca por comparação de string de mensagem.
+    """
+
+
+class TicketCompletionBlocked(Exception):
+    """Bump recusado: o lifecycle ainda não libera trabalho físico no pedido.
+
+    Carrega a razão real (pedido não confirmado, pagamento não capturado…) para
+    a superfície mostrar a mensagem certa — nunca o genérico "ticket não está
+    aberto", que descreveria outro problema.
+    """
+
 
 def dispatch(order) -> list:
     """
@@ -416,14 +438,20 @@ def complete_ticket(ticket, *, actor: str) -> bool:
     bump é sucesso com o pedido ainda em preparo; num ticket recalled o pedido
     pode já estar READY/DISPATCHED e o bump continua válido; comanda
     pré-commit nem tem pedido ainda.
+
+    Retorna False só quando o ticket não está aberto. Bump barrado pelo
+    lifecycle (pedido não confirmado, pagamento não capturado) levanta
+    ``TicketCompletionBlocked`` com a razão real — são estados distintos e a
+    superfície precisa da mensagem certa para cada um.
     """
     if ticket.status not in OPEN_TICKET_STATUSES:
         return False
     order = _ticket_order(ticket)
     if order is not None and order.status in (Order.Status.NEW, Order.Status.CONFIRMED):
         # Gate de pagamento: trabalho físico só começa quando o lifecycle deixa.
-        if not _ensure_order_preparing_for_work(order, actor=actor):
-            return False
+        blocked = _advance_to_preparing_block_reason(order, actor=actor)
+        if blocked:
+            raise TicketCompletionBlocked(blocked)
     for item in ticket.items:
         item["checked"] = True
     ticket.status = "done"
@@ -484,11 +512,7 @@ def expedition_action(order, *, action: str, actor: str) -> str:
     if action == "complete" and order.status == Order.Status.READY and is_delivery:
         raise ValueError("Pedido de delivery precisa ser despachado antes de concluir")
 
-    transitions = {
-        "dispatch": Order.Status.DISPATCHED,
-        "complete": Order.Status.COMPLETED,
-    }
-    next_status = transitions.get(action)
+    next_status = EXPEDITION_TRANSITIONS.get(action)
     if not next_status or not order.can_transition_to(next_status):
         raise ValueError("Ação inválida")
     order.transition_status(next_status, actor=actor)
@@ -497,11 +521,24 @@ def expedition_action(order, *, action: str, actor: str) -> str:
 
 
 def expedition_action_by_order_id(order_id: int, *, action: str, actor: str) -> str:
-    """Load an order and apply an expedition action."""
-    order = Order.objects.filter(pk=order_id).first()
-    if order is None:
-        raise ValueError("Pedido não encontrado")
-    return expedition_action(order, action=action, actor=actor)
+    """Load, lock and apply an expedition action; idempotent on replay.
+
+    Guard + transição na MESMA transação com lock (padrão ``operator_orders``):
+    ``can_transition_to`` decide na linha travada, nunca na instância em
+    memória — a expedição corre em paralelo com outras estações e com o
+    gestor. Replay (duas estações agindo no mesmo pedido) é decidido sob o
+    mesmo lock: pedido já no status alvo = sucesso no-op, nunca "Ação inválida".
+    """
+    from django.db import transaction
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().filter(pk=order_id).first()
+        if order is None:
+            raise ExpeditionOrderNotFound("Pedido não encontrado")
+        target = EXPEDITION_TRANSITIONS.get(action)
+        if target and order.status == target:
+            return order.status
+        return expedition_action(order, action=action, actor=actor)
 
 
 def _payment_allows_physical_work(order) -> bool:
@@ -515,13 +552,22 @@ def _payment_allows_physical_work(order) -> bool:
 
 
 def _ensure_order_preparing_for_work(order, *, actor: str) -> bool:
+    return _advance_to_preparing_block_reason(order, actor=actor) == ""
+
+
+def _advance_to_preparing_block_reason(order, *, actor: str) -> str:
+    """Advance the order to PREPARING if the lifecycle allows; else say why not.
+
+    Retorna "" quando o pedido já está (ou acabou de entrar) em PREPARING, ou a
+    razão humana do bloqueio — a mensagem que a superfície mostra ao operador.
+    """
     if order.status == Order.Status.PREPARING:
-        return True
+        return ""
     if order.status != Order.Status.CONFIRMED:
-        return False
+        return "Pedido ainda não foi confirmado."
     if not order.can_transition_to(Order.Status.PREPARING):
-        return False
+        return "Pedido não pode entrar em preparo agora."
     if not _payment_allows_physical_work(order):
-        return False
+        return "Pagamento ainda não foi confirmado. Aguarde a confirmação antes de concluir o preparo."
     order.transition_status(Order.Status.PREPARING, actor=actor)
-    return True
+    return ""
