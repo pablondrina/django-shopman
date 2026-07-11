@@ -4,7 +4,7 @@ import { computed, reactive, ref, watch } from "vue";
 // Utilitário REAL do operator-kit (auto-import em runtime) — os composables o usam para
 // tipar erros; injetamos a implementação verdadeira (não um mock) para o teste exercitar
 // a mensagem de fato.
-import { httpErrorMessage } from "../../../operator-kit/app/utils/httpError";
+import { httpError, httpErrorMessage } from "../../../operator-kit/app/utils/httpError";
 
 /**
  * Harness ÚNICO para testar os composables do Gestor em env `node`.
@@ -68,6 +68,7 @@ export function installNuxtGlobals(): ComposableEnv {
   vi.stubGlobal("useRuntimeConfig", () => env.runtimeConfig);
   vi.stubGlobal("useSonner", env.sonner);
   vi.stubGlobal("operatorSessionOnError", () => {});
+  vi.stubGlobal("httpError", httpError); // implementação REAL do kit
   vi.stubGlobal("httpErrorMessage", httpErrorMessage); // implementação REAL do kit
   vi.stubGlobal("useFetch", () => ({
     data: ref(env.fetchData.value),
