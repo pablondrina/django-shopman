@@ -748,9 +748,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Payment ───────────────────────────────────────────────────
-    "PAYMENT_PAGE_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Concluir pagamento")},
-    },
     "PAYMENT_PAGE_META_DESCRIPTION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Pague seu pedido para seguirmos com o preparo")},
     },
@@ -762,12 +759,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "PAYMENT_DEV_CONFIRM_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="[DEV] Simular pagamento confirmado")},
-    },
-    "PAYMENT_ERROR_TITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Não conseguimos gerar o pagamento agora.")},
-    },
-    "PAYMENT_ERROR_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Tente novamente em instantes. Se o problema continuar, fale com o estabelecimento.")},
     },
     "PAYMENT_RETRY_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
@@ -870,9 +861,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PROMISE_CARD_PENDING_RECOVERY": {
         WILDCARD: {WILDCARD: CopyEntry(message="Se demorar, atualize a página ou fale com o estabelecimento.")},
     },
-    "PAYMENT_DEADLINE_NOTICE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Conclua dentro do prazo indicado abaixo.")},
-    },
     "PAYMENT_PROMISE_ERROR_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Não conseguimos preparar o pagamento")},
     },
@@ -918,20 +906,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PROMISE_EXPIRED_ACTIVE_NOTIFICATION": {
         WILDCARD: {WILDCARD: CopyEntry(message="Também avisaremos pelos canais ativos da sua conta.")},
     },
-    "PAYMENT_WAITING": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Aguardando seu banco confirmar…")},
-    },
-    "PAYMENT_WAITING_LONG": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Ainda processando. Pode levar até 1 minuto.")},
-    },
-    "PAYMENT_PIX_EXPIRED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Este PIX expirou",
-                message="Geramos um novo para você. É só continuar.",
-            ),
-        },
-    },
     "PAYMENT_CARD_INTRO": {
         WILDCARD: {
             WILDCARD: CopyEntry(
@@ -960,39 +934,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PAYMENT_PIX_EXPIRES_LABEL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Tempo para pagar")},
     },
-    "PAYMENT_CONFIRMED": {
-        WILDCARD: {
-            AUDIENCE_RETURNING: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-            AUDIENCE_VIP: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-            WILDCARD: CopyEntry(
-                title="Pagamento recebido",
-                message="Seguimos com o preparo do seu pedido.",
-            ),
-        },
-    },
-    "PAYMENT_REDIRECTING_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Redirecionando em")},
-    },
-    "PAYMENT_REDIRECTING_SUFFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="s…")},
-    },
-    "PAYMENT_PIX_REGENERATE_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Gerar novo PIX")},
-    },
     "PAYMENT_VIEW_ORDER_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ver pedido")},
-    },
-    "PAYMENT_CANCELLED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Pedido cancelado")},
-    },
-    "PAYMENT_CANCELLED_DETAILS_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Ver detalhes")},
     },
 
     # ── Tracking / yoin ───────────────────────────────────────────
