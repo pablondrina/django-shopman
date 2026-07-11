@@ -7,3 +7,11 @@
 # religação e sim feature nova; decisão do Pablo (2026-07-11) foi ARQUIVAR
 # definitivo — a chave saiu do registro (não há mais órfã). Menu segue filter-first.
 # Ver COPY-BACKLOG-UNBUILT.md, seção "MENU_SUBTITLE — arquivamento definitivo".
+# 2026-07-11 (faxina de código morto) — CART_EMPTY reaberta como órfã PRE-EXISTENTE
+# mascarada: a única "referência de produção" era o docstring de exemplo do
+# templatetag morto shopman/shop/templatetags/omotenashi_tags.py (deletado no
+# cutover headless; nenhum template {% load %} desde então). Não é copy nova:
+# a tela de carrinho vazio é do storefront-nuxt e nunca consumiu a chave via
+# projection. Decisão pendente (religar via projection ou arquivar como
+# MENU_SUBTITLE) é do burndown de copy, não da faxina.
+CART_EMPTY
