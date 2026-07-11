@@ -8,7 +8,11 @@ The order lifecycle is:
 
   cart-add → services.availability.reserve(session_key)        [creates PENDING hold]
   checkout → CommitService creates Order with session_key
-  on_commit → services.stock.hold(order)                       [adopts session holds]
+  commit (in-transaction, non-external channels) →
+             lifecycle.secure_stock → hold(order, require_all=True)
+             [adopts session holds; shortfall irrecuperável DESFAZ o commit]
+  on_commit → services.stock.hold(order)                       [idempotente: no-op se o
+             gate já reservou; external channels reservam aqui, best-effort]
   on_paid/on_confirmed → services.stock.fulfill(order)          [PENDING→CONFIRMED→FULFILLED]
   cancel   → services.stock.release(order)                     [release adopted holds]
 
@@ -32,7 +36,7 @@ from shopman.shop.services.order_helpers import get_commitment_date
 logger = logging.getLogger(__name__)
 
 
-def hold(order) -> None:
+def hold(order, *, require_all: bool = False) -> None:
     """
     Reserve stock for all order items, expanding bundles.
 
@@ -49,10 +53,19 @@ def hold(order) -> None:
 
     Saves the resulting hold_ids in order.data["hold_ids"]. SYNC.
 
-    Idempotente: se ``order.data["hold_ids"]`` já existe, a fase já rodou (re-dispatch
-    de on_commit após falha parcial, comando de diagnóstico). Reexecutar sobrescreveria
-    a chave e deixaria os holds da 1ª passada órfãos — dupla reserva até o backstop de
-    48h. A presença da chave (não seu valor) é o sinal de "já executou".
+    Idempotente: se ``order.data["hold_ids"]`` já existe, a fase já rodou (gate de
+    commit em transação, re-dispatch de on_commit após falha parcial, comando de
+    diagnóstico). Reexecutar sobrescreveria a chave e deixaria os holds da 1ª passada
+    órfãos — dupla reserva até o backstop de 48h. A presença da chave (não seu valor)
+    é o sinal de "já executou".
+
+    ``require_all=True`` (gate de commit, ``lifecycle.secure_stock``): componente
+    rastreado sem reserva possível levanta ``ValidationError(insufficient_stock)``
+    em vez do caminho brando (alerta + continue). Chamado DENTRO da transação do
+    ``CommitService._do_commit`` — a exceção desfaz o pedido inteiro, e é isso que
+    impede o oversell: o ``select_for_update`` de Quant no Stockman serializa os
+    commits concorrentes do mesmo SKU, e quem chega sem estoque falha ANTES do
+    pedido existir.
     """
     if "hold_ids" in (order.data or {}):
         logger.info("stock.hold: skip (holds já criados) order=%s", order.ref)
@@ -133,6 +146,17 @@ def hold(order) -> None:
                     "stock.hold: create_hold failed sku=%s qty=%s code=%s",
                     comp_sku, unmet_qty, result.get("error_code"),
                 )
+                if require_all:
+                    if _sku_known_to_catalog(comp_sku):
+                        raise _insufficient_stock_error(
+                            item, comp_sku, unmet_qty, result.get("error_code")
+                        )
+                    # SKU fora do catálogo (sessão de integração/smoke): não há
+                    # o que reservar — segue como untracked, sem travar o commit.
+                    hold_ids.append(
+                        {"sku": comp_sku, "hold_id": None, "qty": 0, "untracked": True}
+                    )
+                    continue
                 _alert_hold_gap(order, comp_sku, unmet_qty, result.get("error_code"))
                 continue
 
@@ -293,6 +317,44 @@ def revert(order) -> None:
 
 
 # ── helpers ──
+
+
+def _sku_known_to_catalog(sku: str) -> bool:
+    """True quando o SKU existe no contrato de catálogo (offering).
+
+    O gate de commit só pode exigir reserva de algo que o catálogo conhece;
+    SKUs sintéticos (smoke de gateway, sessões de integração) não têm o que
+    reservar. Fail-closed: se o contrato não responde, exigimos a reserva.
+    """
+    from shopman.stockman.adapters.sku_validation import get_sku_validator
+
+    try:
+        return get_sku_validator().get_sku_info(sku) is not None
+    except Exception:
+        logger.debug("stock._sku_known_to_catalog degraded sku=%s", sku, exc_info=True)
+        return True
+
+
+def _insufficient_stock_error(item: dict, comp_sku: str, qty, error_code):
+    """ValidationError do gate de commit — o CommitService trata como falha
+    conhecida (idempotency key vira failed) e a superfície mapeia para erro
+    de checkout amigável (``checkout.map_checkout_error``)."""
+    from shopman.orderman.exceptions import ValidationError
+
+    display = item.get("name") or item.get("sku") or comp_sku
+    return ValidationError(
+        code="insufficient_stock",
+        message=(
+            f"{display} ficou indisponível antes de concluirmos a sua reserva. "
+            "Ajuste o carrinho e tente novamente, por favor."
+        ),
+        context={
+            "sku": item.get("sku") or comp_sku,
+            "component_sku": comp_sku,
+            "requested_qty": str(qty),
+            "error_code": error_code or "",
+        },
+    )
 
 
 def _alert_hold_gap(order, sku: str, qty, error_code) -> None:

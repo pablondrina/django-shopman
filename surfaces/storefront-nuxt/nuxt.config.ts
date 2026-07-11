@@ -4,6 +4,16 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-05-16',
   devtools: { enabled: false },
 
+  // O tsconfig gerado pelo Nuxt zera `types`; o namespace global `google` usado por
+  // AddressPicker/useGoogleMaps vem de @types/google.maps e precisa ser registrado.
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        types: ['google.maps']
+      }
+    }
+  },
+
   runtimeConfig: {
     djangoBaseUrl: process.env.NUXT_DJANGO_BASE_URL || 'http://127.0.0.1:8000'
   },
@@ -25,7 +35,8 @@ export default defineNuxtConfig({
     baseURL: process.env.NUXT_APP_BASE_URL || '/',
     head: {
       htmlAttrs: { lang: 'pt-BR' },
-      titleTemplate: title => title ? `${title} | Shopman` : 'Shopman',
+      // titleTemplate vive no app.vue (useHead): lá é função com a marca dinâmica do
+      // tenant — e nuxt.config só aceita string, então aqui ele não tem vez.
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#85786c' },

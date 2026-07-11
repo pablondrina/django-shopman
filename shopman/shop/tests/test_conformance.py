@@ -162,10 +162,18 @@ class TestC01RemoteChannelPix(TransactionTestCase):
         self.mocks["initiate"].assert_called_once_with(order)
 
     def test_stock_hold_called_on_commit(self):
+        from unittest.mock import call
+
         session = _session(self.channel)
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
-        self.mocks["hold"].assert_called_once_with(order)
+        # Canal remoto: a reserva é garantida pelo gate transacional do commit
+        # (lifecycle.secure_stock → hold(require_all=True), dentro da transação).
+        # O dispatch on_commit repete a chamada branda porque o mock não grava
+        # order.data["hold_ids"]; no código real o hold é idempotente e vira no-op.
+        self.assertEqual(
+            self.mocks["hold"].call_args_list[0], call(order, require_all=True)
+        )
 
 
 # ── C-02: Remote channel + card payment ──────────────────────────────

@@ -160,6 +160,48 @@ def ensure_payment_captured(order) -> None:
     )
 
 
+def secure_stock(order) -> None:
+    """Gate duro de estoque do commit — roda DENTRO da transação do CommitService.
+
+    Conectado ao signal ``order_changed`` (event ``created``), que o
+    ``CommitService._do_commit`` emite dentro do bloco atômico: uma falha de
+    reserva desfaz a transação inteira e o pedido nunca nasce. Isso é o que
+    impede oversell sob concorrência — o ``select_for_update`` de Quant no
+    Stockman serializa os commits do mesmo SKU, e o checkout que chega sem
+    estoque falha com ``ValidationError(insufficient_stock)`` em vez de criar
+    um pedido impossível de separar (e de cobrar o cliente por ele).
+
+    Escopo segue o mesmo critério de ``ensure_confirmable``:
+
+    - ``payment.timing == "external"`` (PDV, marketplace): o pedido já está
+      consumado no mundo físico/externo — rejeitar aqui cancelaria uma venda
+      real. Mantêm o caminho otimista do ``_on_commit`` (reserva best-effort +
+      ``stock_hold_gap`` alert).
+    - ``stock.check_on_commit``: o canal usa o gate próprio do dispatch
+      (check → hold → verify, com cancelamento auditável).
+    - Demais canais (loja online, WhatsApp, defaults): estoque garantido ou o
+      commit falha.
+
+    Os holds ficam em ``order.data["hold_ids"]`` — o ``stock.hold`` do
+    ``_on_commit`` é idempotente e vira no-op. Como os holds commitam na MESMA
+    transação do pedido, um crash entre o COMMIT e o dispatch nunca deixa
+    pedido sem reserva (o sweeper re-despacha o resto).
+    """
+    try:
+        config = ChannelConfig.for_channel(order.channel_ref)
+    except Exception:
+        # Fail-closed: sem config legível, os defaults exigem reserva.
+        logger.warning("secure_stock: config lookup failed for channel=%s", order.channel_ref)
+        config = ChannelConfig()
+
+    if config.payment.timing == "external":
+        return
+    if config.stock.check_on_commit:
+        return
+
+    stock.hold(order, require_all=True)
+
+
 def dispatch(order, phase: str) -> None:
     """Resolve ChannelConfig and call services for the given phase.
 

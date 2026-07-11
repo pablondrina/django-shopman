@@ -66,7 +66,7 @@ const {
   lock,
   changePin,
   changeError,
-} = useOperatorLock({
+} = usePosOperatorLock({
   initialOperator: data.value?.operator ?? null,
   autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
 });
@@ -330,7 +330,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         >
           <Icon name="lucide:cloud-off" class="size-3.5" /> Não salvo
         </span>
-        <PosComandaHeader
+        <PosTabHeader
           v-if="inSaleView && !checkoutMode"
           v-model:customer-name="cart.customerName"
           v-model:customer-phone="cart.customerPhone"

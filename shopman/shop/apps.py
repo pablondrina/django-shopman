@@ -173,12 +173,17 @@ class ShopmanConfig(AppConfig):
         """
         from shopman.orderman.signals import order_changed
 
-        from shopman.shop.lifecycle import dispatch
+        from shopman.shop.lifecycle import dispatch, secure_stock
 
         def on_order_changed(sender, order, event_type, actor, **kwargs):
             from django.db import transaction as _tx
 
             if event_type == "created":
+                # Gate duro de estoque: roda SÍNCRONO, dentro da transação do
+                # CommitService — falha de reserva desfaz o pedido inteiro
+                # (nenhuma linha órfã). O resto do lifecycle continua adiado
+                # para depois do COMMIT.
+                secure_stock(order)
                 phase = "on_commit"
             elif event_type == "status_changed":
                 phase = f"on_{order.status}"

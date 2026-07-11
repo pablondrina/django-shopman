@@ -219,7 +219,6 @@ function applyCodeDelivery (response: RequestCodeResponse, method: AuthDeliveryM
   debugOtpCode.value = response.debug_otp_code || ''
   debugOtpExpiresAt.value = response.debug_otp_expires_at || ''
   showDebugOtp.value = true
-  debugOtpCopied.value = false
   lastDeliveryMethod.value = method
   lastSentAtMs.value = Date.now()
 }

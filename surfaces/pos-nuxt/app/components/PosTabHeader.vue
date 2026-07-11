@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Comanda header (Arc 5 · context bar) — the open comanda's command header,
-// lifted out of the ticket panel into the top context bar so the cart keeps its
-// vertical room for line items + numpad. Owns the renameable comanda number, the
-// customer chip + sheet, and "liberar comanda" (with confirmation). It renders
+// Tab header (Arc 5 · context bar) — the open tab's header, lifted out of the
+// ticket panel into the top context bar so the cart keeps its vertical room for
+// line items + numpad. Owns the renameable tab number, the customer chip +
+// sheet, and "liberar comanda" (with confirmation). It renders
 // what the read-side hands it and emits intent; the shell resolves the commands.
 import type { POSCustomerLookupProjection, POSCustomerSearchResult } from "~/types/pos";
 
@@ -73,7 +73,7 @@ function runClear() {
 
 <template>
   <div class="flex min-w-0 items-center gap-2">
-    <!-- comanda number (renameable) -->
+    <!-- tab number (renameable) -->
     <div v-if="renaming" class="flex items-center gap-1">
       <UiInput
         v-model="renameValue"
@@ -114,7 +114,7 @@ function runClear() {
       <span v-else class="shrink-0 text-muted-foreground">Adicionar cliente</span>
     </button>
 
-    <!-- liberar comanda (pushed to the right of the context bar) -->
+    <!-- release tab (pushed to the right of the context bar) -->
     <UiButton
       v-if="hasOpenTab"
       variant="ghost"
