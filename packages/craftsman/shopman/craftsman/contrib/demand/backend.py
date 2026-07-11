@@ -99,7 +99,13 @@ class OrderingDemandBackend:
                     for row in waste_qs
                 }
         except Exception:
-            pass  # graceful — waste stays zero if model not available
+            # Graceful — waste fica zero se o modelo não estiver disponível,
+            # mas a degradação precisa ficar visível no log.
+            logger.debug(
+                "waste map indisponível para %s; demanda segue com waste=0",
+                product_ref,
+                exc_info=True,
+            )
 
         return [
             DailyDemand(
