@@ -60,7 +60,7 @@ class Collection(models.Model):
         """Check if collection is valid for a given date."""
         if not self.is_active:
             return False
-        date = date or timezone.now().date()
+        date = date or timezone.localdate()
         if self.valid_from and date < self.valid_from:
             return False
         if self.valid_until and date > self.valid_until:
