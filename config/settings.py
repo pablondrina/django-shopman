@@ -778,7 +778,8 @@ SPECTACULAR_SETTINGS = {
 # ── Offerman ──────────────────────────────────────────────────────
 
 OFFERMAN = {
-    # TODO WP-R2: restore cost backend adapter
+    # Seam de leitura do Offerman (Product.reference_cost_q/margin_percent); None
+    # até existir um provedor real de custo (ex.: adapter no Craftsman via receita).
     "COST_BACKEND": None,
     "PRICING_BACKEND": "shopman.shop.adapters.pricing.StorefrontPricingBackend",
     # Canonical catalog projection registry (env-gated above).
@@ -790,9 +791,9 @@ OFFERMAN = {
 CRAFTSMAN = {
     # Stock ledger writes (consume ingredients + receive output) flow through the
     # `production_changed` signal handlers in craftsman.contrib.stockman — the
-    # single canonical write path. INVENTORY_BACKEND is intentionally unset: it is
-    # a read-only seam for ingredient-availability validation, to be implemented
-    # by Buyman/Material (see docs/plans/BUYMAN-PROCUREMENT-PLAN.md).
+    # single canonical write path. INVENTORY_BACKEND is the read-only seam de
+    # validação de disponibilidade de insumos, ligado desde o WP-B5b (Buyman
+    # Fase 1, com estoque de insumo no seed) — guardrail ativo em adjust/finish.
     "INVENTORY_BACKEND": "shopman.shop.adapters.inventory.InventoryAvailabilityBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     # Composed: Offerman (vendáveis) + Buyman (insumos/Material). Resolução-only
@@ -915,9 +916,6 @@ SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q = int(
     os.environ.get("SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", "0")
 )
 SHOPMAN_ACCOUNTING_BACKEND = None
-
-# SMS adapter for OTP delivery. None = fallback to notification_sms if available.
-SHOPMAN_SMS_ADAPTER = None
 
 # Operator email for backend notifications (order alerts, etc.).
 # Falls back to DEFAULT_FROM_EMAIL if None.
