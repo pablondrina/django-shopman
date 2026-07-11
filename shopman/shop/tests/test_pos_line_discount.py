@@ -179,6 +179,95 @@ class TestPriceOverrideIntentAndOps:
         pos_service.validate_manager_approval(payload, operator_username="op")  # must not raise
 
 
+@pytest.mark.django_db
+class TestServerSidePriceAuthority:
+    """The price-trust gate derives ``price_overridden`` from the canonical
+    catalog price on the server — the client's advisory flag is never trusted.
+
+    A crafted request that lowers a price without the flag is caught; a
+    modifier-driven line (D-1/happy-hour, whose payload carries the pre-modifier
+    catalog price) is not a false override; a plain catalog sale has no friction.
+    """
+
+    def _channel(self):
+        from shopman.shop.models import Channel
+
+        return Channel.objects.create(ref="pdv", name="Balcão", is_active=True)
+
+    def _product(self, sku="BAGUETE", base_price_q=1300):
+        from shopman.offerman.models import Product
+
+        return Product.objects.create(
+            sku=sku, name=sku, base_price_q=base_price_q,
+            is_published=True, is_sellable=True,
+        )
+
+    def test_crafted_low_price_without_flag_is_derived_as_override(self) -> None:
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        # Crafted request: price below catalog, NO client flag.
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 100}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is True
+        with pytest.raises(PosIntentError) as exc:
+            pos_service.validate_manager_approval(payload, operator_username="op")
+        assert exc.value.code == "manager_approval_required"
+
+    def test_catalog_price_is_not_an_override(self) -> None:
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        payload = {"items": [{"sku": "BAGUETE", "qty": 2, "unit_price_q": 1300}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+        # No friction: gate does not fire for a plain catalog sale.
+        pos_service.validate_manager_approval(payload, operator_username="op")
+
+    def test_d1_line_at_catalog_price_is_not_an_override(self) -> None:
+        # D-1 (and happy-hour, employee) discounts are applied by later modifiers
+        # on commit; the payload carries the PRE-modifier catalog price, so the
+        # derivation must not read a D-1 line as a manual override.
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300, "is_d1": True}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+
+    def test_client_flag_is_ignored_when_price_matches_catalog(self) -> None:
+        # A stray client flag must not create a false gate when the price is legit.
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300,
+                              "price_overridden": True}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+
+    def test_unknown_sku_without_catalog_anchor_is_an_override(self) -> None:
+        # No catalog price to charge against → conservative: needs manager sign-off.
+        channel = self._channel()
+        payload = {"items": [{"sku": "GHOST", "qty": 1, "unit_price_q": 100}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is True
+
+    def test_listing_price_is_the_anchor_over_base(self) -> None:
+        # When a POS ListingItem exists, its price is the canonical anchor; a line
+        # at the base price (below the listing price) is a derived override.
+        from shopman.offerman.models import Listing, ListingItem
+
+        channel = self._channel()
+        product = self._product(base_price_q=1200)
+        listing = Listing.objects.create(ref="pdv", name="PDV", is_active=True)
+        ListingItem.objects.create(
+            listing=listing, product=product, price_q=1500,
+            is_published=True, is_sellable=True,
+        )
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1500}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+        below = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1200}]}
+        pos_service.derive_price_overrides(below, channel=channel)
+        assert below["items"][0]["price_overridden"] is True
+
+
 class TestTabPayloadRestore:
     def test_line_discount_surfaced_for_restore(self) -> None:
         item = {"sku": "X", "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}}}

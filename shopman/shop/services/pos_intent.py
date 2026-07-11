@@ -243,8 +243,10 @@ def _items(raw, *, for_commit: bool) -> list[dict]:
         if item.get("is_d1"):
             entry["is_d1"] = True
         if item.get("price_overridden"):
-            # Operator fixed this line's unit price (numpad "Preço"): the kernel
-            # freezes it (modifier skips re-pricing) and it needs manager approval.
+            # Advisory UI hint that the operator fixed this line's price. It is
+            # NOT trusted: the POS service re-derives ``price_overridden`` from the
+            # canonical catalog price (``derive_price_overrides``) before the
+            # manager gate, so a crafted price without this flag is still caught.
             entry["price_overridden"] = True
         line_discount = _line_discount(item.get("discount"))
         if line_discount:
