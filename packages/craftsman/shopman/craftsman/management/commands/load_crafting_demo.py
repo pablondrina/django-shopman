@@ -11,10 +11,11 @@ Usage:
 """
 
 import random
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 
 class Command(BaseCommand):
@@ -143,7 +144,7 @@ class Command(BaseCommand):
 
         self.stdout.write("\nCriando ordens de producao...")
 
-        today = date.today()
+        today = timezone.localdate()
 
         for days_offset in range(-7, 4):
             target_date = today + timedelta(days=days_offset)
