@@ -18,8 +18,8 @@ test.describe("Central — launcher", () => {
     await expect(pos).toHaveAttribute("href", "http://127.0.0.1:3002/");
     await expect(pos).toHaveAttribute("target", "_self");
 
-    const loja = page.getByRole("link", { name: /Loja online/i });
-    await expect(loja).toHaveAttribute("href", "/admin/shop/shop/");
-    await expect(loja).toHaveAttribute("target", "_blank");
+    const storeLink = page.getByRole("link", { name: /Loja online/i });
+    await expect(storeLink).toHaveAttribute("href", "/admin/shop/shop/");
+    await expect(storeLink).toHaveAttribute("target", "_blank");
   });
 });
