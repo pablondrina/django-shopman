@@ -8,9 +8,11 @@ manutenção num loop (default: a cada 5 minutos):
   cleanup_stale_planning    — quants planejados órfãos
   cleanup_d1                — D-1 vencido vira perda
   reconcile_payments        — PIX pago com webhook perdido é resgatado
-  sweep_stuck_orders        — pedido órfão em NEW (crash pós-commit) é resgatado
+  sweep_stuck_orders        — fase de lifecycle perdida (crash pós-commit) é re-despachada
+  check_directive_health    — failed/backlog/heartbeat da fila viram OperatorAlert (ADR-003)
 
 Cada tarefa é isolada: uma falha loga e NUNCA derruba o ciclo das demais.
+Cada ciclo grava o heartbeat "maintenance_worker" (shopman.orderman.worker_heartbeat).
 
 Uso:
     python manage.py maintenance_worker             # loop infinito (worker)
@@ -35,7 +37,11 @@ MAINTENANCE_COMMANDS = (
     "cleanup_d1",
     "reconcile_payments",
     "sweep_stuck_orders",
+    # Por último: as checagens veem o estado PÓS-remediação do ciclo (menos flap).
+    "check_directive_health",
 )
+
+MAINTENANCE_WORKER = "maintenance_worker"
 
 
 class Command(BaseCommand):
@@ -54,6 +60,9 @@ class Command(BaseCommand):
             time.sleep(interval)
 
     def _run_cycle(self) -> None:
+        from shopman.orderman import worker_heartbeat
+
+        worker_heartbeat.beat(MAINTENANCE_WORKER)
         for command in MAINTENANCE_COMMANDS:
             try:
                 call_command(command)

@@ -24,6 +24,10 @@ class OperatorAlert(models.Model):
         ("production_late", "Produção atrasada"),
         ("production_low_yield", "Produção com yield baixo"),
         ("production_stock_short", "Produção sem insumo suficiente"),
+        ("directive_failed_spike", "Tarefas de fundo falhando"),
+        ("directive_backlog", "Fila de tarefas de fundo acumulada"),
+        ("directive_worker_stale", "Worker de tarefas de fundo parado"),
+        ("lifecycle_phase_stuck", "Fase do pedido travada"),
     ]
     SEVERITY_CHOICES = [
         ("warning", "Aviso"),
