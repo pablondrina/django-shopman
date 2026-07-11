@@ -130,12 +130,53 @@ def test_item_check_rejects_bad_index(client, kds_operator, kds_setup):
 
 
 @pytest.mark.django_db
+def test_item_check_rejects_non_numeric_index(client, kds_operator, kds_setup):
+    ticket = kds_setup[2]
+    client.force_login(kds_operator)
+    url = reverse("api-backstage-kds-ticket-item", args=[ticket.pk])
+    response = client.post(url, data={"index": "abc", "checked": True}, content_type="application/json")
+    assert response.status_code == 400
+    assert "detail" in response.json()
+
+
+@pytest.mark.django_db
 def test_ticket_done(client, kds_operator, kds_setup):
     ticket = kds_setup[2]
     client.force_login(kds_operator)
     response = client.post(reverse("api-backstage-kds-ticket-done", args=[ticket.pk]))
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+
+@pytest.mark.django_db
+def test_ticket_done_replay_is_success(client, kds_operator, kds_setup):
+    # Duas estações bumpando o mesmo ticket: o replay é sucesso no-op, nunca
+    # um toast de erro espúrio na segunda estação.
+    ticket = kds_setup[2]
+    client.force_login(kds_operator)
+    url = reverse("api-backstage-kds-ticket-done", args=[ticket.pk])
+    assert client.post(url).status_code == 200
+    again = client.post(url)
+    assert again.status_code == 200
+    assert again.json()["ok"] is True
+
+
+@pytest.mark.django_db
+def test_internal_bug_surfaces_as_500_not_400(kds_operator, kds_setup, monkeypatch):
+    # Bug de programação não pode virar 400: o operator-kit trata 4xx como
+    # não-retryável e a telemetria classifica como erro de cliente.
+    from django.test import Client
+
+    from shopman.backstage.api import kds as kds_api
+
+    def boom(**kwargs):
+        raise RuntimeError("bug interno")
+
+    monkeypatch.setattr(kds_api.kds_service, "mark_ticket_done", boom)
+    client = Client(raise_request_exception=False)
+    client.force_login(kds_operator)
+    response = client.post(reverse("api-backstage-kds-ticket-done", args=[kds_setup[2].pk]))
+    assert response.status_code == 500
 
 
 @pytest.mark.django_db
@@ -150,6 +191,20 @@ def test_expedition_action_validates_action(client, kds_operator, kds_setup):
 
 
 # ── Customer board (public) ─────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_customer_board_rejects_non_numeric_limit(client, kds_setup):
+    # endpoint público: ?limit=abc responde 400 limpo, nunca 500
+    response = client.get(reverse("api-backstage-kds-customer"), {"limit": "abc"})
+    assert response.status_code == 400
+    assert "detail" in response.json()
+
+
+@pytest.mark.django_db
+def test_customer_board_clamps_out_of_range_limit(client, kds_setup):
+    assert client.get(reverse("api-backstage-kds-customer"), {"limit": "0"}).status_code == 200
+    assert client.get(reverse("api-backstage-kds-customer"), {"limit": "100000"}).status_code == 200
 
 
 @pytest.mark.django_db
