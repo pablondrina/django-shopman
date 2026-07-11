@@ -62,16 +62,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="há 1h")},
     },
 
-    # ── Menu ──────────────────────────────────────────────────────
-    "MENU_SUBTITLE": {
-        MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="Abrimos em breve. Pode escolher com calma.")},
-        MOMENT_MANHA: {WILDCARD: CopyEntry(message="Fresquinho do forno.")},
-        MOMENT_ALMOCO: {WILDCARD: CopyEntry(message="Cardápio do almoço.")},
-        MOMENT_TARDE: {WILDCARD: CopyEntry(message="Para o café da tarde.")},
-        MOMENT_FECHANDO: {WILDCARD: CopyEntry(message="Últimos pedidos do dia.")},
-        MOMENT_FECHADO: {WILDCARD: CopyEntry(message="Olhe à vontade. Atendemos assim que abrirmos.")},
-    },
-
     # ── Cart empty ────────────────────────────────────────────────
     "CART_EMPTY": {
         MOMENT_MADRUGADA: {

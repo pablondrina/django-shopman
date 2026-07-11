@@ -1,9 +1,9 @@
 # copy-wiring-backlog — chaves ainda NÃO religadas a uma tela.
 # Regra: só encolhe. Cada religação (via projection) remove a linha.
 # O teste test_copy_wiring_backlog falha se surgir órfã fora desta lista.
-# 2026-07-11 — 1 restante. Burndown fechado: PICKUP + DEVICE_* religadas ao registro;
-# 52 superadas arquivadas (PAYMENT/WELCOME/TRACKING/KINTSUGI/OFFLINE/CLOSING/LOGIN/
-# PRODUCT/DEVICE-dead/etc.). Único remanescente:
-#   · MENU_SUBTITLE — BUILD: subtítulo momento-aware do cardápio (feature, não religação;
-#     ver COPY-BACKLOG-UNBUILT.md). Sai do backlog quando construída ou arquivada.
-MENU_SUBTITLE
+# 2026-07-11 — BACKLOG ZERADO. Burndown de religação fechado (PICKUP + DEVICE_*
+# religadas ao registro; 52 superadas arquivadas com evidência 0-refs). O último
+# remanescente, MENU_SUBTITLE (subtítulo momento-aware do cardápio), NÃO era
+# religação e sim feature nova; decisão do Pablo (2026-07-11) foi ARQUIVAR
+# definitivo — a chave saiu do registro (não há mais órfã). Menu segue filter-first.
+# Ver COPY-BACKLOG-UNBUILT.md, seção "MENU_SUBTITLE — arquivamento definitivo".

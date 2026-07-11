@@ -59,7 +59,7 @@ def _ctx(moment: str, audience: str) -> OmotenashiContext:
 def test_tag_renders_via_db_when_active_record_exists():
     invalidate_cache()
     OmotenashiCopy.objects.create(
-        key="MENU_SUBTITLE",
+        key="CART_EMPTY",
         moment="*",
         audience="*",
         title="",
@@ -67,7 +67,7 @@ def test_tag_renders_via_db_when_active_record_exists():
         active=True,
     )
     out = _render(
-        "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
     )
     assert out.strip() == "Custom do banco"
 
@@ -78,9 +78,9 @@ def test_tag_renders_via_db_when_active_record_exists():
 @pytest.mark.django_db
 def test_tag_falls_back_to_defaults_when_no_db_record():
     invalidate_cache()
-    # MENU_SUBTITLE has a manha default: "Fresquinho do forno."
+    # CART_EMPTY has a manha/anon default: "Pão fresquinho acabou de sair do forno."
     out = _render(
-        "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
     )
     assert "fresquinho" in out.lower()
 
@@ -116,15 +116,15 @@ def test_tag_logs_warning_on_unknown_key(caplog):
 @pytest.mark.django_db
 def test_tag_infers_moment_from_context_processor():
     invalidate_cache()
-    # MENU_SUBTITLE has distinct defaults per moment.
-    tpl = "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+    # CART_EMPTY has distinct defaults per moment.
+    tpl = "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
 
     manha = Template(tpl).render(Context({"omotenashi_ctx": _ctx(MOMENT_MANHA, AUDIENCE_ANON)}))
     tarde = Template(tpl).render(Context({"omotenashi_ctx": _ctx(MOMENT_TARDE, AUDIENCE_ANON)}))
 
     assert manha.strip() != tarde.strip()
     assert "fresquinho" in manha.lower()
-    assert "tarde" in tarde.lower()
+    assert "doces" in tarde.lower()
 
 
 @pytest.mark.django_db
@@ -153,7 +153,7 @@ def test_tag_kwarg_overrides_context_moment_and_audience():
 def test_reset_to_default_action_restores_code_default():
     invalidate_cache()
     override = OmotenashiCopy.objects.create(
-        key="MENU_SUBTITLE",
+        key="CART_EMPTY",
         moment="*",
         audience="*",
         title="",
@@ -162,7 +162,7 @@ def test_reset_to_default_action_restores_code_default():
     )
     # Override is in effect.
     out = _render(
-        "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
     )
     assert out.strip() == "CUSTOMISED"
 
@@ -174,7 +174,7 @@ def test_reset_to_default_action_restores_code_default():
     admin_instance.reset_to_default(request=None, queryset=OmotenashiCopy.objects.filter(pk=override.pk))
 
     out_after = _render(
-        "{% load omotenashi_tags %}{% omotenashi 'MENU_SUBTITLE' as e %}{{ e.message }}"
+        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
     )
     assert "fresquinho" in out_after.lower()
     assert "CUSTOMISED" not in out_after
