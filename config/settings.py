@@ -99,6 +99,13 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+# SameSite explícito (não confiar no default do Django): os BFFs Nuxt
+# auto-preenchem o token CSRF a partir do cookie (surfaces/*/server/utils/
+# djangoProxy.ts), então a defesa CSRF real contra requests cross-site é o
+# SameSite=Lax destes cookies. NUNCA mudar para "None" sem revisar essa cadeia.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
 _trust_forwarded_proto = os.environ.get(
     "DJANGO_TRUST_X_FORWARDED_PROTO",
     "true" if not DEBUG else "false",
