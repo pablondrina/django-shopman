@@ -396,7 +396,7 @@ Sinal `order_changed` (de orderman) → `dispatch(order, phase)` → resolve `Ch
 
 **Camada estática (handlers)**: registrados em `ShopmanConfig.ready()` via `register_all()`. Nunca mudam em runtime.
 
-**Camada dinâmica (rules DB)**: tabela `RuleConfig(code, rule_path, label, enabled, params[JSON], channels[M2M], priority)`.
+**Camada dinâmica (rules DB)**: tabela `RuleConfig(ref, rule_path, label, enabled, params[JSON], channels[M2M], priority)`.
 
 - `get_active_rules(channel, stage)` — filtrado, cache 1h, invalidado em `post_save(RuleConfig)`.
 - `load_rule(rule_config)` — import dotted + instancia com `params` kwargs.

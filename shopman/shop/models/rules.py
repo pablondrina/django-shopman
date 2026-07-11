@@ -24,7 +24,7 @@ def _allowed_prefixes() -> list[str]:
 class RuleConfig(models.Model):
     """Regra configurável via admin — pricing, validation, etc."""
 
-    code = models.CharField("código", max_length=80, unique=True)
+    ref = models.CharField("código", max_length=80, unique=True)
     rule_path = models.CharField(
         "caminho da regra", max_length=200,
         help_text="Dotted path to the rule class (e.g. shopman.shop.rules.pricing.D1Rule)",
@@ -102,7 +102,7 @@ class RuleConfig(models.Model):
             "rule_config.changed",
             extra={
                 "event": "created" if is_new else "updated",
-                "rule_code": self.code,
+                "rule_ref": self.ref,
                 "old_path": old_path,
                 "new_path": self.rule_path,
                 "user_id": None,  # tracked in HistoricalRuleConfig via HistoryRequestMiddleware
@@ -114,7 +114,7 @@ class RuleConfig(models.Model):
             "rule_config.changed",
             extra={
                 "event": "deleted",
-                "rule_code": self.code,
+                "rule_ref": self.ref,
                 "old_path": self.rule_path,
                 "new_path": None,
                 "user_id": None,

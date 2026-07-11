@@ -22,7 +22,7 @@ from shopman.shop.rules.engine import load_rule
 
 def _make_rule_config(**kwargs) -> RuleConfig:
     defaults = {
-        "code": "test-rule",
+        "ref": "test-rule",
         "rule_path": "shopman.shop.rules.pricing.D1Rule",
         "label": "Test Rule",
         "enabled": True,
@@ -146,7 +146,7 @@ class TestRuleConfigHistory(TestCase):
 
     def test_save_creates_historical_record(self):
         rc = RuleConfig.objects.create(
-            code="history-test",
+            ref="history-test",
             rule_path="shopman.shop.rules.pricing.D1Rule",
             label="History Test",
             priority=99,
@@ -156,7 +156,7 @@ class TestRuleConfigHistory(TestCase):
 
     def test_update_creates_second_historical_record(self):
         rc = RuleConfig.objects.create(
-            code="history-update",
+            ref="history-update",
             rule_path="shopman.shop.rules.pricing.D1Rule",
             label="Before",
             priority=99,
@@ -170,7 +170,7 @@ class TestRuleConfigHistory(TestCase):
 
     def test_delete_creates_delete_historical_record(self):
         rc = RuleConfig.objects.create(
-            code="history-delete",
+            ref="history-delete",
             rule_path="shopman.shop.rules.pricing.D1Rule",
             label="To Delete",
             priority=99,

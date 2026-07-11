@@ -299,7 +299,7 @@ class TestEngine:
 
     def _create_rule(self, **overrides):
         defaults = {
-            "code": "test_rule",
+            "ref": "test_rule",
             "rule_path": "shopman.shop.rules.validation.BusinessHoursRule",
             "label": "Test Rule",
             "enabled": True,
@@ -310,29 +310,29 @@ class TestEngine:
         return RuleConfig.objects.create(**defaults)
 
     def test_get_active_rules_returns_enabled(self):
-        self._create_rule(code="active_1", enabled=True)
-        self._create_rule(code="inactive_1", enabled=False)
+        self._create_rule(ref="active_1", enabled=True)
+        self._create_rule(ref="inactive_1", enabled=False)
 
         rules = get_active_rules()
-        codes = [r.code for r in rules]
+        refs = [r.ref for r in rules]
 
-        assert "active_1" in codes
-        assert "inactive_1" not in codes
+        assert "active_1" in refs
+        assert "inactive_1" not in refs
 
     def test_get_active_rules_filters_by_channel(self):
         from shopman.shop.models import Channel
 
         ch = Channel.objects.create(ref="test-ch", name="Test Channel")
 
-        self._create_rule(code="global_rule")
-        rule_channel = self._create_rule(code="channel_rule")
+        self._create_rule(ref="global_rule")
+        rule_channel = self._create_rule(ref="channel_rule")
         rule_channel.channels.add(ch)
 
         rules = get_active_rules(channel=ch)
-        codes = [r.code for r in rules]
+        refs = [r.ref for r in rules]
 
-        assert "global_rule" in codes
-        assert "channel_rule" in codes
+        assert "global_rule" in refs
+        assert "channel_rule" in refs
 
     def test_get_active_rules_excludes_other_channel(self):
         from shopman.shop.models import Channel
@@ -340,17 +340,17 @@ class TestEngine:
         ch1 = Channel.objects.create(ref="ch-1", name="Channel 1")
         ch2 = Channel.objects.create(ref="ch-2", name="Channel 2")
 
-        rule = self._create_rule(code="ch1_only")
+        rule = self._create_rule(ref="ch1_only")
         rule.channels.add(ch1)
 
         rules = get_active_rules(channel=ch2)
-        codes = [r.code for r in rules]
+        refs = [r.ref for r in rules]
 
-        assert "ch1_only" not in codes
+        assert "ch1_only" not in refs
 
     def test_load_rule_imports_and_instantiates(self):
         rc = self._create_rule(
-            code="bh_test",
+            ref="bh_test",
             rule_path="shopman.shop.rules.validation.BusinessHoursRule",
             params={"start": "08:00", "end": "22:00"},
         )
@@ -361,7 +361,7 @@ class TestEngine:
         assert rule.end == time(22, 0)
 
     def test_load_rule_bad_path_raises(self):
-        rc = self._create_rule(code="bad_path")
+        rc = self._create_rule(ref="bad_path")
         # Bypass full_clean to inject an unresolvable path directly
         RuleConfig.objects.filter(pk=rc.pk).update(
             rule_path="shopman.shop.rules.nonexistent.FakeRule"
@@ -371,7 +371,7 @@ class TestEngine:
             load_rule(rc)
 
     def test_cache_invalidated_on_save(self):
-        self._create_rule(code="cache_test")
+        self._create_rule(ref="cache_test")
         get_active_rules()
         assert cache.get(CACHE_KEY) is not None
 
@@ -382,12 +382,12 @@ class TestEngine:
         from shopman.orderman import registry
 
         self._create_rule(
-            code="bh_register",
+            ref="bh_register",
             rule_path="shopman.shop.rules.validation.BusinessHoursRule",
             params={"start": "07:00", "end": "21:00"},
         )
         self._create_rule(
-            code="dz_register",
+            ref="dz_register",
             rule_path="shopman.shop.rules.validation.DeliveryZoneRule",
             params={},
         )
@@ -402,7 +402,7 @@ class TestEngine:
         from shopman.orderman import registry
 
         self._create_rule(
-            code="pricing_skip",
+            ref="pricing_skip",
             rule_path="shopman.shop.rules.pricing.D1Rule",
             params={"discount_percent": 50},
         )
@@ -417,7 +417,7 @@ class TestEngine:
         from shopman.orderman import registry
 
         self._create_rule(
-            code="disabled_val",
+            ref="disabled_val",
             rule_path="shopman.shop.rules.validation.BusinessHoursRule",
             enabled=False,
         )

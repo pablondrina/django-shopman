@@ -4199,35 +4199,35 @@ class Command(BaseCommand):
 
         RULE_CONFIGS = [
             {
-                "code": "d1_discount",
+                "ref": "d1_discount",
                 "rule_path": "shopman.shop.rules.pricing.D1Rule",
                 "label": "Desconto D-1 (sobras)",
                 "params": {"discount_percent": 50},
                 "priority": 15,
             },
             {
-                "code": "promotion_discount",
+                "ref": "promotion_discount",
                 "rule_path": "shopman.shop.rules.pricing.PromotionRule",
                 "label": "Promoções e Cupons",
                 "params": {},
                 "priority": 20,
             },
             {
-                "code": "employee_discount",
+                "ref": "employee_discount",
                 "rule_path": "shopman.shop.rules.pricing.EmployeeRule",
                 "label": "Desconto Funcionário",
                 "params": {"discount_percent": 20, "group": "staff"},
                 "priority": 60,
             },
             {
-                "code": "happy_hour",
+                "ref": "happy_hour",
                 "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
                 "label": "Hora da Xepa",
                 "params": {"discount_percent": 25, "start": "17:30", "end": "18:00"},
                 "priority": 65,
             },
             {
-                "code": "business_hours",
+                "ref": "business_hours",
                 "rule_path": "shopman.shop.rules.validation.BusinessHoursRule",
                 "label": "Horário de Funcionamento",
                 "params": {},
@@ -4239,10 +4239,10 @@ class Command(BaseCommand):
         ]
 
         count = 0
-        rules_by_code = {}
+        rules_by_ref = {}
         for rc in RULE_CONFIGS:
             obj, created = RuleConfig.objects.update_or_create(
-                code=rc["code"],
+                ref=rc["ref"],
                 defaults={
                     "rule_path": rc["rule_path"],
                     "label": rc["label"],
@@ -4251,7 +4251,7 @@ class Command(BaseCommand):
                     "enabled": True,
                 },
             )
-            rules_by_code[rc["code"]] = obj
+            rules_by_ref[rc["ref"]] = obj
             if created:
                 count += 1
 
@@ -4259,7 +4259,7 @@ class Command(BaseCommand):
         # it must NOT touch the online storefront (where listed prices would
         # diverge from the cart). Scope the rule to every non-web channel; an
         # empty channel set would mean "all channels", including web.
-        happy_hour = rules_by_code.get("happy_hour")
+        happy_hour = rules_by_ref.get("happy_hour")
         if happy_hour is not None:
             happy_hour.channels.set(Channel.objects.exclude(ref="web"))
 
