@@ -17,6 +17,7 @@ import logging
 from datetime import date, timedelta
 from urllib.parse import urlencode
 
+from django import forms
 from django.contrib import messages
 from django.http import (
     HttpResponse,
@@ -40,7 +41,20 @@ logger = logging.getLogger(__name__)
 # Nuxt app, but this stays — it backs the console's material shortage UX on
 # finish/quick_finish. (Order-coverage shortage only exists no plan, que migrou
 # para o Fournil — split canônico WP-PE4.)
-SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
+SHORTAGE_PARTIAL_TEMPLATE = "admin_console/production/partials/material_shortage.html"
+
+
+class ProductionForceFinishForm(forms.Form):
+    """Hidden carrier form the shortage modal resubmits with ``force=1``."""
+
+    action = forms.CharField(widget=forms.HiddenInput())
+    force = forms.CharField(widget=forms.HiddenInput())
+    wo_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    quantity = forms.CharField(widget=forms.HiddenInput(), required=False)
+    target_date = forms.CharField(widget=forms.HiddenInput(), required=False)
+    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
+    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
 
 
 def _selected_date(request) -> date:
@@ -136,12 +150,28 @@ def handle_production_post(request, access, *, redirect_url_name: str = "admin_c
             messages.error(request, "Ação de produção inválida.")
     except ProductionStockShortError as exc:
         if request.headers.get("HX-Request"):
+            force_finish_form = ProductionForceFinishForm(
+                auto_id=False,
+                initial={
+                    "action": "finish",
+                    "force": "1",
+                    "wo_id": request.POST.get("wo_id", ""),
+                    "quantity": request.POST.get("quantity", ""),
+                    "target_date": request.POST.get("target_date", ""),
+                    "position_ref": request.POST.get("position_ref", ""),
+                    "operator_ref_filter": request.POST.get("operator_ref_filter", ""),
+                    "base_recipe": request.POST.get("base_recipe", ""),
+                },
+            )
             return HttpResponse(
                 render_to_string(
                     SHORTAGE_PARTIAL_TEMPLATE,
                     {
-                        "missing": exc.missing,
-                        "post": request.POST,
+                        "force_finish_form": force_finish_form,
+                        "production_shortage_table": {
+                            "headers": ["Insumo", "Falta"],
+                            "rows": [[item.sku, f"Faltam {item.shortage}"] for item in exc.missing],
+                        },
                     },
                     request=request,
                 ),

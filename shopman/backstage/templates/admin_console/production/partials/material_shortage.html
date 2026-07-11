@@ -1,0 +1,4 @@
+{# Fragmento HX de escassez de insumos, renderizado por handle_production_post; abre já visível por ser injetado sob demanda. #}
+<div x-data="{ open: true }">
+  {% include "admin_console/unfold/modal.html" with modal_title="Insumos insuficientes" modal_description="Revise o estoque antes de concluir ou registre uma conclusão forçada para auditoria." form=force_finish_form form_id="production-force-finish" body_template="admin_console/production/partials/material_shortage_items.html" submit_label="Forçar conclusão" cancel_label="Abortar" cancel_attrs='type="button" x-on:click="open = false"' %}
+</div>

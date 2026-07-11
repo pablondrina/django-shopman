@@ -122,10 +122,6 @@ def _glob(pattern: str) -> tuple[Path, ...]:
     return tuple(sorted(ROOT.glob(pattern)))
 
 
-def _paths(*paths: str) -> tuple[Path, ...]:
-    return tuple(ROOT / path for path in paths)
-
-
 # NOTA: a superfície `admin-console-orders` foi removida — a fila de pedidos virou
 # app Nuxt dedicado (Gestor, surfaces/orders-nuxt) via api/v1/backstage/orders/*
 # (OPERATOR-APPS-PLAN Fase 2). Deixou de ser superfície Admin/Unfold.
@@ -226,21 +222,12 @@ CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
     ),
 )
 
+# NOTA: a superfície `runtime-production-shortage-modals` foi removida — o modal
+# de escassez de insumos migrou para o wrapper aprovado em
+# `admin_console/production/partials/material_shortage.html`, auditado pela
+# superfície canônica `admin-console-production`. (O de order-shortage migrou
+# para o Fournil no split canônico WP-PE4.)
 RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
-    Surface(
-        id="runtime-production-shortage-modals",
-        kind="registered-runtime-backstage",
-        templates=_paths(
-            "shopman/backstage/templates/gestor/producao/partials/material_shortage.html",
-            "shopman/backstage/templates/gestor/producao/partials/order_shortage.html",
-        ),
-        projections=(ROOT / "shopman/backstage/projections/production.py",),
-        replacement=(
-            "Production shortage modals are registered runtime UI rendered by the "
-            "Admin/Unfold production console (handle_production_post). The live "
-            "production floor moved to the fournil. Nuxt app; planning/reporting use Admin/Unfold."
-        ),
-    ),
     Surface(
         id="runtime-pos",
         kind="registered-runtime-backstage",

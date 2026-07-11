@@ -11,11 +11,16 @@ def _read(path: str) -> str:
 
 def test_production_shortage_modal_is_accessible():
     # O modal de order-shortage migrou para o Fournil junto com o plan (split
-    # canônico WP-PE4); no Admin resta o de insumos (finish/quick_finish).
-    html = _read("shopman/backstage/templates/gestor/producao/partials/material_shortage.html")
+    # canônico WP-PE4); no Admin resta o de insumos (finish/quick_finish),
+    # que delega ao wrapper aprovado — os atributos ARIA vivem nele.
+    partial = _read("shopman/backstage/templates/admin_console/production/partials/material_shortage.html")
 
-    assert 'role="dialog"' in html
-    assert 'aria-modal="true"' in html
+    assert 'include "admin_console/unfold/modal.html"' in partial
+
+    wrapper = _read("shopman/backstage/templates/admin_console/unfold/modal.html")
+
+    assert 'role="dialog"' in wrapper
+    assert 'aria-modal="true"' in wrapper
 
 
 def test_closing_reconciliation_has_textual_discrepancy_state():
