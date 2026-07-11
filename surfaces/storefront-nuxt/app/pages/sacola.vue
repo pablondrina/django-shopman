@@ -237,7 +237,7 @@ useSeoMeta({
                         <Icon name="lucide:clock" class="mr-1 size-3.5" />
                         Aguardando confirmação
                       </UiBadge>
-                      <p class="mt-1 shop-meta">Avisamos quando ficar pronto.</p>
+                      <p class="mt-1 shop-meta">{{ cart.awaiting_confirmation_notice || 'Avisamos quando ficar pronto.' }}</p>
                     </div>
                     <div v-else class="mt-2" data-cart-line-ready>
                       <UiBadge variant="default">

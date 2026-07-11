@@ -163,6 +163,9 @@ class CartProjection:
     # Copy do banner de estoque alterado (registro omotenashi, admin-configurável);
     # o Vue mostra quando ``has_unavailable_items`` — acima do tratamento por-item.
     unavailable_banner: str
+    # Aviso sob o badge "Aguardando confirmação" por item (registro omotenashi,
+    # admin-configurável); o Vue mostra na linha em espera de materialização.
+    awaiting_confirmation_notice: str
 
     # Minimum order + upsell context
     minimum_order_progress: MinimumOrderProgressProjection | None
@@ -239,6 +242,9 @@ def build_cart(
         has_ready_for_confirmation_items=data.has_ready_for_confirmation,
         unavailable_banner=(
             resolve_copy("CART_UNAVAILABLE_BANNER", moment="*", audience="*").message or ""
+        ).strip(),
+        awaiting_confirmation_notice=(
+            resolve_copy("PICKUP_READY_NOTICE", moment="*", audience="*").message or ""
         ).strip(),
         minimum_order_progress=min_order,
         delivery_minimum_progress=delivery_minimum,
