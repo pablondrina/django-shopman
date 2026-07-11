@@ -15,7 +15,7 @@ APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 NUXT_DIR := surfaces/storefront-nuxt
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-framework test-migrations test-runtime-preflight test-runtime load-test storefront-e2e test-coverage lint omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-framework test-migrations test-runtime-preflight test-runtime load-test storefront-e2e test-coverage lint omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -137,21 +137,8 @@ test-coverage: ## Cobertura do Backstage com gate de 75%
 	$(PYTHON) -m coverage run --source=shopman/backstage -m pytest shopman/backstage/tests -q
 	$(PYTHON) -m coverage report --include="shopman/backstage/*" --fail-under=75
 
-# ── CSS & Frontend ───────────────────────────────────────────────────
+# ── Frontend (Nuxt) ──────────────────────────────────────────────────
 # npm é invisível — tudo via make. node_modules instala sob demanda.
-
-node_modules/.package-lock.json: package.json
-	@echo "── Instalando dependências frontend ──"
-	npm install --silent
-	@echo "✓ node_modules pronto"
-
-css: node_modules/.package-lock.json ## Build CSS (Tailwind v4 storefront + v4 gestor)
-	npm run css:build
-	npm run gestor:build
-	@echo "✓ CSS compilado (output.css + output-gestor.css)"
-
-css-watch: node_modules/.package-lock.json ## CSS watch mode v4 (storefront)
-	npm run css:watch
 
 $(NUXT_DIR)/node_modules/.package-lock.json: $(NUXT_DIR)/package.json $(NUXT_DIR)/package-lock.json
 	@echo "── Instalando dependências Nuxt ──"
@@ -284,11 +271,11 @@ migrate: ## Cria/atualiza banco de dados
 	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
-collectstatic: css ## Compila CSS e coleta estáticos para STATIC_ROOT
+collectstatic: ## Coleta estáticos para STATIC_ROOT
 	$(PYTHON) manage.py collectstatic --noinput
 	@echo "✓ Static coletado"
 
-run: css ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
+run: ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
 	lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 	killall cloudflared 2>/dev/null || true
@@ -299,10 +286,9 @@ run: css ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
 	@grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' .tunnel.log | head -1 || echo "⚠ Tunnel URL not yet available — check .tunnel.log"
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
-dev: node_modules/.package-lock.json ## Dev: CSS watch + ngrok + directive worker + server (0.0.0.0:8000)
-	@echo "── Dev mode: CSS watch + ngrok + directive worker + Django server ──"
+dev: ## Dev: ngrok + directive worker + server (0.0.0.0:8000)
+	@echo "── Dev mode: ngrok + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
-	npm run css:watch &
 	$(PYTHON) manage.py process_directives --watch &
 	ngrok http 8000 --domain=lathlike-thelma-undiaphanously.ngrok-free.dev > /dev/null &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
