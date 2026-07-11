@@ -13,6 +13,12 @@ describe('Django proxy CSRF transport', () => {
     expect(mergeSetCookieIntoCookieHeader(cookie, 'csrftoken=new-token; Path=/; SameSite=Lax')).toBe('sessionid=session-123; csrftoken=new-token')
   })
 
+  it('keeps cookie values containing "=" intact (signed/base64 values)', () => {
+    const cookie = 'csrftoken=old-token'
+
+    expect(mergeSetCookieIntoCookieHeader(cookie, 'sessionid=abc.def=ghi==; Path=/; HttpOnly')).toBe('csrftoken=old-token; sessionid=abc.def=ghi==')
+  })
+
   it('normalizes unsafe request origin to the Django backend origin', () => {
     expect(proxySource).toContain('headers.origin = djangoOrigin')
     expect(proxySource).toContain('headers.referer = `${djangoOrigin}/`')
