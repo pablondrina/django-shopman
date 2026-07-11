@@ -59,7 +59,9 @@ where = ["."]
 include = ["shopman*", "config*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings"
+# Settings herméticos: config.settings + pinos do baseline do CI, para que a
+# suíte não dependa do env/.env do desenvolvedor (ver config/settings_test.py).
+DJANGO_SETTINGS_MODULE = "config.settings_test"
 pythonpath = ["."]
 testpaths = ["shopman/shop/tests"]
 # Browser E2E (Playwright) needs TWO running servers (Nuxt store + Django API);
