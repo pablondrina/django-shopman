@@ -1181,31 +1181,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Kintsugi ──────────────────────────────────────────────────
-    "KINTSUGI_ITEM_REMOVED": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Removido.")},
-    },
-    "KINTSUGI_CEP_NOT_FOUND": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Não encontrei esse CEP. Quer digitar o endereço?")},
-    },
     "KINTSUGI_CANCEL_REFUSED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido já está sendo preparado. Fale conosco para ajustar.")},
-    },
-    "KINTSUGI_RATE_LIMITED": {
-        WILDCARD: {
-            WILDCARD: CopyEntry(
-                title="Muitas tentativas",
-                message="Tente novamente em alguns minutos ou fale conosco pelo WhatsApp.",
-            ),
-        },
-    },
-    "KINTSUGI_RATE_LIMITED_RETRY_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Tente novamente em")},
-    },
-    "KINTSUGI_RATE_LIMITED_RETRY_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Tentar novamente")},
-    },
-    "KINTSUGI_RATE_LIMITED_CONTACT": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Prefere falar conosco?")},
     },
     "KINTSUGI_SHORTAGE_GENERIC": {
         WILDCARD: {WILDCARD: CopyEntry(title="Ih, o último acabou de sair")},
