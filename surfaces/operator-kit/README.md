@@ -27,14 +27,21 @@ O layer contribui, via auto-import do Nuxt:
 | `app/composables/useConnectivity.ts` | `useConnectivity` | sinal offline + reconciliação no reconnect/foco |
 | `app/components/OfflineBanner.vue` | `<OfflineBanner>` | aviso calmo de conexão (colocar no layout raiz) |
 | `app/plugins/errorReporter.client.ts` | — | captura erro não-tratado → telemetria (inerte em dev) |
+| `app/types/operator.ts` | `OperatorCard`, `OperatorSession`, … | espelho TS da API operator/session\|eligible\|unlock\|lock |
+| `app/presentation/operatorLock.ts` | `isLocked`, `buildUnlockPayload`, … | transforms puros do lock (sem I/O) |
+| `app/composables/useOperatorLock.ts` | `useOperatorLock` | read/write do lock de operador (PIN/crachá) via proxy |
+| `app/components/OperatorLock.vue` | `<OperatorLock>` | overlay de lock (picker + PIN pad + crachá + troca forçada) |
+| `app/components/OperatorPinChange.vue` | `<OperatorPinChange>` | numpad de troca de PIN (forçada e voluntária) |
 
 ## O que ainda NÃO vive aqui (roadmap — ver docs/plans/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)
 
 - **De-duplicação dos byte-idênticos** `server/utils/djangoProxy.ts`, `app/utils/tw-helper.ts`,
   `app/utils/translucent.ts` — migram para cá com atualização dos imports/testes dos apps.
-- **Família operator-lock** (`useOperatorLock`, `OperatorLock/Login/PinChange`,
-  `operatorSession`) — hoje DIVERGE entre os apps (2–3 variantes; POS tem tela própria);
-  consolidar num canônico é trabalho dos WPs por-app.
+- **Lock do POS** — o POS mantém deliberadamente a própria variante
+  (`usePosOperatorLock` + `PosLockScreen`/`PosPinChange`): auto-lock por inatividade,
+  transporte via `usePosAction` e lock local-first. A família canônica
+  (`useOperatorLock`/`OperatorLock`/`OperatorPinChange`) vive aqui e serve
+  kds/orders/production.
 - **DS tokens canônicos** (`tailwind.css`) — hoje idênticos por app; extrair o bloco
   canônico para cá (com split das partes app-específicas: print no POS, dark no KDS).
 - **Interceptor global de 401/403** (reabre o gate de operador) — plugin compartilhado.

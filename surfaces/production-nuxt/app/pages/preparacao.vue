@@ -35,7 +35,7 @@ const mode = ref<"insumos" | "preparos">("insumos");
 
 // Tolerante a dado velho: se a atualização falhar mas já houver lista, mantém a lista
 // no ar e acende o chip de degradação (dado velho visível > tela em branco).
-const staleInsumos = computed(() =>
+const staleIngredients = computed(() =>
   isStale({ error: !!error.value, hasData: lines.value.length > 0 }),
 );
 const staleWeighing = computed(() =>
@@ -266,7 +266,7 @@ function refreshAll() {
 
         <template v-else>
           <div
-            v-if="staleInsumos"
+            v-if="staleIngredients"
             role="status"
             aria-live="polite"
             class="mb-3 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"

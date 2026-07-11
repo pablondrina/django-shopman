@@ -102,7 +102,7 @@ describe('surface UX guardrails', () => {
 
   it('keeps search on its own full page, menu only links to it', () => {
     const menu = read('app/pages/menu.vue')
-    const busca = read('app/pages/busca.vue')
+    const searchPage = read('app/pages/busca.vue')
 
     // O cardápio não tem campo de busca próprio: a lupa ABRE o overlay de busca
     // (mesma tela → foco/teclado confiável no iOS). A página /busca segue como fallback.
@@ -119,14 +119,14 @@ describe('surface UX guardrails', () => {
     expect(menu).toContain('sectionsBySku')
     expect(menu).toContain("from '~/presentation/menu'")
     // A página de busca é a dona da experiência (a la iFood).
-    expect(busca).toContain('placeholder="Buscar no cardápio"')
-    expect(busca).toContain('<UiInputGroup')
-    expect(busca).toContain('searchPanelView')
-    expect(busca).toContain('data-busca-collections')
-    expect(busca).toContain('data-busca-filter-chips')
-    expect(busca).toContain('data-busca-results')
-    expect(busca).toContain('<ProductListItem')
-    expect(busca).toContain(":aria-pressed=\"isFilterApplied(chip.key)\"")
+    expect(searchPage).toContain('placeholder="Buscar no cardápio"')
+    expect(searchPage).toContain('<UiInputGroup')
+    expect(searchPage).toContain('searchPanelView')
+    expect(searchPage).toContain('data-busca-collections')
+    expect(searchPage).toContain('data-busca-filter-chips')
+    expect(searchPage).toContain('data-busca-results')
+    expect(searchPage).toContain('<ProductListItem')
+    expect(searchPage).toContain(":aria-pressed=\"isFilterApplied(chip.key)\"")
     // Overlay de busca (mesma tela) reusa a mesma experiência/projeção da página.
     const overlay = read('app/components/SearchOverlay.vue')
     expect(overlay).toContain('useSearchOverlay')

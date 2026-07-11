@@ -28,6 +28,11 @@ const navCards = computed(() => accountNavCards(summary.value || null))
 const lastOrder = computed(() => summary.value?.last_order || null)
 const lastOrderReorder = computed(() => (lastOrder.value ? reorderActionFrom(lastOrder.value) : null))
 const conflictRef = conflict as Ref<ReorderConflictProjection | null>
+// Ação de substituição do diálogo de conflito (prefere a action 'replace'; senão a 1ª).
+const conflictReplaceAction = computed(() => {
+  const actions = conflictRef.value?.actions ?? []
+  return actions.find(action => action.ref.includes('replace')) ?? actions[0] ?? null
+})
 
 const logoutOpen = ref(false)
 const loggingOut = ref(false)
@@ -187,7 +192,7 @@ useSeoMeta({ title: () => summary.value?.copy.page_title || 'Minha Conta' })
           </UiAlertDialogHeader>
           <UiAlertDialogFooter>
             <UiAlertDialogCancel>Cancelar</UiAlertDialogCancel>
-            <UiAlertDialogAction v-if="conflictRef" @click="performAction(conflictRef.actions.find(action => action.ref.includes('replace')) || conflictRef.actions[0])">
+            <UiAlertDialogAction v-if="conflictReplaceAction" @click="performAction(conflictReplaceAction)">
               Substituir
             </UiAlertDialogAction>
           </UiAlertDialogFooter>
