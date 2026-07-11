@@ -1,11 +1,17 @@
 """
-Directives — topic constants + queue helper.
+Directives — topic constants + queue helpers.
 
 Topic constants: canonical names for all directive topics (single source of truth).
 queue(): single entry point for creating Directives across services.
+create_deduped(): create com dedupe_key sob a garantia do UNIQUE parcial do
+Core (orderman_directive_live_dedupe_unique) — violação é dedupe-hit, não erro.
 """
 
+import logging
+
 from shopman.orderman.models import Directive
+
+logger = logging.getLogger(__name__)
 
 # ── Topic constants ──
 
@@ -79,3 +85,28 @@ def queue(topic, order, **extra):
         payload["channel_ref"] = order.channel_ref
     payload.update(extra)
     return Directive.objects.create(topic=topic, payload=payload)
+
+
+def create_deduped(topic, *, payload, dedupe_key, available_at=None):
+    """Create a Directive com dedupe_key, tratando corrida como dedupe-hit.
+
+    O check-then-create dos criadores continua como fast path (log amigável,
+    zero INSERT), mas a garantia vem do UNIQUE parcial do Core: no máximo uma
+    directive viva (queued/running) por (topic, dedupe_key). Sob corrida, o
+    segundo INSERT viola a constraint — aqui isso vira ``None`` (dedupe-hit),
+    nunca exceção.
+
+    O ``transaction.atomic()`` interno é um savepoint: quando o caller está
+    dentro de uma transação, o IntegrityError não a envenena.
+    """
+    from django.db import IntegrityError, transaction
+
+    kwargs = {"topic": topic, "payload": payload, "dedupe_key": dedupe_key}
+    if available_at is not None:
+        kwargs["available_at"] = available_at
+    try:
+        with transaction.atomic():
+            return Directive.objects.create(**kwargs)
+    except IntegrityError:
+        logger.info("directives.dedupe_hit topic=%s dedupe_key=%s", topic, dedupe_key)
+        return None

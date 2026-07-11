@@ -208,12 +208,16 @@ def request_dispatch(order, *, actor: str) -> Directive | None:
     if existing:
         return existing
 
+    from shopman.shop.directives import create_deduped
+
     attempt_n = len(get_block(order).get("attempts") or []) + 1
-    directive = Directive.objects.create(
-        topic=COURIER_DISPATCH,
+    directive = create_deduped(
+        COURIER_DISPATCH,
         payload={"order_ref": order.ref, "channel_ref": order.channel_ref or "", "actor": actor},
         dedupe_key=f"courier.dispatch:{order.ref}:{attempt_n}",
     )
+    if directive is None:
+        return None
     order.emit_event(event_type="courier_dispatch_requested", actor=actor)
     logger.info("courier.dispatch_requested order=%s actor=%s", order.ref, actor)
     return directive
