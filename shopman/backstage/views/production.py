@@ -25,6 +25,7 @@ from django.http import (
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils import timezone
 
 from shopman.backstage.projections.production import (
     build_production_board,
@@ -45,16 +46,16 @@ SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
 def _selected_date(request) -> date:
     date_param = (request.GET.get("date") or "").strip()
     try:
-        return date.fromisoformat(date_param) if date_param else date.today()
+        return date.fromisoformat(date_param) if date_param else timezone.localdate()
     except ValueError:
-        return date.today()
+        return timezone.localdate()
 
 
 VALID_REPORT_KINDS = ("history", "operator_productivity", "recipe_waste")
 
 
 def _report_filters(request) -> dict:
-    today = date.today()
+    today = timezone.localdate()
     raw_from = (request.GET.get("date_from") or (today - timedelta(days=6)).isoformat()).strip()
     raw_to = (request.GET.get("date_to") or today.isoformat()).strip()
     raw_kind = (request.GET.get("report_kind") or request.GET.get("kind") or "history").strip()

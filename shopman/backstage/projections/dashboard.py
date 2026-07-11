@@ -17,6 +17,7 @@ from decimal import Decimal
 
 from django.db.models import Count, Sum
 from django.urls import reverse
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class DashboardProjection:
 
 def build_dashboard() -> DashboardProjection:
     """Build the admin dashboard projection."""
-    today = date.today()
+    today = timezone.localdate()
     yesterday = today - timedelta(days=1)
 
     order_summary = _order_summary(today)
@@ -426,7 +427,7 @@ def _pending_orders(today: date) -> list[RecentOrderProjection]:
             channel_name=o.channel_ref or "\u2014",
             created_at_display=(
                 o.created_at.strftime("%H:%M")
-                if o.created_at and o.created_at.date() == today
+                if o.created_at and timezone.localdate(o.created_at) == today
                 else (date_format(o.created_at, "d/m H:i") if o.created_at else "\u2014")
             ),
             url=reverse("admin:orderman_order_change", args=[o.pk]),

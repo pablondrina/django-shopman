@@ -452,7 +452,7 @@ def _add_stock_warnings(items: list[dict]) -> list[dict]:
 
     quant_qs = (
         Quant.objects.filter(sku__in=skus)
-        .filter(Q(target_date__isnull=True) | Q(target_date__lte=timezone.now().date()))
+        .filter(Q(target_date__isnull=True) | Q(target_date__lte=timezone.localdate()))
         .values("sku")
         .annotate(total=Coalesce(Sum("_quantity"), Decimal("0")))
     )
