@@ -2,7 +2,9 @@
 
 A quantidade é validada pelo serializer ANTES de qualquer lógica de negócio
 (`SetSkuQtySerializer.qty` ∈ [0, 99]), então um valor absurdo é rejeitado com 400
-sem tocar no catálogo/estoque.
+sem tocar no catálogo/estoque — e a resposta fala o dialeto canônico de erro
+(`{detail, field, errors}`, ver shopman/shop/api_errors.py), nunca o shape DRF
+cru `{"qty": [...]}` que o front não lê.
 """
 
 from __future__ import annotations
@@ -22,4 +24,7 @@ def test_api_cart_rejects_absurd_qty_before_business_logic(client):
     )
 
     assert resp.status_code == 400
-    assert "qty" in resp.json()
+    body = resp.json()
+    assert body["field"] == "qty"
+    assert body["detail"]
+    assert body["errors"]["qty"]
