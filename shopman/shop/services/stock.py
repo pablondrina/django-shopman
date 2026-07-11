@@ -22,7 +22,6 @@ ended up adopting only one of them.
 from __future__ import annotations
 
 import logging
-from datetime import date
 from decimal import Decimal
 
 from django.utils import timezone
@@ -64,7 +63,7 @@ def hold(order) -> None:
         return
 
     target_date = get_commitment_date(order)
-    adopt_session_holds = target_date in (None, date.today())
+    adopt_session_holds = target_date in (None, timezone.localdate())
     session_key = getattr(order, "session_key", None)
     session_holds_by_sku = _load_session_holds(session_key) if session_key else {}
 

@@ -17,6 +17,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -101,5 +102,5 @@ class Command(BaseCommand):
 
     def _parse_date(self, date_str):
         if date_str is None:
-            return date.today() + timedelta(days=1)
+            return timezone.localdate() + timedelta(days=1)
         return date.fromisoformat(date_str)

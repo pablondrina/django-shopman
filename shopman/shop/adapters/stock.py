@@ -59,7 +59,7 @@ def check_availability(
     else:
         available = stock.available(product, target_date=target_date)
 
-    if target_date and target_date > date.today() and safety_margin > 0:
+    if target_date and target_date > timezone.localdate() and safety_margin > 0:
         available = max(Decimal("0"), available - Decimal(str(safety_margin)))
 
     return {
@@ -127,7 +127,7 @@ def create_hold(
         hold_id = stock.hold(
             qty,
             product,
-            target_date=target_date or date.today(),
+            target_date=target_date or timezone.localdate(),
             expires_at=expires_at,
             allowed_positions=allowed_positions,
             excluded_positions=excluded_positions,

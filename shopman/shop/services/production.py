@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.utils import timezone
+
 logger = logging.getLogger(__name__)
 
 
@@ -136,7 +138,7 @@ def quick_finish(
     work_order = CraftPlanning.plan(
         recipe,
         qty,
-        date=date.today(),
+        date=timezone.localdate(),
         position_ref=position_ref,
         source_ref="quick_production",
     )
@@ -440,14 +442,14 @@ def _default_planning_date() -> date:
     except Exception:
         logger.debug("production.default_planning_date degraded", exc_info=True)
         horizon_days = 1
-    return date.today() + timedelta(days=horizon_days)
+    return timezone.localdate() + timedelta(days=horizon_days)
 
 
 def _target_date_or_today(value) -> date:
     try:
-        return date.fromisoformat(value) if value else date.today()
+        return date.fromisoformat(value) if value else timezone.localdate()
     except (ValueError, TypeError):
-        return date.today()
+        return timezone.localdate()
 
 
 def _formula_meta(*, recipe, target_date: date, quantity: Decimal, source_ref: str) -> dict:

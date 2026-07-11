@@ -19,10 +19,10 @@ Usage::
 from __future__ import annotations
 
 import logging
-from datetime import date
 
 from django.core.management.base import BaseCommand
 from django.db.models import Exists, OuterRef
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         from shopman.stockman import Hold, HoldStatus
         from shopman.stockman.models import Move, Quant
 
-        today = date.today()
+        today = timezone.localdate()
         dry_run = options["dry_run"]
 
         active_holds = Hold.objects.filter(

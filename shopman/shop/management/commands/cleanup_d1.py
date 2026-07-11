@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 from shopman.stockman import Move, Position, Quant
 from shopman.stockman.services.movements import StockMovements
 
@@ -23,7 +24,7 @@ class Command(BaseCommand):
             self.stdout.write("Sem estoque D-1. Nada a fazer.")
             return
 
-        threshold = date.today() - timedelta(days=1)
+        threshold = timezone.localdate() - timedelta(days=1)
         removed_count = 0
 
         for quant in quants:
@@ -35,7 +36,7 @@ class Command(BaseCommand):
             if not last_d1_move:
                 continue
 
-            if last_d1_move.timestamp.date() >= threshold:
+            if timezone.localdate(last_d1_move.timestamp) >= threshold:
                 continue
 
             qty = quant._quantity
@@ -45,7 +46,7 @@ class Command(BaseCommand):
             StockMovements.issue(
                 quantity=qty,
                 quant=quant,
-                reason=f"perda_d1_vencido:{date.today()}",
+                reason=f"perda_d1_vencido:{timezone.localdate()}",
                 kind=Move.Kind.WASTE,
             )
             self.stdout.write(f"Removido: {quant.sku} x{qty}")
