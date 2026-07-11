@@ -135,6 +135,54 @@ class TestOrder(TestCase):
         evt2 = order.emit_event("note_added", actor="user")
         assert evt2.seq == 1
 
+    # O snapshot em memória carrega Decimal (SessionItem.qty); no banco o
+    # DecimalEncoder serializa como string. Re-hidratar a instância do banco
+    # (transition_status, refresh_from_db) troca o snapshot pela versão
+    # decodificada — o baseline selado tem que acompanhar, senão qualquer
+    # save posterior da instância levanta ImmutabilityError.
+
+    def test_save_after_transition_status_with_decimal_snapshot(self):
+        order = Order.objects.create(
+            ref="ORD-TEST-006",
+            channel_ref=self.channel.ref,
+            snapshot={"items": [{"sku": "PAO", "qty": Decimal("2.000")}]},
+            total_q=1000,
+        )
+        order.transition_status("confirmed", actor="test")
+
+        order.data = dict(order.data or {}, lifecycle={"on_commit": "done"})
+        order.save(update_fields=["data", "updated_at"])
+
+        order.refresh_from_db()
+        assert order.data["lifecycle"]["on_commit"] == "done"
+
+    def test_save_after_refresh_from_db_with_decimal_snapshot(self):
+        order = Order.objects.create(
+            ref="ORD-TEST-007",
+            channel_ref=self.channel.ref,
+            snapshot={"items": [{"sku": "PAO", "qty": Decimal("2.000")}]},
+            total_q=1000,
+        )
+        order.refresh_from_db()
+
+        order.data = dict(order.data or {}, note="ok")
+        order.save(update_fields=["data", "updated_at"])
+
+    def test_sealed_fields_still_immutable_after_rehydration(self):
+        from shopman.orderman.exceptions import ImmutabilityError
+
+        order = Order.objects.create(
+            ref="ORD-TEST-008",
+            channel_ref=self.channel.ref,
+            snapshot={"items": []},
+            total_q=1000,
+        )
+        order.transition_status("confirmed", actor="test")
+
+        order.snapshot = {"items": [{"sku": "OUTRO"}]}
+        with pytest.raises(ImmutabilityError):
+            order.save(update_fields=["data", "updated_at"])
+
 
 @pytest.mark.django_db
 class TestOrderItem(TestCase):
