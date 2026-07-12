@@ -2340,6 +2340,19 @@ class Command(BaseCommand):
             wo_count += 1
 
         # Future horizon: planned production for one week ahead.
+        #
+        # As WOs futuras precisam VIRAR estoque planejado no ledger do Stockman —
+        # senão a loja oferece encomenda para os próximos dias úteis mas o gate de
+        # estoque reprova 100%: não existe Quant com aquele ``target_date`` e o físico
+        # de hoje é inválido para datas futuras (shelflife). O caminho canônico
+        # craftsman→stockman é o signal ``production_changed(action="planned")``, que o
+        # handler de contrib/stockman materializa como Quant planejado datado. O seed
+        # constrói as WOs à mão (narrativa/matriz determinística, idempotente por
+        # ``source_ref``), então emitimos o signal explicitamente. SÓ para o futuro: o
+        # estoque vendável de hoje já vem de ``_seed_stock`` (vitrine) — emitir para
+        # hoje/histórico dobraria o saldo.
+        from shopman.craftsman.signals import production_changed
+
         for offset in range(1, 8):
             target = today + timedelta(days=offset)
             if target.weekday() == 0:
@@ -2350,7 +2363,7 @@ class Command(BaseCommand):
                     continue
                 recipe = recipes_by_ref[ref]
                 planned = (qty * day_multiplier).quantize(Decimal("1"))
-                upsert_work_order(
+                work_order = upsert_work_order(
                     scope=f"future-{offset}",
                     recipe=recipe,
                     target_date=target,
@@ -2358,7 +2371,57 @@ class Command(BaseCommand):
                     status=WorkOrder.Status.PLANNED,
                     operator_ref="chef:planejamento",
                 )
+                production_changed.send(
+                    sender=WorkOrder,
+                    product_ref=work_order.output_sku,
+                    date=target,
+                    action="planned",
+                    work_order=work_order,
+                )
                 future_count += 1
+
+        # Encomenda para o resto do catálogo fresco (além dos 14 heróis com receita
+        # acima): todo produto vendável ``planned_ok`` — mini-baguetes, quiches,
+        # focaccias individuais, pães de sanduíche, viennoiseries menores — também é
+        # oferecido para os próximos dias úteis. Sem estoque planejado datado o gate de
+        # encomenda reprova (o físico de hoje é inválido para data futura por
+        # shelflife; ver shelflife.filter_valid_quants). Espelhamos a prateleira de
+        # hoje como supply planejado nesses dias, na posição de produção — mesmo bucket
+        # ``planned`` das WOs. Os SKUs com receita já receberam o seu via signal acima;
+        # excluímos para não duplicar. Os ``demand_ok`` (café, sanduíches quentes)
+        # vendem sem estoque (hold flutuante), então não precisam de supply planejado.
+        from django.db.models import Sum
+        from shopman.stockman.models import Quant
+
+        producao_pos = Position.objects.filter(ref="producao").first()
+        recipe_backed = {r.output_sku for r in Recipe.objects.all()}
+        planned_extra = 0
+        preorder_products = (
+            Product.objects.filter(
+                is_published=True, is_sellable=True, availability_policy="planned_ok",
+            )
+            .exclude(sku__in=recipe_backed)
+        )
+        for product in preorder_products:
+            baseline = Quant.objects.filter(
+                sku=product.sku, target_date__isnull=True, _quantity__gt=0,
+            ).aggregate(t=Sum("_quantity"))["t"]
+            if not baseline:
+                continue  # sem prateleira física hoje = não estocado para venda direta
+            for offset in range(1, 8):
+                target = today + timedelta(days=offset)
+                if target.weekday() == 0:
+                    continue
+                day_multiplier = Decimal("1.25") if target.weekday() in (4, 5) else Decimal("1")
+                stock.receive(
+                    quantity=(baseline * day_multiplier).quantize(Decimal("1")),
+                    sku=product.sku,
+                    position=producao_pos,
+                    target_date=target,
+                    reason=f"Produção planejada (encomenda): {product.sku} {target.isoformat()}",
+                    kind="make",  # Move.Kind.MAKE — produção
+                )
+                planned_extra += 1
 
         # Historical production: 35 relative days behind today for BI,
         # pickup slots and waste patterns.
