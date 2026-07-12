@@ -8,8 +8,10 @@ Lógica:
   1. Busca Orders NEW/CONFIRMED criadas antes de `--since` atrás.
   2. Para cada uma, lê intent_ref em order.data["payment"].
   3. Consulta Payman: PaymentService.get(intent_ref).
-  4. Se intent.status == "captured" → chama lifecycle.on_paid(order).
-  5. Se intent.status == "expired"  → chama flow.on_payment_expired(order) via transição.
+  4. Se intent capturada → dispatch("on_paid") (pulado se a fase já completou).
+  5. Se intent PENDING vencida (expires_at no passado — Payman não tem status
+     "expired") → re-arma a directive payment.timeout, que é quem sabe cancelar
+     com segurança (verifica o gateway antes, contra webhook perdido).
   6. Loga cada reconciliação com order.ref, intent_ref, action.
 
 Idempotente: rodar duas vezes não gera estado inconsistente.
@@ -110,6 +112,16 @@ class Command(BaseCommand):
                 continue
 
             if intent.status == "captured":
+                from shopman.shop.lifecycle import phase_complete
+
+                if phase_complete(order, "on_paid"):
+                    # A fase já rodou até o fim (marcador durável) — re-despachar
+                    # aqui só duplicaria alertas/eventos a cada ciclo.
+                    skipped += 1
+                    self.stdout.write(
+                        f"order={order.ref} intent={intent_ref} → sem ação (on_paid já completo)"
+                    )
+                    continue
                 action = "on_paid → flow dispatch"
                 if not dry_run:
                     try:
@@ -140,35 +152,25 @@ class Command(BaseCommand):
                         continue
                 reconciled += 1
 
-            elif intent.status == "expired":
-                action = "on_payment_expired → cancelled"
+            elif (
+                intent.status == "pending"
+                and intent.expires_at
+                and intent.expires_at <= timezone.now()
+            ):
+                # Payman não tem status "expired": PIX vencido é intent PENDING
+                # com expires_at no passado. Cancelar direto aqui seria pular a
+                # checagem de gateway (webhook perdido + dinheiro capturado =
+                # perda real do cliente) — re-armar a directive payment.timeout
+                # entrega o cancel ao caminho canônico e seguro.
+                action = "payment.timeout re-armada (intent vencida)"
                 if not dry_run:
-                    try:
-                        order.transition_status(Order.Status.CANCELLED, actor="reconcile_payments")
-                        logger.info(
-                            "reconcile_payments: order %s intent %s → cancelled (expired)",
-                            order.ref, intent_ref,
-                        )
-                    except Exception as exc:
-                        logger.debug("reconcile_payments.handle degraded; using fallback", exc_info=True)
-                        failures += 1
-                        from shopman.shop.services import observability
-
-                        observability.record_payment_reconciliation_failure(
-                            gateway=getattr(intent, "gateway", "") or "payman",
-                            intent_ref=intent_ref,
-                            order_ref=order.ref,
-                            code="expired_cancel_failed",
-                            context={"action": "cancel_expired_order"},
-                            exc=exc,
-                        )
-                        logger.error(
-                            "reconcile_payments: falha ao cancelar order %s: %s",
-                            order.ref, exc,
-                        )
+                    if self._rearm_payment_timeout(order, intent):
+                        reconciled += 1
+                    else:
+                        action = "sem ação (payment.timeout já na fila)"
                         skipped += 1
-                        continue
-                reconciled += 1
+                else:
+                    reconciled += 1
 
             else:
                 action = f"sem ação (intent.status={intent.status})"
@@ -195,3 +197,41 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"[dry-run] {summary}"))
         else:
             self.stdout.write(self.style.SUCCESS(summary))
+
+    def _rearm_payment_timeout(self, order, intent) -> bool:
+        """Re-arma a directive payment.timeout para uma intent PENDING vencida.
+
+        Cobre directive perdida (crash antes do create) ou concluída sem efeito
+        (ex.: status incerto na rodada). O PaymentTimeoutHandler re-checa tudo,
+        inclusive o gateway, antes de cancelar. Retorna True se enfileirou.
+        """
+        from shopman.orderman.models import Directive
+
+        from shopman.shop.directives import PAYMENT_TIMEOUT, create_deduped
+
+        dedupe_key = f"{PAYMENT_TIMEOUT}:{order.ref}:{intent.ref}"
+        live = Directive.objects.filter(
+            topic=PAYMENT_TIMEOUT,
+            dedupe_key=dedupe_key,
+            status__in=(Directive.Status.QUEUED, Directive.Status.RUNNING),
+        ).exists()
+        if live:
+            return False
+
+        created = create_deduped(
+            PAYMENT_TIMEOUT,
+            payload={
+                "order_ref": order.ref,
+                "intent_ref": intent.ref,
+                "expires_at": intent.expires_at.isoformat(),
+            },
+            dedupe_key=dedupe_key,
+            available_at=timezone.now(),
+        )
+        if created is not None:
+            logger.info(
+                "reconcile_payments: order %s intent %s → payment.timeout re-armada",
+                order.ref,
+                intent.ref,
+            )
+        return created is not None

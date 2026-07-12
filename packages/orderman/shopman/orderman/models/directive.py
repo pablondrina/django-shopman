@@ -73,6 +73,20 @@ class Directive(models.Model):
         app_label = "orderman"
         verbose_name = _("diretiva")
         verbose_name_plural = _("diretivas")
+        constraints = [
+            # Dedupe como GARANTIA, não convenção: no máximo UMA directive viva
+            # (queued/running) por (topic, dedupe_key). Fecha a corrida do
+            # check-then-create dos criadores — sob concorrência o segundo
+            # INSERT viola e deve ser tratado como dedupe-hit, não erro.
+            # done/failed ficam fora da condição de propósito: re-fire após
+            # conclusão (ex.: reprojeção de catálogo) e re-enfileirar após
+            # falha terminal continuam permitidos.
+            models.UniqueConstraint(
+                fields=["topic", "dedupe_key"],
+                condition=~models.Q(dedupe_key="") & models.Q(status__in=("queued", "running")),
+                name="orderman_directive_live_dedupe_unique",
+            ),
+        ]
 
     def __str__(self) -> str:
         if self.pk:

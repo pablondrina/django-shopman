@@ -73,8 +73,10 @@ def on_order_status_changed(sender, order, event_type, actor, **kwargs) -> None:
     if exists:
         return
 
-    Directive.objects.create(
-        topic=IFOOD_STATUS_CALLBACK,
+    from shopman.shop.directives import create_deduped
+
+    created = create_deduped(
+        IFOOD_STATUS_CALLBACK,
         payload={
             "order_ref": order.ref,
             "ifood_order_id": ifood_order_id,
@@ -86,6 +88,8 @@ def on_order_status_changed(sender, order, event_type, actor, **kwargs) -> None:
         },
         dedupe_key=dedupe_key,
     )
+    if created is None:
+        return
     logger.debug("ifood_status: enqueued %s callback for order %s", order.status, order.ref)
 
 

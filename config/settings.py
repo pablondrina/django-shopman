@@ -881,6 +881,26 @@ SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS = int(
     os.environ.get("SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS", "10")
 )
 
+# Observabilidade da fila de directives (ADR-003) — thresholds do
+# check_directive_health, que roda no ciclo do maintenance_worker.
+# Defaults seguem a ADR ("failed > 5 em 1h", "queued com available_at
+# < now - 10min acumulam"); heartbeat 15min tolera restart de deploy sem flap.
+SHOPMAN_DIRECTIVE_FAILED_ALERT_THRESHOLD = int(
+    os.environ.get("SHOPMAN_DIRECTIVE_FAILED_ALERT_THRESHOLD", "5")
+)
+SHOPMAN_DIRECTIVE_FAILED_WINDOW_MINUTES = int(
+    os.environ.get("SHOPMAN_DIRECTIVE_FAILED_WINDOW_MINUTES", "60")
+)
+SHOPMAN_DIRECTIVE_BACKLOG_ALERT_THRESHOLD = int(
+    os.environ.get("SHOPMAN_DIRECTIVE_BACKLOG_ALERT_THRESHOLD", "5")
+)
+SHOPMAN_DIRECTIVE_BACKLOG_AGE_MINUTES = int(
+    os.environ.get("SHOPMAN_DIRECTIVE_BACKLOG_AGE_MINUTES", "10")
+)
+SHOPMAN_WORKER_HEARTBEAT_STALE_MINUTES = int(
+    os.environ.get("SHOPMAN_WORKER_HEARTBEAT_STALE_MINUTES", "15")
+)
+
 SHOPMAN_NOTIFICATION_ADAPTERS = {
     "manychat": "shopman.shop.adapters.notification_manychat",
     "email": "shopman.shop.adapters.notification_email",

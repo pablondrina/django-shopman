@@ -259,6 +259,7 @@ def test_once_runs_one_cycle_in_order_and_never_sleeps():
         call("cleanup_d1"),
         call("reconcile_payments"),
         call("sweep_stuck_orders"),
+        call("check_directive_health"),
     ]
 
 

@@ -8,7 +8,7 @@ from datetime import timedelta
 from django.core.management import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-from shopman.orderman import registry
+from shopman.orderman import registry, worker_heartbeat
 from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive
 
@@ -134,6 +134,9 @@ class Command(BaseCommand):
                 )
 
         def _cycle():
+            # Heartbeat por ciclo (ADR-003 — observabilidade mínima): quem
+            # monitora sabe quando este worker rodou pela última vez.
+            worker_heartbeat.beat(worker_heartbeat.PROCESS_DIRECTIVES_WORKER)
             now = timezone.now()
 
             # Acquire directives with row-level lock (skip_locked prevents duplicate processing)
