@@ -1,7 +1,63 @@
 # Changelog
 
-Todas as mudancas notaveis neste projeto serao documentadas aqui.
+Todas as mudanças notáveis neste projeto serão documentadas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
+
+Entre releases, este arquivo registra **marcos** (não commit-a-commit). O estado
+factual detalhado vive em [docs/status.md](docs/status.md); o corte da próxima
+release (v1 / go-live) está em
+[docs/plans/GO-LIVE-READINESS-PLAN.md](docs/plans/GO-LIVE-READINESS-PLAN.md).
+
+## [Unreleased] — marcos desde 0.1.0-alpha (abril → julho/2026)
+
+### Arquitetura
+- **Cutover headless completo**: os apps Django `storefront`/`backstage` deixaram de
+  renderizar HTML e passaram a servir API JSON + projections; as superfícies vivas
+  são 6 apps Nuxt 4 SSR (`surfaces/`: loja, hub, POS, KDS, gestor, produção) + a
+  layer compartilhada `operator-kit`, falando com o Django via BFF Nitro e cookie de
+  sessão cross-subdomínio (ADR-012/ADR-014).
+- **Django 6** como contrato canônico (`>=6.0,<6.1`); PostgreSQL 16 + Redis 7 como
+  runtime canônico, com Runtime Gate no CI (sem skips) e Surfaces Gate (typecheck Nuxt).
+- **Tempo real SSE-first** site-wide (ADR-016): push por SSE sobre fetch canônico,
+  poll só como fallback.
+- **Core expandido para 11 pacotes**: novos `shopman-refs` (refs tipadas),
+  `shopman-buyman` (compras, Fase 1) e `shopman-fiscalman` (classificação NFC-e).
+- Suite de testes cresceu de ~1.900 para **~5.000** (~2.150 cores + ~2.870 framework).
+
+### Superfícies de operador
+- POS Nuxt desktop-first (tabs, turno, caixa, fire-to-kitchen, impressão), KDS com
+  estações e painel de retirada, Gestor de pedidos (fila, cardápio, showcases),
+  Produção/fornadas (kiosk Solari) e Central de Apps; login 1× cross-subdomínio,
+  lock por operador (PIN/crachá) com autoatendimento de PIN e reset por gerente.
+- Fechamento do dia com reconciliação financeira diária; checklists operacionais.
+
+### Cliente e canais
+- Storefront Nuxt no apex (mobile-first, theming, SEO técnico, PWA-ready).
+- **Auth WhatsApp-first por access link** (`NB-XxXx`); reverse-OTP aposentado;
+  SMS fallback, magic links, device trust.
+- **iFood direto** (polling + sync de catálogo) em staging; **Machine** (logística
+  externa/courier) integrada aguardando credenciais; zonas de entrega + geocoding
+  em cascata.
+- **Copy omotenashi**: registro `OmotenashiCopy` como fonte única configurável;
+  burndown fechado com backlog zerado.
+
+### Fiscal e compras
+- Fiscalman S0–S4: classificação NFC-e por produto, emissão via Focus NFe (homolog).
+- Buyman Fase 1: materiais, fornecedores, custos; guardrail de disponibilidade de
+  insumo ligado na produção (`INVENTORY_BACKEND`).
+
+### Confiabilidade (hardening pré-alpha, 2026-07-11)
+- 16 PRs (#53–#69) a partir de
+  [docs/reports/analise_pre_alpha_2026-07-11.md](docs/reports/analise_pre_alpha_2026-07-11.md):
+  gate transacional de estoque no commit (anti-oversell), dialeto canônico de erro
+  `{detail, field, errors}`, directives com dedupe garantido e observabilidade,
+  correções tz-aware, POS anti-fraude de preço, suíte hermética, rotas de operador
+  e chaves de projection em inglês, baseline selado do Orderman com cópias.
+
+### Infra
+- Staging na DigitalOcean App Platform (ingress por subdomínio, Managed
+  PostgreSQL 16 + Valkey, release job + directive worker); deploy encapsulado
+  por `make deploy-*`.
 
 ## [0.1.0-alpha] — 2026-04-06
 
