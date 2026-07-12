@@ -6,14 +6,14 @@
 const route = useRoute();
 const section = computed(() =>
   route.path.startsWith("/catalog") ? "catalog"
-  : route.path.startsWith("/expositores") ? "showcases"
+  : route.path.startsWith("/showcases") ? "showcases"
   : "orders",
 );
 
 const tabs = [
   { to: "/", key: "orders", label: "Pedidos", icon: "lucide:clipboard-list" },
   { to: "/catalog", key: "catalog", label: "Catálogo", icon: "lucide:book-open" },
-  { to: "/expositores", key: "showcases", label: "Expositores", icon: "lucide:monitor-play" },
+  { to: "/showcases", key: "showcases", label: "Expositores", icon: "lucide:monitor-play" },
 ] as const;
 </script>
 

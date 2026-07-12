@@ -173,12 +173,12 @@ A regra do projeto ("todo TTL que afeta alguém precisa de UI explícita";
   countdown/deadline/prazo = 0; a projection nem carrega o deadline. O cliente do
   balcão não vê quanto tempo o operador tem para cancelar. `orders/OrderCard.vue:79-85`.
 - **[P1] Kiosk FORNADAS nunca vira a data à meia-noite** — TV ligada de madrugada
-  amanhece exibindo as fornadas de ontem com o chip "Hoje" ativo. `production/painel.vue:33-34`.
+  amanhece exibindo as fornadas de ontem com o chip "Hoje" ativo. `production/board.vue:33-34`.
 - **[P1] Beep de pedido novo no KDS pode tocar mudo** — `AudioContext` sem `resume()`
   por gesto; autoplay policy deixa suspenso. Numa cozinha que depende do som = pedido
   perdido. `kds/useKdsBoard.ts:29-45`.
 - **[P1] Painel do cliente KDS promete "ao vivo" mesmo congelado** — bolinha verde
-  incondicional; ignora `error`. `kds/retirada.vue:36-39`.
+  incondicional; ignora `error`. `kds/pickup.vue:36-39`.
 - **[P2] Erro de poll apaga o quadro inteiro** (kds/orders/production) — `v-else-if
   error` esconde dados stale ainda válidos. Dado velho visível > tela vazia.
 - **[P1] Cupom inválido morre em silêncio no checkout do cliente** — `submitCoupon`

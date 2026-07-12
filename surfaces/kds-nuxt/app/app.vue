@@ -4,13 +4,13 @@
 // own URL on a physical kitchen screen, so it uses pages/ routing (unlike the POS
 // kiosk single-shell). The shell holds the page outlet + chrome + the operator
 // lock overlay (Opção C). The overlay covers the OPERATOR screens only — never the
-// PUBLIC customer pickup board (/retirada), which has no auth. Gated OFF → never shows.
+// PUBLIC customer pickup board (/pickup), which has no auth. Gated OFF → never shows.
 const OPERATOR_PERM = "backstage.operate_kds";
 const { authenticated, locked, mustChange, operator, lock } =
   useOperatorLock(OPERATOR_PERM);
 
 const route = useRoute();
-const isCustomerBoard = computed(() => route.path.startsWith("/retirada"));
+const isCustomerBoard = computed(() => route.path.startsWith("/pickup"));
 
 const hubUrl = useRuntimeConfig().public.operatorHubUrl as string;
 

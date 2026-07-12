@@ -24,9 +24,9 @@ test.describe("KDS — gate de operador", () => {
 });
 
 test.describe("KDS — split operador vs público", () => {
-  test("/retirada é PÚBLICO: renderiza o painel do cliente sem login e FORA do rail", async ({ page }) => {
-    // Sem cookie de sessão — o /retirada não é embrulhado pelo gate nem pelo rail.
-    await page.goto("/retirada");
+  test("/pickup é PÚBLICO: renderiza o painel do cliente sem login e FORA do rail", async ({ page }) => {
+    // Sem cookie de sessão — o /pickup não é embrulhado pelo gate nem pelo rail.
+    await page.goto("/pickup");
     await expect(page.getByRole("heading", { name: "Seu pedido" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Entre para operar" })).toHaveCount(0);
     await expect(page.locator("aside[data-rail-state]")).toHaveCount(0);

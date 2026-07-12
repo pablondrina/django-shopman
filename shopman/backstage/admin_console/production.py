@@ -298,7 +298,7 @@ class ProductionPlanningView(UnfoldModelAdminViewMixin, TemplateView):
     """Projection-backed production planning page inside the Admin shell.
 
     Leitura da matriz (split canônico WP-PE4): a EDIÇÃO do planejado vive no
-    Fournil (``/planejamento``) — esta página supervisiona e linka para lá.
+    Fournil (``/plan``) — esta página supervisiona e linka para lá.
     GET-only por design.
     """
 
@@ -642,7 +642,7 @@ def _blind_map_table(weighing) -> dict:
 def _fournil_planning_url() -> str:
     """URL do planejamento no Fournil ("" = app não conectado; botão some)."""
     base = (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").strip().rstrip("/")
-    return f"{base}/planejamento" if base else ""
+    return f"{base}/plan" if base else ""
 
 
 def production_console_bulk_create_view(request: HttpRequest) -> HttpResponse:

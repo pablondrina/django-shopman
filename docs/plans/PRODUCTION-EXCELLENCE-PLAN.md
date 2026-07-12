@@ -45,14 +45,14 @@
 | L2 | **`notify()` de produção é log-only.** O registry de notificações não conhece nenhum evento de produção; zero directives de produção (Orders têm 10+ topics). Operador não recebe nada fora da tela. | `shop/services/production.py:69-75`; `shop/notifications.py` (sem "production") |
 | L3 | **Configuração de produção fragmentada e parte hardcoded.** `LOW_YIELD_THRESHOLD=0.80` e `DEFAULT_STARTED_MINUTES=240` em constantes; `production_lifecycle`, `max_started_minutes`, `waste_rate` soltos em `Recipe.meta` sem validação nem dataclass; `seasons`/`high_demand_multiplier`/`production_order_match` em `Shop.defaults` sem contrato documentado. | `shop/handlers/production_alerts.py:13-14`; `shop/production_lifecycle.py:21-27` |
 | L4 | **`craft.needs()` (explosão de BOM → insumos do dia) não tem UI.** A capacidade mais valiosa para o mise en place do padeiro está dormente. A pesagem no Admin é estática (não escala insumos pela quantidade planejada). | `packages/craftsman/.../services/queries.py:89` |
-| L5 | **Fournil é single-date e alertas são só contagem.** Sem horizonte (amanhã/semana); `AlertsBell` conta mas não abre detalhe nem deep-link; polling fixo 30s (SSE já existe no projeto para KDS de pedidos). | `surfaces/production-nuxt/app/pages/planejamento.vue`; `components/AlertsBell.vue` |
+| L5 | **Fournil é single-date e alertas são só contagem.** Sem horizonte (amanhã/semana); `AlertsBell` conta mas não abre detalhe nem deep-link; polling fixo 30s (SSE já existe no projeto para KDS de pedidos). | `surfaces/production-nuxt/app/pages/plan.vue`; `components/AlertsBell.vue` |
 | L6 | **Fechamento do dia ignora produção.** `DayClosing` não acusa WOs abertas (planned esquecida, started atravessando o dia). | `shopman/backstage/models/` |
 | L7 | **Cobertura de testes da orquestração é 1/10 da de Orders.** `test_production_lifecycle.py` = 94 linhas/7 casos vs `test_lifecycle.py` = 1045/75. Sem e2e da cadeia completa suggest→plan→start→finish→realize→venda. | `shop/tests/` |
 | L8 | **Duplicação de superfície.** A matriz de planejamento existe no Admin e no fournil; risco de divergência e custo dobrado de manutenção. Papéis não estão formalizados. | `admin_console/production.py` + fournil |
 
 ### O que NÃO é lacuna (auditoria descartou)
 
-- ~~"Nuxt não tem sugestões"~~ — tem, inline com basis (`planejamento.vue:101-107`).
+- ~~"Nuxt não tem sugestões"~~ — tem, inline com basis (`plan.vue:101-107`).
 - ~~"void não compensa estoque"~~ — `_handle_voided` do contrib/stockman cancela
   planned quants; `production_order_sync` desvincula pedidos transacionalmente.
 - ~~"plan não valida insumos"~~ — o caminho formula/backstage devolve envelope de

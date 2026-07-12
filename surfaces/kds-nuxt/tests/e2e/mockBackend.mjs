@@ -2,7 +2,7 @@
 // BFF encaminha (djangoProxy repassa o header cookie ao Django):
 //   · com `e2e_session=authed` → sessão de operador AUTENTICADA + estações + board vazio;
 //   · sem o cookie → 403 nos endpoints de operador (device não autenticado → gate de login).
-// O board público do cliente (/kds/cliente/) responde 200 SEMPRE (o `/retirada` é público,
+// O board público do cliente (/kds/cliente/) responde 200 SEMPRE (o `/pickup` é público,
 // como o menuboard do Fournil). Login/lock/ações reais rodam contra o Django (reviewer local).
 import { createServer } from "node:http";
 
@@ -35,7 +35,7 @@ const BOARD = {
   },
 };
 
-// Board público do cliente — o /retirada renderiza sem sessão de operador.
+// Board público do cliente — o /pickup renderiza sem sessão de operador.
 const CUSTOMER = {
   status: {
     preparing: [{ ref: "WEB-0007", status: "preparing", status_label: "Preparando", updated_at_display: "08:00" }],

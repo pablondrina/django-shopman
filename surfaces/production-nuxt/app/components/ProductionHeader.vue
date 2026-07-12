@@ -17,11 +17,11 @@ const route = useRoute();
 
 // As visões do dia em abas-etapa: decide → separa/pesa → produz → expede → painel.
 const tabs = [
-  { to: "/planejamento", label: "Planejamento", icon: "lucide:layout-grid" },
-  { to: "/preparacao", label: "Preparação", icon: "lucide:scale" },
+  { to: "/plan", label: "Planejamento", icon: "lucide:layout-grid" },
+  { to: "/mise-en-place", label: "Preparação", icon: "lucide:scale" },
   { to: "/", label: "Produção", icon: "lucide:flame" },
-  { to: "/expedicao", label: "Expedição", icon: "lucide:package-check" },
-  { to: "/painel", label: "Painel", icon: "lucide:tower-control" },
+  { to: "/expedite", label: "Expedição", icon: "lucide:package-check" },
+  { to: "/board", label: "Painel", icon: "lucide:tower-control" },
 ];
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);

@@ -19,7 +19,7 @@ Nuxt/UI-Thing app, consuming the canonical projection/action contract at
 
 - **Chão ao vivo** (`/`) — started WorkOrders board: advance step, finish (with
   material-shortage override), void. The old HTMX production KDS, now Nuxt.
-- **Planejamento** (`/planejamento`) — the production matrix: per-SKU
+- **Planejamento** (`/plan`) — the production matrix: per-SKU
   planned/started/finished totals + demand suggestion, inline plan + start.
 
 ## Dev
@@ -35,7 +35,7 @@ Set `NUXT_DJANGO_BASE_URL` to the Django/BFF origin (default `http://127.0.0.1:8
 ## Layout
 
 - `app/pages/index.vue` — live floor board (started WorkOrders).
-- `app/pages/planejamento.vue` — planning matrix.
+- `app/pages/plan.vue` — planning matrix.
 - `app/composables/useProductionKds.ts` — live-floor read-side (fetch + 30s poll) + actions.
 - `app/composables/useProductionBoard.ts` — planning read-side + plan/start actions.
 - `app/presentation/production.ts` — pure board shaping (tones, affordances, shortage parsing).

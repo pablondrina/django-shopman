@@ -25,7 +25,7 @@ momento); **o STATUS é a escada de confiança**:
 Knobs em `ProductionConfig.panel` (Shop.defaults["production"]["panel"]).
 `history_days` expõe a amostra da estimativa. API
 `GET /api/v1/backstage/production/forecast/?date=` (permissão do board).
-Fournil `/painel` (aba "Painel", tower-control): chrome de display (relógio
+Fournil `/board` (aba "Painel", tower-control): chrome de display (relógio
 vivo, sem ferramentas de operador), chips Hoje·Amanhã·dia da semana, poll
 30s, legenda. Testes: `shopman/backstage/tests/test_production_forecast.py`
 (escada, medianas, fallbacks, TTL, ordenação).
@@ -33,7 +33,7 @@ vivo, sem ferramentas de operador), chips Hoje·Amanhã·dia da semana, poll
 ## v2 — backlog (em ordem de valor)
 
 1. **Tela do cliente**: token de display assinado (Doorman) para abrir
-   `/painel` numa TV sem login de operador; variante de copy voltada ao
+   `/board` numa TV sem login de operador; variante de copy voltada ao
    cliente (sem coluna LIVRE/comprometidas). Converge com o menuboard do
    CROSS-CHANNEL-CATALOG-HUB-PLAN (2 TVs → SSE).
 2. **Avisos a interessados**: quando um lote `arrived`, disparar o fluxo

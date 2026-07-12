@@ -6,7 +6,7 @@
 //   · painel (Fornadas) → KIOSK de operador em tela cheia (a previsão exige
 //     backstage.operate_production) — FORA do rail, mas DENTRO do gate;
 //   · menuboard → cardápio Solari PÚBLICO da loja (GET /storefront/menu, sem auth) —
-//     FORA do rail E FORA do gate (como o /retirada do KDS).
+//     FORA do rail E FORA do gate (como o /pickup do KDS).
 const OPERATOR_PERM = "backstage.operate_production";
 const { authenticated, locked, mustChange, operator, lock } =
   useOperatorLock(OPERATOR_PERM);
@@ -14,7 +14,7 @@ const { authenticated, locked, mustChange, operator, lock } =
 const route = useRoute();
 const isPublicBoard = computed(() => route.path.startsWith("/menuboard"));
 const isKiosk = computed(
-  () => isPublicBoard.value || route.path.startsWith("/painel"),
+  () => isPublicBoard.value || route.path.startsWith("/board"),
 );
 
 const hubUrl = useRuntimeConfig().public.operatorHubUrl as string;

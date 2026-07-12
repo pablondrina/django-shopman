@@ -14,10 +14,12 @@ export default defineNuxtConfig({
   },
 
   // 301 das rotas antigas → enxutas: estação direta em /<ref> (era /estacao/<ref>);
-  // board do cliente em /retirada (era /cliente). Splat preservado pelo Nitro.
+  // board do cliente em /pickup (era /cliente, depois /retirada) — cada rota antiga
+  // aponta DIRETO ao destino final, sem cadeia de redirects. Splat preservado pelo Nitro.
   routeRules: {
     "/estacao/**": { redirect: { to: "/**", statusCode: 301 } },
-    "/cliente": { redirect: { to: "/retirada", statusCode: 301 } },
+    "/cliente": { redirect: { to: "/pickup", statusCode: 301 } },
+    "/retirada": { redirect: { to: "/pickup", statusCode: 301 } },
   },
 
   modules: [
