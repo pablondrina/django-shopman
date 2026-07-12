@@ -107,7 +107,7 @@ As 6 lentes originais (herdadas de EXCELLENCE-AUDIT/STOREFRONT-HARDENING):
 
 Critério de aceite: **familiaridade** entre PDV/KDS/Gestor/Fournil (o storefront fica
 de fora). O design system canônico do backstage (ver §3 e
-[`docs/engineering/backstage-design-system.md`](../engineering/backstage-design-system.md))
+[`docs/engineering/backstage-design-system.md`](../../engineering/backstage-design-system.md))
 é a fonte única. Guardrails **como testes** (à la `surfaceGuardrails` do storefront):
 
 - **Paridade de tokens** entre os 4 `tailwind.css` — falha no instante em que alguém
@@ -143,7 +143,7 @@ sem perder a essência. Detalhes de confiança no trabalho:
 
 ## 3. Design system canônico do backstage
 
-Documentado em [`docs/engineering/backstage-design-system.md`](../engineering/backstage-design-system.md).
+Documentado em [`docs/engineering/backstage-design-system.md`](../../engineering/backstage-design-system.md).
 Resumo do que vira contrato (os tokens já existem idênticos; o passo é **promovê-los a
 documentado + guardrailado**):
 
@@ -219,7 +219,7 @@ cada um com **ícone forte**, **permission-aware** (app sem permissão nem apare
 ### Resolução da tensão com o Unfold Canonical Gate
 
 A Central é um app Nuxt novo — precisa se acertar com o Gate. O próprio Gate tem a
-saída explícita ([`unfold_canonical_policy.md`](../engineering/unfold_canonical_policy.md)
+saída explícita ([`unfold_canonical_policy.md`](../../engineering/unfold_canonical_policy.md)
 linha 36 e 119): *"New backstage templates must land in a canonical Admin/Unfold
 surface **or an explicit registered runtime surface with a product reason**"* +
 *"registered backstage runtime templates that are allowed to exist only as explicit

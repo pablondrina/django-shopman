@@ -33,7 +33,7 @@ O layer contribui, via auto-import do Nuxt:
 | `app/components/OperatorLock.vue` | `<OperatorLock>` | overlay de lock (picker + PIN pad + crachá + troca forçada) |
 | `app/components/OperatorPinChange.vue` | `<OperatorPinChange>` | numpad de troca de PIN (forçada e voluntária) |
 
-## O que ainda NÃO vive aqui (roadmap — ver docs/plans/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)
+## O que ainda NÃO vive aqui (roadmap — ver docs/plans/completed/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)
 
 - **De-duplicação dos byte-idênticos** `server/utils/djangoProxy.ts`, `app/utils/tw-helper.ts`,
   `app/utils/translucent.ts` — migram para cá com atualização dos imports/testes dos apps.
