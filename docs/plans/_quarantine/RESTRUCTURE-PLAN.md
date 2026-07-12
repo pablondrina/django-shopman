@@ -1,7 +1,7 @@
 # RESTRUCTURE-PLAN — Kernel + Framework
 
 **Criado:** 2026-04-10
-**Entrada:** [`docs/audit/2026-04-10-kernel-framework-audit.md`](../audit/2026-04-10-kernel-framework-audit.md)
+**Entrada:** [`docs/reports/2026-04-10-kernel-framework-audit.md`](../../reports/2026-04-10-kernel-framework-audit.md)
 **Status:** ativo
 
 ---
@@ -139,7 +139,7 @@ Tarefa: WP-A do RESTRUCTURE-PLAN do django-shopman.
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-A)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achados C1, C7, C8, C9, C10)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achados C1, C7, C8, C9, C10)
 - CLAUDE.md (convenções)
 
 Objetivo: zerar resíduos de naming antigo (Stocking/Crafting/Offering/
@@ -355,7 +355,7 @@ Pré-requisito: WP-A precisa estar concluído. Verificar com:
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-B)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achados C2, C5, C6, C11, C13, C14)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achados C2, C5, C6, C11, C13, C14)
 - CLAUDE.md
 - framework/shopman/config.py (entender ChannelConfig atual)
 - framework/shopman/lifecycle.py (entender o que vai sumir)
@@ -515,7 +515,7 @@ Pré-requisito: WP-A concluído. WP-B concluído (framework runtime já reescrit
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-C)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achados C3, C15)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achados C3, C15)
 - CLAUDE.md
 
 Objetivo: publicar superfícies públicas no kernel para que o framework pare
@@ -655,7 +655,7 @@ Pré-requisito: WP-A, WP-B, WP-C concluídos.
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-D)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achado C16, parte de C1)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achado C16, parte de C1)
 - packages/orderman/shopman/orderman/models/channel.py
 - framework/shopman/config.py
 - framework/shopman/web/cart.py (leitor atual de pricing_policy/edit_policy)
@@ -756,7 +756,7 @@ Pré-requisito: WP-B concluído (runtime já não depende de Flow classes).
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-E)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achado C12)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achado C12)
 - framework/shopman/management/commands/seed.py
 - framework/shopman/fiscal.py
 - instances/nelson/ (estrutura atual)
@@ -854,7 +854,7 @@ Pré-requisito: WP-B, WP-C, WP-D concluídos.
 
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-F)
-- docs/audit/2026-04-10-kernel-framework-audit.md (achado C4)
+- docs/reports/2026-04-10-kernel-framework-audit.md (achado C4)
 - packages/guestman/shopman/guestman/contrib/ (estrutura)
 - Lista de imports do framework para guestman.contrib em C4
 

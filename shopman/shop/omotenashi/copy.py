@@ -1055,7 +1055,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     # Um cartão de leitura do perfil (rótulo: valor, "Não informado" nos vazios)
     # com botão "Editar" e o convite humano "Como quer ser chamado?". A tela no
     # ar hoje é sempre-editável; estas guardam a intenção de omotenashi.
-    # Ver docs/plans/COPY-BACKLOG-UNBUILT.md.
+    # Ver docs/plans/completed/COPY-BACKLOG-UNBUILT.md.
     "PROFILE_SECTION_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Dados pessoais")},
     },

@@ -48,7 +48,7 @@ Out of scope by project decision:
   `test_order_confirm.py`.
 - Bare `except Exception: pass` in production code was removed or made
   observable with debug logging.
-- Pre-deploy checklist was added at `docs/predeploy/security-readiness.md`.
+- Pre-deploy checklist was added at `docs/runbooks/security-readiness.md`.
 - Refs optionality was added at `docs/reference/refs.md`.
 - The `fresh_from_oven` dynamic collection was aligned with the current
   Craftsman contract: `status=finished`, `finished_at`, and `output_sku`.
@@ -68,7 +68,7 @@ warnings, primarily:
 - secure cookie/HSTS/SSL redirect warnings caused by local debug settings;
 - drf-spectacular serializer/schema warnings for API documentation.
 
-These are documented in `docs/predeploy/security-readiness.md`. The production
+These are documented in `docs/runbooks/security-readiness.md`. The production
 criterion is still: run `manage.py check --deploy` with `DJANGO_DEBUG=false`,
 explicit hosts, production secrets, webhook tokens, and PostgreSQL.
 

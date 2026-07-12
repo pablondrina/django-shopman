@@ -5,7 +5,7 @@
 **Escopo:** Orquestrador (`shopman/shop/`) e superfícies (storefront, PDV/Nuxt, backstage/admin, agentic).
 **Refina:** [ADR-005](adr-005-orchestrator-as-coordination-center.md) (orquestrador = centro de
 coordenação) e [ADR-012](adr-012-headless-surface-contract.md) (contrato headless: Projection com Actions).
-**Blueprint:** [docs/redesign/04-architecture.md](../redesign/04-architecture.md) (WP1).
+**Blueprint:** [docs/_archive/redesign/04-architecture.md](../_archive/redesign/04-architecture.md) (WP1).
 
 ---
 

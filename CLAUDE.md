@@ -36,7 +36,11 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
 │   ├── projections/    types.py (shared projection types — Availability, OrderItem, etc.)
 │   ├── views/          health.py — /health/ e /ready/
 │   ├── middleware.py   AppPlatformHealthCheckHost, APIVersionHeader, OperatorSessionDomain
-│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, maintenance_worker, sweep_stuck_orders, ifood_poll
+│   ├── management/commands/   ~21 comandos: maintenance_worker, sweep_stuck_orders, cleanup_d1,
+│   │                   cleanup_stale_sessions, cleanup_stale_planning, ifood_poll, sync_catalog_ifood,
+│   │                   fiscal_emit, reconcile_payments, machine_register_webhook, suggest_production,
+│   │                   bootstrap_admin, setup_groups, entre outros — ver docs/reference/commands.md
+│   │                   (o `seed` vive APENAS em config/management/commands/)
 │   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
 │   └── tests/          lifecycle, services, adapters, handlers, integration, e2e
 │
@@ -45,7 +49,7 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
 │   ├── presentation/   projections puras (home, cart, checkout, order_tracking, payment, account…)
 │   ├── intents/        interpretação server-side de ações (cart set-qty, phone, auth)
 │   ├── services/       checkout, checkout_defaults, pickup_slots, ifood_*
-│   ├── models/         Promotion, Coupon, DeliveryZone
+│   ├── models/         Promotion, Coupon (promotions), DeliveryZone, DeliveryDistanceBand (delivery), CustomerFavorite (favorites), StockAlertSubscription (stock_alerts)
 │   ├── middleware.py   ChannelParamMiddleware (captura ?channel=)
 │   ├── urls.py         montado em /api/v1/ (o app cliente é surfaces/storefront-nuxt)
 │   └── tests/          api, projections, checkout, rate-limiting, delivery zones
@@ -60,12 +64,16 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
     ├── urls.py         montado em /api/v1/backstage/ + SSE /gestor/events/ (os apps são surfaces/*-nuxt)
     └── tests/          POS, KDS, produção, fechamento, contratos de superfície, e2e
 
-surfaces/               5 apps Nuxt 4 (SSR) — as superfícies vivas em produção
-├── storefront-nuxt/   loja do cliente (apex, mobile-first)  → api.
-├── pos-nuxt/          PDV (desktop-first)                   → api./backstage
-├── kds-nuxt/          cozinha (KDS)                         → api./backstage
-├── orders-nuxt/       gestor de pedidos                     → api./backstage
-└── production-nuxt/   produção/fornadas (kiosk Solari)      → api./backstage
+surfaces/               6 apps Nuxt 4 (SSR) + 1 layer compartilhada — as superfícies vivas em produção
+├── storefront-nuxt/   loja do cliente (apex, mobile-first, :3000)          → api.
+├── hub-nuxt/          Central de Apps do operador (:3001)                  → api./backstage
+├── pos-nuxt/          PDV (desktop-first, :3002)                           → api./backstage
+├── kds-nuxt/          cozinha (KDS, :3003)                                 → api./backstage
+├── orders-nuxt/       gestor de pedidos (:3004)                            → api./backstage
+├── production-nuxt/   produção/fornadas (kiosk Solari, :3005)              → api./backstage
+└── operator-kit/      Nuxt layer compartilhada dos apps de operador (extends): httpError,
+                       retryWithBackoff, useConnectivity, OperatorLock/PIN, telemetria de erro.
+                       Storefront fica de fora (superfície de cliente, branded, harness próprio).
     Cada app: BFF Nitro (server/utils/djangoProxy.ts, CSRF), composables + presentation/ pura (vitest).
 
 config/                 Django project wrapper + deployment app
@@ -76,7 +84,7 @@ pyproject.toml          Build + test config (repo root)
 ```
 
 > **Cutover headless:** os apps Django `storefront`/`backstage` NÃO renderizam mais
-> HTML — servem API JSON + projections. As superfícies são os 5 apps Nuxt em
+> HTML — servem API JSON + projections. As superfícies são os 6 apps Nuxt em
 > `surfaces/`, que falam com o Django via BFF (cookie de sessão cross-subdomínio
 > `.boulangerie`). A seção "Frontend: HTMX ↔ Alpine" abaixo vale só para as telas
 > Admin/Unfold que ainda são Django-rendered.
@@ -111,7 +119,7 @@ Cores nunca se importam. Para causar efeito em outro app, a **interação decide
 - **Anunciar evento, sem esperar retorno** (consumir estoque ao finalizar produção, notificar) → **signal**; handler numa ponte `<core>/contrib/<alvo>/` (point-to-point) ou no shop (multi-app). Ex.: `production_changed` → `craftsman/contrib/stockman` escreve o ledger direto (`kind=MAKE`) — único escritor.
 - **Precisar de retorno síncrono / sequenciar** (reservar estoque e saber se deu; capturar pagamento antes da baixa) → **adapter/Protocol** via settings, **só com 2+ impls reais** (nunca "para o futuro").
 - **Comando async confiável** (retry/idempotência) → **Directive** ([ADR-003](docs/decisions/adr-003-directives-sem-celery.md)).
-- ⚠️ Nunca criar backend de **escrita** plugável quando um signal basta (foi a dívida do `InventoryProtocol` morto). Seam dormente só se já tem consumidores reais + dono/prazo (ex.: `INVENTORY_BACKEND` leitura → Buyman WP-B5b; **não ligar** antes de insumo ter estoque, senão `adjust`/`finish` bloqueiam).
+- ⚠️ Nunca criar backend de **escrita** plugável quando um signal basta (foi a dívida do `InventoryProtocol` morto). Seam de **leitura** só com consumidores reais: o `INVENTORY_BACKEND` (validação de disponibilidade de insumos) está **ligado desde o WP-B5b** (Buyman Fase 1, commit `47cc1958`), com estoque de insumo populado pelo seed — guardrail ativo em `adjust`/`finish`.
 
 ## Convenções Ativas
 
@@ -121,6 +129,9 @@ Cores nunca se importam. Para causar efeito em outro app, a **interação decide
 - **Zero residuals em renames**: Ao renomear, zerar TUDO (variáveis, strings, comments, docstrings). Nada de `# formerly X`. ⚠️ **Vale até o go-live.** A partir do `git tag go-live-v1`, renames seguem expand-contract — ver [ADR-015](docs/decisions/adr-015-backward-compat-policy-post-prod.md) e [production-upgrades.md](docs/guides/production-upgrades.md).
 - **Zero backward-compat aliases**: Projeto novo, do zero. Não há consumidores externos. Nunca criar aliases tipo `OldName = NewName`. Apagar o nome antigo completamente. ⚠️ **Vale até o go-live.** Depois, aliases temporários são permitidos em janela explícita (1 sprint) com `# DEPRECATED(remove in v{version})` — ver [ADR-015](docs/decisions/adr-015-backward-compat-policy-post-prod.md).
 - **Offerman = somente produtos vendáveis**: Insumos ficam em Stockman/Craftsman, nunca no Offerman.
+- **Rotas de operador em inglês**: as rotas dos apps Nuxt de operador usam o vocabulário do domínio em inglês (`/plan`, `/mise-en-place`, `/expedite`, `/board`, `/pickup`, `/showcases`); as rotas pt-br antigas respondem 301 (bookmarks de kiosk preservados) — PR #68.
+- **Chaves de projection em inglês**: contratos de projection (ex.: order-queue) usam chaves em inglês, mudança BE+FE atômica — PR #67.
+- **Dialeto canônico de erro**: toda resposta de erro JSON das APIs fala `{detail, field, errors}` (via `EXCEPTION_HANDLER` DRF em `shopman/shop/api_errors.py`). Ver [docs/reference/errors.md](docs/reference/errors.md).
 - **Frontend: HTMX ↔ servidor, Alpine.js ↔ DOM**:
   - **HTMX**: toda comunicação com servidor (GET, POST, polling, swaps). Incluindo `hx-on::before-request`/`after-request` para estados visuais de loading atrelados a requests.
   - **Alpine.js**: todo estado local na tela (abrir/fechar, toggles, dropdowns, modals, steppers, validação client-side, contadores, masks).
@@ -178,9 +189,9 @@ Esse escopo e para desenvolvimento local. Antes de PR, rode `make admin` sem `ur
 ## Como Rodar
 
 ```bash
-make test              # Todos os testes (~2.448: cores + orquestrador)
-make test-offerman     # Apenas offerman (offering)
-make test-stockman     # Apenas stockman (stocking)
+make test              # Todos os testes (~5.000: ~2.150 cores + ~2.870 framework)
+make test-offerman     # Apenas offerman
+make test-stockman     # Apenas stockman
 make test-framework    # Orquestrador + integration + e2e
 make admin             # Tudo de Admin/Unfold
 make admin url=/admin/operacao/producao/  # Escopo local por URL Admin

@@ -1,5 +1,11 @@
 # Backstage POS Surface Spec
 
+> **ARQUIVADA (2026-07-11).** Esta spec de UX descrevia as superfícies POS da era
+> `/gestor/pos/` (Django-rendered). As fontes canônicas atuais são
+> [`docs/specs/pos.md`](../../specs/pos.md) (spec de domínio/app) e
+> [`docs/reference/backstage-pos-surface-contract.md`](../../reference/backstage-pos-surface-contract.md)
+> (contrato de projection/action); a superfície viva é `surfaces/pos-nuxt`.
+
 Status: canonical UX/surface spec  
 Date: 2026-05-23  
 Scope: operator POS surfaces backed by `docs/specs/pos.md` and `docs/reference/backstage-pos-surface-contract.md`.

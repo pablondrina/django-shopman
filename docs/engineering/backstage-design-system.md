@@ -13,7 +13,7 @@ Estado atual (auditado 2026-07-04): os quatro `tailwind.css` de operador já sã
 **token-idênticos** — este documento **promove** essa identidade de-facto a contrato
 **documentado + testado** (guardrails), servido uma vez pelo Nuxt layer
 `surfaces/operator-kit/` (ver
-[BACKSTAGE-EXCELLENCE-HARDENING-PLAN §4](../plans/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)).
+[BACKSTAGE-EXCELLENCE-HARDENING-PLAN §4](../plans/completed/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)).
 
 ---
 

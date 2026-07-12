@@ -1,6 +1,8 @@
 # ACCESS-LINK-UNIFICATION — um fluxo só de login via WhatsApp
 
-Status: **aprovado, pendente de build** (decisão 2026-07-08, sessão remota).
+Status (2026-07-11): **F1/F2/F4 construídas e mergeadas no `main` (PR #45,
+`2c8d58a5`)** — reverse-OTP deletado, código de estado `NB-XxXx` + exchange vivos.
+**Resta F3 (fluxo ManyChat, lado do Pablo)** + apontar URLs de staging.
 Substitui o reverse-OTP (`feat/whatsapp-reverse-otp`) pelo fluxo de access link
 já existente, com um código de estado opcional para quem chega pelo site.
 

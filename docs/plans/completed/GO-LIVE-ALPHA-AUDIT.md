@@ -45,34 +45,34 @@
 1. **Taxa de entrega nunca é cobrada no storefront.** `DeliveryFeeModifier` grava só
    `session.data["delivery_fee_q"]`; `Order.total_q` = soma das linhas; PIX/cartão/fiscal usam
    `order.total_q`. Cliente vê R$ 56 no finalizar (`cart.py grand_total_q`), QR PIX sai R$ 50.
-   Só o POS injeta linha `__DELIVERY_FEE__` ([modifiers.py:539](../../shopman/shop/modifiers.py),
-   [commit.py:342](../../packages/orderman/shopman/orderman/services/commit.py),
-   [payment.py:54](../../shopman/shop/services/payment.py)). Perda direta em todo delivery.
+   Só o POS injeta linha `__DELIVERY_FEE__` ([modifiers.py:539](../../../shopman/shop/modifiers.py),
+   [commit.py:342](../../../packages/orderman/shopman/orderman/services/commit.py),
+   [payment.py:54](../../../shopman/shop/services/payment.py)). Perda direta em todo delivery.
 2. **Loyalty: desconto sem débito.** `checkout_data["loyalty"]` não está na lista de propagação
    do `_do_commit` → `services/loyalty.py` retorna cedo → pontos nunca debitados = desconto
    infinito repetível. Bug secundário: débito (se propagado) usaria saldo integral sem clamp ao
-   desconto dado. ([commit.py:298-305](../../packages/orderman/shopman/orderman/services/commit.py))
+   desconto dado. ([commit.py:298-305](../../../packages/orderman/shopman/orderman/services/commit.py))
 3. **EFI: conversão float de centavos.** `int(float(v) * 100)` trunca (4.35→434) em
-   [payment_efi.py:253](../../shopman/shop/adapters/payment_efi.py) (capture-check/recuperação
+   [payment_efi.py:253](../../../shopman/shop/adapters/payment_efi.py) (capture-check/recuperação
    **sempre falha** p/ ~metade dos valores) e `:331` (refund com drift de 1 centavo → segundo
    refund rejeitado, ruído permanente). Fix: `Decimal`, como `_amount_to_q` já faz.
 4. **Refund no gateway antes do registro local, com `except PaymentError: pass`**
-   ([payment_efi.py:329-340](../../shopman/shop/adapters/payment_efi.py), payment_stripe.py:224-235).
+   ([payment_efi.py:329-340](../../../shopman/shop/adapters/payment_efi.py), payment_stripe.py:224-235).
    Registro local falhando → Payman ainda mostra saldo → segundo trigger autoriza **refund duplo**
    no gateway. EFI não tem webhook de devolução p/ auto-corrigir.
-5. **Webhook EFI retorna 200 com erro de processamento** ([efi.py:120-135](../../shopman/shop/webhooks/efi.py))
+5. **Webhook EFI retorna 200 com erro de processamento** ([efi.py:120-135](../../../shopman/shop/webhooks/efi.py))
    → EFI não reentrega → captura nunca registrada → timeout de pagamento **auto-cancela pedido pago
    sem refund**. Fix: 5xx quando `errors > 0` + consultar `check_gateway_status` antes de auto-cancel.
 
 ### Fiscal (NFC-e)
 
 6. **Toda falha de emissão é terminal** — handler faz `DirectiveTerminalError` para qualquer
-   `success=False`, inclusive timeout/5xx ([handlers/fiscal.py:61,95](../../shopman/shop/handlers/fiscal.py)).
+   `success=False`, inclusive timeout/5xx ([handlers/fiscal.py:61,95](../../../shopman/shop/handlers/fiscal.py)).
    `DirectiveTransientError` (retry/backoff) existe e não é usada. Zero testes dos handlers fiscais.
 7. **Nota órfã sem reconciliação**: timeout pós-POST com SEFAZ autorizando → retry com mesmo `ref`
    → 422 "referência já utilizada" → falha eterna. `FocusNFeBackend.query_status` existe e **nunca
    é chamado em produção**. Inverso também: `success = ... or bool(access_key)`
-   ([fiscal_focusnfe.py:382](../../shopman/shop/adapters/fiscal_focusnfe.py)) pode carimbar
+   ([fiscal_focusnfe.py:382](../../../shopman/shop/adapters/fiscal_focusnfe.py)) pode carimbar
    "authorized" sem autorização.
 8. **Delivery no POS com taxa quebra a emissão sempre**: `_build_fiscal_items` não filtra
    `__DELIVERY_FEE__` → sem NCM → falha terminal determinística.
@@ -84,7 +84,7 @@
 
 10. **Hold expirado é adotado no commit + fulfill falha em silêncio.** `find_by_reference` não
     filtra `expires_at` (o `find_active_by_reference` correto existe e não é usado aqui);
-    `stock.fulfill` com `HOLD_EXPIRED` só loga ([services/stock.py:143-172,232-244](../../shopman/shop/services/stock.py)).
+    `stock.fulfill` com `HOLD_EXPIRED` só loga ([services/stock.py:143-172,232-244](../../../shopman/shop/services/stock.py)).
     Cenário: 35min no checkout → paga PIX → pedido confirmado **sem baixa de estoque** e a unidade
     pode ter sido vendida a outro. Fix: `find_active_by_reference` + renovar TTL no commit +
     OperatorAlert em falha de fulfill.
@@ -94,7 +94,7 @@
 11. **Bump multi-estação retorna 400 em sucesso**: `complete_ticket` retorna
     `on_all_tickets_done()` e a facade trata False como erro → todo pedido misto (croissant+café,
     2 estações do seed) mostra toast "Falha na ação" + card fantasma no primeiro bump
-    ([shop/services/kds.py:374-390](../../shopman/shop/services/kds.py), backstage/services/kds.py:37-45).
+    ([shop/services/kds.py:374-390](../../../shopman/shop/services/kds.py), backstage/services/kds.py:37-45).
 12. **Recall cria ticket zumbi**: `reopen_ticket` reabre o ticket mas READY→PREPARING não existe
     nas `DEFAULT_TRANSITIONS` → ticket reaberto nunca mais pode ser concluído (caso de uso
     principal do recall, pedido de 1 ticket).
@@ -104,7 +104,7 @@
 ### Segurança
 
 14. **HTTP Basic Auth ativo em toda a API** (DRF default sem `DEFAULT_AUTHENTICATION_CLASSES` em
-    [config/settings.py:646](../../config/settings.py)): brute-force online de senha staff sem
+    [config/settings.py:646](../../../config/settings.py)): brute-force online de senha staff sem
     lockout, bypass do 2FA do Admin e do CSRF nos endpoints de operador. Fix de 2 linhas:
     `["rest_framework.authentication.SessionAuthentication"]`.
 
@@ -122,34 +122,34 @@
 ## 🟠 ALTOS (primeira semana do alpha, ou antes se tocar no fluxo)
 
 - **Cupom `max_uses` decorativo**: `uses_count` nunca incrementa em nenhum código. Incrementar com
-  `F()` no commit ([models/promotions.py:83-95](../../shopman/storefront/models/promotions.py)).
+  `F()` no commit ([models/promotions.py:83-95](../../../shopman/storefront/models/promotions.py)).
 - **Zona/taxa de entrega burlável via API**: endereço só-texto passa sem verificação de cobertura e
   taxa zero (sem `delivery_zone_error` → rule não bloqueia); lat/lng do cliente é confiado sem
-  re-geocodificação ([api/views.py:182-194](../../shopman/storefront/api/views.py), modifiers.py:549-551).
+  re-geocodificação ([api/views.py:182-194](../../../shopman/storefront/api/views.py), modifiers.py:549-551).
 - **`change_for` (troco) descartado**: Nuxt coleta e envia; `CheckoutSerializer` não tem o campo;
   pedido em dinheiro fica sem `payment.method` em `order.data`. O caminho legado fazia certo.
 - **WO over-yield credita ZERO**: finish com rendimento > planejado → `realize` tenta Move negativo
   → exceção "non-fatal" → nada entra no estoque (nem o planejado); insumos já consumidos
-  ([contrib/stockman/handlers.py:427-449](../../packages/craftsman/shopman/craftsman/contrib/stockman/handlers.py),
+  ([contrib/stockman/handlers.py:427-449](../../../packages/craftsman/shopman/craftsman/contrib/stockman/handlers.py),
   planning.py:133-139).
 - **WO under-yield deixa fantasma prometível**: resíduo fica eterno em `batch='started'` →
   `in_production` → prometível sob `planned_ok`; perda (WASTE) nunca vai ao ledger.
 - **Adoção com overshoot consome qty do hold, não do pedido** → baixa maior que a venda
-  ([services/stock.py:269-283](../../shopman/shop/services/stock.py)).
+  ([services/stock.py:269-283](../../../shopman/shop/services/stock.py)).
 - **Cancelamento pós-fulfill não devolve estoque** (só RETURNED devolve; decidir por tipo de item).
 - **Comanda descartada deixa tickets vivos na cozinha** (`clear_pos_tab` não cancela KDSTickets).
 - **Caixa multi-terminal**: `close()` soma pedidos cash não-tagueados de TODOS os terminais do
-  canal → contas não batem com 2 terminais ([cash_register.py:150-184](../../shopman/backstage/models/cash_register.py)).
+  canal → contas não batem com 2 terminais ([cash_register.py:150-184](../../../shopman/backstage/models/cash_register.py)).
   E `ajuste` só aceita valor positivo (sem registrar falta/quebra).
 - **POS: reconcile de tenders desconta o troco da ÚLTIMA linha, não da linha de dinheiro**
-  ([pos.py:1574-1588](../../shopman/shop/services/pos.py)): venda mista `[cash 50, pix 20]` p/
+  ([pos.py:1574-1588](../../../shopman/shop/services/pos.py)): venda mista `[cash 50, pix 20]` p/
   total 60 corta o excedente do PIX (que a maquininha capturou inteiro) → `expected_amount_q` do
   turno superestimado (falta falsa imputada ao operador) e totais do fechamento errados. Troco só
   existe em dinheiro — descontar exclusivamente de tenders cash.
 - **POS: cancelar venda recente não devolve estoque** (caso concreto do "cancelamento
   pós-fulfill": canal pdv faz fulfill no ato → `release` é no-op silencioso → todo cancelamento
   na janela de 5min deixa o sistema abaixo do físico, deriva invisível ao fechamento).
-- **POS: `cancel_recent_order` sem escopo** ([pos.py:883-904](../../shopman/shop/services/pos.py)):
+- **POS: `cancel_recent_order` sem escopo** ([pos.py:883-904](../../../shopman/shop/services/pos.py)):
   operador só com `operate_pos` cancela pedido de QUALQUER canal (web/iFood — contornando
   `manage_orders` e o fluxo de cancellation_code), de outro terminal, e até venda de turno JÁ
   FECHADO (expected/difference armazenados ficam errados, sem movimento de devolução).

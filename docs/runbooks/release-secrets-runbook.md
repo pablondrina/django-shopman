@@ -17,7 +17,7 @@ SHOPMAN_PREPROD_URL=https://staging.example.com
 SHOPMAN_MANUAL_QA_EVIDENCE=/path/to/manual-qa.md
 ```
 
-Use `docs/predeploy/manual-qa-evidence-template.md` como base. O arquivo so
+Use `docs/runbooks/manual-qa-evidence-template.md` como base. O arquivo so
 passa no readiness quando a primeira linha estiver marcada como
 `manual_qa_status: passed`.
 

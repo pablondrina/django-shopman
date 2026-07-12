@@ -364,7 +364,7 @@ A documentação em `docs/reference/protocols.md` foi atualizada em 2026-04-14 (
 
 ## 11. Regressões (comparação com auditorias anteriores)
 
-Comparação com `docs/audit/2026-04-10-kernel-framework-audit.md`:
+Comparação com `docs/reports/2026-04-10-kernel-framework-audit.md`:
 
 | Item | Status anterior | Status atual | Observação |
 |------|----------------|--------------|------------|

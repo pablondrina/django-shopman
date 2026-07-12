@@ -54,15 +54,19 @@
 | [ADR-010](decisions/adr-010-handler-contract-and-autodiscovery.md) | Contrato handler↔dispatch e roadmap de autodiscovery |
 | [ADR-011](decisions/adr-011-formula-and-cashshift.md) | Formula sem FormulaPlan e caixa como CashShift |
 | [ADR-012](decisions/adr-012-headless-surface-contract.md) | Contrato headless de superfície — Projection com Actions |
+| [ADR-013](decisions/adr-013-pos-offline-policy-and-surface-ownership.md) | Política offline do POS e ownership de superfícies |
+| [ADR-014](decisions/adr-014-surface-data-presentation-cut.md) | Corte dado (Projection) × apresentação (Presentation) nas superfícies |
+| [ADR-015](decisions/adr-015-backward-compat-policy-post-prod.md) | Política de backward-compat pós-produção (expand-contract) |
+| [ADR-016](decisions/adr-016-sse-first-realtime.md) | SSE-first para tempo real cross-surface |
 
 ---
 
-## Guias de Domínio
+## Guias
 
-Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols → Exemplos.
+Guias de domínio seguem a estrutura: Conceitos → Modelos → Serviços → Protocols → Exemplos.
 
-| Guia | App | Descrição |
-|------|-----|-----------|
+| Guia | Escopo | Descrição |
+|------|--------|-----------|
 | [Offerman](guides/offerman.md) | `shopman.offerman` | Catálogo, preços, listings, bundles, coleções |
 | [Stockman](guides/stockman.md) | `shopman.stockman` | Estoque, holds, moves, posições, planejamento |
 | [Craftsman](guides/craftsman.md) | `shopman.craftsman` | Receitas, work orders, BOM, coeficiente francês |
@@ -72,6 +76,19 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Payments](guides/payments.md) | `shopman.payman` | Pagamentos, PIX, Stripe, intents, lifecycle |
 | [Lifecycle](guides/lifecycle.md) | `shopman/shop` | Orquestrador: Lifecycle, Services, Adapters, Rules |
 | [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |
+| [WhatsApp Access Link](guides/whatsapp-access-link.md) | auth | Login WhatsApp-first por access link (`NB-XxXx`) |
+| [Storefront backend surface](guides/storefront_backend_surface.md) | `shopman/storefront` | API headless + projections da loja |
+| [Backstage realtime](guides/backstage-realtime.md) | `shopman/backstage` | SSE, canais nomeados e fallback de polling |
+| [Backstage accessibility](guides/backstage-accessibility.md) | superfícies operador | Acessibilidade das telas de operador |
+| [Operations](guides/operations.md) | operação | Rotinas operacionais do dia a dia |
+| [Operator security hardening](guides/operator-security-hardening.md) | operação | PIN, lock de operador, sessões staff |
+| [RBAC personas](guides/rbac-personas.md) | operação | Grupos/permissões por persona |
+| [Demo personas](guides/demo-personas.md) | demo | Personas do seed Nelson |
+| [Omotenashi QA](guides/omotenashi-qa.md) | QA | Matriz de QA omotenashi (mobile/tablet/desktop) |
+| [Catalog exports](guides/catalog_exports.md) | catálogo | Exportação de catálogo (feeds/sync externo) |
+| [Deploy](guides/deploy.md) | infra | Imagem app, compose profiles e `make deploy-*` |
+| [Deploy DigitalOcean](guides/deploy-digitalocean.md) | infra | App Platform, staging e gotchas de spec/secrets |
+| [Production upgrades](guides/production-upgrades.md) | infra | Upgrades pós-go-live (expand-contract, ADR-015) |
 
 ---
 
@@ -101,18 +118,20 @@ Documentação de consulta rápida gerada a partir do código.
 ## Mapa de Apps
 
 ```
-packages/                            framework/
+packages/                            shopman/
 ├── utils        (utilitários)       ├── shop/              (orquestrador)
 ├── refs         (refs tipadas)      │   ├── handlers/      (directive handlers)
 ├── offerman     (catálogo)          │   ├── adapters/      (integrações swappable)
 ├── stockman     (estoque)           │   ├── config.py      (ChannelConfig)
 ├── craftsman    (produção)          │   ├── services/      (orquestração)
-├── orderman      (pedidos)           │   ├── lifecycle.py   (dispatcher config-driven)
+├── orderman     (pedidos)           │   ├── lifecycle.py   (dispatcher config-driven)
 ├── guestman     (clientes)          │   ├── rules/         (RuleConfig engine)
 ├── doorman      (autenticação)      │   └── views/         (health/readiness)
-└── payman       (pagamentos)        ├── storefront/        (customer web/API)
-                                     ├── backstage/         (operador /gestor)
-                                     └── config/            (settings, urls)
+├── payman       (pagamentos)        ├── storefront/       (API headless do cliente)
+├── buyman       (compras)           └── backstage/        (API headless operador + Admin)
+└── fiscalman    (fiscal NFC-e)
+                                     surfaces/  6 apps Nuxt 4 + operator-kit (layer)
+                                     config/    settings, urls, seed do deployment
 ```
 
 ---

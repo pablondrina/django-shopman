@@ -1,5 +1,11 @@
 # Storefront Surface Spec
 
+> **ARQUIVADA (2026-07-11).** Esta spec descrevia o contrato de experiência do
+> storefront na era pré-headless (Django/Penguin, UI Thing — nomes mortos). A spec
+> canônica e atual, escrita a partir do código, é
+> [`docs/reference/storefront-spec.md`](../../reference/storefront-spec.md); o contrato
+> de paridade é [`docs/reference/storefront-surface-parity-contract.md`](../../reference/storefront-surface-parity-contract.md).
+
 **Status:** especificacao canonica de superficie  
 **Data:** 2026-05-18  
 **Escopo:** qualquer storefront publico ou app cliente Shopman, incluindo Django/Penguin, Nuxt, UI Thing, Ionic e futuras superficies.

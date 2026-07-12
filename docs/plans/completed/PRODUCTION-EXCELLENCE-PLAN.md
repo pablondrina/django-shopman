@@ -1,5 +1,9 @@
 # PRODUCTION-EXCELLENCE-PLAN — Produção de ponta a ponta no nível das demais superfícies
 
+> **Arquivado em 2026-07-11.** Engenharia concluída (WP-PE0..6) e deployada em staging.
+> **Resta apenas QA físico** (som/impressora térmica em dispositivo real) — item vivo no
+> [ROADMAP](../../ROADMAP.md).
+
 > Elaborado em 2026-07-02, a partir de auditoria e2e verificada contra o código
 > (Core Craftsman, orquestração `shop/`, superfícies backstage/fournil, docs/ADRs).
 > Objetivo: a cadeia de planejamento e produção entra na fase alpha com a mesma

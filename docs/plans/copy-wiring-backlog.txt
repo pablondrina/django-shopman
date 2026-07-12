@@ -6,7 +6,7 @@
 # remanescente, MENU_SUBTITLE (subtítulo momento-aware do cardápio), NÃO era
 # religação e sim feature nova; decisão do Pablo (2026-07-11) foi ARQUIVAR
 # definitivo — a chave saiu do registro (não há mais órfã). Menu segue filter-first.
-# Ver COPY-BACKLOG-UNBUILT.md, seção "MENU_SUBTITLE — arquivamento definitivo".
+# Ver completed/COPY-BACKLOG-UNBUILT.md, seção "MENU_SUBTITLE — arquivamento definitivo".
 # 2026-07-11 (faxina de código morto) — CART_EMPTY reaberta como órfã PRE-EXISTENTE
 # mascarada: a única "referência de produção" era o docstring de exemplo do
 # templatetag morto shopman/shop/templatetags/omotenashi_tags.py (deletado no
