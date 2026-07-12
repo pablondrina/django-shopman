@@ -47,7 +47,7 @@ def _phone_order(ref: str, phone: str) -> Order:
 
 
 class OrderQueueSurfaceTests(TestCase):
-    def test_confirmed_and_preparing_orders_are_visible_in_preparo(self) -> None:
+    def test_confirmed_and_preparing_orders_are_visible_in_prep(self) -> None:
         _order("Q-NEW", "new")
         _order("Q-CONF", "confirmed")
         _order("Q-PREP", "preparing")
@@ -57,12 +57,12 @@ class OrderQueueSurfaceTests(TestCase):
 
         queue = build_two_zone_queue()
 
-        self.assertEqual([o.ref for o in queue.entrada], ["Q-NEW"])
-        self.assertEqual([o.ref for o in queue.preparo], ["Q-CONF", "Q-PREP"])
+        self.assertEqual([o.ref for o in queue.intake], ["Q-NEW"])
+        self.assertEqual([o.ref for o in queue.prep], ["Q-CONF", "Q-PREP"])
         self.assertEqual(queue.preparing_count, 2)
-        self.assertEqual([o.ref for o in queue.saida_retirada], ["Q-READY"])
-        self.assertEqual([o.ref for o in queue.saida_delivery_transit], ["Q-DISP", "Q-DELIV"])
-        self.assertEqual(queue.saida_delivery_count, 2)
+        self.assertEqual([o.ref for o in queue.expedition_pickup], ["Q-READY"])
+        self.assertEqual([o.ref for o in queue.expedition_delivery_transit], ["Q-DISP", "Q-DELIV"])
+        self.assertEqual(queue.expedition_delivery_count, 2)
         self.assertEqual(queue.total_count, 6)
 
     def test_confirmation_deadline_surfaces_on_new_card(self) -> None:
@@ -81,7 +81,7 @@ class OrderQueueSurfaceTests(TestCase):
         _order("Q-NODEADLINE", "new")  # sem timer → campos vazios
 
         queue = build_two_zone_queue()
-        cards = {c.ref: c for c in queue.entrada}
+        cards = {c.ref: c for c in queue.intake}
 
         assert cards["Q-DEADLINE"].confirmation_deadline_iso == "2026-07-04T12:00:00+00:00"
         assert cards["Q-DEADLINE"].confirmation_action == "cancel"

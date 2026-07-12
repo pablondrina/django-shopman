@@ -117,23 +117,23 @@ describe("elapsedLabel", () => {
 
 describe("zonesView", () => {
   const queue = (): TwoZoneQueueProjection => ({
-    entrada: [card({ ref: "A", status: "new" })],
+    intake: [card({ ref: "A", status: "new" })],
     preparing_count: 1,
-    preparo: [card({ ref: "B" }), card({ ref: "C" })],
-    saida_retirada: [card({ ref: "D", status: "ready" })],
-    saida_delivery: [card({ ref: "E", status: "ready" })],
-    saida_delivery_transit: [card({ ref: "F", status: "dispatched" })],
-    saida_delivery_count: 2,
-    saida_count: 3,
+    prep: [card({ ref: "B" }), card({ ref: "C" })],
+    expedition_pickup: [card({ ref: "D", status: "ready" })],
+    expedition_delivery: [card({ ref: "E", status: "ready" })],
+    expedition_delivery_transit: [card({ ref: "F", status: "dispatched" })],
+    expedition_delivery_count: 2,
+    expedition_count: 3,
     total_count: 6,
   });
 
   it("groups the two-zone queue into three columns with merged Saída", () => {
     const zones = zonesView(queue());
-    expect(zones.map((z) => z.key)).toEqual(["entrada", "preparo", "saida"]);
+    expect(zones.map((z) => z.key)).toEqual(["intake", "prep", "expedition"]);
     expect(zones[0]!.count).toBe(1);
     expect(zones[1]!.count).toBe(2);
-    expect(zones[2]!.count).toBe(3); // retirada + delivery + transit
+    expect(zones[2]!.count).toBe(3); // pickup + delivery + transit
     expect(zones[2]!.cards.map((c) => c.ref)).toEqual(["D", "E", "F"]);
   });
 });
@@ -271,7 +271,7 @@ describe("bulkableRefs", () => {
 describe("rowsToCsv", () => {
   it("writes a header + one row per card, escaping quotes", () => {
     const rows = [
-      { card: card({ ref: "A", customer_name: 'Ana "Bela"', assigned_operator: "Léo" }), zoneKey: "entrada" as const, zoneTitle: "Entrada" },
+      { card: card({ ref: "A", customer_name: 'Ana "Bela"', assigned_operator: "Léo" }), zoneKey: "intake" as const, zoneTitle: "Entrada" },
     ];
     const csv = rowsToCsv(rows);
     const [header, line] = csv.split("\n");
@@ -289,19 +289,19 @@ describe("rowsToCsv", () => {
 describe("flattenZones", () => {
   it("flattens zones preserving order and tagging the zone", () => {
     const zones = zonesView({
-      entrada: [card({ ref: "A", status: "new" })],
+      intake: [card({ ref: "A", status: "new" })],
       preparing_count: 1,
-      preparo: [card({ ref: "B" })],
-      saida_retirada: [card({ ref: "C", status: "ready" })],
-      saida_delivery: [],
-      saida_delivery_transit: [],
-      saida_delivery_count: 0,
-      saida_count: 1,
+      prep: [card({ ref: "B" })],
+      expedition_pickup: [card({ ref: "C", status: "ready" })],
+      expedition_delivery: [],
+      expedition_delivery_transit: [],
+      expedition_delivery_count: 0,
+      expedition_count: 1,
       total_count: 3,
     });
     const flat = flattenZones(zones);
     expect(flat.map((r) => r.card.ref)).toEqual(["A", "B", "C"]);
-    expect(flat.map((r) => r.zoneKey)).toEqual(["entrada", "preparo", "saida"]);
+    expect(flat.map((r) => r.zoneKey)).toEqual(["intake", "prep", "expedition"]);
   });
 });
 

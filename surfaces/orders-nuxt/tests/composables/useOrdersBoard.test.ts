@@ -8,14 +8,14 @@ const env = installNuxtGlobals();
 
 function emptyZone(): TwoZoneQueueProjection {
   return {
-    entrada: [],
+    intake: [],
     preparing_count: 0,
-    preparo: [],
-    saida_retirada: [],
-    saida_delivery: [],
-    saida_delivery_transit: [],
-    saida_delivery_count: 0,
-    saida_count: 0,
+    prep: [],
+    expedition_pickup: [],
+    expedition_delivery: [],
+    expedition_delivery_transit: [],
+    expedition_delivery_count: 0,
+    expedition_count: 0,
     total_count: 0,
   };
 }
@@ -24,12 +24,12 @@ describe("useOrdersBoard — derivação da fila", () => {
   beforeEach(() => env.reset());
 
   it("deriva queue/zones/totalCount da projection", () => {
-    const queue = { ...emptyZone(), entrada: [{ ref: "WEB-1" }] as never[], total_count: 3 };
+    const queue = { ...emptyZone(), intake: [{ ref: "WEB-1" }] as never[], total_count: 3 };
     env.fetchData.value = { queue };
     const board = useOrdersBoard();
     expect(board.queue.value).toEqual(queue);
     expect(board.totalCount.value).toBe(3);
-    expect(board.zones.value[0]!.key).toBe("entrada");
+    expect(board.zones.value[0]!.key).toBe("intake");
     expect(board.zones.value[0]!.count).toBe(1);
   });
 

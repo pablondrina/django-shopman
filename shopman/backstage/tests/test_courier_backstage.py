@@ -226,6 +226,6 @@ def test_board_card_carries_courier_badge(client, operator, shop):
     Order.objects.filter(pk=order.pk).update(status=Order.Status.DISPATCHED)
     client.force_login(operator)
     resp = client.get(reverse("api-backstage-orders"))
-    cards = resp.json()["queue"]["saida_delivery_transit"]
+    cards = resp.json()["queue"]["expedition_delivery_transit"]
     assert cards[0]["courier_status"] == "E"
     assert cards[0]["courier_status_label"] == "Saiu para entrega"

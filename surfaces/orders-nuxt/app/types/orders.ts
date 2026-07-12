@@ -131,14 +131,14 @@ export interface OperatorOrderProjection {
 }
 
 export interface TwoZoneQueueProjection {
-  entrada: OrderCardProjection[];
+  intake: OrderCardProjection[];
   preparing_count: number;
-  preparo: OrderCardProjection[];
-  saida_retirada: OrderCardProjection[];
-  saida_delivery: OrderCardProjection[];
-  saida_delivery_transit: OrderCardProjection[];
-  saida_delivery_count: number;
-  saida_count: number;
+  prep: OrderCardProjection[];
+  expedition_pickup: OrderCardProjection[];
+  expedition_delivery: OrderCardProjection[];
+  expedition_delivery_transit: OrderCardProjection[];
+  expedition_delivery_count: number;
+  expedition_count: number;
   total_count: number;
 }
 

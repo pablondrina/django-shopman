@@ -47,14 +47,14 @@ const CARD = {
 
 const QUEUE = {
   queue: {
-    entrada: [CARD],
+    intake: [CARD],
     preparing_count: 0,
-    preparo: [],
-    saida_retirada: [],
-    saida_delivery: [],
-    saida_delivery_transit: [],
-    saida_delivery_count: 0,
-    saida_count: 0,
+    prep: [],
+    expedition_pickup: [],
+    expedition_delivery: [],
+    expedition_delivery_transit: [],
+    expedition_delivery_count: 0,
+    expedition_count: 0,
     total_count: 1,
   },
 };
