@@ -1,91 +1,69 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-05-06. Este documento é o mapa executivo vivo. Estado
-> factual fica em [`status.md`](status.md); planos detalhados ficam em
-> [`plans/README.md`](plans/README.md).
+> Atualizado em 2026-07-11 (pós hardening pré-alpha, PRs #53–#69). Este documento é o
+> mapa executivo vivo. Estado factual fica em [`status.md`](status.md); planos
+> detalhados ficam em [`plans/README.md`](plans/README.md).
 
-## Estado Atual
+## Estado Atual (factual, 2026-07-11)
 
-O Shopman está em Django 6 e tem baseline operacional sólido:
-
-- contrato canônico: Python `>=3.12`, Django `>=6.0,<6.1`;
-- Redis nativo via `django.core.cache.backends.redis.RedisCache`, sem
-  `django-redis`;
-- CI `Runtime Gate` no PR #3 validando lint, migrations, `check --deploy`,
-  suite completa, build Docker e `make test-runtime` com PostgreSQL + Redis;
-- deploy local/staging encapsulado por `make deploy-*`, sem exigir comandos
-  Docker manuais do operador;
-- POS tab/workbench, KDS Station Runtime e Customer Ready Board implementados;
-- observabilidade inicial para webhooks, reconciliação e alertas operacionais;
-- runbooks P1/P2 e comandos `make diagnose-*` para runtime, worker, pagamentos,
-  webhooks e health;
-- reconciliação financeira diária interna via `make reconcile-financial-day`,
-  persistida no `DayClosing` e com alerta operacional para divergências;
-- smoke local de gateways via `make smoke-gateways`, com rollback e matriz
-  honesta de sandbox/staging.
-- matriz manual QA Omotenashi via `make omotenashi-qa`, ligada ao seed Nelson.
-- target `make omotenashi-browser-qa` para rodar Chrome headless na matriz;
-- gate `make omotenashi-browser-ci` no `Runtime Gate`, com CSS, seed, servidor
-  temporário e screenshots como artifact;
-- rodada browser local da matriz Omotenashi registrada com `14 pass`, `0 review`
-  em [`reports/omotenashi-browser-qa-2026-05-06.md`](reports/omotenashi-browser-qa-2026-05-06.md).
-- `make release-readiness` consolida checks locais e bloqueios externos de
-  piloto/release; `make release-readiness-strict` falha também quando faltam
-  gateway sandbox, evidência manual/física ou pre-prod.
-- domínio operacional baseline com templates e execuções auditáveis de abertura,
-  rotina e fechamento no Backstage/Admin, refletido no seed Nelson.
-- DigitalOcean staging técnico ativo em
-  <https://shopman-staging-cdjpy.ondigitalocean.app>, com App Platform,
-  release job, worker, Managed PostgreSQL 16 e Managed Valkey 8.
-- bootstrap Nelson executado no staging com superuser `pablo`, seed operacional
-  populado e `admin` técnico desativado.
+- **Headless completo**: Django serve API JSON + projections; superfícies são 6 apps
+  Nuxt 4 SSR + layer `operator-kit` (ver [`status.md`](status.md)).
+- **11 core apps** pip-instaláveis, incluindo Buyman (compras, Fase 1) e Fiscalman
+  (NFC-e, S0–S4).
+- **Suite ~5.000 testes** (~2.150 cores + ~2.870 framework), CI com Runtime Gate
+  (PostgreSQL + Redis), Surfaces Gate (typecheck Nuxt) e gates de docs/copy/admin.
+- **Auth WhatsApp-first por access link** (`NB-XxXx`) mergeada; reverse-OTP aposentado.
+- **iFood direto** (polling + sync de catálogo) em staging; **Machine** (logística
+  externa/courier) construída aguardando credenciais.
+- **Copy omotenashi**: backlog zerado; registro `OmotenashiCopy` é fonte única.
+- **Hardening pré-alpha** de 2026-07-11: 16 PRs (#53–#69) fechando achados da
+  auditoria [`reports/analise_pre_alpha_2026-07-11.md`](reports/analise_pre_alpha_2026-07-11.md)
+  — oversell, dialeto de erro, directives, tz, POS anti-fraude, suíte hermética,
+  rotas/chaves em inglês, baseline selado.
+- **Staging** DigitalOcean App Platform ativo (deploy manual `create-deployment`).
 
 ## Próximos Passos
 
-| Prioridade | Frente | Entrega esperada | Plano |
-|------------|--------|------------------|-------|
-| P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
-| P1 | QA manual Omotenashi E2E | Gate browser CI existe; completar dispositivo físico/staging e evidência humana antes de release real. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
-| P2 | Domínio operacional | Baseline de checklists auditáveis existe; continuar superfície operacional dedicada e relatórios/BI. | [`plans/OPERATION-DOMAIN-PLAN.md`](plans/OPERATION-DOMAIN-PLAN.md) |
-| P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
-| P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*`, runbooks e reconciliação interna concluído; continuar smoke sandbox. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
-| P3 | Pre-prod real | Executar playbook quando houver provedor, domínio, secrets e dados de staging definidos. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
+| Prioridade | Frente | Entrega esperada | Plano / dono |
+|------------|--------|------------------|--------------|
+| P1 | Go-live Lote C | 2FA/IP allowlist do Admin, corte v1, QA final e data. | [`plans/GO-LIVE-READINESS-PLAN.md`](plans/GO-LIVE-READINESS-PLAN.md) — bloqueado no dono |
+| P1 | Credenciais go-live | WhatsApp Meta, Focus NFe produção, iFood homologação, Machine creds. | [`plans/GO-LIVE-CREDENTIALS-MATRIX.md`](plans/GO-LIVE-CREDENTIALS-MATRIX.md) — lado do dono |
+| P1 | Access link F3 | Fluxo ManyChat do access link + URLs de staging. | [`plans/ACCESS-LINK-UNIFICATION-PLAN.md`](plans/ACCESS-LINK-UNIFICATION-PLAN.md) — lado do dono |
+| P2 | Fiscalman S5 | NF-e mod. 55 / itens resale; e2e homolog Focus; contador valida NCM/CSC/IBPT. | [`plans/FISCALMAN-PLAN.md`](plans/FISCALMAN-PLAN.md) |
+| P2 | QA físico | Som/térmica da produção; QA visual em dispositivo real (staging). | [`plans/completed/PRODUCTION-EXCELLENCE-PLAN.md`](plans/completed/PRODUCTION-EXCELLENCE-PLAN.md) (resta só QA físico) |
+| P2 | Impressão DANFE NFC-e no PDV | Obrigação legal para venda presencial — incontornável antes de operação fiscal plena. | pós-alpha, ver [`plans/POS-FASE-C-REVISION.md`](plans/POS-FASE-C-REVISION.md) |
+| P3 | ManyChat conversacional | Pedido inbound por chat (ManyChat → session → confirmação). | [`plans/MANYCHAT-CONVERSACIONAL-PLAN.md`](plans/MANYCHAT-CONVERSACIONAL-PLAN.md) |
+| P3 | Buyman Fases 2–4 | PurchaseOrder, recebimento, reposição. | [`plans/BUYMAN-PROCUREMENT-PLAN.md`](plans/BUYMAN-PROCUREMENT-PLAN.md) — pós-go-live |
+| P3 | Pre-prod real | Executar playbook às vésperas do primeiro deploy com dado real. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
 
 ## Dívida Técnica Viva
 
 | Dívida | Impacto | Próxima ação |
 |--------|---------|--------------|
 | Gateway sandbox e snapshot real pendentes | Smoke local existe; falta provar divergência contra provedores reais. | Executar `make smoke-gateways-sandbox` com credenciais/staging reais. |
-| Job `bootstrap-staging` neutralizado na DO | O seed/admin já rodou; a tentativa de remover o componente pela API voltou `403`. O job não tem secrets e só executa `check --deploy`, mas ainda é ruído operacional. | Remover o componente no painel ou com token/permissão que permita apagar componentes de App Platform. |
-| PostgreSQL pequeno exige disciplina de conexões | `DATABASE_CONN_MAX_AGE=60` sem pool saturou o Postgres pequeno com conexões ociosas e gerou 500/503 intermitente. | Staging usa `shopman-staging-pool` em modo transaction; validar latência/conexões antes de repetir o padrão em produção. |
-| QA visual/manual ainda não cobre mundo real | O gate browser CI cobre renderização headless, mas não prova toque real, teclado virtual, rede degradada e latência percebida. | Rodar dispositivo físico/staging antes de release real. |
-| ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
-| Shelf life perecível — consistência de lote OK; **filtragem desligada em prod** | Precedência shelf_life × Batch.expiry = **AND** (travado por `TestShelflifeBatchPrecedence`). **Consistência de lote no cadastro** = feito: `Batch.clean()` bloqueia datas impossíveis e avisa (configurável `STOCKMAN_STRICT_SHELF_LIFE_WINDOW`) quando o lote excede a janela do produto, resolvendo shelf_life via SkuValidator (sem acoplar Offerman). **Descoberta**: o `SKU_VALIDATOR` é **Noop em todo ambiente real** → a filtragem por shelf-life (e a consistência) só roda com um validator real wirado. | **Decisão de arquitetura (separada)**: wirar o validator do Offerman globalmente NÃO é drop-in — insumos são `Product` com `is_sellable=False` e a disponibilidade os trata como "pausados" (quebra holds de produção, ver `test_production_stock`). Ligar shelf-life em prod exige separar *disponibilidade-de-venda* de *holds de produção* (ou um validator composto produtos+insumos). **Revisão completa (3 casos a/b/c, veredito: SEM mudança no Core) em [VALIDITY-SHELFLIFE-REVIEW](plans/VALIDITY-SHELFLIFE-REVIEW.md).** |
+| PostgreSQL pequeno exige disciplina de conexões | Sem pool, `CONN_MAX_AGE=60` saturou o Postgres da DO. | Staging usa pool em modo transaction; validar latência antes de repetir em produção. |
+| QA visual/manual ainda não cobre mundo real | Gates headless não provam toque real, teclado virtual, rede degradada. | Rodar dispositivo físico/staging antes de release real. |
+| ManyChat webhook ainda pulado | Fluxo ManyChat → session → confirmação não reimplementado. | Retomar junto com canais externos. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
 | Migração futura para CSP nativo do Django 6 | `django-csp` funciona, mas Django 6 tem CSP nativo a avaliar. | Avaliar isoladamente, sem misturar com features. |
-| Media persistente na App Platform | Static está resolvido por WhiteNoise; uploads/admin media ainda não devem depender de filesystem efêmero. | Decidir DigitalOcean Spaces/S3-compatible antes de piloto público com uploads reais. |
+| Media persistente na App Platform | Static resolvido por WhiteNoise; uploads não devem depender de filesystem efêmero. | Decidir Spaces/S3-compatible antes de piloto público com uploads reais. |
 
-## Não Dívida Agora
+## Visão de produto (registro de intenção — dono: Pablo)
 
-| Item | Estado |
-|------|--------|
-| Disponibilidade e substitutos | Concluído. Plano arquivado em [`plans/completed/AVAILABILITY-PLAN.md`](plans/completed/AVAILABILITY-PLAN.md). |
-| Django 6 | Concluído. Plano arquivado em [`plans/completed/DJANGO-6-UPGRADE-PLAN.md`](plans/completed/DJANGO-6-UPGRADE-PLAN.md). |
-| `django-redis` | Removido do contrato. Redis usa backend nativo do Django. |
-| Docker manual para o operador | Encapsulado por Makefile e GitHub Actions. |
-| Estáticos em PaaS sem volume compartilhado | `Dockerfile` roda `collectstatic` no build e WhiteNoise serve `/static/` no runtime. |
-| DigitalOcean staging técnico | App Platform, release job, worker, PostgreSQL 16 e Valkey 8 ativos; health/readiness/menu/static verdes na URL `.ondigitalocean.app`. |
-| Bootstrap staging Nelson | Seed operacional executado; `pablo` superuser ativo; `admin` técnico desativado. |
-| Runtime PostgreSQL/Redis no CI | Concluído no `Runtime Gate` do PR #3. |
-| Runbooks P1/P2 e `make diagnose-*` | Baseline concluído em [`runbooks/README.md`](runbooks/README.md) e `scripts/diagnose_operational.py`. |
-| Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
-| Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
-| Matriz QA Omotenashi | `make omotenashi-qa` aponta URLs e evidências seed para mobile/tablet/desktop. |
-| Gate browser Omotenashi | `make omotenashi-browser-ci` roda no `Runtime Gate`; evidência local em [`reports/omotenashi-browser-qa-2026-05-06.md`](reports/omotenashi-browser-qa-2026-05-06.md). |
-| Readiness local de release | `make release-readiness` separa checks locais de bloqueios externos; modo estrito existe para release real. |
-| Storefront projections core | Menu, PDP, carrinho, checkout, pagamento, tracking, confirmação, conta e histórico consomem projections. |
-| Backstage maturity | Arquivado em [`plans/completed/BACKSTAGE-MATURITY-PLAN.md`](plans/completed/BACKSTAGE-MATURITY-PLAN.md). |
-| POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
+> Carimbo 2026-07-11: itens abaixo são direção, não compromisso datado.
+
+- **Hub cross-channel**: Gestor como hub único de canais (espírito iFood) —
+  [`plans/CROSS-CHANNEL-CATALOG-HUB-PLAN.md`](plans/CROSS-CHANNEL-CATALOG-HUB-PLAN.md).
+- **Feeds de catálogo Google/Meta/WhatsApp** —
+  [`plans/CATALOG-FEEDS-GOOGLE-META.md`](plans/CATALOG-FEEDS-GOOGLE-META.md) e
+  [`plans/CATALOG-SYNC-EXTERNO-PLAN.md`](plans/CATALOG-SYNC-EXTERNO-PLAN.md).
+- **POS**: tela do cliente (estilo Odoo), split por item, offline-first (WP-9+).
+- **Storefront**: scroll inteligente, auto-fill de teleporte, avaliação do cliente.
+- **Notação visual de pâtonnage** para etiquetas (nunca perder —
+  [`plans/PRODUCTION-FORECAST-BOARD-PLAN.md`](plans/PRODUCTION-FORECAST-BOARD-PLAN.md) é vizinho).
+- **Mudar número de telefone** ([`plans/CHANGE-PHONE-NUMBER-PLAN.md`](plans/CHANGE-PHONE-NUMBER-PLAN.md))
+  — telefone é identidade; só se valer a pena.
+- **SEO como capítulo próprio** — [`plans/SEO-PLAN.md`](plans/SEO-PLAN.md).
 
 ## Critério Para Produção Real
 
