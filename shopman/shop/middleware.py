@@ -61,10 +61,14 @@ def _canonical_allowed_host() -> str:
 class APIVersionHeaderMiddleware:
     """Stamp every `/api/v1/` response with `X-API-Version: 1`.
 
-    Informational header for debugging, telemetry and client-side assertion
-    (clients can sanity-check they're talking to the expected major version
-    without parsing the URL). Applied only to the versioned storefront API;
-    OpenAPI schema/docs and core-app APIs are unaffected.
+    Informational header for debugging and telemetry, asserted client-side by
+    the BFFs: each Nuxt surface reads it on the proxy response and logs a
+    structured Nitro warning when the major diverges from the one it was built
+    against, without ever blocking the request (operator surfaces via
+    ``surfaces/operator-kit/server/utils/apiVersion.ts``; the storefront via
+    ``surfaces/storefront-nuxt/server/utils/apiVersion.ts``). Applied to the
+    whole versioned API (`/api/v1/`, storefront and backstage); OpenAPI
+    schema/docs and core-app APIs are unaffected.
     """
 
     def __init__(self, get_response):

@@ -8,6 +8,7 @@ import {
   type H3Event
 } from 'h3'
 import { withQuery } from 'ufo'
+import { warnOnApiVersionMismatch } from './apiVersion'
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -112,6 +113,11 @@ export async function proxyDjangoPath (event: H3Event, fullPath: string) {
     body,
     ignoreResponseError: true
   })
+
+  // Sanidade de contrato: o Django carimba /api/v1/ com X-API-Version; major
+  // divergente vira warning estruturado no Nitro (server/utils/apiVersion.ts,
+  // auto-importado) — nunca bloqueia a resposta.
+  warnOnApiVersionMismatch(response.headers.get('x-api-version'), { path: normalizedPath })
 
   const setCookie = response.headers.get('set-cookie')
   if (setCookie) {
